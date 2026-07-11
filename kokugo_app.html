@@ -65,6 +65,11 @@
   .q-category .redo{color:var(--accent); font-weight:bold;}
   .q-sub{font-size:.85rem; color:var(--sub); margin-bottom:4px;}
   .q-text{font-size:1.15rem; font-weight:bold; margin-bottom:16px; white-space:pre-wrap;}
+  .tech-mark{
+    background:none; color:var(--accent); font-weight:bold;
+    text-decoration:underline; text-decoration-thickness:2px; text-underline-offset:3px;
+    padding:0 1px;
+  }
   .choices{display:flex; flex-direction:column; gap:10px;}
   .choice{
     text-align:left; background:var(--card); border:2px solid var(--line);
@@ -555,6 +560,15 @@ function weakItems(){
 
 /* ================= 共通 ================= */
 function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;"); }
+/* 問題文中の《…》を、太字＋下線の強調表示に変換する（表現技法などで、該当箇所を示すのに使う）。
+   《》を含まない通常の問題文は、esc(q)と同じ結果になる（安全に共通で使える）。 */
+function markQuestionHtml(q){
+  return String(q).split(/(《[^》]*》)/).map(part => {
+    const m = part.match(/^《([^》]*)》$/);
+    if(m) return `<mark class="tech-mark">${esc(m[1])}</mark>`;
+    return esc(part);
+  }).join("");
+}
 function shuffledOrder(n){
   const a = [...Array(n).keys()];
   for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
@@ -976,7 +990,7 @@ function renderQuestion(){
       <div class="q-category"><span>${esc(label)}</span>${redoMark}</div>
       ${subInstructionHtml(cat, it)}
       ${kanbunBoxHtml(it.kb)}
-      <div class="q-text">${esc(it.q)}</div>
+      <div class="q-text">${markQuestionHtml(it.q)}</div>
       ${answerArea}
       <div class="feedback" id="fb"></div>
       <div class="btn-row">
@@ -1090,7 +1104,7 @@ function renderDokkai(){
     </div>
     <div class="card">
       <div class="q-category">読解</div>
-      <div class="q-text">問${dk.i+1}　${esc(it.q)}</div>
+      <div class="q-text">問${dk.i+1}　${markQuestionHtml(it.q)}</div>
       <div class="q-sub">${esc(DOKKAI_INSTRUCTION)}</div>
       <div class="choices">
         ${dk.order.map((oi,pos)=>`<button class="choice" onclick="answerDokkai(${oi})"><span class="choice-num">${pos+1}</span>${esc(it.c[oi])}</button>`).join("")}
@@ -1248,7 +1262,7 @@ function renderBattle(){
       <div class="q-category"><span>${esc(CATS[cat].name)}</span><span class="battle-turn-tag">${esc(turnName)}さんの番</span></div>
       ${subInstructionHtml(cat, it)}
       ${kanbunBoxHtml(it.kb)}
-      <div class="q-text">${esc(it.q)}</div>
+      <div class="q-text">${markQuestionHtml(it.q)}</div>
       ${answerArea}
       <div class="feedback" id="fb"></div>
       <div class="btn-row">
