@@ -1,0 +1,1774 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>知識ドリルDX</title>
+<style>
+  :root{
+    --bg:#f7f4ee; --card:#ffffff; --ink:#2b2b2b; --sub:#6b6b6b;
+    --accent:#c0392b; --accent2:#2c6e63; --line:#e4ded3;
+    --ok:#2e7d32; --ng:#c62828; --okbg:#e8f5e9; --ngbg:#fdecea;
+    --gold:#b8860b;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif;
+    background:var(--bg); color:var(--ink); line-height:1.7;
+    display:flex; justify-content:center; min-height:100vh;
+  }
+  #app{width:100%; max-width:720px; padding:16px 16px 48px;}
+  header{
+    display:flex; align-items:baseline; justify-content:space-between;
+    padding:12px 4px 16px; border-bottom:3px double var(--line); margin-bottom:16px;
+  }
+  header h1{font-size:1.35rem; letter-spacing:.15em;}
+  header h1 span{color:var(--accent);}
+  header .home-btn{
+    background:none; border:1px solid var(--line); border-radius:8px;
+    padding:6px 14px; cursor:pointer; font-size:.85rem; color:var(--sub);
+  }
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:20px; margin-bottom:14px; box-shadow:0 1px 3px rgba(0,0,0,.05);
+  }
+  .menu-card{cursor:pointer; transition:transform .1s, box-shadow .1s; display:flex; gap:12px; align-items:center; padding:14px 16px;}
+  .menu-card:hover{transform:translateY(-2px); box-shadow:0 4px 10px rgba(0,0,0,.08);}
+  .menu-icon{
+    font-size:1.3rem; width:44px; height:44px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--bg); border-radius:10px;
+  }
+  .menu-card h2{font-size:.98rem; margin-bottom:0;}
+  .menu-card p{font-size:.78rem; color:var(--sub);}
+  .menu-card .right{margin-left:auto; text-align:right; flex-shrink:0;}
+  .menu-card.review{border-left:5px solid var(--accent);}
+  .count{font-size:.7rem; color:var(--sub); display:block;}
+  .shogo-badge{
+    display:inline-block; font-size:.78rem; font-weight:bold; padding:2px 10px;
+    border-radius:99px; background:var(--accent2); color:#fff; white-space:nowrap;
+  }
+  .shogo-badge.top{background:var(--gold);}
+  .tag{
+    display:inline-block; font-size:.72rem; padding:1px 8px; border-radius:99px;
+    background:var(--bg); color:var(--accent2); border:1px solid var(--line); margin-left:6px;
+  }
+  .session-bar{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    margin-bottom:14px; font-size:.85rem; color:var(--sub); flex-wrap:wrap;
+  }
+  .session-bar .catstat{
+    background:linear-gradient(135deg, #2c6e63, #1d4f47); color:#fff;
+    border-radius:99px; padding:4px 14px; font-size:.82rem; font-weight:bold;
+  }
+  .q-category{font-size:.75rem; color:var(--accent2); letter-spacing:.1em; margin-bottom:6px; display:flex; gap:10px; flex-wrap:wrap;}
+  .q-category .redo{color:var(--accent); font-weight:bold;}
+  .q-sub{font-size:.85rem; color:var(--sub); margin-bottom:4px;}
+  .q-text{font-size:1.15rem; font-weight:bold; margin-bottom:16px; white-space:pre-wrap;}
+  .choices{display:flex; flex-direction:column; gap:10px;}
+  .choice{
+    text-align:left; background:var(--card); border:2px solid var(--line);
+    border-radius:10px; padding:12px 16px; font-size:.98rem; cursor:pointer;
+    transition:border-color .1s, background .1s; font-family:inherit; line-height:1.6;
+  }
+  .choice:hover:not(:disabled){border-color:var(--accent2);}
+  .choice:disabled{cursor:default;}
+  .choice.correct{border-color:var(--ok); background:var(--okbg);}
+  .choice.wrong{border-color:var(--ng); background:var(--ngbg);}
+  .choice.dim{opacity:.55;}
+  .choice.selected{border-color:var(--accent2); background:#eef6f4;}
+  .choice-num{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:22px; height:22px; border-radius:50%; background:var(--bg); color:var(--sub);
+    font-size:.75rem; font-weight:bold; margin-right:10px; flex-shrink:0; vertical-align:middle;
+  }
+  .choice.selected .choice-num{background:var(--accent2); color:#fff;}
+  .ans-row{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
+  .ans-input{
+    flex:1; min-width:200px; font-size:1.1rem; padding:12px 14px;
+    border:2px solid var(--line); border-radius:10px; font-family:inherit;
+  }
+  .ans-input:focus{outline:none; border-color:var(--accent2);}
+  .ans-input:disabled{background:var(--bg); color:var(--sub);}
+  .feedback{margin-top:16px; border-radius:10px; padding:14px 16px; font-size:.92rem; display:none;}
+  .feedback.show{display:block;}
+  .feedback.ok{background:var(--okbg); border:1px solid var(--ok);}
+  .feedback.ng{background:var(--ngbg); border:1px solid var(--ng);}
+  .feedback .verdict{font-weight:bold; margin-bottom:4px;}
+  .feedback.ok .verdict{color:var(--ok);}
+  .feedback.ng .verdict{color:var(--ng);}
+  .lvup-chip{
+    display:inline-block; background:var(--gold); color:#fff; font-weight:bold;
+    font-size:.8rem; border-radius:99px; padding:2px 12px; margin-left:8px;
+    animation:pop .35s ease;
+  }
+  .evolve{
+    text-align:center; font-size:1.25rem; font-weight:bold; color:var(--gold);
+    background:#fdf6e3; border:2px solid var(--gold); border-radius:12px;
+    padding:14px; margin-top:12px; animation:pop .4s ease;
+  }
+  @keyframes pop{0%{transform:scale(.7); opacity:0;} 100%{transform:scale(1); opacity:1;}}
+  .btn{
+    display:inline-block; background:var(--accent2); color:#fff; border:none;
+    border-radius:10px; padding:12px 28px; font-size:1rem; cursor:pointer;
+    font-family:inherit; margin-top:16px;
+  }
+  .btn.secondary{background:var(--card); color:var(--ink); border:1px solid var(--line);}
+  .btn.inline{margin-top:0; padding:12px 20px;}
+  .btn-row{display:flex; gap:10px; flex-wrap:wrap;}
+  .passage{
+    background:#fffdf7; border:1px solid var(--line); border-radius:10px;
+    padding:18px; font-size:.95rem; margin-bottom:18px; max-height:320px; overflow-y:auto;
+  }
+  .passage p{text-indent:1em; margin-bottom:.4em;}
+  .passage-title{font-weight:bold; margin-bottom:8px; text-indent:0 !important;}
+  .result-score{font-size:2.6rem; font-weight:bold; text-align:center; color:var(--accent2); margin:8px 0;}
+  .result-msg{text-align:center; color:var(--sub); margin-bottom:8px;}
+  table.stats{width:100%; border-collapse:collapse; font-size:.86rem;}
+  table.stats th, table.stats td{padding:8px 6px; border-bottom:1px solid var(--line); text-align:left;}
+  table.stats td.num{text-align:right;}
+  .bar{height:8px; background:var(--line); border-radius:99px; overflow:hidden; margin-top:4px;}
+  .bar > div{height:100%; background:var(--accent2);}
+  .weak{color:var(--accent); font-size:.8rem;}
+  .note{font-size:.78rem; color:var(--sub); margin-top:10px;}
+  h3.section{font-size:1rem; margin:18px 0 10px; padding-left:10px; border-left:4px solid var(--accent);}
+  h3.section:first-child{margin-top:0;}
+  .mastery{display:flex; gap:14px; font-size:.8rem; color:var(--sub); margin-top:8px; flex-wrap:wrap;}
+  .mastery b{color:var(--ink);}
+  ul.misslist{list-style:none; margin-top:6px;}
+  ul.misslist li{
+    padding:8px 4px; border-bottom:1px dashed var(--line); font-size:.88rem;
+    display:flex; justify-content:space-between; gap:10px; align-items:baseline;
+  }
+  ul.misslist .cat{font-size:.72rem; color:var(--accent2); white-space:nowrap;}
+  ul.titlelist{list-style:none; font-size:.88rem; columns:2; column-gap:24px;}
+  ul.titlelist li{padding:4px 0; border-bottom:1px dashed var(--line); break-inside:avoid;}
+  .signature{text-align:right; font-size:.68rem; color:var(--line); margin-top:18px; letter-spacing:.05em;}
+  .kotonoha-card{background:linear-gradient(135deg,#fffdf7,#fbf2e0);}
+  .kotonoha-row{display:flex; gap:16px; align-items:center;}
+  .kotonoha-icon{
+    font-size:2.4rem; width:64px; height:64px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--bg); border-radius:50%; border:2px solid var(--line);
+  }
+  .kotonoha-icon.kotonoha-type1{filter:grayscale(.75) brightness(.85); border-color:#9a9284;}
+  .kotonoha-icon.kotonoha-type2{border-color:var(--accent2);}
+  .kotonoha-icon.kotonoha-type3{filter:saturate(1.5) brightness(1.05); border-color:#e08a2b; box-shadow:0 0 10px rgba(224,138,43,.35);}
+  .kotonoha-icon.kotonoha-type4{filter:saturate(1.35); border-color:var(--gold); box-shadow:0 0 14px rgba(184,134,11,.55);}
+  .kotonoha-icon.kotonoha-type5{filter:saturate(1.5) brightness(1.05); border-color:#e0512b; box-shadow:0 0 10px rgba(224,81,43,.4);}
+  .kotonoha-icon.kotonoha-type6{filter:saturate(1.5) brightness(1.05); border-color:#2b9ee0; box-shadow:0 0 10px rgba(43,158,224,.4);}
+  .kotonoha-icon.kotonoha-type7{filter:saturate(1.5) brightness(1.05); border-color:#8a5ce0; box-shadow:0 0 10px rgba(138,92,224,.4);}
+  .kotonoha-icon.kotonoha-type8{filter:saturate(1.5) brightness(1.05); border-color:#e02b8a; box-shadow:0 0 10px rgba(224,43,138,.4);}
+  .kotonoha-icon.kotonoha-type9{filter:saturate(1.5) brightness(1.05); border-color:#e068a8; box-shadow:0 0 10px rgba(224,104,168,.4);}
+  .kotonoha-info{flex:1; min-width:0;}
+  .kotonoha-name{font-weight:bold; font-size:1.05rem;}
+  .kotonoha-stage{
+    display:inline-block; font-size:.68rem; font-weight:bold; color:#fff; background:var(--sub);
+    border-radius:6px; padding:1px 7px; margin-right:6px; vertical-align:middle;
+  }
+  .kotonoha-stage.final{ background:var(--gold); box-shadow:0 0 8px rgba(184,134,11,.6); }
+  .kotonoha-type{
+    display:inline-block; font-size:.7rem; color:var(--accent2); background:var(--bg);
+    border:1px solid var(--line); border-radius:99px; padding:1px 10px; margin:3px 0 5px;
+  }
+  .kotonoha-xp{font-size:.82rem; color:var(--sub); margin-top:2px; margin-bottom:2px;}
+  .kanbun-box{
+    writing-mode: vertical-rl; text-orientation: upright;
+    font-size:1.6rem; line-height:2.3; letter-spacing:.05em;
+    background:#fffdf7; border:1px solid var(--line); border-radius:10px;
+    padding:20px 26px; margin-bottom:16px; display:inline-block; min-height:170px;
+  }
+  .kb-char{ position:relative; display:inline-block; }
+  .kb-ok{
+    position:absolute; right:-.25em; bottom:.05em;
+    font-size:.4em; color:var(--sub); line-height:1; white-space:nowrap;
+  }
+  .kb-mark{
+    position:absolute; left:-.25em; bottom:.05em;
+    font-size:.46em; color:var(--accent); font-weight:bold; line-height:1; white-space:nowrap;
+  }
+  .kanbun-mini{
+    writing-mode: vertical-rl; text-orientation: upright;
+    font-size:1.15rem; line-height:1.9; letter-spacing:.05em;
+    display:inline-block; padding:2px 16px 2px 6px; vertical-align:middle;
+  }
+  .choice{ display:flex; align-items:center; }
+  .battle-hp-wrap{display:flex; align-items:center; gap:10px;}
+  .battle-side{flex:1; min-width:0; opacity:.6; transition:opacity .15s;}
+  .battle-side.active{opacity:1;}
+  .battle-name{font-size:.85rem; font-weight:bold; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .hpbar{height:14px; background:var(--line); border-radius:99px; overflow:hidden;}
+  .hpbar>div{height:100%; transition:width .4s ease; background:var(--accent2);}
+  .hpbar-b>div{background:var(--accent);}
+  .hp-num{font-size:.72rem; color:var(--sub); text-align:right; margin-top:2px;}
+  .vs-badge{font-weight:bold; color:var(--sub); font-size:.85rem; flex-shrink:0;}
+  .battle-turn-tag{
+    display:inline-block; background:var(--accent); color:#fff; font-size:.72rem;
+    font-weight:bold; border-radius:99px; padding:2px 10px; margin-left:8px;
+  }
+  /* ボス戦：あえて他の画面と全く違う、黒ベースの特別な雰囲気にする */
+  .boss-encounter{
+    background:linear-gradient(160deg,#0d0d16,#1a1030 60%,#0d0d16); color:#f0e6ff;
+    text-align:center; padding:32px 20px; border:1px solid rgba(180,140,255,.35);
+    box-shadow:0 0 30px rgba(140,90,255,.25);
+  }
+  .boss-enc-icon{ font-size:3rem; margin-bottom:12px; filter:drop-shadow(0 0 10px rgba(180,140,255,.6)); }
+  .boss-enc-text{ font-size:1.05rem; line-height:1.7; margin-bottom:20px; }
+  .boss-enc-choices{ display:flex; gap:14px; justify-content:center; }
+  .boss-enc-btn{
+    background:rgba(255,255,255,.07); color:#f0e6ff; border:2px solid rgba(180,140,255,.4);
+    border-radius:10px; padding:12px 30px; font-size:1rem; cursor:pointer; font-family:inherit;
+    transition:all .15s;
+  }
+  .boss-enc-btn.selected{
+    background:rgba(180,140,255,.35); border-color:#d8c2ff; box-shadow:0 0 16px rgba(180,140,255,.7);
+  }
+  .boss-enc-hint{ color:#9a8ec2; margin-top:16px; }
+  .boss-battle-screen{
+    background:linear-gradient(160deg,#0d0d16,#1a1030 55%,#0d0d16); color:#f0e6ff;
+    border-radius:14px; padding:22px 18px; margin-bottom:14px;
+    border:1px solid rgba(180,140,255,.35); box-shadow:0 0 30px rgba(140,90,255,.25);
+  }
+  .boss-name{
+    font-size:1.2rem; font-weight:bold; text-align:center; margin-bottom:16px;
+    letter-spacing:.06em; text-shadow:0 0 12px rgba(180,140,255,.8);
+  }
+  .boss-hpbars{ margin-bottom:6px; }
+  .boss-hp-row{ display:flex; align-items:center; gap:8px; margin-bottom:8px; font-size:.82rem; }
+  .boss-hp-label{ width:78px; flex-shrink:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .boss-hp-row .hpbar{ flex:1; height:12px; background:rgba(255,255,255,.12); }
+  .boss-hpbar > div{ background:linear-gradient(90deg,#ff4d6d,#ff9bb0) !important; }
+  .player-hpbar > div{ background:linear-gradient(90deg,#4dd0e1,#9be8f5) !important; }
+  .boss-hp-num{ width:82px; text-align:right; flex-shrink:0; font-size:.78rem; }
+  .boss-q-card{ background:rgba(255,255,255,.05); border-radius:10px; padding:16px; margin-top:14px; }
+  .boss-q-text{ font-size:1.1rem; font-weight:bold; margin-bottom:14px; white-space:pre-wrap; }
+  .boss-turn{
+    margin-top:10px; padding-top:10px; border-top:1px dashed rgba(255,255,255,.25);
+    color:#ffb0c0; font-weight:bold; animation:pop .3s ease;
+  }
+  .boss-battle-screen .q-sub{ color:#bfb0e0; }
+  .boss-battle-screen .choice{
+    background:rgba(255,255,255,.06); border-color:rgba(180,140,255,.35); color:#f0e6ff;
+  }
+  .boss-battle-screen .choice:hover:not(:disabled){ border-color:#d8c2ff; }
+  .boss-battle-screen .choice.selected{ background:rgba(180,140,255,.3); border-color:#d8c2ff; }
+  .boss-battle-screen .choice.correct{ border-color:#4dd0e1; background:rgba(77,208,225,.18); }
+  .boss-battle-screen .choice.wrong{ border-color:#ff4d6d; background:rgba(255,77,109,.18); }
+  .boss-battle-screen .choice-num{ background:rgba(255,255,255,.12); color:#f0e6ff; }
+  .boss-battle-screen .ans-input{ background:rgba(255,255,255,.06); border-color:rgba(180,140,255,.35); color:#f0e6ff; }
+  .boss-battle-screen .feedback.ok{ background:rgba(77,208,225,.15); border-color:#4dd0e1; }
+  .boss-battle-screen .feedback.ng{ background:rgba(255,77,109,.15); border-color:#ff4d6d; }
+  .boss-battle-screen .btn.secondary{ background:rgba(255,255,255,.08); color:#f0e6ff; border-color:rgba(180,140,255,.4); }
+  .boss-result-title{
+    font-size:1.9rem; font-weight:bold; text-align:center; margin-bottom:12px;
+    color:#ffd76a; text-shadow:0 0 16px rgba(255,215,100,.7);
+  }
+  .boss-result-title.lose{ color:#9aa3b5; text-shadow:none; }
+  .boss-result-title.big{
+    font-size:3.2rem; letter-spacing:.1em; margin:6px 0 18px;
+    background:linear-gradient(90deg,#ffe08a,#ffd76a,#fff3c4,#ffd76a);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    text-shadow:0 0 30px rgba(255,215,100,.9);
+    animation:bossVictoryPop .6s cubic-bezier(.2,1.4,.4,1);
+  }
+  .boss-victory{ text-align:center; box-shadow:0 0 46px rgba(255,215,100,.35); }
+  .boss-win-burst{ font-size:2rem; margin-bottom:4px; animation:pop .5s ease; }
+  .boss-win-line{ font-size:1.02rem; margin-bottom:6px; }
+  .drop-item{
+    display:inline-block; font-weight:bold; color:#ffe9a8; background:rgba(255,215,100,.15);
+    border:1px solid rgba(255,215,100,.5); border-radius:8px; padding:1px 10px; margin:0 2px;
+  }
+  .drop-item.treasure-drop{ color:#fff3c4; background:rgba(255,215,100,.28); box-shadow:0 0 12px rgba(255,215,100,.6); }
+  .boss-treasure{
+    color:#ffd76a; font-weight:bold; text-align:center; margin-top:10px; font-size:1.05rem; animation:pop .5s ease;
+  }
+  @keyframes bossVictoryPop{
+    0%{ transform:scale(.3) rotate(-8deg); opacity:0; }
+    60%{ transform:scale(1.15) rotate(2deg); opacity:1; }
+    100%{ transform:scale(1) rotate(0); opacity:1; }
+  }
+  ul.item-list{ list-style:none; }
+  ul.item-list li{
+    display:flex; justify-content:space-between; padding:9px 4px; border-bottom:1px dashed var(--line); font-size:.9rem;
+  }
+  ul.item-list li.treasure{ color:var(--gold); font-weight:bold; }
+  ul.item-list .item-count{ color:var(--sub); font-size:.82rem; }
+  .item-group-title{ font-size:.9rem; margin:16px 0 4px; padding-left:8px; border-left:4px solid var(--accent2); color:var(--ink); }
+  .item-group-title.treasure-title{ border-left-color:var(--gold); color:var(--gold); }
+  ul.item-list.treasure-list{
+    background:linear-gradient(135deg,#fdf6e3,#fbeecb); border:1px solid var(--gold); border-radius:10px; padding:4px 10px;
+  }
+  ul.item-list.treasure-list li{ border-bottom-color:rgba(184,134,11,.25); }
+  .note a{ color:var(--accent2); text-decoration:none; }
+  .note a:hover{ text-decoration:underline; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>知識ドリル<span>DX</span></h1>
+    <button class="home-btn" onclick="showHome()">ホームへ</button>
+  </header>
+  <div id="screen"></div>
+</div>
+
+<script src="kokugo_data.js"></script>
+<script>
+"use strict";
+
+/* ================= 設定 ================= */
+const MAX_CAT_LV = 10000;  // 分野ごとのレベル上限
+const LV_PER_STEP = 30;    // 約30レベルごとに問題の難度が1段階上がる
+const GROUP_ICONS = {"漢字":"✏️","語彙":"💬","文法":"🔍","古典・表現":"🎋"};
+
+/* 分野ごとの問題文（指示文）テンプレート。
+   replace: 元の s（ヒント文）をこの指示文で置きかえて表示
+   append : 元の s（穴埋めの手がかり等）はそのまま残し、この指示文を下に追加表示 */
+const CAT_INSTRUCTION = {
+  kanji_yomi: {mode:"replace", text:"［　］内の漢字の読み方を、ひらがなで書いてください。"},
+  okurigana:  {mode:"replace", text:"送り仮名までふくめて、読み方をひらがなで書いてください。"},
+  kanazukai:  {mode:"replace", text:"現代仮名遣いに直して、ひらがなで書いてください。"},
+  busyu:      {mode:"replace", text:"部首の読みとして正しいものを選んでください。"},
+  jukugo:     {mode:"replace", text:"熟語の構成として正しいものを選んでください。"},
+  goi:        {mode:"replace", text:"意味として正しいものを選んでください。"},
+  taigigo:    {mode:"replace", text:"対義語として正しいものを選んでください。"},
+  ruigigo:    {mode:"replace", text:"類義語として正しいものを選んでください。"},
+  yoji:       {mode:"replace", text:"意味として正しいものを選んでください。"},
+  kotowaza:   {mode:"append",  text:"空欄に入る言葉として正しいものを選んでください。"},
+  kanyoku:    {mode:"append",  text:"空欄に入る言葉として正しいものを選んでください。"},
+  koji:       {mode:"append",  text:"ここから生まれた言葉として正しいものを選んでください。"},
+  keigo:      {mode:"replace", text:"敬語として正しいものを選んでください。"},
+  hinshi:     {mode:"replace", text:"品詞として正しいものを選んでください。"},
+  katsuyo:    {mode:"replace", text:"活用の種類として正しいものを選んでください。"},
+  shikibetsu: {mode:"append",  text:"正しいものを選んでください。"},
+  kobun:      {mode:"replace", text:"意味として正しいものを選んでください。"},
+  kigo:       {mode:"replace", text:"季節として正しいものを選んでください。"},
+};
+const DOKKAI_INSTRUCTION = "正しいものを選んでください。";
+function subInstructionHtml(cat, it){
+  const cfg = CAT_INSTRUCTION[cat];
+  if(!cfg) return it.s ? `<div class="q-sub">${esc(it.s)}</div>` : "";
+  if(cfg.mode === "replace") return `<div class="q-sub">${esc(cfg.text)}</div>`;
+  return (it.s ? `<div class="q-sub">${esc(it.s)}</div>` : "") + `<div class="q-sub">${esc(cfg.text)}</div>`;
+}
+/* 漢文の返り点つき原文を、縦書き＋送り仮名・返り点記号つきで表示する（it.kb がある問題のみ）。
+   送り仮名（読みを補うカタカナ）を先に、返り点（レ・一二点など）をその後に、
+   どちらも字のすぐ下に小さく添える。 */
+function kanbunCharsHtml(kb){
+  return kb.map(c => {
+    const ok = c.ok ? `<span class="kb-ok">${esc(c.ok)}</span>` : "";
+    const mark = c.mark ? `<span class="kb-mark">${esc(c.mark)}</span>` : "";
+    return `<span class="kb-char">${esc(c.ch)}${ok}${mark}</span>`;
+  }).join("");
+}
+function kanbunBoxHtml(kb){
+  if(!kb) return "";
+  return `<div class="kanbun-box">${kanbunCharsHtml(kb)}</div>`;
+}
+/* 選択肢の中に入れる、ひとまわり小さい縦書きボックス（返り点配置を選ばせる問題用） */
+function kanbunMiniHtml(kb){
+  if(!kb) return "";
+  return `<span class="kanbun-mini">${kanbunCharsHtml(kb)}</span>`;
+}
+
+/* 称号（分野ごと。上にいくほど間隔が広く、昇格が難しい） */
+const TITLES = [
+  {lv:1,    name:"むらびと",     icon:"🌱"},
+  {lv:10,   name:"村人",         icon:"🙂"},
+  {lv:30,   name:"一般人",       icon:"🚶"},
+  {lv:60,   name:"見習い剣士",   icon:"🗡️"},
+  {lv:100,  name:"剣士",         icon:"⚔️"},
+  {lv:150,  name:"戦士",         icon:"🛡️"},
+  {lv:210,  name:"騎士",         icon:"🐎"},
+  {lv:280,  name:"銀の騎士",     icon:"🌙"},
+  {lv:360,  name:"黄金の騎士",   icon:"☀️"},
+  {lv:450,  name:"竜騎士",       icon:"🐉"},
+  {lv:550,  name:"賢者",         icon:"📜"},
+  {lv:660,  name:"大賢者",       icon:"🔮"},
+  {lv:780,  name:"英雄",         icon:"🏆"},
+  {lv:900,  name:"伝説の勇者",   icon:"👑"},
+];
+/* Lv.1000から先は100レベルごとの「かくし称号」。
+   伝説の生き物・妖怪がだんだん強くなり、Lv.10000で頂点に至る。
+   到達するまで名前は「？？？」のまま明かされない。 */
+const HIDDEN_NAMES = [
+  /* 1000〜: 妖怪（小） */
+  "コロポックル","一つ目小僧","豆狸","河童","唐傘お化け","化け猫","ろくろ首","雪女","かまいたち","からす天狗",
+  /* 2000〜: 妖怪（大） */
+  "狛犬","白狐","鬼","天狗","土蜘蛛","がしゃどくろ","ぬらりひょん","酒呑童子","大天狗","九尾の狐",
+  /* 3000〜: 西洋の幻獣 */
+  "ユニコーン","ペガサス","セイレーン","ミノタウロス","サイクロプス","グリフォン","ケルベロス","メドゥーサ","キマイラ","ヒュドラ",
+  /* 4000〜: 大型の魔獣 */
+  "ワイバーン","マンティコア","バジリスク","グレンデル","シーサーペント","クラーケン","ロック鳥","スフィンクス","ベヒーモス","リヴァイアサン",
+  /* 5000〜: 和の神獣 */
+  "八咫烏","白澤","白虎","朱雀","玄武","青龍","麒麟","鳳凰","応龍","ヤマタノオロチ",
+  /* 6000〜: 世界の神話級 */
+  "ガルーダ","ナーガ","ケツァルコアトル","スレイプニル","ニーズヘッグ","フェンリル","ヨルムンガンド","ヴリトラ","バハムート","ティアマト",
+  /* 7000〜: 竜のつらなり */
+  "火竜","氷竜","雷竜","地竜","風竜","海竜","天竜","聖竜","魔竜","古代竜",
+  /* 8000〜: 竜の王たち */
+  "竜王","双頭の竜王","黄金竜","虹竜","星竜","月竜","太陽竜","銀河竜","時空竜","冥竜",
+  /* 9000〜: 究極の存在 */
+  "創世竜","神竜","超神竜","天地の主","星々の王","銀河の覇者","時の支配者","宇宙の支配者","全知全能の存在","森羅万象",
+];
+const HIDDEN_ICONS = ["👻","👹","🦄","🐙","🐯","🐍","🐉","👑","🌌"];
+HIDDEN_NAMES.forEach((nm, i)=>{
+  TITLES.push({lv:1000 + i*100, name:nm, icon:HIDDEN_ICONS[Math.floor(i/10)] || "🌌", hidden:true});
+});
+TITLES.push({lv:10000, name:"国語の神", icon:"⛩️", hidden:true});
+function titleOf(lv){
+  let t = TITLES[0];
+  for(const x of TITLES){ if(lv >= x.lv) t = x; }
+  return t;
+}
+function nextTitle(lv){
+  for(const x of TITLES){ if(x.lv > lv) return x; }
+  return null;
+}
+
+/* ================= データ読み込みチェック ================= */
+const screen = document.getElementById("screen");
+if(!window.QUESTION_DATA || !window.QUESTION_DATA.cats){
+  screen.innerHTML = `<div class="card"><h3 class="section">問題データが見つかりません</h3>
+   <p>問題データファイル <b>kokugo_data.js</b> が、このHTMLと同じフォルダにあるか確認してください。</p></div>`;
+  throw new Error("QUESTION_DATA not found");
+}
+const DATA = window.QUESTION_DATA;
+const CATS = DATA.cats;
+const CAT_KEYS = Object.keys(CATS);
+const DOKKAI = DATA.dokkai || [];
+const MAX_LV = {};
+CAT_KEYS.forEach(k => MAX_LV[k] = Math.max(...CATS[k].items.map(it => it.lv)));
+
+/* ================= 記録（localStorage、使えない環境ではメモリ） ================= */
+const STORE_KEY = "kokugoTrainingStats_v5";
+let memStats = null;
+function emptyStats(){
+  const cats = {dokkai:{t:0,c:0}};
+  const lv = {dokkai:1};
+  CAT_KEYS.forEach(k => { cats[k] = {t:0,c:0}; lv[k] = 1; });
+  return {cats, q:{}, lv, items:{}, bossPity:{}, kotonohaBranch:null};
+}
+function loadStats(){
+  try{
+    const s = localStorage.getItem(STORE_KEY);
+    if(s){
+      const st = JSON.parse(s);
+      if(st && st.cats && st.q && st.lv){
+        CAT_KEYS.concat(["dokkai"]).forEach(k => {
+          if(!st.cats[k]) st.cats[k] = {t:0,c:0};
+          if(!st.lv[k]) st.lv[k] = 1;
+        });
+        if(!st.items) st.items = {};
+        if(!st.bossPity) st.bossPity = {};
+        return st;
+      }
+    }
+  }catch(e){}
+  return memStats || emptyStats();
+}
+function saveStats(st){
+  memStats = st;
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify(st)); }catch(e){}
+}
+function qKey(cat, qText){
+  let h = 5381;
+  for(let i=0;i<qText.length;i++){ h = ((h<<5)+h+qText.charCodeAt(i))|0; }
+  return cat + "|" + (h>>>0).toString(36);
+}
+/* 正誤を記録。正解ならその分野のレベル+1。{lvup, evolved, lv} を返す */
+function record(cat, item, correct){
+  const st = loadStats();
+  st.cats[cat].t++; if(correct) st.cats[cat].c++;
+  const key = qKey(cat, item.q);
+  if(!st.q[key]) st.q[key] = {t:0, c:0, k:0, cat, q:item.q};
+  st.q[key].t++; if(correct) st.q[key].c++;
+  st.q[key].k = correct ? (st.q[key].k||0)+1 : 0;   // 連続正解数
+  let lvup = false, evolved = null;
+  if(correct && st.lv[cat] < MAX_CAT_LV){
+    const before = titleOf(st.lv[cat]);
+    st.lv[cat]++;
+    lvup = true;
+    const after = titleOf(st.lv[cat]);
+    if(after !== before) evolved = after;
+  }
+  saveStats(st);
+  return {lvup, evolved, lv:st.lv[cat]};
+}
+function qStat(st, cat, item){ return st.q[qKey(cat, item.q)] || null; }
+
+/* ================= 出題の重みづけ =================
+   [履歴] 正解するたび×0.75で出づらく、間違えるたび×1.5で出やすく
+          （0.05〜8倍。ゼロにはならない）
+   [難度] その分野のレベルに応じた目標難度に近い問題ほど出やすい
+          （約30レベルごとに1段階アップ） */
+function historyWeight(st, cat, item){
+  const s = qStat(st, cat, item);
+  if(!s || s.t === 0) return 1.2;
+  const wrong = s.t - s.c;
+  const w = Math.pow(0.75, s.c) * Math.pow(1.5, wrong);
+  return Math.max(0.05, Math.min(8, w));
+}
+/* 苦手復習専用の重みづけ：不正解率（不正解数÷回答数）が高いほど出やすくする */
+function reviewWeight(st, cat, item){
+  const s = qStat(st, cat, item);
+  if(!s || s.t === 0) return 1;
+  const wrongRate = (s.t - s.c) / s.t;   // 0〜1
+  return 0.2 + wrongRate * wrongRate * 12;   // 不正解率が高いほど、急激に出やすくなる
+}
+function targetLv(cat, catLv){
+  return 1 + Math.min(MAX_LV[cat] - 1, (catLv - 1) / LV_PER_STEP);
+}
+function difficultyWeight(cat, item, catLv){
+  return Math.exp(-1.2 * Math.abs(item.lv - targetLv(cat, catLv)));
+}
+function pickOne(pool, weights){
+  let total = 0;
+  for(const w of weights) total += w;
+  let r = Math.random() * total;
+  for(let i=0;i<pool.length;i++){
+    r -= weights[i];
+    if(r <= 0) return pool[i];
+  }
+  return pool[pool.length-1];
+}
+/* 分野から1問選ぶ（直前の問題はさける） */
+function selectOne(cat, lastQ){
+  const st = loadStats();
+  let pool = CATS[cat].items;
+  if(pool.length > 1 && lastQ) pool = pool.filter(it => it.q !== lastQ);
+  const weights = pool.map(it => historyWeight(st, cat, it) * difficultyWeight(cat, it, st.lv[cat]));
+  return pickOne(pool, weights);
+}
+function weakItems(){
+  const st = loadStats();
+  const list = [];
+  CAT_KEYS.forEach(cat=>{
+    CATS[cat].items.forEach(it=>{
+      const s = qStat(st, cat, it);
+      /* 一度でも間違えた問題のうち、まだ2回連続正解できていないもの */
+      if(s && s.t > 0 && s.c < s.t && (s.k||0) < 2) list.push({cat, it});
+    });
+  });
+  return list;
+}
+
+/* ================= 共通 ================= */
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;"); }
+function shuffledOrder(n){
+  const a = [...Array(n).keys()];
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
+/* 記述式の答え合わせ用：カタカナ→ひらがな、空白除去 */
+function normalizeAns(s){
+  return String(s)
+    .replace(/[\s　]/g, "")
+    .replace(/[ァ-ヶ]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60));
+}
+function catBadge(cat){
+  const st = loadStats();
+  const lv = st.lv[cat], t = titleOf(lv);
+  return `${t.icon} ${esc(t.name)}　Lv.${lv}`;
+}
+
+/* 選択問題を、数字キー(選んで反転表示)＋Enter(確定)でも回答できるようにする仕組み。
+   choiceKeyCount 個のボタンが今の画面にそのまま揃っているときだけ有効。
+   途中で画面が変わったりすでに答え終わっていたら自動的に何もしなくなる。 */
+let activeChoiceKeyHandler = null;  // (displayPos) => void
+let choiceKeySelected = null;
+let choiceKeyCount = 0;
+function setupChoiceKeys(handler, count){
+  activeChoiceKeyHandler = handler;
+  choiceKeySelected = null;
+  choiceKeyCount = count;
+}
+function clearChoiceKeys(){
+  activeChoiceKeyHandler = null;
+  choiceKeySelected = null;
+  choiceKeyCount = 0;
+}
+function selectChoiceVisual(displayPos){
+  choiceKeySelected = displayPos;
+  screen.querySelectorAll(".choice").forEach((b,pos)=>{
+    b.classList.toggle("selected", pos === displayPos);
+  });
+}
+function handleChoiceKey(e){
+  if(bossPromptActive){
+    if(e.key === "ArrowRight"){ e.preventDefault(); moveBossPromptSelection("yes"); }
+    else if(e.key === "ArrowLeft"){ e.preventDefault(); moveBossPromptSelection("no"); }
+    else if(e.key === "Enter"){ e.preventDefault(); resolveBossPrompt(bossPromptSelection); }
+    return;
+  }
+  if(!activeChoiceKeyHandler) return;
+  const btns = screen.querySelectorAll(".choice");
+  if(btns.length !== choiceKeyCount || (btns[0] && btns[0].disabled)){
+    clearChoiceKeys();
+    return;
+  }
+  if(e.key >= "1" && e.key <= "9"){
+    const pos = Number(e.key) - 1;
+    if(pos < choiceKeyCount){
+      e.preventDefault();
+      selectChoiceVisual(pos);
+    }
+  }else if(e.key === "Enter" && choiceKeySelected !== null){
+    e.preventDefault();
+    const handler = activeChoiceKeyHandler, pos = choiceKeySelected;
+    clearChoiceKeys();
+    handler(pos);
+  }
+}
+document.addEventListener("keydown", handleChoiceKey);
+
+/* ================= ことのは（経験値キャラクター） =================
+   経験値 = 全領域（知識分野）のレベル合計。合計の伸びに応じて段階的に進化する
+   （レベルと称号の関係と同じ考え方）。
+   進化の「見た目の系統」は、領域ごとの偏り方によって4通りに分岐する：
+     1. 一領域特化型：最も伸びている1領域だけで経験値の80%以上を占める
+     2. 二領域特化型：上位2領域の合計で経験値の70%以上を占める
+     3. その他型　　：上記にも下記にもあてはまらない、ゆるやかな偏り
+     4. 全領域バランス型：すべての領域が平均レベルの±20%以内におさまっている
+   1は不健康、2はそれより元気、3はさらに元気、4は伝説級の見た目にする。 */
+/* 分野ごとの「称号みちのり」（Lv1,10,30,60,100,150,210,280,360,450,550,660,780,900）と
+   同じ間隔パターンを流用し、経験値1000で最終形態（14段階目）に到達するようにする。 */
+const KOTONOHA_STAGE_XP = [0, 10, 30, 60, 100, 150, 210, 280, 360, 450, 550, 660, 780, 900, 1000];
+const KOTONOHA_LINES = {
+  1:[ // 一領域特化型：偏った特訓で息切れ気味の、不健康系ライン
+    {name:"しおれつぼみ",         icon:"🥀"},
+    {name:"よわよわ若葉",         icon:"🍂"},
+    {name:"くたびれいも虫",       icon:"🐛"},
+    {name:"くたびれかたつむり",   icon:"🐌"},
+    {name:"うつろな子ねずみ",     icon:"🐭"},
+    {name:"げっそり野ねずみ",     icon:"🐁"},
+    {name:"げっそり古だぬき",     icon:"🦝"},
+    {name:"やせいの迷い狐",       icon:"🦊"},
+    {name:"まよいの枯れ木霊",     icon:"🌫️"},
+    {name:"かすむ夜叉",           icon:"👹"},
+    {name:"さまよう亡霊",         icon:"👻"},
+    {name:"のろわれし古狼",       icon:"🐺"},
+    {name:"隻眼の若き枯れ竜",     icon:"🐲"},
+    {name:"隻眼の枯れ竜",         icon:"🐉"},
+  ],
+  2:[ // 二領域特化型：1よりは元気な、コンビプレー系ライン
+    {name:"げんきなふたば",       icon:"🌱"},
+    {name:"なかよし双葉",         icon:"🌿"},
+    {name:"すこやかコンビ狐",     icon:"🦊"},
+    {name:"きたえたコンビ犬",     icon:"🐕"},
+    {name:"たくましいコンビ狼",   icon:"🐺"},
+    {name:"きばをむくコンビ猪",   icon:"🐗"},
+    {name:"ほこり高き双刃",       icon:"🗡️"},
+    {name:"りりしいコンビ武者",   icon:"🥷"},
+    {name:"はばたく双翼",         icon:"🦅"},
+    {name:"ゆうかんな双爪の獣",   icon:"🐯"},
+    {name:"きずなの盾騎士",       icon:"🛡️"},
+    {name:"誓いの双翼騎士",       icon:"🐎"},
+    {name:"そうりつの若竜",       icon:"🐲"},
+    {name:"そうりつの竜",         icon:"🐉"},
+  ],
+  3:[ // その他型・のびのび系：2よりさらに元気なライン（下の5系統とランダムで抽選される）
+    {name:"いきいき新芽",         icon:"🌿"},
+    {name:"すくすく双葉",         icon:"🌱"},
+    {name:"はつらつうさぎ",       icon:"🐰"},
+    {name:"のびやかな子鹿",       icon:"🦌"},
+    {name:"かがやく鷹",           icon:"🦅"},
+    {name:"まぶしい白馬",         icon:"🐎"},
+    {name:"まばゆい聖獣",         icon:"🦄"},
+    {name:"かがやく孔雀",         icon:"🦚"},
+    {name:"こうごうしい霊鳳",     icon:"🐦"},
+    {name:"光の麒麟児",           icon:"✨"},
+    {name:"かがやきの聖翼",       icon:"🕊️"},
+    {name:"天翔ける瑞獣",         icon:"🌟"},
+    {name:"きらめく若竜",         icon:"🐲"},
+    {name:"きらめく神竜",         icon:"🐉"},
+  ],
+  4:[ // 全領域バランス型：伝説級ライン
+    {name:"せいれいの新芽",       icon:"🌟"},
+    {name:"ひかりの双葉",         icon:"🌼"},
+    {name:"こうきなせいれい",     icon:"🌸"},
+    {name:"やさしき光の精",       icon:"💫"},
+    {name:"でんせつの守り手",     icon:"🌈"},
+    {name:"きよらかな聖獣",       icon:"🦢"},
+    {name:"しんわの使者",         icon:"⭐"},
+    {name:"てんくうの守護者",     icon:"🕊️"},
+    {name:"ひかり満ちる賢者",     icon:"📜"},
+    {name:"こうごうしき天使",     icon:"😇"},
+    {name:"げんそうの言霊",       icon:"🌌"},
+    {name:"万象を統べる者",       icon:"🔮"},
+    {name:"究極言霊の若竜",       icon:"🐲"},
+    {name:"究極言霊竜・ことのは", icon:"🐉"},
+  ],
+  5:[ // その他型・ほのお系
+    {name:"ちいさな火だね",       icon:"🔥"},
+    {name:"またたく炎の子",       icon:"✨"},
+    {name:"もえる子ぎつね",       icon:"🦊"},
+    {name:"陽炎の若獅子",         icon:"🦁"},
+    {name:"紅蓮の鷲",             icon:"🦅"},
+    {name:"燃え立つ火の鳥",       icon:"🐦"},
+    {name:"不死鳥のひな",         icon:"🕊️"},
+    {name:"猛る炎の使者",         icon:"💥"},
+    {name:"業火の守護者",         icon:"🌋"},
+    {name:"灼熱の武人",           icon:"⚔️"},
+    {name:"太陽を宿す者",         icon:"☀️"},
+    {name:"業炎の賢者",           icon:"🔆"},
+    {name:"火の若竜",             icon:"🐲"},
+    {name:"火竜",                 icon:"🐉"},
+  ],
+  6:[ // その他型・うみかぜ系
+    {name:"しずくの精",           icon:"💧"},
+    {name:"きらめく水泡",         icon:"🫧"},
+    {name:"はねるいるか",         icon:"🐬"},
+    {name:"すいすい若魚",         icon:"🐟"},
+    {name:"波乗りかじき",         icon:"🐡"},
+    {name:"潮風の海鳥",           icon:"🕊️"},
+    {name:"荒波をこえる者",       icon:"🐋"},
+    {name:"深海の守り手",         icon:"🦑"},
+    {name:"白波の精霊",           icon:"🌊"},
+    {name:"潮流の使者",           icon:"🐚"},
+    {name:"大海の賢者",           icon:"🧜"},
+    {name:"深淵を統べる者",       icon:"🌀"},
+    {name:"海の若竜",             icon:"🐲"},
+    {name:"海竜",                 icon:"🐉"},
+  ],
+  7:[ // その他型・ほしぞら系
+    {name:"星のかけら",           icon:"⭐"},
+    {name:"またたく光の粒",       icon:"✨"},
+    {name:"はねる子流星",         icon:"🌠"},
+    {name:"きらめく夜光虫",       icon:"💫"},
+    {name:"彗星の子",             icon:"☄️"},
+    {name:"星屑の踊り子",         icon:"🌟"},
+    {name:"星座の番人",           icon:"🪐"},
+    {name:"夜空を統べる者",       icon:"🌙"},
+    {name:"銀河の使者",           icon:"🌌"},
+    {name:"宙（そら）を渡る者",   icon:"🛸"},
+    {name:"星海の賢者",           icon:"🔭"},
+    {name:"宇宙を統べる者",       icon:"🌃"},
+    {name:"星の若竜",             icon:"🐲"},
+    {name:"星竜",                 icon:"🐉"},
+  ],
+  8:[ // その他型・おとの系
+    {name:"音符のたね",           icon:"🎵"},
+    {name:"ひびく小さな音",       icon:"🔔"},
+    {name:"うたう小鳥",           icon:"🐦"},
+    {name:"はずむリズム精",       icon:"🥁"},
+    {name:"ひびきわたる弦",       icon:"🎻"},
+    {name:"かなでる笛の精",       icon:"🎶"},
+    {name:"旋律の踊り子",         icon:"💃"},
+    {name:"天空の楽団長",         icon:"🎺"},
+    {name:"調べの使者",           icon:"🎼"},
+    {name:"交響の賢者",           icon:"🎹"},
+    {name:"天地を鳴らす者",       icon:"🔊"},
+    {name:"万物を奏でる者",       icon:"🎙️"},
+    {name:"音の若竜",             icon:"🐲"},
+    {name:"音竜",                 icon:"🐉"},
+  ],
+  9:[ // その他型・はなぞの系
+    {name:"つぼみの精",           icon:"🌷"},
+    {name:"めばえの妖精",         icon:"🌱"},
+    {name:"はなさきうさぎ",       icon:"🐇"},
+    {name:"かおる蝶の使い",       icon:"🦋"},
+    {name:"花冠の守り手",         icon:"🌺"},
+    {name:"かがやく花園の主",     icon:"🌼"},
+    {name:"満開の女神",           icon:"🌸"},
+    {name:"百花繚乱の使者",       icon:"💮"},
+    {name:"楽園の守護者",         icon:"🌻"},
+    {name:"千花繚乱の賢者",       icon:"🌹"},
+    {name:"花園を統べる者",       icon:"🪷"},
+    {name:"万葉の化身",           icon:"🍃"},
+    {name:"花の若竜",             icon:"🐲"},
+    {name:"花竜",                 icon:"🐉"},
+  ],
+};
+const KOTONOHA_TYPE_LABEL = {
+  1:"一領域特化型", 2:"二領域特化型", 4:"全領域バランス型",
+  3:"その他型（のびのび系）", 5:"その他型（ほのお系）", 6:"その他型（うみかぜ系）",
+  7:"その他型（ほしぞら系）", 8:"その他型（おとの系）", 9:"その他型（はなぞの系）",
+};
+/* 「その他型」に分類される場合、5系統＋従来ののびのび系の計6系統からランダムに1つを選び、
+   一度決まったらそのセーブデータではずっと同じ系統になる（人によって進化が変わる） */
+const KOTONOHA_OTHER_TYPES = [3, 5, 6, 7, 8, 9];
+function kotonohaTotalXP(st){
+  return CAT_KEYS.reduce((sum,k)=> sum + (st.lv[k]||1), 0);
+}
+function kotonohaOtherType(st){
+  if(!KOTONOHA_OTHER_TYPES.includes(st.kotonohaBranch)){
+    st.kotonohaBranch = KOTONOHA_OTHER_TYPES[Math.floor(Math.random() * KOTONOHA_OTHER_TYPES.length)];
+    saveStats(st);
+  }
+  return st.kotonohaBranch;
+}
+function kotonohaType(st){
+  const lvs = CAT_KEYS.map(k => st.lv[k]||1);
+  const total = lvs.reduce((a,b)=>a+b, 0);
+  const sorted = [...lvs].sort((a,b)=>b-a);
+  const top1 = sorted[0] / total;
+  const top2 = (sorted[0] + sorted[1]) / total;
+  if(top1 >= 0.80) return 1;
+  if(top2 >= 0.70) return 2;
+  const avg = total / CAT_KEYS.length;
+  const maxDev = Math.max(...lvs.map(v => Math.abs(v - avg) / avg));
+  if(maxDev <= 0.20) return 4;
+  return kotonohaOtherType(st);
+}
+function kotonohaStageIndex(totalXPVal){
+  let idx = 0;
+  KOTONOHA_STAGE_XP.forEach((th,i) => { if(totalXPVal >= th) idx = i; });
+  return idx; // 0 = たまご（未分化）
+}
+function kotonohaForm(st){
+  const total = kotonohaTotalXP(st);
+  const stageIdx = kotonohaStageIndex(total);
+  if(stageIdx === 0) return {name:"ことばのたまご", icon:"🥚", type:null, stageIdx, total};
+  const type = kotonohaType(st);
+  const line = KOTONOHA_LINES[type];
+  const form = line[stageIdx-1] || line[line.length-1];
+  return {name:form.name, icon:form.icon, type, stageIdx, total};
+}
+function kotonohaCardHtml(st){
+  const f = kotonohaForm(st);
+  const prev = KOTONOHA_STAGE_XP[f.stageIdx];
+  const next = KOTONOHA_STAGE_XP[f.stageIdx+1];
+  const progress = next ? Math.min(100, Math.round((f.total - prev) / (next - prev) * 100)) : 100;
+  const progressNote = next ? `つぎの進化まで、あと経験値${next - f.total}` : "最終形態に到達している";
+  const typeTag = f.type ? `<span class="kotonoha-type">${esc(KOTONOHA_TYPE_LABEL[f.type])}</span>` : "";
+  const typeClass = f.type ? `kotonoha-type${f.type}` : "kotonoha-egg";
+  let stageTagText;
+  if(f.stageIdx === 0) stageTagText = "たまご";
+  else if(!next) stageTagText = "最終形態";
+  else stageTagText = `第${f.stageIdx}形態`;
+  const stageTag = `<span class="kotonoha-stage${!next && f.stageIdx>0 ? ' final':''}">${stageTagText}</span>`;
+  return `
+  <div class="card kotonoha-card">
+    <h3 class="section">きみの相棒「ことのは」</h3>
+    <div class="kotonoha-row">
+      <div class="kotonoha-icon ${typeClass}">${f.icon}</div>
+      <div class="kotonoha-info">
+        <div class="kotonoha-name">${stageTag}${esc(f.name)}</div>
+        ${typeTag}
+        <div class="kotonoha-xp">経験値　${f.total}</div>
+        <div class="bar"><div style="width:${progress}%"></div></div>
+        <p class="note">${esc(progressNote)}</p>
+      </div>
+    </div>
+  </div>`;
+}
+function itemLinkHtml(st){
+  const items = st.items || {};
+  const count = Object.values(items).reduce((a,b)=>a+b, 0);
+  return `<p class="note" style="text-align:right; margin:-6px 2px 14px;">
+    <a href="#" onclick="showItemCollection(); return false;">🎒 これまで獲得したアイテムを見る（${count}コ）</a>
+  </p>`;
+}
+
+/* ================= ホーム ================= */
+function showHome(){
+  const st = loadStats();
+  let html = "";
+  html += kotonohaCardHtml(st);
+  html += itemLinkHtml(st);
+  (DATA.groups || [{name:"分野", keys:CAT_KEYS}]).forEach(g=>{
+    html += `<h3 class="section">${esc(g.name)}</h3>`;
+    g.keys.forEach(key=>{
+      if(!CATS[key]) return;
+      const m = CATS[key];
+      const lv = st.lv[key], t = titleOf(lv);
+      html += `
+      <div class="card menu-card" onclick="startQuiz('${key}')">
+        <div class="menu-icon">${GROUP_ICONS[g.name] || "📝"}</div>
+        <div><h2>${esc(m.name)}</h2><p>${esc(m.desc)}</p></div>
+        <div class="right">
+          <span class="shogo-badge ${t.hidden?"top":""}">${t.icon} ${esc(t.name)} Lv.${lv}</span>
+          <span class="count">全${m.items.length}問</span>
+        </div>
+      </div>`;
+    });
+  });
+  const weak = weakItems();
+  const dt = titleOf(st.lv.dokkai);
+  html += `<h3 class="section">とっくん・読解・記録</h3>
+    <div class="card menu-card review" onclick="startReview()">
+      <div class="menu-icon">🔥</div>
+      <div><h2>苦手復習 <span class="tag">${weak.length}問たまっています</span></h2>
+      <p>これまでに間違えた問題だけを集中的に出題</p></div>
+    </div>
+    <div class="card menu-card" onclick="showDokkaiMenu()">
+      <div class="menu-icon">📚</div>
+      <div><h2>読解トレーニング <span class="tag">${DOKKAI.length}題</span></h2><p>説明文・小説・随筆を読んで設問に答える</p></div>
+      <div class="right"><span class="shogo-badge">${dt.icon} ${esc(dt.name)} Lv.${st.lv.dokkai}</span></div>
+    </div>
+    <div class="card menu-card" onclick="showStats()">
+      <div class="menu-icon">📊</div>
+      <div><h2>成績・称号</h2><p>分野ごとのレベル・正答率・よく間違える問題</p></div>
+    </div>
+    <div class="card menu-card" onclick="showBattleSetup()">
+      <div class="menu-icon">⚔️</div>
+      <div><h2>二人対戦</h2><p>同じ端末で交代しながら対戦。正解すると相手のHPが減る</p></div>
+    </div>
+    <p class="note">※ 1問正解すると、その分野のレベルが1上がります（好きなだけ続けて、いつでもやめられます）。レベルが上がるほど難しい問題が中心になり、正解した問題はだんだん出にくく、間違えた問題は出やすくなります。</p>
+    <p class="signature">Seikichi</p>`;
+  screen.innerHTML = html;
+}
+
+/* ================= 知識クイズ（エンドレス） ================= */
+let quiz = null;
+function startQuiz(key){
+  quiz = {mode:"cat", key, n:0, correct:0, evolved:null, lastQ:null, cat:null, item:null, order:null};
+  nextQuestion();
+}
+function startReview(){
+  if(weakItems().length === 0){
+    screen.innerHTML = `<div class="card"><h3 class="section">苦手復習</h3>
+      <p>いま復習が必要な問題はありません。間違えた問題があると、ここにたまっていきます。</p>
+      <button class="btn" onclick="showHome()">ホームへ</button></div>`;
+    return;
+  }
+  quiz = {mode:"review", key:null, n:0, correct:0, evolved:null, lastQ:null, cat:null, item:null, order:null};
+  nextQuestion();
+}
+function nextQuestion(){
+  if(rollBossEncounter(() => nextQuestion())) return;
+  if(quiz.mode === "review"){
+    const st = loadStats();
+    let weak = weakItems();
+    if(weak.length > 1 && quiz.lastQ) weak = weak.filter(w => w.it.q !== quiz.lastQ);
+    if(weak.length === 0){ endSession(true); return; }
+    const weights = weak.map(w => reviewWeight(st, w.cat, w.it));
+    const picked = pickOne(weak, weights);
+    quiz.cat = picked.cat; quiz.item = picked.it;
+  }else{
+    quiz.cat = quiz.key;
+    quiz.item = selectOne(quiz.key, quiz.lastQ);
+  }
+  quiz.lastQ = quiz.item.q;
+  renderQuestion();
+}
+function renderQuestion(){
+  const it = quiz.item, cat = quiz.cat;
+  const st = loadStats();
+  const s = qStat(st, cat, it);
+  const redoMark = (s && s.t > 0 && s.c < s.t) ? `<span class="redo">↻ 前に間違えた問題</span>` : "";
+  const label = quiz.mode === "review" ? `苦手復習（${CATS[cat].name}）` : CATS[cat].name;
+  const isInput = Array.isArray(it.ans);
+  let answerArea;
+  if(isInput){
+    clearChoiceKeys();
+    answerArea = `
+      <div class="ans-row">
+        <input type="text" id="ansIn" class="ans-input" placeholder="ひらがなで入力" autocomplete="off"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();submitInput();}">
+        <button class="btn inline" id="submitBtn" onclick="submitInput()">こたえる</button>
+      </div>`;
+  }else{
+    quiz.order = shuffledOrder(it.c.length);
+    answerArea = `
+      <div class="choices">
+        ${quiz.order.map((oi,pos)=>`<button class="choice" onclick="answerChoice(${oi})"><span class="choice-num">${pos+1}</span>${it.ckb ? kanbunMiniHtml(it.ckb[oi]) : esc(it.c[oi])}</button>`).join("")}
+      </div>`;
+    setupChoiceKeys(pos => answerChoice(quiz.order[pos]), it.c.length);
+  }
+  screen.innerHTML = `
+    <div class="session-bar">
+      <span>${quiz.n+1}問目　｜　今回の正解 ${quiz.correct}問</span>
+      <span class="catstat">${catBadge(cat)}</span>
+    </div>
+    <div class="card">
+      <div class="q-category"><span>${esc(label)}</span>${redoMark}</div>
+      ${subInstructionHtml(cat, it)}
+      ${kanbunBoxHtml(it.kb)}
+      <div class="q-text">${esc(it.q)}</div>
+      ${answerArea}
+      <div class="feedback" id="fb"></div>
+      <div class="btn-row">
+        <button class="btn" id="nextBtn" style="display:none" onclick="nextQuestion()">次へ</button>
+        <button class="btn secondary" id="quitBtn" style="display:none" onclick="endSession(false)">今日はここまで</button>
+      </div>
+    </div>`;
+  if(isInput){ const el = document.getElementById("ansIn"); if(el) el.focus(); }
+}
+function answerChoice(origIdx){
+  const it = quiz.item;
+  const ok = origIdx === it.a;
+  gradeAnswer(ok, origIdx, null);
+}
+function submitInput(){
+  const el = document.getElementById("ansIn");
+  if(!el || el.disabled) return;
+  const val = normalizeAns(el.value);
+  if(!val) return;   // 空欄は受け付けない
+  const ok = quiz.item.ans.map(normalizeAns).includes(val);
+  el.disabled = true;
+  const sb = document.getElementById("submitBtn");
+  if(sb) sb.disabled = true;
+  gradeAnswer(ok, null, el.value);
+}
+function gradeAnswer(ok, chosenOrig, typed){
+  const it = quiz.item, cat = quiz.cat;
+  quiz.n++;
+  if(ok) quiz.correct++;
+  const r = record(cat, it, ok);
+  if(r.evolved) quiz.evolved = r.evolved;
+  /* 選択式の色付け */
+  const btns = screen.querySelectorAll(".choice");
+  btns.forEach((b,pos)=>{
+    const oi = quiz.order ? quiz.order[pos] : pos;
+    b.disabled = true;
+    if(oi===it.a) b.classList.add("correct");
+    else if(oi===chosenOrig) b.classList.add("wrong");
+    else b.classList.add("dim");
+  });
+  const fb = document.getElementById("fb");
+  fb.className = "feedback show " + (ok?"ok":"ng");
+  let expl;
+  if(Array.isArray(it.ans)){
+    const wrongMsg = ok ? "" : `正解は「${esc(it.ans.join("」または「"))}」（あなたの答え：${esc(typed||"")}）`;
+    expl = [wrongMsg, it.e ? esc(it.e) : ""].filter(Boolean).join("<br>");
+  }else{
+    expl = it.e ? esc(it.e) : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
+  }
+  const lvChip = r.lvup ? `<span class="lvup-chip">${esc(CATS[cat].name)} Lv.${r.lv} にアップ！</span>` : "";
+  const evolveMsg = r.evolved
+    ? `<div class="evolve">${r.evolved.hidden ? "🔓 かくされた称号が明かされた！<br>" : ""}${r.evolved.icon} 進化！　${esc(CATS[cat].name)}の称号が「${esc(r.evolved.name)}」になった！</div>` : "";
+  fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}${lvChip}</div>${expl}${evolveMsg}`;
+  document.getElementById("nextBtn").style.display = "inline-block";
+  document.getElementById("quitBtn").style.display = "inline-block";
+  document.getElementById("nextBtn").focus();
+}
+function endSession(clearedAll){
+  const q = quiz;
+  let head, sub = "";
+  if(q.mode === "review"){
+    head = clearedAll ? "苦手を全部つぶしました！　おみごと！" : "苦手復習おつかれさま！";
+  }else{
+    head = `${CATS[q.key].name}のトレーニングおつかれさま！`;
+    sub = `<p class="result-msg">現在：${catBadge(q.key)}</p>`;
+  }
+  window._retry = q.mode === "review" ? startReview : ()=>startQuiz(q.key);
+  screen.innerHTML = `
+    <div class="card">
+      <h3 class="section">今回の記録</h3>
+      <div class="result-score">${q.correct} <span style="font-size:1.2rem;color:var(--sub)">/ ${q.n}問 正解</span></div>
+      <p class="result-msg">${esc(head)}</p>
+      ${sub}
+      ${q.evolved ? `<div class="evolve">${q.evolved.icon} 今回「${esc(q.evolved.name)}」に進化しました！</div>` : ""}
+      <div class="btn-row">
+        <button class="btn" onclick="window._retry()">つづける</button>
+        <button class="btn secondary" onclick="showStats()">成績を見る</button>
+        <button class="btn secondary" onclick="showHome()">ホームへ</button>
+      </div>
+    </div>`;
+}
+
+/* ================= 読解 ================= */
+let dk = null;
+function showDokkaiMenu(){
+  let html = `<h3 class="section">読解トレーニング　—　文章を選ぼう</h3>`;
+  DOKKAI.forEach((p,i)=>{
+    html += `
+    <div class="card menu-card" onclick="startDokkai(${i})">
+      <div class="menu-icon">${p.icon || "📖"}</div>
+      <div><h2>${esc(p.title)} <span class="tag">${p.qs.length}問</span></h2></div>
+    </div>`;
+  });
+  screen.innerHTML = html;
+}
+function startDokkai(pi){
+  dk = {p:DOKKAI[pi], i:0, correct:0, pi, order:null, evolved:null};
+  renderDokkai();
+}
+function renderDokkai(){
+  const p = dk.p, it = p.qs[dk.i], total = p.qs.length;
+  dk.order = shuffledOrder(it.c.length);
+  screen.innerHTML = `
+    <div class="session-bar">
+      <span>問${dk.i+1} / ${total}</span>
+      <span class="catstat">${catBadge("dokkai")}</span>
+    </div>
+    <div class="passage">
+      <p class="passage-title">${esc(p.title)}</p>
+      ${p.text.map(t=>`<p>${esc(t)}</p>`).join("")}
+    </div>
+    <div class="card">
+      <div class="q-category">読解</div>
+      <div class="q-text">問${dk.i+1}　${esc(it.q)}</div>
+      <div class="q-sub">${esc(DOKKAI_INSTRUCTION)}</div>
+      <div class="choices">
+        ${dk.order.map((oi,pos)=>`<button class="choice" onclick="answerDokkai(${oi})"><span class="choice-num">${pos+1}</span>${esc(it.c[oi])}</button>`).join("")}
+      </div>
+      <div class="feedback" id="fb"></div>
+      <button class="btn" id="nextBtnD" style="display:none" onclick="nextDokkai()">次へ</button>
+    </div>`;
+  setupChoiceKeys(pos => answerDokkai(dk.order[pos]), it.c.length);
+}
+function answerDokkai(origIdx){
+  const it = dk.p.qs[dk.i];
+  const ok = origIdx === it.a;
+  if(ok) dk.correct++;
+  const r = record("dokkai", it, ok);
+  if(r.evolved) dk.evolved = r.evolved;
+  const btns = screen.querySelectorAll(".choice");
+  btns.forEach((b,pos)=>{
+    const oi = dk.order[pos];
+    b.disabled = true;
+    if(oi===it.a) b.classList.add("correct");
+    else if(oi===origIdx) b.classList.add("wrong");
+    else b.classList.add("dim");
+  });
+  const fb = document.getElementById("fb");
+  fb.className = "feedback show " + (ok?"ok":"ng");
+  const lvChip = r.lvup ? `<span class="lvup-chip">読解 Lv.${r.lv} にアップ！</span>` : "";
+  const evolveMsg = r.evolved
+    ? `<div class="evolve">${r.evolved.hidden ? "🔓 かくされた称号が明かされた！<br>" : ""}${r.evolved.icon} 進化！　読解の称号が「${esc(r.evolved.name)}」になった！</div>` : "";
+  fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}${lvChip}</div>${it.e?esc(it.e):""}${evolveMsg}`;
+  document.getElementById("nextBtnD").style.display = "inline-block";
+}
+function nextDokkai(){
+  dk.i++;
+  if(dk.i < dk.p.qs.length) renderDokkai();
+  else {
+    const d = dk;
+    window._retry = ()=>startDokkai(d.pi);
+    screen.innerHTML = `
+      <div class="card">
+        <h3 class="section">結果発表</h3>
+        <div class="result-score">${d.correct} <span style="font-size:1.2rem;color:var(--sub)">/ ${d.p.qs.length}問</span></div>
+        <p class="result-msg">現在：${catBadge("dokkai")}</p>
+        ${d.evolved ? `<div class="evolve">${d.evolved.icon} 「${esc(d.evolved.name)}」に進化しました！</div>` : ""}
+        <div class="btn-row">
+          <button class="btn" onclick="window._retry()">もう一度</button>
+          <button class="btn secondary" onclick="showDokkaiMenu()">ほかの文章へ</button>
+          <button class="btn secondary" onclick="showHome()">ホームへ</button>
+        </div>
+      </div>`;
+  }
+}
+
+/* ================= 二人対戦（同じ端末で交互に対戦） =================
+   同じ端末を2人で使い、ジャンルをひとつ選んで交互に出題する。
+   正解すると相手のHPを削り、さきにHPを０にしたほうの勝ち。
+   個人の称号・経験値には影響しない、別枠のミニゲーム。 */
+const BATTLE_STORE_KEY = "kokugoBattleStats_v1";
+function loadBattleStats(){
+  try{
+    const s = localStorage.getItem(BATTLE_STORE_KEY);
+    if(s){ const bs = JSON.parse(s); if(bs && typeof bs.plays === "number") return bs; }
+  }catch(e){}
+  return {plays:0, byCat:{}};
+}
+function saveBattleStats(bs){
+  try{ localStorage.setItem(BATTLE_STORE_KEY, JSON.stringify(bs)); }catch(e){}
+}
+/* 問題の難度（it.lv）が高いほど少しダメージが大きくなる */
+function battleDamage(it){
+  return Math.max(8, Math.min(35, 8 + (it.lv||1)*3));
+}
+/* 対戦専用の出題：個人のレベル・履歴には左右されず、直前と同じ問題だけ避けて公平に選ぶ */
+function pickBattleQuestion(cat, lastQ){
+  let pool = CATS[cat].items;
+  if(pool.length > 1 && lastQ) pool = pool.filter(it => it.q !== lastQ);
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+let battle = null;
+function showBattleSetup(){
+  const bs = loadBattleStats();
+  let html = `<div class="card">
+    <h3 class="section">⚔️ 二人対戦</h3>
+    <p class="note">同じ端末を2人で使い、交代で問題に答えます。正解すると相手のHPが減っていき、さきにHPを０にしたほうの勝ちです。</p>
+    <div class="ans-row">
+      <input type="text" id="battleNameA" class="ans-input" placeholder="プレイヤーA" value="プレイヤーA">
+      <input type="text" id="battleNameB" class="ans-input" placeholder="プレイヤーB" value="プレイヤーB">
+    </div>
+    <p class="note">下からジャンルをひとつ選ぶと対戦がはじまります（先攻はプレイヤーA）。</p>
+  </div>`;
+  (DATA.groups || [{name:"分野", keys:CAT_KEYS}]).forEach(g=>{
+    html += `<h3 class="section">${esc(g.name)}</h3>`;
+    g.keys.forEach(key=>{
+      if(!CATS[key]) return;
+      html += `
+      <div class="card menu-card" onclick="startBattle('${key}')">
+        <div class="menu-icon">${GROUP_ICONS[g.name] || "📝"}</div>
+        <div><h2>${esc(CATS[key].name)}</h2><p>${esc(CATS[key].desc)}</p></div>
+      </div>`;
+    });
+  });
+  html += `
+    <p class="note">🥊 これまでの対戦数：${bs.plays}回</p>
+    <button class="btn secondary" onclick="showHome()">ホームへ</button>`;
+  screen.innerHTML = html;
+}
+function startBattle(cat){
+  const elA = document.getElementById("battleNameA"), elB = document.getElementById("battleNameB");
+  const nameA = ((elA && elA.value) || "プレイヤーA").trim() || "プレイヤーA";
+  const nameB = ((elB && elB.value) || "プレイヤーB").trim() || "プレイヤーB";
+  battle = {cat, nameA, nameB, hp:{A:100,B:100}, maxHp:100, turn:"A", lastQ:null, item:null, order:null};
+  battleNextQuestion();
+}
+function battleNextQuestion(){
+  battle.item = pickBattleQuestion(battle.cat, battle.lastQ);
+  battle.lastQ = battle.item.q;
+  renderBattle();
+}
+function renderBattle(){
+  const it = battle.item, cat = battle.cat;
+  const isInput = Array.isArray(it.ans);
+  const turnName = battle.turn === "A" ? battle.nameA : battle.nameB;
+  let answerArea;
+  if(isInput){
+    clearChoiceKeys();
+    answerArea = `
+      <div class="ans-row">
+        <input type="text" id="ansIn" class="ans-input" placeholder="ひらがなで入力" autocomplete="off"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();battleSubmitInput();}">
+        <button class="btn inline" id="submitBtn" onclick="battleSubmitInput()">こたえる</button>
+      </div>`;
+  }else{
+    battle.order = shuffledOrder(it.c.length);
+    answerArea = `
+      <div class="choices">
+        ${battle.order.map((oi,pos)=>`<button class="choice" onclick="battleAnswerChoice(${oi})"><span class="choice-num">${pos+1}</span>${it.ckb ? kanbunMiniHtml(it.ckb[oi]) : esc(it.c[oi])}</button>`).join("")}
+      </div>`;
+  }
+  screen.innerHTML = `
+    <div class="card">
+      <div class="battle-hp-wrap">
+        <div class="battle-side ${battle.turn==='A'?'active':''}">
+          <div class="battle-name">${esc(battle.nameA)}</div>
+          <div class="hpbar hpbar-a"><div style="width:${battle.hp.A/battle.maxHp*100}%"></div></div>
+          <div class="hp-num">${battle.hp.A} / ${battle.maxHp}</div>
+        </div>
+        <div class="vs-badge">VS</div>
+        <div class="battle-side ${battle.turn==='B'?'active':''}">
+          <div class="battle-name">${esc(battle.nameB)}</div>
+          <div class="hpbar hpbar-b"><div style="width:${battle.hp.B/battle.maxHp*100}%"></div></div>
+          <div class="hp-num">${battle.hp.B} / ${battle.maxHp}</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="q-category"><span>${esc(CATS[cat].name)}</span><span class="battle-turn-tag">${esc(turnName)}さんの番</span></div>
+      ${subInstructionHtml(cat, it)}
+      ${kanbunBoxHtml(it.kb)}
+      <div class="q-text">${esc(it.q)}</div>
+      ${answerArea}
+      <div class="feedback" id="fb"></div>
+      <div class="btn-row">
+        <button class="btn" id="nextBtn" style="display:none" onclick="battleAdvance()">つぎへ</button>
+        <button class="btn secondary" onclick="battleQuit()">たいせんをやめる</button>
+      </div>
+    </div>`;
+  if(isInput){ const el = document.getElementById("ansIn"); if(el) el.focus(); }
+  else{ setupChoiceKeys(pos => battleAnswerChoice(battle.order[pos]), it.c.length); }
+}
+function battleAnswerChoice(origIdx){
+  battleGrade(origIdx === battle.item.a, origIdx, null);
+}
+function battleSubmitInput(){
+  const el = document.getElementById("ansIn");
+  if(!el || el.disabled) return;
+  const val = normalizeAns(el.value);
+  if(!val) return;
+  const ok = battle.item.ans.map(normalizeAns).includes(val);
+  el.disabled = true;
+  const sb = document.getElementById("submitBtn");
+  if(sb) sb.disabled = true;
+  battleGrade(ok, null, el.value);
+}
+function battleGrade(ok, chosenOrig, typed){
+  const it = battle.item;
+  const attacker = battle.turn, defender = attacker === "A" ? "B" : "A";
+  let dealt = 0;
+  if(ok){
+    dealt = battleDamage(it);
+    battle.hp[defender] = Math.max(0, battle.hp[defender] - dealt);
+  }
+  if(!Array.isArray(it.ans)){
+    const btns = screen.querySelectorAll(".choice");
+    btns.forEach((b,pos)=>{
+      const oi = battle.order[pos];
+      b.disabled = true;
+      if(oi===it.a) b.classList.add("correct");
+      else if(oi===chosenOrig) b.classList.add("wrong");
+      else b.classList.add("dim");
+    });
+  }
+  const fb = document.getElementById("fb");
+  fb.className = "feedback show " + (ok?"ok":"ng");
+  let expl;
+  if(Array.isArray(it.ans)){
+    const wrongMsg = ok ? "" : `正解は「${esc(it.ans.join("」または「"))}」（こたえ：${esc(typed||"")}）`;
+    expl = [wrongMsg, it.e ? esc(it.e) : ""].filter(Boolean).join("<br>");
+  }else{
+    expl = it.e ? esc(it.e) : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
+  }
+  const defenderName = defender === "A" ? battle.nameA : battle.nameB;
+  const dmgMsg = ok ? `<span class="lvup-chip">${esc(defenderName)}に ${dealt} ダメージ！</span>` : "";
+  fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}${dmgMsg}</div>${expl}`;
+  const nextBtn = document.getElementById("nextBtn");
+  nextBtn.style.display = "inline-block";
+  nextBtn.textContent = battle.hp[defender] <= 0 ? "けっかを見る" : "つぎへ";
+  nextBtn.focus();
+}
+function battleAdvance(){
+  const attacker = battle.turn, defender = attacker === "A" ? "B" : "A";
+  if(battle.hp[defender] <= 0){ endBattle(); return; }
+  battle.turn = defender;
+  battleNextQuestion();
+}
+function battleQuit(){
+  if(!confirm("対戦をやめますか？ここまでの結果は記録されません。")) return;
+  battle = null;
+  showBattleSetup();
+}
+function endBattle(){
+  const winner = battle.hp.A <= 0 ? battle.nameB : battle.nameA;
+  const loser = battle.hp.A <= 0 ? battle.nameA : battle.nameB;
+  const bs = loadBattleStats();
+  bs.plays = (bs.plays||0) + 1;
+  bs.byCat = bs.byCat || {};
+  bs.byCat[battle.cat] = (bs.byCat[battle.cat]||0) + 1;
+  saveBattleStats(bs);
+  const b = battle;
+  window._retry = () => startBattle(b.cat);
+  screen.innerHTML = `
+    <div class="card">
+      <h3 class="section">けっか発表</h3>
+      <div class="result-score" style="font-size:1.6rem">🏆 ${esc(winner)} の勝ち！</div>
+      <p class="result-msg">${esc(loser)} は力つきた…</p>
+      <div class="btn-row">
+        <button class="btn" onclick="window._retry()">同じジャンルでもう一度</button>
+        <button class="btn secondary" onclick="showBattleSetup()">べつのジャンルへ</button>
+        <button class="btn secondary" onclick="showHome()">ホームへ</button>
+      </div>
+    </div>`;
+  battle = null;
+}
+
+/* ================= ボス戦（低確率のランダムイベント） =================
+   知識クイズ（通常・苦手復習）で1問答えるたびに、ごくまれに(1/100)ボスが勝負をしかけてくる。
+   受けて立って勝つと、そのボス固有の「アイテム」を必ず、まれに(1/10、天井10連勝で確定)
+   さらに貴重な「宝具」も落とす。集めたアイテムは成績とは別に、ずっと記録される。
+
+   ダメージ量について：「10問中8問以上正解すれば必ず勝てる」という設計目標を満たすよう、
+   ボスHP1000・自分HP100に対して、正解時ダメージ125〜155（最低保証125×8回＝1000）、
+   被弾ダメージ6〜9（最悪10ラウンドでも90でHPが尽きない）に調整している。 */
+const BOSSES = [
+  {id:"tekkyu",     name:"鉄球を持ったお姉さん「ケイ」",         icon:"⚫", item:"鉄球",             treasure:"ぴかぴかの鉄球",             hp:1000},
+  {id:"houcho",     name:"包丁を持った紳士「ムライオ」",         icon:"🔪", item:"包丁",             treasure:"調理室",                     hp:1000},
+  {id:"volleyball", name:"バレーボールを持ったお兄さん「サノー」", icon:"🏐", item:"バレーボール",     treasure:"人体模型",                   hp:1000},
+  {id:"yakyu",      name:"車好き野球プレーヤー「シゲっち」",     icon:"⚾", item:"野球ボール",       treasure:"ホームランバット",           hp:1000},
+  {id:"suugaku",    name:"数学の化身「ケンケン」",               icon:"📐", item:"三角定規",         treasure:"大きなコンパス",             hp:1000},
+  {id:"bijutsu",    name:"美術の案内人「サオーリ」",             icon:"🖌️", item:"ふつうの筆",       treasure:"描いたものが現実になる筆",   hp:1000},
+];
+const BOSS_ENCOUNTER_RATE = 1/40;
+const BOSS_TREASURE_RATE = 0.1;
+const BOSS_PITY_MAX = 10;
+const BOSS_PLAYER_HP = 100;
+const BOSS_PLAYER_DMG = [125, 155];     // 正解時に与えるダメージ
+const BOSS_DMG_ON_CORRECT = [4, 6];     // 自分の攻撃が成功したときに受けるダメージ（軽い）
+const BOSS_DMG_ON_WRONG = [12, 16];     // 自分の攻撃が失敗したときに受けるダメージ（重い）
+/* HP1000のボスに対し、最悪ケース（常に最小ダメージしか与えられず、常に最大ダメージを受ける）でも
+   10問中8問正解すれば必ず勝てるように調整済み（撃破した回のボスの反撃は発生しないため、
+   反撃を受けるのは最大9回。2回外した場合：2×16＋7×6＝74 < 自分のHP100）。 */
+const TREASURE_NAMES = new Set(BOSSES.map(b => b.treasure));
+function randInt(min, max){ return min + Math.floor(Math.random() * (max - min + 1)); }
+
+let pendingBoss = null;
+let bossPromptSelection = "no";
+let bossPromptResumeFn = null;
+let bossPromptActive = false;
+let bossBattle = null;
+
+/* 1/100の確率でボスが出現する。出現したら遭遇プロンプトを表示してtrueを返す（呼び出し元は処理を中断する）。
+   出現しなければfalse。resumeFnは、逃げた・戦い終わったあとに元の流れへ戻るための関数。 */
+function rollBossEncounter(resumeFn){
+  if(bossPromptActive || bossBattle) return false;
+  if(Math.random() >= BOSS_ENCOUNTER_RATE) return false;
+  pendingBoss = BOSSES[Math.floor(Math.random() * BOSSES.length)];
+  bossPromptResumeFn = resumeFn;
+  bossPromptActive = true;
+  bossPromptSelection = "no";
+  renderBossPrompt();
+  return true;
+}
+function renderBossPrompt(){
+  const b = pendingBoss;
+  screen.innerHTML = `
+    <div class="card boss-encounter">
+      <div class="boss-enc-icon">${b.icon}</div>
+      <p class="boss-enc-text">「${esc(b.name)}」が勝負をしかけてきた。<br>勝負しますか？</p>
+      <div class="boss-enc-choices">
+        <button class="boss-enc-btn ${bossPromptSelection==='no'?'selected':''}" onclick="resolveBossPrompt('no')">いいえ</button>
+        <button class="boss-enc-btn ${bossPromptSelection==='yes'?'selected':''}" onclick="resolveBossPrompt('yes')">勝負する</button>
+      </div>
+      <p class="note boss-enc-hint">← → で選び、Enterで決定（そのままEnterで「いいえ」）</p>
+    </div>`;
+}
+function moveBossPromptSelection(dir){
+  if(!bossPromptActive) return;
+  bossPromptSelection = dir;
+  renderBossPrompt();
+}
+function resolveBossPrompt(choice){
+  if(!bossPromptActive) return;
+  bossPromptActive = false;
+  if(choice === "yes"){
+    startBossBattle(pendingBoss);
+  }else{
+    const fn = bossPromptResumeFn;
+    bossPromptResumeFn = null;
+    pendingBoss = null;
+    if(fn) fn();
+  }
+}
+function startBossBattle(boss){
+  const cat = (quiz && quiz.key && CATS[quiz.key]) ? quiz.key : CAT_KEYS[Math.floor(Math.random()*CAT_KEYS.length)];
+  bossBattle = {
+    boss, bossHp: boss.hp, bossMaxHp: boss.hp,
+    playerHp: BOSS_PLAYER_HP, playerMaxHp: BOSS_PLAYER_HP,
+    cat, item:null, order:null, lastQ:null,
+  };
+  bossNextQuestion();
+}
+function bossNextQuestion(){
+  bossBattle.item = pickBattleQuestion(bossBattle.cat, bossBattle.lastQ);
+  bossBattle.lastQ = bossBattle.item.q;
+  renderBossBattle();
+}
+function bossHpBarsInnerHtml(){
+  const b = bossBattle;
+  return `
+      <div class="boss-hp-row">
+        <span class="boss-hp-label">${esc(b.boss.name)}</span>
+        <div class="hpbar boss-hpbar"><div style="width:${Math.max(0,b.bossHp)/b.bossMaxHp*100}%"></div></div>
+        <span class="boss-hp-num">${Math.max(0,b.bossHp)} / ${b.bossMaxHp}</span>
+      </div>
+      <div class="boss-hp-row">
+        <span class="boss-hp-label">あなた</span>
+        <div class="hpbar player-hpbar"><div style="width:${Math.max(0,b.playerHp)/b.playerMaxHp*100}%"></div></div>
+        <span class="boss-hp-num">${Math.max(0,b.playerHp)} / ${b.playerMaxHp}</span>
+      </div>`;
+}
+function bossHpBarsHtml(){
+  return `<div class="boss-hpbars" id="bossHpBars">${bossHpBarsInnerHtml()}</div>`;
+}
+function refreshBossHpBars(){
+  const el = document.getElementById("bossHpBars");
+  if(el) el.innerHTML = bossHpBarsInnerHtml();
+}
+function renderBossBattle(){
+  const b = bossBattle, it = b.item;
+  const isInput = Array.isArray(it.ans);
+  let answerArea;
+  if(isInput){
+    clearChoiceKeys();
+    answerArea = `
+      <div class="ans-row">
+        <input type="text" id="ansIn" class="ans-input" placeholder="ひらがなで入力" autocomplete="off"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();bossSubmitInput();}">
+        <button class="btn inline" id="submitBtn" onclick="bossSubmitInput()">こたえる</button>
+      </div>`;
+  }else{
+    b.order = shuffledOrder(it.c.length);
+    answerArea = `
+      <div class="choices">
+        ${b.order.map((oi,pos)=>`<button class="choice" onclick="bossAnswerChoice(${oi})"><span class="choice-num">${pos+1}</span>${it.ckb ? kanbunMiniHtml(it.ckb[oi]) : esc(it.c[oi])}</button>`).join("")}
+      </div>`;
+  }
+  screen.innerHTML = `
+    <div class="boss-battle-screen">
+      <div class="boss-name">⚔️ ${esc(b.boss.name)} ${b.boss.icon}</div>
+      ${bossHpBarsHtml()}
+      <div class="boss-q-card">
+        ${subInstructionHtml(b.cat, it)}
+        ${kanbunBoxHtml(it.kb)}
+        <div class="boss-q-text">${esc(it.q)}</div>
+        ${answerArea}
+        <div class="feedback" id="fb"></div>
+        <div class="btn-row">
+          <button class="btn" id="nextBtn" style="display:none" onclick="bossAdvance()">つぎへ</button>
+        </div>
+      </div>
+    </div>`;
+  if(isInput){ const el = document.getElementById("ansIn"); if(el) el.focus(); }
+  else{ setupChoiceKeys(pos => bossAnswerChoice(b.order[pos]), it.c.length); }
+}
+function bossAnswerChoice(origIdx){
+  bossGrade(origIdx === bossBattle.item.a, origIdx, null);
+}
+function bossSubmitInput(){
+  const el = document.getElementById("ansIn");
+  if(!el || el.disabled) return;
+  const val = normalizeAns(el.value);
+  if(!val) return;
+  const ok = bossBattle.item.ans.map(normalizeAns).includes(val);
+  el.disabled = true;
+  const sb = document.getElementById("submitBtn");
+  if(sb) sb.disabled = true;
+  bossGrade(ok, null, el.value);
+}
+function bossGrade(ok, chosenOrig, typed){
+  const b = bossBattle, it = b.item;
+  let dealt = 0;
+  if(ok){
+    dealt = randInt(BOSS_PLAYER_DMG[0], BOSS_PLAYER_DMG[1]);
+    b.bossHp = Math.max(0, b.bossHp - dealt);
+  }
+  refreshBossHpBars();
+  if(!Array.isArray(it.ans)){
+    const btns = screen.querySelectorAll(".choice");
+    btns.forEach((btn,pos)=>{
+      const oi = b.order[pos];
+      btn.disabled = true;
+      if(oi===it.a) btn.classList.add("correct");
+      else if(oi===chosenOrig) btn.classList.add("wrong");
+      else btn.classList.add("dim");
+    });
+  }
+  const fb = document.getElementById("fb");
+  fb.className = "feedback show " + (ok?"ok":"ng");
+  let expl;
+  if(Array.isArray(it.ans)){
+    const wrongMsg = ok ? "" : `正解は「${esc(it.ans.join("」または「"))}」（こたえ：${esc(typed||"")}）`;
+    expl = [wrongMsg, it.e ? esc(it.e) : ""].filter(Boolean).join("<br>");
+  }else{
+    expl = it.e ? esc(it.e) : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
+  }
+  const dmgMsg = ok ? `<span class="lvup-chip">${esc(b.boss.name)}に ${dealt} ダメージ！</span>` : "";
+  fb.innerHTML = `<div class="verdict">あなたのターン　${ok?"○ 正解！":"× ざんねん…"}${dmgMsg}</div>${expl}`;
+  if(b.bossHp <= 0){
+    // ボスを倒したときは反撃は発生せず、少し間をおいて自動的に結果画面へ
+    bossBattle._resolving = true;
+    setTimeout(() => { if(bossBattle && bossBattle._resolving) bossWin(); }, 1300);
+    return;
+  }
+  bossBattle._resolving = true;
+  setTimeout(() => { if(bossBattle && bossBattle._resolving) bossCounterAttack(ok); }, 1000);
+}
+function bossCounterAttack(playerWasCorrect){
+  const b = bossBattle;
+  const range = playerWasCorrect ? BOSS_DMG_ON_CORRECT : BOSS_DMG_ON_WRONG;
+  const taken = randInt(range[0], range[1]);
+  b.playerHp = Math.max(0, b.playerHp - taken);
+  refreshBossHpBars();
+  const fb = document.getElementById("fb");
+  fb.innerHTML += `<div class="boss-turn">👹 ${esc(b.boss.name)}のターン。あなたは ${taken} ダメージを受けた。</div>`;
+  const nextBtn = document.getElementById("nextBtn");
+  nextBtn.style.display = "inline-block";
+  nextBtn.textContent = b.playerHp<=0 ? "けっかを見る" : "つぎへ";
+  nextBtn.focus();
+}
+function bossAdvance(){
+  const b = bossBattle;
+  if(!b || b.bossHp <= 0) return;
+  b._resolving = false;
+  if(b.playerHp <= 0){ bossLose(); return; }
+  bossNextQuestion();
+}
+function bossWin(){
+  const b = bossBattle;
+  const st = loadStats();
+  st.bossPity[b.boss.id] = (st.bossPity[b.boss.id]||0) + 1;
+  let gotTreasure = false;
+  if(st.bossPity[b.boss.id] >= BOSS_PITY_MAX){
+    gotTreasure = true;
+  }else if(Math.random() < BOSS_TREASURE_RATE){
+    gotTreasure = true;
+  }
+  if(gotTreasure) st.bossPity[b.boss.id] = 0;
+  st.items[b.boss.item] = (st.items[b.boss.item]||0) + 1;
+  if(gotTreasure) st.items[b.boss.treasure] = (st.items[b.boss.treasure]||0) + 1;
+  saveStats(st);
+  screen.innerHTML = `
+    <div class="boss-battle-screen boss-victory">
+      <div class="boss-win-burst">✨🎉✨</div>
+      <div class="boss-result-title big">勝利！！</div>
+      <p class="boss-win-line">「${esc(b.boss.name)}」との戦いに勝利した！</p>
+      <p class="boss-win-line">「${esc(b.boss.name)}」は、<span class="drop-item">【${esc(b.boss.item)}】</span>を落とした！</p>
+      ${gotTreasure ? `<p class="boss-treasure">✨ さらに、宝具<span class="drop-item treasure-drop">【${esc(b.boss.treasure)}】</span>を手に入れた！ ✨</p>` : ""}
+      <div class="btn-row">
+        <button class="btn" onclick="endBossBattle()">つづける</button>
+        <button class="btn secondary" onclick="endBossBattle(); showItemCollection();">アイテム一覧を見る</button>
+      </div>
+    </div>`;
+}
+function bossLose(){
+  const b = bossBattle;
+  screen.innerHTML = `
+    <div class="boss-battle-screen">
+      <div class="boss-result-title lose">力つきた…</div>
+      <p>「${esc(b.boss.name)}」に敗れてしまった。またいどんでみよう。</p>
+      <div class="btn-row">
+        <button class="btn" onclick="endBossBattle()">つづける</button>
+      </div>
+    </div>`;
+}
+function endBossBattle(){
+  const fn = bossPromptResumeFn;
+  bossPromptResumeFn = null;
+  bossBattle = null;
+  pendingBoss = null;
+  if(fn) fn(); else showHome();
+}
+function isTreasureItem(name){ return TREASURE_NAMES.has(name); }
+function itemListHtml(keys, items){
+  return `<ul class="item-list">` + keys.map(name =>
+    `<li><span>${esc(name)}</span><span class="item-count">×${items[name]}</span></li>`
+  ).join("") + `</ul>`;
+}
+function showItemCollection(){
+  const st = loadStats();
+  const items = st.items || {};
+  const allKeys = Object.keys(items);
+  const normalKeys = allKeys.filter(name => !isTreasureItem(name)).sort((a,b)=> items[b]-items[a]);
+  const treasureKeys = allKeys.filter(name => isTreasureItem(name)).sort((a,b)=> items[b]-items[a]);
+  let html = `<div class="card"><h3 class="section">🎒 これまで獲得したアイテム</h3>`;
+  if(allKeys.length === 0){
+    html += `<p class="note">まだ何も手に入れていません。問題に取り組んでいると、ごくまれにボスが勝負をしかけてくることがあります。勝つとアイテムがもらえます。</p>`;
+  }else{
+    html += `<h4 class="item-group-title">📦 通常アイテム</h4>`;
+    html += normalKeys.length ? itemListHtml(normalKeys, items) : `<p class="note">まだありません。</p>`;
+    html += `<h4 class="item-group-title treasure-title">✨ 伝説の宝具</h4>`;
+    html += treasureKeys.length
+      ? `<ul class="item-list treasure-list">` + treasureKeys.map(name =>
+          `<li class="treasure"><span>✨ ${esc(name)}</span><span class="item-count">×${items[name]}</span></li>`
+        ).join("") + `</ul>`
+      : `<p class="note">まだ手に入れていません。ボスに勝つと、まれに手に入ります。</p>`;
+  }
+  html += `<button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
+  screen.innerHTML = html;
+}
+
+/* ================= 成績・称号 ================= */
+function showStats(){
+  const st = loadStats();
+  const rows = CAT_KEYS.map(k => [k, CATS[k].name]).concat([["dokkai","読解"]]);
+  let weakest = null;
+  let html = `<div class="card"><h3 class="section">成績（累計）</h3><table class="stats">
+    <tr><th>分野</th><th>称号</th><th style="text-align:right">Lv</th><th style="text-align:right">解いた数</th><th style="text-align:right">正解</th><th style="width:26%">正答率</th></tr>`;
+  rows.forEach(([k,label])=>{
+    const s = st.cats[k] || {t:0,c:0};
+    const rate = s.t ? s.c/s.t : null;
+    if(k!=="dokkai" && rate!==null && s.t>=4 && (weakest===null || rate<weakest.rate)) weakest = {label, rate};
+    const t = titleOf(st.lv[k]);
+    html += `<tr>
+      <td>${esc(label)}</td>
+      <td>${t.icon}${esc(t.name)}</td>
+      <td class="num">${st.lv[k]}</td>
+      <td class="num">${s.t}</td>
+      <td class="num">${s.c}</td>
+      <td>${rate===null ? "<span style='color:var(--sub)'>未挑戦</span>"
+          : `${Math.round(rate*100)}%<div class="bar"><div style="width:${rate*100}%"></div></div>`}</td>
+    </tr>`;
+  });
+  html += `</table>`;
+  let mastered=0, learning=0, unseen=0, totalQ=0;
+  CAT_KEYS.forEach(cat=>{
+    CATS[cat].items.forEach(it=>{
+      totalQ++;
+      const s = qStat(st, cat, it);
+      if(!s || s.t===0) unseen++;
+      else if(s.t>=2 && s.c===s.t) mastered++;
+      else learning++;
+    });
+  });
+  html += `<div class="mastery">
+    <span>✅ 習得ずみ <b>${mastered}</b>問</span>
+    <span>📖 練習中 <b>${learning}</b>問</span>
+    <span>🆕 未挑戦 <b>${unseen}</b>問</span>
+    <span>（知識問題 全${totalQ}問）</span>
+  </div>`;
+  if(weakest && weakest.rate < 0.8){
+    html += `<p class="note weak">▶ 今いちばんのばせそうなのは「${esc(weakest.label)}」。集中して取り組んでみよう。</p>`;
+  }
+  html += `</div>`;
+  html += `<div class="card"><h3 class="section">称号のみちのり（分野ごと）</h3><ul class="titlelist">`;
+  TITLES.filter(x=>!x.hidden).forEach(x=>{
+    html += `<li>${x.icon} Lv.${x.lv}〜　${esc(x.name)}</li>`;
+  });
+  html += `</ul>`;
+  const hidden = TITLES.filter(x=>x.hidden);
+  const maxReached = Math.max(...Object.values(st.lv));
+  const revealed = hidden.filter(x=>maxReached >= x.lv);
+  html += `<p class="note">⚡ Lv.1000から先には、100レベルごとに<b>かくされた称号</b>が待っている（全${hidden.length}個）。到達したとき、はじめて正体が明かされる…！</p>`;
+  if(revealed.length){
+    html += `<p class="note">これまでに明かした称号：</p><ul class="titlelist">`;
+    revealed.forEach(x=>{ html += `<li>${x.icon} Lv.${x.lv}〜　${esc(x.name)}</li>`; });
+    html += `</ul>`;
+  }
+  const nextHidden = hidden.find(x=>maxReached < x.lv);
+  if(nextHidden){
+    html += `<p class="note">❓ 次のかくし称号：Lv.${nextHidden.lv}〜　？？？</p>`;
+  }
+  html += `</div>`;
+  const misses = Object.values(st.q)
+    .filter(s => s.cat !== "dokkai" && s.t > 0 && s.c < s.t)
+    .sort((a,b) => (a.c/a.t) - (b.c/b.t))
+    .slice(0,5);
+  if(misses.length){
+    html += `<div class="card"><h3 class="section">よく間違える問題</h3><ul class="misslist">`;
+    misses.forEach(s=>{
+      html += `<li><span>${esc(s.q)}</span>
+        <span class="cat">${esc(CATS[s.cat] ? CATS[s.cat].name : s.cat)}　${s.c}/${s.t}回正解</span></li>`;
+    });
+    html += `</ul>
+      <button class="btn" onclick="startReview()">この問題たちを復習する</button></div>`;
+  }
+  html += `<div class="card"><h3 class="section">きろくの保存・引きつぎ</h3>
+    <p style="font-size:.88rem">記録は自動でこのブラウザに保存され、再読み込みしても消えません。
+    ただし<b>別のパソコンやタブレット、別のブラウザには引き継がれません</b>。
+    大事な記録は「書き出す」でファイルに保存しておくと、いつでも元にもどせます。</p>
+    <div class="btn-row">
+      <button class="btn" onclick="exportData()">💾 記録を書き出す（保存）</button>
+      <button class="btn secondary" onclick="document.getElementById('importFile').click()">📂 記録を読み込む（復元）</button>
+      <input type="file" id="importFile" accept=".json,application/json" style="display:none" onchange="importData(this)">
+    </div></div>`;
+  html += `<div class="btn-row" style="margin-top:4px">
+      <button class="btn secondary" onclick="resetStats()">記録をリセット</button>
+      <button class="btn" onclick="showHome()">ホームへ</button>
+    </div>
+    <p class="note">※ 記録（レベル・称号・正誤）は自動保存です。端末をかえるときは上の「書き出す→読み込む」で引きつぎできます。</p>`;
+  screen.innerHTML = html;
+}
+function resetStats(){
+  if(!confirm("本当にすべての記録（レベル・称号・正誤）を消しますか？")) return;
+  saveStats(emptyStats());
+  showStats();
+}
+
+/* ================= 記録の保存・引きつぎ ================= */
+function exportData(){
+  const st = loadStats();
+  const payload = {app:"kokugoTraining", ver:5, savedAt:new Date().toISOString(), data:st};
+  const blob = new Blob([JSON.stringify(payload)], {type:"application/json"});
+  const a = document.createElement("a");
+  const d = new Date();
+  const pad = n => String(n).padStart(2,"0");
+  a.href = URL.createObjectURL(blob);
+  a.download = `知識ドリルDX記録_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+function importData(input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const payload = JSON.parse(reader.result);
+      const st = payload && payload.app === "kokugoTraining" ? payload.data : payload;
+      if(!st || !st.cats || !st.q || !st.lv) throw new Error("形式ちがい");
+      if(!confirm("保存ファイルの記録を読み込みます。今のブラウザの記録は上書きされます。よろしいですか？")) return;
+      saveStats(st);
+      alert("記録を読み込みました！");
+      showStats();
+    }catch(e){
+      alert("このファイルは読み込めませんでした。「記録を書き出す」で保存したファイルを選んでください。");
+    }
+  };
+  reader.readAsText(file);
+}
+
+showHome();
+</script>
+</body>
+</html>
