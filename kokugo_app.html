@@ -393,7 +393,8 @@
 
 /* ================= 設定 ================= */
 const MAX_CAT_LV = 10000;  // 分野ごとのレベル上限
-const LV_PER_STEP = 30;    // 約30レベルごとに問題の難度が1段階上がる
+const LV_PER_STEP = 30;    // 約30レベルごとに問題の難度が1段階上がる（既存プレイヤーの出題目標レベルの初期値を決めるためだけに使う。以後はDIFF_LV_STEPで毎回上下する）
+const DIFF_LV_STEP = 0.5;  // 正解/不正解のたびに、出題目標レベルがこの分だけ上下する（適応的な難度調整）
 const GROUP_ICONS = {"漢字":"✏️","語彙":"💬","文法":"🔍","古典・表現":"🎋"};
 
 /* 分野ごとの問題文（指示文）テンプレート。
@@ -522,8 +523,9 @@ let memStats = null;
 function emptyStats(){
   const cats = {dokkai:{t:0,c:0}};
   const lv = {dokkai:1};
-  CAT_KEYS.forEach(k => { cats[k] = {t:0,c:0}; lv[k] = 1; });
-  return {cats, q:{}, lv, items:{}, bossPity:{}, kotonohaOtherRoll:null, bossTickets:0, totalLevelUps:0,
+  const diffLv = {};
+  CAT_KEYS.forEach(k => { cats[k] = {t:0,c:0}; lv[k] = 1; diffLv[k] = 1; });
+  return {cats, q:{}, lv, diffLv, items:{}, bossPity:{}, kotonohaOtherRoll:null, bossTickets:0, totalLevelUps:0,
     stats:{hp:0, atk:0, def:0, spd:0, luck:0}, kotonohaSeenForms:[], kotonohaDisplayOverride:null};
 }
 /* ステータスポイントは保存された数値ではなく、常にその場で計算する：
@@ -556,6 +558,12 @@ function loadStats(){
         delete st.statPoints; // 旧バージョンの保存値。今後は使わず、常に導出する
         if(!st.stats) st.stats = {hp:0, atk:0, def:0, luck:0};
         if(typeof st.stats.spd !== "number") st.stats.spd = 0;
+        if(!st.diffLv) st.diffLv = {};
+        /* 出題目標レベルが未設定の分野は、これまでの分野レベルから相当する値を初期値にする
+           （新しい仕組み導入前からのプレイヤーも、急に極端な難度から始まらないようにするため） */
+        CAT_KEYS.forEach(k => {
+          if(typeof st.diffLv[k] !== "number") st.diffLv[k] = targetLv(k, st.lv[k]||1);
+        });
         if(!Array.isArray(st.kotonohaSeenForms)) st.kotonohaSeenForms = [];
         if(st.kotonohaDisplayOverride === undefined) st.kotonohaDisplayOverride = null;
         /* 旧バージョンで「その他型」が固定されていた場合、今の見た目をそのまま引き継ぐ
@@ -588,6 +596,14 @@ function record(cat, item, correct){
   if(!st.q[key]) st.q[key] = {t:0, c:0, k:0, cat, q:item.q};
   st.q[key].t++; if(correct) st.q[key].c++;
   st.q[key].k = correct ? (st.q[key].k||0)+1 : 0;   // 連続正解数
+  if(MAX_LV[cat]){
+    if(!st.diffLv) st.diffLv = {};
+    const maxLv = MAX_LV[cat];
+    const curDiff = typeof st.diffLv[cat] === "number" ? st.diffLv[cat] : 1;
+    st.diffLv[cat] = correct
+      ? Math.min(maxLv, curDiff + DIFF_LV_STEP)
+      : Math.max(1, curDiff - DIFF_LV_STEP);
+  }
   let lvup = false, evolved = null, gotTicket = false;
   if(correct && st.lv[cat] < MAX_CAT_LV){
     const before = titleOf(st.lv[cat]);
@@ -609,8 +625,9 @@ function qStat(st, cat, item){ return st.q[qKey(cat, item.q)] || null; }
 /* ================= 出題の重みづけ =================
    [履歴] 正解するたび×0.75で出づらく、間違えるたび×1.5で出やすく
           （0.05〜8倍。ゼロにはならない）
-   [難度] その分野のレベルに応じた目標難度に近い問題ほど出やすい
-          （約30レベルごとに1段階アップ） */
+   [難度] 出題目標レベル（st.diffLv[cat]）に近い問題ほど出やすい。
+          正解するたび目標レベルが少し上がり、間違えるたび少し下がる（record()内、DIFF_LV_STEP刻み）ので、
+          正解が続けばやや難しい問題が、間違いが続けばやや簡単な問題が出やすくなっていく。 */
 function historyWeight(st, cat, item){
   const s = qStat(st, cat, item);
   if(!s || s.t === 0) return 1.2;
@@ -625,11 +642,13 @@ function reviewWeight(st, cat, item){
   const wrongRate = (s.t - s.c) / s.t;   // 0〜1
   return 0.2 + wrongRate * wrongRate * 12;   // 不正解率が高いほど、急激に出やすくなる
 }
+/* 出題目標レベルの初期値（分野レベルから換算）。新しい難度調整の仕組み導入前からの
+   プレイヤーの出題目標レベルに、最初の値を与えるためだけに使う（loadStatsのマイグレーション参照）。 */
 function targetLv(cat, catLv){
   return 1 + Math.min(MAX_LV[cat] - 1, (catLv - 1) / LV_PER_STEP);
 }
-function difficultyWeight(cat, item, catLv){
-  return Math.exp(-1.2 * Math.abs(item.lv - targetLv(cat, catLv)));
+function difficultyWeight(cat, item, diffLv){
+  return Math.exp(-1.2 * Math.abs(item.lv - diffLv));
 }
 function pickOne(pool, weights){
   let total = 0;
@@ -646,7 +665,8 @@ function selectOne(cat, lastQ){
   const st = loadStats();
   let pool = CATS[cat].items;
   if(pool.length > 1 && lastQ) pool = pool.filter(it => it.q !== lastQ);
-  const weights = pool.map(it => historyWeight(st, cat, it) * difficultyWeight(cat, it, st.lv[cat]));
+  const diffLv = typeof st.diffLv[cat] === "number" ? st.diffLv[cat] : 1;
+  const weights = pool.map(it => historyWeight(st, cat, it) * difficultyWeight(cat, it, diffLv));
   return pickOne(pool, weights);
 }
 function weakItems(){
@@ -1169,7 +1189,7 @@ function showHome(){
       <div class="menu-icon">⚔️</div>
       <div><h2>二人対戦</h2><p>同じ端末で交代しながら対戦。正解すると相手のHPが減る</p></div>
     </div>
-    <p class="note">※ 1問正解すると、その分野のレベルが1上がります（好きなだけ続けて、いつでもやめられます）。レベルが上がるほど難しい問題が中心になり、正解した問題はだんだん出にくく、間違えた問題は出やすくなります。</p>
+    <p class="note">※ 1問正解すると、その分野のレベルが1上がります（好きなだけ続けて、いつでもやめられます）。正解が続くと少し難しい問題が、まちがいが続くと少し易しい問題が出やすくなり、あわせて正解した問題はだんだん出にくく、間違えた問題は出やすくなります。</p>
     <p class="signature">Seikichi</p>`;
   screen.innerHTML = html;
 }
@@ -1274,7 +1294,7 @@ function showHelp(){
         <li><b>漢字・語彙・文法</b>など、ジャンル（分野）ごとに、自分だけの「レベル」があります。</li>
         <li>問題に<b>正解するたびにレベルが1上がります</b>（不正解でレベルが下がることはありません）。</li>
         <li>レベルが上がると、「むらびと」→「村人」→…→「伝説の勇者」というように<b>称号</b>が変わっていきます。伝説の勇者のさらに先には、正体がナゾの「かくし称号」もかくされています。</li>
-        <li>レベルが上がるほど、少しずつ<b>難しい問題</b>が出るようになります。今の自分にちょうど合った難しさに、自動で近づいていきます。</li>
+        <li>問題の<b>難しさ</b>は自動で調整されます。<b>正解が続くと少し難しい問題</b>が、<b>まちがいが続くと少し易しい問題</b>が出やすくなり、今の自分にちょうど合った難しさに近づいていきます。</li>
         <li>レベルが<b>10回上がるごとに</b>、ボスへの「挑戦券」を1枚もらえます。</li>
       </ul>
     </div>
