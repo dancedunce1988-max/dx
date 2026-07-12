@@ -1156,7 +1156,7 @@ function itemLinkHtml(st){
     <a href="#" onclick="showItemCollection(); return false;">🎒 これまで獲得したアイテムを見る（${count}コ）</a>
   </p>`;
 }
-/* 挑戦券：どの分野でも、レベルアップ10回ごとに1枚たまる。使うとランダムなボスとすぐに対戦できる。 */
+/* 挑戦チケット：どの分野でも、レベルアップ10回ごとに1枚たまる。使うとランダムなボスとすぐに対戦できる。 */
 function bossTicketHtml(st){
   const n = st.bossTickets || 0;
   return `
@@ -1164,7 +1164,7 @@ function bossTicketHtml(st){
     <div class="ticket-row">
       <div class="ticket-info">
         <span class="ticket-icon">🎟️</span>
-        <span class="ticket-label">ボスへの挑戦券</span>
+        <span class="ticket-label">ボスへの挑戦チケット</span>
         <span class="ticket-count">${n}枚</span>
       </div>
       <button class="btn inline ${n>0?'':'disabled'}" ${n>0?'':'disabled'} onclick="showTicketConfirm()">挑戦する</button>
@@ -1335,7 +1335,7 @@ function showHelp(){
         <li><b>漢字・語彙・文法</b>など、ジャンル（分野）ごとに、自分だけの「レベル」があります。</li>
         <li>問題に<b>正解するたびにレベルが1上がります</b>（不正解でレベルが下がることはありません）。</li>
         <li>レベルが上がると、「むらびと」→「村人」→…→「伝説の勇者」というように<b>称号</b>が変わっていきます。伝説の勇者のさらに先には、正体がナゾの「かくし称号」もかくされています。</li>
-        <li>レベルが<b>10回上がるごとに</b>、ボスへの「挑戦券」を1枚もらえます。</li>
+        <li>レベルが<b>10回上がるごとに</b>、ボスへの「挑戦チケット」を1枚もらえます。</li>
       </ul>
     </div>
 
@@ -1357,7 +1357,7 @@ function showHelp(){
         <li>ボスにはそれぞれ個性があり、<b>HPが高くて硬いボス</b>、<b>攻撃がはげしいボス</b>、<b>防御・回避にすぐれたボス</b>など、戦い方が少しずつちがいます。</li>
         <li>それぞれのボスには「<b>適正経験値</b>」の目安があり、遭遇したときに表示されます。その分のステータスポイントを持って挑めば、8割正解ペースで勝率85〜90%くらいになるよう調整されています。適正経験値より少ないと、格上のボスほど勝つのが難しくなります。</li>
         <li>負けてもアイテムを失うことはなく、何度でも挑戦できます。</li>
-        <li>レベルアップでたまる「挑戦券」を使えば、遭遇を待たずに<b>いつでも</b>ボスに挑戦できます。挑戦券を使った対戦は<b>全ジャンル</b>から出題されます（ふだんのランダム遭遇では、そのとき解いていたジャンルのまま出題されます）。また、挑戦券では<b>今の経験値で適正経験値以下のボスだけ</b>が出現します（経験値が50以下のときは、サノーかシゲっちのどちらかになります）。</li>
+        <li>レベルアップでたまる「挑戦チケット」を使えば、遭遇を待たずに<b>いつでも</b>ボスに挑戦できます。挑戦チケットを使った対戦は<b>全ジャンル</b>から出題されます（ふだんのランダム遭遇では、そのとき解いていたジャンルのまま出題されます）。また、挑戦チケットでは<b>今の経験値で適正経験値以下のボスだけ</b>が出現します（経験値が50以下のときは、サノーかシゲっちのどちらかになります）。</li>
       </ul>
     </div>
 
@@ -1506,7 +1506,7 @@ function gradeAnswer(ok, chosenOrig, typed){
   const lvChip = r.lvup ? `<span class="lvup-chip">${esc(CATS[cat].name)} Lv.${r.lv} にアップ！</span>` : "";
   const evolveMsg = r.evolved
     ? `<div class="evolve">${r.evolved.hidden ? "🔓 かくされた称号が明かされた！<br>" : ""}${r.evolved.icon} 進化！　${esc(CATS[cat].name)}の称号が「${esc(r.evolved.name)}」になった！</div>` : "";
-  const ticketMsg = r.gotTicket ? `<div class="evolve ticket-get">🎟️ ボスへの挑戦券を1枚手に入れた！</div>` : "";
+  const ticketMsg = r.gotTicket ? `<div class="evolve ticket-get">🎟️ ボスへの挑戦チケットを1枚手に入れた！</div>` : "";
   fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}${lvChip}</div>${expl}${evolveMsg}${ticketMsg}`;
   document.getElementById("nextBtn").style.display = "inline-block";
   document.getElementById("quitBtn").style.display = "inline-block";
@@ -1597,7 +1597,7 @@ function answerDokkai(origIdx){
   const lvChip = r.lvup ? `<span class="lvup-chip">読解 Lv.${r.lv} にアップ！</span>` : "";
   const evolveMsg = r.evolved
     ? `<div class="evolve">${r.evolved.hidden ? "🔓 かくされた称号が明かされた！<br>" : ""}${r.evolved.icon} 進化！　読解の称号が「${esc(r.evolved.name)}」になった！</div>` : "";
-  const ticketMsg = r.gotTicket ? `<div class="evolve ticket-get">🎟️ ボスへの挑戦券を1枚手に入れた！</div>` : "";
+  const ticketMsg = r.gotTicket ? `<div class="evolve ticket-get">🎟️ ボスへの挑戦チケットを1枚手に入れた！</div>` : "";
   fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}${lvChip}</div>${it.e?esc(it.e):""}${evolveMsg}${ticketMsg}`;
   document.getElementById("nextBtnD").style.display = "inline-block";
 }
@@ -2006,7 +2006,7 @@ const TREASURE_NAMES = new Set(BOSSES.map(b => b.treasure));
 function randInt(min, max){ return min + Math.floor(Math.random() * (max - min + 1)); }
 
 let pendingBoss = null;
-let pendingBossAllGenre = false; // 挑戦券からの遭遇のときtrue（全ジャンル出題・文言が変わる）
+let pendingBossAllGenre = false; // 挑戦チケットからの遭遇のときtrue（全ジャンル出題・文言が変わる）
 let bossPromptSelection = "no";
 let bossPromptResumeFn = null;
 let bossPromptActive = false;
@@ -2061,7 +2061,7 @@ function resolveBossPrompt(choice){
     if(fn) fn();
   }
 }
-/* allGenre: 挑戦券を使った挑戦のときだけtrue。ランダム遭遇のときは、そのとき解いていた
+/* allGenre: 挑戦チケットを使った挑戦のときだけtrue。ランダム遭遇のときは、そのとき解いていた
    ジャンル（quizがなければランダムな1ジャンル）に固定する。 */
 function startBossBattle(boss, allGenre){
   const cat = allGenre ? null : ((quiz && quiz.key && CATS[quiz.key]) ? quiz.key : CAT_KEYS[Math.floor(Math.random()*CAT_KEYS.length)]);
@@ -2297,7 +2297,7 @@ function endBossBattle(){
   pendingBoss = null;
   if(fn) fn(); else showHome();
 }
-/* 挑戦券を使ってのボス挑戦：消費前に必ず警告を出す */
+/* 挑戦チケットを使ってのボス挑戦：消費前に必ず警告を出す */
 function showTicketConfirm(){
   const st = loadStats();
   if((st.bossTickets||0) <= 0){ showHome(); return; }
@@ -2307,16 +2307,16 @@ function showTicketConfirm(){
   screen.innerHTML = `
     <div class="card boss-encounter">
       <div class="boss-enc-icon">🎟️</div>
-      <p class="boss-enc-text">挑戦券を1枚使って、ランダムなボスに挑戦しますか？<br><b>挑戦すると、券を1枚消費します。</b></p>
-      <p class="note boss-enc-hint">🌐 挑戦券を使った対戦は、全ジャンルからランダムに出題されます（ふだんのランダム遭遇では、そのとき解いていたジャンルのまま出題されます）。</p>
+      <p class="boss-enc-text">挑戦チケットを1枚使って、ランダムなボスに挑戦しますか？<br><b>挑戦すると、チケットを1枚消費します。</b></p>
+      <p class="note boss-enc-hint">🌐 挑戦チケットを使った対戦は、全ジャンルからランダムに出題されます（ふだんのランダム遭遇では、そのとき解いていたジャンルのまま出題されます）。</p>
       <p class="note boss-enc-hint">🎯 出現するのは、今の経験値（${pts}pt）で適正経験値以下のボスだけです。今回の候補：${esc(names)}</p>
       <div class="boss-enc-choices">
         <button class="boss-enc-btn" onclick="showHome()">やめる</button>
-        <button class="boss-enc-btn selected" onclick="useTicketAndFight()">券を1枚使って挑戦する</button>
+        <button class="boss-enc-btn selected" onclick="useTicketAndFight()">チケットを1枚使って挑戦する</button>
       </div>
     </div>`;
 }
-/* 挑戦券で出るボスは、適正経験値が「今の経験値（＝分野レベル合計。すでに使った分もふくむ）」
+/* 挑戦チケットで出るボスは、適正経験値が「今の経験値（＝分野レベル合計。すでに使った分もふくむ）」
    以下のものだけに限定する（ただし経験値50以下のときも、サノー・シゲっちの2体
    （適正経験値50）だけは選べるように、しきい値の下限を50に固定する）。
    ランダム遭遇は対象外で、従来どおり全ボスから出現する。 */
