@@ -367,8 +367,9 @@
   .status-row{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:14px 16px;}
   .status-row-info{flex:1; min-width:180px;}
   .status-row-label{font-weight:bold; font-size:1rem;}
-  .status-row-ctrl{display:flex; align-items:center; gap:10px; flex-shrink:0;}
+  .status-row-ctrl{display:flex; align-items:center; gap:6px; flex-shrink:0; flex-wrap:wrap;}
   .status-row-val{font-size:1.3rem; font-weight:bold; min-width:2ch; text-align:center; color:var(--accent2);}
+  .stat-step-btn{padding:8px 10px; font-size:.8rem; margin-top:0;}
   .kotonoha-status-table{width:100%; border-collapse:collapse; font-size:.82rem; margin-top:10px;}
   .kotonoha-status-table th{font-weight:normal; color:var(--sub); text-align:left; padding:3px 4px 3px 0; white-space:nowrap;}
   .kotonoha-status-table td{font-weight:bold; text-align:left; padding:3px 14px 3px 0; color:var(--accent2);}
@@ -1142,14 +1143,17 @@ function showStatusAllocation(){
         <div class="note" style="margin-top:2px">${esc(r.desc)}</div>
       </div>
       <div class="status-row-ctrl">
-        <button class="btn inline secondary" ${(s[r.key]||0)<=0?'disabled':''} onclick="allocateStat('${r.key}', -1)">－</button>
+        <button class="btn inline secondary stat-step-btn" ${(s[r.key]||0)<=0?'disabled':''} onclick="allocateStat('${r.key}', -10)">－10</button>
+        <button class="btn inline secondary stat-step-btn" ${(s[r.key]||0)<=0?'disabled':''} onclick="allocateStat('${r.key}', -1)">－1</button>
         <span class="status-row-val">${s[r.key]||0}</span>
-        <button class="btn inline" ${pts<=0?'disabled':''} onclick="allocateStat('${r.key}', 1)">＋</button>
+        <button class="btn inline stat-step-btn" ${pts<=0?'disabled':''} onclick="allocateStat('${r.key}', 1)">＋1</button>
+        <button class="btn inline stat-step-btn" ${pts<=0?'disabled':''} onclick="allocateStat('${r.key}', 10)">＋10</button>
       </div>
     </div>`;
   });
   html += `
     <div class="btn-row">
+      <button class="btn secondary" onclick="distributeEvenly()">⚖️ バランスよく配分する</button>
       <button class="btn secondary" onclick="resetStatusAllocation()">🔄 配分をリセット</button>
       <button class="btn secondary" onclick="showHome()">ホームへ</button>
     </div>`;
@@ -1158,12 +1162,31 @@ function showStatusAllocation(){
 function allocateStat(key, delta){
   const st = loadStats();
   if(delta > 0){
-    if(unspentStatPoints(st) <= 0) return;
-    st.stats[key] = (st.stats[key]||0) + 1;
+    const add = Math.min(delta, unspentStatPoints(st));
+    if(add <= 0) return;
+    st.stats[key] = (st.stats[key]||0) + add;
   }else{
-    if((st.stats[key]||0) <= 0) return;
-    st.stats[key] -= 1;
+    const remove = Math.min(-delta, st.stats[key]||0);
+    if(remove <= 0) return;
+    st.stats[key] -= remove;
   }
+  saveStats(st);
+  showStatusAllocation();
+}
+/* のこりポイントを、HP・攻撃力・防御力・素早さ・運の5つに、あまりなく均等に振り分ける
+   （すでに割りふった分はそのままに、のこりポイントぶんだけ上乗せする）。 */
+function distributeEvenly(){
+  const st = loadStats();
+  const pts = unspentStatPoints(st);
+  if(pts <= 0){ alert("配分できるポイントがありません。"); return; }
+  const keys = ["hp","atk","def","spd","luck"];
+  const each = Math.floor(pts / keys.length);
+  let remainder = pts - each * keys.length;
+  keys.forEach(k=>{
+    let add = each;
+    if(remainder > 0){ add += 1; remainder -= 1; }
+    st.stats[k] = (st.stats[k]||0) + add;
+  });
   saveStats(st);
   showStatusAllocation();
 }
