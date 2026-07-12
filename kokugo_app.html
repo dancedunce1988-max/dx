@@ -360,6 +360,11 @@
   .battle-history-vs{color:var(--sub); font-size:.8rem;}
   .battle-history-loser{color:var(--sub);}
   .battle-history-meta{font-size:.72rem; color:var(--sub); margin-top:2px;}
+  .status-row{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:14px 16px;}
+  .status-row-info{flex:1; min-width:180px;}
+  .status-row-label{font-weight:bold; font-size:1rem;}
+  .status-row-ctrl{display:flex; align-items:center; gap:10px; flex-shrink:0;}
+  .status-row-val{font-size:1.3rem; font-weight:bold; min-width:2ch; text-align:center; color:var(--accent2);}
 </style>
 </head>
 <body>
@@ -510,7 +515,8 @@ function emptyStats(){
   const cats = {dokkai:{t:0,c:0}};
   const lv = {dokkai:1};
   CAT_KEYS.forEach(k => { cats[k] = {t:0,c:0}; lv[k] = 1; });
-  return {cats, q:{}, lv, items:{}, bossPity:{}, kotonohaBranch:null, bossTickets:0, totalLevelUps:0};
+  return {cats, q:{}, lv, items:{}, bossPity:{}, kotonohaBranch:null, bossTickets:0, totalLevelUps:0,
+    statPoints:0, stats:{hp:0, atk:0, def:0, luck:0}, kotonohaSeenForms:[], kotonohaDisplayOverride:null};
 }
 function loadStats(){
   try{
@@ -526,6 +532,11 @@ function loadStats(){
         if(!st.bossPity) st.bossPity = {};
         if(typeof st.bossTickets !== "number") st.bossTickets = 0;
         if(typeof st.totalLevelUps !== "number") st.totalLevelUps = 0;
+        /* ステータスポイント：既存セーブには、これまでの経験値ぶんを一括で付与する（さかのぼり付与） */
+        if(typeof st.statPoints !== "number") st.statPoints = st.totalLevelUps || 0;
+        if(!st.stats) st.stats = {hp:0, atk:0, def:0, luck:0};
+        if(!Array.isArray(st.kotonohaSeenForms)) st.kotonohaSeenForms = [];
+        if(st.kotonohaDisplayOverride === undefined) st.kotonohaDisplayOverride = null;
         return st;
       }
     }
@@ -555,6 +566,7 @@ function record(cat, item, correct){
     st.lv[cat]++;
     lvup = true;
     st.totalLevelUps = (st.totalLevelUps||0) + 1;
+    st.statPoints = (st.statPoints||0) + 1;
     if(st.totalLevelUps % 10 === 0){
       st.bossTickets = (st.bossTickets||0) + 1;
       gotTicket = true;
@@ -904,33 +916,97 @@ function kotonohaForm(st){
   const form = line[stageIdx-1] || line[line.length-1];
   return {name:form.name, icon:form.icon, type, stageIdx, total};
 }
+/* 「すがた」を一意に表す文字列キー（たまごは type がないので固定文字列にする） */
+function kotonohaFormKey(f){
+  return f.stageIdx === 0 ? "egg" : `${f.type}-${f.stageIdx}`;
+}
+/* キーから見た目（名前・アイコン）だけを復元する。経験値・進行状況などは含まない */
+function kotonohaFormFromKey(key){
+  if(key === "egg") return {name:"ことばのたまご", icon:"🥚", type:null, stageIdx:0};
+  const parts = String(key).split("-");
+  const type = Number(parts[0]), stageIdx = Number(parts[1]);
+  const line = KOTONOHA_LINES[type];
+  if(!line || !stageIdx) return null;
+  const form = line[stageIdx-1];
+  if(!form) return null;
+  return {name:form.name, icon:form.icon, type, stageIdx};
+}
 function kotonohaCardHtml(st){
   const f = kotonohaForm(st);
+  const key = kotonohaFormKey(f);
+  if(!st.kotonohaSeenForms.includes(key)){
+    st.kotonohaSeenForms.push(key);
+    saveStats(st);
+  }
+  const override = st.kotonohaDisplayOverride && kotonohaFormFromKey(st.kotonohaDisplayOverride);
+  const disp = override || f;
   const prev = KOTONOHA_STAGE_XP[f.stageIdx];
   const next = KOTONOHA_STAGE_XP[f.stageIdx+1];
   const progress = next ? Math.min(100, Math.round((f.total - prev) / (next - prev) * 100)) : 100;
   const progressNote = next ? `つぎの進化まで、あと経験値${next - f.total}` : "最終形態に到達している";
   const typeTag = f.type ? `<span class="kotonoha-type">${esc(KOTONOHA_TYPE_LABEL[f.type])}</span>` : "";
-  const typeClass = f.type ? `kotonoha-type${f.type}` : "kotonoha-egg";
+  const typeClass = disp.type ? `kotonoha-type${disp.type}` : "kotonoha-egg";
   let stageTagText;
   if(f.stageIdx === 0) stageTagText = "たまご";
   else if(!next) stageTagText = "最終形態";
   else stageTagText = `第${f.stageIdx}形態`;
   const stageTag = `<span class="kotonoha-stage${!next && f.stageIdx>0 ? ' final':''}">${stageTagText}</span>`;
+  const overrideNote = override ? `<p class="note">🖼️ すがたを「${esc(disp.name)}」に変更中</p>` : "";
   return `
   <div class="card kotonoha-card">
     <h3 class="section">きみの相棒「ことのは」</h3>
     <div class="kotonoha-row">
-      <div class="kotonoha-icon ${typeClass}">${f.icon}</div>
+      <div class="kotonoha-icon ${typeClass}">${disp.icon}</div>
       <div class="kotonoha-info">
-        <div class="kotonoha-name">${stageTag}${esc(f.name)}</div>
+        <div class="kotonoha-name">${stageTag}${esc(disp.name)}</div>
         ${typeTag}
         <div class="kotonoha-xp">経験値　${f.total}</div>
         <div class="bar"><div style="width:${progress}%"></div></div>
         <p class="note">${esc(progressNote)}</p>
+        ${overrideNote}
+        <button class="btn inline secondary" style="margin-top:8px" onclick="showKotonohaFormPicker()">🖼️ すがたを選ぶ</button>
       </div>
     </div>
   </div>`;
+}
+/* これまでに到達したことのある「すがた」の中から、表示するすがたを選べる画面。
+   経験値や進化そのものには影響しない、見た目だけの変更。 */
+function showKotonohaFormPicker(){
+  const st = loadStats();
+  const real = kotonohaForm(st);
+  const realKey = kotonohaFormKey(real);
+  const seen = st.kotonohaSeenForms || [];
+  let html = `<div class="card">
+      <h3 class="section">🖼️ ことのはのすがたを選ぶ</h3>
+      <p class="note">これまでに到達したことのある「すがた」の中から、表示するすがたを選べます。経験値やレベルには影響せず、見た目だけが変わります。</p>
+    </div>`;
+  html += `
+    <div class="card menu-card" onclick="setKotonohaDisplay(null)">
+      <div class="menu-icon">${real.icon}</div>
+      <div><h2>${esc(real.name)}（今のすがた）${!st.kotonohaDisplayOverride ? " ✓" : ""}</h2><p>今の実際の経験値にもとづくすがたに戻す</p></div>
+    </div>`;
+  const others = seen.filter(k => k !== realKey);
+  others.forEach(key=>{
+    const f = kotonohaFormFromKey(key);
+    if(!f) return;
+    const active = st.kotonohaDisplayOverride === key;
+    html += `
+    <div class="card menu-card" onclick="setKotonohaDisplay('${key}')">
+      <div class="menu-icon">${f.icon}</div>
+      <div><h2>${esc(f.name)}${active ? " ✓" : ""}</h2><p>${f.stageIdx===0 ? "たまご" : esc(KOTONOHA_TYPE_LABEL[f.type]||"")}</p></div>
+    </div>`;
+  });
+  if(others.length === 0){
+    html += `<div class="card"><p class="note">まだ他のすがたには出会っていません。レベルを上げて経験値をためると、新しいすがたに出会うたびにここへ記録されていきます。</p></div>`;
+  }
+  html += `<button class="btn secondary" onclick="showHome()">ホームへ</button>`;
+  screen.innerHTML = html;
+}
+function setKotonohaDisplay(key){
+  const st = loadStats();
+  st.kotonohaDisplayOverride = key || null;
+  saveStats(st);
+  showHome();
 }
 function itemLinkHtml(st){
   const items = st.items || {};
@@ -993,6 +1069,11 @@ function showHome(){
       <div><h2>読解トレーニング <span class="tag">${DOKKAI.length}題</span></h2><p>説明文・小説・随筆を読んで設問に答える</p></div>
       <div class="right"><span class="shogo-badge">${dt.icon} ${esc(dt.name)} Lv.${st.lv.dokkai}</span></div>
     </div>
+    <div class="card menu-card" onclick="showStatusAllocation()">
+      <div class="menu-icon">💪</div>
+      <div><h2>ボス戦ステータス</h2><p>HP・攻撃力・防御力・運をポイントで強化する</p></div>
+      <div class="right">${(st.statPoints||0) > 0 ? `<span class="shogo-badge">✨ ${st.statPoints}pt</span>` : ""}</div>
+    </div>
     <div class="card menu-card" onclick="showStats()">
       <div class="menu-icon">📊</div>
       <div><h2>成績・称号</h2><p>分野ごとのレベル・正答率・よく間違える問題</p></div>
@@ -1004,6 +1085,64 @@ function showHome(){
     <p class="note">※ 1問正解すると、その分野のレベルが1上がります（好きなだけ続けて、いつでもやめられます）。レベルが上がるほど難しい問題が中心になり、正解した問題はだんだん出にくく、間違えた問題は出やすくなります。</p>
     <p class="signature">Seikichi</p>`;
   screen.innerHTML = html;
+}
+
+/* ================= ボス戦ステータス（分野レベルアップでたまるポイントを割りふる） =================
+   ボス戦だけに効果があるステータス。1ポイントごとの効果量は STAT_*_PER_POINT を参照。 */
+function showStatusAllocation(){
+  const st = loadStats();
+  const s = st.stats;
+  const rows = [
+    {key:"hp",   label:"❤️ HP",    desc:`ボス戦の最大HPが上がる（1ポイントで+${STAT_HP_PER_POINT}）`},
+    {key:"atk",  label:"⚔️ 攻撃力", desc:`正解したときにボスへ与えるダメージが増える（1ポイントで+${STAT_ATK_PER_POINT}）`},
+    {key:"def",  label:"🛡️ 防御力", desc:`ボスの攻撃で受けるダメージが減る（1ポイントで-${STAT_DEF_PER_POINT}、最低1は受ける）`},
+    {key:"luck", label:"🍀 運",     desc:`正解したときに「会心の一撃」（ダメージ${STAT_CRIT_MULT}倍）が出やすくなる（上限${STAT_LUCK_CRIT_CAP_PCT}%）`},
+  ];
+  let html = `
+    <div class="card">
+      <h3 class="section">💪 ボス戦ステータス</h3>
+      <p class="note">分野のレベルが1つ上がるたびに、ポイントを1つもらえます。ここで割りふった効果は、ボスとの戦いのときだけ発揮されます（二人対戦には影響しません）。</p>
+      <p style="text-align:center; font-size:1.15rem; font-weight:bold; margin-top:10px">
+        のこりポイント：<span style="color:var(--accent)">${st.statPoints||0}</span>
+      </p>
+    </div>`;
+  rows.forEach(r=>{
+    html += `
+    <div class="card status-row">
+      <div class="status-row-info">
+        <div class="status-row-label">${r.label}</div>
+        <div class="note" style="margin-top:2px">${esc(r.desc)}</div>
+      </div>
+      <div class="status-row-ctrl">
+        <span class="status-row-val">${s[r.key]||0}</span>
+        <button class="btn inline" ${(st.statPoints||0)<=0?'disabled':''} onclick="allocateStat('${r.key}')">＋1</button>
+      </div>
+    </div>`;
+  });
+  html += `
+    <div class="btn-row">
+      <button class="btn secondary" onclick="resetStatusAllocation()">🔄 配分をリセット</button>
+      <button class="btn secondary" onclick="showHome()">ホームへ</button>
+    </div>`;
+  screen.innerHTML = html;
+}
+function allocateStat(key){
+  const st = loadStats();
+  if((st.statPoints||0) <= 0) return;
+  st.statPoints -= 1;
+  st.stats[key] = (st.stats[key]||0) + 1;
+  saveStats(st);
+  showStatusAllocation();
+}
+function resetStatusAllocation(){
+  const st = loadStats();
+  const spent = Object.values(st.stats||{}).reduce((a,b)=>a+b, 0);
+  if(spent === 0){ alert("まだポイントを割りふっていません。"); return; }
+  if(!confirm("ステータスの配分をすべてリセットして、ポイントを割りふり直せるようにします。よろしいですか？")) return;
+  st.statPoints = (st.statPoints||0) + spent;
+  st.stats = {hp:0, atk:0, def:0, luck:0};
+  saveStats(st);
+  showStatusAllocation();
 }
 
 /* ================= このアプリについて（せつめいページ） ================= */
@@ -1043,6 +1182,17 @@ function showHelp(){
         <li>目安として、<b>10問中8問くらい正解できれば、ほぼ確実に勝てる</b>ように作られています。</li>
         <li>負けてもアイテムを失うことはなく、何度でも挑戦できます。</li>
         <li>レベルアップでたまる「挑戦券」を使えば、遭遇を待たずに<b>いつでも</b>ランダムなボスに挑戦できます。</li>
+      </ul>
+    </div>
+
+    <h3 class="section">💪 ボス戦ステータスのシステム</h3>
+    <div class="card">
+      <ul class="help-list">
+        <li>分野のレベルが1つ上がるたびに、「ステータスポイント」を1つもらえます。</li>
+        <li>ホームの「ボス戦ステータス」画面で、<b>HP・攻撃力・防御力・運</b>の4つに好きなだけ割りふれます。</li>
+        <li><b>HP</b>はボス戦での最大体力、<b>攻撃力</b>は正解時のダメージ、<b>防御力</b>はボスから受けるダメージの軽減、<b>運</b>はダメージ2倍の「会心の一撃」の出やすさに関係します。</li>
+        <li>これらの効果は<b>ボス戦だけ</b>に反映されます（二人対戦には影響しません）。</li>
+        <li>「配分をリセット」ボタンで、いつでも割りふり直せます。</li>
       </ul>
     </div>
 
@@ -1638,6 +1788,13 @@ const BOSS_PLAYER_HP = 100;
 const BOSS_PLAYER_DMG = [125, 155];     // 正解時に与えるダメージ
 const BOSS_DMG_ON_CORRECT = [4, 6];     // 自分の攻撃が成功したときに受けるダメージ（軽い）
 const BOSS_DMG_ON_WRONG = [12, 16];     // 自分の攻撃が失敗したときに受けるダメージ（重い）
+/* ボス戦ステータス：割りふったポイント1つあたりの効果量 */
+const STAT_HP_PER_POINT = 5;
+const STAT_ATK_PER_POINT = 3;
+const STAT_DEF_PER_POINT = 1;
+const STAT_LUCK_CRIT_PCT_PER_POINT = 0.5;  // 運1ポイントごとに会心率+0.5%
+const STAT_LUCK_CRIT_CAP_PCT = 30;         // 会心率の上限
+const STAT_CRIT_MULT = 2;                  // 会心の一撃のダメージ倍率
 /* HP1000のボスに対し、最悪ケース（常に最小ダメージしか与えられず、常に最大ダメージを受ける）でも
    10問中8問正解すれば必ず勝てるように調整済み（撃破した回のボスの反撃は発生しないため、
    反撃を受けるのは最大9回。2回外した場合：2×16＋7×6＝74 < 自分のHP100）。 */
@@ -1694,9 +1851,11 @@ function resolveBossPrompt(choice){
 }
 function startBossBattle(boss){
   const cat = (quiz && quiz.key && CATS[quiz.key]) ? quiz.key : CAT_KEYS[Math.floor(Math.random()*CAT_KEYS.length)];
+  const ps = loadStats().stats || {hp:0,atk:0,def:0,luck:0};
+  const maxHp = BOSS_PLAYER_HP + ps.hp * STAT_HP_PER_POINT;
   bossBattle = {
     boss, bossHp: boss.hp, bossMaxHp: boss.hp,
-    playerHp: BOSS_PLAYER_HP, playerMaxHp: BOSS_PLAYER_HP,
+    playerHp: maxHp, playerMaxHp: maxHp,
     cat, item:null, order:null, lastQ:null,
   };
   bossNextQuestion();
@@ -1780,9 +1939,15 @@ function bossSubmitInput(){
 }
 function bossGrade(ok, chosenOrig, typed){
   const b = bossBattle, it = b.item;
-  let dealt = 0;
+  let dealt = 0, crit = false;
   if(ok){
-    dealt = randInt(BOSS_PLAYER_DMG[0], BOSS_PLAYER_DMG[1]);
+    const ps = loadStats().stats || {hp:0,atk:0,def:0,luck:0};
+    dealt = randInt(BOSS_PLAYER_DMG[0], BOSS_PLAYER_DMG[1]) + ps.atk * STAT_ATK_PER_POINT;
+    const critChance = Math.min(STAT_LUCK_CRIT_CAP_PCT, ps.luck * STAT_LUCK_CRIT_PCT_PER_POINT);
+    if(Math.random() * 100 < critChance){
+      crit = true;
+      dealt = Math.round(dealt * STAT_CRIT_MULT);
+    }
     b.bossHp = Math.max(0, b.bossHp - dealt);
   }
   refreshBossHpBars();
@@ -1805,7 +1970,7 @@ function bossGrade(ok, chosenOrig, typed){
   }else{
     expl = it.e ? esc(it.e) : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
   }
-  const dmgMsg = ok ? `<span class="lvup-chip">${esc(b.boss.name)}に ${dealt} ダメージ！</span>` : "";
+  const dmgMsg = ok ? `<span class="lvup-chip">${crit ? "💥会心の一撃！ " : ""}${esc(b.boss.name)}に ${dealt} ダメージ！</span>` : "";
   fb.innerHTML = `<div class="verdict">あなたのターン　${ok?"○ 正解！":"× ざんねん…"}${dmgMsg}</div>${expl}`;
   if(b.bossHp <= 0){
     // ボスを倒したときは反撃は発生せず、少し間をおいて自動的に結果画面へ
@@ -1819,7 +1984,8 @@ function bossGrade(ok, chosenOrig, typed){
 function bossCounterAttack(playerWasCorrect){
   const b = bossBattle;
   const range = playerWasCorrect ? BOSS_DMG_ON_CORRECT : BOSS_DMG_ON_WRONG;
-  const taken = randInt(range[0], range[1]);
+  const ps = loadStats().stats || {hp:0,atk:0,def:0,luck:0};
+  const taken = Math.max(1, randInt(range[0], range[1]) - ps.def * STAT_DEF_PER_POINT);
   b.playerHp = Math.max(0, b.playerHp - taken);
   refreshBossHpBars();
   const fb = document.getElementById("fb");
