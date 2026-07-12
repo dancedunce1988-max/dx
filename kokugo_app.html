@@ -523,7 +523,20 @@ function emptyStats(){
   const lv = {dokkai:1};
   CAT_KEYS.forEach(k => { cats[k] = {t:0,c:0}; lv[k] = 1; });
   return {cats, q:{}, lv, items:{}, bossPity:{}, kotonohaBranch:null, bossTickets:0, totalLevelUps:0,
-    statPoints:0, stats:{hp:0, atk:0, def:0, spd:0, luck:0}, kotonohaSeenForms:[], kotonohaDisplayOverride:null};
+    stats:{hp:0, atk:0, def:0, spd:0, luck:0}, kotonohaSeenForms:[], kotonohaDisplayOverride:null};
+}
+/* ステータスポイントは保存された数値ではなく、常にその場で計算する：
+   「分野レベルの合計（＝これまで獲得した経験値の合計）」から「すでに割りふった分」を引いた残り。
+   分野レベルは最初から正確に記録されているので、statPointsをいつ導入したかに関係なく、
+   前から遊んでいるプレイヤーの過去の経験値もすべて正しく反映される。 */
+function totalEarnedStatPoints(st){
+  return CAT_KEYS.reduce((sum,k) => sum + Math.max(0, (st.lv[k]||1) - 1), 0);
+}
+function spentStatPoints(st){
+  return Object.values(st.stats||{}).reduce((sum,v) => sum + (v||0), 0);
+}
+function unspentStatPoints(st){
+  return Math.max(0, totalEarnedStatPoints(st) - spentStatPoints(st));
 }
 function loadStats(){
   try{
@@ -539,8 +552,7 @@ function loadStats(){
         if(!st.bossPity) st.bossPity = {};
         if(typeof st.bossTickets !== "number") st.bossTickets = 0;
         if(typeof st.totalLevelUps !== "number") st.totalLevelUps = 0;
-        /* ステータスポイント：既存セーブには、これまでの経験値ぶんを一括で付与する（さかのぼり付与） */
-        if(typeof st.statPoints !== "number") st.statPoints = st.totalLevelUps || 0;
+        delete st.statPoints; // 旧バージョンの保存値。今後は使わず、常に導出する
         if(!st.stats) st.stats = {hp:0, atk:0, def:0, luck:0};
         if(typeof st.stats.spd !== "number") st.stats.spd = 0;
         if(!Array.isArray(st.kotonohaSeenForms)) st.kotonohaSeenForms = [];
@@ -574,7 +586,6 @@ function record(cat, item, correct){
     st.lv[cat]++;
     lvup = true;
     st.totalLevelUps = (st.totalLevelUps||0) + 1;
-    st.statPoints = (st.statPoints||0) + 1;
     if(st.totalLevelUps % 10 === 0){
       st.bossTickets = (st.bossTickets||0) + 1;
       gotTicket = true;
@@ -967,7 +978,7 @@ function kotonohaCardHtml(st){
       <tr><th>🛡️ 防御力</th><td>${s.def||0}</td><th>💨 素早さ</th><td>${s.spd||0}</td></tr>
       <tr><th>🍀 運</th><td>${s.luck||0}</td><td></td><td></td></tr>
     </table>
-    ${(st.statPoints||0) > 0 ? `<p class="note">✨ のこりステータスポイント：${st.statPoints}</p>` : ""}`;
+    ${unspentStatPoints(st) > 0 ? `<p class="note">✨ のこりステータスポイント：${unspentStatPoints(st)}</p>` : ""}`;
   return `
   <div class="card kotonoha-card">
     <h3 class="section">きみの相棒「ことのは」</h3>
@@ -1107,19 +1118,20 @@ function showHome(){
 function showStatusAllocation(){
   const st = loadStats();
   const s = st.stats;
+  const pts = unspentStatPoints(st);
   const rows = [
-    {key:"hp",   label:"❤️ HP",    desc:`ボス戦の最大HPが上がる（1ポイントで+${STAT_HP_PER_POINT}）`},
-    {key:"atk",  label:"⚔️ 攻撃力", desc:`正解したときにボスへ与えるダメージが増える（1ポイントで+${STAT_ATK_PER_POINT}）`},
-    {key:"def",  label:"🛡️ 防御力", desc:`ボスの攻撃で受けるダメージが割合で減る（1ポイントで被ダメージ-${STAT_DEF_PCT_PER_POINT}%、上限${STAT_DEF_CAP_PCT}%。最低1は受ける）`},
-    {key:"spd",  label:"💨 素早さ", desc:`ボスの攻撃を完全に回避できる確率が上がる（1ポイントで回避率+${STAT_SPD_EVASION_PCT_PER_POINT}%、上限${STAT_SPD_EVASION_CAP_PCT}%）`},
-    {key:"luck", label:"🍀 運",     desc:`正解したときに「会心の一撃」（ダメージ${STAT_CRIT_MULT}倍）が出やすくなる（上限${STAT_LUCK_CRIT_CAP_PCT}%）`},
+    {key:"hp",   label:"❤️ HP",    desc:"ボス戦での最大HPが上がる"},
+    {key:"atk",  label:"⚔️ 攻撃力", desc:"正解したときにボスへ与えるダメージが増える"},
+    {key:"def",  label:"🛡️ 防御力", desc:"ボスの攻撃で受けるダメージが減る"},
+    {key:"spd",  label:"💨 素早さ", desc:"ボスの攻撃を回避できる確率が上がる"},
+    {key:"luck", label:"🍀 運",     desc:"正解したときに「会心の一撃」が出やすくなる"},
   ];
   let html = `
     <div class="card">
       <h3 class="section">💪 ボス戦ステータス</h3>
       <p class="note">分野のレベルが1つ上がるたびに、ポイントを1つもらえます。ここで割りふった効果は、ボスとの戦いのときだけ発揮されます（二人対戦には影響しません）。</p>
       <p style="text-align:center; font-size:1.15rem; font-weight:bold; margin-top:10px">
-        のこりポイント：<span style="color:var(--accent)">${st.statPoints||0}</span>
+        のこりポイント：<span style="color:var(--accent)">${pts}</span>
       </p>
     </div>`;
   rows.forEach(r=>{
@@ -1132,7 +1144,7 @@ function showStatusAllocation(){
       <div class="status-row-ctrl">
         <button class="btn inline secondary" ${(s[r.key]||0)<=0?'disabled':''} onclick="allocateStat('${r.key}', -1)">－</button>
         <span class="status-row-val">${s[r.key]||0}</span>
-        <button class="btn inline" ${(st.statPoints||0)<=0?'disabled':''} onclick="allocateStat('${r.key}', 1)">＋</button>
+        <button class="btn inline" ${pts<=0?'disabled':''} onclick="allocateStat('${r.key}', 1)">＋</button>
       </div>
     </div>`;
   });
@@ -1146,23 +1158,20 @@ function showStatusAllocation(){
 function allocateStat(key, delta){
   const st = loadStats();
   if(delta > 0){
-    if((st.statPoints||0) <= 0) return;
-    st.statPoints -= 1;
+    if(unspentStatPoints(st) <= 0) return;
     st.stats[key] = (st.stats[key]||0) + 1;
   }else{
     if((st.stats[key]||0) <= 0) return;
     st.stats[key] -= 1;
-    st.statPoints = (st.statPoints||0) + 1;
   }
   saveStats(st);
   showStatusAllocation();
 }
 function resetStatusAllocation(){
   const st = loadStats();
-  const spent = Object.values(st.stats||{}).reduce((a,b)=>a+b, 0);
+  const spent = spentStatPoints(st);
   if(spent === 0){ alert("まだポイントを割りふっていません。"); return; }
   if(!confirm("ステータスの配分をすべてリセットして、ポイントを割りふり直せるようにします。よろしいですか？")) return;
-  st.statPoints = (st.statPoints||0) + spent;
   st.stats = {hp:0, atk:0, def:0, spd:0, luck:0};
   saveStats(st);
   showStatusAllocation();
@@ -1201,7 +1210,7 @@ function showHelp(){
       <ul class="help-list">
         <li>ふつうに問題を解いていると、<b>ごくまれに（1/40くらいの確率で）</b>ボスが勝負をしかけてきます。</li>
         <li>「勝負する」か「いいえ」かを、その場で選べます。断ってもペナルティはありません。</li>
-        <li>ボス戦では、あなたのHPは100前後、ボスのHPは900〜1300くらい。<b>正解するとボスにダメージ</b>を与え、<b>不正解だと自分がダメージ</b>を受けます（間違えたときのほうがダメージが大きいので、正解を積み重ねることが大切です）。</li>
+        <li>ボス戦では、<b>正解するとボスにダメージ</b>を与え、<b>不正解だと自分がダメージ</b>を受けます（間違えたときのほうがダメージが大きいので、正解を積み重ねることが大切です）。</li>
         <li>ボスにはそれぞれ個性があり、<b>HPが高くて硬いボス</b>、<b>攻撃がはげしいボス</b>、<b>防御・回避にすぐれたボス</b>など、戦い方が少しずつちがいます。</li>
         <li>それぞれのボスには「<b>適正経験値</b>」の目安があり、遭遇したときに表示されます。その分のステータスポイントを持って挑めば、8割正解ペースで勝率85〜90%くらいになるよう調整されています。適正経験値より少ないと、格上のボスほど勝つのが難しくなります。</li>
         <li>負けてもアイテムを失うことはなく、何度でも挑戦できます。</li>
@@ -1214,8 +1223,8 @@ function showHelp(){
       <ul class="help-list">
         <li>分野のレベルが1つ上がるたびに、「ステータスポイント」を1つもらえます。</li>
         <li>ホームの「ボス戦ステータス」画面で、<b>HP・攻撃力・防御力・素早さ・運</b>の5つに好きなだけ割りふれます。</li>
-        <li><b>HP</b>はボス戦での最大体力、<b>攻撃力</b>は正解時のダメージ、<b>防御力</b>はボスから受けるダメージの軽減、<b>素早さ</b>はボスの攻撃を完全に回避できる確率、<b>運</b>はダメージ2倍の「会心の一撃」の出やすさに関係します。</li>
-        <li>これらの効果は<b>ボス戦だけ</b>に反映されます（二人対戦には影響しません）。ボス側にも同じ5つのステータスがあり、防御力や素早さが高いボスは攻撃が効きにくくなります。</li>
+        <li><b>HP</b>はボス戦での最大体力、<b>攻撃力</b>は正解時のダメージ、<b>防御力</b>はボスから受けるダメージの軽減、<b>素早さ</b>はボスの攻撃を回避できる確率、<b>運</b>は「会心の一撃」の出やすさに関係します。どのステータスも、注げば注ぐほど少しずつ効果が伸びていくので、無駄になりません。</li>
+        <li>これらの効果は<b>ボス戦だけ</b>に反映されます（二人対戦には影響しません）。ボス側にも同じような個性があり、素早さでの回避は、ボスの「命中率」との駆け引きになります。</li>
         <li>「配分をリセット」ボタンで、いつでも割りふり直せます。</li>
       </ul>
     </div>
@@ -1795,28 +1804,33 @@ function endBattle(){
    さらに貴重な「宝具」も落とす。集めたアイテムは成績とは別に、ずっと記録される。
 
    バランス設計（「適正経験値」方式）：
-   防御・回避は固定値の引き算ではなく割合で軽減／無効化するしくみにしている
-   （数ポイントの投資で被ダメージが一律1に落ちてしまう問題を避けるため。
-   プレイヤー側・ボス側とも同じしくみ）。
+   ボスの防御・回避は固定値の引き算ではなく割合で軽減／無効化するしくみにしている
+   （数ポイントの投資で被ダメージが一律1に落ちてしまう問題を避けるため）。
+   プレイヤー側の防御力・素早さ・運は、上限のある「〇%で頭打ち」の式ではなく、
+   ポイントを増やすほど際限なく効果が伸びていく（ただし伸び方はゆるやかになっていく）
+   「逓減式」にしている。これにより、どのステータスにポイントを注いでも無駄にならない。
+   素早さ（回避）は、ボス側の新しい「命中率」と綱引きするしくみにした
+   （素早さだけを見て「〇ポイントで頭打ち」とはならず、相手の命中率次第で価値が変わる）。
    各ボスには「適正経験値」recPts を個別に設定。その分のステータスポイントを
    HP・攻撃力・防御力・素早さ・運の5項目に均等に振り分けた状態で、8割正解ペースなら
-   勝率85〜90%程度になるよう、HP・攻撃力・防御%・回避%・運をシミュレーションで調整している
+   勝率85〜90%程度になるよう、HP・攻撃力・防御%・命中率・運をシミュレーションで調整している
    （ステータス未強化のままだと、適正経験値の高いボスほど勝つのが難しくなる）。 */
-/* ボスごとの個性（プレイヤーのステータスと同じ5項目）＋レベル・適正経験値：
+/* ボスごとの個性（プレイヤーのステータスと対になる項目）＋レベル・適正経験値：
    hp       … 体力
    atk      … 反撃ダメージの倍率（1.0が基準）
-   defPct   … プレイヤーの攻撃ダメージを軽減する割合（%）。プレイヤーの防御力と同じ仕組み
-   evadePct … プレイヤーの攻撃を完全に回避する確率（%）。プレイヤーの素早さと同じ仕組み
+   defPct   … プレイヤーの攻撃ダメージを軽減する割合（%）
+   accuracy … 反撃がプレイヤーに命中する力。プレイヤーの素早さ（回避）と綱引きする
+   evadePct … プレイヤーの攻撃を完全に回避する確率（%）
    luck     … 反撃が「会心の一撃」になる確率（%）。会心時は反撃ダメージが1.5倍になる
    lv       … ボスのレベル（表示用）
    recPts   … 適正経験値。このぶんのステータスポイントを持って挑むことを想定している */
 const BOSSES = [
-  {id:"tekkyu",     name:"鉄球を持ったお姉さん【ケイ】",         icon:"⚫", item:"鉄球",             treasure:"ぴかぴかの鉄球",             hp:4150, atk:1.7,  defPct:10, evadePct:5,  luck:8,  lv:10, recPts:100},
-  {id:"houcho",     name:"包丁を持った紳士【ムライオ】",         icon:"🔪", item:"包丁",             treasure:"調理室",                     hp:6500, atk:15.3, defPct:5,  evadePct:5,  luck:14, lv:16, recPts:500},
-  {id:"volleyball", name:"バレーボールを持ったお兄さん【サノー】", icon:"🏐", item:"バレーボール",     treasure:"人体模型",                   hp:2460, atk:1.0,  defPct:15, evadePct:10, luck:8,  lv:5,  recPts:50},
-  {id:"yakyu",      name:"車好き野球プレーヤー【シゲっち】",     icon:"⚾", item:"野球ボール",       treasure:"ホームランバット",           hp:2270, atk:1.1,  defPct:10, evadePct:10, luck:20, lv:6,  recPts:50},
-  {id:"suugaku",    name:"数学の化身【ケンさん】",               icon:"📐", item:"三角定規",         treasure:"大きなコンパス",             hp:4500, atk:8.25, defPct:50, evadePct:38, luck:5,  lv:15, recPts:500},
-  {id:"bijutsu",    name:"美術の案内人【サオーリ】",             icon:"🖌️", item:"ふつうの筆",       treasure:"描いたものが現実になる筆",   hp:4330, atk:1.0,  defPct:10, evadePct:10, luck:26, lv:7,  recPts:80},
+  {id:"tekkyu",     name:"鉄球を持ったお姉さん【ケイ】",         icon:"⚫", item:"鉄球",             treasure:"ぴかぴかの鉄球",             hp:4610,  atk:1.7,   defPct:10, accuracy:120, evadePct:5,  luck:8,  lv:10, recPts:100},
+  {id:"houcho",     name:"包丁を持った紳士【ムライオ】",         icon:"🔪", item:"包丁",             treasure:"調理室",                     hp:11000, atk:25.38, defPct:5,  accuracy:150, evadePct:5,  luck:14, lv:16, recPts:500},
+  {id:"volleyball", name:"バレーボールを持ったお兄さん【サノー】", icon:"🏐", item:"バレーボール",     treasure:"人体模型",                   hp:2870,  atk:1.0,   defPct:15, accuracy:100, evadePct:10, luck:8,  lv:5,  recPts:50},
+  {id:"yakyu",      name:"車好き野球プレーヤー【シゲっち】",     icon:"⚾", item:"野球ボール",       treasure:"ホームランバット",           hp:2750,  atk:1.1,   defPct:10, accuracy:90,  evadePct:10, luck:20, lv:6,  recPts:50},
+  {id:"suugaku",    name:"数学の化身【ケンさん】",               icon:"📐", item:"三角定規",         treasure:"大きなコンパス",             hp:7000,  atk:20.16, defPct:50, accuracy:90,  evadePct:38, luck:5,  lv:15, recPts:500},
+  {id:"bijutsu",    name:"美術の案内人【サオーリ】",             icon:"🖌️", item:"ふつうの筆",       treasure:"描いたものが現実になる筆",   hp:5460,  atk:1.0,   defPct:10, accuracy:85,  evadePct:10, luck:26, lv:7,  recPts:80},
 ];
 const BOSS_ENCOUNTER_RATE = 1/40;
 const BOSS_TREASURE_RATE = 0.1;
@@ -1825,17 +1839,15 @@ const BOSS_PLAYER_HP = 100;
 const BOSS_PLAYER_DMG = [125, 155];     // 正解時に与えるダメージ
 const BOSS_DMG_ON_CORRECT = [4, 6];     // 自分の攻撃が成功したときに受けるダメージ（軽い）
 const BOSS_DMG_ON_WRONG = [12, 16];     // 自分の攻撃が失敗したときに受けるダメージ（重い）
-/* ボス戦ステータス：割りふったポイント1つあたりの効果量
-   防御力は、ボス側と同じく「割合軽減」にしている（固定値の引き算だと、数ポイントの
-   投資だけで被ダメージが一律1に落ちてしまい、他のステータスとの釣り合いが取れないため）。 */
+/* ボス戦ステータス：割りふったポイントの効果量。
+   防御力・運は「〇ポイントで半分の効果」という逓減式（上限なし、常に少しずつ伸びる）。
+   素早さは、ポイント数に応じた「回避パワー」を持ち、ボスの命中率との比率で命中/回避が決まる
+   （回避パワー = 素早さ × STAT_SPD_EVASION_UNIT）。 */
 const STAT_HP_PER_POINT = 5;
 const STAT_ATK_PER_POINT = 3;
-const STAT_DEF_PCT_PER_POINT = 2;          // 防御力1ポイントごとに被ダメージ-2%
-const STAT_DEF_CAP_PCT = 60;               // 防御力による被ダメージ軽減の上限
-const STAT_SPD_EVASION_PCT_PER_POINT = 1;  // 素早さ1ポイントごとに回避率+1%
-const STAT_SPD_EVASION_CAP_PCT = 40;       // 回避率の上限
-const STAT_LUCK_CRIT_PCT_PER_POINT = 0.5;  // 運1ポイントごとに会心率+0.5%
-const STAT_LUCK_CRIT_CAP_PCT = 30;         // 会心率の上限
+const STAT_DEF_HALF_POINT = 30;   // 防御力がこのポイント数のとき、被ダメージが半分になる
+const STAT_LUCK_HALF_POINT = 100; // 運がこのポイント数のとき、会心率が50%になる
+const STAT_SPD_EVASION_UNIT = 2;  // 素早さ1ポイントあたりの回避パワー
 const STAT_CRIT_MULT = 2;                  // 会心の一撃のダメージ倍率
 /* 各ボスのHP・攻撃力・防御%・回避%・運は、「適正経験値（recPts）を5項目に均等に振り分けた
    プレイヤー」が8割の正解率で挑んだとき、勝率がおよそ85〜90%になるようシミュレーションで
@@ -1868,7 +1880,7 @@ function renderBossPrompt(){
     <div class="card boss-encounter">
       <div class="boss-enc-icon">${b.icon}</div>
       <p class="boss-enc-text">「${esc(b.name)}」<span class="boss-lv-tag">Lv.${b.lv||"?"}</span>が勝負をしかけてきた。<br>勝負しますか？</p>
-      <p class="note boss-enc-hint">適正経験値の目安：${b.recPts||0}pt（今のステータスポイント：${st.statPoints||0}pt）</p>
+      <p class="note boss-enc-hint">適正経験値の目安：${b.recPts||0}pt（今のステータスポイント：${unspentStatPoints(st)}pt）</p>
       <div class="boss-enc-choices">
         <button class="boss-enc-btn ${bossPromptSelection==='no'?'selected':''}" onclick="resolveBossPrompt('no')">いいえ</button>
         <button class="boss-enc-btn ${bossPromptSelection==='yes'?'selected':''}" onclick="resolveBossPrompt('yes')">勝負する</button>
@@ -2000,7 +2012,7 @@ function bossGrade(ok, chosenOrig, typed){
     }else{
       const ps = loadStats().stats || {hp:0,atk:0,def:0,spd:0,luck:0};
       dealt = randInt(BOSS_PLAYER_DMG[0], BOSS_PLAYER_DMG[1]) + ps.atk * STAT_ATK_PER_POINT;
-      const critChance = Math.min(STAT_LUCK_CRIT_CAP_PCT, ps.luck * STAT_LUCK_CRIT_PCT_PER_POINT);
+      const critChance = 100 * ps.luck / (ps.luck + STAT_LUCK_HALF_POINT);
       if(Math.random() * 100 < critChance){
         crit = true;
         dealt = Math.round(dealt * STAT_CRIT_MULT);
@@ -2048,9 +2060,11 @@ function bossCounterAttack(playerWasCorrect){
   const b = bossBattle;
   const range = playerWasCorrect ? BOSS_DMG_ON_CORRECT : BOSS_DMG_ON_WRONG;
   const ps = loadStats().stats || {hp:0,atk:0,def:0,spd:0,luck:0};
-  const evaPct = Math.min(STAT_SPD_EVASION_CAP_PCT, ps.spd * STAT_SPD_EVASION_PCT_PER_POINT);
+  const evasionPower = ps.spd * STAT_SPD_EVASION_UNIT;
+  const accuracy = b.boss.accuracy || 100;
+  const hitChance = accuracy / (accuracy + evasionPower); // 素早さとボスの命中率の綱引き
   let taken = 0, bossCrit = false, playerEvaded = false;
-  if(Math.random() * 100 < evaPct){
+  if(Math.random() >= hitChance){
     playerEvaded = true;
   }else{
     let raw = randInt(range[0], range[1]) * (b.boss.atk||1);
@@ -2058,8 +2072,8 @@ function bossCounterAttack(playerWasCorrect){
       bossCrit = true;
       raw *= 1.5;
     }
-    const defPct = Math.min(STAT_DEF_CAP_PCT, ps.def * STAT_DEF_PCT_PER_POINT) / 100;
-    taken = Math.max(1, Math.round(raw * (1 - defPct)));
+    const defReduction = ps.def / (ps.def + STAT_DEF_HALF_POINT);
+    taken = Math.max(1, Math.round(raw * (1 - defReduction)));
     b.playerHp = Math.max(0, b.playerHp - taken);
   }
   refreshBossHpBars();
@@ -2128,14 +2142,15 @@ function endBossBattle(){
 function showTicketConfirm(){
   const st = loadStats();
   if((st.bossTickets||0) <= 0){ showHome(); return; }
-  const candidates = ticketEligibleBosses(st.statPoints);
+  const pts = unspentStatPoints(st);
+  const candidates = ticketEligibleBosses(pts);
   const names = candidates.map(b => b.name.match(/【(.+)】/)?.[1] || b.name).join("・");
   screen.innerHTML = `
     <div class="card boss-encounter">
       <div class="boss-enc-icon">🎟️</div>
       <p class="boss-enc-text">挑戦券を1枚使って、ランダムなボスに挑戦しますか？<br><b>挑戦すると、券を1枚消費します。</b></p>
       <p class="note boss-enc-hint">🌐 挑戦券を使った対戦は、全ジャンルからランダムに出題されます（ふだんのランダム遭遇では、そのとき解いていたジャンルのまま出題されます）。</p>
-      <p class="note boss-enc-hint">🎯 出現するのは、今のステータスポイント（${st.statPoints||0}pt）で適正経験値以下のボスだけです。今回の候補：${esc(names)}</p>
+      <p class="note boss-enc-hint">🎯 出現するのは、今のステータスポイント（${pts}pt）で適正経験値以下のボスだけです。今回の候補：${esc(names)}</p>
       <div class="boss-enc-choices">
         <button class="boss-enc-btn" onclick="showHome()">やめる</button>
         <button class="boss-enc-btn selected" onclick="useTicketAndFight()">券を1枚使って挑戦する</button>
@@ -2154,7 +2169,7 @@ function useTicketAndFight(){
   if((st.bossTickets||0) <= 0){ showHome(); return; }
   st.bossTickets -= 1;
   saveStats(st);
-  const candidates = ticketEligibleBosses(st.statPoints);
+  const candidates = ticketEligibleBosses(unspentStatPoints(st));
   const boss = candidates[Math.floor(Math.random() * candidates.length)];
   startBossBattle(boss, true);
 }
