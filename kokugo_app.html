@@ -523,7 +523,7 @@ function emptyStats(){
   const cats = {dokkai:{t:0,c:0}};
   const lv = {dokkai:1};
   CAT_KEYS.forEach(k => { cats[k] = {t:0,c:0}; lv[k] = 1; });
-  return {cats, q:{}, lv, items:{}, bossPity:{}, kotonohaBranch:null, bossTickets:0, totalLevelUps:0,
+  return {cats, q:{}, lv, items:{}, bossPity:{}, kotonohaOtherRoll:null, bossTickets:0, totalLevelUps:0,
     stats:{hp:0, atk:0, def:0, spd:0, luck:0}, kotonohaSeenForms:[], kotonohaDisplayOverride:null};
 }
 /* ステータスポイントは保存された数値ではなく、常にその場で計算する：
@@ -558,6 +558,13 @@ function loadStats(){
         if(typeof st.stats.spd !== "number") st.stats.spd = 0;
         if(!Array.isArray(st.kotonohaSeenForms)) st.kotonohaSeenForms = [];
         if(st.kotonohaDisplayOverride === undefined) st.kotonohaDisplayOverride = null;
+        /* 旧バージョンで「その他型」が固定されていた場合、今の見た目をそのまま引き継ぐ
+           （次に進化するタイミングから、新しいランダム抽選のしくみに切りかわる）。 */
+        if(!st.kotonohaOtherRoll && KOTONOHA_OTHER_TYPES.includes(st.kotonohaBranch)){
+          st.kotonohaOtherRoll = {stageIdx: kotonohaStageIndex(kotonohaTotalXP(st)), type: st.kotonohaBranch};
+        }
+        if(st.kotonohaOtherRoll === undefined) st.kotonohaOtherRoll = null;
+        delete st.kotonohaBranch;
         return st;
       }
     }
@@ -896,20 +903,25 @@ const KOTONOHA_TYPE_LABEL = {
   3:"その他型（のびのび系）", 5:"その他型（ほのお系）", 6:"その他型（うみかぜ系）",
   7:"その他型（ほしぞら系）", 8:"その他型（おとの系）", 9:"その他型（はなぞの系）",
 };
-/* 「その他型」に分類される場合、5系統＋従来ののびのび系の計6系統からランダムに1つを選び、
-   一度決まったらそのセーブデータではずっと同じ系統になる（人によって進化が変わる） */
+/* 「その他型」に分類される場合、6系統（のびのび・ほのお・うみかぜ・ほしぞら・おとの・はなぞの）
+   から完全ランダムに1つを選ぶ。一領域特化・二領域特化・全領域バランスの条件を満たすときだけ
+   特定の系統（1・2・4）が確定し、それ以外（＝「その他型」）は進化するたびに毎回抽選し直す
+   （同じ段階の間は再抽選しないよう、直前に抽選した「段階」を記録しておく）。 */
 const KOTONOHA_OTHER_TYPES = [3, 5, 6, 7, 8, 9];
 function kotonohaTotalXP(st){
   return CAT_KEYS.reduce((sum,k)=> sum + (st.lv[k]||1), 0);
 }
-function kotonohaOtherType(st){
-  if(!KOTONOHA_OTHER_TYPES.includes(st.kotonohaBranch)){
-    st.kotonohaBranch = KOTONOHA_OTHER_TYPES[Math.floor(Math.random() * KOTONOHA_OTHER_TYPES.length)];
-    saveStats(st);
+function kotonohaOtherType(st, stageIdx){
+  const roll = st.kotonohaOtherRoll;
+  if(roll && roll.stageIdx === stageIdx && KOTONOHA_OTHER_TYPES.includes(roll.type)){
+    return roll.type;
   }
-  return st.kotonohaBranch;
+  const type = KOTONOHA_OTHER_TYPES[Math.floor(Math.random() * KOTONOHA_OTHER_TYPES.length)];
+  st.kotonohaOtherRoll = {stageIdx, type};
+  saveStats(st);
+  return type;
 }
-function kotonohaType(st){
+function kotonohaType(st, stageIdx){
   const lvs = CAT_KEYS.map(k => st.lv[k]||1);
   const total = lvs.reduce((a,b)=>a+b, 0);
   const sorted = [...lvs].sort((a,b)=>b-a);
@@ -920,7 +932,7 @@ function kotonohaType(st){
   const avg = total / CAT_KEYS.length;
   const maxDev = Math.max(...lvs.map(v => Math.abs(v - avg) / avg));
   if(maxDev <= 0.20) return 4;
-  return kotonohaOtherType(st);
+  return kotonohaOtherType(st, stageIdx);
 }
 function kotonohaStageIndex(totalXPVal){
   let idx = 0;
@@ -931,7 +943,7 @@ function kotonohaForm(st){
   const total = kotonohaTotalXP(st);
   const stageIdx = kotonohaStageIndex(total);
   if(stageIdx === 0) return {name:"ことばのたまご", icon:"🥚", type:null, stageIdx, total};
-  const type = kotonohaType(st);
+  const type = kotonohaType(st, stageIdx);
   const line = KOTONOHA_LINES[type];
   const form = line[stageIdx-1] || line[line.length-1];
   return {name:form.name, icon:form.icon, type, stageIdx, total};
