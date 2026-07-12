@@ -750,8 +750,11 @@ document.addEventListener("keydown", handleChoiceKey);
      4. 全領域バランス型：すべての領域が平均レベルの±20%以内におさまっている
    1は不健康、2はそれより元気、3はさらに元気、4は伝説級の見た目にする。 */
 /* 分野ごとの「称号みちのり」（Lv1,10,30,60,100,150,210,280,360,450,550,660,780,900）と
-   同じ間隔パターンを流用し、経験値1000で最終形態（14段階目）に到達するようにする。 */
-const KOTONOHA_STAGE_XP = [0, 10, 30, 60, 100, 150, 210, 280, 360, 450, 550, 660, 780, 900, 1000];
+   同じ間隔パターンを流用し、経験値1000で旧・最終形態（14段階目）に到達するようにする。
+   そこからさらに、経験値200ごとに5段階（15〜19段階目）を追加し、最終形態のその先へ
+   進化できるようにしてある（19段階目が新しい最終形態）。 */
+const KOTONOHA_STAGE_XP = [0, 10, 30, 60, 100, 150, 210, 280, 360, 450, 550, 660, 780, 900, 1000,
+  1200, 1400, 1600, 1800, 2000];
 const KOTONOHA_LINES = {
   1:[ // 一領域特化型：偏った特訓で息切れ気味の、不健康系ライン
     {name:"しおれつぼみ",         icon:"🥀"},
@@ -768,6 +771,11 @@ const KOTONOHA_LINES = {
     {name:"のろわれし古狼",       icon:"🐺"},
     {name:"隻眼の若き枯れ竜",     icon:"🐲"},
     {name:"隻眼の枯れ竜",         icon:"🐉"},
+    {name:"荒ぶる邪竜",           icon:"🐲"},
+    {name:"呪われし竜皇",         icon:"🐉"},
+    {name:"冥府を統べる竜神",     icon:"🌑"},
+    {name:"万物を蝕む黒竜",       icon:"🖤"},
+    {name:"終わりなき混沌の主",   icon:"🌌"},
   ],
   2:[ // 二領域特化型：1よりは元気な、コンビプレー系ライン
     {name:"げんきなふたば",       icon:"🌱"},
@@ -784,6 +792,11 @@ const KOTONOHA_LINES = {
     {name:"誓いの双翼騎士",       icon:"🐎"},
     {name:"そうりつの若竜",       icon:"🐲"},
     {name:"そうりつの竜",         icon:"🐉"},
+    {name:"双竜の絆皇",           icon:"🐉"},
+    {name:"誓約の双竜神",         icon:"⚡"},
+    {name:"双天を統べる竜王",     icon:"🌟"},
+    {name:"不滅の双竜皇帝",       icon:"👑"},
+    {name:"万象を結ぶ双生竜",     icon:"🌌"},
   ],
   3:[ // その他型・のびのび系：2よりさらに元気なライン（下の5系統とランダムで抽選される）
     {name:"いきいき新芽",         icon:"🌿"},
@@ -800,6 +813,11 @@ const KOTONOHA_LINES = {
     {name:"天翔ける瑞獣",         icon:"🌟"},
     {name:"きらめく若竜",         icon:"🐲"},
     {name:"きらめく神竜",         icon:"🐉"},
+    {name:"光輝の竜皇",           icon:"✨"},
+    {name:"天翔ける光竜神",       icon:"🌟"},
+    {name:"万物を照らす竜王",     icon:"💫"},
+    {name:"聖光を統べる者",       icon:"🌠"},
+    {name:"光の始原竜",           icon:"🌌"},
   ],
   4:[ // 全領域バランス型：伝説級ライン
     {name:"せいれいの新芽",       icon:"🌟"},
@@ -816,6 +834,11 @@ const KOTONOHA_LINES = {
     {name:"万象を統べる者",       icon:"🔮"},
     {name:"究極言霊の若竜",       icon:"🐲"},
     {name:"究極言霊竜・ことのは", icon:"🐉"},
+    {name:"万象を紡ぐ言霊竜皇",   icon:"🌌"},
+    {name:"森羅を統べる言霊神竜", icon:"✨"},
+    {name:"時空を超えし賢竜王",   icon:"⏳"},
+    {name:"万有を照らす究極神",   icon:"🌟"},
+    {name:"全てを言葉にする者・ことのは真体", icon:"🌈"},
   ],
   5:[ // その他型・ほのお系
     {name:"ちいさな火だね",       icon:"🔥"},
@@ -832,6 +855,11 @@ const KOTONOHA_LINES = {
     {name:"業炎の賢者",           icon:"🔆"},
     {name:"火の若竜",             icon:"🐲"},
     {name:"火竜",                 icon:"🐉"},
+    {name:"業火の竜皇",           icon:"🔥"},
+    {name:"太陽を統べる炎神竜",   icon:"☀️"},
+    {name:"天を焦がす竜王",       icon:"🌋"},
+    {name:"万物を焼き尽くす炎神", icon:"💥"},
+    {name:"焔の始原竜",           icon:"🔆"},
   ],
   6:[ // その他型・うみかぜ系
     {name:"しずくの精",           icon:"💧"},
@@ -848,6 +876,11 @@ const KOTONOHA_LINES = {
     {name:"深淵を統べる者",       icon:"🌀"},
     {name:"海の若竜",             icon:"🐲"},
     {name:"海竜",                 icon:"🐉"},
+    {name:"大海の竜皇",           icon:"🌊"},
+    {name:"深淵を統べる海神竜",   icon:"🌀"},
+    {name:"潮流を操る竜王",       icon:"🐋"},
+    {name:"万海を統べる者",       icon:"🌐"},
+    {name:"海の始原竜",           icon:"🌌"},
   ],
   7:[ // その他型・ほしぞら系
     {name:"星のかけら",           icon:"⭐"},
@@ -864,6 +897,11 @@ const KOTONOHA_LINES = {
     {name:"宇宙を統べる者",       icon:"🌃"},
     {name:"星の若竜",             icon:"🐲"},
     {name:"星竜",                 icon:"🐉"},
+    {name:"銀河の竜皇",           icon:"🌌"},
+    {name:"宇宙を統べる星神竜",   icon:"🌠"},
+    {name:"時を超える竜王",       icon:"⏳"},
+    {name:"万天を統べる者",       icon:"🪐"},
+    {name:"星の始原竜",           icon:"✨"},
   ],
   8:[ // その他型・おとの系
     {name:"音符のたね",           icon:"🎵"},
@@ -880,6 +918,11 @@ const KOTONOHA_LINES = {
     {name:"万物を奏でる者",       icon:"🎙️"},
     {name:"音の若竜",             icon:"🐲"},
     {name:"音竜",                 icon:"🐉"},
+    {name:"旋律の竜皇",           icon:"🎶"},
+    {name:"天地を鳴らす音神竜",   icon:"🎺"},
+    {name:"調べを統べる竜王",     icon:"🎻"},
+    {name:"万音を統べる者",       icon:"🔊"},
+    {name:"音の始原竜",           icon:"🎼"},
   ],
   9:[ // その他型・はなぞの系
     {name:"つぼみの精",           icon:"🌷"},
@@ -896,6 +939,11 @@ const KOTONOHA_LINES = {
     {name:"万葉の化身",           icon:"🍃"},
     {name:"花の若竜",             icon:"🐲"},
     {name:"花竜",                 icon:"🐉"},
+    {name:"百花の竜皇",           icon:"🌸"},
+    {name:"楽園を統べる花神竜",   icon:"🌺"},
+    {name:"万葉を統べる竜王",     icon:"🍃"},
+    {name:"万花を統べる者",       icon:"🌼"},
+    {name:"花の始原竜",           icon:"🌹"},
   ],
 };
 const KOTONOHA_TYPE_LABEL = {
@@ -1891,6 +1939,7 @@ const TREASURE_NAMES = new Set(BOSSES.map(b => b.treasure));
 function randInt(min, max){ return min + Math.floor(Math.random() * (max - min + 1)); }
 
 let pendingBoss = null;
+let pendingBossAllGenre = false; // 挑戦券からの遭遇のときtrue（全ジャンル出題・文言が変わる）
 let bossPromptSelection = "no";
 let bossPromptResumeFn = null;
 let bossPromptActive = false;
@@ -1902,6 +1951,7 @@ function rollBossEncounter(resumeFn){
   if(bossPromptActive || bossBattle) return false;
   if(Math.random() >= BOSS_ENCOUNTER_RATE) return false;
   pendingBoss = BOSSES[Math.floor(Math.random() * BOSSES.length)];
+  pendingBossAllGenre = false;
   bossPromptResumeFn = resumeFn;
   bossPromptActive = true;
   bossPromptSelection = "no";
@@ -1911,10 +1961,13 @@ function rollBossEncounter(resumeFn){
 function renderBossPrompt(){
   const b = pendingBoss;
   const st = loadStats();
+  const introText = pendingBossAllGenre
+    ? `「${esc(b.name)}」<span class="boss-lv-tag">Lv.${b.lv||"?"}</span>が勝負したそうにこちらを見ている。`
+    : `「${esc(b.name)}」<span class="boss-lv-tag">Lv.${b.lv||"?"}</span>が勝負をしかけてきた。`;
   screen.innerHTML = `
     <div class="card boss-encounter">
       <div class="boss-enc-icon">${b.icon}</div>
-      <p class="boss-enc-text">「${esc(b.name)}」<span class="boss-lv-tag">Lv.${b.lv||"?"}</span>が勝負をしかけてきた。<br>勝負しますか？</p>
+      <p class="boss-enc-text">${introText}<br>勝負しますか？</p>
       <p class="note boss-enc-hint">適正経験値の目安：${b.recPts||0}pt（今の経験値：${totalEarnedStatPoints(st)}pt）</p>
       <div class="boss-enc-choices">
         <button class="boss-enc-btn ${bossPromptSelection==='no'?'selected':''}" onclick="resolveBossPrompt('no')">いいえ</button>
@@ -1932,11 +1985,12 @@ function resolveBossPrompt(choice){
   if(!bossPromptActive) return;
   bossPromptActive = false;
   if(choice === "yes"){
-    startBossBattle(pendingBoss);
+    startBossBattle(pendingBoss, pendingBossAllGenre);
   }else{
     const fn = bossPromptResumeFn;
     bossPromptResumeFn = null;
     pendingBoss = null;
+    pendingBossAllGenre = false;
     if(fn) fn();
   }
 }
@@ -2207,7 +2261,13 @@ function useTicketAndFight(){
   saveStats(st);
   const candidates = ticketEligibleBosses(totalEarnedStatPoints(st));
   const boss = candidates[Math.floor(Math.random() * candidates.length)];
-  startBossBattle(boss, true);
+  // どのボスが出たかを見せてから、あらためて「勝負する」を選んでもらう（renderBossPromptを共用）
+  pendingBoss = boss;
+  pendingBossAllGenre = true;
+  bossPromptResumeFn = () => showHome();
+  bossPromptActive = true;
+  bossPromptSelection = "no";
+  renderBossPrompt();
 }
 function isTreasureItem(name){ return TREASURE_NAMES.has(name); }
 function itemListHtml(keys, items){
