@@ -1130,8 +1130,9 @@ function showStatusAllocation(){
         <div class="note" style="margin-top:2px">${esc(r.desc)}</div>
       </div>
       <div class="status-row-ctrl">
+        <button class="btn inline secondary" ${(s[r.key]||0)<=0?'disabled':''} onclick="allocateStat('${r.key}', -1)">－</button>
         <span class="status-row-val">${s[r.key]||0}</span>
-        <button class="btn inline" ${(st.statPoints||0)<=0?'disabled':''} onclick="allocateStat('${r.key}')">＋1</button>
+        <button class="btn inline" ${(st.statPoints||0)<=0?'disabled':''} onclick="allocateStat('${r.key}', 1)">＋</button>
       </div>
     </div>`;
   });
@@ -1142,11 +1143,17 @@ function showStatusAllocation(){
     </div>`;
   screen.innerHTML = html;
 }
-function allocateStat(key){
+function allocateStat(key, delta){
   const st = loadStats();
-  if((st.statPoints||0) <= 0) return;
-  st.statPoints -= 1;
-  st.stats[key] = (st.stats[key]||0) + 1;
+  if(delta > 0){
+    if((st.statPoints||0) <= 0) return;
+    st.statPoints -= 1;
+    st.stats[key] = (st.stats[key]||0) + 1;
+  }else{
+    if((st.stats[key]||0) <= 0) return;
+    st.stats[key] -= 1;
+    st.statPoints = (st.statPoints||0) + 1;
+  }
   saveStats(st);
   showStatusAllocation();
 }
@@ -1156,7 +1163,7 @@ function resetStatusAllocation(){
   if(spent === 0){ alert("まだポイントを割りふっていません。"); return; }
   if(!confirm("ステータスの配分をすべてリセットして、ポイントを割りふり直せるようにします。よろしいですか？")) return;
   st.statPoints = (st.statPoints||0) + spent;
-  st.stats = {hp:0, atk:0, def:0, luck:0};
+  st.stats = {hp:0, atk:0, def:0, spd:0, luck:0};
   saveStats(st);
   showStatusAllocation();
 }
@@ -1198,7 +1205,7 @@ function showHelp(){
         <li>ボスにはそれぞれ個性があり、<b>HPが高くて硬いボス</b>、<b>攻撃がはげしいボス</b>、<b>防御・回避にすぐれたボス</b>など、戦い方が少しずつちがいます。</li>
         <li>それぞれのボスには「<b>適正経験値</b>」の目安があり、遭遇したときに表示されます。その分のステータスポイントを持って挑めば、8割正解ペースで勝率85〜90%くらいになるよう調整されています。適正経験値より少ないと、格上のボスほど勝つのが難しくなります。</li>
         <li>負けてもアイテムを失うことはなく、何度でも挑戦できます。</li>
-        <li>レベルアップでたまる「挑戦券」を使えば、遭遇を待たずに<b>いつでも</b>ランダムなボスに挑戦できます。挑戦券を使った対戦は<b>全ジャンル</b>から出題されます（ふだんのランダム遭遇では、そのとき解いていたジャンルのまま出題されます）。</li>
+        <li>レベルアップでたまる「挑戦券」を使えば、遭遇を待たずに<b>いつでも</b>ボスに挑戦できます。挑戦券を使った対戦は<b>全ジャンル</b>から出題されます（ふだんのランダム遭遇では、そのとき解いていたジャンルのまま出題されます）。また、挑戦券では<b>今のステータスポイントで適正経験値以下のボスだけ</b>が出現します（ステータスポイントが50以下のときは、サノーかシゲっちのどちらかになります）。</li>
       </ul>
     </div>
 
@@ -2121,23 +2128,34 @@ function endBossBattle(){
 function showTicketConfirm(){
   const st = loadStats();
   if((st.bossTickets||0) <= 0){ showHome(); return; }
+  const candidates = ticketEligibleBosses(st.statPoints);
+  const names = candidates.map(b => b.name.match(/【(.+)】/)?.[1] || b.name).join("・");
   screen.innerHTML = `
     <div class="card boss-encounter">
       <div class="boss-enc-icon">🎟️</div>
       <p class="boss-enc-text">挑戦券を1枚使って、ランダムなボスに挑戦しますか？<br><b>挑戦すると、券を1枚消費します。</b></p>
       <p class="note boss-enc-hint">🌐 挑戦券を使った対戦は、全ジャンルからランダムに出題されます（ふだんのランダム遭遇では、そのとき解いていたジャンルのまま出題されます）。</p>
+      <p class="note boss-enc-hint">🎯 出現するのは、今のステータスポイント（${st.statPoints||0}pt）で適正経験値以下のボスだけです。今回の候補：${esc(names)}</p>
       <div class="boss-enc-choices">
         <button class="boss-enc-btn" onclick="showHome()">やめる</button>
         <button class="boss-enc-btn selected" onclick="useTicketAndFight()">券を1枚使って挑戦する</button>
       </div>
     </div>`;
 }
+/* 挑戦券で出るボスは、適正経験値が「今のステータスポイント」以下のものだけに限定する
+   （ただし経験値50以下のときも、サノー・シゲっちの2体（適正経験値50）だけは選べるように、
+   しきい値の下限を50に固定する）。ランダム遭遇は対象外で、従来どおり全ボスから出現する。 */
+function ticketEligibleBosses(statPoints){
+  const threshold = Math.max(statPoints||0, 50);
+  return BOSSES.filter(b => (b.recPts||0) <= threshold);
+}
 function useTicketAndFight(){
   const st = loadStats();
   if((st.bossTickets||0) <= 0){ showHome(); return; }
   st.bossTickets -= 1;
   saveStats(st);
-  const boss = BOSSES[Math.floor(Math.random() * BOSSES.length)];
+  const candidates = ticketEligibleBosses(st.statPoints);
+  const boss = candidates[Math.floor(Math.random() * candidates.length)];
   startBossBattle(boss, true);
 }
 function isTreasureItem(name){ return TREASURE_NAMES.has(name); }
