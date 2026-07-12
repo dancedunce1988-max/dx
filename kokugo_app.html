@@ -261,6 +261,10 @@
   }
   .boss-enc-icon{ font-size:3rem; margin-bottom:12px; filter:drop-shadow(0 0 10px rgba(180,140,255,.6)); }
   .boss-enc-text{ font-size:1.05rem; line-height:1.7; margin-bottom:20px; }
+  .boss-lv-tag{
+    display:inline-block; background:rgba(180,140,255,.3); color:#f0e6ff; font-size:.72rem;
+    font-weight:bold; border-radius:99px; padding:2px 10px; margin-left:4px; vertical-align:middle;
+  }
   .boss-enc-choices{ display:flex; gap:14px; justify-content:center; }
   .boss-enc-btn{
     background:rgba(255,255,255,.07); color:#f0e6ff; border:2px solid rgba(180,140,255,.4);
@@ -1783,18 +1787,21 @@ function endBattle(){
    ダメージ量について：「10問中8問以上正解すれば必ず勝てる」という設計目標を満たすよう、
    ボスHP1000・自分HP100に対して、正解時ダメージ125〜155（最低保証125×8回＝1000）、
    被弾ダメージ6〜9（最悪10ラウンドでも90でHPが尽きない）に調整している。 */
-/* ボスごとの個性（プレイヤーのステータスと同じ4項目）：
+/* ボスごとの個性（プレイヤーのステータスと同じ4項目）＋レベル：
    hp   … 体力
    atk  … 反撃ダメージの倍率（1.0が基準）
    def  … プレイヤーの攻撃を軽減する固定値（プレイヤーの防御力と同じ仕組み）
-   luck … 反撃が「会心の一撃」になる確率（%）。会心時は反撃ダメージが1.5倍になる */
+   luck … 反撃が「会心の一撃」になる確率（%）。会心時は反撃ダメージが1.5倍になる
+   lv   … ボスのレベル。ケイ（現状の強さ）を基準の10とし、他のボスは相対的な強さで判定した。
+           ムライオとケンさんは他より高いレベルの「強キャラ」として、もとの個性（攻撃特化／防御特化）を
+           さらに尖らせてある（ムライオ：攻撃力アップ・防御力ダウン、ケンさん：防御力アップ・攻撃力ダウン）。 */
 const BOSSES = [
-  {id:"tekkyu",     name:"鉄球を持ったお姉さん【ケイ】",         icon:"⚫", item:"鉄球",             treasure:"ぴかぴかの鉄球",             hp:1300, atk:1.2, def:8,  luck:5},
-  {id:"houcho",     name:"包丁を持った紳士【ムライオ】",         icon:"🔪", item:"包丁",             treasure:"調理室",                     hp:900,  atk:1.4, def:2,  luck:10},
-  {id:"volleyball", name:"バレーボールを持ったお兄さん【サノー】", icon:"🏐", item:"バレーボール",     treasure:"人体模型",                   hp:1000, atk:1.0, def:4,  luck:8},
-  {id:"yakyu",      name:"車好き野球プレーヤー【シゲっち】",     icon:"⚾", item:"野球ボール",       treasure:"ホームランバット",           hp:950,  atk:1.1, def:3,  luck:15},
-  {id:"suugaku",    name:"数学の化身【ケンさん】",               icon:"📐", item:"三角定規",         treasure:"大きなコンパス",             hp:1000, atk:0.9, def:10, luck:5},
-  {id:"bijutsu",    name:"美術の案内人【サオーリ】",             icon:"🖌️", item:"ふつうの筆",       treasure:"描いたものが現実になる筆",   hp:900,  atk:1.0, def:3,  luck:18},
+  {id:"tekkyu",     name:"鉄球を持ったお姉さん【ケイ】",         icon:"⚫", item:"鉄球",             treasure:"ぴかぴかの鉄球",             hp:1300, atk:1.2, def:8,  luck:5,  lv:10},
+  {id:"houcho",     name:"包丁を持った紳士【ムライオ】",         icon:"🔪", item:"包丁",             treasure:"調理室",                     hp:1100, atk:1.7, def:1,  luck:12, lv:16},
+  {id:"volleyball", name:"バレーボールを持ったお兄さん【サノー】", icon:"🏐", item:"バレーボール",     treasure:"人体模型",                   hp:1000, atk:1.0, def:4,  luck:8,  lv:5},
+  {id:"yakyu",      name:"車好き野球プレーヤー【シゲっち】",     icon:"⚾", item:"野球ボール",       treasure:"ホームランバット",           hp:950,  atk:1.1, def:3,  luck:15, lv:6},
+  {id:"suugaku",    name:"数学の化身【ケンさん】",               icon:"📐", item:"三角定規",         treasure:"大きなコンパス",             hp:1150, atk:0.7, def:14, luck:5,  lv:15},
+  {id:"bijutsu",    name:"美術の案内人【サオーリ】",             icon:"🖌️", item:"ふつうの筆",       treasure:"描いたものが現実になる筆",   hp:900,  atk:1.0, def:3,  luck:18, lv:7},
 ];
 const BOSS_ENCOUNTER_RATE = 1/40;
 const BOSS_TREASURE_RATE = 0.1;
@@ -1842,7 +1849,7 @@ function renderBossPrompt(){
   screen.innerHTML = `
     <div class="card boss-encounter">
       <div class="boss-enc-icon">${b.icon}</div>
-      <p class="boss-enc-text">「${esc(b.name)}」が勝負をしかけてきた。<br>勝負しますか？</p>
+      <p class="boss-enc-text">「${esc(b.name)}」<span class="boss-lv-tag">Lv.${b.lv||"?"}</span>が勝負をしかけてきた。<br>勝負しますか？</p>
       <div class="boss-enc-choices">
         <button class="boss-enc-btn ${bossPromptSelection==='no'?'selected':''}" onclick="resolveBossPrompt('no')">いいえ</button>
         <button class="boss-enc-btn ${bossPromptSelection==='yes'?'selected':''}" onclick="resolveBossPrompt('yes')">勝負する</button>
@@ -1925,7 +1932,7 @@ function renderBossBattle(){
   }
   screen.innerHTML = `
     <div class="boss-battle-screen">
-      <div class="boss-name">⚔️ ${esc(b.boss.name)} ${b.boss.icon}</div>
+      <div class="boss-name">⚔️ ${esc(b.boss.name)} ${b.boss.icon} <span class="boss-lv-tag">Lv.${b.boss.lv||"?"}</span></div>
       ${bossHpBarsHtml()}
       <div class="boss-q-card">
         ${subInstructionHtml(b.cat, it)}
