@@ -24,6 +24,7 @@
   }
   header h1{font-size:1.35rem; letter-spacing:.15em;}
   header h1 span{color:var(--accent);}
+  .header-actions{display:flex; gap:8px; flex-shrink:0;}
   header .home-btn{
     background:none; border:1px solid var(--line); border-radius:8px;
     padding:6px 14px; cursor:pointer; font-size:.85rem; color:var(--sub);
@@ -347,13 +348,20 @@
   ul.item-list.treasure-list li{ border-bottom-color:rgba(184,134,11,.25); }
   .note a{ color:var(--accent2); text-decoration:none; }
   .note a:hover{ text-decoration:underline; }
+  .help-list{list-style:none; margin-top:2px;}
+  .help-list li{padding:7px 2px 7px 22px; position:relative; font-size:.92rem; line-height:1.75;}
+  .help-list li::before{content:"・"; position:absolute; left:2px; color:var(--accent2); font-weight:bold;}
+  .help-list b{color:var(--accent);}
 </style>
 </head>
 <body>
 <div id="app">
   <header>
     <h1>知識ドリル<span>DX</span></h1>
-    <button class="home-btn" onclick="showHome()">ホームへ</button>
+    <div class="header-actions">
+      <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
+      <button class="home-btn" onclick="showHome()">ホームへ</button>
+    </div>
   </header>
   <div id="screen"></div>
 </div>
@@ -988,6 +996,61 @@ function showHome(){
     <p class="note">※ 1問正解すると、その分野のレベルが1上がります（好きなだけ続けて、いつでもやめられます）。レベルが上がるほど難しい問題が中心になり、正解した問題はだんだん出にくく、間違えた問題は出やすくなります。</p>
     <p class="signature">Seikichi</p>`;
   screen.innerHTML = html;
+}
+
+/* ================= このアプリについて（せつめいページ） ================= */
+function showHelp(){
+  screen.innerHTML = `
+    <div class="card">
+      <h2 style="margin-bottom:4px">📖 このアプリについて</h2>
+      <p class="note" style="margin-top:6px">「知識ドリルDX」のしくみを、かんたんに説明します。</p>
+    </div>
+
+    <h3 class="section">📈 レベルアップのシステム</h3>
+    <div class="card">
+      <ul class="help-list">
+        <li><b>漢字・語彙・文法</b>など、ジャンル（分野）ごとに、自分だけの「レベル」があります。</li>
+        <li>問題に<b>正解するたびにレベルが1上がります</b>（不正解でレベルが下がることはありません）。</li>
+        <li>レベルが上がると、「むらびと」→「村人」→…→「伝説の勇者」というように<b>称号</b>が変わっていきます。伝説の勇者のさらに先には、正体がナゾの「かくし称号」もかくされています。</li>
+        <li>レベルが上がるほど、少しずつ<b>難しい問題</b>が出るようになります。今の自分にちょうど合った難しさに、自動で近づいていきます。</li>
+        <li>レベルが<b>10回上がるごとに</b>、ボスへの「挑戦券」を1枚もらえます。</li>
+      </ul>
+    </div>
+
+    <h3 class="section">🎁 アイテムのシステム（宝具も）</h3>
+    <div class="card">
+      <ul class="help-list">
+        <li>ボスに勝つと、そのボスだけが持っている「<b>アイテム</b>」を必ず1つもらえます。</li>
+        <li>さらに、まれに（だいたい10回に1回くらい）、もっとレアな「<b>宝具</b>」も手に入ります。</li>
+        <li>同じボスに10回勝っても宝具が出なかった場合は、<b>11回目で確定</b>で宝具がもらえるようになっています（運が悪くても、いつかは必ずもらえる保険つきです）。</li>
+        <li>集めたアイテム・宝具は、成績とは別に<b>ずっと記録</b>されます。ホーム画面の「アイテム一覧」からいつでも確認できます。</li>
+      </ul>
+    </div>
+
+    <h3 class="section">👹 ボスのシステム</h3>
+    <div class="card">
+      <ul class="help-list">
+        <li>ふつうに問題を解いていると、<b>ごくまれに（1/40くらいの確率で）</b>ボスが勝負をしかけてきます。</li>
+        <li>「勝負する」か「いいえ」かを、その場で選べます。断ってもペナルティはありません。</li>
+        <li>ボス戦では、あなたのHPは100、ボスのHPは1000。<b>正解するとボスにダメージ</b>を与え、<b>不正解だと自分がダメージ</b>を受けます（間違えたときのほうがダメージが大きいので、正解を積み重ねることが大切です）。</li>
+        <li>目安として、<b>10問中8問くらい正解できれば、ほぼ確実に勝てる</b>ように作られています。</li>
+        <li>負けてもアイテムを失うことはなく、何度でも挑戦できます。</li>
+        <li>レベルアップでたまる「挑戦券」を使えば、遭遇を待たずに<b>いつでも</b>ランダムなボスに挑戦できます。</li>
+      </ul>
+    </div>
+
+    <h3 class="section">⚔️ 対戦モードのシステム</h3>
+    <div class="card">
+      <ul class="help-list">
+        <li>同じ端末を2人で使って対戦する、二人対戦モードです。</li>
+        <li>はじめに、<b>2人の名前</b>を入力します。</li>
+        <li>次に、「<b>全ジャンル</b>」から出題するか、「<b>ジャンルを選択する</b>」で対戦したい分野を自分たちで選ぶか（複数選べます）を決めます。</li>
+        <li>お互いのHPは100ずつ。交代で問題に答えて、<b>正解すると相手にダメージ</b>をあたえます。</li>
+        <li>先にHPが0になったほうが負けです。個人の称号やレベルには影響しない、対戦専用の記録が別にたまります。</li>
+      </ul>
+    </div>
+
+    <button class="btn secondary" onclick="showHome()">ホームへ</button>`;
 }
 
 /* ================= 知識クイズ（エンドレス） ================= */
