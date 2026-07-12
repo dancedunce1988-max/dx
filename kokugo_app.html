@@ -373,6 +373,19 @@
   .kotonoha-status-table{width:100%; border-collapse:collapse; font-size:.82rem; margin-top:10px;}
   .kotonoha-status-table th{font-weight:normal; color:var(--sub); text-align:left; padding:3px 4px 3px 0; white-space:nowrap;}
   .kotonoha-status-table td{font-weight:bold; text-align:left; padding:3px 14px 3px 0; color:var(--accent2);}
+  .prologue-overlay{
+    position:fixed; inset:0; z-index:9999;
+    background:radial-gradient(circle at 50% 40%, #1c3a35 0%, #10201d 70%, #0b1614 100%);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:32px; text-align:center; cursor:pointer;
+    animation:prologueFadeIn .5s ease;
+  }
+  .prologue-icon{font-size:52px; margin-bottom:16px; opacity:0; animation:prologueRise .7s ease forwards .1s;}
+  .prologue-text{color:#f5f1e6; font-size:1.15rem; line-height:1.9; max-width:480px; opacity:0; animation:prologueRise .7s ease forwards .25s;}
+  .prologue-hint{position:absolute; bottom:26px; color:#c9c2a8; font-size:.78rem; opacity:0; animation:prologueRise .7s ease forwards .9s;}
+  .prologue-skip{position:absolute; top:18px; right:20px; color:#c9c2a8; font-size:.78rem; text-decoration:underline; padding:4px;}
+  @keyframes prologueFadeIn{from{opacity:0} to{opacity:1}}
+  @keyframes prologueRise{from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:translateY(0)}}
 </style>
 </head>
 <body>
@@ -2500,7 +2513,50 @@ function importData(input){
   reader.readAsText(file);
 }
 
-showHome();
+/* ================= オープニング演出（プロローグ） =================
+   このアプリを開いたとき（＝ブラウザで最初から読み込まれたとき）に必ず一度だけ再生する、
+   短い全画面演出。アプリ内の画面遷移はページの読み込み直しをともなわないため、
+   「初回起動時」も「ブラウザの更新時」も、この起動シーケンスが実行されるタイミングと一致する。
+   しつこくならないよう、セリフは短く・少なくしてある。 */
+const PROLOGUE_STEPS = [
+  {text:"言葉は、少しずつ力を失っている。"},
+  {text:"――見つけた。ぼくを、育ててくれる人。"},
+  {icon:"🥚", text:"ぼくは『ことのは』。きみが学ぶたびに、育っていく。"},
+  {text:"さあ、言葉の力を取りもどしにいこう。"},
+];
+let prologueIdx = 0;
+let prologueOnDone = null;
+let prologueEl = null;
+function showPrologue(onDone){
+  prologueIdx = 0;
+  prologueOnDone = onDone;
+  prologueEl = document.createElement("div");
+  document.body.appendChild(prologueEl);
+  renderPrologueStep();
+}
+function renderPrologueStep(){
+  const step = PROLOGUE_STEPS[prologueIdx];
+  const isLast = prologueIdx === PROLOGUE_STEPS.length - 1;
+  prologueEl.className = "prologue-overlay";
+  prologueEl.onclick = advancePrologue;
+  prologueEl.innerHTML = `
+    ${step.icon ? `<div class="prologue-icon">${step.icon}</div>` : ""}
+    <p class="prologue-text">${step.text}</p>
+    <span class="prologue-skip" onclick="event.stopPropagation(); finishPrologue();">スキップ</span>
+    <p class="prologue-hint">${isLast ? "タップしてはじめる" : "タップしてすすむ"}</p>`;
+}
+function advancePrologue(){
+  prologueIdx++;
+  if(prologueIdx >= PROLOGUE_STEPS.length){ finishPrologue(); return; }
+  renderPrologueStep();
+}
+function finishPrologue(){
+  if(prologueEl){ prologueEl.remove(); prologueEl = null; }
+  const fn = prologueOnDone; prologueOnDone = null;
+  if(fn) fn();
+}
+
+showPrologue(showHome);
 </script>
 </body>
 </html>
