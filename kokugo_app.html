@@ -218,6 +218,40 @@
     display:inline-block; background:var(--accent); color:#fff; font-size:.72rem;
     font-weight:bold; border-radius:99px; padding:2px 10px; margin-left:8px;
   }
+  /* 二人対戦の準備画面（名前入力・ジャンル選択）：闘技場をイメージした専用の雰囲気にする */
+  .battle-setup-screen{
+    background:linear-gradient(160deg,#160d0d,#301010 55%,#160d0d); color:#ffece6;
+    border:1px solid rgba(255,120,90,.35); box-shadow:0 0 30px rgba(255,90,50,.2);
+    text-align:center; padding:30px 20px;
+  }
+  .battle-setup-title{font-size:1.25rem; font-weight:bold; margin-bottom:8px; letter-spacing:.06em; text-shadow:0 0 12px rgba(255,120,90,.7);}
+  .battle-setup-sub{font-size:.85rem; color:#e0b8ac; margin-bottom:20px; line-height:1.7;}
+  .battle-vs-row{display:flex; align-items:flex-end; justify-content:center; gap:14px; flex-wrap:wrap;}
+  .battle-name-box{flex:1; min-width:130px; max-width:220px;}
+  .battle-name-box label{display:block; font-size:.72rem; color:#e0b8ac; margin-bottom:6px;}
+  .battle-name-input{
+    width:100%; font-size:1rem; padding:10px 12px; border-radius:8px;
+    border:2px solid rgba(255,120,90,.4); background:rgba(255,255,255,.08); color:#fff;
+    font-family:inherit; text-align:center;
+  }
+  .battle-name-input:focus{outline:none; border-color:#ff7a5a;}
+  .battle-vs-mark{font-weight:bold; font-size:1.1rem; color:#ff9a7a; padding-bottom:10px; flex-shrink:0;}
+  .battle-genre-choice{display:flex; flex-direction:column; gap:12px; margin-top:14px;}
+  .battle-genre-btn{
+    background:rgba(255,255,255,.07); color:#ffece6; border:2px solid rgba(255,120,90,.4);
+    border-radius:12px; padding:16px 20px; font-size:1rem; cursor:pointer; font-family:inherit;
+    text-align:left; transition:all .15s;
+  }
+  .battle-genre-btn:hover{background:rgba(255,120,90,.18); border-color:#ff9a7a;}
+  .battle-genre-btn .big{font-size:1.05rem; font-weight:bold; display:block; margin-bottom:4px;}
+  .battle-genre-btn .small{font-size:.76rem; color:#e0b8ac; display:block;}
+  .genre-pick-grid{display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 18px;}
+  .genre-pick-chip{
+    background:var(--card); border:2px solid var(--line); color:var(--ink);
+    border-radius:99px; padding:8px 16px; font-size:.85rem; cursor:pointer; font-family:inherit; transition:all .12s;
+  }
+  .genre-pick-chip:hover{border-color:var(--accent);}
+  .genre-pick-chip.on{background:var(--accent); border-color:var(--accent); color:#fff; font-weight:bold;}
   /* ボス戦：あえて他の画面と全く違う、黒ベースの特別な雰囲気にする */
   .boss-encounter{
     background:linear-gradient(160deg,#0d0d16,#1a1030 60%,#0d0d16); color:#f0e6ff;
@@ -358,6 +392,7 @@ const CAT_INSTRUCTION = {
 };
 const DOKKAI_INSTRUCTION = "正しいものを選んでください。";
 function subInstructionHtml(cat, it){
+  if(it.instr) return `<div class="q-sub">${esc(it.instr)}</div>`;
   const cfg = CAT_INSTRUCTION[cat];
   if(!cfg) return it.s ? `<div class="q-sub">${esc(it.s)}</div>` : "";
   if(cfg.mode === "replace") return `<div class="q-sub">${esc(cfg.text)}</div>`;
@@ -1216,47 +1251,108 @@ function pickBattleQuestion(cat, lastQ){
   return pool[Math.floor(Math.random() * pool.length)];
 }
 let battle = null;
+let battleSetup = null; // { nameA, nameB, picked:Set }
+function pickBattleQuestionMulti(cats, lastQ){
+  let pool = [];
+  cats.forEach(key=>{
+    const c = CATS[key];
+    if(c) c.items.forEach(it => pool.push({cat:key, item:it}));
+  });
+  if(pool.length > 1 && lastQ) pool = pool.filter(p => p.item.q !== lastQ);
+  return pool[Math.floor(Math.random() * pool.length)];
+}
 function showBattleSetup(){
+  if(!battleSetup) battleSetup = {nameA:"プレイヤーA", nameB:"プレイヤーB", picked:new Set()};
   const bs = loadBattleStats();
-  let html = `<div class="card">
-    <h3 class="section">⚔️ 二人対戦</h3>
-    <p class="note">同じ端末を2人で使い、交代で問題に答えます。正解すると相手のHPが減っていき、さきにHPを０にしたほうの勝ちです。</p>
-    <div class="ans-row">
-      <input type="text" id="battleNameA" class="ans-input" placeholder="プレイヤーA" value="プレイヤーA">
-      <input type="text" id="battleNameB" class="ans-input" placeholder="プレイヤーB" value="プレイヤーB">
+  screen.innerHTML = `
+    <div class="card battle-setup-screen">
+      <div class="battle-setup-title">⚔️ 二人対戦</div>
+      <p class="battle-setup-sub">同じ端末を2人で使い、交代で問題に答えます。<br>正解すると相手のHPが減っていき、さきにHPを０にしたほうの勝ちです。</p>
+      <div class="battle-vs-row">
+        <div class="battle-name-box">
+          <label>先攻</label>
+          <input type="text" id="battleNameA" class="battle-name-input" placeholder="プレイヤーA" value="${esc(battleSetup.nameA)}">
+        </div>
+        <div class="battle-vs-mark">VS</div>
+        <div class="battle-name-box">
+          <label>後攻</label>
+          <input type="text" id="battleNameB" class="battle-name-input" placeholder="プレイヤーB" value="${esc(battleSetup.nameB)}">
+        </div>
+      </div>
+      <button class="btn" style="margin-top:22px" onclick="goBattleGenreSelect()">つぎへ（ジャンルを決める）</button>
     </div>
-    <p class="note">下からジャンルをひとつ選ぶと対戦がはじまります（先攻はプレイヤーA）。</p>
-  </div>`;
+    <p class="note" style="text-align:center">🥊 これまでの対戦数：${bs.plays}回</p>
+    <button class="btn secondary" onclick="showHome()">ホームへ</button>`;
+}
+function goBattleGenreSelect(){
+  const elA = document.getElementById("battleNameA"), elB = document.getElementById("battleNameB");
+  battleSetup.nameA = ((elA && elA.value) || "プレイヤーA").trim() || "プレイヤーA";
+  battleSetup.nameB = ((elB && elB.value) || "プレイヤーB").trim() || "プレイヤーB";
+  showBattleGenreSelect();
+}
+function showBattleGenreSelect(){
+  screen.innerHTML = `
+    <div class="card battle-setup-screen">
+      <div class="battle-setup-title">${esc(battleSetup.nameA)} vs ${esc(battleSetup.nameB)}</div>
+      <p class="battle-setup-sub">ジャンルをどうする？</p>
+      <div class="battle-genre-choice">
+        <button class="battle-genre-btn" onclick="startBattle(CAT_KEYS.slice())">
+          <span class="big">🌐 全ジャンル</span>
+          <span class="small">すべての分野からランダムに出題されます</span>
+        </button>
+        <button class="battle-genre-btn" onclick="showBattleGenrePicker()">
+          <span class="big">🎯 ジャンルを選択する</span>
+          <span class="small">対戦したい分野を自分たちで選びます（複数選択可）</span>
+        </button>
+      </div>
+      <button class="btn secondary" style="margin-top:18px" onclick="showBattleSetup()">もどる</button>
+    </div>`;
+}
+function showBattleGenrePicker(){
+  let html = `<div class="card battle-setup-screen">
+      <div class="battle-setup-title">ジャンルを選ぶ</div>
+      <p class="battle-setup-sub">対戦したい分野をタップして選んでください（複数選択可）</p>
+    </div>`;
   (DATA.groups || [{name:"分野", keys:CAT_KEYS}]).forEach(g=>{
-    html += `<h3 class="section">${esc(g.name)}</h3>`;
+    html += `<h3 class="section">${esc(g.name)}</h3><div class="genre-pick-grid">`;
     g.keys.forEach(key=>{
       if(!CATS[key]) return;
-      html += `
-      <div class="card menu-card" onclick="startBattle('${key}')">
-        <div class="menu-icon">${GROUP_ICONS[g.name] || "📝"}</div>
-        <div><h2>${esc(CATS[key].name)}</h2><p>${esc(CATS[key].desc)}</p></div>
-      </div>`;
+      const on = battleSetup.picked.has(key);
+      html += `<button class="genre-pick-chip ${on?'on':''}" onclick="toggleBattleGenre('${key}')">${esc(CATS[key].name)}</button>`;
     });
+    html += `</div>`;
   });
+  const n = battleSetup.picked.size;
   html += `
-    <p class="note">🥊 これまでの対戦数：${bs.plays}回</p>
-    <button class="btn secondary" onclick="showHome()">ホームへ</button>`;
+    <div class="btn-row" style="margin-top:10px">
+      <button class="btn ${n===0?'disabled':''}" onclick="confirmBattleGenrePicker()">${n>0 ? `この${n}ジャンルで対戦開始` : "1つ以上選んでください"}</button>
+      <button class="btn secondary" onclick="showBattleGenreSelect()">もどる</button>
+    </div>`;
   screen.innerHTML = html;
 }
-function startBattle(cat){
-  const elA = document.getElementById("battleNameA"), elB = document.getElementById("battleNameB");
-  const nameA = ((elA && elA.value) || "プレイヤーA").trim() || "プレイヤーA";
-  const nameB = ((elB && elB.value) || "プレイヤーB").trim() || "プレイヤーB";
-  battle = {cat, nameA, nameB, hp:{A:100,B:100}, maxHp:100, turn:"A", lastQ:null, item:null, order:null};
+function toggleBattleGenre(key){
+  if(battleSetup.picked.has(key)) battleSetup.picked.delete(key);
+  else battleSetup.picked.add(key);
+  showBattleGenrePicker();
+}
+function confirmBattleGenrePicker(){
+  if(battleSetup.picked.size === 0) return;
+  startBattle(Array.from(battleSetup.picked));
+}
+function startBattle(cats){
+  if(!Array.isArray(cats) || cats.length === 0) return;
+  battle = {cats, nameA:battleSetup.nameA, nameB:battleSetup.nameB, hp:{A:100,B:100}, maxHp:100, turn:"A", lastQ:null, item:null, itemCat:null, order:null};
   battleNextQuestion();
 }
 function battleNextQuestion(){
-  battle.item = pickBattleQuestion(battle.cat, battle.lastQ);
+  const picked = pickBattleQuestionMulti(battle.cats, battle.lastQ);
+  battle.item = picked.item;
+  battle.itemCat = picked.cat;
   battle.lastQ = battle.item.q;
   renderBattle();
 }
 function renderBattle(){
-  const it = battle.item, cat = battle.cat;
+  const it = battle.item, cat = battle.itemCat;
   const isInput = Array.isArray(it.ans);
   const turnName = battle.turn === "A" ? battle.nameA : battle.nameB;
   let answerArea;
@@ -1364,7 +1460,7 @@ function battleAdvance(){
 function battleQuit(){
   if(!confirm("対戦をやめますか？ここまでの結果は記録されません。")) return;
   battle = null;
-  showBattleSetup();
+  showBattleGenreSelect();
 }
 function endBattle(){
   const winner = battle.hp.A <= 0 ? battle.nameB : battle.nameA;
@@ -1372,10 +1468,10 @@ function endBattle(){
   const bs = loadBattleStats();
   bs.plays = (bs.plays||0) + 1;
   bs.byCat = bs.byCat || {};
-  bs.byCat[battle.cat] = (bs.byCat[battle.cat]||0) + 1;
+  battle.cats.forEach(cat => { bs.byCat[cat] = (bs.byCat[cat]||0) + 1; });
   saveBattleStats(bs);
   const b = battle;
-  window._retry = () => startBattle(b.cat);
+  window._retry = () => startBattle(b.cats);
   screen.innerHTML = `
     <div class="card">
       <h3 class="section">けっか発表</h3>
@@ -1383,7 +1479,7 @@ function endBattle(){
       <p class="result-msg">${esc(loser)} は力つきた…</p>
       <div class="btn-row">
         <button class="btn" onclick="window._retry()">同じジャンルでもう一度</button>
-        <button class="btn secondary" onclick="showBattleSetup()">べつのジャンルへ</button>
+        <button class="btn secondary" onclick="showBattleGenreSelect()">べつのジャンルへ</button>
         <button class="btn secondary" onclick="showHome()">ホームへ</button>
       </div>
     </div>`;
@@ -1403,7 +1499,7 @@ const BOSSES = [
   {id:"houcho",     name:"包丁を持った紳士【ムライオ】",         icon:"🔪", item:"包丁",             treasure:"調理室",                     hp:1000},
   {id:"volleyball", name:"バレーボールを持ったお兄さん【サノー】", icon:"🏐", item:"バレーボール",     treasure:"人体模型",                   hp:1000},
   {id:"yakyu",      name:"車好き野球プレーヤー【シゲっち】",     icon:"⚾", item:"野球ボール",       treasure:"ホームランバット",           hp:1000},
-  {id:"suugaku",    name:"数学の化身【ケンケン】",               icon:"📐", item:"三角定規",         treasure:"大きなコンパス",             hp:1000},
+  {id:"suugaku",    name:"数学の化身【ケンさん】",               icon:"📐", item:"三角定規",         treasure:"大きなコンパス",             hp:1000},
   {id:"bijutsu",    name:"美術の案内人【サオーリ】",             icon:"🖌️", item:"ふつうの筆",       treasure:"描いたものが現実になる筆",   hp:1000},
 ];
 const BOSS_ENCOUNTER_RATE = 1/40;
