@@ -352,6 +352,14 @@
   .help-list li{padding:7px 2px 7px 22px; position:relative; font-size:.92rem; line-height:1.75;}
   .help-list li::before{content:"・"; position:absolute; left:2px; color:var(--accent2); font-weight:bold;}
   .help-list b{color:var(--accent);}
+  .battle-history-list{list-style:none;}
+  .battle-history-list li{padding:10px 4px; border-bottom:1px dashed var(--line);}
+  .battle-history-list li:last-child{border-bottom:none;}
+  .battle-history-main{display:flex; align-items:center; gap:8px; font-size:.95rem; flex-wrap:wrap;}
+  .battle-history-winner{font-weight:bold; color:var(--gold);}
+  .battle-history-vs{color:var(--sub); font-size:.8rem;}
+  .battle-history-loser{color:var(--sub);}
+  .battle-history-meta{font-size:.72rem; color:var(--sub); margin-top:2px;}
 </style>
 </head>
 <body>
@@ -1022,7 +1030,6 @@ function showHelp(){
       <ul class="help-list">
         <li>ボスに勝つと、そのボスだけが持っている「<b>アイテム</b>」を必ず1つもらえます。</li>
         <li>さらに、まれに（だいたい10回に1回くらい）、もっとレアな「<b>宝具</b>」も手に入ります。</li>
-        <li>同じボスに10回勝っても宝具が出なかった場合は、<b>11回目で確定</b>で宝具がもらえるようになっています（運が悪くても、いつかは必ずもらえる保険つきです）。</li>
         <li>集めたアイテム・宝具は、成績とは別に<b>ずっと記録</b>されます。ホーム画面の「アイテム一覧」からいつでも確認できます。</li>
       </ul>
     </div>
@@ -1296,12 +1303,28 @@ const BATTLE_STORE_KEY = "kokugoBattleStats_v1";
 function loadBattleStats(){
   try{
     const s = localStorage.getItem(BATTLE_STORE_KEY);
-    if(s){ const bs = JSON.parse(s); if(bs && typeof bs.plays === "number") return bs; }
+    if(s){
+      const bs = JSON.parse(s);
+      if(bs && typeof bs.plays === "number"){
+        if(!Array.isArray(bs.history)) bs.history = [];
+        return bs;
+      }
+    }
   }catch(e){}
-  return {plays:0, byCat:{}};
+  return {plays:0, byCat:{}, history:[]};
 }
 function saveBattleStats(bs){
   try{ localStorage.setItem(BATTLE_STORE_KEY, JSON.stringify(bs)); }catch(e){}
+}
+function battleCatsLabel(cats){
+  if(!cats || cats.length === 0) return "";
+  if(cats.length >= CAT_KEYS.length) return "全ジャンル";
+  return cats.map(k => (CATS[k] ? CATS[k].name : k)).join("・");
+}
+function battleDateLabel(ts){
+  const d = new Date(ts);
+  const pad = n => String(n).padStart(2,"0");
+  return `${d.getMonth()+1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 /* 問題の難度（it.lv）が高いほど少しダメージが大きくなる */
 function battleDamage(it){
@@ -1345,7 +1368,47 @@ function showBattleSetup(){
       <button class="btn" style="margin-top:22px" onclick="goBattleGenreSelect()">つぎへ（ジャンルを決める）</button>
     </div>
     <p class="note" style="text-align:center">🥊 これまでの対戦数：${bs.plays}回</p>
-    <button class="btn secondary" onclick="showHome()">ホームへ</button>`;
+    <div class="btn-row" style="justify-content:center">
+      <button class="btn secondary" onclick="showBattleHistory()">📋 対戦記録を見る</button>
+      <button class="btn secondary" onclick="showHome()">ホームへ</button>
+    </div>`;
+}
+function showBattleHistory(){
+  const bs = loadBattleStats();
+  const history = bs.history || [];
+  let html = `<div class="card battle-setup-screen">
+      <div class="battle-setup-title">📋 対戦記録</div>
+      <p class="battle-setup-sub">これまでの対戦数：${bs.plays}回</p>
+    </div>`;
+  if(history.length === 0){
+    html += `<div class="card"><p class="note">まだ対戦の記録がありません。</p></div>`;
+  }else{
+    html += `<div class="card"><ul class="battle-history-list">`;
+    html += history.map(h=>{
+      const loser = h.winner === h.a ? h.b : h.a;
+      return `<li>
+        <div class="battle-history-main">
+          <span class="battle-history-winner">🏆 ${esc(h.winner)}</span>
+          <span class="battle-history-vs">vs</span>
+          <span class="battle-history-loser">${esc(loser)}</span>
+        </div>
+        <div class="battle-history-meta">${esc(battleCatsLabel(h.cats))}　${esc(battleDateLabel(h.ts))}</div>
+      </li>`;
+    }).join("");
+    html += `</ul></div>`;
+  }
+  html += `
+    <div class="btn-row">
+      <button class="btn secondary" onclick="showBattleSetup()">対戦にもどる</button>
+      <button class="btn secondary" onclick="resetBattleHistory()">🗑️ 記録をリセット</button>
+      <button class="btn secondary" onclick="showHome()">ホームへ</button>
+    </div>`;
+  screen.innerHTML = html;
+}
+function resetBattleHistory(){
+  if(!confirm("対戦の記録をすべて削除します。よろしいですか？（この操作は取り消せません）")) return;
+  saveBattleStats({plays:0, byCat:{}, history:[]});
+  showBattleHistory();
 }
 function goBattleGenreSelect(){
   const elA = document.getElementById("battleNameA"), elB = document.getElementById("battleNameB");
@@ -1532,6 +1595,9 @@ function endBattle(){
   bs.plays = (bs.plays||0) + 1;
   bs.byCat = bs.byCat || {};
   battle.cats.forEach(cat => { bs.byCat[cat] = (bs.byCat[cat]||0) + 1; });
+  bs.history = bs.history || [];
+  bs.history.unshift({a:battle.nameA, b:battle.nameB, winner, cats:battle.cats.slice(), ts:Date.now()});
+  if(bs.history.length > 50) bs.history.length = 50;
   saveBattleStats(bs);
   const b = battle;
   window._retry = () => startBattle(b.cats);
