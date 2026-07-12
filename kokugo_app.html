@@ -517,6 +517,21 @@ const DOKKAI = DATA.dokkai || [];
 const MAX_LV = {};
 CAT_KEYS.forEach(k => MAX_LV[k] = Math.max(...CATS[k].items.map(it => it.lv)));
 
+/* 各問題には、学習指導要領・教科書の内容をもとに判定した「学年の目安」(grade, 1〜6)が付与されている。
+   1:小学校中学年 2:小学校高学年 3:中学校1年 4:中学校2年 5:中学校3年 6:高校以上
+   出題目標レベル(diffLv)にいちばん近いlvを持つ問題群の平均gradeから、今のおおよその学年を推定する。 */
+const GRADE_LABELS = {1:"小学校中学年", 2:"小学校高学年", 3:"中学校1年", 4:"中学校2年", 5:"中学校3年", 6:"高校以上"};
+function estimateGrade(cat, diffLv){
+  const items = CATS[cat].items;
+  if(!items.length || items.some(it => typeof it.grade !== "number")) return null;
+  const targetLv = Math.round(diffLv);
+  let nearestLv = items[0].lv, minDiff = Math.abs(items[0].lv - targetLv);
+  items.forEach(it => { const d = Math.abs(it.lv - targetLv); if(d < minDiff){ minDiff = d; nearestLv = it.lv; } });
+  const pool = items.filter(it => it.lv === nearestLv);
+  const avgGrade = pool.reduce((s,it) => s + it.grade, 0) / pool.length;
+  return Math.min(6, Math.max(1, Math.round(avgGrade)));
+}
+
 /* ================= 記録（localStorage、使えない環境ではメモリ） ================= */
 const STORE_KEY = "kokugoTrainingStats_v5";
 let memStats = null;
@@ -1296,6 +1311,7 @@ function showHelp(){
         <li>問題を<b>間違えると、次はすこし易しいレベルの問題</b>が出やすくなります。</li>
         <li>これをくり返すことで、<b>いつでも今の自分にちょうどよい難しさ</b>の問題に自然と近づいていきます。簡単すぎず、難しすぎない、ちょうどいいペースで力がついていきます。</li>
         <li>また、<b>よく間違える問題ほど多めに出題</b>されるようになっています。何度も目にすることで、自然と思い出す機会が増え、いつのまにかしっかり身につきます。逆に、<b>すでに正解できている問題はしばらく出にくく</b>なります。</li>
+        <li>「成績・称号」画面には、今どのくらいの学年の内容にちょうどよく取り組めているかの<b>目安</b>も、分野ごとに表示されます。</li>
       </ul>
     </div>
 
@@ -2379,6 +2395,22 @@ function showStats(){
   </div>`;
   if(weakest && weakest.rate < 0.8){
     html += `<p class="note weak">▶ 今いちばんのばせそうなのは「${esc(weakest.label)}」。集中して取り組んでみよう。</p>`;
+  }
+  html += `</div>`;
+  html += `<div class="card"><h3 class="section">🎓 今の学年の目安</h3>
+    <p class="note">正解・不正解に応じて自動調整される出題の難しさをもとに、今どのくらいの学年の内容にちょうどよく取り組めているかの<b>目安</b>を、分野ごとに表示します。</p>
+    <table class="stats"><tr><th>分野</th><th>学年の目安</th></tr>`;
+  const gradeEstimates = [];
+  CAT_KEYS.forEach(cat=>{
+    const g = estimateGrade(cat, st.diffLv[cat]||1);
+    if(g === null) return;
+    gradeEstimates.push(g);
+    html += `<tr><td>${esc(CATS[cat].name)}</td><td>${esc(GRADE_LABELS[g])}</td></tr>`;
+  });
+  html += `</table>`;
+  if(gradeEstimates.length){
+    const overall = Math.min(6, Math.max(1, Math.round(gradeEstimates.reduce((s,g)=>s+g,0) / gradeEstimates.length)));
+    html += `<p class="note">▶ 全体の目安：<b>${esc(GRADE_LABELS[overall])}</b>くらい</p>`;
   }
   html += `</div>`;
   html += `<div class="card"><h3 class="section">称号のみちのり（分野ごと）</h3><ul class="titlelist">`;
