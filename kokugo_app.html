@@ -690,13 +690,21 @@ function pickOne(pool, weights){
   }
   return pool[pool.length-1];
 }
-/* 分野から1問選ぶ（直前の問題はさける） */
+const CONFIRM_CHECK_RATE = 0.1; // 目標レベルが上がりきっても、他のレベルの理解が抜け落ちていないか、ときどき確認するための確率
+/* 分野から1問選ぶ（直前の問題はさける）。
+   CONFIRM_CHECK_RATEの確率で、今の目標レベルによる重みづけをやめて、その分野の全問題から
+   レベルに関係なく1問ごとに均等に出題する（「確認チェック」）。目標レベルが上がりきったプレイヤーが、
+   簡単な問題や中くらいの問題をずっと出題されないまま、そこでの理解の抜けに気づけない、という状態を
+   防ぐため。（historyWeightによる「すでによく正解している問題は出にくい」という重みづけだけは、
+   確認チェックでも生かしておく。）正解・不正解の結果は通常どおり目標レベルに反映されるので、この
+   確認チェックで間違えれば目標レベルもきちんと下がる。 */
 function selectOne(cat, lastQ){
   const st = loadStats();
   let pool = CATS[cat].items;
   if(pool.length > 1 && lastQ) pool = pool.filter(it => it.q !== lastQ);
+  const isConfirmCheck = Math.random() < CONFIRM_CHECK_RATE;
   const diffLv = typeof st.diffLv[cat] === "number" ? st.diffLv[cat] : 1;
-  const weights = pool.map(it => historyWeight(st, cat, it) * difficultyWeight(cat, it, diffLv));
+  const weights = pool.map(it => historyWeight(st, cat, it) * (isConfirmCheck ? 1 : difficultyWeight(cat, it, diffLv)));
   return pickOne(pool, weights);
 }
 function weakItems(){
@@ -1325,6 +1333,7 @@ function showHelp(){
         <li>問題を<b>間違えると、次はすこし易しいレベルの問題</b>が出やすくなります。</li>
         <li>これをくり返すことで、<b>いつでも今の自分にちょうどよい難しさ</b>の問題に自然と近づいていきます。簡単すぎず、難しすぎない、ちょうどいいペースで力がついていきます。</li>
         <li>また、<b>よく間違える問題ほど多めに出題</b>されるようになっています。何度も目にすることで、自然と思い出す機会が増え、いつのまにかしっかり身につきます。逆に、<b>すでに正解できている問題はしばらく出にくく</b>なります。</li>
+        <li>実力がついて難しい問題ばかりになると、簡単な問題や中くらいの問題を忘れたことに気づきにくくなるため、<b>10問に1問くらいは、今のレベルに関係なくその分野のいろいろなレベルの問題</b>をまんべんなく混ぜて、抜け落ちがないか確認しています。</li>
         <li>「成績・称号」画面には、今どのくらいの学年の内容にちょうどよく取り組めているかの<b>目安</b>も、分野ごとに表示されます。</li>
       </ul>
     </div>
