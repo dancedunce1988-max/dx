@@ -365,6 +365,9 @@
   .status-row-label{font-weight:bold; font-size:1rem;}
   .status-row-ctrl{display:flex; align-items:center; gap:10px; flex-shrink:0;}
   .status-row-val{font-size:1.3rem; font-weight:bold; min-width:2ch; text-align:center; color:var(--accent2);}
+  .kotonoha-status-table{width:100%; border-collapse:collapse; font-size:.82rem; margin-top:10px;}
+  .kotonoha-status-table th{font-weight:normal; color:var(--sub); text-align:left; padding:3px 4px 3px 0; white-space:nowrap;}
+  .kotonoha-status-table td{font-weight:bold; text-align:left; padding:3px 14px 3px 0; color:var(--accent2);}
 </style>
 </head>
 <body>
@@ -952,6 +955,13 @@ function kotonohaCardHtml(st){
   else stageTagText = `第${f.stageIdx}形態`;
   const stageTag = `<span class="kotonoha-stage${!next && f.stageIdx>0 ? ' final':''}">${stageTagText}</span>`;
   const overrideNote = override ? `<p class="note">🖼️ すがたを「${esc(disp.name)}」に変更中</p>` : "";
+  const s = st.stats || {hp:0,atk:0,def:0,luck:0};
+  const statusTable = `
+    <table class="kotonoha-status-table">
+      <tr><th>❤️ HP</th><td>${s.hp||0}</td><th>⚔️ 攻撃力</th><td>${s.atk||0}</td></tr>
+      <tr><th>🛡️ 防御力</th><td>${s.def||0}</td><th>🍀 運</th><td>${s.luck||0}</td></tr>
+    </table>
+    ${(st.statPoints||0) > 0 ? `<p class="note">✨ のこりステータスポイント：${st.statPoints}</p>` : ""}`;
   return `
   <div class="card kotonoha-card">
     <h3 class="section">きみの相棒「ことのは」</h3>
@@ -964,7 +974,11 @@ function kotonohaCardHtml(st){
         <div class="bar"><div style="width:${progress}%"></div></div>
         <p class="note">${esc(progressNote)}</p>
         ${overrideNote}
-        <button class="btn inline secondary" style="margin-top:8px" onclick="showKotonohaFormPicker()">🖼️ すがたを選ぶ</button>
+        ${statusTable}
+        <div class="btn-row" style="margin-top:8px">
+          <button class="btn inline secondary" onclick="showKotonohaFormPicker()">🖼️ すがたを選ぶ</button>
+          <button class="btn inline secondary" onclick="showStatusAllocation()">💪 ボス戦ステータス</button>
+        </div>
       </div>
     </div>
   </div>`;
@@ -1068,11 +1082,6 @@ function showHome(){
       <div class="menu-icon">📚</div>
       <div><h2>読解トレーニング <span class="tag">${DOKKAI.length}題</span></h2><p>説明文・小説・随筆を読んで設問に答える</p></div>
       <div class="right"><span class="shogo-badge">${dt.icon} ${esc(dt.name)} Lv.${st.lv.dokkai}</span></div>
-    </div>
-    <div class="card menu-card" onclick="showStatusAllocation()">
-      <div class="menu-icon">💪</div>
-      <div><h2>ボス戦ステータス</h2><p>HP・攻撃力・防御力・運をポイントで強化する</p></div>
-      <div class="right">${(st.statPoints||0) > 0 ? `<span class="shogo-badge">✨ ${st.statPoints}pt</span>` : ""}</div>
     </div>
     <div class="card menu-card" onclick="showStats()">
       <div class="menu-icon">📊</div>
