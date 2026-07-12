@@ -1237,7 +1237,7 @@ function showHelp(){
         <li>ボスにはそれぞれ個性があり、<b>HPが高くて硬いボス</b>、<b>攻撃がはげしいボス</b>、<b>防御・回避にすぐれたボス</b>など、戦い方が少しずつちがいます。</li>
         <li>それぞれのボスには「<b>適正経験値</b>」の目安があり、遭遇したときに表示されます。その分のステータスポイントを持って挑めば、8割正解ペースで勝率85〜90%くらいになるよう調整されています。適正経験値より少ないと、格上のボスほど勝つのが難しくなります。</li>
         <li>負けてもアイテムを失うことはなく、何度でも挑戦できます。</li>
-        <li>レベルアップでたまる「挑戦券」を使えば、遭遇を待たずに<b>いつでも</b>ボスに挑戦できます。挑戦券を使った対戦は<b>全ジャンル</b>から出題されます（ふだんのランダム遭遇では、そのとき解いていたジャンルのまま出題されます）。また、挑戦券では<b>今のステータスポイントで適正経験値以下のボスだけ</b>が出現します（ステータスポイントが50以下のときは、サノーかシゲっちのどちらかになります）。</li>
+        <li>レベルアップでたまる「挑戦券」を使えば、遭遇を待たずに<b>いつでも</b>ボスに挑戦できます。挑戦券を使った対戦は<b>全ジャンル</b>から出題されます（ふだんのランダム遭遇では、そのとき解いていたジャンルのまま出題されます）。また、挑戦券では<b>今の経験値で適正経験値以下のボスだけ</b>が出現します（経験値が50以下のときは、サノーかシゲっちのどちらかになります）。</li>
       </ul>
     </div>
 
@@ -1903,7 +1903,7 @@ function renderBossPrompt(){
     <div class="card boss-encounter">
       <div class="boss-enc-icon">${b.icon}</div>
       <p class="boss-enc-text">「${esc(b.name)}」<span class="boss-lv-tag">Lv.${b.lv||"?"}</span>が勝負をしかけてきた。<br>勝負しますか？</p>
-      <p class="note boss-enc-hint">適正経験値の目安：${b.recPts||0}pt（今のステータスポイント：${unspentStatPoints(st)}pt）</p>
+      <p class="note boss-enc-hint">適正経験値の目安：${b.recPts||0}pt（今の経験値：${totalEarnedStatPoints(st)}pt）</p>
       <div class="boss-enc-choices">
         <button class="boss-enc-btn ${bossPromptSelection==='no'?'selected':''}" onclick="resolveBossPrompt('no')">いいえ</button>
         <button class="boss-enc-btn ${bossPromptSelection==='yes'?'selected':''}" onclick="resolveBossPrompt('yes')">勝負する</button>
@@ -2165,7 +2165,7 @@ function endBossBattle(){
 function showTicketConfirm(){
   const st = loadStats();
   if((st.bossTickets||0) <= 0){ showHome(); return; }
-  const pts = unspentStatPoints(st);
+  const pts = totalEarnedStatPoints(st);
   const candidates = ticketEligibleBosses(pts);
   const names = candidates.map(b => b.name.match(/【(.+)】/)?.[1] || b.name).join("・");
   screen.innerHTML = `
@@ -2173,18 +2173,19 @@ function showTicketConfirm(){
       <div class="boss-enc-icon">🎟️</div>
       <p class="boss-enc-text">挑戦券を1枚使って、ランダムなボスに挑戦しますか？<br><b>挑戦すると、券を1枚消費します。</b></p>
       <p class="note boss-enc-hint">🌐 挑戦券を使った対戦は、全ジャンルからランダムに出題されます（ふだんのランダム遭遇では、そのとき解いていたジャンルのまま出題されます）。</p>
-      <p class="note boss-enc-hint">🎯 出現するのは、今のステータスポイント（${pts}pt）で適正経験値以下のボスだけです。今回の候補：${esc(names)}</p>
+      <p class="note boss-enc-hint">🎯 出現するのは、今の経験値（${pts}pt）で適正経験値以下のボスだけです。今回の候補：${esc(names)}</p>
       <div class="boss-enc-choices">
         <button class="boss-enc-btn" onclick="showHome()">やめる</button>
         <button class="boss-enc-btn selected" onclick="useTicketAndFight()">券を1枚使って挑戦する</button>
       </div>
     </div>`;
 }
-/* 挑戦券で出るボスは、適正経験値が「今のステータスポイント」以下のものだけに限定する
-   （ただし経験値50以下のときも、サノー・シゲっちの2体（適正経験値50）だけは選べるように、
-   しきい値の下限を50に固定する）。ランダム遭遇は対象外で、従来どおり全ボスから出現する。 */
-function ticketEligibleBosses(statPoints){
-  const threshold = Math.max(statPoints||0, 50);
+/* 挑戦券で出るボスは、適正経験値が「今の経験値（＝分野レベル合計。すでに使った分もふくむ）」
+   以下のものだけに限定する（ただし経験値50以下のときも、サノー・シゲっちの2体
+   （適正経験値50）だけは選べるように、しきい値の下限を50に固定する）。
+   ランダム遭遇は対象外で、従来どおり全ボスから出現する。 */
+function ticketEligibleBosses(earnedPts){
+  const threshold = Math.max(earnedPts||0, 50);
   return BOSSES.filter(b => (b.recPts||0) <= threshold);
 }
 function useTicketAndFight(){
@@ -2192,7 +2193,7 @@ function useTicketAndFight(){
   if((st.bossTickets||0) <= 0){ showHome(); return; }
   st.bossTickets -= 1;
   saveStats(st);
-  const candidates = ticketEligibleBosses(unspentStatPoints(st));
+  const candidates = ticketEligibleBosses(totalEarnedStatPoints(st));
   const boss = candidates[Math.floor(Math.random() * candidates.length)];
   startBossBattle(boss, true);
 }
