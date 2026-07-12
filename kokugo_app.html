@@ -1187,8 +1187,9 @@ function showHelp(){
       <ul class="help-list">
         <li>ふつうに問題を解いていると、<b>ごくまれに（1/40くらいの確率で）</b>ボスが勝負をしかけてきます。</li>
         <li>「勝負する」か「いいえ」かを、その場で選べます。断ってもペナルティはありません。</li>
-        <li>ボス戦では、あなたのHPは100、ボスのHPは1000。<b>正解するとボスにダメージ</b>を与え、<b>不正解だと自分がダメージ</b>を受けます（間違えたときのほうがダメージが大きいので、正解を積み重ねることが大切です）。</li>
-        <li>目安として、<b>10問中8問くらい正解できれば、ほぼ確実に勝てる</b>ように作られています。</li>
+        <li>ボス戦では、あなたのHPは100前後、ボスのHPは900〜1300くらい。<b>正解するとボスにダメージ</b>を与え、<b>不正解だと自分がダメージ</b>を受けます（間違えたときのほうがダメージが大きいので、正解を積み重ねることが大切です）。</li>
+        <li>ボスにはそれぞれ個性があり、<b>HPが高くて硬いボス</b>、<b>攻撃がはげしいボス</b>、<b>会心の一撃を出しやすいボス</b>など、戦い方が少しずつちがいます。</li>
+        <li>標準的なボスが相手なら、目安として<b>10問中8問くらい正解できれば、ほぼ確実に勝てる</b>ように作られています。手ごわいボスには、ボス戦ステータスを育てて挑みましょう。</li>
         <li>負けてもアイテムを失うことはなく、何度でも挑戦できます。</li>
         <li>レベルアップでたまる「挑戦券」を使えば、遭遇を待たずに<b>いつでも</b>ランダムなボスに挑戦できます。</li>
       </ul>
@@ -1782,13 +1783,18 @@ function endBattle(){
    ダメージ量について：「10問中8問以上正解すれば必ず勝てる」という設計目標を満たすよう、
    ボスHP1000・自分HP100に対して、正解時ダメージ125〜155（最低保証125×8回＝1000）、
    被弾ダメージ6〜9（最悪10ラウンドでも90でHPが尽きない）に調整している。 */
+/* ボスごとの個性（プレイヤーのステータスと同じ4項目）：
+   hp   … 体力
+   atk  … 反撃ダメージの倍率（1.0が基準）
+   def  … プレイヤーの攻撃を軽減する固定値（プレイヤーの防御力と同じ仕組み）
+   luck … 反撃が「会心の一撃」になる確率（%）。会心時は反撃ダメージが1.5倍になる */
 const BOSSES = [
-  {id:"tekkyu",     name:"鉄球を持ったお姉さん【ケイ】",         icon:"⚫", item:"鉄球",             treasure:"ぴかぴかの鉄球",             hp:1000},
-  {id:"houcho",     name:"包丁を持った紳士【ムライオ】",         icon:"🔪", item:"包丁",             treasure:"調理室",                     hp:1000},
-  {id:"volleyball", name:"バレーボールを持ったお兄さん【サノー】", icon:"🏐", item:"バレーボール",     treasure:"人体模型",                   hp:1000},
-  {id:"yakyu",      name:"車好き野球プレーヤー【シゲっち】",     icon:"⚾", item:"野球ボール",       treasure:"ホームランバット",           hp:1000},
-  {id:"suugaku",    name:"数学の化身【ケンさん】",               icon:"📐", item:"三角定規",         treasure:"大きなコンパス",             hp:1000},
-  {id:"bijutsu",    name:"美術の案内人【サオーリ】",             icon:"🖌️", item:"ふつうの筆",       treasure:"描いたものが現実になる筆",   hp:1000},
+  {id:"tekkyu",     name:"鉄球を持ったお姉さん【ケイ】",         icon:"⚫", item:"鉄球",             treasure:"ぴかぴかの鉄球",             hp:1300, atk:1.2, def:8,  luck:5},
+  {id:"houcho",     name:"包丁を持った紳士【ムライオ】",         icon:"🔪", item:"包丁",             treasure:"調理室",                     hp:900,  atk:1.4, def:2,  luck:10},
+  {id:"volleyball", name:"バレーボールを持ったお兄さん【サノー】", icon:"🏐", item:"バレーボール",     treasure:"人体模型",                   hp:1000, atk:1.0, def:4,  luck:8},
+  {id:"yakyu",      name:"車好き野球プレーヤー【シゲっち】",     icon:"⚾", item:"野球ボール",       treasure:"ホームランバット",           hp:950,  atk:1.1, def:3,  luck:15},
+  {id:"suugaku",    name:"数学の化身【ケンさん】",               icon:"📐", item:"三角定規",         treasure:"大きなコンパス",             hp:1000, atk:0.9, def:10, luck:5},
+  {id:"bijutsu",    name:"美術の案内人【サオーリ】",             icon:"🖌️", item:"ふつうの筆",       treasure:"描いたものが現実になる筆",   hp:900,  atk:1.0, def:3,  luck:18},
 ];
 const BOSS_ENCOUNTER_RATE = 1/40;
 const BOSS_TREASURE_RATE = 0.1;
@@ -1804,9 +1810,12 @@ const STAT_DEF_PER_POINT = 1;
 const STAT_LUCK_CRIT_PCT_PER_POINT = 0.5;  // 運1ポイントごとに会心率+0.5%
 const STAT_LUCK_CRIT_CAP_PCT = 30;         // 会心率の上限
 const STAT_CRIT_MULT = 2;                  // 会心の一撃のダメージ倍率
-/* HP1000のボスに対し、最悪ケース（常に最小ダメージしか与えられず、常に最大ダメージを受ける）でも
-   10問中8問正解すれば必ず勝てるように調整済み（撃破した回のボスの反撃は発生しないため、
-   反撃を受けるのは最大9回。2回外した場合：2×16＋7×6＝74 < 自分のHP100）。 */
+/* 基準となるHP1000・標準ステータス（atk1.0/def4/luck8）のボスに対しては、最悪ケース
+   （常に最小ダメージしか与えられず、常に最大ダメージを受ける）でも10問中8問正解すれば
+   必ず勝てるように調整済み（撃破した回のボスの反撃は発生しないため、反撃を受けるのは
+   最大9回。2回外した場合：2×16＋7×6＝74 < 自分のHP100）。
+   HP・攻撃力・防御力・運がボスごとに異なるため、手ごわいボスにはプレイヤー側の
+   ボス戦ステータス（HP・攻撃力・防御力・運）を育てて挑むことが前提になる。 */
 const TREASURE_NAMES = new Set(BOSSES.map(b => b.treasure));
 function randInt(min, max){ return min + Math.floor(Math.random() * (max - min + 1)); }
 
@@ -1957,6 +1966,7 @@ function bossGrade(ok, chosenOrig, typed){
       crit = true;
       dealt = Math.round(dealt * STAT_CRIT_MULT);
     }
+    dealt = Math.max(1, Math.round(dealt - (b.boss.def||0)));
     b.bossHp = Math.max(0, b.bossHp - dealt);
   }
   refreshBossHpBars();
@@ -1994,11 +2004,17 @@ function bossCounterAttack(playerWasCorrect){
   const b = bossBattle;
   const range = playerWasCorrect ? BOSS_DMG_ON_CORRECT : BOSS_DMG_ON_WRONG;
   const ps = loadStats().stats || {hp:0,atk:0,def:0,luck:0};
-  const taken = Math.max(1, randInt(range[0], range[1]) - ps.def * STAT_DEF_PER_POINT);
+  let raw = randInt(range[0], range[1]) * (b.boss.atk||1);
+  let bossCrit = false;
+  if(Math.random() * 100 < (b.boss.luck||0)){
+    bossCrit = true;
+    raw *= 1.5;
+  }
+  const taken = Math.max(1, Math.round(raw) - ps.def * STAT_DEF_PER_POINT);
   b.playerHp = Math.max(0, b.playerHp - taken);
   refreshBossHpBars();
   const fb = document.getElementById("fb");
-  fb.innerHTML += `<div class="boss-turn">👹 ${esc(b.boss.name)}のターン。あなたは ${taken} ダメージを受けた。</div>`;
+  fb.innerHTML += `<div class="boss-turn">👹 ${esc(b.boss.name)}のターン。${bossCrit ? "🔥ボスの会心の一撃！ " : ""}あなたは ${taken} ダメージを受けた。</div>`;
   const nextBtn = document.getElementById("nextBtn");
   nextBtn.style.display = "inline-block";
   nextBtn.textContent = b.playerHp<=0 ? "けっかを見る" : "つぎへ";
