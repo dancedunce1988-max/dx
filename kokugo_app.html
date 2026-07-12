@@ -2506,7 +2506,11 @@ function importData(input){
       const payload = JSON.parse(reader.result);
       const st = payload && payload.app === "kokugoTraining" ? payload.data : payload;
       if(!st || !st.cats || !st.q || !st.lv) throw new Error("形式ちがい");
-      if(!confirm("保存ファイルの記録を読み込みます。今のブラウザの記録は上書きされます。よろしいですか？")) return;
+      const saved = payload && payload.savedAt ? new Date(payload.savedAt) : null;
+      const dateStr = saved && !isNaN(saved) ? `${saved.getFullYear()}年${saved.getMonth()+1}月${saved.getDate()}日 ${String(saved.getHours()).padStart(2,"0")}:${String(saved.getMinutes()).padStart(2,"0")}` : "不明";
+      const xp = kotonohaTotalXP(st);
+      const confirmMsg = `このファイルの記録を読み込みます。\n\n保存日時：${dateStr}\nことのはの経験値：${xp}\n\nこの内容でよろしければ「OK」を押してください。今のブラウザの記録は上書きされます。`;
+      if(!confirm(confirmMsg)) return;
       saveStats(st);
       alert("記録を読み込みました！");
       showStats();
