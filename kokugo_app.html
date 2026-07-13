@@ -137,6 +137,40 @@
   .bar{height:8px; background:var(--line); border-radius:99px; overflow:hidden; margin-top:4px;}
   .bar > div{height:100%; background:var(--accent2);}
   .weak{color:var(--accent); font-size:.8rem;}
+  /* ================= 漢字の書き取り学習 ================= */
+  .kw-level-card.disabled{cursor:default; opacity:.5;}
+  .kw-level-card.disabled:hover{transform:none; box-shadow:none;}
+  .kw-level-tag{
+    display:inline-block; background:var(--accent2); color:#fff; font-weight:bold;
+    border-radius:99px; padding:2px 12px; font-size:.85rem; margin-right:8px; flex-shrink:0;
+  }
+  .kw-level-acc{font-size:.78rem; color:var(--sub);}
+  .kw-sentence{
+    font-size:1.55rem; font-weight:bold; line-height:1.9; margin:20px 0 22px; text-align:center;
+    white-space:pre-wrap;
+  }
+  .kw-answer-box{text-align:center; margin:18px 0 22px;}
+  .kw-answer-kanji{
+    font-family:"UD Digital 教科書体 NP-R","UDデジタル教科書体N-R","HGS教科書体","HG教科書体","Yu Mincho",serif;
+    font-size:4.2rem; font-weight:normal; color:var(--accent2); line-height:1.2;
+  }
+  .kw-info-card{
+    background:var(--card); border:1px solid var(--line); border-radius:10px;
+    padding:16px 18px; margin-top:4px; font-size:.9rem; line-height:1.8;
+  }
+  .kw-info-card h4{font-size:.85rem; color:var(--accent2); margin-bottom:4px;}
+  .kw-info-card .kw-char-block{margin-top:10px; padding-top:10px; border-top:1px dashed var(--line);}
+  .kw-info-card .kw-char-block:first-child{margin-top:0; padding-top:0; border-top:none;}
+  .kw-selfjudge-row{display:flex; gap:12px; margin-top:20px;}
+  .kw-ok-btn, .kw-ng-btn{
+    flex:1; border:none; border-radius:10px; padding:16px; font-size:1.05rem; font-weight:bold;
+    cursor:pointer; font-family:inherit;
+  }
+  .kw-ok-btn{background:var(--ok); color:#fff;}
+  .kw-ng-btn{background:var(--ng); color:#fff;}
+  .kw-lv-badge{
+    text-align:center; font-weight:bold; color:var(--accent2); margin-bottom:14px; font-size:1.05rem;
+  }
   .note{font-size:.78rem; color:var(--sub); margin-top:10px;}
   h3.section{font-size:1rem; margin:18px 0 10px; padding-left:10px; border-left:4px solid var(--accent);}
   h3.section:first-child{margin-top:0;}
@@ -394,7 +428,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver1.7</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver1.8</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -404,6 +438,7 @@
 </div>
 
 <script src="kokugo_data.js"></script>
+<script src="kanji_write_data.js"></script>
 <script>
 "use strict";
 
@@ -556,7 +591,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 1;
+const SAVE_FORMAT_VERSION = 2;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -567,7 +602,8 @@ function emptyStats(){
   const diffLv = {};
   CAT_KEYS.forEach(k => { cats[k] = {t:0,c:0}; lv[k] = 1; diffLv[k] = 1; });
   return {cats, q:{}, lv, diffLv, items:{}, bossPity:{}, kotonohaOtherRoll:null, bossTickets:0, totalLevelUps:0,
-    stats:{hp:0, atk:0, def:0, spd:0, luck:0}, kotonohaSeenForms:[], kotonohaDisplayOverride:null};
+    stats:{hp:0, atk:0, def:0, spd:0, luck:0}, kotonohaSeenForms:[], kotonohaDisplayOverride:null,
+    kanjiWrite:{totalOk:0, itemHist:{}, levelRecent:{}}};
 }
 /* ステータスポイントは保存された数値ではなく、常にその場で計算する：
    「分野レベルの合計（＝これまで獲得した経験値の合計）」から「すでに割りふった分」を引いた残り。
@@ -605,6 +641,10 @@ function loadStats(){
         CAT_KEYS.forEach(k => {
           if(typeof st.diffLv[k] !== "number") st.diffLv[k] = targetLv(k, st.lv[k]||1);
         });
+        if(!st.kanjiWrite) st.kanjiWrite = {totalOk:0, itemHist:{}, levelRecent:{}};
+        if(!st.kanjiWrite.itemHist) st.kanjiWrite.itemHist = {};
+        if(!st.kanjiWrite.levelRecent) st.kanjiWrite.levelRecent = {};
+        if(typeof st.kanjiWrite.totalOk !== "number") st.kanjiWrite.totalOk = 0;
         if(!Array.isArray(st.kotonohaSeenForms)) st.kotonohaSeenForms = [];
         if(st.kotonohaDisplayOverride === undefined) st.kotonohaDisplayOverride = null;
         /* 旧バージョンで「その他型」が固定されていた場合、今の見た目をそのまま引き継ぐ
@@ -1246,6 +1286,11 @@ function showHome(){
       <div><h2>読解トレーニング <span class="tag">${DOKKAI.length}題</span></h2><p>説明文・小説・随筆を読んで設問に答える</p></div>
       <div class="right"><span class="shogo-badge">${dt.icon} ${esc(dt.name)} Lv.${st.lv.dokkai}</span></div>
     </div>
+    <div class="card menu-card" onclick="showKanjiWriteMenu()">
+      <div class="menu-icon">✍️</div>
+      <div><h2>漢字の書き学習</h2><p>高校入試頻出の漢字を、書き取り形式で自己採点しながら学習（経験値には影響しません）</p></div>
+      <div class="right"><span class="shogo-badge">✍️ Lv.${kwLv(st)}</span></div>
+    </div>
     <div class="card menu-card" onclick="showStats()">
       <div class="menu-icon">📊</div>
       <div><h2>成績・称号</h2><p>分野ごとのレベル・正答率・よく間違える問題</p></div>
@@ -1374,6 +1419,17 @@ function showHelp(){
         <li>レベルが上がると、「むらびと」→「村人」→…→「伝説の勇者」というように<b>称号</b>が変わっていきます。伝説の勇者のさらに先には、正体がナゾの「かくし称号」もかくされています。</li>
         <li>レベルが<b>10回上がるごとに</b>、ボスへの「挑戦チケット」を1枚もらえます。</li>
         <li>選択肢を適当に選び続けるなど、<b>直近の正答率が極端に低いとき</b>は、正解してもレベルアップが一時的にお休みになります。落ち着いて問題を読んで答えるようにすれば、また通常どおりレベルが上がるようになります。</li>
+      </ul>
+    </div>
+
+    <h3 class="section">✍️ 漢字の書き学習</h3>
+    <div class="card">
+      <ul class="help-list">
+        <li>「とっくん・読解・記録」の中の「漢字の書き学習」では、<b>高校入試で頻出の漢字</b>を、書き取り形式で学習できます。</li>
+        <li>例文の中の<b>カタカナ・太字・下線の部分</b>を、漢字でノートなどに書いてみてから「答えを見る」を押します。答えの漢字は大きな教科書体で表示され、あわせて意味・読み・成り立ちも確認できます。</li>
+        <li>自分で答え合わせをして、「⭕ 書けた！」「❌ 書けなかった」のどちらかを選びます。<b>自己採点なので、このモードの結果は経験値や「ことのは」の成長には影響しません。</b>そのかわり、このモード専用の「書き取りレベル」と、レベルごとの直近100回の正答率が記録されます。</li>
+        <li>レベルは「１」〜「５」（頻出トップ20〜200から出題）と「極」（頻出上位とその他の漢字を半分ずつ出題）があります。</li>
+        <li>間違えた（書けなかった）漢字は出やすく、書けた漢字はだんだん出にくくなっていきます。</li>
       </ul>
     </div>
 
@@ -1572,6 +1628,180 @@ function endSession(clearedAll){
       <div class="btn-row">
         <button class="btn" onclick="window._retry()">つづける</button>
         <button class="btn secondary" onclick="showStats()">成績を見る</button>
+        <button class="btn secondary" onclick="showHome()">ホームへ</button>
+      </div>
+    </div>`;
+}
+
+/* ================= 漢字の書き取り学習 =================
+   高校入試頻出ランキング（上位から）をもとに、レベル別に出題する専用モード。
+   「書けた！／書けなかった」の自己評価制なので、経験値・分野レベル・「ことのは」の進化には
+   一切影響させない（record()・saveStatsの通常経路は使うが、cats/lv/diffLvは触らない）。
+   代わりに、このモード専用の「書けたね数（＝独自の漢字レベル）」と、レベルごとの直近100回の
+   自己評価正答率だけを、st.kanjiWrite に記録する。
+   間違えた（＝書けなかった）漢字ほど出やすく、書けた漢字ほど出にくくなる重みづけは、
+   通常モードのhistoryWeightと同じ考え方を、このモード専用データ(itemHist)に対して行う。 */
+const KANJI_WRITE_LEVELS = [
+  {key:"1",    label:"レベル１", topN:20,  desc:"入試頻出トップ20から出題"},
+  {key:"2",    label:"レベル２", topN:50,  desc:"入試頻出トップ50から出題"},
+  {key:"3",    label:"レベル３", topN:100, desc:"入試頻出トップ100から出題"},
+  {key:"4",    label:"レベル４", topN:150, desc:"入試頻出トップ150から出題"},
+  {key:"5",    label:"レベル５", topN:200, desc:"入試頻出トップ200から出題"},
+  {key:"goku", label:"極",       topN:200, desc:"50%は上位ランキングから、50%はその他の漢字から出題", isGoku:true},
+];
+function kwData(){ return (window.KANJI_WRITE_DATA) || {ranked:[], other:[]}; }
+/* そのレベルが今のデータ量で実際に遊べるかどうか（トップ200分・「その他」データが
+   まだ揃っていないうちは、対応するレベルを「準備中」として選べなくする） */
+function kwLevelReady(levelDef){
+  const d = kwData();
+  if(levelDef.isGoku) return d.ranked.length >= levelDef.topN && d.other.length > 0;
+  return d.ranked.length >= levelDef.topN;
+}
+function kwHistoryWeight(st, it){
+  const h = st.kanjiWrite.itemHist[it.id];
+  if(!h || h.t === 0) return 1.2;
+  const wrong = h.t - h.c;
+  const w = Math.pow(0.75, h.c) * Math.pow(1.5, wrong);
+  return Math.max(0.05, Math.min(8, w));
+}
+function kwPoolForLevel(levelKey){
+  const d = kwData();
+  if(levelKey === "goku"){
+    return (Math.random() < 0.5 && d.other.length > 0) ? d.other : d.ranked;
+  }
+  const def = KANJI_WRITE_LEVELS.find(l => l.key === levelKey);
+  return d.ranked.slice(0, Math.min(def.topN, d.ranked.length));
+}
+function kwSelectOne(levelKey, lastId){
+  const st = loadStats();
+  let pool = kwPoolForLevel(levelKey);
+  if(pool.length > 1 && lastId) pool = pool.filter(it => it.id !== lastId);
+  const weights = pool.map(it => kwHistoryWeight(st, it));
+  return pickOne(pool, weights);
+}
+function kwLevelAccuracy(st, levelKey){
+  const recent = (st.kanjiWrite.levelRecent[levelKey]) || [];
+  if(recent.length === 0) return null;
+  return Math.round(100 * recent.reduce((a,b)=>a+b, 0) / recent.length);
+}
+function kwLv(st){ return 1 + (st.kanjiWrite.totalOk || 0); }
+/* 自己評価を記録するだけの専用関数。record()は一切呼ばず、
+   st.cats・st.lv・st.diffLv（＝経験値やことのはの進化に関わる値）にはnoneも触れない。 */
+function kwRecord(levelKey, it, canWrite){
+  const st = loadStats();
+  const h = st.kanjiWrite.itemHist[it.id] || {t:0, c:0};
+  h.t++; if(canWrite) h.c++;
+  st.kanjiWrite.itemHist[it.id] = h;
+  if(canWrite) st.kanjiWrite.totalOk = (st.kanjiWrite.totalOk||0) + 1;
+  const recent = (st.kanjiWrite.levelRecent[levelKey] || []).slice();
+  recent.push(canWrite ? 1 : 0);
+  while(recent.length > 100) recent.shift();
+  st.kanjiWrite.levelRecent[levelKey] = recent;
+  saveStats(st);
+  return {lv: kwLv(st), acc: kwLevelAccuracy(st, levelKey)};
+}
+
+/* ---- 画面：レベル選択 ---- */
+function showKanjiWriteMenu(){
+  const st = loadStats();
+  let html = `<h3 class="section">✍️ 漢字の書き取り学習</h3>
+    <p class="note">高校入試で頻出の漢字を、書き取り形式で学習します。「書けた！」「書けなかった」の自己評価制で、経験値や「ことのは」の成長には影響しません。</p>
+    <div class="kw-lv-badge">✍️ 書き取りレベル Lv.${kwLv(st)}　（これまで「書けた！」${st.kanjiWrite.totalOk||0}回）</div>`;
+  KANJI_WRITE_LEVELS.forEach(l=>{
+    const ready = kwLevelReady(l);
+    const acc = kwLevelAccuracy(st, l.key);
+    const accHtml = acc === null ? "（まだ記録なし）" : `直近100回の正答率　${acc}%`;
+    html += `
+    <div class="card menu-card kw-level-card ${ready?"":"disabled"}" ${ready?`onclick="startKanjiWrite('${l.key}')"`:""}>
+      <div class="menu-icon">✍️</div>
+      <div><h2><span class="kw-level-tag">${esc(l.label)}</span>${esc(l.desc)}</h2>
+      <p>${ready ? esc(accHtml) : "準備中（問題を追加中です）"}</p></div>
+    </div>`;
+  });
+  html += `<div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
+  screen.innerHTML = html;
+}
+let kw = null;
+function startKanjiWrite(levelKey){
+  kw = {level:levelKey, n:0, okCount:0, lastId:null, item:null, revealed:false};
+  kwNextQuestion();
+}
+function kwNextQuestion(){
+  kw.item = kwSelectOne(kw.level, kw.lastId);
+  kw.lastId = kw.item.id;
+  kw.revealed = false;
+  kwRenderQuestion();
+}
+function kwRenderQuestion(){
+  const it = kw.item;
+  const levelDef = KANJI_WRITE_LEVELS.find(l => l.key === kw.level);
+  let answerArea;
+  if(!kw.revealed){
+    answerArea = `<div class="btn-row"><button class="btn" onclick="kwReveal()">✅ 答えを見る</button></div>`;
+  }else{
+    const infoBlocks = it.chars.map(c => `
+      <div class="kw-char-block">
+        <h4>「${esc(c.ch)}」について</h4>
+        ${c.onyomi ? `<div>音読み：${esc(c.onyomi)}</div>` : ""}
+        ${c.kunyomi ? `<div>訓読み：${esc(c.kunyomi)}</div>` : ""}
+        ${c.origin ? `<div>成り立ち：${esc(c.origin)}</div>` : ""}
+        ${c.meaning ? `<div>漢字の意味：${esc(c.meaning)}</div>` : ""}
+      </div>`).join("");
+    answerArea = `
+      <div class="kw-answer-box"><div class="kw-answer-kanji">${esc(it.kanji)}</div></div>
+      <div class="kw-info-card">
+        <h4>この言葉の意味</h4>
+        <div style="margin-bottom:10px">${esc(it.wordMeaning)}</div>
+        ${infoBlocks}
+      </div>
+      <div class="kw-selfjudge-row">
+        <button class="kw-ok-btn" onclick="kwGrade(true)">⭕ 書けた！</button>
+        <button class="kw-ng-btn" onclick="kwGrade(false)">❌ 書けなかった</button>
+      </div>
+      <div class="feedback" id="kwFb"></div>
+      <div class="btn-row" id="kwNextRow" style="display:none">
+        <button class="btn" id="kwNextBtn" onclick="kwNextQuestion()">次へ</button>
+        <button class="btn secondary" onclick="kwEndSession()">今日はここまで</button>
+      </div>`;
+  }
+  screen.innerHTML = `
+    <div class="session-bar">
+      <span>${kw.n+1}問目　｜　今回「書けた！」${kw.okCount}問</span>
+      <span class="catstat">✍️ ${esc(levelDef.label)}</span>
+    </div>
+    <div class="card">
+      <div class="q-category"><span>漢字の書き取り</span></div>
+      <div class="kw-sentence">${markQuestionHtml(it.sentence)}</div>
+      ${answerArea}
+    </div>`;
+}
+function kwReveal(){
+  kw.revealed = true;
+  kwRenderQuestion();
+}
+function kwGrade(canWrite){
+  kw.n++;
+  if(canWrite) kw.okCount++;
+  const r = kwRecord(kw.level, kw.item, canWrite);
+  document.querySelectorAll(".kw-ok-btn, .kw-ng-btn").forEach(b => b.disabled = true);
+  const fb = document.getElementById("kwFb");
+  fb.className = "feedback show " + (canWrite?"ok":"ng");
+  fb.innerHTML = `<div class="verdict">${canWrite?"⭕ 書けた！":"❌ また挑戦しよう"}</div>
+    書き取りレベル Lv.${r.lv}　｜　このレベルの直近100回正答率　${r.acc===null?"ー":r.acc+"%"}`;
+  document.getElementById("kwNextRow").style.display = "flex";
+  document.getElementById("kwNextBtn").focus();
+}
+function kwEndSession(){
+  const k = kw;
+  window._retry = () => startKanjiWrite(k.level);
+  screen.innerHTML = `
+    <div class="card">
+      <h3 class="section">今回の記録</h3>
+      <div class="result-score">${k.okCount} <span style="font-size:1.2rem;color:var(--sub)">/ ${k.n}問 書けた！</span></div>
+      <p class="result-msg">漢字の書き取り学習おつかれさま！</p>
+      <div class="btn-row">
+        <button class="btn" onclick="window._retry()">つづける</button>
+        <button class="btn secondary" onclick="showKanjiWriteMenu()">レベルを選びなおす</button>
         <button class="btn secondary" onclick="showHome()">ホームへ</button>
       </div>
     </div>`;
