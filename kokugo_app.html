@@ -1371,7 +1371,7 @@ function showHelp(){
         <li>ボスに勝つと、そのボスだけが持っている「<b>アイテム</b>」を必ず1つもらえます。</li>
         <li>さらに、まれに（だいたい10回に1回くらい）、もっとレアな「<b>宝具</b>」も手に入ります。</li>
         <li>集めたアイテム・宝具は、成績とは別に<b>ずっと記録</b>されます。ホーム画面の「アイテム一覧」からいつでも確認できます。</li>
-        <li>通常アイテムは、ボス戦中に「🎒 アイテムを使う」から<b>消費して効果を得る</b>こともできます。HPを回復するもの、数ターンのあいだ攻撃力・防御力が上がるもの、次の1回だけ間違えてもダメージを受けなくなるものなど、アイテムによって効果がちがいます。使うと1個へります。</li>
+        <li>通常アイテムは、ボス戦中に「🎒 アイテムを使う」から<b>消費して効果を得る</b>こともできます。HPを回復するもの、数ターンのあいだ攻撃力・防御力が上がるもの、次の1回だけ間違えてもダメージを受けなくなるものなど、アイテムによって効果がちがいます。使うと1個へります。<b>1ターンに使えるアイテムは1個まで、また同じ種類のアイテムはその戦闘中に1回まで</b>です。</li>
       </ul>
     </div>
 
@@ -2113,17 +2113,18 @@ function startBossBattle(boss, allGenre){
     playerHp: maxHp, playerMaxHp: maxHp,
     cat, cats, itemCat:null, item:null, order:null, lastQ:null,
     atkBuffTurns:0, atkBuffAmount:0, defBuffTurns:0, defBuffAmount:0, missGuard:false,
-    showItemPanel:false, usedItemThisTurn:false,
+    showItemPanel:false, usedItemThisTurn:false, usedItemNames:{},
   };
   bossNextQuestion();
 }
 /* ボス戦中に通常アイテムを1つ消費して効果を発動する。問題への回答前に使える
-   （消費してもターンは進まない）が、1ターンに使えるのは1個まで。効果はbossBattle側に持たせ、
-   次の攻撃・防御時に反映する。 */
+   （消費してもターンは進まない）。制限は2つ：1ターンに使えるのは1個まで、かつ同じ種類の
+   アイテムはその戦闘中に1回しか使えない（usedItemNamesはbossNextQuestionでリセットしない
+   ＝バトル全体を通しての制限にする）。効果はbossBattle側に持たせ、次の攻撃・防御時に反映する。 */
 function useBossItem(name){
   const b = bossBattle;
   if(!b || b._resolving || b.bossHp <= 0 || b.playerHp <= 0) return;
-  if(b.usedItemThisTurn) return;
+  if(b.usedItemThisTurn || b.usedItemNames[name]) return;
   const effect = ITEM_EFFECTS[name];
   if(!effect) return;
   const st = loadStats();
@@ -2150,6 +2151,7 @@ function useBossItem(name){
   }
   b.showItemPanel = false;
   b.usedItemThisTurn = true;
+  b.usedItemNames[name] = true;
   b.itemUseMsg = msg;
   renderBossBattle();
 }
@@ -2158,11 +2160,13 @@ function toggleBossItemPanel(){
   bossBattle.showItemPanel = !bossBattle.showItemPanel;
   renderBossBattle();
 }
-/* ボス戦中に使える（効果が定義されていて、かつ1個以上持っている）通常アイテムの一覧 */
+/* ボス戦中に使える（効果が定義されていて、1個以上持っていて、まだその戦闘中に使っていない）
+   通常アイテムの一覧 */
 function usableBossItems(){
   const st = loadStats();
   const items = st.items || {};
-  return Object.keys(ITEM_EFFECTS).filter(name => (items[name]||0) > 0);
+  const used = (bossBattle && bossBattle.usedItemNames) || {};
+  return Object.keys(ITEM_EFFECTS).filter(name => (items[name]||0) > 0 && !used[name]);
 }
 function bossNextQuestion(){
   bossBattle.itemUseMsg = null;
