@@ -618,7 +618,15 @@ function qKey(cat, qText){
   for(let i=0;i<qText.length;i++){ h = ((h<<5)+h+qText.charCodeAt(i))|0; }
   return cat + "|" + (h>>>0).toString(36);
 }
-/* 正誤を記録。正解ならその分野のレベル+1。{lvup, evolved, lv} を返す */
+/* 直近何問ぶんの正誤で正答率を見るか、正答率がどこを下回るとレベルアップを止めるか。
+   4択を適当に選ぶと正答率は理論上25%になるが、直近10問など短い区間だとブレが大きく、
+   たまたま3割を超えて素通りしてしまうことが多かった（シミュレーションで抑制率3割程度）。
+   30問・35%にすると、乱択（25%）は約85%の確率でレベルアップが止まる一方、
+   まじめに取り組んでいるプレイヤー（正答率50%以上）にはほとんど影響しないことを確認している。 */
+const RECENT_ACC_WINDOW = 30;
+const RECENT_ACC_THRESHOLD = 0.35;
+/* 正誤を記録。正解ならその分野のレベル+1。ただし直近の正答率が極端に低いとき（適当に答えている
+   おそれがあるとき）はレベルアップを止める。{lvup, evolved, lv, gotTicket, lowAccuracy} を返す */
 function record(cat, item, correct){
   const st = loadStats();
   st.cats[cat].t++; if(correct) st.cats[cat].c++;
@@ -634,8 +642,16 @@ function record(cat, item, correct){
       ? Math.min(maxLv, curDiff + DIFF_LV_STEP)
       : Math.max(1, curDiff - DIFF_LV_STEP);
   }
+  if(!st.recentCorrect) st.recentCorrect = {};
+  const recent = (st.recentCorrect[cat] || []).slice();
+  recent.push(correct ? 1 : 0);
+  while(recent.length > RECENT_ACC_WINDOW) recent.shift();
+  st.recentCorrect[cat] = recent;
+  const recentAcc = recent.reduce((a,b)=>a+b, 0) / recent.length;
+  const lowAccuracy = recent.length >= RECENT_ACC_WINDOW && recentAcc < RECENT_ACC_THRESHOLD;
+
   let lvup = false, evolved = null, gotTicket = false;
-  if(correct && st.lv[cat] < MAX_CAT_LV){
+  if(correct && !lowAccuracy && st.lv[cat] < MAX_CAT_LV){
     const before = titleOf(st.lv[cat]);
     st.lv[cat]++;
     lvup = true;
@@ -648,7 +664,7 @@ function record(cat, item, correct){
     if(after !== before) evolved = after;
   }
   saveStats(st);
-  return {lvup, evolved, lv:st.lv[cat], gotTicket};
+  return {lvup, evolved, lv:st.lv[cat], gotTicket, lowAccuracy: correct && lowAccuracy};
 }
 function qStat(st, cat, item){ return st.q[qKey(cat, item.q)] || null; }
 
@@ -1345,6 +1361,7 @@ function showHelp(){
         <li>問題に<b>正解するたびにレベルが1上がります</b>（不正解でレベルが下がることはありません）。</li>
         <li>レベルが上がると、「むらびと」→「村人」→…→「伝説の勇者」というように<b>称号</b>が変わっていきます。伝説の勇者のさらに先には、正体がナゾの「かくし称号」もかくされています。</li>
         <li>レベルが<b>10回上がるごとに</b>、ボスへの「挑戦チケット」を1枚もらえます。</li>
+        <li>選択肢を適当に選び続けるなど、<b>直近の正答率が極端に低いとき</b>は、正解してもレベルアップが一時的にお休みになります。落ち着いて問題を読んで答えるようにすれば、また通常どおりレベルが上がるようになります。</li>
       </ul>
     </div>
 
@@ -1516,7 +1533,8 @@ function gradeAnswer(ok, chosenOrig, typed){
   const evolveMsg = r.evolved
     ? `<div class="evolve">${r.evolved.hidden ? "🔓 かくされた称号が明かされた！<br>" : ""}${r.evolved.icon} 進化！　${esc(CATS[cat].name)}の称号が「${esc(r.evolved.name)}」になった！</div>` : "";
   const ticketMsg = r.gotTicket ? `<div class="evolve ticket-get">🎟️ ボスへの挑戦チケットを1枚手に入れた！</div>` : "";
-  fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}${lvChip}</div>${expl}${evolveMsg}${ticketMsg}`;
+  const lowAccMsg = r.lowAccuracy ? `<p class="note">⏸️ 直近の正答率が低いため、レベルアップはお休み中です。落ち着いて問題を読んで答えると、また上がるようになります。</p>` : "";
+  fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}${lvChip}</div>${expl}${evolveMsg}${ticketMsg}${lowAccMsg}`;
   document.getElementById("nextBtn").style.display = "inline-block";
   document.getElementById("quitBtn").style.display = "inline-block";
   document.getElementById("nextBtn").focus();
@@ -1607,7 +1625,8 @@ function answerDokkai(origIdx){
   const evolveMsg = r.evolved
     ? `<div class="evolve">${r.evolved.hidden ? "🔓 かくされた称号が明かされた！<br>" : ""}${r.evolved.icon} 進化！　読解の称号が「${esc(r.evolved.name)}」になった！</div>` : "";
   const ticketMsg = r.gotTicket ? `<div class="evolve ticket-get">🎟️ ボスへの挑戦チケットを1枚手に入れた！</div>` : "";
-  fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}${lvChip}</div>${it.e?esc(it.e):""}${evolveMsg}${ticketMsg}`;
+  const lowAccMsg = r.lowAccuracy ? `<p class="note">⏸️ 直近の正答率が低いため、レベルアップはお休み中です。落ち着いて問題を読んで答えると、また上がるようになります。</p>` : "";
+  fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}${lvChip}</div>${it.e?esc(it.e):""}${evolveMsg}${ticketMsg}${lowAccMsg}`;
   document.getElementById("nextBtnD").style.display = "inline-block";
 }
 function nextDokkai(){
