@@ -2113,15 +2113,17 @@ function startBossBattle(boss, allGenre){
     playerHp: maxHp, playerMaxHp: maxHp,
     cat, cats, itemCat:null, item:null, order:null, lastQ:null,
     atkBuffTurns:0, atkBuffAmount:0, defBuffTurns:0, defBuffAmount:0, missGuard:false,
-    showItemPanel:false,
+    showItemPanel:false, usedItemThisTurn:false,
   };
   bossNextQuestion();
 }
-/* ボス戦中に通常アイテムを1つ消費して効果を発動する。問題への回答前に、いつでも使える
-   （消費してもターンは進まない）。効果はbossBattle側に持たせ、次の攻撃・防御時に反映する。 */
+/* ボス戦中に通常アイテムを1つ消費して効果を発動する。問題への回答前に使える
+   （消費してもターンは進まない）が、1ターンに使えるのは1個まで。効果はbossBattle側に持たせ、
+   次の攻撃・防御時に反映する。 */
 function useBossItem(name){
   const b = bossBattle;
   if(!b || b._resolving || b.bossHp <= 0 || b.playerHp <= 0) return;
+  if(b.usedItemThisTurn) return;
   const effect = ITEM_EFFECTS[name];
   if(!effect) return;
   const st = loadStats();
@@ -2147,11 +2149,12 @@ function useBossItem(name){
     msg = `${effect.icon} 「${name}」を使った！ 次に1回だけ、間違えてもダメージを受けなくなった！`;
   }
   b.showItemPanel = false;
+  b.usedItemThisTurn = true;
   b.itemUseMsg = msg;
   renderBossBattle();
 }
 function toggleBossItemPanel(){
-  if(!bossBattle || bossBattle._resolving) return;
+  if(!bossBattle || bossBattle._resolving || bossBattle.usedItemThisTurn) return;
   bossBattle.showItemPanel = !bossBattle.showItemPanel;
   renderBossBattle();
 }
@@ -2164,6 +2167,7 @@ function usableBossItems(){
 function bossNextQuestion(){
   bossBattle.itemUseMsg = null;
   bossBattle.showItemPanel = false;
+  bossBattle.usedItemThisTurn = false;
   if(bossBattle.cats){
     const picked = pickBattleQuestionMulti(bossBattle.cats, bossBattle.lastQ);
     bossBattle.item = picked.item;
@@ -2207,7 +2211,7 @@ function bossItemBarHtml(){
   const useMsg = b.itemUseMsg ? `<p class="note">${esc(b.itemUseMsg)}</p>` : "";
   const usable = usableBossItems();
   let panel = "";
-  if(b.showItemPanel){
+  if(b.showItemPanel && !b.usedItemThisTurn){
     panel = usable.length
       ? `<div class="card" style="margin:8px 0">` + usable.map(name => {
           const st = loadStats();
@@ -2220,10 +2224,13 @@ function bossItemBarHtml(){
         }).join("") + `</div>`
       : `<div class="card" style="margin:8px 0"><p class="note">使えるアイテムを持っていません。ボスを倒すと手に入ります。</p></div>`;
   }
+  const itemBtn = b.usedItemThisTurn
+    ? `<button class="btn inline secondary disabled" disabled>🎒 このターンはもう使えません</button>`
+    : `<button class="btn inline secondary" onclick="toggleBossItemPanel()">🎒 アイテムを使う${usable.length ? `（${usable.length}種）` : ""}</button>`;
   return `
     ${buffRow}${useMsg}
     <div class="btn-row" style="margin-bottom:4px">
-      <button class="btn inline secondary" onclick="toggleBossItemPanel()">🎒 アイテムを使う${usable.length ? `（${usable.length}種）` : ""}</button>
+      ${itemBtn}
     </div>
     ${panel}`;
 }
