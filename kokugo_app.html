@@ -432,7 +432,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver2.0</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver2.1</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -595,7 +595,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 3;
+const SAVE_FORMAT_VERSION = 4;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -605,7 +605,7 @@ function emptyStats(){
   const lv = {dokkai:1};
   const diffLv = {};
   CAT_KEYS.forEach(k => { cats[k] = {t:0,c:0}; lv[k] = 1; diffLv[k] = 1; });
-  return {cats, q:{}, lv, diffLv, items:{}, bossPity:{}, kotonohaOtherRoll:null, bossTickets:0, totalLevelUps:0,
+  return {cats, q:{}, lv, diffLv, items:{}, usedTreasures:{}, bossPity:{}, kotonohaOtherRoll:null, bossTickets:0, totalLevelUps:0,
     bonusExp:0, stats:{hp:0, atk:0, def:0, spd:0, luck:0}, kotonohaSeenForms:[], kotonohaDisplayOverride:null,
     kanjiWrite:{totalOk:0, itemHist:{}, levelRecent:{}}};
 }
@@ -642,6 +642,7 @@ function loadStats(){
           if(!st.lv[k]) st.lv[k] = 1;
         });
         if(!st.items) st.items = {};
+        if(!st.usedTreasures) st.usedTreasures = {};
         if(!st.bossPity) st.bossPity = {};
         if(typeof st.bossTickets !== "number") st.bossTickets = 0;
         if(typeof st.totalLevelUps !== "number") st.totalLevelUps = 0;
@@ -1097,7 +1098,8 @@ const KOTONOHA_TYPE_LABEL = {
    （同じ段階の間は再抽選しないよう、直前に抽選した「段階」を記録しておく）。 */
 const KOTONOHA_OTHER_TYPES = [3, 5, 6, 7, 8, 9];
 function kotonohaTotalXP(st){
-  return CAT_KEYS.reduce((sum,k)=> sum + Math.max(0, (st.lv[k]||1) - 1), 0);
+  // 宝具を使って得たボーナス経験値（bonusExp）も、ことのはの育成経験値に反映する（2026-07-14〜）
+  return CAT_KEYS.reduce((sum,k)=> sum + Math.max(0, (st.lv[k]||1) - 1), 0) + (st.bonusExp||0);
 }
 function kotonohaOtherType(st, stageIdx){
   const roll = st.kotonohaOtherRoll;
@@ -2256,12 +2258,12 @@ function endBattle(){
    lv       … ボスのレベル（表示用）
    recPts   … 適正経験値。このぶんのステータスポイントを持って挑むことを想定している */
 const BOSSES = [
-  {id:"tekkyu",     name:"ケイ",       icon:"⚫", item:"鉄球",             treasure:"ぴかぴかの鉄球",             hp:4610,  atk:1.7,   defPct:10, accuracy:120, evadePct:5,  luck:8,  lv:10, recPts:100},
-  {id:"houcho",     name:"ムライオ",             icon:"🔪", item:"包丁",             treasure:"調理室",                     hp:11000, atk:25.38, defPct:5,  accuracy:150, evadePct:5,  luck:14, lv:16, recPts:500},
-  {id:"volleyball", name:"サノー",     icon:"🏐", item:"バレーボール",     treasure:"人体模型",                   hp:2870,  atk:1.0,   defPct:15, accuracy:100, evadePct:10, luck:8,  lv:5,  recPts:50},
-  {id:"yakyu",      name:"シゲっち",       icon:"⚾", item:"野球ボール",       treasure:"ホームランバット",           hp:2750,  atk:1.1,   defPct:10, accuracy:90,  evadePct:10, luck:20, lv:6,  recPts:50},
-  {id:"suugaku",    name:"ケンさん",           icon:"📐", item:"三角定規",         treasure:"大きなコンパス",             hp:7000,  atk:20.16, defPct:50, accuracy:90,  evadePct:38, luck:5,  lv:15, recPts:500},
-  {id:"bijutsu",    name:"サオーリ",     icon:"🖌️", item:"ふつうの筆",       treasure:"描いたものが現実になる筆",   hp:5460,  atk:1.0,   defPct:10, accuracy:85,  evadePct:10, luck:26, lv:7,  recPts:80},
+  {id:"tekkyu",     name:"鉄球ローリング・レディ",       icon:"⚫", item:"鉄球",             treasure:"ぴかぴかの鉄球",             hp:4610,  atk:1.7,   defPct:10, accuracy:120, evadePct:5,  luck:8,  lv:10, recPts:100},
+  {id:"houcho",     name:"一閃の料理長",             icon:"🔪", item:"包丁",             treasure:"調理室",                     hp:11000, atk:25.38, defPct:5,  accuracy:150, evadePct:5,  luck:14, lv:16, recPts:500},
+  {id:"volleyball", name:"サーブマスター・レシオ",     icon:"🏐", item:"バレーボール",     treasure:"人体模型",                   hp:2870,  atk:1.0,   defPct:15, accuracy:100, evadePct:10, luck:8,  lv:5,  recPts:50},
+  {id:"yakyu",      name:"万年応援団長スイング",       icon:"⚾", item:"野球ボール",       treasure:"ホームランバット",           hp:2750,  atk:1.1,   defPct:10, accuracy:90,  evadePct:10, luck:20, lv:6,  recPts:50},
+  {id:"suugaku",    name:"不動の定規使い",           icon:"📐", item:"三角定規",         treasure:"大きなコンパス",             hp:7000,  atk:20.16, defPct:50, accuracy:90,  evadePct:38, luck:5,  lv:15, recPts:500},
+  {id:"bijutsu",    name:"絵画の申し子キャンバス",     icon:"🖌️", item:"ふつうの筆",       treasure:"描いたものが現実になる筆",   hp:5460,  atk:1.0,   defPct:10, accuracy:85,  evadePct:10, luck:26, lv:7,  recPts:80},
 ];
 const BOSS_ENCOUNTER_RATE = 1/40;
 const BOSS_TREASURE_RATE = 0.1;
@@ -2810,9 +2812,10 @@ function itemListHtml(keys, items){
     `<li><span>${esc(name)}</span><span class="item-count">×${items[name]}</span></li>`
   ).join("") + `</ul>`;
 }
-/* 宝具は、ボス戦とは別に「アイテム一覧」画面からいつでも使える。使っても手元からは消えず
-   （何度でも使える）、使うたびにプレイヤーの経験値（ステータスポイントのもとになる数値、
-   bonusExpとして加算）が上がる。シランちゃんの宝具だけ特別に効果が大きい（2026-07-14〜）。 */
+/* 宝具は、ボス戦とは別に「アイテム一覧」画面からいつでも使える（2026-07-14〜）。使うと1個消費され、
+   プレイヤーの経験値（bonusExp、ステータスポイントにも「ことのは」の育成経験値にも反映される）が
+   上がる。シランちゃんの宝具だけ特別に効果が大きい。使った宝具は「使用済みの宝具」として別枠に
+   記録され、その分はもう使えない（消費した個数だけst.usedTreasuresに積み上がる）。 */
 function treasureExpAmount(name){
   return name === SHIRAN_BOSS.treasure ? 300 : 50;
 }
@@ -2820,19 +2823,25 @@ function useTreasureItem(name){
   const st = loadStats();
   if(!(st.items && st.items[name] > 0)) return;
   const amount = treasureExpAmount(name);
+  st.items[name]--;
+  if(st.items[name] <= 0) delete st.items[name];
+  if(!st.usedTreasures) st.usedTreasures = {};
+  st.usedTreasures[name] = (st.usedTreasures[name]||0) + 1;
   st.bonusExp = (st.bonusExp||0) + amount;
   saveStats(st);
-  alert(`✨「${name}」の力で、経験値が${amount}上がった！`);
+  alert(`✨「${name}」を使った！ 経験値が${amount}上がった！`);
   showItemCollection();
 }
 function showItemCollection(){
   const st = loadStats();
   const items = st.items || {};
+  const usedTreasures = st.usedTreasures || {};
   const allKeys = Object.keys(items);
   const normalKeys = allKeys.filter(name => !isTreasureItem(name)).sort((a,b)=> items[b]-items[a]);
   const treasureKeys = allKeys.filter(name => isTreasureItem(name)).sort((a,b)=> items[b]-items[a]);
+  const usedTreasureKeys = Object.keys(usedTreasures).filter(name => usedTreasures[name] > 0).sort((a,b)=> usedTreasures[b]-usedTreasures[a]);
   let html = `<div class="card"><h3 class="section">🎒 これまで獲得したアイテム</h3>`;
-  if(allKeys.length === 0){
+  if(allKeys.length === 0 && usedTreasureKeys.length === 0){
     html += `<p class="note">まだ何も手に入れていません。問題に取り組んでいると、ごくまれにボスが勝負をしかけてくることがあります。勝つとアイテムがもらえます。</p>`;
   }else{
     html += `<h4 class="item-group-title">📦 通常アイテム</h4>`;
@@ -2844,7 +2853,13 @@ function showItemCollection(){
             <button class="btn inline" onclick="useTreasureItem('${esc(name)}')">使う（経験値+${treasureExpAmount(name)}）</button></li>`
         ).join("") + `</ul>`
       : `<p class="note">まだ手に入れていません。ボスに勝つと、まれに手に入ります。</p>`;
-    html += treasureKeys.length ? `<p class="note">✨ 宝具は使っても手元からなくならず、何度でも使えます。</p>` : "";
+    html += `<p class="note">✨ 宝具を使うと経験値が上がりますが、1個使うごとに手元から1個消費されます。</p>`;
+    if(usedTreasureKeys.length){
+      html += `<h4 class="item-group-title">💤 使用済みの宝具</h4>
+        <ul class="item-list">` + usedTreasureKeys.map(name =>
+          `<li><span>💤 ${esc(name)}</span><span class="item-count">×${usedTreasures[name]}</span></li>`
+        ).join("") + `</ul>`;
+    }
   }
   html += `<button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
   screen.innerHTML = html;
