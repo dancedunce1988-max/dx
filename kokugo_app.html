@@ -435,7 +435,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver2.8</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver2.9</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -799,8 +799,10 @@ function weakItems(){
   CAT_KEYS.forEach(cat=>{
     CATS[cat].items.forEach(it=>{
       const s = qStat(st, cat, it);
-      /* 一度でも間違えた問題のうち、まだ2回連続正解できていないもの */
-      if(s && s.t > 0 && s.c < s.t && (s.k||0) < 2) list.push({cat, it});
+      /* 一度でも間違えた問題のうち、まだ直近の解答で正解できていないもの
+         （2026-07-15〜：以前は2回連続正解が必要だったが、1回正解した時点で
+         苦手リストから外れるように変更） */
+      if(s && s.t > 0 && s.c < s.t && (s.k||0) < 1) list.push({cat, it});
     });
   });
   return list;
