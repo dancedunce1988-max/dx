@@ -435,7 +435,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver3.0</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver3.1</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3118,10 +3118,16 @@ function showStats(){
   const rows = CAT_KEYS.map(k => [k, CATS[k].name]).concat([["dokkai","読解"]]);
   let weakest = null;
   let html = `<div class="card"><h3 class="section">成績（累計）</h3><table class="stats">
-    <tr><th>分野</th><th>称号</th><th style="text-align:right">Lv</th><th style="text-align:right">解いた数</th><th style="text-align:right">正解</th><th style="width:26%">正答率</th></tr>`;
+    <tr><th>分野</th><th>称号</th><th style="text-align:right">Lv</th><th style="text-align:right">解いた数</th><th style="text-align:right">正解</th><th style="width:26%">正答率<br><span style="font-weight:normal">(直近30問)</span></th></tr>`;
   rows.forEach(([k,label])=>{
     const s = st.cats[k] || {t:0,c:0};
-    const rate = s.t ? s.c/s.t : null;
+    /* 正答率は「解いた数」「正解」の累計比ではなく、直近30問（RECENT_ACC_WINDOW）の
+       ローリング正答率を表示する（2026-07-15〜）。累計比だと、長く続けているほど
+       最近の調子が反映されにくくなり、成績の推移が見えづらいというユーザーの指摘による変更。
+       30問に満たない分野は、そこまでの全部が「直近」になる（st.recentCorrectはrecord()で
+       すでに全分野・毎回蓄積されているので、この画面のためだけの新しい記録は不要）。 */
+    const recent = (st.recentCorrect && st.recentCorrect[k]) || [];
+    const rate = recent.length ? recent.reduce((a,b)=>a+b, 0) / recent.length : null;
     if(k!=="dokkai" && rate!==null && s.t>=4 && (weakest===null || rate<weakest.rate)) weakest = {label, rate};
     const t = titleOf(st.lv[k]);
     html += `<tr>
