@@ -444,7 +444,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver3.7</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver3.8</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -608,7 +608,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 6;
+const SAVE_FORMAT_VERSION = 7;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -1627,7 +1627,7 @@ function showHelp(){
     <div class="card">
       <ul class="help-list">
         <li>ボスに勝つと、そのボスだけが持っている「<b>アイテム</b>」を必ず1つもらえます。</li>
-        <li>さらに、まれに（だいたい10回に1回くらい）、もっとレアな「<b>宝具</b>」も手に入ります。</li>
+        <li>さらに、まれに（だいたい10回に1回くらい）、もっとレアな「<b>宝具</b>」も手に入ります。ただし<b>直近30問の正答率が50%未満のときは、宝具は手に入りません</b>（アイテムは通常どおり手に入ります）。</li>
         <li>集めたアイテム・宝具は、成績とは別に<b>ずっと記録</b>されます。ホーム画面の「アイテム一覧」からいつでも確認できます。</li>
         <li>通常アイテムは、ボス戦中に「🎒 アイテムを使う」から<b>消費して効果を得る</b>こともできます。HPを回復するもの、数ターンのあいだ攻撃力・防御力が上がるもの、次の1回だけ間違えてもダメージを受けなくなるものなど、アイテムによって効果がちがいます。使うと1個へります。<b>1ターンに使えるアイテムは1個まで、また同じ種類のアイテムはその戦闘中に1回まで</b>です。</li>
       </ul>
@@ -2675,6 +2675,16 @@ function bossEncounterRate(st){
   return BOSS_ENCOUNTER_RATE;
 }
 const BOSS_TREASURE_RATE = 0.1;
+/* 宝具のドロップは、分野をまたいだ「直近30回」の正答率(st.recentCorrectAll)が
+   BOSS_TREASURE_MIN_ACC(50%)以上のときしか起こらない（2026-07-16〜、教員の指示）。
+   通常アイテムのドロップ(dropsLoot)や天井カウント(bossPity)自体には影響させず、
+   「宝具になるかどうか」の判定だけをこの条件でガードする（bossWin参照）。
+   30回に満たないうちはデータ不足として、これまでどおり無条件で許可する。 */
+const BOSS_TREASURE_MIN_ACC = 0.5;
+function treasureDropAllowed(st){
+  const acc = recentAccAll(st);
+  return acc === null || acc >= BOSS_TREASURE_MIN_ACC;
+}
 const BOSS_PITY_MAX = 10;
 const BOSS_ANSWER_TIME_MS = 15000; // ボス戦の1問あたりの制限時間（2026-07-15〜、10000から15000へ変更）。過ぎると自動的に不正解になる
 const BOSS_TIMER_MIN_RECPTS = 501; // 適正経験値がこの値以下のボス（旧6体・シランちゃん）は、制限時間を設けない
@@ -3224,10 +3234,12 @@ function bossWin(){
   let gotTreasure = false;
   if(dropsLoot){
     st.bossPity[b.boss.id] = (st.bossPity[b.boss.id]||0) + 1;
-    if(st.bossPity[b.boss.id] >= BOSS_PITY_MAX){
-      gotTreasure = true;
-    }else if(Math.random() < BOSS_TREASURE_RATE){
-      gotTreasure = true;
+    if(treasureDropAllowed(st)){
+      if(st.bossPity[b.boss.id] >= BOSS_PITY_MAX){
+        gotTreasure = true;
+      }else if(Math.random() < BOSS_TREASURE_RATE){
+        gotTreasure = true;
+      }
     }
     if(gotTreasure) st.bossPity[b.boss.id] = 0;
     st.items[b.boss.item] = (st.items[b.boss.item]||0) + 1;
