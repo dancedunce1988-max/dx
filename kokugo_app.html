@@ -432,7 +432,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver2.5</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver2.6</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -2368,9 +2368,9 @@ const BOSSES = [
   {id:"yakyu",      name:"万年応援団長スイング",       icon:"⚾", item:"野球ボール",       treasure:"ホームランバット",           hp:2750,  atk:1.1,   defPct:10, accuracy:90,  evadePct:10, luck:20, lv:6,  recPts:50},
   {id:"suugaku",    name:"不動の定規使い",           icon:"📐", item:"三角定規",         treasure:"大きなコンパス",             hp:7000,  atk:20.16, defPct:50, accuracy:90,  evadePct:38, luck:5,  lv:15, recPts:500},
   {id:"bijutsu",    name:"絵画の申し子キャンバス",     icon:"🖌️", item:"ふつうの筆",       treasure:"描いたものが現実になる筆",   hp:5460,  atk:1.0,   defPct:10, accuracy:85,  evadePct:10, luck:26, lv:7,  recPts:80},
-  {id:"rikujo",     name:"疾風の陸上部主将",         icon:"🏃", item:"スポーツドリンク", treasure:"伝説の金色バトン",           hp:20000, atk:42.20, defPct:5,  accuracy:140, evadePct:45, luck:10, lv:20, recPts:800},
-  {id:"judo",       name:"鉄壁の柔道部主将",         icon:"🥋", item:"受け身のこつ",     treasure:"黒帯の奥義書",               hp:40000, atk:86.72, defPct:15, accuracy:100, evadePct:8,  luck:5,  lv:24, recPts:1000},
-  {id:"seitokaicho",name:"伝説の生徒会長",           icon:"👑", item:"会長の激励",       treasure:"伝説の生徒会腕章",           hp:55000, atk:159.10,defPct:25, accuracy:130, evadePct:20, luck:18, lv:30, recPts:1500},
+  {id:"rikujo",     name:"疾風の陸上部主将",         icon:"🏃", item:"スポーツドリンク", treasure:"伝説の金色バトン",           hp:20000, atk:42.20, defPct:5,  accuracy:140, evadePct:45, luck:10, lv:20, recPts:800,  minXpRatio:0.8, dropAccuracyThreshold:0.7},
+  {id:"judo",       name:"鉄壁の柔道部主将",         icon:"🥋", item:"受け身のこつ",     treasure:"黒帯の奥義書",               hp:40000, atk:86.72, defPct:15, accuracy:100, evadePct:8,  luck:5,  lv:24, recPts:1000, minXpRatio:0.8, dropAccuracyThreshold:0.7},
+  {id:"seitokaicho",name:"伝説の生徒会長",           icon:"👑", item:"会長の激励",       treasure:"伝説の生徒会腕章",           hp:55000, atk:159.10,defPct:25, accuracy:130, evadePct:20, luck:18, lv:30, recPts:1500, minXpRatio:0.8, dropAccuracyThreshold:0.7},
 ];
 /* 2026-07-15、recPts500(旧最上位)を超える3体を追加。均等配分プレイヤーの被ダメージ軽減率
    （def/(def+30)）や会心率（100*luck/(luck+100)）はポイントを積むほど頭打ちに近づくため、
@@ -2385,7 +2385,18 @@ const BOSSES = [
    モンテカルロ・シミュレータ（均等配分・8割正解ペース、n=50000）での実測勝率：
      rikujo 87.4%（平均43.9ターン）、judo 87.0%（平均48.7ターン）、seitokaicho 87.4%（平均58.5ターン）
    いずれも0ステータス（未強化）だと0%、5ステータスのどれか1つに全振りしても0%になることを確認済み
-   （既存ボスも同様の性質を持つため、一点特化で崩せてしまう既存バランスからの逸脱ではない）。 */
+   （既存ボスも同様の性質を持つため、一点特化で崩せてしまう既存バランスからの逸脱ではない）。
+   この3体には、既存ボスにはない2つの追加ルールがある（2026-07-15、`minXpRatio`/`dropAccuracyThreshold`
+   プロパティを持つボスだけに適用。既存6体はプロパティ自体を持たないので今までどおり無条件）：
+   ①`minXpRatio`：ランダム遭遇（チケット未使用）でこのボスが選ばれるのは、その時点の「ことのはの経験値」
+     （`kotonohaTotalXP`）がrecPtsの80%以上のときだけ（`rollBossEncounter`側でフィルタ）。挑戦チケット側の
+     抽選（`ticketEligibleBosses`）はもともとrecPts以下＝100%相当のしきい値を持つ別ロジックなので変更不要。
+   ②`dropAccuracyThreshold`：ランダム遭遇で倒したときだけ、その戦闘中ずっと固定されていた分野
+     （`bossBattle.cat`。ボス戦の出題自体は`record()`を呼ばないので、この正答率は戦闘中の運では変わらず、
+     戦う前からの実力がそのまま反映される）の通算正答率がこの値（0.7）を超えていないと、
+     アイテムも宝具も一切ドロップしない（`bossWin()`内でチェック）。挑戦チケットでの撃破（全ジャンル出題、
+     `bossBattle.cats`が配列で入る＝単一分野の正答率という概念がない）は、このガードの対象外で今までどおり
+     無条件ドロップする。 */
 const BOSS_ENCOUNTER_RATE = 1/40;
 const BOSS_TREASURE_RATE = 0.1;
 const BOSS_PITY_MAX = 10;
@@ -2466,13 +2477,22 @@ function rollBossEncounter(resumeFn){
     return true;
   }
   if(Math.random() >= BOSS_ENCOUNTER_RATE) return false;
-  pendingBoss = BOSSES[Math.floor(Math.random() * BOSSES.length)];
+  pendingBoss = randomEncounterBoss();
   pendingBossAllGenre = false;
   bossPromptResumeFn = resumeFn;
   bossPromptActive = true;
   bossPromptSelection = "no";
   renderBossPrompt();
   return true;
+}
+/* ランダム遭遇の抽選対象を絞る（2026-07-15〜）。`minXpRatio`を持つボス（新規追加分）は、
+   「ことのはの経験値」がrecPts×minXpRatio未満のうちはランダム遭遇に出てこない
+   （挑戦チケットでの抽選＝ticketEligibleBossesは別ロジックなので対象外）。
+   このプロパティを持たない既存ボスは、これまでどおり無条件で対象になる。 */
+function randomEncounterBoss(){
+  const xp = kotonohaTotalXP(loadStats());
+  const eligible = BOSSES.filter(b => !b.minXpRatio || xp >= b.recPts * b.minXpRatio);
+  return eligible[Math.floor(Math.random() * eligible.length)];
 }
 function renderBossPrompt(){
   const b = pendingBoss;
@@ -2834,23 +2854,37 @@ function bossAdvance(){
 function bossWin(){
   const b = bossBattle;
   const st = loadStats();
-  st.bossPity[b.boss.id] = (st.bossPity[b.boss.id]||0) + 1;
-  let gotTreasure = false;
-  if(st.bossPity[b.boss.id] >= BOSS_PITY_MAX){
-    gotTreasure = true;
-  }else if(Math.random() < BOSS_TREASURE_RATE){
-    gotTreasure = true;
+  /* dropAccuracyThresholdを持つボス（新規追加分）は、チケット未使用の戦闘（b.catが単一分野）でだけ、
+     その分野の通算正答率がしきい値を超えていないとドロップ判定そのものをスキップする
+     （ボス戦の出題はrecord()を呼ばないので、この正答率は戦闘中の結果では変化しない）。
+     チケット使用（全ジャンル出題、b.catsが配列）や、このプロパティを持たない既存ボスは対象外。 */
+  let dropsLoot = true;
+  if(b.boss.dropAccuracyThreshold && !b.cats){
+    const catStat = (st.cats && st.cats[b.cat]) || {t:0, c:0};
+    const rate = catStat.t > 0 ? catStat.c / catStat.t : 0;
+    dropsLoot = rate > b.boss.dropAccuracyThreshold;
   }
-  if(gotTreasure) st.bossPity[b.boss.id] = 0;
-  st.items[b.boss.item] = (st.items[b.boss.item]||0) + 1;
-  if(gotTreasure) st.items[b.boss.treasure] = (st.items[b.boss.treasure]||0) + 1;
+  let gotTreasure = false;
+  if(dropsLoot){
+    st.bossPity[b.boss.id] = (st.bossPity[b.boss.id]||0) + 1;
+    if(st.bossPity[b.boss.id] >= BOSS_PITY_MAX){
+      gotTreasure = true;
+    }else if(Math.random() < BOSS_TREASURE_RATE){
+      gotTreasure = true;
+    }
+    if(gotTreasure) st.bossPity[b.boss.id] = 0;
+    st.items[b.boss.item] = (st.items[b.boss.item]||0) + 1;
+    if(gotTreasure) st.items[b.boss.treasure] = (st.items[b.boss.treasure]||0) + 1;
+  }
   saveStats(st);
   screen.innerHTML = `
     <div class="boss-battle-screen boss-victory">
       <div class="boss-win-burst">✨🎉✨</div>
       <div class="boss-result-title big">勝利！！</div>
       <p class="boss-win-line">「${esc(b.boss.name)}」との戦いに勝利した！</p>
-      <p class="boss-win-line">「${esc(b.boss.name)}」は、<span class="drop-item">【${esc(b.boss.item)}】</span>を落とした！</p>
+      ${dropsLoot
+        ? `<p class="boss-win-line">「${esc(b.boss.name)}」は、<span class="drop-item">【${esc(b.boss.item)}】</span>を落とした！</p>`
+        : `<p class="boss-win-line">しかし、この分野の正答率が${Math.round(b.boss.dropAccuracyThreshold*100)}%に届いていなかったので、アイテムは手に入らなかった…</p>`}
       ${gotTreasure ? `<p class="boss-treasure">✨ さらに、宝具<span class="drop-item treasure-drop">【${esc(b.boss.treasure)}】</span>を手に入れた！ ✨</p>` : ""}
       <div class="btn-row">
         <button class="btn" onclick="endBossBattle()">つづける</button>
