@@ -333,6 +333,9 @@
   .player-hpbar > div{ background:linear-gradient(90deg,#4dd0e1,#9be8f5) !important; }
   .boss-hp-num{ width:82px; text-align:right; flex-shrink:0; font-size:.78rem; }
   .boss-q-card{ background:rgba(255,255,255,.05); border-radius:10px; padding:16px; margin-top:14px; }
+  .boss-timer-row{ margin-bottom:10px; }
+  .boss-timer-bar{ height:8px; border-radius:99px; overflow:hidden; background:rgba(255,255,255,.12); }
+  .boss-timer-fill{ height:100%; width:100%; background:linear-gradient(90deg,#ffd76a,#ff8a5c); }
   .boss-q-text{ font-size:1.1rem; font-weight:bold; margin-bottom:14px; white-space:pre-wrap; }
   .boss-turn{
     margin-top:10px; padding-top:10px; border-top:1px dashed rgba(255,255,255,.25);
@@ -432,7 +435,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver2.6</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver2.7</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -2400,6 +2403,7 @@ const BOSSES = [
 const BOSS_ENCOUNTER_RATE = 1/40;
 const BOSS_TREASURE_RATE = 0.1;
 const BOSS_PITY_MAX = 10;
+const BOSS_ANSWER_TIME_MS = 10000; // ボス戦の1問あたりの制限時間（2026-07-15〜）。過ぎると自動的に不正解になる
 const BOSS_PLAYER_HP = 100;
 const BOSS_PLAYER_DMG = [125, 155];     // 正解時に与えるダメージ
 const BOSS_DMG_ON_CORRECT = [4, 6];     // 自分の攻撃が成功したときに受けるダメージ（軽い）
@@ -2542,7 +2546,7 @@ function startBossBattle(boss, allGenre){
     playerHp: maxHp, playerMaxHp: maxHp,
     cat, cats, itemCat:null, item:null, order:null, lastQ:null,
     atkBuffTurns:0, atkBuffAmount:0, defBuffTurns:0, defBuffAmount:0, missGuard:false,
-    showItemPanel:false, usedItemThisTurn:false, usedItemNames:{},
+    showItemPanel:false, usedItemThisTurn:false, usedItemNames:{}, timerId:null,
   };
   bossNextQuestion();
 }
@@ -2615,6 +2619,59 @@ function bossNextQuestion(){
   }
   bossBattle.lastQ = bossBattle.item.q;
   renderBossBattle();
+  startBossTimer();
+}
+/* ボス戦の1問あたりの制限時間（2026-07-15〜）。アイテム選択中も止まらず進み続ける
+   （アイテムを使ってもターンは進まない、という既存仕様に合わせた設計判断）。
+   時間切れは不正解として扱う（bossTimeUp→bossGrade(false,...,true)）。
+   答えた場合はbossGrade冒頭のclearBossTimer()でこのタイマーを止めるので、二重採点は起きない。 */
+function startBossTimer(){
+  clearBossTimer();
+  const battle = bossBattle;
+  battle.timerId = setTimeout(() => {
+    if(bossBattle !== battle || battle._resolving) return;
+    bossTimeUp();
+  }, BOSS_ANSWER_TIME_MS);
+  animateBossTimerBar();
+}
+function clearBossTimer(){
+  if(bossBattle && bossBattle.timerId){
+    clearTimeout(bossBattle.timerId);
+    bossBattle.timerId = null;
+  }
+}
+function bossTimeUp(){
+  if(!bossBattle || bossBattle._resolving) return;
+  const it = bossBattle.item;
+  if(Array.isArray(it.ans)){
+    const el = document.getElementById("ansIn");
+    if(el) el.disabled = true;
+    const sb = document.getElementById("submitBtn");
+    if(sb) sb.disabled = true;
+  }
+  bossGrade(false, null, null, true);
+}
+/* 残り時間バーをCSSトランジションだけで動かす（setIntervalで毎秒描画し直す必要がない）。
+   幅100%→transition:noneで即セット→次のフレームでtransitionを付けて幅0%に変えることで、
+   ブラウザに「100%から0%への変化」を検知させ、10秒かけて滑らかに縮む見た目にする。 */
+function animateBossTimerBar(){
+  const el = document.getElementById("bossTimerFill");
+  if(!el) return;
+  el.style.transition = "none";
+  el.style.width = "100%";
+  if(typeof requestAnimationFrame !== "function") return;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      el.style.transition = `width ${BOSS_ANSWER_TIME_MS}ms linear`;
+      el.style.width = "0%";
+    });
+  });
+}
+/* 回答が確定したら、バーが裏で動き続けているように見えないよう非表示にする
+   （次の問題でrenderBossBattleが作り直すので、次に出るときは自然に復活する）。 */
+function stopBossTimerBar(){
+  const row = document.getElementById("bossTimerRow");
+  if(row) row.style.display = "none";
 }
 function bossHpBarsInnerHtml(){
   const b = bossBattle;
@@ -2699,6 +2756,7 @@ function renderBossBattle(){
       <div class="boss-q-card">
         ${subInstructionHtml(b.itemCat, it)}
         ${kanbunBoxHtml(it.kb)}
+        <div class="boss-timer-row" id="bossTimerRow"><div class="boss-timer-bar"><div id="bossTimerFill" class="boss-timer-fill"></div></div></div>
         <div class="boss-q-text">${esc(it.q)}</div>
         ${answerArea}
         <div class="feedback" id="fb"></div>
@@ -2724,7 +2782,9 @@ function bossSubmitInput(){
   if(sb) sb.disabled = true;
   bossGrade(ok, null, el.value);
 }
-function bossGrade(ok, chosenOrig, typed){
+function bossGrade(ok, chosenOrig, typed, timedOut){
+  clearBossTimer();
+  stopBossTimerBar();
   const b = bossBattle, it = b.item;
   let dealt = 0, crit = false, evaded = false, fled = false;
   if(ok){
@@ -2775,7 +2835,7 @@ function bossGrade(ok, chosenOrig, typed){
         ? `<span class="lvup-chip">💨${esc(b.boss.name)}に回避された！</span>`
         : `<span class="lvup-chip">${crit ? "💥会心の一撃！ " : ""}${esc(b.boss.name)}に ${dealt} ダメージ！</span>`)
     : "";
-  fb.innerHTML = `<div class="verdict">あなたのターン　${ok?"○ 正解！":"× ざんねん…"}${dmgMsg}</div>${expl}`;
+  fb.innerHTML = `<div class="verdict">あなたのターン　${ok?"○ 正解！":(timedOut?"⏰ 時間切れ…":"× ざんねん…")}${dmgMsg}</div>${expl}`;
   if(fled){
     // 命中する寸前で逃げられたときは反撃も発生せず、少し間をおいて逃走の結果画面へ
     bossBattle._resolving = true;
