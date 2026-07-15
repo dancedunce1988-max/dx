@@ -435,7 +435,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver2.9</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver3.0</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -695,9 +695,21 @@ function qKey(cat, qText){
    まじめに取り組んでいるプレイヤー（正答率40%以上）にはほとんど影響しないことを確認している。 */
 const RECENT_ACC_WINDOW = 30;
 const RECENT_ACC_THRESHOLD = 0.3;
+/* 「素早く適当に答える」検知（2026-07-15〜）。RECENT_ACC_WINDOW(30問)は母数が大きい分ブレには強いが、
+   正答率35〜40%程度の「時々当たる適当な答え方」はすり抜けてしまう。正答率だけでは「じっくり考えて
+   間違えた」生徒と「考えずに答えた」生徒を区別できないため、もう一つの手がかりとして
+   「問題が表示されてから答えるまでの時間」を見る。直近4問と少ない母数にする代わりに、
+   FAST_ANSWER_MS未満で答えたときだけ判定対象にすることで、まじめに考えて偶然間違いが続いた
+   ケースを誤検知しにくくしている（じっくり考える生徒は、そもそもこんなに速く答えない）。 */
+const FAST_ANSWER_MS = 2000;
+const FAST_ANSWER_WINDOW = 4;
+const FAST_ANSWER_ACC_THRESHOLD = 0.3;
 /* 正誤を記録。正解ならその分野のレベル+1。ただし直近の正答率が極端に低いとき（適当に答えている
-   おそれがあるとき）はレベルアップを止める。{lvup, evolved, lv, gotTicket, lowAccuracy} を返す */
-function record(cat, item, correct){
+   おそれがあるとき）、または直近4問を2秒未満で答えていて正答率も低いとき（考えずに素早く
+   答えているおそれがあるとき）はレベルアップを止める。elapsedMsは問題表示から解答までの
+   経過ミリ秒（呼び出し元が計測。渡されなければ時間による判定はスキップされる）。
+   {lvup, evolved, lv, gotTicket, lowAccuracy, fastGuess} を返す */
+function record(cat, item, correct, elapsedMs){
   const st = loadStats();
   st.cats[cat].t++; if(correct) st.cats[cat].c++;
   const key = qKey(cat, item.q);
@@ -719,9 +731,13 @@ function record(cat, item, correct){
   st.recentCorrect[cat] = recent;
   const recentAcc = recent.reduce((a,b)=>a+b, 0) / recent.length;
   const lowAccuracy = recent.length >= RECENT_ACC_WINDOW && recentAcc < RECENT_ACC_THRESHOLD;
+  const recentFast = recent.slice(-FAST_ANSWER_WINDOW);
+  const recentFastAcc = recentFast.length ? recentFast.reduce((a,b)=>a+b, 0) / recentFast.length : 1;
+  const fastGuess = typeof elapsedMs === "number" && elapsedMs < FAST_ANSWER_MS
+    && recentFast.length >= FAST_ANSWER_WINDOW && recentFastAcc < FAST_ANSWER_ACC_THRESHOLD;
 
   let lvup = false, evolved = null, gotTicket = false;
-  if(correct && !lowAccuracy && st.lv[cat] < MAX_CAT_LV){
+  if(correct && !lowAccuracy && !fastGuess && st.lv[cat] < MAX_CAT_LV){
     const before = titleOf(st.lv[cat]);
     st.lv[cat]++;
     lvup = true;
@@ -734,7 +750,7 @@ function record(cat, item, correct){
     if(after !== before) evolved = after;
   }
   saveStats(st);
-  return {lvup, evolved, lv:st.lv[cat], gotTicket, lowAccuracy: correct && lowAccuracy};
+  return {lvup, evolved, lv:st.lv[cat], gotTicket, lowAccuracy: correct && lowAccuracy, fastGuess: correct && fastGuess};
 }
 function qStat(st, cat, item){ return st.q[qKey(cat, item.q)] || null; }
 
@@ -1543,7 +1559,7 @@ function showHelp(){
         <li>問題に<b>正解するたびにレベルが1上がります</b>（不正解でレベルが下がることはありません）。</li>
         <li>レベルが上がると、「むらびと」→「村人」→…→「伝説の勇者」というように<b>称号</b>が変わっていきます。伝説の勇者のさらに先には、正体がナゾの「かくし称号」もかくされています。</li>
         <li>レベルが<b>10回上がるごとに</b>、ボスへの「挑戦チケット」を1枚もらえます。</li>
-        <li>選択肢を適当に選び続けるなど、<b>直近の正答率が極端に低いとき</b>は、正解してもレベルアップが一時的にお休みになります。落ち着いて問題を読んで答えるようにすれば、また通常どおりレベルが上がるようになります。</li>
+        <li>選択肢を適当に選び続けるなど、<b>直近の正答率が極端に低いとき</b>や、<b>問題をよく読まずに素早く答え続けているとき</b>は、正解してもレベルアップが一時的にお休みになります。落ち着いて問題を読んで答えるようにすれば、また通常どおりレベルが上がるようになります。</li>
       </ul>
     </div>
 
@@ -1641,6 +1657,7 @@ function nextQuestion(){
   renderQuestion();
 }
 function renderQuestion(){
+  quiz.shownAt = Date.now(); // 「素早く適当に答える」検知（fastGuess）用。gradeAnswerで経過時間を計算する
   const it = quiz.item, cat = quiz.cat;
   const st = loadStats();
   const s = qStat(st, cat, it);
@@ -1703,7 +1720,8 @@ function gradeAnswer(ok, chosenOrig, typed){
   const it = quiz.item, cat = quiz.cat;
   quiz.n++;
   if(ok) quiz.correct++;
-  const r = record(cat, it, ok);
+  const elapsedMs = Date.now() - (quiz.shownAt || Date.now());
+  const r = record(cat, it, ok, elapsedMs);
   if(r.evolved) quiz.evolved = r.evolved;
   /* 選択式の色付け */
   const btns = screen.querySelectorAll(".choice");
@@ -1728,7 +1746,8 @@ function gradeAnswer(ok, chosenOrig, typed){
     ? `<div class="evolve">${r.evolved.hidden ? "🔓 かくされた称号が明かされた！<br>" : ""}${r.evolved.icon} 進化！　${esc(CATS[cat].name)}の称号が「${esc(r.evolved.name)}」になった！</div>` : "";
   const ticketMsg = r.gotTicket ? `<div class="evolve ticket-get">🎟️ ボスへの挑戦チケットを1枚手に入れた！</div>` : "";
   const lowAccMsg = r.lowAccuracy ? `<p class="note">⏸️ 直近の正答率が低いため、レベルアップはお休み中です。落ち着いて問題を読んで答えると、また上がるようになります。</p>` : "";
-  fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}${lvChip}</div>${expl}${evolveMsg}${ticketMsg}${lowAccMsg}`;
+  const fastMsg = r.fastGuess ? `<p class="note">⏸️ 少し急いで答えているようです。落ち着いて問題を読んで答えると、また上がるようになります。</p>` : "";
+  fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}${lvChip}</div>${expl}${evolveMsg}${ticketMsg}${lowAccMsg}${fastMsg}`;
   document.getElementById("nextBtn").style.display = "inline-block";
   document.getElementById("quitBtn").style.display = "inline-block";
   document.getElementById("nextBtn").focus();
@@ -1950,6 +1969,7 @@ function startDokkai(pi){
   renderDokkai();
 }
 function renderDokkai(){
+  dk.shownAt = Date.now(); // 「素早く適当に答える」検知（fastGuess）用
   const p = dk.p, it = p.qs[dk.i], total = p.qs.length;
   dk.order = shuffledOrder(it.c.length);
   screen.innerHTML = `
@@ -1977,7 +1997,8 @@ function answerDokkai(origIdx){
   const it = dk.p.qs[dk.i];
   const ok = origIdx === it.a;
   if(ok) dk.correct++;
-  const r = record("dokkai", it, ok);
+  const elapsedMs = Date.now() - (dk.shownAt || Date.now());
+  const r = record("dokkai", it, ok, elapsedMs);
   if(r.evolved) dk.evolved = r.evolved;
   const btns = screen.querySelectorAll(".choice");
   btns.forEach((b,pos)=>{
@@ -1994,7 +2015,8 @@ function answerDokkai(origIdx){
     ? `<div class="evolve">${r.evolved.hidden ? "🔓 かくされた称号が明かされた！<br>" : ""}${r.evolved.icon} 進化！　読解の称号が「${esc(r.evolved.name)}」になった！</div>` : "";
   const ticketMsg = r.gotTicket ? `<div class="evolve ticket-get">🎟️ ボスへの挑戦チケットを1枚手に入れた！</div>` : "";
   const lowAccMsg = r.lowAccuracy ? `<p class="note">⏸️ 直近の正答率が低いため、レベルアップはお休み中です。落ち着いて問題を読んで答えると、また上がるようになります。</p>` : "";
-  fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}${lvChip}</div>${it.e?esc(it.e):""}${evolveMsg}${ticketMsg}${lowAccMsg}`;
+  const fastMsg = r.fastGuess ? `<p class="note">⏸️ 少し急いで答えているようです。落ち着いて問題を読んで答えると、また上がるようになります。</p>` : "";
+  fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}${lvChip}</div>${it.e?esc(it.e):""}${evolveMsg}${ticketMsg}${lowAccMsg}${fastMsg}`;
   document.getElementById("nextBtnD").style.display = "inline-block";
 }
 function nextDokkai(){
