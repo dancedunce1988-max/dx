@@ -444,7 +444,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver3.8</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver3.9</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -608,7 +608,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 7;
+const SAVE_FORMAT_VERSION = 8;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -1415,14 +1415,17 @@ function bossTicketHtml(st){
 
 /* ================= ホーム ================= */
 /* 「バランスよく鍛える」ボタンのHTML（2026-07-15〜、ことのはカードの直後に配置）。目立つグラデーション背景で表示する。
-   全ジャンル（CAT_KEYS＝20分野の知識クイズ）からランダムに出題し、苦手復習・読解・漢字の書き学習は対象外。
+   全ジャンル（CAT_KEYS＝20分野の知識クイズ）から出題し、苦手復習・読解・漢字の書き学習は対象外。
    出題自体はstartBalanced()→nextQuestion()の分岐で行い、レベルアップは通常のgradeAnswer→record()の
-   経路をそのまま使うので、他の出題モードと同じように分野ごとのレベルへ反映される。 */
+   経路をそのまま使うので、他の出題モードと同じように分野ごとのレベルへ反映される。
+   分野の選び方は均等ランダムではなく、平均レベルより低い分野ほど出やすい重みづけ（selectBalancedCat参照、
+   2026-07-16〜）なので、1分野だけ極端にレベルが高くなった生徒がこのモードを使うと、自然と他の分野に
+   経験値が回り、差が徐々に縮まっていく。 */
 function balancedTrainingBtnHtml(){
   return `
     <div class="card menu-card balanced-btn" onclick="startBalanced()">
       <div class="menu-icon">⚖️</div>
-      <div><h2>バランスよく鍛える</h2><p>すべてのジャンルをランダムに出題（読解・漢字の書き学習・苦手復習は含みません）</p></div>
+      <div><h2>バランスよく鍛える</h2><p>レベルが低いジャンルほど出やすくなるよう調整しながら出題（読解・漢字の書き学習・苦手復習は含みません）</p></div>
     </div>`;
 }
 function showHome(){
@@ -1688,9 +1691,26 @@ function startReview(){
   quiz = {mode:"review", key:null, n:0, correct:0, evolved:null, lastQ:null, cat:null, item:null, order:null};
   nextQuestion();
 }
-/* 「バランスよく鍛える」：毎回CAT_KEYS（知識クイズ20分野）からランダムに1分野を選び、
-   その分野の中では通常どおりselectOne（適応的難度調整）で1問選ぶ。読解・漢字の書き学習・
-   苦手復習は対象外（CAT_KEYSにそもそも含まれないため、自然に除外される）。 */
+/* 「バランスよく鍛える」：毎回CAT_KEYS（知識クイズ20分野）から1分野を選び、その分野の中では
+   通常どおりselectOne（適応的難度調整）で1問選ぶ。読解・漢字の書き学習・苦手復習は対象外
+   （CAT_KEYSにそもそも含まれないため、自然に除外される）。
+   分野の選び方は単純な均等ランダムではなく、平均レベルより低い分野ほど出やすく・高い分野ほど
+   出にくくする重みづけにしている（2026-07-16〜、教員から「1分野だけ極端にレベルが高くなった
+   生徒がいる」という相談を受けて追加）。平均に対する比（avgLv/そのcatのlv）を重みにするので、
+   低いほど出やすい・高いほど出にくいが同じ式で自然に決まり、実際に差が縮まって平均に近づくほど
+   重みも1に近づいて均等ランダムへ戻っていく（＝「徐々に是正され、是正されきったら元の均等ランダムに
+   なる」という設計）。極端な差でも0%にはならない（クランプの下限があるので、進みすぎた分野もごくまれに
+   出る）ようにして、"その分野を完全に触れなくする"のではなく"出にくくする"程度にとどめている。 */
+const BALANCED_WEIGHT_MIN = 0.2; // 平均よりかなり高い分野の重みの下限（0%にはしない）
+const BALANCED_WEIGHT_MAX = 5;   // 平均よりかなり低い分野の重みの上限（際限なく出やすくしすぎない）
+function balancedCatWeight(lv, avgLv){
+  return Math.max(BALANCED_WEIGHT_MIN, Math.min(BALANCED_WEIGHT_MAX, avgLv / Math.max(1, lv)));
+}
+function selectBalancedCat(st){
+  const avgLv = CAT_KEYS.reduce((sum, k) => sum + (st.lv[k] || 1), 0) / CAT_KEYS.length;
+  const weights = CAT_KEYS.map(k => balancedCatWeight(st.lv[k] || 1, avgLv));
+  return pickOne(CAT_KEYS, weights);
+}
 function startBalanced(){
   quiz = {mode:"balanced", key:null, n:0, correct:0, evolved:null, lastQ:null, cat:null, item:null, order:null};
   nextQuestion();
@@ -1706,7 +1726,7 @@ function nextQuestion(){
     const picked = pickOne(weak, weights);
     quiz.cat = picked.cat; quiz.item = picked.it;
   }else if(quiz.mode === "balanced"){
-    quiz.cat = CAT_KEYS[Math.floor(Math.random() * CAT_KEYS.length)];
+    quiz.cat = selectBalancedCat(loadStats());
     quiz.item = selectOne(quiz.cat, quiz.lastQ);
   }else{
     quiz.cat = quiz.key;
