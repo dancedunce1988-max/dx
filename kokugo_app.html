@@ -45,6 +45,15 @@
   .menu-card p{font-size:.78rem; color:var(--sub);}
   .menu-card .right{margin-left:auto; text-align:right; flex-shrink:0;}
   .menu-card.review{border-left:5px solid var(--accent);}
+  .menu-card.balanced-btn{
+    background:linear-gradient(135deg, var(--accent2), var(--accent));
+    border:none; padding:20px 16px; margin-bottom:18px;
+    box-shadow:0 6px 16px rgba(0,0,0,.18);
+  }
+  .menu-card.balanced-btn:hover{transform:translateY(-3px); box-shadow:0 8px 20px rgba(0,0,0,.22);}
+  .menu-card.balanced-btn .menu-icon{background:rgba(255,255,255,.22); font-size:1.7rem; width:54px; height:54px;}
+  .menu-card.balanced-btn h2{color:#fff; font-size:1.15rem;}
+  .menu-card.balanced-btn p{color:rgba(255,255,255,.9);}
   .count{font-size:.7rem; color:var(--sub); display:block;}
   .shogo-badge{
     display:inline-block; font-size:.78rem; font-weight:bold; padding:2px 10px;
@@ -435,7 +444,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver3.3</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver3.4</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -1391,9 +1400,21 @@ function bossTicketHtml(st){
 }
 
 /* ================= ホーム ================= */
+/* 「バランスよく鍛える」ボタンのHTML（2026-07-15〜）。ホーム画面の一番上、目立つグラデーション背景で表示する。
+   全ジャンル（CAT_KEYS＝20分野の知識クイズ）からランダムに出題し、苦手復習・読解・漢字の書き学習は対象外。
+   出題自体はstartBalanced()→nextQuestion()の分岐で行い、レベルアップは通常のgradeAnswer→record()の
+   経路をそのまま使うので、他の出題モードと同じように分野ごとのレベルへ反映される。 */
+function balancedTrainingBtnHtml(){
+  return `
+    <div class="card menu-card balanced-btn" onclick="startBalanced()">
+      <div class="menu-icon">⚖️</div>
+      <div><h2>バランスよく鍛える</h2><p>すべてのジャンルをランダムに出題（読解・漢字の書き学習・苦手復習は含みません）</p></div>
+    </div>`;
+}
 function showHome(){
   const st = loadStats();
   let html = "";
+  html += balancedTrainingBtnHtml();
   html += kotonohaCardHtml(st);
   html += bossTicketHtml(st);
   html += itemLinkHtml(st);
@@ -1639,6 +1660,13 @@ function startReview(){
   quiz = {mode:"review", key:null, n:0, correct:0, evolved:null, lastQ:null, cat:null, item:null, order:null};
   nextQuestion();
 }
+/* 「バランスよく鍛える」：毎回CAT_KEYS（知識クイズ20分野）からランダムに1分野を選び、
+   その分野の中では通常どおりselectOne（適応的難度調整）で1問選ぶ。読解・漢字の書き学習・
+   苦手復習は対象外（CAT_KEYSにそもそも含まれないため、自然に除外される）。 */
+function startBalanced(){
+  quiz = {mode:"balanced", key:null, n:0, correct:0, evolved:null, lastQ:null, cat:null, item:null, order:null};
+  nextQuestion();
+}
 function nextQuestion(){
   if(rollBossEncounter(() => nextQuestion())) return;
   if(quiz.mode === "review"){
@@ -1649,6 +1677,9 @@ function nextQuestion(){
     const weights = weak.map(w => reviewWeight(st, w.cat, w.it));
     const picked = pickOne(weak, weights);
     quiz.cat = picked.cat; quiz.item = picked.it;
+  }else if(quiz.mode === "balanced"){
+    quiz.cat = CAT_KEYS[Math.floor(Math.random() * CAT_KEYS.length)];
+    quiz.item = selectOne(quiz.cat, quiz.lastQ);
   }else{
     quiz.cat = quiz.key;
     quiz.item = selectOne(quiz.key, quiz.lastQ);
@@ -1662,7 +1693,9 @@ function renderQuestion(){
   const st = loadStats();
   const s = qStat(st, cat, it);
   const redoMark = (s && s.t > 0 && s.c < s.t) ? `<span class="redo">↻ 前に間違えた問題</span>` : "";
-  const label = quiz.mode === "review" ? `苦手復習（${CATS[cat].name}）` : CATS[cat].name;
+  const label = quiz.mode === "review" ? `苦手復習（${CATS[cat].name}）`
+    : quiz.mode === "balanced" ? `バランスよく鍛える（${CATS[cat].name}）`
+    : CATS[cat].name;
   const isInput = Array.isArray(it.ans);
   let answerArea;
   if(isInput){
@@ -1757,11 +1790,13 @@ function endSession(clearedAll){
   let head, sub = "";
   if(q.mode === "review"){
     head = clearedAll ? "苦手を全部つぶしました！　おみごと！" : "苦手復習おつかれさま！";
+  }else if(q.mode === "balanced"){
+    head = "バランスよく鍛えるおつかれさま！";
   }else{
     head = `${CATS[q.key].name}のトレーニングおつかれさま！`;
     sub = `<p class="result-msg">現在：${catBadge(q.key)}</p>`;
   }
-  window._retry = q.mode === "review" ? startReview : ()=>startQuiz(q.key);
+  window._retry = q.mode === "review" ? startReview : q.mode === "balanced" ? startBalanced : ()=>startQuiz(q.key);
   screen.innerHTML = `
     <div class="card">
       <h3 class="section">今回の記録</h3>
