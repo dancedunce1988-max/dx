@@ -432,7 +432,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver2.2</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver2.3</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -1098,8 +1098,12 @@ const KOTONOHA_TYPE_LABEL = {
    （同じ段階の間は再抽選しないよう、直前に抽選した「段階」を記録しておく）。 */
 const KOTONOHA_OTHER_TYPES = [3, 5, 6, 7, 8, 9];
 function kotonohaTotalXP(st){
-  // 宝具を使って得たボーナス経験値（bonusExp）も、ことのはの育成経験値に反映する（2026-07-14〜）
-  return CAT_KEYS.reduce((sum,k)=> sum + Math.max(0, (st.lv[k]||1) - 1), 0) + (st.bonusExp||0);
+  /* ステータスポイント側(totalEarnedStatPoints)と同じcatExpPoints()を使い、1領域のレベルが
+     1000を超えた分は0.2ptに逓減する（2026-07-15〜。従来はここだけ逓減なしの生レベル合計だったため、
+     1領域だけをlv1000超まで伸ばすとことのはの経験値だけ青天井で伸びてしまう不整合があった）。
+     st.lvから毎回その場で計算し直すので、旧セーブを引き継いだ場合も自動的に反映される。
+     宝具を使って得たボーナス経験値（bonusExp）は今までどおり全額そのまま加算する（2026-07-14〜）。 */
+  return Math.floor(CAT_KEYS.reduce((sum,k)=> sum + catExpPoints(st.lv[k]||1), 0) + (st.bonusExp||0));
 }
 function kotonohaOtherType(st, stageIdx){
   const roll = st.kotonohaOtherRoll;
