@@ -444,7 +444,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver3.6</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver3.7</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -608,7 +608,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 5;
+const SAVE_FORMAT_VERSION = 6;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -745,6 +745,13 @@ function record(cat, item, correct, elapsedMs){
   recent.push(correct ? 1 : 0);
   while(recent.length > RECENT_ACC_WINDOW) recent.shift();
   st.recentCorrect[cat] = recent;
+  /* 分野をまたいだ「直近30回」の正答率（ボス戦のランダム遭遇の判定に使う、2026-07-16〜）。
+     ボス戦自体はrecord()を呼ばないので、この配列にボス戦の結果が混ざることはない。 */
+  if(!Array.isArray(st.recentCorrectAll)) st.recentCorrectAll = [];
+  const recentAll = st.recentCorrectAll.slice();
+  recentAll.push(correct ? 1 : 0);
+  while(recentAll.length > RECENT_ACC_WINDOW) recentAll.shift();
+  st.recentCorrectAll = recentAll;
   const recentAcc = recent.reduce((a,b)=>a+b, 0) / recent.length;
   const lowAccuracy = recent.length >= RECENT_ACC_WINDOW && recentAcc < RECENT_ACC_THRESHOLD;
   const recentFast = recent.slice(-FAST_ANSWER_WINDOW);
@@ -1629,7 +1636,7 @@ function showHelp(){
     <h3 class="section">👹 ボスのシステム</h3>
     <div class="card">
       <ul class="help-list">
-        <li>ふつうに問題を解いていると、<b>ごくまれに（1/40くらいの確率で）</b>ボスが勝負をしかけてきます。</li>
+        <li>ふつうに問題を解いていると、<b>ごくまれに（1/40くらいの確率で）</b>ボスが勝負をしかけてきます。ただし<b>直近30問の正答率が50%未満のときは出現しません</b>。逆に<b>直近30問の正答率が80%以上のときは、もっと高い確率（1/30くらい）</b>で出現しやすくなります。</li>
         <li>「勝負する」か「いいえ」かを、その場で選べます。断ってもペナルティはありません。</li>
         <li>ボス戦では、<b>正解するとボスにダメージ</b>を与え、<b>不正解だと自分がダメージ</b>を受けます（間違えたときのほうがダメージが大きいので、正解を積み重ねることが大切です）。</li>
         <li>ボスにはそれぞれ個性があり、<b>HPが高くて硬いボス</b>、<b>攻撃がはげしいボス</b>、<b>防御・回避にすぐれたボス</b>など、戦い方が少しずつちがいます。</li>
@@ -2646,6 +2653,27 @@ const BOSSES = [
      並べても勝率85〜90%・平均ターン数が単調に伸びる自然なカーブになっていることを確認済み。
      0ステータス・一点特化ビルドでも他ボスと同様0%になることも確認済み。 */
 const BOSS_ENCOUNTER_RATE = 1/40;
+/* ランダム遭遇は、分野をまたいだ「直近30回」の正答率（st.recentCorrectAll）で出やすさが変わる
+   （2026-07-16〜、教員の指示）。30回に満たないうちはデータ不足として、これまでどおり無条件でBOSS_ENCOUNTER_RATEを使う。
+   ①正答率がBOSS_ENCOUNTER_MIN_ACC(50%)未満なら、ランダム遭遇そのものが起こらない（0%）。
+   ②正答率がBOSS_ENCOUNTER_HOT_ACC(80%)以上なら、より高い確率(BOSS_ENCOUNTER_HOT_RATE=1/30)で出やすくなる
+     （「当たっているときほどボスが出やすい」）。
+   ③それ以外（50%以上80%未満）は、通常どおりBOSS_ENCOUNTER_RATE(1/40)のまま。 */
+const BOSS_ENCOUNTER_MIN_ACC = 0.5;
+const BOSS_ENCOUNTER_HOT_ACC = 0.8;
+const BOSS_ENCOUNTER_HOT_RATE = 1/30;
+function recentAccAll(st){
+  const recent = st.recentCorrectAll || [];
+  if(recent.length < RECENT_ACC_WINDOW) return null; // データ不足（判定なし）
+  return recent.reduce((a,b)=>a+b, 0) / recent.length;
+}
+function bossEncounterRate(st){
+  const acc = recentAccAll(st);
+  if(acc === null) return BOSS_ENCOUNTER_RATE;
+  if(acc < BOSS_ENCOUNTER_MIN_ACC) return 0;
+  if(acc >= BOSS_ENCOUNTER_HOT_ACC) return BOSS_ENCOUNTER_HOT_RATE;
+  return BOSS_ENCOUNTER_RATE;
+}
 const BOSS_TREASURE_RATE = 0.1;
 const BOSS_PITY_MAX = 10;
 const BOSS_ANSWER_TIME_MS = 15000; // ボス戦の1問あたりの制限時間（2026-07-15〜、10000から15000へ変更）。過ぎると自動的に不正解になる
@@ -2699,6 +2727,14 @@ function randInt(min, max){ return min + Math.floor(Math.random() * (max - min +
    命中率ボーナスも効かない）なので当てるのは難しい。プレイヤーはアイテムを使えず、
    ボスの反撃も一切なく（「校歌を熱唱するだけ」）、代わりに毎ターン20%の確率で逃げてしまう。 */
 const SHIRAN_ENCOUNTER_RATE = 1/1000;
+/* シランちゃんも、分野をまたいだ「直近30回」の正答率が一定値以上のときだけ遭遇しうる
+   （2026-07-16〜、教員の指示）。基本のボスと違い「出やすさが上がる」段階はなく、しきい値未満だと
+   0%になるだけのシンプルな足切り。30回に満たないうちはデータ不足として、これまでどおり無条件で許可する。 */
+const SHIRAN_MIN_ACC = 0.7;
+function shiranEncounterAllowed(st){
+  const acc = recentAccAll(st);
+  return acc === null || acc >= SHIRAN_MIN_ACC;
+}
 const SHIRAN_FLEE_RATE = 0.3;
 const SHIRAN_BOSS = {
   id:"shiran", name:"幻のボス【シランちゃん】", icon:"👻",
@@ -2715,12 +2751,14 @@ let bossPromptResumeFn = null;
 let bossPromptActive = false;
 let bossBattle = null;
 
-/* 1/100の確率でボスが出現する。出現したら遭遇プロンプトを表示してtrueを返す（呼び出し元は処理を中断する）。
+/* 低確率でボスが出現する。出現したら遭遇プロンプトを表示してtrueを返す（呼び出し元は処理を中断する）。
    出現しなければfalse。resumeFnは、逃げた・戦い終わったあとに元の流れへ戻るための関数。
-   シランちゃん（1/1000）は通常ボスとは別枠で、こちらを先に判定する。 */
+   シランちゃん（1/1000）は通常ボスとは別枠で、こちらを先に判定する。
+   どちらも直近30回の正答率による足切り／出やすさ調整がかかる（bossEncounterRate/shiranEncounterAllowed参照）。 */
 function rollBossEncounter(resumeFn){
   if(bossPromptActive || bossBattle) return false;
-  if(Math.random() < SHIRAN_ENCOUNTER_RATE){
+  const st = loadStats();
+  if(shiranEncounterAllowed(st) && Math.random() < SHIRAN_ENCOUNTER_RATE){
     pendingBoss = SHIRAN_BOSS;
     pendingBossAllGenre = false;
     bossPromptResumeFn = resumeFn;
@@ -2729,7 +2767,7 @@ function rollBossEncounter(resumeFn){
     renderBossPrompt();
     return true;
   }
-  if(Math.random() >= BOSS_ENCOUNTER_RATE) return false;
+  if(Math.random() >= bossEncounterRate(st)) return false;
   pendingBoss = randomEncounterBoss();
   pendingBossAllGenre = false;
   bossPromptResumeFn = resumeFn;
