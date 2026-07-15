@@ -435,7 +435,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver3.2</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver3.3</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -2398,6 +2398,8 @@ const BOSSES = [
   {id:"rikujo",     name:"疾風の陸上部主将",         icon:"🏃", item:"スポーツドリンク", treasure:"伝説の金色バトン",           hp:20000, atk:42.20, defPct:5,  accuracy:140, evadePct:45, luck:10, lv:20, recPts:800,  minXpRatio:0.8, dropAccuracyThreshold:0.7},
   {id:"judo",       name:"鉄壁の柔道部主将",         icon:"🥋", item:"受け身のこつ",     treasure:"黒帯の奥義書",               hp:40000, atk:86.72, defPct:15, accuracy:100, evadePct:8,  luck:5,  lv:24, recPts:1000, minXpRatio:0.8, dropAccuracyThreshold:0.7},
   {id:"seitokaicho",name:"伝説の生徒会長",           icon:"👑", item:"会長の激励",       treasure:"伝説の生徒会腕章",           hp:55000, atk:159.10,defPct:25, accuracy:130, evadePct:20, luck:18, lv:30, recPts:1500, minXpRatio:0.8, dropAccuracyThreshold:0.7},
+  {id:"shogi",      name:"読み勝つ将棋部部長",       icon:"♟️", item:"会心の一手",       treasure:"伝説の詰将棋",               hp:25000, atk:36.83, defPct:10, accuracy:100, evadePct:8,  luck:40, lv:18, recPts:700,  minXpRatio:0.8, dropAccuracyThreshold:0.7},
+  {id:"toshoiin",   name:"静寂の図書委員長",         icon:"📚", item:"静寂の栞",         treasure:"禁帯出の書",                 hp:25000, atk:118.30,defPct:60, accuracy:110, evadePct:5,  luck:8,  lv:27, recPts:1200, minXpRatio:0.8, dropAccuracyThreshold:0.7},
 ];
 /* 2026-07-15、recPts500(旧最上位)を超える3体を追加。均等配分プレイヤーの被ダメージ軽減率
    （def/(def+30)）や会心率（100*luck/(luck+100)）はポイントを積むほど頭打ちに近づくため、
@@ -2423,7 +2425,20 @@ const BOSSES = [
      戦う前からの実力がそのまま反映される）の通算正答率がこの値（0.7）を超えていないと、
      アイテムも宝具も一切ドロップしない（`bossWin()`内でチェック）。挑戦チケットでの撃破（全ジャンル出題、
      `bossBattle.cats`が配列で入る＝単一分野の正答率という概念がない）は、このガードの対象外で今までどおり
-     無条件ドロップする。 */
+     無条件ドロップする。
+   2026-07-15、同日中にさらに2体を追加（recPts700・1200、隙間を埋める形）。同じくminXpRatio/
+   dropAccuracyThresholdを持たせ、atk倍率も同じ非線形の伸びの一部として探索している
+   （houcho25.38@500 → shogi36.83@700 → rikujo42.20@800 → judo86.72@1000 → toshoiin118.30@1200 →
+   seitokaicho159.10@1500）。この2体も新しい個性を持たせてある：
+     shogi(将棋部)：luck40%の純粋運特化型（既存ボスのluckは最大でも26%だったが、これは会心率を
+       主軸にした初のアーキタイプ。専用アイテム「会心の一手」はluckBuffという新しい効果タイプで、
+       一時的に運ステータスを底上げする＝atkBuff/defBuffと対になる3つ目のバフ系アイテム）
+     toshoiin(図書委員長)：defPct60%の純粋防御特化型（suugakuはdefPctとevadePctの複合型、judoは
+       HP特化型だったのに対し、こちらはevadePctをほぼ持たず被ダメージ軽減率だけに全振りした型）
+   モンテカルロ・シミュレータ（均等配分・8割正解ペース、n=50000）での実測勝率：
+     shogi 87.7%（平均40.2ターン）、toshoiin 87.0%（平均52.6ターン）。既存9体と合わせてrecPts順に
+     並べても勝率85〜90%・平均ターン数が単調に伸びる自然なカーブになっていることを確認済み。
+     0ステータス・一点特化ビルドでも他ボスと同様0%になることも確認済み。 */
 const BOSS_ENCOUNTER_RATE = 1/40;
 const BOSS_TREASURE_RATE = 0.1;
 const BOSS_PITY_MAX = 10;
@@ -2466,6 +2481,8 @@ const ITEM_EFFECTS = {
   "スポーツドリンク": {type:"heal",   amount:220,         label:"HPを220回復する",                      icon:"🥤"},
   "受け身のこつ": {type:"defBuff",   amount:50, turns:3, label:"次の3ターン、防御力が大きく上がる",     icon:"🛡️"},
   "会長の激励":   {type:"atkBuff",   amount:70, turns:3, label:"次の3ターン、攻撃力が大きく上がる",     icon:"🔥"},
+  "会心の一手":   {type:"luckBuff",  amount:40, turns:3, label:"次の3ターン、運が上がる（会心率アップ）", icon:"🍀"},
+  "静寂の栞":     {type:"defBuff",   amount:60, turns:3, label:"次の3ターン、防御力が大きく上がる",     icon:"🛡️"},
 };
 function randInt(min, max){ return min + Math.floor(Math.random() * (max - min + 1)); }
 
@@ -2571,7 +2588,7 @@ function startBossBattle(boss, allGenre){
     boss, bossHp: boss.hp, bossMaxHp: boss.hp,
     playerHp: maxHp, playerMaxHp: maxHp,
     cat, cats, itemCat:null, item:null, order:null, lastQ:null,
-    atkBuffTurns:0, atkBuffAmount:0, defBuffTurns:0, defBuffAmount:0, missGuard:false,
+    atkBuffTurns:0, atkBuffAmount:0, defBuffTurns:0, defBuffAmount:0, luckBuffTurns:0, luckBuffAmount:0, missGuard:false,
     showItemPanel:false, usedItemThisTurn:false, usedItemNames:{}, timerId:null,
   };
   bossNextQuestion();
@@ -2604,6 +2621,10 @@ function useBossItem(name){
     b.defBuffTurns = effect.turns;
     b.defBuffAmount = effect.amount;
     msg = `${effect.icon} 「${name}」を使った！ 防御力が上がった！（あと${effect.turns}ターン）`;
+  }else if(effect.type === "luckBuff"){
+    b.luckBuffTurns = effect.turns;
+    b.luckBuffAmount = effect.amount;
+    msg = `${effect.icon} 「${name}」を使った！ 運が上がった！（あと${effect.turns}ターン）`;
   }else if(effect.type === "missGuard"){
     b.missGuard = true;
     msg = `${effect.icon} 「${name}」を使った！ 次に1回だけ、間違えてもダメージを受けなくなった！`;
@@ -2730,6 +2751,7 @@ function bossItemBarHtml(){
   const buffChips = [];
   if(b.atkBuffTurns > 0) buffChips.push(`<span class="lvup-chip">🔥攻撃力UP（あと${b.atkBuffTurns}ターン）</span>`);
   if(b.defBuffTurns > 0) buffChips.push(`<span class="lvup-chip">🛡️防御力UP（あと${b.defBuffTurns}ターン）</span>`);
+  if(b.luckBuffTurns > 0) buffChips.push(`<span class="lvup-chip">🍀運UP（あと${b.luckBuffTurns}ターン）</span>`);
   if(b.missGuard) buffChips.push(`<span class="lvup-chip">✨ミス回避 スタンバイ中</span>`);
   const buffRow = buffChips.length ? `<p class="note">${buffChips.join(" ")}</p>` : "";
   const useMsg = b.itemUseMsg ? `<p class="note">${esc(b.itemUseMsg)}</p>` : "";
@@ -2828,7 +2850,8 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
       fled = true;
     }else{
       dealt = randInt(BOSS_PLAYER_DMG[0], BOSS_PLAYER_DMG[1]) + ps.atk * STAT_ATK_PER_POINT + (b.atkBuffTurns > 0 ? b.atkBuffAmount : 0);
-      const critChance = 100 * ps.luck / (ps.luck + STAT_LUCK_HALF_POINT);
+      const effLuck = ps.luck + (b.luckBuffTurns > 0 ? b.luckBuffAmount : 0);
+      const critChance = 100 * effLuck / (effLuck + STAT_LUCK_HALF_POINT);
       if(Math.random() * 100 < critChance){
         crit = true;
         dealt = Math.round(dealt * STAT_CRIT_MULT);
@@ -2921,6 +2944,7 @@ function bossCounterAttack(playerWasCorrect){
   }
   if(b.atkBuffTurns > 0) b.atkBuffTurns--;
   if(b.defBuffTurns > 0) b.defBuffTurns--;
+  if(b.luckBuffTurns > 0) b.luckBuffTurns--;
   refreshBossHpBars();
   const fb = document.getElementById("fb");
   fb.innerHTML += guarded
