@@ -435,7 +435,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver2.7</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver2.8</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -2403,7 +2403,9 @@ const BOSSES = [
 const BOSS_ENCOUNTER_RATE = 1/40;
 const BOSS_TREASURE_RATE = 0.1;
 const BOSS_PITY_MAX = 10;
-const BOSS_ANSWER_TIME_MS = 10000; // ボス戦の1問あたりの制限時間（2026-07-15〜）。過ぎると自動的に不正解になる
+const BOSS_ANSWER_TIME_MS = 15000; // ボス戦の1問あたりの制限時間（2026-07-15〜、10000から15000へ変更）。過ぎると自動的に不正解になる
+const BOSS_TIMER_MIN_RECPTS = 501; // 適正経験値がこの値以下のボス（旧6体・シランちゃん）は、制限時間を設けない
+function bossHasTimeLimit(boss){ return (boss.recPts||0) > BOSS_TIMER_MIN_RECPTS; }
 const BOSS_PLAYER_HP = 100;
 const BOSS_PLAYER_DMG = [125, 155];     // 正解時に与えるダメージ
 const BOSS_DMG_ON_CORRECT = [4, 6];     // 自分の攻撃が成功したときに受けるダメージ（軽い）
@@ -2624,9 +2626,12 @@ function bossNextQuestion(){
 /* ボス戦の1問あたりの制限時間（2026-07-15〜）。アイテム選択中も止まらず進み続ける
    （アイテムを使ってもターンは進まない、という既存仕様に合わせた設計判断）。
    時間切れは不正解として扱う（bossTimeUp→bossGrade(false,...,true)）。
-   答えた場合はbossGrade冒頭のclearBossTimer()でこのタイマーを止めるので、二重採点は起きない。 */
+   答えた場合はbossGrade冒頭のclearBossTimer()でこのタイマーを止めるので、二重採点は起きない。
+   適正経験値がBOSS_TIMER_MIN_RECPTS(501)以下のボス（旧6体・シランちゃん）は対象外
+   （bossHasTimeLimitがfalseを返すので、タイマーを張らず、バーもrenderBossBattle側で表示しない）。 */
 function startBossTimer(){
   clearBossTimer();
+  if(!bossHasTimeLimit(bossBattle.boss)) return;
   const battle = bossBattle;
   battle.timerId = setTimeout(() => {
     if(bossBattle !== battle || battle._resolving) return;
@@ -2756,7 +2761,7 @@ function renderBossBattle(){
       <div class="boss-q-card">
         ${subInstructionHtml(b.itemCat, it)}
         ${kanbunBoxHtml(it.kb)}
-        <div class="boss-timer-row" id="bossTimerRow"><div class="boss-timer-bar"><div id="bossTimerFill" class="boss-timer-fill"></div></div></div>
+        ${bossHasTimeLimit(b.boss) ? `<div class="boss-timer-row" id="bossTimerRow"><div class="boss-timer-bar"><div id="bossTimerFill" class="boss-timer-fill"></div></div></div>` : ""}
         <div class="boss-q-text">${esc(it.q)}</div>
         ${answerArea}
         <div class="feedback" id="fb"></div>
