@@ -450,7 +450,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver4.2</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver4.3</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -614,7 +614,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 10;
+const SAVE_FORMAT_VERSION = 11;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -624,7 +624,7 @@ function emptyStats(){
   const lv = {dokkai:1};
   const diffLv = {};
   CAT_KEYS.forEach(k => { cats[k] = {t:0,c:0}; lv[k] = 1; diffLv[k] = 1; });
-  return {cats, q:{}, lv, diffLv, items:{}, usedTreasures:{}, bossPity:{}, kotonohaOtherRoll:null, bossTickets:0, totalLevelUps:0,
+  return {cats, q:{}, lv, diffLv, items:{}, usedTreasures:{}, usedStoryRewards:{}, bossPity:{}, kotonohaOtherRoll:null, bossTickets:0, totalLevelUps:0,
     bonusExp:0, stats:{hp:0, atk:0, def:0, spd:0, luck:0}, kotonohaSeenForms:[], kotonohaDisplayOverride:null,
     kanjiWrite:{totalOk:0, itemHist:{}, levelRecent:{}},
     kanjiWriteElem:{totalOk:0, itemHist:{}, targetLv:1, recent:[]},
@@ -665,6 +665,7 @@ function loadStats(){
         });
         if(!st.items) st.items = {};
         if(!st.usedTreasures) st.usedTreasures = {};
+        if(!st.usedStoryRewards) st.usedStoryRewards = {};
         if(!st.bossPity) st.bossPity = {};
         if(typeof st.bossTickets !== "number") st.bossTickets = 0;
         if(typeof st.totalLevelUps !== "number") st.totalLevelUps = 0;
@@ -3457,16 +3458,19 @@ function showItemCollection(){
   const st = loadStats();
   const items = st.items || {};
   const usedTreasures = st.usedTreasures || {};
+  const usedStoryRewards = st.usedStoryRewards || {};
   const allKeys = Object.keys(items);
-  const normalKeys = allKeys.filter(name => !isTreasureItem(name)).sort((a,b)=> items[b]-items[a]);
+  const normalKeys = allKeys.filter(name => !isTreasureItem(name) && !isStoryRewardItem(name)).sort((a,b)=> items[b]-items[a]);
   const treasureKeys = allKeys.filter(name => isTreasureItem(name)).sort((a,b)=> items[b]-items[a]);
   const usedTreasureKeys = Object.keys(usedTreasures).filter(name => usedTreasures[name] > 0).sort((a,b)=> usedTreasures[b]-usedTreasures[a]);
+  const usedStoryRewardKeys = Object.keys(usedStoryRewards).filter(name => usedStoryRewards[name] > 0);
   let html = `<div class="card"><h3 class="section">🎒 これまで獲得したアイテム</h3>`;
-  if(allKeys.length === 0 && usedTreasureKeys.length === 0){
+  if(allKeys.length === 0 && usedTreasureKeys.length === 0 && usedStoryRewardKeys.length === 0){
     html += `<p class="note">まだ何も手に入れていません。問題に取り組んでいると、ごくまれにボスが勝負をしかけてくることがあります。勝つとアイテムがもらえます。</p>`;
   }else{
     html += `<h4 class="item-group-title">📦 通常アイテム</h4>`;
     html += normalKeys.length ? itemListHtml(normalKeys, items) : `<p class="note">まだありません。</p>`;
+    html += storyRewardSectionHtml(st);
     html += `<h4 class="item-group-title treasure-title">✨ 伝説の宝具</h4>`;
     html += treasureKeys.length
       ? `<ul class="item-list treasure-list">` + treasureKeys.map(name =>
@@ -3732,6 +3736,46 @@ const STORY_EVENT_BOSSES = {
 };
 TREASURE_NAMES.add(STORY_EVENT_BOSSES.printPile.treasure);
 
+/* クリア報酬アイテム（章クリアで確定ドロップする通常アイテムのうち、使うと経験値+20になるもの）。
+   宝具（TREASURE_NAMES／useTreasureItem）とは別枠の、ストーリーモード専用の使用可能アイテム分類。 */
+const STORY_REWARD_ITEM_NAMES = new Set([STORY_EVENT_BOSSES.printPile.item]);
+const STORY_REWARD_EXP_AMOUNT = 20;
+function isStoryRewardItem(name){ return STORY_REWARD_ITEM_NAMES.has(name); }
+function useStoryRewardItem(name){
+  const st = loadStats();
+  if(!(st.items && st.items[name] > 0)) return;
+  st.items[name]--;
+  if(st.items[name] <= 0) delete st.items[name];
+  if(!st.usedStoryRewards) st.usedStoryRewards = {};
+  st.usedStoryRewards[name] = (st.usedStoryRewards[name]||0) + 1;
+  st.bonusExp = (st.bonusExp||0) + STORY_REWARD_EXP_AMOUNT;
+  saveStats(st);
+  alert(`🎁「${name}」を使った！ 経験値が${STORY_REWARD_EXP_AMOUNT}上がった！`);
+  showItemCollection();
+}
+function storyRewardSectionHtml(st){
+  const items = st.items || {};
+  const used = st.usedStoryRewards || {};
+  const keys = Object.keys(items).filter(isStoryRewardItem).sort((a,b)=> items[b]-items[a]);
+  const usedKeys = Object.keys(used).filter(name => used[name] > 0).sort((a,b)=> used[b]-used[a]);
+  if(keys.length === 0 && usedKeys.length === 0) return "";
+  let html = `<h4 class="item-group-title treasure-title">🎁 クリア報酬アイテム</h4>`;
+  if(keys.length){
+    html += `<ul class="item-list treasure-list">` + keys.map(name =>
+      `<li class="treasure"><span>🎁 ${esc(name)}</span><span class="item-count">×${items[name]}</span>
+        <button class="btn inline" onclick="useStoryRewardItem('${esc(name)}')">使う（経験値+${STORY_REWARD_EXP_AMOUNT}）</button></li>`
+    ).join("") + `</ul>`;
+    html += `<p class="note">🎁 クリア報酬アイテムを使うと経験値が上がりますが、1個使うごとに手元から1個消費されます。</p>`;
+  }
+  if(usedKeys.length){
+    html += `<h4 class="item-group-title">💤 使用済みのクリア報酬アイテム</h4>
+      <ul class="item-list">` + usedKeys.map(name =>
+        `<li><span>💤 ${esc(name)}</span><span class="item-count">×${used[name]}</span></li>`
+      ).join("") + `</ul>`;
+  }
+  return html;
+}
+
 const STORY_CHAPTERS = {
   ch1: {
     title: "第1章「入学準備」",
@@ -3907,8 +3951,16 @@ function storySubmitInput(){
 function storyGradeQuiz(ok, chosenOrig, typed){
   clearChoiceKeys();
   const it = storyRun.curItem, cat = storyRun.curCat;
-  const elapsedMs = Date.now() - (storyRun.shownAt || Date.now());
-  const r = record(cat, it, ok, elapsedMs);
+  /* すでにクリア済みの章を再プレイ中は「報酬なし」なので、record()を呼ばず
+     分野レベル・XPには反映させない（周回でのXP稼ぎを防ぐため）。演出としての
+     出題・採点はそのまま楽しめる。 */
+  const sp = storyProgress(loadStats());
+  const isReplay = sp.completedChapters.includes(sp.chapter);
+  let r = {lvup:false, lv:null};
+  if(!isReplay){
+    const elapsedMs = Date.now() - (storyRun.shownAt || Date.now());
+    r = record(cat, it, ok, elapsedMs);
+  }
   const btns = screen.querySelectorAll(".choice");
   btns.forEach((b,pos)=>{
     const oi = storyRun.order ? storyRun.order[pos] : pos;
@@ -3931,10 +3983,17 @@ function storyGradeQuiz(ok, chosenOrig, typed){
   if(nb) nb.style.display = "inline-block";
 }
 function storyStartBattle(beat){
+  const sp = storyProgress(loadStats());
+  const isReplay = sp.completedChapters.includes(sp.chapter);
+  const boss = STORY_EVENT_BOSSES[beat.boss];
+  /* 再プレイ（報酬なし）のときは、既存ボス戦の「dropAccuracyThreshold」の仕組みを
+     そのまま流用してドロップを封じる（rateは0〜1なので、Infinityを超えることは絶対にない
+     ＝bossWin()内のdropsLootが必ずfalseになる）。bossWin()自体には一切手を入れていない。 */
+  boss.dropAccuracyThreshold = isReplay ? Infinity : undefined;
   storyRun.savedQuiz = quiz;
   quiz = {key: beat.cat};
   bossPromptResumeFn = storyAfterBattle;
-  startBossBattle(STORY_EVENT_BOSSES[beat.boss], false);
+  startBossBattle(boss, false);
 }
 function storyAfterBattle(){
   quiz = storyRun.savedQuiz;
@@ -3952,8 +4011,20 @@ function storyChapterEnd(){
       <p class="story-text">入学式当日の朝。支度を終えて、家を出る。\n\n新しい生活が、はじまる。</p>
       <div class="btn-row" style="justify-content:center">
         <button class="btn" onclick="showHome()">ホームへ</button>
+        <button class="btn secondary" onclick="storyReplayChapter()">もう一度読む（報酬なし）</button>
       </div>
     </div>`;
+}
+/* クリア済みの章を最初からもう一度プレイする（報酬なし）。completedChaptersは
+   そのままなので、record()や宝具・クリア報酬アイテムのドロップは自動的に封じられる
+   （storyGradeQuiz・storyStartBattle内のisReplay判定を参照）。 */
+function storyReplayChapter(){
+  const st = loadStats();
+  const sp = storyProgress(st);
+  sp.beatIdx = 0;
+  saveStats(st);
+  storyRun = {lastQ:null, order:null, curItem:null, curCat:null, shownAt:null, savedQuiz:null};
+  storyRenderBeat();
 }
 /* ================================================================
    ストーリーモード ここまで
