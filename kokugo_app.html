@@ -439,12 +439,18 @@
   .prologue-skip{position:absolute; top:18px; right:20px; color:#c9c2a8; font-size:.78rem; text-decoration:underline; padding:4px;}
   @keyframes prologueFadeIn{from{opacity:0} to{opacity:1}}
   @keyframes prologueRise{from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:translateY(0)}}
+  /* ===== ストーリーモード（削除する場合はこのブロックとJS内の「ストーリーモード」ブロックを削除するだけでよい） ===== */
+  .story-scene{text-align:left;}
+  .story-speaker{font-weight:bold; color:var(--accent2); margin-bottom:6px; font-size:.95rem;}
+  .story-text{white-space:pre-line; line-height:1.85; margin:4px 0 6px;}
+  .story-choices{display:flex; flex-direction:column; gap:8px; margin-top:14px;}
+  .story-chapter-end{font-size:1.2rem; font-weight:bold; text-align:center; margin-bottom:10px; color:var(--accent);}
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver4.1</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver4.2</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -608,7 +614,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 9;
+const SAVE_FORMAT_VERSION = 10;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -622,7 +628,8 @@ function emptyStats(){
     bonusExp:0, stats:{hp:0, atk:0, def:0, spd:0, luck:0}, kotonohaSeenForms:[], kotonohaDisplayOverride:null,
     kanjiWrite:{totalOk:0, itemHist:{}, levelRecent:{}},
     kanjiWriteElem:{totalOk:0, itemHist:{}, targetLv:1, recent:[]},
-    notLearnedCats:{}};
+    notLearnedCats:{},
+    story:{chapter:"ch1", beatIdx:0, flags:{}, completedChapters:[]}};
 }
 /* ステータスポイントは保存された数値ではなく、常にその場で計算する：
    「分野レベルの合計（＝これまで獲得した経験値の合計）」から「すでに割りふった分」を引いた残り。
@@ -681,6 +688,11 @@ function loadStats(){
         if(typeof st.kanjiWriteElem.totalOk !== "number") st.kanjiWriteElem.totalOk = 0;
         if(typeof st.kanjiWriteElem.targetLv !== "number") st.kanjiWriteElem.targetLv = 1;
         if(!st.notLearnedCats) st.notLearnedCats = {};
+        if(!st.story) st.story = {chapter:"ch1", beatIdx:0, flags:{}, completedChapters:[]};
+        if(!st.story.flags) st.story.flags = {};
+        if(!Array.isArray(st.story.completedChapters)) st.story.completedChapters = [];
+        if(typeof st.story.beatIdx !== "number") st.story.beatIdx = 0;
+        if(!st.story.chapter) st.story.chapter = "ch1";
         if(!Array.isArray(st.kotonohaSeenForms)) st.kotonohaSeenForms = [];
         if(st.kotonohaDisplayOverride === undefined) st.kotonohaDisplayOverride = null;
         /* 旧バージョンで「その他型」が固定されていた場合、今の見た目をそのまま引き継ぐ
@@ -1434,6 +1446,7 @@ function showHome(){
   const st = loadStats();
   let html = "";
   html += kotonohaCardHtml(st);
+  html += storyEntryHtml(st);
   html += balancedTrainingBtnHtml();
   html += notLearnedBtnHtml(st);
   html += bossTicketHtml(st);
@@ -3701,6 +3714,251 @@ function bootApp(){
   }
   showPrologue(showHome);
 }
+
+/* ================================================================
+   ストーリーモード（2026-07-16〜、β版）
+   丸ごと削除する場合は、このブロック全体と、以下3箇所の1行ずつの追記を戻すだけでよい：
+   ・emptyStats()内の story フィールド
+   ・loadStats()内の story マイグレーション（if(!st.story)…の5行）
+   ・showHome()内の `html += storyEntryHtml(st);` の1行
+   （SAVE_FORMAT_VERSIONは戻さなくても実害はない）
+   ================================================================ */
+const STORY_EVENT_BOSSES = {
+  printPile: {
+    id:"story_print_pile", name:"手強い配布プリントの山", icon:"📄",
+    item:"入学準備リスト", treasure:"先輩からのお守り",
+    hp:1500, atk:0.8, defPct:5, accuracy:70, evadePct:5, luck:5, lv:1, recPts:30,
+  },
+};
+TREASURE_NAMES.add(STORY_EVENT_BOSSES.printPile.treasure);
+
+const STORY_CHAPTERS = {
+  ch1: {
+    title: "第1章「入学準備」",
+    beats: [
+      {type:"line", text:"入学式まで、あと一週間。\n春休み最後の週がはじまった。"},
+      {type:"line", text:"新しい制服や教科書が入った箱が、今日、家に届いた。"},
+      {type:"line", text:"荷物を整理していると――\n箱の隅に、見覚えのない小さな卵が紛れ込んでいるのに気づいた。"},
+      {type:"choice", flagKey:"eggReaction", text:"卵に、どうする？", options:[
+        {label:"そっと持ち上げてみる", value:"gentle"},
+        {label:"しばらく様子を見てみる", value:"cautious"},
+      ]},
+      {type:"line", text:"卵が、ほのかに光りはじめた。\nやがて殻が割れて――小さな生き物が、そっと顔をのぞかせる。"},
+      {type:"line", speaker:"ことのは", text:"……見つけた。\nぼくを、育ててくれる人。"},
+      {type:"line", speaker:"ことのは", text:"ぼくは、【ことのは】。\n君がこれから紡ぐ、たくさんの言葉から生まれたんだ。"},
+      {type:"line", speaker:"ことのは", text:"言葉の力が、少しずつ失われていく時代だから……\nぼくは、ずっと誰かを待ってた。"},
+      {type:"choice", flagKey:"greeting", text:"ことのはに、なんて声をかける？", options:[
+        {label:"「よろしく、ことのは」", value:"warm"},
+        {label:"「……本当に喋ってるの?」", value:"surprised"},
+      ]},
+      {type:"line", speaker:"ことのは", text:"さあ、入学まであと少し。\n一緒に準備していこうね。"},
+      {type:"choice", flagKey:"favoriteSubject", text:"得意な教科は？", options:[
+        {label:"漢字が得意", value:"kanji"},
+        {label:"文章を読むのが得意", value:"dokkai"},
+        {label:"言葉のきまりが得意", value:"bunpou"},
+      ]},
+      {type:"line", text:"数日後。準備の買い出しの帰り道――"},
+      {type:"line", speaker:"？？？", text:"あれ、もしかして今度うちの中学に入る子？"},
+      {type:"line", text:"声をかけてきたのは、部活のユニフォーム姿の先輩だった。"},
+      {type:"line", speaker:"先輩", text:"よろしくね！ ちょっとだけ、言葉の力試してみない？"},
+      {type:"quiz", cat:"keigo", speaker:"先輩"},
+      {type:"quiz", cat:"keigo", speaker:"先輩"},
+      {type:"line", speaker:"先輩", text:"筋がいいね。入学、楽しみにしてて！"},
+      {type:"line", text:"入学式前日の夜。"},
+      {type:"line", text:"「配られたプリント、ちゃんと目を通しておいてね」\n保護者にそう言われて、机の上に積まれた書類の山に向き合う。"},
+      {type:"line", text:"見慣れない漢字や、かしこまった言い回しが並んでいて――\n山のように分厚く感じられた。"},
+      {type:"battle", boss:"printPile", cat:"kanji_yomi"},
+      {type:"line", text:"なんとか、プリントの束を読み終えた。"},
+      {type:"line", speaker:"ことのは", text:"おつかれさま。\nこれで、もう準備は万端だね。"},
+    ],
+  },
+};
+
+let storyRun = null; // 実行中の一時状態（セーブしない。直前の出題・選択肢の並び順など）
+
+function storyProgress(st){
+  if(!st.story) st.story = {chapter:"ch1", beatIdx:0, flags:{}, completedChapters:[]};
+  return st.story;
+}
+function storyEntryHtml(st){
+  const sp = storyProgress(st);
+  const chapter = STORY_CHAPTERS[sp.chapter];
+  const done = sp.beatIdx >= chapter.beats.length;
+  return `
+    <div class="card menu-card" onclick="startStoryMode()">
+      <div class="menu-icon">📖</div>
+      <div><h2>ストーリーモード <span class="tag">${done ? "第1章クリア済み" : "第1章「入学準備」"}</span></h2>
+      <p>ことのはと一緒に、中学校生活を歩む物語（β版）</p></div>
+    </div>`;
+}
+function startStoryMode(){
+  storyRun = {lastQ:null, order:null, curItem:null, curCat:null, shownAt:null, savedQuiz:null};
+  storyRenderBeat();
+}
+function storyRenderBeat(){
+  const st = loadStats();
+  const sp = storyProgress(st);
+  const chapter = STORY_CHAPTERS[sp.chapter];
+  if(!chapter || sp.beatIdx >= chapter.beats.length){ storyChapterEnd(); return; }
+  const beat = chapter.beats[sp.beatIdx];
+  if(beat.type === "line") storyRenderLine(beat);
+  else if(beat.type === "choice") storyRenderChoice(beat);
+  else if(beat.type === "quiz") storyRenderQuiz(beat);
+  else if(beat.type === "battle") storyStartBattle(beat);
+  else showHome();
+}
+function storyFooterHtml(){
+  return `<div class="btn-row" style="justify-content:center; margin-top:6px">
+    <button class="btn secondary" onclick="showHome()">ホームへ（中断）</button>
+  </div>`;
+}
+function storyRenderLine(beat){
+  screen.innerHTML = `
+    <div class="card story-scene">
+      ${beat.speaker ? `<div class="story-speaker">${esc(beat.speaker)}</div>` : ""}
+      <p class="story-text">${esc(beat.text)}</p>
+      <div class="btn-row" style="justify-content:center">
+        <button class="btn" onclick="storyAdvance()">つぎへ</button>
+      </div>
+    </div>
+    ${storyFooterHtml()}`;
+}
+function storyRenderChoice(beat){
+  screen.innerHTML = `
+    <div class="card story-scene">
+      <p class="story-text">${esc(beat.text)}</p>
+      <div class="story-choices">
+        ${beat.options.map((o,i)=>`<button class="btn secondary" onclick="storyChoose(${i})">${esc(o.label)}</button>`).join("")}
+      </div>
+    </div>
+    ${storyFooterHtml()}`;
+}
+function storyChoose(i){
+  const st = loadStats();
+  const sp = storyProgress(st);
+  const chapter = STORY_CHAPTERS[sp.chapter];
+  const beat = chapter.beats[sp.beatIdx];
+  const opt = beat.options[i];
+  if(beat.flagKey) sp.flags[beat.flagKey] = opt.value;
+  sp.beatIdx++;
+  saveStats(st);
+  storyRenderBeat();
+}
+function storyAdvance(){
+  const st = loadStats();
+  const sp = storyProgress(st);
+  sp.beatIdx++;
+  saveStats(st);
+  storyRenderBeat();
+}
+function storyRenderQuiz(beat){
+  const it = pickBattleQuestion(beat.cat, storyRun.lastQ);
+  storyRun.lastQ = it.q;
+  storyRun.curItem = it;
+  storyRun.curCat = beat.cat;
+  storyRun.shownAt = Date.now();
+  const isInput = Array.isArray(it.ans);
+  let answerArea;
+  if(isInput){
+    clearChoiceKeys();
+    answerArea = `
+      <div class="ans-row">
+        <input type="text" id="storyAnsIn" class="ans-input" placeholder="ひらがなで入力" autocomplete="off"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();storySubmitInput();}">
+        <button class="btn inline" id="storySubmitBtn" onclick="storySubmitInput()">こたえる</button>
+      </div>`;
+  }else{
+    storyRun.order = shuffledOrder(it.c.length);
+    answerArea = `
+      <div class="choices">
+        ${storyRun.order.map((oi,pos)=>`<button class="choice" onclick="storyAnswerChoice(${oi})"><span class="choice-num">${pos+1}</span>${esc(it.c[oi])}</button>`).join("")}
+      </div>`;
+  }
+  screen.innerHTML = `
+    <div class="card story-scene">
+      ${beat.speaker ? `<div class="story-speaker">${esc(beat.speaker)}</div>` : ""}
+      ${beat.intro ? `<p class="story-text">${esc(beat.intro)}</p>` : ""}
+      <div class="boss-q-card">
+        ${subInstructionHtml(beat.cat, it)}
+        <div class="boss-q-text">${esc(it.q)}</div>
+        ${answerArea}
+        <div class="feedback" id="fb"></div>
+        <div class="btn-row"><button class="btn" id="storyNextBtn" style="display:none" onclick="storyAdvance()">つぎへ</button></div>
+      </div>
+    </div>
+    ${storyFooterHtml()}`;
+  if(isInput){ const el = document.getElementById("storyAnsIn"); if(el) el.focus(); }
+  else{ setupChoiceKeys(pos => storyAnswerChoice(storyRun.order[pos]), it.c.length); }
+}
+function storyAnswerChoice(origIdx){
+  storyGradeQuiz(origIdx === storyRun.curItem.a, origIdx, null);
+}
+function storySubmitInput(){
+  const el = document.getElementById("storyAnsIn");
+  if(!el || el.disabled) return;
+  const val = normalizeAns(el.value);
+  if(!val) return;
+  const ok = storyRun.curItem.ans.map(normalizeAns).includes(val);
+  el.disabled = true;
+  const sb = document.getElementById("storySubmitBtn");
+  if(sb) sb.disabled = true;
+  storyGradeQuiz(ok, null, el.value);
+}
+function storyGradeQuiz(ok, chosenOrig, typed){
+  clearChoiceKeys();
+  const it = storyRun.curItem, cat = storyRun.curCat;
+  const elapsedMs = Date.now() - (storyRun.shownAt || Date.now());
+  const r = record(cat, it, ok, elapsedMs);
+  const btns = screen.querySelectorAll(".choice");
+  btns.forEach((b,pos)=>{
+    const oi = storyRun.order ? storyRun.order[pos] : pos;
+    b.disabled = true;
+    if(oi===it.a) b.classList.add("correct");
+    else if(oi===chosenOrig) b.classList.add("wrong");
+    else b.classList.add("dim");
+  });
+  const fb = document.getElementById("fb");
+  let expl;
+  if(Array.isArray(it.ans)){
+    expl = ok ? "" : `正解は「${esc(it.ans.join("」または「"))}」`;
+  }else{
+    expl = ok ? "" : `正解は「${esc(it.c[it.a])}」`;
+  }
+  const lvChip = r.lvup ? `<span class="lvup-chip">${esc(CATS[cat].name)} Lv.${r.lv} にアップ！</span>` : "";
+  fb.className = "feedback show " + (ok?"ok":"ng");
+  fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}${lvChip}</div>${expl}`;
+  const nb = document.getElementById("storyNextBtn");
+  if(nb) nb.style.display = "inline-block";
+}
+function storyStartBattle(beat){
+  storyRun.savedQuiz = quiz;
+  quiz = {key: beat.cat};
+  bossPromptResumeFn = storyAfterBattle;
+  startBossBattle(STORY_EVENT_BOSSES[beat.boss], false);
+}
+function storyAfterBattle(){
+  quiz = storyRun.savedQuiz;
+  storyRun.savedQuiz = null;
+  storyAdvance();
+}
+function storyChapterEnd(){
+  const st = loadStats();
+  const sp = storyProgress(st);
+  if(!sp.completedChapters.includes(sp.chapter)) sp.completedChapters.push(sp.chapter);
+  saveStats(st);
+  screen.innerHTML = `
+    <div class="card story-scene">
+      <div class="story-chapter-end">📖 ${esc(STORY_CHAPTERS[sp.chapter].title)} クリア！</div>
+      <p class="story-text">入学式当日の朝。支度を終えて、家を出る。\n\n新しい生活が、はじまる。</p>
+      <div class="btn-row" style="justify-content:center">
+        <button class="btn" onclick="showHome()">ホームへ</button>
+      </div>
+    </div>`;
+}
+/* ================================================================
+   ストーリーモード ここまで
+   ================================================================ */
+
 bootApp();
 </script>
 </body>
