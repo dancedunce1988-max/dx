@@ -456,7 +456,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver5.9</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver6.0</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -620,7 +620,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 14;
+const SAVE_FORMAT_VERSION = 15;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -630,7 +630,7 @@ function emptyStats(){
   const lv = {dokkai:1};
   const diffLv = {};
   CAT_KEYS.forEach(k => { cats[k] = {t:0,c:0}; lv[k] = 1; diffLv[k] = 1; });
-  return {cats, q:{}, lv, diffLv, items:{}, usedTreasures:{}, usedStoryRewards:{}, bossPity:{}, kotonohaOtherRoll:null, bossTickets:0, totalLevelUps:0,
+  return {cats, q:{}, lv, diffLv, items:{}, usedTreasures:{}, usedStoryRewards:{}, bossPity:{}, bossItemPity:{}, kotonohaOtherRoll:null, bossTickets:0, totalLevelUps:0,
     bonusExp:0, stats:{hp:0, atk:0, def:0, spd:0, luck:0}, kotonohaSeenForms:[], kotonohaDisplayOverride:null,
     kanjiWrite:{totalOk:0, itemHist:{}, levelRecent:{}},
     kanjiWriteElem:{totalOk:0, itemHist:{}, targetLv:1, recent:[]},
@@ -673,6 +673,7 @@ function loadStats(){
         if(!st.usedTreasures) st.usedTreasures = {};
         if(!st.usedStoryRewards) st.usedStoryRewards = {};
         if(!st.bossPity) st.bossPity = {};
+        if(!st.bossItemPity) st.bossItemPity = {};
         if(typeof st.bossTickets !== "number") st.bossTickets = 0;
         if(typeof st.totalLevelUps !== "number") st.totalLevelUps = 0;
         if(typeof st.bonusExp !== "number") st.bonusExp = 0;
@@ -2710,32 +2711,35 @@ const BOSSES = [
   {id:"yakyu",      name:"万年応援団長スイング",       icon:"⚾", item:"野球ボール",       treasure:"ホームランバット",           hp:2750,  atk:1.1,   defPct:10, accuracy:90,  evadePct:10, luck:20, lv:6,  recPts:50},
   {id:"suugaku",    name:"不動の定規使い",           icon:"📐", item:"三角定規",         treasure:"大きなコンパス",             hp:7000,  atk:20.16, defPct:50, accuracy:90,  evadePct:38, luck:5,  lv:15, recPts:500},
   {id:"bijutsu",    name:"絵画の申し子キャンバス",     icon:"🖌️", item:"ふつうの筆",       treasure:"描いたものが現実になる筆",   hp:5460,  atk:1.0,   defPct:10, accuracy:85,  evadePct:10, luck:26, lv:7,  recPts:80},
-  {id:"rikujo",     name:"疾風の陸上部主将",         icon:"🏃", item:"スポーツドリンク", treasure:"伝説の金色バトン",           hp:20000, atk:42.20, defPct:5,  accuracy:140, evadePct:45, luck:10, lv:20, recPts:800,  minXpRatio:0.8, dropAccuracyThreshold:0.8},
-  {id:"judo",       name:"鉄壁の柔道部主将",         icon:"🥋", item:"受け身のこつ",     treasure:"黒帯の奥義書",               hp:40000, atk:86.72, defPct:15, accuracy:100, evadePct:8,  luck:5,  lv:24, recPts:1000, minXpRatio:0.8, dropAccuracyThreshold:0.8},
-  {id:"seitokaicho",name:"伝説の生徒会長",           icon:"👑", item:"会長の激励",       treasure:"伝説の生徒会腕章",           hp:55000, atk:159.10,defPct:25, accuracy:130, evadePct:20, luck:18, lv:30, recPts:1500, minXpRatio:0.8, dropAccuracyThreshold:0.8},
+  {id:"rikujo",     name:"疾風の陸上部主将",         icon:"🏃", item:"スポーツドリンク", treasure:"伝説の金色バトン",           hp:20000, atk:42.20, defPct:5,  accuracy:140, evadePct:45, luck:10, lv:20, recPts:800,  minXpRatio:0.8, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
+  {id:"judo",       name:"鉄壁の柔道部主将",         icon:"🥋", item:"受け身のこつ",     treasure:"黒帯の奥義書",               hp:40000, atk:86.72, defPct:15, accuracy:100, evadePct:8,  luck:5,  lv:24, recPts:1000, minXpRatio:0.8, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
+  {id:"seitokaicho",name:"伝説の生徒会長",           icon:"👑", item:"会長の激励",       treasure:"伝説の生徒会腕章",           hp:55000, atk:159.10,defPct:25, accuracy:130, evadePct:20, luck:18, lv:30, recPts:1500, minXpRatio:0.8, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
   /* 「ステータス無視のボス」（2026-07-16〜）：atk/defPct/accuracy/evadePct/luckは一切使わない
      （statIgnore:trueで、bossGrade/bossCounterAttack内の通常のステータス計算式を丸ごとバイパスし、
      すべて「ボスの最大HP」「プレイヤーの最大HP」に対する固定%レンジのランダムダメージに置き換える）。
      プレイヤーの攻撃成功時：bossMaxHpの8〜12%を削る（playerHitMin/Max）。
      正解時の被ダメージ：playerMaxHpの2〜3%（counterOkMin/Max）。
      不正解時の被ダメージ：playerMaxHpの12〜18%（counterNgMin/Max、防御力に関わらず）。
-     アイテムのドロップ率は既存のグラデーション/しきい値方式ではなく、単純な固定20%（itemDropRate）。
+     アイテムのドロップ率は、他のグラデーション系ボスと同じ`dropAccuracyThreshold`方式だが、
+     floor/ceilが低め（0.2〜0.8、`itemDropFloor`/`itemDropCeil`）に設定されている（2026-07-17〜）。
+     さらに`itemDropPity:true`により、2回連続でアイテムを落とさなかった次（3回目）は確定ドロップになる
+     （`st.bossItemPity[boss.id]`、bossWin参照）。
      宝具は既存の標準的な抽選（天井10連勝・BOSS_TREASURE_RATE10%・直近30回正答率50%以上のグローバル
-     ゲート）をそのまま使う（dropAccuracyThresholdもtreasureAccGateも持たせていないため）。 */
+     ゲート）をそのまま使う（treasureAccGateを持たせていないため）。 */
   {id:"sano_revival", name:"復活のサノー", icon:"🔥", item:"メスシリンダー", treasure:"高価な白い粉",
    hp:1994620, atk:0, defPct:0, accuracy:0, evadePct:0, luck:0, lv:"？？？", recPts:501, minXpRatio:0.8,
    statIgnore:true, playerHitMin:0.08, playerHitMax:0.12,
    counterOkMin:0.02, counterOkMax:0.03, counterNgMin:0.12, counterNgMax:0.18,
-   itemDropRate:0.2, answerTimeMs:15000},
+   dropAccuracyThreshold:0.8, itemDropFloor:0.2, itemDropCeil:0.8, itemDropPity:true, answerTimeMs:15000},
   /* 「ステータス無視のボス」第2弾（2026-07-16〜）。復活のサノーと同じstatIgnoreの仕組みをそのまま
      再利用し、不正解時の被ダメージだけをさらに厳しく（25〜30%）している。 */
   {id:"shigecchi_tears", name:"涙目のシゲっち", icon:"😭", item:"さびついたノコギリ", treasure:"３Dプリンター",
    hp:19910109, atk:0, defPct:0, accuracy:0, evadePct:0, luck:0, lv:"？？？", recPts:501, minXpRatio:0.8,
    statIgnore:true, playerHitMin:0.08, playerHitMax:0.12,
    counterOkMin:0.02, counterOkMax:0.03, counterNgMin:0.25, counterNgMax:0.30,
-   itemDropRate:0.2, answerTimeMs:15000},
-  {id:"shogi",      name:"読み勝つ将棋部部長",       icon:"♟️", item:"会心の一手",       treasure:"伝説の詰将棋",               hp:25000, atk:36.83, defPct:10, accuracy:100, evadePct:8,  luck:40, lv:18, recPts:700,  minXpRatio:0.8, dropAccuracyThreshold:0.8},
-  {id:"toshoiin",   name:"静寂の図書委員長",         icon:"📚", item:"静寂の栞",         treasure:"禁帯出の書",                 hp:25000, atk:118.30,defPct:60, accuracy:110, evadePct:5,  luck:8,  lv:27, recPts:1200, minXpRatio:0.8, dropAccuracyThreshold:0.8},
+   dropAccuracyThreshold:0.8, itemDropFloor:0.2, itemDropCeil:0.8, itemDropPity:true, answerTimeMs:15000},
+  {id:"shogi",      name:"読み勝つ将棋部部長",       icon:"♟️", item:"会心の一手",       treasure:"伝説の詰将棋",               hp:25000, atk:36.83, defPct:10, accuracy:100, evadePct:8,  luck:40, lv:18, recPts:700,  minXpRatio:0.8, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
+  {id:"toshoiin",   name:"静寂の図書委員長",         icon:"📚", item:"静寂の栞",         treasure:"禁帯出の書",                 hp:25000, atk:118.30,defPct:60, accuracy:110, evadePct:5,  luck:8,  lv:27, recPts:1200, minXpRatio:0.8, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
 ];
 /* 2026-07-15、recPts500(旧最上位)を超える3体を追加。均等配分プレイヤーの被ダメージ軽減率
    （def/(def+30)）や会心率（100*luck/(luck+100)）はポイントを積むほど頭打ちに近づくため、
@@ -2756,14 +2760,15 @@ const BOSSES = [
    ①`minXpRatio`：ランダム遭遇（チケット未使用）でこのボスが選ばれるのは、その時点の「ことのはの経験値」
      （`kotonohaTotalXP`）がrecPtsの80%以上のときだけ（`rollBossEncounter`側でフィルタ）。挑戦チケット側の
      抽選（`ticketEligibleBosses`）はもともとrecPts以下＝100%相当のしきい値を持つ別ロジックなので変更不要。
-   ②`dropAccuracyThreshold`：ランダム遭遇で倒したときだけ、その戦闘中ずっと固定されていた分野
-     （`bossBattle.cat`。ボス戦の出題自体は`record()`を呼ばないので、この正答率は戦闘中の運では変わらず、
-     戦う前からの実力がそのまま反映される）の通算正答率に応じて、アイテムのドロップ確率がグラデーションで
-     決まる（`bossWin()`内でチェック）。2026-07-16に「超えたら100%・超えなければ0%」の二択から、
-     「正答率0%で0%、この値（現在0.8）以上で100%、その間は比例」という段階的な抽選に改訂した
-     （`dropChance = min(1, rate / dropAccuracyThreshold)`、`Math.random() < dropChance`）。
-     挑戦チケットでの撃破（全ジャンル出題、`bossBattle.cats`が配列で入る＝単一分野の正答率という概念がない）は、
-     このガードの対象外で今までどおり無条件ドロップする。
+   ②`dropAccuracyThreshold`：倒したときのアイテムのドロップ確率が、`st.recentCorrectAll`（分野をまたいだ
+     「直近30回」の正答率、ボス遭遇/宝具ドロップ判定と同じ値、[[kokugo-drill-dx-workflow]]の
+     「直近の正答率」表示とも共通）に応じてグラデーションで決まる（`bossItemDropChance()`、bossWin参照）。
+     2026-07-16に「その分野の通算正答率・ランダム遭遇限定」の二択方式で導入したが、2026-07-17に
+     「直近30回（分野をまたぐ）・挑戦チケットも同じ扱い」に改訂し、floor/ceilも持たせて
+     `dropChance = itemDropFloor + (itemDropCeil-itemDropFloor) * min(1, acc/dropAccuracyThreshold)`
+     という式にした（直近30回のデータが30件に満たないときはacc=0扱い＝floorになる）。
+     この5体はfloor0.4・ceil1.0（正答率0%で40%〜80%以上で100%）。挑戦チケットでの撃破も同じ式を使う
+     （今までは無条件100%だったが、この改訂で例外を廃止した）。
    2026-07-15、同日中にさらに2体を追加（recPts700・1200、隙間を埋める形）。同じくminXpRatio/
    dropAccuracyThresholdを持たせ、atk倍率も同じ非線形の伸びの一部として探索している
    （houcho25.38@500 → shogi36.83@700 → rikujo42.20@800 → judo86.72@1000 → toshoiin118.30@1200 →
@@ -2819,6 +2824,24 @@ function treasureDropAllowed(st){
   const acc = recentAccAll(st);
   return acc === null || acc >= BOSS_TREASURE_MIN_ACC;
 }
+/* 通常アイテムのドロップ確率（2026-07-17〜）。`dropAccuracyThreshold`を持たないボス（旧6体・
+   シランちゃん・国語の神）は今までどおり無条件100%（bossWin側でこの関数自体を呼ばない）。
+   `dropAccuracyThreshold`を持つボスは、分野をまたいだ「直近30回」の正答率(recentAccAll、
+   ボス遭遇/宝具ドロップ判定と同じ値、挑戦チケットでの撃破でも区別しない)に応じて、
+   `itemDropFloor`（正答率0%のときのドロップ率）〜`itemDropCeil`（正答率
+   dropAccuracyThreshold以上のときのドロップ率）の範囲でグラデーションになる。
+   直近30回のデータが30件に満たないとき（acc===null）はacc=0扱い＝floorになる。 */
+function bossItemDropChance(boss, st){
+  if(!boss.dropAccuracyThreshold) return 1;
+  const acc = recentAccAll(st);
+  const effAcc = acc === null ? 0 : acc;
+  const t = Math.min(1, Math.max(0, effAcc / boss.dropAccuracyThreshold));
+  return boss.itemDropFloor + (boss.itemDropCeil - boss.itemDropFloor) * t;
+}
+/* `itemDropPity:true`を持つボス（サノー・シゲっち）限定の救済措置（2026-07-17〜）。
+   倒したのにアイテムを落とさなかった回数が連続でこの値に達したら、次に倒したときは
+   `bossItemDropChance`の抽選を無視して確定ドロップにする（st.bossItemPity[boss.id]、bossWin参照）。 */
+const BOSS_ITEM_DROP_PITY_MAX = 2;
 const BOSS_PITY_MAX = 10;
 const BOSS_ANSWER_TIME_MS = 15000; // ボス戦の1問あたりの制限時間（2026-07-15〜、10000から15000へ変更）。過ぎると自動的に不正解になる
 const BOSS_ITEM_USE_TIMER_MS = 10000; // アイテム使用直後は、そこから10秒の制限時間に切り替える（2026-07-17〜）
@@ -3476,22 +3499,15 @@ function bossAdvance(){
 function bossWin(){
   const b = bossBattle;
   const st = loadStats();
-  /* dropAccuracyThresholdを持つボス（新規追加分）は、チケット未使用の戦闘（b.catが単一分野）でだけ、
-     その分野の通算正答率に応じてアイテムのドロップ確率がグラデーションで変わる
-     （2026-07-16〜、教員の指示。当初は「しきい値を超えたら必ず落とす／超えなければ必ず落とさない」の
-     二択だったが、同日中に「正答率0%で0%、dropAccuracyThreshold(現在0.8)以上で100%、
-     その間は正答率に比例した確率」という段階的な抽選に改訂した）。
-     （ボス戦の出題はrecord()を呼ばないので、この正答率は戦闘中の結果では変化しない）。
-     チケット使用（全ジャンル出題、b.catsが配列）や、このプロパティを持たない既存ボスは対象外。 */
-  let dropsLoot = true;
-  if(typeof b.boss.itemDropRate === "number"){
-    // 「復活のサノー」専用：正答率とは無関係の、単純な固定確率でのドロップ判定。
-    dropsLoot = Math.random() < b.boss.itemDropRate;
-  }else if(b.boss.dropAccuracyThreshold && !b.cats){
-    const catStat = (st.cats && st.cats[b.cat]) || {t:0, c:0};
-    const rate = catStat.t > 0 ? catStat.c / catStat.t : 0;
-    const dropChance = Math.min(1, Math.max(0, rate / b.boss.dropAccuracyThreshold));
-    dropsLoot = Math.random() < dropChance;
+  /* dropAccuracyThresholdを持つボスは、直近30回の正答率（分野をまたぐrecentAccAll、挑戦チケットでの
+     撃破も区別しない）に応じてアイテムのドロップ確率がグラデーションで変わる（bossItemDropChance参照、
+     2026-07-17〜）。持たないボス（旧6体・シランちゃん・国語の神）は今までどおり無条件100%。
+     さらにitemDropPity:trueを持つボス（サノー・シゲっち）は、2回連続で落とさなかった次（3回目）を
+     確定ドロップにする救済つき（st.bossItemPity）。 */
+  const itemPityForced = b.boss.itemDropPity && (st.bossItemPity[b.boss.id]||0) >= BOSS_ITEM_DROP_PITY_MAX;
+  const dropsLoot = itemPityForced || Math.random() < bossItemDropChance(b.boss, st);
+  if(b.boss.itemDropPity){
+    st.bossItemPity[b.boss.id] = dropsLoot ? 0 : (st.bossItemPity[b.boss.id]||0) + 1;
   }
   let gotTreasure = false;
   if(dropsLoot){
