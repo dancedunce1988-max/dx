@@ -72,6 +72,7 @@
     background:linear-gradient(135deg, #2c6e63, #1d4f47); color:#fff;
     border-radius:99px; padding:4px 14px; font-size:.82rem; font-weight:bold;
   }
+  .session-bar .recent-acc{ color:var(--accent2); font-weight:bold; }
   .q-category{font-size:.75rem; color:var(--accent2); letter-spacing:.1em; margin-bottom:6px; display:flex; gap:10px; flex-wrap:wrap;}
   .q-category .redo{color:var(--accent); font-weight:bold;}
   .q-sub{font-size:.85rem; color:var(--sub); margin-bottom:4px;}
@@ -455,7 +456,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver5.8</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver5.9</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -619,7 +620,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 13;
+const SAVE_FORMAT_VERSION = 14;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -1845,7 +1846,7 @@ function renderQuestion(){
   }
   screen.innerHTML = `
     <div class="session-bar">
-      <span>${quiz.n+1}問目　｜　今回の正解 ${quiz.correct}問</span>
+      <span>${quiz.n+1}問目　｜　今回の正解 ${quiz.correct}問${recentAccDisplayHtml()}</span>
       <span class="catstat">${catBadge(cat)}</span>
     </div>
     <div class="card">
@@ -2288,7 +2289,7 @@ function renderDokkai(){
   dk.order = shuffledOrder(it.c.length);
   screen.innerHTML = `
     <div class="session-bar">
-      <span>問${dk.i+1} / ${total}</span>
+      <span>問${dk.i+1} / ${total}${recentAccDisplayHtml()}</span>
       <span class="catstat">${catBadge("dokkai")}</span>
     </div>
     <div class="passage">
@@ -2790,6 +2791,16 @@ function recentAccAll(st){
   const recent = st.recentCorrectAll || [];
   if(recent.length < RECENT_ACC_WINDOW) return null; // データ不足（判定なし）
   return recent.reduce((a,b)=>a+b, 0) / recent.length;
+}
+/* 問題を解いている画面の上部（session-bar）に常時出す「直近の正答率」表示用（2026-07-17〜）。
+   ボス遭遇・宝具ドロップ判定のrecentAccAllとは違い、こちらは表示専用なので30問に満たなくても
+   その時点までの件数で計算して見せる（1件もなければ空文字を返し、何も表示しない）。 */
+function recentAccDisplayHtml(){
+  const st = loadStats();
+  const recent = st.recentCorrectAll || [];
+  if(!recent.length) return "";
+  const pct = Math.round(100 * recent.reduce((a,b)=>a+b, 0) / recent.length);
+  return `　｜　<span class="recent-acc">直近の正答率${pct}%</span>`;
 }
 function bossEncounterRate(st){
   const acc = recentAccAll(st);
