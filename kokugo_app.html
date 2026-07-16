@@ -455,7 +455,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver4.6</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver4.7</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -1516,6 +1516,10 @@ function showStatusAllocation(){
   const st = loadStats();
   const s = st.stats;
   const pts = unspentStatPoints(st);
+  /* 分野レベルが1000を超えると、たまるステータスポイントの総量も相応に大きくなるため
+     （catExpPoints参照）、+1/+10だけだと配分に手間がかかる。いずれかの分野がlv1000を
+     超えているプレイヤーにだけ、+100/-100ボタンも追加で表示する。 */
+  const hasLv1000 = CAT_KEYS.some(k => (st.lv[k]||1) > 1000);
   const rows = [
     {key:"hp",   label:"❤️ HP",    desc:"ボス戦での最大HPが上がる"},
     {key:"atk",  label:"⚔️ 攻撃力", desc:"正解したときにボスへ与えるダメージが増える"},
@@ -1539,11 +1543,13 @@ function showStatusAllocation(){
         <div class="note" style="margin-top:2px">${esc(r.desc)}</div>
       </div>
       <div class="status-row-ctrl">
+        ${hasLv1000 ? `<button class="btn inline secondary stat-step-btn" ${(s[r.key]||0)<=0?'disabled':''} onclick="allocateStat('${r.key}', -100)">－100</button>` : ""}
         <button class="btn inline secondary stat-step-btn" ${(s[r.key]||0)<=0?'disabled':''} onclick="allocateStat('${r.key}', -10)">－10</button>
         <button class="btn inline secondary stat-step-btn" ${(s[r.key]||0)<=0?'disabled':''} onclick="allocateStat('${r.key}', -1)">－1</button>
         <span class="status-row-val">${s[r.key]||0}</span>
         <button class="btn inline stat-step-btn" ${pts<=0?'disabled':''} onclick="allocateStat('${r.key}', 1)">＋1</button>
         <button class="btn inline stat-step-btn" ${pts<=0?'disabled':''} onclick="allocateStat('${r.key}', 10)">＋10</button>
+        ${hasLv1000 ? `<button class="btn inline stat-step-btn" ${pts<=0?'disabled':''} onclick="allocateStat('${r.key}', 100)">＋100</button>` : ""}
       </div>
     </div>`;
   });
