@@ -455,7 +455,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver4.9</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver5.0</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -2789,7 +2789,10 @@ function treasureDropAllowed(st){
 const BOSS_PITY_MAX = 10;
 const BOSS_ANSWER_TIME_MS = 15000; // ボス戦の1問あたりの制限時間（2026-07-15〜、10000から15000へ変更）。過ぎると自動的に不正解になる
 const BOSS_TIMER_MIN_RECPTS = 501; // 適正経験値がこの値以下のボス（旧6体・シランちゃん）は、制限時間を設けない
-function bossHasTimeLimit(boss){ return (boss.recPts||0) > BOSS_TIMER_MIN_RECPTS; }
+/* answerTimeMsを個別に持つボス（国語の神など）は、recPtsの値に関わらず必ず時間制限つきになり、
+   その秒数（ms）が既定のBOSS_ANSWER_TIME_MSより優先される（bossAnswerTimeMs参照）。 */
+function bossHasTimeLimit(boss){ return !!boss.answerTimeMs || (boss.recPts||0) > BOSS_TIMER_MIN_RECPTS; }
+function bossAnswerTimeMs(boss){ return boss.answerTimeMs || BOSS_ANSWER_TIME_MS; }
 const BOSS_PLAYER_HP = 100;
 const BOSS_PLAYER_DMG = [125, 155];     // 正解時に与えるダメージ
 const BOSS_DMG_ON_CORRECT = [4, 6];     // 自分の攻撃が成功したときに受けるダメージ（軽い）
@@ -2828,6 +2831,7 @@ const ITEM_EFFECTS = {
   "会長の激励":   {type:"atkBuff",   amount:70, turns:3, label:"次の3ターン、攻撃力が大きく上がる",     icon:"🔥"},
   "会心の一手":   {type:"luckBuff",  amount:40, turns:3, label:"次の3ターン、運が上がる（会心率アップ）", icon:"🍀"},
   "静寂の栞":     {type:"defBuff",   amount:60, turns:3, label:"次の3ターン、防御力が大きく上がる",     icon:"🛡️"},
+  "文殊の知恵":   {type:"hpCut99",                        label:"敵のHPを、その時点から99%減らす",       icon:"🪷"},
 };
 function randInt(min, max){ return min + Math.floor(Math.random() * (max - min + 1)); }
 
@@ -2855,6 +2859,27 @@ const SHIRAN_BOSS = {
 };
 TREASURE_NAMES.add(SHIRAN_BOSS.treasure);
 
+/* ================= 伝説の存在「国語の神」 =================
+   1/1,000,000という、シランちゃん（1/1000）よりさらに3桁低い確率でのみ現れる特別な存在。
+   BOSSESにもSHIRAN_BOSSにも属さない完全に別枠（ランダム遭遇のみ、挑戦チケットの対象外）。
+   通常の反撃は一切せず（「国語の神は、動かない。」）、そのかわり1問でも間違えた瞬間に
+   プレイヤーのHPが100%失われ即敗北する（`instantLoseOnWrong`、bossGrade内で分岐）。
+   10問連続正解（`streakToWin`）で、HPの残量に関わらず討伐成功となる（bossHp<=0による
+   通常の撃破条件とは別の、並列した勝利条件）。全ジャンルからランダムに出題
+   （`pendingBossAllGenre=true`で遭遇させる）。回答制限時間は10秒（`answerTimeMs`、
+   他の時間制限つきボスの15秒とは個別に指定、`bossHasTimeLimit`側で対応）。
+   atk/accuracy/evadePct/luckは反撃が発生しないため未使用（値に意味はない）。 */
+const KOKUGO_KAMI_ENCOUNTER_RATE = 1/1000000;
+const KOKUGO_KAMI_BOSS = {
+  id:"kokugo_kami", name:"国語の神", icon:"⛩️",
+  item:"文殊の知恵", treasure:"神の化身",
+  hp:999999999, atk:0, defPct:0, accuracy:0, evadePct:0, luck:0,
+  lv:null, recPts:0,
+  answerTimeMs:10000, instantLoseOnWrong:true, streakToWin:10,
+  treasureAccGate:0.8, legendary:true,
+};
+TREASURE_NAMES.add(KOKUGO_KAMI_BOSS.treasure);
+
 let pendingBoss = null;
 let pendingBossAllGenre = false; // 挑戦チケットからの遭遇のときtrue（全ジャンル出題・文言が変わる）
 let bossPromptSelection = "no";
@@ -2869,6 +2894,18 @@ let bossBattle = null;
 function rollBossEncounter(resumeFn){
   if(bossPromptActive || bossBattle) return false;
   const st = loadStats();
+  if(Math.random() < KOKUGO_KAMI_ENCOUNTER_RATE){
+    /* 宝具のドロップ判定は「出会った時点」の直近30回正答率で決まる（bossWin参照）ので、
+       ここで一度だけスナップショットしてボスオブジェクト（共有シングルトン）に持たせておく。 */
+    KOKUGO_KAMI_BOSS._encounterAcc = recentAccAll(st);
+    pendingBoss = KOKUGO_KAMI_BOSS;
+    pendingBossAllGenre = true;
+    bossPromptResumeFn = resumeFn;
+    bossPromptActive = true;
+    bossPromptSelection = "no";
+    renderBossPrompt();
+    return true;
+  }
   if(shiranEncounterAllowed(st) && Math.random() < SHIRAN_ENCOUNTER_RATE){
     pendingBoss = SHIRAN_BOSS;
     pendingBossAllGenre = false;
@@ -2899,14 +2936,18 @@ function randomEncounterBoss(){
 function renderBossPrompt(){
   const b = pendingBoss;
   const st = loadStats();
-  const introText = pendingBossAllGenre
+  const introText = b.legendary
+    ? `……気配が、違う。<br>「${esc(b.name)}」が、そこにいる。`
+    : pendingBossAllGenre
     ? `「${esc(b.name)}」<span class="boss-lv-tag">Lv.${b.lv||"?"}</span>が勝負したそうにこちらを見ている。`
     : `「${esc(b.name)}」<span class="boss-lv-tag">Lv.${b.lv||"?"}</span>が勝負をしかけてきた。`;
   screen.innerHTML = `
     <div class="card boss-encounter">
       <div class="boss-enc-icon">${b.icon}</div>
       <p class="boss-enc-text">${introText}<br>勝負しますか？</p>
-      <p class="note boss-enc-hint">適正経験値の目安：${b.recPts||0}pt（今の経験値：${totalEarnedStatPoints(st)}pt）</p>
+      ${b.legendary
+        ? `<p class="note boss-enc-hint">⚠️ 一問でも間違えると、その場で敗れます。10問連続で正解すれば討伐成功です（制限時間10秒）。</p>`
+        : `<p class="note boss-enc-hint">適正経験値の目安：${b.recPts||0}pt（今の経験値：${totalEarnedStatPoints(st)}pt）</p>`}
       <div class="boss-enc-choices">
         <button class="boss-enc-btn ${bossPromptSelection==='no'?'selected':''}" onclick="resolveBossPrompt('no')">いいえ</button>
         <button class="boss-enc-btn ${bossPromptSelection==='yes'?'selected':''}" onclick="resolveBossPrompt('yes')">勝負する</button>
@@ -2951,6 +2992,7 @@ function startBossBattle(boss, allGenre){
     cat, cats, itemCat:null, item:null, order:null, lastQ:null,
     atkBuffTurns:0, atkBuffAmount:0, defBuffTurns:0, defBuffAmount:0, luckBuffTurns:0, luckBuffAmount:0, missGuard:false,
     showItemPanel:false, usedItemThisTurn:false, usedItemNames:{}, timerId:null,
+    correctStreak:0,
   };
   bossNextQuestion();
 }
@@ -2993,6 +3035,10 @@ function useBossItem(name){
     const before = b.bossHp;
     b.bossHp = Math.max(1, Math.floor(b.bossHp / 2));
     msg = `${effect.icon} 「${name}」を使った！ ${esc(b.boss.name)}のHPが半分になった！（${before} → ${b.bossHp}）`;
+  }else if(effect.type === "hpCut99"){
+    const before = b.bossHp;
+    b.bossHp = Math.max(1, Math.floor(b.bossHp * 0.01));
+    msg = `${effect.icon} 「${name}」を使った！ ${esc(b.boss.name)}のHPが99%減った！（${before} → ${b.bossHp}）`;
   }
   b.showItemPanel = false;
   b.usedItemThisTurn = true;
@@ -3042,7 +3088,7 @@ function startBossTimer(){
   battle.timerId = setTimeout(() => {
     if(bossBattle !== battle || battle._resolving) return;
     bossTimeUp();
-  }, BOSS_ANSWER_TIME_MS);
+  }, bossAnswerTimeMs(battle.boss));
   animateBossTimerBar();
 }
 function clearBossTimer(){
@@ -3073,7 +3119,7 @@ function animateBossTimerBar(){
   if(typeof requestAnimationFrame !== "function") return;
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
-      el.style.transition = `width ${BOSS_ANSWER_TIME_MS}ms linear`;
+      el.style.transition = `width ${bossAnswerTimeMs(bossBattle.boss)}ms linear`;
       el.style.width = "0%";
     });
   });
@@ -3200,6 +3246,7 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
   const b = bossBattle, it = b.item;
   let dealt = 0, crit = false, evaded = false, fled = false;
   if(ok){
+    b.correctStreak = (b.correctStreak||0) + 1;
     const ps = loadStats().stats || {hp:0,atk:0,def:0,spd:0,luck:0};
     // 素早さは、ボスの回避率を少し下げる命中率ボーナスも持つ（上限つきなので他ステータスとのバランスは崩れない）
     const accBonus = STAT_SPD_ACC_MAX_BONUS * ps.spd / (ps.spd + STAT_SPD_ACC_HALF_POINT);
@@ -3248,17 +3295,37 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
         ? `<span class="lvup-chip">💨${esc(b.boss.name)}に回避された！</span>`
         : `<span class="lvup-chip">${crit ? "💥会心の一撃！ " : ""}${esc(b.boss.name)}に ${dealt} ダメージ！</span>`)
     : "";
-  fb.innerHTML = `<div class="verdict">あなたのターン　${ok?"○ 正解！":(timedOut?"⏰ 時間切れ…":"× ざんねん…")}${dmgMsg}</div>${expl}`;
+  const streakMsg = (ok && b.boss.streakToWin) ? `<span class="lvup-chip">🔥連続正解 ${b.correctStreak} / ${b.boss.streakToWin}</span>` : "";
+  fb.innerHTML = `<div class="verdict">あなたのターン　${ok?"○ 正解！":(timedOut?"⏰ 時間切れ…":"× ざんねん…")}${dmgMsg}${streakMsg}</div>${expl}`;
   if(fled){
     // 命中する寸前で逃げられたときは反撃も発生せず、少し間をおいて逃走の結果画面へ
     bossBattle._resolving = true;
     setTimeout(() => { if(bossBattle && bossBattle._resolving) shiranFlee(); }, 1300);
     return;
   }
-  if(b.bossHp <= 0){
-    // ボスを倒したときは反撃は発生せず、少し間をおいて自動的に結果画面へ
+  if(b.bossHp <= 0 || (ok && b.boss.streakToWin && b.correctStreak >= b.boss.streakToWin)){
+    // ボスを倒した（HPが尽きた、または目標連続正解数に達した）ときは反撃は発生せず、
+    // 少し間をおいて自動的に結果画面へ（この2つの勝利条件は並列。どちらが先に成立してもよい）
     bossBattle._resolving = true;
     setTimeout(() => { if(bossBattle && bossBattle._resolving) bossWin(); }, 1300);
+    return;
+  }
+  if(b.boss.instantLoseOnWrong && !ok){
+    // 反撃をしないボス（国語の神）は、間違えた瞬間にそのままプレイヤーのHPが尽きて敗北する
+    b.playerHp = 0;
+    refreshBossHpBars();
+    fb.innerHTML += `<div class="boss-turn">😇 ${esc(b.boss.name)}は、動かない。</div>`;
+    bossBattle._resolving = true;
+    setTimeout(() => { if(bossBattle && bossBattle._resolving) bossLose(); }, 1300);
+    return;
+  }
+  if(b.boss.instantLoseOnWrong && ok){
+    // 反撃をしないボスは、正解しても（目標連続正解数に届かない限り）反撃を挟まずそのまま次の問題へ
+    fb.innerHTML += `<div class="boss-turn">😇 ${esc(b.boss.name)}は、動かない。</div>`;
+    const nextBtn = document.getElementById("nextBtn");
+    nextBtn.style.display = "inline-block";
+    nextBtn.textContent = "つぎへ";
+    nextBtn.focus();
     return;
   }
   bossBattle._resolving = true;
@@ -3344,15 +3411,22 @@ function bossWin(){
   }
   let gotTreasure = false;
   if(dropsLoot){
-    st.bossPity[b.boss.id] = (st.bossPity[b.boss.id]||0) + 1;
-    if(treasureDropAllowed(st)){
-      if(st.bossPity[b.boss.id] >= BOSS_PITY_MAX){
-        gotTreasure = true;
-      }else if(Math.random() < BOSS_TREASURE_RATE){
-        gotTreasure = true;
+    if(b.boss.treasureAccGate){
+      /* 国語の神専用：宝具のドロップは、天井（bossPity）や基本確率（BOSS_TREASURE_RATE）とは無関係に、
+         「出会った時点」の直近30回正答率（rollBossEncounterでスナップショットしたb.boss._encounterAcc）が
+         treasureAccGate(0.8)以上なら100%、それ未満なら0%という単純な二択で決まる。 */
+      gotTreasure = typeof b.boss._encounterAcc === "number" && b.boss._encounterAcc >= b.boss.treasureAccGate;
+    }else{
+      st.bossPity[b.boss.id] = (st.bossPity[b.boss.id]||0) + 1;
+      if(treasureDropAllowed(st)){
+        if(st.bossPity[b.boss.id] >= BOSS_PITY_MAX){
+          gotTreasure = true;
+        }else if(Math.random() < BOSS_TREASURE_RATE){
+          gotTreasure = true;
+        }
       }
+      if(gotTreasure) st.bossPity[b.boss.id] = 0;
     }
-    if(gotTreasure) st.bossPity[b.boss.id] = 0;
     st.items[b.boss.item] = (st.items[b.boss.item]||0) + 1;
     if(gotTreasure) st.items[b.boss.treasure] = (st.items[b.boss.treasure]||0) + 1;
   }
@@ -3455,7 +3529,9 @@ function itemListHtml(keys, items){
    上がる。シランちゃんの宝具だけ特別に効果が大きい。使った宝具は「使用済みの宝具」として別枠に
    記録され、その分はもう使えない（消費した個数だけst.usedTreasuresに積み上がる）。 */
 function treasureExpAmount(name){
-  return name === SHIRAN_BOSS.treasure ? 300 : 50;
+  if(name === KOKUGO_KAMI_BOSS.treasure) return 1000;
+  if(name === SHIRAN_BOSS.treasure) return 300;
+  return 50;
 }
 function useTreasureItem(name){
   const st = loadStats();
