@@ -455,7 +455,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver5.5</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver5.6</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -4234,16 +4234,11 @@ function storySubmitInput(){
 function storyGradeQuiz(ok, chosenOrig, typed){
   clearChoiceKeys();
   const it = storyRun.curItem, cat = storyRun.curCat;
-  /* すでにクリア済みの章を再プレイ中は「報酬なし」なので、record()を呼ばず
-     分野レベル・XPには反映させない（周回でのXP稼ぎを防ぐため）。演出としての
-     出題・採点はそのまま楽しめる。 */
-  const sp = storyProgress(loadStats());
-  const isReplay = sp.completedChapters.includes(sp.chapter);
-  let r = {lvup:false, lv:null};
-  if(!isReplay){
-    const elapsedMs = Date.now() - (storyRun.shownAt || Date.now());
-    r = record(cat, it, ok, elapsedMs);
-  }
+  /* ミニクイズ（小ボス）は、再プレイ中でも正解した問題の分野レベルアップは行う
+     （アイテム等の確定報酬が無いこのタイプでは、周回でのXP稼ぎを問題視しないという
+     教員の判断）。record()は常に呼ぶ。 */
+  const elapsedMs = Date.now() - (storyRun.shownAt || Date.now());
+  const r = record(cat, it, ok, elapsedMs);
   const btns = screen.querySelectorAll(".choice");
   btns.forEach((b,pos)=>{
     const oi = storyRun.order ? storyRun.order[pos] : pos;
