@@ -455,7 +455,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver5.7</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver5.8</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -619,7 +619,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 12;
+const SAVE_FORMAT_VERSION = 13;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -2810,6 +2810,7 @@ function treasureDropAllowed(st){
 }
 const BOSS_PITY_MAX = 10;
 const BOSS_ANSWER_TIME_MS = 15000; // ボス戦の1問あたりの制限時間（2026-07-15〜、10000から15000へ変更）。過ぎると自動的に不正解になる
+const BOSS_ITEM_USE_TIMER_MS = 10000; // アイテム使用直後は、そこから10秒の制限時間に切り替える（2026-07-17〜）
 const BOSS_TIMER_MIN_RECPTS = 501; // 適正経験値がこの値以下のボス（旧6体・シランちゃん）は、制限時間を設けない
 /* answerTimeMsを個別に持つボス（国語の神など）は、recPtsの値に関わらず必ず時間制限つきになり、
    その秒数（ms）が既定のBOSS_ANSWER_TIME_MSより優先される（bossAnswerTimeMs参照）。 */
@@ -3079,6 +3080,7 @@ function useBossItem(name){
   b.usedItemNames[name] = true;
   b.itemUseMsg = msg;
   renderBossBattle();
+  startBossTimer(BOSS_ITEM_USE_TIMER_MS);
 }
 function toggleBossItemPanel(){
   if(!bossBattle || bossBattle._resolving || bossBattle.usedItemThisTurn || bossBattle.boss.noItems) return;
@@ -3109,21 +3111,26 @@ function bossNextQuestion(){
   renderBossBattle();
   startBossTimer();
 }
-/* ボス戦の1問あたりの制限時間（2026-07-15〜）。アイテム選択中も止まらず進み続ける
-   （アイテムを使ってもターンは進まない、という既存仕様に合わせた設計判断）。
+/* ボス戦の1問あたりの制限時間（2026-07-15〜）。アイテムを使った瞬間、そこから改めて
+   BOSS_ITEM_USE_TIMER_MS(10秒)の制限時間に切り替わる（useBossItem内でstartBossTimerを
+   呼び直す、2026-07-17〜）。renderBossBattleがDOMを丸ごと作り直すため、useBossItem側で
+   明示的にタイマーを再スタートしないと、見た目のバーだけ残り時間なしに固まってしまう
+   （実際のsetTimeoutは元の締切のまま動き続けるため、機能上の制限時間自体が消えるわけでは
+   ないが、ユーザーには「制限時間が解除された」ように見えていた）。
    時間切れは不正解として扱う（bossTimeUp→bossGrade(false,...,true)）。
    答えた場合はbossGrade冒頭のclearBossTimer()でこのタイマーを止めるので、二重採点は起きない。
    適正経験値がBOSS_TIMER_MIN_RECPTS(501)以下のボス（旧6体・シランちゃん）は対象外
    （bossHasTimeLimitがfalseを返すので、タイマーを張らず、バーもrenderBossBattle側で表示しない）。 */
-function startBossTimer(){
+function startBossTimer(overrideMs){
   clearBossTimer();
   if(!bossHasTimeLimit(bossBattle.boss)) return;
   const battle = bossBattle;
+  const ms = overrideMs || bossAnswerTimeMs(battle.boss);
   battle.timerId = setTimeout(() => {
     if(bossBattle !== battle || battle._resolving) return;
     bossTimeUp();
-  }, bossAnswerTimeMs(battle.boss));
-  animateBossTimerBar();
+  }, ms);
+  animateBossTimerBar(ms);
 }
 function clearBossTimer(){
   if(bossBattle && bossBattle.timerId){
@@ -3145,15 +3152,16 @@ function bossTimeUp(){
 /* 残り時間バーをCSSトランジションだけで動かす（setIntervalで毎秒描画し直す必要がない）。
    幅100%→transition:noneで即セット→次のフレームでtransitionを付けて幅0%に変えることで、
    ブラウザに「100%から0%への変化」を検知させ、10秒かけて滑らかに縮む見た目にする。 */
-function animateBossTimerBar(){
+function animateBossTimerBar(overrideMs){
   const el = document.getElementById("bossTimerFill");
   if(!el) return;
+  const ms = overrideMs || bossAnswerTimeMs(bossBattle.boss);
   el.style.transition = "none";
   el.style.width = "100%";
   if(typeof requestAnimationFrame !== "function") return;
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
-      el.style.transition = `width ${bossAnswerTimeMs(bossBattle.boss)}ms linear`;
+      el.style.transition = `width ${ms}ms linear`;
       el.style.width = "0%";
     });
   });
