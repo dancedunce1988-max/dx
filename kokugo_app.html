@@ -455,7 +455,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver5.0</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver5.1</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -2711,6 +2711,20 @@ const BOSSES = [
   {id:"rikujo",     name:"疾風の陸上部主将",         icon:"🏃", item:"スポーツドリンク", treasure:"伝説の金色バトン",           hp:20000, atk:42.20, defPct:5,  accuracy:140, evadePct:45, luck:10, lv:20, recPts:800,  minXpRatio:0.8, dropAccuracyThreshold:0.8},
   {id:"judo",       name:"鉄壁の柔道部主将",         icon:"🥋", item:"受け身のこつ",     treasure:"黒帯の奥義書",               hp:40000, atk:86.72, defPct:15, accuracy:100, evadePct:8,  luck:5,  lv:24, recPts:1000, minXpRatio:0.8, dropAccuracyThreshold:0.8},
   {id:"seitokaicho",name:"伝説の生徒会長",           icon:"👑", item:"会長の激励",       treasure:"伝説の生徒会腕章",           hp:55000, atk:159.10,defPct:25, accuracy:130, evadePct:20, luck:18, lv:30, recPts:1500, minXpRatio:0.8, dropAccuracyThreshold:0.8},
+  /* 「ステータス無視のボス」（2026-07-16〜）：atk/defPct/accuracy/evadePct/luckは一切使わない
+     （statIgnore:trueで、bossGrade/bossCounterAttack内の通常のステータス計算式を丸ごとバイパスし、
+     すべて「ボスの最大HP」「プレイヤーの最大HP」に対する固定%レンジのランダムダメージに置き換える）。
+     プレイヤーの攻撃成功時：bossMaxHpの8〜12%を削る（playerHitMin/Max）。
+     正解時の被ダメージ：playerMaxHpの2〜3%（counterOkMin/Max）。
+     不正解時の被ダメージ：playerMaxHpの12〜18%（counterNgMin/Max、防御力に関わらず）。
+     アイテムのドロップ率は既存のグラデーション/しきい値方式ではなく、単純な固定20%（itemDropRate）。
+     宝具は既存の標準的な抽選（天井10連勝・BOSS_TREASURE_RATE10%・直近30回正答率50%以上のグローバル
+     ゲート）をそのまま使う（dropAccuracyThresholdもtreasureAccGateも持たせていないため）。 */
+  {id:"sano_revival", name:"復活のサノー", icon:"🔥", item:"メスシリンダー", treasure:"高価な白い粉",
+   hp:1994620, atk:0, defPct:0, accuracy:0, evadePct:0, luck:0, lv:35, recPts:1800, minXpRatio:0.8,
+   statIgnore:true, playerHitMin:0.08, playerHitMax:0.12,
+   counterOkMin:0.02, counterOkMax:0.03, counterNgMin:0.12, counterNgMax:0.18,
+   itemDropRate:0.2},
   {id:"shogi",      name:"読み勝つ将棋部部長",       icon:"♟️", item:"会心の一手",       treasure:"伝説の詰将棋",               hp:25000, atk:36.83, defPct:10, accuracy:100, evadePct:8,  luck:40, lv:18, recPts:700,  minXpRatio:0.8, dropAccuracyThreshold:0.8},
   {id:"toshoiin",   name:"静寂の図書委員長",         icon:"📚", item:"静寂の栞",         treasure:"禁帯出の書",                 hp:25000, atk:118.30,defPct:60, accuracy:110, evadePct:5,  luck:8,  lv:27, recPts:1200, minXpRatio:0.8, dropAccuracyThreshold:0.8},
 ];
@@ -2832,6 +2846,7 @@ const ITEM_EFFECTS = {
   "会心の一手":   {type:"luckBuff",  amount:40, turns:3, label:"次の3ターン、運が上がる（会心率アップ）", icon:"🍀"},
   "静寂の栞":     {type:"defBuff",   amount:60, turns:3, label:"次の3ターン、防御力が大きく上がる",     icon:"🛡️"},
   "文殊の知恵":   {type:"hpCut99",                        label:"敵のHPを、その時点から99%減らす",       icon:"🪷"},
+  "メスシリンダー": {type:"healPct", amount:0.20,          label:"自分のMAXHPの20%を回復する",           icon:"🧪"},
 };
 function randInt(min, max){ return min + Math.floor(Math.random() * (max - min + 1)); }
 
@@ -3039,6 +3054,11 @@ function useBossItem(name){
     const before = b.bossHp;
     b.bossHp = Math.max(1, Math.floor(b.bossHp * 0.01));
     msg = `${effect.icon} 「${name}」を使った！ ${esc(b.boss.name)}のHPが99%減った！（${before} → ${b.bossHp}）`;
+  }else if(effect.type === "healPct"){
+    const healAmt = Math.max(1, Math.round(b.playerMaxHp * effect.amount));
+    const healed = Math.min(healAmt, b.playerMaxHp - b.playerHp);
+    b.playerHp = Math.min(b.playerMaxHp, b.playerHp + healAmt);
+    msg = healed > 0 ? `${effect.icon} 「${name}」を使った！ HPが${healed}回復した！` : `${effect.icon} 「${name}」を使った！（HPはすでに満タンだった）`;
   }
   b.showItemPanel = false;
   b.usedItemThisTurn = true;
@@ -3247,25 +3267,33 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
   let dealt = 0, crit = false, evaded = false, fled = false;
   if(ok){
     b.correctStreak = (b.correctStreak||0) + 1;
-    const ps = loadStats().stats || {hp:0,atk:0,def:0,spd:0,luck:0};
-    // 素早さは、ボスの回避率を少し下げる命中率ボーナスも持つ（上限つきなので他ステータスとのバランスは崩れない）
-    const accBonus = STAT_SPD_ACC_MAX_BONUS * ps.spd / (ps.spd + STAT_SPD_ACC_HALF_POINT);
-    const effEvadePct = b.boss.fixedEvade ? (b.boss.evadePct||0) : Math.max(0, (b.boss.evadePct||0) - accBonus);
-    if(Math.random() * 100 < effEvadePct){
-      evaded = true;
-    }else if(b.boss.isShiran && Math.random() < SHIRAN_FLEE_RATE){
-      // シランちゃんは、攻撃が命中する寸前でも一定確率で逃げ出す（正解でも不正解でも「逃げる可能性」を持たせるため）
-      fled = true;
-    }else{
-      dealt = randInt(BOSS_PLAYER_DMG[0], BOSS_PLAYER_DMG[1]) + ps.atk * STAT_ATK_PER_POINT + (b.atkBuffTurns > 0 ? b.atkBuffAmount : 0);
-      const effLuck = ps.luck + (b.luckBuffTurns > 0 ? b.luckBuffAmount : 0);
-      const critChance = 100 * effLuck / (effLuck + STAT_LUCK_HALF_POINT);
-      if(Math.random() * 100 < critChance){
-        crit = true;
-        dealt = Math.round(dealt * STAT_CRIT_MULT);
-      }
-      dealt = Math.max(1, Math.round(dealt * (1 - (b.boss.defPct||0) / 100)));
+    if(b.boss.statIgnore){
+      // ステータス無視のボス：回避・会心・防御%の判定を一切行わず、bossMaxHpに対する
+      // 固定%レンジ（playerHitMin〜playerHitMax）のランダムダメージを必ず与える。
+      const pct = b.boss.playerHitMin + Math.random() * (b.boss.playerHitMax - b.boss.playerHitMin);
+      dealt = Math.max(1, Math.round(b.bossMaxHp * pct));
       b.bossHp = Math.max(0, b.bossHp - dealt);
+    }else{
+      const ps = loadStats().stats || {hp:0,atk:0,def:0,spd:0,luck:0};
+      // 素早さは、ボスの回避率を少し下げる命中率ボーナスも持つ（上限つきなので他ステータスとのバランスは崩れない）
+      const accBonus = STAT_SPD_ACC_MAX_BONUS * ps.spd / (ps.spd + STAT_SPD_ACC_HALF_POINT);
+      const effEvadePct = b.boss.fixedEvade ? (b.boss.evadePct||0) : Math.max(0, (b.boss.evadePct||0) - accBonus);
+      if(Math.random() * 100 < effEvadePct){
+        evaded = true;
+      }else if(b.boss.isShiran && Math.random() < SHIRAN_FLEE_RATE){
+        // シランちゃんは、攻撃が命中する寸前でも一定確率で逃げ出す（正解でも不正解でも「逃げる可能性」を持たせるため）
+        fled = true;
+      }else{
+        dealt = randInt(BOSS_PLAYER_DMG[0], BOSS_PLAYER_DMG[1]) + ps.atk * STAT_ATK_PER_POINT + (b.atkBuffTurns > 0 ? b.atkBuffAmount : 0);
+        const effLuck = ps.luck + (b.luckBuffTurns > 0 ? b.luckBuffAmount : 0);
+        const critChance = 100 * effLuck / (effLuck + STAT_LUCK_HALF_POINT);
+        if(Math.random() * 100 < critChance){
+          crit = true;
+          dealt = Math.round(dealt * STAT_CRIT_MULT);
+        }
+        dealt = Math.max(1, Math.round(dealt * (1 - (b.boss.defPct||0) / 100)));
+        b.bossHp = Math.max(0, b.bossHp - dealt);
+      }
     }
   }
   refreshBossHpBars();
@@ -3347,6 +3375,23 @@ function bossCounterAttack(playerWasCorrect){
     nextBtn.focus();
     return;
   }
+  if(b.boss.statIgnore){
+    // ステータス無視のボス：命中判定・ミス回避アイテム・防御力を一切考慮せず、playerMaxHpに対する
+    // 固定%レンジ（正解時counterOk〜、不正解時counterNg〜）のランダムダメージを必ず与える。
+    const min = playerWasCorrect ? b.boss.counterOkMin : b.boss.counterNgMin;
+    const max = playerWasCorrect ? b.boss.counterOkMax : b.boss.counterNgMax;
+    const pct = min + Math.random() * (max - min);
+    const taken = Math.max(1, Math.round(b.playerMaxHp * pct));
+    b.playerHp = Math.max(0, b.playerHp - taken);
+    refreshBossHpBars();
+    const fb = document.getElementById("fb");
+    fb.innerHTML += `<div class="boss-turn">👹 ${esc(b.boss.name)}のターン。あなたは ${taken} ダメージを受けた。</div>`;
+    const nextBtn = document.getElementById("nextBtn");
+    nextBtn.style.display = "inline-block";
+    nextBtn.textContent = b.playerHp<=0 ? "けっかを見る" : "つぎへ";
+    nextBtn.focus();
+    return;
+  }
   const range = playerWasCorrect ? BOSS_DMG_ON_CORRECT : BOSS_DMG_ON_WRONG;
   const ps = loadStats().stats || {hp:0,atk:0,def:0,spd:0,luck:0};
   const evasionPower = ps.spd * STAT_SPD_EVASION_UNIT;
@@ -3403,7 +3448,10 @@ function bossWin(){
      （ボス戦の出題はrecord()を呼ばないので、この正答率は戦闘中の結果では変化しない）。
      チケット使用（全ジャンル出題、b.catsが配列）や、このプロパティを持たない既存ボスは対象外。 */
   let dropsLoot = true;
-  if(b.boss.dropAccuracyThreshold && !b.cats){
+  if(typeof b.boss.itemDropRate === "number"){
+    // 「復活のサノー」専用：正答率とは無関係の、単純な固定確率でのドロップ判定。
+    dropsLoot = Math.random() < b.boss.itemDropRate;
+  }else if(b.boss.dropAccuracyThreshold && !b.cats){
     const catStat = (st.cats && st.cats[b.cat]) || {t:0, c:0};
     const rate = catStat.t > 0 ? catStat.c / catStat.t : 0;
     const dropChance = Math.min(1, Math.max(0, rate / b.boss.dropAccuracyThreshold));
