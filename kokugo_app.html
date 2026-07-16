@@ -440,6 +440,11 @@
   @keyframes prologueFadeIn{from{opacity:0} to{opacity:1}}
   @keyframes prologueRise{from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:translateY(0)}}
   /* ===== ストーリーモード（削除する場合はこのブロックとJS内の「ストーリーモード」ブロックを削除するだけでよい） ===== */
+  .menu-card.story-btn{background:linear-gradient(135deg, #2e7d32, #43a047); border:none;}
+  .menu-card.story-btn:hover{transform:translateY(-3px); box-shadow:0 8px 20px rgba(0,0,0,.22);}
+  .menu-card.story-btn .menu-icon{background:rgba(255,255,255,.22); font-size:1.7rem; width:54px; height:54px;}
+  .menu-card.story-btn h2{color:#fff; font-size:1.15rem;}
+  .menu-card.story-btn p{color:rgba(255,255,255,.9);}
   .story-scene{text-align:left;}
   .story-speaker{font-weight:bold; color:var(--accent2); margin-bottom:6px; font-size:.95rem;}
   .story-text{white-space:pre-line; line-height:1.85; margin:4px 0 6px;}
@@ -450,7 +455,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver4.5</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver4.6</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3844,17 +3849,49 @@ function storyProgress(st){
   return st.story;
 }
 function storyEntryHtml(st){
-  const sp = storyProgress(st);
-  const chapter = STORY_CHAPTERS[sp.chapter];
-  const done = sp.beatIdx >= chapter.beats.length;
   return `
-    <div class="card menu-card" onclick="startStoryMode()">
+    <div class="card menu-card story-btn" onclick="showStoryMenu()">
       <div class="menu-icon">📖</div>
-      <div><h2>ストーリーモード <span class="tag">${done ? "第1章クリア済み" : "第1章「入学準備」"}</span></h2>
+      <div><h2>ストーリーモード</h2>
       <p>ことのはと一緒に、中学校生活を歩む物語（β版）</p></div>
     </div>`;
 }
-function startStoryMode(){
+/* 章選択画面。STORY_CHAPTERSのキーをそのまま順番にボタン化するので、
+   今後2章目以降を追加してもこの関数を変更する必要はない。 */
+function showStoryMenu(){
+  const st = loadStats();
+  let html = `<div class="card"><h3 class="section">📖 ストーリーモード</h3>
+    <p class="note">ことのはと一緒に、中学校生活を歩む物語です。章を選んで読み進めよう。</p></div>`;
+  html += Object.keys(STORY_CHAPTERS).map(key => storyChapterButtonHtml(key, st)).join("");
+  html += `<div class="btn-row" style="justify-content:center; margin-top:10px">
+    <button class="btn secondary" onclick="showHome()">ホームへ</button>
+  </div>`;
+  screen.innerHTML = html;
+}
+function storyChapterButtonHtml(key, st){
+  const chapter = STORY_CHAPTERS[key];
+  const sp = storyProgress(st);
+  const isCompleted = sp.completedChapters.includes(key);
+  const inProgress = sp.chapter === key && !isCompleted && sp.beatIdx > 0;
+  const badge = isCompleted ? "クリア済み" : inProgress ? "つづきから" : "はじめから";
+  const sub = isCompleted ? "クリア済み。もう一度読むこともできます。" : inProgress ? "続きから読み進めよう" : "タップして読みはじめる";
+  return `
+    <div class="card menu-card" onclick="startStoryMode('${key}')">
+      <div class="menu-icon">📖</div>
+      <div><h2>${esc(chapter.title)}</h2><p>${esc(sub)}</p></div>
+      <div class="right"><span class="shogo-badge">${esc(badge)}</span></div>
+    </div>`;
+}
+/* chapterKeyを渡すと、今保存されている進行中の章と違う場合だけ切り替えて先頭から始める
+   （同じ章ならbeatIdxをそのまま維持し、続きから／クリア済み画面から再開する）。
+   引数なしの呼び出し（既存コード・vmテスト等）は今までどおり現在の章をそのまま再開する。 */
+function startStoryMode(chapterKey){
+  if(chapterKey){
+    const st = loadStats();
+    const sp = storyProgress(st);
+    if(sp.chapter !== chapterKey){ sp.chapter = chapterKey; sp.beatIdx = 0; }
+    saveStats(st);
+  }
   storyRun = storyFreshRun();
   storyRenderBeat();
 }
