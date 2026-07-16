@@ -455,7 +455,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver5.1</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver5.2</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -2725,6 +2725,13 @@ const BOSSES = [
    statIgnore:true, playerHitMin:0.08, playerHitMax:0.12,
    counterOkMin:0.02, counterOkMax:0.03, counterNgMin:0.12, counterNgMax:0.18,
    itemDropRate:0.2},
+  /* 「ステータス無視のボス」第2弾（2026-07-16〜）。復活のサノーと同じstatIgnoreの仕組みをそのまま
+     再利用し、不正解時の被ダメージだけをさらに厳しく（25〜30%）している。 */
+  {id:"shigecchi_tears", name:"涙目のシゲっち", icon:"😭", item:"さびついたノコギリ", treasure:"３Dプリンター",
+   hp:19910109, atk:0, defPct:0, accuracy:0, evadePct:0, luck:0, lv:40, recPts:2200, minXpRatio:0.8,
+   statIgnore:true, playerHitMin:0.08, playerHitMax:0.12,
+   counterOkMin:0.02, counterOkMax:0.03, counterNgMin:0.25, counterNgMax:0.30,
+   itemDropRate:0.2},
   {id:"shogi",      name:"読み勝つ将棋部部長",       icon:"♟️", item:"会心の一手",       treasure:"伝説の詰将棋",               hp:25000, atk:36.83, defPct:10, accuracy:100, evadePct:8,  luck:40, lv:18, recPts:700,  minXpRatio:0.8, dropAccuracyThreshold:0.8},
   {id:"toshoiin",   name:"静寂の図書委員長",         icon:"📚", item:"静寂の栞",         treasure:"禁帯出の書",                 hp:25000, atk:118.30,defPct:60, accuracy:110, evadePct:5,  luck:8,  lv:27, recPts:1200, minXpRatio:0.8, dropAccuracyThreshold:0.8},
 ];
@@ -2847,6 +2854,7 @@ const ITEM_EFFECTS = {
   "静寂の栞":     {type:"defBuff",   amount:60, turns:3, label:"次の3ターン、防御力が大きく上がる",     icon:"🛡️"},
   "文殊の知恵":   {type:"hpCut99",                        label:"敵のHPを、その時点から99%減らす",       icon:"🪷"},
   "メスシリンダー": {type:"healPct", amount:0.20,          label:"自分のMAXHPの20%を回復する",           icon:"🧪"},
+  "さびついたノコギリ": {type:"atkMultBuff", mult:1.5, turns:1, label:"次のターンだけ、攻撃力が1.5倍になる", icon:"🪚"},
 };
 function randInt(min, max){ return min + Math.floor(Math.random() * (max - min + 1)); }
 
@@ -3006,6 +3014,7 @@ function startBossBattle(boss, allGenre){
     playerHp: maxHp, playerMaxHp: maxHp,
     cat, cats, itemCat:null, item:null, order:null, lastQ:null,
     atkBuffTurns:0, atkBuffAmount:0, defBuffTurns:0, defBuffAmount:0, luckBuffTurns:0, luckBuffAmount:0, missGuard:false,
+    atkMultTurns:0, atkMultAmount:1,
     showItemPanel:false, usedItemThisTurn:false, usedItemNames:{}, timerId:null,
     correctStreak:0,
   };
@@ -3059,6 +3068,10 @@ function useBossItem(name){
     const healed = Math.min(healAmt, b.playerMaxHp - b.playerHp);
     b.playerHp = Math.min(b.playerMaxHp, b.playerHp + healAmt);
     msg = healed > 0 ? `${effect.icon} 「${name}」を使った！ HPが${healed}回復した！` : `${effect.icon} 「${name}」を使った！（HPはすでに満タンだった）`;
+  }else if(effect.type === "atkMultBuff"){
+    b.atkMultTurns = effect.turns;
+    b.atkMultAmount = effect.mult;
+    msg = `${effect.icon} 「${name}」を使った！ 次のターン、攻撃力が${effect.mult}倍になる！`;
   }
   b.showItemPanel = false;
   b.usedItemThisTurn = true;
@@ -3285,6 +3298,8 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
         fled = true;
       }else{
         dealt = randInt(BOSS_PLAYER_DMG[0], BOSS_PLAYER_DMG[1]) + ps.atk * STAT_ATK_PER_POINT + (b.atkBuffTurns > 0 ? b.atkBuffAmount : 0);
+        // さびついたノコギリ等の「次のターンだけ攻撃力n倍」効果（攻撃力依存の倍率、既存の加算式atkBuffとは別枠）
+        if(b.atkMultTurns > 0) dealt = Math.round(dealt * b.atkMultAmount);
         const effLuck = ps.luck + (b.luckBuffTurns > 0 ? b.luckBuffAmount : 0);
         const critChance = 100 * effLuck / (effLuck + STAT_LUCK_HALF_POINT);
         if(Math.random() * 100 < critChance){
@@ -3418,6 +3433,7 @@ function bossCounterAttack(playerWasCorrect){
   if(b.atkBuffTurns > 0) b.atkBuffTurns--;
   if(b.defBuffTurns > 0) b.defBuffTurns--;
   if(b.luckBuffTurns > 0) b.luckBuffTurns--;
+  if(b.atkMultTurns > 0) b.atkMultTurns--;
   refreshBossHpBars();
   const fb = document.getElementById("fb");
   fb.innerHTML += guarded
