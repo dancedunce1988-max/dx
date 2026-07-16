@@ -456,7 +456,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver6.2</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver6.3</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -620,7 +620,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 15;
+const SAVE_FORMAT_VERSION = 16;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -645,9 +645,13 @@ function emptyStats(){
    いろいろな分野に挑戦したくなるようにするため、2026-07-14〜）。宝具を使ってもらえる経験値（bonusExp）は
    分野に関係なく全額そのまま加算する。 */
 function catExpPoints(lv){
+  /* LV100まではレベルアップごとに3pt、LV500までは2pt、LV1000までは1pt、それ以降は0.2ptに逓減する
+     （2026-07-17〜。境界値で連続になるよう、各段の到達値を積み上げて計算する）。 */
   const L = Math.max(1, lv||1);
-  if(L <= 1000) return L - 1;
-  return 999 + (L - 1000) * 0.2;
+  if(L <= 100) return (L - 1) * 3;
+  if(L <= 500) return 297 + (L - 100) * 2;
+  if(L <= 1000) return 1097 + (L - 500);
+  return 1597 + (L - 1000) * 0.2;
 }
 function totalEarnedStatPoints(st){
   const fromLevels = CAT_KEYS.reduce((sum,k) => sum + catExpPoints(st.lv[k]||1), 0);
@@ -2705,15 +2709,15 @@ function endBattle(){
    lv       … ボスのレベル（表示用）
    recPts   … 適正経験値。このぶんのステータスポイントを持って挑むことを想定している */
 const BOSSES = [
-  {id:"tekkyu",     name:"鉄球ローリング・レディ",       icon:"⚫", item:"鉄球",             treasure:"ぴかぴかの鉄球",             hp:4610,  atk:1.7,   defPct:10, accuracy:120, evadePct:5,  luck:8,  lv:10, recPts:100},
-  {id:"houcho",     name:"一閃の料理長",             icon:"🔪", item:"包丁",             treasure:"調理室",                     hp:11000, atk:25.38, defPct:5,  accuracy:150, evadePct:5,  luck:14, lv:16, recPts:500},
-  {id:"volleyball", name:"サーブマスター・レシオ",     icon:"🏐", item:"バレーボール",     treasure:"人体模型",                   hp:2870,  atk:1.0,   defPct:15, accuracy:100, evadePct:10, luck:8,  lv:5,  recPts:50},
-  {id:"yakyu",      name:"万年応援団長スイング",       icon:"⚾", item:"野球ボール",       treasure:"ホームランバット",           hp:2750,  atk:1.1,   defPct:10, accuracy:90,  evadePct:10, luck:20, lv:6,  recPts:50},
-  {id:"suugaku",    name:"不動の定規使い",           icon:"📐", item:"三角定規",         treasure:"大きなコンパス",             hp:7000,  atk:20.16, defPct:50, accuracy:90,  evadePct:38, luck:5,  lv:15, recPts:500},
-  {id:"bijutsu",    name:"絵画の申し子キャンバス",     icon:"🖌️", item:"ふつうの筆",       treasure:"描いたものが現実になる筆",   hp:5460,  atk:1.0,   defPct:10, accuracy:85,  evadePct:10, luck:26, lv:7,  recPts:80},
-  {id:"rikujo",     name:"疾風の陸上部主将",         icon:"🏃", item:"スポーツドリンク", treasure:"伝説の金色バトン",           hp:20000, atk:42.20, defPct:5,  accuracy:140, evadePct:45, luck:10, lv:20, recPts:800,  minXpRatio:0.8, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
-  {id:"judo",       name:"鉄壁の柔道部主将",         icon:"🥋", item:"受け身のこつ",     treasure:"黒帯の奥義書",               hp:40000, atk:86.72, defPct:15, accuracy:100, evadePct:8,  luck:5,  lv:24, recPts:1000, minXpRatio:0.8, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
-  {id:"seitokaicho",name:"伝説の生徒会長",           icon:"👑", item:"会長の激励",       treasure:"伝説の生徒会腕章",           hp:55000, atk:159.10,defPct:25, accuracy:130, evadePct:20, luck:18, lv:30, recPts:1500, minXpRatio:0.8, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
+  {id:"tekkyu",     name:"鉄球ローリング・レディ",       icon:"⚫", item:"鉄球",             treasure:"ぴかぴかの鉄球",             hp:4610,  atk:1.7,   defPct:10, accuracy:120, evadePct:5,  luck:8,  lv:10, recPts:300},
+  {id:"houcho",     name:"一閃の料理長",             icon:"🔪", item:"包丁",             treasure:"調理室",                     hp:11000, atk:25.38, defPct:5,  accuracy:150, evadePct:5,  luck:14, lv:16, recPts:1500},
+  {id:"volleyball", name:"サーブマスター・レシオ",     icon:"🏐", item:"バレーボール",     treasure:"人体模型",                   hp:2870,  atk:1.0,   defPct:15, accuracy:100, evadePct:10, luck:8,  lv:5,  recPts:150},
+  {id:"yakyu",      name:"万年応援団長スイング",       icon:"⚾", item:"野球ボール",       treasure:"ホームランバット",           hp:2750,  atk:1.1,   defPct:10, accuracy:90,  evadePct:10, luck:20, lv:6,  recPts:150},
+  {id:"suugaku",    name:"不動の定規使い",           icon:"📐", item:"三角定規",         treasure:"大きなコンパス",             hp:7000,  atk:20.16, defPct:50, accuracy:90,  evadePct:38, luck:5,  lv:15, recPts:1500},
+  {id:"bijutsu",    name:"絵画の申し子キャンバス",     icon:"🖌️", item:"ふつうの筆",       treasure:"描いたものが現実になる筆",   hp:5460,  atk:1.0,   defPct:10, accuracy:85,  evadePct:10, luck:26, lv:7,  recPts:240},
+  {id:"rikujo",     name:"疾風の陸上部主将",         icon:"🏃", item:"スポーツドリンク", treasure:"伝説の金色バトン",           hp:20000, atk:42.20, defPct:5,  accuracy:140, evadePct:45, luck:10, lv:20, recPts:2400, minXpRatio:0.8, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
+  {id:"judo",       name:"鉄壁の柔道部主将",         icon:"🥋", item:"受け身のこつ",     treasure:"黒帯の奥義書",               hp:40000, atk:86.72, defPct:15, accuracy:100, evadePct:8,  luck:5,  lv:24, recPts:3000, minXpRatio:0.8, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
+  {id:"seitokaicho",name:"伝説の生徒会長",           icon:"👑", item:"会長の激励",       treasure:"伝説の生徒会腕章",           hp:55000, atk:159.10,defPct:25, accuracy:130, evadePct:20, luck:18, lv:30, recPts:4500, minXpRatio:0.8, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
   /* 「ステータス無視のボス」（2026-07-16〜）：atk/defPct/accuracy/evadePct/luckは一切使わない
      （statIgnore:trueで、bossGrade/bossCounterAttack内の通常のステータス計算式を丸ごとバイパスし、
      すべて「ボスの最大HP」「プレイヤーの最大HP」に対する固定%レンジのランダムダメージに置き換える）。
@@ -2727,20 +2731,27 @@ const BOSSES = [
      宝具は既存の標準的な抽選（天井10連勝・BOSS_TREASURE_RATE10%・直近30回正答率50%以上のグローバル
      ゲート）をそのまま使う（treasureAccGateを持たせていないため）。 */
   {id:"sano_revival", name:"復活のサノー", icon:"🔥", item:"メスシリンダー", treasure:"高価な白い粉",
-   hp:1994620, atk:0, defPct:0, accuracy:0, evadePct:0, luck:0, lv:"？？？", recPts:501, minXpRatio:0.8,
+   hp:1994620, atk:0, defPct:0, accuracy:0, evadePct:0, luck:0, lv:"？？？", recPts:1503, minXpRatio:0.8,
    statIgnore:true, playerHitMin:0.08, playerHitMax:0.12,
    counterOkMin:0.02, counterOkMax:0.03, counterNgMin:0.12, counterNgMax:0.18,
    dropAccuracyThreshold:0.8, itemDropFloor:0.2, itemDropCeil:0.8, itemDropPity:true, answerTimeMs:15000},
   /* 「ステータス無視のボス」第2弾（2026-07-16〜）。復活のサノーと同じstatIgnoreの仕組みをそのまま
      再利用し、不正解時の被ダメージだけをさらに厳しく（25〜30%）している。 */
   {id:"shigecchi_tears", name:"涙目のシゲっち", icon:"😭", item:"さびついたノコギリ", treasure:"３Dプリンター",
-   hp:19910109, atk:0, defPct:0, accuracy:0, evadePct:0, luck:0, lv:"？？？", recPts:501, minXpRatio:0.8,
+   hp:19910109, atk:0, defPct:0, accuracy:0, evadePct:0, luck:0, lv:"？？？", recPts:1503, minXpRatio:0.8,
    statIgnore:true, playerHitMin:0.08, playerHitMax:0.12,
    counterOkMin:0.02, counterOkMax:0.03, counterNgMin:0.25, counterNgMax:0.30,
    dropAccuracyThreshold:0.8, itemDropFloor:0.2, itemDropCeil:0.8, itemDropPity:true, answerTimeMs:15000},
-  {id:"shogi",      name:"読み勝つ将棋部部長",       icon:"♟️", item:"会心の一手",       treasure:"伝説の詰将棋",               hp:25000, atk:36.83, defPct:10, accuracy:100, evadePct:8,  luck:40, lv:18, recPts:700,  minXpRatio:0.8, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
-  {id:"toshoiin",   name:"静寂の図書委員長",         icon:"📚", item:"静寂の栞",         treasure:"禁帯出の書",                 hp:25000, atk:118.30,defPct:60, accuracy:110, evadePct:5,  luck:8,  lv:27, recPts:1200, minXpRatio:0.8, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
+  {id:"shogi",      name:"読み勝つ将棋部部長",       icon:"♟️", item:"会心の一手",       treasure:"伝説の詰将棋",               hp:25000, atk:36.83, defPct:10, accuracy:100, evadePct:8,  luck:40, lv:18, recPts:2100, minXpRatio:0.8, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
+  {id:"toshoiin",   name:"静寂の図書委員長",         icon:"📚", item:"静寂の栞",         treasure:"禁帯出の書",                 hp:25000, atk:118.30,defPct:60, accuracy:110, evadePct:5,  luck:8,  lv:27, recPts:3600, minXpRatio:0.8, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
 ];
+/* 2026-07-17、経験値カーブを変更（catExpPoints参照。LV100まで+3/LV500まで+2/LV1000まで+1/以降+0.2の
+   段階式に改訂）したことにともない、同じレベル到達ペースで各ボスが解禁されるよう、全ボスのrecPts・
+   BOSS_TIMER_MIN_RECPTS・ticketEligibleBossesの下限値を一律3倍した（20領域に均等レベリングする想定
+   なら、recPts1500＝旧最上位でも平均レベルは100を大きく下回り、新カーブの3pt/レベル区間に収まるため、
+   区間をまたぐ複雑な換算をせず単純な3倍で従来と同じ体感ペースを再現できる）。以下の解説コメントに残る
+   recPts数値・atk倍率・シミュレーション結果は変更前（3倍する前）の値のままなので、実際の定義値と
+   照合するときは3倍して読み替えること。 */
 /* 2026-07-15、recPts500(旧最上位)を超える3体を追加。均等配分プレイヤーの被ダメージ軽減率
    （def/(def+30)）や会心率（100*luck/(luck+100)）はポイントを積むほど頭打ちに近づくため、
    recPtsが上がるほどボスのatk倍率を「ゆるやかにではなく急激に」大きくしないと脅威にならない
@@ -2845,7 +2856,7 @@ const BOSS_ITEM_DROP_PITY_MAX = 2;
 const BOSS_PITY_MAX = 10;
 const BOSS_ANSWER_TIME_MS = 15000; // ボス戦の1問あたりの制限時間（2026-07-15〜、10000から15000へ変更）。過ぎると自動的に不正解になる
 const BOSS_ITEM_USE_TIMER_MS = 10000; // アイテム使用直後は、そこから10秒の制限時間に切り替える（2026-07-17〜）
-const BOSS_TIMER_MIN_RECPTS = 501; // 適正経験値がこの値以下のボス（旧6体・シランちゃん）は、制限時間を設けない
+const BOSS_TIMER_MIN_RECPTS = 1503; // 適正経験値がこの値以下のボス（旧6体・シランちゃん）は、制限時間を設けない（2026-07-17の経験値カーブ変更にあわせてrecPtsを全体的に3倍したため、この値も3倍に追随）
 /* answerTimeMsを個別に持つボス（国語の神など）は、recPtsの値に関わらず必ず時間制限つきになり、
    その秒数（ms）が既定のBOSS_ANSWER_TIME_MSより優先される（bossAnswerTimeMs参照）。 */
 function bossHasTimeLimit(boss){ return !!boss.answerTimeMs || (boss.recPts||0) > BOSS_TIMER_MIN_RECPTS; }
@@ -3596,11 +3607,12 @@ function showTicketConfirm(){
     </div>`;
 }
 /* 挑戦チケットで出るボスは、適正経験値が「今の経験値（＝分野レベル合計。すでに使った分もふくむ）」
-   以下のものだけに限定する（ただし経験値50以下のときも、適正経験値50の2体
-   だけは選べるように、しきい値の下限を50に固定する）。
+   以下のものだけに限定する（ただし経験値150以下のときも、適正経験値150の2体
+   だけは選べるように、しきい値の下限を150に固定する。2026-07-17の経験値カーブ変更にあわせて
+   recPtsを全体的に3倍したため、この下限も50→150に追随）。
    ランダム遭遇は対象外で、従来どおり全ボスから出現する。 */
 function ticketEligibleBosses(earnedPts){
-  const threshold = Math.max(earnedPts||0, 50);
+  const threshold = Math.max(earnedPts||0, 150);
   return BOSSES.filter(b => (b.recPts||0) <= threshold);
 }
 function useTicketAndFight(){
