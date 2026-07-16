@@ -455,7 +455,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver5.3</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver5.4</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -1350,9 +1350,10 @@ function kotonohaCardHtml(st){
       <tr><th>🍀 運</th><td>${s.luck||0}</td><td></td><td></td></tr>
     </table>
     ${unspentStatPoints(st) > 0 ? `<p class="note">✨ のこりステータスポイント：${unspentStatPoints(st)}</p>` : ""}`;
+  const pronoun = storyChosenPronoun(st);
   return `
   <div class="card kotonoha-card">
-    <h3 class="section">きみの相棒【ことのは】</h3>
+    <h3 class="section">${esc(pronoun || "きみ")}の相棒【ことのは】</h3>
     <div class="kotonoha-row">
       <div class="kotonoha-icon ${typeClass}${override ? ' kotonoha-overridden' : ''}" onclick="showKotonohaFormPicker()">${disp.icon}</div>
       <div class="kotonoha-info">
@@ -3967,10 +3968,32 @@ const STORY_CHAPTERS = {
         {label:"「よろしく、ことのは」", value:"warm"},
         {label:"「……本当に喋ってるの?」", value:"surprised"},
       ]},
-      {type:"line", speaker:"ことのは", text:"さあ、入学まであと少し。\n一緒に準備していこうね。", variants:[
-        {flag:"greeting", value:"warm", text:"うん、よろしく！\n――さあ、入学まであと少し。一緒に準備していこうね。"},
-        {flag:"greeting", value:"surprised", text:"ふふ、みんな最初はそう言うんだ。\nでも――さあ、入学まであと少し。一緒に準備していこうね。"},
+      {type:"line", speaker:"ことのは", text:"うん、よろしく！\n――そうだ、ひとつ聞いてもいい？", variants:[
+        {flag:"greeting", value:"warm", text:"うん、よろしく！\n――そうだ、ひとつ聞いてもいい？"},
+        {flag:"greeting", value:"surprised", text:"ふふ、みんな最初はそう言うんだ。\n――そうだ、ひとつ聞いてもいい？"},
       ]},
+      {type:"line", speaker:"ことのは", text:"きみ、自分のことを何て呼んでる？\nこれから、ずっと一緒にいるんだもんね。知っておきたいな。"},
+      {type:"choice", flagKey:"pronoun", text:"自分のことを、なんて呼ぶ？", options:[
+        {label:"私", value:"watashi"},
+        {label:"あたし", value:"atashi"},
+        {label:"俺", value:"ore"},
+        {label:"ボク", value:"boku"},
+        {label:"おいら", value:"oira"},
+        {label:"おいどん", value:"oidon"},
+        {label:"せっしゃ", value:"sessha"},
+        {label:"まろ", value:"maro"},
+      ]},
+      {type:"line", speaker:"ことのは", text:"そうなんだ。覚えておくね。", variants:[
+        {flag:"pronoun", value:"watashi", text:"「私」だね。うん、覚えておくね。"},
+        {flag:"pronoun", value:"atashi", text:"「あたし」だね。元気な感じ、いいね。"},
+        {flag:"pronoun", value:"ore", text:"「俺」か。かっこいいね。"},
+        {flag:"pronoun", value:"boku", text:"「ボク」だね。よろしく。"},
+        {flag:"pronoun", value:"oira", text:"「おいら」かぁ。なんだか親しみやすいね。"},
+        {flag:"pronoun", value:"oidon", text:"「おいどん」！？ ずいぶん渋いね……でも、覚えておくよ。"},
+        {flag:"pronoun", value:"sessha", text:"「せっしゃ」って……もしかして、忍者？ おもしろいね。"},
+        {flag:"pronoun", value:"maro", text:"「まろ」なの！？ どこの姫だ……なんだか楽しくなってきたよ。"},
+      ]},
+      {type:"line", text:"さあ、入学まであと少し。\n一緒に準備していこうね。"},
       {type:"choice", flagKey:"favoriteSubject", text:"得意な教科は？", options:[
         {label:"漢字が得意", value:"kanji"},
         {label:"文章を読むのが得意", value:"dokkai"},
@@ -3998,6 +4021,19 @@ const STORY_CHAPTERS = {
     ],
   },
 };
+
+/* 一人称選択（ch1のpronoun choice）の表示名。ホーム画面の「相棒」表記などで使う。 */
+const STORY_PRONOUN_LABELS = {
+  watashi:"私", atashi:"あたし", ore:"俺", boku:"ボク",
+  oira:"おいら", oidon:"おいどん", sessha:"せっしゃ", maro:"まろ",
+};
+/* 一章クリア後にのみ、選んだ一人称を返す（未クリア・未選択ならnull）。
+   章を再プレイしてpronoun choiceを選び直せば、この値もすぐ更新される。 */
+function storyChosenPronoun(st){
+  const sp = st.story;
+  if(!sp || !sp.completedChapters.includes("ch1")) return null;
+  return STORY_PRONOUN_LABELS[sp.flags.pronoun] || null;
+}
 
 let storyRun = null; // 実行中の一時状態（セーブしない。直前の出題・選択肢の並び順・合格ゲートの進捗など）
 function storyFreshRun(){
