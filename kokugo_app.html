@@ -455,7 +455,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver4.8</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver4.9</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -2708,11 +2708,11 @@ const BOSSES = [
   {id:"yakyu",      name:"万年応援団長スイング",       icon:"⚾", item:"野球ボール",       treasure:"ホームランバット",           hp:2750,  atk:1.1,   defPct:10, accuracy:90,  evadePct:10, luck:20, lv:6,  recPts:50},
   {id:"suugaku",    name:"不動の定規使い",           icon:"📐", item:"三角定規",         treasure:"大きなコンパス",             hp:7000,  atk:20.16, defPct:50, accuracy:90,  evadePct:38, luck:5,  lv:15, recPts:500},
   {id:"bijutsu",    name:"絵画の申し子キャンバス",     icon:"🖌️", item:"ふつうの筆",       treasure:"描いたものが現実になる筆",   hp:5460,  atk:1.0,   defPct:10, accuracy:85,  evadePct:10, luck:26, lv:7,  recPts:80},
-  {id:"rikujo",     name:"疾風の陸上部主将",         icon:"🏃", item:"スポーツドリンク", treasure:"伝説の金色バトン",           hp:20000, atk:42.20, defPct:5,  accuracy:140, evadePct:45, luck:10, lv:20, recPts:800,  minXpRatio:0.8, dropAccuracyThreshold:0.7},
-  {id:"judo",       name:"鉄壁の柔道部主将",         icon:"🥋", item:"受け身のこつ",     treasure:"黒帯の奥義書",               hp:40000, atk:86.72, defPct:15, accuracy:100, evadePct:8,  luck:5,  lv:24, recPts:1000, minXpRatio:0.8, dropAccuracyThreshold:0.7},
-  {id:"seitokaicho",name:"伝説の生徒会長",           icon:"👑", item:"会長の激励",       treasure:"伝説の生徒会腕章",           hp:55000, atk:159.10,defPct:25, accuracy:130, evadePct:20, luck:18, lv:30, recPts:1500, minXpRatio:0.8, dropAccuracyThreshold:0.7},
-  {id:"shogi",      name:"読み勝つ将棋部部長",       icon:"♟️", item:"会心の一手",       treasure:"伝説の詰将棋",               hp:25000, atk:36.83, defPct:10, accuracy:100, evadePct:8,  luck:40, lv:18, recPts:700,  minXpRatio:0.8, dropAccuracyThreshold:0.7},
-  {id:"toshoiin",   name:"静寂の図書委員長",         icon:"📚", item:"静寂の栞",         treasure:"禁帯出の書",                 hp:25000, atk:118.30,defPct:60, accuracy:110, evadePct:5,  luck:8,  lv:27, recPts:1200, minXpRatio:0.8, dropAccuracyThreshold:0.7},
+  {id:"rikujo",     name:"疾風の陸上部主将",         icon:"🏃", item:"スポーツドリンク", treasure:"伝説の金色バトン",           hp:20000, atk:42.20, defPct:5,  accuracy:140, evadePct:45, luck:10, lv:20, recPts:800,  minXpRatio:0.8, dropAccuracyThreshold:0.8},
+  {id:"judo",       name:"鉄壁の柔道部主将",         icon:"🥋", item:"受け身のこつ",     treasure:"黒帯の奥義書",               hp:40000, atk:86.72, defPct:15, accuracy:100, evadePct:8,  luck:5,  lv:24, recPts:1000, minXpRatio:0.8, dropAccuracyThreshold:0.8},
+  {id:"seitokaicho",name:"伝説の生徒会長",           icon:"👑", item:"会長の激励",       treasure:"伝説の生徒会腕章",           hp:55000, atk:159.10,defPct:25, accuracy:130, evadePct:20, luck:18, lv:30, recPts:1500, minXpRatio:0.8, dropAccuracyThreshold:0.8},
+  {id:"shogi",      name:"読み勝つ将棋部部長",       icon:"♟️", item:"会心の一手",       treasure:"伝説の詰将棋",               hp:25000, atk:36.83, defPct:10, accuracy:100, evadePct:8,  luck:40, lv:18, recPts:700,  minXpRatio:0.8, dropAccuracyThreshold:0.8},
+  {id:"toshoiin",   name:"静寂の図書委員長",         icon:"📚", item:"静寂の栞",         treasure:"禁帯出の書",                 hp:25000, atk:118.30,defPct:60, accuracy:110, evadePct:5,  luck:8,  lv:27, recPts:1200, minXpRatio:0.8, dropAccuracyThreshold:0.8},
 ];
 /* 2026-07-15、recPts500(旧最上位)を超える3体を追加。均等配分プレイヤーの被ダメージ軽減率
    （def/(def+30)）や会心率（100*luck/(luck+100)）はポイントを積むほど頭打ちに近づくため、
@@ -2735,10 +2735,12 @@ const BOSSES = [
      抽選（`ticketEligibleBosses`）はもともとrecPts以下＝100%相当のしきい値を持つ別ロジックなので変更不要。
    ②`dropAccuracyThreshold`：ランダム遭遇で倒したときだけ、その戦闘中ずっと固定されていた分野
      （`bossBattle.cat`。ボス戦の出題自体は`record()`を呼ばないので、この正答率は戦闘中の運では変わらず、
-     戦う前からの実力がそのまま反映される）の通算正答率がこの値（0.7）を超えていないと、
-     アイテムも宝具も一切ドロップしない（`bossWin()`内でチェック）。挑戦チケットでの撃破（全ジャンル出題、
-     `bossBattle.cats`が配列で入る＝単一分野の正答率という概念がない）は、このガードの対象外で今までどおり
-     無条件ドロップする。
+     戦う前からの実力がそのまま反映される）の通算正答率に応じて、アイテムのドロップ確率がグラデーションで
+     決まる（`bossWin()`内でチェック）。2026-07-16に「超えたら100%・超えなければ0%」の二択から、
+     「正答率0%で0%、この値（現在0.8）以上で100%、その間は比例」という段階的な抽選に改訂した
+     （`dropChance = min(1, rate / dropAccuracyThreshold)`、`Math.random() < dropChance`）。
+     挑戦チケットでの撃破（全ジャンル出題、`bossBattle.cats`が配列で入る＝単一分野の正答率という概念がない）は、
+     このガードの対象外で今までどおり無条件ドロップする。
    2026-07-15、同日中にさらに2体を追加（recPts700・1200、隙間を埋める形）。同じくminXpRatio/
    dropAccuracyThresholdを持たせ、atk倍率も同じ非線形の伸びの一部として探索している
    （houcho25.38@500 → shogi36.83@700 → rikujo42.20@800 → judo86.72@1000 → toshoiin118.30@1200 →
@@ -2754,14 +2756,14 @@ const BOSSES = [
      0ステータス・一点特化ビルドでも他ボスと同様0%になることも確認済み。 */
 const BOSS_ENCOUNTER_RATE = 1/40;
 /* ランダム遭遇は、分野をまたいだ「直近30回」の正答率（st.recentCorrectAll）で出やすさが変わる
-   （2026-07-16〜、教員の指示）。30回に満たないうちはデータ不足として、これまでどおり無条件でBOSS_ENCOUNTER_RATEを使う。
-   ①正答率がBOSS_ENCOUNTER_MIN_ACC(50%)未満なら、ランダム遭遇そのものが起こらない（0%）。
-   ②正答率がBOSS_ENCOUNTER_HOT_ACC(80%)以上なら、より高い確率(BOSS_ENCOUNTER_HOT_RATE=1/30)で出やすくなる
-     （「当たっているときほどボスが出やすい」）。
-   ③それ以外（50%以上80%未満）は、通常どおりBOSS_ENCOUNTER_RATE(1/40)のまま。 */
-const BOSS_ENCOUNTER_MIN_ACC = 0.5;
+   （2026-07-16〜、教員の指示。同日中に「階段状」から「グラデーション」に改訂）。
+   30回に満たないうちはデータ不足として、これまでどおり無条件でBOSS_ENCOUNTER_RATE(1/40)を使う。
+   データが十分あるときは、正答率0%〜BOSS_ENCOUNTER_HOT_ACC(80%)の範囲を
+   0（遭遇なし）〜BOSS_ENCOUNTER_HOT_RATE(1/25)まで直線的に補間する（80%以上は1/25で頭打ち）。
+   正答率50%のときにちょうど1/40になる（(0.5/0.8)*(1/25) = 1/40）ので、
+   このあたりのプレイヤーには旧仕様（階段状のときの中間段）とほぼ同じ体感になる。 */
 const BOSS_ENCOUNTER_HOT_ACC = 0.8;
-const BOSS_ENCOUNTER_HOT_RATE = 1/30;
+const BOSS_ENCOUNTER_HOT_RATE = 1/25;
 function recentAccAll(st){
   const recent = st.recentCorrectAll || [];
   if(recent.length < RECENT_ACC_WINDOW) return null; // データ不足（判定なし）
@@ -2770,9 +2772,8 @@ function recentAccAll(st){
 function bossEncounterRate(st){
   const acc = recentAccAll(st);
   if(acc === null) return BOSS_ENCOUNTER_RATE;
-  if(acc < BOSS_ENCOUNTER_MIN_ACC) return 0;
-  if(acc >= BOSS_ENCOUNTER_HOT_ACC) return BOSS_ENCOUNTER_HOT_RATE;
-  return BOSS_ENCOUNTER_RATE;
+  const capped = Math.min(BOSS_ENCOUNTER_HOT_ACC, Math.max(0, acc));
+  return (capped / BOSS_ENCOUNTER_HOT_ACC) * BOSS_ENCOUNTER_HOT_RATE;
 }
 const BOSS_TREASURE_RATE = 0.1;
 /* 宝具のドロップは、分野をまたいだ「直近30回」の正答率(st.recentCorrectAll)が
@@ -3328,14 +3329,18 @@ function bossWin(){
   const b = bossBattle;
   const st = loadStats();
   /* dropAccuracyThresholdを持つボス（新規追加分）は、チケット未使用の戦闘（b.catが単一分野）でだけ、
-     その分野の通算正答率がしきい値を超えていないとドロップ判定そのものをスキップする
+     その分野の通算正答率に応じてアイテムのドロップ確率がグラデーションで変わる
+     （2026-07-16〜、教員の指示。当初は「しきい値を超えたら必ず落とす／超えなければ必ず落とさない」の
+     二択だったが、同日中に「正答率0%で0%、dropAccuracyThreshold(現在0.8)以上で100%、
+     その間は正答率に比例した確率」という段階的な抽選に改訂した）。
      （ボス戦の出題はrecord()を呼ばないので、この正答率は戦闘中の結果では変化しない）。
      チケット使用（全ジャンル出題、b.catsが配列）や、このプロパティを持たない既存ボスは対象外。 */
   let dropsLoot = true;
   if(b.boss.dropAccuracyThreshold && !b.cats){
     const catStat = (st.cats && st.cats[b.cat]) || {t:0, c:0};
     const rate = catStat.t > 0 ? catStat.c / catStat.t : 0;
-    dropsLoot = rate > b.boss.dropAccuracyThreshold;
+    const dropChance = Math.min(1, Math.max(0, rate / b.boss.dropAccuracyThreshold));
+    dropsLoot = Math.random() < dropChance;
   }
   let gotTreasure = false;
   if(dropsLoot){
