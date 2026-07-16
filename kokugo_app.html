@@ -455,7 +455,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver5.4</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver5.5</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -4007,6 +4007,7 @@ const STORY_CHAPTERS = {
         {flag:"favoriteSubject", value:"dokkai", text:"よろしくね！ 文章を読むのが得意なんだって？\nなら、ちょっとだけ言葉の力試してみない？"},
         {flag:"favoriteSubject", value:"bunpou", text:"よろしくね！ 言葉のきまりが得意なんだって？\nなら、ちょっとだけ言葉の力試してみない？"},
       ]},
+      {type:"line", speaker:"先輩", text:"中学生になったら、先生やお客さんと話す時に、敬語を使う場面がぐっと増えるからね。\nそうだ――私がちょっと、問題を出してあげるよ。"},
       {type:"quiz", cat:"keigo", speaker:"先輩"},
       {type:"line", speaker:"先輩", text:"筋がいいね。入学、楽しみにしてて！"},
       {type:"line", text:"入学式前日の夜。"},
@@ -4427,10 +4428,13 @@ function storyChapterEnd(){
   const sp = storyProgress(st);
   if(!sp.completedChapters.includes(sp.chapter)) sp.completedChapters.push(sp.chapter);
   saveStats(st);
+  const pronoun = sp.chapter === "ch1" ? STORY_PRONOUN_LABELS[sp.flags.pronoun] : null;
+  const pronounNote = pronoun ? `<p class="note">✨ 一人称が、「${esc(pronoun)}」に設定されました！</p>` : "";
   screen.innerHTML = `
     <div class="card story-scene">
       <div class="story-chapter-end">📖 ${esc(STORY_CHAPTERS[sp.chapter].title)} クリア！</div>
       <p class="story-text">入学式当日の朝。支度を終えて、家を出る。\n\n新しい生活が、はじまる。</p>
+      ${pronounNote}
       <div class="btn-row" style="justify-content:center">
         <button class="btn" onclick="showHome()">ホームへ</button>
         <button class="btn secondary" onclick="storyReplayChapter()">もう一度読む（報酬なし）</button>
