@@ -528,7 +528,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.2</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.3</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -692,7 +692,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 25;
+const SAVE_FORMAT_VERSION = 26;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -4287,8 +4287,26 @@ const BASEBALL_SPEED_LABELS = [
 function baseballSpeedLabel(n){
   return n <= BASEBALL_SPEED_LABELS.length ? BASEBALL_SPEED_LABELS[n - 1] : "限界を超えた渾身の一球";
 }
+/* 安打の結果（2026-07-19〜、教員の指示でヒットの価値をランダム抽選に変更）。球種はストレート
+   一本のままだが、「当たりどころ」次第でヒット50%・二塁打25%・三塁打15%・ホームラン10%の
+   いずれかになる（進塁数と実況メッセージが変わる）。累積確率で判定するので、
+   BASEBALL_HIT_TYPESの並び順・weightの合計が1になっていることが前提。 */
+const BASEBALL_HIT_TYPES = [
+  { label:"ヒット",         bases:1, weight:0.50, msg:"快音！鋭い打球がフェアゾーンに転がる！ヒット！" },
+  { label:"ツーベースヒット", bases:2, weight:0.25, msg:"強烈な打球が外野を割る！ツーベースヒットだ！" },
+  { label:"スリーベースヒット", bases:3, weight:0.15, msg:"大きな当たり！三塁まで走りきるスリーベースヒット！" },
+  { label:"ホームラン",       bases:4, weight:0.10, msg:"特大アーチ！スタンドまで運ぶホームランだ！" },
+];
+function pickBaseballHitType(){
+  const r = Math.random();
+  let acc = 0;
+  for(const h of BASEBALL_HIT_TYPES){
+    acc += h.weight;
+    if(r < acc) return h;
+  }
+  return BASEBALL_HIT_TYPES[BASEBALL_HIT_TYPES.length - 1];
+}
 // bases: [1塁,2塁,3塁]の真偽値配列。advanceで打者含め押し出す(元のjsxのadvanceRunnersと同じロジック)。
-// 2026-07-18〜、球種はストレートのみになったため、安打は常にn=1(単打)で呼び出す。
 function baseballAdvanceRunners(bases, n){
   const occupied = [true, ...bases];
   const newBases = [false, false, false];
@@ -5345,14 +5363,15 @@ function storyBaseballAnswer(idx){
   const elapsedMs = Date.now() - (bb.shownAt || Date.now());
   const r = record("yoji", bb.question, correct, elapsedMs, {skipRecentAcc:true});
   if(correct){
-    const { newBases, runsScored } = baseballAdvanceRunners(bb.bases, 1);
-    bb.feedback = { ok:true, msg:`快音！鋭い打球がフェアゾーンに転がる！ヒット！${runsScored > 0 ? `　${runsScored}点入る！` : ""}`, lvup:r.lvup };
+    const hit = pickBaseballHitType();
+    const { newBases, runsScored } = baseballAdvanceRunners(bb.bases, hit.bases);
+    bb.feedback = { ok:true, msg:`${hit.msg}${runsScored > 0 ? `　${runsScored}点入る！` : ""}`, lvup:r.lvup };
     bb.bases = newBases;
     if(runsScored > 0){
       bb.totalRuns += runsScored;
       bb.curInningRuns += runsScored;
     }
-    baseballAddLog(`${baseballSpeedLabel(bb.batterNumber)}を打ち返す → 正解 → ヒット${runsScored > 0 ? `(${runsScored}点)` : ""}`);
+    baseballAddLog(`${baseballSpeedLabel(bb.batterNumber)}を打ち返す → 正解 → ${hit.label}${runsScored > 0 ? `(${runsScored}点)` : ""}`);
   }else{
     bb.feedback = { ok:false, msg:"空振り三振…アウト", lvup:r.lvup };
     baseballAddLog(`${baseballSpeedLabel(bb.batterNumber)}を選択 → 不正解 → アウト`);
@@ -5520,7 +5539,7 @@ function storyRenderBaseballScreen(){
     bodyHtml = `
       <div class="bb-ready-card">
         <p class="story-text">${bb.inning}回 ${bb.batterNumber}人目の打者</p>
-        <p class="note">相手はまっすぐな球だけで勝負してくる剛腕エース。ヒットが続いて追い詰められるほど本気になり、球はどんどん速くなっていく。</p>
+        <p class="note">相手はまっすぐな球だけで勝負してくる剛腕エース。ヒットが続いて追い詰められるほど本気になり、球はどんどん速くなっていく。打ち返せたときの当たりどころは運次第――単打から一発大逆転のホームランまであるかも。</p>
         <p class="bb-ready-warn">制限時間 ${baseballTimeLimit(bb.batterNumber).toFixed(1)}秒以内に回答！</p>
         <button class="btn" onclick="storyBaseballStartPitch()">次の球</button>
       </div>`;
