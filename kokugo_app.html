@@ -470,12 +470,37 @@
   .proof-token.found{ background:var(--okbg); color:var(--ok); font-weight:bold; text-decoration:underline; cursor:default; }
   .proof-token.tried{ background:var(--ngbg); color:var(--ng); opacity:.6; cursor:default; }
   .proof-token.missed{ background:var(--ngbg); color:var(--ng); text-decoration:underline wavy; cursor:default; }
+
+  /* 野球ミニゲーム（baseball beat、2026-07-17〜、第4章用）。既存の.boss-name/.boss-q-card/
+     .boss-timer-bar/.choices/.choiceは他の中ボスと共通のまま再利用し、スコアボード・
+     ダイヤモンド・アウトカウント・投球前カウントダウンだけ専用CSSを追加する。 */
+  .bb-scoreboard{ border:1px solid var(--line); border-radius:10px; overflow:hidden; margin-bottom:14px; }
+  .bb-sb-row{ display:flex; }
+  .bb-sb-row.head{ background:var(--ink); }
+  .bb-sb-team{ width:52px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:.78rem; background:var(--card); border-right:1px solid var(--line); }
+  .bb-sb-row.head .bb-sb-team{ background:transparent; border-right:none; }
+  .bb-sb-cell{ flex:1; text-align:center; padding:5px 2px; border-right:1px solid var(--line); font-variant-numeric:tabular-nums; }
+  .bb-sb-row.head .bb-sb-cell{ color:#e8ddc0; font-size:.72rem; border-right:1px solid rgba(255,255,255,.15); }
+  .bb-sb-cell.total{ background:var(--ink); color:#f2ead9; font-weight:bold; border-right:none; }
+  .bb-sb-row:not(.head) .bb-sb-cell{ background:var(--card); font-weight:bold; }
+  .bb-field-wrap{ max-width:260px; margin:0 auto 10px; }
+  .bb-field{ aspect-ratio:1/1; background:#dcead0; border:2px solid var(--accent2); border-radius:10px; overflow:hidden; }
+  .bb-outs-row{ display:flex; align-items:center; gap:8px; justify-content:center; margin-bottom:14px; font-size:.8rem; color:var(--sub); }
+  .bb-out-dot{ width:11px; height:11px; border-radius:50%; display:inline-block; background:var(--line); }
+  .bb-out-dot.used{ background:var(--ng); }
+  .bb-ready-card{ text-align:center; }
+  .bb-ready-warn{ color:var(--accent); font-weight:bold; font-size:.85rem; margin:8px 0 12px; }
+  .bb-countdown{ text-align:center; padding:20px 0; }
+  .bb-countdown-num{ font-size:3rem; font-weight:bold; color:var(--accent2); font-variant-numeric:tabular-nums; }
+  .bb-countdown-label{ font-size:.78rem; color:var(--gold); letter-spacing:.1em; margin-top:6px; }
+  .bb-log{ font-size:.78rem; color:var(--sub); margin-top:12px; }
+  .bb-log div{ line-height:1.6; }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver7.6</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver7.7</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -639,7 +664,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 21;
+const SAVE_FORMAT_VERSION = 22;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -1557,6 +1582,7 @@ function balancedTrainingBtnHtml(){
 function showHome(){
   clearStoryBattleTimer(); // 中ボス戦を中断して離れたときに、残った制限時間タイマーを止める
   clearStoryProofreadTimer(); // 校正ミニゲームを中断して離れたときに、残った制限時間タイマーを止める
+  clearBaseballTimers(); // 野球ミニゲームを中断して離れたときに、残ったカウントダウン・制限時間タイマーを止める
   const st = loadStats();
   let html = "";
   html += kotonohaCardHtml(st);
@@ -4079,14 +4105,22 @@ const STORY_EVENT_BOSSES = {
     id:"story_news_galley", name:"誤植だらけの新聞ゲラ", icon:"🗞️",
     item:"赤ペン添削メモ", treasure:"編集長からの太鼓判",
   },
+  /* 第4章「野球で勝負！」用（2026-07-17〜）。3イニング制の野球ミニゲーム（baseball beat）に
+     勝った（自軍の得点が相手を上回った）ときだけ付与する。報酬ロジックはproofread/battleと
+     同じ天井・宝具抽選を再利用する（storyBaseballResolve参照）。 */
+  baseballMatch: {
+    id:"story_baseball_match", name:"胸を借りた練習試合", icon:"⚾",
+    item:"泥だらけのユニフォーム", treasure:"先輩からのサインボール",
+  },
 };
 TREASURE_NAMES.add(STORY_EVENT_BOSSES.printPile.treasure);
 TREASURE_NAMES.add(STORY_EVENT_BOSSES.selfIntroCard.treasure);
 TREASURE_NAMES.add(STORY_EVENT_BOSSES.newsGalley.treasure);
+TREASURE_NAMES.add(STORY_EVENT_BOSSES.baseballMatch.treasure);
 
 /* クリア報酬アイテム（章クリアで確定ドロップする通常アイテムのうち、使うと経験値+20になるもの）。
    宝具（TREASURE_NAMES／useTreasureItem）とは別枠の、ストーリーモード専用の使用可能アイテム分類。 */
-const STORY_REWARD_ITEM_NAMES = new Set([STORY_EVENT_BOSSES.printPile.item, STORY_EVENT_BOSSES.selfIntroCard.item, STORY_EVENT_BOSSES.newsGalley.item, STORY_JUDGED_PERFECT_ITEM]);
+const STORY_REWARD_ITEM_NAMES = new Set([STORY_EVENT_BOSSES.printPile.item, STORY_EVENT_BOSSES.selfIntroCard.item, STORY_EVENT_BOSSES.newsGalley.item, STORY_EVENT_BOSSES.baseballMatch.item, STORY_JUDGED_PERFECT_ITEM]);
 const STORY_REWARD_EXP_AMOUNT = 20;
 function isStoryRewardItem(name){ return STORY_REWARD_ITEM_NAMES.has(name); }
 function useStoryRewardItem(name){
@@ -4186,6 +4220,61 @@ const STORY_PROOFREAD_PASSAGES = [
     {t:"時間が"}, {t:"足りないから、", wrong:true, correct:"足りないため、"}, {t:"確認を"}, {t:"後回しに"}, {t:"してしまう"}, {t:"班も"}, {t:"あると"}, {t:"聞く。"},
   ]},
 ];
+
+/* 野球ミニゲーム（baseball beat、2026-07-17〜、第4章「野球で勝負！」用）。教員が事前に
+   用意したReactの試作（野球ミニゲーム.jsx）を、①出題ジャンルを部首に差し替え、②相手チームの
+   得点を「1回につき必ず1点」から「1回につき0〜3点のランダム」に変更、③アウトになるたびに
+   打者の制限時間を1人目の3秒にリセットするよう変更（ヒットが続く間だけ0.5秒ずつ短縮、
+   最短0.5秒）、という3点の指示のもとに移植した。ステータス非依存の他の中ボス（battle/
+   proofread beat）ともまた違う出題形式で、3イニング制・アウト/走者/得点というリアルタイム性の
+   高いミニゲームを丸ごと1つのbeatとして実装している。
+   問題データは新規に作らず、既存のCATS.busyu.items（725問、lv1〜4）をそのまま流用する
+   （教員から「部首の問題はもともとの知識DXにあるものから出せないか」という指示があったため）。
+   lvを「直球=lv1(やさしい)／変化球=lv2(ふつう)／勝負球=lv3・4(むずかしい)」の3段階に割り振り、
+   球種に応じて安打の価値（単打/二塁打/満塁弾級）が変わるという原作のゲーム性をそのまま踏襲した。 */
+const BASEBALL_INNINGS_TOTAL = 3;
+const BASEBALL_START_TIME_S = 3;      // 1人目の制限時間（秒）。アウトのたびにここへ戻る
+const BASEBALL_TIME_STEP_S = 0.5;     // ヒットが続くたびに、この秒数ずつ短くなる
+const BASEBALL_MIN_TIME_S = 0.5;      // 制限時間の下限
+const BASEBALL_PITCH_META = {
+  straight: { label:"直球", sub:"やさしい球", bases:1, lvs:[1], color:"#2c6e63" },
+  curve:    { label:"変化球", sub:"ふつうの球", bases:2, lvs:[2], color:"#b8860b" },
+  decisive: { label:"勝負球", sub:"むずかしい球", bases:4, lvs:[3,4], color:"#c0392b" },
+};
+/* アウトのたびに1人目(3秒)へ戻り、ヒットが続く間だけ短縮されていく制限時間。
+   n=「アウトを挟まずに連続でヒットした人数」(storyRun.bb.batterNumber)。 */
+function baseballTimeLimit(n){
+  return Math.max(BASEBALL_START_TIME_S - (n - 1) * BASEBALL_TIME_STEP_S, BASEBALL_MIN_TIME_S);
+}
+function pickBaseballPitchKind(){
+  const r = Math.random();
+  if(r < 0.45) return "straight";
+  if(r < 0.8) return "curve";
+  return "decisive";
+}
+function pickBaseballQuestion(kind, lastQ){
+  const lvs = BASEBALL_PITCH_META[kind].lvs;
+  let pool = CATS.busyu.items.filter(it => lvs.includes(it.lv));
+  if(pool.length > 1 && lastQ) pool = pool.filter(it => it.q !== lastQ);
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+// bases: [1塁,2塁,3塁]の真偽値配列。advanceで打者含め押し出す(元のjsxのadvanceRunnersと同じロジック)。
+function baseballAdvanceRunners(bases, n){
+  const occupied = [true, ...bases];
+  const newBases = [false, false, false];
+  let runsScored = 0;
+  for(let i = 0; i < occupied.length; i++){
+    if(!occupied[i]) continue;
+    const newPos = i + n;
+    if(newPos >= 4) runsScored += 1;
+    else if(newPos >= 1) newBases[newPos - 1] = true;
+  }
+  return { newBases, runsScored };
+}
+// 相手チームの得点(2026-07-17、教員の指示で1回固定1点→0〜3点のランダムに変更)。
+function baseballOpponentRuns(){
+  return Math.floor(Math.random() * 4);
+}
 
 const STORY_CHAPTERS = {
   ch1: {
@@ -4400,6 +4489,35 @@ const STORY_CHAPTERS = {
     ],
     epilogue: "掲示板の前を通るたびに、少しだけ誇らしい気持ちになる。\n\n自分たちの言葉が、誰かに読まれ、誰かに届いている――そのことが、ちゃんと実感できた1日だった。",
   },
+  ch4: {
+    title: "第4章「野球で勝負！」",
+    beats: [
+      {type:"line", text:"夏休みを前にした、部活動の体験入部週間。\n希望していた野球部のグラウンドに、初めて足を踏み入れた。"},
+      {type:"line", text:"部員たちの声が、まぶしいくらいに響いている。\nノックの音、スパイクが土を蹴る音、金属バットの快音――すべてが新鮮だった。"},
+      {type:"line", speaker:"ことのは", text:"迫力あるね……もし入部したら、あんなふうに白球と向き合うことになるのかな。"},
+      {type:"line", text:"白球が飛び交う様子を眺めながら、頭の中でふと想像がふくらむ。\n「入部したら、こんな感じかな……」"},
+      {type:"line", speaker:"野球部の先輩", text:"「見学ありがとう！ ……よし、せっかくだから、ちょっとバッター気分を味わってみるか？」"},
+      {type:"line", text:"先輩に手招きされ、バッターボックスに立たされる。\n心臓が、少しずつ早鐘を打ちはじめた。"},
+      {type:"choice", flagKey:"wantsBaseballRules", text:"先輩が「ルールを説明しようか?」と聞いてきた。どうする？", options:[
+        {label:"説明を聞く", value:"yes"},
+        {label:"聞かずにやってみる", value:"no"},
+      ]},
+      {type:"line", speaker:"野球部の先輩", text:"「よし、いくぞ！」", variants:[
+        {flag:"wantsBaseballRules", value:"yes", text:"「勝負は１球で決まります。ヒットを続けて打つと、相手の球が速くなっていきます。３アウトでチェンジです」\n先輩がそう説明してくれた。"},
+        {flag:"wantsBaseballRules", value:"no", text:"「よし、いくぞ！」"},
+      ]},
+      {type:"baseball", boss:"baseballMatch"},
+      {type:"line", speaker:"野球部の先輩", text:"「やるじゃないか！」"},
+      {type:"line", text:"バットを振り抜いた手のひらに、じんとしたしびれが残っている。\n想像していたよりも、ずっと本気の勝負だった。"},
+      {type:"line", speaker:"ことのは", text:"すごい経験だったね。\n言葉の勝負も、こんなふうに一瞬の判断が大事なんだろうね。", variants:[
+        {flag:"favoriteSubject", value:"kanji", text:"漢字が得意なきみなら、この一瞬の判断力もきっと武器になるね。"},
+        {flag:"favoriteSubject", value:"dokkai", text:"文章を読むのが得意なきみなら、とっさの判断も落ち着いてできそうだね。"},
+        {flag:"favoriteSubject", value:"bunpou", text:"言葉のきまりが得意なきみなら、この集中力もうまく活かせそうだね。"},
+      ]},
+      {type:"line", text:"体験入部が終わり、グラウンドを後にする。\n汗だくのユニフォームが、今日の勝負の証だった。"},
+    ],
+    epilogue: "帰り道、まだ耳の奥にノックの音が残っている気がした。\n\n言葉で戦うのも、白球で戦うのも、本気になった瞬間はきっと同じくらい熱い。",
+  },
 };
 
 /* 一人称選択（ch1のpronoun choice）の表示名。ホーム画面の「相棒」表記などで使う。 */
@@ -4422,6 +4540,7 @@ function storyFreshRun(){
     gateBeatIdx:null, gateWindow:[], gateCleared:false,
     battleBeatIdx:null, battleAnswered:0, battleCorrect:0, timerId:null,
     lastProofPassageIdx:null, proofPassageIdx:null, proofFound:null, proofDeadline:null, proofDone:false, proofTimerId:null,
+    bbBeatIdx:null, bb:null,
   };
 }
 
@@ -4490,6 +4609,7 @@ function storyRenderBeat(){
   else if(beat.type === "quiz") storyRenderQuiz(beat, sp.beatIdx);
   else if(beat.type === "battle") storyRenderBattle(beat, sp.beatIdx);
   else if(beat.type === "proofread") storyRenderProofread(beat);
+  else if(beat.type === "baseball") storyRenderBaseball(beat, sp.beatIdx);
   else showHome();
 }
 function storyFooterHtml(){
@@ -5064,6 +5184,335 @@ function storyProofreadResolve(){
         <button class="btn" onclick="storyAdvance()">つづける</button>
       </div>
     </div>`;
+}
+
+/* 野球ミニゲーム（baseball beat）：他の中ボス（battle/proofread）と違い、3イニング制・
+   アウト/走者/得点というリアルタイム性の高いミニゲーム全体を1つのbeatとして丸ごと実装する。
+   状態はstoryRun.bb（非セーブのランタイムオブジェクト）に持たせ、beatに滞在している間は
+   何度でも通しでプレイできる（storyRenderBeatが呼ばれるたびに、bbBeatIdxが変わらない限り
+   状態を保持する。gateBeatIdx/battleBeatIdxと同じガードパターン）。
+   勝敗の判定は3イニング終了後の得点比較のみ（自軍>相手で勝ち、以下は引き分け扱いで
+   どちらも「もう一度挑戦する」を表示する、教員の指示どおりの仕様）。 */
+function storyRenderBaseball(beat, idx){
+  if(storyRun.bbBeatIdx !== idx){
+    storyRun.bbBeatIdx = idx;
+    storyBaseballReset();
+  }
+  storyRun.curBeat = beat;
+  storyRenderBaseballScreen();
+}
+function storyBaseballReset(){
+  storyRun.bb = {
+    inning:1, outs:0, bases:[false,false,false], totalRuns:0,
+    inningRuns:Array(BASEBALL_INNINGS_TOTAL).fill(null),
+    opponentInningRuns:Array(BASEBALL_INNINGS_TOTAL).fill(null), opponentTotalRuns:0,
+    curInningRuns:0, batterNumber:1, phase:"ready",
+    pitch:null, question:null, selected:null, feedback:null,
+    log:["プレイボール！「次の球」を押して勝負開始。"],
+    lastQ:null, countdown:null,
+    countdownTimerId:null, answerTimerId:null, answerDeadline:null, timeLimit:BASEBALL_START_TIME_S,
+  };
+}
+function baseballAddLog(msg){
+  const bb = storyRun.bb;
+  bb.log = [...bb.log.slice(-6), msg];
+}
+function clearBaseballCountdownTimer(){
+  const bb = storyRun && storyRun.bb;
+  if(bb && bb.countdownTimerId){ clearInterval(bb.countdownTimerId); bb.countdownTimerId = null; }
+}
+function clearBaseballAnswerTimer(){
+  const bb = storyRun && storyRun.bb;
+  if(bb && bb.answerTimerId){ clearInterval(bb.answerTimerId); bb.answerTimerId = null; }
+}
+function clearBaseballTimers(){
+  clearBaseballCountdownTimer();
+  clearBaseballAnswerTimer();
+}
+
+function storyBaseballStartPitch(){
+  const bb = storyRun.bb;
+  if(bb.phase !== "ready") return;
+  bb.phase = "countdown";
+  bb.countdown = 3;
+  storyRenderBaseballScreen();
+  const run = storyRun;
+  bb.countdownTimerId = setInterval(() => {
+    if(storyRun !== run) return;
+    bb.countdown -= 1;
+    if(bb.countdown <= 0){
+      clearBaseballCountdownTimer();
+      bb.countdown = null;
+      storyBaseballBeginQuestion();
+    }else{
+      storyRenderBaseballScreen();
+    }
+  }, 650);
+}
+function storyBaseballBeginQuestion(){
+  const bb = storyRun.bb;
+  const kind = pickBaseballPitchKind();
+  const limit = baseballTimeLimit(bb.batterNumber);
+  bb.pitch = kind;
+  bb.question = pickBaseballQuestion(kind, bb.lastQ);
+  bb.lastQ = bb.question.q;
+  bb.selected = null;
+  bb.feedback = null;
+  bb.phase = "question";
+  bb.timeLimit = limit;
+  bb.answerDeadline = Date.now() + limit * 1000;
+  storyRenderBaseballScreen();
+  const run = storyRun;
+  bb.answerTimerId = setInterval(() => {
+    if(storyRun !== run) return;
+    if(bb.answerDeadline - Date.now() <= 0){
+      clearBaseballAnswerTimer();
+      storyBaseballTimeout();
+    }
+  }, 150);
+}
+function animateBaseballTimerBar(ms){
+  const el = document.getElementById("bbTimerFill");
+  if(!el) return;
+  el.style.transition = "none";
+  el.style.width = "100%";
+  if(typeof requestAnimationFrame !== "function") return;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      el.style.transition = `width ${ms}ms linear`;
+      el.style.width = "0%";
+    });
+  });
+}
+function storyBaseballTimeout(){
+  const bb = storyRun.bb;
+  if(bb.selected !== null) return;
+  clearChoiceKeys();
+  bb.selected = -1;
+  bb.feedback = { ok:false, msg:"時間切れ…見逃し三振" };
+  baseballAddLog(`${BASEBALL_PITCH_META[bb.pitch].label}を選択 → 時間切れ → アウト`);
+  bb.outs += 1;
+  storyRenderBaseballScreen();
+  setTimeout(() => { if(storyRun && storyRun.bb === bb){ bb.phase = "resolved"; storyRenderBaseballScreen(); } }, 700);
+}
+function storyBaseballAnswer(idx){
+  const bb = storyRun.bb;
+  if(bb.selected !== null) return;
+  clearBaseballAnswerTimer();
+  clearChoiceKeys();
+  bb.selected = idx;
+  const correct = idx === bb.question.a;
+  if(correct){
+    const meta = BASEBALL_PITCH_META[bb.pitch];
+    const { newBases, runsScored } = baseballAdvanceRunners(bb.bases, meta.bases);
+    const hitLabel = meta.bases === 1 ? "ヒット" : meta.bases === 2 ? "ツーベース" : "満塁弾級のホームラン";
+    bb.feedback = { ok:true, msg:`快音！${hitLabel}${runsScored > 0 ? `　${runsScored}点入る！` : ""}` };
+    bb.bases = newBases;
+    if(runsScored > 0){
+      bb.totalRuns += runsScored;
+      bb.curInningRuns += runsScored;
+    }
+    baseballAddLog(`${meta.label}を選択 → 正解 → ${hitLabel}${runsScored > 0 ? `(${runsScored}点)` : ""}`);
+  }else{
+    bb.feedback = { ok:false, msg:"空振り三振…アウト" };
+    baseballAddLog(`${BASEBALL_PITCH_META[bb.pitch].label}を選択 → 不正解 → アウト`);
+    bb.outs += 1;
+  }
+  storyRenderBaseballScreen();
+  setTimeout(() => { if(storyRun && storyRun.bb === bb){ bb.phase = "resolved"; storyRenderBaseballScreen(); } }, 900);
+}
+/* アウトになった直後は、次の打者の制限時間を1人目の3秒にリセットする（2026-07-17、
+   教員の指示）。ヒットが続いた場合だけbatterNumberを1ずつ増やし、0.5秒ずつ短くしていく。 */
+function storyBaseballNextBatter(){
+  const bb = storyRun.bb;
+  const wasHit = !!(bb.feedback && bb.feedback.ok);
+  bb.pitch = null;
+  bb.question = null;
+  bb.countdown = null;
+  if(bb.outs >= 3){
+    storyBaseballFinishInning();
+  }else{
+    bb.batterNumber = wasHit ? bb.batterNumber + 1 : 1;
+    bb.phase = "ready";
+  }
+  storyRenderBaseballScreen();
+}
+function storyBaseballFinishInning(){
+  const bb = storyRun.bb;
+  bb.inningRuns[bb.inning - 1] = bb.curInningRuns;
+  baseballAddLog(`${bb.inning}回表終了。この回 ${bb.curInningRuns}点。`);
+  const oppRuns = baseballOpponentRuns();
+  bb.opponentInningRuns[bb.inning - 1] = oppRuns;
+  bb.opponentTotalRuns += oppRuns;
+  baseballAddLog(oppRuns > 0 ? `${bb.inning}回裏、相手チームが${oppRuns}点を返す。` : `${bb.inning}回裏、相手チームを無得点に抑えた。`);
+  if(bb.inning >= BASEBALL_INNINGS_TOTAL){
+    bb.phase = "gameover";
+    return;
+  }
+  bb.inning += 1;
+  bb.outs = 0;
+  bb.bases = [false, false, false];
+  bb.curInningRuns = 0;
+  bb.batterNumber = 1;
+  bb.phase = "ready";
+}
+function storyBaseballRetry(){
+  storyBaseballReset();
+  storyRenderBeat();
+}
+function storyBaseballResolve(){
+  const beat = storyRun.curBeat;
+  const boss = STORY_EVENT_BOSSES[beat.boss];
+  const st = loadStats();
+  const sp = storyProgress(st);
+  const isReplay = sp.completedChapters.includes(sp.chapter);
+  let gotTreasure = false;
+  if(!isReplay){
+    st.items[boss.item] = (st.items[boss.item]||0) + 1;
+    if(treasureDropAllowed(st)){
+      st.bossPity[boss.id] = (st.bossPity[boss.id]||0) + 1;
+      if(st.bossPity[boss.id] >= BOSS_PITY_MAX || Math.random() < BOSS_TREASURE_RATE){
+        gotTreasure = true;
+        st.bossPity[boss.id] = 0;
+        st.items[boss.treasure] = (st.items[boss.treasure]||0) + 1;
+      }
+    }
+    saveStats(st);
+  }
+  screen.innerHTML = `
+    <div class="card story-scene">
+      <div class="story-chapter-end">🎉 クリア！</div>
+      ${isReplay
+        ? `<p class="story-text">「${esc(boss.name)}」に勝った！（再プレイのため、今回はアイテムの入手はありません）</p>`
+        : `<p class="story-text">「${esc(boss.name)}」に勝った！<br>${esc(boss.icon)} <span class="drop-item">【${esc(boss.item)}】</span>を手に入れた！${gotTreasure ? `<br>✨ さらに、宝具<span class="drop-item treasure-drop">【${esc(boss.treasure)}】</span>を手に入れた！ ✨` : ""}</p>`}
+      <div class="btn-row" style="justify-content:center">
+        <button class="btn" onclick="storyAdvance()">つづける</button>
+      </div>
+    </div>`;
+}
+
+function baseballDiamondSVG(bases){
+  const HOME = { x:200, y:352 }, FIRST = { x:322, y:230 }, SECOND = { x:200, y:108 }, THIRD = { x:78, y:230 }, MOUND = { x:200, y:268 };
+  const runnerFill = (on) => (on ? "#c9a13a" : "#ffffff");
+  const runnerGlow = (on) => (on ? "0 0 10px rgba(201,161,58,0.9)" : "none");
+  return `
+    <svg viewBox="0 0 400 400" style="width:100%;height:100%;display:block" role="img" aria-label="野球のダイヤモンド">
+      <rect x="0" y="0" width="400" height="400" fill="#dcead0" />
+      <line x1="${HOME.x}" y1="${HOME.y}" x2="14" y2="34" stroke="#ffffff" stroke-width="3" />
+      <line x1="${HOME.x}" y1="${HOME.y}" x2="386" y2="34" stroke="#ffffff" stroke-width="3" />
+      <polygon points="${HOME.x},${HOME.y} ${FIRST.x},${FIRST.y} ${SECOND.x},${SECOND.y} ${THIRD.x},${THIRD.y}" fill="#d8b57e" stroke="#a9895c" stroke-width="2" />
+      <polygon points="${HOME.x},${HOME.y} ${FIRST.x},${FIRST.y} ${SECOND.x},${SECOND.y} ${THIRD.x},${THIRD.y}" fill="none" stroke="#f2ead9" stroke-width="1.5" stroke-dasharray="5 4" />
+      <circle cx="${MOUND.x}" cy="${MOUND.y}" r="14" fill="#c9ab7c" stroke="#a9895c" stroke-width="1.5" />
+      <rect x="${MOUND.x - 8}" y="${MOUND.y - 2}" width="16" height="4" fill="#f2ead9" />
+      <g style="filter:drop-shadow(${runnerGlow(bases[1])})"><rect x="${SECOND.x - 9}" y="${SECOND.y - 9}" width="18" height="18" fill="${runnerFill(bases[1])}" stroke="#4a4436" stroke-width="2" /></g>
+      <g style="filter:drop-shadow(${runnerGlow(bases[0])})"><rect x="${FIRST.x - 9}" y="${FIRST.y - 9}" width="18" height="18" fill="${runnerFill(bases[0])}" stroke="#4a4436" stroke-width="2" /></g>
+      <g style="filter:drop-shadow(${runnerGlow(bases[2])})"><rect x="${THIRD.x - 9}" y="${THIRD.y - 9}" width="18" height="18" fill="${runnerFill(bases[2])}" stroke="#4a4436" stroke-width="2" /></g>
+      <polygon points="${HOME.x - 11},${HOME.y - 11} ${HOME.x + 11},${HOME.y - 11} ${HOME.x + 11},${HOME.y + 2} ${HOME.x},${HOME.y + 13} ${HOME.x - 11},${HOME.y + 2}" fill="#ffffff" stroke="#4a4436" stroke-width="2" />
+      <text x="${SECOND.x}" y="${SECOND.y - 16}" text-anchor="middle" font-size="11" fill="#4a4436">二塁</text>
+      <text x="${FIRST.x + 22}" y="${FIRST.y + 4}" text-anchor="middle" font-size="11" fill="#4a4436">一塁</text>
+      <text x="${THIRD.x - 22}" y="${THIRD.y + 4}" text-anchor="middle" font-size="11" fill="#4a4436">三塁</text>
+      <text x="${HOME.x}" y="${HOME.y + 30}" text-anchor="middle" font-size="11" fill="#4a4436">本塁</text>
+    </svg>`;
+}
+function baseballScoreboardHtml(bb){
+  let head = `<div class="bb-sb-row head"><div class="bb-sb-team"></div>`;
+  for(let n = 1; n <= BASEBALL_INNINGS_TOTAL; n++) head += `<div class="bb-sb-cell">${n}</div>`;
+  head += `<div class="bb-sb-cell">計</div></div>`;
+  let ownRow = `<div class="bb-sb-row"><div class="bb-sb-team">自軍</div>`;
+  for(let n = 1; n <= BASEBALL_INNINGS_TOTAL; n++){
+    const v = bb.inningRuns[n-1] !== null ? bb.inningRuns[n-1] : (n === bb.inning ? bb.curInningRuns : "-");
+    ownRow += `<div class="bb-sb-cell">${v}</div>`;
+  }
+  ownRow += `<div class="bb-sb-cell total">${bb.totalRuns}</div></div>`;
+  let oppRow = `<div class="bb-sb-row"><div class="bb-sb-team">相手</div>`;
+  for(let n = 1; n <= BASEBALL_INNINGS_TOTAL; n++){
+    const v = bb.opponentInningRuns[n-1] !== null ? bb.opponentInningRuns[n-1] : "-";
+    oppRow += `<div class="bb-sb-cell">${v}</div>`;
+  }
+  oppRow += `<div class="bb-sb-cell total">${bb.opponentTotalRuns}</div></div>`;
+  return `<div class="bb-scoreboard">${head}${ownRow}${oppRow}</div>`;
+}
+function storyRenderBaseballScreen(){
+  const bb = storyRun.bb;
+  const boss = STORY_EVENT_BOSSES[storyRun.curBeat.boss];
+  const fieldHtml = `
+    <div class="bb-field-wrap">
+      <div class="bb-field">${baseballDiamondSVG(bb.bases)}</div>
+    </div>
+    <div class="bb-outs-row">
+      <span>アウトカウント</span>
+      ${[0,1,2].map(i => `<span class="bb-out-dot${i < bb.outs ? " used" : ""}"></span>`).join("")}
+    </div>`;
+
+  let bodyHtml;
+  if(bb.phase === "gameover"){
+    const won = bb.totalRuns > bb.opponentTotalRuns;
+    const resultMsg = won ? "勝利！" : bb.totalRuns === bb.opponentTotalRuns ? "引き分け…もう一度挑戦しよう" : "敗戦…もう一度挑戦しよう";
+    bodyHtml = `
+      <div class="bb-ready-card">
+        <p class="story-text">試合終了<br>自軍 ${bb.totalRuns}点 － 相手 ${bb.opponentTotalRuns}点<br><b>${esc(resultMsg)}</b></p>
+        <button class="btn" onclick="${won ? "storyBaseballResolve()" : "storyBaseballRetry()"}">${won ? "つづける" : "もう一度挑戦する"}</button>
+      </div>`;
+  }else if(bb.phase === "ready"){
+    bodyHtml = `
+      <div class="bb-ready-card">
+        <p class="story-text">${bb.inning}回 ${bb.batterNumber}人目の打者</p>
+        <p class="note">どんな球が来るかはお楽しみ。直球なら単打、変化球なら二塁打、勝負球なら満塁弾級のチャンス。</p>
+        <p class="bb-ready-warn">制限時間 ${baseballTimeLimit(bb.batterNumber).toFixed(1)}秒以内に回答！</p>
+        <button class="btn" onclick="storyBaseballStartPitch()">次の球</button>
+      </div>`;
+  }else if(bb.phase === "countdown"){
+    bodyHtml = `
+      <div class="bb-countdown">
+        <div class="bb-countdown-num">${bb.countdown}</div>
+        <div class="bb-countdown-label">投球体勢…</div>
+      </div>`;
+  }else if((bb.phase === "question" || bb.phase === "resolved") && bb.question){
+    const meta = BASEBALL_PITCH_META[bb.pitch];
+    const it = bb.question;
+    const timerHtml = bb.phase === "question"
+      ? `<div class="boss-timer-row"><div class="boss-timer-bar"><div id="bbTimerFill" class="boss-timer-fill"></div></div></div>`
+      : "";
+    const choicesHtml = `<div class="choices">${it.c.map((c,i) => {
+      let cls = "choice";
+      if(bb.selected !== null){
+        if(i === it.a) cls += " correct";
+        else if(i === bb.selected) cls += " wrong";
+        else cls += " dim";
+      }
+      return `<button class="${cls}" ${bb.selected !== null ? "disabled" : ""} onclick="storyBaseballAnswer(${i})"><span class="choice-num">${i+1}</span>${esc(c)}</button>`;
+    }).join("")}</div>`;
+    const feedbackHtml = bb.feedback ? `<div class="feedback show ${bb.feedback.ok ? "ok" : "ng"}"><div class="verdict">${esc(bb.feedback.msg)}</div></div>` : "";
+    const nextBtnHtml = bb.phase === "resolved" ? `<button class="btn" onclick="storyBaseballNextBatter()">${bb.outs >= 3 ? "この回を終える" : "次の打者へ"}</button>` : "";
+    bodyHtml = `
+      <div class="boss-q-card">
+        <div class="q-level" style="color:${meta.color}; font-weight:bold; margin-bottom:6px">${esc(meta.label)}（${esc(meta.sub)}）</div>
+        ${timerHtml}
+        <div class="boss-q-text">「${esc(it.q)}」の部首は？</div>
+        ${choicesHtml}
+        ${feedbackHtml}
+        <div class="btn-row">${nextBtnHtml}</div>
+      </div>`;
+    if(bb.phase === "question" && bb.selected === null){
+      setupChoiceKeys(pos => storyBaseballAnswer(pos), it.c.length);
+    }
+  }else{
+    bodyHtml = "";
+  }
+
+  screen.innerHTML = `
+    <div class="card story-scene">
+      <div class="boss-name">${esc(boss.icon)} ${esc(boss.name)}</div>
+      ${baseballScoreboardHtml(bb)}
+      ${fieldHtml}
+      ${bodyHtml}
+      <div class="bb-log">
+        <p class="note" style="margin-top:0">実況ログ</p>
+        ${bb.log.map(l => `<div>・${esc(l)}</div>`).join("")}
+      </div>
+    </div>
+    ${storyFooterHtml()}`;
+  if(bb.phase === "question" && bb.selected === null) animateBaseballTimerBar(bb.answerDeadline - Date.now());
 }
 
 function storyResetJudgedRun(sp){
