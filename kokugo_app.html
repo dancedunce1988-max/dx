@@ -475,7 +475,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver7.5</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver7.6</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -639,7 +639,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 20;
+const SAVE_FORMAT_VERSION = 21;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -4132,8 +4132,8 @@ function storyRewardSectionHtml(st){
    自動生成する仕組みは持たないため、教員の指示どおり4パターンを手作りしてランダム出題する）。
    tokensは表示順の配列。wrong:trueのものだけが「見つけるべき誤り」で、correctに正しい表記を持つ。
    トークンの粒度は文節程度（誤りだけを短く切って目立たせない）。 */
-const STORY_PROOFREAD_TIME_MS = 30000;
-const STORY_PROOFREAD_MISS_PENALTY_MS = 2000; // 誤りでない言葉をタップするたびに、残り時間からこの分だけ差し引く（すべてタップするだけの力任せ戦法を抑止するため）
+const STORY_PROOFREAD_TIME_MS = 60000; // 2026-07-17、教員の指示で30秒→1分に延長
+const STORY_PROOFREAD_MISS_PENALTY_MS = 5000; // 誤りでない言葉をタップするたびに、残り時間からこの分だけ差し引く（すべてタップするだけの力任せ戦法を抑止するため）。2026-07-17、教員の指示で2秒→5秒に変更
 const STORY_PROOFREAD_PASSAGES = [
   { tokens: [
     {t:"5月に"}, {t:"行われた"}, {t:"体育祭で、"}, {t:"1年1組は"}, {t:"大玉送りで"}, {t:"優勝した。"},
@@ -4172,6 +4172,18 @@ const STORY_PROOFREAD_PASSAGES = [
     {t:"苦しいときも"}, {t:"仲間がいれば"}, {t:"練習を"}, {t:"続けれる。", wrong:true, correct:"続けられる。"},
     {t:"ある先輩は"}, {t:"「苦しいときこそ、"}, {t:"仲間の"}, {t:"存在に", wrong:true, correct:"存在が"}, {t:"力になる」と"}, {t:"教えてくれた。"},
     {t:"その言葉が、"}, {t:"ずっと"}, {t:"心に"}, {t:"残こっている。", wrong:true, correct:"残っている。"},
+  ]},
+  /* 5パターン目（2026-07-17〜、教員の指示で追加）。他の4パターンとは違う切り口として、
+     「話し言葉のまま書いてしまう」誤り（でも、／だけど／じゃない、など）を集めた文章。
+     ch2のjudgedChoice「話し言葉と書き言葉を使い分けるのはどうして？」と同じテーマを、
+     この章の校正ミニゲームでも実地で扱う位置づけ。 */
+  { tokens: [
+    {t:"新聞委員会では、"}, {t:"記事を書くとき、"}, {t:"話し言葉ではなく"}, {t:"書き言葉を"}, {t:"使うように"}, {t:"気をつけている。"},
+    {t:"ふだんの"}, {t:"会話では、"}, {t:"くだけた"}, {t:"言い方を"}, {t:"することが"}, {t:"多い。"},
+    {t:"でも、", wrong:true, correct:"しかし、"}, {t:"新聞は"}, {t:"多くの"}, {t:"人が"}, {t:"読むものなので、"}, {t:"くだけたままでは、"}, {t:"書き言葉として"}, {t:"適切じゃない。", wrong:true, correct:"適切ではない。"},
+    {t:"話していて"}, {t:"自然だけど、", wrong:true, correct:"自然だが、"}, {t:"文字にすると"}, {t:"幼く"}, {t:"見えることが"}, {t:"あるみたいだ。", wrong:true, correct:"あるようだ。"},
+    {t:"委員会では"}, {t:"下書きの"}, {t:"見直しをするたび、"}, {t:"そうした"}, {t:"話し言葉が"}, {t:"残っていないか"}, {t:"確認している。"},
+    {t:"時間が"}, {t:"足りないから、", wrong:true, correct:"足りないため、"}, {t:"確認を"}, {t:"後回しに"}, {t:"してしまう"}, {t:"班も"}, {t:"あると"}, {t:"聞く。"},
   ]},
 ];
 
@@ -4373,6 +4385,7 @@ const STORY_CHAPTERS = {
       {type:"line", speaker:"太郎", text:"「さすが、言葉をたくさん知ってるね。これなら記事もいい感じに書けそうだ」"},
       {type:"line", text:"それから数日、班のみんなで取材をして、記事の下書きを仕上げた。\nいよいよ、清書して印刷する日がきた。"},
       {type:"line", speaker:"担任の先生", text:"「印刷する前に、もう一度、記事を見直しましょう。誤字や表現のまちがいがないか、みんなで校正するんですよ」"},
+      {type:"line", speaker:"担任の先生", text:"「新聞は、特にしっかりとした書き言葉を使わないといけません。そのために直すべきところを、探してほしいんです」"},
       {type:"line", text:"できあがった記事を、みんなで読み返す。\n――どこかに、まちがいが紛れていないだろうか。"},
       {type:"proofread", boss:"newsGalley"},
       {type:"line", text:"見直しを終え、ようやく新聞が完成した。"},
@@ -4915,7 +4928,7 @@ function storyRenderProofread(beat){
   screen.innerHTML = `
     <div class="card story-scene">
       <div class="boss-name">${esc(boss.icon)} ${esc(boss.name)}</div>
-      <p class="note">30秒以内に、まちがった言葉づかいを${errorCount}つ、すべてタップして見つけよう！（正しい言葉をタップすると、残り時間が${STORY_PROOFREAD_MISS_PENALTY_MS/1000}秒減ってしまいます）</p>
+      <p class="note">${STORY_PROOFREAD_TIME_MS/1000}秒以内に、まちがった言葉づかいを${errorCount}つ、すべてタップして見つけよう！（正しい言葉をタップすると、残り時間が${STORY_PROOFREAD_MISS_PENALTY_MS/1000}秒減ってしまいます）</p>
       <p class="note" id="proofProgress">見つけた数：0／${errorCount}</p>
       <div class="boss-timer-row"><div class="boss-timer-bar"><div id="proofTimerFill" class="boss-timer-fill"></div></div></div>
       <div class="boss-q-card">
@@ -4947,7 +4960,7 @@ function clearStoryProofreadTimer(){
     storyRun.proofTimerId = null;
   }
 }
-/* タイマーバーの幅は、常に「STORY_PROOFREAD_TIME_MS（30秒）に対する残り時間の割合」で表す。
+/* タイマーバーの幅は、常に「STORY_PROOFREAD_TIME_MS（1分）に対する残り時間の割合」で表す。
    誤答ペナルティでdeadlineが減った瞬間、バーがその分だけ目に見えて縮むので、
    ペナルティが起きたことが直感的にわかる（減った後の残り時間ぶんだけ、あらためて0%まで
    アニメーションさせる）。 */
