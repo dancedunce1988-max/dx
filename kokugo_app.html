@@ -451,12 +451,21 @@
   .story-text{white-space:pre-line; line-height:1.85; margin:4px 0 6px;}
   .story-choices{display:flex; flex-direction:column; gap:8px; margin-top:14px;}
   .story-chapter-end{font-size:1.2rem; font-weight:bold; text-align:center; margin-bottom:10px; color:var(--accent);}
+  /* 選択肢問題（judgedChoice、正誤あり）を、地の文の分岐用choice（正誤なし）と見た目で
+     はっきり区別するための専用スタイル（2026-07-17〜）。カード左端に金色のラインを入れ、
+     「正しいものを選んでください」の目印バッジを金色で強調する。 */
+  .judged-scene{ border-left:5px solid var(--gold); }
+  .judged-badge{
+    display:inline-block; background:rgba(184,134,11,.12); color:var(--gold);
+    border:1.5px solid var(--gold); font-weight:bold; font-size:.85rem;
+    border-radius:8px; padding:3px 12px; margin:2px 0 12px;
+  }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver6.8</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver7.0</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -710,7 +719,7 @@ function loadStats(){
         if(!st.story.judgedBest) st.story.judgedBest = {};
         if(!Array.isArray(st.kotonohaSeenForms)) st.kotonohaSeenForms = [];
         if(st.kotonohaDisplayOverride === undefined) st.kotonohaDisplayOverride = null;
-        /* 旧バージョンで「その他型」が固定されていた場合、今の見た目をそのまま引き継ぐ
+        /* 旧バージョンで「３領域以上バランス型」が固定されていた場合、今の見た目をそのまま引き継ぐ
            （次に進化するタイミングから、新しいランダム抽選のしくみに切りかわる）。 */
         if(!st.kotonohaOtherRoll && KOTONOHA_OTHER_TYPES.includes(st.kotonohaBranch)){
           st.kotonohaOtherRoll = {stageIdx: kotonohaStageIndex(kotonohaTotalXP(st)), type: st.kotonohaBranch};
@@ -960,7 +969,7 @@ document.addEventListener("keydown", handleChoiceKey);
    進化の「見た目の系統」は、領域ごとの偏り方によって4通りに分岐する：
      1. 一領域特化型：最も伸びている1領域だけで経験値の80%以上を占める
      2. 二領域特化型：上位2領域の合計で経験値の70%以上を占める
-     3. その他型　　：上記にも下記にもあてはまらない、ゆるやかな偏り
+     3. ３領域以上バランス型：上記にも下記にもあてはまらない、ゆるやかな偏り
      4. 全領域バランス型：すべての領域が平均レベルの±20%以内におさまっている
    1は不健康、2はそれより元気、3はさらに元気、4は伝説級の見た目にする。 */
 /* 分野ごとの「称号みちのり」（Lv1,10,30,60,100,150,210,280,360,450,550,660,780,900）と
@@ -1053,7 +1062,7 @@ const KOTONOHA_LINES = {
     {name:"二にして一・究極の絆竜神", icon:"👑"},
     {name:"絆の果て・真なる一体", icon:"💫"},
   ],
-  3:[ // その他型・のびのび系：2よりさらに元気なライン（下の5系統とランダムで抽選される）
+  3:[ // ３領域以上バランス型・のびのび系：2よりさらに元気なライン（下の5系統とランダムで抽選される）
     {name:"いきいき新芽",         icon:"🌿"},
     {name:"すくすく双葉",         icon:"🌱"},
     {name:"はつらつうさぎ",       icon:"🐰"},
@@ -1131,7 +1140,7 @@ const KOTONOHA_LINES = {
     {name:"全存在の根源・ことのはの神髄", icon:"✨"},
     {name:"ことのはの極致・真なる全知全能", icon:"🌈"},
   ],
-  5:[ // その他型・ほのお系
+  5:[ // ３領域以上バランス型・ほのお系
     {name:"ちいさな火だね",       icon:"🔥"},
     {name:"またたく炎の子",       icon:"✨"},
     {name:"もえる子ぎつね",       icon:"🦊"},
@@ -1170,7 +1179,7 @@ const KOTONOHA_LINES = {
     {name:"焔の果て・真なる創世", icon:"🔆"},
     {name:"炎そのものを超越せし者", icon:"🔥"},
   ],
-  6:[ // その他型・うみかぜ系
+  6:[ // ３領域以上バランス型・うみかぜ系
     {name:"しずくの精",           icon:"💧"},
     {name:"きらめく水泡",         icon:"🫧"},
     {name:"はねるいるか",         icon:"🐬"},
@@ -1209,7 +1218,7 @@ const KOTONOHA_LINES = {
     {name:"海の果て・真なる創世", icon:"🌊"},
     {name:"海そのものを超越せし者", icon:"🌀"},
   ],
-  7:[ // その他型・ほしぞら系
+  7:[ // ３領域以上バランス型・ほしぞら系
     {name:"星のかけら",           icon:"⭐"},
     {name:"またたく光の粒",       icon:"✨"},
     {name:"はねる子流星",         icon:"🌠"},
@@ -1248,7 +1257,7 @@ const KOTONOHA_LINES = {
     {name:"星の果て・真なる創世", icon:"🌌"},
     {name:"星そのものを超越せし者", icon:"🌠"},
   ],
-  8:[ // その他型・おとの系
+  8:[ // ３領域以上バランス型・おとの系
     {name:"音符のたね",           icon:"🎵"},
     {name:"ひびく小さな音",       icon:"🔔"},
     {name:"うたう小鳥",           icon:"🐦"},
@@ -1287,7 +1296,7 @@ const KOTONOHA_LINES = {
     {name:"音の果て・真なる創世", icon:"🎶"},
     {name:"音そのものを超越せし者", icon:"🔊"},
   ],
-  9:[ // その他型・はなぞの系
+  9:[ // ３領域以上バランス型・はなぞの系
     {name:"つぼみの精",           icon:"🌷"},
     {name:"めばえの妖精",         icon:"🌱"},
     {name:"はなさきうさぎ",       icon:"🐇"},
@@ -1329,12 +1338,12 @@ const KOTONOHA_LINES = {
 };
 const KOTONOHA_TYPE_LABEL = {
   1:"一領域特化型", 2:"二領域特化型", 4:"全領域バランス型",
-  3:"その他型（のびのび系）", 5:"その他型（ほのお系）", 6:"その他型（うみかぜ系）",
-  7:"その他型（ほしぞら系）", 8:"その他型（おとの系）", 9:"その他型（はなぞの系）",
+  3:"３領域以上バランス型（のびのび系）", 5:"３領域以上バランス型（ほのお系）", 6:"３領域以上バランス型（うみかぜ系）",
+  7:"３領域以上バランス型（ほしぞら系）", 8:"３領域以上バランス型（おとの系）", 9:"３領域以上バランス型（はなぞの系）",
 };
-/* 「その他型」に分類される場合、6系統（のびのび・ほのお・うみかぜ・ほしぞら・おとの・はなぞの）
+/* 「３領域以上バランス型」に分類される場合、6系統（のびのび・ほのお・うみかぜ・ほしぞら・おとの・はなぞの）
    から完全ランダムに1つを選ぶ。一領域特化・二領域特化・全領域バランスの条件を満たすときだけ
-   特定の系統（1・2・4）が確定し、それ以外（＝「その他型」）は進化するたびに毎回抽選し直す
+   特定の系統（1・2・4）が確定し、それ以外（＝「３領域以上バランス型」）は進化するたびに毎回抽選し直す
    （同じ段階の間は再抽選しないよう、直前に抽選した「段階」を記録しておく）。 */
 const KOTONOHA_OTHER_TYPES = [3, 5, 6, 7, 8, 9];
 function kotonohaTotalXP(st){
@@ -4389,10 +4398,11 @@ function storyAdvance(){
 function storyRenderJudgedChoice(beat){
   clearChoiceKeys();
   screen.innerHTML = `
-    <div class="card story-scene">
+    <div class="card story-scene judged-scene">
       ${beat.speaker ? `<div class="story-speaker">${esc(beat.speaker)}</div>` : ""}
       ${beat.intro ? `<p class="story-text">${esc(beat.intro)}</p>` : ""}
       <p class="story-text">${esc(beat.text)}</p>
+      <p class="judged-badge">※正しいものを選んでください※</p>
       <div class="choices">
         ${beat.options.map((o,i)=>`<button class="choice" onclick="storyJudgedChoose(${i})"><span class="choice-num">${i+1}</span>${esc(o.label)}</button>`).join("")}
       </div>
