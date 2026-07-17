@@ -528,7 +528,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.1</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.2</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -692,7 +692,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 24;
+const SAVE_FORMAT_VERSION = 25;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -1688,10 +1688,12 @@ function showStatusAllocation(){
   const st = loadStats();
   const s = st.stats;
   const pts = unspentStatPoints(st);
-  /* 分野レベルが1000を超えると、たまるステータスポイントの総量も相応に大きくなるため
-     （catExpPoints参照）、+1/+10だけだと配分に手間がかかる。いずれかの分野がlv1000を
-     超えているプレイヤーにだけ、+100/-100ボタンも追加で表示する。 */
-  const hasLv1000 = CAT_KEYS.some(k => (st.lv[k]||1) > 1000);
+  /* たまるステータスポイントの総量は「ことのは」の経験値（kotonohaTotalXP、catExpPointsの
+     逓減つき合計）にほぼ比例して大きくなるため、+1/+10だけだと配分に手間がかかる。
+     2026-07-18〜、教員の指示で「いずれかの分野がlv1000超」ではなく「ことのはの経験値が
+     1000を超えたら」という判定に変更した（1分野だけ極端に伸ばした場合ではなく、全分野の
+     育成状況を反映するkotonohaTotalXPを基準にする方が実態に合っているため）。 */
+  const hasHighXP = kotonohaTotalXP(st) > 1000;
   const rows = [
     {key:"hp",   label:"❤️ HP",    desc:"ボス戦での最大HPが上がる"},
     {key:"atk",  label:"⚔️ 攻撃力", desc:"正解したときにボスへ与えるダメージが増える"},
@@ -1715,13 +1717,13 @@ function showStatusAllocation(){
         <div class="note" style="margin-top:2px">${esc(r.desc)}</div>
       </div>
       <div class="status-row-ctrl">
-        ${hasLv1000 ? `<button class="btn inline secondary stat-step-btn" ${(s[r.key]||0)<=0?'disabled':''} onclick="allocateStat('${r.key}', -100)">－100</button>` : ""}
+        ${hasHighXP ? `<button class="btn inline secondary stat-step-btn" ${(s[r.key]||0)<=0?'disabled':''} onclick="allocateStat('${r.key}', -100)">－100</button>` : ""}
         <button class="btn inline secondary stat-step-btn" ${(s[r.key]||0)<=0?'disabled':''} onclick="allocateStat('${r.key}', -10)">－10</button>
         <button class="btn inline secondary stat-step-btn" ${(s[r.key]||0)<=0?'disabled':''} onclick="allocateStat('${r.key}', -1)">－1</button>
         <span class="status-row-val">${s[r.key]||0}</span>
         <button class="btn inline stat-step-btn" ${pts<=0?'disabled':''} onclick="allocateStat('${r.key}', 1)">＋1</button>
         <button class="btn inline stat-step-btn" ${pts<=0?'disabled':''} onclick="allocateStat('${r.key}', 10)">＋10</button>
-        ${hasLv1000 ? `<button class="btn inline stat-step-btn" ${pts<=0?'disabled':''} onclick="allocateStat('${r.key}', 100)">＋100</button>` : ""}
+        ${hasHighXP ? `<button class="btn inline stat-step-btn" ${pts<=0?'disabled':''} onclick="allocateStat('${r.key}', 100)">＋100</button>` : ""}
       </div>
     </div>`;
   });
@@ -5501,9 +5503,17 @@ function storyRenderBaseballScreen(){
   if(bb.phase === "gameover"){
     const won = bb.totalRuns > bb.opponentTotalRuns;
     const resultMsg = won ? "勝利！" : bb.totalRuns === bb.opponentTotalRuns ? "引き分け…もう一度挑戦しよう" : "敗戦…もう一度挑戦しよう";
+    /* 勝敗にかかわらず、試合中に正解した分だけ四字熟語のレベルは上がっているはずなので、
+       この「試合終了」画面（win/loseどちらも必ず経由する）でその伸びを見せる（2026-07-18〜）。
+       勝った場合はこのあとstoryBaseballResolve()のさらに派手な勝利画面でも重ねて表示される。 */
+    const yojiLvNow = loadStats().lv.yoji || 1;
+    const yojiLvUpHtml = yojiLvNow > (bb.yojiLvStart || 1)
+      ? `<p class="lvup-chip">📚 四字熟語 Lv.${bb.yojiLvStart} → Lv.${yojiLvNow} にアップ！</p>`
+      : "";
     bodyHtml = `
       <div class="bb-ready-card">
         <p class="story-text">試合終了<br>自軍 ${bb.totalRuns}点 － 相手 ${bb.opponentTotalRuns}点<br><b>${esc(resultMsg)}</b></p>
+        ${yojiLvUpHtml}
         <button class="btn" onclick="${won ? "storyBaseballResolve()" : "storyBaseballRetry()"}">${won ? "つづける" : "もう一度挑戦する"}</button>
       </div>`;
   }else if(bb.phase === "ready"){
