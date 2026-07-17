@@ -465,7 +465,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver7.1</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver7.2</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -629,7 +629,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 18;
+const SAVE_FORMAT_VERSION = 19;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -717,6 +717,16 @@ function loadStats(){
         if(typeof st.story.judgedRunCorrect !== "number") st.story.judgedRunCorrect = 0;
         if(typeof st.story.judgedRunTotal !== "number") st.story.judgedRunTotal = 0;
         if(!st.story.judgedBest) st.story.judgedBest = {};
+        /* 章に選択肢問題(judgedChoice)を追加・削除して母数が変わった場合、既存プレイヤーの
+           自己ベスト（古い母数のまま）が実態と食い違ったパーセンテージで表示され続けてしまう
+           （例：1問だった章が2問になっても、記録はずっと「1/1・100%」のまま）。読み込むたびに
+           STORY_CHAPTERSの現在の問題数と突き合わせ、食い違う章の自己ベストは破棄する
+           （その章を再プレイすれば、今の問題数であらためて記録される）。 */
+        Object.keys(st.story.judgedBest).forEach(chapterKey => {
+          const chapter = STORY_CHAPTERS[chapterKey];
+          const actualTotal = chapter ? chapter.beats.filter(b => b.type === "judgedChoice").length : 0;
+          if(st.story.judgedBest[chapterKey].total !== actualTotal) delete st.story.judgedBest[chapterKey];
+        });
         if(!Array.isArray(st.kotonohaSeenForms)) st.kotonohaSeenForms = [];
         if(st.kotonohaDisplayOverride === undefined) st.kotonohaDisplayOverride = null;
         /* 旧バージョンで「３領域以上バランス型」が固定されていた場合、今の見た目をそのまま引き継ぐ
@@ -4307,7 +4317,7 @@ function storyChapterButtonHtml(key, st){
   const isCompleted = sp.completedChapters.includes(key);
   const inProgress = sp.chapter === key && !isCompleted && sp.beatIdx > 0;
   const badge = isCompleted ? "クリア済み" : inProgress ? "つづきから" : "はじめから";
-  const sub = isCompleted ? "クリア済み。もう一度読むこともできます。" : inProgress ? "続きから読み進めよう" : "タップして読みはじめる";
+  const sub = isCompleted ? "クリア済み。もう一度プレイすることもできます。" : inProgress ? "続きから読み進めよう" : "タップして読みはじめる";
   const best = sp.judgedBest && sp.judgedBest[key];
   const rateNote = best ? `<p class="note">選択肢問題 正答率 ${Math.round(100*best.correct/best.total)}%（${best.correct}/${best.total}問、自己ベスト）</p>` : "";
   return `
