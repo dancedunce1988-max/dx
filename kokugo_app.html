@@ -456,7 +456,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver6.7</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver6.8</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3714,7 +3714,6 @@ function itemListHtml(keys, items){
 function treasureExpAmount(name){
   if(name === KOKUGO_KAMI_BOSS.treasure) return 1000;
   if(name === SHIRAN_BOSS.treasure) return 300;
-  if(name === STORY_JUDGED_PERFECT_TREASURE) return 100;
   return 50;
 }
 function useTreasureItem(name){
@@ -4018,7 +4017,7 @@ function bootApp(){
      choice beatとは別枠で、正誤をst.story.judgedRunCorrect/judgedRunTotalに積み上げ、章クリア時に
      st.story.judgedBest[章key]（自己ベストの正答率）と比較し、上回ったときだけ上書きする
      （storyFinalizeJudgedRate参照）。全問正解を達成した瞬間（自己ベストが初めて100%になったとき）
-     だけ、STORY_JUDGED_PERFECT_TREASUREを1個入手する。制限時間なし。 */
+     だけ、STORY_JUDGED_PERFECT_ITEMを1個入手する（クリア報酬アイテム枠）。制限時間なし。 */
 const STORY_QUIZGATE_WINDOW = 10;
 const STORY_QUIZGATE_NEED = 6;
 const STORY_BATTLE_TOTAL = 10;
@@ -4027,27 +4026,28 @@ const STORY_BATTLE_NEED = 8;
    完全に独立した実装（アイテムを使えないため、使用時の再スタート処理は不要でシンプル）。 */
 const STORY_BATTLE_TIME_MS = 15000;
 /* 選択肢問題（judgedChoice beat）で章の自己ベスト正答率が初めて100%に達したときだけ手に入る
-   特別な宝具。章ごとに個別の名前は持たせず、ストーリーモード全体で共通の1種類とする
-   （2026-07-17〜）。効果はtreasureExpAmount側で通常の宝具より高めの経験値を設定。 */
-const STORY_JUDGED_PERFECT_TREASURE = "全問正解のあかし";
-TREASURE_NAMES.add(STORY_JUDGED_PERFECT_TREASURE);
+   特別なアイテム。章ごとに個別の名前は持たせず、ストーリーモード全体で共通の1種類とする
+   （2026-07-17〜）。宝具（TREASURE_NAMES）ではなく、クリア報酬アイテム（STORY_REWARD_ITEM_NAMES）
+   の枠に入れる（当初は宝具枠だったが、章クリア画面のtreasure-drop表示が光の背景で文字が
+   見えにくかったため、教員の指示でクリア報酬アイテム枠へ変更した）。 */
+const STORY_JUDGED_PERFECT_ITEM = "全問正解のあかし";
 
 const STORY_EVENT_BOSSES = {
   printPile: {
     id:"story_print_pile", name:"手強い配布プリントの山", icon:"📄",
     item:"入学準備リスト", treasure:"先輩からのお守り",
   },
-  attendanceCheck: {
-    id:"story_attendance_check", name:"終わらない出席確認の沈黙", icon:"😶",
-    item:"自分の名前入りの座席プレート", treasure:"担任の先生からの一言メモ",
+  selfIntroCard: {
+    id:"story_self_intro_card", name:"白紙のまま固まった自己紹介カード", icon:"📇",
+    item:"とっておきの表現メモ", treasure:"先生からの花丸",
   },
 };
 TREASURE_NAMES.add(STORY_EVENT_BOSSES.printPile.treasure);
-TREASURE_NAMES.add(STORY_EVENT_BOSSES.attendanceCheck.treasure);
+TREASURE_NAMES.add(STORY_EVENT_BOSSES.selfIntroCard.treasure);
 
 /* クリア報酬アイテム（章クリアで確定ドロップする通常アイテムのうち、使うと経験値+20になるもの）。
    宝具（TREASURE_NAMES／useTreasureItem）とは別枠の、ストーリーモード専用の使用可能アイテム分類。 */
-const STORY_REWARD_ITEM_NAMES = new Set([STORY_EVENT_BOSSES.printPile.item, STORY_EVENT_BOSSES.attendanceCheck.item]);
+const STORY_REWARD_ITEM_NAMES = new Set([STORY_EVENT_BOSSES.printPile.item, STORY_EVENT_BOSSES.selfIntroCard.item, STORY_JUDGED_PERFECT_ITEM]);
 const STORY_REWARD_EXP_AMOUNT = 20;
 function isStoryRewardItem(name){ return STORY_REWARD_ITEM_NAMES.has(name); }
 function useStoryRewardItem(name){
@@ -4192,37 +4192,44 @@ const STORY_CHAPTERS = {
       {type:"line", text:"式が終わり、教室に移動する。\n担任の先生が、静かにみんなを見わたした。"},
       {type:"line", speaker:"担任の先生", text:"「これから、出席を確認します。名前を呼ばれたら、大きな声で返事をしてくださいね」"},
       {type:"line", text:"名前を呼ばれたら、大きな声で返事をしなければいけない。\n出せるかな……不安だな。\nクラスメイトの名前が次々に呼ばれていく中、自分の番を待つ。"},
-      {type:"battle", boss:"attendanceCheck", cat:"kanji_yomi"},
+      {type:"quiz", cat:"kanji_yomi"},
       {type:"line", text:"なんとか、大きな声で返事ができた。\nほっと息をつく。"},
       {type:"line", text:"つぎは、自己紹介の番だった。\n自分のクラスで、順番に自己紹介をしていくらしい。\nまた緊張してきた。"},
-      {type:"judgedChoice", text:"自己紹介で自分の趣味を話すとしたら、より自然な言い方はどっちだろう？", options:[
-        {label:"「趣味は、読書です。」", correct:true},
-        {label:"「趣味、読書な。」", correct:false},
+      {type:"judgedChoice", text:"話し言葉と書き言葉を使い分けるのは、どうして？", options:[
+        {label:"話し言葉は表情や声の調子で伝わるが、書き言葉は文字だけで正確に伝える必要があるから", correct:true},
+        {label:"書き言葉のほうが、話し言葉よりも新しい時代に生まれた言葉だから", correct:false},
+        {label:"話し言葉には、都道府県ごとに正式なルールが定められているから", correct:false},
+        {label:"書き言葉は、必ず敬語を使わなければならない決まりだから", correct:false},
       ]},
       {type:"line", speaker:"隣の席の子", text:"ねえ、ちょっと聞いてもいい？\n自己紹介の前に、ひとつ問題、出してもいい？"},
       {type:"quiz", cat:"goi", speaker:"隣の席の子"},
-      {type:"line", speaker:"隣の席の子", text:"けっこう解けるんだね。"},
+      {type:"line", speaker:"隣の席の子", text:"すごい！ たくさん言葉を知っているんだね！"},
       {type:"line", text:"問題のおかげで、少し緊張がほぐれた気がした。\nそのおかげか、自己紹介では、自然と自分の言葉で話すことができた。"},
       {type:"choice", flagKey:"deskmateApproach", text:"隣の席の子に、どう関わる？", options:[
         {label:"自分から名前を尋ねる", value:"ask"},
         {label:"相手の反応を待つ", value:"wait"},
       ]},
-      {type:"line", speaker:"隣の席の子", text:"「わたし、陽菜。よろしくね」", variants:[
-        {flag:"deskmateApproach", value:"ask", text:"自分から名前を尋ねると、すぐに教えてくれた。\n「わたし、陽菜。よろしくね」"},
-        {flag:"deskmateApproach", value:"wait", text:"しばらくすると、向こうから声をかけてくれた。\n「わたし、陽菜。よろしくね」"},
+      {type:"line", speaker:"隣の席の子", text:"「わたし、花子。よろしくね」", variants:[
+        {flag:"deskmateApproach", value:"ask", text:"自分から名前を尋ねると、すぐに教えてくれた。\n「わたし、花子。よろしくね」"},
+        {flag:"deskmateApproach", value:"wait", text:"しばらくすると、向こうから声をかけてくれた。\n「わたし、花子。よろしくね」"},
       ]},
       {type:"line", text:"それから、好きな本の話で意気投合した。\n休み時間が、あっという間に過ぎていく。"},
       {type:"line", speaker:"後ろの席の子", text:"「ねえ、聞こえてたよ。本の話、おもしろそうだね」"},
-      {type:"line", text:"振り返ると、後ろの席の子が笑いかけていた。\n「拓海だよ。よろしく」"},
+      {type:"line", text:"振り返ると、後ろの席の子が笑いかけていた。\n「太郎だよ。よろしく」"},
       {type:"choice", flagKey:"backSeatApproach", text:"後ろの席の子に、自分から声をかける？", options:[
         {label:"積極的に話しかける", value:"active"},
         {label:"様子を見てから話しかける", value:"cautious"},
       ]},
-      {type:"line", speaker:"拓海", text:"「こちらこそ、よろしくね」", variants:[
-        {flag:"backSeatApproach", value:"active", text:"積極的に話しかけると、拓海は嬉しそうに笑った。\n「こちらこそ、よろしくね」"},
-        {flag:"backSeatApproach", value:"cautious", text:"少し様子を見てから話しかけると、拓海はほっとしたように笑った。\n「こちらこそ、よろしくね」"},
+      {type:"line", speaker:"太郎", text:"「こちらこそ、よろしくね」", variants:[
+        {flag:"backSeatApproach", value:"active", text:"積極的に話しかけると、太郎は嬉しそうに笑った。\n「こちらこそ、よろしくね」"},
+        {flag:"backSeatApproach", value:"cautious", text:"少し様子を見てから話しかけると、太郎はほっとしたように笑った。\n「こちらこそ、よろしくね」"},
       ]},
       {type:"line", text:"この調子なら、このクラスのみんなと、仲良くなれそうだ。"},
+      {type:"line", text:"最後の授業は、国語だった。"},
+      {type:"line", speaker:"担任の先生", text:"「今日はみんなに、自己紹介カードを書いてもらいます。ただし、ひとつ条件があります。自分を何かにたとえて、表現してみてください」"},
+      {type:"line", text:"たとえる、か……。\n真っ白なカードを前に、少し考えこんでしまう。"},
+      {type:"battle", boss:"selfIntroCard", cat:"hyougen"},
+      {type:"line", text:"なんとか、カードを書き終えた。\n自分の言葉で表現できた気がして、少し誇らしい。"},
       {type:"line", speaker:"ことのは", text:"初日から、いい感じだね。", variants:[
         {flag:"favoriteSubject", value:"kanji", text:"漢字が得意なきみなら、この調子で友達も増えていきそうだね。"},
         {flag:"favoriteSubject", value:"dokkai", text:"文章を読むのが得意なきみなら、みんなの話もちゃんと受け止められそうだね。"},
@@ -4739,7 +4746,7 @@ function storyResetJudgedRun(sp){
    storyReplayChapter）に0リセットされる、章1回分の周回カウンタ。
    このプレイの正答率が自己ベスト（sp.judgedBest[章key]）より高いときだけ上書きする
    （分数の大小比較は掛け算で行い、ゼロ除算・浮動小数の誤差を避ける）。
-   自己ベストが今回はじめて100%に達したときだけ、STORY_JUDGED_PERFECT_TREASUREを1個渡す
+   自己ベストが今回はじめて100%に達したときだけ、STORY_JUDGED_PERFECT_ITEMを1個渡す
    （すでに100%を達成済みの章を再プレイしても、何度でも入手できてしまわないようにするため）。
    その章にまだ選択肢問題が1問もない場合（total===0）はnullを返し、呼び出し側は何も表示しない。 */
 function storyFinalizeJudgedRate(st, sp){
@@ -4755,7 +4762,7 @@ function storyFinalizeJudgedRate(st, sp){
   const nowPerfect = correct >= total;
   let gotPerfectItem = false;
   if(isBetter && nowPerfect && !wasPerfect){
-    st.items[STORY_JUDGED_PERFECT_TREASURE] = (st.items[STORY_JUDGED_PERFECT_TREASURE]||0) + 1;
+    st.items[STORY_JUDGED_PERFECT_ITEM] = (st.items[STORY_JUDGED_PERFECT_ITEM]||0) + 1;
     gotPerfectItem = true;
   }
   return {correct, total, pct: Math.round(100*correct/total), isBetter, gotPerfectItem};
@@ -4772,7 +4779,7 @@ function storyChapterEnd(){
     ? `<p class="note">選択肢問題 正答率：${rate.pct}%（${rate.correct}/${rate.total}問）${rate.isBetter ? "　※自己ベストを更新しました！" : ""}</p>`
     : "";
   const perfectNote = rate && rate.gotPerfectItem
-    ? `<p class="note">🎉 選択肢問題、全問正解達成！ ✨<span class="drop-item treasure-drop">【${esc(STORY_JUDGED_PERFECT_TREASURE)}】</span>を手に入れた！</p>`
+    ? `<p class="note">🎉 選択肢問題、全問正解達成！ 🎁<span class="drop-item">【${esc(STORY_JUDGED_PERFECT_ITEM)}】</span>を手に入れた！</p>`
     : "";
   screen.innerHTML = `
     <div class="card story-scene">
