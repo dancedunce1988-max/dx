@@ -456,7 +456,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver6.4</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver6.7</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -620,7 +620,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 17;
+const SAVE_FORMAT_VERSION = 18;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -635,7 +635,7 @@ function emptyStats(){
     kanjiWrite:{totalOk:0, itemHist:{}, levelRecent:{}},
     kanjiWriteElem:{totalOk:0, itemHist:{}, targetLv:1, recent:[]},
     notLearnedCats:{},
-    story:{chapter:"ch1", beatIdx:0, flags:{}, completedChapters:[]}};
+    story:{chapter:"ch1", beatIdx:0, flags:{}, completedChapters:[], judgedRunCorrect:0, judgedRunTotal:0, judgedBest:{}}};
 }
 /* ステータスポイントは保存された数値ではなく、常にその場で計算する：
    「分野レベルの合計（＝これまで獲得した経験値の合計）」から「すでに割りふった分」を引いた残り。
@@ -700,11 +700,14 @@ function loadStats(){
         if(typeof st.kanjiWriteElem.totalOk !== "number") st.kanjiWriteElem.totalOk = 0;
         if(typeof st.kanjiWriteElem.targetLv !== "number") st.kanjiWriteElem.targetLv = 1;
         if(!st.notLearnedCats) st.notLearnedCats = {};
-        if(!st.story) st.story = {chapter:"ch1", beatIdx:0, flags:{}, completedChapters:[]};
+        if(!st.story) st.story = {chapter:"ch1", beatIdx:0, flags:{}, completedChapters:[], judgedRunCorrect:0, judgedRunTotal:0, judgedBest:{}};
         if(!st.story.flags) st.story.flags = {};
         if(!Array.isArray(st.story.completedChapters)) st.story.completedChapters = [];
         if(typeof st.story.beatIdx !== "number") st.story.beatIdx = 0;
         if(!st.story.chapter) st.story.chapter = "ch1";
+        if(typeof st.story.judgedRunCorrect !== "number") st.story.judgedRunCorrect = 0;
+        if(typeof st.story.judgedRunTotal !== "number") st.story.judgedRunTotal = 0;
+        if(!st.story.judgedBest) st.story.judgedBest = {};
         if(!Array.isArray(st.kotonohaSeenForms)) st.kotonohaSeenForms = [];
         if(st.kotonohaDisplayOverride === undefined) st.kotonohaDisplayOverride = null;
         /* 旧バージョンで「その他型」が固定されていた場合、今の見た目をそのまま引き継ぐ
@@ -1523,6 +1526,7 @@ function balancedTrainingBtnHtml(){
     </div>`;
 }
 function showHome(){
+  clearStoryBattleTimer(); // 中ボス戦を中断して離れたときに、残った制限時間タイマーを止める
   const st = loadStats();
   let html = "";
   html += kotonohaCardHtml(st);
@@ -3710,6 +3714,7 @@ function itemListHtml(keys, items){
 function treasureExpAmount(name){
   if(name === KOKUGO_KAMI_BOSS.treasure) return 1000;
   if(name === SHIRAN_BOSS.treasure) return 300;
+  if(name === STORY_JUDGED_PERFECT_TREASURE) return 100;
   return 50;
 }
 function useTreasureItem(name){
@@ -3994,35 +3999,55 @@ function bootApp(){
    ストーリーモード（2026-07-16〜、β版）
    丸ごと削除する場合は、このブロック全体と、以下4箇所の追記を戻すだけでよい：
    ・emptyStats()内の story フィールド
-   ・loadStats()内の story マイグレーション（if(!st.story)…の5行）
+   ・loadStats()内の story マイグレーション（if(!st.story)…の8行）
    ・showHome()内の `html += storyEntryHtml(st);` の1行
    ・showItemCollection()内の3箇所（usedStoryRewards関連・normalKeysのフィルタ・storyRewardSectionHtml呼び出し）
    （SAVE_FORMAT_VERSIONは戻さなくても実害はない）
 
    出題の基本設計（2026-07-16〜、今後の章にも適用する標準ルール）：
    ・ミニクイズ（quiz beat）：プレイヤーのステータスに関係なく、直近STORY_QUIZGATE_WINDOW問中
-     STORY_QUIZGATE_NEED問正解で次のシーンへ進める「合格ゲート」方式。1問ごとにrecord()を
-     呼ぶので分野レベル・XPには通常どおり反映される（再プレイ時を除く）。
-   ・イベント戦（battle beat）：既存のボス戦システム（HP・ステータス依存の戦闘）は使わず、
+     STORY_QUIZGATE_NEED問正解で次のシーンへ進める「合格ゲート」方式。制限時間なし。1問ごとに
+     record()を呼ぶので分野レベル・XPには通常どおり反映される（再プレイ時を除く）。
+   ・イベント戦（battle beat、中ボス）：既存のボス戦システム（HP・ステータス依存の戦闘）は使わず、
      STORY_BATTLE_TOTAL問中STORY_BATTLE_NEED問正解で確定クリアという、
      プレイヤーのステータスに一切依存しない出題形式。record()は呼ばない
-     （このアプリの全ボス戦と同じく、イベント戦の正誤は分野レベル・XPに反映しない）。 */
+     （このアプリの全ボス戦と同じく、イベント戦の正誤は分野レベル・XPに反映しない）。
+     1問STORY_BATTLE_TIME_MS（15秒）の制限時間があり（2026-07-17〜）、アイテムは使えない。
+     時間切れは不正解として扱う。クリアできなければbeatIdxを進めず、0問目からやり直しになる。
+   ・選択肢問題（judgedChoice beat、2026-07-17〜）：正誤のある固定の選択肢問題。地の文の分岐用の
+     choice beatとは別枠で、正誤をst.story.judgedRunCorrect/judgedRunTotalに積み上げ、章クリア時に
+     st.story.judgedBest[章key]（自己ベストの正答率）と比較し、上回ったときだけ上書きする
+     （storyFinalizeJudgedRate参照）。全問正解を達成した瞬間（自己ベストが初めて100%になったとき）
+     だけ、STORY_JUDGED_PERFECT_TREASUREを1個入手する。制限時間なし。 */
 const STORY_QUIZGATE_WINDOW = 10;
 const STORY_QUIZGATE_NEED = 6;
 const STORY_BATTLE_TOTAL = 10;
 const STORY_BATTLE_NEED = 8;
+/* 中ボス（battle beat）の1問あたりの制限時間。既存ボス戦のタイマー（startBossTimer等）とは
+   完全に独立した実装（アイテムを使えないため、使用時の再スタート処理は不要でシンプル）。 */
+const STORY_BATTLE_TIME_MS = 15000;
+/* 選択肢問題（judgedChoice beat）で章の自己ベスト正答率が初めて100%に達したときだけ手に入る
+   特別な宝具。章ごとに個別の名前は持たせず、ストーリーモード全体で共通の1種類とする
+   （2026-07-17〜）。効果はtreasureExpAmount側で通常の宝具より高めの経験値を設定。 */
+const STORY_JUDGED_PERFECT_TREASURE = "全問正解のあかし";
+TREASURE_NAMES.add(STORY_JUDGED_PERFECT_TREASURE);
 
 const STORY_EVENT_BOSSES = {
   printPile: {
     id:"story_print_pile", name:"手強い配布プリントの山", icon:"📄",
     item:"入学準備リスト", treasure:"先輩からのお守り",
   },
+  attendanceCheck: {
+    id:"story_attendance_check", name:"終わらない出席確認の沈黙", icon:"😶",
+    item:"自分の名前入りの座席プレート", treasure:"担任の先生からの一言メモ",
+  },
 };
 TREASURE_NAMES.add(STORY_EVENT_BOSSES.printPile.treasure);
+TREASURE_NAMES.add(STORY_EVENT_BOSSES.attendanceCheck.treasure);
 
 /* クリア報酬アイテム（章クリアで確定ドロップする通常アイテムのうち、使うと経験値+20になるもの）。
    宝具（TREASURE_NAMES／useTreasureItem）とは別枠の、ストーリーモード専用の使用可能アイテム分類。 */
-const STORY_REWARD_ITEM_NAMES = new Set([STORY_EVENT_BOSSES.printPile.item]);
+const STORY_REWARD_ITEM_NAMES = new Set([STORY_EVENT_BOSSES.printPile.item, STORY_EVENT_BOSSES.attendanceCheck.item]);
 const STORY_REWARD_EXP_AMOUNT = 20;
 function isStoryRewardItem(name){ return STORY_REWARD_ITEM_NAMES.has(name); }
 function useStoryRewardItem(name){
@@ -4134,6 +4159,77 @@ const STORY_CHAPTERS = {
         {flag:"greeting", value:"surprised", text:"おつかれさま。\n……ね？ ぼくのこと、少しは信じてくれた？ これで、もう準備は万端だね。"},
       ]},
     ],
+    epilogue: "入学式当日の朝。支度を終えて、家を出る。\n\n新しい生活が、はじまる。",
+  },
+  ch2: {
+    title: "第2章「入学式」",
+    beats: [
+      {type:"line", text:"4月、入学式の朝がきた。\n制服に袖を通しながら、正直に言うとかなり緊張していた。"},
+      {type:"line", speaker:"ことのは", text:"おはよう。今日から中学生だね。", variants:[
+        {flag:"greeting", value:"warm", text:"おはよう！\n今日から、いよいよ中学生だね。"},
+        {flag:"greeting", value:"surprised", text:"おはよう。\n今でも、ぼくのこと不思議に思ってる？　でも、今日から中学生だね。"},
+      ]},
+      {type:"line", speaker:"ことのは", text:"緊張してる？\nだいじょうぶ、ぼくもついてるから。", variants:[
+        {flag:"pronoun", value:"watashi", text:"「私」らしく、堂々といこうね。\nだいじょうぶ、ぼくもついてるから。"},
+        {flag:"pronoun", value:"atashi", text:"「あたし」らしく、元気にいこう！\nだいじょうぶ、ぼくもついてるから。"},
+        {flag:"pronoun", value:"ore", text:"「俺」らしく、堂々としていこう。\nだいじょうぶ、ぼくもついてるから。"},
+        {flag:"pronoun", value:"boku", text:"「ボク」らしく、落ち着いていこう。\nだいじょうぶ、ぼくもついてるから。"},
+        {flag:"pronoun", value:"oira", text:"「おいら」らしく、気楽にいこう。\nだいじょうぶ、ぼくもついてるから。"},
+        {flag:"pronoun", value:"oidon", text:"「おいどん」らしく、堂々といこう。\nだいじょうぶ、ぼくもついてるから。"},
+        {flag:"pronoun", value:"sessha", text:"「せっしゃ」らしく、落ち着いて臨もう。\nだいじょうぶ、ぼくもついてるから。"},
+        {flag:"pronoun", value:"maro", text:"「まろ」らしく、優雅にいこう。\nだいじょうぶ、ぼくもついてるから。"},
+      ]},
+      {type:"line", text:"家を出て、少し歩くと、もう校門が見えてきた。\n大勢の新入生が、吸い込まれるように中へ入っていく。"},
+      {type:"choice", flagKey:"gateFeeling", text:"校門をくぐるときの気持ちは？", options:[
+        {label:"まだ少し不安なまま", value:"anxious"},
+        {label:"少しずつ楽しみになってきた", value:"excited"},
+      ]},
+      {type:"line", text:"校門をくぐり、体育館へ向かう。", variants:[
+        {flag:"gateFeeling", value:"anxious", text:"まだ少し不安なまま、校門をくぐった。\nそれでも、足は自然と体育館へ向かっていく。"},
+        {flag:"gateFeeling", value:"excited", text:"少しずつ、楽しみな気持ちが大きくなってきた。\n校門をくぐり、体育館へ向かう。"},
+      ]},
+      {type:"line", text:"入学式本編は、あっという間だった。\n校長先生の話も、来賓の祝辞も、緊張のせいかあまり頭に入ってこなかった。"},
+      {type:"line", text:"式が終わり、教室に移動する。\n担任の先生が、静かにみんなを見わたした。"},
+      {type:"line", speaker:"担任の先生", text:"「これから、出席を確認します。名前を呼ばれたら、大きな声で返事をしてくださいね」"},
+      {type:"line", text:"名前を呼ばれたら、大きな声で返事をしなければいけない。\n出せるかな……不安だな。\nクラスメイトの名前が次々に呼ばれていく中、自分の番を待つ。"},
+      {type:"battle", boss:"attendanceCheck", cat:"kanji_yomi"},
+      {type:"line", text:"なんとか、大きな声で返事ができた。\nほっと息をつく。"},
+      {type:"line", text:"つぎは、自己紹介の番だった。\n自分のクラスで、順番に自己紹介をしていくらしい。\nまた緊張してきた。"},
+      {type:"judgedChoice", text:"自己紹介で自分の趣味を話すとしたら、より自然な言い方はどっちだろう？", options:[
+        {label:"「趣味は、読書です。」", correct:true},
+        {label:"「趣味、読書な。」", correct:false},
+      ]},
+      {type:"line", speaker:"隣の席の子", text:"ねえ、ちょっと聞いてもいい？\n自己紹介の前に、ひとつ問題、出してもいい？"},
+      {type:"quiz", cat:"goi", speaker:"隣の席の子"},
+      {type:"line", speaker:"隣の席の子", text:"けっこう解けるんだね。"},
+      {type:"line", text:"問題のおかげで、少し緊張がほぐれた気がした。\nそのおかげか、自己紹介では、自然と自分の言葉で話すことができた。"},
+      {type:"choice", flagKey:"deskmateApproach", text:"隣の席の子に、どう関わる？", options:[
+        {label:"自分から名前を尋ねる", value:"ask"},
+        {label:"相手の反応を待つ", value:"wait"},
+      ]},
+      {type:"line", speaker:"隣の席の子", text:"「わたし、陽菜。よろしくね」", variants:[
+        {flag:"deskmateApproach", value:"ask", text:"自分から名前を尋ねると、すぐに教えてくれた。\n「わたし、陽菜。よろしくね」"},
+        {flag:"deskmateApproach", value:"wait", text:"しばらくすると、向こうから声をかけてくれた。\n「わたし、陽菜。よろしくね」"},
+      ]},
+      {type:"line", text:"それから、好きな本の話で意気投合した。\n休み時間が、あっという間に過ぎていく。"},
+      {type:"line", speaker:"後ろの席の子", text:"「ねえ、聞こえてたよ。本の話、おもしろそうだね」"},
+      {type:"line", text:"振り返ると、後ろの席の子が笑いかけていた。\n「拓海だよ。よろしく」"},
+      {type:"choice", flagKey:"backSeatApproach", text:"後ろの席の子に、自分から声をかける？", options:[
+        {label:"積極的に話しかける", value:"active"},
+        {label:"様子を見てから話しかける", value:"cautious"},
+      ]},
+      {type:"line", speaker:"拓海", text:"「こちらこそ、よろしくね」", variants:[
+        {flag:"backSeatApproach", value:"active", text:"積極的に話しかけると、拓海は嬉しそうに笑った。\n「こちらこそ、よろしくね」"},
+        {flag:"backSeatApproach", value:"cautious", text:"少し様子を見てから話しかけると、拓海はほっとしたように笑った。\n「こちらこそ、よろしくね」"},
+      ]},
+      {type:"line", text:"この調子なら、このクラスのみんなと、仲良くなれそうだ。"},
+      {type:"line", speaker:"ことのは", text:"初日から、いい感じだね。", variants:[
+        {flag:"favoriteSubject", value:"kanji", text:"漢字が得意なきみなら、この調子で友達も増えていきそうだね。"},
+        {flag:"favoriteSubject", value:"dokkai", text:"文章を読むのが得意なきみなら、みんなの話もちゃんと受け止められそうだね。"},
+        {flag:"favoriteSubject", value:"bunpou", text:"言葉のきまりが得意なきみなら、これからもきっとだいじょうぶだよ。"},
+      ]},
+    ],
+    epilogue: "初日が終わり、家に帰る道。\n\n新しい友達の顔を思い浮かべながら、これからの中学校生活に、少しずつ期待がふくらんでいくのを感じた。",
   },
 };
 
@@ -4155,12 +4251,12 @@ function storyFreshRun(){
   return {
     lastQ:null, order:null, curItem:null, curCat:null, curBeat:null, shownAt:null,
     gateBeatIdx:null, gateWindow:[], gateCleared:false,
-    battleBeatIdx:null, battleAnswered:0, battleCorrect:0,
+    battleBeatIdx:null, battleAnswered:0, battleCorrect:0, timerId:null,
   };
 }
 
 function storyProgress(st){
-  if(!st.story) st.story = {chapter:"ch1", beatIdx:0, flags:{}, completedChapters:[]};
+  if(!st.story) st.story = {chapter:"ch1", beatIdx:0, flags:{}, completedChapters:[], judgedRunCorrect:0, judgedRunTotal:0, judgedBest:{}};
   return st.story;
 }
 function storyEntryHtml(st){
@@ -4190,10 +4286,12 @@ function storyChapterButtonHtml(key, st){
   const inProgress = sp.chapter === key && !isCompleted && sp.beatIdx > 0;
   const badge = isCompleted ? "クリア済み" : inProgress ? "つづきから" : "はじめから";
   const sub = isCompleted ? "クリア済み。もう一度読むこともできます。" : inProgress ? "続きから読み進めよう" : "タップして読みはじめる";
+  const best = sp.judgedBest && sp.judgedBest[key];
+  const rateNote = best ? `<p class="note">選択肢問題 正答率 ${Math.round(100*best.correct/best.total)}%（${best.correct}/${best.total}問、自己ベスト）</p>` : "";
   return `
     <div class="card menu-card" onclick="startStoryMode('${key}')">
       <div class="menu-icon">📖</div>
-      <div><h2>${esc(chapter.title)}</h2><p>${esc(sub)}</p></div>
+      <div><h2>${esc(chapter.title)}</h2><p>${esc(sub)}</p>${rateNote}</div>
       <div class="right"><span class="shogo-badge">${esc(badge)}</span></div>
     </div>`;
 }
@@ -4204,7 +4302,7 @@ function startStoryMode(chapterKey){
   if(chapterKey){
     const st = loadStats();
     const sp = storyProgress(st);
-    if(sp.chapter !== chapterKey){ sp.chapter = chapterKey; sp.beatIdx = 0; }
+    if(sp.chapter !== chapterKey){ sp.chapter = chapterKey; sp.beatIdx = 0; storyResetJudgedRun(sp); }
     saveStats(st);
   }
   storyRun = storyFreshRun();
@@ -4218,6 +4316,7 @@ function storyRenderBeat(){
   const beat = chapter.beats[sp.beatIdx];
   if(beat.type === "line") storyRenderLine(beat, sp);
   else if(beat.type === "choice") storyRenderChoice(beat);
+  else if(beat.type === "judgedChoice") storyRenderJudgedChoice(beat);
   else if(beat.type === "quiz") storyRenderQuiz(beat, sp.beatIdx);
   else if(beat.type === "battle") storyRenderBattle(beat, sp.beatIdx);
   else showHome();
@@ -4275,6 +4374,52 @@ function storyAdvance(){
   sp.beatIdx++;
   saveStats(st);
   storyRenderBeat();
+}
+/* 選択肢問題（judgedChoice beat）：地の文の分岐用choiceと違い、正誤のある固定の選択肢問題。
+   beat.options[i].correctがtrueの選択肢が正解。答えた瞬間にst.story.judgedRunCorrect/
+   judgedRunTotalへ積み上げる（セーブされるので、章の途中でアプリを閉じて再開しても
+   正しく引き継がれる）。正誤を表示してから「つぎへ」でbeatIdxを進める、2段階の操作にする。 */
+function storyRenderJudgedChoice(beat){
+  clearChoiceKeys();
+  screen.innerHTML = `
+    <div class="card story-scene">
+      ${beat.speaker ? `<div class="story-speaker">${esc(beat.speaker)}</div>` : ""}
+      ${beat.intro ? `<p class="story-text">${esc(beat.intro)}</p>` : ""}
+      <p class="story-text">${esc(beat.text)}</p>
+      <div class="choices">
+        ${beat.options.map((o,i)=>`<button class="choice" onclick="storyJudgedChoose(${i})"><span class="choice-num">${i+1}</span>${esc(o.label)}</button>`).join("")}
+      </div>
+      <div class="feedback" id="fb"></div>
+      <div class="btn-row" id="storyJudgedNextRow" style="display:none; justify-content:center">
+        <button class="btn" onclick="storyAdvance()">つぎへ</button>
+      </div>
+    </div>
+    ${storyFooterHtml()}`;
+  setupChoiceKeys(pos => storyJudgedChoose(pos), beat.options.length);
+}
+function storyJudgedChoose(i){
+  clearChoiceKeys();
+  const st = loadStats();
+  const sp = storyProgress(st);
+  const chapter = STORY_CHAPTERS[sp.chapter];
+  const beat = chapter.beats[sp.beatIdx];
+  const opt = beat.options[i];
+  const ok = !!opt.correct;
+  if(beat.flagKey) sp.flags[beat.flagKey] = opt.value;
+  sp.judgedRunTotal = (sp.judgedRunTotal||0) + 1;
+  if(ok) sp.judgedRunCorrect = (sp.judgedRunCorrect||0) + 1;
+  saveStats(st);
+  const btns = screen.querySelectorAll(".choice");
+  btns.forEach((b,pos)=>{
+    b.disabled = true;
+    if(beat.options[pos].correct) b.classList.add("correct");
+    else if(pos===i) b.classList.add("wrong");
+    else b.classList.add("dim");
+  });
+  const fb = document.getElementById("fb");
+  fb.className = "feedback show " + (ok?"ok":"ng");
+  fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}</div>`;
+  document.getElementById("storyJudgedNextRow").style.display = "flex";
 }
 /* ミニクイズ（合格ゲート方式）：直近window問中need問正解するまで、同じbeatのまま
    問題を出し続ける（beatIdxは進めない）。1問ごとにrecord()を呼ぶので、
@@ -4426,6 +4571,7 @@ function storyRenderBattle(beat, idx){
       <div class="bar"><div style="width:${100*storyRun.battleAnswered/total}%"></div></div>
       <div class="boss-q-card">
         ${subInstructionHtml(beat.cat, it)}
+        <div class="boss-timer-row" id="storyTimerRow"><div class="boss-timer-bar"><div id="storyTimerFill" class="boss-timer-fill"></div></div></div>
         <div class="boss-q-text">${esc(it.q)}</div>
         ${answerArea}
         <div class="feedback" id="fb"></div>
@@ -4435,6 +4581,7 @@ function storyRenderBattle(beat, idx){
     ${storyFooterHtml()}`;
   if(isInput){ const el = document.getElementById("storyAnsIn"); if(el) el.focus(); }
   else{ setupChoiceKeys(pos => storyBattleAnswerChoice(storyRun.order[pos]), it.c.length); }
+  startStoryBattleTimer();
 }
 function storyBattleAnswerChoice(origIdx){
   storyGradeBattle(origIdx === storyRun.curItem.a, origIdx);
@@ -4450,7 +4597,58 @@ function storyBattleSubmitInput(){
   if(sb) sb.disabled = true;
   storyGradeBattle(ok, null);
 }
-function storyGradeBattle(ok, chosenOrig){
+/* 中ボスの1問あたりの制限時間（15秒）。既存のボス戦（bossHasTimeLimit/startBossTimer）とは
+   別実装で、アイテムを使えない前提なので使用時の再スタート処理は持たない。
+   時間切れはstoryBattleTimeUp→storyGradeBattle(false,...,true)で不正解として扱う。
+   答えた場合はstoryGradeBattle冒頭のclearStoryBattleTimer()でこのタイマーを止めるので、
+   二重採点は起きない。beatを離れて中断された場合はshowHome()側でも念のため止める。 */
+function startStoryBattleTimer(){
+  clearStoryBattleTimer();
+  const run = storyRun;
+  const ms = (run.curBeat && run.curBeat.timeMs) || STORY_BATTLE_TIME_MS;
+  run.timerId = setTimeout(() => {
+    if(storyRun !== run) return;
+    storyBattleTimeUp();
+  }, ms);
+  animateStoryTimerBar(ms);
+}
+function clearStoryBattleTimer(){
+  if(storyRun && storyRun.timerId){
+    clearTimeout(storyRun.timerId);
+    storyRun.timerId = null;
+  }
+}
+function storyBattleTimeUp(){
+  const it = storyRun.curItem;
+  if(Array.isArray(it.ans)){
+    const el = document.getElementById("storyAnsIn");
+    if(el) el.disabled = true;
+    const sb = document.getElementById("storySubmitBtn");
+    if(sb) sb.disabled = true;
+  }
+  storyGradeBattle(false, null, true);
+}
+function animateStoryTimerBar(overrideMs){
+  const el = document.getElementById("storyTimerFill");
+  if(!el) return;
+  const ms = overrideMs || STORY_BATTLE_TIME_MS;
+  el.style.transition = "none";
+  el.style.width = "100%";
+  if(typeof requestAnimationFrame !== "function") return;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      el.style.transition = `width ${ms}ms linear`;
+      el.style.width = "0%";
+    });
+  });
+}
+function stopStoryTimerBar(){
+  const row = document.getElementById("storyTimerRow");
+  if(row) row.style.display = "none";
+}
+function storyGradeBattle(ok, chosenOrig, timedOut){
+  clearStoryBattleTimer();
+  stopStoryTimerBar();
   clearChoiceKeys();
   const it = storyRun.curItem;
   storyRun.battleAnswered++;
@@ -4471,7 +4669,7 @@ function storyGradeBattle(ok, chosenOrig){
     expl = ok ? "" : `正解は「${esc(it.c[it.a])}」`;
   }
   fb.className = "feedback show " + (ok?"ok":"ng");
-  fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}</div>${expl}`;
+  fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":(timedOut?"⏰ 時間切れ…":"× ざんねん…")}</div>${expl}`;
   const total = storyRun.curBeat.total || STORY_BATTLE_TOTAL;
   const isLast = storyRun.battleAnswered >= total;
   const nb = document.getElementById("storyNextBtn");
@@ -4532,31 +4730,74 @@ function storyBattleRetry(){
   storyRun.battleCorrect = 0;
   storyRenderBeat();
 }
+function storyResetJudgedRun(sp){
+  sp.judgedRunCorrect = 0;
+  sp.judgedRunTotal = 0;
+}
+/* 章クリア時に、この周回で解いた選択肢問題（judgedChoice beat）の正答率を確定させる。
+   sp.judgedRunCorrect/judgedRunTotalは章を最初から始めるたび（startStoryMode／
+   storyReplayChapter）に0リセットされる、章1回分の周回カウンタ。
+   このプレイの正答率が自己ベスト（sp.judgedBest[章key]）より高いときだけ上書きする
+   （分数の大小比較は掛け算で行い、ゼロ除算・浮動小数の誤差を避ける）。
+   自己ベストが今回はじめて100%に達したときだけ、STORY_JUDGED_PERFECT_TREASUREを1個渡す
+   （すでに100%を達成済みの章を再プレイしても、何度でも入手できてしまわないようにするため）。
+   その章にまだ選択肢問題が1問もない場合（total===0）はnullを返し、呼び出し側は何も表示しない。 */
+function storyFinalizeJudgedRate(st, sp){
+  const total = sp.judgedRunTotal || 0;
+  const correct = sp.judgedRunCorrect || 0;
+  storyResetJudgedRun(sp);
+  if(total === 0) return null;
+  if(!sp.judgedBest) sp.judgedBest = {};
+  const prev = sp.judgedBest[sp.chapter];
+  const isBetter = !prev || correct * prev.total > prev.correct * total;
+  const wasPerfect = !!prev && prev.correct >= prev.total;
+  if(isBetter) sp.judgedBest[sp.chapter] = {correct, total};
+  const nowPerfect = correct >= total;
+  let gotPerfectItem = false;
+  if(isBetter && nowPerfect && !wasPerfect){
+    st.items[STORY_JUDGED_PERFECT_TREASURE] = (st.items[STORY_JUDGED_PERFECT_TREASURE]||0) + 1;
+    gotPerfectItem = true;
+  }
+  return {correct, total, pct: Math.round(100*correct/total), isBetter, gotPerfectItem};
+}
 function storyChapterEnd(){
   const st = loadStats();
   const sp = storyProgress(st);
   if(!sp.completedChapters.includes(sp.chapter)) sp.completedChapters.push(sp.chapter);
+  const rate = storyFinalizeJudgedRate(st, sp);
   saveStats(st);
   const pronoun = sp.chapter === "ch1" ? STORY_PRONOUN_LABELS[sp.flags.pronoun] : null;
   const pronounNote = pronoun ? `<p class="note">✨ 一人称が、「${esc(pronoun)}」に設定されました！</p>` : "";
+  const rateNote = rate
+    ? `<p class="note">選択肢問題 正答率：${rate.pct}%（${rate.correct}/${rate.total}問）${rate.isBetter ? "　※自己ベストを更新しました！" : ""}</p>`
+    : "";
+  const perfectNote = rate && rate.gotPerfectItem
+    ? `<p class="note">🎉 選択肢問題、全問正解達成！ ✨<span class="drop-item treasure-drop">【${esc(STORY_JUDGED_PERFECT_TREASURE)}】</span>を手に入れた！</p>`
+    : "";
   screen.innerHTML = `
     <div class="card story-scene">
       <div class="story-chapter-end">📖 ${esc(STORY_CHAPTERS[sp.chapter].title)} クリア！</div>
-      <p class="story-text">入学式当日の朝。支度を終えて、家を出る。\n\n新しい生活が、はじまる。</p>
+      <p class="story-text">${esc(STORY_CHAPTERS[sp.chapter].epilogue || "")}</p>
       ${pronounNote}
+      ${rateNote}
+      ${perfectNote}
       <div class="btn-row" style="justify-content:center">
         <button class="btn" onclick="showHome()">ホームへ</button>
-        <button class="btn secondary" onclick="storyReplayChapter()">もう一度読む（報酬なし）</button>
+        <button class="btn secondary" onclick="storyReplayChapter()">もう一度読む</button>
       </div>
+      <p class="note">※ボス戦のアイテム・宝具は再プレイではもらえません。選択肢問題の正答率は、今回の記録の方が自己ベストより高い場合だけ更新されます。</p>
     </div>`;
 }
-/* クリア済みの章を最初からもう一度プレイする（報酬なし）。completedChaptersは
-   そのままなので、record()や宝具・クリア報酬アイテムのドロップは自動的に封じられる
-   （storyGradeQuiz・storyBattleResolve内のisReplay判定を参照）。 */
+/* クリア済みの章を最初からもう一度プレイする。completedChaptersはそのままなので、
+   record()や宝具・クリア報酬アイテムのドロップは自動的に封じられる
+   （storyGradeQuiz・storyBattleResolve内のisReplay判定を参照）。
+   選択肢問題の正答率だけは例外で、自己ベストを上回れば再プレイでも更新される
+   （storyFinalizeJudgedRate参照）ので、judgedRunCorrect/judgedRunTotalもここで0に戻す。 */
 function storyReplayChapter(){
   const st = loadStats();
   const sp = storyProgress(st);
   sp.beatIdx = 0;
+  storyResetJudgedRun(sp);
   saveStats(st);
   storyRun = storyFreshRun();
   storyRenderBeat();
