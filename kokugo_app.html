@@ -528,7 +528,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.0</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.1</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -692,7 +692,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 23;
+const SAVE_FORMAT_VERSION = 24;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -835,8 +835,14 @@ const FAST_ANSWER_ACC_THRESHOLD = 0.3;
    おそれがあるとき）、または直近4問を2秒未満で答えていて正答率も低いとき（考えずに素早く
    答えているおそれがあるとき）はレベルアップを止める。elapsedMsは問題表示から解答までの
    経過ミリ秒（呼び出し元が計測。渡されなければ時間による判定はスキップされる）。
+   opts.skipRecentAcc=trueを渡すと、st.recentCorrect[cat]・st.recentCorrectAll（ボス遭遇率・
+   宝具ドロップ判定・成績画面の「直近30問」表示に使う、分野横断/分野別の直近正答率）を一切
+   更新しない（2026-07-18〜、野球ミニゲーム用。制限時間が最短0.5秒まで縮む特殊なペース配分の
+   ミニゲームなので、その結果を「じっくり取り組む通常のクイズ」の正答率に混ぜたくない、という
+   教員の指示。この場合lowAccuracy/fastGuessの判定も行わず、正解なら無条件でレベルアップする）。
    {lvup, evolved, lv, gotTicket, lowAccuracy, fastGuess} を返す */
-function record(cat, item, correct, elapsedMs){
+function record(cat, item, correct, elapsedMs, opts){
+  const trackRecentAcc = !(opts && opts.skipRecentAcc);
   const st = loadStats();
   st.cats[cat].t++; if(correct) st.cats[cat].c++;
   const key = qKey(cat, item.q);
@@ -851,24 +857,28 @@ function record(cat, item, correct, elapsedMs){
       ? Math.min(maxLv, curDiff + DIFF_LV_STEP)
       : Math.max(1, curDiff - DIFF_LV_STEP);
   }
-  if(!st.recentCorrect) st.recentCorrect = {};
-  const recent = (st.recentCorrect[cat] || []).slice();
-  recent.push(correct ? 1 : 0);
-  while(recent.length > RECENT_ACC_WINDOW) recent.shift();
-  st.recentCorrect[cat] = recent;
-  /* 分野をまたいだ「直近30回」の正答率（ボス戦のランダム遭遇の判定に使う、2026-07-16〜）。
-     ボス戦自体はrecord()を呼ばないので、この配列にボス戦の結果が混ざることはない。 */
-  if(!Array.isArray(st.recentCorrectAll)) st.recentCorrectAll = [];
-  const recentAll = st.recentCorrectAll.slice();
-  recentAll.push(correct ? 1 : 0);
-  while(recentAll.length > RECENT_ACC_WINDOW) recentAll.shift();
-  st.recentCorrectAll = recentAll;
-  const recentAcc = recent.reduce((a,b)=>a+b, 0) / recent.length;
-  const lowAccuracy = recent.length >= RECENT_ACC_WINDOW && recentAcc < RECENT_ACC_THRESHOLD;
-  const recentFast = recent.slice(-FAST_ANSWER_WINDOW);
-  const recentFastAcc = recentFast.length ? recentFast.reduce((a,b)=>a+b, 0) / recentFast.length : 1;
-  const fastGuess = typeof elapsedMs === "number" && elapsedMs < FAST_ANSWER_MS
-    && recentFast.length >= FAST_ANSWER_WINDOW && recentFastAcc < FAST_ANSWER_ACC_THRESHOLD;
+  let lowAccuracy = false, fastGuess = false;
+  if(trackRecentAcc){
+    if(!st.recentCorrect) st.recentCorrect = {};
+    const recent = (st.recentCorrect[cat] || []).slice();
+    recent.push(correct ? 1 : 0);
+    while(recent.length > RECENT_ACC_WINDOW) recent.shift();
+    st.recentCorrect[cat] = recent;
+    /* 分野をまたいだ「直近30回」の正答率（ボス戦のランダム遭遇の判定に使う、2026-07-16〜）。
+       ボス戦自体はrecord()を呼ばないので、この配列にボス戦の結果が混ざることはない
+       （野球ミニゲームはrecord()を呼ぶが、skipRecentAcc:trueを渡すのでここには混ざらない）。 */
+    if(!Array.isArray(st.recentCorrectAll)) st.recentCorrectAll = [];
+    const recentAll = st.recentCorrectAll.slice();
+    recentAll.push(correct ? 1 : 0);
+    while(recentAll.length > RECENT_ACC_WINDOW) recentAll.shift();
+    st.recentCorrectAll = recentAll;
+    const recentAcc = recent.reduce((a,b)=>a+b, 0) / recent.length;
+    lowAccuracy = recent.length >= RECENT_ACC_WINDOW && recentAcc < RECENT_ACC_THRESHOLD;
+    const recentFast = recent.slice(-FAST_ANSWER_WINDOW);
+    const recentFastAcc = recentFast.length ? recentFast.reduce((a,b)=>a+b, 0) / recentFast.length : 1;
+    fastGuess = typeof elapsedMs === "number" && elapsedMs < FAST_ANSWER_MS
+      && recentFast.length >= FAST_ANSWER_WINDOW && recentFastAcc < FAST_ANSWER_ACC_THRESHOLD;
+  }
 
   let lvup = false, evolved = null, gotTicket = false;
   if(correct && !lowAccuracy && !fastGuess && st.lv[cat] < MAX_CAT_LV){
@@ -5232,6 +5242,7 @@ function storyBaseballReset(){
     log:["プレイボール！「次の球」を押して勝負開始。"],
     lastQ:null, countdown:null,
     countdownTimerId:null, answerTimerId:null, answerDeadline:null, timeLimit:BASEBALL_TIME_TABLE_S[0],
+    yojiLvStart: loadStats().lv.yoji || 1, // 試合開始時点の四字熟語レベル（勝利画面で伸びを表示するため）
   };
 }
 function baseballAddLog(msg){
@@ -5310,7 +5321,7 @@ function storyBaseballTimeout(){
   clearChoiceKeys();
   bb.selected = -1;
   const elapsedMs = Date.now() - (bb.shownAt || Date.now());
-  record("yoji", bb.question, false, elapsedMs);
+  record("yoji", bb.question, false, elapsedMs, {skipRecentAcc:true});
   bb.feedback = { ok:false, msg:"時間切れ…見逃し三振" };
   baseballAddLog(`${baseballSpeedLabel(bb.batterNumber)}を見逃す → 時間切れ → アウト`);
   bb.outs += 1;
@@ -5326,9 +5337,11 @@ function storyBaseballAnswer(idx){
   const correct = idx === bb.question.a;
   /* この野球ミニゲームだけは、教員の指示で正誤をrecord()に反映する（他の中ボス・校正
      ミニゲームはrecord()を呼ばず分野レベルに影響しない設計のままだが、ここは例外）。
-     正解した瞬間に分野（四字熟語）のレベルが上がりうる。 */
+     正解した瞬間に分野（四字熟語）のレベルが上がりうる。ただしskipRecentAcc:trueにより、
+     最短0.5秒まで縮む野球ミニゲーム特有のペースが「直近の正答率」（分野別・分野横断とも）や
+     fastGuess判定に混ざらないようにしている（2026-07-18、教員の指示）。 */
   const elapsedMs = Date.now() - (bb.shownAt || Date.now());
-  const r = record("yoji", bb.question, correct, elapsedMs);
+  const r = record("yoji", bb.question, correct, elapsedMs, {skipRecentAcc:true});
   if(correct){
     const { newBases, runsScored } = baseballAdvanceRunners(bb.bases, 1);
     bb.feedback = { ok:true, msg:`快音！鋭い打球がフェアゾーンに転がる！ヒット！${runsScored > 0 ? `　${runsScored}点入る！` : ""}`, lvup:r.lvup };
@@ -5408,11 +5421,20 @@ function storyBaseballResolve(){
     saveStats(st);
   }
   const bb = storyRun.bb;
+  /* 試合を通じて四字熟語のレベルがどれだけ伸びたかを、勝利画面にまとめて表示する
+     （2026-07-18、教員の指示。1問ごとの「⚡球速が速くなっていく…」表示とは別に、
+     試合全体の成果として振り返れるようにする）。 */
+  const yojiLvStart = bb.yojiLvStart || 1;
+  const yojiLvEnd = st.lv.yoji || 1;
+  const yojiLvUpHtml = yojiLvEnd > yojiLvStart
+    ? `<p class="lvup-chip">📚 四字熟語 Lv.${yojiLvStart} → Lv.${yojiLvEnd} にアップ！</p>`
+    : "";
   screen.innerHTML = `
     <div class="card story-scene bb-victory">
       <div class="bb-victory-burst">🎉⚾✨🏆✨⚾🎉</div>
       <div class="bb-victory-title">大金星！　強豪校のエースを打ち崩した！</div>
       <div class="bb-victory-score">自軍 ${bb.totalRuns} － ${bb.opponentTotalRuns} 相手</div>
+      ${yojiLvUpHtml}
       ${isReplay
         ? `<p class="story-text">「${esc(boss.name)}」に勝った！（再プレイのため、今回はアイテムの入手はありません）</p>`
         : `<p class="story-text">「${esc(boss.name)}」に勝った！<br>${esc(boss.icon)} <span class="drop-item">【${esc(boss.item)}】</span>を手に入れた！${gotTreasure ? `<br>✨ さらに、宝具<span class="drop-item treasure-drop">【${esc(boss.treasure)}】</span>を手に入れた！ ✨` : ""}</p>`}
