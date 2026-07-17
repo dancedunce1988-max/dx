@@ -460,12 +460,22 @@
     border:1.5px solid var(--gold); font-weight:bold; font-size:.85rem;
     border-radius:8px; padding:3px 12px; margin:2px 0 12px;
   }
+  /* 校正ミニゲーム（proofread beat、2026-07-17〜、第3章の中ボス代わり）。文章を単語単位の
+     タップ可能な.proof-tokenに分割して表示する。誤字トークンを見つけると.found、正しい
+     言葉を誤ってタップすると.tried（そのトークンはそれ以降タップ不可）、時間切れ/クリア後に
+     見つけられなかった誤字を.missedで開示する。色は既存の.choice.correct/.wrongと同じ変数を流用。 */
+  .proof-passage{ line-height:2.4; font-size:1.05rem; }
+  .proof-token{ cursor:pointer; padding:1px 3px; border-radius:4px; transition:background .15s,color .15s; }
+  .proof-token:hover{ background:rgba(255,255,255,.08); }
+  .proof-token.found{ background:var(--okbg); color:var(--ok); font-weight:bold; text-decoration:underline; cursor:default; }
+  .proof-token.tried{ background:var(--ngbg); color:var(--ng); opacity:.6; cursor:default; }
+  .proof-token.missed{ background:var(--ngbg); color:var(--ng); text-decoration:underline wavy; cursor:default; }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver7.4</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver7.5</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -629,7 +639,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 19;
+const SAVE_FORMAT_VERSION = 20;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -1546,6 +1556,7 @@ function balancedTrainingBtnHtml(){
 }
 function showHome(){
   clearStoryBattleTimer(); // 中ボス戦を中断して離れたときに、残った制限時間タイマーを止める
+  clearStoryProofreadTimer(); // 校正ミニゲームを中断して離れたときに、残った制限時間タイマーを止める
   const st = loadStats();
   let html = "";
   html += kotonohaCardHtml(st);
@@ -4060,13 +4071,22 @@ const STORY_EVENT_BOSSES = {
     id:"story_self_intro_card", name:"白紙のまま固まった自己紹介カード", icon:"📇",
     item:"とっておきの表現メモ", treasure:"先生からの花丸",
   },
+  /* 第3章の中ボス代わり（2026-07-17〜）。既存の中ボス（battle beat、正答数ゲート）とは別の
+     出題形式＝校正ミニゲーム（proofread beat）用。勝敗判定・報酬の入手ロジック自体は
+     storyProofreadResolve()内でbattleと同じ天井/宝具抽選（treasureDropAllowed・BOSS_PITY_MAX・
+     BOSS_TREASURE_RATE）を再利用するので、idはBOSSES本体と衝突しないユニークな文字列にしてある。 */
+  newsGalley: {
+    id:"story_news_galley", name:"誤植だらけの新聞ゲラ", icon:"🗞️",
+    item:"赤ペン添削メモ", treasure:"編集長からの太鼓判",
+  },
 };
 TREASURE_NAMES.add(STORY_EVENT_BOSSES.printPile.treasure);
 TREASURE_NAMES.add(STORY_EVENT_BOSSES.selfIntroCard.treasure);
+TREASURE_NAMES.add(STORY_EVENT_BOSSES.newsGalley.treasure);
 
 /* クリア報酬アイテム（章クリアで確定ドロップする通常アイテムのうち、使うと経験値+20になるもの）。
    宝具（TREASURE_NAMES／useTreasureItem）とは別枠の、ストーリーモード専用の使用可能アイテム分類。 */
-const STORY_REWARD_ITEM_NAMES = new Set([STORY_EVENT_BOSSES.printPile.item, STORY_EVENT_BOSSES.selfIntroCard.item, STORY_JUDGED_PERFECT_ITEM]);
+const STORY_REWARD_ITEM_NAMES = new Set([STORY_EVENT_BOSSES.printPile.item, STORY_EVENT_BOSSES.selfIntroCard.item, STORY_EVENT_BOSSES.newsGalley.item, STORY_JUDGED_PERFECT_ITEM]);
 const STORY_REWARD_EXP_AMOUNT = 20;
 function isStoryRewardItem(name){ return STORY_REWARD_ITEM_NAMES.has(name); }
 function useStoryRewardItem(name){
@@ -4103,6 +4123,57 @@ function storyRewardSectionHtml(st){
   }
   return html;
 }
+
+/* 校正ミニゲーム（proofread beat）用のデータ・定数（2026-07-17〜、第3章「班新聞づくり」用）。
+   既存の中ボス（battle beat、1問ずつの正誤判定）とは違い、1つの文章の中に紛れた5個の
+   誤り言葉を、制限時間内にタップで全部見つけるゲーム。誤りは「意外／以外」「感心／関心」
+   「ら抜き言葉」「助詞の誤用」「送り仮名」「現代仮名遣い」など、中学1年生が国語の授業で
+   実際に習う範囲の紛らわしい言葉づかいから出題（毎回文章を変えるのが理想だが、文章を
+   自動生成する仕組みは持たないため、教員の指示どおり4パターンを手作りしてランダム出題する）。
+   tokensは表示順の配列。wrong:trueのものだけが「見つけるべき誤り」で、correctに正しい表記を持つ。
+   トークンの粒度は文節程度（誤りだけを短く切って目立たせない）。 */
+const STORY_PROOFREAD_TIME_MS = 30000;
+const STORY_PROOFREAD_MISS_PENALTY_MS = 2000; // 誤りでない言葉をタップするたびに、残り時間からこの分だけ差し引く（すべてタップするだけの力任せ戦法を抑止するため）
+const STORY_PROOFREAD_PASSAGES = [
+  { tokens: [
+    {t:"5月に"}, {t:"行われた"}, {t:"体育祭で、"}, {t:"1年1組は"}, {t:"大玉送りで"}, {t:"優勝した。"},
+    {t:"朝は"}, {t:"雨が"}, {t:"心配されたが、"}, {t:"開始前には"}, {t:"晴れて、"}, {t:"絶好の"}, {t:"運動会日和に"}, {t:"なった。"},
+    {t:"早起きが"}, {t:"苦手な"}, {t:"私も、"}, {t:"この日は"}, {t:"早く"}, {t:"起きれた。", wrong:true, correct:"起きられた。"},
+    {t:"クラス全員が"}, {t:"声をそろえて"}, {t:"応援し、"}, {t:"みんなの"}, {t:"走るのが"}, {t:"早くて", wrong:true, correct:"速くて"}, {t:"驚いた。"},
+    {t:"応援団の"}, {t:"演技が", wrong:true, correct:"演技に"}, {t:"感動した。"},
+    {t:"優勝が"}, {t:"決まった"}, {t:"瞬間、"}, {t:"以外な", wrong:true, correct:"意外な"}, {t:"結果に"}, {t:"教室中が"}, {t:"沸いた。"},
+    {t:"クラスの"}, {t:"団結力に"}, {t:"関心した。", wrong:true, correct:"感心した。"},
+  ]},
+  { tokens: [
+    {t:"4月、"}, {t:"新入生歓迎会が"}, {t:"体育館で"}, {t:"開かれた。"},
+    {t:"1年生は"}, {t:"少し"}, {t:"緊張した"}, {t:"様子で"}, {t:"入場してきた。"},
+    {t:"2年生と"}, {t:"3年生が"}, {t:"中心になって、"}, {t:"学校生活について"}, {t:"紹介した。"},
+    {t:"部活動紹介では、"}, {t:"実際に"}, {t:"演奏や"}, {t:"演技が", wrong:true, correct:"演技を"}, {t:"見せてもらえる"}, {t:"場面もあり、"}, {t:"盛り上がった。"},
+    {t:"最後に、"}, {t:"新入生代票が", wrong:true, correct:"新入生代表が"}, {t:"あいさつをした。"},
+    {t:"「早く"}, {t:"学校に"}, {t:"慣れれるように", wrong:true, correct:"慣れられるように"}, {t:"頑張たい」", wrong:true, correct:"頑張りたい」"}, {t:"という"}, {t:"言葉に、"},
+    {t:"会場から"}, {t:"暖かい", wrong:true, correct:"温かい"}, {t:"拍手が"}, {t:"送られた。"},
+    {t:"この会を"}, {t:"通して、"}, {t:"先輩と"}, {t:"後輩の"}, {t:"交流が"}, {t:"深まったと"}, {t:"思う。"},
+  ]},
+  { tokens: [
+    {t:"図書委員会では、"}, {t:"毎月"}, {t:"「おすすめ本コーナー」を"}, {t:"設けている。"},
+    {t:"今月は、"}, {t:"友情を"}, {t:"テーマにした"}, {t:"物語を"}, {t:"紹介した。"},
+    {t:"主人公が"}, {t:"仲間と"}, {t:"力を"}, {t:"会わせて", wrong:true, correct:"合わせて"}, {t:"困難を"}, {t:"乗り越えていく"}, {t:"展開に、"}, {t:"読んでいて"}, {t:"胸が"}, {t:"厚くなった。", wrong:true, correct:"熱くなった。"},
+    {t:"委員の"}, {t:"一人は"}, {t:"「一気に"}, {t:"読めた」と"}, {t:"話していた。"},
+    {t:"図書室には"}, {t:"だれでも"}, {t:"来れるので、", wrong:true, correct:"来られるので、"}, {t:"休み時間に"}, {t:"立ち寄る"}, {t:"生徒も"}, {t:"多い。"},
+    {t:"表紙の"}, {t:"絵にも"}, {t:"興味が", wrong:true, correct:"興味を"}, {t:"持ち、"}, {t:"思わず"}, {t:"手に取る"}, {t:"人が"}, {t:"多いそうだ。"},
+    {t:"この本を"}, {t:"きっかけに、"}, {t:"読書に"}, {t:"感心を", wrong:true, correct:"関心を"}, {t:"持つ"}, {t:"生徒が"}, {t:"増えれば"}, {t:"うれしい。"},
+  ]},
+  { tokens: [
+    {t:"陸上部は、"}, {t:"朝と"}, {t:"放課後に"}, {t:"練習している。"},
+    {t:"特に"}, {t:"力を"}, {t:"入れているのは"}, {t:"基礎体力づくりで、"}, {t:"走る前に"}, {t:"十分に"}, {t:"準備運動をしてから"}, {t:"練習に入る。"},
+    {t:"先輩たちは、"}, {t:"後輩に"}, {t:"指道してくれる。", wrong:true, correct:"指導してくれる。"},
+    {t:"「最初は"}, {t:"うまく"}, {t:"走れなかったけれど、"}, {t:"少しずつ"}, {t:"自己ベストを"}, {t:"更新できるように"}, {t:"なった」と"}, {t:"話す"}, {t:"部員もいた。"},
+    {t:"大会では、"}, {t:"思うような"}, {t:"結果が"}, {t:"出せづ", wrong:true, correct:"出せず"}, {t:"悔しい"}, {t:"思いをすることも"}, {t:"あるが、"},
+    {t:"苦しいときも"}, {t:"仲間がいれば"}, {t:"練習を"}, {t:"続けれる。", wrong:true, correct:"続けられる。"},
+    {t:"ある先輩は"}, {t:"「苦しいときこそ、"}, {t:"仲間の"}, {t:"存在に", wrong:true, correct:"存在が"}, {t:"力になる」と"}, {t:"教えてくれた。"},
+    {t:"その言葉が、"}, {t:"ずっと"}, {t:"心に"}, {t:"残こっている。", wrong:true, correct:"残っている。"},
+  ]},
+];
 
 const STORY_CHAPTERS = {
   ch1: {
@@ -4263,6 +4334,59 @@ const STORY_CHAPTERS = {
     ],
     epilogue: "初日が終わり、家に帰る道。\n\n新しい友達の顔を思い浮かべながら、これからの中学校生活に、少しずつ期待がふくらんでいくのを感じた。",
   },
+  ch3: {
+    title: "第3章「班新聞づくり」",
+    beats: [
+      {type:"line", text:"5月のある日。国語の授業のはじめに、担任の先生が黒板に大きく書いた。\n「学級新聞をつくろう」"},
+      {type:"line", speaker:"担任の先生", text:"「今月は、班ごとに学級新聞を作ってもらいます。取材をして、記事を書いて、みんなで力を合わせて1枚の新聞に仕上げてもらいますよ」"},
+      {type:"line", speaker:"ことのは", text:"新聞づくりか……たくさんの言葉を、たくさんの人に届ける仕事だね。ぼく、ちょっとわくわくしてきたよ。"},
+      {type:"choice", flagKey:"teamRole", text:"班の中で、どの係をやってみたい？", options:[
+        {label:"取材して記事を書く係", value:"writer"},
+        {label:"見出しや割り付けを考える係", value:"layout"},
+      ]},
+      {type:"line", text:"班分けが発表される。\n見てみると、同じ班に花子と太郎がいた。"},
+      {type:"line", speaker:"花子", text:"「わたしたち、同じ班だね！ よろしく」"},
+      {type:"line", speaker:"太郎", text:"「新聞づくりなんて初めてだから、ちょっと緊張するな」", variants:[
+        {flag:"teamRole", value:"writer", text:"「新聞づくりなんて初めてだから、ちょっと緊張するな。記事、書いてくれるんだよね。頼りにしてるよ」"},
+        {flag:"teamRole", value:"layout", text:"「新聞づくりなんて初めてだから、ちょっと緊張するな。見出しとか割り付け、任せていい？」"},
+      ]},
+      {type:"line", text:"班のみんなで机を寄せ合い、さっそく作戦会議を始めた。"},
+      {type:"line", speaker:"担任の先生", text:"「新聞づくりで、いちばん大事なことを教えておきますね」"},
+      {type:"judgedChoice", speaker:"担任の先生", text:"新聞記事をつくるとき、最も大切なことは？", options:[
+        {label:"読み手にとって分かりやすい表現で、正しい情報を伝えること。", correct:true},
+        {label:"できるだけ多くの出来事を、1つの記事に詰めこむこと。", correct:false},
+        {label:"むずかしい言葉をたくさん使って、大人っぽい文章に見せること。", correct:false},
+        {label:"自分の感想だけを、思いつくままに書きつづること。", correct:false},
+      ]},
+      {type:"line", speaker:"担任の先生", text:"「その通り。新聞は、読んでくれる人のためのものですからね」"},
+      {type:"line", speaker:"太郎", text:"「そういえば、記事っていろんな種類があるって聞いたことがあるよ」"},
+      {type:"line", speaker:"花子", text:"「確か……トップ記事、セカンド記事、タタミ記事、アトガキ、あともう1つあった気がする」"},
+      {type:"judgedChoice", speaker:"花子", text:"記事の種類の基本は、トップ・セカンド・タタミ・アトガキ、あと一つは？", options:[
+        {label:"カコミ", correct:true},
+        {label:"ハコミ", correct:false},
+        {label:"シコミ", correct:false},
+        {label:"ワクミ", correct:false},
+      ]},
+      {type:"line", speaker:"花子", text:"「そうそう、カコミだ！ ありがとう、助かった」"},
+      {type:"line", text:"記事の形が決まったところで、言葉選びの練習をしてみることになった。"},
+      {type:"quiz", cat:"goi", speaker:"太郎", intro:"「新聞に使えそうな、ぴったりの言葉を選ぶ練習をしてみようよ」"},
+      {type:"line", speaker:"太郎", text:"「さすが、言葉をたくさん知ってるね。これなら記事もいい感じに書けそうだ」"},
+      {type:"line", text:"それから数日、班のみんなで取材をして、記事の下書きを仕上げた。\nいよいよ、清書して印刷する日がきた。"},
+      {type:"line", speaker:"担任の先生", text:"「印刷する前に、もう一度、記事を見直しましょう。誤字や表現のまちがいがないか、みんなで校正するんですよ」"},
+      {type:"line", text:"できあがった記事を、みんなで読み返す。\n――どこかに、まちがいが紛れていないだろうか。"},
+      {type:"proofread", boss:"newsGalley"},
+      {type:"line", text:"見直しを終え、ようやく新聞が完成した。"},
+      {type:"line", speaker:"花子", text:"「わたしたちの新聞、ちゃんと形になったね」"},
+      {type:"line", speaker:"太郎", text:"「校正、大変だったけど……おかげでいい記事になった気がする」"},
+      {type:"line", speaker:"ことのは", text:"言葉って、書いて終わりじゃないんだね。見直して、ととのえて、はじめて誰かに届くんだ。", variants:[
+        {flag:"favoriteSubject", value:"kanji", text:"漢字が得意なきみが、細かい誤字にもすぐ気づいてくれて助かったよ。言葉は、見直して、ととのえて、はじめて誰かに届くんだね。"},
+        {flag:"favoriteSubject", value:"dokkai", text:"文章を読むのが得意なきみだからこそ、読み手の気持ちになって直せたんだね。言葉は、見直して、ととのえて、はじめて誰かに届くんだね。"},
+        {flag:"favoriteSubject", value:"bunpou", text:"言葉のきまりが得意なきみの校正、すごく頼りになったよ。言葉は、見直して、ととのえて、はじめて誰かに届くんだね。"},
+      ]},
+      {type:"line", text:"完成した学級新聞は、廊下の掲示板に貼り出された。\n通りかかった他のクラスの生徒たちも、足を止めて読んでくれている。"},
+    ],
+    epilogue: "掲示板の前を通るたびに、少しだけ誇らしい気持ちになる。\n\n自分たちの言葉が、誰かに読まれ、誰かに届いている――そのことが、ちゃんと実感できた1日だった。",
+  },
 };
 
 /* 一人称選択（ch1のpronoun choice）の表示名。ホーム画面の「相棒」表記などで使う。 */
@@ -4284,6 +4408,7 @@ function storyFreshRun(){
     lastQ:null, order:null, curItem:null, curCat:null, curBeat:null, shownAt:null,
     gateBeatIdx:null, gateWindow:[], gateCleared:false,
     battleBeatIdx:null, battleAnswered:0, battleCorrect:0, timerId:null,
+    lastProofPassageIdx:null, proofPassageIdx:null, proofFound:null, proofDeadline:null, proofDone:false, proofTimerId:null,
   };
 }
 
@@ -4351,6 +4476,7 @@ function storyRenderBeat(){
   else if(beat.type === "judgedChoice") storyRenderJudgedChoice(beat);
   else if(beat.type === "quiz") storyRenderQuiz(beat, sp.beatIdx);
   else if(beat.type === "battle") storyRenderBattle(beat, sp.beatIdx);
+  else if(beat.type === "proofread") storyRenderProofread(beat);
   else showHome();
 }
 function storyFooterHtml(){
@@ -4763,6 +4889,170 @@ function storyBattleRetry(){
   storyRun.battleCorrect = 0;
   storyRenderBeat();
 }
+
+/* 校正ミニゲーム（proofread beat）：既存の中ボス（battle beat、1問ずつの正誤判定）とは別実装。
+   1つの文章（STORY_PROOFREAD_PASSAGESから毎回ランダムに1パターン、直前と重複しないよう
+   lastProofPassageIdxで避ける）の中の、誤りトークン（wrong:true）を全部タップできればクリア。
+   制限時間はDate.now()との差分で管理する単純なポーリング式（battle beatのsetTimeout1発方式とは
+   違い、誤答タップのペナルティで残り時間を動的に減らす必要があるため）。 */
+function pickProofreadPassageIdx(){
+  const n = STORY_PROOFREAD_PASSAGES.length;
+  if(n <= 1) return 0;
+  let idx;
+  do { idx = Math.floor(Math.random()*n); } while(idx === storyRun.lastProofPassageIdx);
+  storyRun.lastProofPassageIdx = idx;
+  return idx;
+}
+function storyRenderProofread(beat){
+  storyRun.curBeat = beat;
+  storyRun.proofPassageIdx = pickProofreadPassageIdx();
+  storyRun.proofFound = new Set();
+  storyRun.proofDeadline = Date.now() + STORY_PROOFREAD_TIME_MS;
+  storyRun.proofDone = false;
+  const boss = STORY_EVENT_BOSSES[beat.boss];
+  const passage = STORY_PROOFREAD_PASSAGES[storyRun.proofPassageIdx];
+  const errorCount = passage.tokens.filter(t => t.wrong).length;
+  screen.innerHTML = `
+    <div class="card story-scene">
+      <div class="boss-name">${esc(boss.icon)} ${esc(boss.name)}</div>
+      <p class="note">30秒以内に、まちがった言葉づかいを${errorCount}つ、すべてタップして見つけよう！（正しい言葉をタップすると、残り時間が${STORY_PROOFREAD_MISS_PENALTY_MS/1000}秒減ってしまいます）</p>
+      <p class="note" id="proofProgress">見つけた数：0／${errorCount}</p>
+      <div class="boss-timer-row"><div class="boss-timer-bar"><div id="proofTimerFill" class="boss-timer-fill"></div></div></div>
+      <div class="boss-q-card">
+        <div class="proof-passage" id="proofPassage">
+          ${passage.tokens.map((t,i) => `<span class="proof-token" data-i="${i}" onclick="storyProofreadTap(${i})">${esc(t.t)}</span>`).join("")}
+        </div>
+        <div class="feedback" id="fb"></div>
+        <div class="btn-row"><button class="btn" id="storyNextBtn" style="display:none" onclick="storyProofreadNext()">つぎへ</button></div>
+      </div>
+    </div>
+    ${storyFooterHtml()}`;
+  startStoryProofreadTimer();
+}
+function startStoryProofreadTimer(){
+  clearStoryProofreadTimer();
+  const run = storyRun;
+  run.proofTimerId = setInterval(() => {
+    if(storyRun !== run) return;
+    if(run.proofDeadline - Date.now() <= 0){
+      clearStoryProofreadTimer();
+      storyProofreadTimeUp();
+    }
+  }, 200);
+  renderStoryProofreadTimerBar();
+}
+function clearStoryProofreadTimer(){
+  if(storyRun && storyRun.proofTimerId){
+    clearInterval(storyRun.proofTimerId);
+    storyRun.proofTimerId = null;
+  }
+}
+/* タイマーバーの幅は、常に「STORY_PROOFREAD_TIME_MS（30秒）に対する残り時間の割合」で表す。
+   誤答ペナルティでdeadlineが減った瞬間、バーがその分だけ目に見えて縮むので、
+   ペナルティが起きたことが直感的にわかる（減った後の残り時間ぶんだけ、あらためて0%まで
+   アニメーションさせる）。 */
+function renderStoryProofreadTimerBar(){
+  const el = document.getElementById("proofTimerFill");
+  if(!el || !storyRun) return;
+  const remain = Math.max(0, storyRun.proofDeadline - Date.now());
+  el.style.transition = "none";
+  el.style.width = (100*remain/STORY_PROOFREAD_TIME_MS) + "%";
+  void el.offsetWidth;
+  if(typeof requestAnimationFrame !== "function") return;
+  requestAnimationFrame(() => {
+    el.style.transition = `width ${remain}ms linear`;
+    el.style.width = "0%";
+  });
+}
+function storyProofreadTap(i){
+  if(!storyRun || storyRun.proofDone) return;
+  const passage = STORY_PROOFREAD_PASSAGES[storyRun.proofPassageIdx];
+  const token = passage.tokens[i];
+  const el = document.querySelector(`.proof-token[data-i="${i}"]`);
+  if(!el || el.classList.contains("found") || el.classList.contains("tried")) return;
+  if(token.wrong){
+    el.classList.add("found");
+    storyRun.proofFound.add(i);
+    const errorCount = passage.tokens.filter(t => t.wrong).length;
+    const progressEl = document.getElementById("proofProgress");
+    if(progressEl) progressEl.textContent = `見つけた数：${storyRun.proofFound.size}／${errorCount}`;
+    if(storyRun.proofFound.size >= errorCount){
+      clearStoryProofreadTimer();
+      storyProofreadReveal(true);
+    }
+  }else{
+    el.classList.add("tried");
+    storyRun.proofDeadline -= STORY_PROOFREAD_MISS_PENALTY_MS;
+    if(storyRun.proofDeadline - Date.now() <= 0){
+      clearStoryProofreadTimer();
+      storyProofreadTimeUp();
+    }else{
+      renderStoryProofreadTimerBar();
+    }
+  }
+}
+function storyProofreadTimeUp(){
+  storyProofreadReveal(false);
+}
+function storyProofreadReveal(won){
+  storyRun.proofDone = true;
+  const passage = STORY_PROOFREAD_PASSAGES[storyRun.proofPassageIdx];
+  const errorCount = passage.tokens.filter(t => t.wrong).length;
+  passage.tokens.forEach((t,i) => {
+    const el = document.querySelector(`.proof-token[data-i="${i}"]`);
+    if(!el) return;
+    el.onclick = null;
+    if(t.wrong && !storyRun.proofFound.has(i)) el.classList.add("missed");
+  });
+  const missedList = passage.tokens
+    .filter((t,i) => t.wrong && !storyRun.proofFound.has(i))
+    .map(t => `「${esc(t.t)}」→「${esc(t.correct)}」`);
+  const fb = document.getElementById("fb");
+  fb.className = "feedback show " + (won?"ok":"ng");
+  fb.innerHTML = won
+    ? `<div class="verdict">○ ${errorCount}つ、すべて見つけた！</div>`
+    : `<div class="verdict">⏰ 時間切れ…（${storyRun.proofFound.size}／${errorCount}つ発見）</div>` +
+      (missedList.length ? `<p>見つけられなかったまちがい：${missedList.join("、")}</p>` : "");
+  const nb = document.getElementById("storyNextBtn");
+  if(nb){ nb.style.display = "inline-block"; nb.textContent = won ? "けっかを見る" : "もう一度挑戦する"; }
+}
+function storyProofreadNext(){
+  const passage = STORY_PROOFREAD_PASSAGES[storyRun.proofPassageIdx];
+  const errorCount = passage.tokens.filter(t => t.wrong).length;
+  if(storyRun.proofFound.size >= errorCount) storyProofreadResolve();
+  else storyRenderBeat();
+}
+function storyProofreadResolve(){
+  const beat = storyRun.curBeat;
+  const boss = STORY_EVENT_BOSSES[beat.boss];
+  const st = loadStats();
+  const sp = storyProgress(st);
+  const isReplay = sp.completedChapters.includes(sp.chapter);
+  let gotTreasure = false;
+  if(!isReplay){
+    st.items[boss.item] = (st.items[boss.item]||0) + 1;
+    if(treasureDropAllowed(st)){
+      st.bossPity[boss.id] = (st.bossPity[boss.id]||0) + 1;
+      if(st.bossPity[boss.id] >= BOSS_PITY_MAX || Math.random() < BOSS_TREASURE_RATE){
+        gotTreasure = true;
+        st.bossPity[boss.id] = 0;
+        st.items[boss.treasure] = (st.items[boss.treasure]||0) + 1;
+      }
+    }
+    saveStats(st);
+  }
+  screen.innerHTML = `
+    <div class="card story-scene">
+      <div class="story-chapter-end">🎉 クリア！</div>
+      ${isReplay
+        ? `<p class="story-text">「${esc(boss.name)}」を乗りこえた！（再プレイのため、今回はアイテムの入手はありません）</p>`
+        : `<p class="story-text">「${esc(boss.name)}」を乗りこえた！<br>${esc(boss.icon)} <span class="drop-item">【${esc(boss.item)}】</span>を手に入れた！${gotTreasure ? `<br>✨ さらに、宝具<span class="drop-item treasure-drop">【${esc(boss.treasure)}】</span>を手に入れた！ ✨` : ""}</p>`}
+      <div class="btn-row" style="justify-content:center">
+        <button class="btn" onclick="storyAdvance()">つづける</button>
+      </div>
+    </div>`;
+}
+
 function storyResetJudgedRun(sp){
   sp.judgedRunCorrect = 0;
   sp.judgedRunTotal = 0;
