@@ -495,12 +495,40 @@
   .bb-countdown-label{ font-size:.78rem; color:var(--gold); letter-spacing:.1em; margin-top:6px; }
   .bb-log{ font-size:.78rem; color:var(--sub); margin-top:12px; }
   .bb-log div{ line-height:1.6; }
+
+  /* 野球ミニゲームの勝利画面だけ、他の中ボスより派手な演出にする（2026-07-18、教員の指示）。 */
+  @keyframes bbBurst{ 0%{ transform:scale(.4) rotate(-8deg); opacity:0; } 60%{ transform:scale(1.15) rotate(3deg); opacity:1; } 100%{ transform:scale(1) rotate(0deg); opacity:1; } }
+  @keyframes bbShine{ 0%,100%{ box-shadow:0 0 18px rgba(184,134,11,.35), 0 0 0 rgba(192,57,43,0); } 50%{ box-shadow:0 0 34px rgba(184,134,11,.65), 0 0 18px rgba(192,57,43,.25); } }
+  .bb-victory{
+    text-align:center; position:relative; overflow:hidden;
+    background:linear-gradient(150deg,#fff6da 0%,#ffe6ae 55%,#ffd88a 100%);
+    border:3px solid var(--gold); border-radius:16px;
+    animation:bbBurst .5s cubic-bezier(.22,1.4,.4,1), bbShine 2.2s ease-in-out infinite;
+  }
+  .bb-victory-burst{ font-size:2.6rem; letter-spacing:.15em; margin-bottom:2px; }
+  .bb-victory-title{
+    font-size:1.7rem; font-weight:bold; color:var(--accent);
+    letter-spacing:.08em; margin:2px 0 10px; text-shadow:0 0 14px rgba(192,57,43,.3);
+  }
+  .bb-victory-score{
+    display:inline-block; font-size:1.35rem; font-weight:bold; color:var(--ink);
+    background:rgba(255,255,255,.6); border-radius:10px; padding:6px 18px; margin-bottom:12px;
+    font-variant-numeric:tabular-nums;
+  }
+  @media (prefers-reduced-motion: reduce){
+    .bb-victory{ animation:none; }
+  }
+  /* .drop-item/.treasure-dropは元々ボス戦の暗い背景を想定した淡い金色文字なので、
+     このbb-victoryの明るい金色背景の上では読みにくい。ここだけ濃い色に上書きする
+     （2026-07-18、章クリア画面で同種の問題が起きた前例[[kokugo-story-mode]]と同じ対策）。 */
+  .bb-victory .drop-item{ color:var(--accent); background:rgba(255,255,255,.6); border-color:rgba(192,57,43,.4); }
+  .bb-victory .drop-item.treasure-drop{ color:#8a5a00; background:rgba(255,255,255,.75); box-shadow:0 0 10px rgba(184,134,11,.4); }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver7.8</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver7.9</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -664,7 +692,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 22;
+const SAVE_FORMAT_VERSION = 23;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -4109,7 +4137,7 @@ const STORY_EVENT_BOSSES = {
      勝った（自軍の得点が相手を上回った）ときだけ付与する。報酬ロジックはproofread/battleと
      同じ天井・宝具抽選を再利用する（storyBaseballResolve参照）。 */
   baseballMatch: {
-    id:"story_baseball_match", name:"胸を借りた練習試合", icon:"⚾",
+    id:"story_baseball_match", name:"県内屈指の剛腕エース", icon:"⚾",
     item:"泥だらけのユニフォーム", treasure:"先輩からのサインボール",
   },
 };
@@ -4222,43 +4250,33 @@ const STORY_PROOFREAD_PASSAGES = [
 ];
 
 /* 野球ミニゲーム（baseball beat、2026-07-17〜、第4章「野球で勝負！」用）。教員が事前に
-   用意したReactの試作（野球ミニゲーム.jsx）を、①出題ジャンルを部首に差し替え、②相手チームの
-   得点を「1回につき必ず1点」から「1回につき0〜3点のランダム」に変更、③アウトになるたびに
-   打者の制限時間を1人目の3秒にリセットするよう変更（ヒットが続く間だけ0.5秒ずつ短縮、
-   最短0.5秒）、という3点の指示のもとに移植した。ステータス非依存の他の中ボス（battle/
-   proofread beat）ともまた違う出題形式で、3イニング制・アウト/走者/得点というリアルタイム性の
-   高いミニゲームを丸ごと1つのbeatとして実装している。
-   問題データは新規に作らず、既存のCATS.busyu.items（725問、lv1〜4）をそのまま流用する
-   （教員から「部首の問題はもともとの知識DXにあるものから出せないか」という指示があったため）。
-   lvを「直球=lv1(やさしい)／変化球=lv2(ふつう)／勝負球=lv3・4(むずかしい)」の3段階に割り振り、
-   球種に応じて安打の価値（単打/二塁打/満塁弾級）が変わるという原作のゲーム性をそのまま踏襲した。 */
+   用意したReactの試作（野球ミニゲーム.jsx）を土台に、以降のフィードバックで何度か改訂している。
+   最新仕様（2026-07-18〜）：相手は県内屈指の強豪校で、エースは終始ストレート一本勝負。
+   ヒットが続いてピンチが深まるほどピッチャーが本気になり、球（＝制限時間）が速くなっていく、
+   という設定に変更した（球種による安打の価値の違いは廃止、安打は常に単打）。
+   出題ジャンルは部首→四字熟語に変更し、既存の`pickBattleQuestion`をそのまま使う（新規データ不要）。
+   正解するとその場で分野レベルが上がる（他の中ボス／校正ミニゲームはrecord()を呼ばない設計だが、
+   この野球ミニゲームだけは教員の指示で例外的にrecord()を呼ぶ）。 */
 const BASEBALL_INNINGS_TOTAL = 3;
-const BASEBALL_START_TIME_S = 3;      // 1人目の制限時間（秒）。アウトのたびにここへ戻る
-const BASEBALL_TIME_STEP_S = 0.5;     // ヒットが続くたびに、この秒数ずつ短くなる
-const BASEBALL_MIN_TIME_S = 0.5;      // 制限時間の下限
-const BASEBALL_PITCH_META = {
-  straight: { label:"直球", sub:"やさしい球", bases:1, lvs:[1], color:"#2c6e63" },
-  curve:    { label:"変化球", sub:"ふつうの球", bases:2, lvs:[2], color:"#b8860b" },
-  decisive: { label:"勝負球", sub:"むずかしい球", bases:4, lvs:[3,4], color:"#c0392b" },
-};
-/* アウトのたびに1人目(3秒)へ戻り、ヒットが続く間だけ短縮されていく制限時間。
-   n=「アウトを挟まずに連続でヒットした人数」(storyRun.bb.batterNumber)。 */
+/* 打者ごとの制限時間（秒）。1人目10秒→2人目5秒→3人目2.5秒→4人目1.5秒→5人目1秒→
+   6人目以降0.5秒、という教員指定のテーブル。アウトになるたびに1人目(10秒)へリセットされる
+   （storyBaseballNextBatterでbatterNumberを1に戻すのは従来どおり、テーブルの中身だけ変更）。 */
+const BASEBALL_TIME_TABLE_S = [10, 5, 2.5, 1.5, 1];
+const BASEBALL_MIN_TIME_S = 0.5;
 function baseballTimeLimit(n){
-  return Math.max(BASEBALL_START_TIME_S - (n - 1) * BASEBALL_TIME_STEP_S, BASEBALL_MIN_TIME_S);
+  return n <= BASEBALL_TIME_TABLE_S.length ? BASEBALL_TIME_TABLE_S[n - 1] : BASEBALL_MIN_TIME_S;
 }
-function pickBaseballPitchKind(){
-  const r = Math.random();
-  if(r < 0.45) return "straight";
-  if(r < 0.8) return "curve";
-  return "decisive";
-}
-function pickBaseballQuestion(kind, lastQ){
-  const lvs = BASEBALL_PITCH_META[kind].lvs;
-  let pool = CATS.busyu.items.filter(it => lvs.includes(it.lv));
-  if(pool.length > 1 && lastQ) pool = pool.filter(it => it.q !== lastQ);
-  return pool[Math.floor(Math.random() * pool.length)];
+/* ピンチが深まるほど（＝ヒットが続いて打者番号が進むほど）、ピッチャーの気迫がこもっていく
+   ――という演出用のラベル。制限時間テーブルと同じ人数区切りで対応させている。 */
+const BASEBALL_SPEED_LABELS = [
+  "様子見のストレート", "本腰を入れたストレート", "気迫のこもったストレート",
+  "全力の剛速球", "渾身の一球",
+];
+function baseballSpeedLabel(n){
+  return n <= BASEBALL_SPEED_LABELS.length ? BASEBALL_SPEED_LABELS[n - 1] : "限界を超えた渾身の一球";
 }
 // bases: [1塁,2塁,3塁]の真偽値配列。advanceで打者含め押し出す(元のjsxのadvanceRunnersと同じロジック)。
+// 2026-07-18〜、球種はストレートのみになったため、安打は常にn=1(単打)で呼び出す。
 function baseballAdvanceRunners(bases, n){
   const occupied = [true, ...bases];
   const newBases = [false, false, false];
@@ -4271,9 +4289,11 @@ function baseballAdvanceRunners(bases, n){
   }
   return { newBases, runsScored };
 }
-// 相手チームの得点(2026-07-17、教員の指示で1回固定1点→0〜3点のランダムに変更)。
+/* 相手チームの得点（2026-07-18〜、強豪校の設定にあわせて1〜4点のランダム、さらに10%の確率で
+   5点を許してしまう、という教員指定の分布に変更）。 */
 function baseballOpponentRuns(){
-  return Math.floor(Math.random() * 4);
+  if(Math.random() < 0.1) return 5;
+  return 1 + Math.floor(Math.random() * 4); // 1〜4点
 }
 
 const STORY_CHAPTERS = {
@@ -4493,21 +4513,22 @@ const STORY_CHAPTERS = {
     title: "第4章「野球で勝負！」",
     beats: [
       {type:"line", text:"夏休みを前にした、部活動の体験入部週間。\n希望していた野球部のグラウンドに、初めて足を踏み入れた。"},
+      {type:"line", text:"ちょうど、来週に控えた練習試合の話で、部員たちが盛り上がっていた。\n「相手、県内でも屈指の強豪校らしいぞ」「しかもエースが、県大会でも名前の知られた剛速球投手なんだって」"},
       {type:"line", text:"部員たちの声が、まぶしいくらいに響いている。\nノックの音、スパイクが土を蹴る音、金属バットの快音――すべてが新鮮だった。"},
       {type:"line", speaker:"ことのは", text:"迫力あるね……もし入部したら、あんなふうに白球と向き合うことになるのかな。"},
       {type:"line", text:"白球が飛び交う様子を眺めながら、頭の中でふと想像がふくらむ。\n「入部したら、こんな感じかな……」"},
-      {type:"line", speaker:"野球部の先輩", text:"「見学ありがとう！ ……よし、せっかくだから、ちょっとバッター気分を味わってみるか？」"},
+      {type:"line", speaker:"野球部の先輩", text:"「見学ありがとう！ ……よし、せっかくだから、さっき話してた強豪校との一戦、ちょっとだけ味わってみるか？」"},
       {type:"line", text:"先輩に手招きされ、バッターボックスに立たされる。\n心臓が、少しずつ早鐘を打ちはじめた。"},
       {type:"choice", flagKey:"wantsBaseballRules", text:"先輩が「ルールを説明しようか?」と聞いてきた。どうする？", options:[
         {label:"説明を聞く", value:"yes"},
         {label:"聞かずにやってみる", value:"no"},
       ]},
       {type:"line", speaker:"野球部の先輩", text:"「よし、いくぞ！」", variants:[
-        {flag:"wantsBaseballRules", value:"yes", text:"「勝負は１球で決まります。ヒットを続けて打つと、相手の球が速くなっていきます。３アウトでチェンジです」\n先輩がそう説明してくれた。"},
+        {flag:"wantsBaseballRules", value:"yes", text:"「相手のエースは、変化球なんて使わない。全部まっすぐなストレート勝負だ。でも――ヒットを続けて追い詰めるほど本気になって、球がどんどん速くなっていく。３アウトでチェンジだから、気をつけろよ」\n先輩がそう説明してくれた。"},
         {flag:"wantsBaseballRules", value:"no", text:"「よし、いくぞ！」"},
       ]},
       {type:"baseball", boss:"baseballMatch"},
-      {type:"line", speaker:"野球部の先輩", text:"「やるじゃないか！」"},
+      {type:"line", speaker:"野球部の先輩", text:"「やるじゃないか！　あの県内屈指の剛腕から、よくヒットを打てたな！」"},
       {type:"line", text:"バットを振り抜いた手のひらに、じんとしたしびれが残っている。\n想像していたよりも、ずっと本気の勝負だった。"},
       {type:"line", speaker:"ことのは", text:"すごい経験だったね。\n言葉の勝負も、こんなふうに一瞬の判断が大事なんだろうね。", variants:[
         {flag:"favoriteSubject", value:"kanji", text:"漢字が得意なきみなら、この一瞬の判断力もきっと武器になるね。"},
@@ -5207,10 +5228,10 @@ function storyBaseballReset(){
     inningRuns:Array(BASEBALL_INNINGS_TOTAL).fill(null),
     opponentInningRuns:Array(BASEBALL_INNINGS_TOTAL).fill(null), opponentTotalRuns:0,
     curInningRuns:0, batterNumber:1, phase:"ready",
-    pitch:null, question:null, selected:null, feedback:null,
+    question:null, selected:null, feedback:null, shownAt:null,
     log:["プレイボール！「次の球」を押して勝負開始。"],
     lastQ:null, countdown:null,
-    countdownTimerId:null, answerTimerId:null, answerDeadline:null, timeLimit:BASEBALL_START_TIME_S,
+    countdownTimerId:null, answerTimerId:null, answerDeadline:null, timeLimit:BASEBALL_TIME_TABLE_S[0],
   };
 }
 function baseballAddLog(msg){
@@ -5251,16 +5272,15 @@ function storyBaseballStartPitch(){
 }
 function storyBaseballBeginQuestion(){
   const bb = storyRun.bb;
-  const kind = pickBaseballPitchKind();
   const limit = baseballTimeLimit(bb.batterNumber);
-  bb.pitch = kind;
-  bb.question = pickBaseballQuestion(kind, bb.lastQ);
+  bb.question = pickBattleQuestion("yoji", bb.lastQ);
   bb.lastQ = bb.question.q;
   bb.selected = null;
   bb.feedback = null;
   bb.phase = "question";
   bb.timeLimit = limit;
   bb.answerDeadline = Date.now() + limit * 1000;
+  bb.shownAt = Date.now();
   storyRenderBaseballScreen();
   const run = storyRun;
   bb.answerTimerId = setInterval(() => {
@@ -5289,8 +5309,10 @@ function storyBaseballTimeout(){
   if(bb.selected !== null) return;
   clearChoiceKeys();
   bb.selected = -1;
+  const elapsedMs = Date.now() - (bb.shownAt || Date.now());
+  record("yoji", bb.question, false, elapsedMs);
   bb.feedback = { ok:false, msg:"時間切れ…見逃し三振" };
-  baseballAddLog(`${BASEBALL_PITCH_META[bb.pitch].label}を選択 → 時間切れ → アウト`);
+  baseballAddLog(`${baseballSpeedLabel(bb.batterNumber)}を見逃す → 時間切れ → アウト`);
   bb.outs += 1;
   storyRenderBaseballScreen();
   setTimeout(() => { if(storyRun && storyRun.bb === bb){ bb.phase = "resolved"; storyRenderBaseballScreen(); } }, 700);
@@ -5302,40 +5324,46 @@ function storyBaseballAnswer(idx){
   clearChoiceKeys();
   bb.selected = idx;
   const correct = idx === bb.question.a;
+  /* この野球ミニゲームだけは、教員の指示で正誤をrecord()に反映する（他の中ボス・校正
+     ミニゲームはrecord()を呼ばず分野レベルに影響しない設計のままだが、ここは例外）。
+     正解した瞬間に分野（四字熟語）のレベルが上がりうる。 */
+  const elapsedMs = Date.now() - (bb.shownAt || Date.now());
+  const r = record("yoji", bb.question, correct, elapsedMs);
   if(correct){
-    const meta = BASEBALL_PITCH_META[bb.pitch];
-    const { newBases, runsScored } = baseballAdvanceRunners(bb.bases, meta.bases);
-    const hitLabel = meta.bases === 1 ? "ヒット" : meta.bases === 2 ? "ツーベース" : "満塁弾級のホームラン";
-    bb.feedback = { ok:true, msg:`快音！${hitLabel}${runsScored > 0 ? `　${runsScored}点入る！` : ""}` };
+    const { newBases, runsScored } = baseballAdvanceRunners(bb.bases, 1);
+    bb.feedback = { ok:true, msg:`快音！鋭い打球がフェアゾーンに転がる！ヒット！${runsScored > 0 ? `　${runsScored}点入る！` : ""}`, lvup:r.lvup };
     bb.bases = newBases;
     if(runsScored > 0){
       bb.totalRuns += runsScored;
       bb.curInningRuns += runsScored;
     }
-    baseballAddLog(`${meta.label}を選択 → 正解 → ${hitLabel}${runsScored > 0 ? `(${runsScored}点)` : ""}`);
+    baseballAddLog(`${baseballSpeedLabel(bb.batterNumber)}を打ち返す → 正解 → ヒット${runsScored > 0 ? `(${runsScored}点)` : ""}`);
   }else{
-    bb.feedback = { ok:false, msg:"空振り三振…アウト" };
-    baseballAddLog(`${BASEBALL_PITCH_META[bb.pitch].label}を選択 → 不正解 → アウト`);
+    bb.feedback = { ok:false, msg:"空振り三振…アウト", lvup:r.lvup };
+    baseballAddLog(`${baseballSpeedLabel(bb.batterNumber)}を選択 → 不正解 → アウト`);
     bb.outs += 1;
   }
   storyRenderBaseballScreen();
   setTimeout(() => { if(storyRun && storyRun.bb === bb){ bb.phase = "resolved"; storyRenderBaseballScreen(); } }, 900);
 }
-/* アウトになった直後は、次の打者の制限時間を1人目の3秒にリセットする（2026-07-17、
-   教員の指示）。ヒットが続いた場合だけbatterNumberを1ずつ増やし、0.5秒ずつ短くしていく。 */
+/* アウトになった直後は、次の打者の制限時間を1人目(10秒)にリセットする。ヒットが続いた場合だけ
+   batterNumberを1ずつ増やし、制限時間テーブルに沿って短くなっていく（＝ピッチャーが本気になり
+   球が速くなっていく、という設定）。
+   2026-07-18〜、教員の指示で「次の打者へ」を押したら（同じイニングが続く場合は）3秒の
+   カウントダウンを待たせず即座に始まるよう変更した（storyBaseballStartPitchをそのまま呼ぶ）。 */
 function storyBaseballNextBatter(){
   const bb = storyRun.bb;
   const wasHit = !!(bb.feedback && bb.feedback.ok);
-  bb.pitch = null;
   bb.question = null;
   bb.countdown = null;
   if(bb.outs >= 3){
     storyBaseballFinishInning();
+    storyRenderBaseballScreen();
   }else{
     bb.batterNumber = wasHit ? bb.batterNumber + 1 : 1;
     bb.phase = "ready";
+    storyBaseballStartPitch();
   }
-  storyRenderBaseballScreen();
 }
 function storyBaseballFinishInning(){
   const bb = storyRun.bb;
@@ -5379,9 +5407,12 @@ function storyBaseballResolve(){
     }
     saveStats(st);
   }
+  const bb = storyRun.bb;
   screen.innerHTML = `
-    <div class="card story-scene">
-      <div class="story-chapter-end">🎉 クリア！</div>
+    <div class="card story-scene bb-victory">
+      <div class="bb-victory-burst">🎉⚾✨🏆✨⚾🎉</div>
+      <div class="bb-victory-title">大金星！　強豪校のエースを打ち崩した！</div>
+      <div class="bb-victory-score">自軍 ${bb.totalRuns} － ${bb.opponentTotalRuns} 相手</div>
       ${isReplay
         ? `<p class="story-text">「${esc(boss.name)}」に勝った！（再プレイのため、今回はアイテムの入手はありません）</p>`
         : `<p class="story-text">「${esc(boss.name)}」に勝った！<br>${esc(boss.icon)} <span class="drop-item">【${esc(boss.item)}】</span>を手に入れた！${gotTreasure ? `<br>✨ さらに、宝具<span class="drop-item treasure-drop">【${esc(boss.treasure)}】</span>を手に入れた！ ✨` : ""}</p>`}
@@ -5457,7 +5488,7 @@ function storyRenderBaseballScreen(){
     bodyHtml = `
       <div class="bb-ready-card">
         <p class="story-text">${bb.inning}回 ${bb.batterNumber}人目の打者</p>
-        <p class="note">どんな球が来るかはお楽しみ。直球なら単打、変化球なら二塁打、勝負球なら満塁弾級のチャンス。</p>
+        <p class="note">相手はまっすぐな球だけで勝負してくる剛腕エース。ヒットが続いて追い詰められるほど本気になり、球はどんどん速くなっていく。</p>
         <p class="bb-ready-warn">制限時間 ${baseballTimeLimit(bb.batterNumber).toFixed(1)}秒以内に回答！</p>
         <button class="btn" onclick="storyBaseballStartPitch()">次の球</button>
       </div>`;
@@ -5468,7 +5499,6 @@ function storyRenderBaseballScreen(){
         <div class="bb-countdown-label">投球体勢…</div>
       </div>`;
   }else if((bb.phase === "question" || bb.phase === "resolved") && bb.question){
-    const meta = BASEBALL_PITCH_META[bb.pitch];
     const it = bb.question;
     const timerHtml = bb.phase === "question"
       ? `<div class="boss-timer-row"><div class="boss-timer-bar"><div id="bbTimerFill" class="boss-timer-fill"></div></div></div>`
@@ -5482,13 +5512,15 @@ function storyRenderBaseballScreen(){
       }
       return `<button class="${cls}" ${bb.selected !== null ? "disabled" : ""} onclick="storyBaseballAnswer(${i})"><span class="choice-num">${i+1}</span>${esc(c)}</button>`;
     }).join("")}</div>`;
-    const feedbackHtml = bb.feedback ? `<div class="feedback show ${bb.feedback.ok ? "ok" : "ng"}"><div class="verdict">${esc(bb.feedback.msg)}</div></div>` : "";
+    const lvupHtml = bb.feedback && bb.feedback.lvup ? `<p class="lvup-chip">⚡ 球速が速くなっていく…</p>` : "";
+    const feedbackHtml = bb.feedback ? `<div class="feedback show ${bb.feedback.ok ? "ok" : "ng"}"><div class="verdict">${esc(bb.feedback.msg)}</div>${lvupHtml}</div>` : "";
     const nextBtnHtml = bb.phase === "resolved" ? `<button class="btn" onclick="storyBaseballNextBatter()">${bb.outs >= 3 ? "この回を終える" : "次の打者へ"}</button>` : "";
     bodyHtml = `
       <div class="boss-q-card">
-        <div class="q-level" style="color:${meta.color}; font-weight:bold; margin-bottom:6px">${esc(meta.label)}（${esc(meta.sub)}）</div>
+        <div class="q-level" style="color:#c0392b; font-weight:bold; margin-bottom:6px">${esc(baseballSpeedLabel(bb.batterNumber))}</div>
         ${timerHtml}
-        <div class="boss-q-text">「${esc(it.q)}」の部首は？</div>
+        ${subInstructionHtml("yoji", it)}
+        <div class="boss-q-text">${markQuestionHtml(it.q)}</div>
         ${choicesHtml}
         ${feedbackHtml}
         <div class="btn-row">${nextBtnHtml}</div>
