@@ -533,7 +533,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.4</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.5</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -671,6 +671,12 @@ const DATA = window.QUESTION_DATA;
 const CATS = DATA.cats;
 const CAT_KEYS = Object.keys(CATS);
 const DOKKAI = DATA.dokkai || [];
+/* 今までに正解した問題の総数（2026-07-19〜、「ことのは」カードでの表示用）。record()で
+   正誤を記録している全分野（20の知識クイズ分野＋読解）を合計する。漢字の書き取り学習系
+   （kw/kwe）は自己採点でrecord()を呼ばず経験値にも影響しない別枠のため、ここには含めない。 */
+function totalCorrectCount(st){
+  return CAT_KEYS.concat(["dokkai"]).reduce((sum,k) => sum + ((st.cats[k]||{}).c || 0), 0);
+}
 const MAX_LV = {};
 CAT_KEYS.forEach(k => MAX_LV[k] = Math.max(...CATS[k].items.map(it => it.lv)));
 
@@ -697,7 +703,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 27;
+const SAVE_FORMAT_VERSION = 28;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -1023,6 +1029,23 @@ function selectChoiceVisual(displayPos){
     b.classList.toggle("selected", pos === displayPos);
   });
 }
+/* 要素が実際に画面上に見えているか（自分自身にstyle.display:noneが無くても、祖先要素が
+   display:noneならoffsetParentがnullになる、という標準的な判定方法。祖先のdisplay:noneを
+   自前で辿らずに済む）。 */
+function isVisibleEl(el){
+  return !!el && el.offsetParent !== null;
+}
+/* ストーリーモードで、問題に答えたあとなどに出る「つぎへ」「つづける」的な、その場面の
+   唯一の進行ボタンをEnterキーで押せるようにする（2026-07-19、教員の指示）。対象のボタンには
+   story-advance-btnクラスを付けてあるだけで、beatの種類ごとの個別対応は不要。 */
+function storyHandleEnterAdvance(e){
+  if(e.key !== "Enter") return;
+  const btn = document.querySelector(".story-advance-btn");
+  if(btn && isVisibleEl(btn) && !btn.disabled){
+    e.preventDefault();
+    btn.click();
+  }
+}
 function handleChoiceKey(e){
   if(bossPromptActive){
     if(e.key === "ArrowRight"){ e.preventDefault(); moveBossPromptSelection("yes"); }
@@ -1030,10 +1053,14 @@ function handleChoiceKey(e){
     else if(e.key === "Enter"){ e.preventDefault(); resolveBossPrompt(bossPromptSelection); }
     return;
   }
-  if(!activeChoiceKeyHandler) return;
+  if(!activeChoiceKeyHandler){
+    storyHandleEnterAdvance(e);
+    return;
+  }
   const btns = screen.querySelectorAll(".choice");
   if(btns.length !== choiceKeyCount || (btns[0] && btns[0].disabled)){
     clearChoiceKeys();
+    storyHandleEnterAdvance(e);
     return;
   }
   if(e.key >= "1" && e.key <= "9"){
@@ -1050,6 +1077,17 @@ function handleChoiceKey(e){
   }
 }
 document.addEventListener("keydown", handleChoiceKey);
+/* ストーリーモード以外の全ての出題画面（通常クイズ・読解・漢字の書き取り系・二人対戦・ボス戦）で、
+   「次へ」「つづける」的なボタン（tap-advance-btnクラス）が表示されているときは、画面の
+   どこをタップしても次へ進めるようにする（2026-07-19、教員の指示）。ボタン・リンク・入力欄
+   （「ホームへ」「今日はここまで」等の、進行以外の操作を持つものを含む）を直接タップした
+   場合は、そちらの本来の動作をそのまま優先する（このリスナーでは何もしない）。 */
+document.addEventListener("click", function(e){
+  const btn = document.querySelector(".tap-advance-btn");
+  if(!btn || !isVisibleEl(btn) || btn.disabled) return;
+  if(e.target.closest("button, a, input, select, textarea, label")) return;
+  btn.click();
+});
 
 /* ================= ことのは（経験値キャラクター） =================
    経験値 = 全領域（知識分野）のレベル合計。合計の伸びに応じて段階的に進化する
@@ -1532,7 +1570,7 @@ function kotonohaCardHtml(st){
       <div class="kotonoha-info">
         <div class="kotonoha-name">${stageTag}${esc(disp.name)}</div>
         ${typeTag}
-        <div class="kotonoha-xp">経験値　${f.total}</div>
+        <div class="kotonoha-xp">経験値　${f.total}（今までの総正解数…${totalCorrectCount(st)}問）</div>
         <div class="bar"><div style="width:${progress}%"></div></div>
         <p class="note">${esc(progressNote)}</p>
         ${overrideNote}
@@ -2034,7 +2072,7 @@ function renderQuestion(){
       ${answerArea}
       <div class="feedback" id="fb"></div>
       <div class="btn-row">
-        <button class="btn" id="nextBtn" style="display:none" onclick="nextQuestion()">次へ</button>
+        <button class="btn tap-advance-btn" id="nextBtn" style="display:none" onclick="nextQuestion()">次へ</button>
         <button class="btn secondary" id="quitBtn" style="display:none" onclick="endSession(false)">今日はここまで</button>
       </div>
     </div>`;
@@ -2246,7 +2284,7 @@ function kwRenderQuestion(){
       </div>
       <div class="feedback" id="kwFb"></div>
       <div class="btn-row" id="kwNextRow" style="display:none">
-        <button class="btn" id="kwNextBtn" onclick="kwNextQuestion()">次へ</button>
+        <button class="btn tap-advance-btn" id="kwNextBtn" onclick="kwNextQuestion()">次へ</button>
         <button class="btn secondary" onclick="kwEndSession()">今日はここまで</button>
       </div>`;
   }
@@ -2396,7 +2434,7 @@ function kweRenderQuestion(){
       </div>
       <div class="feedback" id="kweFb"></div>
       <div class="btn-row" id="kweNextRow" style="display:none">
-        <button class="btn" id="kweNextBtn" onclick="kweNextQuestion()">次へ</button>
+        <button class="btn tap-advance-btn" id="kweNextBtn" onclick="kweNextQuestion()">次へ</button>
         <button class="btn secondary" onclick="kweEndSession()">今日はここまで</button>
       </div>`;
   }
@@ -2481,7 +2519,7 @@ function renderDokkai(){
         ${dk.order.map((oi,pos)=>`<button class="choice" onclick="answerDokkai(${oi})"><span class="choice-num">${pos+1}</span>${esc(it.c[oi])}</button>`).join("")}
       </div>
       <div class="feedback" id="fb"></div>
-      <button class="btn" id="nextBtnD" style="display:none" onclick="nextDokkai()">次へ</button>
+      <button class="btn tap-advance-btn" id="nextBtnD" style="display:none" onclick="nextDokkai()">次へ</button>
     </div>`;
   setupChoiceKeys(pos => answerDokkai(dk.order[pos]), it.c.length);
 }
@@ -2758,7 +2796,7 @@ function renderBattle(){
       ${answerArea}
       <div class="feedback" id="fb"></div>
       <div class="btn-row">
-        <button class="btn" id="nextBtn" style="display:none" onclick="battleAdvance()">つぎへ</button>
+        <button class="btn tap-advance-btn" id="nextBtn" style="display:none" onclick="battleAdvance()">つぎへ</button>
         <button class="btn secondary" onclick="battleQuit()">たいせんをやめる</button>
       </div>
     </div>`;
@@ -3478,7 +3516,7 @@ function renderBossBattle(){
         ${answerArea}
         <div class="feedback" id="fb"></div>
         <div class="btn-row">
-          <button class="btn" id="nextBtn" style="display:none" onclick="bossAdvance()">つぎへ</button>
+          <button class="btn tap-advance-btn" id="nextBtn" style="display:none" onclick="bossAdvance()">つぎへ</button>
         </div>
       </div>
     </div>`;
@@ -3724,7 +3762,7 @@ function bossWin(){
         : `<p class="boss-win-line">しかし、アイテムは落とさなかった…</p><p class="note">※正答率が高くなると、アイテムが落ちやすくなります</p>`}
       ${gotTreasure ? `<p class="boss-treasure">✨ さらに、宝具<span class="drop-item treasure-drop">【${esc(b.boss.treasure)}】</span>を手に入れた！ ✨</p>` : ""}
       <div class="btn-row">
-        <button class="btn" onclick="endBossBattle()">つづける</button>
+        <button class="btn tap-advance-btn" onclick="endBossBattle()">つづける</button>
         <button class="btn secondary" onclick="endBossBattle(); showItemCollection();">アイテム一覧を見る</button>
       </div>
     </div>`;
@@ -3736,7 +3774,7 @@ function bossLose(){
       <div class="boss-result-title lose">力つきた…</div>
       <p>「${esc(b.boss.name)}」に敗れてしまった。またいどんでみよう。</p>
       <div class="btn-row">
-        <button class="btn" onclick="endBossBattle()">つづける</button>
+        <button class="btn tap-advance-btn" onclick="endBossBattle()">つづける</button>
       </div>
     </div>`;
 }
@@ -3748,7 +3786,7 @@ function shiranFlee(){
       <div class="boss-result-title">逃げられた…！</div>
       <p>「${esc(b.boss.name)}」は、こそこそと逃げていった…。</p>
       <div class="btn-row">
-        <button class="btn" onclick="endBossBattle()">つづける</button>
+        <button class="btn tap-advance-btn" onclick="endBossBattle()">つづける</button>
       </div>
     </div>`;
 }
@@ -4652,7 +4690,7 @@ function storyChapterButtonHtml(key, st){
   const badge = isCompleted ? "クリア済み" : inProgress ? "つづきから" : "はじめから";
   const sub = isCompleted ? "クリア済み。もう一度プレイすることもできます。" : inProgress ? "続きから読み進めよう" : "タップして読みはじめる";
   const best = sp.judgedBest && sp.judgedBest[key];
-  const rateNote = best ? `<p class="note">選択肢問題 正答率 ${Math.round(100*best.correct/best.total)}%（${best.correct}/${best.total}問、自己ベスト）</p>` : "";
+  const rateNote = best ? `<p class="note">クリア率 ${Math.round(100*best.correct/best.total)}%（自己ベスト）</p>` : "";
   return `
     <div class="card menu-card" onclick="startStoryMode('${key}')">
       <div class="menu-icon">📖</div>
@@ -4712,7 +4750,7 @@ function storyRenderLine(beat, sp){
       ${beat.speaker ? `<div class="story-speaker">${esc(beat.speaker)}</div>` : ""}
       <p class="story-text">${esc(storyResolveText(beat, sp))}</p>
       <div class="btn-row" style="justify-content:center">
-        <button class="btn" onclick="storyAdvance()">つぎへ</button>
+        <button class="btn story-advance-btn" onclick="storyAdvance()">つぎへ</button>
       </div>
     </div>
     ${storyFooterHtml()}`;
@@ -4762,7 +4800,7 @@ function storyRenderJudgedChoice(beat){
       </div>
       <div class="feedback" id="fb"></div>
       <div class="btn-row" id="storyJudgedNextRow" style="display:none; justify-content:center">
-        <button class="btn" onclick="storyAdvance()">つぎへ</button>
+        <button class="btn story-advance-btn" onclick="storyAdvance()">つぎへ</button>
       </div>
     </div>
     ${storyFooterHtml()}`;
@@ -4840,7 +4878,7 @@ function storyRenderQuiz(beat, idx){
         <div class="boss-q-text">${markQuestionHtml(it.q)}</div>
         ${answerArea}
         <div class="feedback" id="fb"></div>
-        <div class="btn-row"><button class="btn" id="storyNextBtn" style="display:none" onclick="storyQuizNext()">つぎへ</button></div>
+        <div class="btn-row"><button class="btn story-advance-btn" id="storyNextBtn" style="display:none" onclick="storyQuizNext()">つぎへ</button></div>
       </div>
     </div>
     ${storyFooterHtml()}`;
@@ -4946,7 +4984,7 @@ function storyRenderBattle(beat, idx){
         <div class="boss-q-text">${markQuestionHtml(it.q)}</div>
         ${answerArea}
         <div class="feedback" id="fb"></div>
-        <div class="btn-row"><button class="btn" id="storyNextBtn" style="display:none" onclick="storyBattleNext()">つぎへ</button></div>
+        <div class="btn-row"><button class="btn story-advance-btn" id="storyNextBtn" style="display:none" onclick="storyBattleNext()">つぎへ</button></div>
       </div>
     </div>
     ${storyFooterHtml()}`;
@@ -5081,7 +5119,7 @@ function storyBattleResolve(){
           ? `<p class="story-text">「${esc(boss.name)}」を乗りこえた！（再プレイのため、今回はアイテムの入手はありません）</p>`
           : `<p class="story-text">「${esc(boss.name)}」を乗りこえた！<br>${esc(boss.icon)} <span class="drop-item">【${esc(boss.item)}】</span>を手に入れた！${gotTreasure ? `<br>✨ さらに、宝具<span class="drop-item treasure-drop">【${esc(boss.treasure)}】</span>を手に入れた！ ✨` : ""}</p>`}
         <div class="btn-row" style="justify-content:center">
-          <button class="btn" onclick="storyAdvance()">つづける</button>
+          <button class="btn story-advance-btn" onclick="storyAdvance()">つづける</button>
         </div>
       </div>`;
   }else{
@@ -5135,7 +5173,7 @@ function storyRenderProofread(beat){
           ${passage.tokens.map((t,i) => `<span class="proof-token" data-i="${i}" onclick="storyProofreadTap(${i})">${esc(t.t)}</span>`).join("")}
         </div>
         <div class="feedback" id="fb"></div>
-        <div class="btn-row"><button class="btn" id="storyNextBtn" style="display:none" onclick="storyProofreadNext()">つぎへ</button></div>
+        <div class="btn-row"><button class="btn story-advance-btn" id="storyNextBtn" style="display:none" onclick="storyProofreadNext()">つぎへ</button></div>
       </div>
     </div>
     ${storyFooterHtml()}`;
@@ -5260,7 +5298,7 @@ function storyProofreadResolve(){
         ? `<p class="story-text">「${esc(boss.name)}」を乗りこえた！（再プレイのため、今回はアイテムの入手はありません）</p>`
         : `<p class="story-text">「${esc(boss.name)}」を乗りこえた！<br>${esc(boss.icon)} <span class="drop-item">【${esc(boss.item)}】</span>を手に入れた！${gotTreasure ? `<br>✨ さらに、宝具<span class="drop-item treasure-drop">【${esc(boss.treasure)}】</span>を手に入れた！ ✨` : ""}</p>`}
       <div class="btn-row" style="justify-content:center">
-        <button class="btn" onclick="storyAdvance()">つづける</button>
+        <button class="btn story-advance-btn" onclick="storyAdvance()">つづける</button>
       </div>
     </div>`;
 }
@@ -5488,7 +5526,7 @@ function storyBaseballResolve(){
         ? `<p class="story-text">「${esc(boss.name)}」に勝った！（再プレイのため、今回はアイテムの入手はありません）</p>`
         : `<p class="story-text">「${esc(boss.name)}」に勝った！<br>${esc(boss.icon)} <span class="drop-item">【${esc(boss.item)}】</span>を手に入れた！${gotTreasure ? `<br>✨ さらに、宝具<span class="drop-item treasure-drop">【${esc(boss.treasure)}】</span>を手に入れた！ ✨` : ""}</p>`}
       <div class="btn-row" style="justify-content:center">
-        <button class="btn" onclick="storyAdvance()">つづける</button>
+        <button class="btn story-advance-btn" onclick="storyAdvance()">つづける</button>
       </div>
     </div>`;
 }
@@ -5561,7 +5599,7 @@ function storyRenderBaseballScreen(){
       <div class="bb-ready-card">
         <p class="story-text">試合終了<br>自軍 ${bb.totalRuns}点 － 相手 ${bb.opponentTotalRuns}点<br><b>${esc(resultMsg)}</b></p>
         ${yojiLvUpHtml}
-        <button class="btn" onclick="${won ? "storyBaseballResolve()" : "storyBaseballRetry()"}">${won ? "つづける" : "もう一度挑戦する"}</button>
+        <button class="btn story-advance-btn" onclick="${won ? "storyBaseballResolve()" : "storyBaseballRetry()"}">${won ? "つづける" : "もう一度挑戦する"}</button>
       </div>`;
   }else if(bb.phase === "ready"){
     bodyHtml = `
@@ -5569,7 +5607,7 @@ function storyRenderBaseballScreen(){
         <p class="story-text">${bb.inning}回 ${bb.batterNumber}人目の打者</p>
         <p class="note">相手はまっすぐな球だけで勝負してくる剛腕エース。ヒットが続いて追い詰められるほど本気になり、球はどんどん速くなっていく。打ち返せたときの当たりどころは運次第――単打から一発大逆転のホームランまであるかも。</p>
         <p class="bb-ready-warn">制限時間 ${baseballTimeLimit(bb.batterNumber).toFixed(1)}秒以内に回答！</p>
-        <button class="btn" onclick="storyBaseballStartPitch()">次の球</button>
+        <button class="btn story-advance-btn" onclick="storyBaseballStartPitch()">次の球</button>
       </div>`;
   }else if(bb.phase === "countdown"){
     bodyHtml = `
@@ -5593,7 +5631,7 @@ function storyRenderBaseballScreen(){
     }).join("")}</div>`;
     const lvupHtml = bb.feedback && bb.feedback.lvup ? `<p class="lvup-chip">⚡ 球速が速くなっていく…</p>` : "";
     const feedbackHtml = bb.feedback ? `<div class="feedback show ${bb.feedback.ok ? "ok" : "ng"}"><div class="verdict">${esc(bb.feedback.msg)}</div>${lvupHtml}</div>` : "";
-    const nextBtnHtml = bb.phase === "resolved" ? `<button class="btn" onclick="storyBaseballNextBatter()">${bb.outs >= 3 ? "この回を終える" : "次の打者へ"}</button>` : "";
+    const nextBtnHtml = bb.phase === "resolved" ? `<button class="btn story-advance-btn" onclick="storyBaseballNextBatter()">${bb.outs >= 3 ? "この回を終える" : "次の打者へ"}</button>` : "";
     bodyHtml = `
       <div class="boss-q-card">
         <div class="q-level" style="color:#c0392b; font-weight:bold; margin-bottom:6px">${esc(baseballSpeedLabel(bb.batterNumber))}</div>
@@ -5665,7 +5703,7 @@ function storyChapterEnd(){
   const pronoun = sp.chapter === "ch1" ? STORY_PRONOUN_LABELS[sp.flags.pronoun] : null;
   const pronounNote = pronoun ? `<p class="note">✨ 一人称が、「${esc(pronoun)}」に設定されました！</p>` : "";
   const rateNote = rate
-    ? `<p class="note">選択肢問題 正答率：${rate.pct}%（${rate.correct}/${rate.total}問）${rate.isBetter ? "　※自己ベストを更新しました！" : ""}</p>`
+    ? `<p class="note">クリア率 ${rate.pct}%${rate.isBetter ? "　※自己ベストを更新しました！" : ""}</p>`
     : "";
   const perfectNote = rate && rate.gotPerfectItem
     ? `<p class="note">🎉 選択肢問題、全問正解達成！ 🎁<span class="drop-item">【${esc(STORY_JUDGED_PERFECT_ITEM)}】</span>を手に入れた！</p>`
