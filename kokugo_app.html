@@ -533,7 +533,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.5</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.6</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -703,7 +703,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 28;
+const SAVE_FORMAT_VERSION = 29;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -5372,6 +5372,7 @@ function storyBaseballBeginQuestion(){
   const limit = baseballTimeLimit(bb.batterNumber);
   bb.question = pickBattleQuestion("yoji", bb.lastQ);
   bb.lastQ = bb.question.q;
+  bb.order = shuffledOrder(bb.question.c.length);
   bb.selected = null;
   bb.feedback = null;
   bb.phase = "question";
@@ -5620,14 +5621,14 @@ function storyRenderBaseballScreen(){
     const timerHtml = bb.phase === "question"
       ? `<div class="boss-timer-row"><div class="boss-timer-bar"><div id="bbTimerFill" class="boss-timer-fill"></div></div></div>`
       : "";
-    const choicesHtml = `<div class="choices">${it.c.map((c,i) => {
+    const choicesHtml = `<div class="choices">${bb.order.map((oi,pos) => {
       let cls = "choice";
       if(bb.selected !== null){
-        if(i === it.a) cls += " correct";
-        else if(i === bb.selected) cls += " wrong";
+        if(oi === it.a) cls += " correct";
+        else if(oi === bb.selected) cls += " wrong";
         else cls += " dim";
       }
-      return `<button class="${cls}" ${bb.selected !== null ? "disabled" : ""} onclick="storyBaseballAnswer(${i})"><span class="choice-num">${i+1}</span>${esc(c)}</button>`;
+      return `<button class="${cls}" ${bb.selected !== null ? "disabled" : ""} onclick="storyBaseballAnswer(${oi})"><span class="choice-num">${pos+1}</span>${esc(it.c[oi])}</button>`;
     }).join("")}</div>`;
     const lvupHtml = bb.feedback && bb.feedback.lvup ? `<p class="lvup-chip">⚡ 球速が速くなっていく…</p>` : "";
     const feedbackHtml = bb.feedback ? `<div class="feedback show ${bb.feedback.ok ? "ok" : "ng"}"><div class="verdict">${esc(bb.feedback.msg)}</div>${lvupHtml}</div>` : "";
@@ -5643,7 +5644,7 @@ function storyRenderBaseballScreen(){
         <div class="btn-row">${nextBtnHtml}</div>
       </div>`;
     if(bb.phase === "question" && bb.selected === null){
-      setupChoiceKeys(pos => storyBaseballAnswer(pos), it.c.length);
+      setupChoiceKeys(pos => storyBaseballAnswer(bb.order[pos]), it.c.length);
     }
   }else{
     bodyHtml = "";
