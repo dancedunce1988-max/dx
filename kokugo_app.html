@@ -145,6 +145,7 @@
   .passage p{text-indent:1em; margin-bottom:.4em;}
   .passage-title{font-weight:bold; margin-bottom:8px; text-indent:0 !important;}
   .result-score{font-size:2.6rem; font-weight:bold; text-align:center; color:var(--accent2); margin:8px 0;}
+  .combo-countdown{font-size:4.5rem; font-weight:bold; text-align:center; color:var(--accent2); margin:48px 0; animation:pop .3s ease;}
   .result-msg{text-align:center; color:var(--sub); margin-bottom:8px;}
   table.stats{width:100%; border-collapse:collapse; font-size:.86rem;}
   table.stats th, table.stats td{padding:8px 6px; border-bottom:1px solid var(--line); text-align:left;}
@@ -533,7 +534,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.7</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.8</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -1664,6 +1665,7 @@ function balancedTrainingBtnHtml(){
 function showHome(){
   clearStoryBattleTimer(); // 中ボス戦を中断して離れたときに、残った制限時間タイマーを止める
   clearStoryProofreadTimer(); // 校正ミニゲームを中断して離れたときに、残った制限時間タイマーを止める
+  clearStoryComboTimer(); // コンボアタックを中断して離れたときに、残ったカウントダウン/制限時間タイマーを止める
   clearBaseballTimers(); // 野球ミニゲームを中断して離れたときに、残ったカウントダウン・制限時間タイマーを止める
   const st = loadStats();
   let html = "";
@@ -4158,6 +4160,8 @@ function bootApp(){
      st.story.judgedBest[章key]（自己ベストの正答率）と比較し、上回ったときだけ上書きする
      （storyFinalizeJudgedRate参照）。全問正解を達成した瞬間（自己ベストが初めて100%になったとき）
      だけ、STORY_JUDGED_PERFECT_ITEMを1個入手する（クリア報酬アイテム枠）。制限時間なし。
+     beat.shuffle:trueを付けると、表示のたびに選択肢の並び順をランダム化する（2026-07-19〜、
+     正解の位置を覚えてしまう対策。storyRenderJudgedChoice参照）。
    ・記述問題（shortAnswer beat、2026-07-19〜）：judgedChoiceの自由入力版。beat.answersに
      直書きした答えと、入力欄の内容をnormalizeAns経由で照合する。record()もjudgedRunCorrect/
      Totalへの加算もしない、単発の一問一答（storyRenderShortAnswer参照）。
@@ -4165,7 +4169,9 @@ function bootApp(){
      （60秒）のあいだ連続で出題し続けるタイムアタック。最大コンボ（連続正解）がSTORY_COMBO_NEED
      以上になればクリア（proofread/battle/baseballと同じく、クリアできなければ何度でも
      再挑戦できる）。章クリア後もst.story.comboBest[章key]に自己ベストの最大コンボ数を保存し、
-     章選択画面のボタンに表示する（storyComboReveal・storyChapterButtonHtml参照）。 */
+     章選択画面のボタンに表示する（storyComboReveal・storyChapterButtonHtml参照）。
+     いきなり出題は始まらず、「はじめる」ボタン→3・2・1のカウントダウンを経てから出題が始まる
+     （ready→countdown→playing→doneの4フェーズ、storyRenderCombo参照）。 */
 const STORY_QUIZGATE_WINDOW = 10;
 const STORY_QUIZGATE_NEED = 6;
 const STORY_BATTLE_TOTAL = 10;
@@ -4632,8 +4638,8 @@ const STORY_CHAPTERS = {
   ch5: {
     title: "第5章「朝読書をしよう！」",
     beats: [
-      {type:"line", text:"夏休みが明けて、二学期がはじまった。\n始業のチャイムが鳴るのと同時に、教室がしんと静まりかえる。"},
-      {type:"line", speaker:"担任の先生", text:"「今日から、二学期は毎朝10分間、読書の時間をとります。好きな本を読んでいてくださいね」"},
+      {type:"line", text:"学校にも、少しずつ慣れてきたある朝のこと。\n教室に入ると、いつもと違う空気が漂っていた。"},
+      {type:"line", speaker:"担任の先生", text:"「今日から朝は、読書の時間を取ります。好きな本を読んでいてくださいね」"},
       {type:"line", text:"机の上に置いていた物語の本を開く。\nでも、どんなところに注目して読めばいいのか、いまいちわからない。"},
       {type:"line", speaker:"ことのは", text:"読み方に迷ってるんだね。\nちょっとしたコツを教えてあげるよ。"},
       {type:"judgedChoice", speaker:"ことのは", text:"たとえば、主人公の名前が「ケン」だとして、「ケンは、～だった」のように、名前で呼ぶ場合がある。これを何人称視点というでしょう？", options:[
@@ -4642,34 +4648,44 @@ const STORY_CHAPTERS = {
         {label:"三人称視点", correct:true},
         {label:"四人称視点", correct:false},
       ]},
-      {type:"line", speaker:"ことのは", text:"そう、三人称視点。\nじゃ、三人称視点は、一人称視点と比べてどんな効果があると言える？\n\n【一人称視点】→語り手＝登場人物。より主観的な立場から語るので、物語への没入感がある。\n【三人称視点】→語り手と登場人物は別人。より客観的な立場から語るので、読者は冷静に読みやすくなる効果がある。"},
+      {type:"line", speaker:"ことのは", text:"そう、三人称視点。\nじゃ、三人称視点は、一人称視点と比べてどんな効果があると言えるか、クイズにしてみようか。"},
+      {type:"judgedChoice", speaker:"ことのは", text:"三人称視点は、一人称視点と比べてどんな効果があると言える？", options:[
+        {label:"三人称視点は語り手と登場人物が別人なので、より客観的な立場から語れて、読者は冷静に読みやすくなる。一方、一人称視点は語り手＝登場人物なので、より主観的な立場から語れて、物語への没入感が生まれる。", correct:true},
+        {label:"三人称視点は語り手＝登場人物なので、より主観的な立場から語れて、物語への没入感が生まれる。", correct:false},
+        {label:"一人称視点も三人称視点も、語り手は必ず登場人物自身になるので、効果に違いはない。", correct:false},
+        {label:"三人称視点は、登場人物の心の中をいっさい描写できないので、物語が分かりにくくなってしまう。", correct:false},
+      ]},
       {type:"shortAnswer", speaker:"ことのは", text:"物語では、登場人物の心情を風景に投影させることで、さりげなく示したり伝えやすくしたりすることがあるんだ。それを何というか知っている？", note:"漢字四字で答えてください", answers:["情景描写"]},
       {type:"line", speaker:"ことのは", text:"そう、「情景描写」だね！\n景色の描写ひとつで、物語の雰囲気をぐっと伝えられるんだ。"},
-      {type:"judgedChoice", text:"では、次の中で、「これから良いことが起きそうな情景描写」を選んでみて。", options:[
+      {type:"judgedChoice", text:"では、次の中で、「これから良いことが起きそうな情景描写」を選んでみて。", shuffle:true, options:[
         {label:"教室の窓から差しこむ朝日が、机の上をやわらかく照らしていた。", correct:true},
         {label:"曇り空の下、冷たい風が校庭の落ち葉を巻き上げていた。", correct:false},
         {label:"廊下の隅で、電球がチカチカと不安定に点滅していた。", correct:false},
         {label:"遠くの空に、灰色の雲が重くたれこめていた。", correct:false},
       ]},
       {type:"line", text:"読んでいるだけで、情景から気持ちが伝わってくるから不思議だ。"},
-      {type:"judgedChoice", text:"次の中で、正しい用語はどれ？", options:[
-        {label:"「伏線」→話の後で、初めの情報と結びつく。人は、情報と情報が結びついたときに「納得」や「面白さ」を感じる。", correct:true},
-        {label:"「伏線」→物語の最初に、結末をすべて説明してしまうこと。", correct:false},
-        {label:"「情景描写」→登場人物の性格を、地の文でそのまま説明すること。", correct:false},
-        {label:"「三人称視点」→語り手が、物語の中の登場人物として会話に加わること。", correct:false},
+      {type:"judgedChoice", text:"次の中で、「伏線」について正しく説明しているものはどれ？", options:[
+        {label:"話の後の方で、物語の初めに置かれた情報と結びつく仕掛け。読み手は、情報と情報が結びついたときに「納得」や「面白さ」を感じる。", correct:true},
+        {label:"物語の展開を、はじめにすべて説明してしまう仕掛け。", correct:false},
+        {label:"登場人物の性格を、地の文でそのまま説明する仕掛け。", correct:false},
+        {label:"物語の結末を、読者に直接問いかける仕掛け。", correct:false},
       ]},
-      {type:"line", text:"朝読書の10分間が終わるころには、物語の読み方が少しわかった気がした。"},
+      {type:"line", text:"朝読書の時間が終わるころには、物語の読み方が少しわかった気がした。"},
       {type:"line", speaker:"担任の先生", text:"「今日の朝活動では、ちょっとしたゲームをします」"},
       {type:"line", speaker:"担任の先生", text:"「正解の数だけじゃなくて、コンボ――連続正解が続くことが大事ですよ。集中して、テンポよく答えてみましょう」"},
-      {type:"combo", boss:"kotowazaTimeAttack", cat:"kotowaza"},
+      {type:"combo", boss:"kotowazaTimeAttack", cat:"kotowaza",
+        readyText:"担任の先生が、黒板の横に一枚の模造紙を貼り出した。スタート地点からゴールまで、点線の道が一本描かれている。\n「ことわざに正解するたびに、この道の上にスタンプが1つ押されていきます。でも、間違えると、道はそこで途切れてしまいますよ」\n「５個以上、とぎれずにスタンプをつなげられたら合格です」",
+        clearFlavor:"パン、パン、パンッ――小気味よい音を立てて、スタンプが途切れることなくゴールまでつながった。",
+        failFlavor:"道の途中で、スタンプの列がぷつりと途切れてしまった。もう一度、はじめからつなげてみよう。",
+      },
       {type:"line", speaker:"担任の先生", text:"「いいコンボでしたね。この調子で、読書もことばの力も伸ばしていきましょう」"},
-      {type:"line", speaker:"ことのは", text:"朝の10分間だけでも、ずいぶん物語の見え方が変わったね。", variants:[
-        {flag:"favoriteSubject", value:"kanji", text:"漢字が得意なきみなら、情景描写の細かい言葉づかいにもすぐ気づけそうだね。朝の10分間だけでも、ずいぶん物語の見え方が変わったね。"},
-        {flag:"favoriteSubject", value:"dokkai", text:"文章を読むのが得意なきみらしく、視点の違いにもすぐ気づけたね。朝の10分間だけでも、ずいぶん物語の見え方が変わったね。"},
-        {flag:"favoriteSubject", value:"bunpou", text:"言葉のきまりが得意なきみなら、用語もしっかり整理できそうだね。朝の10分間だけでも、ずいぶん物語の見え方が変わったね。"},
+      {type:"line", speaker:"ことのは", text:"朝のわずかな時間だけでも、ずいぶん物語の見え方が変わったね。", variants:[
+        {flag:"favoriteSubject", value:"kanji", text:"漢字が得意なきみなら、情景描写の細かい言葉づかいにもすぐ気づけそうだね。朝のわずかな時間だけでも、ずいぶん物語の見え方が変わったね。"},
+        {flag:"favoriteSubject", value:"dokkai", text:"文章を読むのが得意なきみらしく、視点の違いにもすぐ気づけたね。朝のわずかな時間だけでも、ずいぶん物語の見え方が変わったね。"},
+        {flag:"favoriteSubject", value:"bunpou", text:"言葉のきまりが得意なきみなら、用語もしっかり整理できそうだね。朝のわずかな時間だけでも、ずいぶん物語の見え方が変わったね。"},
       ]},
     ],
-    epilogue: "教室の窓の外は、まだ夏の名残りで青々としている。\n\n短い10分間だったけれど、物語の読み方が少しだけ変わった気がした一日だった。",
+    epilogue: "教室の窓からは、やわらかな朝の光が差しこんでいる。\n\n短い時間だったけれど、物語の読み方が少しだけ変わった気がした一日だった。",
   },
 };
 
@@ -4851,8 +4867,15 @@ function storyAdvance(){
    beat.options[i].correctがtrueの選択肢が正解。答えた瞬間にst.story.judgedRunCorrect/
    judgedRunTotalへ積み上げる（セーブされるので、章の途中でアプリを閉じて再開しても
    正しく引き継がれる）。正誤を表示してから「つぎへ」でbeatIdxを進める、2段階の操作にする。 */
+/* beat.shuffle:trueの選択肢問題は、表示のたびに選択肢の並び順をランダム化する
+   （2026-07-19〜、第5章「情景描写」の選択肢問題用。正解がいつも同じ位置に来てしまうと
+   考えずに覚えてしまう生徒がいる、という教員の指示）。並び順はquiz/battle beatと同じく
+   storyRun.orderに保存し、ボタンのonclickには常に「元のoptions配列でのindex」を埋め込むので、
+   storyJudgedChoose自体は並び替えの有無を意識しなくてよい。 */
 function storyRenderJudgedChoice(beat){
   clearChoiceKeys();
+  const order = beat.shuffle ? shuffledOrder(beat.options.length) : beat.options.map((_,i)=>i);
+  storyRun.order = order;
   screen.innerHTML = `
     <div class="card story-scene judged-scene">
       ${beat.speaker ? `<div class="story-speaker">${esc(beat.speaker)}</div>` : ""}
@@ -4860,7 +4883,7 @@ function storyRenderJudgedChoice(beat){
       <p class="story-text">${esc(beat.text)}</p>
       <p class="judged-badge">※正しいものを選んでください※</p>
       <div class="choices">
-        ${beat.options.map((o,i)=>`<button class="choice" onclick="storyJudgedChoose(${i})"><span class="choice-num">${i+1}</span>${esc(o.label)}</button>`).join("")}
+        ${order.map((oi,pos)=>`<button class="choice" onclick="storyJudgedChoose(${oi})"><span class="choice-num">${pos+1}</span>${esc(beat.options[oi].label)}</button>`).join("")}
       </div>
       <div class="feedback" id="fb"></div>
       <div class="btn-row" id="storyJudgedNextRow" style="display:none; justify-content:center">
@@ -4868,7 +4891,7 @@ function storyRenderJudgedChoice(beat){
       </div>
     </div>
     ${storyFooterHtml()}`;
-  setupChoiceKeys(pos => storyJudgedChoose(pos), beat.options.length);
+  setupChoiceKeys(pos => storyJudgedChoose(order[pos]), beat.options.length);
 }
 function storyJudgedChoose(i){
   clearChoiceKeys();
@@ -4884,9 +4907,10 @@ function storyJudgedChoose(i){
   saveStats(st);
   const btns = screen.querySelectorAll(".choice");
   btns.forEach((b,pos)=>{
+    const oi = storyRun.order ? storyRun.order[pos] : pos;
     b.disabled = true;
-    if(beat.options[pos].correct) b.classList.add("correct");
-    else if(pos===i) b.classList.add("wrong");
+    if(beat.options[oi].correct) b.classList.add("correct");
+    else if(oi===i) b.classList.add("wrong");
     else b.classList.add("dim");
   });
   const fb = document.getElementById("fb");
@@ -5786,22 +5810,88 @@ function storyRenderBaseballScreen(){
    このbeatだけの特徴として、章クリア後もst.story.comboBest[章key]に自己ベストの最大コンボ数を
    セーブし、章選択画面のボタンに表示する（storyChapterButtonHtml参照）。状態はstoryRun.combo
    （非セーブのランタイムオブジェクト）に持たせ、gateBeatIdx等と同じくcomboBeatIdxで
-   beat切り替えを検知する。 */
+   beat切り替えを検知する。
+   進行はready（説明文＋「はじめる」ボタン）→countdown（3・2・1のカウントダウン）→
+   playing（出題中）→done（結果画面）の4フェーズ（2026-07-19〜、教員の指示でready/countdownを
+   追加）。beat.readyText/clearFlavor/failFlavorで、開始前の説明・クリア時・失敗時の一言を
+   章ごとにカスタマイズできる（未指定時は汎用の文面にフォールバックするので、他の章でこの
+   beat型を再利用するときは省略してもよい）。 */
 const STORY_COMBO_TIME_MS = 60000;
 const STORY_COMBO_NEED = 5;
+const STORY_COMBO_COUNTDOWN_MS = 800;
+const STORY_COMBO_DEFAULT_READY_TEXT = "60秒間で、できるだけ多くの問題に正解しよう。正解数だけでなく、何問連続で正解できたか（コンボ）が合格のカギになるよ。";
 function storyRenderCombo(beat, idx){
   if(storyRun.comboBeatIdx !== idx){
     storyRun.comboBeatIdx = idx;
     storyComboReset(beat);
   }
   storyRun.curBeat = beat;
-  storyComboRenderQuestion();
+  const c = storyRun.combo;
+  if(c.phase === "playing") storyComboRenderQuestion();
+  else if(c.phase === "countdown") storyComboRenderCountdown();
+  else if(c.phase === "done") storyComboReveal();
+  else storyComboRenderReady(beat);
 }
 function storyComboReset(beat){
   storyRun.combo = {
-    cat: beat.cat, correct:0, answered:0, streak:0, maxStreak:0,
-    deadline: Date.now() + STORY_COMBO_TIME_MS, done:false, timerId:null, lastQ:null, cur:null,
+    cat: beat.cat, phase:"ready", correct:0, answered:0, streak:0, maxStreak:0,
+    deadline:null, done:false, timerId:null, countdownTimerId:null, countdownN:3, lastQ:null, cur:null,
   };
+}
+function storyComboRenderReady(beat){
+  const boss = STORY_EVENT_BOSSES[beat.boss];
+  screen.innerHTML = `
+    <div class="card story-scene">
+      <div class="boss-name">${esc(boss.icon)} ${esc(boss.name)}</div>
+      <p class="story-text">${esc(beat.readyText || STORY_COMBO_DEFAULT_READY_TEXT)}</p>
+      <div class="btn-row" style="justify-content:center">
+        <button class="btn story-advance-btn" onclick="storyComboStart()">はじめる</button>
+      </div>
+    </div>
+    ${storyFooterHtml()}`;
+}
+function storyComboStart(){
+  const c = storyRun.combo;
+  if(!c || c.phase !== "ready") return;
+  c.phase = "countdown";
+  c.countdownN = 3;
+  storyComboRenderCountdown();
+  storyComboTickCountdown();
+}
+function storyComboRenderCountdown(){
+  const c = storyRun.combo;
+  const label = c.countdownN > 0 ? String(c.countdownN) : "スタート！";
+  screen.innerHTML = `
+    <div class="card story-scene">
+      <div class="combo-countdown">${esc(label)}</div>
+    </div>
+    ${storyFooterHtml()}`;
+}
+/* 3・2・1・スタート！の4コマを、STORY_COMBO_COUNTDOWN_MSごとにsetTimeoutでつないで表示する。
+   guard（storyRun!==run または storyRun.combo!==c）は、途中でホームに戻る等してbeatを離れた
+   場合の保険。実際にホームへ戻ったときは、showHome()側でclearStoryComboTimer()を呼び
+   （countdownTimerIdもここでクリアされる）このタイマー自体を止めるので、通常はguardに
+   引っかかる前にタイマーが消えている。 */
+function storyComboTickCountdown(){
+  const c = storyRun.combo;
+  const run = storyRun;
+  c.countdownTimerId = setTimeout(() => {
+    if(storyRun !== run || storyRun.combo !== c) return;
+    c.countdownN--;
+    if(c.countdownN < 0){
+      c.countdownTimerId = null;
+      storyComboBeginPlay();
+    }else{
+      storyComboRenderCountdown();
+      storyComboTickCountdown();
+    }
+  }, STORY_COMBO_COUNTDOWN_MS);
+}
+function storyComboBeginPlay(){
+  const c = storyRun.combo;
+  c.phase = "playing";
+  c.deadline = Date.now() + STORY_COMBO_TIME_MS;
+  storyComboRenderQuestion();
 }
 function storyComboRenderQuestion(){
   const c = storyRun.combo;
@@ -5842,9 +5932,9 @@ function startStoryComboTimer(){
   renderStoryComboTimerBar();
 }
 function clearStoryComboTimer(){
-  if(storyRun && storyRun.combo && storyRun.combo.timerId){
-    clearInterval(storyRun.combo.timerId);
-    storyRun.combo.timerId = null;
+  if(storyRun && storyRun.combo){
+    if(storyRun.combo.timerId){ clearInterval(storyRun.combo.timerId); storyRun.combo.timerId = null; }
+    if(storyRun.combo.countdownTimerId){ clearTimeout(storyRun.combo.countdownTimerId); storyRun.combo.countdownTimerId = null; }
   }
 }
 function renderStoryComboTimerBar(){
@@ -5896,12 +5986,15 @@ function storyComboTimeUp(){
   const c = storyRun.combo;
   if(!c || c.done) return;
   c.done = true;
+  c.phase = "done";
   storyComboReveal();
 }
 function storyComboReveal(){
   const c = storyRun.combo;
+  const beat = storyRun.curBeat;
   const cleared = c.maxStreak >= STORY_COMBO_NEED;
-  const boss = STORY_EVENT_BOSSES[storyRun.curBeat.boss];
+  const boss = STORY_EVENT_BOSSES[beat.boss];
+  const flavor = cleared ? beat.clearFlavor : beat.failFlavor;
   const st = loadStats();
   const sp = storyProgress(st);
   if(!sp.comboBest) sp.comboBest = {};
@@ -5928,6 +6021,7 @@ function storyComboReveal(){
   screen.innerHTML = `
     <div class="card story-scene">
       <div class="story-chapter-end">${cleared ? "🎉 クリア！" : "⏰ 時間切れ…"}</div>
+      ${flavor ? `<p class="story-text">${esc(flavor)}</p>` : ""}
       <p class="story-text">正解数：${c.correct}問（${c.answered}問中）<br>最大コンボ：${c.maxStreak}回（${STORY_COMBO_NEED}回でクリア）</p>
       ${isBetter ? `<p class="note">🔥 最大コンボの自己ベストを更新しました！</p>` : ""}
       ${rewardNote}
@@ -5939,9 +6033,15 @@ function storyComboReveal(){
     </div>
     ${cleared ? "" : storyFooterHtml()}`;
 }
+/* 再挑戦は毎回「はじめる」ボタンからではなく、テンポを保つためカウントダウンから再開する
+   （説明文はもう読んでいるはずなので、ready画面は初回だけでよい、という判断）。 */
 function storyComboRetry(){
   storyComboReset(storyRun.curBeat);
-  storyComboRenderQuestion();
+  const c = storyRun.combo;
+  c.phase = "countdown";
+  c.countdownN = 3;
+  storyComboRenderCountdown();
+  storyComboTickCountdown();
 }
 
 function storyResetJudgedRun(sp){
