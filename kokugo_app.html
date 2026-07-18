@@ -45,6 +45,11 @@
   .menu-card p{font-size:.78rem; color:var(--sub);}
   .menu-card .right{margin-left:auto; text-align:right; flex-shrink:0;}
   .menu-card.review{border-left:5px solid var(--accent);}
+  /* ストーリーモードの章解放システム（2026-07-19〜）で、まだ解放されていない章のカードに使う。 */
+  .menu-card.locked{cursor:default; opacity:.55;}
+  .menu-card.locked:hover{transform:none; box-shadow:none;}
+  .menu-card.locked .menu-icon{background:var(--line); color:var(--sub);}
+  .menu-card.locked .shogo-badge{background:var(--sub);}
   .menu-card.balanced-btn{
     background:linear-gradient(135deg, var(--accent2), var(--accent));
     border:none; padding:20px 16px; margin-bottom:18px;
@@ -528,7 +533,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.3</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.4</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -692,7 +697,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 26;
+const SAVE_FORMAT_VERSION = 27;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -4612,16 +4617,36 @@ function storyEntryHtml(st){
 function showStoryMenu(){
   const st = loadStats();
   let html = `<div class="card"><h3 class="section">📖 ストーリーモード</h3>
-    <p class="note">ことのはと一緒に、中学校生活を歩む物語です。章を選んで読み進めよう。</p></div>`;
+    <p class="note">ことのはと一緒に、中学校生活を歩む物語です。章を選んで読み進めよう。前の章をクリアすると、次の章が解放されます。</p></div>`;
   html += Object.keys(STORY_CHAPTERS).map(key => storyChapterButtonHtml(key, st)).join("");
   html += `<div class="btn-row" style="justify-content:center; margin-top:10px">
     <button class="btn secondary" onclick="showHome()">ホームへ</button>
   </div>`;
   screen.innerHTML = html;
 }
+/* 章の解放システム（2026-07-19〜、教員の指示で追加）。STORY_CHAPTERSの並び順で、直前の章を
+   クリアしていないと次の章には挑戦できない（先頭の章は常に解放されている）。今後3章目以降を
+   追加しても、この関数・呼び出し側は変更不要（並び順から自動的に判定する）。 */
+function storyChapterUnlocked(key, st){
+  const keys = Object.keys(STORY_CHAPTERS);
+  const idx = keys.indexOf(key);
+  if(idx <= 0) return true;
+  const sp = storyProgress(st);
+  return sp.completedChapters.includes(keys[idx - 1]);
+}
 function storyChapterButtonHtml(key, st){
   const chapter = STORY_CHAPTERS[key];
   const sp = storyProgress(st);
+  if(!storyChapterUnlocked(key, st)){
+    const keys = Object.keys(STORY_CHAPTERS);
+    const prevTitle = STORY_CHAPTERS[keys[keys.indexOf(key) - 1]].title;
+    return `
+      <div class="card menu-card locked">
+        <div class="menu-icon">🔒</div>
+        <div><h2>${esc(chapter.title)}</h2><p>先に「${esc(prevTitle)}」をクリアすると挑戦できます。</p></div>
+        <div class="right"><span class="shogo-badge">未解放</span></div>
+      </div>`;
+  }
   const isCompleted = sp.completedChapters.includes(key);
   const inProgress = sp.chapter === key && !isCompleted && sp.beatIdx > 0;
   const badge = isCompleted ? "クリア済み" : inProgress ? "つづきから" : "はじめから";
@@ -4637,10 +4662,13 @@ function storyChapterButtonHtml(key, st){
 }
 /* chapterKeyを渡すと、今保存されている進行中の章と違う場合だけ切り替えて先頭から始める
    （同じ章ならbeatIdxをそのまま維持し、続きから／クリア済み画面から再開する）。
-   引数なしの呼び出し（既存コード・vmテスト等）は今までどおり現在の章をそのまま再開する。 */
+   引数なしの呼び出し（既存コード・vmテスト等）は今までどおり現在の章をそのまま再開する。
+   chapterKeyが指定されていて、かつまだ解放されていない章の場合は何もしない（画面上は
+   ボタンのonclick自体を外しているので通常は起きないが、念のための二重ガード）。 */
 function startStoryMode(chapterKey){
   if(chapterKey){
     const st = loadStats();
+    if(!storyChapterUnlocked(chapterKey, st)){ showStoryMenu(); return; }
     const sp = storyProgress(st);
     if(sp.chapter !== chapterKey){ sp.chapter = chapterKey; sp.beatIdx = 0; storyResetJudgedRun(sp); }
     saveStats(st);
