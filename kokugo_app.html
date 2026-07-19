@@ -155,8 +155,6 @@
   .match-desc{flex:1; font-size:.9rem; line-height:1.6;}
   .match-select{font-size:.88rem; padding:6px 8px; border-radius:8px; border:1px solid var(--line); font-family:inherit; flex-shrink:0;}
   .match-select:disabled{color:var(--ink); opacity:1;}
-  .match-row.match-ok{border-color:var(--ok); background:var(--okbg);}
-  .match-row.match-ng{border-color:var(--ng); background:var(--ngbg);}
   .result-msg{text-align:center; color:var(--sub); margin-bottom:8px;}
   table.stats{width:100%; border-collapse:collapse; font-size:.86rem;}
   table.stats th, table.stats td{padding:8px 6px; border-bottom:1px solid var(--line); text-align:left;}
@@ -545,7 +543,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.12</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.13</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -4192,9 +4190,11 @@ function bootApp(){
      （ready→countdown→playing→doneの4フェーズ、storyRenderCombo参照）。
    ・分類マッチング問題（match beat、2026-07-19〜）：beat.rows（{desc,answer}の配列）を、
      行の並び順だけシャッフルして提示し、各行のプルダウンでbeat.labelsから選ばせる。
-     「これで答える」で全行まとめて採点し、全問正解のときだけ次へ進める（1問でも間違えていれば
-     「もう一度えらぶ」で選び直せる、beatIdxは進めない）。record()は呼ばない
-     （storyRenderMatch参照）。 */
+     「これで答える」で全行まとめて採点し、全問正解のときだけ次へ進める。間違っていても
+     どこが違うかは示さず（行ごとの正誤ハイライトはしない）、プルダウンはそのまま有効な
+     ままなので、選び直して同じボタンで何度でも再挑戦できる（beatIdxは進めない、教員の指示
+     で2026-07-19に「不正解の場所を示さず、その場で挑戦し続けられる」仕様に変更）。
+     record()は呼ばない（storyRenderMatch・storyMatchSubmit参照）。 */
 const STORY_QUIZGATE_WINDOW = 10;
 const STORY_QUIZGATE_NEED = 6;
 const STORY_BATTLE_TOTAL = 10;
@@ -4204,7 +4204,7 @@ const STORY_BATTLE_NEED = 8;
 const STORY_BATTLE_TIME_MS = 15000;
 /* 選択肢問題（judgedChoice beat）で章の自己ベスト正答率が初めて100%に達したときだけ手に入る
    特別なアイテム。章ごとに個別の名前は持たせず、ストーリーモード全体で共通の1種類とする
-   （2026-07-17〜）。宝具（TREASURE_NAMES）ではなく、クリア報酬アイテム（STORY_REWARD_ITEM_NAMES）
+   （2026-07-17〜）。宝具（TREASURE_NAMES）ではなく、クリア報酬アイテム（STORY_REWARD_ITEM_EXP）
    の枠に入れる（当初は宝具枠だったが、章クリア画面のtreasure-drop表示が光の背景で文字が
    見えにくかったため、教員の指示でクリア報酬アイテム枠へ変更した）。 */
 const STORY_JUDGED_PERFECT_ITEM = "全問正解のあかし";
@@ -4243,10 +4243,13 @@ const STORY_EVENT_BOSSES = {
   /* 第6章「説明的文章①」用（2026-07-19〜）。battle beatにbeat.trackLevel:trueを付けた
      唯一の例（storyGradeBattle参照）。正解するとその場で識別（shikibetsu）のレベルが
      上がりうる。出題はshikibetsuプールのうちtag:"setsuzokushi"（接続詞の種類分類）の
-     問題だけに絞る（beat.filterTag参照）。 */
+     問題だけに絞る（beat.filterTag参照）。
+     item2（2026-07-19〜、教員の指示）：宝具（確率ドロップ）ではなく、item同様に確定で
+     もらえる2つ目のクリア報酬アイテム。storyBattleResolve側でboss.item2がある場合だけ
+     追加で付与する特別対応（他のボスは全員item2を持たないtreasure枠のまま）。 */
   setsuzokushiTest: {
     id:"story_setsuzokushi_test", name:"接続詞の見分けテスト", icon:"🔗",
-    item:"つなぎ言葉マスターの証", treasure:"太郎からのお礼メモ",
+    item:"つなぎ言葉マスターの証", item2:"太郎からのお礼メモ",
   },
 };
 TREASURE_NAMES.add(STORY_EVENT_BOSSES.printPile.treasure);
@@ -4254,23 +4257,34 @@ TREASURE_NAMES.add(STORY_EVENT_BOSSES.selfIntroCard.treasure);
 TREASURE_NAMES.add(STORY_EVENT_BOSSES.newsGalley.treasure);
 TREASURE_NAMES.add(STORY_EVENT_BOSSES.baseballMatch.treasure);
 TREASURE_NAMES.add(STORY_EVENT_BOSSES.kotowazaTimeAttack.treasure);
-TREASURE_NAMES.add(STORY_EVENT_BOSSES.setsuzokushiTest.treasure);
 
-/* クリア報酬アイテム（章クリアで確定ドロップする通常アイテムのうち、使うと経験値+20になるもの）。
-   宝具（TREASURE_NAMES／useTreasureItem）とは別枠の、ストーリーモード専用の使用可能アイテム分類。 */
-const STORY_REWARD_ITEM_NAMES = new Set([STORY_EVENT_BOSSES.printPile.item, STORY_EVENT_BOSSES.selfIntroCard.item, STORY_EVENT_BOSSES.newsGalley.item, STORY_EVENT_BOSSES.baseballMatch.item, STORY_EVENT_BOSSES.kotowazaTimeAttack.item, STORY_EVENT_BOSSES.setsuzokushiTest.item, STORY_JUDGED_PERFECT_ITEM]);
+/* クリア報酬アイテム（章クリアで確定ドロップする通常アイテムのうち、使うと経験値が上がるもの）。
+   宝具（TREASURE_NAMES／useTreasureItem）とは別枠の、ストーリーモード専用の使用可能アイテム分類。
+   名前→使用時にもらえる経験値量のMap（2026-07-19〜、教員の指示で「太郎からのお礼メモ」だけ
+   標準の20ではなく50にしたため、以前のSet（全アイテム一律20）からMapに変更した）。 */
 const STORY_REWARD_EXP_AMOUNT = 20;
-function isStoryRewardItem(name){ return STORY_REWARD_ITEM_NAMES.has(name); }
+const STORY_REWARD_ITEM_EXP = new Map([
+  [STORY_EVENT_BOSSES.printPile.item, STORY_REWARD_EXP_AMOUNT],
+  [STORY_EVENT_BOSSES.selfIntroCard.item, STORY_REWARD_EXP_AMOUNT],
+  [STORY_EVENT_BOSSES.newsGalley.item, STORY_REWARD_EXP_AMOUNT],
+  [STORY_EVENT_BOSSES.baseballMatch.item, STORY_REWARD_EXP_AMOUNT],
+  [STORY_EVENT_BOSSES.kotowazaTimeAttack.item, STORY_REWARD_EXP_AMOUNT],
+  [STORY_EVENT_BOSSES.setsuzokushiTest.item, STORY_REWARD_EXP_AMOUNT],
+  [STORY_EVENT_BOSSES.setsuzokushiTest.item2, 50],
+  [STORY_JUDGED_PERFECT_ITEM, STORY_REWARD_EXP_AMOUNT],
+]);
+function isStoryRewardItem(name){ return STORY_REWARD_ITEM_EXP.has(name); }
 function useStoryRewardItem(name){
   const st = loadStats();
   if(!(st.items && st.items[name] > 0)) return;
+  const expAmount = STORY_REWARD_ITEM_EXP.get(name) || STORY_REWARD_EXP_AMOUNT;
   st.items[name]--;
   if(st.items[name] <= 0) delete st.items[name];
   if(!st.usedStoryRewards) st.usedStoryRewards = {};
   st.usedStoryRewards[name] = (st.usedStoryRewards[name]||0) + 1;
-  st.bonusExp = (st.bonusExp||0) + STORY_REWARD_EXP_AMOUNT;
+  st.bonusExp = (st.bonusExp||0) + expAmount;
   saveStats(st);
-  alert(`🎁「${name}」を使った！ 経験値が${STORY_REWARD_EXP_AMOUNT}上がった！`);
+  alert(`🎁「${name}」を使った！ 経験値が${expAmount}上がった！`);
   showItemCollection();
 }
 function storyRewardSectionHtml(st){
@@ -4283,7 +4297,7 @@ function storyRewardSectionHtml(st){
   if(keys.length){
     html += `<ul class="item-list treasure-list">` + keys.map(name =>
       `<li class="treasure"><span>🎁 ${esc(name)}</span><span class="item-count">×${items[name]}</span>
-        <button class="btn inline" onclick="useStoryRewardItem('${esc(name)}')">使う（経験値+${STORY_REWARD_EXP_AMOUNT}）</button></li>`
+        <button class="btn inline" onclick="useStoryRewardItem('${esc(name)}')">使う（経験値+${STORY_REWARD_ITEM_EXP.get(name) || STORY_REWARD_EXP_AMOUNT}）</button></li>`
     ).join("") + `</ul>`;
     html += `<p class="note">🎁 クリア報酬アイテムを使うと経験値が上がりますが、1個使うごとに手元から1個消費されます。</p>`;
   }
@@ -4728,9 +4742,14 @@ const STORY_CHAPTERS = {
       {type:"line", speaker:"太郎", text:"「あー、説明的な文章って、どこに注目して読めばいいのか、いまいち分からないんだよな……」"},
       {type:"line", text:"太郎の机をのぞきこんでみる。\n正直、自分もどこから手をつければいいのか分からなかった。"},
       {type:"line", speaker:"ことのは", text:"二人とも困ってるんだね。\n説明的な文章は、基本的に次のような構成と言われているよ。"},
-      {type:"shortAnswer", speaker:"ことのは", text:"まず、文章の「はじめ」の部分は、何と呼ばれるかな？", note:"漢字二字で答えてください", answers:["序論"]},
-      {type:"shortAnswer", speaker:"ことのは", text:"では、「なか」の部分は？", note:"漢字二字で答えてください", answers:["本論"]},
-      {type:"shortAnswer", speaker:"ことのは", text:"最後に、「おわり」の部分は？", note:"漢字二字で答えてください", answers:["結論"]},
+      {type:"match", speaker:"ことのは", text:"それぞれ、正しい言葉に分類してみて。",
+        labels:["序論","本論","結論"],
+        rows:[
+          {desc:"「はじめ」に当たるのは？", answer:1},
+          {desc:"「なか」に当たるのは？", answer:2},
+          {desc:"「おわり」に当たるのは？", answer:3},
+        ],
+      },
       {type:"line", speaker:"ことのは", text:"そう。序論、本論、結論。\nこんな感じで、文章を『まとまり』で捉えることができるようになると、頭が整理されて理解しやすくなるんだよ。"},
       {type:"line", text:"確かに、部屋を片付けるときも「ゲーム」「勉強道具」「部活の道具」みたいに、まとめると楽になる。"},
       {type:"line", speaker:"ことのは", text:"そういうこと。\n『構成は、文章の地図みたいなもの』ということが分かったら、次は「展開」について考えよう。"},
@@ -5081,6 +5100,10 @@ function storyRenderMatch(beat){
     </div>
     ${storyFooterHtml()}`;
 }
+/* 2026-07-19〜、教員の指示で「間違っていても、どこが違うかは示さず、正解するまで
+   その場で何度でも挑戦できる」仕様に変更。行ごとの正誤ハイライト（match-ok/match-ng）は
+   行わず、全問正解かどうかだけを一言で伝える。不正解のときはプルダウンを無効化せず、
+   そのまま選び直して同じボタンで再提出できる（並び順の再シャッフルもしない）。 */
 function storyMatchSubmit(){
   const beat = storyRun.curBeat;
   const order = storyRun.matchOrder;
@@ -5089,33 +5112,22 @@ function storyMatchSubmit(){
     const row = beat.rows[ri];
     const sel = document.getElementById(`matchSel${pos}`);
     const val = sel ? parseInt(sel.value, 10) : NaN;
-    const ok = val === row.answer;
-    if(!ok) allCorrect = false;
-    const rowEl = document.getElementById(`matchRow${pos}`);
-    if(rowEl){
-      rowEl.classList.remove("match-ok", "match-ng");
-      rowEl.classList.add(ok ? "match-ok" : "match-ng");
-    }
-    if(sel) sel.disabled = true;
+    if(val !== row.answer) allCorrect = false;
   });
   const fb = document.getElementById("fb");
-  const submitBtn = document.getElementById("matchSubmitBtn");
   if(allCorrect){
+    order.forEach((ri,pos)=>{
+      const sel = document.getElementById(`matchSel${pos}`);
+      if(sel) sel.disabled = true;
+    });
     fb.className = "feedback show ok";
     fb.innerHTML = `<div class="verdict">○ 全部正解！</div>`;
     document.getElementById("matchSubmitRow").style.display = "none";
     document.getElementById("storyMatchNextRow").style.display = "flex";
   }else{
     fb.className = "feedback show ng";
-    fb.innerHTML = `<div class="verdict">× まだ違うところがあるよ。赤いところを見直してみよう。</div>`;
-    if(submitBtn){
-      submitBtn.textContent = "もう一度えらぶ";
-      submitBtn.onclick = storyMatchRetry;
-    }
+    fb.innerHTML = `<div class="verdict">× まだ違うところがあるよ。もう一度考えてみよう。</div>`;
   }
-}
-function storyMatchRetry(){
-  storyRenderMatch(storyRun.curBeat);
 }
 /* ミニクイズ（合格ゲート方式）：直近window問中need問正解するまで、同じbeatのまま
    問題を出し続ける（beatIdxは進めない）。1問ごとにrecord()を呼ぶので、
@@ -5400,7 +5412,8 @@ function storyBattleResolve(){
     let gotTreasure = false;
     if(!isReplay){
       st.items[boss.item] = (st.items[boss.item]||0) + 1;
-      if(treasureDropAllowed(st)){
+      if(boss.item2) st.items[boss.item2] = (st.items[boss.item2]||0) + 1;
+      if(boss.treasure && treasureDropAllowed(st)){
         st.bossPity[boss.id] = (st.bossPity[boss.id]||0) + 1;
         if(st.bossPity[boss.id] >= BOSS_PITY_MAX || Math.random() < BOSS_TREASURE_RATE){
           gotTreasure = true;
@@ -5415,7 +5428,7 @@ function storyBattleResolve(){
         <div class="story-chapter-end">🎉 クリア！（${storyRun.battleCorrect}／${total}問正解）</div>
         ${isReplay
           ? `<p class="story-text">「${esc(boss.name)}」を乗りこえた！（再プレイのため、今回はアイテムの入手はありません）</p>`
-          : `<p class="story-text">「${esc(boss.name)}」を乗りこえた！<br>${esc(boss.icon)} <span class="drop-item">【${esc(boss.item)}】</span>を手に入れた！${gotTreasure ? `<br>✨ さらに、宝具<span class="drop-item treasure-drop">【${esc(boss.treasure)}】</span>を手に入れた！ ✨` : ""}</p>`}
+          : `<p class="story-text">「${esc(boss.name)}」を乗りこえた！<br>${esc(boss.icon)} <span class="drop-item">【${esc(boss.item)}】</span>を手に入れた！${boss.item2 ? `<br>${esc(boss.icon)} <span class="drop-item">【${esc(boss.item2)}】</span>を手に入れた！` : ""}${gotTreasure ? `<br>✨ さらに、宝具<span class="drop-item treasure-drop">【${esc(boss.treasure)}】</span>を手に入れた！ ✨` : ""}</p>`}
         <div class="btn-row" style="justify-content:center">
           <button class="btn story-advance-btn" onclick="storyAdvance()">つづける</button>
         </div>
