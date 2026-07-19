@@ -543,7 +543,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.14</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.15</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -4189,7 +4189,9 @@ function bootApp(){
      いきなり出題は始まらず、「はじめる」ボタン→3・2・1のカウントダウンを経てから出題が始まる
      （ready→countdown→playing→doneの4フェーズ、storyRenderCombo参照）。
    ・分類マッチング問題（match beat、2026-07-19〜）：beat.rows（{desc,answer}の配列）を、
-     行の並び順だけシャッフルして提示し、各行のプルダウンでbeat.labelsから選ばせる。
+     行の並び順をシャッフルして提示し、各行のプルダウンでbeat.labelsから選ばせる
+     （プルダウン内の選択肢の並び順も毎回シャッフルする。位置だけで正解を覚えられないように
+     するため）。
      「これで答える」で全行まとめて採点し、全問正解のときだけ次へ進める。間違っていても
      どこが違うかは示さず（行ごとの正誤ハイライトはしない）、プルダウンはそのまま有効な
      ままなので、選び直して同じボタンで何度でも再挑戦できる（beatIdxは進めない、教員の指示
@@ -4704,7 +4706,8 @@ const STORY_CHAPTERS = {
         {label:"一人称視点も三人称視点も、語り手は必ず登場人物自身になるので、効果に違いはない。", correct:false},
         {label:"三人称視点は、登場人物の心の中をいっさい描写できないので、物語が分かりにくくなってしまう。", correct:false},
       ]},
-      {type:"line", speaker:"ことのは", text:"そう、一人称と三人称の違いが分かるだけで、物語の見え方が変わることがあるんだよ。\nそれから、気づきにくい部分として、風景と気持ちが関係する、ということがあるんだ。"},
+      {type:"line", speaker:"ことのは", text:"そう、正解だね。\nつまり人称を意識するというのは、語り手が誰なのか、ということなんだ。\n語り手が誰かによって、物語の見え方が変わってくることもあるんだよ。"},
+      {type:"line", speaker:"ことのは", text:"それから、気づきにくい部分として、風景と気持ちが関係する、ということがあるんだ。"},
       {type:"shortAnswer", speaker:"ことのは", text:"物語では、登場人物の心情を風景に投影させることで、さりげなく示したり伝えやすくしたりすることがあるんだ。それを何というか知っている？", note:"漢字四字で答えてください", answers:["情景描写"]},
       {type:"line", speaker:"ことのは", text:"そう、「情景描写」だね！\n景色の描写ひとつで、物語の雰囲気をぐっと伝えられるんだ。"},
       {type:"judgedChoice", text:"では、次の中で、「これから良いことが起きそうな情景描写」を選んでみて。", shuffle:true, options:[
@@ -5076,7 +5079,13 @@ function storyRenderMatch(beat){
   storyRun.curBeat = beat;
   const order = shuffledOrder(beat.rows.length);
   storyRun.matchOrder = order;
-  const optionsHtml = beat.labels.map((lab,li)=>`<option value="${li+1}">${esc(lab)}</option>`).join("");
+  /* プルダウンの選択肢（beat.labels）も、表示のたびに並び順をシャッフルする（2026-07-19〜、
+     教員の指示。「序論・本論・結論」のように毎回同じ並びだと、選択肢の中身を読まずに
+     位置だけで覚えてしまう生徒がいるため）。value自体はbeat.labelsの元の1始まりindexの
+     ままなので、storyMatchSubmit側の採点ロジックは変更不要（選択肢の見た目の並びと
+     value/正解判定は独立している）。 */
+  const labelOrder = shuffledOrder(beat.labels.length);
+  const optionsHtml = labelOrder.map(li=>`<option value="${li+1}">${esc(beat.labels[li])}</option>`).join("");
   const rowsHtml = order.map((ri,pos)=>{
     const row = beat.rows[ri];
     return `
