@@ -543,7 +543,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.16</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.17</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -2955,8 +2955,14 @@ const BOSSES = [
      （`st.bossItemPity[boss.id]`、bossWin参照）。
      宝具は既存の標準的な抽選（天井10連勝・BOSS_TREASURE_RATE10%・直近30回正答率50%以上のグローバル
      ゲート）をそのまま使う（treasureAccGateを持たせていないため）。 */
+  /* サノー・シゲっちは、適正経験値の表示を「？？？」にし（hideRecPts:true、Lvの表示と同じ
+     「正体不明」の演出）、ボスの卒業システム（isBossRetired）の対象からも外す
+     （neverRetires:true、2026-07-19〜、教員の指示。今後もずっとランダム遭遇の候補に残り続ける）。
+     recPts自体の数値（1503）はminXpRatio・BOSS_TIMER_MIN_RECPTS・アイテムドロップ率などの
+     内部計算にそのまま使うので変更しない（表示だけを隠す）。 */
   {id:"sano_revival", name:"復活のサノー", icon:"🔥", item:"メスシリンダー", treasure:"高価な白い粉",
    hp:1994620, atk:0, defPct:0, accuracy:0, evadePct:0, luck:0, lv:"？？？", recPts:1503, minXpRatio:0.8,
+   hideRecPts:true, neverRetires:true,
    statIgnore:true, playerHitMin:0.08, playerHitMax:0.12,
    counterOkMin:0.02, counterOkMax:0.03, counterNgMin:0.12, counterNgMax:0.18,
    dropAccuracyThreshold:0.8, itemDropFloor:0.2, itemDropCeil:0.8, itemDropPity:true, answerTimeMs:15000},
@@ -2964,6 +2970,7 @@ const BOSSES = [
      再利用し、不正解時の被ダメージだけをさらに厳しく（25〜30%）している。 */
   {id:"shigecchi_tears", name:"涙目のシゲっち", icon:"😭", item:"さびついたノコギリ", treasure:"３Dプリンター",
    hp:19910109, atk:0, defPct:0, accuracy:0, evadePct:0, luck:0, lv:"？？？", recPts:1503, minXpRatio:0.8,
+   hideRecPts:true, neverRetires:true,
    statIgnore:true, playerHitMin:0.08, playerHitMax:0.12,
    counterOkMin:0.02, counterOkMax:0.03, counterNgMin:0.25, counterNgMax:0.30,
    dropAccuracyThreshold:0.8, itemDropFloor:0.2, itemDropCeil:0.8, itemDropPity:true, answerTimeMs:15000},
@@ -3248,7 +3255,10 @@ const BOSS_RETIREMENT_TIERS = [
   {xpAbove: 4000, retireAtOrBelowRecPts: 2000},
   {xpAbove: 3000, retireAtOrBelowRecPts: 1000},
 ];
+/* boss.neverRetires:trueのボス（サノー・シゲっち、2026-07-19〜）は、適正経験値の数値に関係なく
+   卒業の対象外にする（教員の指示。この2体は今後もずっとランダム遭遇の候補に残り続ける）。 */
 function isBossRetired(boss, xp){
+  if(boss.neverRetires) return false;
   return BOSS_RETIREMENT_TIERS.some(t => xp > t.xpAbove && boss.recPts <= t.retireAtOrBelowRecPts);
 }
 function randomEncounterBoss(){
@@ -3270,7 +3280,7 @@ function renderBossPrompt(){
       <p class="boss-enc-text">${introText}<br>勝負しますか？</p>
       ${b.legendary
         ? `<p class="note boss-enc-hint">⚠️ 一問でも間違えると、その場で敗れます。10問連続で正解すれば討伐成功です（制限時間10秒）。</p>`
-        : `<p class="note boss-enc-hint">適正経験値の目安：${b.recPts||0}pt（今の経験値：${totalEarnedStatPoints(st)}pt）</p>`}
+        : `<p class="note boss-enc-hint">適正経験値の目安：${b.hideRecPts ? "？？？" : (b.recPts||0)+"pt"}（今の経験値：${totalEarnedStatPoints(st)}pt）</p>`}
       <div class="boss-enc-choices">
         <button class="boss-enc-btn ${bossPromptSelection==='no'?'selected':''}" onclick="resolveBossPrompt('no')">いいえ</button>
         <button class="boss-enc-btn ${bossPromptSelection==='yes'?'selected':''}" onclick="resolveBossPrompt('yes')">勝負する</button>
