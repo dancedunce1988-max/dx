@@ -4767,7 +4767,7 @@ function storyChapterButtonHtml(key, st){
   const badge = isCompleted ? "クリア済み" : inProgress ? "つづきから" : "はじめから";
   const sub = isCompleted ? "クリア済み。もう一度プレイすることもできます。" : inProgress ? "続きから読み進めよう" : "タップして読みはじめる";
   const best = sp.judgedBest && sp.judgedBest[key];
-  const rateNote = best ? `<p class="note">クリア率 ${Math.round(100*best.correct/best.total)}%（自己ベスト）</p>` : "";
+  const rateNote = best ? `<p class="note">クリア率 ${Math.round(100*best.correct/best.total)}%</p>` : "";
   const comboBest = sp.comboBest && sp.comboBest[key];
   const comboNote = comboBest ? `<p class="note"><span class="shogo-badge top">🔥 最大コンボ数 ${comboBest}回</span></p>` : "";
   return `
@@ -5806,8 +5806,9 @@ function storyRenderBaseballScreen(){
    続け（教員の指示どおり、目標のコンボ数に届いた瞬間に打ち切ることはしない）、その中で最大コンボが
    STORY_COMBO_NEED以上になっていればクリア。クリアできなければ他の中ボス（battle/proofread/
    baseball）と同じく「もう一度挑戦する」で何度でも再挑戦できる（beatIdxは進めない）。
-   出題はpickBattleQuestionをそのまま使う（新規データ不要）。record()は呼ばない（他の中ボス・
-   ミニゲームと同じく、正誤は分野レベル・XPに反映しない）。
+   出題はpickBattleQuestionをそのまま使う（新規データ不要）。baseball beatと同じく、教員の
+   指示でこのミニゲームだけは正誤をrecord()に反映する（skipRecentAcc:trueで直近正答率・
+   fastGuess判定には混ぜない。詳細はstoryComboAnswer参照）。
    このbeatだけの特徴として、章クリア後もst.story.comboBest[章key]に自己ベストの最大コンボ数を
    セーブし、章選択画面のボタンに表示する（storyChapterButtonHtml参照）。状態はstoryRun.combo
    （非セーブのランタイムオブジェクト）に持たせ、gateBeatIdx等と同じくcomboBeatIdxで
@@ -5900,6 +5901,7 @@ function storyComboRenderQuestion(){
   const it = pickBattleQuestion(c.cat, c.lastQ);
   c.lastQ = it.q;
   c.cur = it;
+  c.shownAt = Date.now();
   storyRun.order = shuffledOrder(it.c.length);
   screen.innerHTML = `
     <div class="card story-scene">
@@ -5952,7 +5954,12 @@ function renderStoryComboTimerBar(){
   });
 }
 /* 1問答えるたびに次の問題へ自動で進む（コンボのテンポを保つため、他のbeatと違って
-   「つぎへ」ボタンを挟まない）。正誤の色分けを一瞬見せてから、次の問題を描画する。 */
+   「つぎへ」ボタンを挟まない）。正誤の色分けを一瞬見せてから、次の問題を描画する。
+   野球ミニゲーム（baseball beat）と同じく、教員の指示でこのミニゲームだけは正誤をrecord()に
+   反映する（他の中ボス・校正ミニゲームはrecord()を呼ばず分野レベルに影響しない設計のまま）。
+   正解した瞬間に分野（ことわざ）のレベルが上がりうる。skipRecentAcc:trueにより、コンボアタック
+   特有の速いペースが「直近の正答率」（分野別・分野横断とも）やfastGuess判定に混ざらないように
+   している（baseball beatと同じ理由）。 */
 function storyComboAnswer(origIdx){
   const c = storyRun.combo;
   if(!c || c.done) return;
@@ -5961,6 +5968,8 @@ function storyComboAnswer(origIdx){
   c.answered++;
   if(ok){ c.correct++; c.streak++; if(c.streak > c.maxStreak) c.maxStreak = c.streak; }
   else c.streak = 0;
+  const elapsedMs = Date.now() - (c.shownAt || Date.now());
+  const r = record(c.cat, c.cur, ok, elapsedMs, {skipRecentAcc:true});
   const btns = screen.querySelectorAll(".choice");
   btns.forEach((b,pos)=>{
     const oi = storyRun.order[pos];
@@ -5969,9 +5978,10 @@ function storyComboAnswer(origIdx){
     else if(oi === origIdx) b.classList.add("wrong");
     else b.classList.add("dim");
   });
+  const lvChip = r.lvup ? `<span class="lvup-chip">${esc(CATS[c.cat].name)} Lv.${r.lv} にアップ！</span>` : "";
   const fb = document.getElementById("fb");
   fb.className = "feedback show " + (ok?"ok":"ng");
-  fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}</div>`;
+  fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}${lvChip}</div>`;
   const progressEl = document.getElementById("comboProgress");
   if(progressEl) progressEl.textContent = `正解数：${c.correct}問　　いまのコンボ：${c.streak}　　最大コンボ：${c.maxStreak}`;
   if(c.deadline - Date.now() <= 0){
