@@ -543,7 +543,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.17</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.18</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3010,9 +3010,10 @@ const BOSSES = [
    （既存ボスも同様の性質を持つため、一点特化で崩せてしまう既存バランスからの逸脱ではない）。
    この3体には、既存ボスにはない2つの追加ルールがある（2026-07-15、`minXpRatio`/`dropAccuracyThreshold`
    プロパティを持つボスだけに適用。既存6体はプロパティ自体を持たないので今までどおり無条件）：
-   ①`minXpRatio`：ランダム遭遇（チケット未使用）でこのボスが選ばれるのは、その時点の「ことのはの経験値」
-     （`kotonohaTotalXP`）がrecPtsの80%以上のときだけ（`rollBossEncounter`側でフィルタ）。挑戦チケット側の
-     抽選（`ticketEligibleBosses`）はもともとrecPts以下＝100%相当のしきい値を持つ別ロジックなので変更不要。
+   ①`minXpRatio`：このボスが選ばれるのは、その時点の「ことのはの経験値」（`kotonohaTotalXP`）が
+     recPtsの80%以上のときだけ（`rollBossEncounter`側でフィルタ）。挑戦チケット側の抽選
+     （`ticketEligibleBosses`）も2026-07-19〜、この条件をそのまま共有するようになった
+     （教員の指示で、ランダム遭遇とチケットの出現条件を完全に統一）。
    ②`dropAccuracyThreshold`：倒したときのアイテムのドロップ確率が、`st.recentCorrectAll`（分野をまたいだ
      「直近30回」の正答率、ボス遭遇/宝具ドロップ判定と同じ値、[[kokugo-drill-dx-workflow]]の
      「直近の正答率」表示とも共通）に応じてグラデーションで決まる（`bossItemDropChance()`、bossWin参照）。
@@ -3244,7 +3245,8 @@ function rollBossEncounter(resumeFn){
 }
 /* ランダム遭遇の抽選対象を絞る（2026-07-15〜）。`minXpRatio`を持つボス（新規追加分）は、
    「ことのはの経験値」がrecPts×minXpRatio未満のうちはランダム遭遇に出てこない
-   （挑戦チケットでの抽選＝ticketEligibleBossesは別ロジックなので対象外）。
+   （挑戦チケットでの抽選＝ticketEligibleBossesも2026-07-19〜、isBossRetiredともども
+   同じ条件を共有するようになった。詳細はticketEligibleBoss参照）。
    このプロパティを持たない既存ボスは、これまでどおり無条件で対象になる。
    逆方向の絞り込み（2026-07-19〜、教員の指示）：「ことのはの経験値」が一定を超えると、
    今度は適正経験値の低いボスが「卒業」して出なくなる。プレイヤーが育つにつれて簡単すぎる
@@ -3856,36 +3858,36 @@ function endBossBattle(){
 function showTicketConfirm(){
   const st = loadStats();
   if((st.bossTickets||0) <= 0){ showHome(); return; }
-  const pts = totalEarnedStatPoints(st);
-  const candidates = ticketEligibleBosses(pts);
+  const xp = kotonohaTotalXP(st);
+  const candidates = ticketEligibleBosses(xp);
   const names = candidates.map(b => b.name.match(/【(.+)】/)?.[1] || b.name).join("・");
   screen.innerHTML = `
     <div class="card boss-encounter">
       <div class="boss-enc-icon">🎟️</div>
       <p class="boss-enc-text">挑戦チケットを1枚使って、ランダムなボスに挑戦しますか？<br><b>挑戦すると、チケットを1枚消費します。</b></p>
       <p class="note boss-enc-hint">🌐 挑戦チケットを使った対戦は、全ジャンルからランダムに出題されます（ふだんのランダム遭遇では、そのとき解いていたジャンルのまま出題されます）。</p>
-      <p class="note boss-enc-hint">🎯 出現するのは、今の経験値（${pts}pt）で適正経験値以下のボスだけです。今回の候補：${esc(names)}</p>
+      <p class="note boss-enc-hint">🎯 出現するボスの候補は、ランダム遭遇と同じ条件で絞り込まれます。今回の候補：${esc(names)}</p>
       <div class="boss-enc-choices">
         <button class="boss-enc-btn" onclick="showHome()">やめる</button>
         <button class="boss-enc-btn selected" onclick="useTicketAndFight()">チケットを1枚使って挑戦する</button>
       </div>
     </div>`;
 }
-/* 挑戦チケットで出るボスは、適正経験値が「今の経験値（＝分野レベル合計。すでに使った分もふくむ）」
-   以下のものだけに限定する（ただし経験値150以下のときも、適正経験値150の2体
-   だけは選べるように、しきい値の下限を150に固定する。2026-07-17の経験値カーブ変更にあわせて
-   recPtsを全体的に3倍したため、この下限も50→150に追随）。
-   ランダム遭遇は対象外で、従来どおり全ボスから出現する。 */
-function ticketEligibleBosses(earnedPts){
-  const threshold = Math.max(earnedPts||0, 150);
-  return BOSSES.filter(b => (b.recPts||0) <= threshold);
+/* 挑戦チケットの抽選対象は、ランダム遭遇（randomEncounterBoss）と完全に同じ条件にする
+   （2026-07-19〜、教員の指示・確認済み）。minXpRatioを持つボスは「ことのはの経験値」が
+   recPts×minXpRatio未満のうちは対象外、かつisBossRetired（経験値が伸びると低い適正経験値の
+   ボスが「卒業」して対象外になる仕組み。neverRetires:trueのサノー・シゲっちは対象外）も
+   同様に適用する。以前の「今の経験値（すでに使った分もふくむ）以下のボスだけ」という
+   独自の上限ルールは廃止し、ランダム遭遇に出てくるボスの候補と完全に一致させる。 */
+function ticketEligibleBosses(xp){
+  return BOSSES.filter(b => (!b.minXpRatio || xp >= b.recPts * b.minXpRatio) && !isBossRetired(b, xp));
 }
 function useTicketAndFight(){
   const st = loadStats();
   if((st.bossTickets||0) <= 0){ showHome(); return; }
   st.bossTickets -= 1;
   saveStats(st);
-  const candidates = ticketEligibleBosses(totalEarnedStatPoints(st));
+  const candidates = ticketEligibleBosses(kotonohaTotalXP(st));
   const boss = candidates[Math.floor(Math.random() * candidates.length)];
   // どのボスが出たかを見せてから、あらためて「勝負する」を選んでもらう（renderBossPromptを共用）
   pendingBoss = boss;
