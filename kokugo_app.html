@@ -543,7 +543,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.15</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.16</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -2969,6 +2969,16 @@ const BOSSES = [
    dropAccuracyThreshold:0.8, itemDropFloor:0.2, itemDropCeil:0.8, itemDropPity:true, answerTimeMs:15000},
   {id:"shogi",      name:"読み勝つ将棋部部長",       icon:"♟️", item:"会心の一手",       treasure:"伝説の詰将棋",               hp:25000, atk:36.83, defPct:10, accuracy:100, evadePct:8,  luck:40, lv:18, recPts:2100, minXpRatio:0.8, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
   {id:"toshoiin",   name:"静寂の図書委員長",         icon:"📚", item:"静寂の栞",         treasure:"禁帯出の書",                 hp:25000, atk:118.30,defPct:60, accuracy:110, evadePct:5,  luck:8,  lv:27, recPts:3600, minXpRatio:0.8, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
+  /* 適正経験値5000の新ボス（2026-07-19〜、教員の指示）。既存最上位「伝説の生徒会長」(recPts4500)
+     よりさらに手応えのある上位帯として追加。ステータスはNode.jsで現行の戦闘式（bossGrade/
+     bossCounterAttack）を忠実に再現したシミュレータで調整した：「適正経験値÷3を5ステータスに
+     均等配分したプレイヤーが8割の正解率で挑む」という、既存8体で実測して手応えの基準に
+     一致することを確認した条件のもとで、勝率が87%前後になるようhpを調整（atk/defPct/
+     accuracy/evadePct/luckは既存ボスのrecPtsに対するスケーリング傾向とキャラクターの個性から
+     決定）。minXpRatio:0.6は「ことのはの経験値が3000を超えたら出現」という指示を、
+     xp >= recPts×minXpRatio ＝ xp >= 3000 という形でそのまま満たすための値（他の既存ボスの
+     0.8とは意図的に異なる）。 */
+  {id:"ruoon",      name:"アイスホッケー選手ルオーン", icon:"🏒", item:"ホッケー用スティック", treasure:"ホッケー防具一式",           hp:67000, atk:186,   defPct:20, accuracy:140, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
 ];
 /* 2026-07-17、経験値カーブを変更（catExpPoints参照。LV100まで+3/LV500まで+2/LV1000まで+1/以降+0.2の
    段階式に改訂）したことにともない、同じレベル到達ペースで各ボスが解禁されるよう、全ボスのrecPts・
@@ -3127,6 +3137,12 @@ const ITEM_EFFECTS = {
   "文殊の知恵":   {type:"hpCut99",                        label:"敵のHPを、その時点から99%減らす",       icon:"🪷"},
   "メスシリンダー": {type:"healPct", amount:0.20,          label:"自分のMAXHPの20%を回復する",           icon:"🧪"},
   "さびついたノコギリ": {type:"atkMultBuff", mult:1.5, turns:1, label:"次のターンだけ、攻撃力が1.5倍になる", icon:"🪚"},
+  /* 適正経験値5000「アイスホッケー選手ルオーン」の落とすアイテム（2026-07-19〜）。あえて
+     atkBuff（固定加算）ではなくatkMultBuff（倍率）にした。加算バフは自分の攻撃力が育つほど
+     相対的な効果が薄まる（例：会長の激励+70は、攻撃力ステータス300ptの終盤では全体ダメージの
+     1割にも満たない）のに対し、倍率バフはどの育成段階でも常に一定割合の底上げになるため、
+     終盤の最上位ボス用アイテムとして倍率型の方が「効いている実感」を保てると判断した。 */
+  "ホッケー用スティック": {type:"atkMultBuff", mult:1.3, turns:3, label:"次の3ターン、攻撃力が1.3倍になる", icon:"🏒"},
 };
 function randInt(min, max){ return min + Math.floor(Math.random() * (max - min + 1)); }
 
@@ -3222,10 +3238,22 @@ function rollBossEncounter(resumeFn){
 /* ランダム遭遇の抽選対象を絞る（2026-07-15〜）。`minXpRatio`を持つボス（新規追加分）は、
    「ことのはの経験値」がrecPts×minXpRatio未満のうちはランダム遭遇に出てこない
    （挑戦チケットでの抽選＝ticketEligibleBossesは別ロジックなので対象外）。
-   このプロパティを持たない既存ボスは、これまでどおり無条件で対象になる。 */
+   このプロパティを持たない既存ボスは、これまでどおり無条件で対象になる。
+   逆方向の絞り込み（2026-07-19〜、教員の指示）：「ことのはの経験値」が一定を超えると、
+   今度は適正経験値の低いボスが「卒業」して出なくなる。プレイヤーが育つにつれて簡単すぎる
+   ボスと入れ替わりに、より手応えのある高適正経験値帯のボスが出るようにする仕組み。
+   xpAbove（この値を超えたら）とretireAtOrBelowRecPts（この適正経験値以下のボスを除外）の
+   組の配列で、複数の段階を持たせられる。 */
+const BOSS_RETIREMENT_TIERS = [
+  {xpAbove: 4000, retireAtOrBelowRecPts: 2000},
+  {xpAbove: 3000, retireAtOrBelowRecPts: 1000},
+];
+function isBossRetired(boss, xp){
+  return BOSS_RETIREMENT_TIERS.some(t => xp > t.xpAbove && boss.recPts <= t.retireAtOrBelowRecPts);
+}
 function randomEncounterBoss(){
   const xp = kotonohaTotalXP(loadStats());
-  const eligible = BOSSES.filter(b => !b.minXpRatio || xp >= b.recPts * b.minXpRatio);
+  const eligible = BOSSES.filter(b => (!b.minXpRatio || xp >= b.recPts * b.minXpRatio) && !isBossRetired(b, xp));
   return eligible[Math.floor(Math.random() * eligible.length)];
 }
 function renderBossPrompt(){
@@ -3343,7 +3371,9 @@ function useBossItem(name){
   }else if(effect.type === "atkMultBuff"){
     b.atkMultTurns = effect.turns;
     b.atkMultAmount = effect.mult;
-    msg = `${effect.icon} 「${name}」を使った！ 次のターン、攻撃力が${effect.mult}倍になる！`;
+    msg = effect.turns > 1
+      ? `${effect.icon} 「${name}」を使った！ 次の${effect.turns}ターン、攻撃力が${effect.mult}倍になる！`
+      : `${effect.icon} 「${name}」を使った！ 次のターン、攻撃力が${effect.mult}倍になる！`;
   }
   b.showItemPanel = false;
   b.usedItemThisTurn = true;
