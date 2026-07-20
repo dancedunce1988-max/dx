@@ -603,7 +603,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.23</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.24</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3038,15 +3038,25 @@ const BOSSES = [
   {id:"shogi",      name:"読み勝つ将棋部部長",       icon:"♟️", item:"会心の一手",       treasure:"伝説の詰将棋",               hp:25000, atk:36.83, defPct:10, accuracy:100, evadePct:8,  luck:40, lv:18, recPts:2100, minXpRatio:0.8, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
   {id:"toshoiin",   name:"静寂の図書委員長",         icon:"📚", item:"静寂の栞",         treasure:"禁帯出の書",                 hp:25000, atk:118.30,defPct:60, accuracy:110, evadePct:5,  luck:8,  lv:27, recPts:3600, minXpRatio:0.8, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
   /* 適正経験値5000の新ボス（2026-07-19〜、教員の指示）。既存最上位「伝説の生徒会長」(recPts4500)
-     よりさらに手応えのある上位帯として追加。ステータスはNode.jsで現行の戦闘式（bossGrade/
-     bossCounterAttack）を忠実に再現したシミュレータで調整した：「適正経験値÷3を5ステータスに
-     均等配分したプレイヤーが8割の正解率で挑む」という、既存8体で実測して手応えの基準に
-     一致することを確認した条件のもとで、勝率が87%前後になるようhpを調整（atk/defPct/
-     accuracy/evadePct/luckは既存ボスのrecPtsに対するスケーリング傾向とキャラクターの個性から
-     決定）。minXpRatio:0.6は「ことのはの経験値が3000を超えたら出現」という指示を、
-     xp >= recPts×minXpRatio ＝ xp >= 3000 という形でそのまま満たすための値（他の既存ボスの
-     0.8とは意図的に異なる）。 */
-  {id:"ruoon",      name:"アイスホッケー選手ルオーン", icon:"🏒", item:"ホッケー用スティック", treasure:"ホッケー防具一式",           hp:67000, atk:186,   defPct:20, accuracy:140, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
+     よりさらに手応えのある上位帯として追加。minXpRatio:0.6は「ことのはの経験値が3000を超えたら
+     出現」という指示を、xp >= recPts×minXpRatio ＝ xp >= 3000 という形でそのまま満たすための値
+     （他の既存ボスの0.8とは意図的に異なる）。
+     【2026-07-20、atk/accuracyを再調整】初期値(atk186 accuracy140)は「適正経験値÷3」を均等配分
+     した条件でしか検証しておらず、実際にrecPts5000（フル）を貯めたプレイヤーが挑むと、
+     素早さ(回避)投資だけでほぼ被弾しなくなり、防御力を無視した極端な攻撃力特化でも余裕で
+     勝ててしまう、という報告（教員の実プレイ、hp240/atk3024/def240/spd238/luck38の合計3780で
+     ほぼ無傷のまま撃破）があった。「防御力が少なくとも700に達していないと全く勝負にならない
+     ように」という指示のもと、Node.jsモンテカルロ・シミュレータで再探索し、atk186→1500・
+     accuracy140→180に変更した（素早さによる回避だけでは反撃を防ぎきれないよう命中率を上げ、
+     かつ被弾したときの生の威力を大幅に上げることで、防御力の軽減式(def/(def+30))の差が
+     生死を分けるレベルまで拡大する設計）。素早さを低めに固定し防御力だけを振った条件での
+     実測勝率：def0→16.5%／def300→55.2%／def700→81.2%／def1000→90.3%。教員の報告ビルド
+     （防御240・素早さ238の組み合わせ）はこの変更後13.4%まで低下することを確認済み。
+     なお、5ステータス均等配分(1000ずつ)のような防御・素早さ両方を高水準で満たすビルドは
+     この変更後も勝率100%のまま（defPct・evadePctの逓減式が高ポイント帯で強力に効くため、
+     この一点はatk/accuracyをどれだけ上げても覆せない構造的な性質。今回は「防御を怠ると
+     ほぼ勝てない」という指示の充足を優先し、パーフェクトなビルドが強すぎる点は許容している）。 */
+  {id:"ruoon",      name:"アイスホッケー選手ルオーン", icon:"🏒", item:"ホッケー用スティック", treasure:"ホッケー防具一式",           hp:67000, atk:1500,  defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
 ];
 /* 2026-07-17、経験値カーブを変更（catExpPoints参照。LV100まで+3/LV500まで+2/LV1000まで+1/以降+0.2の
    段階式に改訂）したことにともない、同じレベル到達ペースで各ボスが解禁されるよう、全ボスのrecPts・
