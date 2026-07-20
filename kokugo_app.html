@@ -603,7 +603,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.24</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.25</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3179,6 +3179,20 @@ const BOSS_PLAYER_HP = 100;
 const BOSS_PLAYER_DMG = [125, 155];     // 正解時に与えるダメージ
 const BOSS_DMG_ON_CORRECT = [4, 6];     // 自分の攻撃が成功したときに受けるダメージ（軽い）
 const BOSS_DMG_ON_WRONG = [12, 16];     // 自分の攻撃が失敗したときに受けるダメージ（重い）
+/* 経験値ゲート（2026-07-20〜、教員の指示）：「適正経験値-500」にことのはの経験値が
+   達していないボスは、たとえ全問正解を続けても撃破できない（HPを1未満に減らせない）。
+   全ボス共通のrecPtsフィールドをそのまま使う一般的な仕組みにしたので、ボスごとの追加データは
+   不要。recPtsが500以下のボス（gate<=0）は常に無条件で成立＝実質ノーガードのまま
+   （低ランクのボスにまで影響させないため）。この床は、通常攻撃（bossGrade）・必殺技
+   （bossResolveFinisher）が直接bossHpを0まで削るときにだけ適用する。アイテムのhpHalve/
+   hpCut99はそもそも単体撃破を防ぐため常にMath.max(1,...)で1未満にはならない実装なので、
+   この仕組みを流用しなくても既に「アイテム単体では倒せない」が満たされている。 */
+const BOSS_XP_GATE_MARGIN = 500;
+function bossXpGateFloor(boss, st){
+  const gate = (boss.recPts||0) - BOSS_XP_GATE_MARGIN;
+  if(gate <= 0) return 0;
+  return kotonohaTotalXP(st) >= gate ? 0 : 1;
+}
 /* 必殺技システム（2026-07-20〜、ストーリー第3章クリアで解放）。
    通常のボス戦（bossGrade）だけに実装し、ステータスを一切参照しないストーリーモードの
    戦闘（storyGradeBattle）には組み込まない＝設計上そもそも影響しない。
@@ -3606,12 +3620,18 @@ function bossResolveFinisher(){
     dealt = Math.round(dealt * STAT_CRIT_MULT);
   }
   dealt = Math.max(1, Math.round(dealt * (1 - (b.boss.defPct||0) / 100)));
-  b.bossHp = Math.max(0, b.bossHp - dealt);
+  const hpFloor = bossXpGateFloor(b.boss, st);
+  const gateBlocked = (b.bossHp - dealt <= 0) && hpFloor > 0;
+  b.bossHp = Math.max(hpFloor, b.bossHp - dealt);
   refreshBossHpBars();
   refreshBossFinisherBar();
   const fb = document.getElementById("fb");
   fb.className = "feedback show ok";
   fb.innerHTML = `<span class="finisher-dmg">${crit ? "💥会心の一撃！ " : ""}${esc(b.boss.name)}に ${dealt} ダメージ！</span>`;
+  if(gateBlocked){
+    const need = Math.max(0, (b.boss.recPts||0) - BOSS_XP_GATE_MARGIN - kotonohaTotalXP(st));
+    fb.innerHTML += `<div class="boss-turn">🔒 まだ経験値が足りず、${esc(b.boss.name)}を倒しきれない……（あと${need}経験値）</div>`;
+  }
   triggerFinisherShake();
   if(b.bossHp <= 0){
     setTimeout(() => { if(bossBattle && bossBattle._resolving) bossWin(); }, 1300);
@@ -3824,7 +3844,9 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
   clearBossTimer();
   stopBossTimerBar();
   const b = bossBattle, it = b.item;
-  let dealt = 0, crit = false, evaded = false, fled = false;
+  const st = loadStats();
+  const hpFloor = bossXpGateFloor(b.boss, st);
+  let dealt = 0, crit = false, evaded = false, fled = false, gateBlocked = false;
   if(ok){
     b.correctStreak = (b.correctStreak||0) + 1;
     /* 必殺技ゲージは「不正解でリセットされる連続正解数」で管理する（correctStreakは
@@ -3837,9 +3859,10 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
       // 固定%レンジ（playerHitMin〜playerHitMax）のランダムダメージを必ず与える。
       const pct = b.boss.playerHitMin + Math.random() * (b.boss.playerHitMax - b.boss.playerHitMin);
       dealt = Math.max(1, Math.round(b.bossMaxHp * pct));
-      b.bossHp = Math.max(0, b.bossHp - dealt);
+      if(b.bossHp - dealt <= 0 && hpFloor > 0) gateBlocked = true;
+      b.bossHp = Math.max(hpFloor, b.bossHp - dealt);
     }else{
-      const ps = loadStats().stats || {hp:0,atk:0,def:0,spd:0,luck:0};
+      const ps = st.stats || {hp:0,atk:0,def:0,spd:0,luck:0};
       // 素早さは、ボスの回避率を少し下げる命中率ボーナスも持つ（上限つきなので他ステータスとのバランスは崩れない）
       const accBonus = STAT_SPD_ACC_MAX_BONUS * ps.spd / (ps.spd + STAT_SPD_ACC_HALF_POINT);
       const effEvadePct = b.boss.fixedEvade ? (b.boss.evadePct||0) : Math.max(0, (b.boss.evadePct||0) - accBonus);
@@ -3859,7 +3882,8 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
           dealt = Math.round(dealt * STAT_CRIT_MULT);
         }
         dealt = Math.max(1, Math.round(dealt * (1 - (b.boss.defPct||0) / 100)));
-        b.bossHp = Math.max(0, b.bossHp - dealt);
+        if(b.bossHp - dealt <= 0 && hpFloor > 0) gateBlocked = true;
+        b.bossHp = Math.max(hpFloor, b.bossHp - dealt);
       }
     }
   }else{
@@ -3896,6 +3920,11 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
     : "";
   const streakMsg = (ok && b.boss.streakToWin) ? `<span class="lvup-chip">🔥連続正解 ${b.correctStreak} / ${b.boss.streakToWin}</span>` : "";
   fb.innerHTML = `<div class="verdict">あなたのターン　${ok?"○ 正解！":(timedOut?"⏰ 時間切れ…":"× ざんねん…")}${dmgMsg}${streakMsg}</div>${expl}`;
+  if(gateBlocked){
+    // 経験値ゲート：撃破できる一撃だったが、経験値が足りないためHP1で踏みとどまらせた
+    const need = Math.max(0, (b.boss.recPts||0) - BOSS_XP_GATE_MARGIN - kotonohaTotalXP(st));
+    fb.innerHTML += `<div class="boss-turn">🔒 まだ経験値が足りず、${esc(b.boss.name)}を倒しきれない……（あと${need}経験値）</div>`;
+  }
   if(fled){
     // 命中する寸前で逃げられたときは反撃も発生せず、少し間をおいて逃走の結果画面へ
     bossBattle._resolving = true;
