@@ -366,6 +366,34 @@
     margin-top:10px; padding-top:10px; border-top:1px dashed rgba(255,255,255,.25);
     color:#ffb0c0; font-weight:bold; animation:pop .3s ease;
   }
+  /* 必殺技（言霊一閃）まわりの演出。色は既存の宝具・勝利演出と同じ金色系(--gold:#b8860b)に揃えている。 */
+  .finisher-bar{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:4px 0 10px; }
+  .finisher-gauge-label{ font-size:.78rem; color:#d8c2ff; }
+  .finisher-dots{ display:inline-flex; gap:3px; }
+  .finisher-dot{
+    width:9px; height:9px; border-radius:50%; display:inline-block;
+    background:rgba(255,255,255,.15); border:1px solid rgba(184,134,11,.5);
+  }
+  .finisher-dot.on{ background:var(--gold); box-shadow:0 0 6px rgba(184,134,11,.9); }
+  .finisher-btn{
+    background:linear-gradient(135deg,#ffe08a,#b8860b) !important; color:#2a1c00 !important; border:none !important;
+    font-weight:bold; box-shadow:0 0 14px rgba(184,134,11,.7); animation:pop .4s ease;
+  }
+  .finisher-ready{ color:#ffe9a8; font-weight:bold; text-shadow:0 0 8px rgba(184,134,11,.7); }
+  .finisher-dmg{
+    display:inline-block; font-weight:bold; font-size:1.12rem; color:#ffe9a8;
+    text-shadow:0 0 14px rgba(184,134,11,.95); animation:pop .35s ease;
+  }
+  .boss-battle-screen.finisher-shake{ animation:finisherShake .55s ease; }
+  @keyframes finisherShake{
+    0%{ transform:translate(0,0); box-shadow:0 0 30px rgba(140,90,255,.25); }
+    15%{ transform:translate(-7px,3px); box-shadow:0 0 50px rgba(184,134,11,.9); }
+    30%{ transform:translate(6px,-3px); }
+    45%{ transform:translate(-5px,2px); box-shadow:0 0 50px rgba(184,134,11,.9); }
+    60%{ transform:translate(4px,-2px); }
+    75%{ transform:translate(-2px,1px); }
+    100%{ transform:translate(0,0); box-shadow:0 0 30px rgba(140,90,255,.25); }
+  }
   .boss-battle-screen .q-sub{ color:#bfb0e0; }
   .boss-battle-screen .choice{
     background:rgba(255,255,255,.06); border-color:rgba(180,140,255,.35); color:#f0e6ff;
@@ -543,7 +571,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.18</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.19</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -713,7 +741,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 30;
+const SAVE_FORMAT_VERSION = 31;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -724,7 +752,7 @@ function emptyStats(){
   const diffLv = {};
   CAT_KEYS.forEach(k => { cats[k] = {t:0,c:0}; lv[k] = 1; diffLv[k] = 1; });
   return {cats, q:{}, lv, diffLv, items:{}, usedTreasures:{}, usedStoryRewards:{}, bossPity:{}, bossItemPity:{}, kotonohaOtherRoll:null, bossTickets:0, totalLevelUps:0,
-    bonusExp:0, stats:{hp:0, atk:0, def:0, spd:0, luck:0}, kotonohaSeenForms:[], kotonohaDisplayOverride:null,
+    bonusExp:0, stats:{hp:0, atk:0, def:0, spd:0, luck:0}, kotonohaSeenForms:[], kotonohaDisplayOverride:null, specialMoveUnlocked:false,
     kanjiWrite:{totalOk:0, itemHist:{}, levelRecent:{}},
     kanjiWriteElem:{totalOk:0, itemHist:{}, targetLv:1, recent:[]},
     notLearnedCats:{},
@@ -774,6 +802,7 @@ function loadStats(){
         if(typeof st.bossTickets !== "number") st.bossTickets = 0;
         if(typeof st.totalLevelUps !== "number") st.totalLevelUps = 0;
         if(typeof st.bonusExp !== "number") st.bonusExp = 0;
+        if(typeof st.specialMoveUnlocked !== "boolean") st.specialMoveUnlocked = false;
         delete st.statPoints; // 旧バージョンの保存値。今後は使わず、常に導出する
         if(!st.stats) st.stats = {hp:0, atk:0, def:0, luck:0};
         if(typeof st.stats.spd !== "number") st.stats.spd = 0;
@@ -3108,6 +3137,15 @@ const BOSS_PLAYER_HP = 100;
 const BOSS_PLAYER_DMG = [125, 155];     // 正解時に与えるダメージ
 const BOSS_DMG_ON_CORRECT = [4, 6];     // 自分の攻撃が成功したときに受けるダメージ（軽い）
 const BOSS_DMG_ON_WRONG = [12, 16];     // 自分の攻撃が失敗したときに受けるダメージ（重い）
+/* 必殺技システム（2026-07-20〜、ストーリー第3章クリアで解放）。
+   通常のボス戦（bossGrade）だけに実装し、ステータスを一切参照しないストーリーモードの
+   戦闘（storyGradeBattle）には組み込まない＝設計上そもそも影響しない。
+   「ステータス無視のボス」（statIgnore、サノー・シゲっち）は攻撃力という概念自体を持たないため、
+   このボスとの戦闘では必殺技コマンドそのものを出さない（bossFinisherBarHtmlで判定）。
+   今後、必殺技の種類を増やす想定があるので、名前・倍率は定数にまとめておく。 */
+const FINISHER_GAUGE_MAX = 5;   // これだけ「連続」正解するとゲージが満タンになる
+const FINISHER_MULT = 3;        // 発動した攻撃の攻撃力倍率（通常の会心2倍よりさらに強い一撃）
+const FINISHER_MOVE_NAME = "言霊一閃";
 /* ボス戦ステータス：割りふったポイントの効果量。
    防御力・運は「〇ポイントで半分の効果」という逓減式（上限なし、常に少しずつ伸びる）。
    素早さは、ポイント数に応じた「回避パワー」を持ち、ボスの命中率との比率で命中/回避が決まる
@@ -3328,7 +3366,7 @@ function startBossBattle(boss, allGenre){
     atkBuffTurns:0, atkBuffAmount:0, defBuffTurns:0, defBuffAmount:0, luckBuffTurns:0, luckBuffAmount:0, missGuard:false,
     atkMultTurns:0, atkMultAmount:1,
     showItemPanel:false, usedItemThisTurn:false, usedItemNames:{}, timerId:null,
-    correctStreak:0,
+    correctStreak:0, finisherGauge:0, finisherArmed:false,
   };
   bossNextQuestion();
 }
@@ -3398,6 +3436,42 @@ function toggleBossItemPanel(){
   if(!bossBattle || bossBattle._resolving || bossBattle.usedItemThisTurn || bossBattle.boss.noItems) return;
   bossBattle.showItemPanel = !bossBattle.showItemPanel;
   renderBossBattle();
+}
+/* 必殺技バーのHTML（アイテムバーと同じ場所に並べて表示）。
+   「ステータス無視のボス」（statIgnore）には攻撃力という概念がないため、このボスとの戦闘では
+   ゲージ・ボタンごと一切表示しない（教員の指示：コマンドがそもそも使えないように）。
+   ストーリーモードの戦闘はこの関数を呼ばない別実装なので、影響しない。 */
+function bossFinisherBarHtml(){
+  const b = bossBattle;
+  if(b.boss.statIgnore) return "";
+  const st = loadStats();
+  if(!st.specialMoveUnlocked) return "";
+  if(b.finisherArmed){
+    return `<p class="note finisher-ready">⚡「${esc(FINISHER_MOVE_NAME)}」発動スタンバイ中！　このターン正解すると、攻撃力が${FINISHER_MULT}倍になる！</p>`;
+  }
+  const gauge = Math.min(FINISHER_GAUGE_MAX, b.finisherGauge||0);
+  const full = gauge >= FINISHER_GAUGE_MAX;
+  const dots = Array.from({length:FINISHER_GAUGE_MAX}, (_,i) => `<span class="finisher-dot${i < gauge ? " on" : ""}"></span>`).join("");
+  return `
+    <div class="finisher-bar">
+      <span class="finisher-gauge-label">必殺技ゲージ</span>
+      <span class="finisher-dots">${dots}</span>
+      ${full
+        ? `<button class="btn inline finisher-btn" onclick="bossUseFinisher()">⚡${esc(FINISHER_MOVE_NAME)}！</button>`
+        : `<span class="note" style="margin:0">（あと${FINISHER_GAUGE_MAX - gauge}問連続正解）</span>`}
+    </div>`;
+}
+/* 必殺技を「使う」＝次の1問だけ攻撃力を倍にする権利を予約する。アイテム使用と同じく、
+   これ自体はターンを消費しない（実際にダメージ倍率が乗るのはbossGrade側、次に正解したとき）。 */
+function bossUseFinisher(){
+  const b = bossBattle;
+  if(!b || b._resolving || b.bossHp <= 0 || b.playerHp <= 0 || b.boss.statIgnore) return;
+  const st = loadStats();
+  if(!st.specialMoveUnlocked) return;
+  if((b.finisherGauge||0) < FINISHER_GAUGE_MAX || b.finisherArmed) return;
+  b.finisherArmed = true;
+  renderBossBattle();
+  startBossTimer(BOSS_ITEM_USE_TIMER_MS);
 }
 /* ボス戦中に使える（効果が定義されていて、1個以上持っていて、まだその戦闘中に使っていない）
    通常アイテムの一覧 */
@@ -3565,6 +3639,7 @@ function renderBossBattle(){
       <div class="boss-name">⚔️ ${esc(b.boss.name)} ${b.boss.icon} <span class="boss-lv-tag">Lv.${b.boss.lv||"?"}</span></div>
       ${bossHpBarsHtml()}
       ${bossItemBarHtml()}
+      ${bossFinisherBarHtml()}
       <div class="boss-q-card">
         ${subInstructionHtml(b.itemCat, it)}
         ${kanbunBoxHtml(it.kb)}
@@ -3598,9 +3673,15 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
   clearBossTimer();
   stopBossTimerBar();
   const b = bossBattle, it = b.item;
-  let dealt = 0, crit = false, evaded = false, fled = false;
+  let dealt = 0, crit = false, evaded = false, fled = false, usingFinisher = false;
   if(ok){
     b.correctStreak = (b.correctStreak||0) + 1;
+    /* 必殺技ゲージは「不正解でリセットされる連続正解数」で管理する（correctStreakは
+       国語の神のstreakToWin判定にも使う既存カウンタなので、混同しないよう別カウンタにする）。
+       ゲージ満タン時にbossUseFinisher()でfinisherArmedを立てたあと、次の正解のこの1回だけ
+       攻撃力が倍になる（外れ・回避でも「使った」ことになり、以後は下のブロックで必ず0に戻す）。 */
+    b.finisherGauge = Math.min(FINISHER_GAUGE_MAX, (b.finisherGauge||0) + 1);
+    usingFinisher = !!b.finisherArmed;
     if(b.boss.statIgnore){
       // ステータス無視のボス：回避・会心・防御%の判定を一切行わず、bossMaxHpに対する
       // 固定%レンジ（playerHitMin〜playerHitMax）のランダムダメージを必ず与える。
@@ -3621,6 +3702,7 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
         dealt = randInt(BOSS_PLAYER_DMG[0], BOSS_PLAYER_DMG[1]) + ps.atk * STAT_ATK_PER_POINT + (b.atkBuffTurns > 0 ? b.atkBuffAmount : 0);
         // さびついたノコギリ等の「次のターンだけ攻撃力n倍」効果（攻撃力依存の倍率、既存の加算式atkBuffとは別枠）
         if(b.atkMultTurns > 0) dealt = Math.round(dealt * b.atkMultAmount);
+        if(usingFinisher) dealt = Math.round(dealt * FINISHER_MULT);
         const effLuck = ps.luck + (b.luckBuffTurns > 0 ? b.luckBuffAmount : 0);
         const critChance = 100 * effLuck / (effLuck + STAT_LUCK_HALF_POINT);
         if(Math.random() * 100 < critChance){
@@ -3631,6 +3713,16 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
         b.bossHp = Math.max(0, b.bossHp - dealt);
       }
     }
+    // 発動した必殺技は、命中・回避・逃走のどの結果でもこの1回で必ず使い切る（ゲージも0に戻す）
+    if(usingFinisher){
+      b.finisherArmed = false;
+      b.finisherGauge = 0;
+    }
+  }else{
+    // 不正解で「連続」が途切れるので、必殺技ゲージ・スタンバイ中の発動も両方リセットする
+    b.correctStreak = 0;
+    b.finisherGauge = 0;
+    b.finisherArmed = false;
   }
   refreshBossHpBars();
   if(!Array.isArray(it.ans)){
@@ -3652,15 +3744,29 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
   }else{
     expl = it.e ? esc(it.e) : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
   }
+  // 必殺技を放って、かつ実際に命中した（回避・逃走で不発ではない）ときだけ専用演出を出す
+  const finisherLanded = usingFinisher && ok && !evaded && !fled && !b.boss.statIgnore;
   const dmgMsg = ok
     ? (fled
         ? `<span class="lvup-chip">😲すんでのところで${esc(b.boss.name)}に逃げられた！</span>`
         : evaded
         ? `<span class="lvup-chip">💨${esc(b.boss.name)}に回避された！</span>`
+        : finisherLanded
+        ? `<span class="finisher-dmg">⚡${esc(FINISHER_MOVE_NAME)}！　${esc(b.boss.name)}に ${dealt} ダメージ！</span>`
         : `<span class="lvup-chip">${crit ? "💥会心の一撃！ " : ""}${esc(b.boss.name)}に ${dealt} ダメージ！</span>`)
     : "";
   const streakMsg = (ok && b.boss.streakToWin) ? `<span class="lvup-chip">🔥連続正解 ${b.correctStreak} / ${b.boss.streakToWin}</span>` : "";
   fb.innerHTML = `<div class="verdict">あなたのターン　${ok?"○ 正解！":(timedOut?"⏰ 時間切れ…":"× ざんねん…")}${dmgMsg}${streakMsg}</div>${expl}`;
+  if(finisherLanded){
+    // 戦闘エリアだけを揺らす（アプリ全体ではなく.boss-battle-screenに限定、CSSアニメーションのみで実現）
+    const battleScreenEl = document.querySelector(".boss-battle-screen");
+    if(battleScreenEl){
+      battleScreenEl.classList.remove("finisher-shake");
+      void battleScreenEl.offsetWidth; // 連続発動時にアニメーションを再トリガーするための強制リフロー
+      battleScreenEl.classList.add("finisher-shake");
+      setTimeout(() => { battleScreenEl.classList.remove("finisher-shake"); }, 600);
+    }
+  }
   if(fled){
     // 命中する寸前で逃げられたときは反撃も発生せず、少し間をおいて逃走の結果画面へ
     bossBattle._resolving = true;
@@ -6320,6 +6426,14 @@ function storyChapterEnd(){
   const sp = storyProgress(st);
   if(!sp.completedChapters.includes(sp.chapter)) sp.completedChapters.push(sp.chapter);
   const rate = storyFinalizeJudgedRate(st, sp);
+  /* 第3章クリアで、通常のボス戦だけで使える必殺技システムを解放する（教員の指示、2026-07-20〜）。
+     st.specialMoveUnlockedの真偽で一度きりの宣言にしているので、この章を再プレイしても
+     （すでにtrueのままなので）二度目の解放メッセージは出ない。 */
+  let unlockedFinisher = false;
+  if(sp.chapter === "ch3" && !st.specialMoveUnlocked){
+    st.specialMoveUnlocked = true;
+    unlockedFinisher = true;
+  }
   saveStats(st);
   const pronoun = sp.chapter === "ch1" ? STORY_PRONOUN_LABELS[sp.flags.pronoun] : null;
   const pronounNote = pronoun ? `<p class="note">✨ 一人称が、「${esc(pronoun)}」に設定されました！</p>` : "";
@@ -6329,6 +6443,9 @@ function storyChapterEnd(){
   const perfectNote = rate && rate.gotPerfectItem
     ? `<p class="note">🎉 選択肢問題、全問正解達成！ 🎁<span class="drop-item">【${esc(STORY_JUDGED_PERFECT_ITEM)}】</span>を手に入れた！</p>`
     : "";
+  const finisherNote = unlockedFinisher
+    ? `<p class="note finisher-ready">⚡必殺技システムを解放した！　通常のボス戦で５問連続正解するとゲージが満タンになり、「${esc(FINISHER_MOVE_NAME)}」（攻撃力${FINISHER_MULT}倍）が使えるようになる。</p>`
+    : "";
   screen.innerHTML = `
     <div class="card story-scene">
       <div class="story-chapter-end">📖 ${esc(STORY_CHAPTERS[sp.chapter].title)} クリア！</div>
@@ -6336,6 +6453,7 @@ function storyChapterEnd(){
       ${pronounNote}
       ${rateNote}
       ${perfectNote}
+      ${finisherNote}
       <div class="btn-row" style="justify-content:center">
         <button class="btn" onclick="showHome()">ホームへ</button>
         <button class="btn secondary" onclick="storyReplayChapter()">もう一度プレイする</button>
