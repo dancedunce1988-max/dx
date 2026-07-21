@@ -603,7 +603,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.32</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.33</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3084,8 +3084,14 @@ const BOSSES = [
      素早さ/運/HP単振りはいずれも0%だが、攻撃力単振り(15000)だけ32.3%とやや高め（「正解ターンの
      固定%反撃」という仕組み上、短期決戦になるほど累積被弾ターン数が減るため。既存ボスの
      「単振りは軒並み0%」という基準からは外れるが、それでも均等配分より弱く、他の単振りは0%の
-     ままなので許容）。 */
-  {id:"fleet_1_3",  name:"無敵艦隊１年３組",       icon:"⚓", item:"青いハチマキ",         treasure:"１年３組の「愛」",           hp:80000, atk:120,  defPct:15, accuracy:200, evadePct:20, luck:15, lv:50, recPts:15000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, atkHalvedUnlessFinisher:true, counterOkFixedMin:0.08, counterOkFixedMax:0.10},
+     ままなので許容）。
+     【2026-07-21追記】「ことのはの経験値が10000を超えたプレイヤーにだけ出てくるようにしたい」
+     という教員の指示を受け、`minXpRatio`を既存パターン（他ボスの0.8や0.6）ではなく
+     `10000/15000`という式で指定し、`xp >= recPts×minXpRatio ＝ xp >= 10000`をそのまま満たす
+     ようにした（15000×(10000/15000)は浮動小数点でもちょうど10000になることをNodeで確認済み）。
+     この`minXpRatio`はランダム遭遇・挑戦チケット両方の出現判定で共有される既存の仕組みなので、
+     新しいコードは不要。 */
+  {id:"fleet_1_3",  name:"無敵艦隊１年３組",       icon:"⚓", item:"青いハチマキ",         treasure:"１年３組の「愛」",           hp:80000, atk:120,  defPct:15, accuracy:200, evadePct:20, luck:15, lv:50, recPts:15000, minXpRatio:10000/15000, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, atkHalvedUnlessFinisher:true, counterOkFixedMin:0.08, counterOkFixedMax:0.10},
 ];
 /* 2026-07-17、経験値カーブを変更（catExpPoints参照。LV100まで+3/LV500まで+2/LV1000まで+1/以降+0.2の
    段階式に改訂）したことにともない、同じレベル到達ペースで各ボスが解禁されるよう、全ボスのrecPts・
