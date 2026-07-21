@@ -603,7 +603,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.31</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.32</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3068,6 +3068,24 @@ const BOSSES = [
      引き下げ、均等配分・8割正解ペースでの勝率が86%程度（他ボスと同じ「適正経験値を均等配分
      すれば85〜90%前後」という基準）に収まることを確認して再調整した。accuracy(180)は変更なし。 */
   {id:"ruoon",      name:"アイスホッケー選手ルオー", icon:"🏒", item:"ホッケー用スティック", treasure:"ホッケー防具一式",           hp:67000, atk:400,  defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
+  /* 適正経験値15000の新最上位ボス（2026-07-21〜、教員の指示）。「今までで一番強いボス」という
+     位置づけで、既存最上位ルオー(recPts5000)からさらに3倍の帯に置いた。個性は既存の「ステータス
+     依存だが特殊反撃を持つ」型：①`atkHalvedUnlessFinisher`＝必殺技以外の通常攻撃はダメージが
+     半減する（bossGrade側、必殺技の計算式bossResolveFinisherには影響しない別関数なので対象外）、
+     ②`counterOkFixedMin/Max`＝正解した場合の反撃はプレイヤーの素早さ・回避に関係なくプレイヤー
+     最大HPの8〜10%固定（bossCounterAttack側で、命中判定なしの新しい分岐として実装。ステータス
+     無視のボス(statIgnore)のcounterOk/NgパターンをOKターンだけ流用したイメージだが、プレイヤーの
+     攻撃側は依然としてstatIgnoreではなく通常のステータス計算式を使う点が違う）、③不正解時の反撃は
+     このフラグの対象外で、既存の通常式（両者のステータス依存）のままなので新しいコードは不要。
+     ④適正経験値に満たない間の処理は、既存のbossXpGateActive/defGateActiveをそのまま使うだけで
+     ルオーと同じ挙動になる（専用コード不要）。
+     数値はNode.jsモンテカルロ・シミュレータで探索（均等配分3000/3000/3000/3000/3000・8割正解ペース、
+     n=20000）：hp80000・atk120で勝率87.8%（他ボスと同じ85〜90%レンジ）。0ステータス・防御力/
+     素早さ/運/HP単振りはいずれも0%だが、攻撃力単振り(15000)だけ32.3%とやや高め（「正解ターンの
+     固定%反撃」という仕組み上、短期決戦になるほど累積被弾ターン数が減るため。既存ボスの
+     「単振りは軒並み0%」という基準からは外れるが、それでも均等配分より弱く、他の単振りは0%の
+     ままなので許容）。 */
+  {id:"fleet_1_3",  name:"無敵艦隊１年３組",       icon:"⚓", item:"青いハチマキ",         treasure:"１年３組の「愛」",           hp:80000, atk:120,  defPct:15, accuracy:200, evadePct:20, luck:15, lv:50, recPts:15000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, atkHalvedUnlessFinisher:true, counterOkFixedMin:0.08, counterOkFixedMax:0.10},
 ];
 /* 2026-07-17、経験値カーブを変更（catExpPoints参照。LV100まで+3/LV500まで+2/LV1000まで+1/以降+0.2の
    段階式に改訂）したことにともない、同じレベル到達ペースで各ボスが解禁されるよう、全ボスのrecPts・
@@ -3299,6 +3317,7 @@ const ITEM_EFFECTS = {
      1割にも満たない）のに対し、倍率バフはどの育成段階でも常に一定割合の底上げになるため、
      終盤の最上位ボス用アイテムとして倍率型の方が「効いている実感」を保てると判断した。 */
   "ホッケー用スティック": {type:"atkMultBuff", mult:1.3, turns:3, label:"次の3ターン、攻撃力が1.3倍になる", icon:"🏒"},
+  "青いハチマキ":   {type:"atkMultBuff", mult:2.0, turns:3, label:"次の3ターン、攻撃力が2倍になる",     icon:"🎽"},
 };
 function randInt(min, max){ return min + Math.floor(Math.random() * (max - min + 1)); }
 
@@ -3928,6 +3947,9 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
           crit = true;
           dealt = Math.round(dealt * STAT_CRIT_MULT);
         }
+        // 必殺技以外の通常攻撃はダメージが半減するボス（無敵艦隊１年３組）。bossResolveFinisher
+        // （必殺技専用の別関数）は参照していないので、この分岐は必殺技には一切影響しない。
+        if(b.boss.atkHalvedUnlessFinisher) dealt = Math.max(1, Math.round(dealt * 0.5));
         dealt = Math.max(1, Math.round(dealt * (1 - (b.boss.defPct||0) / 100)));
         if(gateActive && b.bossHp - dealt <= 0){
           // 経験値ゲート・ルール①：とどめの一撃は必ず回避される（会心も含め、なかったことにする）
@@ -4056,6 +4078,28 @@ function bossCounterAttack(playerWasCorrect){
     const pct = min + Math.random() * (max - min);
     const taken = Math.max(1, Math.round(b.playerMaxHp * pct));
     b.playerHp = Math.max(0, b.playerHp - taken);
+    refreshBossHpBars();
+    const fb = document.getElementById("fb");
+    fb.innerHTML += `<div class="boss-turn">👹 ${esc(b.boss.name)}のターン。あなたは ${taken} ダメージを受けた。</div>`;
+    const nextBtn = document.getElementById("nextBtn");
+    nextBtn.style.display = "inline-block";
+    nextBtn.textContent = b.playerHp<=0 ? "けっかを見る" : "つぎへ";
+    nextBtn.focus();
+    return;
+  }
+  if(playerWasCorrect && b.boss.counterOkFixedMin != null){
+    /* 無敵艦隊１年３組専用：正解した場合の反撃は、素早さ・回避などのステータスに一切関係なく、
+       プレイヤー最大HPの8〜10%固定（教員の指示）。不正解の場合はこの分岐を通らず、下の
+       既存の通常式（両者のステータス依存）にそのまま流れる。statIgnoreの固定%反撃と違い、
+       このボス自身はステータス無視ではない（プレイヤーの攻撃側は通常のステータス計算式のまま）
+       ので、既存のバフ経過ターンもここで通常どおり減らす。 */
+    const pct = b.boss.counterOkFixedMin + Math.random() * (b.boss.counterOkFixedMax - b.boss.counterOkFixedMin);
+    const taken = Math.max(1, Math.round(b.playerMaxHp * pct));
+    b.playerHp = Math.max(0, b.playerHp - taken);
+    if(b.atkBuffTurns > 0) b.atkBuffTurns--;
+    if(b.defBuffTurns > 0) b.defBuffTurns--;
+    if(b.luckBuffTurns > 0) b.luckBuffTurns--;
+    if(b.atkMultTurns > 0) b.atkMultTurns--;
     refreshBossHpBars();
     const fb = document.getElementById("fb");
     fb.innerHTML += `<div class="boss-turn">👹 ${esc(b.boss.name)}のターン。あなたは ${taken} ダメージを受けた。</div>`;
