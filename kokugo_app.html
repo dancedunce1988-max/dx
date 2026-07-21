@@ -603,7 +603,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.28</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.29</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3055,8 +3055,19 @@ const BOSSES = [
      なお、5ステータス均等配分(1000ずつ)のような防御・素早さ両方を高水準で満たすビルドは
      この変更後も勝率100%のまま（defPct・evadePctの逓減式が高ポイント帯で強力に効くため、
      この一点はatk/accuracyをどれだけ上げても覆せない構造的な性質。今回は「防御を怠ると
-     ほぼ勝てない」という指示の充足を優先し、パーフェクトなビルドが強すぎる点は許容している）。 */
-  {id:"ruoon",      name:"アイスホッケー選手ルオー", icon:"🏒", item:"ホッケー用スティック", treasure:"ホッケー防具一式",           hp:67000, atk:1500,  defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
+     ほぼ勝てない」という指示の充足を優先し、パーフェクトなビルドが強すぎる点は許容している）。
+     【2026-07-21、atkを再調整（ver8.28、防御力の軽減式の再設計に伴う）】防御力の半分ポイントを
+     全ボス共通の固定値30からrecPts/5（ボスごとに変わる値、bossDefHalfPoint()参照）に変更したため、
+     ルオーの半分ポイントは30→1000に大幅に上がった。旧atk1500は、その前提（半分ポイント30、
+     防御力700で軽減95.9%まで飽和）のもとで「防御力を怠るとほぼ勝てない」を実現するために
+     わざと極端に上げていた値だったが、新しい軽減式（防御力700でも軽減41.2%程度、飽和しない）の
+     もとでは同じatk1500だと均等配分ビルド（HP/攻撃力/防御力/素早さ/運それぞれ1000）でも
+     勝率40%前後まで急落し、他の全ボスが均等配分でほぼ100%勝てる基準から大きく外れてしまう
+     ことがモンテカルロ・シミュレータで判明した。「防御力700未満だと勝負にならない」という
+     急な閾値までは求めず、なだらかな逓減カーブでよいという教員の了承のもと、atk1500→400に
+     引き下げ、均等配分・8割正解ペースでの勝率が86%程度（他ボスと同じ「適正経験値を均等配分
+     すれば85〜90%前後」という基準）に収まることを確認して再調整した。accuracy(180)は変更なし。 */
+  {id:"ruoon",      name:"アイスホッケー選手ルオー", icon:"🏒", item:"ホッケー用スティック", treasure:"ホッケー防具一式",           hp:67000, atk:400,  defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
 ];
 /* 2026-07-17、経験値カーブを変更（catExpPoints参照。LV100まで+3/LV500まで+2/LV1000まで+1/以降+0.2の
    段階式に改訂）したことにともない、同じレベル到達ペースで各ボスが解禁されるよう、全ボスのrecPts・
@@ -3235,7 +3246,14 @@ function finisherMoveName(st){ return finisherMoveInfo(st).name; }
    （上限つきの逓減式。上限を設けているのは、回避特化型のボスの個性を消してしまわないため）。 */
 const STAT_HP_PER_POINT = 5;
 const STAT_ATK_PER_POINT = 3;
-const STAT_DEF_HALF_POINT = 30;   // 防御力がこのポイント数のとき、被ダメージが半分になる
+/* 防御力の半分ポイントは、2026-07-21〜、グローバル固定値(30)をやめてボスごとの
+   recPts/5（＝適正経験値を均等配分したときの防御力）に連動させている（bossDefHalfPoint()）。
+   固定値だったときは、recPts150の最弱ボス基準（30）のまま以後のボスにも使われ続けたため、
+   recPts5000のルオーでは均等配分の防御力(1000)が97%軽減という飽和域に達してしまい、
+   「防御力を積んでも被ダメージがほとんど変わらない」状態になっていた（教員からの指摘で発覚）。
+   recPts/5に連動させることで、「均等配分なら常に50%軽減」という基準がボスの強さに関わらず
+   揃い、将来もっとrecPtsの高いボスを追加しても、このぶんの再調整が要らなくなる。 */
+function bossDefHalfPoint(boss){ return Math.max(1, (boss.recPts||0) / 5); }
 const STAT_LUCK_HALF_POINT = 100; // 運がこのポイント数のとき、会心率が50%になる
 const STAT_SPD_EVASION_UNIT = 2;  // 素早さ1ポイントあたりの回避パワー
 const STAT_SPD_ACC_HALF_POINT = 40; // 素早さがこのポイント数のとき、命中率ボーナスが上限の半分になる
@@ -4055,7 +4073,7 @@ function bossCounterAttack(playerWasCorrect){
       raw *= 1.5;
     }
     const effDef = ps.def + (b.defBuffTurns > 0 ? b.defBuffAmount : 0);
-    const defReduction = effDef / (effDef + STAT_DEF_HALF_POINT);
+    const defReduction = effDef / (effDef + bossDefHalfPoint(b.boss));
     taken = Math.max(1, Math.round(raw * (1 - defReduction)));
     b.playerHp = Math.max(0, b.playerHp - taken);
   }
