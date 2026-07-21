@@ -603,7 +603,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.29</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.30</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3214,6 +3214,17 @@ function bossXpGateActive(boss, st){
   if(gate <= 0) return false;
   return kotonohaTotalXP(st) < gate;
 }
+/* 防御力ゲート（2026-07-21〜、教員の指示）。上の経験値ゲートとは別枠の、ボス個別のatk調整が
+   要らない全ボス共通ルール：「ことのはの経験値÷6」を防御力が満たしていないと、そのボスの
+   攻撃力が5倍になる（bossCounterAttackの通常反撃計算にだけ効く。経験値ゲートが発動中は
+   そちらが優先されそもそも通常計算を通らないので、二重に不利になることはない）。
+   均等配分（経験値÷5をdefに割り振る想定）なら自動的に閾値を上回るので、「防御力を極端に
+   軽視しなければ発動しない」程度のゆるさ。防御力バフ（アイテム効果）も判定に含める。
+   経験値ゲートと同様、専用の説明メッセージは出さず、通常の反撃メッセージの数字が
+   大きくなるだけにする（露骨な演出を避ける、[[kokugo-boss-status-system]]の既存方針を踏襲）。 */
+const DEF_GATE_XP_DIVISOR = 6;
+const DEF_GATE_ATK_MULT = 5;
+function defGateActive(effDef, st){ return effDef < kotonohaTotalXP(st) / DEF_GATE_XP_DIVISOR; }
 /* 必殺技システム（2026-07-20〜、ストーリー第3章クリアで解放）。
    通常のボス戦（bossGrade）だけに実装し、ステータスを一切参照しないストーリーモードの
    戦闘（storyGradeBattle）には組み込まない＝設計上そもそも影響しない。
@@ -4055,7 +4066,8 @@ function bossCounterAttack(playerWasCorrect){
     return;
   }
   const range = playerWasCorrect ? BOSS_DMG_ON_CORRECT : BOSS_DMG_ON_WRONG;
-  const ps = loadStats().stats || {hp:0,atk:0,def:0,spd:0,luck:0};
+  const st = loadStats();
+  const ps = st.stats || {hp:0,atk:0,def:0,spd:0,luck:0};
   const evasionPower = ps.spd * STAT_SPD_EVASION_UNIT;
   const accuracy = b.boss.accuracy || 100;
   const hitChance = accuracy / (accuracy + evasionPower); // 素早さとボスの命中率の綱引き
@@ -4067,12 +4079,13 @@ function bossCounterAttack(playerWasCorrect){
   }else if(Math.random() >= hitChance){
     playerEvaded = true;
   }else{
-    let raw = randInt(range[0], range[1]) * (b.boss.atk||1);
+    const effDef = ps.def + (b.defBuffTurns > 0 ? b.defBuffAmount : 0);
+    const effAtk = defGateActive(effDef, st) ? (b.boss.atk||1) * DEF_GATE_ATK_MULT : (b.boss.atk||1);
+    let raw = randInt(range[0], range[1]) * effAtk;
     if(Math.random() * 100 < (b.boss.luck||0)){
       bossCrit = true;
       raw *= 1.5;
     }
-    const effDef = ps.def + (b.defBuffTurns > 0 ? b.defBuffAmount : 0);
     const defReduction = effDef / (effDef + bossDefHalfPoint(b.boss));
     taken = Math.max(1, Math.round(raw * (1 - defReduction)));
     b.playerHp = Math.max(0, b.playerHp - taken);
