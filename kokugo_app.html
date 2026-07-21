@@ -603,7 +603,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.33</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.34</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3090,8 +3090,19 @@ const BOSSES = [
      `10000/15000`という式で指定し、`xp >= recPts×minXpRatio ＝ xp >= 10000`をそのまま満たす
      ようにした（15000×(10000/15000)は浮動小数点でもちょうど10000になることをNodeで確認済み）。
      この`minXpRatio`はランダム遭遇・挑戦チケット両方の出現判定で共有される既存の仕組みなので、
-     新しいコードは不要。 */
-  {id:"fleet_1_3",  name:"無敵艦隊１年３組",       icon:"⚓", item:"青いハチマキ",         treasure:"１年３組の「愛」",           hp:80000, atk:120,  defPct:15, accuracy:200, evadePct:20, luck:15, lv:50, recPts:15000, minXpRatio:10000/15000, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, atkHalvedUnlessFinisher:true, counterOkFixedMin:0.08, counterOkFixedMax:0.10},
+     新しいコードは不要。
+     【2026-07-21再追記】教員から「防御力・HPにも意味を持たせたい」との指示。均等配分だと
+     HP・防御力を含む全ステータスが均等に効いてくる設計思想が既存ボスの基本だったが、追加直後の
+     検証で「HPを0にして他4つに再配分すると勝率が上がる（＝HPは死にステータス）」
+     「防御力も同様（0にした方が勝率が上がる）」ことが判明したため、`counterOkFixedMin/Max`の
+     計算式を見直した（詳細は`bossCounterAttack`内のコメント参照）。数値も0.08/0.10→0.16/0.20に
+     変更（防御力軽減が新たに掛かるようになった分を打ち消し、均等配分プレイヤーの体感は
+     従来と変わらず8〜10%程度になるよう調整）。再検証（モンテカルロ、均等配分基準）：
+     HP0(他4つに再配分)→0%（従来94.25%から激変、必須ステータスに）、防御力0(同)→51.0%（従来
+     92.9%から大幅低下、意味のあるステータスに）、均等配分自体の勝率は86.75%で従来（84%前後）と
+     ほぼ変わらず。素早さ・運は既存ボス同様「頭打ちがあるので盛りすぎると無駄になる」性質を
+     維持（今回の指示の対象外）。 */
+  {id:"fleet_1_3",  name:"無敵艦隊１年３組",       icon:"⚓", item:"青いハチマキ",         treasure:"１年３組の「愛」",           hp:80000, atk:120,  defPct:15, accuracy:200, evadePct:20, luck:15, lv:50, recPts:15000, minXpRatio:10000/15000, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, atkHalvedUnlessFinisher:true, counterOkFixedMin:0.16, counterOkFixedMax:0.20},
 ];
 /* 2026-07-17、経験値カーブを変更（catExpPoints参照。LV100まで+3/LV500まで+2/LV1000まで+1/以降+0.2の
    段階式に改訂）したことにともない、同じレベル到達ペースで各ボスが解禁されるよう、全ボスのrecPts・
@@ -4094,13 +4105,27 @@ function bossCounterAttack(playerWasCorrect){
     return;
   }
   if(playerWasCorrect && b.boss.counterOkFixedMin != null){
-    /* 無敵艦隊１年３組専用：正解した場合の反撃は、素早さ・回避などのステータスに一切関係なく、
-       プレイヤー最大HPの8〜10%固定（教員の指示）。不正解の場合はこの分岐を通らず、下の
-       既存の通常式（両者のステータス依存）にそのまま流れる。statIgnoreの固定%反撃と違い、
-       このボス自身はステータス無視ではない（プレイヤーの攻撃側は通常のステータス計算式のまま）
-       ので、既存のバフ経過ターンもここで通常どおり減らす。 */
+    /* 無敵艦隊１年３組専用：正解した場合の反撃は、素早さ・回避には一切関係なく必ず命中する
+       （教員の指示、「無敵」の演出）。不正解の場合はこの分岐を通らず、下の既存の通常式
+       （両者のステータス依存）にそのまま流れる。
+       【2026-07-21改訂】当初はb.playerMaxHpに対する固定%（素早さだけでなくHP・防御力にも
+       一切影響されない）だったが、教員から「HP・防御力にも意味を持たせたい」との指示があり、
+       ①割合の基準を「実際のplayerMaxHp」ではなく「基準HP」（`BOSS_PLAYER_HP+recPts`、
+       ちょうど適正経験値ぶんを均等配分＝HPに1/5を振った場合のplayerMaxHpと一致する定数）に
+       変更（HPを基準より多く盛った分だけ、相対的な被ダメージ割合が薄まる）、②防御力による
+       軽減（既存の`bossDefHalfPoint`式、他ボスの通常反撃と同じ逓減カーブ）を追加。素早さ・
+       回避だけは引き続き無関係のまま（「当たったら避けようがない」という無敵艦隊のコンセプト
+       は据え置き）。基準どおり均等配分（HP・防御力とも1/5）した場合の体感割合は、軽減後も
+       ちょうど8〜10%程度になるよう`counterOkFixedMin/Max`側の数値を調整済み（防御力ゼロだと
+       素の16〜20%をまるごと受ける／HP・防御力を基準より厚く盛ればさらに軽くなる）。 */
+    const st2 = loadStats();
+    const ps2 = st2.stats || {hp:0,atk:0,def:0,spd:0,luck:0};
+    const referenceHp = BOSS_PLAYER_HP + (b.boss.recPts||0);
     const pct = b.boss.counterOkFixedMin + Math.random() * (b.boss.counterOkFixedMax - b.boss.counterOkFixedMin);
-    const taken = Math.max(1, Math.round(b.playerMaxHp * pct));
+    let taken = Math.round(referenceHp * pct);
+    const effDef2 = ps2.def + (b.defBuffTurns > 0 ? b.defBuffAmount : 0);
+    const defReduction2 = effDef2 / (effDef2 + bossDefHalfPoint(b.boss));
+    taken = Math.max(1, Math.round(taken * (1 - defReduction2)));
     b.playerHp = Math.max(0, b.playerHp - taken);
     if(b.atkBuffTurns > 0) b.atkBuffTurns--;
     if(b.defBuffTurns > 0) b.defBuffTurns--;
