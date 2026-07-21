@@ -603,7 +603,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.35</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.36</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -773,7 +773,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 31;
+const SAVE_FORMAT_VERSION = 32;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -4711,6 +4711,13 @@ const STORY_EVENT_BOSSES = {
     id:"story_setsuzokushi_test", name:"接続詞の見分けテスト", icon:"🔗",
     item:"つなぎ言葉マスターの証", item2:"太郎からのお礼メモ", treasure:"ことのはからの特製しおり",
   },
+  /* 第7章「説明的文章②」用（2026-07-21〜）。他の中ボスと同じくbattle beat（正答数ゲート、
+     total/needは既定値10/8のまま）。かえる（蛙）・へび（虫へん）の雑談から部首の奥深さに
+     興味を持ったところに繋がる出題なので、item/treasureもその流れを汲んだ名前にしてある。 */
+  busyuMaster: {
+    id:"story_busyu_master", name:"部首の腕試しテスト", icon:"🐸",
+    item:"虫へん図鑑", treasure:"花子お手製の部首カード",
+  },
 };
 TREASURE_NAMES.add(STORY_EVENT_BOSSES.printPile.treasure);
 TREASURE_NAMES.add(STORY_EVENT_BOSSES.selfIntroCard.treasure);
@@ -4718,6 +4725,7 @@ TREASURE_NAMES.add(STORY_EVENT_BOSSES.newsGalley.treasure);
 TREASURE_NAMES.add(STORY_EVENT_BOSSES.baseballMatch.treasure);
 TREASURE_NAMES.add(STORY_EVENT_BOSSES.kotowazaTimeAttack.treasure);
 TREASURE_NAMES.add(STORY_EVENT_BOSSES.setsuzokushiTest.treasure);
+TREASURE_NAMES.add(STORY_EVENT_BOSSES.busyuMaster.treasure);
 
 /* クリア報酬アイテム（章クリアで確定ドロップする通常アイテムのうち、使うと経験値が上がるもの）。
    宝具（TREASURE_NAMES／useTreasureItem）とは別枠の、ストーリーモード専用の使用可能アイテム分類。
@@ -4732,6 +4740,7 @@ const STORY_REWARD_ITEM_EXP = new Map([
   [STORY_EVENT_BOSSES.kotowazaTimeAttack.item, STORY_REWARD_EXP_AMOUNT],
   [STORY_EVENT_BOSSES.setsuzokushiTest.item, STORY_REWARD_EXP_AMOUNT],
   [STORY_EVENT_BOSSES.setsuzokushiTest.item2, 50],
+  [STORY_EVENT_BOSSES.busyuMaster.item, STORY_REWARD_EXP_AMOUNT],
   [STORY_JUDGED_PERFECT_ITEM, STORY_REWARD_EXP_AMOUNT],
 ]);
 function isStoryRewardItem(name){ return STORY_REWARD_ITEM_EXP.has(name); }
@@ -5251,6 +5260,66 @@ const STORY_CHAPTERS = {
       ]},
     ],
     epilogue: "放課後、太郎と別れて帰る道。\n\n「構成は地図、展開は進み方」――そう考えるだけで、あんなに難しく感じていた説明的な文章が、少し身近に感じられた一日だった。",
+  },
+  ch7: {
+    title: "第7章「説明的文章②」",
+    beats: [
+      {type:"line", text:"国語の授業。担任の先生が、新しいプリントを配った。"},
+      {type:"line", speaker:"担任の先生", text:"「今日から、『自分の好きなものを説明する文章』を書いてもらいます。友達や家族に読んでもらうつもりで、分かりやすく書いてくださいね」"},
+      {type:"line", text:"好きなものなら、いくらでも喋れる自信はあった。\nでも、いざ文章に書こうとすると、何から手をつければいいのか分からず、ペンが止まってしまう。"},
+      {type:"line", speaker:"ことのは", text:"うーん、って唸ってるね。どうしたの？"},
+      {type:"line", text:"好きなものを説明する文章を書くんだけど、どう組み立てればいいのか、全然思いつかなくて……"},
+      {type:"line", speaker:"花子", text:"「あ、それなら、いいこと教えてあげる！」"},
+      {type:"line", text:"声のするほうを見ると、花子が机の横に立っていた。"},
+      {type:"line", speaker:"花子", text:"「説明する文章にはね、主張――つまり『いちばん言いたいこと』を、どこに置くかで、いくつか『型』があるんだよ」"},
+      {type:"line", speaker:"花子", text:"「型を知っておくと、書き出しでいちいち悩まなくて済むから、すごく楽になるよ」"},
+      {type:"line", speaker:"花子", text:"「まず1つ目。はじめに、まとめとなる主張をどんと置いてから、そのあとで説明していくやり方があるの」"},
+      {type:"judgedChoice", speaker:"花子", text:"「はじめに、まとめとなる主張があり、それから説明をする」――このような型を何という？", shuffle:true, options:[
+        {label:"頭括型", correct:true},
+        {label:"尾括型", correct:false},
+        {label:"双括型", correct:false},
+      ]},
+      {type:"line", speaker:"花子", text:"「そう、頭括型！ 『結論から言うと……』って感じで話し始めるタイプだね」"},
+      {type:"line", speaker:"花子", text:"「反対に、前半でじっくり説明してから、最後にまとめの主張を持ってくるやり方もあるの」"},
+      {type:"judgedChoice", speaker:"花子", text:"「前半に説明があって、最後に、まとめとなる主張がある」――このような型を何という？", shuffle:true, options:[
+        {label:"尾括型", correct:true},
+        {label:"頭括型", correct:false},
+        {label:"双括型", correct:false},
+      ]},
+      {type:"line", speaker:"花子", text:"「正解、尾括型！ 説明を積み重ねてから、『だから、こうなんだ』ってまとめる感じだね」"},
+      {type:"line", speaker:"花子", text:"「そして最後、はじめと終わりの両方に、まとめの主張を置くやり方もあるよ。主張で説明を挟むみたいな感じ」"},
+      {type:"judgedChoice", speaker:"花子", text:"「はじめと終わりの両方に、まとめとなる主張がある」――このような型を何という？", shuffle:true, options:[
+        {label:"双括型", correct:true},
+        {label:"頭括型", correct:false},
+        {label:"尾括型", correct:false},
+      ]},
+      {type:"line", speaker:"花子", text:"「そのとおり、双括型！ 最初に言いたいことをはっきり伝えて、最後にもう一度、念を押すように繰り返すの」"},
+      {type:"line", speaker:"ことのは", text:"つまり構成は、『設計図』みたいなものなんだね。どこに何を置くか、あらかじめ決めておくと、迷わず書き進められる。"},
+      {type:"line", speaker:"花子", text:"「そうそう。もし型を選ぶのが難しく感じたら、細かく考えすぎないで、『大きなまとまり』で捉えてみるといいよ」"},
+      {type:"line", speaker:"花子", text:"「ほら、この前やった『序論・本論・結論』も、大きなまとまりで文章を捉える考え方の一つでしょ？ あれと同じだよ」"},
+      {type:"line", text:"大きなまとまりで考える――なるほど、それなら難しく感じなくなってきた。"},
+      {type:"line", speaker:"太郎", text:"「へえ、それは目から鱗だな！」"},
+      {type:"line", text:"いつのまにか、太郎も話に混ざっていた。"},
+      {type:"line", speaker:"ことのは", text:"「目から鱗」か。いい慣用句を知ってるね、太郎。\nせっかくだから、慣用句の練習もしてみようか。"},
+      {type:"quiz", cat:"kanyoku", speaker:"ことのは"},
+      {type:"line", speaker:"太郎", text:"「よし、けっこう分かるもんだな！」"},
+      {type:"line", speaker:"太郎", text:"「そういえば、鱗って、蛇にもあるけれど、魚へんだね」"},
+      {type:"line", speaker:"太郎", text:"「蛇って虫じゃないのに虫へんなのって、へんだよね。へんだけに。」"},
+      {type:"line", text:"……一瞬、教室の空気が止まった気がした。"},
+      {type:"line", speaker:"花子", text:"（今のは聞かなかったことにしよう……）\n「あ、でも、それ、いい質問かも。昔の日本では『けもの・とり・さかな』以外の小さな生き物は、まとめて『むし』と呼ぶことが多かったんだって。先生が言ってたよ」"},
+      {type:"line", text:"確かに、かえるも漢字で書くと「蛙」だ。虫へんが使われている。\n部首というのは、思っていたよりずっと奥が深いらしい。"},
+      {type:"line", speaker:"ことのは", text:"じゃあ、その奥深い部首の力、ここで試してみようか。"},
+      {type:"battle", boss:"busyuMaster", cat:"busyu"},
+      {type:"line", speaker:"太郎", text:"「いやー、部首って意外と手強いな……」"},
+      {type:"line", speaker:"花子", text:"「でも、これでもう、どんな漢字を見ても部首が気になっちゃうね」"},
+      {type:"line", speaker:"ことのは", text:"「型」で構成を考える力と、「大きなまとまり」で捉える力。この2つがあれば、説明する文章はもう怖くないね。", variants:[
+        {flag:"favoriteSubject", value:"kanji", text:"漢字が得意なきみなら、部首の知識も文章の『型』も、きっとすぐに武器にできるね。「大きなまとまり」で捉える力も身についたし、もう説明する文章は怖くないよ。"},
+        {flag:"favoriteSubject", value:"dokkai", text:"文章を読むのが得意なきみなら、『型』を意識するだけで、書く力もぐんと伸びそうだね。「大きなまとまり」で捉える力も身についたし、もう説明する文章は怖くないよ。"},
+        {flag:"favoriteSubject", value:"bunpou", text:"言葉のきまりが得意なきみなら、部首のような細かい知識もすぐに整理できそうだね。「大きなまとまり」で捉える力も身についたし、もう説明する文章は怖くないよ。"},
+      ]},
+      {type:"line", text:"その日の夜、好きなものについての文章を書いてみた。\n型を意識しただけで、驚くほどすらすらとペンが進んだ。"},
+    ],
+    epilogue: "「型」を知っているだけで、こんなに書きやすくなるなんて――ペンが止まっていたのが嘘みたいだった。\n\n部首という『奥深い世界』にも、少しだけ足を踏み入れた一日だった。",
   },
 };
 
