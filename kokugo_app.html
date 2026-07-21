@@ -603,7 +603,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.34</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.35</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -5022,7 +5022,7 @@ const STORY_CHAPTERS = {
         {label:"「吾輩は猫であるが、名前はまだつけられていない。」", correct:true},
       ]},
       {type:"line", speaker:"隣の席の子", text:"ねえ、ちょっと聞いてもいい？\n自己紹介の前に、ひとつ問題、出してもいい？"},
-      {type:"quiz", cat:"goi", speaker:"隣の席の子"},
+      {type:"quiz", cat:"goi", speaker:"隣の席の子", maxGrade:3},
       {type:"line", speaker:"隣の席の子", text:"すごい！ たくさん言葉を知っているんだね！"},
       {type:"line", text:"問題のおかげで、少し緊張がほぐれた気がした。\nそのおかげか、自己紹介では、自然と自分の言葉で話すことができた。"},
       {type:"choice", flagKey:"deskmateApproach", text:"隣の席の子に、どう関わる？", options:[
@@ -5093,7 +5093,7 @@ const STORY_CHAPTERS = {
       ]},
       {type:"line", speaker:"花子", text:"「そうそう、カコミだ！ ありがとう、助かった」"},
       {type:"line", text:"記事の形が決まったところで、言葉選びの練習をしてみることになった。"},
-      {type:"quiz", cat:"goi", speaker:"太郎", intro:"「新聞に使えそうな、ぴったりの言葉を選ぶ練習をしてみようよ」"},
+      {type:"quiz", cat:"goi", speaker:"太郎", intro:"「新聞に使えそうな、ぴったりの言葉を選ぶ練習をしてみようよ」", maxGrade:3},
       {type:"line", speaker:"太郎", text:"「さすが、言葉をたくさん知ってるね。これなら記事もいい感じに書けそうだ」"},
       {type:"line", text:"それから数日、班のみんなで取材をして、記事の下書きを仕上げた。\nいよいよ、清書して印刷する日がきた。"},
       {type:"line", speaker:"担任の先生", text:"「印刷する前に、もう一度、記事を見直しましょう。誤字や表現のまちがいがないか、みんなで校正するんですよ」"},
@@ -5617,7 +5617,11 @@ function storyRenderQuiz(beat, idx){
     storyRun.gateCleared = false;
   }
   storyRun.curBeat = beat;
-  const it = pickBattleQuestion(beat.cat, storyRun.lastQ);
+  /* beat.maxGradeを持つ問題ジャンル（今のところ語彙のみ）は、その学年の目安(grade)以下の
+     問題だけに絞り込む（教員の指示：ストーリーの語彙問題は中学1年生でもわかる範囲に限定
+     したい。カタカナ語の学術用語は軒並みgrade6=高校以上に分類済みなので、この絞り込みだけで
+     自然に除外される）。 */
+  const it = pickBattleQuestion(beat.cat, storyRun.lastQ, beat.maxGrade ? (q => (q.grade||99) <= beat.maxGrade) : undefined);
   storyRun.lastQ = it.q;
   storyRun.curItem = it;
   storyRun.curCat = beat.cat;
