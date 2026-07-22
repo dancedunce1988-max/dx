@@ -603,7 +603,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.38</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.39</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -797,6 +797,17 @@ function emptyStats(){
    1つの分野のレベルが1000を超えた分は、レベル1につき0.2ptに逓減する（1分野への一極集中を防ぎ、
    いろいろな分野に挑戦したくなるようにするため、2026-07-14〜）。宝具を使ってもらえる経験値（bonusExp）は
    分野に関係なく全額そのまま加算する。 */
+/* 「ことのはの経験値」の上限（2026-07-22〜、教員の指示）。20000を超えた分は切り捨てて常に20000
+   として扱う。正解数の記録・各分野のレベルアップ自体は今までどおり無制限に続く（st.cats/st.lvは
+   このキャップの影響を受けない）ので、プレイ自体は変わらず遊べるが、①ステータスポイント
+   （totalEarnedStatPoints、割りふれる分）と②ボス出現・経験値ゲート・防御力ゲートの判定
+   （kotonohaTotalXP）がこの値以上には増えなくなる。既存のボス出現しきい値の最大値は
+   無敵艦隊１年３組のxp>=10000で、20000はその2倍の余裕があるため、このキャップを入れても
+   既存のどのボスも出現できなくなることはない（ことのはの「すがた」進化システム
+   ＝KOTONOHA_STAGE_XPの最終段階も上限10000なので、同様に影響なし）。「毎度計算し直す」という
+   指示どおり、保存された値ではなく、既存の設計のままその場で計算した値をMath.minでクランプする
+   だけなので、キャップの値をあとで変えても過去のセーブデータに一切影響しない。 */
+const KOTONOHA_XP_CAP = 20000;
 function catExpPoints(lv){
   /* LV100まではレベルアップごとに3pt、LV500までは2pt、LV1000までは1pt、それ以降は0.2ptに逓減する
      （2026-07-17〜。境界値で連続になるよう、各段の到達値を積み上げて計算する）。 */
@@ -808,7 +819,7 @@ function catExpPoints(lv){
 }
 function totalEarnedStatPoints(st){
   const fromLevels = CAT_KEYS.reduce((sum,k) => sum + catExpPoints(st.lv[k]||1), 0);
-  return Math.floor(fromLevels + (st.bonusExp||0));
+  return Math.min(KOTONOHA_XP_CAP, Math.floor(fromLevels + (st.bonusExp||0)));
 }
 function spentStatPoints(st){
   return Object.values(st.stats||{}).reduce((sum,v) => sum + (v||0), 0);
@@ -1549,8 +1560,9 @@ function kotonohaTotalXP(st){
      1000を超えた分は0.2ptに逓減する（2026-07-15〜。従来はここだけ逓減なしの生レベル合計だったため、
      1領域だけをlv1000超まで伸ばすとことのはの経験値だけ青天井で伸びてしまう不整合があった）。
      st.lvから毎回その場で計算し直すので、旧セーブを引き継いだ場合も自動的に反映される。
-     宝具を使って得たボーナス経験値（bonusExp）は今までどおり全額そのまま加算する（2026-07-14〜）。 */
-  return Math.floor(CAT_KEYS.reduce((sum,k)=> sum + catExpPoints(st.lv[k]||1), 0) + (st.bonusExp||0));
+     宝具を使って得たボーナス経験値（bonusExp）は今までどおり全額そのまま加算する（2026-07-14〜）。
+     KOTONOHA_XP_CAP（20000、2026-07-22〜）で、これ以上は増えないようクランプする。 */
+  return Math.min(KOTONOHA_XP_CAP, Math.floor(CAT_KEYS.reduce((sum,k)=> sum + catExpPoints(st.lv[k]||1), 0) + (st.bonusExp||0)));
 }
 function kotonohaOtherType(st, stageIdx){
   const roll = st.kotonohaOtherRoll;
