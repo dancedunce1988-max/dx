@@ -65,6 +65,13 @@
     border-radius:99px; background:var(--accent2); color:#fff; white-space:nowrap;
   }
   .shogo-badge.top{background:var(--gold);}
+  /* 第8章「体育祭」の組バッジ（2026-07-22〜、教員の指示で組団カラーに変更）。碧組・紅組・黄組は
+     既存のテーマカラー（--accent2/--accent/--gold）が偶然にも近い色味だったのでそのまま流用し、
+     蒼組（青系）だけ新しい色を追加した。 */
+  .shogo-badge.kumi-jupiter{background:var(--accent2);}   /* 碧組（ジュピター） */
+  .shogo-badge.kumi-rigel{background:#2f5fa8;}             /* 蒼組（ライジェル） */
+  .shogo-badge.kumi-rose{background:var(--accent);}        /* 紅組（ローズ） */
+  .shogo-badge.kumi-amaterasu{background:var(--gold);}     /* 黄組（アマテラス） */
   .tag{
     display:inline-block; font-size:.72rem; padding:1px 8px; border-radius:99px;
     background:var(--bg); color:var(--accent2); border:1px solid var(--line); margin-left:6px;
@@ -610,7 +617,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.42</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.43</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -1656,7 +1663,8 @@ function kotonohaCardHtml(st){
     ${unspentStatPoints(st) > 0 ? `<p class="note">✨ のこりステータスポイント：${unspentStatPoints(st)}</p>` : ""}`;
   const pronoun = storyChosenPronoun(st);
   const kumi = storyChosenKumi(st);
-  const kumiBadge = kumi ? ` <span class="shogo-badge">【${esc(kumi)}】</span>` : "";
+  const kumiValue = storyChosenKumiValue(st);
+  const kumiBadge = kumi ? ` <span class="shogo-badge kumi-${esc(kumiValue)}">【${esc(kumi)}】</span>` : "";
   return `
   <div class="card kotonoha-card">
     <h3 class="section">${esc(pronoun || "きみ")}の相棒【ことのは】${kumiBadge}</h3>
@@ -5534,6 +5542,14 @@ function storyChosenKumi(st){
   const sp = st.story;
   if(!sp || !sp.completedChapters.includes("ch8")) return null;
   return STORY_KUMI_LABELS[sp.flags.kumiSlogan] || null;
+}
+/* 組バッジの背景色分け（2026-07-22〜、教員の指示）に使う、選んだ組の生の値（jupiter等）。
+   storyChosenKumiが表示名（碧組等）を返すのに対し、こちらはCSSクラス名の組み立てに使う
+   （kumi-${value}というクラス名にすれば、STORY_KUMI_LABELSのキーとそのままそろう）。 */
+function storyChosenKumiValue(st){
+  const sp = st.story;
+  if(!sp || !sp.completedChapters.includes("ch8")) return null;
+  return STORY_KUMI_LABELS[sp.flags.kumiSlogan] ? sp.flags.kumiSlogan : null;
 }
 
 let storyRun = null; // 実行中の一時状態（セーブしない。直前の出題・選択肢の並び順・合格ゲートの進捗など）
