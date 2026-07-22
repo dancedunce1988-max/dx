@@ -603,7 +603,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.39</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.40</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -819,7 +819,7 @@ function catExpPoints(lv){
 }
 function totalEarnedStatPoints(st){
   const fromLevels = CAT_KEYS.reduce((sum,k) => sum + catExpPoints(st.lv[k]||1), 0);
-  return Math.min(KOTONOHA_XP_CAP, Math.floor(fromLevels + (st.bonusExp||0)));
+  return Math.min(KOTONOHA_XP_CAP, Math.floor(fromLevels + effectiveBonusExp(st)));
 }
 function spentStatPoints(st){
   return Object.values(st.stats||{}).reduce((sum,v) => sum + (v||0), 0);
@@ -1561,8 +1561,10 @@ function kotonohaTotalXP(st){
      1領域だけをlv1000超まで伸ばすとことのはの経験値だけ青天井で伸びてしまう不整合があった）。
      st.lvから毎回その場で計算し直すので、旧セーブを引き継いだ場合も自動的に反映される。
      宝具を使って得たボーナス経験値（bonusExp）は今までどおり全額そのまま加算する（2026-07-14〜）。
-     KOTONOHA_XP_CAP（20000、2026-07-22〜）で、これ以上は増えないようクランプする。 */
-  return Math.min(KOTONOHA_XP_CAP, Math.floor(CAT_KEYS.reduce((sum,k)=> sum + catExpPoints(st.lv[k]||1), 0) + (st.bonusExp||0)));
+     KOTONOHA_XP_CAP（20000、2026-07-22〜）で、これ以上は増えないようクランプする。
+     effectiveBonusExp()は、シランちゃんの宝具の使用回数が上限(3回)を超えている分だけbonusExpから
+     差し引いた値を返す（2026-07-22〜、詳細はSHIRAN_TREASURE_USE_CAP周辺のコメント参照）。 */
+  return Math.min(KOTONOHA_XP_CAP, Math.floor(CAT_KEYS.reduce((sum,k)=> sum + catExpPoints(st.lv[k]||1), 0) + effectiveBonusExp(st)));
 }
 function kotonohaOtherType(st, stageIdx){
   const roll = st.kotonohaOtherRoll;
@@ -4406,9 +4408,33 @@ function treasureExpAmount(name){
   if(name === SHIRAN_BOSS.treasure) return 300;
   return 50;
 }
+/* シランちゃんの宝具「シランちゃんの秘密ノート」は、生涯で3回までしか使用を認めない
+   （2026-07-22〜、教員の指示）。アイテム自体は今までどおり何個でもドロップ・所持できるが、
+   使用（＝経験値化）だけがこの上限で止まる。 */
+const SHIRAN_TREASURE_USE_CAP = 3;
+/* この上限を導入する前にすでに3回を超えて使っていたプレイヤーへの遡及措置。st.bonusExpという
+   「これまでに宝具で得た経験値の生の合計」自体は書き換えず（過去の履歴として正確なまま残す）、
+   上限を超えて使った分の経験値だけを、totalEarnedStatPoints/kotonohaTotalXPが実際に使う
+   「有効な経験値」を計算するその場で差し引く（KOTONOHA_XP_CAPと同じ「保存せず毎回計算し直す」
+   設計を踏襲）。他の要素（分野レベル・他の宝具の経験値）が少ないプレイヤーは、この差し引きで
+   有効な経験値がマイナスになりうる（教員の指示どおり）。 */
+function shiranTreasureOverusePenalty(st){
+  const used = (st.usedTreasures && st.usedTreasures[SHIRAN_BOSS.treasure]) || 0;
+  return Math.max(0, used - SHIRAN_TREASURE_USE_CAP) * treasureExpAmount(SHIRAN_BOSS.treasure);
+}
+function effectiveBonusExp(st){
+  return (st.bonusExp||0) - shiranTreasureOverusePenalty(st);
+}
 function useTreasureItem(name){
   const st = loadStats();
   if(!(st.items && st.items[name] > 0)) return;
+  if(name === SHIRAN_BOSS.treasure){
+    const used = (st.usedTreasures && st.usedTreasures[name]) || 0;
+    if(used >= SHIRAN_TREASURE_USE_CAP){
+      alert(`「${name}」は、もう使えません（使用回数の上限：${SHIRAN_TREASURE_USE_CAP}回に達しています）。`);
+      return;
+    }
+  }
   const amount = treasureExpAmount(name);
   st.items[name]--;
   if(st.items[name] <= 0) delete st.items[name];
@@ -4438,10 +4464,13 @@ function showItemCollection(){
     html += storyRewardSectionHtml(st);
     html += `<h4 class="item-group-title treasure-title">✨ 伝説の宝具</h4>`;
     html += treasureKeys.length
-      ? `<ul class="item-list treasure-list">` + treasureKeys.map(name =>
-          `<li class="treasure"><span>✨ ${esc(name)}</span><span class="item-count">×${items[name]}</span>
-            <button class="btn inline" onclick="useTreasureItem('${esc(name)}')">使う（経験値+${treasureExpAmount(name)}）</button></li>`
-        ).join("") + `</ul>`
+      ? `<ul class="item-list treasure-list">` + treasureKeys.map(name => {
+          const isCappedOut = name === SHIRAN_BOSS.treasure && (usedTreasures[name]||0) >= SHIRAN_TREASURE_USE_CAP;
+          const action = isCappedOut
+            ? `<span class="note" style="margin:0">使用回数の上限（${SHIRAN_TREASURE_USE_CAP}回）に達したため、もう使えません</span>`
+            : `<button class="btn inline" onclick="useTreasureItem('${esc(name)}')">使う（経験値+${treasureExpAmount(name)}）</button>`;
+          return `<li class="treasure"><span>✨ ${esc(name)}</span><span class="item-count">×${items[name]}</span>${action}</li>`;
+        }).join("") + `</ul>`
       : `<p class="note">まだ手に入れていません。ボスに勝つと、まれに手に入ります。</p>`;
     html += `<p class="note">✨ 宝具を使うと経験値が上がりますが、1個使うごとに手元から1個消費されます。</p>`;
     if(usedTreasureKeys.length){
