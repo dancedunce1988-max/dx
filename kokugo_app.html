@@ -397,6 +397,14 @@
     display:inline-block; font-weight:bold; font-size:1.12rem; color:#ffe9a8;
     text-shadow:0 0 14px rgba(184,134,11,.95); animation:pop .35s ease;
   }
+  /* ストーリーモードの章一覧に挟む「テスト範囲」の目印バナー（2026-07-22〜、教員の指示）。
+     章カードと違い枠内に収まる情報ではないので、あえて章カードの外に独立した帯として置き、
+     背景色（--accent、既存の赤系アクセント）でひと目で分かるようにしている。 */
+  .story-test-range-banner{
+    margin:10px 0; padding:12px 14px; border-radius:10px;
+    background:var(--accent); color:#fff; font-weight:bold; font-size:.95rem;
+    text-align:center; box-shadow:0 4px 12px rgba(192,57,43,.35);
+  }
   /* 必殺技の「溜め」「技名」演出は、ボス戦カード内(#fb)だと目立たず見づらいため、
      .boss-battle-screenの構造を無視してdocument.body直下に全画面オーバーレイで出す
      （教員の指示、2026-07-20）。showFinisherOverlay/hideFinisherOverlayが動的に生成・削除する。 */
@@ -617,7 +625,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.43</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.44</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -5580,11 +5588,18 @@ function storyEntryHtml(st){
 }
 /* 章選択画面。STORY_CHAPTERSのキーをそのまま順番にボタン化するので、
    今後2章目以降を追加してもこの関数を変更する必要はない。 */
+/* 「夏休み明けのテスト範囲」の目印（2026-07-22〜、教員の指示）。この章のカードの直後に、
+   目立つ帯を1本はさむ。テスト範囲が変わったら、この定数のキーを書き換えるだけでよい。 */
+const STORY_TEST_RANGE_MARKER = {afterChapter:"ch7", label:"📝 夏休み明けのテスト範囲は、ここまで！"};
 function showStoryMenu(){
   const st = loadStats();
   let html = `<div class="card"><h3 class="section">📖 ストーリーモード</h3>
     <p class="note">ことのはと一緒に、中学校生活を歩む物語です。章を選んで読み進めよう。前の章をクリアすると、次の章が解放されます。</p></div>`;
-  html += Object.keys(STORY_CHAPTERS).map(key => storyChapterButtonHtml(key, st)).join("");
+  html += Object.keys(STORY_CHAPTERS).map(key => {
+    const marker = key === STORY_TEST_RANGE_MARKER.afterChapter
+      ? `<div class="story-test-range-banner">${esc(STORY_TEST_RANGE_MARKER.label)}</div>` : "";
+    return storyChapterButtonHtml(key, st) + marker;
+  }).join("");
   html += `<div class="btn-row" style="justify-content:center; margin-top:10px">
     <button class="btn secondary" onclick="showHome()">ホームへ</button>
   </div>`;
