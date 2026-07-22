@@ -610,7 +610,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.41</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.42</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -5473,18 +5473,18 @@ const STORY_CHAPTERS = {
         {flag:"sportsFesFeeling", value:"worried", text:"そっか、心配なんだね。だいじょうぶ、ぼくも一緒に応援してるから。"},
       ]},
       {type:"line", text:"体育祭の前に、組団発表がある。"},
-      {type:"line", text:"体育館の壁に、4つのスローガンが貼り出されている。\n「ジュピター」「ライジェル」「ローズ」「アマテラス」――それぞれ、碧組・蒼組・紅組・黄組のスローガンだ。"},
+      {type:"line", text:"体育館の壁に、4つのスローガンが貼り出されている。\n「ジュピター」「ライジェル」「ローズ」「アマテラス」――今年の、4つの組のスローガンだ。"},
       {type:"choice", flagKey:"kumiSlogan", text:"どのスローガンが気になる？", options:[
-        {label:"ジュピター（碧組）", value:"jupiter"},
-        {label:"ライジェル（蒼組）", value:"rigel"},
-        {label:"ローズ（紅組）", value:"rose"},
-        {label:"アマテラス（黄組）", value:"amaterasu"},
+        {label:"ジュピター", value:"jupiter"},
+        {label:"ライジェル", value:"rigel"},
+        {label:"ローズ", value:"rose"},
+        {label:"アマテラス", value:"amaterasu"},
       ]},
       {type:"line", speaker:"ことのは", text:"そのスローガン、気になるんだね。", variants:[
-        {flag:"kumiSlogan", value:"jupiter", text:"「ジュピター」か。碧組のスローガンだね。大きくてどっしりした響きに、力強さを感じるよ。"},
-        {flag:"kumiSlogan", value:"rigel", text:"「ライジェル」か。蒼組のスローガンだね。星の名前みたいで、かっこいい響きだ。"},
-        {flag:"kumiSlogan", value:"rose", text:"「ローズ」か。紅組のスローガンだね。情熱的で、華やかな感じがする。"},
-        {flag:"kumiSlogan", value:"amaterasu", text:"「アマテラス」か。黄組のスローガンだね。太陽みたいに、みんなを明るく照らしてくれそうだ。"},
+        {flag:"kumiSlogan", value:"jupiter", text:"「ジュピター」か。大きくてどっしりした響きに、力強さを感じるよ。"},
+        {flag:"kumiSlogan", value:"rigel", text:"「ライジェル」か。星の名前みたいで、かっこいい響きだ。"},
+        {flag:"kumiSlogan", value:"rose", text:"「ローズ」か。情熱的で、華やかな感じがする。"},
+        {flag:"kumiSlogan", value:"amaterasu", text:"「アマテラス」か。太陽みたいに、みんなを明るく照らしてくれそうだ。"},
       ]},
       {type:"line", text:"組が決まると、にわかに気持ちが盛り上がってきた。"},
       {type:"line", speaker:"？？？", text:"「あら、もう組が決まったみたいね」"},
@@ -6372,18 +6372,25 @@ function storyProofreadResolve(){
    「1回訪問ごとに毎回作り直す使い切りミニゲーム」設計を踏襲し、gateBeatIdx/battleBeatIdxの
    ような「同じbeatなら状態を保持する」ガードは持たない（storyRun.curBeatだけ更新し、
    タップ対象の単語セットは呼ばれるたびに必ず新しく抽選し直す）。
-   名詞は専用のストック（30語）からSTORY_WORDPICK_BOARD_NOUNS(15)語、誤答（名詞以外の8品詞）は
+   名詞は専用のストック（42語）からSTORY_WORDPICK_BOARD_NOUNS(10)語、誤答（名詞以外の8品詞）は
    専用のストック（計50語、動詞/形容詞/形容動詞/連体詞/助詞/助動詞/接続詞/感動詞のすべてを含む）
-   からSTORY_WORDPICK_BOARD_WRONG(15)語を、それぞれ毎回ランダムに抽出し、あわせてシャッフルして
+   からSTORY_WORDPICK_BOARD_WRONG(20)語を、それぞれ毎回ランダムに抽出し、あわせてシャッフルして
    1つの盤面（30語）として表示する（shuffledOrderを流用）。 */
 const STORY_WORDPICK_TIME_MS = 60000; // 1分（教員の指示）
 const STORY_WORDPICK_MISS_PENALTY_MS = 3000; // 名詞でない単語をタップするたびに、残り時間からこの分だけ差し引く（全部タップする力任せ戦法の抑止、proofreadと同じ狙い）
-const STORY_WORDPICK_BOARD_NOUNS = 15;
-const STORY_WORDPICK_BOARD_WRONG = 15;
+const STORY_WORDPICK_BOARD_NOUNS = 10;
+const STORY_WORDPICK_BOARD_WRONG = 20;
 const STORY_WORDPICK_NOUN_POOL = [
   "体育祭","運動会","応援団","スローガン","組","校庭","入場門","得点板","徒競走","綱引き",
   "リレー","応援合戦","開会式","閉会式","選手宣誓","優勝旗","タオル","ハチマキ","水筒","テント",
   "笛","太鼓","放送席","保護者席","救護室","昼休み","予行練習","雲","青空","歓声",
+  /* 転成名詞12語（2026-07-22〜、教員の指示で追加）。動詞・形容詞・形容動詞の語幹や連用形から
+     作られた名詞も、れっきとした名詞であることを体感してもらうためのバリエーション
+     （4語ずつバランスよく用意。誤答プール（STORY_WORDPICK_WRONG_POOL）に元の形（力強い→力強さ、
+     真剣だ→真剣さ、爽やかだ→爽やかさ）がある語は、あえて対になるよう選んでいる）。 */
+  "動き","共食い","戦い","遅れ",       // 動詞の連用形が名詞化したもの
+  "優しさ","楽しさ","悔しさ","力強さ", // 形容詞の語幹＋「さ」で名詞化したもの
+  "純朴さ","俊敏さ","真剣さ","爽やかさ", // 形容動詞の語幹＋「さ」で名詞化したもの
 ];
 const STORY_WORDPICK_WRONG_POOL = [
   {w:"走る", pos:"動詞"}, {w:"応援する", pos:"動詞"}, {w:"並ぶ", pos:"動詞"}, {w:"投げる", pos:"動詞"},
