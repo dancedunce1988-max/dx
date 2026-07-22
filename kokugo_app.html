@@ -546,6 +546,13 @@
   .proof-token.tried{ background:var(--ngbg); color:var(--ng); opacity:.6; cursor:default; }
   .proof-token.missed{ background:var(--ngbg); color:var(--ng); text-decoration:underline wavy; cursor:default; }
 
+  /* 語句選択ミニゲーム（wordPick beat、2026-07-22〜、第8章の中ボス代わり）。単語をチップ状の
+     ボタンとして並べて表示する。found/tried/missedの色付けは.proof-tokenのルールをそのまま
+     共用する（要素にproof-token wordpick-tokenの両方のクラスを付与するため、新しい色ルールは
+     追加していない）。 */
+  .wordpick-grid{ display:flex; flex-wrap:wrap; gap:8px; }
+  .wordpick-token{ display:inline-block; background:var(--card); border:2px solid var(--line); border-radius:10px; padding:6px 12px; font-size:.95rem; }
+
   /* 野球ミニゲーム（baseball beat、2026-07-17〜、第4章用）。既存の.boss-name/.boss-q-card/
      .boss-timer-bar/.choices/.choiceは他の中ボスと共通のまま再利用し、スコアボード・
      ダイヤモンド・アウトカウント・投球前カウントダウンだけ専用CSSを追加する。 */
@@ -603,7 +610,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.40</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.41</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -1648,9 +1655,11 @@ function kotonohaCardHtml(st){
     </table>
     ${unspentStatPoints(st) > 0 ? `<p class="note">✨ のこりステータスポイント：${unspentStatPoints(st)}</p>` : ""}`;
   const pronoun = storyChosenPronoun(st);
+  const kumi = storyChosenKumi(st);
+  const kumiBadge = kumi ? ` <span class="shogo-badge">【${esc(kumi)}】</span>` : "";
   return `
   <div class="card kotonoha-card">
-    <h3 class="section">${esc(pronoun || "きみ")}の相棒【ことのは】</h3>
+    <h3 class="section">${esc(pronoun || "きみ")}の相棒【ことのは】${kumiBadge}</h3>
     <div class="kotonoha-row">
       <div class="kotonoha-icon ${typeClass}${override ? ' kotonoha-overridden' : ''}" onclick="showKotonohaFormPicker()">${disp.icon}</div>
       <div class="kotonoha-info">
@@ -4827,6 +4836,13 @@ const STORY_EVENT_BOSSES = {
     id:"story_busyu_master", name:"部首の腕試しテスト", icon:"🐸",
     item:"虫へん図鑑", treasure:"花子お手製の部首カード",
   },
+  /* 第8章「体育祭」用（2026-07-22〜）。他の中ボスと違い、battle/proofread共通のstoryRun.curBeat
+     経由でboss情報を参照する点は同じだが、専用のwordPickビート（storyRenderWordPick等）を使う。
+     報酬ロジックはproofread/battleと同じ天井・宝具抽選を再利用する（storyWordPickResolve参照）。 */
+  kumiSloganNouns: {
+    id:"story_kumi_slogan_nouns", name:"組団スローガンの名詞さがし", icon:"📣",
+    item:"手作り応援うちわ", treasure:"組団対抗のお守り",
+  },
 };
 TREASURE_NAMES.add(STORY_EVENT_BOSSES.printPile.treasure);
 TREASURE_NAMES.add(STORY_EVENT_BOSSES.selfIntroCard.treasure);
@@ -4835,6 +4851,7 @@ TREASURE_NAMES.add(STORY_EVENT_BOSSES.baseballMatch.treasure);
 TREASURE_NAMES.add(STORY_EVENT_BOSSES.kotowazaTimeAttack.treasure);
 TREASURE_NAMES.add(STORY_EVENT_BOSSES.setsuzokushiTest.treasure);
 TREASURE_NAMES.add(STORY_EVENT_BOSSES.busyuMaster.treasure);
+TREASURE_NAMES.add(STORY_EVENT_BOSSES.kumiSloganNouns.treasure);
 
 /* クリア報酬アイテム（章クリアで確定ドロップする通常アイテムのうち、使うと経験値が上がるもの）。
    宝具（TREASURE_NAMES／useTreasureItem）とは別枠の、ストーリーモード専用の使用可能アイテム分類。
@@ -4850,6 +4867,7 @@ const STORY_REWARD_ITEM_EXP = new Map([
   [STORY_EVENT_BOSSES.setsuzokushiTest.item, STORY_REWARD_EXP_AMOUNT],
   [STORY_EVENT_BOSSES.setsuzokushiTest.item2, 50],
   [STORY_EVENT_BOSSES.busyuMaster.item, STORY_REWARD_EXP_AMOUNT],
+  [STORY_EVENT_BOSSES.kumiSloganNouns.item, STORY_REWARD_EXP_AMOUNT],
   [STORY_JUDGED_PERFECT_ITEM, STORY_REWARD_EXP_AMOUNT],
 ]);
 function isStoryRewardItem(name){ return STORY_REWARD_ITEM_EXP.has(name); }
@@ -5430,6 +5448,66 @@ const STORY_CHAPTERS = {
     ],
     epilogue: "「型」を知っているだけで、こんなに書きやすくなるなんて――ペンが止まっていたのが嘘みたいだった。\n\n部首という『奥深い世界』にも、少しだけ足を踏み入れた一日だった。",
   },
+  ch8: {
+    title: "第8章「体育祭」",
+    beats: [
+      {type:"line", text:"入学してから、それなりの時間が経った。"},
+      {type:"line", text:"相棒の「ことのは」とも、少しずつ仲良くなり始めている。"},
+      {type:"line", speaker:"ことのは", text:"最近、前より息が合ってきた気がするな。きみと一緒に過ごしてると、なんだか楽しいんだ。"},
+      {type:"choice", flagKey:"ch8BondTime", text:"ことのはに、どう返す？", options:[
+        {label:"うん、ぼくも楽しいよ", value:"agree"},
+        {label:"ことのはがいると、頑張れる気がする", value:"encourage"},
+      ]},
+      {type:"line", speaker:"ことのは", text:"えへへ、そう言ってもらえると嬉しいな。", variants:[
+        {flag:"ch8BondTime", value:"agree", text:"えへへ、ぼくも同じ気持ちだったから嬉しいな。"},
+        {flag:"ch8BondTime", value:"encourage", text:"えへへ、そんなふうに思ってもらえてるなんて、ぼくも頑張らなきゃね。"},
+      ]},
+      {type:"line", text:"入学してから、初めての大きな行事――体育祭が近づいている。"},
+      {type:"line", speaker:"ことのは", text:"もうすぐ体育祭があるね。きみはどう感じているの？"},
+      {type:"choice", flagKey:"sportsFesFeeling", text:"ことのはに、どう答える？", options:[
+        {label:"そうだね！楽しみ！", value:"excited"},
+        {label:"んー…。うまくいくかどうかがちょっと心配だな。", value:"worried"},
+      ]},
+      {type:"line", speaker:"ことのは", text:"そっか。", variants:[
+        {flag:"sportsFesFeeling", value:"excited", text:"そっか、楽しみなんだね！ その気持ち、ぼくにも伝わってくるよ。"},
+        {flag:"sportsFesFeeling", value:"worried", text:"そっか、心配なんだね。だいじょうぶ、ぼくも一緒に応援してるから。"},
+      ]},
+      {type:"line", text:"体育祭の前に、組団発表がある。"},
+      {type:"line", text:"体育館の壁に、4つのスローガンが貼り出されている。\n「ジュピター」「ライジェル」「ローズ」「アマテラス」――それぞれ、碧組・蒼組・紅組・黄組のスローガンだ。"},
+      {type:"choice", flagKey:"kumiSlogan", text:"どのスローガンが気になる？", options:[
+        {label:"ジュピター（碧組）", value:"jupiter"},
+        {label:"ライジェル（蒼組）", value:"rigel"},
+        {label:"ローズ（紅組）", value:"rose"},
+        {label:"アマテラス（黄組）", value:"amaterasu"},
+      ]},
+      {type:"line", speaker:"ことのは", text:"そのスローガン、気になるんだね。", variants:[
+        {flag:"kumiSlogan", value:"jupiter", text:"「ジュピター」か。碧組のスローガンだね。大きくてどっしりした響きに、力強さを感じるよ。"},
+        {flag:"kumiSlogan", value:"rigel", text:"「ライジェル」か。蒼組のスローガンだね。星の名前みたいで、かっこいい響きだ。"},
+        {flag:"kumiSlogan", value:"rose", text:"「ローズ」か。紅組のスローガンだね。情熱的で、華やかな感じがする。"},
+        {flag:"kumiSlogan", value:"amaterasu", text:"「アマテラス」か。黄組のスローガンだね。太陽みたいに、みんなを明るく照らしてくれそうだ。"},
+      ]},
+      {type:"line", text:"組が決まると、にわかに気持ちが盛り上がってきた。"},
+      {type:"line", speaker:"？？？", text:"「あら、もう組が決まったみたいね」"},
+      {type:"line", text:"声をかけてきたのは、見覚えのある先輩だった。"},
+      {type:"line", speaker:"先輩", text:"「応援発表を控えた君たちに、ちょっとだけ問題を解いてもらおう」"},
+      {type:"line", speaker:"先輩", text:"「応援のコールや横断幕の文句には、比喩や体言止め、倒置法なんかの表現技法がよく使われているんだ。知っておくと、もっと工夫した応援ができるようになるよ」"},
+      {type:"quiz", cat:"hyougen", speaker:"先輩", need:3, window:5},
+      {type:"line", speaker:"先輩", text:"「筋がいいね！ その調子なら、いい応援ができそうだ」"},
+      {type:"line", speaker:"先輩", text:"「ところで、『スローガン』は全て名詞だ。名詞がどれだか、分かるかな？」"},
+      {type:"line", speaker:"ことのは", text:"名詞探し、やってみようか。制限時間は1分――たくさん並んだ単語の中から、名詞だけをすべて選び出すよ。"},
+      {type:"wordPick", boss:"kumiSloganNouns"},
+      {type:"line", speaker:"先輩", text:"「見事だね！ これで、応援も文法もばっちりだ」"},
+      {type:"line", speaker:"花子", text:"「さすが！ わたしも、そろそろ応援の練習に行かなきゃ」"},
+      {type:"line", speaker:"太郎", text:"「よし、負けないくらい大きな声、出すぞ！」"},
+      {type:"line", speaker:"ことのは", text:"表現技法も、名詞の見分けも、これでもうばっちりだね。体育祭、楽しみになってきたよ。", variants:[
+        {flag:"favoriteSubject", value:"kanji", text:"漢字が得意なきみなら、応援の言葉づかいにもすぐ気づけそうだね。体育祭、楽しみになってきたよ。"},
+        {flag:"favoriteSubject", value:"dokkai", text:"文章を読むのが得意なきみなら、スローガンに込められた思いもすぐ読み取れそうだね。体育祭、楽しみになってきたよ。"},
+        {flag:"favoriteSubject", value:"bunpou", text:"言葉のきまりが得意なきみなら、表現技法も名詞の見分けもお手のものだね。体育祭、楽しみになってきたよ。"},
+      ]},
+      {type:"line", text:"体育祭当日。青く澄み渡った空の下、それぞれの組の声が校庭に響きわたる。"},
+    ],
+    epilogue: "組の一員として迎えた、はじめての体育祭。\n\n声を合わせて応援するうちに、言葉の力が、みんなの心をひとつにしていくのを感じた一日だった。",
+  },
 };
 
 /* 一人称選択（ch1のpronoun choice）の表示名。ホーム画面の「相棒」表記などで使う。 */
@@ -5445,6 +5523,19 @@ function storyChosenPronoun(st){
   return STORY_PRONOUN_LABELS[sp.flags.pronoun] || null;
 }
 
+/* 組団スローガン選択（ch8のkumiSlogan choice）の表示名。pronounと同じパターンで、
+   ホーム画面の「相棒」カードに【組】バッジとして表示する（kotonohaCardHtml参照）。 */
+const STORY_KUMI_LABELS = {
+  jupiter:"碧組", rigel:"蒼組", rose:"紅組", amaterasu:"黄組",
+};
+/* 第8章クリア後にのみ、選んだ組を返す（未クリア・未選択ならnull）。
+   章を再プレイしてkumiSlogan choiceを選び直せば、この値もすぐ更新される。 */
+function storyChosenKumi(st){
+  const sp = st.story;
+  if(!sp || !sp.completedChapters.includes("ch8")) return null;
+  return STORY_KUMI_LABELS[sp.flags.kumiSlogan] || null;
+}
+
 let storyRun = null; // 実行中の一時状態（セーブしない。直前の出題・選択肢の並び順・合格ゲートの進捗など）
 function storyFreshRun(){
   return {
@@ -5455,6 +5546,7 @@ function storyFreshRun(){
     bbBeatIdx:null, bb:null,
     comboBeatIdx:null, combo:null,
     matchOrder:null,
+    wpWords:null, wpFound:null, wpDeadline:null, wpDone:false, wpTimerId:null,
   };
 }
 
@@ -5552,6 +5644,7 @@ function storyRenderBeat(){
   else if(beat.type === "proofread") storyRenderProofread(beat);
   else if(beat.type === "baseball") storyRenderBaseball(beat, sp.beatIdx);
   else if(beat.type === "combo") storyRenderCombo(beat, sp.beatIdx);
+  else if(beat.type === "wordPick") storyRenderWordPick(beat);
   else showHome();
 }
 function storyFooterHtml(){
@@ -6274,6 +6367,181 @@ function storyProofreadResolve(){
     </div>`;
 }
 
+/* 語句選択ミニゲーム（wordPick beat、2026-07-22〜、第8章「体育祭」用）：制限時間内に、並んだ
+   単語の中から名詞をすべてタップして選ぶミニゲーム。proofread beat（誤字タップ）と同じ
+   「1回訪問ごとに毎回作り直す使い切りミニゲーム」設計を踏襲し、gateBeatIdx/battleBeatIdxの
+   ような「同じbeatなら状態を保持する」ガードは持たない（storyRun.curBeatだけ更新し、
+   タップ対象の単語セットは呼ばれるたびに必ず新しく抽選し直す）。
+   名詞は専用のストック（30語）からSTORY_WORDPICK_BOARD_NOUNS(15)語、誤答（名詞以外の8品詞）は
+   専用のストック（計50語、動詞/形容詞/形容動詞/連体詞/助詞/助動詞/接続詞/感動詞のすべてを含む）
+   からSTORY_WORDPICK_BOARD_WRONG(15)語を、それぞれ毎回ランダムに抽出し、あわせてシャッフルして
+   1つの盤面（30語）として表示する（shuffledOrderを流用）。 */
+const STORY_WORDPICK_TIME_MS = 60000; // 1分（教員の指示）
+const STORY_WORDPICK_MISS_PENALTY_MS = 3000; // 名詞でない単語をタップするたびに、残り時間からこの分だけ差し引く（全部タップする力任せ戦法の抑止、proofreadと同じ狙い）
+const STORY_WORDPICK_BOARD_NOUNS = 15;
+const STORY_WORDPICK_BOARD_WRONG = 15;
+const STORY_WORDPICK_NOUN_POOL = [
+  "体育祭","運動会","応援団","スローガン","組","校庭","入場門","得点板","徒競走","綱引き",
+  "リレー","応援合戦","開会式","閉会式","選手宣誓","優勝旗","タオル","ハチマキ","水筒","テント",
+  "笛","太鼓","放送席","保護者席","救護室","昼休み","予行練習","雲","青空","歓声",
+];
+const STORY_WORDPICK_WRONG_POOL = [
+  {w:"走る", pos:"動詞"}, {w:"応援する", pos:"動詞"}, {w:"並ぶ", pos:"動詞"}, {w:"投げる", pos:"動詞"},
+  {w:"跳ぶ", pos:"動詞"}, {w:"整列する", pos:"動詞"}, {w:"優勝する", pos:"動詞"}, {w:"叫ぶ", pos:"動詞"},
+  {w:"速い", pos:"形容詞"}, {w:"暑い", pos:"形容詞"}, {w:"悔しい", pos:"形容詞"}, {w:"まぶしい", pos:"形容詞"}, {w:"力強い", pos:"形容詞"}, {w:"すばらしい", pos:"形容詞"},
+  {w:"にぎやかだ", pos:"形容動詞"}, {w:"元気だ", pos:"形容動詞"}, {w:"真剣だ", pos:"形容動詞"}, {w:"順調だ", pos:"形容動詞"}, {w:"爽やかだ", pos:"形容動詞"}, {w:"見事だ", pos:"形容動詞"},
+  {w:"この", pos:"連体詞"}, {w:"あの", pos:"連体詞"}, {w:"大きな", pos:"連体詞"}, {w:"小さな", pos:"連体詞"}, {w:"わが", pos:"連体詞"}, {w:"いわゆる", pos:"連体詞"},
+  {w:"が", pos:"助詞"}, {w:"を", pos:"助詞"}, {w:"の", pos:"助詞"}, {w:"に", pos:"助詞"}, {w:"へ", pos:"助詞"}, {w:"より", pos:"助詞"},
+  {w:"だ", pos:"助動詞"}, {w:"です", pos:"助動詞"}, {w:"ます", pos:"助動詞"}, {w:"たい", pos:"助動詞"}, {w:"ようだ", pos:"助動詞"}, {w:"らしい", pos:"助動詞"},
+  {w:"しかし", pos:"接続詞"}, {w:"だから", pos:"接続詞"}, {w:"そして", pos:"接続詞"}, {w:"つまり", pos:"接続詞"}, {w:"ところが", pos:"接続詞"}, {w:"それとも", pos:"接続詞"},
+  {w:"わあ", pos:"感動詞"}, {w:"おお", pos:"感動詞"}, {w:"やった", pos:"感動詞"}, {w:"ありがとう", pos:"感動詞"}, {w:"よし", pos:"感動詞"}, {w:"おはよう", pos:"感動詞"},
+];
+function pickWordPickBoard(){
+  const nounIdx = shuffledOrder(STORY_WORDPICK_NOUN_POOL.length).slice(0, STORY_WORDPICK_BOARD_NOUNS);
+  const wrongIdx = shuffledOrder(STORY_WORDPICK_WRONG_POOL.length).slice(0, STORY_WORDPICK_BOARD_WRONG);
+  const words = nounIdx.map(i => ({w:STORY_WORDPICK_NOUN_POOL[i], noun:true}))
+    .concat(wrongIdx.map(i => ({w:STORY_WORDPICK_WRONG_POOL[i].w, noun:false, pos:STORY_WORDPICK_WRONG_POOL[i].pos})));
+  const order = shuffledOrder(words.length);
+  return order.map(i => words[i]);
+}
+function storyRenderWordPick(beat){
+  storyRun.curBeat = beat;
+  storyRun.wpWords = pickWordPickBoard();
+  storyRun.wpFound = new Set();
+  storyRun.wpDeadline = Date.now() + STORY_WORDPICK_TIME_MS;
+  storyRun.wpDone = false;
+  const boss = STORY_EVENT_BOSSES[beat.boss];
+  screen.innerHTML = `
+    <div class="card story-scene">
+      <div class="boss-name">${esc(boss.icon)} ${esc(boss.name)}</div>
+      <p class="note">${STORY_WORDPICK_TIME_MS/1000}秒以内に、名詞を${STORY_WORDPICK_BOARD_NOUNS}個、すべてタップして見つけよう！（名詞でない単語をタップすると、残り時間が${STORY_WORDPICK_MISS_PENALTY_MS/1000}秒減ってしまいます）</p>
+      <p class="note" id="wpProgress">見つけた数：0／${STORY_WORDPICK_BOARD_NOUNS}</p>
+      <div class="boss-timer-row"><div class="boss-timer-bar"><div id="wpTimerFill" class="boss-timer-fill"></div></div></div>
+      <div class="boss-q-card">
+        <div class="wordpick-grid" id="wpGrid">
+          ${storyRun.wpWords.map((w,i) => `<span class="proof-token wordpick-token" data-i="${i}" onclick="storyWordPickTap(${i})">${esc(w.w)}</span>`).join("")}
+        </div>
+        <div class="feedback" id="fb"></div>
+        <div class="btn-row"><button class="btn story-advance-btn" id="storyNextBtn" style="display:none" onclick="storyWordPickNext()">つぎへ</button></div>
+      </div>
+    </div>
+    ${storyFooterHtml()}`;
+  startStoryWordPickTimer();
+}
+function startStoryWordPickTimer(){
+  clearStoryWordPickTimer();
+  const run = storyRun;
+  run.wpTimerId = setInterval(() => {
+    if(storyRun !== run) return;
+    if(run.wpDeadline - Date.now() <= 0){
+      clearStoryWordPickTimer();
+      storyWordPickTimeUp();
+    }
+  }, 200);
+  renderStoryWordPickTimerBar();
+}
+function clearStoryWordPickTimer(){
+  if(storyRun && storyRun.wpTimerId){
+    clearInterval(storyRun.wpTimerId);
+    storyRun.wpTimerId = null;
+  }
+}
+function renderStoryWordPickTimerBar(){
+  const el = document.getElementById("wpTimerFill");
+  if(!el || !storyRun) return;
+  const remain = Math.max(0, storyRun.wpDeadline - Date.now());
+  el.style.transition = "none";
+  el.style.width = (100*remain/STORY_WORDPICK_TIME_MS) + "%";
+  void el.offsetWidth;
+  if(typeof requestAnimationFrame !== "function") return;
+  requestAnimationFrame(() => {
+    el.style.transition = `width ${remain}ms linear`;
+    el.style.width = "0%";
+  });
+}
+function storyWordPickTap(i){
+  if(!storyRun || storyRun.wpDone) return;
+  const word = storyRun.wpWords[i];
+  const el = document.querySelector(`.wordpick-token[data-i="${i}"]`);
+  if(!el || el.classList.contains("found") || el.classList.contains("tried")) return;
+  if(word.noun){
+    el.classList.add("found");
+    storyRun.wpFound.add(i);
+    const progressEl = document.getElementById("wpProgress");
+    if(progressEl) progressEl.textContent = `見つけた数：${storyRun.wpFound.size}／${STORY_WORDPICK_BOARD_NOUNS}`;
+    if(storyRun.wpFound.size >= STORY_WORDPICK_BOARD_NOUNS){
+      clearStoryWordPickTimer();
+      storyWordPickReveal(true);
+    }
+  }else{
+    el.classList.add("tried");
+    storyRun.wpDeadline -= STORY_WORDPICK_MISS_PENALTY_MS;
+    if(storyRun.wpDeadline - Date.now() <= 0){
+      clearStoryWordPickTimer();
+      storyWordPickTimeUp();
+    }else{
+      renderStoryWordPickTimerBar();
+    }
+  }
+}
+function storyWordPickTimeUp(){
+  storyWordPickReveal(false);
+}
+function storyWordPickReveal(won){
+  storyRun.wpDone = true;
+  storyRun.wpWords.forEach((w,i) => {
+    const el = document.querySelector(`.wordpick-token[data-i="${i}"]`);
+    if(!el) return;
+    el.onclick = null;
+    if(w.noun && !storyRun.wpFound.has(i)) el.classList.add("missed");
+  });
+  const missedList = storyRun.wpWords
+    .filter((w,i) => w.noun && !storyRun.wpFound.has(i))
+    .map(w => `「${esc(w.w)}」`);
+  const fb = document.getElementById("fb");
+  fb.className = "feedback show " + (won?"ok":"ng");
+  fb.innerHTML = won
+    ? `<div class="verdict">○ 名詞を${STORY_WORDPICK_BOARD_NOUNS}個、すべて見つけた！</div>`
+    : `<div class="verdict">⏰ 時間切れ…（${storyRun.wpFound.size}／${STORY_WORDPICK_BOARD_NOUNS}個発見）</div>` +
+      (missedList.length ? `<p>見つけられなかった名詞：${missedList.join("、")}</p>` : "");
+  const nb = document.getElementById("storyNextBtn");
+  if(nb){ nb.style.display = "inline-block"; nb.textContent = won ? "けっかを見る" : "もう一度挑戦する"; }
+}
+function storyWordPickNext(){
+  if(storyRun.wpFound.size >= STORY_WORDPICK_BOARD_NOUNS) storyWordPickResolve();
+  else storyRenderBeat();
+}
+function storyWordPickResolve(){
+  const beat = storyRun.curBeat;
+  const boss = STORY_EVENT_BOSSES[beat.boss];
+  const st = loadStats();
+  const sp = storyProgress(st);
+  const isReplay = sp.completedChapters.includes(sp.chapter);
+  let gotTreasure = false;
+  if(!isReplay){
+    st.items[boss.item] = (st.items[boss.item]||0) + 1;
+    if(treasureDropAllowed(st)){
+      st.bossPity[boss.id] = (st.bossPity[boss.id]||0) + 1;
+      if(st.bossPity[boss.id] >= BOSS_PITY_MAX || Math.random() < BOSS_TREASURE_RATE){
+        gotTreasure = true;
+        st.bossPity[boss.id] = 0;
+        st.items[boss.treasure] = (st.items[boss.treasure]||0) + 1;
+      }
+    }
+    saveStats(st);
+  }
+  screen.innerHTML = `
+    <div class="card story-scene">
+      <div class="story-chapter-end">🎉 クリア！</div>
+      ${isReplay
+        ? `<p class="story-text">「${esc(boss.name)}」を乗りこえた！（再プレイのため、今回はアイテムの入手はありません）</p>`
+        : `<p class="story-text">「${esc(boss.name)}」を乗りこえた！<br>${esc(boss.icon)} <span class="drop-item">【${esc(boss.item)}】</span>を手に入れた！${gotTreasure ? `<br>✨ さらに、宝具<span class="drop-item treasure-drop">【${esc(boss.treasure)}】</span>を手に入れた！ ✨` : ""}</p>`}
+      <div class="btn-row" style="justify-content:center">
+        <button class="btn story-advance-btn" onclick="storyAdvance()">つづける</button>
+      </div>
+    </div>`;
+}
+
 /* 野球ミニゲーム（baseball beat）：他の中ボス（battle/proofread）と違い、3イニング制・
    アウト/走者/得点というリアルタイム性の高いミニゲーム全体を1つのbeatとして丸ごと実装する。
    状態はstoryRun.bb（非セーブのランタイムオブジェクト）に持たせ、beatに滞在している間は
@@ -6937,6 +7205,8 @@ function storyChapterEnd(){
   saveStats(st);
   const pronoun = sp.chapter === "ch1" ? STORY_PRONOUN_LABELS[sp.flags.pronoun] : null;
   const pronounNote = pronoun ? `<p class="note">✨ 一人称が、「${esc(pronoun)}」に設定されました！</p>` : "";
+  const kumi = sp.chapter === "ch8" ? STORY_KUMI_LABELS[sp.flags.kumiSlogan] : null;
+  const kumiNote = kumi ? `<p class="note">✨ 組団が、「${esc(kumi)}」に設定されました！</p>` : "";
   const rateNote = rate
     ? `<p class="note">クリア率 ${rate.pct}%${rate.isBetter ? "　※自己ベストを更新しました！" : ""}</p>`
     : "";
@@ -6951,6 +7221,7 @@ function storyChapterEnd(){
       <div class="story-chapter-end">📖 ${esc(STORY_CHAPTERS[sp.chapter].title)} クリア！</div>
       <p class="story-text">${esc(STORY_CHAPTERS[sp.chapter].epilogue || "")}</p>
       ${pronounNote}
+      ${kumiNote}
       ${rateNote}
       ${perfectNote}
       ${finisherNote}
