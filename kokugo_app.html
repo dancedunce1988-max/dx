@@ -603,7 +603,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.37</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.38</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3068,6 +3068,28 @@ const BOSSES = [
      引き下げ、均等配分・8割正解ペースでの勝率が86%程度（他ボスと同じ「適正経験値を均等配分
      すれば85〜90%前後」という基準）に収まることを確認して再調整した。accuracy(180)は変更なし。 */
   {id:"ruoon",      name:"アイスホッケー選手ルオー", icon:"🏒", item:"ホッケー用スティック", treasure:"ホッケー防具一式",           hp:67000, atk:400,  defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
+  /* ルオーと同じrecPts5000帯の新5体（2026-07-22〜、教員の指示）。出現条件（minXpRatio・
+     dropAccuracyThreshold・itemDropFloor/Ceil）はルオーと完全に同じにし、基本ステータスも
+     ルオーの値をベースラインとして、それぞれ指示された個性の分だけ調整している。
+     ・天才バスケットボーラージュン：`rareInPoolChance:0.01`＝通常ボスの抽選プールの中でだけ
+       1/100の低確率で選ばれる特別枠（randomEncounterBoss参照。シランちゃん/国語の神のような
+       BOSSES外の別枠ではなく、あくまで「通常ボスの中の」レア枠という指示を素直に実装）。
+       evadePct:55はBOSSES内の他の全ボスより高い（次点は陸上部主将の45）。
+     ・人間型掃除機：`fleeAfterMisses:3`＝プレイヤーが（通算で）3回まちがえると、その場で
+       戦闘を強制終了して逃げていく（bossGrade参照）。atk:600はルオー(400)より高めに設定。
+     ・キングスライムなおじい：`surviveFinisherAtOne:true`＝とどめの一撃を一度だけ耐えてHPを
+       1残す（経験値ゲート中の「とどめ回避」とは別の、このボス専用の恒久ルール。2回目の
+       とどめは普通に0まで減る。bossGrade参照）。
+     ・丸刈りのさるちゃん：`preemptiveHalfHp:true`＝戦闘開始と同時に、プレイヤーのHPを半分に
+       する先制攻撃を受ける（startBossBattle参照）。hp:45000はルオー(67000)より低め。
+     ・スピードスケートますりん：特別な個性の指定なし。ルオーと同じベースステータスの
+       「素直な」recPts5000ボスとして追加（教員の指示で「書いていない部分は考えてよい」との
+       ことだったので、既存のルオーをそのまま踏襲する方針にした）。 */
+  {id:"basketball_jun", name:"天才バスケットボーラージュン", icon:"🏀", item:"バスケットボール", treasure:"黄金に輝くバスケットシューズ", hp:67000, atk:400, defPct:20, accuracy:180, evadePct:55, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, rareInPoolChance:0.01},
+  {id:"vacuum_bot", name:"人間型掃除機", icon:"🧹", item:"掃除機", treasure:"テニスラケット", hp:67000, atk:600, defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, fleeAfterMisses:3},
+  {id:"king_slime_ojii", name:"キングスライムなおじい", icon:"👴", item:"なおじいの涙", treasure:"エースの肩書", hp:67000, atk:400, defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, surviveFinisherAtOne:true},
+  {id:"saru_chan", name:"丸刈りのさるちゃん", icon:"🐒", item:"竹刀", treasure:"剣道用防具", hp:45000, atk:400, defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, preemptiveHalfHp:true},
+  {id:"speedskate_masurin", name:"スピードスケートますりん", icon:"⛸️", item:"スピードスケートの靴", treasure:"スケート用のワンピース", hp:67000, atk:400, defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
   /* 適正経験値15000の新最上位ボス（2026-07-21〜、教員の指示）。「今までで一番強いボス」という
      位置づけで、既存最上位ルオー(recPts5000)からさらに3倍の帯に置いた。個性は既存の「ステータス
      依存だが特殊反撃を持つ」型：①`atkHalvedUnlessFinisher`＝必殺技以外の通常攻撃はダメージが
@@ -3335,6 +3357,14 @@ const ITEM_EFFECTS = {
      終盤の最上位ボス用アイテムとして倍率型の方が「効いている実感」を保てると判断した。 */
   "ホッケー用スティック": {type:"atkMultBuff", mult:1.3, turns:3, label:"次の3ターン、攻撃力が1.3倍になる", icon:"🏒"},
   "青いハチマキ":   {type:"atkMultBuff", mult:2.0, turns:3, label:"次の3ターン、攻撃力が2倍になる",     icon:"🎽"},
+  /* ルオーと同じrecPts5000帯の新5体（2026-07-22〜）が落とすアイテム。ホッケー用スティックと
+     同じ設計方針（倍率型atkMultBuffの方が育成段階を問わず「効いている実感」を保てる）を
+     そのまま踏襲し、同格の効果量にそろえている。 */
+  "バスケットボール": {type:"atkMultBuff", mult:1.3, turns:3, label:"次の3ターン、攻撃力が1.3倍になる", icon:"🏀"},
+  "掃除機":         {type:"atkMultBuff", mult:1.3, turns:3, label:"次の3ターン、攻撃力が1.3倍になる", icon:"🧹"},
+  "なおじいの涙":   {type:"atkMultBuff", mult:1.3, turns:3, label:"次の3ターン、攻撃力が1.3倍になる", icon:"💧"},
+  "竹刀":           {type:"atkMultBuff", mult:1.3, turns:3, label:"次の3ターン、攻撃力が1.3倍になる", icon:"🎋"},
+  "スピードスケートの靴": {type:"atkMultBuff", mult:1.3, turns:3, label:"次の3ターン、攻撃力が1.3倍になる", icon:"⛸️"},
 };
 function randInt(min, max){ return min + Math.floor(Math.random() * (max - min + 1)); }
 
@@ -3447,10 +3477,20 @@ function isBossRetired(boss, xp){
   if(boss.neverRetires) return false;
   return BOSS_RETIREMENT_TIERS.some(t => xp > t.xpAbove && boss.recPts <= t.retireAtOrBelowRecPts);
 }
+/* `rareInPoolChance`を持つボス（天才バスケットボーラージュン、2026-07-22〜）は、通常ボスの
+   抽選プールの中でだけ、その確率（0.01＝1/100）で単独抽選される特別枠。当たらなければ、
+   それ以外の（rareInPoolChanceを持たない）ボスの中から今までどおり均等に1体選ぶ。
+   シランちゃん・国語の神（BOSSESに属さない完全な別枠、rollBossEncounter側で判定）とは違い、
+   あくまで「通常ボスの中の」レア枠という教員の指示をそのまま実装したもの。 */
 function randomEncounterBoss(){
   const xp = kotonohaTotalXP(loadStats());
   const eligible = BOSSES.filter(b => (!b.minXpRatio || xp >= b.recPts * b.minXpRatio) && !isBossRetired(b, xp));
-  return eligible[Math.floor(Math.random() * eligible.length)];
+  const rare = eligible.filter(b => b.rareInPoolChance);
+  for(const b of rare){
+    if(Math.random() < b.rareInPoolChance) return b;
+  }
+  const normal = eligible.filter(b => !b.rareInPoolChance);
+  return normal[Math.floor(Math.random() * normal.length)];
 }
 function renderBossPrompt(){
   const b = pendingBoss;
@@ -3514,6 +3554,12 @@ function startBossBattle(boss, allGenre){
     showItemPanel:false, usedItemThisTurn:false, usedItemNames:{}, timerId:null,
     correctStreak:0, finisherGauge:0,
   };
+  if(boss.preemptiveHalfHp){
+    // 丸刈りのさるちゃん専用：戦闘開始と同時に、プレイヤーのHPを半分にする先制攻撃を受ける
+    const dmg = Math.floor(bossBattle.playerMaxHp / 2);
+    bossBattle.playerHp = Math.max(1, bossBattle.playerHp - dmg);
+    bossBattle._preemptiveMsg = `😱 不意をつかれた！ ${boss.name}が戦闘開始と同時に攻撃をしかけてきて、HPが${dmg}減った！`;
+  }
   bossNextQuestion();
 }
 /* ボス戦中に通常アイテムを1つ消費して効果を発動する。問題への回答前に使える
@@ -3730,7 +3776,9 @@ function usableBossItems(){
   return Object.keys(ITEM_EFFECTS).filter(name => (items[name]||0) > 0 && !used[name]);
 }
 function bossNextQuestion(){
-  bossBattle.itemUseMsg = null;
+  // 先制攻撃メッセージ（丸刈りのさるちゃん）があれば、最初の1問目だけitemUseMsg欄に表示する
+  bossBattle.itemUseMsg = bossBattle._preemptiveMsg || null;
+  bossBattle._preemptiveMsg = null;
   bossBattle.showItemPanel = false;
   bossBattle.usedItemThisTurn = false;
   if(bossBattle.cats){
@@ -3924,7 +3972,7 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
   const b = bossBattle, it = b.item;
   const st = loadStats();
   const gateActive = bossXpGateActive(b.boss, st);
-  let dealt = 0, crit = false, evaded = false, fled = false;
+  let dealt = 0, crit = false, evaded = false, fled = false, survived = false, bossQuit = false;
   if(ok){
     b.correctStreak = (b.correctStreak||0) + 1;
     /* 必殺技ゲージは「不正解でリセットされる連続正解数」で管理する（correctStreakは
@@ -3973,6 +4021,12 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
           evaded = true;
           crit = false;
           dealt = 0;
+        }else if(b.boss.surviveFinisherAtOne && !b._survivedFinisher && b.bossHp - dealt <= 0){
+          // キングスライムなおじい専用：とどめの一撃を一度だけ耐えてHPを1残す（2回目以降のとどめは普通に0まで減る）
+          dealt = b.bossHp - 1;
+          b.bossHp = 1;
+          b._survivedFinisher = true;
+          survived = true;
         }else{
           b.bossHp = Math.max(0, b.bossHp - dealt);
         }
@@ -3982,6 +4036,11 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
     // 不正解で「連続」が途切れるので、必殺技ゲージもリセットする
     b.correctStreak = 0;
     b.finisherGauge = 0;
+    if(b.boss.fleeAfterMisses){
+      // 人間型掃除機専用：プレイヤーが通算でこの回数まちがえると、その場で戦闘を打ち切って逃げる
+      b.missCount = (b.missCount||0) + 1;
+      if(b.missCount >= b.boss.fleeAfterMisses) bossQuit = true;
+    }
   }
   /* 経験値ゲート・ルール②③のための下準備：このターンに与えたダメージを、ボスの最大HPに
      対する割合として記録しておく（0〜1、何も与えていなければ0）。また「攻撃ミス」（不正解、
@@ -4014,10 +4073,19 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
         ? `<span class="lvup-chip">😲すんでのところで${esc(b.boss.name)}に逃げられた！</span>`
         : evaded
         ? `<span class="lvup-chip">💨${esc(b.boss.name)}に回避された！</span>`
+        : survived
+        ? `<span class="lvup-chip">${esc(b.boss.name)}に ${dealt} ダメージ！ しかしギリギリ耐えた…！</span>`
         : `<span class="lvup-chip">${crit ? "💥会心の一撃！ " : ""}${esc(b.boss.name)}に ${dealt} ダメージ！</span>`)
     : "";
   const streakMsg = (ok && b.boss.streakToWin) ? `<span class="lvup-chip">🔥連続正解 ${b.correctStreak} / ${b.boss.streakToWin}</span>` : "";
   fb.innerHTML = `<div class="verdict">あなたのターン　${ok?"○ 正解！":(timedOut?"⏰ 時間切れ…":"× ざんねん…")}${dmgMsg}${streakMsg}</div>${expl}`;
+  if(bossQuit){
+    // 人間型掃除機専用：規定回数まちがえたので、反撃を挟まずその場で逃げていく（結果画面はシランちゃんと共用）
+    fb.innerHTML += `<div class="boss-turn">💨 ${esc(b.boss.name)}は、動きを止めるとそのまま去っていった…。</div>`;
+    bossBattle._resolving = true;
+    setTimeout(() => { if(bossBattle && bossBattle._resolving) shiranFlee(); }, 1300);
+    return;
+  }
   if(fled){
     // 命中する寸前で逃げられたときは反撃も発生せず、少し間をおいて逃走の結果画面へ
     bossBattle._resolving = true;
