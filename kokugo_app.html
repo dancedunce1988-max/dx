@@ -625,7 +625,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.45</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.46</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3163,12 +3163,20 @@ const BOSSES = [
        目標水準85〜90%を大きく下回る）、「通常攻撃だけでは実質勝てず、必殺技を覚えてこそ倒せる
        ボス」という位置づけになることを教員に報告した上で、数値の弱体化はせずこのまま据え置く
        ことを教員が了承済み（意図的な高難度ボスとして許容）。基準defPct(20)・atk(400)は他の
-       素直なrecPts5000ボスと同じベースラインのまま。 */
+       素直なrecPts5000ボスと同じベースラインのまま。
+       【2026-07-23さらに追記】上記の「実質必殺技前提」を踏まえ、教員から「必殺技は他のボスの
+       2倍の強さでダメージを与えられるようにしてほしい。2回目の必殺はさらに倍（＝4倍）、
+       3回目以降は4倍のまま打ち止め」という救済指示を受け、新フラグ`finisherDamageMultBoost:[2,4]`
+       を追加（bossResolveFinisher側、詳細はそちらのコメント参照）。Node.jsシミュレータ・実エンジン
+       （Playwright）の両方で再検証し、8割正解ペース・必殺技ありの勝率が64.8%→85〜88%程度まで
+       回復し、他ボスの目標水準（85〜90%）に収まることを確認した（平均必殺技使用回数は
+       1.7〜1.9回）。必殺技なし（ストーリー第3章クリア前）のプレイヤーにとっては相変わらず
+       ほぼ勝てないボスのままである点は変わらない（教員もこれは許容済み）。 */
   {id:"soumaa", name:"咆哮のソーマー", icon:"🦁", item:"折れたシャー芯", treasure:"奇跡の一本シャー芯", hp:67000, atk:200, defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, selfHpAtkBoost:{normalMult:1.5, lowMult:2.5, hpThreshold:0.5}},
   {id:"kuratyan_robot", name:"ロボットに乗ったくらちゃん", icon:"🤖", item:"プラモデル", treasure:"ピストルダム", hp:40000, atk:150, defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, atkGrowthPerTurn:1.2},
   {id:"game_n", name:"ゲーム好きのN", icon:"🎮", item:"エナドリ", treasure:"プロコン", hp:67000, atk:340, defPct:20, accuracy:180, evadePct:25, luck:45, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
   {id:"ultra_k", name:"漫画が好きなウルトラK", icon:"📖", item:"少年コミック", treasure:"未来を予知する漫画", hp:35000, atk:400, defPct:10, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, playerAtkHalved:true},
-  {id:"walking_person", name:"ぶらぶら歩く人", icon:"🚶", item:"紅茶", treasure:"緑茶", hp:67000, atk:400, defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, defTripleOnMiss:true},
+  {id:"walking_person", name:"ぶらぶら歩く人", icon:"🚶", item:"紅茶", treasure:"緑茶", hp:67000, atk:400, defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, defTripleOnMiss:true, finisherDamageMultBoost:[2,4]},
   /* 適正経験値15000の新最上位ボス（2026-07-21〜、教員の指示）。「今までで一番強いボス」という
      位置づけで、既存最上位ルオー(recPts5000)からさらに3倍の帯に置いた。個性は既存の「ステータス
      依存だが特殊反撃を持つ」型：①`atkHalvedUnlessFinisher`＝必殺技以外の通常攻撃はダメージが
@@ -3838,7 +3846,22 @@ function bossResolveFinisher(){
   const ps = st.stats || {hp:0,atk:0,def:0,spd:0,luck:0};
   let dealt = randInt(BOSS_PLAYER_DMG[0], BOSS_PLAYER_DMG[1]) + ps.atk * STAT_ATK_PER_POINT + (b.atkBuffTurns > 0 ? b.atkBuffAmount : 0);
   if(b.atkMultTurns > 0) dealt = Math.round(dealt * b.atkMultAmount);
-  dealt = Math.round(dealt * FINISHER_MULT);
+  /* ぶらぶら歩く人専用：必殺技のダメージを他ボスの2倍、2回目以降はさらに倍（4倍）にする新フラグ
+     `finisherDamageMultBoost:[2,4]`（教員の指示、2026-07-23）。防御力が解除されない仕様
+     （上のdefTripleOnMissのコメント参照）で通常攻撃だけでは実質勝てなくなったことへの救済策
+     として、必殺技側を強化する形で対応した。`b.finisherUseCount`で戦闘中の使用回数を数え、
+     配列の添字（0=1回目、1=2回目以降）に応じた倍率を選ぶ（3回目以降は教員の指示どおり
+     4倍で打ち止め＝配列の最後の要素を使い続ける）。このボスを持たない他の全ボスは
+     `finisherDamageMultBoost`を持たないため、`finisherExtraMult`は常に1のままで
+     既存の必殺技バランスに一切影響しない。 */
+  let finisherExtraMult = 1;
+  if(b.boss.finisherDamageMultBoost){
+    const stages = b.boss.finisherDamageMultBoost;
+    const idx = Math.min(b.finisherUseCount||0, stages.length - 1);
+    finisherExtraMult = stages[idx];
+    b.finisherUseCount = (b.finisherUseCount||0) + 1;
+  }
+  dealt = Math.round(dealt * FINISHER_MULT * finisherExtraMult);
   const effLuck = ps.luck + (b.luckBuffTurns > 0 ? b.luckBuffAmount : 0);
   const critChance = 100 * effLuck / (effLuck + STAT_LUCK_HALF_POINT);
   let crit = false;
