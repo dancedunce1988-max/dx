@@ -626,7 +626,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.49</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.50</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3540,6 +3540,50 @@ let bossPromptSelection = "no";
 let bossPromptResumeFn = null;
 let bossPromptActive = false;
 let bossBattle = null;
+/* ボス戦の状態を1問ごとにlocalStorageへ保存し、途中でページを閉じる／リロードしても
+   同じ状態から再開できるようにする（2026-07-23〜、教員の指示）。従来はbossBattleが
+   メモリ上だけの変数で、リロードすると戦闘がまるごと消えていた。負けても何も失わない
+   （bossLoseにペナルティが無い）ため、劣勢になった瞬間にリロードすれば実質ノーリスクで
+   何度でもやり直せてしまい、ボスごとに「意図的に見込んでいる10〜15%の負け」がほぼ無効化
+   されてしまう問題があった。renderBossBattle()の冒頭で毎回保存し、endBossBattle()
+   （勝ち・負け・逃走のいずれからも最終的にここを通る）で消す、という単純な仕組みにする。 */
+const BOSS_BATTLE_STORE_KEY = "kokugoBossBattleState_v1";
+function findBossById(id){
+  if(SHIRAN_BOSS.id === id) return SHIRAN_BOSS;
+  if(KOKUGO_KAMI_BOSS.id === id) return KOKUGO_KAMI_BOSS;
+  return BOSSES.find(b => b.id === id) || null;
+}
+function saveBossBattleState(){
+  if(!bossBattle) return;
+  try{
+    const {timerId, ...rest} = bossBattle;
+    localStorage.setItem(BOSS_BATTLE_STORE_KEY, JSON.stringify(rest));
+  }catch(e){}
+}
+function clearBossBattleState(){
+  try{ localStorage.removeItem(BOSS_BATTLE_STORE_KEY); }catch(e){}
+}
+/* 保存されていた戦闘があれば復元してtrueを返す（呼び出し元はプロローグ等を出さず、
+   そのまま戦闘画面へ直行する）。boss本体は保存データではなく、そのときのBOSSES等の
+   定義から改めて引き直す（開発側でボスの数値を更新した場合に、古い保存データの数値を
+   引きずらないようにするため）。見つからない場合（該当ボスが削除された等）は保存データを
+   諦めて破棄し、通常起動に戻す。 */
+function resumeBossBattleIfSaved(){
+  let saved = null;
+  try{
+    const raw = localStorage.getItem(BOSS_BATTLE_STORE_KEY);
+    saved = raw ? JSON.parse(raw) : null;
+  }catch(e){ saved = null; }
+  if(!saved || !saved.boss || !saved.boss.id) return false;
+  const liveBoss = findBossById(saved.boss.id);
+  if(!liveBoss){ clearBossBattleState(); return false; }
+  saved.boss = liveBoss;
+  saved.timerId = null;
+  bossBattle = saved;
+  renderBossBattle();
+  startBossTimer();
+  return true;
+}
 
 /* 低確率でボスが出現する。出現したら遭遇プロンプトを表示してtrueを返す（呼び出し元は処理を中断する）。
    出現しなければfalse。resumeFnは、逃げた・戦い終わったあとに元の流れへ戻るための関数。
@@ -4028,6 +4072,9 @@ function bossHpBarsHtml(){
 function refreshBossHpBars(){
   const el = document.getElementById("bossHpBars");
   if(el) el.innerHTML = bossHpBarsInnerHtml();
+  // HPが変わるたびに保存し直す（renderBossBattle()の「次の問題が来た時点」の保存だけだと、
+  // 自分の攻撃が命中した直後・反撃が来る直前の1問分だけリロードで巻き戻せてしまうため）。
+  saveBossBattleState();
 }
 /* ボス戦中の「アイテムを使う」まわりのUI（発動中のバフ表示・使用ボタン・アイテム選択パネル） */
 function bossItemBarHtml(){
@@ -4067,6 +4114,7 @@ function bossItemBarHtml(){
 }
 function renderBossBattle(){
   hideFinisherOverlay(); // 念のための後始末（通常は必殺技の演出フロー自身が消すので、ここで消える機会はまず無い）
+  saveBossBattleState();
   const b = bossBattle, it = b.item;
   const isInput = Array.isArray(it.ans);
   let answerArea;
@@ -4476,6 +4524,7 @@ function bossWin(){
     if(gotTreasure) st.items[b.boss.treasure] = (st.items[b.boss.treasure]||0) + 1;
   }
   saveStats(st);
+  clearBossBattleState(); // 戦闘は終了済み。以降のリロードは結果画面ではなく通常起動に戻す
   screen.innerHTML = `
     <div class="boss-battle-screen boss-victory">
       <div class="boss-win-burst">✨🎉✨</div>
@@ -4493,6 +4542,7 @@ function bossWin(){
 }
 function bossLose(){
   const b = bossBattle;
+  clearBossBattleState(); // 戦闘は終了済み。以降のリロードは結果画面ではなく通常起動に戻す
   screen.innerHTML = `
     <div class="boss-battle-screen">
       <div class="boss-result-title lose">力つきた…</div>
@@ -4505,6 +4555,7 @@ function bossLose(){
 /* シランちゃんが逃げ出したときの結果画面（勝ちでも負けでもない、戦闘の強制終了） */
 function shiranFlee(){
   const b = bossBattle;
+  clearBossBattleState(); // 戦闘は終了済み。以降のリロードは結果画面ではなく通常起動に戻す
   screen.innerHTML = `
     <div class="boss-battle-screen">
       <div class="boss-result-title">逃げられた…！</div>
@@ -4518,6 +4569,7 @@ function endBossBattle(){
   const fn = bossPromptResumeFn;
   bossPromptResumeFn = null;
   bossBattle = null;
+  clearBossBattleState();
   pendingBoss = null;
   if(fn) fn(); else showHome();
 }
@@ -4881,6 +4933,7 @@ function bootApp(){
       </div>`;
     return;
   }
+  if(resumeBossBattleIfSaved()) return;
   showPrologue(showHome);
 }
 
