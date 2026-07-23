@@ -626,7 +626,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.48</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.49</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3179,6 +3179,25 @@ const BOSSES = [
   {id:"game_n", name:"ゲーム好きのN", icon:"🎮", item:"エナドリ", treasure:"プロコン", hp:67000, atk:340, defPct:20, accuracy:180, evadePct:25, luck:45, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
   {id:"ultra_k", name:"漫画が好きなウルトラK", icon:"📖", item:"少年コミック", treasure:"未来を予知する漫画", hp:35000, atk:400, defPct:10, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, playerAtkHalved:true},
   {id:"walking_person", name:"ぶらぶら歩く人", icon:"🚶", item:"紅茶", treasure:"緑茶", hp:67000, atk:400, defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, defTripleOnMiss:true, finisherDamageMultBoost:[2,4]},
+  /* 適正経験値10000「ゲームマニア８９」（2026-07-23〜、教員の指示）。ルオー(5000)と無敵艦隊(15000)の
+     中間に位置する新しい帯。個性は`healOnMissPct`＝プレイヤーが不正解のとき、自分の最大HPの10%を
+     回復する（bossGrade側の不正解分岐で実装。詳細はそちらのコメント参照）。回避率は教員の指示で
+     他の「素直な」recPts5000帯ボスと同じ25のまま（上げていない）。攻撃力は900と、recPts5000帯の
+     基準(400)よりはっきり高めにした。
+     【検証の経緯】自作のNode.jsモンテカルロ・シミュレータで最初に検証したところ「hp=340000で
+     8割正解ペースの勝率86.7%」という結果が出たが、これはシミュレータ自体のバグによる誤りだった。
+     実際にPlaywrightでゲーム本体のbossGrade/bossCounterAttackを直接何百回も動かして検証しなおすと、
+     hp=340000では勝率わずか1.7%（回復量が最大HPに比例するため、HPを大きくするほど「正味で
+     削りきる」ために必要な正答率のラインが跳ね上がり、8割程度では平均して回復量が被ダメージ量を
+     上回ってしまっていた）。実エンジンでhpを改めて二分探索し、hp=117500で8割正解ペースの勝率が
+     87%前後（実測90.7%、n=250〜300のばらつき込み）になることを確認した。この規模だと決着までの
+     平均ターン数も他ボスに近い水準（8割正解ペースで平均28ターン程度）に収まり、正答率ごとの
+     勝率も60%→24.7%／70%→65.3%／80%→90.7%／90%→97.0%となめらかに変化する（崖状の急変はない）。
+     出現条件は教員の指示で「ことのはの経験値が5000を超えたら」＝minXpRatio:0.5（recPts10000×0.5=5000）。
+     dropAccuracyThreshold(0.8)・itemDropFloor/Ceil(0.4/1.0)はrecPts5000帯と同じ基準を踏襲。lvは
+     5000帯(33)と15000帯(50)の中間で42とした。制限時間は教員の指示で12秒（answerTimeMs、
+     他ボスの標準15秒より短い個別設定）。 */
+  {id:"game_maniac_89", name:"ゲームマニア８９", icon:"👾", item:"ジョイコン", treasure:"なにかのソフト", hp:117500, atk:900, defPct:20, accuracy:180, evadePct:25, luck:15, lv:42, recPts:10000, minXpRatio:0.5, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, answerTimeMs:12000, healOnMissPct:0.10},
   /* 適正経験値15000の新最上位ボス（2026-07-21〜、教員の指示）。「今までで一番強いボス」という
      位置づけで、既存最上位ルオー(recPts5000)からさらに3倍の帯に置いた。個性は既存の「ステータス
      依存だが特殊反撃を持つ」型：①`atkHalvedUnlessFinisher`＝必殺技以外の通常攻撃はダメージが
@@ -3464,6 +3483,9 @@ const ITEM_EFFECTS = {
   "紅茶":           {type:"atkMultBuff", mult:1.3, turns:3, label:"次の3ターン、攻撃力が1.3倍になる", icon:"🍵"},
   "エナドリ":       {type:"heal", amount:50,                label:"HPを50回復する",                    icon:"🧃"},
   "少年コミック":   {type:"revealWrong",                     label:"4択問題のとき、不正解の選択肢を1つ消す（記述式には効果なし）", icon:"📙"},
+  /* 適正経験値10000「ゲームマニア８９」が落とすアイテム（2026-07-23〜）。教員の指示どおり、
+     既存のheal型をそのまま流用して回復量300を指定。 */
+  "ジョイコン":     {type:"heal", amount:300,                label:"HPを300回復する",                   icon:"🕹️"},
 };
 function randInt(min, max){ return min + Math.floor(Math.random() * (max - min + 1)); }
 
@@ -4185,6 +4207,8 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
     b.correctStreak = 0;
     b.finisherGauge = 0;
     if(b.boss.defTripleOnMiss) b.bossDefMissStreak = (b.bossDefMissStreak||0) + 1;
+    // ゲームマニア８９専用：プレイヤーが不正解のとき、自分の最大HPの一定割合を回復する
+    if(b.boss.healOnMissPct) b.bossHp = Math.min(b.bossMaxHp, b.bossHp + Math.round(b.bossMaxHp * b.boss.healOnMissPct));
     if(b.boss.fleeAfterMisses){
       // 人間型掃除機専用：プレイヤーが通算でこの回数まちがえると、その場で戦闘を打ち切って逃げる
       b.missCount = (b.missCount||0) + 1;
@@ -4225,7 +4249,7 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
         : survived
         ? `<span class="lvup-chip">${esc(b.boss.name)}に ${dealt} ダメージ！ しかしギリギリ耐えた…！</span>`
         : `<span class="lvup-chip">${crit ? "💥会心の一撃！ " : ""}${esc(b.boss.name)}に ${dealt} ダメージ！</span>`)
-    : "";
+    : (b.boss.healOnMissPct ? `<span class="lvup-chip">💚${esc(b.boss.name)}のHPが少し回復した！</span>` : "");
   const streakMsg = (ok && b.boss.streakToWin) ? `<span class="lvup-chip">🔥連続正解 ${b.correctStreak} / ${b.boss.streakToWin}</span>` : "";
   fb.innerHTML = `<div class="verdict">あなたのターン　${ok?"○ 正解！":(timedOut?"⏰ 時間切れ…":"× ざんねん…")}${dmgMsg}${streakMsg}</div>${expl}`;
   if(bossQuit){
