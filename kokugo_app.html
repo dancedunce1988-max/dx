@@ -625,7 +625,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.44</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.45</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3129,6 +3129,46 @@ const BOSSES = [
   {id:"king_slime_ojii", name:"キングスライムなおじい", icon:"👴", item:"なおじいの涙", treasure:"エースの肩書", hp:67000, atk:400, defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, surviveFinisherAtOne:true},
   {id:"saru_chan", name:"丸刈りのさるちゃん", icon:"🐒", item:"竹刀", treasure:"剣道用防具", hp:45000, atk:400, defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, preemptiveHalfHp:true},
   {id:"speedskate_masurin", name:"スピードスケートますりん", icon:"⛸️", item:"スピードスケートの靴", treasure:"スケート用のワンピース", hp:67000, atk:400, defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
+  /* ルオーと同じrecPts5000帯のさらに新5体（2026-07-23〜、教員の指示）。出現条件は完全に同じ
+     まま、それぞれ全く新しい特殊メカニクスを持たせている。数値（atk/hp/defPct）はNode.jsの
+     モンテカルロ・シミュレータ（bossGrade/bossCounterAttackの計算式を再実装したもの）で、
+     「適正経験値ぶんを均等配分・8割正解ペースで勝率85〜90%」という既存全ボス共通の基準に
+     収まるよう個別に探索した（0ステータス・単振りビルドはいずれも0%になることも確認済み）。
+     ・咆哮のソーマー：`selfHpAtkBoost`＝自分のHPが50%を切ると攻撃力が1.5倍→2.5倍に跳ね上がる
+       （教員の指示どおり。bossCounterAttack側でboss.atkに乗算する新フラグ）。baseとなるatkは
+       単純倍率のぶん、他ボス（同じ均等配分想定でatk400が基準）より低い200に調整。
+     ・ロボットに乗ったくらちゃん：`atkGrowthPerTurn`＝攻撃力がターンを経るごとに1.2倍ずつ複利で
+       増えていく（教員の指示で上限なし＝長期戦になるほど詰みやすい設計を明示的に了承済み）。
+       雪だるま式に伸びるぶん、初期atk・hpとも他ボスよりかなり低め（hp40000・atk150）にしないと
+       終盤で理不尽な即死になってしまうため、平均決着ターン数が短くなるようシミュレータで調整した。
+     ・ゲーム好きのN：「会心の一撃が出やすい」という指示を、luckステータス（会心率に直結する
+       既存パラメータ）を他ボスの基準(15)よりはっきり高い45に設定することで表現（新規コード不要）。
+       会心が絡む分、素のatkは他ボスよりやや低め(340)に調整。
+     ・漫画が好きなウルトラK：`playerAtkHalved`＝プレイヤーがボスに与えるダメージが常に半分になる
+       新フラグ（bossGrade側）。指示どおり、その代わりHP(35000)・防御力(defPct10)は他ボスより
+       低めに設定（無敵艦隊のatkHalvedUnlessFinisherと似た仕組みだが、あちらは必殺技以外の
+       "ボス→プレイヤー"側、こちらは"プレイヤー→ボス"側のダメージを半減させる点が逆）。
+       宝具「未来を予知する漫画」は名前どおりドロップ品「少年コミック」（下記ITEM_EFFECTS参照）の
+       伏線という位置づけ。
+     ・ぶらぶら歩く人：`defTripleOnMiss`＝プレイヤーがミスするたびにボスの防御力（defPct）が
+       3倍に複利で積み上がる新フラグ（bossGrade側）。教員の指示で上限なし。ただしダメージ下限が
+       常に1で保証されるため（既存の`Math.max(1, ...)`）、防御力が何倍に達しても完全に詰む
+       （0ダメージで固定化する）ことはない。
+       【2026-07-23追記】当初は「プレイヤーが正解したら解除」だったが、教員から「攻撃成功すると
+       防御力の意味がなくなるので、上がった防御力は維持する（正解でも解除しない）。ただし必殺技
+       にはこの防御力を適用しない」という仕様変更の指示を受け、bossGrade側のリセット処理を削除。
+       必殺技（bossResolveFinisher）はもともとb.bossDefMissStreakを参照しない別関数なので、
+       「必殺技には適用しない」は追加コードなしで自然に満たされる。この変更で難易度が激変し
+       （Node.jsシミュレータで8割正解ペース：必殺技なしは勝率3.6%、必殺技ありでも64.8%、他ボスの
+       目標水準85〜90%を大きく下回る）、「通常攻撃だけでは実質勝てず、必殺技を覚えてこそ倒せる
+       ボス」という位置づけになることを教員に報告した上で、数値の弱体化はせずこのまま据え置く
+       ことを教員が了承済み（意図的な高難度ボスとして許容）。基準defPct(20)・atk(400)は他の
+       素直なrecPts5000ボスと同じベースラインのまま。 */
+  {id:"soumaa", name:"咆哮のソーマー", icon:"🦁", item:"折れたシャー芯", treasure:"奇跡の一本シャー芯", hp:67000, atk:200, defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, selfHpAtkBoost:{normalMult:1.5, lowMult:2.5, hpThreshold:0.5}},
+  {id:"kuratyan_robot", name:"ロボットに乗ったくらちゃん", icon:"🤖", item:"プラモデル", treasure:"ピストルダム", hp:40000, atk:150, defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, atkGrowthPerTurn:1.2},
+  {id:"game_n", name:"ゲーム好きのN", icon:"🎮", item:"エナドリ", treasure:"プロコン", hp:67000, atk:340, defPct:20, accuracy:180, evadePct:25, luck:45, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
+  {id:"ultra_k", name:"漫画が好きなウルトラK", icon:"📖", item:"少年コミック", treasure:"未来を予知する漫画", hp:35000, atk:400, defPct:10, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, playerAtkHalved:true},
+  {id:"walking_person", name:"ぶらぶら歩く人", icon:"🚶", item:"紅茶", treasure:"緑茶", hp:67000, atk:400, defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, defTripleOnMiss:true},
   /* 適正経験値15000の新最上位ボス（2026-07-21〜、教員の指示）。「今までで一番強いボス」という
      位置づけで、既存最上位ルオー(recPts5000)からさらに3倍の帯に置いた。個性は既存の「ステータス
      依存だが特殊反撃を持つ」型：①`atkHalvedUnlessFinisher`＝必殺技以外の通常攻撃はダメージが
@@ -3404,6 +3444,16 @@ const ITEM_EFFECTS = {
   "なおじいの涙":   {type:"atkMultBuff", mult:1.3, turns:3, label:"次の3ターン、攻撃力が1.3倍になる", icon:"💧"},
   "竹刀":           {type:"atkMultBuff", mult:1.3, turns:3, label:"次の3ターン、攻撃力が1.3倍になる", icon:"🎋"},
   "スピードスケートの靴": {type:"atkMultBuff", mult:1.3, turns:3, label:"次の3ターン、攻撃力が1.3倍になる", icon:"⛸️"},
+  /* さらに新5体（2026-07-23〜）が落とすアイテム。エナドリ（HP50回復）だけ教員が効果を指定
+     （既存のheal型をそのまま流用）。折れたシャー芯・プラモデル・紅茶は指定がなかったため、
+     上と同じ「倍率型atkMultBuff」の路線を踏襲した。少年コミックだけは教員の指示どおり全く新しい
+     効果（4択の不正解選択肢を1つ消す）で、新しいtype:"revealWrong"をuseBossItem/renderBossBattle
+     側に追加している（詳細はそちらのコメント参照）。 */
+  "折れたシャー芯": {type:"atkMultBuff", mult:1.3, turns:3, label:"次の3ターン、攻撃力が1.3倍になる", icon:"✏️"},
+  "プラモデル":     {type:"atkMultBuff", mult:1.3, turns:3, label:"次の3ターン、攻撃力が1.3倍になる", icon:"🧩"},
+  "紅茶":           {type:"atkMultBuff", mult:1.3, turns:3, label:"次の3ターン、攻撃力が1.3倍になる", icon:"🍵"},
+  "エナドリ":       {type:"heal", amount:50,                label:"HPを50回復する",                    icon:"🧃"},
+  "少年コミック":   {type:"revealWrong",                     label:"4択問題のとき、不正解の選択肢を1つ消す（記述式には効果なし）", icon:"📙"},
 };
 function randInt(min, max){ return min + Math.floor(Math.random() * (max - min + 1)); }
 
@@ -3655,6 +3705,23 @@ function useBossItem(name){
     msg = effect.turns > 1
       ? `${effect.icon} 「${name}」を使った！ 次の${effect.turns}ターン、攻撃力が${effect.mult}倍になる！`
       : `${effect.icon} 「${name}」を使った！ 次のターン、攻撃力が${effect.mult}倍になる！`;
+  }else if(effect.type === "revealWrong"){
+    /* 少年コミック専用（2026-07-23〜）。記述式（it.ansが配列）の問題には効果がなく、その旨だけ
+       伝えて選択肢には触れない。4択でも、すでに他の同種アイテムで1つ消えている場合や
+       選択肢が2つ以下の場合はこれ以上消せないので同様に不発扱いにする（b.eliminatedChoiceに
+       正解ではないoriginal indexを1つ記録し、renderBossBattle/bossAnswerChoice側で参照する）。 */
+    const it = b.item;
+    if(Array.isArray(it.ans)){
+      msg = `${effect.icon} 「${name}」を使った！ しかし、記述式の問題には効果がなかった…。`;
+    }else{
+      const wrongIdxs = it.c.map((_,i)=>i).filter(i => i !== it.a && i !== b.eliminatedChoice);
+      if(b.eliminatedChoice != null || wrongIdxs.length < 1 || it.c.length <= 2){
+        msg = `${effect.icon} 「${name}」を使った！ しかし、これ以上は選択肢を減らせなかった…。`;
+      }else{
+        b.eliminatedChoice = wrongIdxs[Math.floor(Math.random() * wrongIdxs.length)];
+        msg = `${effect.icon} 「${name}」を使った！ 不正解の選択肢が1つ消えた！`;
+      }
+    }
   }
   b.showItemPanel = false;
   b.usedItemThisTurn = true;
@@ -3820,6 +3887,7 @@ function bossNextQuestion(){
   bossBattle._preemptiveMsg = null;
   bossBattle.showItemPanel = false;
   bossBattle.usedItemThisTurn = false;
+  bossBattle.eliminatedChoice = null; // 少年コミックの効果は1問ごとにリセットする
   if(bossBattle.cats){
     const picked = pickBattleQuestionMulti(bossBattle.cats, bossBattle.lastQ);
     bossBattle.item = picked.item;
@@ -3967,7 +4035,10 @@ function renderBossBattle(){
     b.order = shuffledOrder(it.c.length);
     answerArea = `
       <div class="choices">
-        ${b.order.map((oi,pos)=>`<button class="choice" onclick="bossAnswerChoice(${oi})"><span class="choice-num">${pos+1}</span>${it.ckb ? kanbunMiniHtml(it.ckb[oi]) : esc(it.c[oi])}</button>`).join("")}
+        ${b.order.map((oi,pos)=>{
+          const eliminated = oi === b.eliminatedChoice;
+          return `<button class="choice${eliminated ? " dim" : ""}" ${eliminated ? "disabled" : ""} onclick="bossAnswerChoice(${oi})"><span class="choice-num">${pos+1}</span>${it.ckb ? kanbunMiniHtml(it.ckb[oi]) : esc(it.c[oi])}${eliminated ? "（消去済み）" : ""}</button>`;
+        }).join("")}
       </div>`;
   }
   screen.innerHTML = `
@@ -3992,6 +4063,7 @@ function renderBossBattle(){
   else{ setupChoiceKeys(pos => bossAnswerChoice(b.order[pos]), it.c.length); }
 }
 function bossAnswerChoice(origIdx){
+  if(bossBattle && origIdx === bossBattle.eliminatedChoice) return; // 少年コミックで消去済みの選択肢はキー操作でも選べない
   bossGrade(origIdx === bossBattle.item.a, origIdx, null);
 }
 function bossSubmitInput(){
@@ -4054,7 +4126,19 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
         // 必殺技以外の通常攻撃はダメージが半減するボス（無敵艦隊１年３組）。bossResolveFinisher
         // （必殺技専用の別関数）は参照していないので、この分岐は必殺技には一切影響しない。
         if(b.boss.atkHalvedUnlessFinisher) dealt = Math.max(1, Math.round(dealt * 0.5));
-        dealt = Math.max(1, Math.round(dealt * (1 - (b.boss.defPct||0) / 100)));
+        // 漫画が好きなウルトラK専用：プレイヤーの与ダメージが常に半分になる（教員の指示）
+        if(b.boss.playerAtkHalved) dealt = Math.max(1, Math.round(dealt * 0.5));
+        /* ぶらぶら歩く人専用：ミスするたびに3倍に複利で積み上がる防御力。2026-07-23、教員の指示で
+           「正解しても防御力の跳ね上がりは解除しない（上がったら維持）」に改訂した（bossGrade側で
+           b.bossDefMissStreakをリセットする行を削除済み）。必殺技（bossResolveFinisher、別関数）は
+           このb.bossDefMissStreakを一切参照しないため、素のboss.defPctのみが適用される＝この
+           跳ね上がった防御力の影響を受けない（教員の指示どおり）。通常攻撃だけでは実質的に
+           勝てなくなる（Node.jsシミュレータで8割正解ペース・必殺技なしは勝率3.6%）ほど厳しい
+           設計になるが、「必殺技を覚えてこそ倒せるボス」という位置づけとして教員が了承済み。 */
+        const effBossDefPct = b.boss.defTripleOnMiss
+          ? (b.boss.defPct||0) * Math.pow(3, b.bossDefMissStreak||0)
+          : (b.boss.defPct||0);
+        dealt = Math.max(1, Math.round(dealt * (1 - effBossDefPct / 100)));
         if(gateActive && b.bossHp - dealt <= 0){
           // 経験値ゲート・ルール①：とどめの一撃は必ず回避される（会心も含め、なかったことにする）
           evaded = true;
@@ -4075,6 +4159,7 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
     // 不正解で「連続」が途切れるので、必殺技ゲージもリセットする
     b.correctStreak = 0;
     b.finisherGauge = 0;
+    if(b.boss.defTripleOnMiss) b.bossDefMissStreak = (b.bossDefMissStreak||0) + 1;
     if(b.boss.fleeAfterMisses){
       // 人間型掃除機専用：プレイヤーが通算でこの回数まちがえると、その場で戦闘を打ち切って逃げる
       b.missCount = (b.missCount||0) + 1;
@@ -4254,6 +4339,11 @@ function bossCounterAttack(playerWasCorrect){
   const accuracy = b.boss.accuracy || 100;
   const hitChance = accuracy / (accuracy + evasionPower); // 素早さとボスの命中率の綱引き
   let taken = 0, bossCrit = false, playerEvaded = false, guarded = false;
+  /* ロボットに乗ったくらちゃん専用：命中/回避に関わらず「反撃のターンそのもの」を数えて、
+     攻撃力を複利で伸ばす（教員の指示で上限なし）。命中判定より前に消費しておくことで、
+     ミス回避・回避で不発だったターンも1ターンとしてきちんとカウントされる。 */
+  const atkGrowthTurn = b.atkGrowthTurns||0;
+  if(b.boss.atkGrowthPerTurn) b.atkGrowthTurns = atkGrowthTurn + 1;
   if(!playerWasCorrect && b.missGuard){
     // ミス回避アイテムの効果：まちがえたターンのダメージを1回だけ完全に防ぐ
     b.missGuard = false;
@@ -4262,7 +4352,14 @@ function bossCounterAttack(playerWasCorrect){
     playerEvaded = true;
   }else{
     const effDef = ps.def + (b.defBuffTurns > 0 ? b.defBuffAmount : 0);
-    const effAtk = defGateActive(effDef, st) ? (b.boss.atk||1) * DEF_GATE_ATK_MULT : (b.boss.atk||1);
+    let effAtk = defGateActive(effDef, st) ? (b.boss.atk||1) * DEF_GATE_ATK_MULT : (b.boss.atk||1);
+    if(b.boss.selfHpAtkBoost){
+      // 咆哮のソーマー専用：自分のHPが閾値を切ると攻撃力の倍率が跳ね上がる（教員の指示）
+      const cfg = b.boss.selfHpAtkBoost;
+      const hpRatio = b.bossMaxHp > 0 ? b.bossHp / b.bossMaxHp : 1;
+      effAtk *= (hpRatio < cfg.hpThreshold ? cfg.lowMult : cfg.normalMult);
+    }
+    if(b.boss.atkGrowthPerTurn) effAtk *= Math.pow(b.boss.atkGrowthPerTurn, atkGrowthTurn);
     let raw = randInt(range[0], range[1]) * effAtk;
     if(Math.random() * 100 < (b.boss.luck||0)){
       bossCrit = true;
