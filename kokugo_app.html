@@ -626,7 +626,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.47</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.48</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -807,7 +807,7 @@ function emptyStats(){
   const diffLv = {};
   CAT_KEYS.forEach(k => { cats[k] = {t:0,c:0}; lv[k] = 1; diffLv[k] = 1; });
   return {cats, q:{}, lv, diffLv, items:{}, usedTreasures:{}, usedStoryRewards:{}, bossPity:{}, bossItemPity:{}, kotonohaOtherRoll:null, bossTickets:0, totalLevelUps:0,
-    bonusExp:0, stats:{hp:0, atk:0, def:0, spd:0, luck:0}, kotonohaSeenForms:[], kotonohaDisplayOverride:null, specialMoveUnlocked:false,
+    bonusExp:0, stats:{hp:0, atk:0, def:0, spd:0, luck:0}, kotonohaSeenForms:[], kotonohaDisplayOverride:null, specialMoveUnlocked:false, storyFaceUnlocked:false,
     kanjiWrite:{totalOk:0, itemHist:{}, levelRecent:{}},
     kanjiWriteElem:{totalOk:0, itemHist:{}, targetLv:1, recent:[]},
     notLearnedCats:{},
@@ -869,6 +869,7 @@ function loadStats(){
         if(typeof st.totalLevelUps !== "number") st.totalLevelUps = 0;
         if(typeof st.bonusExp !== "number") st.bonusExp = 0;
         if(typeof st.specialMoveUnlocked !== "boolean") st.specialMoveUnlocked = false;
+        if(typeof st.storyFaceUnlocked !== "boolean") st.storyFaceUnlocked = false;
         delete st.statPoints; // 旧バージョンの保存値。今後は使わず、常に導出する
         if(!st.stats) st.stats = {hp:0, atk:0, def:0, luck:0};
         if(typeof st.stats.spd !== "number") st.stats.spd = 0;
@@ -7375,6 +7376,13 @@ function storyChapterEnd(){
     st.specialMoveUnlocked = true;
     unlockedFinisher = true;
   }
+  /* 第8章クリアで、太郎・花子のセリフに顔画像が表示されるようになる（教員の指示、2026-07-23〜）。
+     specialMoveUnlockedと同じく、一度きりの宣言にするためのフラグ（再プレイでは出さない）。 */
+  let unlockedFace = false;
+  if(sp.chapter === "ch8" && !st.storyFaceUnlocked){
+    st.storyFaceUnlocked = true;
+    unlockedFace = true;
+  }
   saveStats(st);
   const pronoun = sp.chapter === "ch1" ? STORY_PRONOUN_LABELS[sp.flags.pronoun] : null;
   const pronounNote = pronoun ? `<p class="note">✨ 一人称が、「${esc(pronoun)}」に設定されました！</p>` : "";
@@ -7389,6 +7397,9 @@ function storyChapterEnd(){
   const finisherNote = unlockedFinisher
     ? `<p class="note finisher-unlock-note">⚡必殺技システムを解放した！　通常のボス戦で５問連続正解するとゲージが満タンになり、「${esc(finisherMoveName(st))}」が使えるようになる。</p>`
     : "";
+  const faceNote = unlockedFace
+    ? `<p class="note">✨ これから、太郎や花子が話すときに、その顔が画面に表示されるようになる！</p>`
+    : "";
   screen.innerHTML = `
     <div class="card story-scene">
       <div class="story-chapter-end">📖 ${esc(STORY_CHAPTERS[sp.chapter].title)} クリア！</div>
@@ -7398,6 +7409,7 @@ function storyChapterEnd(){
       ${rateNote}
       ${perfectNote}
       ${finisherNote}
+      ${faceNote}
       <div class="btn-row" style="justify-content:center">
         <button class="btn" onclick="showHome()">ホームへ</button>
         <button class="btn secondary" onclick="storyReplayChapter()">もう一度プレイする</button>
