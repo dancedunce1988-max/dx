@@ -645,7 +645,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.56</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.57</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -821,7 +821,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 33;
+const SAVE_FORMAT_VERSION = 34;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -905,13 +905,6 @@ function loadStats(){
         CAT_KEYS.forEach(k => {
           if(typeof st.diffLv[k] !== "number") st.diffLv[k] = targetLv(k, st.lv[k]||1);
         });
-        /* 間隔反復レビュー導入前のセーブデータには3フィールドが無いので補完する（2026-07-29〜） */
-        Object.keys(st.q).forEach(k => {
-          const rec = st.q[k];
-          if(typeof rec.reviewStage !== "number") rec.reviewStage = 0;
-          if(typeof rec.pendingReview !== "boolean") rec.pendingReview = false;
-          if(rec.questionsUntilReview === undefined) rec.questionsUntilReview = null;
-        });
         if(!st.kanjiWrite) st.kanjiWrite = {totalOk:0, itemHist:{}, levelRecent:{}};
         if(!st.kanjiWrite.itemHist) st.kanjiWrite.itemHist = {};
         if(!st.kanjiWrite.levelRecent) st.kanjiWrite.levelRecent = {};
@@ -926,6 +919,16 @@ function loadStats(){
         if(!Array.isArray(st.hyakunin.recent)) st.hyakunin.recent = [];
         if(typeof st.hyakunin.totalOk !== "number") st.hyakunin.totalOk = 0;
         if(typeof st.hyakunin.targetLv !== "number") st.hyakunin.targetLv = 1;
+        /* 間隔反復レビュー導入前のセーブデータには3フィールドが無いので補完する（2026-07-29〜。
+           2026-07-30〜、対象をst.qだけでなく百人一首・小学生の漢字を復習するモードのitemHistにも拡大） */
+        [st.q, st.hyakunin.itemHist, st.kanjiWriteElem.itemHist].forEach(histMap => {
+          Object.keys(histMap).forEach(k => {
+            const rec = histMap[k];
+            if(typeof rec.reviewStage !== "number") rec.reviewStage = 0;
+            if(typeof rec.pendingReview !== "boolean") rec.pendingReview = false;
+            if(rec.questionsUntilReview === undefined) rec.questionsUntilReview = null;
+          });
+        });
         if(!st.notLearnedCats) st.notLearnedCats = {};
         if(!st.story) st.story = {chapter:"ch1", beatIdx:0, flags:{}, completedChapters:[], judgedRunCorrect:0, judgedRunTotal:0, judgedBest:{}, comboBest:{}};
         if(!st.story.flags) st.story.flags = {};
@@ -1015,7 +1018,7 @@ function record(cat, item, correct, elapsedMs, opts){
     /* 間隔反復レビューの更新は、出題目標レベル(diffLv)を持つ分野（＝適応的難度調整の対象）でのみ行う。
        野球ミニゲーム等のskipRecentAcc指定時（trackRecentAcc===false）は、通常のクイズの正答率に
        混ぜない既存方針にならい、レビュー段階も更新しない。 */
-    if(trackRecentAcc) ReviewSystem.onAnswer(st, key, correct, item.lv, curDiff);
+    if(trackRecentAcc) ReviewSystem.onAnswer(st.q, key, correct, item.lv, curDiff);
   }
   let lowAccuracy = false, fastGuess = false;
   if(trackRecentAcc){
@@ -1061,19 +1064,27 @@ function qStat(st, cat, item){ return st.q[qKey(cat, item.q)] || null; }
 /* ================= 間隔反復レビュー（difficultyとは独立） =================
    分野ごとの「出題目標レベル」による難度調整（diffLv系）とは完全に別物。こちらは問題1問ごとに
    「習熟度（reviewStage）」を管理し、正解が続けば「次に出すまでの残り問題数」を段階的に延ばし、
-   不正解なら1段階だけ戻す。st.q[key]（record()内ですでに作られている、問題ごとの正誤履歴）に
+   不正解なら1段階だけ戻す。呼び出し側が用意した「問題ごとの履歴オブジェクト」（st.q[qKey(cat,q)]・
+   st.hyakunin.itemHist[id]・st.kanjiWriteElem.itemHist[id]など、{t,c,...}を持つ任意のオブジェクト）に
    3つのフィールドを追加する形で持たせる：
      reviewStage         : 0（対象外）〜REVIEW_STAGE_MASTERED(6=定着済み)
      pendingReview        : 「今の実力より難しい問題」に初めて間違えたときだけ立つ保留フラグ
      questionsUntilReview : 次のレビューまでの残り問題数（null＝レビュー予定なし）
    出題目標レベル(diffLv)より難しい問題に初回で間違えた場合は、まだ実力不足だっただけの可能性が
    高いため、その場ではレビュー登録せずpendingReviewだけ立てる。次に遭遇したときに再び間違えたら
-   レビュー段階1で登録し、正解できればpendingReviewを解除するだけで終わる（教員の指示、2026-07-29）。 */
+   レビュー段階1で登録し、正解できればpendingReviewを解除するだけで終わる（教員の指示、2026-07-29）。
+   histMap（履歴を{key: rec}の形で持つオブジェクト）とkeyを渡すジェネリックな形にしているのは、
+   「正解で少し難しく・不正解で少し簡単に」という同じ適応的難度調整のパターンが、通常の20分野クイズ
+   （st.q）だけでなく百人一首クイズ（st.hyakunin.itemHist）・小学生の漢字を復習するモード
+   （st.kanjiWriteElem.itemHist）にも独立に実装されており、この3つ全てに同じレビューの仕組みを
+   適用する必要があったため（2026-07-30、教員から「百人一首で復習が来ない」との指摘を受けて対応）。
+   漢字の書き取り（高校入試向け、kanjiWrite）はレベルを生徒が手動選択する方式で自動難度調整
+   （diffLv相当の仕組み）自体が存在しないため、この対象には含めない。 */
 const ReviewSystem = {
-  /* 1問答えるたびに呼ぶ。st.q[key]（既にrecord()側で作成済み）のレビュー状態を更新し、
-     それ以外の「レビュー待ち」の問題は残り問題数を1減らす。 */
-  onAnswer(st, key, correct, itemLv, diffLvAtAnswer){
-    const rec = st.q[key];
+  /* 1問答えるたびに呼ぶ。histMap[key]（呼び出し側で作成済みの履歴オブジェクト）のレビュー状態を
+     更新し、それ以外の「レビュー待ち」の項目は残り問題数を1減らす。 */
+  onAnswer(histMap, key, correct, itemLv, diffLvAtAnswer){
+    const rec = histMap[key];
     if(typeof rec.reviewStage !== "number") rec.reviewStage = 0;
     if(typeof rec.pendingReview !== "boolean") rec.pendingReview = false;
     if(rec.questionsUntilReview === undefined) rec.questionsUntilReview = null;
@@ -1101,21 +1112,36 @@ const ReviewSystem = {
         rec.pendingReview = true; // 今の実力より難しい問題の初回不正解 → まだ登録しない
       }
     }
-    this._tickOthers(st, key);
+    this._tickOthers(histMap, key);
   },
-  /* 今回答えた問題(exceptKey)以外で、レビュー待ち（1〜5段階かつ残り問題数>0）のものを1問分進める */
-  _tickOthers(st, exceptKey){
-    Object.keys(st.q).forEach(k => {
+  /* 今回答えた項目(exceptKey)以外で、レビュー待ち（1〜5段階かつ残り問題数>0）のものを1問分進める */
+  _tickOthers(histMap, exceptKey){
+    Object.keys(histMap).forEach(k => {
       if(k === exceptKey) return;
-      const rec = st.q[k];
+      const rec = histMap[k];
       if(rec.reviewStage > 0 && rec.reviewStage < REVIEW_STAGE_MASTERED
         && typeof rec.questionsUntilReview === "number" && rec.questionsUntilReview > 0){
         rec.questionsUntilReview--;
       }
     });
   },
-  /* レビュー期限が到来した（questionsUntilReview<=0）問題のうち、最も待たされたものを1件返す
-     （なければnull）。excludeQは直前の問題（連続で同じ問題を出さないため）。 */
+  /* レビュー期限が到来した（questionsUntilReview<=0）項目のうち、最も待たされたキーを返す
+     （なければnull）。excludeKeyは直前に出した項目のキー（連続で同じ問題を出さないため）。
+     百人一首・小学生の漢字を復習するモードのように、項目がidだけで一意に決まる場合はこちらを使う。 */
+  getDueKey(histMap, excludeKey){
+    let bestKey = null, bestRec = null;
+    Object.keys(histMap).forEach(k => {
+      if(k === excludeKey) return;
+      const rec = histMap[k];
+      if(!rec || rec.reviewStage <= 0 || rec.reviewStage >= REVIEW_STAGE_MASTERED) return;
+      if(typeof rec.questionsUntilReview !== "number" || rec.questionsUntilReview > 0) return;
+      if(!bestRec || rec.questionsUntilReview < bestRec.questionsUntilReview){ bestRec = rec; bestKey = k; }
+    });
+    return bestKey;
+  },
+  /* 通常の20分野クイズ（st.q、キーはqKey(cat,q)）専用の薄いラッパー。excludeQには直前の問題文を
+     渡す（キーではなく問題文で比較するのは、既存の`selectOne`の「直前と同じ問題文は除く」という
+     挙動に合わせたもの）。 */
   getDueItem(st, excludeQ){
     let best = null;
     Object.keys(st.q).forEach(k => {
@@ -2633,6 +2659,7 @@ function kweRecord(it, canWrite){
   st.kanjiWriteElem.targetLv = canWrite
     ? Math.min(KWE_MAX_LV, curDiff + DIFF_LV_STEP)
     : Math.max(1, curDiff - DIFF_LV_STEP);
+  ReviewSystem.onAnswer(st.kanjiWriteElem.itemHist, it.id, canWrite, it.grade, curDiff);
   const recent = (st.kanjiWriteElem.recent || []).slice();
   recent.push(canWrite ? 1 : 0);
   while(recent.length > 100) recent.shift();
@@ -2663,7 +2690,16 @@ function startKanjiWriteElem(){
   kweNextQuestion();
 }
 function kweNextQuestion(){
-  kwe.item = kweSelectOne(kwe.lastId);
+  const st = loadStats();
+  const dueKey = ReviewSystem.getDueKey(st.kanjiWriteElem.itemHist, kwe.lastId);
+  const due = dueKey ? kweData().find(it => it.id === dueKey) : null;
+  if(due){
+    kwe.item = due;
+    kwe.isReviewDue = true;
+  }else{
+    kwe.item = kweSelectOne(kwe.lastId);
+    kwe.isReviewDue = false;
+  }
   kwe.lastId = kwe.item.id;
   kwe.revealed = false;
   kweRenderQuestion();
@@ -2686,13 +2722,16 @@ function kweRenderQuestion(){
         <button class="btn secondary" onclick="kweEndSession()">今日はここまで</button>
       </div>`;
   }
+  const st = loadStats();
+  const h = st.kanjiWriteElem.itemHist[it.id];
+  const redoMark = kwe.isReviewDue ? `<span class="redo">🔁 復習（段階${(h&&h.reviewStage)||1}）</span>` : "";
   screen.innerHTML = `
     <div class="session-bar">
       <span>${kwe.n+1}問目　｜　今回「書けた！」${kwe.okCount}問</span>
       <span class="catstat">✏️ 小学${it.grade}年生の字</span>
     </div>
     <div class="card">
-      <div class="q-category"><span>小学生の漢字を復習する</span></div>
+      <div class="q-category"><span>小学生の漢字を復習する</span>${redoMark}</div>
       <div class="kw-sentence">${markQuestionHtml(it.sentence)}</div>
       ${answerArea}
     </div>`;
@@ -2881,6 +2920,7 @@ function hyaRecord(it, correct){
   st.hyakunin.targetLv = correct
     ? Math.min(HYAKUNIN_MAX_LV, curDiff + DIFF_LV_STEP)
     : Math.max(1, curDiff - DIFF_LV_STEP);
+  ReviewSystem.onAnswer(st.hyakunin.itemHist, it.id, correct, it.lv, curDiff);
   const recent = (st.hyakunin.recent || []).slice();
   recent.push(correct ? 1 : 0);
   while(recent.length > 100) recent.shift();
@@ -2976,7 +3016,16 @@ function startHyakuninQuiz(){
   hyaNextQuestion();
 }
 function hyaNextQuestion(){
-  hya.item = hyaSelectOne(hya.lastId);
+  const st = loadStats();
+  const dueKey = ReviewSystem.getDueKey(st.hyakunin.itemHist, hya.lastId);
+  const due = dueKey ? hyaPool().find(it => it.id === dueKey) : null;
+  if(due){
+    hya.item = due;
+    hya.isReviewDue = true;
+  }else{
+    hya.item = hyaSelectOne(hya.lastId);
+    hya.isReviewDue = false;
+  }
   hya.lastId = hya.item.id;
   hya.shownAt = Date.now();
   hyaRenderQuestion();
@@ -2987,13 +3036,16 @@ function hyaRenderQuestion(){
   const choicesHtml = hya.order.map((oi,pos)=>
     `<button class="choice" onclick="hyaAnswerChoice(${oi})"><span class="choice-num">${pos+1}</span>${esc(it.c[oi])}</button>`
   ).join("");
+  const st = loadStats();
+  const h = st.hyakunin.itemHist[it.id];
+  const redoMark = hya.isReviewDue ? `<span class="redo">🔁 復習（段階${(h&&h.reviewStage)||1}）</span>` : "";
   screen.innerHTML = `
     <div class="session-bar">
       <span>${hya.n+1}問目　｜　今回の正解 ${hya.correct}問</span>
       <span class="catstat">🎴 百人一首（${esc(HYAKUNIN_QTYPE_BADGE[it.qType])}）</span>
     </div>
     <div class="card">
-      <div class="q-category"><span>百人一首クイズ</span></div>
+      <div class="q-category"><span>百人一首クイズ</span>${redoMark}</div>
       <div class="q-sub">${esc(it.instr)}</div>
       <div class="q-text">${markQuestionHtml(it.q)}</div>
       <div class="choices">${choicesHtml}</div>
