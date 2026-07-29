@@ -645,7 +645,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.55</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.56</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -665,6 +665,11 @@
 const MAX_CAT_LV = 10000;  // 分野ごとのレベル上限
 const LV_PER_STEP = 30;    // 約30レベルごとに問題の難度が1段階上がる（既存プレイヤーの出題目標レベルの初期値を決めるためだけに使う。以後はDIFF_LV_STEPで毎回上下する）
 const DIFF_LV_STEP = 0.5;  // 正解/不正解のたびに、出題目標レベルがこの分だけ上下する（適応的な難度調整）
+/* 間隔反復レビュー（2026-07-29〜）。難度調整（diffLv）とは完全に独立した、問題ごとの
+   「復習段階」を管理する仕組み。段階が1つ進むごとに、次の復習までに解くべき残り問題数
+   （questionsUntilReview）をこの表の値にリセットする。マジックナンバー化を避けるため定数にする。 */
+const REVIEW_INTERVALS = {1:5, 2:15, 3:30, 4:60, 5:100};
+const REVIEW_STAGE_MASTERED = 6; // この段階に達したら「定着済み」、以後レビュー対象から外れる
 const GROUP_ICONS = {"漢字":"✏️","語彙":"💬","文法":"🔍","古典・表現":"🎋"};
 
 /* 分野ごとの問題文（指示文）テンプレート。
@@ -816,7 +821,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 32;
+const SAVE_FORMAT_VERSION = 33;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -899,6 +904,13 @@ function loadStats(){
            （新しい仕組み導入前からのプレイヤーも、急に極端な難度から始まらないようにするため） */
         CAT_KEYS.forEach(k => {
           if(typeof st.diffLv[k] !== "number") st.diffLv[k] = targetLv(k, st.lv[k]||1);
+        });
+        /* 間隔反復レビュー導入前のセーブデータには3フィールドが無いので補完する（2026-07-29〜） */
+        Object.keys(st.q).forEach(k => {
+          const rec = st.q[k];
+          if(typeof rec.reviewStage !== "number") rec.reviewStage = 0;
+          if(typeof rec.pendingReview !== "boolean") rec.pendingReview = false;
+          if(rec.questionsUntilReview === undefined) rec.questionsUntilReview = null;
         });
         if(!st.kanjiWrite) st.kanjiWrite = {totalOk:0, itemHist:{}, levelRecent:{}};
         if(!st.kanjiWrite.itemHist) st.kanjiWrite.itemHist = {};
@@ -1000,6 +1012,10 @@ function record(cat, item, correct, elapsedMs, opts){
     st.diffLv[cat] = correct
       ? Math.min(maxLv, curDiff + DIFF_LV_STEP)
       : Math.max(1, curDiff - DIFF_LV_STEP);
+    /* 間隔反復レビューの更新は、出題目標レベル(diffLv)を持つ分野（＝適応的難度調整の対象）でのみ行う。
+       野球ミニゲーム等のskipRecentAcc指定時（trackRecentAcc===false）は、通常のクイズの正答率に
+       混ぜない既存方針にならい、レビュー段階も更新しない。 */
+    if(trackRecentAcc) ReviewSystem.onAnswer(st, key, correct, item.lv, curDiff);
   }
   let lowAccuracy = false, fastGuess = false;
   if(trackRecentAcc){
@@ -1041,6 +1057,80 @@ function record(cat, item, correct, elapsedMs, opts){
   return {lvup, evolved, lv:st.lv[cat], gotTicket, lowAccuracy: correct && lowAccuracy, fastGuess: correct && fastGuess};
 }
 function qStat(st, cat, item){ return st.q[qKey(cat, item.q)] || null; }
+
+/* ================= 間隔反復レビュー（difficultyとは独立） =================
+   分野ごとの「出題目標レベル」による難度調整（diffLv系）とは完全に別物。こちらは問題1問ごとに
+   「習熟度（reviewStage）」を管理し、正解が続けば「次に出すまでの残り問題数」を段階的に延ばし、
+   不正解なら1段階だけ戻す。st.q[key]（record()内ですでに作られている、問題ごとの正誤履歴）に
+   3つのフィールドを追加する形で持たせる：
+     reviewStage         : 0（対象外）〜REVIEW_STAGE_MASTERED(6=定着済み)
+     pendingReview        : 「今の実力より難しい問題」に初めて間違えたときだけ立つ保留フラグ
+     questionsUntilReview : 次のレビューまでの残り問題数（null＝レビュー予定なし）
+   出題目標レベル(diffLv)より難しい問題に初回で間違えた場合は、まだ実力不足だっただけの可能性が
+   高いため、その場ではレビュー登録せずpendingReviewだけ立てる。次に遭遇したときに再び間違えたら
+   レビュー段階1で登録し、正解できればpendingReviewを解除するだけで終わる（教員の指示、2026-07-29）。 */
+const ReviewSystem = {
+  /* 1問答えるたびに呼ぶ。st.q[key]（既にrecord()側で作成済み）のレビュー状態を更新し、
+     それ以外の「レビュー待ち」の問題は残り問題数を1減らす。 */
+  onAnswer(st, key, correct, itemLv, diffLvAtAnswer){
+    const rec = st.q[key];
+    if(typeof rec.reviewStage !== "number") rec.reviewStage = 0;
+    if(typeof rec.pendingReview !== "boolean") rec.pendingReview = false;
+    if(rec.questionsUntilReview === undefined) rec.questionsUntilReview = null;
+
+    if(correct){
+      if(rec.pendingReview){
+        rec.pendingReview = false; // 格上問題に2回目で正解できた → 保留解除のみ、レビュー登録なし
+      }else if(rec.reviewStage > 0 && rec.reviewStage < REVIEW_STAGE_MASTERED){
+        rec.reviewStage++;
+        rec.questionsUntilReview = rec.reviewStage < REVIEW_STAGE_MASTERED ? REVIEW_INTERVALS[rec.reviewStage] : null;
+      }
+      // reviewStage===0 && !pendingReview（初回正解）は何もしない。定着済み(6)もそのまま。
+    }else{
+      if(rec.reviewStage > 0){
+        rec.reviewStage = Math.max(1, rec.reviewStage - 1); // 完全リセットではなく1段階だけ戻す
+        rec.questionsUntilReview = REVIEW_INTERVALS[rec.reviewStage];
+      }else if(rec.pendingReview){
+        rec.pendingReview = false;
+        rec.reviewStage = 1;
+        rec.questionsUntilReview = REVIEW_INTERVALS[1];
+      }else if(itemLv <= diffLvAtAnswer){
+        rec.reviewStage = 1;
+        rec.questionsUntilReview = REVIEW_INTERVALS[1];
+      }else{
+        rec.pendingReview = true; // 今の実力より難しい問題の初回不正解 → まだ登録しない
+      }
+    }
+    this._tickOthers(st, key);
+  },
+  /* 今回答えた問題(exceptKey)以外で、レビュー待ち（1〜5段階かつ残り問題数>0）のものを1問分進める */
+  _tickOthers(st, exceptKey){
+    Object.keys(st.q).forEach(k => {
+      if(k === exceptKey) return;
+      const rec = st.q[k];
+      if(rec.reviewStage > 0 && rec.reviewStage < REVIEW_STAGE_MASTERED
+        && typeof rec.questionsUntilReview === "number" && rec.questionsUntilReview > 0){
+        rec.questionsUntilReview--;
+      }
+    });
+  },
+  /* レビュー期限が到来した（questionsUntilReview<=0）問題のうち、最も待たされたものを1件返す
+     （なければnull）。excludeQは直前の問題（連続で同じ問題を出さないため）。 */
+  getDueItem(st, excludeQ){
+    let best = null;
+    Object.keys(st.q).forEach(k => {
+      const rec = st.q[k];
+      if(rec.reviewStage <= 0 || rec.reviewStage >= REVIEW_STAGE_MASTERED) return;
+      if(typeof rec.questionsUntilReview !== "number" || rec.questionsUntilReview > 0) return;
+      if(excludeQ && rec.q === excludeQ) return;
+      if(!best || rec.questionsUntilReview < best.rec.questionsUntilReview) best = {rec, cat:rec.cat};
+    });
+    if(!best) return null;
+    const cats = CATS[best.cat];
+    const item = cats && cats.items.find(it => it.q === best.rec.q);
+    return item ? {cat:best.cat, item} : null; // 問題データ自体が更新で消えていた場合はスキップ
+  }
+};
 
 /* ================= 出題の重みづけ =================
    [履歴] 正解するたび×0.75で出づらく、間違えるたび×1.5で出やすく
@@ -2167,12 +2257,24 @@ function nextQuestion(){
     const weights = weak.map(w => reviewWeight(st, w.cat, w.it));
     const picked = pickOne(weak, weights);
     quiz.cat = picked.cat; quiz.item = picked.it;
-  }else if(quiz.mode === "balanced"){
-    quiz.cat = selectBalancedCat(loadStats());
-    quiz.item = selectOne(quiz.cat, quiz.lastQ);
+    quiz.isReviewDue = false;
   }else{
-    quiz.cat = quiz.key;
-    quiz.item = selectOne(quiz.key, quiz.lastQ);
+    /* 難度調整(diffLv)による通常出題より、間隔反復レビューの期限が来ている問題を優先する
+       （教員の指示、2026-07-29）。既存の「苦手復習」モード（quiz.mode==="review"、上のブロック）とは
+       別物で、こちらは「cat」「balanced」の通常プレイ中に自動で混ざる。 */
+    const st = loadStats();
+    const due = ReviewSystem.getDueItem(st, quiz.lastQ);
+    if(due){
+      quiz.cat = due.cat; quiz.item = due.item; quiz.isReviewDue = true;
+    }else if(quiz.mode === "balanced"){
+      quiz.cat = selectBalancedCat(st);
+      quiz.item = selectOne(quiz.cat, quiz.lastQ);
+      quiz.isReviewDue = false;
+    }else{
+      quiz.cat = quiz.key;
+      quiz.item = selectOne(quiz.key, quiz.lastQ);
+      quiz.isReviewDue = false;
+    }
   }
   quiz.lastQ = quiz.item.q;
   renderQuestion();
@@ -2182,7 +2284,8 @@ function renderQuestion(){
   const it = quiz.item, cat = quiz.cat;
   const st = loadStats();
   const s = qStat(st, cat, it);
-  const redoMark = (s && s.t > 0 && s.c < s.t) ? `<span class="redo">↻ 前に間違えた問題</span>` : "";
+  const redoMark = quiz.isReviewDue ? `<span class="redo">🔁 復習（段階${(s&&s.reviewStage)||1}）</span>`
+    : (s && s.t > 0 && s.c < s.t) ? `<span class="redo">↻ 前に間違えた問題</span>` : "";
   const label = quiz.mode === "review" ? `苦手復習（${CATS[cat].name}）`
     : quiz.mode === "balanced" ? `バランスよく鍛える（${CATS[cat].name}）`
     : CATS[cat].name;
