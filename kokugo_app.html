@@ -207,6 +207,19 @@
   .kw-lv-badge{
     text-align:center; font-weight:bold; color:var(--accent2); margin-bottom:14px; font-size:1.05rem;
   }
+  /* 百人一首・一覧モードのカード（かるた風に、番号＋歌をひとまとまりで見せる） */
+  .hyakunin-card{padding:14px 16px;}
+  .hyakunin-head{display:flex; align-items:center; gap:12px; cursor:pointer;}
+  .hyakunin-no{
+    flex-shrink:0; width:34px; height:34px; border-radius:50%; background:var(--accent);
+    color:#fff; font-weight:bold; font-size:.85rem; display:flex; align-items:center; justify-content:center;
+  }
+  .hyakunin-poem-inline{flex:1; font-size:.95rem; line-height:1.6;}
+  .hyakunin-shimo{color:var(--sub);}
+  .hyakunin-toggle{flex-shrink:0; color:var(--sub); font-size:.8rem;}
+  .hyakunin-detail{margin-top:14px; padding-top:14px; border-top:1px dashed var(--line); font-size:.9rem; line-height:1.85;}
+  .hyakunin-detail-row b{color:var(--accent2);}
+  .hyakunin-authorinfo, .hyakunin-techdetail{color:var(--sub); font-size:.85rem;}
   .note{font-size:.78rem; color:var(--sub); margin-top:10px;}
   h3.section{font-size:1rem; margin:18px 0 10px; padding-left:10px; border-left:4px solid var(--accent);}
   h3.section:first-child{margin-top:0;}
@@ -626,7 +639,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.51</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.52</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -638,6 +651,7 @@
 <script src="kokugo_data.js"></script>
 <script src="kanji_write_data.js"></script>
 <script src="kanji_write_elem_data.js"></script>
+<script src="hyakunin_isshu_data.js"></script>
 <script>
 "use strict";
 
@@ -810,6 +824,7 @@ function emptyStats(){
     bonusExp:0, stats:{hp:0, atk:0, def:0, spd:0, luck:0}, kotonohaSeenForms:[], kotonohaDisplayOverride:null, specialMoveUnlocked:false, storyFaceUnlocked:false,
     kanjiWrite:{totalOk:0, itemHist:{}, levelRecent:{}},
     kanjiWriteElem:{totalOk:0, itemHist:{}, targetLv:1, recent:[]},
+    hyakunin:{totalOk:0, itemHist:{}, targetLv:1, recent:[]},
     notLearnedCats:{},
     story:{chapter:"ch1", beatIdx:0, flags:{}, completedChapters:[], judgedRunCorrect:0, judgedRunTotal:0, judgedBest:{}, comboBest:{}}};
 }
@@ -888,6 +903,11 @@ function loadStats(){
         if(!Array.isArray(st.kanjiWriteElem.recent)) st.kanjiWriteElem.recent = [];
         if(typeof st.kanjiWriteElem.totalOk !== "number") st.kanjiWriteElem.totalOk = 0;
         if(typeof st.kanjiWriteElem.targetLv !== "number") st.kanjiWriteElem.targetLv = 1;
+        if(!st.hyakunin) st.hyakunin = {totalOk:0, itemHist:{}, targetLv:1, recent:[]};
+        if(!st.hyakunin.itemHist) st.hyakunin.itemHist = {};
+        if(!Array.isArray(st.hyakunin.recent)) st.hyakunin.recent = [];
+        if(typeof st.hyakunin.totalOk !== "number") st.hyakunin.totalOk = 0;
+        if(typeof st.hyakunin.targetLv !== "number") st.hyakunin.targetLv = 1;
         if(!st.notLearnedCats) st.notLearnedCats = {};
         if(!st.story) st.story = {chapter:"ch1", beatIdx:0, flags:{}, completedChapters:[], judgedRunCorrect:0, judgedRunTotal:0, judgedBest:{}, comboBest:{}};
         if(!st.story.flags) st.story.flags = {};
@@ -1826,6 +1846,11 @@ function showHome(){
       <div><h2>小学生の漢字を復習する</h2><p>小学校で習う漢字1026字を全学年まとめて書き取り形式で復習（経験値には影響しません）</p></div>
       <div class="right"><span class="shogo-badge">✏️ Lv.${kweLv(st)}</span></div>
     </div>
+    <div class="card menu-card" onclick="showHyakuninMenu()">
+      <div class="menu-icon">🎴</div>
+      <div><h2>百人一首</h2><p>100首の意味・技法・作者・出典を一覧で学び、クイズにも挑戦（経験値には影響しません）</p></div>
+      <div class="right"><span class="shogo-badge">🎴 Lv.${hyaLv(st)}</span></div>
+    </div>
     <div class="card menu-card" onclick="showStats()">
       <div class="menu-icon">📊</div>
       <div><h2>成績・称号</h2><p>分野ごとのレベル・正答率・よく間違える問題</p></div>
@@ -2590,6 +2615,293 @@ function kweEndSession(){
       <div class="btn-row">
         <button class="btn" onclick="window._retry()">つづける</button>
         <button class="btn secondary" onclick="showKanjiWriteElemMenu()">メニューへ</button>
+        <button class="btn secondary" onclick="showHome()">ホームへ</button>
+      </div>
+    </div>`;
+}
+
+/* ================= 百人一首 =================
+   HYAKUNIN_ISSHU_DATA（小倉百人一首100首の構造化データ、hyakunin_isshu_data.js）を
+   唯一の情報源として、①一覧モード（100首をカードでめくって読める）と
+   ②クイズモード（自動採点の四択）を提供する。
+   kanji_write/kanji_write_elemと同様、独立した自己完結モードとして実装しており、
+   経験値・分野レベル・「ことのは」の進化・ボス戦・二人対戦には一切影響しない
+   （st.cats・st.lv・st.diffLv・kotonohaには一切触れない）。ただしkanji_write系の
+   自己評価制とは異なり、正誤は自動採点で判定する（選んだ選択肢と正解indexの一致で判定）。
+   クイズ問題は1問ずつ手作業で用意するのではなく、100首の構造化データから複数の出題形式
+   （上の句→下の句・下の句→上の句・作者・意味・出典・表現技法）を自動生成する。
+   こうすることで、100首のデータさえ正確なら出題内容も自動的に正確になり、
+   生データとクイズデータを別々に二重管理するリスクを避けられる。 */
+function hiData(){ return window.HYAKUNIN_ISSHU_DATA || []; }
+const HYAKUNIN_THEMES = ["春","夏","秋","冬","恋","その他"];
+const HYAKUNIN_MAX_LV = 3;
+const HYAKUNIN_QTYPE_LV = {kami2shimo:1, author:1, meaning:2, shimo2kami:2, source:3, technique:3};
+const HYAKUNIN_QTYPE_INSTR = {
+  kami2shimo: "次の上の句に続く、正しい下の句を選んでください。",
+  shimo2kami: "次の下の句につながる、正しい上の句を選んでください。",
+  author:     "次の歌の作者として正しいものを選んでください。",
+  meaning:    "次の歌の意味として正しいものを選んでください。",
+  source:     "次の歌の出典（のっている歌集）として正しいものを選んでください。",
+  technique:  "この歌に使われている表現技法として、最もあてはまるものを選んでください。",
+};
+const HYAKUNIN_QTYPE_BADGE = {
+  kami2shimo:"上の句→下の句", shimo2kami:"下の句→上の句", author:"作者",
+  meaning:"歌の意味", source:"出典", technique:"表現技法",
+};
+function hyaFullPoem(p){ return p.kaminoku + "　" + p.shimonoku; }
+function hyaExplain(p){ return `${p.no}番　${hyaFullPoem(p)}（${p.author}）\n${p.meaning}`; }
+/* poolの中からcorrect以外をn個、重複なくランダムに選ぶ。足りなければnullを返す（出題を作らない） */
+function hyaDistractors(pool, correct, n){
+  const cand = [];
+  const seen = new Set([correct]);
+  const order = shuffledOrder(pool.length);
+  for(const i of order){
+    const v = pool[i];
+    if(seen.has(v)) continue;
+    seen.add(v); cand.push(v);
+    if(cand.length >= n) break;
+  }
+  return cand.length >= n ? cand : null;
+}
+let _hyakuninPool = null;
+/* 出題プールは初回アクセス時に1度だけ構築してキャッシュする（100首は固定データなので、
+   セッション中に変わることはない。qKey相当の識別子は「歌番号+出題形式」で固定なので、
+   選択肢の並びや誤答の組み合わせが毎回変わっても、正誤履歴（itemHist）は正しく積み上がる）。 */
+function hyaPool(){
+  if(_hyakuninPool) return _hyakuninPool;
+  const poems = hiData();
+  const items = [];
+  if(poems.length >= 5){
+    const allShimo = poems.map(p=>p.shimonoku);
+    const allKami = poems.map(p=>p.kaminoku);
+    const allAuthors = [...new Set(poems.map(p=>p.author))];
+    const allMeanings = poems.map(p=>p.meaning);
+    const allSources = [...new Set(poems.map(p=>p.source))];
+    const allTechniques = [...new Set(poems.flatMap(p=>p.technique||[]))];
+    poems.forEach(p=>{
+      const push = (qType, q, correct, pool) => {
+        const ds = hyaDistractors(pool, correct, 3);
+        if(!ds) return;
+        const order = shuffledOrder(4);
+        const opts = [correct, ...ds];
+        const c = order.map(i => opts[i]);
+        items.push({
+          id: p.no + "_" + qType, qType, poemNo:p.no, lv:HYAKUNIN_QTYPE_LV[qType],
+          instr:HYAKUNIN_QTYPE_INSTR[qType], q, c, a:c.indexOf(correct), e:hyaExplain(p),
+        });
+      };
+      push("kami2shimo", p.kaminoku, p.shimonoku, allShimo);
+      push("shimo2kami", p.shimonoku, p.kaminoku, allKami);
+      push("author", hyaFullPoem(p), p.author, allAuthors);
+      push("meaning", hyaFullPoem(p), p.meaning, allMeanings);
+      push("source", hyaFullPoem(p), p.source, allSources);
+      /* 技法の誤答選択肢は、その歌が実際に持つ技法（p.technique）を全て除いたプールから選ぶ。
+         「枕詞・掛詞・体言止め」のように1首に複数の技法がある歌で、正解にしなかった側の技法
+         （例：掛詞）を誤答として出してしまうと、実は誤答も「合っている」ことになり
+         正解が一意に定まらなくなるため（[[kokugo-drill-dx-workflow]]のkobun/hinshiの教訓と同種）。 */
+      const techPoolForThisPoem = allTechniques.filter(t => !(p.technique||[]).includes(t));
+      if((p.technique||[]).length > 0 && techPoolForThisPoem.length >= 3){
+        push("technique", hyaFullPoem(p), p.technique[0], techPoolForThisPoem);
+      }
+    });
+  }
+  _hyakuninPool = items;
+  return items;
+}
+function hyaHistoryWeight(st, it){
+  const h = st.hyakunin.itemHist[it.id];
+  if(!h || h.t === 0) return 1.2;
+  const wrong = h.t - h.c;
+  const w = Math.pow(0.75, h.c) * Math.pow(1.5, wrong);
+  return Math.max(0.05, Math.min(8, w));
+}
+function hyaDifficultyWeight(it, diffLv){
+  return Math.exp(-1.2 * Math.abs(it.lv - diffLv));
+}
+function hyaSelectOne(lastId){
+  const st = loadStats();
+  let pool = hyaPool();
+  if(pool.length > 1 && lastId) pool = pool.filter(it => it.id !== lastId);
+  const isConfirmCheck = Math.random() < CONFIRM_CHECK_RATE;
+  const diffLv = typeof st.hyakunin.targetLv === "number" ? st.hyakunin.targetLv : 1;
+  const weights = pool.map(it => hyaHistoryWeight(st, it) * (isConfirmCheck ? 1 : hyaDifficultyWeight(it, diffLv)));
+  return pickOne(pool, weights);
+}
+function hyaAccuracy(st){
+  const recent = st.hyakunin.recent || [];
+  if(recent.length === 0) return null;
+  return Math.round(100 * recent.reduce((a,b)=>a+b, 0) / recent.length);
+}
+function hyaLv(st){ return 1 + (st.hyakunin.totalOk || 0); }
+function hyaLvLabel(diffLv){
+  const g = Math.round(Math.max(1, Math.min(HYAKUNIN_MAX_LV, diffLv)));
+  return ["かるた入門（上の句・作者）", "中級（下の句・意味）", "上級（出典・表現技法）"][g-1];
+}
+/* 自動採点だが、record()は呼ばずst.hyakunin専用の記録だけを行う（経験値等には一切触れない） */
+function hyaRecord(it, correct){
+  const st = loadStats();
+  const h = st.hyakunin.itemHist[it.id] || {t:0, c:0};
+  h.t++; if(correct) h.c++;
+  st.hyakunin.itemHist[it.id] = h;
+  if(correct) st.hyakunin.totalOk = (st.hyakunin.totalOk||0) + 1;
+  const curDiff = typeof st.hyakunin.targetLv === "number" ? st.hyakunin.targetLv : 1;
+  st.hyakunin.targetLv = correct
+    ? Math.min(HYAKUNIN_MAX_LV, curDiff + DIFF_LV_STEP)
+    : Math.max(1, curDiff - DIFF_LV_STEP);
+  const recent = (st.hyakunin.recent || []).slice();
+  recent.push(correct ? 1 : 0);
+  while(recent.length > 100) recent.shift();
+  st.hyakunin.recent = recent;
+  saveStats(st);
+  return {lv: hyaLv(st), acc: hyaAccuracy(st), diffLv: st.hyakunin.targetLv};
+}
+
+/* ---- 画面：メニュー ---- */
+function showHyakuninMenu(){
+  const st = loadStats();
+  const acc = hyaAccuracy(st);
+  const accHtml = acc === null ? "（まだ記録なし）" : `直近100問の正答率　${acc}%`;
+  const html = `
+    <h3 class="section">🎴 百人一首</h3>
+    <p class="note">小倉百人一首100首を、意味・表現技法・作者・出典まで楽しく学べるコーナーです。「一覧モード」でじっくり読んで、「クイズモード」で力だめししましょう。経験値や「ことのは」の成長には影響しません。</p>
+    <div class="card menu-card" onclick="showHyakuninList()">
+      <div class="menu-icon">📖</div>
+      <div><h2>一覧モード</h2><p>100首すべての歌・現代語訳・表現技法・作者・出典をカードでめくって読める</p></div>
+    </div>
+    <div class="card menu-card" onclick="startHyakuninQuiz()">
+      <div class="menu-icon">🎯</div>
+      <div><h2>クイズモード</h2><p>上の句→下の句・作者・意味・出典・表現技法などを四択で出題</p></div>
+      <div class="right"><span class="shogo-badge">🎴 Lv.${hyaLv(st)}</span></div>
+    </div>
+    <p class="note">${esc(accHtml)}</p>
+    <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
+  screen.innerHTML = html;
+}
+
+/* ---- 画面：一覧モード ---- */
+function showHyakuninList(filterTheme){
+  const poems = hiData().slice().sort((a,b)=>a.no-b.no);
+  const filtered = filterTheme ? poems.filter(p => p.theme === filterTheme) : poems;
+  let html = `<h3 class="section">📖 百人一首　一覧（${filtered.length}／${poems.length}首）</h3>
+    <p class="note">カードをタップすると、現代語訳・表現技法・作者・出典が開きます。</p>
+    <div class="genre-pick-grid">
+      <button class="genre-pick-chip ${!filterTheme?'on':''}" onclick="showHyakuninList()">すべて</button>
+      ${HYAKUNIN_THEMES.map(t=>`<button class="genre-pick-chip ${filterTheme===t?'on':''}" onclick="showHyakuninList('${t}')">${esc(t)}</button>`).join("")}
+    </div>`;
+  if(filtered.length === 0){
+    html += `<div class="card"><p class="note">${poems.length===0 ? "問題データを準備中です。" : "この分類の歌はありません。"}</p></div>`;
+  }
+  filtered.forEach(p=>{
+    html += `
+    <div class="card hyakunin-card">
+      <div class="hyakunin-head" onclick="toggleHyakuninDetail(${p.no})">
+        <span class="hyakunin-no">${p.no}</span>
+        <div class="hyakunin-poem-inline">
+          <div class="hyakunin-kami">${esc(p.kaminoku)}</div>
+          <div class="hyakunin-shimo">${esc(p.shimonoku)}</div>
+        </div>
+        <span class="hyakunin-toggle" id="hyt-${p.no}">▼</span>
+      </div>
+      <div class="hyakunin-detail" id="hyd-${p.no}" style="display:none">
+        <div class="hyakunin-detail-row"><b>読み：</b>${esc(p.kana)}</div>
+        <div class="hyakunin-detail-row"><b>作者：</b>${esc(p.author)}${p.authorKana?`（${esc(p.authorKana)}）`:""}</div>
+        ${p.authorInfo ? `<div class="hyakunin-detail-row hyakunin-authorinfo">${esc(p.authorInfo)}</div>` : ""}
+        <div class="hyakunin-detail-row"><b>意味：</b>${esc(p.meaning)}</div>
+        ${(p.technique && p.technique.length) ? `<div class="hyakunin-detail-row"><b>表現技法：</b>${p.technique.map(t=>`<span class="tag">${esc(t)}</span>`).join("")}</div>` : ""}
+        ${p.techniqueDetail ? `<div class="hyakunin-detail-row hyakunin-techdetail">${esc(p.techniqueDetail)}</div>` : ""}
+        <div class="hyakunin-detail-row"><b>出典：</b>${esc(p.source)}</div>
+      </div>
+    </div>`;
+  });
+  html += `<div class="btn-row"><button class="btn secondary" onclick="showHyakuninMenu()">百人一首メニューへ</button></div>`;
+  screen.innerHTML = html;
+}
+function toggleHyakuninDetail(no){
+  const d = document.getElementById("hyd-"+no);
+  const t = document.getElementById("hyt-"+no);
+  if(!d) return;
+  const open = d.style.display !== "none";
+  d.style.display = open ? "none" : "block";
+  if(t) t.textContent = open ? "▼" : "▲";
+}
+
+/* ---- 画面：クイズモード ---- */
+let hya = null;
+function startHyakuninQuiz(){
+  if(hyaPool().length === 0){
+    screen.innerHTML = `
+      <div class="card">
+        <h3 class="section">クイズを準備中です</h3>
+        <p class="note">問題データを追加中です。しばらくお待ちください。</p>
+        <div class="btn-row"><button class="btn secondary" onclick="showHyakuninMenu()">戻る</button></div>
+      </div>`;
+    return;
+  }
+  hya = {n:0, correct:0, lastId:null, item:null, order:null};
+  hyaNextQuestion();
+}
+function hyaNextQuestion(){
+  hya.item = hyaSelectOne(hya.lastId);
+  hya.lastId = hya.item.id;
+  hya.shownAt = Date.now();
+  hyaRenderQuestion();
+}
+function hyaRenderQuestion(){
+  const it = hya.item;
+  hya.order = shuffledOrder(it.c.length);
+  const choicesHtml = hya.order.map((oi,pos)=>
+    `<button class="choice" onclick="hyaAnswerChoice(${oi})"><span class="choice-num">${pos+1}</span>${esc(it.c[oi])}</button>`
+  ).join("");
+  screen.innerHTML = `
+    <div class="session-bar">
+      <span>${hya.n+1}問目　｜　今回の正解 ${hya.correct}問</span>
+      <span class="catstat">🎴 百人一首（${esc(HYAKUNIN_QTYPE_BADGE[it.qType])}）</span>
+    </div>
+    <div class="card">
+      <div class="q-category"><span>百人一首クイズ</span></div>
+      <div class="q-sub">${esc(it.instr)}</div>
+      <div class="q-text">${markQuestionHtml(it.q)}</div>
+      <div class="choices">${choicesHtml}</div>
+      <div class="feedback" id="hyaFb"></div>
+      <div class="btn-row">
+        <button class="btn tap-advance-btn" id="hyaNextBtn" style="display:none" onclick="hyaNextQuestion()">次へ</button>
+        <button class="btn secondary" id="hyaQuitBtn" style="display:none" onclick="hyaEndSession()">今日はここまで</button>
+      </div>
+    </div>`;
+}
+function hyaAnswerChoice(origIdx){
+  const it = hya.item;
+  const ok = origIdx === it.a;
+  hya.n++;
+  if(ok) hya.correct++;
+  const r = hyaRecord(it, ok);
+  const btns = screen.querySelectorAll(".choice");
+  btns.forEach((b,pos)=>{
+    const oi = hya.order[pos];
+    b.disabled = true;
+    if(oi===it.a) b.classList.add("correct");
+    else if(oi===origIdx) b.classList.add("wrong");
+    else b.classList.add("dim");
+  });
+  const fb = document.getElementById("hyaFb");
+  fb.className = "feedback show " + (ok?"ok":"ng");
+  fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}</div>${esc(it.e).replace(/\n/g,"<br>")}
+    <div class="note">百人一首レベル Lv.${r.lv}　｜　今のめやす：${esc(hyaLvLabel(r.diffLv))}</div>`;
+  document.getElementById("hyaNextBtn").style.display = "inline-block";
+  document.getElementById("hyaQuitBtn").style.display = "inline-block";
+  document.getElementById("hyaNextBtn").focus();
+}
+function hyaEndSession(){
+  const h = hya;
+  window._retry = () => startHyakuninQuiz();
+  screen.innerHTML = `
+    <div class="card">
+      <h3 class="section">今回の記録</h3>
+      <div class="result-score">${h.correct} <span style="font-size:1.2rem;color:var(--sub)">/ ${h.n}問 正解</span></div>
+      <p class="result-msg">百人一首クイズ、おつかれさま！</p>
+      <div class="btn-row">
+        <button class="btn" onclick="window._retry()">つづける</button>
+        <button class="btn secondary" onclick="showHyakuninMenu()">百人一首メニューへ</button>
         <button class="btn secondary" onclick="showHome()">ホームへ</button>
       </div>
     </div>`;
