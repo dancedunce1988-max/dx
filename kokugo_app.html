@@ -220,6 +220,11 @@
   .hyakunin-detail{margin-top:14px; padding-top:14px; border-top:1px dashed var(--line); font-size:.9rem; line-height:1.85;}
   .hyakunin-detail-row b{color:var(--accent2);}
   .hyakunin-authorinfo, .hyakunin-techdetail{color:var(--sub); font-size:.85rem;}
+  .hyakunin-highlight{
+    margin-top:8px; background:var(--bg); border-left:4px solid var(--gold);
+    border-radius:0 8px 8px 0; padding:10px 12px; font-size:.85rem;
+  }
+  .hyakunin-highlight b{display:block; color:var(--gold); margin-bottom:2px;}
   .note{font-size:.78rem; color:var(--sub); margin-top:10px;}
   h3.section{font-size:1rem; margin:18px 0 10px; padding-left:10px; border-left:4px solid var(--accent);}
   h3.section:first-child{margin-top:0;}
@@ -639,7 +644,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.53</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.54</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -2648,8 +2653,24 @@ const HYAKUNIN_QTYPE_BADGE = {
   kami2shimo:"上の句→下の句", shimo2kami:"下の句→上の句", author:"作者",
   meaning:"歌の意味", source:"出典", technique:"表現技法",
 };
+/* 表現技法名の読み方（一覧モードのタグ表示用）。技法名そのもの（p.technique配列の値）は
+   クイズの正誤判定にそのまま文字列比較で使われるため、ふりがなを混ぜて表記を変えてはいけない。
+   表示のときだけ、このテーブルを見て「掛詞（かけことば）」のように読みを添える。 */
+const HYAKUNIN_TECHNIQUE_READING = {
+  "枕詞":"まくらことば", "掛詞":"かけことば", "序詞":"じょことば", "体言止め":"たいげんどめ",
+  "擬人法":"ぎじんほう", "対句":"ついく", "倒置法":"とうちほう", "縁語":"えんご",
+  "係り結び":"かかりむすび", "比喩":"ひゆ", "本歌取り":"ほんかどり",
+};
+function hyaTechniqueTagHtml(t){
+  const r = HYAKUNIN_TECHNIQUE_READING[t];
+  return `<span class="tag">${esc(t)}${r?`（${esc(r)}）`:""}</span>`;
+}
 function hyaFullPoem(p){ return p.kaminoku + "　" + p.shimonoku; }
-function hyaExplain(p){ return `${p.no}番　${hyaFullPoem(p)}（${p.author}）\n${p.meaning}`; }
+function hyaExplain(p){
+  const authorLine = p.author + (p.authorKana?`（${p.authorKana}）`:"") + (p.authorGender?`・${p.authorGender}`:"");
+  const sourceLine = p.source + (p.sourceYear?`（${p.sourceYear}）`:"");
+  return `${p.no}番　${hyaFullPoem(p)}\n作者：${authorLine}　｜　出典：${sourceLine}\n${p.meaning}`;
+}
 /* poolの中からcorrect以外をn個、重複なくランダムに選ぶ。足りなければnullを返す（出題を作らない） */
 function hyaDistractors(pool, correct, n){
   const cand = [];
@@ -2804,12 +2825,13 @@ function showHyakuninList(filterTheme){
       </div>
       <div class="hyakunin-detail" id="hyd-${p.no}" style="display:none">
         <div class="hyakunin-detail-row"><b>読み：</b>${esc(p.kana)}</div>
-        <div class="hyakunin-detail-row"><b>作者：</b>${esc(p.author)}${p.authorKana?`（${esc(p.authorKana)}）`:""}</div>
+        <div class="hyakunin-detail-row"><b>作者：</b>${esc(p.author)}${p.authorKana?`（${esc(p.authorKana)}）`:""}${p.authorGender?`　｜　${esc(p.authorGender)}`:""}</div>
         ${p.authorInfo ? `<div class="hyakunin-detail-row hyakunin-authorinfo">${esc(p.authorInfo)}</div>` : ""}
+        <div class="hyakunin-detail-row"><b>出典：</b>${esc(p.source)}${p.sourceYear?`（${esc(p.sourceYear)}）`:""}</div>
         <div class="hyakunin-detail-row"><b>意味：</b>${esc(p.meaning)}</div>
-        ${(p.technique && p.technique.length) ? `<div class="hyakunin-detail-row"><b>表現技法：</b>${p.technique.map(t=>`<span class="tag">${esc(t)}</span>`).join("")}</div>` : ""}
+        ${(p.technique && p.technique.length) ? `<div class="hyakunin-detail-row"><b>表現技法：</b>${p.technique.map(t=>hyaTechniqueTagHtml(t)).join("")}</div>` : ""}
         ${p.techniqueDetail ? `<div class="hyakunin-detail-row hyakunin-techdetail">${esc(p.techniqueDetail)}</div>` : ""}
-        <div class="hyakunin-detail-row"><b>出典：</b>${esc(p.source)}</div>
+        ${p.highlight ? `<div class="hyakunin-detail-row hyakunin-highlight"><b>この歌が評価されているところ：</b>${esc(p.highlight)}</div>` : ""}
       </div>
     </div>`;
   });
