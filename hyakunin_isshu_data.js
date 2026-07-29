@@ -31,7 +31,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "後撰和歌集",
     "theme": "秋",
     "sourceYear": "951年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "秋の田の　かりほの庵の　苫をあらみ",
+    "shimonokuMarked": "わが衣手は　露にぬれつつ"
   },
   {
     "no": 2,
@@ -51,7 +53,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "新古今和歌集",
     "theme": "夏",
     "sourceYear": "1205年成立",
-    "authorGender": "女性"
+    "authorGender": "女性",
+    "kaminokuMarked": "春すぎて　夏来にけらし　《白妙の》",
+    "shimonokuMarked": "《衣》干すてふ　《天の香具山》"
   },
   {
     "no": 3,
@@ -71,7 +75,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "拾遺和歌集",
     "theme": "恋",
     "sourceYear": "1005年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "足曳きの　《山》鳥の尾の　しだり尾の",
+    "shimonokuMarked": "《ながながし》夜を　ひとりかも寝む"
   },
   {
     "no": 4,
@@ -90,7 +96,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "新古今和歌集",
     "theme": "冬",
     "sourceYear": "1205年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "田子の浦に　うち出でてみれば　《白妙の》",
+    "shimonokuMarked": "富士の高嶺に　雪は降りつつ"
   },
   {
     "no": 5,
@@ -107,7 +115,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "古今和歌集",
     "theme": "秋",
     "sourceYear": "905年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "奥山に　紅葉踏み分け　鳴く鹿の",
+    "shimonokuMarked": "聲きく時ぞ　秋はかなしき"
   },
   {
     "no": 6,
@@ -126,7 +136,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "新古今和歌集",
     "theme": "冬",
     "sourceYear": "1205年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "鵲の　渡せる橋に　おく霜の",
+    "shimonokuMarked": "白きを見れば　《夜ぞ更けにける》"
   },
   {
     "no": 7,
@@ -143,12 +155,14 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "古今和歌集",
     "theme": "その他",
     "sourceYear": "905年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "天の原　ふりさけ見れば　春日なる",
+    "shimonokuMarked": "三笠の山に　出でし月かも"
   },
   {
     "no": 8,
     "kaminoku": "わが庵は　都のたつみ　しかぞ住む",
-    "shimonoku": "世をぢ山と　人はいふなり",
+    "shimonoku": "世をうぢ山と　人はいふなり",
     "kana": "わがいほは　みやこのたつみ　しかぞすむ　よをうぢやまと　ひとはいふなり",
     "author": "喜撰法師",
     "authorKana": "きせんほうし",
@@ -162,7 +176,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "古今和歌集",
     "theme": "その他",
     "sourceYear": "905年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "わが庵は　都のたつみ　しかぞ住む",
+    "shimonokuMarked": "世を《うぢ山》と　人はいふなり"
   },
   {
     "no": 9,
@@ -182,7 +198,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "古今和歌集",
     "theme": "春",
     "sourceYear": "905年ごろ成立",
-    "authorGender": "女性"
+    "authorGender": "女性",
+    "kaminokuMarked": "花の色は　移りにけりな　いたづらに",
+    "shimonokuMarked": "わが身世に《ふる》　《ながめ》せしまに"
   },
   {
     "no": 10,
@@ -203,7 +221,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "後撰和歌集",
     "theme": "その他",
     "sourceYear": "951年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "是れやこの　行くもかへるも　別れては",
+    "shimonokuMarked": "知るもしらぬも　《逢坂の関》"
   },
   {
     "no": 11,
@@ -223,7 +243,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "古今和歌集",
     "theme": "その他",
     "sourceYear": "905年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "わたの原　八十島かけて　漕き出でぬと",
+    "shimonokuMarked": "人には告げよ　《あまの釣船》"
   },
   {
     "no": 12,
@@ -240,7 +262,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "古今和歌集",
     "theme": "その他",
     "sourceYear": "905年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "天津風　雲の通路　ふきとぢよ",
+    "shimonokuMarked": "をとめの姿　しばしとどめむ"
   },
   {
     "no": 13,
@@ -260,7 +284,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "後撰和歌集",
     "theme": "恋",
     "sourceYear": "951年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "筑波嶺の　みねより落つる　みなの川",
+    "shimonokuMarked": "《恋ぞつもりて》　淵となり《ぬる》"
   },
   {
     "no": 14,
@@ -280,7 +306,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "古今和歌集",
     "theme": "恋",
     "sourceYear": "905年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "陸奥の　しのぶもぢずり　誰故に",
+    "shimonokuMarked": "《乱れそめにし》　われならなくに"
   },
   {
     "no": 15,
@@ -297,7 +325,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "古今和歌集",
     "theme": "春",
     "sourceYear": "905年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "君がため　はるの野に出でて　若菜つむ",
+    "shimonokuMarked": "わが衣手に　雪はふりつつ"
   },
   {
     "no": 16,
@@ -316,7 +346,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "古今和歌集",
     "theme": "その他",
     "sourceYear": "905年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "立別れ　《いなば》の山の　峰に生ふる",
+    "shimonokuMarked": "《まつ》としきかば　今かへりこむ"
   },
   {
     "no": 17,
@@ -336,7 +368,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "古今和歌集",
     "theme": "秋",
     "sourceYear": "905年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "《ちはやぶる》　《神》代もきかず　竜田川",
+    "shimonokuMarked": "からくれなゐに　水くくるとは"
   },
   {
     "no": 18,
@@ -356,7 +390,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "古今和歌集",
     "theme": "恋",
     "sourceYear": "905年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "住の江の　岸に《寄る》波　《よる》さへや",
+    "shimonokuMarked": "夢の通ひ路　人めよくらむ"
   },
   {
     "no": 19,
@@ -377,7 +413,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "新古今和歌集",
     "theme": "恋",
     "sourceYear": "1205年成立",
-    "authorGender": "女性"
+    "authorGender": "女性",
+    "kaminokuMarked": "難波がた　短き蘆の　《ふしの間》も",
+    "shimonokuMarked": "《逢はで》この《世》を　すぐして《よ》とや"
   },
   {
     "no": 20,
@@ -396,7 +434,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "後撰和歌集",
     "theme": "恋",
     "sourceYear": "951年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "佗ぬれば　今はたおなじ　なにはなる",
+    "shimonokuMarked": "《みをつくし》ても　あはむとぞ思ふ"
   },
   {
     "no": 21,
@@ -413,7 +453,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "古今和歌集",
     "theme": "恋",
     "sourceYear": "905年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "今来むと　いひしばかりに　長月の",
+    "shimonokuMarked": "有明の月を　待ち出でつるかな"
   },
   {
     "no": 22,
@@ -432,7 +474,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "古今和歌集",
     "theme": "秋",
     "sourceYear": "905年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "吹くからに　秋の草木の　しをるれば",
+    "shimonokuMarked": "むべ《山》《風》を　《嵐》と云ふらむ"
   },
   {
     "no": 23,
@@ -452,7 +496,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "古今和歌集",
     "theme": "秋",
     "sourceYear": "905年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "月見れば　《千々に》物こそ　悲しけれ",
+    "shimonokuMarked": "《わが身一つ》の　秋にはあらねど"
   },
   {
     "no": 24,
@@ -471,11 +517,13 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "古今和歌集",
     "theme": "その他",
     "sourceYear": "905年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "此の度は　ぬさも取あへず　《手向山》",
+    "shimonokuMarked": "紅葉のにしき　神のまにまに"
   },
   {
     "no": 25,
-    "kaminoku": "名にし　おはば　逢坂山の　さねかづら",
+    "kaminoku": "名にしおはば　逢坂山の　さねかづら",
     "shimonoku": "人に知られで　くるよしもがな",
     "kana": "なにしおはば　あふさかやまの　さねかづら　ひとにしられで　くるよしもがな",
     "author": "三条右大臣",
@@ -491,7 +539,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "後撰和歌集",
     "theme": "恋",
     "sourceYear": "951年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "名にしおはば　《逢坂山》の　《さねかづら》",
+    "shimonokuMarked": "人に知られで　《くる》よしもがな"
   },
   {
     "no": 26,
@@ -510,7 +560,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "拾遺和歌集",
     "theme": "その他",
     "sourceYear": "1005年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "小倉山　峰の紅葉ば　《心あらば》",
+    "shimonokuMarked": "今ひとたびの　みゆきまたなむ"
   },
   {
     "no": 27,
@@ -531,7 +583,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "新古今和歌集",
     "theme": "恋",
     "sourceYear": "1205年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "みかの原　《わき》てながるる　《いづみ》川",
+    "shimonokuMarked": "いつみきとてか　恋しかるらむ"
   },
   {
     "no": 28,
@@ -550,7 +604,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "古今和歌集",
     "theme": "冬",
     "sourceYear": "905年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "山里は　冬ぞ寂しさ　まさりける",
+    "shimonokuMarked": "人目も草も　《かれ》ぬと思へば"
   },
   {
     "no": 29,
@@ -571,7 +627,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "古今和歌集",
     "theme": "秋",
     "sourceYear": "905年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "心あてに　《折らばや折らむ》　初霜の",
+    "shimonokuMarked": "置きまどはせる　《白菊の花》"
   },
   {
     "no": 30,
@@ -588,7 +646,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "古今和歌集",
     "theme": "恋",
     "sourceYear": "905年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "有明の　つれなく見えし　別れより",
+    "shimonokuMarked": "暁ばかり　うきものはなし"
   },
   {
     "no": 31,
@@ -607,7 +667,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "古今和歌集",
     "theme": "冬",
     "sourceYear": "905年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "朝ぼらけ　有明の月と　見るまでに",
+    "shimonokuMarked": "よしののの里に　降れる《白雪》"
   },
   {
     "no": 32,
@@ -626,7 +688,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "古今和歌集",
     "theme": "秋",
     "sourceYear": "905年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "山川に　風のかけたる　《しがらみ》は",
+    "shimonokuMarked": "流れもあへぬ　紅葉なりけり"
   },
   {
     "no": 33,
@@ -646,7 +710,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "古今和歌集",
     "theme": "春",
     "sourceYear": "905年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "《久方の》　《光》のどけき　春の日に",
+    "shimonokuMarked": "しづ心なく　花の散るらむ"
   },
   {
     "no": 34,
@@ -663,7 +729,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "古今和歌集",
     "theme": "その他",
     "sourceYear": "905年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "誰をかも　知る人にせむ　高砂の",
+    "shimonokuMarked": "松も昔の　友ならなくに"
   },
   {
     "no": 35,
@@ -680,7 +748,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "古今和歌集",
     "theme": "春",
     "sourceYear": "905年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "人はいさ　心も知らず　ふるさとは",
+    "shimonokuMarked": "花ぞ昔の　香に匂ひける"
   },
   {
     "no": 36,
@@ -699,7 +769,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "古今和歌集",
     "theme": "夏",
     "sourceYear": "905年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "夏の夜は　まだ宵ながら　明けぬるを",
+    "shimonokuMarked": "雲のいづこに　《月やどるらむ》"
   },
   {
     "no": 37,
@@ -719,7 +791,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "後撰和歌集",
     "theme": "秋",
     "sourceYear": "951年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "白露に　風の吹きしく　秋の野は",
+    "shimonokuMarked": "つらぬきとめぬ　玉《ぞ》散り《ける》"
   },
   {
     "no": 38,
@@ -736,7 +810,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "拾遺和歌集",
     "theme": "恋",
     "sourceYear": "1005年ごろ成立",
-    "authorGender": "女性"
+    "authorGender": "女性",
+    "kaminokuMarked": "忘られる　身をば思はず　ちかひてし",
+    "shimonokuMarked": "人の命の　をしくもあるかな"
   },
   {
     "no": 39,
@@ -757,7 +833,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "後撰和歌集",
     "theme": "恋",
     "sourceYear": "951年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "浅ぢふの　をのの《篠》原　《しのぶれど》",
+    "shimonokuMarked": "あまりて《などか》　人の恋しき"
   },
   {
     "no": 40,
@@ -776,7 +854,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "拾遺和歌集",
     "theme": "恋",
     "sourceYear": "1005年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "《忍ぶれど　色に出でにけり》　わが恋は",
+    "shimonokuMarked": "《物や思ふと　人の問ふまで》"
   },
   {
     "no": 41,
@@ -796,7 +876,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "拾遺和歌集",
     "theme": "恋",
     "sourceYear": "1005年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "戀すてふ　わが名はまだ《き》　たちにけり",
+    "shimonokuMarked": "人知れず《こそ》　思ひそめ《しか》"
   },
   {
     "no": 42,
@@ -815,7 +897,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "後拾遺和歌集",
     "theme": "恋",
     "sourceYear": "1086年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "契きな　かたみに袖を　しぼりつつ",
+    "shimonokuMarked": "すゑの松山　《波こさじとは》"
   },
   {
     "no": 43,
@@ -832,7 +916,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "拾遺和歌集",
     "theme": "恋",
     "sourceYear": "1005年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "逢見ての　後の心に　くらぶれば",
+    "shimonokuMarked": "昔は物を　思はざりけり"
   },
   {
     "no": 44,
@@ -849,7 +935,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "拾遺和歌集",
     "theme": "恋",
     "sourceYear": "1005年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "逢ふことの　絶えてしなくば　なかなかに",
+    "shimonokuMarked": "人をも身をも　恨みざらまし"
   },
   {
     "no": 45,
@@ -866,7 +954,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "拾遺和歌集",
     "theme": "恋",
     "sourceYear": "1005年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "哀とも　いふべき人は　おもほえで",
+    "shimonokuMarked": "身のいたづらに　なりぬべきかな"
   },
   {
     "no": 46,
@@ -886,7 +976,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "新古今和歌集",
     "theme": "恋",
     "sourceYear": "1205年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "由良の《門》を　わたる《舟人》　《かぢ》をたえ",
+    "shimonokuMarked": "《ゆくへも知らぬ》　恋の《道》かな"
   },
   {
     "no": 47,
@@ -905,7 +997,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "拾遺和歌集",
     "theme": "秋",
     "sourceYear": "1005年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "八重葎　しげれる宿の　さびしきに",
+    "shimonokuMarked": "人《こそ》見え《ね》　秋は来にけり"
   },
   {
     "no": 48,
@@ -924,7 +1018,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "詞花和歌集",
     "theme": "恋",
     "sourceYear": "1151年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "《風をいたみ　岩うつ波の》　おのれのみ",
+    "shimonokuMarked": "くだけて物を　思ふころかな"
   },
   {
     "no": 49,
@@ -945,7 +1041,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "詞花和歌集",
     "theme": "恋",
     "sourceYear": "1151年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "御垣守　衛士のたく火の　《夜はもえて》",
+    "shimonokuMarked": "《昼は消えつつ》　物を《こそ》《思へ》"
   },
   {
     "no": 50,
@@ -962,7 +1060,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "後拾遺和歌集",
     "theme": "恋",
     "sourceYear": "1086年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "君がため　惜しからざりし　命さへ",
+    "shimonokuMarked": "ながくもがなと　思ひけるかな"
   },
   {
     "no": 51,
@@ -983,7 +1083,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "後拾遺和歌集",
     "theme": "恋",
     "sourceYear": "1086年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "かくとだに　えやはいぶきの　《さしも草》",
+    "shimonokuMarked": "《さしも》知らじな　《もゆる》おもひを"
   },
   {
     "no": 52,
@@ -1000,7 +1102,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "後拾遺和歌集",
     "theme": "恋",
     "sourceYear": "1086年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "明ぬれば　暮るるものとは　知りながら",
+    "shimonokuMarked": "猶恨めしき　朝ぼらけかな"
   },
   {
     "no": 53,
@@ -1019,7 +1123,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "拾遺和歌集",
     "theme": "恋",
     "sourceYear": "1005年ごろ成立",
-    "authorGender": "女性"
+    "authorGender": "女性",
+    "kaminokuMarked": "嘆きつつ　ひとり寝る夜の　明くる間は",
+    "shimonokuMarked": "いかに久しき　ものと《かは》知る"
   },
   {
     "no": 54,
@@ -1036,7 +1142,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "新古今和歌集",
     "theme": "恋",
     "sourceYear": "1205年成立",
-    "authorGender": "女性"
+    "authorGender": "女性",
+    "kaminokuMarked": "忘れじの　行末までは　かたければ",
+    "shimonokuMarked": "今日をかぎりの　命ともがな"
   },
   {
     "no": 55,
@@ -1056,7 +1164,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "千載和歌集",
     "theme": "その他",
     "sourceYear": "1187年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "滝の音は　絶えて久しく　なりぬれど",
+    "shimonokuMarked": "名《こそ》《流れ》て　猶聞こえ《けれ》"
   },
   {
     "no": 56,
@@ -1073,7 +1183,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "後拾遺和歌集",
     "theme": "恋",
     "sourceYear": "1086年成立",
-    "authorGender": "女性"
+    "authorGender": "女性",
+    "kaminokuMarked": "あらざらむ　この世のほかの　思ひ出に",
+    "shimonokuMarked": "今ひとたびの　逢ふ事もがな"
   },
   {
     "no": 57,
@@ -1092,7 +1204,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "新古今和歌集",
     "theme": "その他",
     "sourceYear": "1205年成立",
-    "authorGender": "女性"
+    "authorGender": "女性",
+    "kaminokuMarked": "巡りあひて　見しや夫とも　わかぬまに",
+    "shimonokuMarked": "雲がくれにし　夜半の《月》かな"
   },
   {
     "no": 58,
@@ -1113,7 +1227,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "後拾遺和歌集",
     "theme": "恋",
     "sourceYear": "1086年成立",
-    "authorGender": "女性"
+    "authorGender": "女性",
+    "kaminokuMarked": "有馬山　ゐなの笹原　風ふけば",
+    "shimonokuMarked": "《いでそよ》人を　忘れ《やは》《する》"
   },
   {
     "no": 59,
@@ -1130,7 +1246,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "後拾遺和歌集",
     "theme": "恋",
     "sourceYear": "1086年成立",
-    "authorGender": "女性"
+    "authorGender": "女性",
+    "kaminokuMarked": "安らはで　寝なましものを　小夜更けて",
+    "shimonokuMarked": "かたぶくまでの　月を見しかな"
   },
   {
     "no": 60,
@@ -1152,7 +1270,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "金葉和歌集",
     "theme": "その他",
     "sourceYear": "1124年ごろ成立",
-    "authorGender": "女性"
+    "authorGender": "女性",
+    "kaminokuMarked": "大江山　《いく野》の道の　遠ければ",
+    "shimonokuMarked": "まだ《文》も見ず　天のはし立"
   },
   {
     "no": 61,
@@ -1171,7 +1291,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "詞花和歌集",
     "theme": "春",
     "sourceYear": "1151年ごろ成立",
-    "authorGender": "女性"
+    "authorGender": "女性",
+    "kaminokuMarked": "いにしへの　奈良の都の　八重桜",
+    "shimonokuMarked": "《けふ九重》に　匂ひぬるかな"
   },
   {
     "no": 62,
@@ -1190,7 +1312,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "後拾遺和歌集",
     "theme": "その他",
     "sourceYear": "1086年成立",
-    "authorGender": "女性"
+    "authorGender": "女性",
+    "kaminokuMarked": "夜をこめて　鳥の空音は　はかるとも",
+    "shimonokuMarked": "世に《逢坂》の　関はゆるさじ"
   },
   {
     "no": 63,
@@ -1207,7 +1331,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "後拾遺和歌集",
     "theme": "恋",
     "sourceYear": "1086年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "今はただ　思ひ絶えなむ　とばかりを",
+    "shimonokuMarked": "人づてならで　いふよしもがな"
   },
   {
     "no": 64,
@@ -1226,7 +1352,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "千載和歌集",
     "theme": "冬",
     "sourceYear": "1187年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "朝ぼらけ　宇治の川ぎり　たえだえに",
+    "shimonokuMarked": "あらはれ渡る　《瀬々のあじろぎ》"
   },
   {
     "no": 65,
@@ -1245,7 +1373,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "後拾遺和歌集",
     "theme": "恋",
     "sourceYear": "1086年成立",
-    "authorGender": "女性"
+    "authorGender": "女性",
+    "kaminokuMarked": "恨みわび　ほさぬ袖だに　あるものを",
+    "shimonokuMarked": "恋に朽ちなむ　名《こそ》《惜しけれ》"
   },
   {
     "no": 66,
@@ -1264,7 +1394,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "金葉和歌集",
     "theme": "春",
     "sourceYear": "1124年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "もろともに　《あはれと思へ》　山桜",
+    "shimonokuMarked": "花より外に　知る人もなし"
   },
   {
     "no": 67,
@@ -1284,7 +1416,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "千載和歌集",
     "theme": "その他",
     "sourceYear": "1187年成立",
-    "authorGender": "女性"
+    "authorGender": "女性",
+    "kaminokuMarked": "春の夜の　夢ばかりなる　手枕に",
+    "shimonokuMarked": "《かひなく》立たむ　名《こそ》《をしけれ》"
   },
   {
     "no": 68,
@@ -1301,7 +1435,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "後拾遺和歌集",
     "theme": "その他",
     "sourceYear": "1086年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "心にも　あらでうき世に　長らへば",
+    "shimonokuMarked": "恋しかるべき　夜半の月かな"
   },
   {
     "no": 69,
@@ -1320,7 +1456,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "後拾遺和歌集",
     "theme": "秋",
     "sourceYear": "1086年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "嵐吹く　三室の山の　もみぢ葉は",
+    "shimonokuMarked": "竜田の川の　《錦》なりけり"
   },
   {
     "no": 70,
@@ -1339,7 +1477,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "後拾遺和歌集",
     "theme": "秋",
     "sourceYear": "1086年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "さびしさに　宿を立ち出でて　ながむれば",
+    "shimonokuMarked": "いづこも同じ　《秋のゆふぐれ》"
   },
   {
     "no": 71,
@@ -1356,7 +1496,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "金葉和歌集",
     "theme": "秋",
     "sourceYear": "1124年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "夕されば　門田のいなば　おとづれて",
+    "shimonokuMarked": "あしのまろやに　秋風ぞふく"
   },
   {
     "no": 72,
@@ -1377,7 +1519,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "金葉和歌集",
     "theme": "恋",
     "sourceYear": "1124年ごろ成立",
-    "authorGender": "女性"
+    "authorGender": "女性",
+    "kaminokuMarked": "音に聞く　たかしの《浜》の　あだ浪は",
+    "shimonokuMarked": "《かけじ》や袖の　《ぬれ》《もこそ》《すれ》"
   },
   {
     "no": 73,
@@ -1394,7 +1538,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "後拾遺和歌集",
     "theme": "春",
     "sourceYear": "1086年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "高砂の　尾上の桜　咲きにけり",
+    "shimonokuMarked": "外山の霞　たたずもあらなむ"
   },
   {
     "no": 74,
@@ -1413,7 +1559,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "千載和歌集",
     "theme": "恋",
     "sourceYear": "1187年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "憂かりける　人をはつせの　《山おろしよ》",
+    "shimonokuMarked": "はげしかれとは　祈らぬものを"
   },
   {
     "no": 75,
@@ -1432,7 +1580,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "千載和歌集",
     "theme": "その他",
     "sourceYear": "1187年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "契りおきし　《させも》が露を　命にて",
+    "shimonokuMarked": "あはれ今年の　秋もいぬめり"
   },
   {
     "no": 76,
@@ -1452,7 +1602,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "詞花和歌集",
     "theme": "その他",
     "sourceYear": "1151年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "わたの原　漕ぎ出でて見れば　《ひさかたの》",
+    "shimonokuMarked": "《雲居》にまがふ　《沖つ白波》"
   },
   {
     "no": 77,
@@ -1472,7 +1624,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "詞花和歌集",
     "theme": "恋",
     "sourceYear": "1151年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "瀬をはやみ　岩にせかるる　滝川の",
+    "shimonokuMarked": "《われても》末に　《あはむ》とぞ思ふ"
   },
   {
     "no": 78,
@@ -1491,7 +1645,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "金葉和歌集",
     "theme": "冬",
     "sourceYear": "1124年ごろ成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "淡路島　かよふ千鳥の　鳴く声に",
+    "shimonokuMarked": "いく夜ねざめぬ　《須磨の関守》"
   },
   {
     "no": 79,
@@ -1510,7 +1666,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "新古今和歌集",
     "theme": "秋",
     "sourceYear": "1205年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "秋風に　たなびく雲の　絶間より",
+    "shimonokuMarked": "もれ出づる月の　影の《さやけさ》"
   },
   {
     "no": 80,
@@ -1531,7 +1689,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "千載和歌集",
     "theme": "恋",
     "sourceYear": "1187年成立",
-    "authorGender": "女性"
+    "authorGender": "女性",
+    "kaminokuMarked": "長からむ　心も知らず　《黒髪》の",
+    "shimonokuMarked": "みだれて今朝は　物をこそ思へ"
   },
   {
     "no": 81,
@@ -1550,7 +1710,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "千載和歌集",
     "theme": "夏",
     "sourceYear": "1187年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "ほととぎす　なきつる方を　ながむれば",
+    "shimonokuMarked": "ただ有明の　月《ぞ》《残れる》"
   },
   {
     "no": 82,
@@ -1567,7 +1729,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "千載和歌集",
     "theme": "恋",
     "sourceYear": "1187年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "思ひわび　さても命は　あるものを",
+    "shimonokuMarked": "うきにたへぬは　涙なりけり"
   },
   {
     "no": 83,
@@ -1587,11 +1751,13 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "千載和歌集",
     "theme": "その他",
     "sourceYear": "1187年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "世の中よ　《道こそなけれ》　《思ひ入る》",
+    "shimonokuMarked": "山の奥にも　鹿ぞなく《なる》"
   },
   {
     "no": 84,
-    "kaminoku": "永らへば　また此頃やしのばれむ",
+    "kaminoku": "永らへば　また此頃や　しのばれむ",
     "shimonoku": "うしと見し世ぞ　今は恋しき",
     "kana": "ながらへば　またこのごろや　しのばれむ　うしとみしよぞ　いまはこひしき",
     "author": "藤原清輔朝臣",
@@ -1606,7 +1772,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "新古今和歌集",
     "theme": "その他",
     "sourceYear": "1205年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "永らへば　また此頃や　しのばれむ",
+    "shimonokuMarked": "うしと見し世《ぞ》　今は《恋しき》"
   },
   {
     "no": 85,
@@ -1623,7 +1791,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "千載和歌集",
     "theme": "恋",
     "sourceYear": "1187年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "夜もすがら　物思ふころは　明けやらで",
+    "shimonokuMarked": "閨の隙さへ　つれなかりけり"
   },
   {
     "no": 86,
@@ -1642,7 +1812,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "千載和歌集",
     "theme": "恋",
     "sourceYear": "1187年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "嘆けとて　月《やは》物を　思はする",
+    "shimonokuMarked": "かこち顔なる　わが涙かな"
   },
   {
     "no": 87,
@@ -1661,7 +1833,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "新古今和歌集",
     "theme": "秋",
     "sourceYear": "1205年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "村雨の　露もまだひぬ　まきの葉に",
+    "shimonokuMarked": "霧たちのぼる　《秋の夕ぐれ》"
   },
   {
     "no": 88,
@@ -1681,7 +1855,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "千載和歌集",
     "theme": "恋",
     "sourceYear": "1187年成立",
-    "authorGender": "女性"
+    "authorGender": "女性",
+    "kaminokuMarked": "難波江の　蘆の《かりね》の　《ひとよ》ゆゑ",
+    "shimonokuMarked": "《身を尽くし》て《や》　戀わたる《べき》"
   },
   {
     "no": 89,
@@ -1701,7 +1877,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "新古今和歌集",
     "theme": "恋",
     "sourceYear": "1205年成立",
-    "authorGender": "女性"
+    "authorGender": "女性",
+    "kaminokuMarked": "《玉の緒》よ　たえなばたえね　永らへば",
+    "shimonokuMarked": "忍ぶる事の　《よわり》《も》《ぞ》する"
   },
   {
     "no": 90,
@@ -1720,7 +1898,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "千載和歌集",
     "theme": "恋",
     "sourceYear": "1187年成立",
-    "authorGender": "女性"
+    "authorGender": "女性",
+    "kaminokuMarked": "見せばやな　雄島のあまの　袖だにも",
+    "shimonokuMarked": "《濡れにぞぬれし》　色はかはらず"
   },
   {
     "no": 91,
@@ -1740,7 +1920,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "新古今和歌集",
     "theme": "秋",
     "sourceYear": "1205年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "きりぎりす　なくや霜夜の　《さむしろ》に",
+    "shimonokuMarked": "衣かたしき　独りかもねむ"
   },
   {
     "no": 92,
@@ -1760,7 +1942,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "千載和歌集",
     "theme": "恋",
     "sourceYear": "1187年成立",
-    "authorGender": "女性"
+    "authorGender": "女性",
+    "kaminokuMarked": "わがそでは　しほひに見えぬ　沖の石の",
+    "shimonokuMarked": "人《こそ》《知らね》　乾く間もなし"
   },
   {
     "no": 93,
@@ -1777,7 +1961,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "新勅撰和歌集",
     "theme": "その他",
     "sourceYear": "1235年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "世の中は　常にもがもな　渚漕ぐ",
+    "shimonokuMarked": "海士の小舟の　綱でかなしも"
   },
   {
     "no": 94,
@@ -1794,7 +1980,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "新古今和歌集",
     "theme": "秋",
     "sourceYear": "1205年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "みよし野の　山の秋風　小夜更けて",
+    "shimonokuMarked": "ふる郷さむく　衣うつなり"
   },
   {
     "no": 95,
@@ -1816,7 +2004,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "千載和歌集",
     "theme": "その他",
     "sourceYear": "1187年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "おほけなく　浮世の民に　《おほふかな》",
+    "shimonokuMarked": "わがたつ《杣》に　《墨染の袖》"
   },
   {
     "no": 96,
@@ -1836,7 +2026,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "新勅撰和歌集",
     "theme": "その他",
     "sourceYear": "1235年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "花さそふ　嵐の庭の　雪ならで",
+    "shimonokuMarked": "《ふりゆく》ものは　わが身なりけり"
   },
   {
     "no": 97,
@@ -1857,7 +2049,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "新勅撰和歌集",
     "theme": "恋",
     "sourceYear": "1235年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "来ぬ人を　《まつ》ほの浦の　夕なぎに",
+    "shimonokuMarked": "やくや藻塩の　《身もこがれ》つつ"
   },
   {
     "no": 98,
@@ -1877,7 +2071,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "新勅撰和歌集",
     "theme": "夏",
     "sourceYear": "1235年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "風そよぐ　《ならの小川》の　夕暮は",
+    "shimonokuMarked": "みそぎ《ぞ》夏の　しるしなり《ける》"
   },
   {
     "no": 99,
@@ -1896,7 +2092,9 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "続後撰和歌集",
     "theme": "その他",
     "sourceYear": "1251年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "人もをし　人も恨めし　あぢきなく",
+    "shimonokuMarked": "世を思ふ故に　《物おもふ身は》"
   },
   {
     "no": 100,
@@ -1915,6 +2113,8 @@ window.HYAKUNIN_ISSHU_DATA = [
     "source": "続後撰和歌集",
     "theme": "その他",
     "sourceYear": "1251年成立",
-    "authorGender": "男性"
+    "authorGender": "男性",
+    "kaminokuMarked": "百敷や　ふるき軒端の　《しのぶ》にも",
+    "shimonokuMarked": "猶あまりある　昔なりけり"
   }
 ];

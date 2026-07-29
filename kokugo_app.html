@@ -220,6 +220,7 @@
   .hyakunin-detail{margin-top:14px; padding-top:14px; border-top:1px dashed var(--line); font-size:.9rem; line-height:1.85;}
   .hyakunin-detail-row b{color:var(--accent2);}
   .hyakunin-authorinfo, .hyakunin-techdetail{color:var(--sub); font-size:.85rem;}
+  .hyakunin-marked-poem{font-size:1rem; line-height:1.8; margin:4px 0;}
   .hyakunin-highlight{
     margin-top:8px; background:var(--bg); border-left:4px solid var(--gold);
     border-radius:0 8px 8px 0; padding:10px 12px; font-size:.85rem;
@@ -644,7 +645,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.54</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.55</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -2666,10 +2667,18 @@ function hyaTechniqueTagHtml(t){
   return `<span class="tag">${esc(t)}${r?`（${esc(r)}）`:""}</span>`;
 }
 function hyaFullPoem(p){ return p.kaminoku + "　" + p.shimonoku; }
+/* 表現技法がある歌は、通常の全文の代わりに《》つきのマーク済みテキストを使う。
+   markQuestionHtml()が《》を強調表示に変換するため、hyaExplainの戻り値は
+   esc()ではなくmarkQuestionHtml()を通して描画すること（hyaAnswerChoice参照）。 */
+function hyaFullPoemMarked(p){
+  const hasMark = p.technique && p.technique.length && (p.kaminokuMarked || p.shimonokuMarked);
+  return hasMark ? `${p.kaminokuMarked || p.kaminoku}　${p.shimonokuMarked || p.shimonoku}` : hyaFullPoem(p);
+}
 function hyaExplain(p){
   const authorLine = p.author + (p.authorKana?`（${p.authorKana}）`:"") + (p.authorGender?`・${p.authorGender}`:"");
   const sourceLine = p.source + (p.sourceYear?`（${p.sourceYear}）`:"");
-  return `${p.no}番　${hyaFullPoem(p)}\n作者：${authorLine}　｜　出典：${sourceLine}\n${p.meaning}`;
+  const kanaLine = p.kana ? `（${p.kana}）\n` : "";
+  return `${p.no}番　${hyaFullPoemMarked(p)}\n${kanaLine}作者：${authorLine}　｜　出典：${sourceLine}\n${p.meaning}`;
 }
 /* poolの中からcorrect以外をn個、重複なくランダムに選ぶ。足りなければnullを返す（出題を作らない） */
 function hyaDistractors(pool, correct, n){
@@ -2829,7 +2838,8 @@ function showHyakuninList(filterTheme){
         ${p.authorInfo ? `<div class="hyakunin-detail-row hyakunin-authorinfo">${esc(p.authorInfo)}</div>` : ""}
         <div class="hyakunin-detail-row"><b>出典：</b>${esc(p.source)}${p.sourceYear?`（${esc(p.sourceYear)}）`:""}</div>
         <div class="hyakunin-detail-row"><b>意味：</b>${esc(p.meaning)}</div>
-        ${(p.technique && p.technique.length) ? `<div class="hyakunin-detail-row"><b>表現技法：</b>${p.technique.map(t=>hyaTechniqueTagHtml(t)).join("")}</div>` : ""}
+        ${(p.technique && p.technique.length) ? `<div class="hyakunin-detail-row"><b>表現技法：</b>${p.technique.map(t=>hyaTechniqueTagHtml(t)).join("")}</div>
+        <div class="hyakunin-detail-row hyakunin-marked-poem">${markQuestionHtml(p.kaminokuMarked || p.kaminoku)}　${markQuestionHtml(p.shimonokuMarked || p.shimonoku)}</div>` : ""}
         ${p.techniqueDetail ? `<div class="hyakunin-detail-row hyakunin-techdetail">${esc(p.techniqueDetail)}</div>` : ""}
         ${p.highlight ? `<div class="hyakunin-detail-row hyakunin-highlight"><b>この歌が評価されているところ：</b>${esc(p.highlight)}</div>` : ""}
       </div>
@@ -2907,7 +2917,7 @@ function hyaAnswerChoice(origIdx){
   });
   const fb = document.getElementById("hyaFb");
   fb.className = "feedback show " + (ok?"ok":"ng");
-  fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}</div>${esc(it.e).replace(/\n/g,"<br>")}
+  fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}</div>${markQuestionHtml(it.e).replace(/\n/g,"<br>")}
     <div class="note">百人一首レベル Lv.${r.lv}　｜　今のめやす：${esc(hyaLvLabel(r.diffLv))}</div>`;
   document.getElementById("hyaNextBtn").style.display = "inline-block";
   document.getElementById("hyaQuitBtn").style.display = "inline-block";
