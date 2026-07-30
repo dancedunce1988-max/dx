@@ -645,7 +645,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.57</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.58</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -821,7 +821,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 34;
+const SAVE_FORMAT_VERSION = 35;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -3036,6 +3036,7 @@ function hyaRenderQuestion(){
   const choicesHtml = hya.order.map((oi,pos)=>
     `<button class="choice" onclick="hyaAnswerChoice(${oi})"><span class="choice-num">${pos+1}</span>${esc(it.c[oi])}</button>`
   ).join("");
+  setupChoiceKeys(pos => hyaAnswerChoice(hya.order[pos]), it.c.length);
   const st = loadStats();
   const h = st.hyakunin.itemHist[it.id];
   const redoMark = hya.isReviewDue ? `<span class="redo">🔁 復習（段階${(h&&h.reviewStage)||1}）</span>` : "";
