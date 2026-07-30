@@ -645,7 +645,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.58</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.59</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -2820,7 +2820,13 @@ function hyaExplain(p){
   const authorLine = p.author + (p.authorKana?`（${p.authorKana}）`:"") + (p.authorGender?`・${p.authorGender}`:"");
   const sourceLine = p.source + (p.sourceYear?`（${p.sourceYear}）`:"");
   const kanaLine = p.kana ? `（${p.kana}）\n` : "";
-  return `${p.no}番　${hyaFullPoemMarked(p)}\n${kanaLine}作者：${authorLine}　｜　出典：${sourceLine}\n${p.meaning}`;
+  /* 表現技法の《》強調（kaminokuMarked/shimonokuMarked）だけでは「どの部分が・何という技法か」が
+     太字で示されるだけなので、言葉による説明(techniqueDetail)もあわせて載せる。highlightは
+     「なぜこの歌が評価されているか・どんな背景で詠まれたか」の知識（一覧モードでは既に表示済み
+     だったが、クイズの解説には含まれていなかった）。教員の指示（2026-07-30）で追加。 */
+  const techLine = (p.technique && p.technique.length && p.techniqueDetail) ? `\n表現技法：${p.techniqueDetail}` : "";
+  const highlightLine = p.highlight ? `\nこの歌が評価されているところ：${p.highlight}` : "";
+  return `${p.no}番　${hyaFullPoemMarked(p)}\n${kanaLine}作者：${authorLine}　｜　出典：${sourceLine}\n${p.meaning}${techLine}${highlightLine}`;
 }
 /* poolの中からcorrect以外をn個、重複なくランダムに選ぶ。足りなければnullを返す（出題を作らない） */
 function hyaDistractors(pool, correct, n){
