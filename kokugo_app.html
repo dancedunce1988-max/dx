@@ -407,6 +407,12 @@
     background:linear-gradient(135deg,#ffe08a,#b8860b) !important; color:#2a1c00 !important; border:none !important;
     font-weight:bold; box-shadow:0 0 14px rgba(184,134,11,.7); animation:pop .4s ease;
   }
+  /* 系統別必殺技と言霊一閃を併用できるようにしたとき（2026-07-31〜）、2つ並ぶボタンを見分け
+     やすくするための配色違い。言霊一閃（既定の技）側はこちらの銀色寄りの配色にする。 */
+  .finisher-btn.secondary{
+    background:linear-gradient(135deg,#dbe6ff,#5c6ea8) !important; color:#141a33 !important;
+    box-shadow:0 0 14px rgba(92,110,168,.7);
+  }
   /* ストーリーモードの章クリア画面（.card、明るい背景）用。--gold(#b8860b、既存の宝具まわりの
      表示と同じ色)を使い、薄い金色の背景を敷いて視認性を確保する。 */
   .finisher-unlock-note{
@@ -708,7 +714,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.66</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.67</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -896,7 +902,7 @@ function emptyStats(){
   const diffLv = {};
   CAT_KEYS.forEach(k => { cats[k] = {t:0,c:0}; lv[k] = 1; diffLv[k] = 1; });
   return {cats, q:{}, lv, diffLv, items:{}, usedTreasures:{}, usedStoryRewards:{}, bossPity:{}, bossItemPity:{}, kotonohaOtherRoll:null, bossTickets:0, totalLevelUps:0,
-    bonusExp:0, stats:{hp:0, atk:0, def:0, spd:0, luck:0}, kotonohaSeenForms:[], kotonohaDisplayOverride:null, specialMoveUnlocked:false, storyFaceUnlocked:false,
+    bonusExp:0, hyakuninBonusExp:0, stats:{hp:0, atk:0, def:0, spd:0, luck:0}, kotonohaSeenForms:[], kotonohaDisplayOverride:null, specialMoveUnlocked:false, storyFaceUnlocked:false,
     kotonohaRebirthUnlocked:false, kotonohaRebirth:null,
     kanjiWrite:{totalOk:0, itemHist:{}, levelRecent:{}},
     kanjiWriteElem:{totalOk:0, itemHist:{}, targetLv:1, recent:[]},
@@ -959,6 +965,7 @@ function loadStats(){
         if(typeof st.bossTickets !== "number") st.bossTickets = 0;
         if(typeof st.totalLevelUps !== "number") st.totalLevelUps = 0;
         if(typeof st.bonusExp !== "number") st.bonusExp = 0;
+        if(typeof st.hyakuninBonusExp !== "number") st.hyakuninBonusExp = 0;
         if(typeof st.specialMoveUnlocked !== "boolean") st.specialMoveUnlocked = false;
         if(typeof st.storyFaceUnlocked !== "boolean") st.storyFaceUnlocked = false;
         if(typeof st.kotonohaRebirthUnlocked !== "boolean") st.kotonohaRebirthUnlocked = false;
@@ -1801,8 +1808,12 @@ function kotonohaTotalXP(st){
      宝具を使って得たボーナス経験値（bonusExp）は今までどおり全額そのまま加算する（2026-07-14〜）。
      KOTONOHA_XP_CAP（20000、2026-07-22〜）で、これ以上は増えないようクランプする。
      effectiveBonusExp()は、シランちゃんの宝具の使用回数が上限(3回)を超えている分だけbonusExpから
-     差し引いた値を返す（2026-07-22〜、詳細はSHIRAN_TREASURE_USE_CAP周辺のコメント参照）。 */
-  return Math.min(KOTONOHA_XP_CAP, Math.floor(CAT_KEYS.reduce((sum,k)=> sum + catExpPoints(st.lv[k]||1), 0) + effectiveBonusExp(st)));
+     差し引いた値を返す（2026-07-22〜、詳細はSHIRAN_TREASURE_USE_CAP周辺のコメント参照）。
+     百人一首の正解ぶん（st.hyakuninBonusExp、2026-07-31〜）も、bonusExpと同じく「進化の分岐
+     （kotonohaType、CAT_KEYSの分野別レベル分布だけを見て判定）には一切影響させず、経験値の
+     合計にだけ加算する」という位置づけで加える。百人一首コーナーは経験値と非連動の自己完結
+     モードのままだが（[[kokugo-hyakunin-isshu-mode]]参照）、ここだけ例外的に経験値に反映する。 */
+  return Math.min(KOTONOHA_XP_CAP, Math.floor(CAT_KEYS.reduce((sum,k)=> sum + catExpPoints(st.lv[k]||1), 0) + effectiveBonusExp(st) + (st.hyakuninBonusExp||0)));
 }
 function kotonohaOtherType(st, stageIdx){
   const roll = st.kotonohaOtherRoll;
@@ -2084,26 +2095,50 @@ const KOTONOHA_LINE_MOVES = {
     buffMaxStacks: t => 1 + Math.round(2*t),
   },
 };
-/* 今のボス戦で使える系統別必殺技。転生していない／まだ少年体未満のときはnull
-   （＝呼び出し側は今までどおりの言霊一閃にフォールバックする）。 */
+/* 系統別必殺技が使える段階まで育っているか（転生済み＆少年体以上）。ボタンを出すかどうかの
+   判定だけに使う、抽選や選択の状態を見ない純粋な可否チェック。 */
+function kotonohaLineMoveStageOk(st){
+  return !!(st.kotonohaRebirth && kotonohaRebirthStageIndex(st) >= KOTONOHA_LINE_MOVE_MIN_STAGE);
+}
+/* ボタンに出す技名。始原龍は発動するまでどの系統を借りるか決まらないため、固定の総称名を表示し、
+   実際に発動したあと（技名発表・ダメージ表示）で初めてどの力だったかが明かされる。 */
+function kotonohaLineMoveDisplayName(st){
+  if(!st.kotonohaRebirth) return null;
+  const line = st.kotonohaRebirth.line;
+  if(line === "shigen") return "六道の力";
+  const def = KOTONOHA_LINE_MOVES[line];
+  return def ? def.name : null;
+}
+/* 系統別必殺技に必要な連続正解数（天翔だけ通常より少ない）。 */
+function kotonohaLineGaugeRequired(st){
+  if(!kotonohaLineMoveStageOk(st)) return FINISHER_GAUGE_MAX;
+  const line = st.kotonohaRebirth.line;
+  const def = line === "shigen" ? null : KOTONOHA_LINE_MOVES[line];
+  if(def && def.gaugeMax) return def.gaugeMax(kotonohaLineMoveT(kotonohaRebirthStageIndex(st)));
+  return FINISHER_GAUGE_MAX;
+}
+/* 今のボス戦で実際に使う必殺技。教員の指示（2026-07-31〜）で、系統別必殺技と既存の言霊一閃
+   （またはあくび）は排他ではなく「発動のたびにどちらを打つか選べる」仕様に変更した。
+   bossUseFinisher(useLine)で選んだ結果をb.kotonohaFinisherUseLineに保存し、この関数はそれを
+   見て判定する（＝押す前は常にnull＝言霊一閃側にフォールバックする）。 */
 function kotonohaActiveLineMove(st){
+  if(!bossBattle || !bossBattle.kotonohaFinisherUseLine) return null;
   if(!st.kotonohaRebirth) return null;
   const stageIdx = kotonohaRebirthStageIndex(st);
   if(stageIdx < KOTONOHA_LINE_MOVE_MIN_STAGE) return null;
   let lineKey = st.kotonohaRebirth.line;
   if(lineKey === "shigen"){
     /* 始原龍は専用の技を持たず、bossUseFinisherで発動のたびに抽選した6系統のどれかを
-       そのまま借りる。まだ一度も発動していない（ゲージ表示・技名フォールバックの
-       タイミングなど）ときはnullを返し、呼び出し側は通常どおり言霊一閃にフォールバックする。 */
-    if(!bossBattle || !bossBattle.kotonohaShigenMoveLine) return null;
+       そのまま借りる。まだ抽選していない（発動直後、announce前など）ときはnullを返す。 */
+    if(!bossBattle.kotonohaShigenMoveLine) return null;
     lineKey = bossBattle.kotonohaShigenMoveLine;
   }
   const def = KOTONOHA_LINE_MOVES[lineKey];
   if(!def) return null;
   return {def, t: kotonohaLineMoveT(stageIdx)};
 }
-/* 必殺技ゲージの必要正解数（天翔だけ通常より少ない）。表示（ドット数）と発動判定の
-   両方でこれを使うことで、見た目と実際の判定を一致させる。 */
+/* 必殺技ゲージの必要正解数。系統別必殺技を選んだときだけ天翔の短縮が効き、言霊一閃側は
+   常にFINISHER_GAUGE_MAX（既存仕様）。bossAnnounceFinisherName等、発動後の文脈でのみ使う。 */
 function finisherGaugeRequired(st){
   const lm = kotonohaActiveLineMove(st);
   if(lm && lm.def.gaugeMax) return lm.def.gaugeMax(lm.t);
@@ -3306,7 +3341,11 @@ function hyaRecord(it, correct){
   const h = st.hyakunin.itemHist[it.id] || {t:0, c:0};
   h.t++; if(correct) h.c++;
   st.hyakunin.itemHist[it.id] = h;
-  if(correct) st.hyakunin.totalOk = (st.hyakunin.totalOk||0) + 1;
+  if(correct){
+    st.hyakunin.totalOk = (st.hyakunin.totalOk||0) + 1;
+    // ことのはの経験値にだけ反映する（進化の分岐＝分野レベルの分布には影響させない、教員の指示、2026-07-31）
+    st.hyakuninBonusExp = (st.hyakuninBonusExp||0) + 1;
+  }
   const curDiff = typeof st.hyakunin.targetLv === "number" ? st.hyakunin.targetLv : 1;
   st.hyakunin.targetLv = correct
     ? Math.min(HYAKUNIN_MAX_LV, curDiff + DIFF_LV_STEP)
@@ -4613,7 +4652,7 @@ function startBossBattle(boss, allGenre){
     correctStreak:0, finisherGauge:0,
     kotonohaComboCount:0, kotonohaAtkBuffAmount:0, kotonohaDefBuffAmount:0, kotonohaAtkStacks:0, kotonohaDefStacks:0,
     kotonohaSleepTurnsLeft:0, kotonohaSleepFirstTurnDone:false, kotonohaSleepWakeChance:0,
-    kotonohaShigenMoveLine:null,
+    kotonohaShigenMoveLine:null, kotonohaFinisherUseLine:false,
   };
   if(boss.preemptiveHalfHp){
     // 丸刈りのさるちゃん専用：戦闘開始と同時に、プレイヤーのHPを半分にする先制攻撃を受ける
@@ -4717,22 +4756,35 @@ function bossFinisherEligible(boss){
 }
 /* 必殺技バーのHTML（アイテムバーと同じ場所に並べて表示）。対象外のボス（bossFinisherEligible）
    にはゲージ・ボタンごと一切表示しない。ストーリーモードの戦闘はこの関数を呼ばない別実装なので影響しない。 */
+/* 必殺技ゲージのバー。教員の指示（2026-07-31〜）で、転生して少年体以上に育っていると、
+   系統別必殺技と既存の言霊一閃（またはあくび）の**両方**がボタンとして出て、どちらを打つか
+   選べるようになる（排他ではなく併用）。天翔は系統別必殺技の必要正解数が短いため、言霊一閃側
+   より先にボタンが出ることがある（ドット表示は常にFINISHER_GAUGE_MAX基準のまま）。 */
 function bossFinisherBarHtml(){
   const b = bossBattle;
   if(!bossFinisherEligible(b.boss)) return "";
   const st = loadStats();
   if(!st.specialMoveUnlocked) return "";
-  const required = finisherGaugeRequired(st);
-  const gauge = Math.min(required, b.finisherGauge||0);
-  const full = gauge >= required;
-  const dots = Array.from({length:required}, (_,i) => `<span class="finisher-dot${i < gauge ? " on" : ""}"></span>`).join("");
+  const gauge = Math.min(FINISHER_GAUGE_MAX, b.finisherGauge||0);
+  const dots = Array.from({length:FINISHER_GAUGE_MAX}, (_,i) => `<span class="finisher-dot${i < gauge ? " on" : ""}"></span>`).join("");
+  const lineOk = kotonohaLineMoveStageOk(st);
+  const lineReq = lineOk ? kotonohaLineGaugeRequired(st) : null;
+  const lineReady = lineOk && gauge >= lineReq;
+  const baseReady = gauge >= FINISHER_GAUGE_MAX;
+  let buttons = "";
+  if(lineReady){
+    buttons += `<button class="btn inline finisher-btn" onclick="bossUseFinisher(true)">⚡${esc(kotonohaLineMoveDisplayName(st))}！</button>`;
+  }
+  if(baseReady){
+    buttons += `<button class="btn inline finisher-btn secondary" onclick="bossUseFinisher(false)">⚡${esc(finisherMoveName(st))}！</button>`;
+  }
+  const nextGoal = lineOk ? Math.min(lineReq, FINISHER_GAUGE_MAX) : FINISHER_GAUGE_MAX;
+  const note = buttons ? "" : `<span class="note" style="margin:0">（あと${nextGoal - gauge}問連続正解）</span>`;
   return `
     <div class="finisher-bar">
       <span class="finisher-gauge-label">必殺技ゲージ</span>
       <span class="finisher-dots">${dots}</span>
-      ${full
-        ? `<button class="btn inline finisher-btn" onclick="bossUseFinisher()">⚡${esc(finisherMoveName(st))}！</button>`
-        : `<span class="note" style="margin:0">（あと${required - gauge}問連続正解）</span>`}
+      ${buttons}${note}
     </div>`;
 }
 function refreshBossFinisherBar(){
@@ -4774,19 +4826,25 @@ function hideFinisherOverlay(){
    ①bossUseFinisher：「ことのはは、必殺技を打とうとしている……」を画面いっぱいに表示（FINISHER_CHARGE_MS）
    ②bossAnnounceFinisherName：技名を画面いっぱいに大きく表示（FINISHER_NAME_MS）
    ③bossResolveFinisher：オーバーレイを消し、実際のダメージ計算・戦闘エリアの揺れ・結果表示
-   一連の間は_resolvingをtrueにして、アイテム使用や連打などの割り込みをブロックする。 */
-function bossUseFinisher(){
+   一連の間は_resolvingをtrueにして、アイテム使用や連打などの割り込みをブロックする。
+   教員の指示（2026-07-31〜）：転生して少年体以上に育っていても、系統別必殺技と言霊一閃
+   （またはあくび）は排他ではなく併用可能にする＝ボタンが2つ出て、そのつどどちらを打つか
+   選べる。引数useLineがtrueなら系統別必殺技、falseなら既存の言霊一閃側で発動する。 */
+function bossUseFinisher(useLine){
   const b = bossBattle;
   if(!b || b._resolving || b.bossHp <= 0 || b.playerHp <= 0 || !bossFinisherEligible(b.boss)) return;
   const st = loadStats();
   if(!st.specialMoveUnlocked) return;
-  if((b.finisherGauge||0) < finisherGaugeRequired(st)) return;
+  const lineOk = useLine && kotonohaLineMoveStageOk(st);
+  const required = lineOk ? kotonohaLineGaugeRequired(st) : FINISHER_GAUGE_MAX;
+  if((b.finisherGauge||0) < required) return;
+  b.kotonohaFinisherUseLine = lineOk;
   /* 始原龍（全領域バランス型、type4）専用：六つの力を統合した存在という設定どおり、
-     必殺技を打つたびに天翔〜冥淵の6系統からどれか1つの力をランダムに借りる
+     系統別必殺技を選んで打つたびに天翔〜冥淵の6系統からどれか1つの力をランダムに借りる
      （kotonohaActiveLineMoveがこのb.kotonohaShigenMoveLineを参照する）。溜め演出・技名
      発表・ダメージ計算の一連の間は同じ抽選結果を使い続けるよう、発動を決めたこの時点で
      1回だけ抽選する（教員の指示：「技は毎回ランダムで決まる」＝1回の発動ごとに1回抽選）。 */
-  if(st.kotonohaRebirth && st.kotonohaRebirth.line === "shigen"){
+  if(lineOk && st.kotonohaRebirth.line === "shigen"){
     const keys = Object.keys(KOTONOHA_LINE_MOVES);
     b.kotonohaShigenMoveLine = keys[Math.floor(Math.random() * keys.length)];
   }
@@ -4818,6 +4876,7 @@ function bossResolveFinisher(){
   const st = loadStats();
   const lm = kotonohaActiveLineMove(st);
   b.finisherGauge = 0;
+  b.kotonohaFinisherUseLine = false; // 選択状態をリセット（次にゲージが満タンになるまでは言霊一閃側の表示に戻す）
   const ps = st.stats || {hp:0,atk:0,def:0,spd:0,luck:0};
   let dealt = randInt(BOSS_PLAYER_DMG[0], BOSS_PLAYER_DMG[1]) + ps.atk * STAT_ATK_PER_POINT
     + (b.atkBuffTurns > 0 ? b.atkBuffAmount : 0) + (b.kotonohaAtkBuffAmount||0);
@@ -5201,6 +5260,7 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
     b.correctStreak = 0;
     b.finisherGauge = 0;
     b.kotonohaComboCount = 0;
+    b.kotonohaFinisherUseLine = false;
     if(b.boss.defTripleOnMiss) b.bossDefMissStreak = (b.bossDefMissStreak||0) + 1;
     // ゲームマニア８９専用：プレイヤーが不正解のとき、自分の最大HPの一定割合を回復する
     if(b.boss.healOnMissPct) b.bossHp = Math.min(b.bossMaxHp, b.bossHp + Math.round(b.bossMaxHp * b.boss.healOnMissPct));
