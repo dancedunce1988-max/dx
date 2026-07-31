@@ -258,7 +258,10 @@
   .kotonoha-icon.kotonoha-type8{filter:saturate(1.5) brightness(1.05); border-color:#e02b8a; box-shadow:0 0 10px rgba(224,43,138,.4);}
   .kotonoha-icon.kotonoha-type9{filter:saturate(1.5) brightness(1.05); border-color:#e068a8; box-shadow:0 0 10px rgba(224,104,168,.4);}
   .kotonoha-icon.kotonoha-overridden{border-color:#8e44ad; box-shadow:0 0 10px rgba(142,68,173,.5);}
-  .kotonoha-icon.kotonoha-icon-img{width:88px; height:88px; object-fit:cover; font-size:0; border-color:var(--gold); border-radius:10px;}
+  .kotonoha-icon.kotonoha-icon-img{
+    width:88px; height:88px; object-fit:contain; font-size:0; box-sizing:border-box;
+    background:var(--card); border-color:var(--gold); border-width:3px; border-radius:10px;
+  }
   .kotonoha-rebirth-note{background:var(--bg); border:1px dashed var(--line); border-radius:8px; padding:8px 10px; margin-top:10px;}
   .kotonoha-info{flex:1; min-width:0;}
   .kotonoha-name{font-weight:bold; font-size:1.05rem;}
@@ -278,6 +281,25 @@
     display:inline-block; font-size:.7rem; color:#8e44ad; background:var(--bg);
     border:1px solid #8e44ad; border-radius:99px; padding:1px 10px; margin:3px 0 5px 4px;
   }
+  /* 伝説級到達時のホーム画面背景演出（教員の指示、2026-08-01〜）。#appのpadding(16px 16px 48px)を
+     打ち消す負のマージンで、画面の端まで色が届くようにする。中のカード群の見た目は変えない。 */
+  .kotonoha-legendary-bg{
+    margin:-16px -16px -48px; padding:16px 16px 48px; min-height:100vh;
+    background-size:220% 220%; animation:kotonohaLegendaryShimmer 9s ease infinite;
+  }
+  @keyframes kotonohaLegendaryShimmer{
+    0%{ background-position:0% 30%; } 50%{ background-position:100% 70%; } 100%{ background-position:0% 30%; }
+  }
+  .kotonoha-legendary-bg-tensho{ background-image:linear-gradient(135deg,#eafcff,#8fe8ff 35%,#2f8fb8 70%,#e8fcff); }
+  .kotonoha-legendary-bg-engoku{ background-image:linear-gradient(135deg,#3a0d02,#ff6a3d 35%,#ffcf7a 70%,#3a0d02); }
+  .kotonoha-legendary-bg-soukai{ background-image:linear-gradient(135deg,#02132e,#2b6fd6 35%,#8fd8ff 70%,#02132e); }
+  .kotonoha-legendary-bg-suishin{ background-image:linear-gradient(135deg,#0e2a08,#4f9c3a 35%,#c8e6a0 70%,#0e2a08); }
+  .kotonoha-legendary-bg-seiki{ background-image:linear-gradient(135deg,#ffffff,#fff4cc 35%,#ffe98a 70%,#ffffff); }
+  .kotonoha-legendary-bg-meien{ background-image:linear-gradient(135deg,#050208,#3a1a5e 35%,#8a5ce0 70%,#050208); }
+  .kotonoha-legendary-bg-shigen{ background-image:linear-gradient(120deg,#ff6a3d,#ffe98a 20%,#4f9c3a 40%,#2b6fd6 60%,#8a5ce0 80%,#ff6a3d); }
+  /* 伝説級の淡い（seiki）系統だけ、カード内の文字色が浮かないよう既存のink色のままでよいが、
+     見出し等の白文字前提の演出（もしあれば）と衝突しないことを別途確認済み（カードは元々不透明な
+     白背景を持つため、背景演出は主にカードの外側の余白・隙間にだけ見える）。 */
   .kotonoha-xp{font-size:.82rem; color:var(--sub); margin-top:2px; margin-bottom:2px;}
   .ticket-card{ padding:14px 20px; }
   .ticket-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
@@ -479,8 +501,8 @@
      （fxクラス無し）は上の既存スタイルのまま変更しない。系統技を使ったときだけ、
      showFinisherOverlay/triggerFinisherShakeがfx-◯◯クラスを追加してここが効く。 */
   .finisher-line-portrait{
-    display:block; width:min(30vw,120px); height:min(30vw,120px); object-fit:cover;
-    border-radius:12px; margin:0 auto 10px; border:2px solid rgba(255,255,255,.6);
+    display:block; width:min(30vw,120px); height:min(30vw,120px); object-fit:contain; box-sizing:border-box;
+    background:rgba(255,255,255,.12); border-radius:12px; margin:0 auto 10px; border:2px solid rgba(255,255,255,.6);
   }
   /* 天翔（風）：水色、素早く鋭い斜め振動 */
   .finisher-overlay.fx-tensho{ background:radial-gradient(circle at 50% 50%, rgba(30,70,90,.88) 0%, rgba(4,14,18,.95) 75%); }
@@ -586,7 +608,8 @@
   }
   .kotonoha-evolve-overlay.kotonoha-evolve-clickable{ pointer-events:auto; }
   .kotonoha-evolve-img{
-    width:min(48vw,220px); height:min(48vw,220px); object-fit:cover; border-radius:14px;
+    width:min(48vw,220px); height:min(48vw,220px); object-fit:contain; box-sizing:border-box;
+    background:rgba(255,255,255,.1); border-radius:14px;
     border:3px solid rgba(255,255,255,.5); box-shadow:0 0 30px rgba(255,255,255,.3);
   }
   .kotonoha-evolve-img.kotonoha-evolve-fret{ animation:kotonohaEvolveFret .5s ease infinite; }
@@ -824,7 +847,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.70</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.71</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -1001,7 +1024,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 38;
+const SAVE_FORMAT_VERSION = 39;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -2024,6 +2047,14 @@ function kotonohaRebirthEligibleLine(st){
   const f = kotonohaForm(st);
   return f.type ? (KOTONOHA_IMAGE_LINES[f.type] || null) : null;
 }
+/* 伝説級（最終段階）に到達すると、ホーム画面の背景を系統の色でドラマチックに演出する
+   （教員の指示、2026-08-01〜）。screen.innerHTML側でラップするクラスなので、他の画面に
+   遷移すれば自動的に消える（body側にクラスを持ち回って手動で消し忘れる心配がない）。 */
+const KOTONOHA_LEGENDARY_BG_LINES = ["tensho","engoku","soukai","suishin","seiki","meien","shigen"];
+function kotonohaLegendaryBgClass(st){
+  if(!st.kotonohaRebirth || kotonohaRebirthStageIndex(st) !== 6) return null;
+  return "kotonoha-legendary-bg kotonoha-legendary-bg-" + st.kotonohaRebirth.line;
+}
 function kotonohaRebirthStageIndex(st){
   if(!st.kotonohaRebirth) return -1;
   const gained = Math.max(0, kotonohaTotalXP(st) - st.kotonohaRebirth.baseXP);
@@ -2291,7 +2322,12 @@ function kotonohaCardHtml(st){
   const prev = KOTONOHA_STAGE_XP[f.stageIdx];
   const next = KOTONOHA_STAGE_XP[f.stageIdx+1];
   const progress = next ? Math.min(100, Math.round((f.total - prev) / (next - prev) * 100)) : 100;
-  const progressNote = next ? `つぎの進化まで、あと経験値${next - f.total}` : "最終形態に到達している";
+  /* 転生イベントのあとは、この欄が指しているのは絵文字進化（旧システム）の次の一歩であり、
+     「進化」という言葉は転生後のイラスト成長（showKotonohaEvolveCutscene）の方に譲る
+     （教員の指示、2026-08-01〜：進化と概念を分けるため）。 */
+  const progressNote = next
+    ? (st.kotonohaRebirth ? `次の称号獲得まで、あと経験値${next - f.total}` : `つぎの進化まで、あと経験値${next - f.total}`)
+    : "最終形態に到達している";
   const typeTag = f.type ? `<span class="kotonoha-type">${esc(KOTONOHA_TYPE_LABEL[f.type])}</span>` : "";
   const typeClass = disp.type ? `kotonoha-type${disp.type}` : "kotonoha-egg";
   let stageTagText;
@@ -2415,14 +2451,12 @@ function showKotonohaRebirthConfirm(){
   const line = kotonohaRebirthEligibleLine(st);
   if(!line){ showHome(); return; }
   const already = !!st.kotonohaRebirth;
-  const lineLabel = KOTONOHA_IMAGE_LINE_LABEL[line];
   screen.innerHTML = `
     <div class="card boss-encounter">
       <div class="boss-enc-icon">🔁</div>
-      <p class="boss-enc-text">${already ? "もう一度、卵から転生しますか？" : "転生しますか？"}<br>
-        今の育て方だと、「<b>${esc(lineLabel)}</b>」のすがたで卵から育て直すことになります。</p>
-      <p class="note boss-enc-hint">📈 これまでの経験値はそのまま。分野レベルやステータスポイントも減りません。減るのは、ことのはの「絵の進化段階」だけです。</p>
-      <p class="note boss-enc-hint">⚡ 少年体まで育てると、系統専用の必殺技が使えるようになります（伝説級まで育てるほど強くなります）。</p>
+      <p class="boss-enc-text">${already ? "もう一度、卵から転生しますか？" : "転生しますか？"}</p>
+      <p class="note boss-enc-hint">📈 これまでの経験値はそのまま。分野レベルやステータスポイントも減りません。減るのは、ことのはの「進化段階」だけです（必殺技の強さも元に戻ります）。</p>
+      <p class="note boss-enc-hint">⚡ 少年体まで育てると、系統専用の必殺技が使えるようになります。</p>
       ${already ? `<p class="note boss-enc-hint">🔄 今のすがた・必殺技の育ち具合は失われます。何度でもやり直せます。</p>` : ""}
       <div class="boss-enc-choices">
         <button class="boss-enc-btn" onclick="showHome()">やめる</button>
@@ -2543,7 +2577,8 @@ function showHome(){
     </div>
     <p class="note">※ 1問正解すると、その分野のレベルが1上がります（好きなだけ続けて、いつでもやめられます）。正解が続くと少し難しい問題が、まちがいが続くと少し易しい問題が出やすくなり、あわせて正解した問題はだんだん出にくく、間違えた問題は出やすくなります。</p>
     <p class="signature">Seikichi</p>`;
-  screen.innerHTML = html;
+  const legendaryBgClass = kotonohaLegendaryBgClass(st);
+  screen.innerHTML = legendaryBgClass ? `<div class="${legendaryBgClass}">${html}</div>` : html;
 }
 
 /* ================= ボス戦ステータス（分野レベルアップでたまるポイントを割りふる） =================
