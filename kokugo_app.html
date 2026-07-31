@@ -258,6 +258,8 @@
   .kotonoha-icon.kotonoha-type8{filter:saturate(1.5) brightness(1.05); border-color:#e02b8a; box-shadow:0 0 10px rgba(224,43,138,.4);}
   .kotonoha-icon.kotonoha-type9{filter:saturate(1.5) brightness(1.05); border-color:#e068a8; box-shadow:0 0 10px rgba(224,104,168,.4);}
   .kotonoha-icon.kotonoha-overridden{border-color:#8e44ad; box-shadow:0 0 10px rgba(142,68,173,.5);}
+  .kotonoha-icon.kotonoha-icon-img{width:88px; height:88px; object-fit:cover; font-size:0; border-color:var(--gold);}
+  .kotonoha-rebirth-note{background:var(--bg); border:1px dashed var(--line); border-radius:8px; padding:8px 10px; margin-top:10px;}
   .kotonoha-info{flex:1; min-width:0;}
   .kotonoha-name{font-weight:bold; font-size:1.05rem;}
   .kotonoha-stage{
@@ -460,6 +462,67 @@
     75%{ transform:translate(-2px,1px); }
     100%{ transform:translate(0,0); box-shadow:0 0 30px rgba(140,90,255,.25); }
   }
+  /* ことのはの転生後イラストが次の段階に進化したときの、全画面演出（教員の指示、2026-07-31〜）。
+     document.body直下の専用オーバーレイ。①②のセリフ表示→③画面ごと振動→④白い明転→
+     ⑤新しい姿とお祝いメッセージ、の5段階。finisher-overlayと似た構造だが別要素・別スタイル。 */
+  .kotonoha-evolve-overlay{
+    position:fixed; inset:0; z-index:9600;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px;
+    background:radial-gradient(circle at 50% 45%, rgba(30,30,40,.92) 0%, rgba(4,4,8,.97) 78%);
+    padding:24px; text-align:center; pointer-events:none;
+    animation:finisherOverlayFadeIn .25s ease;
+  }
+  .kotonoha-evolve-overlay.kotonoha-evolve-clickable{ pointer-events:auto; }
+  .kotonoha-evolve-img{
+    width:min(48vw,220px); height:min(48vw,220px); object-fit:cover; border-radius:50%;
+    border:3px solid rgba(255,255,255,.5); box-shadow:0 0 30px rgba(255,255,255,.3);
+  }
+  .kotonoha-evolve-img.kotonoha-evolve-fret{ animation:kotonohaEvolveFret .5s ease infinite; }
+  .kotonoha-evolve-icon-old{
+    width:min(40vw,160px); height:min(40vw,160px); border-radius:50%;
+    display:flex; align-items:center; justify-content:center; font-size:4rem;
+    background:rgba(255,255,255,.08); border:3px solid rgba(255,255,255,.5);
+  }
+  @keyframes kotonohaEvolveFret{
+    0%,100%{ transform:translate(0,0) rotate(0deg); }
+    25%{ transform:translate(-3px,1px) rotate(-1.5deg); }
+    75%{ transform:translate(3px,-1px) rotate(1.5deg); }
+  }
+  .kotonoha-evolve-img.kotonoha-evolve-reveal{
+    border-color:var(--gold); box-shadow:0 0 40px rgba(184,134,11,.85);
+    animation:bossVictoryPop .5s cubic-bezier(.2,1.4,.4,1);
+  }
+  .kotonoha-evolve-text{
+    color:#f0ece0; font-weight:bold; font-size:1.35rem; line-height:1.6;
+    text-shadow:0 0 10px rgba(0,0,0,.8);
+  }
+  .kotonoha-evolve-text.kotonoha-evolve-congrats{
+    font-size:1.6rem;
+    background:linear-gradient(90deg,#ffe08a,#ffd76a,#fff3c4,#ffd76a);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 0 20px rgba(255,215,100,.8));
+  }
+  .kotonoha-evolve-overlay.kotonoha-evolve-shake{ animation:finisherOverlayFadeIn .25s ease, kotonohaEvolveShake .9s ease; }
+  @keyframes kotonohaEvolveShake{
+    0%{ transform:translate(0,0); }
+    10%{ transform:translate(-10px,4px); }
+    20%{ transform:translate(9px,-5px); }
+    30%{ transform:translate(-8px,5px); }
+    40%{ transform:translate(8px,-4px); }
+    50%{ transform:translate(-7px,3px); }
+    60%{ transform:translate(6px,-4px); }
+    70%{ transform:translate(-5px,3px); }
+    80%{ transform:translate(4px,-2px); }
+    90%{ transform:translate(-2px,1px); }
+    100%{ transform:translate(0,0); }
+  }
+  .kotonoha-evolve-flash{
+    position:absolute; inset:0; background:#fff;
+    animation:kotonohaEvolveFlash .45s ease forwards;
+  }
+  @keyframes kotonohaEvolveFlash{
+    0%{ opacity:0; } 25%{ opacity:1; } 100%{ opacity:1; }
+  }
   .boss-battle-screen .q-sub{ color:#bfb0e0; }
   .boss-battle-screen .choice{
     background:rgba(255,255,255,.06); border-color:rgba(180,140,255,.35); color:#f0e6ff;
@@ -645,7 +708,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.59</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.64</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -658,6 +721,7 @@
 <script src="kanji_write_data.js"></script>
 <script src="kanji_write_elem_data.js"></script>
 <script src="hyakunin_isshu_data.js"></script>
+<script src="kotonoha_evolution_images.js"></script>
 <script>
 "use strict";
 
@@ -821,7 +885,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 35;
+const SAVE_FORMAT_VERSION = 36;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -833,6 +897,7 @@ function emptyStats(){
   CAT_KEYS.forEach(k => { cats[k] = {t:0,c:0}; lv[k] = 1; diffLv[k] = 1; });
   return {cats, q:{}, lv, diffLv, items:{}, usedTreasures:{}, usedStoryRewards:{}, bossPity:{}, bossItemPity:{}, kotonohaOtherRoll:null, bossTickets:0, totalLevelUps:0,
     bonusExp:0, stats:{hp:0, atk:0, def:0, spd:0, luck:0}, kotonohaSeenForms:[], kotonohaDisplayOverride:null, specialMoveUnlocked:false, storyFaceUnlocked:false,
+    kotonohaRebirthUnlocked:false, kotonohaRebirth:null,
     kanjiWrite:{totalOk:0, itemHist:{}, levelRecent:{}},
     kanjiWriteElem:{totalOk:0, itemHist:{}, targetLv:1, recent:[]},
     hyakunin:{totalOk:0, itemHist:{}, targetLv:1, recent:[]},
@@ -896,6 +961,13 @@ function loadStats(){
         if(typeof st.bonusExp !== "number") st.bonusExp = 0;
         if(typeof st.specialMoveUnlocked !== "boolean") st.specialMoveUnlocked = false;
         if(typeof st.storyFaceUnlocked !== "boolean") st.storyFaceUnlocked = false;
+        if(typeof st.kotonohaRebirthUnlocked !== "boolean") st.kotonohaRebirthUnlocked = false;
+        if(st.kotonohaRebirth === undefined) st.kotonohaRebirth = null;
+        /* 進化演出（showKotonohaEvolveCutscene）の追加より前のセーブ（seenStageが無い）は、
+           既に進んでいた分をさかのぼって演出しないよう、現在の段階をそのまま「見た」ことにする。 */
+        if(st.kotonohaRebirth && typeof st.kotonohaRebirth.seenStage !== "number"){
+          st.kotonohaRebirth.seenStage = kotonohaRebirthStageIndex(st);
+        }
         delete st.statPoints; // 旧バージョンの保存値。今後は使わず、常に導出する
         if(!st.stats) st.stats = {hp:0, atk:0, def:0, luck:0};
         if(typeof st.stats.spd !== "number") st.stats.spd = 0;
@@ -1784,6 +1856,259 @@ function kotonohaFormFromKey(key){
   if(!form) return null;
   return {name:form.name, icon:form.icon, type, stageIdx};
 }
+/* ================= ことのは転生システム（2026-07-31〜、第9章クリアで解放） =================
+   経験値の合計（kotonohaTotalXP）自体は今までどおり増え続ける。分野レベル・ステータス
+   ポイント・ボス出現判定への影響は一切ない。「転生」すると、見た目の進化だけを卵から
+   やり直せる：転生した瞬間の系統（のびのび/ほのお/うみかぜ/ほしぞら/おとの/はなぞの＝
+   kotonohaType()が3,5,6,7,8,9のいずれかを返すとき）を選び、以後は「転生時の経験値との差分」
+   だけで、6系統×7段階のイラスト（画像/ことのは進化図鑑.PNG から切り出した42枚、
+   kotonoha_evolution_images.js に埋め込み）が育っていく。
+   type1（一領域特化）・type2（二領域特化）のときは、対応する絵が無いため転生できない
+   （今までどおりの言葉＋絵文字表示のまま）。type4（全領域バランス）は「始原龍」という
+   専用ライン（六つの力を統合した存在という設定、教員が別途用意した専用アートを使用、
+   2026-07-31〜）で転生できる。始原龍だけ卵の絵が無いため、幼体の絵を卵の代わりに流用している。
+   転生は何度でもやり直せる（そのたびに、その瞬間の系統で卵から再スタート＝st.kotonohaRebirthを
+   上書きするだけ）。既存の「すがたを選ぶ」機能（kotonohaDisplayOverride）で言葉版に戻すことも
+   でき、その場合はこの画像モードより優先して言葉版が表示される。 */
+const KOTONOHA_IMAGE_LINES = {
+  3: "tensho",  // のびのび系 → 天翔（風）
+  4: "shigen",  // 全領域バランス型 → 始原龍（六つの力を統合した専用ライン、2026-07-31〜）
+  5: "engoku",  // ほのお系   → 焔獄（火）
+  6: "soukai",  // うみかぜ系 → 蒼海（水）
+  7: "meien",   // ほしぞら系 → 冥淵（闇）
+  8: "seiki",   // おとの系   → 聖輝（光）
+  9: "suishin", // はなぞの系 → 翠森（土）
+};
+const KOTONOHA_IMAGE_LINE_LABEL = {
+  tensho:"天翔（風）", engoku:"焔獄（火）", soukai:"蒼海（水）",
+  meien:"冥淵（闇）", seiki:"聖輝（光）", suishin:"翠森（土）",
+  shigen:"始原龍",
+};
+const KOTONOHA_IMAGE_STAGE_KEYS = ["1_tamago","2_youtai","3_shounentai","4_seinentai","5_seijintai","6_seijukutai","7_densetsu"];
+const KOTONOHA_IMAGE_STAGE_LABEL = ["卵","幼体","少年体","青年体","成人体","成熟体","伝説級"];
+/* 転生後の見た目段階のしきい値（転生時からの経験値の伸び、7段階＝インデックス0〜6）。
+   卵からの再スタートなので、通常の進化（KOTONOHA_STAGE_XP、最終到達10000）よりずっと短い
+   スパンで7段階に到達するよう設計している。 */
+const KOTONOHA_REBIRTH_STAGE_XP = [0, 30, 100, 300, 700, 1500, 4000];
+/* いま転生できる系統（のびのび〜はなぞの、または全領域バランス型＝始原龍）。type1/2の
+   ときはnull＝転生不可。kotonohaForm()をそのまま使うことで、kotonohaType()の「その他系統」
+   抽選（乱数消費・保存）を二重に起こさないようにしている。 */
+function kotonohaRebirthEligibleLine(st){
+  const f = kotonohaForm(st);
+  return f.type ? (KOTONOHA_IMAGE_LINES[f.type] || null) : null;
+}
+function kotonohaRebirthStageIndex(st){
+  if(!st.kotonohaRebirth) return -1;
+  const gained = Math.max(0, kotonohaTotalXP(st) - st.kotonohaRebirth.baseXP);
+  let idx = 0;
+  KOTONOHA_REBIRTH_STAGE_XP.forEach((th,i) => { if(gained >= th) idx = i; });
+  return idx; // 0=卵 … 6=伝説級
+}
+function kotonohaRebirthImageSrc(st){
+  if(!st.kotonohaRebirth) return null;
+  const idx = kotonohaRebirthStageIndex(st);
+  const key = `${st.kotonohaRebirth.line}_${KOTONOHA_IMAGE_STAGE_KEYS[idx]}`;
+  return (typeof KOTONOHA_EVOLUTION_IMAGES !== "undefined" && KOTONOHA_EVOLUTION_IMAGES[key]) || null;
+}
+function kotonohaImageSrcForStage(line, idx){
+  const key = `${line}_${KOTONOHA_IMAGE_STAGE_KEYS[idx]}`;
+  return (typeof KOTONOHA_EVOLUTION_IMAGES !== "undefined" && KOTONOHA_EVOLUTION_IMAGES[key]) || null;
+}
+/* ホーム画面に戻るたび（showHome）にチェックし、転生後の見た目段階が前回見せた段階
+   （st.kotonohaRebirth.seenStage）より進んでいれば、演出つきの進化お知らせを挟む
+   （教員の指示：ポケモンの進化演出のような、①「あれ………？」②「ことのはの様子がおかしい…」
+   ③画面全体の振動④明転⑤「おめでとう！～に進化した！」という5段階のインパクトのある演出）。
+   document.body直下の専用オーバーレイ（既存の必殺技演出=finisher-overlayと同じ手法）を使い、
+   screen.innerHTMLの作り直しには一切巻き込まれない。 */
+function kotonohaHasPendingEvolveCutscene(st){
+  return !!(st.kotonohaRebirth && kotonohaRebirthStageIndex(st) > (st.kotonohaRebirth.seenStage||0));
+}
+const KOTONOHA_EVOLVE_STEP_MS = 1300;
+const KOTONOHA_EVOLVE_SHAKE_MS = 900;
+const KOTONOHA_EVOLVE_FLASH_MS = 450;
+function kotonohaEvolveOverlayEl(){
+  let el = document.getElementById("kotonohaEvolveOverlay");
+  if(!el){
+    el = document.createElement("div");
+    el.id = "kotonohaEvolveOverlay";
+    document.body.appendChild(el);
+  }
+  return el;
+}
+function hideKotonohaEvolveOverlay(){
+  const el = document.getElementById("kotonohaEvolveOverlay");
+  if(el && el.parentNode) el.parentNode.removeChild(el);
+}
+function showKotonohaEvolveCutscene(st){
+  const fromStage = (st.kotonohaRebirth && st.kotonohaRebirth.seenStage) || 0;
+  const toStage = kotonohaRebirthStageIndex(st);
+  const line = st.kotonohaRebirth.line;
+  const fromSrc = kotonohaImageSrcForStage(line, fromStage);
+  const el = kotonohaEvolveOverlayEl();
+  el.className = "kotonoha-evolve-overlay";
+  el.innerHTML = `
+    <img class="kotonoha-evolve-img" src="${fromSrc}">
+    <p class="kotonoha-evolve-text">あれ………？</p>`;
+  setTimeout(() => kotonohaEvolveStep2(st, fromSrc, toStage), KOTONOHA_EVOLVE_STEP_MS);
+}
+function kotonohaEvolveStep2(st, fromSrc, toStage){
+  const el = kotonohaEvolveOverlayEl();
+  el.innerHTML = `
+    <img class="kotonoha-evolve-img kotonoha-evolve-fret" src="${fromSrc}">
+    <p class="kotonoha-evolve-text">ことのはの様子が、おかしい…</p>`;
+  setTimeout(() => kotonohaEvolveStep3(st, toStage), KOTONOHA_EVOLVE_STEP_MS);
+}
+function kotonohaEvolveStep3(st, toStage){
+  const el = kotonohaEvolveOverlayEl();
+  el.classList.add("kotonoha-evolve-shake");
+  setTimeout(() => kotonohaEvolveStep4(st, toStage), KOTONOHA_EVOLVE_SHAKE_MS);
+}
+function kotonohaEvolveStep4(st, toStage){
+  const el = kotonohaEvolveOverlayEl();
+  el.className = "kotonoha-evolve-overlay";
+  el.innerHTML = `<div class="kotonoha-evolve-flash"></div>`;
+  setTimeout(() => kotonohaEvolveStep5(st, toStage), KOTONOHA_EVOLVE_FLASH_MS);
+}
+/* 第9章のクライマックス専用ビート（beat.type==="kotonohaRebirthReveal"）。ことのはが実際に
+   卵へ生まれ変わる瞬間を、ストーリーの中でそのまま実行する。あれ？→力があふれてくる、という
+   セリフ自体は前後のlineビートが担当しているので、このビートは①実際に転生を実行する
+   ②画面の振動→明転→新しい卵の絵、という視覚演出だけに専念する（進化演出=
+   showKotonohaEvolveCutsceneと同じ視覚言語を流用、ただし戻り先はshowHome()ではなく
+   storyAdvance()）。今の育ち方が転生の条件を満たしていない場合は演出を出さずそのまま
+   次のビートへ進み、直後のlineビート（st.story.flags.ch9RebirthDoneをvariantsで参照）が
+   「まだその時ではないようだ」という文面に自動的に切り替わる。 */
+function storyRenderKotonohaRebirthReveal(){
+  const st = loadStats();
+  const sp = storyProgress(st);
+  const fromIcon = kotonohaForm(st).icon;
+  const success = kotonohaDoRebirth(st);
+  sp.flags.ch9RebirthDone = success ? "yes" : "no";
+  saveStats(st);
+  if(!success){ storyAdvance(); return; }
+  const el = kotonohaEvolveOverlayEl();
+  el.className = "kotonoha-evolve-overlay";
+  el.innerHTML = `<div class="kotonoha-evolve-icon-old">${esc(fromIcon)}</div>`;
+  setTimeout(() => {
+    el.classList.add("kotonoha-evolve-shake");
+    setTimeout(() => {
+      el.className = "kotonoha-evolve-overlay";
+      el.innerHTML = `<div class="kotonoha-evolve-flash"></div>`;
+      setTimeout(() => {
+        const toSrc = kotonohaRebirthImageSrc(st);
+        el.className = "kotonoha-evolve-overlay kotonoha-evolve-clickable";
+        el.innerHTML = `
+          <img class="kotonoha-evolve-img kotonoha-evolve-reveal" src="${toSrc}">
+          <button class="btn" onclick="hideKotonohaEvolveOverlay(); storyAdvance();">つづける</button>`;
+      }, KOTONOHA_EVOLVE_FLASH_MS);
+    }, KOTONOHA_EVOLVE_SHAKE_MS);
+  }, 500);
+}
+function kotonohaEvolveStep5(st, toStage){
+  st.kotonohaRebirth.seenStage = toStage;
+  saveStats(st);
+  const toSrc = kotonohaImageSrcForStage(st.kotonohaRebirth.line, toStage);
+  const label = `${KOTONOHA_IMAGE_STAGE_LABEL[toStage]}${KOTONOHA_IMAGE_LINE_LABEL[st.kotonohaRebirth.line]}`;
+  const el = kotonohaEvolveOverlayEl();
+  el.className = "kotonoha-evolve-overlay kotonoha-evolve-clickable";
+  el.innerHTML = `
+    <img class="kotonoha-evolve-img kotonoha-evolve-reveal" src="${toSrc}">
+    <p class="kotonoha-evolve-text kotonoha-evolve-congrats">おめでとう！<br>ことのはが、${esc(label)}に進化した！</p>
+    <button class="btn" onclick="hideKotonohaEvolveOverlay(); showHome();">つづける</button>`;
+}
+/* 転生の実行。何度でもやり直せる＝毎回、その時点の経験値を新しい基準点として上書きする。
+   seenStageは「進化演出（showKotonohaEvolveCutscene）を最後に見せた段階」の記録で、転生直後は
+   0（卵）から始まる＝転生そのものは「卵に戻る」演出（確認画面のメッセージ）で表現済みなので、
+   ここでは進化演出を二重に出さない。 */
+function kotonohaDoRebirth(st){
+  const line = kotonohaRebirthEligibleLine(st);
+  if(!line) return false;
+  st.kotonohaRebirth = {line, baseXP: kotonohaTotalXP(st), seenStage: 0};
+  saveStats(st);
+  return true;
+}
+/* ================= 系統別・必殺技バリエーション =================
+   転生後、見た目段階が「少年体」（インデックス2）以上になると、系統ごとに違う必殺技が
+   言霊一閃の代わりに使えるようになる。卵・幼体（0・1）の間はまだ解禁されず、既存の
+   言霊一閃（または命名イベントで選んだ名前）のまま。少年体で解禁された直後は効果がごく
+   小さく、伝説級（6）に向けて段階的に育っていく（t = (段階-2)/4、範囲0〜1でクランプ）。
+   経験値・宝具・ステータス割りふりには一切影響させず、ボス戦の必殺技発動処理
+   （bossResolveFinisher）と反撃処理（bossCounterAttack）の中だけで完結させている。
+   攻撃力・防御力の上昇は、既存のアイテム効果（鉄球=atkBuff等）と同じ「ダメージ計算式への
+   加点」という仕組みをそのまま流用し、対象ボスの数値レンジ（+15〜+30ポイント程度）に
+   合わせて調整している（新しい掛け算の仕組みを増やさない）。 */
+const KOTONOHA_LINE_MOVE_MIN_STAGE = 2; // 少年体
+function kotonohaLineMoveT(stageIdx){
+  return Math.max(0, Math.min(1, (stageIdx - KOTONOHA_LINE_MOVE_MIN_STAGE) / 4));
+}
+const KOTONOHA_LINE_MOVES = {
+  tensho: {
+    name:"疾風の一閃",
+    desc:"発動に必要な連続正解数が少ない代わり、威力はひかえめ",
+    gaugeMax: t => Math.max(3, Math.round(FINISHER_GAUGE_MAX - 1*t)),
+    powerMult: t => FINISHER_MULT - 1*t,
+  },
+  soukai: {
+    name:"癒しの波動",
+    desc:"与えたダメージの一部を自分のHPに変える",
+    powerMult: () => FINISHER_MULT,
+    drainPct: t => 0.5*t,
+  },
+  engoku: {
+    name:"灼熱の連撃",
+    desc:"連続で当てるたびに威力が上がる（一度でも間違えるとリセット）",
+    powerMult: () => FINISHER_MULT,
+    comboStep: t => 0.3*t,
+    comboCapExtra: t => 1.2*t,
+  },
+  suishin: {
+    name:"眠りの胞子",
+    desc:"相手を数ターン行動不能にする（毎ターン一定確率で目覚める）",
+    powerMult: () => FINISHER_MULT,
+    sleepMaxTurns: t => Math.round(2 + 3*t),
+    sleepWakeChance: t => 0.40 - 0.18*t,
+  },
+  seiki: {
+    name:"光の高揚",
+    desc:"発動のたびに自分の攻撃力が上がる（重ねがけ可）",
+    powerMult: () => FINISHER_MULT,
+    buffStat:"atk",
+    buffPerStack: t => Math.round(10 + 30*t),
+    buffMaxStacks: t => 1 + Math.round(2*t),
+  },
+  meien: {
+    name:"深淵の守り",
+    desc:"発動のたびに自分の防御力が上がる（重ねがけ可）",
+    powerMult: () => FINISHER_MULT,
+    buffStat:"def",
+    buffPerStack: t => Math.round(10 + 30*t),
+    buffMaxStacks: t => 1 + Math.round(2*t),
+  },
+};
+/* 今のボス戦で使える系統別必殺技。転生していない／まだ少年体未満のときはnull
+   （＝呼び出し側は今までどおりの言霊一閃にフォールバックする）。 */
+function kotonohaActiveLineMove(st){
+  if(!st.kotonohaRebirth) return null;
+  const stageIdx = kotonohaRebirthStageIndex(st);
+  if(stageIdx < KOTONOHA_LINE_MOVE_MIN_STAGE) return null;
+  let lineKey = st.kotonohaRebirth.line;
+  if(lineKey === "shigen"){
+    /* 始原龍は専用の技を持たず、bossUseFinisherで発動のたびに抽選した6系統のどれかを
+       そのまま借りる。まだ一度も発動していない（ゲージ表示・技名フォールバックの
+       タイミングなど）ときはnullを返し、呼び出し側は通常どおり言霊一閃にフォールバックする。 */
+    if(!bossBattle || !bossBattle.kotonohaShigenMoveLine) return null;
+    lineKey = bossBattle.kotonohaShigenMoveLine;
+  }
+  const def = KOTONOHA_LINE_MOVES[lineKey];
+  if(!def) return null;
+  return {def, t: kotonohaLineMoveT(stageIdx)};
+}
+/* 必殺技ゲージの必要正解数（天翔だけ通常より少ない）。表示（ドット数）と発動判定の
+   両方でこれを使うことで、見た目と実際の判定を一致させる。 */
+function finisherGaugeRequired(st){
+  const lm = kotonohaActiveLineMove(st);
+  if(lm && lm.def.gaugeMax) return lm.def.gaugeMax(lm.t);
+  return FINISHER_GAUGE_MAX;
+}
 function kotonohaCardHtml(st){
   const f = kotonohaForm(st);
   const key = kotonohaFormKey(f);
@@ -1817,25 +2142,56 @@ function kotonohaCardHtml(st){
   const kumi = storyChosenKumi(st);
   const kumiValue = storyChosenKumiValue(st);
   const kumiBadge = kumi ? ` <span class="shogo-badge kumi-${esc(kumiValue)}">【${esc(kumi)}】</span>` : "";
+  /* 転生後（かつ「すがたを選ぶ」で言葉版に戻していないとき）は、イラストをメイン表示にする。
+     見た目だけの機能なので、override中は今までどおり言葉版を優先する（既存仕様を尊重）。 */
+  const rebirthActive = !!(st.kotonohaRebirth && !override);
+  const iconHtml = rebirthActive
+    ? `<img class="kotonoha-icon kotonoha-icon-img" src="${kotonohaRebirthImageSrc(st)}" onclick="showKotonohaFormPicker()" alt="${esc(KOTONOHA_IMAGE_LINE_LABEL[st.kotonohaRebirth.line])}">`
+    : `<div class="kotonoha-icon ${typeClass}${override ? ' kotonoha-overridden' : ''}" onclick="showKotonohaFormPicker()">${disp.icon}</div>`;
+  let rebirthNameHtml = "", rebirthMoveHtml = "";
+  if(rebirthActive){
+    const rIdx = kotonohaRebirthStageIndex(st);
+    rebirthNameHtml = `<span class="kotonoha-stage${rIdx===6?' final':''}">${esc(KOTONOHA_IMAGE_STAGE_LABEL[rIdx])}</span><span class="kotonoha-type">${esc(KOTONOHA_IMAGE_LINE_LABEL[st.kotonohaRebirth.line])}</span>`;
+    const lm = kotonohaActiveLineMove(st);
+    rebirthMoveHtml = lm
+      ? `<p class="note">⚡必殺技「${esc(lm.def.name)}」：${esc(lm.def.desc)}</p>`
+      : `<p class="note">⚡必殺技は、少年体になると使えるようになる</p>`;
+  }
+  const rebirthSection = kotonohaRebirthSectionHtml(st);
   return `
   <div class="card kotonoha-card">
     <h3 class="section">${esc(pronoun || "きみ")}の相棒【ことのは】${kumiBadge}</h3>
     <div class="kotonoha-row">
-      <div class="kotonoha-icon ${typeClass}${override ? ' kotonoha-overridden' : ''}" onclick="showKotonohaFormPicker()">${disp.icon}</div>
+      ${iconHtml}
       <div class="kotonoha-info">
-        <div class="kotonoha-name">${stageTag}${esc(disp.name)}</div>
-        ${typeTag}
+        <div class="kotonoha-name">${rebirthActive ? rebirthNameHtml : stageTag+esc(disp.name)}</div>
+        ${rebirthActive ? "" : typeTag}
         <div class="kotonoha-xp">経験値　${f.total}（今までの総正解数…${totalCorrectCount(st)}問）</div>
         <div class="bar"><div style="width:${progress}%"></div></div>
         <p class="note">${esc(progressNote)}</p>
         ${overrideNote}
+        ${rebirthMoveHtml}
         ${statusTable}
         <div class="btn-row" style="margin-top:8px">
           <button class="btn inline secondary" onclick="showStatusAllocation()">💪 ボス戦ステータス</button>
         </div>
       </div>
     </div>
+    ${rebirthSection}
   </div>`;
+}
+/* 第9章クリアで解放される「転生」の導線。カード下部に小さく表示する。
+   ・未解放：何も表示しない
+   ・解放済み・今の育て方では転生できない（type1/2/4）：理由つきで案内だけ表示
+   ・解放済み・転生可能：ボタンを表示（転生済みでも「育て直す」として何度でも使える） */
+function kotonohaRebirthSectionHtml(st){
+  if(!st.kotonohaRebirthUnlocked) return "";
+  const line = kotonohaRebirthEligibleLine(st);
+  if(!line){
+    return `<p class="note kotonoha-rebirth-note">🔁 今の育て方（一領域特化・二領域特化のいずれか）では転生できません。分野のバランスを変えると、転生できるようになります。</p>`;
+  }
+  const label = st.kotonohaRebirth ? "🔁 転生して育て直す" : "🔁 転生する";
+  return `<div class="btn-row" style="margin-top:10px"><button class="btn inline secondary" onclick="showKotonohaRebirthConfirm()">${label}</button></div>`;
 }
 /* これまでに到達したことのある「すがた」の中から、表示するすがたを選べる画面。
    経験値や進化そのものには影響しない、見た目だけの変更。 */
@@ -1874,6 +2230,34 @@ function setKotonohaDisplay(key){
   const st = loadStats();
   st.kotonohaDisplayOverride = key || null;
   saveStats(st);
+  showHome();
+}
+/* 転生の確認画面。何度でもやり直せるが、そのたびに絵の進化段階は卵に戻る＝実行前に
+   必ずワンクッション挟む（既存の挑戦チケット確認画面と同じ、カード型の確認UIパターン）。 */
+function showKotonohaRebirthConfirm(){
+  const st = loadStats();
+  if(!st.kotonohaRebirthUnlocked){ showHome(); return; }
+  const line = kotonohaRebirthEligibleLine(st);
+  if(!line){ showHome(); return; }
+  const already = !!st.kotonohaRebirth;
+  const lineLabel = KOTONOHA_IMAGE_LINE_LABEL[line];
+  screen.innerHTML = `
+    <div class="card boss-encounter">
+      <div class="boss-enc-icon">🔁</div>
+      <p class="boss-enc-text">${already ? "もう一度、卵から転生しますか？" : "転生しますか？"}<br>
+        今の育て方だと、「<b>${esc(lineLabel)}</b>」のすがたで卵から育て直すことになります。</p>
+      <p class="note boss-enc-hint">📈 これまでの経験値はそのまま。分野レベルやステータスポイントも減りません。減るのは、ことのはの「絵の進化段階」だけです。</p>
+      <p class="note boss-enc-hint">⚡ 少年体まで育てると、系統専用の必殺技が使えるようになります（伝説級まで育てるほど強くなります）。</p>
+      ${already ? `<p class="note boss-enc-hint">🔄 今のすがた・必殺技の育ち具合は失われます。何度でもやり直せます。</p>` : ""}
+      <div class="boss-enc-choices">
+        <button class="boss-enc-btn" onclick="showHome()">やめる</button>
+        <button class="boss-enc-btn selected" onclick="kotonohaRebirthConfirmed()">転生する</button>
+      </div>
+    </div>`;
+}
+function kotonohaRebirthConfirmed(){
+  const st = loadStats();
+  kotonohaDoRebirth(st);
   showHome();
 }
 function itemLinkHtml(st){
@@ -1921,6 +2305,7 @@ function showHome(){
   clearStoryComboTimer(); // コンボアタックを中断して離れたときに、残ったカウントダウン/制限時間タイマーを止める
   clearBaseballTimers(); // 野球ミニゲームを中断して離れたときに、残ったカウントダウン・制限時間タイマーを止める
   const st = loadStats();
+  if(kotonohaHasPendingEvolveCutscene(st)){ showKotonohaEvolveCutscene(st); return; }
   let html = "";
   html += kotonohaCardHtml(st);
   html += storyEntryHtml(st);
@@ -3916,6 +4301,8 @@ const FINISHER_MOVE_CHOICES = {
   snore:    {name:"大きないびき", reading:null},
 };
 function finisherMoveInfo(st){
+  const lm = kotonohaActiveLineMove(st);
+  if(lm) return {name: lm.def.name, reading: null};
   const key = storyProgress(st).flags.finisherMoveChoice;
   return FINISHER_MOVE_CHOICES[key] || FINISHER_MOVE_CHOICES.kotodama;
 }
@@ -4224,6 +4611,9 @@ function startBossBattle(boss, allGenre){
     atkMultTurns:0, atkMultAmount:1,
     showItemPanel:false, usedItemThisTurn:false, usedItemNames:{}, timerId:null,
     correctStreak:0, finisherGauge:0,
+    kotonohaComboCount:0, kotonohaAtkBuffAmount:0, kotonohaDefBuffAmount:0, kotonohaAtkStacks:0, kotonohaDefStacks:0,
+    kotonohaSleepTurnsLeft:0, kotonohaSleepFirstTurnDone:false, kotonohaSleepWakeChance:0,
+    kotonohaShigenMoveLine:null,
   };
   if(boss.preemptiveHalfHp){
     // 丸刈りのさるちゃん専用：戦闘開始と同時に、プレイヤーのHPを半分にする先制攻撃を受ける
@@ -4332,16 +4722,17 @@ function bossFinisherBarHtml(){
   if(!bossFinisherEligible(b.boss)) return "";
   const st = loadStats();
   if(!st.specialMoveUnlocked) return "";
-  const gauge = Math.min(FINISHER_GAUGE_MAX, b.finisherGauge||0);
-  const full = gauge >= FINISHER_GAUGE_MAX;
-  const dots = Array.from({length:FINISHER_GAUGE_MAX}, (_,i) => `<span class="finisher-dot${i < gauge ? " on" : ""}"></span>`).join("");
+  const required = finisherGaugeRequired(st);
+  const gauge = Math.min(required, b.finisherGauge||0);
+  const full = gauge >= required;
+  const dots = Array.from({length:required}, (_,i) => `<span class="finisher-dot${i < gauge ? " on" : ""}"></span>`).join("");
   return `
     <div class="finisher-bar">
       <span class="finisher-gauge-label">必殺技ゲージ</span>
       <span class="finisher-dots">${dots}</span>
       ${full
         ? `<button class="btn inline finisher-btn" onclick="bossUseFinisher()">⚡${esc(finisherMoveName(st))}！</button>`
-        : `<span class="note" style="margin:0">（あと${FINISHER_GAUGE_MAX - gauge}問連続正解）</span>`}
+        : `<span class="note" style="margin:0">（あと${required - gauge}問連続正解）</span>`}
     </div>`;
 }
 function refreshBossFinisherBar(){
@@ -4389,7 +4780,16 @@ function bossUseFinisher(){
   if(!b || b._resolving || b.bossHp <= 0 || b.playerHp <= 0 || !bossFinisherEligible(b.boss)) return;
   const st = loadStats();
   if(!st.specialMoveUnlocked) return;
-  if((b.finisherGauge||0) < FINISHER_GAUGE_MAX) return;
+  if((b.finisherGauge||0) < finisherGaugeRequired(st)) return;
+  /* 始原龍（全領域バランス型、type4）専用：六つの力を統合した存在という設定どおり、
+     必殺技を打つたびに天翔〜冥淵の6系統からどれか1つの力をランダムに借りる
+     （kotonohaActiveLineMoveがこのb.kotonohaShigenMoveLineを参照する）。溜め演出・技名
+     発表・ダメージ計算の一連の間は同じ抽選結果を使い続けるよう、発動を決めたこの時点で
+     1回だけ抽選する（教員の指示：「技は毎回ランダムで決まる」＝1回の発動ごとに1回抽選）。 */
+  if(st.kotonohaRebirth && st.kotonohaRebirth.line === "shigen"){
+    const keys = Object.keys(KOTONOHA_LINE_MOVES);
+    b.kotonohaShigenMoveLine = keys[Math.floor(Math.random() * keys.length)];
+  }
   clearBossTimer();
   stopBossTimerBar();
   b._resolving = true;
@@ -4416,9 +4816,11 @@ function bossResolveFinisher(){
   const b = bossBattle;
   hideFinisherOverlay();
   const st = loadStats();
+  const lm = kotonohaActiveLineMove(st);
   b.finisherGauge = 0;
   const ps = st.stats || {hp:0,atk:0,def:0,spd:0,luck:0};
-  let dealt = randInt(BOSS_PLAYER_DMG[0], BOSS_PLAYER_DMG[1]) + ps.atk * STAT_ATK_PER_POINT + (b.atkBuffTurns > 0 ? b.atkBuffAmount : 0);
+  let dealt = randInt(BOSS_PLAYER_DMG[0], BOSS_PLAYER_DMG[1]) + ps.atk * STAT_ATK_PER_POINT
+    + (b.atkBuffTurns > 0 ? b.atkBuffAmount : 0) + (b.kotonohaAtkBuffAmount||0);
   if(b.atkMultTurns > 0) dealt = Math.round(dealt * b.atkMultAmount);
   /* ぶらぶら歩く人専用：必殺技のダメージを他ボスの2倍、2回目以降はさらに倍（4倍）にする新フラグ
      `finisherDamageMultBoost:[2,4]`（教員の指示、2026-07-23）。防御力が解除されない仕様
@@ -4435,7 +4837,16 @@ function bossResolveFinisher(){
     finisherExtraMult = stages[idx];
     b.finisherUseCount = (b.finisherUseCount||0) + 1;
   }
-  dealt = Math.round(dealt * FINISHER_MULT * finisherExtraMult);
+  /* 系統別必殺技の威力倍率。未転生・少年体未満のときはlmがnullで、今までどおりFINISHER_MULT。
+     焔獄「灼熱の連撃」だけ、連続使用ぶんだけ上乗せする（1回でも不正解を挟むと
+     bossGrade側でkotonohaComboCountが0に戻り、また基本倍率からやり直しになる）。 */
+  let moveMult = lm ? lm.def.powerMult(lm.t) : FINISHER_MULT;
+  if(lm && lm.def.comboStep){
+    const combo = b.kotonohaComboCount||0;
+    moveMult = Math.min(FINISHER_MULT + lm.def.comboCapExtra(lm.t), moveMult + lm.def.comboStep(lm.t) * combo);
+    b.kotonohaComboCount = combo + 1;
+  }
+  dealt = Math.round(dealt * moveMult * finisherExtraMult);
   const effLuck = ps.luck + (b.luckBuffTurns > 0 ? b.luckBuffAmount : 0);
   const critChance = 100 * effLuck / (effLuck + STAT_LUCK_HALF_POINT);
   let crit = false;
@@ -4452,13 +4863,42 @@ function bossResolveFinisher(){
   }else{
     b.bossHp = Math.max(0, b.bossHp - dealt);
   }
+  // 蒼海「癒しの波動」：与えたダメージの一部を自分のHPに還元する
+  let healed = 0;
+  if(lm && lm.def.drainPct && dealt > 0){
+    healed = Math.round(dealt * lm.def.drainPct(lm.t));
+    if(healed > 0) b.playerHp = Math.min(b.playerMaxHp, b.playerHp + healed);
+  }
+  /* 聖輝「光の高揚」/冥淵「深淵の守り」：発動のたびに自分の攻撃力・防御力が上がる（重ねがけ、上限あり）。
+     既存のアイテムatkBuff/defBuffと同じ「ダメージ計算式への加点」を、戦闘終了まで持続するかたちで
+     積んでいく（ターン経過で減衰する既存のアイテムバフとは別の持続フィールドに保持する）。 */
+  let buffMsg = "";
+  if(lm && lm.def.buffPerStack){
+    const stackKey = lm.def.buffStat === "atk" ? "kotonohaAtkStacks" : "kotonohaDefStacks";
+    const amountKey = lm.def.buffStat === "atk" ? "kotonohaAtkBuffAmount" : "kotonohaDefBuffAmount";
+    const maxStacks = lm.def.buffMaxStacks(lm.t);
+    const stacks = Math.min(maxStacks, (b[stackKey]||0) + 1);
+    b[stackKey] = stacks;
+    b[amountKey] = lm.def.buffPerStack(lm.t) * stacks;
+    buffMsg = `<div class="boss-turn">✨自分の${lm.def.buffStat==="atk"?"攻撃力":"防御力"}が上がった！（${stacks}/${maxStacks}）</div>`;
+  }
+  // 翠森「眠りの胞子」：相手を数ターン行動不能にする（毎ターンの目覚め判定はbossCounterAttack側）
+  let sleepMsg = "";
+  if(lm && lm.def.sleepMaxTurns){
+    b.kotonohaSleepTurnsLeft = lm.def.sleepMaxTurns(lm.t);
+    b.kotonohaSleepWakeChance = lm.def.sleepWakeChance(lm.t);
+    b.kotonohaSleepFirstTurnDone = false;
+    sleepMsg = `<div class="boss-turn">💤${esc(b.boss.name)}を眠らせた！</div>`;
+  }
   refreshBossHpBars();
   refreshBossFinisherBar();
   const fb = document.getElementById("fb");
   fb.className = "feedback show ok";
-  fb.innerHTML = dodged
+  const healMsg = healed > 0 ? `<div class="boss-turn">💚自分のHPが${healed}回復した！</div>` : "";
+  fb.innerHTML = (dodged
     ? `<span class="finisher-dmg">💨 ${esc(b.boss.name)}に、すんでのところでかわされた！</span>`
-    : `<span class="finisher-dmg">${crit ? "💥会心の一撃！ " : ""}${esc(b.boss.name)}に ${dealt} ダメージ！</span>`;
+    : `<span class="finisher-dmg">${crit ? "💥会心の一撃！ " : ""}${esc(b.boss.name)}に ${dealt} ダメージ！</span>`)
+    + healMsg + buffMsg + sleepMsg;
   if(!dodged) triggerFinisherShake();
   if(b.bossHp <= 0){
     setTimeout(() => { if(bossBattle && bossBattle._resolving) bossWin(); }, 1300);
@@ -4715,7 +5155,7 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
         // シランちゃんは、攻撃が命中する寸前でも一定確率で逃げ出す（正解でも不正解でも「逃げる可能性」を持たせるため）
         fled = true;
       }else{
-        dealt = randInt(BOSS_PLAYER_DMG[0], BOSS_PLAYER_DMG[1]) + ps.atk * STAT_ATK_PER_POINT + (b.atkBuffTurns > 0 ? b.atkBuffAmount : 0);
+        dealt = randInt(BOSS_PLAYER_DMG[0], BOSS_PLAYER_DMG[1]) + ps.atk * STAT_ATK_PER_POINT + (b.atkBuffTurns > 0 ? b.atkBuffAmount : 0) + (b.kotonohaAtkBuffAmount||0);
         // さびついたノコギリ等の「次のターンだけ攻撃力n倍」効果（攻撃力依存の倍率、既存の加算式atkBuffとは別枠）
         if(b.atkMultTurns > 0) dealt = Math.round(dealt * b.atkMultAmount);
         const effLuck = ps.luck + (b.luckBuffTurns > 0 ? b.luckBuffAmount : 0);
@@ -4757,9 +5197,10 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
       }
     }
   }else{
-    // 不正解で「連続」が途切れるので、必殺技ゲージもリセットする
+    // 不正解で「連続」が途切れるので、必殺技ゲージもリセットする（焔獄の連撃カウントも同様）
     b.correctStreak = 0;
     b.finisherGauge = 0;
+    b.kotonohaComboCount = 0;
     if(b.boss.defTripleOnMiss) b.bossDefMissStreak = (b.bossDefMissStreak||0) + 1;
     // ゲームマニア８９専用：プレイヤーが不正解のとき、自分の最大HPの一定割合を回復する
     if(b.boss.healOnMissPct) b.bossHp = Math.min(b.bossMaxHp, b.bossHp + Math.round(b.bossMaxHp * b.boss.healOnMissPct));
@@ -4849,6 +5290,26 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
 }
 function bossCounterAttack(playerWasCorrect){
   const b = bossBattle;
+  /* 翠森「眠りの胞子」：眠っている間はボスの反撃ターンそのものを丸ごとスキップする
+     （経験値ゲート・statIgnoreなど、他のどの反撃分岐よりも先に判定する）。1ターン目は必ず
+     眠ったまま、2ターン目以降は毎ターンkotonohaSleepWakeChanceの確率で目覚める。目覚めた
+     ターンは、そのまま下の通常の反撃判定に進む（寝起きに反撃してくるイメージ）。 */
+  if((b.kotonohaSleepTurnsLeft||0) > 0){
+    const woke = b.kotonohaSleepFirstTurnDone && Math.random() < (b.kotonohaSleepWakeChance||0);
+    b.kotonohaSleepFirstTurnDone = true;
+    if(!woke){
+      b.kotonohaSleepTurnsLeft--;
+      refreshBossHpBars();
+      const fb = document.getElementById("fb");
+      fb.innerHTML += `<div class="boss-turn">💤${esc(b.boss.name)}は、眠っていて動けない。</div>`;
+      const nextBtn = document.getElementById("nextBtn");
+      nextBtn.style.display = "inline-block";
+      nextBtn.textContent = "つぎへ";
+      nextBtn.focus();
+      return;
+    }
+    b.kotonohaSleepTurnsLeft = 0;
+  }
   if(bossXpGateActive(b.boss, loadStats())){
     /* 経験値ゲート・ルール②③：命中判定・防御力・ミス回避アイテムなどを一切介さない反撃。
        「攻撃ミス」（不正解、または正解したが回避された＝とどめ回避も含む）のときはルール③
@@ -4954,7 +5415,7 @@ function bossCounterAttack(playerWasCorrect){
   }else if(Math.random() >= hitChance){
     playerEvaded = true;
   }else{
-    const effDef = ps.def + (b.defBuffTurns > 0 ? b.defBuffAmount : 0);
+    const effDef = ps.def + (b.defBuffTurns > 0 ? b.defBuffAmount : 0) + (b.kotonohaDefBuffAmount||0);
     let effAtk = defGateActive(effDef, st) ? (b.boss.atk||1) * DEF_GATE_ATK_MULT : (b.boss.atk||1);
     if(b.boss.selfHpAtkBoost){
       // 咆哮のソーマー専用：自分のHPが閾値を切ると攻撃力の倍率が跳ね上がる（教員の指示）
@@ -5563,6 +6024,14 @@ const STORY_EVENT_BOSSES = {
   kumiSloganNouns: {
     id:"story_kumi_slogan_nouns", name:"組団スローガンの名詞さがし", icon:"📣",
     item:"手作り応援うちわ", treasure:"組団対抗のお守り",
+  },
+  /* 第9章「ことばの自由研究」用（2026-07-31〜）。他の中ボスと同じくbattle beat（正答数ゲート、
+     total/needは既定値10/8のまま）。出題はshikibetsuプールのうち`s`フィールドが「正しく単語で
+     区切られているのはどれか」の24問だけに絞る（beat.filterS、storyBeatFilter参照。tagフィールドが
+     無いカテゴリなので、setsuzokushiTestのfilterTagとは別の絞り込み手段を新設した）。 */
+  wordSpiritTrial: {
+    id:"story_word_spirit_trial", name:"単語分けの腕試し", icon:"📖",
+    item:"自由研究の完成ノート", treasure:"言葉の精霊についての古い絵巻",
   },
 };
 TREASURE_NAMES.add(STORY_EVENT_BOSSES.printPile.treasure);
@@ -6229,6 +6698,65 @@ const STORY_CHAPTERS = {
     ],
     epilogue: "組の一員として迎えた、はじめての体育祭。\n\n声を合わせて応援するうちに、言葉の力が、みんなの心をひとつにしていくのを感じた一日だった。",
   },
+  ch9: {
+    title: "第9章「ことばの自由研究」",
+    beats: [
+      {type:"line", text:"夏休みに入って数日。宿題の中でも一番の悩みの種は、毎年おなじみの「自由研究」だ。"},
+      {type:"line", speaker:"ことのは", text:"今年の自由研究、もうテーマは決めた？"},
+      {type:"choice", flagKey:"ch9Topic", text:"自由研究のテーマ、どうする？", options:[
+        {label:"ことばの仕組みを調べてみる", value:"language"},
+        {label:"きみ自身と、ことばとの関わりを調べてみる", value:"self"},
+      ]},
+      {type:"line", speaker:"ことのは", text:"それ、おもしろそうだね。", variants:[
+        {flag:"ch9Topic", value:"language", text:"「ことばの仕組み」か。ぼく自身も、ことばからできているようなものだから、ちょっとドキドキするな。"},
+        {flag:"ch9Topic", value:"self", text:"きみとことばとの関わり、か。それなら、ぼくも一緒に調べられそうだね。"},
+      ]},
+      {type:"line", text:"テーマを「ことばの仕組み」に決め、まずは図書室で資料集めをすることにした。"},
+      {type:"line", speaker:"花子", text:"「自由研究、わたしも国語系にしようかな。一緒に調べる？」"},
+      {type:"line", speaker:"太郎", text:"「おれは去年は工作にしたけど……今年はことばも、ちょっとおもしろそうだな」"},
+      {type:"line", text:"司書の先生に相談すると、「文の組み立て」についての本を勧めてくれた。"},
+      {type:"line", speaker:"司書の先生", text:"「文は、いくつかの『文節』に分けられるのよ。まずは、文節の区切り方から確認してみましょうか」"},
+      {type:"quiz", cat:"shikibetsu", filterS:"正しく文節で区切られているのはどれか", speaker:"司書の先生"},
+      {type:"line", speaker:"司書の先生", text:"「上手に分けられるようになったわね。文節の集まりが、もっと細かい『単語』に分かれることも知ってる？」"},
+      {type:"line", speaker:"ことのは", text:"単語……。ことばの、いちばん小さな粒みたいなものだね。"},
+      {type:"line", text:"資料を読み進めるうち、書庫の奥で、古い一冊の本が目に留まった。"},
+      {type:"line", text:"表紙には「言葉の精霊について」と書かれている。ページをめくると、聞き覚えのある名前が目に飛び込んできた。"},
+      {type:"line", text:"――ことのは。"},
+      {type:"line", speaker:"ことのは", text:"え……？　ぼくの名前が、書いてある……？"},
+      {type:"line", text:"本にはこうあった。「言葉そのものから生まれた精霊は、言葉の最小の単位を見きわめる者との絆によって、真の姿へと近づいていく」"},
+      {type:"choice", flagKey:"ch9Reaction", text:"この本を読んで、どう思う？", options:[
+        {label:"ことのはの正体に近づけそうで、わくわくする", value:"excited"},
+        {label:"ちょっと不思議で、少し怖い気もする", value:"nervous"},
+      ]},
+      {type:"line", speaker:"ことのは", text:"そっか。", variants:[
+        {flag:"ch9Reaction", value:"excited", text:"そっか、わくわくするんだね。ぼくも、自分の本当の姿が気になってきたよ。"},
+        {flag:"ch9Reaction", value:"nervous", text:"そっか、怖い気もするよね。でも、だいじょうぶ。きみと一緒なら、ぼくは怖くないよ。"},
+      ]},
+      {type:"line", speaker:"花子", text:"「え、それってつまり……ことのはが、もっとすごい姿になるかもしれないってこと？」"},
+      {type:"line", speaker:"太郎", text:"「おお、なんかロマンあるな！　自由研究、めちゃくちゃおもしろくなってきたじゃん」"},
+      {type:"line", speaker:"ことのは", text:"試してみたい。ぼくの、本当の姿……。単語の見きわめ、試されているのかもしれない。"},
+      {type:"line", text:"本の最後のページに、小さな試練が記されていた。「正しく言葉の最小の単位（単語）を見きわめられるか、試されよ」"},
+      {type:"battle", cat:"shikibetsu", filterS:"正しく単語で区切られているのはどれか", boss:"wordSpiritTrial"},
+      {type:"line", text:"最後の問題に正解した瞬間、ことのはの体が、淡い光に包まれた。"},
+      {type:"line", speaker:"ことのは", text:"……あれ？　なんだか、体の奥から、力があふれてくるみたいだ。"},
+      /* ここで実際にkotonohaDoRebirth()を実行し、揺れ→明転→新しい卵の絵、という演出を挟む
+         （storyRenderKotonohaRebirthReveal参照）。今の育ち方が転生の条件（3+バランス型の
+         6系統のいずれか）を満たしていないと何も起きず、その結果はsp.flags.ch9RebirthDoneに
+         記録され、直後の2つのlineビートがvariantsで文面を出し分ける。 */
+      {type:"kotonohaRebirthReveal"},
+      {type:"line", text:"光がやむと、ことのはの姿は、卵のように丸く、やわらかな輝きをたたえていた。", variants:[
+        {flag:"ch9RebirthDone", value:"no", text:"光がやんでも、ことのはの姿はまだ卵にはならなかった。けれど、たしかに何かが変わろうとしている気配だけは、はっきりと感じられた。"},
+      ]},
+      {type:"line", speaker:"ことのは", text:"ぼく、変わっていけるみたいなんだ。きみと過ごしてきた時間が、ぼくを深いところから変えてくれる。――これからは、卵の姿から、何度でも新しい姿に生まれ変わっていけるようになったよ。", variants:[
+        {flag:"ch9RebirthDone", value:"no", text:"ぼく、これから変わっていけるようになるみたいなんだ。まだ卵にはなれていないみたいだけど……いつかその時が来たら、卵の姿から何度でも生まれ変わっていけるようになるはずだよ。"},
+        {flag:"favoriteSubject", value:"kanji", text:"ぼく、変わっていけるみたいなんだ。漢字が得意なきみが、一字一字ことばを見つめてくれたからかな。――これからは、卵の姿から、何度でも新しい姿に生まれ変わっていけるようになったよ。"},
+        {flag:"favoriteSubject", value:"dokkai", text:"ぼく、変わっていけるみたいなんだ。文章を読むのが得意なきみが、ぼくの中の物語を読み取ってくれたからかな。――これからは、卵の姿から、何度でも新しい姿に生まれ変わっていけるようになったよ。"},
+        {flag:"favoriteSubject", value:"bunpou", text:"ぼく、変わっていけるみたいなんだ。言葉のきまりが得意なきみが、ぼくの仕組みを解き明かしてくれたからかな。――これからは、卵の姿から、何度でも新しい姿に生まれ変わっていけるようになったよ。"},
+      ]},
+      {type:"line", text:"自由研究のまとめには、こう書いた。「言葉は、文節から単語へ、どんどん小さな単位に分けられる。そして、ことばそのものからも、新しい何かが生まれることがある」"},
+    ],
+    epilogue: "2学期が始まり、夏休みの自由研究発表会が開かれた。\n\nことのはの正体に近づいた研究は、クラスのみんなの注目を集めた。\n\nそして、ことのはは今、卵の姿から、新しい進化を始めようとしている。",
+  },
 };
 
 /* 一人称選択（ch1のpronoun choice）の表示名。ホーム画面の「相棒」表記などで使う。 */
@@ -6381,6 +6909,7 @@ function storyRenderBeat(){
   else if(beat.type === "baseball") storyRenderBaseball(beat, sp.beatIdx);
   else if(beat.type === "combo") storyRenderCombo(beat, sp.beatIdx);
   else if(beat.type === "wordPick") storyRenderWordPick(beat);
+  else if(beat.type === "kotonohaRebirthReveal") storyRenderKotonohaRebirthReveal();
   else showHome();
 }
 function storyFooterHtml(){
@@ -6631,6 +7160,17 @@ function storyMatchSubmit(){
 /* ミニクイズ（合格ゲート方式）：直近window問中need問正解するまで、同じbeatのまま
    問題を出し続ける（beatIdxは進めない）。1問ごとにrecord()を呼ぶので、
    合格するまでに解いた問題もすべて分野レベル・XPに反映される（再プレイ時を除く）。 */
+/* quiz/battle beatが問題プールを絞り込むための共通フィルタ。beat.maxGrade（学年の目安以下に限定、
+   語彙で使用）・beat.filterTag（q.tagが一致するものだけ、接続詞の種類分類などで使用）・
+   beat.filterS（q.sが完全一致するものだけ、第9章の文節分け/単語分けのように、同じカテゴリ内に
+   複数の出題形式が混在していて`s`フィールドでしか区別できない場合に使用）を、あれば全部AND条件
+   で組み合わせる。どれも指定がなければundefined（＝絞り込みなし）を返す。 */
+function storyBeatFilter(beat){
+  if(!beat.maxGrade && !beat.filterTag && !beat.filterS) return undefined;
+  return q => (!beat.maxGrade || (q.grade||99) <= beat.maxGrade)
+    && (!beat.filterTag || q.tag === beat.filterTag)
+    && (!beat.filterS || q.s === beat.filterS);
+}
 function storyRenderQuiz(beat, idx){
   if(storyRun.gateBeatIdx !== idx){
     storyRun.gateBeatIdx = idx;
@@ -6642,7 +7182,7 @@ function storyRenderQuiz(beat, idx){
      問題だけに絞り込む（教員の指示：ストーリーの語彙問題は中学1年生でもわかる範囲に限定
      したい。カタカナ語の学術用語は軒並みgrade6=高校以上に分類済みなので、この絞り込みだけで
      自然に除外される）。 */
-  const it = pickBattleQuestion(beat.cat, storyRun.lastQ, beat.maxGrade ? (q => (q.grade||99) <= beat.maxGrade) : undefined);
+  const it = pickBattleQuestion(beat.cat, storyRun.lastQ, storyBeatFilter(beat));
   storyRun.lastQ = it.q;
   storyRun.curItem = it;
   storyRun.curCat = beat.cat;
@@ -6754,7 +7294,7 @@ function storyRenderBattle(beat, idx){
   storyRun.curBeat = beat;
   const boss = STORY_EVENT_BOSSES[beat.boss];
   const total = beat.total || STORY_BATTLE_TOTAL;
-  const it = pickBattleQuestion(beat.cat, storyRun.lastQ, beat.filterTag ? (q => q.tag === beat.filterTag) : undefined);
+  const it = pickBattleQuestion(beat.cat, storyRun.lastQ, storyBeatFilter(beat));
   storyRun.lastQ = it.q;
   storyRun.curItem = it;
   storyRun.curCat = beat.cat;
@@ -7966,6 +8506,16 @@ function storyChapterEnd(){
     st.storyFaceUnlocked = true;
     unlockedFace = true;
   }
+  /* 第9章クリアで、ことのはの「転生」システムを解放する（教員の指示、2026-07-31〜）。
+     第9章のストーリー本編（ビート・クイズプール）は未実装のため、この分岐は現状は
+     到達不能（＝STORY_CHAPTERSにch9が存在せず、sp.chapterが"ch9"になることがない）だが、
+     specialMoveUnlocked/storyFaceUnlockedと同じ一度きり宣言のパターンで先に用意しておき、
+     第9章を実装する際にそのまま機能する。 */
+  let unlockedRebirth = false;
+  if(sp.chapter === "ch9" && !st.kotonohaRebirthUnlocked){
+    st.kotonohaRebirthUnlocked = true;
+    unlockedRebirth = true;
+  }
   saveStats(st);
   const pronoun = sp.chapter === "ch1" ? STORY_PRONOUN_LABELS[sp.flags.pronoun] : null;
   const pronounNote = pronoun ? `<p class="note">✨ 一人称が、「${esc(pronoun)}」に設定されました！</p>` : "";
@@ -7983,6 +8533,14 @@ function storyChapterEnd(){
   const faceNote = unlockedFace
     ? `<p class="note">✨ これから、太郎や花子が話すときに、その顔が画面に表示されるようになる！</p>`
     : "";
+  /* ストーリー中（kotonohaRebirthReveal）で実際に転生が実行できていれば、ここでの文面は
+     「もう一度、育て直せる」という案内に変える（一度目はすでに体験済みのため）。育ち方の
+     都合で実行できなかった場合は、従来どおり「これから使えるようになる」という案内のまま。 */
+  const rebirthNote = unlockedRebirth
+    ? (sp.flags.ch9RebirthDone === "yes"
+        ? `<p class="note">🔁 ことのはの「転生」が解放された！　これからは、ホーム画面からいつでも卵の姿に立ち返って育て直せる。</p>`
+        : `<p class="note">🔁 ことのはの「転生」を解放した！　分野のバランスが整えば、ホーム画面から卵の姿に戻って育て直せるようになる。</p>`)
+    : "";
   screen.innerHTML = `
     <div class="card story-scene">
       <div class="story-chapter-end">📖 ${esc(STORY_CHAPTERS[sp.chapter].title)} クリア！</div>
@@ -7993,6 +8551,7 @@ function storyChapterEnd(){
       ${perfectNote}
       ${finisherNote}
       ${faceNote}
+      ${rebirthNote}
       <div class="btn-row" style="justify-content:center">
         <button class="btn" onclick="showHome()">ホームへ</button>
         <button class="btn secondary" onclick="storyReplayChapter()">もう一度プレイする</button>
