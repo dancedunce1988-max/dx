@@ -658,6 +658,30 @@
   @keyframes kotonohaEvolveFlash{
     0%{ opacity:0; } 25%{ opacity:1; } 100%{ opacity:1; }
   }
+  /* デイリーログイン報酬のスタンプ演出（2026-08-01〜）。ことのはの進化演出と同じ、
+     document.body直下の全画面オーバーレイの手法を流用（screen.innerHTMLの作り直しに巻き込まれない）。 */
+  .daily-login-stamp-overlay{
+    position:fixed; inset:0; z-index:9600;
+    display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(circle at 50% 45%, rgba(30,30,40,.92) 0%, rgba(4,4,8,.97) 78%);
+    padding:24px; pointer-events:auto;
+    animation:finisherOverlayFadeIn .25s ease;
+  }
+  .daily-login-stamp-card{ text-align:center; color:#f0ece0; max-width:340px; }
+  .daily-login-stamp{
+    display:inline-block; font-size:1.6rem; font-weight:bold; color:#ffd76a;
+    border:6px solid #ffd76a; border-radius:50%; width:130px; height:130px;
+    line-height:118px; margin-bottom:16px; box-shadow:0 0 30px rgba(255,215,100,.6);
+    transform:rotate(-8deg) scale(1.8); opacity:0;
+    animation:dailyLoginStampSlam .5s cubic-bezier(.2,1.4,.4,1) .1s forwards;
+  }
+  @keyframes dailyLoginStampSlam{
+    0%{ transform:rotate(-8deg) scale(1.8); opacity:0; }
+    60%{ transform:rotate(-8deg) scale(.92); opacity:1; }
+    100%{ transform:rotate(-8deg) scale(1); opacity:1; }
+  }
+  .daily-login-text{ font-weight:bold; font-size:1.2rem; margin:8px 0 2px; text-shadow:0 0 10px rgba(0,0,0,.8); }
+  .daily-login-reward{ margin-top:10px; font-weight:bold; color:#ffe08a; }
   .boss-battle-screen .q-sub{ color:#bfb0e0; }
   .boss-battle-screen .choice{
     background:rgba(255,255,255,.06); border-color:rgba(180,140,255,.35); color:#f0e6ff;
@@ -847,7 +871,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.71</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.73</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -1024,7 +1048,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 39;
+const SAVE_FORMAT_VERSION = 42;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -1036,10 +1060,11 @@ function emptyStats(){
   CAT_KEYS.forEach(k => { cats[k] = {t:0,c:0}; lv[k] = 1; diffLv[k] = 1; });
   return {cats, q:{}, lv, diffLv, items:{}, usedTreasures:{}, usedStoryRewards:{}, bossPity:{}, bossItemPity:{}, kotonohaOtherRoll:null, bossTickets:0, totalLevelUps:0,
     bonusExp:0, hyakuninBonusExp:0, stats:{hp:0, atk:0, def:0, spd:0, luck:0}, kotonohaSeenForms:[], kotonohaDisplayOverride:null, specialMoveUnlocked:false, storyFaceUnlocked:false,
-    kotonohaRebirthUnlocked:false, kotonohaRebirth:null,
+    kotonohaRebirthUnlocked:false, kotonohaRebirth:null, kotonohaSeigakiMeienUnlocked:false, groupUnlock:{},
     kanjiWrite:{totalOk:0, itemHist:{}, levelRecent:{}},
     kanjiWriteElem:{totalOk:0, itemHist:{}, targetLv:1, recent:[]},
     hyakunin:{totalOk:0, itemHist:{}, targetLv:1, recent:[], unlockedGroupCount:1, poemStreak:{}, groupProgress:{}},
+    dailyLogin:{lastDate:null, cycleDay:0, totalLoginDays:0}, pendingDailyLoginStamp:null,
     notLearnedCats:{},
     story:{chapter:"ch1", beatIdx:0, flags:{}, completedChapters:[], judgedRunCorrect:0, judgedRunTotal:0, judgedBest:{}, comboBest:{}}};
 }
@@ -1103,6 +1128,13 @@ function loadStats(){
         if(typeof st.storyFaceUnlocked !== "boolean") st.storyFaceUnlocked = false;
         if(typeof st.kotonohaRebirthUnlocked !== "boolean") st.kotonohaRebirthUnlocked = false;
         if(st.kotonohaRebirth === undefined) st.kotonohaRebirth = null;
+        /* 「聖輝」「冥淵」の卵アンロック（2026-08-01〜）導入前のセーブデータを補完する。
+           既にどこかの転生で「成熟体」（KOTONOHA_MATURE_STAGE_IDX）まで見た(seenStage)ことが
+           あるプレイヤーは、この機能導入前の達成として静かにアンロック済み扱いにする
+           （再度「成熟体」まで育て直させることはしない。祝福メッセージも今さら出さない）。 */
+        if(typeof st.kotonohaSeigakiMeienUnlocked !== "boolean"){
+          st.kotonohaSeigakiMeienUnlocked = !!(st.kotonohaRebirth && (st.kotonohaRebirth.seenStage||0) >= KOTONOHA_MATURE_STAGE_IDX);
+        }
         /* 進化演出（showKotonohaEvolveCutscene）の追加より前のセーブ（seenStageが無い）は、
            既に進んでいた分をさかのぼって演出しないよう、現在の段階をそのまま「見た」ことにする。 */
         if(st.kotonohaRebirth && typeof st.kotonohaRebirth.seenStage !== "number"){
@@ -1147,6 +1179,19 @@ function loadStats(){
             if(rec.questionsUntilReview === undefined) rec.questionsUntilReview = null;
           });
         });
+        /* 8問グループの段階的アンロック導入（2026-08-01〜）：既存の正誤履歴(st.q)から初期の
+           unlockedGroupCountを一回限り算出する（全員グループ1からやり直しにはしない）。
+           GROUP_UNLOCK_CATSを今後広げたときも、st.groupUnlockにまだ無いジャンルだけが
+           ここで新たに算出されるので、同じマイグレーション処理をそのまま使い回せる。 */
+        if(!st.groupUnlock) st.groupUnlock = {};
+        GROUP_UNLOCK_CATS.forEach(cat => {
+          if(typeof st.groupUnlock[cat] !== "number") st.groupUnlock[cat] = migrateInitialGroupUnlock(st, cat);
+        });
+        /* デイリーログイン報酬（7日サイクル、2026-08-01〜）導入前のセーブデータには
+           dailyLoginが無いので補完する。totalLoginDays等を過去にさかのぼって推定することはせず、
+           素直に0から開始する（「今日初めて解答した」時点からカウントが始まる）。 */
+        if(!st.dailyLogin) st.dailyLogin = {lastDate:null, cycleDay:0, totalLoginDays:0};
+        if(st.pendingDailyLoginStamp === undefined) st.pendingDailyLoginStamp = null;
         if(!st.notLearnedCats) st.notLearnedCats = {};
         if(!st.story) st.story = {chapter:"ch1", beatIdx:0, flags:{}, completedChapters:[], judgedRunCorrect:0, judgedRunTotal:0, judgedBest:{}, comboBest:{}};
         if(!st.story.flags) st.story.flags = {};
@@ -1221,11 +1266,13 @@ const FAST_ANSWER_ACC_THRESHOLD = 0.3;
 function record(cat, item, correct, elapsedMs, opts){
   const trackRecentAcc = !(opts && opts.skipRecentAcc);
   const st = loadStats();
+  maybeGrantDailyLogin(st);
   st.cats[cat].t++; if(correct) st.cats[cat].c++;
   const key = qKey(cat, item.q);
   if(!st.q[key]) st.q[key] = {t:0, c:0, k:0, cat, q:item.q};
   st.q[key].t++; if(correct) st.q[key].c++;
   st.q[key].k = correct ? (st.q[key].k||0)+1 : 0;   // 連続正解数
+  const groupJustUnlocked = checkGroupUnlock(st, cat);
   if(MAX_LV[cat]){
     if(!st.diffLv) st.diffLv = {};
     const maxLv = MAX_LV[cat];
@@ -1275,7 +1322,7 @@ function record(cat, item, correct, elapsedMs, opts){
     if(after !== before) evolved = after;
   }
   saveStats(st);
-  return {lvup, evolved, lv:st.lv[cat], gotTicket, lowAccuracy: correct && lowAccuracy, fastGuess: correct && fastGuess};
+  return {lvup, evolved, lv:st.lv[cat], gotTicket, lowAccuracy: correct && lowAccuracy, fastGuess: correct && fastGuess, groupJustUnlocked};
 }
 function qStat(st, cat, item){ return st.q[qKey(cat, item.q)] || null; }
 
@@ -1424,7 +1471,7 @@ const CONFIRM_CHECK_RATE = 0.1; // 目標レベルが上がりきっても、他
    確認チェックで間違えれば目標レベルもきちんと下がる。 */
 function selectOne(cat, lastQ){
   const st = loadStats();
-  let pool = CATS[cat].items;
+  let pool = groupUnlockedPool(st, cat);
   if(pool.length > 1 && lastQ) pool = pool.filter(it => it.q !== lastQ);
   const isConfirmCheck = Math.random() < CONFIRM_CHECK_RATE;
   const diffLv = typeof st.diffLv[cat] === "number" ? st.diffLv[cat] : 1;
@@ -1939,6 +1986,16 @@ const KOTONOHA_TYPE_LABEL = {
    特定の系統（1・2・4）が確定し、それ以外（＝「３領域以上バランス型」）は進化するたびに毎回抽選し直す
    （同じ段階の間は再抽選しないよう、直前に抽選した「段階」を記録しておく）。 */
 const KOTONOHA_OTHER_TYPES = [3, 5, 6, 7, 8, 9];
+/* 「聖輝」（8＝おとの系）「冥淵」（7＝ほしぞら系）は初期状態では抽選対象外（残り4種のみ）。
+   いずれかの転生先が「成熟体」に到達したことがある（st.kotonohaSeigakiMeienUnlocked）とき
+   初めて、他の4系統と同じ抽選プールに加わる（教員の指示、2026-08-01〜）。KOTONOHA_OTHER_TYPES
+   自体はカテゴリ判定・キャッシュ済みロールの正当性チェックに今までどおり使うため変更しない。 */
+const KOTONOHA_LOCKED_OTHER_TYPES = [7, 8];
+function kotonohaOtherTypePool(st){
+  return st.kotonohaSeigakiMeienUnlocked
+    ? KOTONOHA_OTHER_TYPES
+    : KOTONOHA_OTHER_TYPES.filter(t => !KOTONOHA_LOCKED_OTHER_TYPES.includes(t));
+}
 function kotonohaTotalXP(st){
   /* ステータスポイント側(totalEarnedStatPoints)と同じcatExpPoints()を使い、1領域のレベルが
      1000を超えた分は0.2ptに逓減する（2026-07-15〜。従来はここだけ逓減なしの生レベル合計だったため、
@@ -1959,12 +2016,16 @@ function kotonohaOtherType(st, stageIdx){
   if(roll && roll.stageIdx === stageIdx && KOTONOHA_OTHER_TYPES.includes(roll.type)){
     return roll.type;
   }
-  const type = KOTONOHA_OTHER_TYPES[Math.floor(Math.random() * KOTONOHA_OTHER_TYPES.length)];
+  const pool = kotonohaOtherTypePool(st);
+  const type = pool[Math.floor(Math.random() * pool.length)];
   st.kotonohaOtherRoll = {stageIdx, type};
   saveStats(st);
   return type;
 }
-function kotonohaType(st, stageIdx){
+/* CAT_KEYSの分野別レベル分布だけを見た、副作用のない純粋なカテゴリ判定
+   （1=一領域特化 / 2=二領域特化 / 4=全領域バランス / "other"=３領域以上バランス型）。
+   「other」の中のどの系統か（乱数を消費する）はkotonohaType/kotonohaOtherTypeの責務のまま。 */
+function kotonohaBaseCategory(st){
   const lvs = CAT_KEYS.map(k => st.lv[k]||1);
   const total = lvs.reduce((a,b)=>a+b, 0);
   const sorted = [...lvs].sort((a,b)=>b-a);
@@ -1975,7 +2036,11 @@ function kotonohaType(st, stageIdx){
   const avg = total / CAT_KEYS.length;
   const maxDev = Math.max(...lvs.map(v => Math.abs(v - avg) / avg));
   if(maxDev <= 0.20) return 4;
-  return kotonohaOtherType(st, stageIdx);
+  return "other";
+}
+function kotonohaType(st, stageIdx){
+  const cat = kotonohaBaseCategory(st);
+  return cat === "other" ? kotonohaOtherType(st, stageIdx) : cat;
 }
 function kotonohaStageIndex(totalXPVal){
   let idx = 0;
@@ -2009,9 +2074,12 @@ function kotonohaFormFromKey(key){
 /* ================= ことのは転生システム（2026-07-31〜、第9章クリアで解放） =================
    経験値の合計（kotonohaTotalXP）自体は今までどおり増え続ける。分野レベル・ステータス
    ポイント・ボス出現判定への影響は一切ない。「転生」すると、見た目の進化だけを卵から
-   やり直せる：転生した瞬間の系統（のびのび/ほのお/うみかぜ/ほしぞら/おとの/はなぞの＝
-   kotonohaType()が3,5,6,7,8,9のいずれかを返すとき）を選び、以後は「転生時の経験値との差分」
-   だけで、6系統×7段階のイラスト（画像/ことのは進化図鑑.PNG から切り出した42枚、
+   やり直せる：転生した瞬間に系統（のびのび/ほのお/うみかぜ/ほしぞら/おとの/はなぞの）を
+   ランダムに1つ選び（kotonohaPickRebirthLine、通常進化の絵文字系統ロール＝kotonohaOtherType
+   とはあえて独立させたガチャ。2026-08-01〜。「聖輝」＝おとの系・「冥淵」＝ほしぞら系は
+   いずれかの転生先が「成熟体」に到達するまで抽選対象外＝残り4系統のみ、
+   kotonohaOtherTypePool参照）、以後は「転生時の経験値との差分」だけで、
+   6系統×7段階のイラスト（画像/ことのは進化図鑑.PNG から切り出した42枚、
    kotonoha_evolution_images.js に埋め込み）が育っていく。
    type1（一領域特化）・type2（二領域特化）のときは、対応する絵が無いため転生できない
    （今までどおりの言葉＋絵文字表示のまま）。type4（全領域バランス）は「始原龍」という
@@ -2036,16 +2104,31 @@ const KOTONOHA_IMAGE_LINE_LABEL = {
 };
 const KOTONOHA_IMAGE_STAGE_KEYS = ["1_tamago","2_youtai","3_shounentai","4_seinentai","5_seijintai","6_seijukutai","7_densetsu"];
 const KOTONOHA_IMAGE_STAGE_LABEL = ["卵","幼体","少年体","青年体","成人体","成熟体","伝説級"];
+const KOTONOHA_YOUTH_STAGE_IDX = 3; // 青年体
+const KOTONOHA_MATURE_STAGE_IDX = 5; // 成熟体
 /* 転生後の見た目段階のしきい値（転生時からの経験値の伸び、7段階＝インデックス0〜6）。
    卵からの再スタートなので、通常の進化（KOTONOHA_STAGE_XP、最終到達10000）よりずっと短い
    スパンで7段階に到達するよう設計している。 */
 const KOTONOHA_REBIRTH_STAGE_XP = [0, 30, 100, 300, 700, 1500, 4000];
-/* いま転生できる系統（のびのび〜はなぞの、または全領域バランス型＝始原龍）。type1/2の
-   ときはnull＝転生不可。kotonohaForm()をそのまま使うことで、kotonohaType()の「その他系統」
-   抽選（乱数消費・保存）を二重に起こさないようにしている。 */
-function kotonohaRebirthEligibleLine(st){
-  const f = kotonohaForm(st);
-  return f.type ? (KOTONOHA_IMAGE_LINES[f.type] || null) : null;
+/* 転生できるかどうかの判定（一領域特化=1・二領域特化=2のときは不可）。kotonohaBaseCategory()は
+   CAT_KEYSの分野別レベル分布だけを見る副作用のない純粋関数なので、通常進化の絵文字系統ロール
+   （kotonohaOtherType、乱数消費・保存あり）を余計に起こさずに判定できる。 */
+function kotonohaRebirthEligible(st){
+  const cat = kotonohaBaseCategory(st);
+  return cat === 4 || cat === "other";
+}
+/* 転生する瞬間に系統（卵）をランダムに1つ選ぶ。全領域バランス型は「始原龍」固定、それ以外
+   （３領域以上バランス型）は、天翔・焔獄・蒼海・翠森の4系統（「聖輝」「冥淵」アンロック後は
+   この2つも加えた6系統、kotonohaOtherTypePool参照）から、転生するたびに毎回ランダムに1つ選ぶ。
+   通常進化の絵文字系統ロール（kotonohaOtherType、経験値の「段階」が変わるたびにしか再抽選しない）
+   とはあえて独立させている：経験値が伸びきったベテランプレイヤーほど絵文字系統ロールが
+   固定されがちで、それに連動させると同じ系統の卵しか出なくなってしまうため（2026-08-01〜）。 */
+function kotonohaPickRebirthLine(st){
+  const cat = kotonohaBaseCategory(st);
+  if(cat === 4) return "shigen";
+  if(cat !== "other") return null; // 一領域/二領域特化＝転生不可
+  const pool = kotonohaOtherTypePool(st).map(t => KOTONOHA_IMAGE_LINES[t]);
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 /* 伝説級（最終段階）に到達すると、ホーム画面の背景を系統の色でドラマチックに演出する
    （教員の指示、2026-08-01〜）。screen.innerHTML側でラップするクラスなので、他の画面に
@@ -2166,15 +2249,36 @@ function storyRenderKotonohaRebirthReveal(){
   }, 500);
 }
 function kotonohaEvolveStep5(st, toStage){
+  const fromStage = st.kotonohaRebirth.seenStage || 0;
   st.kotonohaRebirth.seenStage = toStage;
+  /* いずれかの転生先が「成熟体」に到達したら、「聖輝」「冥淵」を初めてアンロックする
+     （一度アンロックしたら以後は常に解禁済み、2026-08-01〜）。 */
+  const justUnlockedLines = !st.kotonohaSeigakiMeienUnlocked && toStage >= KOTONOHA_MATURE_STAGE_IDX;
+  if(justUnlockedLines) st.kotonohaSeigakiMeienUnlocked = true;
   saveStats(st);
   const toSrc = kotonohaImageSrcForStage(st.kotonohaRebirth.line, toStage);
   const label = `${KOTONOHA_IMAGE_STAGE_LABEL[toStage]}${KOTONOHA_IMAGE_LINE_LABEL[st.kotonohaRebirth.line]}`;
+  /* 系統別必殺技の名前が段階に応じて変わったとき（少年体到達＝新規解禁も含む）は、
+     進化のお祝いに続けて「必殺技が、～になった！」も表示する（教員の指示、2026-08-01〜）。
+     始原龍（"shigen"）は固定の技名を持たないため対象外（自然にnullになりスキップされる）。 */
+  const line = st.kotonohaRebirth.line;
+  const oldMoveName = kotonohaLineMoveNameForStage(line, fromStage);
+  const newMoveName = kotonohaLineMoveNameForStage(line, toStage);
+  let moveMsg = "";
+  if(newMoveName && !oldMoveName){
+    moveMsg = `<p class="daily-login-reward">⚡系統専用の必殺技「${esc(newMoveName)}」が使えるようになった！</p>`;
+  }else if(newMoveName && oldMoveName && newMoveName !== oldMoveName){
+    moveMsg = `<p class="daily-login-reward">⚡必殺技が、「${esc(newMoveName)}」になった！</p>`;
+  }
+  const unlockMsg = justUnlockedLines
+    ? `<p class="daily-login-reward">🔓「聖輝」と「冥淵」の卵がアンロックされました！</p>` : "";
   const el = kotonohaEvolveOverlayEl();
   el.className = "kotonoha-evolve-overlay kotonoha-evolve-clickable";
   el.innerHTML = `
     <img class="kotonoha-evolve-img kotonoha-evolve-reveal" src="${toSrc}">
     <p class="kotonoha-evolve-text kotonoha-evolve-congrats">おめでとう！<br>ことのはが、${esc(label)}に進化した！</p>
+    ${moveMsg}
+    ${unlockMsg}
     <button class="btn" onclick="hideKotonohaEvolveOverlay(); kotonohaEvolveResume();">つづける</button>`;
 }
 /* 進化演出の「つづける」を押したときの再開処理。onDoneが指定されていれば元の画面（次の問題／
@@ -2197,7 +2301,7 @@ function kotonohaMaybeInterruptForEvolve(onDone){
    0（卵）から始まる＝転生そのものは「卵に戻る」演出（確認画面のメッセージ）で表現済みなので、
    ここでは進化演出を二重に出さない。 */
 function kotonohaDoRebirth(st){
-  const line = kotonohaRebirthEligibleLine(st);
+  const line = kotonohaPickRebirthLine(st);
   if(!line) return false;
   st.kotonohaRebirth = {line, baseXP: kotonohaTotalXP(st), seenStage: 0};
   saveStats(st);
@@ -2217,35 +2321,38 @@ const KOTONOHA_LINE_MOVE_MIN_STAGE = 2; // 少年体
 function kotonohaLineMoveT(stageIdx){
   return Math.max(0, Math.min(1, (stageIdx - KOTONOHA_LINE_MOVE_MIN_STAGE) / 4));
 }
+/* namesは少年体(index0)〜伝説級(index4)の5段階の技名。性能（powerMult等）が伸びるのに合わせて、
+   だんだん強そうな響きの名前に変わっていく（教員の指示、2026-08-01〜。進化演出のタイミングで
+   「必殺技が、～になった！」と表示する＝kotonohaEvolveStep5参照）。 */
 const KOTONOHA_LINE_MOVES = {
   tensho: {
-    name:"疾風の一閃",
+    names:["疾風の一閃","旋風の斬撃","暴風の剛刃","神速の破空","天翔絶刃"],
     desc:"発動に必要な連続正解数が少ない代わり、威力はひかえめ",
     gaugeMax: t => Math.max(3, Math.round(FINISHER_GAUGE_MAX - 1*t)),
     powerMult: t => FINISHER_MULT - 1*t,
   },
   soukai: {
-    name:"癒しの波動",
+    names:["癒しの波動","静水の癒し波","深海の慈雨","蒼海の生命波","蒼海絶界・癒しの奔流"],
     desc:"与えたダメージの一部を自分のHPに変える",
     powerMult: () => FINISHER_MULT,
     drainPct: t => 0.5*t,
   },
   engoku: {
-    name:"灼熱の連撃",
+    names:["灼熱の連撃","業火の連撃","猛火の乱舞","紅蓮の乱撃","焔獄絶炎・万撃"],
     desc:"連続で当てるたびに威力が上がる（一度でも間違えるとリセット）",
     powerMult: () => FINISHER_MULT,
     comboStep: t => 0.3*t,
     comboCapExtra: t => 1.2*t,
   },
   suishin: {
-    name:"眠りの胞子",
+    names:["眠りの胞子","深眠の胞子","幻惑の眠華","悠久の眠り歌","翠森絶眠・永久の子守唄"],
     desc:"相手を数ターン行動不能にする（毎ターン一定確率で目覚める）",
     powerMult: () => FINISHER_MULT,
     sleepMaxTurns: t => Math.round(2 + 3*t),
     sleepWakeChance: t => 0.40 - 0.18*t,
   },
   seiki: {
-    name:"光の高揚",
+    names:["光の高揚","光輝の高揚","聖光の加護","極光の祝福","聖輝絶光・天啓"],
     desc:"発動のたびに自分の攻撃力が上がる（重ねがけ可）",
     powerMult: () => FINISHER_MULT,
     buffStat:"atk",
@@ -2253,7 +2360,7 @@ const KOTONOHA_LINE_MOVES = {
     buffMaxStacks: t => 1 + Math.round(2*t),
   },
   meien: {
-    name:"深淵の守り",
+    names:["深淵の守り","冥府の守り","幽玄の盾","常闇の鉄壁","冥淵絶闇・不滅の盾"],
     desc:"発動のたびに自分の防御力が上がる（重ねがけ可）",
     powerMult: () => FINISHER_MULT,
     buffStat:"def",
@@ -2266,14 +2373,21 @@ const KOTONOHA_LINE_MOVES = {
 function kotonohaLineMoveStageOk(st){
   return !!(st.kotonohaRebirth && kotonohaRebirthStageIndex(st) >= KOTONOHA_LINE_MOVE_MIN_STAGE);
 }
+/* stageIdxの時点での技名（少年体未満はnull＝まだ使えない）。線形にKOTONOHA_LINE_MOVE_MIN_STAGE
+   からのオフセットでnames配列を引くだけの純粋関数。 */
+function kotonohaLineMoveNameForStage(lineKey, stageIdx){
+  const def = KOTONOHA_LINE_MOVES[lineKey];
+  if(!def || !def.names || stageIdx < KOTONOHA_LINE_MOVE_MIN_STAGE) return null;
+  const i = Math.max(0, Math.min(def.names.length-1, stageIdx - KOTONOHA_LINE_MOVE_MIN_STAGE));
+  return def.names[i];
+}
 /* ボタンに出す技名。始原龍は発動するまでどの系統を借りるか決まらないため、固定の総称名を表示し、
    実際に発動したあと（技名発表・ダメージ表示）で初めてどの力だったかが明かされる。 */
 function kotonohaLineMoveDisplayName(st){
   if(!st.kotonohaRebirth) return null;
   const line = st.kotonohaRebirth.line;
   if(line === "shigen") return "六道の力";
-  const def = KOTONOHA_LINE_MOVES[line];
-  return def ? def.name : null;
+  return kotonohaLineMoveNameForStage(line, kotonohaRebirthStageIndex(st));
 }
 /* 系統別必殺技に必要な連続正解数（天翔だけ通常より少ない）。 */
 function kotonohaLineGaugeRequired(st){
@@ -2301,7 +2415,7 @@ function kotonohaActiveLineMove(st){
   }
   const def = KOTONOHA_LINE_MOVES[lineKey];
   if(!def) return null;
-  return {def, t: kotonohaLineMoveT(stageIdx)};
+  return {def, t: kotonohaLineMoveT(stageIdx), name: kotonohaLineMoveNameForStage(lineKey, stageIdx)};
 }
 /* 必殺技ゲージの必要正解数。系統別必殺技を選んだときだけ天翔の短縮が効き、言霊一閃側は
    常にFINISHER_GAUGE_MAX（既存仕様）。bossAnnounceFinisherName等、発動後の文脈でのみ使う。 */
@@ -2365,7 +2479,7 @@ function kotonohaCardHtml(st){
     rebirthNameHtml = `<span class="kotonoha-stage${rIdx===6?' final':''}">${esc(KOTONOHA_IMAGE_STAGE_LABEL[rIdx])}</span><span class="kotonoha-type">${esc(KOTONOHA_IMAGE_LINE_LABEL[st.kotonohaRebirth.line])}</span>${shogoBadge}`;
     const lm = kotonohaActiveLineMove(st);
     rebirthMoveHtml = lm
-      ? `<p class="note">⚡必殺技「${esc(lm.def.name)}」：${esc(lm.def.desc)}</p>`
+      ? `<p class="note">⚡必殺技「${esc(lm.name)}」：${esc(lm.def.desc)}</p>`
       : "";
   }
   const rebirthSection = kotonohaRebirthSectionHtml(st);
@@ -2394,15 +2508,35 @@ function kotonohaCardHtml(st){
 /* 第9章クリアで解放される「転生」の導線。カード下部に小さく表示する。
    ・未解放：何も表示しない
    ・解放済み・今の育て方では転生できない（type1/2/4）：理由つきで案内だけ表示
-   ・解放済み・転生可能：ボタンを表示（転生済みでも「育て直す」として何度でも使える） */
+   ・解放済み・転生可能・まだ一度も転生していない：無料の初回転生ボタンを表示
+   ・解放済み・転生可能・転生済み（育て直し）：「転生の種」を1つ消費するボタンを表示
+   デイリーログイン報酬（7日目に「転生の種」を1つ付与、2026-08-01〜）導入に伴い、
+   2回目以降の転生（育て直し）だけ種を消費する仕様にした。初回の転生は、第9章クライマックスの
+   ストーリー演出（kotonohaRebirthReveal）経由でもこのボタン経由でも無料のまま：ストーリー演出は
+   一度きりの盛り上がりどころであり、育て方（全領域バランス型）がその時点で条件を満たしていないと
+   演出内では発動しない（storyRenderKotonohaRebirthReveal参照）。もしそこで発動しなかった場合、
+   このボタンが実質的な「初めての転生」の入口になるため、ここも無料にしないと、まだ一度も
+   デイリーログイン7日目に到達していないプレイヤーが初回から詰んでしまう（教員の指示、2026-08-01）。 */
 function kotonohaRebirthSectionHtml(st){
   if(!st.kotonohaRebirthUnlocked) return "";
-  const line = kotonohaRebirthEligibleLine(st);
-  if(!line){
+  if(!kotonohaRebirthEligible(st)){
     return `<p class="note kotonoha-rebirth-note">🔁 今の育て方（一領域特化・二領域特化のいずれか）では転生できません。分野のバランスを変えると、転生できるようになります。</p>`;
   }
-  const label = st.kotonohaRebirth ? "🔁 転生して育て直す" : "🔁 転生する";
-  return `<div class="btn-row" style="margin-top:10px"><button class="btn inline secondary" onclick="showKotonohaRebirthConfirm()">${label}</button></div>`;
+  const already = !!st.kotonohaRebirth;
+  if(!already){
+    return `<div class="btn-row" style="margin-top:10px"><button class="btn inline secondary" onclick="showKotonohaRebirthConfirm()">🔁 転生する</button></div>`;
+  }
+  /* 2回目以降の「育て直す」は、①今の転生が「青年体」以上まで育っている ②「転生の種」を
+     1つ持っている、の両方が条件（教員の指示、2026-08-01〜）。 */
+  const curStage = kotonohaRebirthStageIndex(st);
+  if(curStage < KOTONOHA_YOUTH_STAGE_IDX){
+    return `<p class="note kotonoha-rebirth-note">🔁 もう一度転生して育て直すには、今の${esc(KOTONOHA_IMAGE_LINE_LABEL[st.kotonohaRebirth.line])}が「${esc(KOTONOHA_IMAGE_STAGE_LABEL[KOTONOHA_YOUTH_STAGE_IDX])}」まで育っている必要があります（現在：${esc(KOTONOHA_IMAGE_STAGE_LABEL[curStage])}）。</p>`;
+  }
+  const seedCount = (st.items && st.items[REBIRTH_SEED_ITEM]) || 0;
+  if(seedCount <= 0){
+    return `<p class="note kotonoha-rebirth-note">🔁 もう一度転生して育て直すには「${esc(REBIRTH_SEED_ITEM)}」が必要です（所持数：0）。デイリーログイン報酬の7日目で手に入ります。</p>`;
+  }
+  return `<div class="btn-row" style="margin-top:10px"><button class="btn inline secondary" onclick="showKotonohaRebirthConfirm()">🔁 転生の種を使って育て直す（所持：${seedCount}）</button></div>`;
 }
 /* これまでに到達したことのある「すがた」の中から、表示するすがたを選べる画面。
    経験値や進化そのものには影響しない、見た目だけの変更。 */
@@ -2448,24 +2582,40 @@ function setKotonohaDisplay(key){
 function showKotonohaRebirthConfirm(){
   const st = loadStats();
   if(!st.kotonohaRebirthUnlocked){ showHome(); return; }
-  const line = kotonohaRebirthEligibleLine(st);
-  if(!line){ showHome(); return; }
+  if(!kotonohaRebirthEligible(st)){ showHome(); return; }
   const already = !!st.kotonohaRebirth;
+  const seedCount = (st.items && st.items[REBIRTH_SEED_ITEM]) || 0;
+  const stageOk = !already || kotonohaRebirthStageIndex(st) >= KOTONOHA_YOUTH_STAGE_IDX;
+  if(already && (!stageOk || seedCount <= 0)){ showHome(); return; } // 条件未達なら確認画面自体を出さない（ボタン非表示時の保険）
+  const seedNote = already
+    ? `<p class="note boss-enc-hint">🌱 「${esc(REBIRTH_SEED_ITEM)}」を1つ使います（現在の所持数：${seedCount}）。</p>`
+    : `<p class="note boss-enc-hint">✨ 初回の転生は無料です。</p>`;
   screen.innerHTML = `
     <div class="card boss-encounter">
       <div class="boss-enc-icon">🔁</div>
       <p class="boss-enc-text">${already ? "もう一度、卵から転生しますか？" : "転生しますか？"}</p>
       <p class="note boss-enc-hint">📈 これまでの経験値はそのまま。分野レベルやステータスポイントも減りません。減るのは、ことのはの「進化段階」だけです（必殺技の強さも元に戻ります）。</p>
       <p class="note boss-enc-hint">⚡ 少年体まで育てると、系統専用の必殺技が使えるようになります。</p>
-      ${already ? `<p class="note boss-enc-hint">🔄 今のすがた・必殺技の育ち具合は失われます。何度でもやり直せます。</p>` : ""}
+      ${already ? `<p class="note boss-enc-hint">🔄 今のすがた・必殺技の育ち具合は失われます。</p>` : ""}
+      ${seedNote}
       <div class="boss-enc-choices">
         <button class="boss-enc-btn" onclick="showHome()">やめる</button>
         <button class="boss-enc-btn selected" onclick="kotonohaRebirthConfirmed()">転生する</button>
       </div>
     </div>`;
 }
+/* 初回の転生（story経由でもこの画面経由でも）は無料。2回目以降の「育て直す」は
+   ①今の転生が「青年体」以上 ②「転生の種」を1つ消費、の両方が条件（2026-08-01〜、
+   デイリーログイン報酬導入に伴う変更）。kotonohaDoRebirth(st)自体がsaveStats(st)まで
+   行うので、種の消費は同じst参照に対して先に行っておくだけでよい（保存は1回で済む）。 */
 function kotonohaRebirthConfirmed(){
   const st = loadStats();
+  const wasAlready = !!st.kotonohaRebirth;
+  if(wasAlready){
+    if(kotonohaRebirthStageIndex(st) < KOTONOHA_YOUTH_STAGE_IDX){ showHome(); return; }
+    if((st.items[REBIRTH_SEED_ITEM]||0) <= 0){ showHome(); return; }
+    st.items[REBIRTH_SEED_ITEM]--;
+  }
   kotonohaDoRebirth(st);
   showHome();
 }
@@ -2514,6 +2664,7 @@ function showHome(){
   clearStoryComboTimer(); // コンボアタックを中断して離れたときに、残ったカウントダウン/制限時間タイマーを止める
   clearBaseballTimers(); // 野球ミニゲームを中断して離れたときに、残ったカウントダウン・制限時間タイマーを止める
   const st = loadStats();
+  if(st.pendingDailyLoginStamp){ showDailyLoginStampOverlay(st); return; }
   if(kotonohaHasPendingEvolveCutscene(st)){ showKotonohaEvolveCutscene(st); return; }
   let html = "";
   html += kotonohaCardHtml(st);
@@ -2993,9 +3144,10 @@ function gradeAnswer(ok, chosenOrig, typed){
   const evolveMsg = r.evolved
     ? `<div class="evolve">${r.evolved.hidden ? "🔓 かくされた称号が明かされた！<br>" : ""}${r.evolved.icon} 進化！　${esc(CATS[cat].name)}の称号が「${esc(r.evolved.name)}」になった！</div>` : "";
   const ticketMsg = r.gotTicket ? `<div class="evolve ticket-get">🎟️ ボスへの挑戦チケットを1枚手に入れた！</div>` : "";
+  const groupMsg = r.groupJustUnlocked ? `<div class="evolve">🔓 ${esc(CATS[cat].name)}の次のグループが解禁された！</div>` : "";
   const lowAccMsg = r.lowAccuracy ? `<p class="note">⏸️ 直近の正答率が低いため、レベルアップはお休み中です。落ち着いて問題を読んで答えると、また上がるようになります。</p>` : "";
   const fastMsg = r.fastGuess ? `<p class="note">⏸️ 少し急いで答えているようです。落ち着いて問題を読んで答えると、また上がるようになります。</p>` : "";
-  fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}${lvChip}</div>${expl}${evolveMsg}${ticketMsg}${lowAccMsg}${fastMsg}`;
+  fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}${lvChip}</div>${expl}${evolveMsg}${ticketMsg}${groupMsg}${lowAccMsg}${fastMsg}`;
   document.getElementById("nextBtn").style.display = "inline-block";
   document.getElementById("quitBtn").style.display = "inline-block";
   document.getElementById("nextBtn").focus();
@@ -3083,6 +3235,7 @@ function kwLv(st){ return 1 + (st.kanjiWrite.totalOk || 0); }
    st.cats・st.lv・st.diffLv（＝経験値やことのはの進化に関わる値）にはnoneも触れない。 */
 function kwRecord(levelKey, it, canWrite){
   const st = loadStats();
+  maybeGrantDailyLogin(st);
   const h = st.kanjiWrite.itemHist[it.id] || {t:0, c:0};
   h.t++; if(canWrite) h.c++;
   st.kanjiWrite.itemHist[it.id] = h;
@@ -3247,6 +3400,7 @@ function kweGradeLabel(diffLv){
    st.cats・st.lv・st.diffLv（＝経験値やことのはの進化に関わる値）には一切触れない。 */
 function kweRecord(it, canWrite){
   const st = loadStats();
+  maybeGrantDailyLogin(st);
   const h = st.kanjiWriteElem.itemHist[it.id] || {t:0, c:0};
   h.t++; if(canWrite) h.c++;
   st.kanjiWriteElem.itemHist[it.id] = h;
@@ -3545,6 +3699,102 @@ const UnlockEngine = {
     return (progress.c / progress.t) >= accThreshold;
   }
 };
+
+/* ================= 20分野クイズの8問グループ化（段階的アンロック、2026-08-01〜） =================
+   百人一首の決まり字グループと同じUnlockEngineを流用するが、20分野側はすでにst.q（qKey単位の
+   出題履歴、{t,c,k,...}）に「連続正解数(k)」「出題数/正解数(t/c)」が問題単位でそのまま
+   蓄積されているため、百人一首のpoemStreak/groupProgressに相当する専用の記録を新設する必要が
+   ない。st.groupUnlockはジャンルごとの「解禁済みグループ数」という整数1つだけを持つ、
+   最小限のデータ構造にしている。 */
+const GROUP_SIZE = 8;
+const GROUP_UNLOCK_STREAK = 3;
+const GROUP_UNLOCK_ACC = 0.8;
+/* 段階的アンロックの対象ジャンル。品詞(hinshi)でのパイロット動作確認（vmハーネスでの
+   自動テスト、2026-08-01）が完了したため、百人一首を除く全20ジャンルへ展開した。 */
+const GROUP_UNLOCK_CATS = CAT_KEYS;
+let _catGroupsCache = {};
+/* 各ジャンルの問題を8問ずつの小グループに分割する。既存のlv（難易度）フィールドの昇順で並べ、
+   同lv内はデータ配列の元の順序を保つ（＝難易度が近い問題同士がまとまる）。端数は最終グループが
+   8問未満のまま許容する。百人一首と同じく、データファイル側は変更せず起動時に動的計算する
+   （問題文が変わらない限りグループ所属も変わらない想定だが、kokugo_data.jsの編集で
+   グループ境界がずれる可能性はある）。 */
+function catGroups(cat){
+  if(_catGroupsCache[cat]) return _catGroupsCache[cat];
+  const sorted = CATS[cat].items
+    .map((it, idx) => ({it, idx}))
+    .sort((a,b) => (a.it.lv - b.it.lv) || (a.idx - b.idx));
+  const groups = [];
+  for(let i=0;i<sorted.length;i+=GROUP_SIZE){
+    const chunk = sorted.slice(i, i+GROUP_SIZE);
+    /* indices: プール判定（groupUnlockedPool）に使う、データ配列上の位置そのもの。
+       keys: 出題履歴st.qの参照に使うqKey(cat,q)。一部ジャンル（例：品詞の「長い」「だから」等
+       8組）に問題文が完全一致する別項目が存在し、qKeyだけでは項目を一意に区別できないため、
+       プールの所属判定には必ずindicesを使う（keysで判定すると、同じ問題文を持つ別グループの
+       項目まで誤って混入する）。st.q側はもともと問題文単位で記録される既存の仕様上、
+       これら重複ペアは元々1つの履歴を共有する（この機能が新たに生んだ挙動ではない）。 */
+    groups.push({level: groups.length+1, indices: chunk.map(x => x.idx), keys: chunk.map(x => qKey(cat, x.it.q))});
+  }
+  _catGroupsCache[cat] = groups;
+  return groups;
+}
+function catUnlockedGroupCount(st, cat){
+  return (st.groupUnlock && st.groupUnlock[cat]) || 1;
+}
+/* 現在解禁済みのグループだけを含む出題プール（累積的・不可逆：既習グループは出題プールから
+   外さない＝忘却防止）。GROUP_UNLOCK_CATS対象外のジャンルは、これまでどおり全問題がプール。 */
+function groupUnlockedPool(st, cat){
+  if(!GROUP_UNLOCK_CATS.includes(cat)) return CATS[cat].items;
+  const groups = catGroups(cat);
+  const n = Math.min(catUnlockedGroupCount(st, cat), groups.length);
+  const allowedIdx = new Set();
+  for(let i=0;i<n;i++) groups[i].indices.forEach(idx => allowedIdx.add(idx));
+  return CATS[cat].items.filter((it, idx) => allowedIdx.has(idx));
+}
+/* 現在アクティブなグループの解禁条件（グループ内正答率80%以上 かつ 各問題3連続正解）を
+   満たしていれば、unlockedGroupCountを1つ進める。record()内、st.q更新の直後に呼ぶ。
+   streak・正答率はst.qからその場で導出するだけで、専用の記録は持たない。 */
+function checkGroupUnlock(st, cat){
+  if(!GROUP_UNLOCK_CATS.includes(cat)) return false;
+  const groups = catGroups(cat);
+  const idx = catUnlockedGroupCount(st, cat) - 1;
+  if(idx >= groups.length - 1) return false; // 既に全解禁
+  const cur = groups[idx];
+  const streakMap = {};
+  let t = 0, c = 0;
+  cur.keys.forEach(k => {
+    const rec = st.q[k];
+    streakMap[k] = rec ? (rec.k||0) : 0;
+    if(rec){ t += rec.t; c += rec.c; }
+  });
+  if(UnlockEngine.isGroupCleared(cur.keys, streakMap, {t,c}, GROUP_UNLOCK_STREAK, GROUP_UNLOCK_ACC)){
+    if(!st.groupUnlock) st.groupUnlock = {};
+    st.groupUnlock[cat] = catUnlockedGroupCount(st, cat) + 1;
+    return true;
+  }
+  return false;
+}
+/* 移行ロジック（2026-08-01〜）：段階的アンロック導入より前からの生徒の既存正誤履歴(st.q)から、
+   「実質どこまでのグループを習得済みか」を一回限り算出し、unlockedGroupCountの初期値にする
+   （全員グループ1からやり直しにはしない、教員の指示。分野レベルst.lvには一切触れない）。
+   判定基準は新規アンロック基準よりやや緩め：グループ内正答率80%以上 かつ 8問中6問以上が
+   現在連続正解中(k>=1)。先頭のグループから連続してこの基準を満たす数だけ、
+   最初から解禁済みとみなす（満たさないグループに達したら打ち切り）。 */
+function migrateInitialGroupUnlock(st, cat){
+  const groups = catGroups(cat);
+  let n = 0;
+  for(const g of groups){
+    let t = 0, c = 0, streaked = 0;
+    g.keys.forEach(k => {
+      const rec = st.q[k];
+      if(rec){ t += rec.t; c += rec.c; if((rec.k||0) >= 1) streaked++; }
+    });
+    const accOk = t > 0 && (c / t) >= GROUP_UNLOCK_ACC;
+    const streakOk = streaked >= Math.ceil(g.keys.length * 0.75);
+    if(accOk && streakOk) n++; else break;
+  }
+  return Math.max(1, Math.min(groups.length, n + 1));
+}
+
 const HYAKUNIN_UNLOCK_STREAK = 3;
 const HYAKUNIN_UNLOCK_ACC = 0.8;
 /* 現在解禁済みのグループ（決まり字文字数の小さい方から）だけを含むプール。既存プレイヤーの
@@ -3612,6 +3862,7 @@ function hyaLvLabel(diffLv){
 /* 自動採点だが、record()は呼ばずst.hyakunin専用の記録だけを行う（経験値等には一切触れない） */
 function hyaRecord(it, correct){
   const st = loadStats();
+  maybeGrantDailyLogin(st);
   const h = st.hyakunin.itemHist[it.id] || {t:0, c:0};
   h.t++; if(correct) h.c++;
   st.hyakunin.itemHist[it.id] = h;
@@ -4672,7 +4923,7 @@ const FINISHER_MOVE_CHOICES = {
 };
 function finisherMoveInfo(st){
   const lm = kotonohaActiveLineMove(st);
-  if(lm) return {name: lm.def.name, reading: null};
+  if(lm) return {name: lm.name, reading: null};
   const key = storyProgress(st).flags.finisherMoveChoice;
   return FINISHER_MOVE_CHOICES[key] || FINISHER_MOVE_CHOICES.kotodama;
 }
@@ -4751,6 +5002,104 @@ const ITEM_EFFECTS = {
   "ジョイコン":     {type:"heal", amount:300,                label:"HPを300回復する",                   icon:"🕹️"},
 };
 function randInt(min, max){ return min + Math.floor(Math.random() * (max - min + 1)); }
+
+/* ================= デイリーログイン報酬（7日サイクル、2026-08-01〜） =================
+   「その日初めて問題を1問解答した」時点で成立する（アプリを起動しただけでは成立しない）。
+   record()・hyaRecord()・kwRecord()・kweRecord()（＝正誤を記録する4つの入口すべて）の冒頭、
+   loadStats()の直後から呼ぶ。保存は呼び出し元の既存saveStats()に任せるだけの、
+   引数のstを直接書き換える関数（ReviewSystem.onAnswerと同じ設計）。
+   サイクルは「7日連続」を要求しない（教員の指示：連続でなくても構わず、通算ログイン日数で
+   カウントする）。前回ログイン日からの日数に関係なく、日付が変わるたびにcycleDayを
+   単純に1→2→…→7→1と進めるだけ。通算ログイン日数(totalLoginDays)は毎回+1する。
+   1・3・5・6日目は演出のみで報酬なし（教員確認済み）。2日目は既存の通常アイテムから、
+   4日目は既存の通常宝具からランダムで1つ。7日目は「転生の種」を1つ付与してサイクル完了。 */
+const DAILY_LOGIN_CYCLE = 7;
+function todayLocalDateStr(){
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+}
+/* 「転生の種」（デイリーログイン7日目の報酬）。通常アイテム（ITEM_EFFECTS、ボス戦で消費）・
+   宝具（TREASURE_NAMES、アイテム一覧からいつでも経験値に変換）・クリア報酬アイテム
+   （STORY_REWARD_ITEM_EXP、使うと経験値）のどれとも異なり、「ことのはの転生」
+   （kotonohaRebirthConfirmed、2回目以降の育て直しのみ）でだけ消費される専用アイテム。 */
+const REBIRTH_SEED_ITEM = "転生の種";
+function isRebirthSeedItem(name){ return name === REBIRTH_SEED_ITEM; }
+function maybeGrantDailyLogin(st){
+  const today = todayLocalDateStr();
+  if(!st.dailyLogin) st.dailyLogin = {lastDate:null, cycleDay:0, totalLoginDays:0};
+  if(st.dailyLogin.lastDate === today) return; // 今日はすでに成立済み
+  st.dailyLogin.lastDate = today;
+  st.dailyLogin.cycleDay = (st.dailyLogin.cycleDay % DAILY_LOGIN_CYCLE) + 1;
+  st.dailyLogin.totalLoginDays = (st.dailyLogin.totalLoginDays||0) + 1;
+  let rewardName = null, rewardKind = null;
+  if(st.dailyLogin.cycleDay === 2){
+    const pool = Object.keys(ITEM_EFFECTS);
+    rewardName = pool[Math.floor(Math.random()*pool.length)];
+    rewardKind = "item";
+  }else if(st.dailyLogin.cycleDay === 4){
+    const pool = [...TREASURE_NAMES];
+    rewardName = pool[Math.floor(Math.random()*pool.length)];
+    rewardKind = "treasure";
+  }else if(st.dailyLogin.cycleDay === DAILY_LOGIN_CYCLE){
+    rewardName = REBIRTH_SEED_ITEM;
+    rewardKind = "seed";
+  }
+  if(rewardName){
+    if(!st.items) st.items = {};
+    st.items[rewardName] = (st.items[rewardName]||0) + 1;
+  }
+  st.pendingDailyLoginStamp = {cycleDay: st.dailyLogin.cycleDay, totalLoginDays: st.dailyLogin.totalLoginDays, rewardName, rewardKind};
+}
+/* スタンプ演出：ことのはの進化演出（kotonohaEvolveOverlayEl）と同じ、document.body直下の
+   専用オーバーレイの手法を流用する。showHome()の冒頭で、pendingDailyLoginStampが残っていれば
+   通常のホーム描画より先にこちらを見せる。 */
+function dailyLoginStampOverlayEl(){
+  let el = document.getElementById("dailyLoginStampOverlay");
+  if(!el){
+    el = document.createElement("div");
+    el.id = "dailyLoginStampOverlay";
+    document.body.appendChild(el);
+  }
+  return el;
+}
+function hideDailyLoginStampOverlay(){
+  const el = document.getElementById("dailyLoginStampOverlay");
+  if(el && el.parentNode) el.parentNode.removeChild(el);
+}
+const DAILY_LOGIN_REWARD_LABEL = {item:"通常アイテム", treasure:"宝具", seed:"特別アイテム"};
+function showDailyLoginStampOverlay(st){
+  const info = st.pendingDailyLoginStamp;
+  const el = dailyLoginStampOverlayEl();
+  const rewardLine = info.rewardName
+    ? `<p class="daily-login-reward">🎁 ${esc(DAILY_LOGIN_REWARD_LABEL[info.rewardKind]||"")}「${esc(info.rewardName)}」を手に入れた！</p>`
+    : "";
+  el.className = "daily-login-stamp-overlay";
+  el.innerHTML = `
+    <div class="daily-login-stamp-card">
+      <div class="daily-login-stamp">${info.cycleDay}日目</div>
+      <p class="daily-login-text">${info.cycleDay}日目のログイン報酬を手に入れた！</p>
+      <p class="note">（通算${info.totalLoginDays}日）</p>
+      ${rewardLine}
+      <button class="btn" onclick="dailyLoginStampDone()">つづける</button>
+    </div>`;
+}
+function dailyLoginStampDone(){
+  hideDailyLoginStampOverlay();
+  const st = loadStats();
+  st.pendingDailyLoginStamp = null;
+  saveStats(st);
+  showHome();
+}
+/* アイテム一覧画面（showItemCollection）用の「転生の種」専用セクション。通常アイテム・宝具・
+   クリア報酬アイテムのどの一覧にも混ぜず、独立枠として表示する（storyRewardSectionHtmlと
+   同じパターン）。「使う」ボタンはここには置かず、ことのはカードの転生導線からのみ消費する。 */
+function rebirthSeedSectionHtml(st){
+  const count = (st.items && st.items[REBIRTH_SEED_ITEM]) || 0;
+  if(count <= 0) return "";
+  return `<h4 class="item-group-title treasure-title">🌱 転生の種</h4>
+    <ul class="item-list treasure-list"><li class="treasure"><span>🌱 ${esc(REBIRTH_SEED_ITEM)}</span><span class="item-count">×${count}</span></li></ul>
+    <p class="note">🌱 ホーム画面の「ことのは」カードから、転生して育て直すときに1つ使います。デイリーログイン報酬の7日目で手に入ります。</p>`;
+}
 
 /* ================= 幻のボス「シランちゃん」 =================
    通常のボスとは別枠の、1/1000のごく低確率で現れるネタボス。BOSSESには含めないので、
@@ -6055,7 +6404,7 @@ function showItemCollection(){
   const usedTreasures = st.usedTreasures || {};
   const usedStoryRewards = st.usedStoryRewards || {};
   const allKeys = Object.keys(items);
-  const normalKeys = allKeys.filter(name => !isTreasureItem(name) && !isStoryRewardItem(name)).sort((a,b)=> items[b]-items[a]);
+  const normalKeys = allKeys.filter(name => !isTreasureItem(name) && !isStoryRewardItem(name) && !isRebirthSeedItem(name)).sort((a,b)=> items[b]-items[a]);
   const treasureKeys = allKeys.filter(name => isTreasureItem(name)).sort((a,b)=> items[b]-items[a]);
   const usedTreasureKeys = Object.keys(usedTreasures).filter(name => usedTreasures[name] > 0).sort((a,b)=> usedTreasures[b]-usedTreasures[a]);
   const usedStoryRewardKeys = Object.keys(usedStoryRewards).filter(name => usedStoryRewards[name] > 0);
@@ -6066,6 +6415,7 @@ function showItemCollection(){
     html += `<h4 class="item-group-title">📦 通常アイテム</h4>`;
     html += normalKeys.length ? itemListHtml(normalKeys, items) : `<p class="note">まだありません。</p>`;
     html += storyRewardSectionHtml(st);
+    html += rebirthSeedSectionHtml(st);
     html += `<h4 class="item-group-title treasure-title">✨ 伝説の宝具</h4>`;
     html += treasureKeys.length
       ? `<ul class="item-list treasure-list">` + treasureKeys.map(name => {
