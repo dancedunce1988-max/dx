@@ -871,7 +871,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.73</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.74</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -1048,7 +1048,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 42;
+const SAVE_FORMAT_VERSION = 43;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -1063,7 +1063,7 @@ function emptyStats(){
     kotonohaRebirthUnlocked:false, kotonohaRebirth:null, kotonohaSeigakiMeienUnlocked:false, groupUnlock:{},
     kanjiWrite:{totalOk:0, itemHist:{}, levelRecent:{}},
     kanjiWriteElem:{totalOk:0, itemHist:{}, targetLv:1, recent:[]},
-    hyakunin:{totalOk:0, itemHist:{}, targetLv:1, recent:[], unlockedGroupCount:1, poemStreak:{}, groupProgress:{}},
+    hyakunin:{totalOk:0, itemHist:{}, targetLv:1, recent:[]},
     dailyLogin:{lastDate:null, cycleDay:0, totalLoginDays:0}, pendingDailyLoginStamp:null,
     notLearnedCats:{},
     story:{chapter:"ch1", beatIdx:0, flags:{}, completedChapters:[], judgedRunCorrect:0, judgedRunTotal:0, judgedBest:{}, comboBest:{}}};
@@ -1158,17 +1158,14 @@ function loadStats(){
         if(!Array.isArray(st.kanjiWriteElem.recent)) st.kanjiWriteElem.recent = [];
         if(typeof st.kanjiWriteElem.totalOk !== "number") st.kanjiWriteElem.totalOk = 0;
         if(typeof st.kanjiWriteElem.targetLv !== "number") st.kanjiWriteElem.targetLv = 1;
-        if(!st.hyakunin) st.hyakunin = {totalOk:0, itemHist:{}, targetLv:1, recent:[], unlockedGroupCount:1, poemStreak:{}, groupProgress:{}};
+        if(!st.hyakunin) st.hyakunin = {totalOk:0, itemHist:{}, targetLv:1, recent:[]};
         if(!st.hyakunin.itemHist) st.hyakunin.itemHist = {};
         if(!Array.isArray(st.hyakunin.recent)) st.hyakunin.recent = [];
         if(typeof st.hyakunin.totalOk !== "number") st.hyakunin.totalOk = 0;
         if(typeof st.hyakunin.targetLv !== "number") st.hyakunin.targetLv = 1;
-        /* 決まり字グループの段階的アンロック導入前のセーブデータには3フィールドが無いので補完する
-           （2026-07-31〜。既存プレイヤーのitemHist＝過去の正誤記録はそのまま残すが、アンロック進捗
-           （unlockedGroupCount等）はこの3フィールドが無い＝新規追加として全員グループ1から始まる）。 */
-        if(typeof st.hyakunin.unlockedGroupCount !== "number") st.hyakunin.unlockedGroupCount = 1;
-        if(!st.hyakunin.poemStreak) st.hyakunin.poemStreak = {};
-        if(!st.hyakunin.groupProgress) st.hyakunin.groupProgress = {};
+        delete st.hyakunin.unlockedGroupCount; // 決まり字グループ方式（旧）の名残。8問グループ方式のst.groupUnlock.hyakuninに統合した
+        delete st.hyakunin.poemStreak;
+        delete st.hyakunin.groupProgress;
         /* 間隔反復レビュー導入前のセーブデータには3フィールドが無いので補完する（2026-07-29〜。
            2026-07-30〜、対象をst.qだけでなく百人一首・小学生の漢字を復習するモードのitemHistにも拡大） */
         [st.q, st.hyakunin.itemHist, st.kanjiWriteElem.itemHist].forEach(histMap => {
@@ -1187,6 +1184,10 @@ function loadStats(){
         GROUP_UNLOCK_CATS.forEach(cat => {
           if(typeof st.groupUnlock[cat] !== "number") st.groupUnlock[cat] = migrateInitialGroupUnlock(st, cat);
         });
+        /* 百人一首は出題プールの生成方法（hyaPool）が20分野と異なるため、同じ判定ロジックを
+           hyaGroups系として個別に実装しているが、マイグレーションの考え方は同じ（[[kokugo-drill-dx-workflow]]）。
+           決まり字グループ方式（旧、2026-07-31〜）から8問グループ方式（2026-08-01〜）へ移行。 */
+        if(typeof st.groupUnlock.hyakunin !== "number") st.groupUnlock.hyakunin = migrateInitialHyaGroupUnlock(st);
         /* デイリーログイン報酬（7日サイクル、2026-08-01〜）導入前のセーブデータには
            dailyLoginが無いので補完する。totalLoginDays等を過去にさかのぼって推定することはせず、
            素直に0から開始する（「今日初めて解答した」時点からカウントが始まる）。 */
@@ -3591,56 +3592,6 @@ function hyaDistractors(pool, correct, n){
   }
   return cand.length >= n ? cand : null;
 }
-/* ================= 決まり字グループ化（段階的アンロック、2026-07-31〜） =================
-   競技かるたの「決まり字」＝上の句の読み上げを何文字聞いた時点でその歌だと一意に確定するか、
-   を100首の`kana`（歌全体の読み、5-7-5-7-7を全角スペース区切りで保持）から自動計算する。
-   hyakunin_isshu_data.js自体には決まり字データを持たせず、起動時にオンライン計算してキャッシュする
-   （kanaフィールドは今後も修正されうる「生きたデータ」のため、修正のたびに再計算スクリプトを
-   回し忘れて値が古いまま残る事故を避けるため）。 */
-/* 決まり字は「実際の読み上げ音」を基準に判定するため、歴史的仮名遣いによる音変化を
-   正規化してから比較する（文字面のまま比較すると、実際には同音で競合するはずの歌が
-   誤って過小な決まり字文字数になる）。を→お（26番「小倉山」がこの代表例）に加え、
-   「あふ」「おほ」はどちらも歴史的に長音「おお」に変化して発音される（例：44番「逢ふことの」
-   →オー、60番「おほえやま」・95番「おほけなく」→オー）ため、この3グループが読み上げ上は
-   競合する。この正規化により、実測分布が競技かるたの公式分布（1字7・2字42・3字37・
-   4字6・5字2・6字6、複数の決まり字専門サイトと照合済み）と完全一致することを確認済み。 */
-function hyaNormalizeKana(s){
-  return String(s).replace(/を/g, "お").replace(/あふ/g, "おお").replace(/おほ/g, "おお");
-}
-let _hyakuninKimariji = null; // poemNo -> 決まり字文字数(1〜)
-function hyaKimariji(){
-  if(_hyakuninKimariji) return _hyakuninKimariji;
-  const readings = hiData().map(p => ({no:p.no, s:hyaNormalizeKana((p.kana||"").split("　").slice(0,3).join(""))}));
-  const map = {};
-  readings.forEach(({no,s})=>{
-    let L = 1;
-    while(L < s.length){
-      const prefix = s.slice(0,L);
-      if(!readings.some(o => o.no !== no && o.s.slice(0,L) === prefix)) break;
-      L++;
-    }
-    map[no] = L;
-  });
-  _hyakuninKimariji = map;
-  return map;
-}
-let _hyakuninGroups = null; // [{level, poemNos:[...]}, ...]  level(決まり字文字数)の昇順
-/* アンロックの粒度は「首(poemNo)単位」（出題形式qType単位ではない）：1首から生成される
-   最大6個のクイズitem（p.no + "_" + qType）は、常に一括でロック/アンロックする。要件の
-   「グループ内の各首が3回連続正解」という単位ともそのまま一致する。 */
-function hyaKimarijiGroups(){
-  if(_hyakuninGroups) return _hyakuninGroups;
-  const map = hyaKimariji();
-  const byLevel = {};
-  Object.keys(map).forEach(noStr=>{
-    const no = Number(noStr), lv = map[no];
-    (byLevel[lv] = byLevel[lv] || []).push(no);
-  });
-  _hyakuninGroups = Object.keys(byLevel).map(Number).sort((a,b)=>a-b)
-    .map(lv => ({level:lv, poemNos:byLevel[lv]}));
-  return _hyakuninGroups;
-}
-
 let _hyakuninPool = null;
 /* 出題プールは初回アクセス時に1度だけ構築してキャッシュする（100首は固定データなので、
    セッション中に変わることはない。qKey相当の識別子は「歌番号+出題形式」で固定なので、
@@ -3701,16 +3652,17 @@ const UnlockEngine = {
 };
 
 /* ================= 20分野クイズの8問グループ化（段階的アンロック、2026-08-01〜） =================
-   百人一首の決まり字グループと同じUnlockEngineを流用するが、20分野側はすでにst.q（qKey単位の
-   出題履歴、{t,c,k,...}）に「連続正解数(k)」「出題数/正解数(t/c)」が問題単位でそのまま
-   蓄積されているため、百人一首のpoemStreak/groupProgressに相当する専用の記録を新設する必要が
-   ない。st.groupUnlockはジャンルごとの「解禁済みグループ数」という整数1つだけを持つ、
-   最小限のデータ構造にしている。 */
+   20分野側はすでにst.q（qKey単位の出題履歴、{t,c,k,...}）に「連続正解数(k)」「出題数/正解数(t/c)」
+   が問題単位でそのまま蓄積されているため、専用の記録を新設する必要がない。st.groupUnlockは
+   ジャンルごとの「解禁済みグループ数」という整数1つだけを持つ、最小限のデータ構造にしている。
+   百人一首は出題プールの生成方法（hyaPool、後述）が大きく異なるため、同じGROUP_SIZE等の定数と
+   UnlockEngineを流用しつつ、hyaGroups系として個別に実装している（決まり字グループ方式(旧、
+   2026-07-31〜)からの移行、2026-08-01〜）。 */
 const GROUP_SIZE = 8;
 const GROUP_UNLOCK_STREAK = 3;
 const GROUP_UNLOCK_ACC = 0.8;
 /* 段階的アンロックの対象ジャンル。品詞(hinshi)でのパイロット動作確認（vmハーネスでの
-   自動テスト、2026-08-01）が完了したため、百人一首を除く全20ジャンルへ展開した。 */
+   自動テスト、2026-08-01）が完了したため、全20ジャンルへ展開した（百人一首はhyaGroups系で別途対応）。 */
 const GROUP_UNLOCK_CATS = CAT_KEYS;
 let _catGroupsCache = {};
 /* 各ジャンルの問題を8問ずつの小グループに分割する。既存のlv（難易度）フィールドの昇順で並べ、
@@ -3795,18 +3747,39 @@ function migrateInitialGroupUnlock(st, cat){
   return Math.max(1, Math.min(groups.length, n + 1));
 }
 
-const HYAKUNIN_UNLOCK_STREAK = 3;
-const HYAKUNIN_UNLOCK_ACC = 0.8;
-/* 現在解禁済みのグループ（決まり字文字数の小さい方から）だけを含むプール。既存プレイヤーの
-   itemHist（過去の正誤記録）はアンロック進捗の判定には一切使わない（教員確認済み：全員グループ1
-   からやり直し）ので、ここでは触れない。累積的・不可逆：一度解禁したグループは、以後正答率が
-   下がっても再ロックされない（unlockedGroupCountは増えるだけで減らさない）。 */
+/* ================= 百人一首の8問グループ化（段階的アンロック、2026-08-01〜） =================
+   20分野と同じGROUP_SIZE/GROUP_UNLOCK_STREAK/GROUP_UNLOCK_ACC・UnlockEngineを流用するが、
+   百人一首の出題プール（hyaPool）は20分野のCATS[cat].itemsと違って起動時に動的生成され、
+   各itemが元からid（歌番号+出題形式、例:"3_kami2shimo"）で一意なので、20分野のcatGroupsのように
+   indices/keysを分けて持つ必要がない（qKeyの文字列ハッシュも使わない。同じ歌から生成される
+   author/meaning/source/technique4問はhyaFullPoem(p)＝上下句を問題文に使うため、20分野のqKey方式
+   だと問題文が完全一致して衝突するが、idはqTypeを含むので衝突しない）。既存の決まり字グループ方式
+   （旧、2026-07-31〜。首単位でグループ化し、専用にpoemStreak/groupProgressを記録していた）は
+   このジャンル非依存の8問グループ方式に統一するため撤去した。 */
+let _hyaGroupsCache = null;
+function hyaGroups(){
+  if(_hyaGroupsCache) return _hyaGroupsCache;
+  const sorted = hyaPool()
+    .map((it, idx) => ({it, idx}))
+    .sort((a,b) => (a.it.lv - b.it.lv) || (a.idx - b.idx));
+  const groups = [];
+  for(let i=0;i<sorted.length;i+=GROUP_SIZE){
+    groups.push({level: groups.length+1, ids: sorted.slice(i, i+GROUP_SIZE).map(x => x.it.id)});
+  }
+  _hyaGroupsCache = groups;
+  return groups;
+}
+function hyaUnlockedGroupCount(st){
+  return (st.groupUnlock && st.groupUnlock.hyakunin) || 1;
+}
+/* 現在解禁済みのグループだけを含む出題プール。累積的・不可逆：一度解禁したグループは、
+   以後正答率が下がっても再ロックされない（20分野のgroupUnlockedPoolと同じ方針）。 */
 function hyaUnlockedPool(st){
-  const groups = hyaKimarijiGroups();
-  const n = Math.min(st.hyakunin.unlockedGroupCount || 1, groups.length);
-  const unlockedNos = new Set();
-  for(let i=0;i<n;i++) groups[i].poemNos.forEach(no => unlockedNos.add(no));
-  return hyaPool().filter(it => unlockedNos.has(it.poemNo));
+  const groups = hyaGroups();
+  const n = Math.min(hyaUnlockedGroupCount(st), groups.length);
+  const allowedIds = new Set();
+  for(let i=0;i<n;i++) groups[i].ids.forEach(id => allowedIds.add(id));
+  return hyaPool().filter(it => allowedIds.has(it.id));
 }
 /* ReviewSystem.getDueKeyへ渡すhistMap自体を、今アンロックされている首だけに絞り込んだビュー。
    ReviewSystem本体は変更しない：これにより、ロック中の首は（既存のitemHistに間隔反復の記録が
@@ -3817,17 +3790,46 @@ function hyaVisibleHist(st){
   Object.keys(st.hyakunin.itemHist).forEach(k => { if(unlockedIds.has(k)) out[k] = st.hyakunin.itemHist[k]; });
   return out;
 }
-/* 現在アクティブなグループ（まだ全解禁していなければ）の解禁条件を満たしていれば、
-   unlockedGroupCountを1つ進める。hyaRecord内、正誤記録の直後に呼ぶ。 */
+/* 現在アクティブなグループの解禁条件（グループ内正答率80%以上 かつ 各問題3連続正解）を
+   満たしていれば、st.groupUnlock.hyakuninを1つ進める。hyaRecord内、itemHist更新の直後に呼ぶ。
+   streak・正答率はitemHistからその場で導出するだけで、20分野同様に専用の記録は持たない。 */
 function hyaCheckGroupUnlock(st){
-  const groups = hyaKimarijiGroups();
-  const idx = (st.hyakunin.unlockedGroupCount || 1) - 1;
-  if(idx >= groups.length - 1) return; // 既に全解禁
+  const groups = hyaGroups();
+  const idx = hyaUnlockedGroupCount(st) - 1;
+  if(idx >= groups.length - 1) return false; // 既に全解禁
   const cur = groups[idx];
-  const progress = st.hyakunin.groupProgress[cur.level];
-  if(UnlockEngine.isGroupCleared(cur.poemNos, st.hyakunin.poemStreak, progress, HYAKUNIN_UNLOCK_STREAK, HYAKUNIN_UNLOCK_ACC)){
-    st.hyakunin.unlockedGroupCount++;
+  const streakMap = {};
+  let t = 0, c = 0;
+  cur.ids.forEach(id => {
+    const rec = st.hyakunin.itemHist[id];
+    streakMap[id] = rec ? (rec.k||0) : 0;
+    if(rec){ t += rec.t; c += rec.c; }
+  });
+  if(UnlockEngine.isGroupCleared(cur.ids, streakMap, {t,c}, GROUP_UNLOCK_STREAK, GROUP_UNLOCK_ACC)){
+    if(!st.groupUnlock) st.groupUnlock = {};
+    st.groupUnlock.hyakunin = hyaUnlockedGroupCount(st) + 1;
+    return true;
   }
+  return false;
+}
+/* 移行ロジック（2026-08-01〜）：決まり字グループ方式（旧）からの切り替えにあたり、既存プレイヤーの
+   itemHist（過去の正誤記録）から「実質どこまでのグループを習得済みか」を一回限り算出し、
+   st.groupUnlock.hyakuninの初期値にする（全員グループ1からやり直しにはしない）。判定基準は
+   migrateInitialGroupUnlockと同じ：グループ内正答率80%以上 かつ 8問中6問以上が現在連続正解中(k>=1)。 */
+function migrateInitialHyaGroupUnlock(st){
+  const groups = hyaGroups();
+  let n = 0;
+  for(const g of groups){
+    let t = 0, c = 0, streaked = 0;
+    g.ids.forEach(id => {
+      const rec = st.hyakunin.itemHist[id];
+      if(rec){ t += rec.t; c += rec.c; if((rec.k||0) >= 1) streaked++; }
+    });
+    const accOk = t > 0 && (c / t) >= GROUP_UNLOCK_ACC;
+    const streakOk = streaked >= Math.ceil(g.ids.length * 0.75);
+    if(accOk && streakOk) n++; else break;
+  }
+  return Math.max(1, Math.min(groups.length, n + 1));
 }
 
 function hyaHistoryWeight(st, it){
@@ -3865,6 +3867,7 @@ function hyaRecord(it, correct){
   maybeGrantDailyLogin(st);
   const h = st.hyakunin.itemHist[it.id] || {t:0, c:0};
   h.t++; if(correct) h.c++;
+  h.k = correct ? (h.k||0)+1 : 0; // 連続正解数（8問グループの段階的アンロック判定に使う）
   st.hyakunin.itemHist[it.id] = h;
   if(correct){
     st.hyakunin.totalOk = (st.hyakunin.totalOk||0) + 1;
@@ -3876,16 +3879,7 @@ function hyaRecord(it, correct){
     ? Math.min(HYAKUNIN_MAX_LV, curDiff + DIFF_LV_STEP)
     : Math.max(1, curDiff - DIFF_LV_STEP);
   ReviewSystem.onAnswer(st.hyakunin.itemHist, it.id, correct, it.lv, curDiff);
-  /* 決まり字グループの段階的アンロック（2026-07-31〜）：首(poemNo)単位の連続正解と、
-     現在アクティブなグループの累積正答率を更新し、解禁条件を満たしていれば次グループを解禁する。 */
-  st.hyakunin.poemStreak[it.poemNo] = correct ? (st.hyakunin.poemStreak[it.poemNo]||0) + 1 : 0;
-  const kimarijiLv = hyaKimariji()[it.poemNo];
-  const prog = st.hyakunin.groupProgress[kimarijiLv] || {t:0, c:0};
-  prog.t++; if(correct) prog.c++;
-  st.hyakunin.groupProgress[kimarijiLv] = prog;
-  const groupCountBefore = st.hyakunin.unlockedGroupCount || 1;
-  hyaCheckGroupUnlock(st);
-  const groupJustUnlocked = (st.hyakunin.unlockedGroupCount || 1) > groupCountBefore;
+  const groupJustUnlocked = hyaCheckGroupUnlock(st);
   const recent = (st.hyakunin.recent || []).slice();
   recent.push(correct ? 1 : 0);
   while(recent.length > 100) recent.shift();
@@ -3911,53 +3905,8 @@ function showHyakuninMenu(){
       <div><h2>クイズモード</h2><p>上の句→下の句・作者・意味・出典・表現技法などを四択で出題</p></div>
       <div class="right"><span class="shogo-badge">🎴 Lv.${hyaLv(st)}</span></div>
     </div>
-    <div class="card menu-card" onclick="showHyakuninUnlockStatus()">
-      <div class="menu-icon">🔓</div>
-      <div><h2>解禁状況</h2><p>今のグループ・各首の連続正解・次の解禁条件を確認できる</p></div>
-      <div class="right"><span class="shogo-badge">${st.hyakunin.unlockedGroupCount||1} / ${hyaKimarijiGroups().length} グループ</span></div>
-    </div>
     <p class="note">${esc(accHtml)}</p>
     <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
-  screen.innerHTML = html;
-}
-
-/* ---- 画面：決まり字グループの解禁状況（ミニダッシュボード、2026-07-31〜） ---- */
-function showHyakuninUnlockStatus(){
-  const st = loadStats();
-  const groups = hyaKimarijiGroups();
-  const unlockedCount = st.hyakunin.unlockedGroupCount || 1;
-  const activeIdx = Math.min(unlockedCount, groups.length) - 1;
-  const isAllCleared = unlockedCount >= groups.length;
-  const poemsByNo = {};
-  hiData().forEach(p => poemsByNo[p.no] = p);
-  const streaks = st.hyakunin.poemStreak || {};
-
-  let html = `<h3 class="section">🔓 決まり字グループの進み具合</h3>
-    <p class="note">決まり字（上の句を何文字聞けば下の句が分かるか）の少ないグループから順に、
-    「グループ内正答率80%以上」かつ「グループ内の各首が3回連続正解」を満たすと次のグループが解禁されます。</p>
-    <p class="note">解禁済み ${unlockedCount} / ${groups.length} グループ</p>`;
-
-  groups.forEach((g, idx)=>{
-    const isUnlocked = idx < unlockedCount;
-    const isActive = idx === activeIdx && !isAllCleared;
-    if(idx > unlockedCount) return; // まだ見せない先の先のグループは省略
-    const prog = st.hyakunin.groupProgress[g.level] || {t:0, c:0};
-    const acc = prog.t > 0 ? Math.round(100*prog.c/prog.t) : null;
-    html += `<div class="card">
-      <h4>${esc(String(g.level))}字決まり（${g.poemNos.length}首）　${isUnlocked ? (isActive ? "🔵 挑戦中" : "✅ 解禁済み") : "🔒 未解禁"}</h4>`;
-    if(isUnlocked){
-      html += `<p class="note">正答率 ${acc===null?"（まだ記録なし）":acc+"%"}（目標80%以上）</p><ul class="hyakunin-unlock-list">`;
-      g.poemNos.forEach(no=>{
-        const p = poemsByNo[no];
-        const s = Math.min(streaks[no] || 0, HYAKUNIN_UNLOCK_STREAK);
-        html += `<li>${esc(p ? p.kaminoku : "第"+no+"首")}　連続正解 ${s}/${HYAKUNIN_UNLOCK_STREAK}${s>=HYAKUNIN_UNLOCK_STREAK?" ✅":""}</li>`;
-      });
-      html += `</ul>`;
-    }
-    html += `</div>`;
-  });
-  if(isAllCleared) html += `<p class="note">🎉 全グループ解禁済みです！100首すべてが出題対象になっています。</p>`;
-  html += `<div class="btn-row"><button class="btn secondary" onclick="showHyakuninMenu()">百人一首メニューへ</button></div>`;
   screen.innerHTML = html;
 }
 
@@ -4084,7 +4033,7 @@ function hyaAnswerChoice(origIdx){
   });
   const fb = document.getElementById("hyaFb");
   fb.className = "feedback show " + (ok?"ok":"ng");
-  const unlockMsg = r.groupJustUnlocked ? `<div class="evolve">🔓 新しい決まり字グループが解禁されました！</div>` : "";
+  const unlockMsg = r.groupJustUnlocked ? `<div class="evolve">🔓 百人一首の次のグループが解禁された！</div>` : "";
   fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}</div>${markQuestionHtml(it.e).replace(/\n/g,"<br>")}
     <div class="note">百人一首レベル Lv.${r.lv}　｜　今のめやす：${esc(hyaLvLabel(r.diffLv))}</div>${unlockMsg}`;
   document.getElementById("hyaNextBtn").style.display = "inline-block";
