@@ -871,7 +871,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.77</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.78</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -2334,37 +2334,46 @@ function kotonohaLineMoveT(stageIdx){
 /* namesは少年体(index0)〜伝説級(index4)の5段階の技名。性能（powerMult等）が伸びるのに合わせて、
    だんだん強そうな響きの名前に変わっていく（教員の指示、2026-08-01〜。進化演出のタイミングで
    「必殺技が、～になった！」と表示する＝kotonohaEvolveStep5参照）。 */
+/* 威力倍率(powerMult)の伸び方（2026-08-02〜、教員の指示：実プレイで長期戦になりがちだったのを受け、
+   進化段階による強さの差をもっとはっきりさせてほしいとの要望）。天翔以外の5系統は共通で
+   KOTONOHA_LINE_POWER_MIN(2倍、少年体で解禁した直後は言霊一閃の3倍より弱い)から
+   KOTONOHA_LINE_POWER_MAX(5倍、伝説級では言霊一閃の3倍を大きく上回る)まで線形に伸びる。
+   「少年体のうちは言霊一閃のほうが強いが、育てるほど専用技のほうが明確に強くなる」という
+   進化の動機づけを狙っている。天翔だけはゲージが少なくて済む代わりに威力が低いという
+   トレードオフの個性を保つため、伸び幅は控えめ(1.5倍→2.5倍)にとどめている。 */
+const KOTONOHA_LINE_POWER_MIN = 2, KOTONOHA_LINE_POWER_MAX = 5;
+const kotonohaLinePower = t => KOTONOHA_LINE_POWER_MIN + (KOTONOHA_LINE_POWER_MAX - KOTONOHA_LINE_POWER_MIN) * t;
 const KOTONOHA_LINE_MOVES = {
   tensho: {
     names:["疾風の一閃","旋風の斬撃","暴風の剛刃","神速の破空","天翔絶刃"],
     desc:"発動に必要な連続正解数が少ない代わり、威力はひかえめ",
     gaugeMax: t => Math.max(3, Math.round(FINISHER_GAUGE_MAX - 1*t)),
-    powerMult: t => FINISHER_MULT - 1*t,
+    powerMult: t => 1.5 + 1*t,
   },
   soukai: {
     names:["癒しの波動","静水の癒し波","深海の慈雨","蒼海の生命波","蒼海絶界・癒しの奔流"],
     desc:"与えたダメージの一部を自分のHPに変える",
-    powerMult: () => FINISHER_MULT,
+    powerMult: kotonohaLinePower,
     drainPct: t => 0.5*t,
   },
   engoku: {
     names:["灼熱の連撃","業火の連撃","猛火の乱舞","紅蓮の乱撃","焔獄絶炎・万撃"],
     desc:"連続で当てるたびに威力が上がる（一度でも間違えるとリセット）",
-    powerMult: () => FINISHER_MULT,
+    powerMult: kotonohaLinePower,
     comboStep: t => 0.3*t,
     comboCapExtra: t => 1.2*t,
   },
   suishin: {
     names:["眠りの胞子","深眠の胞子","幻惑の眠華","悠久の眠り歌","翠森絶眠・永久の子守唄"],
     desc:"相手を数ターン行動不能にする（毎ターン一定確率で目覚める）",
-    powerMult: () => FINISHER_MULT,
+    powerMult: kotonohaLinePower,
     sleepMaxTurns: t => Math.round(2 + 3*t),
     sleepWakeChance: t => 0.40 - 0.18*t,
   },
   seiki: {
     names:["光の高揚","光輝の高揚","聖光の加護","極光の祝福","聖輝絶光・天啓"],
     desc:"発動のたびに自分の攻撃力が上がる（重ねがけ可）",
-    powerMult: () => FINISHER_MULT,
+    powerMult: kotonohaLinePower,
     buffStat:"atk",
     buffPerStack: t => Math.round(10 + 30*t),
     buffMaxStacks: t => 1 + Math.round(2*t),
@@ -2372,7 +2381,7 @@ const KOTONOHA_LINE_MOVES = {
   meien: {
     names:["深淵の守り","冥府の守り","幽玄の盾","常闇の鉄壁","冥淵絶闇・不滅の盾"],
     desc:"発動のたびに自分の防御力が上がる（重ねがけ可）",
-    powerMult: () => FINISHER_MULT,
+    powerMult: kotonohaLinePower,
     buffStat:"def",
     buffPerStack: t => Math.round(10 + 30*t),
     buffMaxStacks: t => 1 + Math.round(2*t),
