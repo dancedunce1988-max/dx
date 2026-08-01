@@ -871,7 +871,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.79</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.81</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -1073,8 +1073,8 @@ function emptyStats(){
    分野レベルは最初から正確に記録されているので、statPointsをいつ導入したかに関係なく、
    前から遊んでいるプレイヤーの過去の経験値もすべて正しく反映される。
    1つの分野のレベルが1000を超えた分は、レベル1につき0.2ptに逓減する（1分野への一極集中を防ぎ、
-   いろいろな分野に挑戦したくなるようにするため、2026-07-14〜）。宝具を使ってもらえる経験値（bonusExp）は
-   分野に関係なく全額そのまま加算する。 */
+   いろいろな分野に挑戦したくなるようにするため、2026-07-14〜）。宝具を使ってもらえる経験値（bonusExp）と
+   百人一首の正解ぶん（st.hyakuninBonusExp、2026-08-02〜）は、どちらも分野に関係なく全額そのまま加算する。 */
 /* 「ことのはの経験値」の上限（2026-07-22〜、教員の指示）。20000を超えた分は切り捨てて常に20000
    として扱う。正解数の記録・各分野のレベルアップ自体は今までどおり無制限に続く（st.cats/st.lvは
    このキャップの影響を受けない）ので、プレイ自体は変わらず遊べるが、①ステータスポイント
@@ -1097,7 +1097,10 @@ function catExpPoints(lv){
 }
 function totalEarnedStatPoints(st){
   const fromLevels = CAT_KEYS.reduce((sum,k) => sum + catExpPoints(st.lv[k]||1), 0);
-  return Math.min(KOTONOHA_XP_CAP, Math.floor(fromLevels + effectiveBonusExp(st)));
+  /* 百人一首の正解ぶん（st.hyakuninBonusExp）もbonusExpと同じくステータスポイントに全額加算する
+     （教員の指示、2026-08-02〜）。進化の分岐（kotonohaBaseCategory）はst.lvの分布だけを見て
+     判定しておりここには関与しないため、この変更で分岐判定への影響はない。 */
+  return Math.min(KOTONOHA_XP_CAP, Math.floor(fromLevels + effectiveBonusExp(st) + (st.hyakuninBonusExp||0)));
 }
 function spentStatPoints(st){
   return Object.values(st.stats||{}).reduce((sum,v) => sum + (v||0), 0);
@@ -2009,7 +2012,10 @@ function kotonohaTotalXP(st){
      百人一首の正解ぶん（st.hyakuninBonusExp、2026-07-31〜）も、bonusExpと同じく「進化の分岐
      （kotonohaType、CAT_KEYSの分野別レベル分布だけを見て判定）には一切影響させず、経験値の
      合計にだけ加算する」という位置づけで加える。百人一首コーナーは経験値と非連動の自己完結
-     モードのままだが（[[kokugo-hyakunin-isshu-mode]]参照）、ここだけ例外的に経験値に反映する。 */
+     モードのままだが（[[kokugo-hyakunin-isshu-mode]]参照）、ここだけ例外的に経験値に反映する。
+     ステータスポイント（totalEarnedStatPoints）にもbonusExpと同じ扱いで加算するようになった
+     （2026-08-02〜、教員の指示）。totalEarnedStatPointsもkotonohaBaseCategoryもst.lvの分布は
+     見るがst.hyakuninBonusExp自体は見ないので、この変更後も進化の分岐判定には影響しない。 */
   return Math.min(KOTONOHA_XP_CAP, Math.floor(CAT_KEYS.reduce((sum,k)=> sum + catExpPoints(st.lv[k]||1), 0) + effectiveBonusExp(st) + (st.hyakuninBonusExp||0)));
 }
 function kotonohaOtherType(st, stageIdx){
@@ -3727,6 +3733,19 @@ function catGroups(cat){
 function catUnlockedGroupCount(st, cat){
   return (st.groupUnlock && st.groupUnlock[cat]) || 1;
 }
+/* 「総問題数のうち何%が解放されているか」（成績画面表示用、2026-08-02〜）。最終グループは
+   8問に満たないことがあるため、グループ数の比率ではなく実際の問題数（indices.length）を
+   積み上げて計算する。GROUP_UNLOCK_CATS対象外のジャンル（読解など）はnullを返す。 */
+function catUnlockedQuestionPct(st, cat){
+  if(!GROUP_UNLOCK_CATS.includes(cat)) return null;
+  const groups = catGroups(cat);
+  const totalQ = CATS[cat].items.length;
+  if(totalQ === 0) return null;
+  const n = Math.min(catUnlockedGroupCount(st, cat), groups.length);
+  let unlockedQ = 0;
+  for(let i=0;i<n;i++) unlockedQ += groups[i].indices.length;
+  return Math.round(unlockedQ / totalQ * 100);
+}
 /* 現在解禁済みのグループだけを含む出題プール（累積的・不可逆：既習グループは出題プールから
    外さない＝忘却防止）。GROUP_UNLOCK_CATS対象外のジャンルは、これまでどおり全問題がプール。 */
 function groupUnlockedPool(st, cat){
@@ -3806,6 +3825,16 @@ function hyaGroups(){
 }
 function hyaUnlockedGroupCount(st){
   return (st.groupUnlock && st.groupUnlock.hyakunin) || 1;
+}
+/* catUnlockedQuestionPctの百人一首版（成績画面表示用、2026-08-02〜）。 */
+function hyaUnlockedQuestionPct(st){
+  const groups = hyaGroups();
+  const totalQ = hyaPool().length;
+  if(totalQ === 0) return null;
+  const n = Math.min(hyaUnlockedGroupCount(st), groups.length);
+  let unlockedQ = 0;
+  for(let i=0;i<n;i++) unlockedQ += groups[i].ids.length;
+  return Math.round(unlockedQ / totalQ * 100);
 }
 /* 現在解禁済みのグループだけを含む出題プール。累積的・不可逆：一度解禁したグループは、
    以後正答率が下がっても再ロックされない（20分野のgroupUnlockedPoolと同じ方針）。 */
@@ -3896,7 +3925,9 @@ function hyaLvLabel(diffLv){
   const g = Math.round(Math.max(1, Math.min(HYAKUNIN_MAX_LV, diffLv)));
   return ["かるた入門（上の句・作者）", "中級（下の句・意味）", "上級（出典・表現技法）"][g-1];
 }
-/* 自動採点だが、record()は呼ばずst.hyakunin専用の記録だけを行う（経験値等には一切触れない） */
+/* 自動採点だが、record()は呼ばずst.hyakunin専用の記録だけを行う（分野レベルst.lvには一切触れない。
+   経験値st.hyakuninBonusExpへの加算とそれ経由のステータスポイント反映はある、上のkotonohaTotalXP
+   コメント参照） */
 function hyaRecord(it, correct){
   const st = loadStats();
   maybeGrantDailyLogin(st);
@@ -3937,6 +3968,7 @@ function showHyakuninMenu(){
   const st = loadStats();
   const acc = hyaAccuracy(st);
   const accHtml = acc === null ? "（まだ記録なし）" : `直近100問の正答率　${acc}%`;
+  const unlockPct = hyaUnlockedQuestionPct(st);
   const html = `
     <h3 class="section">🎴 百人一首</h3>
     <p class="note">小倉百人一首100首を、意味・表現技法・作者・出典まで楽しく学べるコーナーです。「一覧モード」でじっくり読んで、「クイズモード」で力だめししましょう。進化の分岐には影響しません。</p>
@@ -3950,6 +3982,7 @@ function showHyakuninMenu(){
       <div class="right"><span class="shogo-badge">🎴 Lv.${hyaLv(st)}</span></div>
     </div>
     <p class="note">${esc(accHtml)}</p>
+    <p class="note">問題解放率　${unlockPct}%<div class="bar"><div style="width:${unlockPct}%"></div></div></p>
     <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
   screen.innerHTML = html;
 }
@@ -4627,8 +4660,23 @@ const BOSSES = [
      ことがモンテカルロ・シミュレータで判明した。「防御力700未満だと勝負にならない」という
      急な閾値までは求めず、なだらかな逓減カーブでよいという教員の了承のもと、atk1500→400に
      引き下げ、均等配分・8割正解ペースでの勝率が86%程度（他ボスと同じ「適正経験値を均等配分
-     すれば85〜90%前後」という基準）に収まることを確認して再調整した。accuracy(180)は変更なし。 */
-  {id:"ruoon",      name:"アイスホッケー選手ルオー", icon:"🏒", item:"ホッケー用スティック", treasure:"ホッケー防具一式",           hp:268000, atk:400,  defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
+     すれば85〜90%前後」という基準）に収まることを確認して再調整した。accuracy(180)は変更なし。
+     【2026-08-02、HPを大幅に引き下げ（プレイヤーの回避率に上限35%を追加したのに伴う再調整）】
+     プレイヤーの素早さによる回避率（`bossCounterAttack`の`hitChance`計算）が、旧実装では
+     上限なしの比率式で、投資しただけ際限なく100%に近づいていた（実測：素早さ2000でこの帯の
+     ボス相手に被弾率わずか4.31%）。教員の指摘（「回避率が高すぎるのでは」）を受け、命中率
+     ボーナス側と同じ「上限つきの逓減カーブ」に統一し上限35%に変更した（`STAT_SPD_EVASION_MAX_PCT`
+     参照）ため、旧HP(268000)のままでは被弾頻度が跳ね上がり、均等配分1000pt×5・全問正解＋
+     言霊一閃でも勝率0%（実質詰み）になることがモンテカルロ・シミュレータで判明した。教員の
+     指示「適正経験値のとき、全問正解＋言霊一閃で勝率60%程度」を満たすようHPをグリッドサーチで
+     再探索し、268000→15500（約94%減）に変更した（atk・defPct・accuracyは変更なし）。
+     この帯の他10体（recPts5000の残り9体・recPts10000のゲームマニア８９・recPts15000の
+     無敵艦隊）も同じ回避率上限の影響を受けるため、個別メカニクスぶんの再検証はしていないが、
+     同じ縮小比率（15500/268000≈0.0578）をそれぞれの旧HPに掛けて一括で下げてある（教員の指示。
+     縮小比率を使わなかったのはルオーと同じ旧HP(268000)を持つ「素直な」6体だけで、これらは
+     直接15500に統一した）。各ボス固有の特殊メカニクス（HP吸収・複利成長等）が絡む場合の
+     厳密な勝率は未検証であることに留意。 */
+  {id:"ruoon",      name:"アイスホッケー選手ルオー", icon:"🏒", item:"ホッケー用スティック", treasure:"ホッケー防具一式",           hp:15500, atk:400,  defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
   /* ルオーと同じrecPts5000帯の新5体（2026-07-22〜、教員の指示）。出現条件（minXpRatio・
      dropAccuracyThreshold・itemDropFloor/Ceil）はルオーと完全に同じにし、基本ステータスも
      ルオーの値をベースラインとして、それぞれ指示された個性の分だけ調整している。
@@ -4646,11 +4694,11 @@ const BOSSES = [
      ・スピードスケートますりん：特別な個性の指定なし。ルオーと同じベースステータスの
        「素直な」recPts5000ボスとして追加（教員の指示で「書いていない部分は考えてよい」との
        ことだったので、既存のルオーをそのまま踏襲する方針にした）。 */
-  {id:"basketball_jun", name:"天才バスケットボーラージュン", icon:"🏀", item:"バスケットボール", treasure:"黄金に輝くバスケットシューズ", hp:268000, atk:400, defPct:55, accuracy:180, evadePct:55, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, rareInPoolChance:0.01},
-  {id:"vacuum_bot", name:"人間型掃除機", icon:"🧹", item:"掃除機", treasure:"テニスラケット", hp:268000, atk:600, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, fleeAfterMisses:3},
-  {id:"king_slime_ojii", name:"キングスライムなおじい", icon:"👴", item:"なおじいの涙", treasure:"エースの肩書", hp:268000, atk:400, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, surviveFinisherAtOne:true},
-  {id:"saru_chan", name:"丸刈りのさるちゃん", icon:"🐒", item:"竹刀", treasure:"剣道用防具", hp:180000, atk:400, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, preemptiveHalfHp:true},
-  {id:"speedskate_masurin", name:"スピードスケートますりん", icon:"⛸️", item:"スピードスケートの靴", treasure:"スケート用のワンピース", hp:268000, atk:400, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
+  {id:"basketball_jun", name:"天才バスケットボーラージュン", icon:"🏀", item:"バスケットボール", treasure:"黄金に輝くバスケットシューズ", hp:15500, atk:400, defPct:55, accuracy:180, evadePct:55, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, rareInPoolChance:0.01},
+  {id:"vacuum_bot", name:"人間型掃除機", icon:"🧹", item:"掃除機", treasure:"テニスラケット", hp:15500, atk:600, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, fleeAfterMisses:3},
+  {id:"king_slime_ojii", name:"キングスライムなおじい", icon:"👴", item:"なおじいの涙", treasure:"エースの肩書", hp:15500, atk:400, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, surviveFinisherAtOne:true},
+  {id:"saru_chan", name:"丸刈りのさるちゃん", icon:"🐒", item:"竹刀", treasure:"剣道用防具", hp:15500, atk:400, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, preemptiveHalfHp:true},
+  {id:"speedskate_masurin", name:"スピードスケートますりん", icon:"⛸️", item:"スピードスケートの靴", treasure:"スケート用のワンピース", hp:15500, atk:400, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
   /* ルオーと同じrecPts5000帯のさらに新5体（2026-07-23〜、教員の指示）。出現条件は完全に同じ
      まま、それぞれ全く新しい特殊メカニクスを持たせている。数値（atk/hp/defPct）はNode.jsの
      モンテカルロ・シミュレータ（bossGrade/bossCounterAttackの計算式を再実装したもの）で、
@@ -4694,11 +4742,11 @@ const BOSSES = [
        回復し、他ボスの目標水準（85〜90%）に収まることを確認した（平均必殺技使用回数は
        1.7〜1.9回）。必殺技なし（ストーリー第3章クリア前）のプレイヤーにとっては相変わらず
        ほぼ勝てないボスのままである点は変わらない（教員もこれは許容済み）。 */
-  {id:"soumaa", name:"咆哮のソーマー", icon:"🦁", item:"折れたシャー芯", treasure:"奇跡の一本シャー芯", hp:268000, atk:200, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, selfHpAtkBoost:{normalMult:1.5, lowMult:2.5, hpThreshold:0.5}},
-  {id:"kuratyan_robot", name:"ロボットに乗ったくらちゃん", icon:"🤖", item:"プラモデル", treasure:"ピストルダム", hp:180000, atk:150, defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, atkGrowthPerTurn:1.2},
-  {id:"game_n", name:"ゲーム好きのN", icon:"🎮", item:"エナドリ", treasure:"プロコン", hp:268000, atk:340, defPct:55, accuracy:180, evadePct:25, luck:45, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
-  {id:"ultra_k", name:"漫画が好きなウルトラK", icon:"📖", item:"少年コミック", treasure:"未来を予知する漫画", hp:210000, atk:400, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, playerAtkHalved:true},
-  {id:"walking_person", name:"ぶらぶら歩く人", icon:"🚶", item:"紅茶", treasure:"緑茶", hp:268000, atk:400, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, defTripleOnMiss:true, finisherDamageMultBoost:[2,4]},
+  {id:"soumaa", name:"咆哮のソーマー", icon:"🦁", item:"折れたシャー芯", treasure:"奇跡の一本シャー芯", hp:15500, atk:200, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, selfHpAtkBoost:{normalMult:1.5, lowMult:2.5, hpThreshold:0.5}},
+  {id:"kuratyan_robot", name:"ロボットに乗ったくらちゃん", icon:"🤖", item:"プラモデル", treasure:"ピストルダム", hp:10410, atk:150, defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, atkGrowthPerTurn:1.2},
+  {id:"game_n", name:"ゲーム好きのN", icon:"🎮", item:"エナドリ", treasure:"プロコン", hp:15500, atk:340, defPct:55, accuracy:180, evadePct:25, luck:45, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
+  {id:"ultra_k", name:"漫画が好きなウルトラK", icon:"📖", item:"少年コミック", treasure:"未来を予知する漫画", hp:12146, atk:400, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, playerAtkHalved:true},
+  {id:"walking_person", name:"ぶらぶら歩く人", icon:"🚶", item:"紅茶", treasure:"緑茶", hp:15500, atk:400, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, defTripleOnMiss:true, finisherDamageMultBoost:[2,4]},
   /* 適正経験値10000「ゲームマニア８９」（2026-07-23〜、教員の指示）。ルオー(5000)と無敵艦隊(15000)の
      中間に位置する新しい帯。個性は`healOnMissPct`＝プレイヤーが不正解のとき、自分の最大HPの10%を
      回復する（bossGrade側の不正解分岐で実装。詳細はそちらのコメント参照）。回避率は教員の指示で
@@ -4717,7 +4765,7 @@ const BOSSES = [
      dropAccuracyThreshold(0.8)・itemDropFloor/Ceil(0.4/1.0)はrecPts5000帯と同じ基準を踏襲。lvは
      5000帯(33)と15000帯(50)の中間で42とした。制限時間は教員の指示で12秒（answerTimeMs、
      他ボスの標準15秒より短い個別設定）。 */
-  {id:"game_maniac_89", name:"ゲームマニア８９", icon:"👾", item:"ジョイコン", treasure:"なにかのソフト", hp:117500, atk:900, defPct:20, accuracy:180, evadePct:25, luck:15, lv:42, recPts:10000, minXpRatio:0.5, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, answerTimeMs:12000, healOnMissPct:0.10},
+  {id:"game_maniac_89", name:"ゲームマニア８９", icon:"👾", item:"ジョイコン", treasure:"なにかのソフト", hp:6796, atk:900, defPct:20, accuracy:180, evadePct:25, luck:15, lv:42, recPts:10000, minXpRatio:0.5, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, answerTimeMs:12000, healOnMissPct:0.10},
   /* 適正経験値15000の新最上位ボス（2026-07-21〜、教員の指示）。「今までで一番強いボス」という
      位置づけで、既存最上位ルオー(recPts5000)からさらに3倍の帯に置いた。個性は既存の「ステータス
      依存だが特殊反撃を持つ」型：①`atkHalvedUnlessFinisher`＝必殺技以外の通常攻撃はダメージが
@@ -4752,7 +4800,7 @@ const BOSSES = [
      92.9%から大幅低下、意味のあるステータスに）、均等配分自体の勝率は86.75%で従来（84%前後）と
      ほぼ変わらず。素早さ・運は既存ボス同様「頭打ちがあるので盛りすぎると無駄になる」性質を
      維持（今回の指示の対象外）。 */
-  {id:"fleet_1_3",  name:"無敵艦隊１年３組",       icon:"⚓", item:"青いハチマキ",         treasure:"１年３組の「愛」",           hp:160000, atk:120,  defPct:20, accuracy:200, evadePct:20, luck:15, lv:50, recPts:15000, minXpRatio:10000/15000, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, atkHalvedUnlessFinisher:true, counterOkFixedMin:0.16, counterOkFixedMax:0.20},
+  {id:"fleet_1_3",  name:"無敵艦隊１年３組",       icon:"⚓", item:"青いハチマキ",         treasure:"１年３組の「愛」",           hp:9254, atk:120,  defPct:20, accuracy:200, evadePct:20, luck:15, lv:50, recPts:15000, minXpRatio:10000/15000, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, atkHalvedUnlessFinisher:true, counterOkFixedMin:0.16, counterOkFixedMax:0.20},
 ];
 /* 2026-07-17、経験値カーブを変更（catExpPoints参照。LV100まで+3/LV500まで+2/LV1000まで+1/以降+0.2の
    段階式に改訂）したことにともない、同じレベル到達ペースで各ボスが解禁されるよう、全ボスのrecPts・
@@ -4938,10 +4986,11 @@ function finisherMoveInfo(st){
 function finisherMoveName(st){ return finisherMoveInfo(st).name; }
 /* ボス戦ステータス：割りふったポイントの効果量。
    防御力・運は「〇ポイントで半分の効果」という逓減式（上限なし、常に少しずつ伸びる）。
-   素早さは、ポイント数に応じた「回避パワー」を持ち、ボスの命中率との比率で命中/回避が決まる
-   （回避パワー = 素早さ × STAT_SPD_EVASION_UNIT）。
+   素早さは、ボスの攻撃を避ける「回避率」を持つ（上限35%の逓減式、STAT_SPD_EVASION_MAX_PCT
+   参照。2026-08-02〜、旧実装は比率式で上限がなく、投資しただけ際限なく100%に近づいていた）。
    加えて、素早さは自分の攻撃がボスに回避される確率を少し下げる命中率ボーナスも持つ
-   （上限つきの逓減式。上限を設けているのは、回避特化型のボスの個性を消してしまわないため）。 */
+   （上限つきの逓減式。上限を設けているのは、回避特化型のボスの個性を消してしまわないため。
+   回避率側の上限も、この命中率ボーナス側と同じ思想に揃えたもの）。 */
 const STAT_HP_PER_POINT = 5;
 const STAT_ATK_PER_POINT = 3;
 /* 防御力の半分ポイントは、2026-07-21〜、グローバル固定値(30)をやめてボスごとの
@@ -4953,7 +5002,18 @@ const STAT_ATK_PER_POINT = 3;
    揃い、将来もっとrecPtsの高いボスを追加しても、このぶんの再調整が要らなくなる。 */
 function bossDefHalfPoint(boss){ return Math.max(1, (boss.recPts||0) / 5); }
 const STAT_LUCK_HALF_POINT = 100; // 運がこのポイント数のとき、会心率が50%になる
-const STAT_SPD_EVASION_UNIT = 2;  // 素早さ1ポイントあたりの回避パワー
+/* プレイヤーの回避率（ボスの攻撃を避ける確率）に上限を追加（2026-08-02、教員の指示）。
+   旧実装（`hitChance = accuracy/(accuracy+spd*STAT_SPD_EVASION_UNIT)`、比率の綱引き式）は
+   上限がなく、素早さを積むほど被弾率が際限なく0%に近づいていた（実測：素早さ2000でrecPts5000
+   帯ボス相手に被弾率4.31%＝回避率95.69%）。一方、この直後にある「プレイヤーの命中率ボーナス」
+   （ボスの回避率を素早さで削る、STAT_SPD_ACC_MAX_BONUS）は同じ「素早さの回避パワー」という
+   発想でありながら意図的に上限（+6pt）がついており、同じ思想が回避率側だけ抜けていた非対称
+   だった。命中率側と同じ「MAX×spd/(spd+半分ポイント)」という頭打ちカーブに統一し、
+   STAT_SPD_EVASION_MAX_PCTで上限（35%）を明示する。ボスごとの`accuracy`による個性
+   （命中率が高いボスほど同じ回避率に届くのに素早さがより多く要る）は、半分ポイントに
+   accuracyを掛けることでそのまま維持する（accuracy100を基準値とする）。 */
+const STAT_SPD_EVASION_MAX_PCT = 35;      // プレイヤーの回避率の上限（素早さを無限に積んでも超えない）
+const STAT_SPD_EVASION_HALF_POINT_BASE = 400; // ボスのaccuracyが100のとき、素早さがこのポイント数で回避率が上限の半分になる
 const STAT_SPD_ACC_HALF_POINT = 40; // 素早さがこのポイント数のとき、命中率ボーナスが上限の半分になる
 const STAT_SPD_ACC_MAX_BONUS = 6;   // 素早さによる命中率ボーナスの上限（ボスの回避率から差し引く%pt、上限つきで他ステータスとバランスを取る）
 const STAT_CRIT_MULT = 2;                  // 会心の一撃のダメージ倍率
@@ -6183,9 +6243,10 @@ function bossCounterAttack(playerWasCorrect){
   const range = playerWasCorrect ? BOSS_DMG_ON_CORRECT : BOSS_DMG_ON_WRONG;
   const st = loadStats();
   const ps = st.stats || {hp:0,atk:0,def:0,spd:0,luck:0};
-  const evasionPower = ps.spd * STAT_SPD_EVASION_UNIT;
   const accuracy = b.boss.accuracy || 100;
-  const hitChance = accuracy / (accuracy + evasionPower); // 素早さとボスの命中率の綱引き
+  const evasionHalfPoint = STAT_SPD_EVASION_HALF_POINT_BASE * (accuracy / 100);
+  const evasionPct = STAT_SPD_EVASION_MAX_PCT * ps.spd / (ps.spd + evasionHalfPoint);
+  const hitChance = 1 - evasionPct / 100; // 素早さによる回避率（上限35%）
   let taken = 0, bossCrit = false, playerEvaded = false, guarded = false;
   /* ロボットに乗ったくらちゃん専用：命中/回避に関わらず「反撃のターンそのもの」を数えて、
      攻撃力を複利で伸ばす（教員の指示で上限なし）。命中判定より前に消費しておくことで、
@@ -6493,7 +6554,7 @@ function showStats(){
   const rows = CAT_KEYS.map(k => [k, CATS[k].name]).concat([["dokkai","読解"]]);
   let weakest = null;
   let html = `<div class="card"><h3 class="section">成績（累計）</h3><table class="stats">
-    <tr><th>分野</th><th>称号</th><th style="text-align:right">Lv</th><th style="text-align:right">解いた数</th><th style="text-align:right">正解</th><th style="width:26%">正答率<br><span style="font-weight:normal">(直近30問)</span></th></tr>`;
+    <tr><th>分野</th><th>称号</th><th style="text-align:right">Lv</th><th style="text-align:right">解いた数</th><th style="text-align:right">正解</th><th style="width:22%">正答率<br><span style="font-weight:normal">(直近30問)</span></th><th style="width:18%">問題解放率</th></tr>`;
   rows.forEach(([k,label])=>{
     const s = st.cats[k] || {t:0,c:0};
     /* 正答率は「解いた数」「正解」の累計比ではなく、直近30問（RECENT_ACC_WINDOW）の
@@ -6505,6 +6566,7 @@ function showStats(){
     const rate = recent.length ? recent.reduce((a,b)=>a+b, 0) / recent.length : null;
     if(k!=="dokkai" && rate!==null && s.t>=4 && (weakest===null || rate<weakest.rate)) weakest = {label, rate};
     const t = titleOf(st.lv[k]);
+    const unlockPct = catUnlockedQuestionPct(st, k);
     html += `<tr>
       <td>${esc(label)}</td>
       <td>${t.icon}${esc(t.name)}</td>
@@ -6513,6 +6575,8 @@ function showStats(){
       <td class="num">${s.c}</td>
       <td>${rate===null ? "<span style='color:var(--sub)'>未挑戦</span>"
           : `${Math.round(rate*100)}%<div class="bar"><div style="width:${rate*100}%"></div></div>`}</td>
+      <td>${unlockPct===null ? "<span style='color:var(--sub)'>ー</span>"
+          : `${unlockPct}%<div class="bar"><div style="width:${unlockPct}%"></div></div>`}</td>
     </tr>`;
   });
   html += `</table>`;
