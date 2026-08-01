@@ -871,7 +871,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.74</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.75</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -2627,8 +2627,11 @@ function itemLinkHtml(st){
     <a href="#" onclick="showItemCollection(); return false;">🎒 これまで獲得したアイテムを見る（${count}コ）</a>
   </p>`;
 }
-/* 挑戦チケット：どの分野でも、レベルアップ10回ごとに1枚たまる。使うとランダムなボスとすぐに対戦できる。 */
-function bossTicketHtml(st){
+/* 挑戦チケット：どの分野でも、レベルアップ10回ごとに1枚たまる。使うとランダムなボスとすぐに対戦できる。
+   resumeFnName：「やめる」・対戦終了後に戻る画面の関数名（文字列でonclickに埋め込む）。省略時はホーム
+   （showTicketConfirmのデフォルトに委ねる）。百人一首メニュー（showHyakuninMenu、2026-08-01〜）など、
+   ホーム以外の画面にこのカードを置くときに渡す。 */
+function bossTicketHtml(st, resumeFnName){
   const n = st.bossTickets || 0;
   return `
   <div class="card ticket-card">
@@ -2638,7 +2641,7 @@ function bossTicketHtml(st){
         <span class="ticket-label">ボスへの挑戦チケット</span>
         <span class="ticket-count">${n}枚</span>
       </div>
-      <button class="btn inline ${n>0?'':'disabled'}" ${n>0?'':'disabled'} onclick="showTicketConfirm()">挑戦する</button>
+      <button class="btn inline ${n>0?'':'disabled'}" ${n>0?'':'disabled'} onclick="showTicketConfirm(${resumeFnName||''})">挑戦する</button>
     </div>
     <p class="note">どの分野でも、レベルアップ10回ごとに1枚たまります。</p>
   </div>`;
@@ -3905,6 +3908,7 @@ function showHyakuninMenu(){
       <div><h2>クイズモード</h2><p>上の句→下の句・作者・意味・出典・表現技法などを四択で出題</p></div>
       <div class="right"><span class="shogo-badge">🎴 Lv.${hyaLv(st)}</span></div>
     </div>
+    ${bossTicketHtml(st, "showHyakuninMenu")}
     <p class="note">${esc(accHtml)}</p>
     <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
   screen.innerHTML = html;
@@ -3976,6 +3980,7 @@ function startHyakuninQuiz(){
 }
 function hyaNextQuestion(){
   if(kotonohaMaybeInterruptForEvolve(() => hyaNextQuestion())) return;
+  if(rollBossEncounter(() => hyaNextQuestion())) return;
   const st = loadStats();
   const dueKey = ReviewSystem.getDueKey(hyaVisibleHist(st), hya.lastId);
   const due = dueKey ? hyaPool().find(it => it.id === dueKey) : null;
@@ -6252,10 +6257,17 @@ function endBossBattle(){
   pendingBoss = null;
   if(fn) fn(); else showHome();
 }
-/* 挑戦チケットを使ってのボス挑戦：消費前に必ず警告を出す */
-function showTicketConfirm(){
+/* 挑戦チケットを使ってのボス挑戦：消費前に必ず警告を出す。
+   resumeFn：「やめる」を押したとき、および対戦終了後に戻る画面（省略時はホーム）。
+   百人一首メニューなど、ホーム以外の画面からチケットを使う場合に渡す（2026-08-01〜）。
+   使うボス・出題ジャンルの抽選ロジック自体は既存のまま（全ジャンル＝CAT_KEYSからランダム）で、
+   どこから呼んでも変わらない。ボス戦自体はそもそもrecord()を呼ばない設計（[[kokugo-boss-status-system]]、
+   分野レベルst.lvは一切変動しない）なので、このボタンを百人一首メニューに置いても、ことのはの
+   「全領域バランス型」進化判定（20分野の相対レベル差で決まる）には何の影響も生まれない。 */
+function showTicketConfirm(resumeFn){
+  window._ticketBackFn = resumeFn || showHome;
   const st = loadStats();
-  if((st.bossTickets||0) <= 0){ showHome(); return; }
+  if((st.bossTickets||0) <= 0){ window._ticketBackFn(); return; }
   const xp = kotonohaTotalXP(st);
   const candidates = ticketEligibleBosses(xp);
   const names = candidates.map(b => b.name.match(/【(.+)】/)?.[1] || b.name).join("・");
@@ -6266,7 +6278,7 @@ function showTicketConfirm(){
       <p class="note boss-enc-hint">🌐 挑戦チケットを使った対戦は、全ジャンルからランダムに出題されます（ふだんのランダム遭遇では、そのとき解いていたジャンルのまま出題されます）。</p>
       <p class="note boss-enc-hint">🎯 出現するボスの候補は、ランダム遭遇と同じ条件で絞り込まれます。今回の候補：${esc(names)}</p>
       <div class="boss-enc-choices">
-        <button class="boss-enc-btn" onclick="showHome()">やめる</button>
+        <button class="boss-enc-btn" onclick="window._ticketBackFn()">やめる</button>
         <button class="boss-enc-btn selected" onclick="useTicketAndFight()">チケットを1枚使って挑戦する</button>
       </div>
     </div>`;
@@ -6281,8 +6293,9 @@ function ticketEligibleBosses(xp){
   return BOSSES.filter(b => (!b.minXpRatio || xp >= b.recPts * b.minXpRatio) && !isBossRetired(b, xp));
 }
 function useTicketAndFight(){
+  const back = window._ticketBackFn || showHome;
   const st = loadStats();
-  if((st.bossTickets||0) <= 0){ showHome(); return; }
+  if((st.bossTickets||0) <= 0){ back(); return; }
   st.bossTickets -= 1;
   saveStats(st);
   const candidates = ticketEligibleBosses(kotonohaTotalXP(st));
@@ -6290,7 +6303,7 @@ function useTicketAndFight(){
   // どのボスが出たかを見せてから、あらためて「勝負する」を選んでもらう（renderBossPromptを共用）
   pendingBoss = boss;
   pendingBossAllGenre = true;
-  bossPromptResumeFn = () => showHome();
+  bossPromptResumeFn = back;
   bossPromptActive = true;
   bossPromptSelection = "no";
   renderBossPrompt();
