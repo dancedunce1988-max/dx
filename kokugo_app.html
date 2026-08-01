@@ -871,7 +871,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.76</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.77</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -2118,18 +2118,27 @@ function kotonohaRebirthEligible(st){
   const cat = kotonohaBaseCategory(st);
   return cat === 4 || cat === "other";
 }
-/* 転生する瞬間に系統（卵）をランダムに1つ選ぶ。全領域バランス型は「始原龍」固定、それ以外
-   （３領域以上バランス型）は、天翔・焔獄・蒼海・翠森の4系統（「聖輝」「冥淵」アンロック後は
-   この2つも加えた6系統、kotonohaOtherTypePool参照）から、転生するたびに毎回ランダムに1つ選ぶ。
+/* 転生する瞬間に系統（卵）をランダムに1つ選ぶ。全領域バランス型の条件を満たしているときは
+   KOTONOHA_SHIGEN_WEIGHT（40%）の確率で「始原龍」、残り60%はそれ以外の系統（天翔・焔獄・蒼海・
+   翠森の4系統、「聖輝」「冥淵」アンロック後はこの2つも加えた6系統、kotonohaOtherTypePool参照）
+   からランダムに1つ選ぶ（以前は全領域バランス型なら「始原龍」に必ず固定していたが、教員の指示
+   （2026-08-02〜）で確率制に変更）。３領域以上バランス型（cat==="other"）のときは、以前と同じく
+   その6系統プールから選ぶ（始原龍はここには含めない＝全領域バランス型の条件を満たしたときだけの
+   専用ライン、という位置づけは維持）。
    通常進化の絵文字系統ロール（kotonohaOtherType、経験値の「段階」が変わるたびにしか再抽選しない）
    とはあえて独立させている：経験値が伸びきったベテランプレイヤーほど絵文字系統ロールが
-   固定されがちで、それに連動させると同じ系統の卵しか出なくなってしまうため（2026-08-01〜）。 */
+   固定されがちで、それに連動させると同じ系統の卵しか出なくなってしまうため（2026-08-01〜）。
+   「今の系統には転生しない」（教員の指示、2026-08-02〜）：再転生（st.kotonohaRebirthが既にある）
+   のときは、今の系統をどちらの抽選プールからも除外する。始原龍が今の系統なら始原龍自体を除外し
+   （60%だった側の抽選に100%回す）、other側の1系統が今の系統ならそれを除いた残りで按分する。 */
+const KOTONOHA_SHIGEN_WEIGHT = 0.4;
 function kotonohaPickRebirthLine(st){
   const cat = kotonohaBaseCategory(st);
-  if(cat === 4) return "shigen";
-  if(cat !== "other") return null; // 一領域/二領域特化＝転生不可
-  const pool = kotonohaOtherTypePool(st).map(t => KOTONOHA_IMAGE_LINES[t]);
-  return pool[Math.floor(Math.random() * pool.length)];
+  if(cat !== 4 && cat !== "other") return null; // 一領域/二領域特化＝転生不可
+  const currentLine = st.kotonohaRebirth ? st.kotonohaRebirth.line : null;
+  const otherPool = kotonohaOtherTypePool(st).map(t => KOTONOHA_IMAGE_LINES[t]).filter(l => l !== currentLine);
+  if(cat === 4 && currentLine !== "shigen" && Math.random() < KOTONOHA_SHIGEN_WEIGHT) return "shigen";
+  return otherPool[Math.floor(Math.random() * otherPool.length)];
 }
 /* 伝説級（最終段階）に到達すると、ホーム画面の背景を系統の色でドラマチックに演出する
    （教員の指示、2026-08-01〜）。screen.innerHTML側でラップするクラスなので、他の画面に
@@ -4507,6 +4516,19 @@ function endBattle(){
    luck     … 反撃が「会心の一撃」になる確率（%）。会心時は反撃ダメージが1.5倍になる
    lv       … ボスのレベル（表示用）
    recPts   … 適正経験値。このぶんのステータスポイントを持って挑むことを想定している */
+/* 適正経験値5000以上のボス（recPts5000の11体＋recPts15000の無敵艦隊１年３組）のHP・防御力を
+   まとめて底上げ（2026-08-02〜、教員の指示：系統別必殺技が強化されたのを受けて、この帯だけは
+   「必殺技を使わないと、全問正解しても倒せない」レベルまで引き上げてよい）。Node.jsモンテカルロ・
+   シミュレータで探索したのち、vmハーネス経由で実際のbossGrade/bossCounterAttack/bossResolveFinisher
+   を100%正解ペースで数百戦動かして検証した。共通パターンのボス（大半）はHPを約4倍・防御力を
+   20%→55%（recPts15000の無敵艦隊はHP2倍・防御力15%→20%）に引き上げると、通常攻撃のみ（言霊一閃
+   などの必殺技を一度も使わない想定）では均等配分ビルドでも勝率0〜7%程度まで下がる一方、必殺技を
+   ゲージが満タンになるたび使うと十分な勝率（正答率90〜100%で30〜55%程度）に戻ることを確認した。
+   ただし`atkGrowthPerTurn`を持つ「くらちゃん」（反撃のたびに攻撃力が複利で無制限に伸びる仕様）は、
+   HPを他ボスと同じ比率で増やすと必殺技込みでも勝率が事実上0%まで落ち込んだ（戦闘が長引くほど
+   複利成長が指数的に致命傷化するため、他ボスとは逆に「HPを増やしすぎると必殺技があっても勝てなく
+   なる」）。このボスだけは個別に探索し直し、HPは控えめな引き上げ（4.5倍）・防御力は据え置きにして
+   いる。 */
 const BOSSES = [
   {id:"tekkyu",     name:"鉄球ローリング・レディ",       icon:"⚫", item:"鉄球",             treasure:"ぴかぴかの鉄球",             hp:4610,  atk:1.7,   defPct:10, accuracy:120, evadePct:5,  luck:8,  lv:10, recPts:300},
   {id:"houcho",     name:"一閃の料理長",             icon:"🔪", item:"包丁",             treasure:"調理室",                     hp:11000, atk:25.38, defPct:5,  accuracy:150, evadePct:5,  luck:14, lv:16, recPts:1500},
@@ -4580,7 +4602,7 @@ const BOSSES = [
      急な閾値までは求めず、なだらかな逓減カーブでよいという教員の了承のもと、atk1500→400に
      引き下げ、均等配分・8割正解ペースでの勝率が86%程度（他ボスと同じ「適正経験値を均等配分
      すれば85〜90%前後」という基準）に収まることを確認して再調整した。accuracy(180)は変更なし。 */
-  {id:"ruoon",      name:"アイスホッケー選手ルオー", icon:"🏒", item:"ホッケー用スティック", treasure:"ホッケー防具一式",           hp:67000, atk:400,  defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
+  {id:"ruoon",      name:"アイスホッケー選手ルオー", icon:"🏒", item:"ホッケー用スティック", treasure:"ホッケー防具一式",           hp:268000, atk:400,  defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
   /* ルオーと同じrecPts5000帯の新5体（2026-07-22〜、教員の指示）。出現条件（minXpRatio・
      dropAccuracyThreshold・itemDropFloor/Ceil）はルオーと完全に同じにし、基本ステータスも
      ルオーの値をベースラインとして、それぞれ指示された個性の分だけ調整している。
@@ -4598,11 +4620,11 @@ const BOSSES = [
      ・スピードスケートますりん：特別な個性の指定なし。ルオーと同じベースステータスの
        「素直な」recPts5000ボスとして追加（教員の指示で「書いていない部分は考えてよい」との
        ことだったので、既存のルオーをそのまま踏襲する方針にした）。 */
-  {id:"basketball_jun", name:"天才バスケットボーラージュン", icon:"🏀", item:"バスケットボール", treasure:"黄金に輝くバスケットシューズ", hp:67000, atk:400, defPct:20, accuracy:180, evadePct:55, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, rareInPoolChance:0.01},
-  {id:"vacuum_bot", name:"人間型掃除機", icon:"🧹", item:"掃除機", treasure:"テニスラケット", hp:67000, atk:600, defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, fleeAfterMisses:3},
-  {id:"king_slime_ojii", name:"キングスライムなおじい", icon:"👴", item:"なおじいの涙", treasure:"エースの肩書", hp:67000, atk:400, defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, surviveFinisherAtOne:true},
-  {id:"saru_chan", name:"丸刈りのさるちゃん", icon:"🐒", item:"竹刀", treasure:"剣道用防具", hp:45000, atk:400, defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, preemptiveHalfHp:true},
-  {id:"speedskate_masurin", name:"スピードスケートますりん", icon:"⛸️", item:"スピードスケートの靴", treasure:"スケート用のワンピース", hp:67000, atk:400, defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
+  {id:"basketball_jun", name:"天才バスケットボーラージュン", icon:"🏀", item:"バスケットボール", treasure:"黄金に輝くバスケットシューズ", hp:268000, atk:400, defPct:55, accuracy:180, evadePct:55, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, rareInPoolChance:0.01},
+  {id:"vacuum_bot", name:"人間型掃除機", icon:"🧹", item:"掃除機", treasure:"テニスラケット", hp:268000, atk:600, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, fleeAfterMisses:3},
+  {id:"king_slime_ojii", name:"キングスライムなおじい", icon:"👴", item:"なおじいの涙", treasure:"エースの肩書", hp:268000, atk:400, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, surviveFinisherAtOne:true},
+  {id:"saru_chan", name:"丸刈りのさるちゃん", icon:"🐒", item:"竹刀", treasure:"剣道用防具", hp:180000, atk:400, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, preemptiveHalfHp:true},
+  {id:"speedskate_masurin", name:"スピードスケートますりん", icon:"⛸️", item:"スピードスケートの靴", treasure:"スケート用のワンピース", hp:268000, atk:400, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
   /* ルオーと同じrecPts5000帯のさらに新5体（2026-07-23〜、教員の指示）。出現条件は完全に同じ
      まま、それぞれ全く新しい特殊メカニクスを持たせている。数値（atk/hp/defPct）はNode.jsの
      モンテカルロ・シミュレータ（bossGrade/bossCounterAttackの計算式を再実装したもの）で、
@@ -4646,11 +4668,11 @@ const BOSSES = [
        回復し、他ボスの目標水準（85〜90%）に収まることを確認した（平均必殺技使用回数は
        1.7〜1.9回）。必殺技なし（ストーリー第3章クリア前）のプレイヤーにとっては相変わらず
        ほぼ勝てないボスのままである点は変わらない（教員もこれは許容済み）。 */
-  {id:"soumaa", name:"咆哮のソーマー", icon:"🦁", item:"折れたシャー芯", treasure:"奇跡の一本シャー芯", hp:67000, atk:200, defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, selfHpAtkBoost:{normalMult:1.5, lowMult:2.5, hpThreshold:0.5}},
-  {id:"kuratyan_robot", name:"ロボットに乗ったくらちゃん", icon:"🤖", item:"プラモデル", treasure:"ピストルダム", hp:40000, atk:150, defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, atkGrowthPerTurn:1.2},
-  {id:"game_n", name:"ゲーム好きのN", icon:"🎮", item:"エナドリ", treasure:"プロコン", hp:67000, atk:340, defPct:20, accuracy:180, evadePct:25, luck:45, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
-  {id:"ultra_k", name:"漫画が好きなウルトラK", icon:"📖", item:"少年コミック", treasure:"未来を予知する漫画", hp:35000, atk:400, defPct:10, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, playerAtkHalved:true},
-  {id:"walking_person", name:"ぶらぶら歩く人", icon:"🚶", item:"紅茶", treasure:"緑茶", hp:67000, atk:400, defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, defTripleOnMiss:true, finisherDamageMultBoost:[2,4]},
+  {id:"soumaa", name:"咆哮のソーマー", icon:"🦁", item:"折れたシャー芯", treasure:"奇跡の一本シャー芯", hp:268000, atk:200, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, selfHpAtkBoost:{normalMult:1.5, lowMult:2.5, hpThreshold:0.5}},
+  {id:"kuratyan_robot", name:"ロボットに乗ったくらちゃん", icon:"🤖", item:"プラモデル", treasure:"ピストルダム", hp:180000, atk:150, defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, atkGrowthPerTurn:1.2},
+  {id:"game_n", name:"ゲーム好きのN", icon:"🎮", item:"エナドリ", treasure:"プロコン", hp:268000, atk:340, defPct:55, accuracy:180, evadePct:25, luck:45, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
+  {id:"ultra_k", name:"漫画が好きなウルトラK", icon:"📖", item:"少年コミック", treasure:"未来を予知する漫画", hp:210000, atk:400, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, playerAtkHalved:true},
+  {id:"walking_person", name:"ぶらぶら歩く人", icon:"🚶", item:"紅茶", treasure:"緑茶", hp:268000, atk:400, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, defTripleOnMiss:true, finisherDamageMultBoost:[2,4]},
   /* 適正経験値10000「ゲームマニア８９」（2026-07-23〜、教員の指示）。ルオー(5000)と無敵艦隊(15000)の
      中間に位置する新しい帯。個性は`healOnMissPct`＝プレイヤーが不正解のとき、自分の最大HPの10%を
      回復する（bossGrade側の不正解分岐で実装。詳細はそちらのコメント参照）。回避率は教員の指示で
@@ -4704,7 +4726,7 @@ const BOSSES = [
      92.9%から大幅低下、意味のあるステータスに）、均等配分自体の勝率は86.75%で従来（84%前後）と
      ほぼ変わらず。素早さ・運は既存ボス同様「頭打ちがあるので盛りすぎると無駄になる」性質を
      維持（今回の指示の対象外）。 */
-  {id:"fleet_1_3",  name:"無敵艦隊１年３組",       icon:"⚓", item:"青いハチマキ",         treasure:"１年３組の「愛」",           hp:80000, atk:120,  defPct:15, accuracy:200, evadePct:20, luck:15, lv:50, recPts:15000, minXpRatio:10000/15000, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, atkHalvedUnlessFinisher:true, counterOkFixedMin:0.16, counterOkFixedMax:0.20},
+  {id:"fleet_1_3",  name:"無敵艦隊１年３組",       icon:"⚓", item:"青いハチマキ",         treasure:"１年３組の「愛」",           hp:160000, atk:120,  defPct:20, accuracy:200, evadePct:20, luck:15, lv:50, recPts:15000, minXpRatio:10000/15000, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, atkHalvedUnlessFinisher:true, counterOkFixedMin:0.16, counterOkFixedMax:0.20},
 ];
 /* 2026-07-17、経験値カーブを変更（catExpPoints参照。LV100まで+3/LV500まで+2/LV1000まで+1/以降+0.2の
    段階式に改訂）したことにともない、同じレベル到達ペースで各ボスが解禁されるよう、全ボスのrecPts・
