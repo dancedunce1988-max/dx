@@ -169,6 +169,18 @@
   .bar{height:8px; background:var(--line); border-radius:99px; overflow:hidden; margin-top:4px;}
   .bar > div{height:100%; background:var(--accent2);}
   .weak{color:var(--accent); font-size:.8rem;}
+  /* 出題中も常に見える「問題解放率」フッター（2026-08-02〜）。screen.innerHTMLの子として
+     出し入れされるだけなので、他の画面に遷移すればinnerHTML入れ替えで自動的に消える
+     （bodyにクラスを付け外しするような後始末は不要）。固定表示ぶんの高さは、直後の
+     .unlock-footer-spacerで埋め合わせ、下部ボタンがフッターの裏に隠れないようにする。 */
+  .unlock-footer{
+    position:fixed; left:0; right:0; bottom:0; max-width:720px; margin:0 auto;
+    background:var(--card); border-top:1px solid var(--line); box-shadow:0 -2px 8px rgba(0,0,0,.06);
+    padding:8px 16px; display:flex; align-items:center; gap:10px; font-size:.76rem; color:var(--sub); z-index:400;
+  }
+  .unlock-footer .bar{flex:1; margin-top:0;}
+  .unlock-footer-pct{font-weight:bold; color:var(--accent2); flex-shrink:0;}
+  .unlock-footer-spacer{height:60px;}
   /* ================= 漢字の書き取り学習 ================= */
   .kw-level-card.disabled{cursor:default; opacity:.5;}
   .kw-level-card.disabled:hover{transform:none; box-shadow:none;}
@@ -871,7 +883,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.81</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.82</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -1276,7 +1288,6 @@ function record(cat, item, correct, elapsedMs, opts){
   if(!st.q[key]) st.q[key] = {t:0, c:0, k:0, cat, q:item.q};
   st.q[key].t++; if(correct) st.q[key].c++;
   st.q[key].k = correct ? (st.q[key].k||0)+1 : 0;   // 連続正解数
-  const groupJustUnlocked = checkGroupUnlock(st, cat);
   if(MAX_LV[cat]){
     if(!st.diffLv) st.diffLv = {};
     const maxLv = MAX_LV[cat];
@@ -1311,6 +1322,9 @@ function record(cat, item, correct, elapsedMs, opts){
     fastGuess = typeof elapsedMs === "number" && elapsedMs < FAST_ANSWER_MS
       && recentFast.length >= FAST_ANSWER_WINDOW && recentFastAcc < FAST_ANSWER_ACC_THRESHOLD;
   }
+  /* st.recentCorrect[cat]・fastGuessが確定した直後に呼ぶ（高速解放モードの判定に両方使うため、
+     st.q更新の直後だった旧位置から移動した、2026-08-02〜） */
+  const groupJustUnlocked = checkGroupUnlock(st, cat, correct, fastGuess);
 
   let lvup = false, evolved = null, gotTicket = false;
   if(correct && !lowAccuracy && !fastGuess && st.lv[cat] < MAX_CAT_LV){
@@ -3138,7 +3152,8 @@ function renderQuestion(){
         <button class="btn tap-advance-btn" id="nextBtn" style="display:none" onclick="nextQuestion()">次へ</button>
         <button class="btn secondary" id="quitBtn" style="display:none" onclick="endSession(false)">今日はここまで</button>
       </div>
-    </div>`;
+    </div>
+    ${unlockFooterHtml(CATS[cat].name, catUnlockedQuestionPct(st, cat))}`;
   if(isInput){ const el = document.getElementById("ansIn"); if(el) el.focus(); }
 }
 function answerChoice(origIdx){
@@ -3702,6 +3717,26 @@ const UnlockEngine = {
 const GROUP_SIZE = 8;
 const GROUP_UNLOCK_STREAK = 3;
 const GROUP_UNLOCK_ACC = 0.8;
+/* 高速解放モード（2026-08-02〜、教員の指示）。漢字の読み(5489問・687グループ)のように問題数が
+   極端に多いジャンルだと、実力的には簡単すぎる生徒でも「8問ずつ・各問3連続正解」という通常の
+   グループ判定に律儀に付き合わされ、解放のペースが遅くストレスになる。直近30問（st.recentCorrect、
+   RECENT_ACC_WINDOWと共通）のミスがFAST_UNLOCK_MAX_MISSES問以下（＝29/30問=約96.7%以上、
+   教員の指示「97%程度」）に収まっている間は、通常のグループ判定を経由せず正解するたびに
+   1グループずつ即座に解放する。新規プレイヤー（recentCorrectが空）も「まだ間違えていない」
+   として対象に含む（教員の指示「完全にスタート」）。2問以上ミスが直近30問に混ざった時点で
+   自動的に通常の3連続正解方式に戻り、また直近30問のミスが1問以下に収まれば高速解放を再開する
+   （specific window/しきい値はいずれもrecord()側で毎回その場で判定するだけで、専用の状態は
+   持たない）。「素早く適当に答える」検知(fastGuess)中は対象外にする（既存のfastGuess抑制と
+   同じ趣旨で、ここだけ無防備な抜け道にしないため。30問連続正解を偶然だけで満たすのは統計的に
+   ほぼ不可能だが、fastGuessは「よく考えずに機械的に選び続けて偶然通ってしまう」ケースを
+   検知するための独立した仕組みなので、経路をふさぐ）。 */
+const FAST_UNLOCK_RECENT_WINDOW = 30; // st.recentCorrectのRECENT_ACC_WINDOWと同じ窓を使う想定
+const FAST_UNLOCK_MAX_MISSES = 1;     // 直近30問のうち、ここまでのミスは高速解放の対象に含める
+function fastUnlockEligible(st, cat){
+  const recent = (st.recentCorrect && st.recentCorrect[cat]) || [];
+  const misses = recent.reduce((n,v) => n + (v ? 0 : 1), 0);
+  return misses <= FAST_UNLOCK_MAX_MISSES;
+}
 /* 段階的アンロックの対象ジャンル。品詞(hinshi)でのパイロット動作確認（vmハーネスでの
    自動テスト、2026-08-01）が完了したため、全20ジャンルへ展開した（百人一首はhyaGroups系で別途対応）。 */
 const GROUP_UNLOCK_CATS = CAT_KEYS;
@@ -3757,13 +3792,20 @@ function groupUnlockedPool(st, cat){
   return CATS[cat].items.filter((it, idx) => allowedIdx.has(idx));
 }
 /* 現在アクティブなグループの解禁条件（グループ内正答率80%以上 かつ 各問題3連続正解）を
-   満たしていれば、unlockedGroupCountを1つ進める。record()内、st.q更新の直後に呼ぶ。
-   streak・正答率はst.qからその場で導出するだけで、専用の記録は持たない。 */
-function checkGroupUnlock(st, cat){
+   満たしていれば、unlockedGroupCountを1つ進める。record()内、st.recentCorrect/fastGuessの
+   確定後に呼ぶ（fastUnlockEligible判定にst.recentCorrect[cat]の最新状態が要るため）。
+   streak・正答率はst.qからその場で導出するだけで、専用の記録は持たない。
+   correct/fastGuessは、高速解放モード（上のFAST_UNLOCK_*参照）の判定にだけ使う。 */
+function checkGroupUnlock(st, cat, correct, fastGuess){
   if(!GROUP_UNLOCK_CATS.includes(cat)) return false;
   const groups = catGroups(cat);
   const idx = catUnlockedGroupCount(st, cat) - 1;
   if(idx >= groups.length - 1) return false; // 既に全解禁
+  if(correct && !fastGuess && fastUnlockEligible(st, cat)){
+    if(!st.groupUnlock) st.groupUnlock = {};
+    st.groupUnlock[cat] = catUnlockedGroupCount(st, cat) + 1;
+    return true;
+  }
   const cur = groups[idx];
   const streakMap = {};
   let t = 0, c = 0;
@@ -3835,6 +3877,19 @@ function hyaUnlockedQuestionPct(st){
   let unlockedQ = 0;
   for(let i=0;i<n;i++) unlockedQ += groups[i].ids.length;
   return Math.round(unlockedQ / totalQ * 100);
+}
+/* 出題画面の下部に常に表示する「問題解放率」フッター（2026-08-02〜、教員の指示：成績画面だけ
+   でなく、実際に問題を解いている最中も常に見える位置に出してほしい）。pctがnullなら何も返さない
+   （読解など、GROUP_UNLOCK_CATS対象外のジャンルではフッター自体を出さない）。呼び出し側
+   （renderQuestion/hyaRenderQuestion）でその直後に.unlock-footer-spacerを添えて、固定表示ぶんの
+   高さで下部ボタンが隠れないようにする。 */
+function unlockFooterHtml(label, pct){
+  if(pct === null) return "";
+  return `<div class="unlock-footer">
+    <span>${esc(label)}の問題解放率</span>
+    <span class="unlock-footer-pct">${pct}%</span>
+    <div class="bar"><div style="width:${pct}%"></div></div>
+  </div><div class="unlock-footer-spacer"></div>`;
 }
 /* 現在解禁済みのグループだけを含む出題プール。累積的・不可逆：一度解禁したグループは、
    以後正答率が下がっても再ロックされない（20分野のgroupUnlockedPoolと同じ方針）。 */
@@ -4093,7 +4148,8 @@ function hyaRenderQuestion(){
         <button class="btn tap-advance-btn" id="hyaNextBtn" style="display:none" onclick="hyaNextQuestion()">次へ</button>
         <button class="btn secondary" id="hyaQuitBtn" style="display:none" onclick="hyaEndSession()">今日はここまで</button>
       </div>
-    </div>`;
+    </div>
+    ${unlockFooterHtml("百人一首", hyaUnlockedQuestionPct(st))}`;
 }
 function hyaAnswerChoice(origIdx){
   const it = hya.item;
