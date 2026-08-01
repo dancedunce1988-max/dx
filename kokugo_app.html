@@ -883,7 +883,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.82</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.83</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -5569,7 +5569,12 @@ function bossFinisherBarHtml(){
   const b = bossBattle;
   if(!bossFinisherEligible(b.boss)) return "";
   const st = loadStats();
-  if(!st.specialMoveUnlocked) return "";
+  /* st.specialMoveUnlocked（ストーリー第3章クリアで立つフラグ）だけを見ていたため、転生済み
+     （st.kotonohaRebirth）なのにこのフラグが立っていないケースでゲージが一切表示されない
+     バグがあった（2026-08-02、教員からの報告で発覚）。通常のストーリー進行では第9章（転生解放）
+     は第3章を経由しないと到達できないため理論上は起きないはずだが、実際に転生している時点で
+     必殺技を使う資格は十分にあるとみなし、st.kotonohaRebirthが立っていれば同様に許可する。 */
+  if(!st.specialMoveUnlocked && !st.kotonohaRebirth) return "";
   const gauge = Math.min(FINISHER_GAUGE_MAX, b.finisherGauge||0);
   const dots = Array.from({length:FINISHER_GAUGE_MAX}, (_,i) => `<span class="finisher-dot${i < gauge ? " on" : ""}"></span>`).join("");
   const lineOk = kotonohaLineMoveStageOk(st);
@@ -5647,7 +5652,7 @@ function bossUseFinisher(useLine){
   const b = bossBattle;
   if(!b || b._resolving || b.bossHp <= 0 || b.playerHp <= 0 || !bossFinisherEligible(b.boss)) return;
   const st = loadStats();
-  if(!st.specialMoveUnlocked) return;
+  if(!st.specialMoveUnlocked && !st.kotonohaRebirth) return; // bossFinisherBarHtmlと同じ条件に揃える
   const lineOk = useLine && kotonohaLineMoveStageOk(st);
   const required = lineOk ? kotonohaLineGaugeRequired(st) : FINISHER_GAUGE_MAX;
   if((b.finisherGauge||0) < required) return;

@@ -653,7 +653,7 @@ window.HYAKUNIN_ISSHU_DATA = [
   {
     "no": 31,
     "kaminoku": "朝ぼらけ　有明の月と　見るまでに",
-    "shimonoku": "よしののの里に　降れる白雪",
+    "shimonoku": "よしのの里に　降れる白雪",
     "kana": "あさぼらけ　ありあけのつきと　みるまでに　よしののさとに　ふれるしらゆき",
     "author": "坂上是則",
     "authorKana": "さかのうえのこれのり",
@@ -669,7 +669,7 @@ window.HYAKUNIN_ISSHU_DATA = [
     "sourceYear": "905年ごろ成立",
     "authorGender": "男性",
     "kaminokuMarked": "朝ぼらけ　有明の月と　見るまでに",
-    "shimonokuMarked": "よしののの里に　降れる《白雪》"
+    "shimonokuMarked": "よしのの里に　降れる《白雪》"
   },
   {
     "no": 32,
