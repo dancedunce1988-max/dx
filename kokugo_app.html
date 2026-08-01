@@ -871,7 +871,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.78</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.79</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -2335,33 +2335,48 @@ function kotonohaLineMoveT(stageIdx){
    だんだん強そうな響きの名前に変わっていく（教員の指示、2026-08-01〜。進化演出のタイミングで
    「必殺技が、～になった！」と表示する＝kotonohaEvolveStep5参照）。 */
 /* 威力倍率(powerMult)の伸び方（2026-08-02〜、教員の指示：実プレイで長期戦になりがちだったのを受け、
-   進化段階による強さの差をもっとはっきりさせてほしいとの要望）。天翔以外の5系統は共通で
-   KOTONOHA_LINE_POWER_MIN(2倍、少年体で解禁した直後は言霊一閃の3倍より弱い)から
-   KOTONOHA_LINE_POWER_MAX(5倍、伝説級では言霊一閃の3倍を大きく上回る)まで線形に伸びる。
-   「少年体のうちは言霊一閃のほうが強いが、育てるほど専用技のほうが明確に強くなる」という
-   進化の動機づけを狙っている。天翔だけはゲージが少なくて済む代わりに威力が低いという
-   トレードオフの個性を保つため、伸び幅は控えめ(1.5倍→2.5倍)にとどめている。 */
-const KOTONOHA_LINE_POWER_MIN = 2, KOTONOHA_LINE_POWER_MAX = 5;
+   進化段階による強さの差をもっとはっきりさせてほしいとの要望。当初は少年体2倍→伝説級5倍で
+   試したが、「少年体でも言霊一閃(3倍)より弱くしたくない」との追加指示を受け、基礎威力の下限を
+   3倍に引き上げた）。焔獄・翠森・聖輝・冥淵の4系統は共通でKOTONOHA_LINE_POWER_MIN(3倍、言霊一閃と
+   同格からスタート)からKOTONOHA_LINE_POWER_MAX(5倍、伝説級)まで線形に伸びる。天翔・蒼海はこの
+   共通カーブを使わず、系統ごとの個性に合わせて個別のカーブを持つ（各定義のコメント参照）。 */
+const KOTONOHA_LINE_POWER_MIN = 3, KOTONOHA_LINE_POWER_MAX = 5;
 const kotonohaLinePower = t => KOTONOHA_LINE_POWER_MIN + (KOTONOHA_LINE_POWER_MAX - KOTONOHA_LINE_POWER_MIN) * t;
+/* 焔獄「火傷」の毎ターン追加ダメージ（ボスの最大HPに対する割合）。5段階の値が1・2・3・4・6%と
+   不均等（伝説級だけ+2ptと伸びが大きい）なので、線形の式ではなく配列の直接指定にしている
+   （教員の指示、2026-08-02〜）。kotonohaLineMoveT()のtは(段階-2)/4で少年体〜伝説級が
+   0/0.25/0.5/0.75/1にちょうど対応するため、t*4を四捨五入すればそのまま配列の添字になる。 */
+const ENGOKU_BURN_PCT = [0.01, 0.02, 0.03, 0.04, 0.06];
 const KOTONOHA_LINE_MOVES = {
   tensho: {
     names:["疾風の一閃","旋風の斬撃","暴風の剛刃","神速の破空","天翔絶刃"],
-    desc:"発動に必要な連続正解数が少ない代わり、威力はひかえめ",
-    gaugeMax: t => Math.max(3, Math.round(FINISHER_GAUGE_MAX - 1*t)),
-    powerMult: t => 1.5 + 1*t,
+    desc:"少年体から4問で発動できる代わり威力ひかえめ。成熟体で3倍・伝説級で4倍に強化",
+    /* ゲージは少年体(解禁時)から一律4問。以前は段階に応じて5→4→3と連続的に減らしていたが、
+       教員の指示（2026-08-02〜）で「少年体から4問」に単純化し、以後は変えない。 */
+    gaugeMax: () => 4,
+    /* 威力は段階ごとの明確な区切り（少年体〜成人体は2倍、成熟体で3倍、伝説級で4倍）。
+       tから段階インデックスを逆算(stage=round(2+4t))し、しきい値で判定する（教員の指示どおり、
+       連続的な線形補間ではなく「その段階に達したら一段強くなる」階段状にしている）。 */
+    powerMult: t => {
+      const stage = Math.round(2 + 4*t);
+      if(stage >= 6) return 4;
+      if(stage >= 5) return 3;
+      return 2;
+    },
   },
   soukai: {
     names:["癒しの波動","静水の癒し波","深海の慈雨","蒼海の生命波","蒼海絶界・癒しの奔流"],
-    desc:"与えたダメージの一部を自分のHPに変える",
+    desc:"与えたダメージの一部を自分のHPに変える。少年体から回復5%",
     powerMult: kotonohaLinePower,
-    drainPct: t => 0.5*t,
+    // 少年体でも回復5%を持たせたいとの指示（2026-08-02〜）で、0%スタートだった旧式に+5%の下駄を履かせ、
+    // 伝説級の到達値(50%)は変えないよう傾きだけ調整（0.05+0.45*1=0.50）。
+    drainPct: t => 0.05 + 0.45*t,
   },
   engoku: {
     names:["灼熱の連撃","業火の連撃","猛火の乱舞","紅蓮の乱撃","焔獄絶炎・万撃"],
-    desc:"連続で当てるたびに威力が上がる（一度でも間違えるとリセット）",
+    desc:"命中させると火傷を負わせ、以後毎ターン相手の最大HPの一定割合を追加ダメージ（重ねて使うほど上乗せ、上限なし）",
     powerMult: kotonohaLinePower,
-    comboStep: t => 0.3*t,
-    comboCapExtra: t => 1.2*t,
+    burnPctPerTurn: t => ENGOKU_BURN_PCT[Math.round(t*4)],
   },
   suishin: {
     names:["眠りの胞子","深眠の胞子","幻惑の眠華","悠久の眠り歌","翠森絶眠・永久の子守唄"],
@@ -2380,11 +2395,13 @@ const KOTONOHA_LINE_MOVES = {
   },
   meien: {
     names:["深淵の守り","冥府の守り","幽玄の盾","常闇の鉄壁","冥淵絶闇・不滅の盾"],
-    desc:"発動のたびに自分の防御力が上がる（重ねがけ可）",
+    desc:"発動するたびに、次の発動の威力が100%（技の基礎威力ぶん）ずつ上乗せされていく（上限なし）",
+    /* 防御力バフ方式（buffPerStack）から、発動回数に応じて威力そのものが際限なく伸びる方式に変更
+       （教員の指示、2026-08-02〜：「少年体なら3倍→2回目4倍→3回目5倍…、伝説級は初めから5倍で
+       そこからさらに上がる」）。1.0＝moveMultに+1ずつ、という意味でpowerGrowthPerUseという名前
+       にしている（bossResolveFinisher側で使用回数b.kotonohaMeienUseCountを掛けて加算する）。 */
     powerMult: kotonohaLinePower,
-    buffStat:"def",
-    buffPerStack: t => Math.round(10 + 30*t),
-    buffMaxStacks: t => 1 + Math.round(2*t),
+    powerGrowthPerUse: 1.0,
   },
 };
 /* 系統別必殺技が使える段階まで育っているか（転生済み＆少年体以上）。ボタンを出すかどうかの
@@ -5321,9 +5338,10 @@ function startBossBattle(boss, allGenre){
     atkMultTurns:0, atkMultAmount:1,
     showItemPanel:false, usedItemThisTurn:false, usedItemNames:{}, timerId:null,
     correctStreak:0, finisherGauge:0,
-    kotonohaComboCount:0, kotonohaAtkBuffAmount:0, kotonohaDefBuffAmount:0, kotonohaAtkStacks:0, kotonohaDefStacks:0,
+    kotonohaAtkBuffAmount:0, kotonohaDefBuffAmount:0, kotonohaAtkStacks:0, kotonohaDefStacks:0,
     kotonohaSleepTurnsLeft:0, kotonohaSleepFirstTurnDone:false, kotonohaSleepWakeChance:0,
     kotonohaShigenMoveLine:null, kotonohaFinisherUseLine:false,
+    kotonohaBurnPct:0, kotonohaMeienUseCount:0,
   };
   if(boss.preemptiveHalfHp){
     // 丸刈りのさるちゃん専用：戦闘開始と同時に、プレイヤーのHPを半分にする先制攻撃を受ける
@@ -5553,10 +5571,11 @@ function bossAnnounceFinisherName(){
   const b = bossBattle;
   const st = loadStats();
   const fx = b.kotonohaFinisherFxLine;
-  /* 焔獄「灼熱の連撃」だけ、連続使用数（bossResolveFinisher実行前＝今回発動する直前の値）に
+  /* 焔獄「灼熱の連撃」だけ、蓄積した火傷（bossResolveFinisher実行前＝今回発動する直前の値）に
      応じて発光を強くする（教員の指示：色や画面の揺らし方に変化を、の一環。威力自体の
-     ロジックには触れず、見た目だけの演出）。 */
-  const comboTier = fx === "engoku" ? Math.min(4, b.kotonohaComboCount||0) : 0;
+     ロジックには触れず、見た目だけの演出。以前は連続ヒット数だったが、火傷方式への変更に
+     合わせて蓄積火傷率ベースに切り替えた、2026-08-02〜）。 */
+  const comboTier = fx === "engoku" ? Math.min(4, Math.floor((b.kotonohaBurnPct||0) / 0.05)) : 0;
   const fxClass = [fx ? "fx-" + fx : null, comboTier > 0 ? "fx-engoku-c" + comboTier : null].filter(Boolean).join(" ") || null;
   const portraitSrc = fx ? kotonohaRebirthImageSrc(st) : null;
   const portraitHtml = portraitSrc ? `<img class="finisher-line-portrait" src="${portraitSrc}" alt="">` : "";
@@ -5591,13 +5610,12 @@ function bossResolveFinisher(){
     b.finisherUseCount = (b.finisherUseCount||0) + 1;
   }
   /* 系統別必殺技の威力倍率。未転生・少年体未満のときはlmがnullで、今までどおりFINISHER_MULT。
-     焔獄「灼熱の連撃」だけ、連続使用ぶんだけ上乗せする（1回でも不正解を挟むと
-     bossGrade側でkotonohaComboCountが0に戻り、また基本倍率からやり直しになる）。 */
+     冥淵「深淵の守り」だけ、発動するたびに威力そのものが際限なく積み上がる（b.kotonohaMeienUseCount、
+     ミスを挟んでもリセットされない＝発動した回数だけをそのまま数える）。 */
   let moveMult = lm ? lm.def.powerMult(lm.t) : FINISHER_MULT;
-  if(lm && lm.def.comboStep){
-    const combo = b.kotonohaComboCount||0;
-    moveMult = Math.min(FINISHER_MULT + lm.def.comboCapExtra(lm.t), moveMult + lm.def.comboStep(lm.t) * combo);
-    b.kotonohaComboCount = combo + 1;
+  if(lm && lm.def.powerGrowthPerUse){
+    moveMult += (b.kotonohaMeienUseCount||0) * lm.def.powerGrowthPerUse;
+    b.kotonohaMeienUseCount = (b.kotonohaMeienUseCount||0) + 1;
   }
   dealt = Math.round(dealt * moveMult * finisherExtraMult);
   const effLuck = ps.luck + (b.luckBuffTurns > 0 ? b.luckBuffAmount : 0);
@@ -5643,6 +5661,16 @@ function bossResolveFinisher(){
     b.kotonohaSleepFirstTurnDone = false;
     sleepMsg = `<div class="boss-turn">💤${esc(b.boss.name)}を眠らせた！</div>`;
   }
+  // 冥淵「深淵の守り」：発動するたびに次の発動の威力が上がっていく（上限なし）
+  const growthMsg = (lm && lm.def.powerGrowthPerUse) ? `<div class="boss-turn">🌑必殺技の威力がさらに上がった！（次は${(lm.def.powerMult(lm.t) + b.kotonohaMeienUseCount * lm.def.powerGrowthPerUse).toFixed(1)}倍）</div>` : "";
+  /* 焔獄「灼熱の連撃」→「火傷」：命中したら火傷を蓄積させる（重ねて使うほど上乗せ、上限なし）。
+     実際の毎ターンのダメージ処理はkotonohaBurnTick()（bossAdvance()から呼ぶ）が担当し、
+     ここでは蓄積割合を積むだけ（とどめが回避された=dodgedのときは火傷も付与しない）。 */
+  let burnMsg = "";
+  if(lm && lm.def.burnPctPerTurn && !dodged){
+    b.kotonohaBurnPct = (b.kotonohaBurnPct||0) + lm.def.burnPctPerTurn(lm.t);
+    burnMsg = `<div class="boss-turn">🔥${esc(b.boss.name)}に火傷を負わせた！（毎ターン最大HPの${Math.round(b.kotonohaBurnPct*100)}%を追加ダメージ）</div>`;
+  }
   refreshBossHpBars();
   refreshBossFinisherBar();
   const fb = document.getElementById("fb");
@@ -5651,7 +5679,7 @@ function bossResolveFinisher(){
   fb.innerHTML = (dodged
     ? `<span class="finisher-dmg">💨 ${esc(b.boss.name)}に、すんでのところでかわされた！</span>`
     : `<span class="finisher-dmg">${crit ? "💥会心の一撃！ " : ""}${esc(b.boss.name)}に ${dealt} ダメージ！</span>`)
-    + healMsg + buffMsg + sleepMsg;
+    + healMsg + buffMsg + sleepMsg + growthMsg + burnMsg;
   if(!dodged) triggerFinisherShake(b.kotonohaFinisherFxLine);
   if(b.bossHp <= 0){
     setTimeout(() => { if(bossBattle && bossBattle._resolving) bossWin(); }, 1300);
@@ -5672,8 +5700,11 @@ function usableBossItems(){
   return Object.keys(ITEM_EFFECTS).filter(name => (items[name]||0) > 0 && !used[name]);
 }
 function bossNextQuestion(){
-  // 先制攻撃メッセージ（丸刈りのさるちゃん）があれば、最初の1問目だけitemUseMsg欄に表示する
-  bossBattle.itemUseMsg = bossBattle._preemptiveMsg || null;
+  /* 先制攻撃メッセージ（丸刈りのさるちゃん）・火傷ダメージのメッセージ（kotonohaBurnTick）が
+     あれば、次の問題画面の先頭にitemUseMsg欄で表示する（両方同時に立つことは実際にはない：
+     先制攻撃は1問目だけ・火傷は最低でも必殺技を1回使った後なので）。 */
+  bossBattle.itemUseMsg = bossBattle._burnMsg || bossBattle._preemptiveMsg || null;
+  bossBattle._burnMsg = null;
   bossBattle._preemptiveMsg = null;
   bossBattle.showItemPanel = false;
   bossBattle.usedItemThisTurn = false;
@@ -5950,10 +5981,9 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
       }
     }
   }else{
-    // 不正解で「連続」が途切れるので、必殺技ゲージもリセットする（焔獄の連撃カウントも同様）
+    // 不正解で「連続」が途切れるので、必殺技ゲージもリセットする
     b.correctStreak = 0;
     b.finisherGauge = 0;
-    b.kotonohaComboCount = 0;
     b.kotonohaFinisherUseLine = false;
     if(b.boss.defTripleOnMiss) b.bossDefMissStreak = (b.bossDefMissStreak||0) + 1;
     // ゲームマニア８９専用：プレイヤーが不正解のとき、自分の最大HPの一定割合を回復する
@@ -6203,11 +6233,32 @@ function bossCounterAttack(playerWasCorrect){
   nextBtn.textContent = b.playerHp<=0 ? "けっかを見る" : "つぎへ";
   nextBtn.focus();
 }
+/* 焔獄「火傷」の毎ターンダメージ。正解/不正解・通常攻撃/必殺技のどのターンでも一律で発動する
+   唯一の場所がbossAdvance()（両方の分岐が最終的にここを通ってから次の問題に進む）なので、
+   ここに1箇所だけ実装すれば「毎ターン」を漏れなく満たせる（2026-08-02〜）。焔獄の必殺技を
+   使っていない・まだ火傷を負わせていない戦闘では`kotonohaBurnPct`が0のままなので、他ボス・
+   他系統には一切影響しない。ボスを倒した場合はtrueを返し、呼び出し元はbossNextQuestion()を
+   呼ばずに終わる（勝利画面への遷移はここで仕込むsetTimeoutが担当）。 */
+function kotonohaBurnTick(){
+  const b = bossBattle;
+  if(!b || !(b.kotonohaBurnPct > 0) || b.bossHp <= 0) return false;
+  const dmg = Math.max(1, Math.round(b.bossMaxHp * b.kotonohaBurnPct));
+  b.bossHp = Math.max(0, b.bossHp - dmg);
+  b._burnMsg = `🔥火傷のダメージとして${dmg}ダメージ加えて与えた！`;
+  refreshBossHpBars();
+  if(b.bossHp <= 0){
+    b._resolving = true;
+    setTimeout(() => { if(bossBattle === b && bossBattle._resolving) bossWin(); }, 1300);
+    return true;
+  }
+  return false;
+}
 function bossAdvance(){
   const b = bossBattle;
   if(!b || b.bossHp <= 0) return;
   b._resolving = false;
   if(b.playerHp <= 0){ bossLose(); return; }
+  if(kotonohaBurnTick()) return;
   bossNextQuestion();
 }
 function bossWin(){
@@ -6251,6 +6302,7 @@ function bossWin(){
       <div class="boss-win-burst">✨🎉✨</div>
       <div class="boss-result-title big">勝利！！</div>
       <p class="boss-win-line">「${esc(b.boss.name)}」との戦いに勝利した！</p>
+      ${b._burnMsg ? `<p class="boss-win-line">${esc(b._burnMsg)}</p>` : ""}
       ${dropsLoot
         ? `<p class="boss-win-line">「${esc(b.boss.name)}」は、<span class="drop-item">【${esc(b.boss.item)}】</span>を落とした！</p>`
         : `<p class="boss-win-line">しかし、アイテムは落とさなかった…</p><p class="note">※正答率が高くなると、アイテムが落ちやすくなります</p>`}
