@@ -883,7 +883,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.85</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.86</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -1424,11 +1424,13 @@ const ReviewSystem = {
   },
   /* 通常の20分野クイズ（st.q、キーはqKey(cat,q)）専用の薄いラッパー。excludeQには直前の問題文を
      渡す（キーではなく問題文で比較するのは、既存の`selectOne`の「直前と同じ問題文は除く」という
-     挙動に合わせたもの）。 */
-  getDueItem(st, excludeQ){
+     挙動に合わせたもの）。restrictCatを渡すと、そのジャンルの項目だけを対象にする（特定ジャンルを
+     選んでプレイ中は、他ジャンルの復習が紛れ込まないようにするため。教員の指示、2026-08-02）。 */
+  getDueItem(st, excludeQ, restrictCat){
     let best = null;
     Object.keys(st.q).forEach(k => {
       const rec = st.q[k];
+      if(restrictCat && rec.cat !== restrictCat) return;
       if(rec.reviewStage <= 0 || rec.reviewStage >= REVIEW_STAGE_MASTERED) return;
       if(typeof rec.questionsUntilReview !== "number" || rec.questionsUntilReview > 0) return;
       if(excludeQ && rec.q === excludeQ) return;
@@ -3104,7 +3106,7 @@ function nextQuestion(){
        （教員の指示、2026-07-29）。既存の「苦手復習」モード（quiz.mode==="review"、上のブロック）とは
        別物で、こちらは「cat」「balanced」の通常プレイ中に自動で混ざる。 */
     const st = loadStats();
-    const due = ReviewSystem.getDueItem(st, quiz.lastQ);
+    const due = ReviewSystem.getDueItem(st, quiz.lastQ, quiz.mode === "cat" ? quiz.key : null);
     if(due){
       quiz.cat = due.cat; quiz.item = due.item; quiz.isReviewDue = true;
     }else if(quiz.mode === "balanced"){
@@ -4141,7 +4143,7 @@ function startHyakuninQuiz(){
 }
 function hyaNextQuestion(){
   if(kotonohaMaybeInterruptForEvolve(() => hyaNextQuestion())) return;
-  if(rollBossEncounter(() => hyaNextQuestion())) return;
+  if(rollBossEncounter(() => hyaNextQuestion(), true)) return;
   const st = loadStats();
   const dueKey = ReviewSystem.getDueKey(hyaVisibleHist(st), hya.lastId);
   const due = dueKey ? hyaPool().find(it => it.id === dueKey) : null;
@@ -4366,6 +4368,15 @@ function pickBattleQuestionMulti(cats, lastQ){
     if(c) c.items.forEach(it => pool.push({cat:key, item:it}));
   });
   if(pool.length > 1 && lastQ) pool = pool.filter(p => p.item.q !== lastQ);
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+/* 百人一首クイズ中に遭遇したボスとの戦闘専用（教員の指示、2026-08-02）。20分野のCATSではなく、
+   百人一首クイズの全問題プール（hyaPool()、未解禁のグループも含む＝20分野のボス戦がCATSの
+   全件から出題するのと同じ扱い）からそのまま出題する。ボス戦はrecord()/hyaRecord()いずれも
+   呼ばない設計なので、ここで選んだ問題を解いても百人一首の学習記録・解禁進捗には影響しない。 */
+function pickBattleQuestionHyakunin(lastQ){
+  let pool = hyaPool();
+  if(pool.length > 1 && lastQ) pool = pool.filter(it => it.q !== lastQ);
   return pool[Math.floor(Math.random() * pool.length)];
 }
 function showBattleSetup(){
@@ -4764,8 +4775,11 @@ const BOSSES = [
      同じ縮小比率（15500/268000≈0.0578）をそれぞれの旧HPに掛けて一括で下げてある（教員の指示。
      縮小比率を使わなかったのはルオーと同じ旧HP(268000)を持つ「素直な」6体だけで、これらは
      直接15500に統一した）。各ボス固有の特殊メカニクス（HP吸収・複利成長等）が絡む場合の
-     厳密な勝率は未検証であることに留意。 */
-  {id:"ruoon",      name:"アイスホッケー選手ルオー", icon:"🏒", item:"ホッケー用スティック", treasure:"ホッケー防具一式",           hp:15500, atk:400,  defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
+     厳密な勝率は未検証であることに留意。
+     【2026-08-02、同日中に再度調整】上のHP引き下げが効きすぎ、必殺技なしでも楽に倒せて
+     しまい「必殺技の価値を実感できない」との教員の指示を受け、recPts5000帯のこの11体だけ
+     HPを2倍に変更（15500→31000、10410→20820、12146→24292）。recPts10000・15000帯は対象外。 */
+  {id:"ruoon",      name:"アイスホッケー選手ルオー", icon:"🏒", item:"ホッケー用スティック", treasure:"ホッケー防具一式",           hp:31000, atk:400,  defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
   /* ルオーと同じrecPts5000帯の新5体（2026-07-22〜、教員の指示）。出現条件（minXpRatio・
      dropAccuracyThreshold・itemDropFloor/Ceil）はルオーと完全に同じにし、基本ステータスも
      ルオーの値をベースラインとして、それぞれ指示された個性の分だけ調整している。
@@ -4783,11 +4797,11 @@ const BOSSES = [
      ・スピードスケートますりん：特別な個性の指定なし。ルオーと同じベースステータスの
        「素直な」recPts5000ボスとして追加（教員の指示で「書いていない部分は考えてよい」との
        ことだったので、既存のルオーをそのまま踏襲する方針にした）。 */
-  {id:"basketball_jun", name:"天才バスケットボーラージュン", icon:"🏀", item:"バスケットボール", treasure:"黄金に輝くバスケットシューズ", hp:15500, atk:400, defPct:55, accuracy:180, evadePct:55, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, rareInPoolChance:0.01},
-  {id:"vacuum_bot", name:"人間型掃除機", icon:"🧹", item:"掃除機", treasure:"テニスラケット", hp:15500, atk:600, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, fleeAfterMisses:3},
-  {id:"king_slime_ojii", name:"キングスライムなおじい", icon:"👴", item:"なおじいの涙", treasure:"エースの肩書", hp:15500, atk:400, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, surviveFinisherAtOne:true},
-  {id:"saru_chan", name:"丸刈りのさるちゃん", icon:"🐒", item:"竹刀", treasure:"剣道用防具", hp:15500, atk:400, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, preemptiveHalfHp:true},
-  {id:"speedskate_masurin", name:"スピードスケートますりん", icon:"⛸️", item:"スピードスケートの靴", treasure:"スケート用のワンピース", hp:15500, atk:400, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
+  {id:"basketball_jun", name:"天才バスケットボーラージュン", icon:"🏀", item:"バスケットボール", treasure:"黄金に輝くバスケットシューズ", hp:31000, atk:400, defPct:55, accuracy:180, evadePct:55, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, rareInPoolChance:0.01},
+  {id:"vacuum_bot", name:"人間型掃除機", icon:"🧹", item:"掃除機", treasure:"テニスラケット", hp:31000, atk:600, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, fleeAfterMisses:3},
+  {id:"king_slime_ojii", name:"キングスライムなおじい", icon:"👴", item:"なおじいの涙", treasure:"エースの肩書", hp:31000, atk:400, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, surviveFinisherAtOne:true},
+  {id:"saru_chan", name:"丸刈りのさるちゃん", icon:"🐒", item:"竹刀", treasure:"剣道用防具", hp:31000, atk:400, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, preemptiveHalfHp:true},
+  {id:"speedskate_masurin", name:"スピードスケートますりん", icon:"⛸️", item:"スピードスケートの靴", treasure:"スケート用のワンピース", hp:31000, atk:400, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
   /* ルオーと同じrecPts5000帯のさらに新5体（2026-07-23〜、教員の指示）。出現条件は完全に同じ
      まま、それぞれ全く新しい特殊メカニクスを持たせている。数値（atk/hp/defPct）はNode.jsの
      モンテカルロ・シミュレータ（bossGrade/bossCounterAttackの計算式を再実装したもの）で、
@@ -4831,11 +4845,11 @@ const BOSSES = [
        回復し、他ボスの目標水準（85〜90%）に収まることを確認した（平均必殺技使用回数は
        1.7〜1.9回）。必殺技なし（ストーリー第3章クリア前）のプレイヤーにとっては相変わらず
        ほぼ勝てないボスのままである点は変わらない（教員もこれは許容済み）。 */
-  {id:"soumaa", name:"咆哮のソーマー", icon:"🦁", item:"折れたシャー芯", treasure:"奇跡の一本シャー芯", hp:15500, atk:200, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, selfHpAtkBoost:{normalMult:1.5, lowMult:2.5, hpThreshold:0.5}},
-  {id:"kuratyan_robot", name:"ロボットに乗ったくらちゃん", icon:"🤖", item:"プラモデル", treasure:"ピストルダム", hp:10410, atk:150, defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, atkGrowthPerTurn:1.2},
-  {id:"game_n", name:"ゲーム好きのN", icon:"🎮", item:"エナドリ", treasure:"プロコン", hp:15500, atk:340, defPct:55, accuracy:180, evadePct:25, luck:45, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
-  {id:"ultra_k", name:"漫画が好きなウルトラK", icon:"📖", item:"少年コミック", treasure:"未来を予知する漫画", hp:12146, atk:400, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, playerAtkHalved:true},
-  {id:"walking_person", name:"ぶらぶら歩く人", icon:"🚶", item:"紅茶", treasure:"緑茶", hp:15500, atk:400, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, defTripleOnMiss:true, finisherDamageMultBoost:[2,4]},
+  {id:"soumaa", name:"咆哮のソーマー", icon:"🦁", item:"折れたシャー芯", treasure:"奇跡の一本シャー芯", hp:31000, atk:200, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, selfHpAtkBoost:{normalMult:1.5, lowMult:2.5, hpThreshold:0.5}},
+  {id:"kuratyan_robot", name:"ロボットに乗ったくらちゃん", icon:"🤖", item:"プラモデル", treasure:"ピストルダム", hp:20820, atk:150, defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, atkGrowthPerTurn:1.2},
+  {id:"game_n", name:"ゲーム好きのN", icon:"🎮", item:"エナドリ", treasure:"プロコン", hp:31000, atk:340, defPct:55, accuracy:180, evadePct:25, luck:45, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
+  {id:"ultra_k", name:"漫画が好きなウルトラK", icon:"📖", item:"少年コミック", treasure:"未来を予知する漫画", hp:24292, atk:400, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, playerAtkHalved:true},
+  {id:"walking_person", name:"ぶらぶら歩く人", icon:"🚶", item:"紅茶", treasure:"緑茶", hp:31000, atk:400, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, defTripleOnMiss:true, finisherDamageMultBoost:[2,4]},
   /* 適正経験値10000「ゲームマニア８９」（2026-07-23〜、教員の指示）。ルオー(5000)と無敵艦隊(15000)の
      中間に位置する新しい帯。個性は`healOnMissPct`＝プレイヤーが不正解のとき、自分の最大HPの10%を
      回復する（bossGrade側の不正解分岐で実装。詳細はそちらのコメント参照）。回避率は教員の指示で
@@ -5305,6 +5319,7 @@ TREASURE_NAMES.add(KOKUGO_KAMI_BOSS.treasure);
 
 let pendingBoss = null;
 let pendingBossAllGenre = false; // 挑戦チケットからの遭遇のときtrue（全ジャンル出題・文言が変わる）
+let pendingBossHyakunin = false; // 百人一首クイズ中の遭遇のときtrue（百人一首の問題を出題する。教員の指示、2026-08-02）
 let bossPromptSelection = "no";
 let bossPromptResumeFn = null;
 let bossPromptActive = false;
@@ -5357,8 +5372,10 @@ function resumeBossBattleIfSaved(){
 /* 低確率でボスが出現する。出現したら遭遇プロンプトを表示してtrueを返す（呼び出し元は処理を中断する）。
    出現しなければfalse。resumeFnは、逃げた・戦い終わったあとに元の流れへ戻るための関数。
    シランちゃん（1/1000）は通常ボスとは別枠で、こちらを先に判定する。
-   どちらも直近30回の正答率による足切り／出やすさ調整がかかる（bossEncounterRate/shiranEncounterAllowed参照）。 */
-function rollBossEncounter(resumeFn){
+   どちらも直近30回の正答率による足切り／出やすさ調整がかかる（bossEncounterRate/shiranEncounterAllowed参照）。
+   hyakuninMode: 百人一首クイズ（hyaNextQuestion）から呼ばれたときだけtrue。出現するボスの種類・確率には
+   影響しないが、startBossBattle側で「出題を百人一首の問題にする」判定に使う（教員の指示、2026-08-02）。 */
+function rollBossEncounter(resumeFn, hyakuninMode){
   if(bossPromptActive || bossBattle) return false;
   const st = loadStats();
   if(Math.random() < KOKUGO_KAMI_ENCOUNTER_RATE){
@@ -5367,6 +5384,7 @@ function rollBossEncounter(resumeFn){
     KOKUGO_KAMI_BOSS._encounterAcc = recentAccAll(st);
     pendingBoss = KOKUGO_KAMI_BOSS;
     pendingBossAllGenre = true;
+    pendingBossHyakunin = !!hyakuninMode;
     bossPromptResumeFn = resumeFn;
     bossPromptActive = true;
     bossPromptSelection = "no";
@@ -5376,6 +5394,7 @@ function rollBossEncounter(resumeFn){
   if(shiranEncounterAllowed(st) && Math.random() < SHIRAN_ENCOUNTER_RATE){
     pendingBoss = SHIRAN_BOSS;
     pendingBossAllGenre = false;
+    pendingBossHyakunin = !!hyakuninMode;
     bossPromptResumeFn = resumeFn;
     bossPromptActive = true;
     bossPromptSelection = "no";
@@ -5385,6 +5404,7 @@ function rollBossEncounter(resumeFn){
   if(Math.random() >= bossEncounterRate(st)) return false;
   pendingBoss = randomEncounterBoss();
   pendingBossAllGenre = false;
+  pendingBossHyakunin = !!hyakuninMode;
   bossPromptResumeFn = resumeFn;
   bossPromptActive = true;
   bossPromptSelection = "no";
@@ -5457,12 +5477,13 @@ function resolveBossPrompt(choice){
   if(!bossPromptActive) return;
   bossPromptActive = false;
   if(choice === "yes"){
-    startBossBattle(pendingBoss, pendingBossAllGenre);
+    startBossBattle(pendingBoss, pendingBossAllGenre, pendingBossHyakunin);
   }else{
     const fn = bossPromptResumeFn;
     bossPromptResumeFn = null;
     pendingBoss = null;
     pendingBossAllGenre = false;
+    pendingBossHyakunin = false;
     if(fn) fn();
   }
 }
@@ -5471,18 +5492,20 @@ function resolveBossPrompt(choice){
    「まだ習っていない」でONにした分野は、ジャンルが自動選択される場合（挑戦チケットの全ジャンル、
    ランダム遭遇でquiz.keyが未確定なときのランダム選択）の対象から除外する。ただしquiz.keyが
    その分野そのもの（生徒が直接その分野のクイズを選んで解いている最中）のときは、今までどおり
-   その分野のままボスと戦う（生徒自身の直接の選択までは妨げない）。 */
-function startBossBattle(boss, allGenre){
+   その分野のままボスと戦う（生徒自身の直接の選択までは妨げない）。
+   hyakuninMode: 百人一首クイズ中の遭遇（allGenreとは独立、挑戦チケットでは常にfalse）。trueのときは
+   cat/catsを使わず、出題を百人一首のクイズプール（hyaPool()）に固定する（教員の指示、2026-08-02）。 */
+function startBossBattle(boss, allGenre, hyakuninMode){
   const st0 = loadStats();
   const genrePool = filterNotLearned(CAT_KEYS, st0);
-  const cat = allGenre ? null : ((quiz && quiz.key && CATS[quiz.key]) ? quiz.key : genrePool[Math.floor(Math.random()*genrePool.length)]);
+  const cat = (allGenre || hyakuninMode) ? null : ((quiz && quiz.key && CATS[quiz.key]) ? quiz.key : genrePool[Math.floor(Math.random()*genrePool.length)]);
   const cats = allGenre ? genrePool.slice() : null;
   const ps = st0.stats || {hp:0,atk:0,def:0,spd:0,luck:0};
   const maxHp = BOSS_PLAYER_HP + ps.hp * STAT_HP_PER_POINT;
   bossBattle = {
     boss, bossHp: boss.hp, bossMaxHp: boss.hp,
     playerHp: maxHp, playerMaxHp: maxHp,
-    cat, cats, itemCat:null, item:null, order:null, lastQ:null,
+    cat, cats, hyakuninMode: !!hyakuninMode, itemCat:null, item:null, order:null, lastQ:null,
     atkBuffTurns:0, atkBuffAmount:0, defBuffTurns:0, defBuffAmount:0, luckBuffTurns:0, luckBuffAmount:0, missGuard:false,
     atkMultTurns:0, atkMultAmount:1,
     showItemPanel:false, usedItemThisTurn:false, usedItemNames:{}, timerId:null,
@@ -5863,7 +5886,10 @@ function bossNextQuestion(){
   bossBattle.showItemPanel = false;
   bossBattle.usedItemThisTurn = false;
   bossBattle.eliminatedChoice = null; // 少年コミックの効果は1問ごとにリセットする
-  if(bossBattle.cats){
+  if(bossBattle.hyakuninMode){
+    bossBattle.item = pickBattleQuestionHyakunin(bossBattle.lastQ);
+    bossBattle.itemCat = null;
+  }else if(bossBattle.cats){
     const picked = pickBattleQuestionMulti(bossBattle.cats, bossBattle.lastQ);
     bossBattle.item = picked.item;
     bossBattle.itemCat = picked.cat;
@@ -6545,6 +6571,7 @@ function useTicketAndFight(){
   // どのボスが出たかを見せてから、あらためて「勝負する」を選んでもらう（renderBossPromptを共用）
   pendingBoss = boss;
   pendingBossAllGenre = true;
+  pendingBossHyakunin = false;
   bossPromptResumeFn = () => showHome();
   bossPromptActive = true;
   bossPromptSelection = "no";
