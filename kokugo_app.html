@@ -137,6 +137,19 @@
     padding:14px; margin-top:12px; animation:pop .4s ease;
   }
   @keyframes pop{0%{transform:scale(.7); opacity:0;} 100%{transform:scale(1); opacity:1;}}
+  /* 「問題全開放のお祝い」演出（2026-08-03〜）。既存の.evolve（解禁通知）より一段派手にして、
+     マイルストーン到達という「お祝い」の瞬間だとひと目でわかるようにする。 */
+  @keyframes celebrateShine{
+    0%,100%{ box-shadow:0 0 14px rgba(184,134,11,.35), 0 0 0 rgba(192,57,43,0); }
+    50%{ box-shadow:0 0 28px rgba(184,134,11,.65), 0 0 14px rgba(192,57,43,.25); }
+  }
+  .celebrate{
+    text-align:center; font-size:1.1rem; font-weight:bold; color:#fff;
+    background:linear-gradient(150deg,#ffb703 0%,#fb8500 100%);
+    border:2px solid var(--gold); border-radius:12px;
+    padding:14px; margin-top:12px; line-height:1.6;
+    animation:pop .4s ease, celebrateShine 1.8s ease-in-out infinite;
+  }
   .btn{
     display:inline-block; background:var(--accent2); color:#fff; border:none;
     border-radius:10px; padding:12px 28px; font-size:1rem; cursor:pointer;
@@ -883,7 +896,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.86</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.88</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -1072,7 +1085,7 @@ function emptyStats(){
   CAT_KEYS.forEach(k => { cats[k] = {t:0,c:0}; lv[k] = 1; diffLv[k] = 1; });
   return {cats, q:{}, lv, diffLv, items:{}, usedTreasures:{}, usedStoryRewards:{}, bossPity:{}, bossItemPity:{}, kotonohaOtherRoll:null, bossTickets:0, totalLevelUps:0,
     bonusExp:0, hyakuninBonusExp:0, stats:{hp:0, atk:0, def:0, spd:0, luck:0}, kotonohaSeenForms:[], kotonohaDisplayOverride:null, specialMoveUnlocked:false, storyFaceUnlocked:false,
-    kotonohaRebirthUnlocked:false, kotonohaRebirth:null, kotonohaSeigakiMeienUnlocked:false, groupUnlock:{},
+    kotonohaRebirthUnlocked:false, kotonohaRebirth:null, kotonohaRebirthLinesSeen:[], kotonohaSeigakiMeienUnlocked:false, groupUnlock:{},
     kanjiWrite:{totalOk:0, itemHist:{}, levelRecent:{}},
     kanjiWriteElem:{totalOk:0, itemHist:{}, targetLv:1, recent:[]},
     hyakunin:{totalOk:0, itemHist:{}, targetLv:1, recent:[]},
@@ -1111,8 +1124,11 @@ function totalEarnedStatPoints(st){
   const fromLevels = CAT_KEYS.reduce((sum,k) => sum + catExpPoints(st.lv[k]||1), 0);
   /* 百人一首の正解ぶん（st.hyakuninBonusExp）もbonusExpと同じくステータスポイントに全額加算する
      （教員の指示、2026-08-02〜）。進化の分岐（kotonohaBaseCategory）はst.lvの分布だけを見て
-     判定しておりここには関与しないため、この変更で分岐判定への影響はない。 */
-  return Math.min(KOTONOHA_XP_CAP, Math.floor(fromLevels + effectiveBonusExp(st) + (st.hyakuninBonusExp||0)));
+     判定しておりここには関与しないため、この変更で分岐判定への影響はない。
+     問題全開放のお祝い経験値（totalUnlockCelebrationExp、2026-08-03〜）も同じ扱いで加算する。
+     こちらもst.lvの分布ではなくst.groupUnlockから毎回その場で導出するだけなので、
+     進化の分岐には影響しない。 */
+  return Math.min(KOTONOHA_XP_CAP, Math.floor(fromLevels + effectiveBonusExp(st) + (st.hyakuninBonusExp||0) + totalUnlockCelebrationExp(st)));
 }
 function spentStatPoints(st){
   return Object.values(st.stats||{}).reduce((sum,v) => sum + (v||0), 0);
@@ -1230,6 +1246,13 @@ function loadStats(){
         });
         if(!Array.isArray(st.kotonohaSeenForms)) st.kotonohaSeenForms = [];
         if(st.kotonohaDisplayOverride === undefined) st.kotonohaDisplayOverride = null;
+        /* 転生の系統選択機能（2026-08-03〜）のための移行。旧セーブには「これまで転生した系統」の
+           履歴が無いため、今まさに転生中の系統だけは「出会ったことがある」ものとして遡って
+           記録する（それ以前に別の系統だったことがあっても、そこまでは追跡できないため対象外）。 */
+        if(!Array.isArray(st.kotonohaRebirthLinesSeen)) st.kotonohaRebirthLinesSeen = [];
+        if(st.kotonohaRebirth && !st.kotonohaRebirthLinesSeen.includes(st.kotonohaRebirth.line)){
+          st.kotonohaRebirthLinesSeen.push(st.kotonohaRebirth.line);
+        }
         /* 旧バージョンで「３領域以上バランス型」が固定されていた場合、今の見た目をそのまま引き継ぐ
            （次に進化するタイミングから、新しいランダム抽選のしくみに切りかわる）。 */
         if(!st.kotonohaOtherRoll && KOTONOHA_OTHER_TYPES.includes(st.kotonohaBranch)){
@@ -1324,7 +1347,14 @@ function record(cat, item, correct, elapsedMs, opts){
   }
   /* st.recentCorrect[cat]・fastGuessが確定した直後に呼ぶ（高速解放モードの判定に両方使うため、
      st.q更新の直後だった旧位置から移動した、2026-08-02〜） */
+  const pctBeforeUnlock = catUnlockedQuestionPct(st, cat);
   const groupJustUnlocked = checkGroupUnlock(st, cat, correct, fastGuess);
+  /* お祝い演出用（2026-08-03〜）。実際の経験値はtotalEarnedStatPoints/kotonohaTotalXP側が
+     totalUnlockCelebrationExpで毎回その場で計算するので、ここでは表示に使う「今回新しく
+     跨いだマイルストーン」だけを求める。 */
+  const celebrateMilestones = groupJustUnlocked
+    ? crossedUnlockMilestones(pctBeforeUnlock, catUnlockedQuestionPct(st, cat))
+    : [];
 
   let lvup = false, evolved = null, gotTicket = false;
   if(correct && !lowAccuracy && !fastGuess && st.lv[cat] < MAX_CAT_LV){
@@ -1340,7 +1370,7 @@ function record(cat, item, correct, elapsedMs, opts){
     if(after !== before) evolved = after;
   }
   saveStats(st);
-  return {lvup, evolved, lv:st.lv[cat], gotTicket, lowAccuracy: correct && lowAccuracy, fastGuess: correct && fastGuess, groupJustUnlocked};
+  return {lvup, evolved, lv:st.lv[cat], gotTicket, lowAccuracy: correct && lowAccuracy, fastGuess: correct && fastGuess, groupJustUnlocked, celebrateMilestones};
 }
 function qStat(st, cat, item){ return st.q[qKey(cat, item.q)] || null; }
 
@@ -2031,8 +2061,10 @@ function kotonohaTotalXP(st){
      モードのままだが（[[kokugo-hyakunin-isshu-mode]]参照）、ここだけ例外的に経験値に反映する。
      ステータスポイント（totalEarnedStatPoints）にもbonusExpと同じ扱いで加算するようになった
      （2026-08-02〜、教員の指示）。totalEarnedStatPointsもkotonohaBaseCategoryもst.lvの分布は
-     見るがst.hyakuninBonusExp自体は見ないので、この変更後も進化の分岐判定には影響しない。 */
-  return Math.min(KOTONOHA_XP_CAP, Math.floor(CAT_KEYS.reduce((sum,k)=> sum + catExpPoints(st.lv[k]||1), 0) + effectiveBonusExp(st) + (st.hyakuninBonusExp||0)));
+     見るがst.hyakuninBonusExp自体は見ないので、この変更後も進化の分岐判定には影響しない。
+     問題全開放のお祝い経験値（totalUnlockCelebrationExp、2026-08-03〜）も同様に加算するだけで、
+     進化の分岐には影響しない。 */
+  return Math.min(KOTONOHA_XP_CAP, Math.floor(CAT_KEYS.reduce((sum,k)=> sum + catExpPoints(st.lv[k]||1), 0) + effectiveBonusExp(st) + (st.hyakuninBonusExp||0) + totalUnlockCelebrationExp(st)));
 }
 function kotonohaOtherType(st, stageIdx){
   const roll = st.kotonohaOtherRoll;
@@ -2140,27 +2172,56 @@ function kotonohaRebirthEligible(st){
   const cat = kotonohaBaseCategory(st);
   return cat === 4 || cat === "other";
 }
-/* 転生する瞬間に系統（卵）をランダムに1つ選ぶ。全領域バランス型の条件を満たしているときは
-   KOTONOHA_SHIGEN_WEIGHT（40%）の確率で「始原龍」、残り60%はそれ以外の系統（天翔・焔獄・蒼海・
-   翠森の4系統、「聖輝」「冥淵」アンロック後はこの2つも加えた6系統、kotonohaOtherTypePool参照）
-   からランダムに1つ選ぶ（以前は全領域バランス型なら「始原龍」に必ず固定していたが、教員の指示
-   （2026-08-02〜）で確率制に変更）。３領域以上バランス型（cat==="other"）のときは、以前と同じく
-   その6系統プールから選ぶ（始原龍はここには含めない＝全領域バランス型の条件を満たしたときだけの
-   専用ライン、という位置づけは維持）。
-   通常進化の絵文字系統ロール（kotonohaOtherType、経験値の「段階」が変わるたびにしか再抽選しない）
-   とはあえて独立させている：経験値が伸びきったベテランプレイヤーほど絵文字系統ロールが
-   固定されがちで、それに連動させると同じ系統の卵しか出なくなってしまうため（2026-08-01〜）。
-   「今の系統には転生しない」（教員の指示、2026-08-02〜）：再転生（st.kotonohaRebirthが既にある）
-   のときは、今の系統をどちらの抽選プールからも除外する。始原龍が今の系統なら始原龍自体を除外し
-   （60%だった側の抽選に100%回す）、other側の1系統が今の系統ならそれを除いた残りで按分する。 */
+/* 転生先の系統として今選べる候補一覧（今の系統は除く）。全領域バランス型（cat===4）のときだけ
+   「始原龍」も候補に加わる。３領域以上バランス型（cat==="other"）は、以前と同じくその6系統
+   プール（天翔・焔獄・蒼海・翠森の4系統、「聖輝」「冥淵」アンロック後はこの2つも加えた6系統、
+   kotonohaOtherTypePool参照）から選ぶ（始原龍はここには含めない＝全領域バランス型専用ラインという
+   位置づけは維持）。一領域/二領域特化（cat===1・2）のときは空配列＝転生不可。 */
+function kotonohaEligibleRebirthLines(st){
+  const cat = kotonohaBaseCategory(st);
+  if(cat !== 4 && cat !== "other") return [];
+  const currentLine = st.kotonohaRebirth ? st.kotonohaRebirth.line : null;
+  const otherPool = kotonohaOtherTypePool(st).map(t => KOTONOHA_IMAGE_LINES[t]);
+  const lines = cat === 4 ? otherPool.concat(["shigen"]) : otherPool.slice();
+  return lines.filter(l => l !== currentLine);
+}
+/* 今選べる候補のうち、まだ一度もなったことがない系統だけ（教員の指示、2026-08-03〜：
+   「なったことがある系統には自分で選択して転生可能」「なったことがない系統があれば、その中から
+   ランダムで転生する」を実現するための下準備）。 */
+function kotonohaUnseenRebirthLines(st){
+  const seen = st.kotonohaRebirthLinesSeen || [];
+  return kotonohaEligibleRebirthLines(st).filter(l => !seen.includes(l));
+}
+/* 「まだなったことがない系統」が1つでも残っていれば、これまでどおり自分では選べず
+   ランダムのまま（初めての系統との出会いは「サプライズ」のまま維持したいという既存の設計思想、
+   [[kotonoha-rebirth-system]]の転生確認画面から系統名の事前開示を削除した経緯を踏襲）。
+   候補に含まれる系統を全て経験済みのときだけ、自分で選べるようにする。 */
+function kotonohaCanChooseRebirthLine(st){
+  const eligible = kotonohaEligibleRebirthLines(st);
+  if(eligible.length === 0) return false;
+  return kotonohaUnseenRebirthLines(st).length === 0;
+}
+/* 転生する瞬間に系統（卵）をランダムに1つ選ぶ（kotonohaCanChooseRebirthLineがfalseのとき、
+   すなわち「まだなったことがない系統」が残っているときに使う）。全領域バランス型の条件を
+   満たしているときはKOTONOHA_SHIGEN_WEIGHT（40%）の確率で「始原龍」、残り60%はそれ以外の
+   系統からランダムに1つ選ぶ（以前は全領域バランス型なら「始原龍」に必ず固定していたが、教員の
+   指示（2026-08-02〜）で確率制に変更）。抽選対象は「まだなったことがない系統」だけに絞る
+   （2026-08-03〜）。通常進化の絵文字系統ロール（kotonohaOtherType、経験値の「段階」が変わる
+   たびにしか再抽選しない）とはあえて独立させている：経験値が伸びきったベテランプレイヤーほど
+   絵文字系統ロールが固定されがちで、それに連動させると同じ系統の卵しか出なくなってしまうため
+   （2026-08-01〜）。 */
 const KOTONOHA_SHIGEN_WEIGHT = 0.4;
 function kotonohaPickRebirthLine(st){
-  const cat = kotonohaBaseCategory(st);
-  if(cat !== 4 && cat !== "other") return null; // 一領域/二領域特化＝転生不可
-  const currentLine = st.kotonohaRebirth ? st.kotonohaRebirth.line : null;
-  const otherPool = kotonohaOtherTypePool(st).map(t => KOTONOHA_IMAGE_LINES[t]).filter(l => l !== currentLine);
-  if(cat === 4 && currentLine !== "shigen" && Math.random() < KOTONOHA_SHIGEN_WEIGHT) return "shigen";
-  return otherPool[Math.floor(Math.random() * otherPool.length)];
+  const eligible = kotonohaEligibleRebirthLines(st);
+  if(eligible.length === 0) return null; // 一領域/二領域特化＝転生不可
+  const unseen = kotonohaUnseenRebirthLines(st);
+  // 候補を全て経験済み（＝本来は選択UIを経由する想定）のときの保険。呼び出し元が
+  // 誤って選択を渡さなかった場合でも、eligible全体から抽選して転生自体は成立させる。
+  const pool = unseen.length > 0 ? unseen : eligible;
+  if(pool.includes("shigen") && Math.random() < KOTONOHA_SHIGEN_WEIGHT) return "shigen";
+  const rest = pool.filter(l => l !== "shigen");
+  if(rest.length === 0) return pool.includes("shigen") ? "shigen" : null;
+  return rest[Math.floor(Math.random() * rest.length)];
 }
 /* 伝説級（最終段階）に到達すると、ホーム画面の背景を系統の色でドラマチックに演出する
    （教員の指示、2026-08-01〜）。screen.innerHTML側でラップするクラスなので、他の画面に
@@ -2336,9 +2397,21 @@ function kotonohaMaybeInterruptForEvolve(onDone){
    という訂正指示を受け、元の「初回無料・2回目以降だけ種を消費」に戻した。種の消費判定・処理は
    呼び出し元（kotonohaRebirthConfirmed、初回かどうかで分岐）が行う。ここでは転生の実行だけを
    担当し、種のチェックは行わない。】 */
-function kotonohaDoRebirth(st){
-  const line = kotonohaPickRebirthLine(st);
+/* chosenLine：プレイヤーが自分で選んだ系統（kotonohaCanChooseRebirthLineがtrueのときだけ、
+   選択UI経由で渡される）。渡された値が「今選べる、かつ既に出会ったことがある」候補として
+   不正な場合は無視してランダム抽選にフォールバックする（不正なonclick引数への防御）。
+   省略時（story演出の初回転生など）は今までどおりkotonohaPickRebirthLineのランダム抽選。 */
+function kotonohaDoRebirth(st, chosenLine){
+  let line = null;
+  if(chosenLine){
+    const eligible = kotonohaEligibleRebirthLines(st);
+    const seen = st.kotonohaRebirthLinesSeen || [];
+    if(eligible.includes(chosenLine) && seen.includes(chosenLine)) line = chosenLine;
+  }
+  if(!line) line = kotonohaPickRebirthLine(st);
   if(!line) return false;
+  if(!Array.isArray(st.kotonohaRebirthLinesSeen)) st.kotonohaRebirthLinesSeen = [];
+  if(!st.kotonohaRebirthLinesSeen.includes(line)) st.kotonohaRebirthLinesSeen.push(line);
   st.kotonohaRebirth = {line, baseXP: kotonohaTotalXP(st), seenStage: 0};
   saveStats(st);
   return true;
@@ -2648,7 +2721,12 @@ function setKotonohaDisplay(key){
   showHome();
 }
 /* 転生の確認画面。何度でもやり直せるが、そのたびに絵の進化段階は卵に戻る＝実行前に
-   必ずワンクッション挟む（既存の挑戦チケット確認画面と同じ、カード型の確認UIパターン）。 */
+   必ずワンクッション挟む（既存の挑戦チケット確認画面と同じ、カード型の確認UIパターン）。
+   「これまでに出会ったことがある系統を全て経験済み」（kotonohaCanChooseRebirthLine）のときは、
+   ランダム抽選の代わりに系統を自分で選べる一覧を表示する（教員の指示、2026-08-03〜）。
+   そうでない場合（まだ出会ったことがない系統が残っている場合）は、今までどおり「転生する」
+   ボタン1つだけのランダム抽選のまま＝初めての系統との出会いをサプライズとして残す
+   （[[kotonoha-rebirth-system]]で系統名の事前開示をあえて削除した設計思想を踏襲）。 */
 function showKotonohaRebirthConfirm(){
   const st = loadStats();
   if(!st.kotonohaRebirthUnlocked){ showHome(); return; }
@@ -2660,6 +2738,7 @@ function showKotonohaRebirthConfirm(){
   const seedNote = already
     ? `<p class="note boss-enc-hint">🌱 「${esc(REBIRTH_SEED_ITEM)}」を1つ使います（現在の所持数：${seedCount}）。</p>`
     : `<p class="note boss-enc-hint">✨ 初回の転生は無料です。</p>`;
+  const canChoose = kotonohaCanChooseRebirthLine(st);
   screen.innerHTML = `
     <div class="card boss-encounter">
       <div class="boss-enc-icon">🔁</div>
@@ -2668,17 +2747,28 @@ function showKotonohaRebirthConfirm(){
       <p class="note boss-enc-hint">⚡ 少年体まで育てると、系統専用の必殺技が使えるようになります。</p>
       ${already ? `<p class="note boss-enc-hint">🔄 今のすがた・必殺技の育ち具合は失われます。</p>` : ""}
       ${seedNote}
+      ${canChoose ? "" : `
       <div class="boss-enc-choices">
         <button class="boss-enc-btn" onclick="showHome()">やめる</button>
         <button class="boss-enc-btn selected" onclick="kotonohaRebirthConfirmed()">転生する</button>
-      </div>
-    </div>`;
+      </div>`}
+    </div>
+    ${canChoose ? `
+    <p class="note kotonoha-rebirth-note">🥚 これまでに出会った系統は全部経験しました。どの系統に転生するか、自分で選べます。</p>
+    ${kotonohaEligibleRebirthLines(st).map(line => `
+      <div class="card menu-card" onclick="kotonohaRebirthConfirmed('${line}')">
+        <div class="menu-icon"><img class="kotonoha-icon kotonoha-icon-img" src="${kotonohaImageSrcForStage(line,0)}" alt="${esc(KOTONOHA_IMAGE_LINE_LABEL[line])}"></div>
+        <div><h2>${esc(KOTONOHA_IMAGE_LINE_LABEL[line])}</h2></div>
+      </div>`).join("")}
+    <div class="btn-row"><button class="btn secondary" onclick="showHome()">やめる</button></div>` : ""}`;
 }
 /* 初回の転生（story経由でもこの画面経由でも）は無料。2回目以降の「育て直す」は
    ①今の転生が「青年体」以上 ②「転生の種」を1つ消費、の両方が条件（2026-08-01〜、
    デイリーログイン報酬導入に伴う変更）。kotonohaDoRebirth(st)自体がsaveStats(st)まで
-   行うので、種の消費は同じst参照に対して先に行っておくだけでよい（保存は1回で済む）。 */
-function kotonohaRebirthConfirmed(){
+   行うので、種の消費は同じst参照に対して先に行っておくだけでよい（保存は1回で済む）。
+   chosenLine：系統選択UI（上のshowKotonohaRebirthConfirm）経由で渡される、プレイヤーが
+   選んだ系統。ランダム抽選のボタンからは引数なしで呼ばれる。 */
+function kotonohaRebirthConfirmed(chosenLine){
   const st = loadStats();
   const wasAlready = !!st.kotonohaRebirth;
   if(wasAlready){
@@ -2686,7 +2776,7 @@ function kotonohaRebirthConfirmed(){
     if((st.items[REBIRTH_SEED_ITEM]||0) <= 0){ showHome(); return; }
     st.items[REBIRTH_SEED_ITEM]--;
   }
-  kotonohaDoRebirth(st);
+  kotonohaDoRebirth(st, chosenLine);
   showHome();
 }
 function itemLinkHtml(st){
@@ -2819,7 +2909,7 @@ function showStatusAllocation(){
     {key:"atk",  label:"⚔️ 攻撃力", desc:"正解したときにボスへ与えるダメージが増える"},
     {key:"def",  label:"🛡️ 防御力", desc:"ボスの攻撃で受けるダメージが減る"},
     {key:"spd",  label:"💨 素早さ", desc:"ボスの攻撃を回避できる確率が上がる。自分の攻撃も命中しやすくなる"},
-    {key:"luck", label:"🍀 運",     desc:"正解したときに「会心の一撃」が出やすくなる"},
+    {key:"luck", label:"🍀 運",     desc:"正解したときに「会心の一撃」が出やすくなる。ボスとの遭遇率が高まります"},
   ];
   let html = `
     <div class="card">
@@ -2976,7 +3066,7 @@ function showHelp(){
       <ul class="help-list">
         <li>分野のレベルが1つ上がるたびに、「ステータスポイント」を1つもらえます。</li>
         <li>ホームの「ボス戦ステータス」画面で、<b>HP・攻撃力・防御力・素早さ・運</b>の5つに好きなだけ割りふれます。</li>
-        <li><b>HP</b>はボス戦での最大体力、<b>攻撃力</b>は正解時のダメージ、<b>防御力</b>はボスから受けるダメージの軽減、<b>素早さ</b>はボスの攻撃を回避できる確率（あわせて自分の攻撃の命中しやすさにも少し関係）、<b>運</b>は「会心の一撃」の出やすさに関係します。どのステータスも、注げば注ぐほど少しずつ効果が伸びていくので、無駄になりません。</li>
+        <li><b>HP</b>はボス戦での最大体力、<b>攻撃力</b>は正解時のダメージ、<b>防御力</b>はボスから受けるダメージの軽減、<b>素早さ</b>はボスの攻撃を回避できる確率（あわせて自分の攻撃の命中しやすさにも少し関係）、<b>運</b>は「会心の一撃」の出やすさに加えて、ボスとの遭遇率にも関係します。どのステータスも、注げば注ぐほど少しずつ効果が伸びていくので、無駄になりません。</li>
         <li>これらの効果は<b>ボス戦だけ</b>に反映されます（二人対戦には影響しません）。ボス側にも同じような個性があり、素早さでの回避は、ボスの「命中率」との駆け引きになります。</li>
         <li>「配分をリセット」ボタンで、いつでも割りふり直せます。</li>
       </ul>
@@ -3216,9 +3306,10 @@ function gradeAnswer(ok, chosenOrig, typed){
     ? `<div class="evolve">${r.evolved.hidden ? "🔓 かくされた称号が明かされた！<br>" : ""}${r.evolved.icon} 進化！　${esc(CATS[cat].name)}の称号が「${esc(r.evolved.name)}」になった！</div>` : "";
   const ticketMsg = r.gotTicket ? `<div class="evolve ticket-get">🎟️ ボスへの挑戦チケットを1枚手に入れた！</div>` : "";
   const groupMsg = r.groupJustUnlocked ? `<div class="evolve">🔓 ${esc(CATS[cat].name)}の次のグループが解禁された！</div>` : "";
+  const celebrateMsg = celebrateMilestoneHtml(CATS[cat].name, r.celebrateMilestones);
   const lowAccMsg = r.lowAccuracy ? `<p class="note">⏸️ 直近の正答率が低いため、レベルアップはお休み中です。落ち着いて問題を読んで答えると、また上がるようになります。</p>` : "";
   const fastMsg = r.fastGuess ? `<p class="note">⏸️ 少し急いで答えているようです。落ち着いて問題を読んで答えると、また上がるようになります。</p>` : "";
-  fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}${lvChip}</div>${expl}${evolveMsg}${ticketMsg}${groupMsg}${lowAccMsg}${fastMsg}`;
+  fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}${lvChip}</div>${expl}${evolveMsg}${ticketMsg}${groupMsg}${celebrateMsg}${lowAccMsg}${fastMsg}`;
   document.getElementById("nextBtn").style.display = "inline-block";
   document.getElementById("quitBtn").style.display = "inline-block";
   document.getElementById("nextBtn").focus();
@@ -3892,6 +3983,43 @@ function hyaUnlockedQuestionPct(st){
   for(let i=0;i<n;i++) unlockedQ += groups[i].ids.length;
   return Math.round(unlockedQ / totalQ * 100);
 }
+/* 「問題全開放のお祝い」経験値（2026-08-03〜、教員の指示）。ジャンルごとの問題解放率
+   （catUnlockedQuestionPct/hyaUnlockedQuestionPct）が25/50/75/100%に達した段階で、それぞれ
+   固定の経験値を加算する。加算済みフラグや累計カウンタは一切持たず、totalEarnedStatPoints/
+   kotonohaTotalXP側から呼ばれるたびに、現在の解放率からその場で導出し直す（bonusExp等とは
+   異なり「イベント発生時に1回だけ加算する」方式にしない）。これにより、①セーブ改変で
+   同じ達成を何度も加算させることが構造的にできない（経験値チート防止、教員の指示）、
+   ②[[kokugo-drill-dx-workflow]]で触れたとおり後から問題を追加して解放率の分母が変わっても
+   毎回自動的に正しい値へ再計算される、③既にジャンルを解放し終えているプレイヤーにも、
+   次にこの関数が呼ばれた瞬間から自動的にボーナスが反映される（マイグレーション不要）、
+   という3点をまとめて満たせる。 */
+const UNLOCK_CELEBRATION_MILESTONES = [
+  {pct:25, exp:10}, {pct:50, exp:50}, {pct:75, exp:10}, {pct:100, exp:100},
+];
+function unlockCelebrationExpForPct(pct){
+  if(pct == null) return 0;
+  return UNLOCK_CELEBRATION_MILESTONES.reduce((sum,m) => sum + (pct >= m.pct ? m.exp : 0), 0);
+}
+function totalUnlockCelebrationExp(st){
+  let sum = GROUP_UNLOCK_CATS.reduce((s,cat) => s + unlockCelebrationExpForPct(catUnlockedQuestionPct(st, cat)), 0);
+  sum += unlockCelebrationExpForPct(hyaUnlockedQuestionPct(st));
+  return sum;
+}
+/* グループが新たに解禁された直後（record()/hyaRecord()内）に、解禁前後の解放率を比べて、
+   このグループ解禁ぶんで新しく跨いだマイルストーンだけを返す（お祝い演出の表示専用。
+   実際の経験値への反映は上のtotalUnlockCelebrationExpが毎回その場で計算するので、ここで
+   加算処理をする必要はない）。1グループの解禁で複数のマイルストーンを一度に跨ぐこともある
+   （問題数が少ないジャンルほど1グループの解放率への影響が大きいため）。 */
+function crossedUnlockMilestones(pctBefore, pctAfter){
+  if(pctAfter == null) return [];
+  const before = pctBefore == null ? -1 : pctBefore;
+  return UNLOCK_CELEBRATION_MILESTONES.filter(m => before < m.pct && pctAfter >= m.pct);
+}
+function celebrateMilestoneHtml(genreName, milestones){
+  if(!milestones || milestones.length === 0) return "";
+  const lines = milestones.map(m => `🎉 ${esc(genreName)}　問題解放率${m.pct}%達成！　お祝い経験値+${m.exp}`).join("<br>");
+  return `<div class="celebrate">${lines}</div>`;
+}
 /* 出題画面の下部に常に表示する「問題解放率」フッター（2026-08-02〜、教員の指示：成績画面だけ
    でなく、実際に問題を解いている最中も常に見える位置に出してほしい）。pctがnullなら何も返さない
    （読解など、GROUP_UNLOCK_CATS対象外のジャンルではフッター自体を出さない）。呼び出し側
@@ -4048,9 +4176,13 @@ function hyaRecord(it, correct){
   st.hyakunin.recent = recent;
   /* st.hyakunin.recentが確定した直後に呼ぶ（高速解放モードの判定に使うため、旧位置=recent更新前
      から移動した、2026-08-02〜） */
+  const pctBeforeUnlock = hyaUnlockedQuestionPct(st);
   const groupJustUnlocked = hyaCheckGroupUnlock(st, correct);
+  const celebrateMilestones = groupJustUnlocked
+    ? crossedUnlockMilestones(pctBeforeUnlock, hyaUnlockedQuestionPct(st))
+    : [];
   saveStats(st);
-  return {lv: hyaLv(st), acc: hyaAccuracy(st), diffLv: st.hyakunin.targetLv, groupJustUnlocked, gotTicket};
+  return {lv: hyaLv(st), acc: hyaAccuracy(st), diffLv: st.hyakunin.targetLv, groupJustUnlocked, gotTicket, celebrateMilestones};
 }
 
 /* ---- 画面：メニュー ---- */
@@ -4204,8 +4336,9 @@ function hyaAnswerChoice(origIdx){
   fb.className = "feedback show " + (ok?"ok":"ng");
   const unlockMsg = r.groupJustUnlocked ? `<div class="evolve">🔓 百人一首の次のグループが解禁された！</div>` : "";
   const ticketMsg = r.gotTicket ? `<div class="evolve ticket-get">🎟️ ボスへの挑戦チケットを1枚手に入れた！</div>` : "";
+  const celebrateMsg = celebrateMilestoneHtml("百人一首", r.celebrateMilestones);
   fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}</div>${markQuestionHtml(it.e).replace(/\n/g,"<br>")}
-    <div class="note">百人一首レベル Lv.${r.lv}　｜　今のめやす：${esc(hyaLvLabel(r.diffLv))}</div>${unlockMsg}${ticketMsg}`;
+    <div class="note">百人一首レベル Lv.${r.lv}　｜　今のめやす：${esc(hyaLvLabel(r.diffLv))}</div>${unlockMsg}${ticketMsg}${celebrateMsg}`;
   document.getElementById("hyaNextBtn").style.display = "inline-block";
   document.getElementById("hyaQuitBtn").style.display = "inline-block";
   document.getElementById("hyaNextBtn").focus();
@@ -4979,11 +5112,15 @@ function recentAccDisplayHtml(){
   const pct = Math.round(100 * recent.reduce((a,b)=>a+b, 0) / recent.length);
   return `　｜　<span class="recent-acc">直近の正答率${pct}%</span>`;
 }
+/* 「運」を高めるとボスへの遭遇率も上がる（2026-08-03〜、教員の指示）。正答率による基本の
+   比率（下の既存ロジック）に、運の比率で決まる倍率（luckEncounterMult、0.5倍〜2倍）を
+   掛け合わせる。データ不足でBOSS_ENCOUNTER_RATE固定になる場合も、この倍率は同じように適用する。 */
 function bossEncounterRate(st){
   const acc = recentAccAll(st);
-  if(acc === null) return BOSS_ENCOUNTER_RATE;
-  const capped = Math.min(BOSS_ENCOUNTER_HOT_ACC, Math.max(0, acc));
-  return (capped / BOSS_ENCOUNTER_HOT_ACC) * BOSS_ENCOUNTER_HOT_RATE;
+  const base = acc === null
+    ? BOSS_ENCOUNTER_RATE
+    : (Math.min(BOSS_ENCOUNTER_HOT_ACC, Math.max(0, acc)) / BOSS_ENCOUNTER_HOT_ACC) * BOSS_ENCOUNTER_HOT_RATE;
+  return base * luckEncounterMult(st);
 }
 const BOSS_TREASURE_RATE = 0.1;
 /* 宝具のドロップは、分野をまたいだ「直近30回」の正答率(st.recentCorrectAll)が
@@ -5061,6 +5198,31 @@ function bossXpGateActive(boss, st){
 const DEF_GATE_XP_DIVISOR = 6;
 const DEF_GATE_ATK_MULT = 5;
 function defGateActive(effDef, st){ return effDef < kotonohaTotalXP(st) / DEF_GATE_XP_DIVISOR; }
+/* 「極端なステータス特化」への上限（2026-08-03〜、教員の指示）。適正経験値5000以上のボス
+   （recPts5000〜15000の全13体）限定で、防御力・攻撃力それぞれに単独では超えられない上限を
+   設ける。均等配分・8割正解ペースを前提にした既存バランス（[[kokugo-boss-status-system]]）は
+   この帯だと「防御力を怠るとほぼ勝てない」設計だが、ステータス上限20000ptを1つの
+   ステータスに全振りするビルドでは、この上限の範囲内でも通常攻撃だけで数発〜1発で
+   ボスのHPを溶かしきれてしまう（例：atk全振り＋defPct55%のボスに対し、会心込みで
+   約54000ダメージ＝HP31000の約1.7倍を1発で与えられる）ことが判明したため導入した。 */
+const NORMAL_ATK_CAP_MIN_RECPTS = 5000; // このrecPts以上のボスにだけ、通常攻撃の上限を適用
+/* 通常攻撃（必殺技を除く）は、ボスの最大HPの40%より多くのダメージを1発で与えられない。
+   必殺技（bossResolveFinisherは完全に別関数・別のdealt計算）はこの上限の対象外。
+   HP31000のボス基準で1発最大12400ダメージ＝最低3発は必要になる計算。
+   【2026-08-03、33%→40%に緩和】導入直後、教員から「攻撃力が高いことの爽快感を
+   味わわせたい」との指示を受けて引き上げた。33%だと最低4発必要な計算だったが、
+   40%なら最低3発に短縮される（必殺技を使えばもちろんもっと速い）。 */
+const NORMAL_ATK_MAX_HIT_PCT = 0.40;
+/* 防御力による被ダメージ軽減率は、防御力をどれだけ積んでも95%（＝最低5%は必ず受ける）を
+   超えられない。ステータス上限20000pt全振りでも、この帯（bossDefHalfPoint=recPts/5）の
+   軽減率は自然と95%前後に収まるため、今の時点では「念のための安全装置」の意味合いが強く、
+   体感バランスを大きく変えるものではない（今後ステータス上限が引き上げられた場合の歯止め）。 */
+const DEF_REDUCTION_CAP_MIN_RECPTS = 5000;
+const DEF_REDUCTION_CAP_HIGH_TIER = 0.95;
+function cappedDefReduction(effDef, boss){
+  const raw = effDef / (effDef + bossDefHalfPoint(boss));
+  return (boss.recPts||0) >= DEF_REDUCTION_CAP_MIN_RECPTS ? Math.min(raw, DEF_REDUCTION_CAP_HIGH_TIER) : raw;
+}
 /* 必殺技システム（2026-07-20〜、ストーリー第3章クリアで解放）。
    通常のボス戦（bossGrade）だけに実装し、ステータスを一切参照しないストーリーモードの
    戦闘（storyGradeBattle）には組み込まない＝設計上そもそも影響しない。
@@ -5104,7 +5266,38 @@ const STAT_ATK_PER_POINT = 3;
    recPts/5に連動させることで、「均等配分なら常に50%軽減」という基準がボスの強さに関わらず
    揃い、将来もっとrecPtsの高いボスを追加しても、このぶんの再調整が要らなくなる。 */
 function bossDefHalfPoint(boss){ return Math.max(1, (boss.recPts||0) / 5); }
-const STAT_LUCK_HALF_POINT = 100; // 運がこのポイント数のとき、会心率が50%になる
+/* 「運」による会心率を、運の実数値ではなく「その運が、ことのはの全経験値のうち何割を
+   占めているか」という比率で決める設計に変更（2026-08-03〜、教員の指示。旧式は
+   `100*luck/(luck+100)`という実数値ベースの逓減カーブだった）。運の比率が10分の1(0.1)なら
+   会心率11%、0なら会心率0%（会心が一切出ない）、2分の1(0.5)以上なら上限の60%、という
+   3点をそのまま結ぶ区分線形（折れ線）で実装した（0→0.1の区間と0.1→0.5の区間で傾きが
+   異なるため、単純な比例式1本では3点を同時に満たせない）。分母のkotonohaTotalXPには
+   ことのはの経験値の全て（bonusExp・宝具・百人一首のボーナス・問題全開放のお祝いも含む）を
+   使う。分母が0（新規プレイヤー）のときは比率0扱い。同じ比率の考え方を、下のボスへの
+   遭遇率の倍率（luckEncounterMult）にも使う。 */
+const LUCK_RATIO_MID = 0.1;   // この比率のとき「基準」になる
+const LUCK_RATIO_CAP = 0.5;   // この比率以上で上限に張り付く
+function luckRatioOf(effLuck, st){
+  const totalXP = kotonohaTotalXP(st);
+  if(totalXP <= 0) return 0;
+  return Math.max(0, effLuck / totalXP);
+}
+const LUCK_CRIT_MID_PCT = 11, LUCK_CRIT_MAX_PCT = 60; // 会心率：比率0→0%、0.1→11%、0.5以上→60%（上限）
+function luckCritChancePct(effLuck, st){
+  const r = luckRatioOf(effLuck, st);
+  if(r >= LUCK_RATIO_CAP) return LUCK_CRIT_MAX_PCT;
+  if(r <= LUCK_RATIO_MID) return LUCK_CRIT_MID_PCT * (r / LUCK_RATIO_MID);
+  return LUCK_CRIT_MID_PCT + (LUCK_CRIT_MAX_PCT - LUCK_CRIT_MID_PCT) * (r - LUCK_RATIO_MID) / (LUCK_RATIO_CAP - LUCK_RATIO_MID);
+}
+/* ボスへの遭遇率の倍率：比率0→0.5倍、0.1→1倍（bossEncounterRate側の「基本の比率」そのまま）、
+   0.5以上→2倍（上限）。bossEncounterRate()の戻り値にこの倍率を掛け合わせて使う。 */
+const LUCK_ENC_ZERO_MULT = 0.5, LUCK_ENC_BASE_MULT = 1.0, LUCK_ENC_MAX_MULT = 2.0;
+function luckEncounterMult(st){
+  const r = luckRatioOf((st.stats && st.stats.luck) || 0, st);
+  if(r >= LUCK_RATIO_CAP) return LUCK_ENC_MAX_MULT;
+  if(r <= LUCK_RATIO_MID) return LUCK_ENC_ZERO_MULT + (LUCK_ENC_BASE_MULT - LUCK_ENC_ZERO_MULT) * (r / LUCK_RATIO_MID);
+  return LUCK_ENC_BASE_MULT + (LUCK_ENC_MAX_MULT - LUCK_ENC_BASE_MULT) * (r - LUCK_RATIO_MID) / (LUCK_RATIO_CAP - LUCK_RATIO_MID);
+}
 /* プレイヤーの回避率（ボスの攻撃を避ける確率）に上限を追加（2026-08-02、教員の指示）。
    旧実装（`hitChance = accuracy/(accuracy+spd*STAT_SPD_EVASION_UNIT)`、比率の綱引き式）は
    上限がなく、素早さを積むほど被弾率が際限なく0%に近づいていた（実測：素早さ2000でrecPts5000
@@ -5796,7 +5989,7 @@ function bossResolveFinisher(){
   }
   dealt = Math.round(dealt * moveMult * finisherExtraMult);
   const effLuck = ps.luck + (b.luckBuffTurns > 0 ? b.luckBuffAmount : 0);
-  const critChance = 100 * effLuck / (effLuck + STAT_LUCK_HALF_POINT);
+  const critChance = luckCritChancePct(effLuck, st);
   let crit = false;
   if(Math.random() * 100 < critChance){
     crit = true;
@@ -6123,7 +6316,7 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
         // さびついたノコギリ等の「次のターンだけ攻撃力n倍」効果（攻撃力依存の倍率、既存の加算式atkBuffとは別枠）
         if(b.atkMultTurns > 0) dealt = Math.round(dealt * b.atkMultAmount);
         const effLuck = ps.luck + (b.luckBuffTurns > 0 ? b.luckBuffAmount : 0);
-        const critChance = 100 * effLuck / (effLuck + STAT_LUCK_HALF_POINT);
+        const critChance = luckCritChancePct(effLuck, st);
         if(Math.random() * 100 < critChance){
           crit = true;
           dealt = Math.round(dealt * STAT_CRIT_MULT);
@@ -6144,6 +6337,12 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
           ? (b.boss.defPct||0) * Math.pow(3, b.bossDefMissStreak||0)
           : (b.boss.defPct||0);
         dealt = Math.max(1, Math.round(dealt * (1 - effBossDefPct / 100)));
+        /* 極端な攻撃力特化ビルド対策（2026-08-03〜、教員の指示）。適正経験値5000以上のボス限定で、
+           通常攻撃1発あたりの上限をボス最大HPの33%に固定する。必殺技（bossResolveFinisher、
+           完全に別関数・別のdealt計算）はこの上限の対象外。 */
+        if((b.boss.recPts||0) >= NORMAL_ATK_CAP_MIN_RECPTS){
+          dealt = Math.min(dealt, Math.max(1, Math.round(b.bossMaxHp * NORMAL_ATK_MAX_HIT_PCT)));
+        }
         if(gateActive && b.bossHp - dealt <= 0){
           // 経験値ゲート・ルール①：とどめの一撃は必ず回避される（会心も含め、なかったことにする）
           evaded = true;
@@ -6344,7 +6543,7 @@ function bossCounterAttack(playerWasCorrect){
     const pct = b.boss.counterOkFixedMin + Math.random() * (b.boss.counterOkFixedMax - b.boss.counterOkFixedMin);
     let taken = Math.round(referenceHp * pct);
     const effDef2 = ps2.def + (b.defBuffTurns > 0 ? b.defBuffAmount : 0);
-    const defReduction2 = effDef2 / (effDef2 + bossDefHalfPoint(b.boss));
+    const defReduction2 = cappedDefReduction(effDef2, b.boss);
     taken = Math.max(1, Math.round(taken * (1 - defReduction2)));
     b.playerHp = Math.max(0, b.playerHp - taken);
     if(b.atkBuffTurns > 0) b.atkBuffTurns--;
@@ -6394,7 +6593,7 @@ function bossCounterAttack(playerWasCorrect){
       bossCrit = true;
       raw *= 1.5;
     }
-    const defReduction = effDef / (effDef + bossDefHalfPoint(b.boss));
+    const defReduction = cappedDefReduction(effDef, b.boss);
     taken = Math.max(1, Math.round(raw * (1 - defReduction)));
     b.playerHp = Math.max(0, b.playerHp - taken);
   }
