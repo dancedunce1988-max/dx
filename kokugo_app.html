@@ -335,22 +335,38 @@
   .btn.disabled{ opacity:.4; cursor:default; pointer-events:none; }
   .kanbun-box{
     writing-mode: vertical-rl; text-orientation: upright;
-    font-size:1.6rem; line-height:2.3; letter-spacing:.05em;
+    font-size:1.6rem; line-height:3.1; letter-spacing:.35em;
     background:#fffdf7; color:#2b2b2b; border:1px solid var(--line); border-radius:10px;
-    padding:20px 26px; margin-bottom:16px; display:inline-block; min-height:170px;
+    padding:20px 30px; margin-bottom:16px; display:inline-block; min-height:170px;
   }
   .kb-char{ position:relative; display:inline-block; }
+  /* 送り仮名・返り点の注記は、縦書き本文の中でも横書き（writing-mode:horizontal-tb）で
+     表示する。継承したvertical-rlのままだと、2文字以上の注記（「一レ」等の組み合わせ返り点や、
+     「ザルガゴトクニシテ」のような長い送り仮名）が縦に積み上がって高さが伸び、上下の文字と
+     重なってしまうため（2026-08-04、教員の指摘で修正）。横書きにすれば文字数が増えても
+     幅が伸びるだけで済み、.kanbun-boxのletter-spacingで確保した字間にきれいに収まる。
+     letter-spacingは継承されるプロパティなので、.kanbun-box側の広い字間（文字と文字の間隔用）を
+     そのまま引き継ぐと、注記の文字どうしの間隔まで不必要に広がって横幅が倍近くに膨れ上がって
+     しまう（実測で発覚）。注記側は明示的にnormalへ戻す。 */
   .kb-ok{
-    position:absolute; right:-.25em; bottom:.05em;
-    font-size:.4em; color:var(--sub); line-height:1; white-space:nowrap;
+    position:absolute; right:-.3em; bottom:.1em;
+    writing-mode: horizontal-tb; text-orientation: mixed; letter-spacing:normal;
+    font-size:.4em; color:var(--sub); line-height:1.15; white-space:nowrap;
+  }
+  /* 5文字以上の長い送り仮名（「ザルガゴトクニシテ」等の決まり文句をまとめて添えた場合）は、
+     1行のまま横に伸ばすと隣の文字列や版面の外まではみ出すため、幅を狭くして2〜3行に
+     折り返す（2026-08-04、教員の指摘：字間を広げるなどして重なりを調整）。 */
+  .kb-ok.kb-long{
+    font-size:.3em; white-space:normal; max-width:3em; text-align:right; right:-.35em;
   }
   .kb-mark{
-    position:absolute; left:-.25em; bottom:.05em;
+    position:absolute; left:-.3em; bottom:.1em;
+    writing-mode: horizontal-tb; text-orientation: mixed; letter-spacing:normal;
     font-size:.46em; color:var(--accent); font-weight:bold; line-height:1; white-space:nowrap;
   }
   .kanbun-mini{
     writing-mode: vertical-rl; text-orientation: upright;
-    font-size:1.15rem; line-height:1.9; letter-spacing:.05em;
+    font-size:1.15rem; line-height:2.5; letter-spacing:.3em;
     display:inline-block; padding:2px 16px 2px 6px; vertical-align:middle;
   }
   .choice{ display:flex; align-items:center; }
@@ -896,7 +912,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.91</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.92</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -960,7 +976,8 @@ function subInstructionHtml(cat, it){
    どちらも字のすぐ下に小さく添える。 */
 function kanbunCharsHtml(kb){
   return kb.map(c => {
-    const ok = c.ok ? `<span class="kb-ok">${esc(c.ok)}</span>` : "";
+    const okLong = c.ok && c.ok.length >= 5 ? " kb-long" : "";
+    const ok = c.ok ? `<span class="kb-ok${okLong}">${esc(c.ok)}</span>` : "";
     const mark = c.mark ? `<span class="kb-mark">${esc(c.mark)}</span>` : "";
     return `<span class="kb-char">${esc(c.ch)}${ok}${mark}</span>`;
   }).join("");
@@ -1552,7 +1569,7 @@ const CONFIRM_CHECK_RATE = 0.1; // 目標レベルが上がりきっても、他
    確認チェックで間違えれば目標レベルもきちんと下がる。 */
 function selectOne(cat, lastQ){
   const st = loadStats();
-  let pool = groupUnlockedPool(st, cat);
+  let pool = fastUnlockEligible(st, cat) ? (activeGroupPool(st, cat) || groupUnlockedPool(st, cat)) : groupUnlockedPool(st, cat);
   if(pool.length > 1 && lastQ) pool = pool.filter(it => it.q !== lastQ);
   const isConfirmCheck = Math.random() < CONFIRM_CHECK_RATE;
   const diffLv = typeof st.diffLv[cat] === "number" ? st.diffLv[cat] : 1;
@@ -3981,6 +3998,21 @@ function groupUnlockedPool(st, cat){
   for(let i=0;i<n;i++) groups[i].indices.forEach(idx => allowedIdx.add(idx));
   return CATS[cat].items.filter((it, idx) => allowedIdx.has(idx));
 }
+/* 今まさにアンロックの最前線になっているグループ（8問）だけの出題プール。高速解放モード中は
+   selectOne/hyaSelectOneがgroupUnlockedPool（解禁済み全問題）の代わりにこちらを使う
+   （教員の指示、2026-08-04：「連続解放モードの時は、必ず新しく解放した8問の中から1問
+   ランダムで出されるようにして。既存の問題を正解することでどんどん開放することを防ぐ意図」）。
+   高速解放モードは「正解するたびに次のグループが即座に解禁される」設計なので、この関数が
+   毎回参照する「最前線グループ」自体も出題のたびに先へ進んでいく。既に全解禁済みのジャンル
+   （もう「これから解放する」グループが存在しない）は、制限する意味が無いためnullを返し、
+   呼び出し側が通常のgroupUnlockedPoolにフォールバックする。 */
+function activeGroupPool(st, cat){
+  if(!GROUP_UNLOCK_CATS.includes(cat)) return null;
+  const groups = catGroups(cat);
+  const count = catUnlockedGroupCount(st, cat);
+  if(count >= groups.length) return null;
+  return groups[count - 1].indices.map(i => CATS[cat].items[i]);
+}
 /* 現在アクティブなグループの解禁条件（グループ内正答率80%以上 かつ 各問題3連続正解）を
    満たしていれば、unlockedGroupCountを1つ進める。record()内、st.recentCorrect/fastGuessの
    確定後に呼ぶ（fastUnlockEligible判定にst.recentCorrect[cat]の最新状態が要るため）。
@@ -4127,6 +4159,16 @@ function hyaUnlockedPool(st){
   for(let i=0;i<n;i++) groups[i].ids.forEach(id => allowedIds.add(id));
   return hyaPool().filter(it => allowedIds.has(it.id));
 }
+/* 20分野のactiveGroupPoolと同じ考え方の百人一首版（教員の指示、2026-08-04）。高速解放モード中は
+   hyaSelectOneがhyaUnlockedPool（解禁済み全問題）の代わりにこちらを使い、常に「今アンロックの
+   最前線になっている8問」からランダムに出題する。既に全解禁済みならnullを返し、制限しない。 */
+function hyaActiveGroupPool(st){
+  const groups = hyaGroups();
+  const count = hyaUnlockedGroupCount(st);
+  if(count >= groups.length) return null;
+  const ids = new Set(groups[count - 1].ids);
+  return hyaPool().filter(it => ids.has(it.id));
+}
 /* ReviewSystem.getDueKeyへ渡すhistMap自体を、今アンロックされている首だけに絞り込んだビュー。
    ReviewSystem本体は変更しない：これにより、ロック中の首は（既存のitemHistに間隔反復の記録が
    残っていても）復習にも一切出さない。 */
@@ -4209,7 +4251,7 @@ function hyaDifficultyWeight(it, diffLv){
 }
 function hyaSelectOne(lastId){
   const st = loadStats();
-  let pool = hyaUnlockedPool(st);
+  let pool = hyaFastUnlockEligible(st) ? (hyaActiveGroupPool(st) || hyaUnlockedPool(st)) : hyaUnlockedPool(st);
   if(pool.length > 1 && lastId) pool = pool.filter(it => it.id !== lastId);
   const isConfirmCheck = Math.random() < CONFIRM_CHECK_RATE;
   const diffLv = typeof st.hyakunin.targetLv === "number" ? st.hyakunin.targetLv : 1;
