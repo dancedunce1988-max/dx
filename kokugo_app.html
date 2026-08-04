@@ -896,7 +896,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.89</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.90</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -1218,6 +1218,15 @@ function loadStats(){
         /* 百人一首は出題プールの生成方法（hyaPool）が20分野と異なるため、同じ判定ロジックを
            hyaGroups系として個別に実装しているが、マイグレーションの考え方は同じ（[[kokugo-drill-dx-workflow]]）。
            決まり字グループ方式（旧、2026-07-31〜）から8問グループ方式（2026-08-01〜）へ移行。 */
+        /* 出題形式の追加・削除・並べ替え（HYAKUNIN_POOL_VERSION参照）でグループの中身が変わると、
+           既存プレイヤーの解放済みグループ数をそのまま新しい並び順に適用した場合、意図しない
+           内容が一気に解放されてしまう。バージョンが古いセーブは、下のmigrateInitialHyaGroupUnlock
+           （itemHistの蓄積から初回導入時の解放状況を推定するための処理で、こちらには使わない）を
+           経由させず、必ずグループ1（問題解放率ほぼ0%）へ強制的に巻き戻す。 */
+        if(st.hyakunin.poolVersion !== HYAKUNIN_POOL_VERSION){
+          st.groupUnlock.hyakunin = 1;
+          st.hyakunin.poolVersion = HYAKUNIN_POOL_VERSION;
+        }
         if(typeof st.groupUnlock.hyakunin !== "number") st.groupUnlock.hyakunin = migrateInitialHyaGroupUnlock(st);
         /* デイリーログイン報酬（7日サイクル、2026-08-01〜）導入前のセーブデータには
            dailyLoginが無いので補完する。totalLoginDays等を過去にさかのぼって推定することはせず、
@@ -3703,6 +3712,14 @@ const HYAKUNIN_THEMES = ["春","夏","秋","冬","恋","その他"];
    1つずつ別のlvを割り当てて完全に順番どおりに並ぶようにしている（従来は2種類で1つのlvを
    共有し、大雑把な3段階「入門/中級/上級」の目安だけを表していた）。 */
 const HYAKUNIN_MAX_LV = 6;
+/* 出題形式の種類・順序・並べ方（HYAKUNIN_QTYPE_LV、hyaPool内のpush呼び出し等）を変えるたびに
+   この値を1つ上げること。loadStats()側でst.hyakunin.poolVersionと比較し、古いセーブは
+   st.groupUnlock.hyakunin（問題解放率のもと）をグループ1（ほぼ0%）へ強制的に巻き戻す
+   （教員の指示、2026-08-04：「問題を挿入した場合には0%から再スタートする設計に」。
+   「解放のお祝い」経験値(totalUnlockCelebrationExp)は専用フラグを持たず毎回その場で
+   hyaUnlockedQuestionPctから導出する設計のため、この解放率リセットだけで自動的に
+   0に戻り、再度達成した時点でもう一度お祝いされる）。 */
+const HYAKUNIN_POOL_VERSION = 2;
 const HYAKUNIN_QTYPE_LV = {kami2shimo:1, kimariji2shimo:2, meaning:3, technique:4, author:5, source:6};
 const HYAKUNIN_QTYPE_INSTR = {
   kami2shimo:      "次の上の句に続く、正しい下の句を選んでください。",
