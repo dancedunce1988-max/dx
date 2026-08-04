@@ -345,29 +345,29 @@
     padding:20px 30px; margin-bottom:16px; display:inline-block; min-height:170px;
   }
   .kb-char{ position:relative; display:inline-block; }
-  /* 送り仮名・返り点の注記は、縦書き本文の中でも横書き（writing-mode:horizontal-tb）で
-     表示する。継承したvertical-rlのままだと、2文字以上の注記（「一レ」等の組み合わせ返り点や、
-     「ザルガゴトクニシテ」のような長い送り仮名）が縦に積み上がって高さが伸び、上下の文字と
-     重なってしまうため（2026-08-04、教員の指摘で修正）。横書きにすれば文字数が増えても
-     幅が伸びるだけで済み、.kanbun-boxのletter-spacingで確保した字間にきれいに収まる。
-     letter-spacingは継承されるプロパティなので、.kanbun-box側の広い字間（文字と文字の間隔用）を
-     そのまま引き継ぐと、注記の文字どうしの間隔まで不必要に広がって横幅が倍近くに膨れ上がって
-     しまう（実測で発覚）。注記側は明示的にnormalへ戻す。 */
+  /* 送り仮名・返り点の注記は、本文と同じ縦書き（vertical-rl）を基本とする（教員の指示、
+     2026-08-04：「文字が重ならないなら縦書きにしてほしい」）。.kanbun-boxのline-height/
+     letter-spacingを広めに確保済み（2026-08-04の別修正）なので、1〜4文字程度の注記は
+     縦書きのままでも上下の文字と重ならない。letter-spacingは継承されるプロパティなので、
+     本文側の広い字間をそのまま引き継ぐと注記の文字どうしの間隔まで不必要に広がってしまう
+     （実測で発覚）ため、注記側は明示的にnormalへ戻す。 */
   .kb-ok{
     position:absolute; right:-.3em; bottom:.1em;
-    writing-mode: horizontal-tb; text-orientation: mixed; letter-spacing:normal;
-    font-size:.4em; color:var(--sub); line-height:1.15; white-space:nowrap;
+    letter-spacing:normal;
+    font-size:.4em; color:var(--sub); line-height:1.05; white-space:nowrap;
   }
-  /* 5文字以上の長い送り仮名（「ザルガゴトクニシテ」等の決まり文句をまとめて添えた場合）は、
-     1行のまま横に伸ばすと隣の文字列や版面の外まではみ出すため、幅を狭くして2〜3行に
-     折り返す（2026-08-04、教員の指摘：字間を広げるなどして重なりを調整）。 */
+  /* 5文字以上の長い送り仮名（「ザルガゴトクニシテ」等の決まり文句をまとめて添えた場合）だけは、
+     縦書きのままだと高さが伸びて上下の文字と重なってしまうため、横書き（writing-mode:
+     horizontal-tb）に切り替えたうえで折り返す（2026-08-04、教員の指摘。「重なるなら横書きでよい」
+     との指示どおり、重なりが実際に起きる長い注記だけを例外的に横書きにする）。 */
   .kb-ok.kb-long{
+    writing-mode: horizontal-tb; text-orientation: mixed;
     font-size:.3em; white-space:normal; max-width:3em; text-align:right; right:-.35em;
   }
   .kb-mark{
     position:absolute; left:-.3em; bottom:.1em;
-    writing-mode: horizontal-tb; text-orientation: mixed; letter-spacing:normal;
-    font-size:.46em; color:var(--accent); font-weight:bold; line-height:1; white-space:nowrap;
+    letter-spacing:normal;
+    font-size:.46em; color:var(--accent); font-weight:bold; line-height:1.05; white-space:nowrap;
   }
   .kanbun-mini{
     writing-mode: vertical-rl; text-orientation: upright;
@@ -917,7 +917,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.93</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.94</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -981,7 +981,7 @@ function subInstructionHtml(cat, it){
    どちらも字のすぐ下に小さく添える。 */
 function kanbunCharsHtml(kb){
   return kb.map(c => {
-    const okLong = c.ok && c.ok.length >= 5 ? " kb-long" : "";
+    const okLong = c.ok && c.ok.length >= 4 ? " kb-long" : "";
     const ok = c.ok ? `<span class="kb-ok${okLong}">${esc(c.ok)}</span>` : "";
     const mark = c.mark ? `<span class="kb-mark">${esc(c.mark)}</span>` : "";
     return `<span class="kb-char">${esc(c.ch)}${ok}${mark}</span>`;
@@ -3957,8 +3957,9 @@ const GROUP_UNLOCK_CATS = CAT_KEYS;
    kanbun:2＝返り点・書き下し文の応用問題78問を追加し、lv1〜11の11段階に難度を再設計
    （2026-08-04、[[kokugo-drill-dx-workflow]]参照）。
    kanbun:3＝「所」の一レ点欠落・送り仮名の重複表記（使/所/如/可/之）・助字の送り仮名を
-   ひらがなに変更（不/之）を修正（2026-08-04、教員の指示で問題解放率と解放のお祝いをリセット）。 */
-const CAT_POOL_VERSION = { kanbun: 3 };
+   ひらがなに変更（不/之）を修正（2026-08-04、教員の指示で問題解放率と解放のお祝いをリセット）。
+   kanbun:4＝元資料の誤り「三人行へば」→「三人行けば」を修正（2026-08-04）。 */
+const CAT_POOL_VERSION = { kanbun: 4 };
 let _catGroupsCache = {};
 /* 各ジャンルの問題を8問ずつの小グループに分割する。既存のlv（難易度）フィールドの昇順で並べ、
    同lv内はデータ配列の元の順序を保つ（＝難易度が近い問題同士がまとまる）。端数は最終グループが
