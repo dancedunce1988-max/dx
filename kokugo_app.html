@@ -896,7 +896,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.88</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.89</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3689,23 +3689,31 @@ function kweEndSession(){
    （st.cats・st.lv・st.diffLv・kotonohaには一切触れない）。ただしkanji_write系の
    自己評価制とは異なり、正誤は自動採点で判定する（選んだ選択肢と正解indexの一致で判定）。
    クイズ問題は1問ずつ手作業で用意するのではなく、100首の構造化データから複数の出題形式
-   （上の句→下の句・下の句→上の句・作者・意味・出典・表現技法）を自動生成する。
+   （上の句→下の句・上の句の決まり字→下の句・意味・表現技法・作者・出典）を自動生成する。
    こうすることで、100首のデータさえ正確なら出題内容も自動的に正確になり、
-   生データとクイズデータを別々に二重管理するリスクを避けられる。 */
+   生データとクイズデータを別々に二重管理するリスクを避けられる。
+   「下の句→上の句を当てる」「上の句全体→下の句を当てる」の2形式は実質同じ問題になるため、
+   前者(shimo2kami)は廃止し「上の句の決まり字→下の句」に差し替えた（教員の指示、2026-08-04）。
+   決まり字はkanaフィールドから自動計算する（hyaKimarijiMap参照）。 */
 function hiData(){ return window.HYAKUNIN_ISSHU_DATA || []; }
 const HYAKUNIN_THEMES = ["春","夏","秋","冬","恋","その他"];
-const HYAKUNIN_MAX_LV = 3;
-const HYAKUNIN_QTYPE_LV = {kami2shimo:1, author:1, meaning:2, shimo2kami:2, source:3, technique:3};
+/* 出題形式ごとのlvは、①hyaGroups()での8問グループの並び順（昇順）、②hyaDifficultyWeightでの
+   適応的難度調整の目標レベル、の両方を兼ねる。教員の指示（2026-08-04）で解放順を
+   「上の句全体→上の句の決まり字→意味→表現技法→作者→出典」に再設計したため、6種類に
+   1つずつ別のlvを割り当てて完全に順番どおりに並ぶようにしている（従来は2種類で1つのlvを
+   共有し、大雑把な3段階「入門/中級/上級」の目安だけを表していた）。 */
+const HYAKUNIN_MAX_LV = 6;
+const HYAKUNIN_QTYPE_LV = {kami2shimo:1, kimariji2shimo:2, meaning:3, technique:4, author:5, source:6};
 const HYAKUNIN_QTYPE_INSTR = {
-  kami2shimo: "次の上の句に続く、正しい下の句を選んでください。",
-  shimo2kami: "次の下の句につながる、正しい上の句を選んでください。",
-  author:     "次の歌の作者として正しいものを選んでください。",
-  meaning:    "次の歌の意味として正しいものを選んでください。",
-  source:     "次の歌の出典（のっている歌集）として正しいものを選んでください。",
-  technique:  "この歌に使われている表現技法として、最もあてはまるものを選んでください。",
+  kami2shimo:      "次の上の句に続く、正しい下の句を選んでください。",
+  kimariji2shimo:  "次は、上の句の「決まり字」（読み上げられた時点でこの歌だと決まる最初の部分）です。続く下の句を選んでください。",
+  author:          "次の歌の作者として正しいものを選んでください。",
+  meaning:         "次の歌の意味として正しいものを選んでください。",
+  source:          "次の歌の出典（のっている歌集）として正しいものを選んでください。",
+  technique:       "この歌に使われている表現技法として、最もあてはまるものを選んでください。",
 };
 const HYAKUNIN_QTYPE_BADGE = {
-  kami2shimo:"上の句→下の句", shimo2kami:"下の句→上の句", author:"作者",
+  kami2shimo:"上の句→下の句", kimariji2shimo:"決まり字→下の句", author:"作者",
   meaning:"歌の意味", source:"出典", technique:"表現技法",
 };
 /* 表現技法名の読み方（一覧モードのタグ表示用）。技法名そのもの（p.technique配列の値）は
@@ -3740,6 +3748,39 @@ function hyaExplain(p){
   const highlightLine = p.highlight ? `\nこの歌が評価されているところ：${p.highlight}` : "";
   return `${p.no}番　${hyaFullPoemMarked(p)}\n${kanaLine}作者：${authorLine}　｜　出典：${sourceLine}\n${p.meaning}${techLine}${highlightLine}`;
 }
+/* 「決まり字」（読み上げを聞いた時点で、他の99首と区別がつく最初の部分）を、100首の読み(kana)から
+   自動計算する。歌かるたの決まり字は表記ではなく音（読み）で決まるため、比較には歴史的仮名遣いを
+   実際の発音に正規化した文字列を使うが、実際に画面へ表示する文字列は正規化前（原文どおり）の
+   ひらがなを使う（正規化は文字数を変えない置き換えのみ＝を→お・ゐ→い・ゑ→え・あふ→おお・
+   おほ→おおなので、同じ文字数だけ原文から切り出せば表示と比較判定がずれない）。
+   この3種の正規化規則だけで、実際の競技かるたの決まり字数の公式分布（1字7・2字42・3字37・
+   4字6・5字2・6字6首）と完全一致することをNode.jsで検証済み（1字決まりの7首「むすめふさほせ」も
+   一致）。 */
+let _hyaKimarijiCache = null;
+function hyaKamiKana(p){ return (p.kana||"").split("　").slice(0,3).join(""); }
+function hyaNormalizeKana(s){
+  return s.replace(/あふ/g,"おお").replace(/おほ/g,"おお").replace(/を/g,"お").replace(/ゐ/g,"い").replace(/ゑ/g,"え");
+}
+function hyaKimarijiMap(){
+  if(_hyaKimarijiCache) return _hyaKimarijiCache;
+  const poems = hiData();
+  const kamis = poems.map(hyaKamiKana);
+  const norms = kamis.map(hyaNormalizeKana);
+  const map = {};
+  poems.forEach((p,i)=>{
+    let L = 1;
+    while(L < norms[i].length){
+      const pre = norms[i].slice(0,L);
+      const clash = norms.some((n,j) => j!==i && n.slice(0,L)===pre);
+      if(!clash) break;
+      L++;
+    }
+    map[p.no] = kamis[i].slice(0, L);
+  });
+  _hyaKimarijiCache = map;
+  return map;
+}
+function hyaKimariji(p){ return hyaKimarijiMap()[p.no] || hyaKamiKana(p); }
 /* poolの中からcorrect以外をn個、重複なくランダムに選ぶ。足りなければnullを返す（出題を作らない） */
 function hyaDistractors(pool, correct, n){
   const cand = [];
@@ -3763,7 +3804,6 @@ function hyaPool(){
   const items = [];
   if(poems.length >= 5){
     const allShimo = poems.map(p=>p.shimonoku);
-    const allKami = poems.map(p=>p.kaminoku);
     const allAuthors = [...new Set(poems.map(p=>p.author))];
     const allMeanings = poems.map(p=>p.meaning);
     const allSources = [...new Set(poems.map(p=>p.source))];
@@ -3781,9 +3821,9 @@ function hyaPool(){
         });
       };
       push("kami2shimo", p.kaminoku, p.shimonoku, allShimo);
-      push("shimo2kami", p.shimonoku, p.kaminoku, allKami);
-      push("author", hyaFullPoem(p), p.author, allAuthors);
+      push("kimariji2shimo", hyaKimariji(p) + "……", p.shimonoku, allShimo);
       push("meaning", hyaFullPoem(p), p.meaning, allMeanings);
+      push("author", hyaFullPoem(p), p.author, allAuthors);
       push("source", hyaFullPoem(p), p.source, allSources);
       /* 技法の誤答選択肢は、その歌が実際に持つ技法（p.technique）を全て除いたプールから選ぶ。
          「枕詞・掛詞・体言止め」のように1首に複数の技法がある歌で、正解にしなかった側の技法
@@ -4139,7 +4179,7 @@ function hyaAccuracy(st){
 function hyaLv(st){ return 1 + (st.hyakunin.totalOk || 0); }
 function hyaLvLabel(diffLv){
   const g = Math.round(Math.max(1, Math.min(HYAKUNIN_MAX_LV, diffLv)));
-  return ["かるた入門（上の句・作者）", "中級（下の句・意味）", "上級（出典・表現技法）"][g-1];
+  return ["かるた入門（上の句→下の句）", "決まり字（上の句の決まり字→下の句）", "意味", "表現技法", "作者", "出典"][g-1];
 }
 /* 自動採点だが、record()は呼ばずst.hyakunin専用の記録だけを行う（分野レベルst.lvには一切触れない。
    経験値st.hyakuninBonusExpへの加算とそれ経由のステータスポイント反映はある、上のkotonohaTotalXP
@@ -4200,7 +4240,7 @@ function showHyakuninMenu(){
     </div>
     <div class="card menu-card" onclick="startHyakuninQuiz()">
       <div class="menu-icon">🎯</div>
-      <div><h2>クイズモード</h2><p>上の句→下の句・作者・意味・出典・表現技法などを四択で出題</p></div>
+      <div><h2>クイズモード</h2><p>上の句→下の句・決まり字→下の句・意味・表現技法・作者・出典を四択で出題</p></div>
       <div class="right"><span class="shogo-badge">🎴 Lv.${hyaLv(st)}</span></div>
     </div>
     <p class="note">${esc(accHtml)}</p>
