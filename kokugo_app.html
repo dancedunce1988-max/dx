@@ -95,6 +95,11 @@
     padding:0 1px;
   }
   .choices{display:flex; flex-direction:column; gap:10px;}
+  /* 漢文の返り点選択問題（ckb）で、白文が長い（上下点＋レ点混在など9〜11字）場合、
+     選択肢を縦書きの4択のまま縦に並べると画面が非常に長くなってしまう。該当する場合だけ
+     .choices-kanbun-rowを付与し、横に並べて折り返す（教員の指摘、2026-08-04）。 */
+  .choices.choices-kanbun-row{ flex-direction:row; flex-wrap:wrap; }
+  .choices.choices-kanbun-row .choice{ flex:0 0 auto; }
   .choice{
     text-align:left; background:var(--card); border:2px solid var(--line);
     border-radius:10px; padding:12px 16px; font-size:.98rem; cursor:pointer;
@@ -912,7 +917,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.92</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.93</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -990,6 +995,11 @@ function kanbunBoxHtml(kb){
 function kanbunMiniHtml(kb){
   if(!kb) return "";
   return `<span class="kanbun-mini">${kanbunCharsHtml(kb)}</span>`;
+}
+/* it.ckbの白文が長い（9〜11字など）問題は、選択肢を縦書きのまま縦に4つ積むと画面が
+   非常に長くなるため、横に並べて折り返す専用クラスを付与する（教員の指摘、2026-08-04）。 */
+function choicesClass(it){
+  return (it.ckb && it.ckb[0] && it.ckb[0].length >= 7) ? " choices-kanbun-row" : "";
 }
 
 /* 称号（分野ごと。上にいくほど間隔が広く、昇格が難しい） */
@@ -3283,7 +3293,7 @@ function renderQuestion(){
   }else{
     quiz.order = shuffledOrder(it.c.length);
     answerArea = `
-      <div class="choices">
+      <div class="choices${choicesClass(it)}">
         ${quiz.order.map((oi,pos)=>`<button class="choice" onclick="answerChoice(${oi})"><span class="choice-num">${pos+1}</span>${it.ckb ? kanbunMiniHtml(it.ckb[oi]) : esc(it.c[oi])}</button>`).join("")}
       </div>`;
     setupChoiceKeys(pos => answerChoice(quiz.order[pos]), it.c.length);
@@ -3945,8 +3955,10 @@ const GROUP_UNLOCK_CATS = CAT_KEYS;
    グループの中身が大きく変わるような更新をしたジャンルだけ、ここに値を書いて1つずつ
    上げていく（値を書かないジャンル＝0のままは、これまで通りリセット対象外）。
    kanbun:2＝返り点・書き下し文の応用問題78問を追加し、lv1〜11の11段階に難度を再設計
-   （2026-08-04、[[kokugo-drill-dx-workflow]]参照）。 */
-const CAT_POOL_VERSION = { kanbun: 2 };
+   （2026-08-04、[[kokugo-drill-dx-workflow]]参照）。
+   kanbun:3＝「所」の一レ点欠落・送り仮名の重複表記（使/所/如/可/之）・助字の送り仮名を
+   ひらがなに変更（不/之）を修正（2026-08-04、教員の指示で問題解放率と解放のお祝いをリセット）。 */
+const CAT_POOL_VERSION = { kanbun: 3 };
 let _catGroupsCache = {};
 /* 各ジャンルの問題を8問ずつの小グループに分割する。既存のlv（難易度）フィールドの昇順で並べ、
    同lv内はデータ配列の元の順序を保つ（＝難易度が近い問題同士がまとまる）。端数は最終グループが
@@ -4785,7 +4797,7 @@ function renderBattle(){
   }else{
     battle.order = shuffledOrder(it.c.length);
     answerArea = `
-      <div class="choices">
+      <div class="choices${choicesClass(it)}">
         ${battle.order.map((oi,pos)=>`<button class="choice" onclick="battleAnswerChoice(${oi})"><span class="choice-num">${pos+1}</span>${it.ckb ? kanbunMiniHtml(it.ckb[oi]) : esc(it.c[oi])}</button>`).join("")}
       </div>`;
   }
@@ -6359,7 +6371,7 @@ function renderBossBattle(){
   }else{
     b.order = shuffledOrder(it.c.length);
     answerArea = `
-      <div class="choices">
+      <div class="choices${choicesClass(it)}">
         ${b.order.map((oi,pos)=>{
           const eliminated = oi === b.eliminatedChoice;
           return `<button class="choice${eliminated ? " dim" : ""}" ${eliminated ? "disabled" : ""} onclick="bossAnswerChoice(${oi})"><span class="choice-num">${pos+1}</span>${it.ckb ? kanbunMiniHtml(it.ckb[oi]) : esc(it.c[oi])}${eliminated ? "（消去済み）" : ""}</button>`;
