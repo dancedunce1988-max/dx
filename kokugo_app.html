@@ -896,7 +896,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.90</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.91</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -1207,11 +1207,33 @@ function loadStats(){
             if(rec.questionsUntilReview === undefined) rec.questionsUntilReview = null;
           });
         });
+        if(!st.groupUnlock) st.groupUnlock = {};
+        /* ジャンルの出題プール構成（lv割り当て・問題の追加削除）を大きく変えたときに、そのジャンルだけ
+           問題解放率を強制的にグループ1（ほぼ0%）へ巻き戻すための、カテゴリ別バージョン管理
+           （CAT_POOL_VERSION、百人一首のHYAKUNIN_POOL_VERSIONと同じ考え方。教員の指示、2026-08-04：
+           「問題を挿入した場合には0%から再スタートする設計に」）。値を書いていないカテゴリは
+           バージョン0として扱う。この管理自体を初めて導入したタイミング（st.catPoolVersion[cat]が
+           まだ無い）では、それまで通り運用されてきたジャンル（CAT_POOL_VERSIONに値が無い＝0のまま）
+           まで巻き込んでリセットしないよう、want>0（＝このタイミングで実際にプールを変えたジャンル）
+           のときだけリセットする。 */
+        if(!st.catPoolVersion) st.catPoolVersion = {};
+        GROUP_UNLOCK_CATS.forEach(cat => {
+          const want = CAT_POOL_VERSION[cat] || 0;
+          const had = st.catPoolVersion[cat];
+          if(had === undefined){
+            if(want > 0) st.groupUnlock[cat] = 1;
+            st.catPoolVersion[cat] = want;
+          }else if(had !== want){
+            st.groupUnlock[cat] = 1;
+            st.catPoolVersion[cat] = want;
+          }
+        });
         /* 8問グループの段階的アンロック導入（2026-08-01〜）：既存の正誤履歴(st.q)から初期の
            unlockedGroupCountを一回限り算出する（全員グループ1からやり直しにはしない）。
            GROUP_UNLOCK_CATSを今後広げたときも、st.groupUnlockにまだ無いジャンルだけが
-           ここで新たに算出されるので、同じマイグレーション処理をそのまま使い回せる。 */
-        if(!st.groupUnlock) st.groupUnlock = {};
+           ここで新たに算出されるので、同じマイグレーション処理をそのまま使い回せる
+           （上のCAT_POOL_VERSIONによるリセット対象になったジャンルは、groupUnlock[cat]が
+           既に1という数値になっているため、ここではもう再算出されない）。 */
         GROUP_UNLOCK_CATS.forEach(cat => {
           if(typeof st.groupUnlock[cat] !== "number") st.groupUnlock[cat] = migrateInitialGroupUnlock(st, cat);
         });
@@ -3902,6 +3924,12 @@ function fastUnlockEligible(st, cat){
 /* 段階的アンロックの対象ジャンル。品詞(hinshi)でのパイロット動作確認（vmハーネスでの
    自動テスト、2026-08-01）が完了したため、全20ジャンルへ展開した（百人一首はhyaGroups系で別途対応）。 */
 const GROUP_UNLOCK_CATS = CAT_KEYS;
+/* カテゴリ別の出題プール世代（loadStats()参照）。出題形式の追加・削除・lvの再設計など、
+   グループの中身が大きく変わるような更新をしたジャンルだけ、ここに値を書いて1つずつ
+   上げていく（値を書かないジャンル＝0のままは、これまで通りリセット対象外）。
+   kanbun:2＝返り点・書き下し文の応用問題78問を追加し、lv1〜11の11段階に難度を再設計
+   （2026-08-04、[[kokugo-drill-dx-workflow]]参照）。 */
+const CAT_POOL_VERSION = { kanbun: 2 };
 let _catGroupsCache = {};
 /* 各ジャンルの問題を8問ずつの小グループに分割する。既存のlv（難易度）フィールドの昇順で並べ、
    同lv内はデータ配列の元の順序を保つ（＝難易度が近い問題同士がまとまる）。端数は最終グループが
