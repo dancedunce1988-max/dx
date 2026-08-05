@@ -1406,7 +1406,7 @@ function record(cat, item, correct, elapsedMs, opts){
   /* st.recentCorrect[cat]・fastGuessが確定した直後に呼ぶ（高速解放モードの判定に両方使うため、
      st.q更新の直後だった旧位置から移動した、2026-08-02〜） */
   const pctBeforeUnlock = catUnlockedQuestionPct(st, cat);
-  const groupJustUnlocked = checkGroupUnlock(st, cat, correct, fastGuess);
+  const groupJustUnlocked = checkGroupUnlock(st, cat, item, correct, fastGuess);
   /* お祝い演出用（2026-08-03〜）。実際の経験値はtotalEarnedStatPoints/kotonohaTotalXP側が
      totalUnlockCelebrationExpで毎回その場で計算するので、ここでは表示に使う「今回新しく
      跨いだマイルストーン」だけを求める。 */
@@ -3906,15 +3906,24 @@ function hyaPool(){
 }
 
 /* ================= 段階的アンロック（ジャンル非依存の汎用判定＋百人一首固有部分） =================
-   「対象キー群が全てstreakThreshold回以上連続正解」かつ「進捗の正答率がaccThreshold以上」の
-   両方を満たしたら次のグループを解禁してよい、という判定だけを行う汎用エンジン。グループの
-   定義方法（決まり字・頻度ランクなど）や進捗の保存場所はジャンル側の責務（将来、他ジャンルにも
-   同じ判定ロジックを再利用できるようにするための最小限の分離。過度な抽象化はしない）。 */
+   「対象キー群のうちquorum個以上がstreakThreshold回以上連続正解」かつ「直近の正答率(recentWindow)
+   がaccThreshold以上」の両方を満たしたら次のグループを解禁してよい、という判定だけを行う汎用エンジン。
+   グループの定義方法（決まり字・頻度ランクなど）や進捗の保存場所はジャンル側の責務（将来、他ジャンルにも
+   同じ判定ロジックを再利用できるようにするための最小限の分離。過度な抽象化はしない）。
+   2026-08-05〜：教員とのシミュレーション検証を経て、以下2点を変更。
+   ①「8問全て」→「quorum個以上」に緩和（8問同時にstreakThreshold回以上を要求すると、実力が
+   ちょうど境界あたり(グループ内の実質的な正答率が7〜8割弱程度)の生徒では、統計的にほぼ揃わず
+   長時間詰まるリスクがあった。詳細は[[kokugo-drill-dx-workflow]]参照）。
+   ②正答率の判定を「そのグループの全期間累計(t,c)」→「そのグループに対する直近N問(recentWindow)」
+   に変更。累計だと、実力が長期的にaccThreshold未満の生徒は大数の法則で理論上永久に到達不可能に
+   なってしまう（後から実力が伸びても、初期の不正解が累計を汚したままなので救われない）。直近N問なら
+   古い不正解が窓から外れていくので、後から実力が伸びれば追いつける。 */
 const UnlockEngine = {
-  isGroupCleared(unitKeys, streakMap, progress, streakThreshold, accThreshold){
-    if(!unitKeys.every(k => (streakMap[k]||0) >= streakThreshold)) return false;
-    if(!progress || progress.t <= 0) return false;
-    return (progress.c / progress.t) >= accThreshold;
+  isGroupCleared(unitKeys, streakMap, recentWindow, streakThreshold, accThreshold, quorum){
+    const streakedCount = unitKeys.reduce((n,k) => n + ((streakMap[k]||0) >= streakThreshold ? 1 : 0), 0);
+    if(streakedCount < quorum) return false;
+    if(!recentWindow || recentWindow.length === 0) return false;
+    return (recentWindow.reduce((a,b)=>a+b,0) / recentWindow.length) >= accThreshold;
   }
 };
 
@@ -3926,8 +3935,10 @@ const UnlockEngine = {
    UnlockEngineを流用しつつ、hyaGroups系として個別に実装している（決まり字グループ方式(旧、
    2026-07-31〜)からの移行、2026-08-01〜）。 */
 const GROUP_SIZE = 8;
-const GROUP_UNLOCK_STREAK = 3;
+const GROUP_UNLOCK_STREAK = 2;   // 2026-08-05〜：3→2に緩和（下のGROUP_UNLOCK_QUORUMの変更とセット）
+const GROUP_UNLOCK_QUORUM = 6;   // 2026-08-05〜：GROUP_SIZE(8問)中、streak要件を満たす必要がある最低数
 const GROUP_UNLOCK_ACC = 0.8;
+const GROUP_RECENT_WINDOW = 30;  // 2026-08-05〜：正答率判定を、そのグループへの直近この件数の解答で見る（全期間累計ではない）
 /* 高速解放モード（2026-08-02〜、教員の指示）。漢字の読み(5489問・687グループ)のように問題数が
    極端に多いジャンルだと、実力的には簡単すぎる生徒でも「8問ずつ・各問3連続正解」という通常の
    グループ判定に律儀に付き合わされ、解放のペースが遅くストレスになる。直近30問（st.recentCorrect、
@@ -4031,32 +4042,42 @@ function activeGroupPool(st, cat){
   if(count >= groups.length) return null;
   return groups[count - 1].indices.map(i => CATS[cat].items[i]);
 }
-/* 現在アクティブなグループの解禁条件（グループ内正答率80%以上 かつ 各問題3連続正解）を
+/* 現在アクティブなグループの解禁条件（8問中GROUP_UNLOCK_QUORUM問以上がGROUP_UNLOCK_STREAK回以上
+   連続正解 かつ そのグループへの直近GROUP_RECENT_WINDOW問の正答率がGROUP_UNLOCK_ACC以上）を
    満たしていれば、unlockedGroupCountを1つ進める。record()内、st.recentCorrect/fastGuessの
    確定後に呼ぶ（fastUnlockEligible判定にst.recentCorrect[cat]の最新状態が要るため）。
-   streak・正答率はst.qからその場で導出するだけで、専用の記録は持たない。
-   correct/fastGuessは、高速解放モード（上のFAST_UNLOCK_*参照）の判定にだけ使う。 */
-function checkGroupUnlock(st, cat, correct, fastGuess){
+   streakはst.qからその場で導出するだけで専用の記録を持たないが、正答率だけは「そのグループの
+   問題に対する解答か」を問わないと直近N問を数えられないため、st.groupRecent[cat]という専用の
+   ローリング窓を新設した（2026-08-05〜）。グループが進むたびにリセットする（前のグループの
+   出来が次のグループの判定に影響しないように）。
+   item：今回答えた問題（st.groupRecentの更新に使う）。correct/fastGuessは、高速解放モード
+   （上のFAST_UNLOCK_*参照）の判定にも使う。 */
+function checkGroupUnlock(st, cat, item, correct, fastGuess){
   if(!GROUP_UNLOCK_CATS.includes(cat)) return false;
   const groups = catGroups(cat);
   const idx = catUnlockedGroupCount(st, cat) - 1;
   if(idx >= groups.length - 1) return false; // 既に全解禁
+  const cur = groups[idx];
+  if(cur.keys.includes(qKey(cat, item.q))){
+    if(!st.groupRecent) st.groupRecent = {};
+    const rec = (st.groupRecent[cat] || []).slice();
+    rec.push(correct ? 1 : 0);
+    while(rec.length > GROUP_RECENT_WINDOW) rec.shift();
+    st.groupRecent[cat] = rec;
+  }
   if(correct && !fastGuess && fastUnlockEligible(st, cat)){
     if(!st.groupUnlock) st.groupUnlock = {};
     st.groupUnlock[cat] = catUnlockedGroupCount(st, cat) + 1;
+    if(st.groupRecent) st.groupRecent[cat] = [];
     return true;
   }
-  const cur = groups[idx];
   const streakMap = {};
-  let t = 0, c = 0;
-  cur.keys.forEach(k => {
-    const rec = st.q[k];
-    streakMap[k] = rec ? (rec.k||0) : 0;
-    if(rec){ t += rec.t; c += rec.c; }
-  });
-  if(UnlockEngine.isGroupCleared(cur.keys, streakMap, {t,c}, GROUP_UNLOCK_STREAK, GROUP_UNLOCK_ACC)){
+  cur.keys.forEach(k => { const rec = st.q[k]; streakMap[k] = rec ? (rec.k||0) : 0; });
+  const recentWindow = (st.groupRecent && st.groupRecent[cat]) || [];
+  if(UnlockEngine.isGroupCleared(cur.keys, streakMap, recentWindow, GROUP_UNLOCK_STREAK, GROUP_UNLOCK_ACC, GROUP_UNLOCK_QUORUM)){
     if(!st.groupUnlock) st.groupUnlock = {};
     st.groupUnlock[cat] = catUnlockedGroupCount(st, cat) + 1;
+    st.groupRecent[cat] = [];
     return true;
   }
   return false;
@@ -4208,29 +4229,36 @@ function hyaFastUnlockEligible(st){
   const misses = recent.reduce((n,v) => n + (v ? 0 : 1), 0);
   return misses <= FAST_UNLOCK_MAX_MISSES;
 }
-/* 現在アクティブなグループの解禁条件（グループ内正答率80%以上 かつ 各問題3連続正解）を
+/* 現在アクティブなグループの解禁条件（8問中GROUP_UNLOCK_QUORUM問以上がGROUP_UNLOCK_STREAK回以上
+   連続正解 かつ そのグループへの直近GROUP_RECENT_WINDOW問の正答率がGROUP_UNLOCK_ACC以上）を
    満たしていれば、st.groupUnlock.hyakuninを1つ進める。hyaRecord内、st.hyakunin.recent更新の
    直後に呼ぶ（hyaFastUnlockEligible判定にst.hyakunin.recentの最新状態が要るため）。
-   streak・正答率はitemHistからその場で導出するだけで、20分野同様に専用の記録は持たない。
-   correctは、高速解放モードの判定にだけ使う。 */
-function hyaCheckGroupUnlock(st, correct){
+   streakはitemHistからその場で導出するだけだが、正答率は20分野側と同じ理由でst.hyaGroupRecent
+   という専用のローリング窓を新設した（2026-08-05〜、詳細はcheckGroupUnlockのコメント参照）。
+   idは今回答えた首（st.hyaGroupRecentの更新に使う）。correctは、高速解放モードの判定にも使う。 */
+function hyaCheckGroupUnlock(st, id, correct){
   const groups = hyaGroups();
   const idx = hyaUnlockedGroupCount(st) - 1;
   if(idx >= groups.length - 1) return false; // 既に全解禁
+  const cur = groups[idx];
+  if(cur.ids.includes(id)){
+    if(!st.hyaGroupRecent) st.hyaGroupRecent = [];
+    const rec = st.hyaGroupRecent.slice();
+    rec.push(correct ? 1 : 0);
+    while(rec.length > GROUP_RECENT_WINDOW) rec.shift();
+    st.hyaGroupRecent = rec;
+  }
   if(correct && hyaFastUnlockEligible(st)){
     if(!st.groupUnlock) st.groupUnlock = {};
     st.groupUnlock.hyakunin = hyaUnlockedGroupCount(st) + 1;
+    st.hyaGroupRecent = [];
     return true;
   }
-  const cur = groups[idx];
   const streakMap = {};
-  let t = 0, c = 0;
-  cur.ids.forEach(id => {
-    const rec = st.hyakunin.itemHist[id];
-    streakMap[id] = rec ? (rec.k||0) : 0;
-    if(rec){ t += rec.t; c += rec.c; }
-  });
-  if(UnlockEngine.isGroupCleared(cur.ids, streakMap, {t,c}, GROUP_UNLOCK_STREAK, GROUP_UNLOCK_ACC)){
+  cur.ids.forEach(itemId => { const rec = st.hyakunin.itemHist[itemId]; streakMap[itemId] = rec ? (rec.k||0) : 0; });
+  const recentWindow = st.hyaGroupRecent || [];
+  if(UnlockEngine.isGroupCleared(cur.ids, streakMap, recentWindow, GROUP_UNLOCK_STREAK, GROUP_UNLOCK_ACC, GROUP_UNLOCK_QUORUM)){
+    st.hyaGroupRecent = [];
     if(!st.groupUnlock) st.groupUnlock = {};
     st.groupUnlock.hyakunin = hyaUnlockedGroupCount(st) + 1;
     return true;
@@ -4322,7 +4350,7 @@ function hyaRecord(it, correct){
   /* st.hyakunin.recentが確定した直後に呼ぶ（高速解放モードの判定に使うため、旧位置=recent更新前
      から移動した、2026-08-02〜） */
   const pctBeforeUnlock = hyaUnlockedQuestionPct(st);
-  const groupJustUnlocked = hyaCheckGroupUnlock(st, correct);
+  const groupJustUnlocked = hyaCheckGroupUnlock(st, it.id, correct);
   const celebrateMilestones = groupJustUnlocked
     ? crossedUnlockMilestones(pctBeforeUnlock, hyaUnlockedQuestionPct(st))
     : [];
