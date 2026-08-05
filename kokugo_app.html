@@ -917,7 +917,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.106</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.108</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -2734,10 +2734,16 @@ function kotonohaRebirthSectionHtml(st){
     return `<p class="note kotonoha-rebirth-note">🔁 もう一度転生して育て直すには、今の${esc(KOTONOHA_IMAGE_LINE_LABEL[st.kotonohaRebirth.line])}が「${esc(KOTONOHA_IMAGE_STAGE_LABEL[KOTONOHA_YOUTH_STAGE_IDX])}」まで育っている必要があります（現在：${esc(KOTONOHA_IMAGE_STAGE_LABEL[curStage])}）。</p>`;
   }
   const seedCount = (st.items && st.items[REBIRTH_SEED_ITEM]) || 0;
+  /* 種を持っている状態でストーリー第9章のクライマックス（kotonohaRebirthReveal）を再攻略すると、
+     ボタン経由と同じkotonohaDoRebirth()がそのまま実行され転生イベントが発生する（storyRenderKotonohaRebirthReveal参照）。
+     この案内（※行）は種の有無にかかわらず常に表示するが、種をまだ持っていないときだけ
+     入手方法の説明も合わせて表示する（教員の指示、2026-08-06〜）。 */
+  const rebirthReplayNote = `<p class="note kotonoha-rebirth-note">※「${esc(REBIRTH_SEED_ITEM)}」を持った状態でストーリーモード第９章を再度攻略すると、転生イベントが発生します。</p>`;
   if(seedCount <= 0){
-    return `<p class="note kotonoha-rebirth-note">🔁 もう一度転生して育て直すには「${esc(REBIRTH_SEED_ITEM)}」が必要です（所持数：0）。デイリーログイン報酬の7日目で手に入ります。</p>`;
+    const cycleDay = (st.dailyLogin && st.dailyLogin.cycleDay) || 0;
+    return `<p class="note kotonoha-rebirth-note">🔁 もう一度転生するためには、「${esc(REBIRTH_SEED_ITEM)}」が必要です（所持数：0）。デイリーログイン報酬の7日目で手に入ります（現在${cycleDay}日目）。</p>${rebirthReplayNote}`;
   }
-  return `<div class="btn-row" style="margin-top:10px"><button class="btn inline secondary" onclick="showKotonohaRebirthConfirm()">🔁 転生の種を使って育て直す（所持：${seedCount}）</button></div>`;
+  return `<div class="btn-row" style="margin-top:10px"><button class="btn inline secondary" onclick="showKotonohaRebirthConfirm()">🔁 転生の種を使って育て直す（所持：${seedCount}）</button></div>${rebirthReplayNote}`;
 }
 /* これまでに到達したことのある「すがた」の中から、表示するすがたを選べる画面。
    経験値や進化そのものには影響しない、見た目だけの変更。 */
@@ -2844,6 +2850,16 @@ function itemLinkHtml(st){
     <a href="#" onclick="showItemCollection(); return false;">🎒 これまで獲得したアイテムを見る（${count}コ）</a>
   </p>`;
 }
+/* ホーム画面で「デイリーログイン報酬が今サイクルの何日目か」を確認できるようにする、
+   目立たない一行の表示（教員の指示、2026-08-06〜）。専用の派手なUIは作らず、既存の
+   itemLinkHtmlと同じ右寄せnote行のパターンに合わせる。 */
+function dailyLoginProgressHtml(st){
+  const cycleDay = (st.dailyLogin && st.dailyLogin.cycleDay) || 0;
+  if(cycleDay <= 0) return "";
+  return `<p class="note" style="text-align:right; margin:-6px 2px 14px;">
+    📅 デイリーログイン ${cycleDay}日目 / ${DAILY_LOGIN_CYCLE}日目${cycleDay < DAILY_LOGIN_CYCLE ? `（あと${DAILY_LOGIN_CYCLE - cycleDay}日で🌱転生の種）` : "（🌱転生の種を獲得済み）"}
+  </p>`;
+}
 /* 挑戦チケット：どの分野でも、レベルアップ10回ごとに1枚たまる。使うとランダムなボスとすぐに対戦できる。 */
 function bossTicketHtml(st){
   const n = st.bossTickets || 0;
@@ -2891,6 +2907,7 @@ function showHome(){
   html += notLearnedBtnHtml(st);
   html += bossTicketHtml(st);
   html += itemLinkHtml(st);
+  html += dailyLoginProgressHtml(st);
   (DATA.groups || [{name:"分野", keys:CAT_KEYS}]).forEach(g=>{
     html += `<h3 class="section">${esc(g.name)}</h3>`;
     g.keys.forEach(key=>{
