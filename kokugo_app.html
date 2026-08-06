@@ -704,6 +704,71 @@
   @keyframes kotonohaEvolveFlash{
     0%{ opacity:0; } 25%{ opacity:1; } 100%{ opacity:1; }
   }
+  /* ことのはの「転生」専用の演出（教員の指示：ド派手にしてほしい、2026-08-07〜）。既存の
+     .kotonoha-evolve-overlayの土台（fixed全画面オーバーレイ）はそのまま使い、この修飾クラスで
+     虹色のリング・カラフルな衝撃波・レインボーのフラッシュ・キラキラ粒子を追加して、通常の
+     進化演出（段階アップ時）よりもう一段盛り上げる。 */
+  .kotonoha-evolve-overlay.kotonoha-rebirth-fx{
+    background:radial-gradient(circle at 50% 45%, rgba(40,20,60,.92) 0%, rgba(4,2,10,.97) 78%);
+    overflow:hidden;
+  }
+  .kotonoha-rebirth-ring{
+    position:absolute; top:50%; left:50%; width:min(60vw,280px); height:min(60vw,280px);
+    border-radius:50%;
+    background:conic-gradient(from 0deg, #ff6a3d, #ffe98a, #4f9c3a, #2b6fd6, #8a5ce0, #ff6a3d);
+    -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 6px));
+    mask:radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 6px));
+    filter:drop-shadow(0 0 18px rgba(255,255,255,.5));
+    animation:kotonohaRebirthRingSpin 2.4s linear infinite;
+  }
+  @keyframes kotonohaRebirthRingSpin{
+    from{ transform:translate(-50%,-50%) rotate(0deg); }
+    to{ transform:translate(-50%,-50%) rotate(360deg); }
+  }
+  .kotonoha-rebirth-charge-img{ position:relative; z-index:1; animation:kotonohaRebirthPulse 1.1s ease infinite; }
+  @keyframes kotonohaRebirthPulse{
+    0%,100%{ transform:scale(1); filter:brightness(1); }
+    50%{ transform:scale(1.06); filter:brightness(1.3); }
+  }
+  .kotonoha-rebirth-charge-text{ position:relative; z-index:1; }
+  .kotonoha-evolve-overlay.kotonoha-rebirth-fx.kotonoha-rebirth-burst{ animation:kotonohaRebirthBurstShake 1s ease; }
+  @keyframes kotonohaRebirthBurstShake{
+    0%{ transform:translate(0,0); box-shadow:inset 0 0 0 rgba(0,0,0,0); }
+    10%{ transform:translate(-12px,5px); box-shadow:inset 0 0 120px rgba(255,106,61,.5); }
+    20%{ transform:translate(11px,-6px); box-shadow:inset 0 0 120px rgba(255,233,138,.5); }
+    30%{ transform:translate(-10px,6px); box-shadow:inset 0 0 120px rgba(79,156,58,.5); }
+    40%{ transform:translate(9px,-5px); box-shadow:inset 0 0 120px rgba(43,111,214,.5); }
+    50%{ transform:translate(-8px,5px); box-shadow:inset 0 0 120px rgba(138,92,224,.5); }
+    60%{ transform:translate(7px,-4px); }
+    70%{ transform:translate(-5px,3px); }
+    80%{ transform:translate(4px,-2px); }
+    90%{ transform:translate(-2px,1px); }
+    100%{ transform:translate(0,0); box-shadow:inset 0 0 0 rgba(0,0,0,0); }
+  }
+  .kotonoha-rebirth-flash{
+    position:absolute; inset:0;
+    background:conic-gradient(from 0deg, #ff6a3d, #ffe98a, #4f9c3a, #2b6fd6, #8a5ce0, #ff6a3d);
+    animation:kotonohaRebirthFlashSweep .55s ease forwards;
+  }
+  @keyframes kotonohaRebirthFlashSweep{
+    0%{ opacity:0; transform:scale(.3) rotate(0deg); }
+    40%{ opacity:1; }
+    100%{ opacity:1; transform:scale(2.4) rotate(90deg); }
+  }
+  .kotonoha-rebirth-sparkle{
+    position:absolute; top:100%; pointer-events:none;
+    animation-name:kotonohaRebirthSparkleFloat; animation-timing-function:ease-out; animation-fill-mode:forwards;
+    filter:drop-shadow(0 0 6px rgba(255,255,255,.85));
+  }
+  @keyframes kotonohaRebirthSparkleFloat{
+    0%{ transform:translateY(0) scale(.6) rotate(0deg); opacity:0; }
+    15%{ opacity:1; }
+    100%{ transform:translateY(-90vh) scale(1.2) rotate(200deg); opacity:0; }
+  }
+  .kotonoha-rebirth-reveal-img{
+    border-color:#ffd76a;
+    box-shadow:0 0 20px rgba(255,215,100,.6), 0 0 60px rgba(255,106,61,.5), 0 0 90px rgba(43,111,214,.4);
+  }
   /* デイリーログイン報酬のスタンプ演出（2026-08-01〜）。ことのはの進化演出と同じ、
      document.body直下の全画面オーバーレイの手法を流用（screen.innerHTMLの作り直しに巻き込まれない）。 */
   .daily-login-stamp-overlay{
@@ -917,7 +982,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.108</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.109</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -2250,14 +2315,15 @@ function kotonohaUnseenRebirthLines(st){
   const seen = st.kotonohaRebirthLinesSeen || [];
   return kotonohaEligibleRebirthLines(st).filter(l => !seen.includes(l));
 }
-/* 「まだなったことがない系統」が1つでも残っていれば、これまでどおり自分では選べず
-   ランダムのまま（初めての系統との出会いは「サプライズ」のまま維持したいという既存の設計思想、
-   [[kotonoha-rebirth-system]]の転生確認画面から系統名の事前開示を削除した経緯を踏襲）。
-   候補に含まれる系統を全て経験済みのときだけ、自分で選べるようにする。 */
-function kotonohaCanChooseRebirthLine(st){
-  const eligible = kotonohaEligibleRebirthLines(st);
-  if(eligible.length === 0) return false;
-  return kotonohaUnseenRebirthLines(st).length === 0;
+/* 今選べる候補のうち、すでに一度なったことがある系統だけ＝転生確認画面で「選んで転生」できる
+   一覧（教員の指示、2026-08-07〜：以前は「候補を全て経験済みのときだけ選べる」という厳しめの
+   条件だったが、「なったことがある系統は、経験済みが1つでもあればいつでも選べる」に緩和した。
+   まだ一度もなったことがない系統は、これまでどおり選択肢に出さずサプライズのランダム抽選のみに
+   残す＝初めての出会いの驚きは維持しつつ、既に出会った系統への「育て直したい」ニーズには
+   いつでも応えられるようにする）。 */
+function kotonohaSeenEligibleRebirthLines(st){
+  const seen = st.kotonohaRebirthLinesSeen || [];
+  return kotonohaEligibleRebirthLines(st).filter(l => seen.includes(l));
 }
 /* 転生する瞬間に系統（卵）をランダムに1つ選ぶ（kotonohaCanChooseRebirthLineがfalseのとき、
    すなわち「まだなったことがない系統」が残っているときに使う）。全領域バランス型の条件を
@@ -2381,23 +2447,7 @@ function storyRenderKotonohaRebirthReveal(){
   sp.flags.ch9RebirthDone = success ? "yes" : "no";
   saveStats(st);
   if(!success){ storyAdvance(); return; }
-  const el = kotonohaEvolveOverlayEl();
-  el.className = "kotonoha-evolve-overlay";
-  el.innerHTML = `<div class="kotonoha-evolve-icon-old">${esc(fromIcon)}</div>`;
-  setTimeout(() => {
-    el.classList.add("kotonoha-evolve-shake");
-    setTimeout(() => {
-      el.className = "kotonoha-evolve-overlay";
-      el.innerHTML = `<div class="kotonoha-evolve-flash"></div>`;
-      setTimeout(() => {
-        const toSrc = kotonohaRebirthImageSrc(st);
-        el.className = "kotonoha-evolve-overlay kotonoha-evolve-clickable";
-        el.innerHTML = `
-          <img class="kotonoha-evolve-img kotonoha-evolve-reveal" src="${toSrc}">
-          <button class="btn" onclick="hideKotonohaEvolveOverlay(); storyAdvance();">つづける</button>`;
-      }, KOTONOHA_EVOLVE_FLASH_MS);
-    }, KOTONOHA_EVOLVE_SHAKE_MS);
-  }, 500);
+  kotonohaRebirthFxSequence(st, null, fromIcon, storyAdvance);
 }
 function kotonohaEvolveStep5(st, toStage){
   const fromStage = st.kotonohaRebirth.seenStage || 0;
@@ -2473,6 +2523,73 @@ function kotonohaDoRebirth(st, chosenLine){
   st.kotonohaRebirth = {line, baseXP: kotonohaTotalXP(st), seenStage: 0};
   saveStats(st);
   return true;
+}
+/* 「転生」実行の瞬間だけに使う、ド派手な全画面演出（教員の指示、2026-08-07〜）。
+   ①光の渦に包まれる（虹色リング＋パルス）②カラフルな衝撃波（大きめの振動＋色が移り変わる
+   インセットの発光）③レインボーのフラッシュが画面いっぱいに広がる④新しい卵の姿がキラキラ粒子と
+   共にせり出し、転生先の系統名をそのまま発表する、という4段階。既存のkotonohaEvolveOverlayEl
+   （document.body直下の共有オーバーレイ）をそのまま使い、通常の進化演出（段階アップ時、
+   showKotonohaEvolveCutscene）とは別のkotonoha-rebirth-fx系クラスで見た目だけ差別化する。
+   onDoneは演出終了後の再開コールバック（ボタン起点はshowHome、ストーリー第9章のクライマックス
+   起点はstoryAdvance）で、進化演出と同じくwindow越しに一時保存するパターンを踏襲する。
+   fromSrc（転生前がイラスト転生済みのときの画像）とfromIcon（未転生＝絵文字のときの絵文字）は
+   どちらか一方だけを渡す。 */
+const KOTONOHA_REBIRTH_FX_CHARGE_MS = 1100;
+const KOTONOHA_REBIRTH_FX_SHAKE_MS = 1000;
+const KOTONOHA_REBIRTH_FX_FLASH_MS = 550;
+function kotonohaRebirthFxSequence(st, fromSrc, fromIcon, onDone){
+  window._kotonohaRebirthFxOnDone = onDone || null;
+  const el = kotonohaEvolveOverlayEl();
+  el.className = "kotonoha-evolve-overlay kotonoha-rebirth-fx";
+  el.innerHTML = `
+    <div class="kotonoha-rebirth-ring"></div>
+    ${fromSrc
+      ? `<img class="kotonoha-evolve-img kotonoha-rebirth-charge-img" src="${fromSrc}">`
+      : `<div class="kotonoha-evolve-icon-old kotonoha-rebirth-charge-img">${esc(fromIcon||"🥚")}</div>`}
+    <p class="kotonoha-evolve-text kotonoha-rebirth-charge-text">ことのはが、まばゆい光につつまれていく……</p>`;
+  setTimeout(() => kotonohaRebirthFxStep2(), KOTONOHA_REBIRTH_FX_CHARGE_MS);
+}
+function kotonohaRebirthFxStep2(){
+  const el = kotonohaEvolveOverlayEl();
+  el.classList.add("kotonoha-rebirth-burst");
+  const textEl = el.querySelector(".kotonoha-rebirth-charge-text");
+  if(textEl) textEl.textContent = "力があふれ出す……！";
+  setTimeout(() => kotonohaRebirthFxStep3(), KOTONOHA_REBIRTH_FX_SHAKE_MS);
+}
+function kotonohaRebirthFxStep3(){
+  const el = kotonohaEvolveOverlayEl();
+  el.className = "kotonoha-evolve-overlay kotonoha-rebirth-fx";
+  el.innerHTML = `<div class="kotonoha-rebirth-flash"></div>`;
+  setTimeout(() => kotonohaRebirthFxStep4(), KOTONOHA_REBIRTH_FX_FLASH_MS);
+}
+function kotonohaRebirthFxStep4(){
+  const st = loadStats();
+  const toSrc = kotonohaRebirthImageSrc(st);
+  const label = KOTONOHA_IMAGE_LINE_LABEL[st.kotonohaRebirth.line];
+  const el = kotonohaEvolveOverlayEl();
+  el.className = "kotonoha-evolve-overlay kotonoha-rebirth-fx kotonoha-evolve-clickable";
+  el.innerHTML = `
+    ${kotonohaRebirthSparkleHtml()}
+    <img class="kotonoha-evolve-img kotonoha-evolve-reveal kotonoha-rebirth-reveal-img" src="${toSrc}">
+    <p class="kotonoha-evolve-text kotonoha-evolve-congrats">転生した！<br>「${esc(label)}」として、卵から生まれ変わった！</p>
+    <button class="btn" onclick="hideKotonohaEvolveOverlay(); kotonohaRebirthFxDone();">つづける</button>`;
+}
+function kotonohaRebirthFxDone(){
+  const fn = window._kotonohaRebirthFxOnDone;
+  window._kotonohaRebirthFxOnDone = null;
+  (fn || showHome)();
+}
+/* 転生の瞬間だけの使い切りキラキラ粒子（12個、位置・速さ・大きさをランダムに散らす）。 */
+function kotonohaRebirthSparkleHtml(){
+  let html = "";
+  for(let i=0;i<12;i++){
+    const left = Math.round(Math.random()*100);
+    const delay = (Math.random()*0.6).toFixed(2);
+    const dur = (1.1 + Math.random()*0.6).toFixed(2);
+    const size = (1 + Math.random()*0.8).toFixed(2);
+    html += `<span class="kotonoha-rebirth-sparkle" style="left:${left}%; animation-delay:${delay}s; animation-duration:${dur}s; font-size:${size}rem;">${i%2===0?"✨":"⭐"}</span>`;
+  }
+  return html;
 }
 /* ================= 系統別・必殺技バリエーション =================
    転生後、見た目段階が「少年体」（インデックス2）以上になると、系統ごとに違う必殺技が
@@ -2734,16 +2851,14 @@ function kotonohaRebirthSectionHtml(st){
     return `<p class="note kotonoha-rebirth-note">🔁 もう一度転生して育て直すには、今の${esc(KOTONOHA_IMAGE_LINE_LABEL[st.kotonohaRebirth.line])}が「${esc(KOTONOHA_IMAGE_STAGE_LABEL[KOTONOHA_YOUTH_STAGE_IDX])}」まで育っている必要があります（現在：${esc(KOTONOHA_IMAGE_STAGE_LABEL[curStage])}）。</p>`;
   }
   const seedCount = (st.items && st.items[REBIRTH_SEED_ITEM]) || 0;
-  /* 種を持っている状態でストーリー第9章のクライマックス（kotonohaRebirthReveal）を再攻略すると、
-     ボタン経由と同じkotonohaDoRebirth()がそのまま実行され転生イベントが発生する（storyRenderKotonohaRebirthReveal参照）。
-     この案内（※行）は種の有無にかかわらず常に表示するが、種をまだ持っていないときだけ
-     入手方法の説明も合わせて表示する（教員の指示、2026-08-06〜）。 */
-  const rebirthReplayNote = `<p class="note kotonoha-rebirth-note">※「${esc(REBIRTH_SEED_ITEM)}」を持った状態でストーリーモード第９章を再度攻略すると、転生イベントが発生します。</p>`;
+  /* 「第９章を再度攻略すると転生イベントが発生する」旨のホーム画面表示は削除した（教員の指示、
+     2026-08-07〜。ストーリー側の仕組み自体＝storyRenderKotonohaRebirthRevealはそのまま残しており、
+     種を持った状態で第9章を再攻略すれば引き続き転生は起こるが、ホーム画面での案内はしない）。 */
   if(seedCount <= 0){
     const cycleDay = (st.dailyLogin && st.dailyLogin.cycleDay) || 0;
-    return `<p class="note kotonoha-rebirth-note">🔁 もう一度転生するためには、「${esc(REBIRTH_SEED_ITEM)}」が必要です（所持数：0）。デイリーログイン報酬の7日目で手に入ります（現在${cycleDay}日目）。</p>${rebirthReplayNote}`;
+    return `<p class="note kotonoha-rebirth-note">🔁 もう一度転生するためには、「${esc(REBIRTH_SEED_ITEM)}」が必要です（所持数：0）。デイリーログイン報酬の7日目、または百人一首クイズに正解すると手に入ります（現在${cycleDay}日目）。</p>`;
   }
-  return `<div class="btn-row" style="margin-top:10px"><button class="btn inline secondary" onclick="showKotonohaRebirthConfirm()">🔁 転生の種を使って育て直す（所持：${seedCount}）</button></div>${rebirthReplayNote}`;
+  return `<div class="btn-row" style="margin-top:10px"><button class="btn inline secondary" onclick="showKotonohaRebirthConfirm()">🔁 転生の種を使って育て直す（所持：${seedCount}）</button></div>`;
 }
 /* これまでに到達したことのある「すがた」の中から、表示するすがたを選べる画面。
    経験値や進化そのものには影響しない、見た目だけの変更。 */
@@ -2786,11 +2901,14 @@ function setKotonohaDisplay(key){
 }
 /* 転生の確認画面。何度でもやり直せるが、そのたびに絵の進化段階は卵に戻る＝実行前に
    必ずワンクッション挟む（既存の挑戦チケット確認画面と同じ、カード型の確認UIパターン）。
-   「これまでに出会ったことがある系統を全て経験済み」（kotonohaCanChooseRebirthLine）のときは、
-   ランダム抽選の代わりに系統を自分で選べる一覧を表示する（教員の指示、2026-08-03〜）。
-   そうでない場合（まだ出会ったことがない系統が残っている場合）は、今までどおり「転生する」
-   ボタン1つだけのランダム抽選のまま＝初めての系統との出会いをサプライズとして残す
-   （[[kotonoha-rebirth-system]]で系統名の事前開示をあえて削除した設計思想を踏襲）。 */
+   転生先のルールを毎回はっきり文章で説明する（教員の指示、2026-08-07〜）：
+   ①今の系統には転生しない（kotonohaEligibleRebirthLinesが現在の系統を除外済み）
+   ②これまでになったことがある系統は、いつでも自分で選んで転生できる
+   ③選ばずに「おまかせ」を選ぶと、まだなったことがない系統からランダムに選ばれる
+     （すべて経験済みなら、経験済みの中からランダム）。
+   以前は「候補を全て経験済みのときだけ選択UIが出る」という厳しめの条件だったが、
+   「なったことがある系統が1つでもあれば、その場でいつでも選べる」ように緩和した
+   （まだ出会ったことがない系統だけは、引き続き選択肢に出さずサプライズのランダム抽選に残す）。 */
 function showKotonohaRebirthConfirm(){
   const st = loadStats();
   if(!st.kotonohaRebirthUnlocked){ showHome(); return; }
@@ -2802,7 +2920,16 @@ function showKotonohaRebirthConfirm(){
   const seedNote = already
     ? `<p class="note boss-enc-hint">🌱 「${esc(REBIRTH_SEED_ITEM)}」を1つ使います（現在の所持数：${seedCount}）。</p>`
     : `<p class="note boss-enc-hint">✨ 初回の転生は無料です。</p>`;
-  const canChoose = kotonohaCanChooseRebirthLine(st);
+  const currentLineLabel = already ? KOTONOHA_IMAGE_LINE_LABEL[st.kotonohaRebirth.line] : null;
+  const seenLines = kotonohaSeenEligibleRebirthLines(st);
+  const hasUnseen = kotonohaUnseenRebirthLines(st).length > 0;
+  const ruleLines = [];
+  if(currentLineLabel) ruleLines.push(`🚫 今の系統「${esc(currentLineLabel)}」には転生しません。`);
+  if(seenLines.length > 0) ruleLines.push(`✅ これまでになったことがある系統は、下の一覧から選んで転生できます。`);
+  ruleLines.push(hasUnseen
+    ? `🎲 選ばずに「おまかせで転生する」を選ぶと、まだなったことがない系統の中からランダムに選ばれます（お楽しみに！）。`
+    : `🎲 「おまかせで転生する」を選ぶと、これまでになった系統（すべて経験済み）の中からランダムに選ばれます。`);
+  const rulesNote = `<div class="note kotonoha-rebirth-note">${ruleLines.map(l=>`<div>${l}</div>`).join("")}</div>`;
   screen.innerHTML = `
     <div class="card boss-encounter">
       <div class="boss-enc-icon">🔁</div>
@@ -2811,18 +2938,18 @@ function showKotonohaRebirthConfirm(){
       <p class="note boss-enc-hint">⚡ 少年体まで育てると、系統専用の必殺技が使えるようになります。</p>
       ${already ? `<p class="note boss-enc-hint">🔄 今のすがた・必殺技の育ち具合は失われます。</p>` : ""}
       ${seedNote}
-      ${canChoose ? "" : `
+      ${rulesNote}
       <div class="boss-enc-choices">
         <button class="boss-enc-btn" onclick="showHome()">やめる</button>
-        <button class="boss-enc-btn selected" onclick="kotonohaRebirthConfirmed()">転生する</button>
-      </div>`}
+        <button class="boss-enc-btn selected" onclick="kotonohaRebirthConfirmed()">🎲 おまかせで転生する</button>
+      </div>
     </div>
-    ${canChoose ? `
-    <p class="note kotonoha-rebirth-note">🥚 これまでに出会った系統は全部経験しました。どの系統に転生するか、自分で選べます。</p>
-    ${kotonohaEligibleRebirthLines(st).map(line => `
+    ${seenLines.length > 0 ? `
+    <p class="note kotonoha-rebirth-note">🥚 転生先を自分で選ぶこともできます：</p>
+    ${seenLines.map(line => `
       <div class="card menu-card" onclick="kotonohaRebirthConfirmed('${line}')">
         <div class="menu-icon"><img class="kotonoha-icon kotonoha-icon-img" src="${kotonohaImageSrcForStage(line,0)}" alt="${esc(KOTONOHA_IMAGE_LINE_LABEL[line])}"></div>
-        <div><h2>${esc(KOTONOHA_IMAGE_LINE_LABEL[line])}</h2></div>
+        <div><h2>${esc(KOTONOHA_IMAGE_LINE_LABEL[line])}に転生する</h2></div>
       </div>`).join("")}
     <div class="btn-row"><button class="btn secondary" onclick="showHome()">やめる</button></div>` : ""}`;
 }
@@ -2831,7 +2958,9 @@ function showKotonohaRebirthConfirm(){
    デイリーログイン報酬導入に伴う変更）。kotonohaDoRebirth(st)自体がsaveStats(st)まで
    行うので、種の消費は同じst参照に対して先に行っておくだけでよい（保存は1回で済む）。
    chosenLine：系統選択UI（上のshowKotonohaRebirthConfirm）経由で渡される、プレイヤーが
-   選んだ系統。ランダム抽選のボタンからは引数なしで呼ばれる。 */
+   選んだ系統。「おまかせ」ボタンからは引数なしで呼ばれる。
+   転生が成立したら、その場でホームに戻さずkotonohaRebirthFxSequence（ド派手な演出、
+   教員の指示、2026-08-07〜）を挟んでからホームに戻す。 */
 function kotonohaRebirthConfirmed(chosenLine){
   const st = loadStats();
   const wasAlready = !!st.kotonohaRebirth;
@@ -2840,8 +2969,10 @@ function kotonohaRebirthConfirmed(chosenLine){
     if((st.items[REBIRTH_SEED_ITEM]||0) <= 0){ showHome(); return; }
     st.items[REBIRTH_SEED_ITEM]--;
   }
-  kotonohaDoRebirth(st, chosenLine);
-  showHome();
+  const fromSrc = wasAlready ? kotonohaRebirthImageSrc(st) : null;
+  const fromIcon = wasAlready ? null : kotonohaForm(st).icon;
+  if(!kotonohaDoRebirth(st, chosenLine)){ showHome(); return; }
+  kotonohaRebirthFxSequence(st, fromSrc, fromIcon, null);
 }
 function itemLinkHtml(st){
   const items = st.items || {};
@@ -4342,6 +4473,7 @@ function hyaRecord(it, correct){
   h.k = correct ? (h.k||0)+1 : 0; // 連続正解数（8問グループの段階的アンロック判定に使う）
   st.hyakunin.itemHist[it.id] = h;
   let gotTicket = false;
+  let gotSeed = false, seedCount = (st.items && st.items[REBIRTH_SEED_ITEM]) || 0;
   if(correct){
     st.hyakunin.totalOk = (st.hyakunin.totalOk||0) + 1;
     // ことのはの経験値にだけ反映する（進化の分岐＝分野レベルの分布には影響させない、教員の指示、2026-07-31）
@@ -4354,6 +4486,13 @@ function hyaRecord(it, correct){
       st.bossTickets = (st.bossTickets||0) + 1;
       gotTicket = true;
     }
+    /* 百人一首クイズに正解するごとに「転生の種」を1つドロップ（教員の指示による試み、
+       2026-08-07〜）。デイリーログイン報酬の7日目・第9章再攻略と並ぶ、3つ目の入手手段。
+       挑戦チケットと違い間引かず、正解のたびに必ず1つ付与する。 */
+    if(!st.items) st.items = {};
+    st.items[REBIRTH_SEED_ITEM] = (st.items[REBIRTH_SEED_ITEM]||0) + 1;
+    seedCount = st.items[REBIRTH_SEED_ITEM];
+    gotSeed = true;
   }
   const curDiff = typeof st.hyakunin.targetLv === "number" ? st.hyakunin.targetLv : 1;
   st.hyakunin.targetLv = correct
@@ -4372,7 +4511,7 @@ function hyaRecord(it, correct){
     ? crossedUnlockMilestones(pctBeforeUnlock, hyaUnlockedQuestionPct(st))
     : [];
   saveStats(st);
-  return {lv: hyaLv(st), acc: hyaAccuracy(st), diffLv: st.hyakunin.targetLv, groupJustUnlocked, gotTicket, celebrateMilestones};
+  return {lv: hyaLv(st), acc: hyaAccuracy(st), diffLv: st.hyakunin.targetLv, groupJustUnlocked, gotTicket, gotSeed, seedCount, celebrateMilestones};
 }
 
 /* ---- 画面：メニュー ---- */
@@ -4526,9 +4665,10 @@ function hyaAnswerChoice(origIdx){
   fb.className = "feedback show " + (ok?"ok":"ng");
   const unlockMsg = r.groupJustUnlocked ? `<div class="evolve">🔓 百人一首の次のグループが解禁された！</div>` : "";
   const ticketMsg = r.gotTicket ? `<div class="evolve ticket-get">🎟️ ボスへの挑戦チケットを1枚手に入れた！</div>` : "";
+  const seedMsg = r.gotSeed ? `<div class="evolve">🌱 転生の種を1つ手に入れた！（所持：${r.seedCount}）</div>` : "";
   const celebrateMsg = celebrateMilestoneHtml("百人一首", r.celebrateMilestones);
   fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}</div>${markQuestionHtml(it.e).replace(/\n/g,"<br>")}
-    <div class="note">百人一首レベル Lv.${r.lv}　｜　今のめやす：${esc(hyaLvLabel(r.diffLv))}</div>${unlockMsg}${ticketMsg}${celebrateMsg}`;
+    <div class="note">百人一首レベル Lv.${r.lv}　｜　今のめやす：${esc(hyaLvLabel(r.diffLv))}</div>${unlockMsg}${ticketMsg}${seedMsg}${celebrateMsg}`;
   document.getElementById("hyaNextBtn").style.display = "inline-block";
   document.getElementById("hyaQuitBtn").style.display = "inline-block";
   document.getElementById("hyaNextBtn").focus();
@@ -5652,7 +5792,7 @@ function rebirthSeedSectionHtml(st){
   if(count <= 0) return "";
   return `<h4 class="item-group-title treasure-title">🌱 転生の種</h4>
     <ul class="item-list treasure-list"><li class="treasure"><span>🌱 ${esc(REBIRTH_SEED_ITEM)}</span><span class="item-count">×${count}</span></li></ul>
-    <p class="note">🌱 ホーム画面の「ことのは」カードから、転生して育て直すときに1つ使います。デイリーログイン報酬の7日目で手に入ります。</p>`;
+    <p class="note">🌱 ホーム画面の「ことのは」カードから、転生して育て直すときに1つ使います。デイリーログイン報酬の7日目、または百人一首クイズに正解すると手に入ります。</p>`;
 }
 
 /* ================= 幻のボス「シランちゃん」 =================
