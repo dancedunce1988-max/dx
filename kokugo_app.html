@@ -982,7 +982,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.109</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.110</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -2856,7 +2856,7 @@ function kotonohaRebirthSectionHtml(st){
      種を持った状態で第9章を再攻略すれば引き続き転生は起こるが、ホーム画面での案内はしない）。 */
   if(seedCount <= 0){
     const cycleDay = (st.dailyLogin && st.dailyLogin.cycleDay) || 0;
-    return `<p class="note kotonoha-rebirth-note">🔁 もう一度転生するためには、「${esc(REBIRTH_SEED_ITEM)}」が必要です（所持数：0）。デイリーログイン報酬の7日目、または百人一首クイズに正解すると手に入ります（現在${cycleDay}日目）。</p>`;
+    return `<p class="note kotonoha-rebirth-note">🔁 もう一度転生するためには、「${esc(REBIRTH_SEED_ITEM)}」が必要です（所持数：0）。デイリーログイン報酬の7日目で手に入ります（現在${cycleDay}日目）。</p>`;
   }
   return `<div class="btn-row" style="margin-top:10px"><button class="btn inline secondary" onclick="showKotonohaRebirthConfirm()">🔁 転生の種を使って育て直す（所持：${seedCount}）</button></div>`;
 }
@@ -4473,7 +4473,6 @@ function hyaRecord(it, correct){
   h.k = correct ? (h.k||0)+1 : 0; // 連続正解数（8問グループの段階的アンロック判定に使う）
   st.hyakunin.itemHist[it.id] = h;
   let gotTicket = false;
-  let gotSeed = false, seedCount = (st.items && st.items[REBIRTH_SEED_ITEM]) || 0;
   if(correct){
     st.hyakunin.totalOk = (st.hyakunin.totalOk||0) + 1;
     // ことのはの経験値にだけ反映する（進化の分岐＝分野レベルの分布には影響させない、教員の指示、2026-07-31）
@@ -4486,13 +4485,6 @@ function hyaRecord(it, correct){
       st.bossTickets = (st.bossTickets||0) + 1;
       gotTicket = true;
     }
-    /* 百人一首クイズに正解するごとに「転生の種」を1つドロップ（教員の指示による試み、
-       2026-08-07〜）。デイリーログイン報酬の7日目・第9章再攻略と並ぶ、3つ目の入手手段。
-       挑戦チケットと違い間引かず、正解のたびに必ず1つ付与する。 */
-    if(!st.items) st.items = {};
-    st.items[REBIRTH_SEED_ITEM] = (st.items[REBIRTH_SEED_ITEM]||0) + 1;
-    seedCount = st.items[REBIRTH_SEED_ITEM];
-    gotSeed = true;
   }
   const curDiff = typeof st.hyakunin.targetLv === "number" ? st.hyakunin.targetLv : 1;
   st.hyakunin.targetLv = correct
@@ -4511,7 +4503,7 @@ function hyaRecord(it, correct){
     ? crossedUnlockMilestones(pctBeforeUnlock, hyaUnlockedQuestionPct(st))
     : [];
   saveStats(st);
-  return {lv: hyaLv(st), acc: hyaAccuracy(st), diffLv: st.hyakunin.targetLv, groupJustUnlocked, gotTicket, gotSeed, seedCount, celebrateMilestones};
+  return {lv: hyaLv(st), acc: hyaAccuracy(st), diffLv: st.hyakunin.targetLv, groupJustUnlocked, gotTicket, celebrateMilestones};
 }
 
 /* ---- 画面：メニュー ---- */
@@ -4665,10 +4657,9 @@ function hyaAnswerChoice(origIdx){
   fb.className = "feedback show " + (ok?"ok":"ng");
   const unlockMsg = r.groupJustUnlocked ? `<div class="evolve">🔓 百人一首の次のグループが解禁された！</div>` : "";
   const ticketMsg = r.gotTicket ? `<div class="evolve ticket-get">🎟️ ボスへの挑戦チケットを1枚手に入れた！</div>` : "";
-  const seedMsg = r.gotSeed ? `<div class="evolve">🌱 転生の種を1つ手に入れた！（所持：${r.seedCount}）</div>` : "";
   const celebrateMsg = celebrateMilestoneHtml("百人一首", r.celebrateMilestones);
   fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}</div>${markQuestionHtml(it.e).replace(/\n/g,"<br>")}
-    <div class="note">百人一首レベル Lv.${r.lv}　｜　今のめやす：${esc(hyaLvLabel(r.diffLv))}</div>${unlockMsg}${ticketMsg}${seedMsg}${celebrateMsg}`;
+    <div class="note">百人一首レベル Lv.${r.lv}　｜　今のめやす：${esc(hyaLvLabel(r.diffLv))}</div>${unlockMsg}${ticketMsg}${celebrateMsg}`;
   document.getElementById("hyaNextBtn").style.display = "inline-block";
   document.getElementById("hyaQuitBtn").style.display = "inline-block";
   document.getElementById("hyaNextBtn").focus();
@@ -5792,7 +5783,7 @@ function rebirthSeedSectionHtml(st){
   if(count <= 0) return "";
   return `<h4 class="item-group-title treasure-title">🌱 転生の種</h4>
     <ul class="item-list treasure-list"><li class="treasure"><span>🌱 ${esc(REBIRTH_SEED_ITEM)}</span><span class="item-count">×${count}</span></li></ul>
-    <p class="note">🌱 ホーム画面の「ことのは」カードから、転生して育て直すときに1つ使います。デイリーログイン報酬の7日目、または百人一首クイズに正解すると手に入ります。</p>`;
+    <p class="note">🌱 ホーム画面の「ことのは」カードから、転生して育て直すときに1つ使います。デイリーログイン報酬の7日目で手に入ります。</p>`;
 }
 
 /* ================= 幻のボス「シランちゃん」 =================
@@ -6786,22 +6777,23 @@ function bossCounterAttack(playerWasCorrect){
   /* 翠森「眠りの胞子」：眠っている間はボスの反撃ターンそのものを丸ごとスキップする
      （経験値ゲート・statIgnoreなど、他のどの反撃分岐よりも先に判定する）。1ターン目は必ず
      眠ったまま、2ターン目以降は毎ターンkotonohaSleepWakeChanceの確率で目覚める。目覚めた
-     ターンは、そのまま下の通常の反撃判定に進む（寝起きに反撃してくるイメージ）。 */
+     ターンは「目を覚ました！」のメッセージだけを出してそのターンを消費し、反撃はしない
+     （教員の指示、2026-08-07〜。以前は目覚めたターンにそのまま反撃していたが、目覚める
+     こと自体で1ターン使う仕様に変更した）。 */
   if((b.kotonohaSleepTurnsLeft||0) > 0){
     const woke = b.kotonohaSleepFirstTurnDone && Math.random() < (b.kotonohaSleepWakeChance||0);
     b.kotonohaSleepFirstTurnDone = true;
-    if(!woke){
-      b.kotonohaSleepTurnsLeft--;
-      refreshBossHpBars();
-      const fb = document.getElementById("fb");
-      fb.innerHTML += `<div class="boss-turn">💤${esc(b.boss.name)}は、眠っていて動けない。</div>`;
-      const nextBtn = document.getElementById("nextBtn");
-      nextBtn.style.display = "inline-block";
-      nextBtn.textContent = "つぎへ";
-      nextBtn.focus();
-      return;
-    }
-    b.kotonohaSleepTurnsLeft = 0;
+    b.kotonohaSleepTurnsLeft = woke ? 0 : b.kotonohaSleepTurnsLeft - 1;
+    refreshBossHpBars();
+    const fb = document.getElementById("fb");
+    fb.innerHTML += woke
+      ? `<div class="boss-turn">💤${esc(b.boss.name)}は、目を覚ました！</div>`
+      : `<div class="boss-turn">💤${esc(b.boss.name)}は、眠っていて動けない。</div>`;
+    const nextBtn = document.getElementById("nextBtn");
+    nextBtn.style.display = "inline-block";
+    nextBtn.textContent = "つぎへ";
+    nextBtn.focus();
+    return;
   }
   if(bossXpGateActive(b.boss, loadStats())){
     /* 経験値ゲート・ルール②③：命中判定・防御力・ミス回避アイテムなどを一切介さない反撃。
