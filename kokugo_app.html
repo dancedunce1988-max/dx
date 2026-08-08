@@ -984,7 +984,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.112</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.113</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -2716,6 +2716,10 @@ const kotonohaLinePower = t => KOTONOHA_LINE_POWER_MIN + (KOTONOHA_LINE_POWER_MA
    （教員の指示、2026-08-02〜）。kotonohaLineMoveT()のtは(段階-2)/4で少年体〜伝説級が
    0/0.25/0.5/0.75/1にちょうど対応するため、t*4を四捨五入すればそのまま配列の添字になる。 */
 const ENGOKU_BURN_PCT = [0.01, 0.02, 0.03, 0.04, 0.06];
+/* 聖輝「光の高揚」の1発動あたりの攻撃力倍率（少年体〜伝説級の5段階）。少年体・青年体は据え置き、
+   成人体2倍・伝説級3倍は教員の指示どおり、成熟体2.5倍は2倍と3倍の中間で補間した
+   （教員の指示、2026-08-08〜）。 */
+const SEIKI_ATK_MULT = [1.5, 1.5, 2, 2.5, 3];
 const KOTONOHA_LINE_MOVES = {
   tensho: {
     names:["疾風の一閃","旋風の斬撃","暴風の剛刃","神速の破空","天翔絶刃"],
@@ -2756,21 +2760,26 @@ const KOTONOHA_LINE_MOVES = {
   },
   seiki: {
     names:["光の高揚","光輝の高揚","聖光の加護","極光の祝福","聖輝絶光・天啓"],
-    desc:"発動のたびに自分の攻撃力が上がる（重ねがけ可）",
+    desc:"発動のたびに自分の攻撃力が倍化する（重ねがけ・永続、上限なし）",
     powerMult: kotonohaLinePower,
-    buffStat:"atk",
-    buffPerStack: t => Math.round(10 + 30*t),
-    buffMaxStacks: t => 1 + Math.round(2*t),
+    /* 攻撃力バフを「加点方式（buffPerStack、重ねがけに上限あり）」から「発動のたびに攻撃力そのものを
+       掛け算で倍化・永続・上限なし」に全面変更（教員の指示、2026-08-08〜：必殺技をもっと強く。
+       少年体・青年体は1.5倍、成人体2倍、伝説級3倍。成熟体は指示になかったため2倍→3倍の中間で
+       2.5倍を補間。1回目の効果はそのまま=最初の発動でこの倍率がかかり、以後発動するたびに
+       複利で掛け合わさっていく（bossResolveFinisher側でb.kotonohaAtkMultStackに掛け続ける）。 */
+    atkMultPerUse: t => SEIKI_ATK_MULT[Math.round(t*4)],
   },
   meien: {
     names:["深淵の守り","冥府の守り","幽玄の盾","常闇の鉄壁","冥淵絶闇・不滅の盾"],
-    desc:"発動するたびに、次の発動の威力が100%（技の基礎威力ぶん）ずつ上乗せされていく（上限なし）",
+    desc:"発動するたびに、次の発動の威力が200%（技の基礎威力の2倍ぶん）ずつ上乗せされていく（上限なし）",
     /* 防御力バフ方式（buffPerStack）から、発動回数に応じて威力そのものが際限なく伸びる方式に変更
        （教員の指示、2026-08-02〜：「少年体なら3倍→2回目4倍→3回目5倍…、伝説級は初めから5倍で
        そこからさらに上がる」）。1.0＝moveMultに+1ずつ、という意味でpowerGrowthPerUseという名前
-       にしている（bossResolveFinisher側で使用回数b.kotonohaMeienUseCountを掛けて加算する）。 */
+       にしている（bossResolveFinisher側で使用回数b.kotonohaMeienUseCountを掛けて加算する）。
+       2026-08-08〜、教員の指示で必殺技をもっと強くするため1.0→2.0に倍増（1回目は変えず、
+       2回目以降の伸び幅だけ2倍速くした）。 */
     powerMult: kotonohaLinePower,
-    powerGrowthPerUse: 1.0,
+    powerGrowthPerUse: 2.0,
   },
 };
 /* 系統別必殺技が使える段階まで育っているか（転生済み＆少年体以上）。ボタンを出すかどうかの
@@ -6131,7 +6140,7 @@ function startBossBattle(boss, allGenre, hyakuninMode){
     atkMultTurns:0, atkMultAmount:1,
     showItemPanel:false, usedItemThisTurn:false, usedItemNames:{}, timerId:null,
     correctStreak:0, finisherGauge:0,
-    kotonohaAtkBuffAmount:0, kotonohaDefBuffAmount:0, kotonohaAtkStacks:0, kotonohaDefStacks:0,
+    kotonohaAtkMultStack:1, kotonohaDefBuffAmount:0,
     kotonohaSleepTurnsLeft:0, kotonohaSleepFirstTurnDone:false, kotonohaSleepWakeChance:0,
     kotonohaShigenMoveLine:null, kotonohaFinisherUseLine:false,
     kotonohaBurnPct:0, kotonohaMeienUseCount:0,
@@ -6390,8 +6399,10 @@ function bossResolveFinisher(){
   b.kotonohaFinisherUseLine = false; // 選択状態をリセット（次にゲージが満タンになるまでは言霊一閃側の表示に戻す）
   const ps = kotonohaEffStats(st);
   let dealt = randInt(BOSS_PLAYER_DMG[0], BOSS_PLAYER_DMG[1]) + ps.atk * STAT_ATK_PER_POINT
-    + (b.atkBuffTurns > 0 ? b.atkBuffAmount : 0) + (b.kotonohaAtkBuffAmount||0);
+    + (b.atkBuffTurns > 0 ? b.atkBuffAmount : 0);
   if(b.atkMultTurns > 0) dealt = Math.round(dealt * b.atkMultAmount);
+  // 聖輝「光の高揚」：発動ずみぶんの永続倍率（複利、上限なし）。1のときは何も変わらないので計算を省く
+  if(b.kotonohaAtkMultStack && b.kotonohaAtkMultStack !== 1) dealt = Math.round(dealt * b.kotonohaAtkMultStack);
   /* ぶらぶら歩く人専用：必殺技のダメージを他ボスの2倍、2回目以降はさらに倍（4倍）にする新フラグ
      `finisherDamageMultBoost:[2,4]`（教員の指示、2026-07-23）。防御力が解除されない仕様
      （上のdefTripleOnMissのコメント参照）で通常攻撃だけでは実質勝てなくなったことへの救済策
@@ -6438,18 +6449,14 @@ function bossResolveFinisher(){
     healed = Math.round(dealt * lm.def.drainPct(lm.t));
     if(healed > 0) b.playerHp = Math.min(b.playerMaxHp, b.playerHp + healed);
   }
-  /* 聖輝「光の高揚」/冥淵「深淵の守り」：発動のたびに自分の攻撃力・防御力が上がる（重ねがけ、上限あり）。
-     既存のアイテムatkBuff/defBuffと同じ「ダメージ計算式への加点」を、戦闘終了まで持続するかたちで
-     積んでいく（ターン経過で減衰する既存のアイテムバフとは別の持続フィールドに保持する）。 */
+  /* 聖輝「光の高揚」：発動のたびに自分の攻撃力を掛け算で倍化する（重ねがけ・永続、上限なし、
+     2026-08-08〜）。b.kotonohaAtkMultStackに毎回この段階の倍率を掛け続けるだけの、複利式の
+     持続バフ（戦闘終了までリセットされない）。以後の通常攻撃・必殺技どちらのダメージにも乗る。 */
   let buffMsg = "";
-  if(lm && lm.def.buffPerStack){
-    const stackKey = lm.def.buffStat === "atk" ? "kotonohaAtkStacks" : "kotonohaDefStacks";
-    const amountKey = lm.def.buffStat === "atk" ? "kotonohaAtkBuffAmount" : "kotonohaDefBuffAmount";
-    const maxStacks = lm.def.buffMaxStacks(lm.t);
-    const stacks = Math.min(maxStacks, (b[stackKey]||0) + 1);
-    b[stackKey] = stacks;
-    b[amountKey] = lm.def.buffPerStack(lm.t) * stacks;
-    buffMsg = `<div class="boss-turn">✨自分の${lm.def.buffStat==="atk"?"攻撃力":"防御力"}が上がった！（${stacks}/${maxStacks}）</div>`;
+  if(lm && lm.def.atkMultPerUse){
+    const mult = lm.def.atkMultPerUse(lm.t);
+    b.kotonohaAtkMultStack = (b.kotonohaAtkMultStack||1) * mult;
+    buffMsg = `<div class="boss-turn">✨自分の攻撃力が${mult}倍になった！（現在×${b.kotonohaAtkMultStack.toFixed(2)}）</div>`;
   }
   // 翠森「眠りの胞子」：相手を数ターン行動不能にする（毎ターンの目覚め判定はbossCounterAttack側）
   let sleepMsg = "";
@@ -6740,9 +6747,11 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
         // シランちゃんは、攻撃が命中する寸前でも一定確率で逃げ出す（正解でも不正解でも「逃げる可能性」を持たせるため）
         fled = true;
       }else{
-        dealt = randInt(BOSS_PLAYER_DMG[0], BOSS_PLAYER_DMG[1]) + ps.atk * STAT_ATK_PER_POINT + (b.atkBuffTurns > 0 ? b.atkBuffAmount : 0) + (b.kotonohaAtkBuffAmount||0);
+        dealt = randInt(BOSS_PLAYER_DMG[0], BOSS_PLAYER_DMG[1]) + ps.atk * STAT_ATK_PER_POINT + (b.atkBuffTurns > 0 ? b.atkBuffAmount : 0);
         // さびついたノコギリ等の「次のターンだけ攻撃力n倍」効果（攻撃力依存の倍率、既存の加算式atkBuffとは別枠）
         if(b.atkMultTurns > 0) dealt = Math.round(dealt * b.atkMultAmount);
+        // 聖輝「光の高揚」：発動ずみぶんの永続倍率（複利、上限なし）。通常攻撃にも乗る
+        if(b.kotonohaAtkMultStack && b.kotonohaAtkMultStack !== 1) dealt = Math.round(dealt * b.kotonohaAtkMultStack);
         const effLuck = ps.luck + (b.luckBuffTurns > 0 ? b.luckBuffAmount : 0);
         const critChance = luckCritChancePct(effLuck, st);
         if(Math.random() * 100 < critChance){
