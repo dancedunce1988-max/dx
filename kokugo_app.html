@@ -984,7 +984,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.113</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.114</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -2760,7 +2760,7 @@ const KOTONOHA_LINE_MOVES = {
   },
   seiki: {
     names:["光の高揚","光輝の高揚","聖光の加護","極光の祝福","聖輝絶光・天啓"],
-    desc:"発動のたびに自分の攻撃力が倍化する（重ねがけ・永続、上限なし）",
+    desc:"発動のたびに自分の攻撃力が倍化する（重ねがけ・永続、上限なし）。効果は通常攻撃だけにかかり、必殺技自体のダメージは発動回数で変わらない",
     powerMult: kotonohaLinePower,
     /* 攻撃力バフを「加点方式（buffPerStack、重ねがけに上限あり）」から「発動のたびに攻撃力そのものを
        掛け算で倍化・永続・上限なし」に全面変更（教員の指示、2026-08-08〜：必殺技をもっと強く。
@@ -6401,8 +6401,10 @@ function bossResolveFinisher(){
   let dealt = randInt(BOSS_PLAYER_DMG[0], BOSS_PLAYER_DMG[1]) + ps.atk * STAT_ATK_PER_POINT
     + (b.atkBuffTurns > 0 ? b.atkBuffAmount : 0);
   if(b.atkMultTurns > 0) dealt = Math.round(dealt * b.atkMultAmount);
-  // 聖輝「光の高揚」：発動ずみぶんの永続倍率（複利、上限なし）。1のときは何も変わらないので計算を省く
-  if(b.kotonohaAtkMultStack && b.kotonohaAtkMultStack !== 1) dealt = Math.round(dealt * b.kotonohaAtkMultStack);
+  /* 聖輝「光の高揚」はここ（必殺技ダメージ）には乗らない（教員の指示、2026-08-08〜：何度も
+     打つほど必殺技自体が強くなるのは意図しない。通常攻撃側=bossGrade側のkotonohaAtkMultStack
+     適用箇所だけに効かせる）。必殺技自体の威力は、他の系統と同じくpowerMult（段階に応じた
+     固定倍率、発動回数では変わらない）だけを見る。 */
   /* ぶらぶら歩く人専用：必殺技のダメージを他ボスの2倍、2回目以降はさらに倍（4倍）にする新フラグ
      `finisherDamageMultBoost:[2,4]`（教員の指示、2026-07-23）。防御力が解除されない仕様
      （上のdefTripleOnMissのコメント参照）で通常攻撃だけでは実質勝てなくなったことへの救済策
@@ -6451,12 +6453,14 @@ function bossResolveFinisher(){
   }
   /* 聖輝「光の高揚」：発動のたびに自分の攻撃力を掛け算で倍化する（重ねがけ・永続、上限なし、
      2026-08-08〜）。b.kotonohaAtkMultStackに毎回この段階の倍率を掛け続けるだけの、複利式の
-     持続バフ（戦闘終了までリセットされない）。以後の通常攻撃・必殺技どちらのダメージにも乗る。 */
+     持続バフ（戦闘終了までリセットされない）。教員の指示（2026-08-08〜）で、効果は通常攻撃
+     （bossGrade側）だけにかかり、必殺技自体のダメージ（このbossResolveFinisher内のdealt計算）
+     には乗せない＝何度打っても必殺技そのものの威力は発動回数で変わらない。 */
   let buffMsg = "";
   if(lm && lm.def.atkMultPerUse){
     const mult = lm.def.atkMultPerUse(lm.t);
     b.kotonohaAtkMultStack = (b.kotonohaAtkMultStack||1) * mult;
-    buffMsg = `<div class="boss-turn">✨自分の攻撃力が${mult}倍になった！（現在×${b.kotonohaAtkMultStack.toFixed(2)}）</div>`;
+    buffMsg = `<div class="boss-turn">✨自分の通常攻撃力が${mult}倍になった！（現在×${b.kotonohaAtkMultStack.toFixed(2)}）</div>`;
   }
   // 翠森「眠りの胞子」：相手を数ターン行動不能にする（毎ターンの目覚め判定はbossCounterAttack側）
   let sleepMsg = "";
