@@ -984,7 +984,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.114</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.115</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -2697,6 +2697,10 @@ function kotonohaRebirthSparkleHtml(){
    加点」という仕組みをそのまま流用し、対象ボスの数値レンジ（+15〜+30ポイント程度）に
    合わせて調整している（新しい掛け算の仕組みを増やさない）。 */
 const KOTONOHA_LINE_MOVE_MIN_STAGE = 2; // 少年体
+/* 冥淵専用：成人体（段階4）以降は、必殺技ゲージが1回のミスでは解除されなくなる
+   （2回連続でミスして初めてリセットされる、教員の指示、2026-08-08〜）。bossGrade側で
+   b.kotonohaMeienMissStreakを管理し、この段階に達した冥淵プレイヤーだけ適用する。 */
+const KOTONOHA_MEIEN_GAUGE_GRACE_STAGE = 4; // 成人体
 function kotonohaLineMoveT(stageIdx){
   return Math.max(0, Math.min(1, (stageIdx - KOTONOHA_LINE_MOVE_MIN_STAGE) / 4));
 }
@@ -2771,7 +2775,7 @@ const KOTONOHA_LINE_MOVES = {
   },
   meien: {
     names:["深淵の守り","冥府の守り","幽玄の盾","常闇の鉄壁","冥淵絶闇・不滅の盾"],
-    desc:"発動するたびに、次の発動の威力が200%（技の基礎威力の2倍ぶん）ずつ上乗せされていく（上限なし）",
+    desc:"発動するたびに、次の発動の威力が200%（技の基礎威力の2倍ぶん）ずつ上乗せされていく（上限なし）。成人体からは、まちがえても1回だけなら必殺技ゲージが崩れない（2回連続でまちがえるとリセット）",
     /* 防御力バフ方式（buffPerStack）から、発動回数に応じて威力そのものが際限なく伸びる方式に変更
        （教員の指示、2026-08-02〜：「少年体なら3倍→2回目4倍→3回目5倍…、伝説級は初めから5倍で
        そこからさらに上がる」）。1.0＝moveMultに+1ずつ、という意味でpowerGrowthPerUseという名前
@@ -6143,7 +6147,7 @@ function startBossBattle(boss, allGenre, hyakuninMode){
     kotonohaAtkMultStack:1, kotonohaDefBuffAmount:0,
     kotonohaSleepTurnsLeft:0, kotonohaSleepFirstTurnDone:false, kotonohaSleepWakeChance:0,
     kotonohaShigenMoveLine:null, kotonohaFinisherUseLine:false,
-    kotonohaBurnPct:0, kotonohaMeienUseCount:0,
+    kotonohaBurnPct:0, kotonohaMeienUseCount:0, kotonohaMeienMissStreak:0,
   };
   if(boss.preemptiveHalfHp){
     // 丸刈りのさるちゃん専用：戦闘開始と同時に、プレイヤーのHPを半分にする先制攻撃を受ける
@@ -6720,9 +6724,10 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
   const b = bossBattle, it = b.item;
   const st = loadStats();
   const gateActive = bossXpGateActive(b.boss, st);
-  let dealt = 0, crit = false, evaded = false, fled = false, survived = false, bossQuit = false;
+  let dealt = 0, crit = false, evaded = false, fled = false, survived = false, bossQuit = false, meienGraceUsed = false;
   if(ok){
     b.correctStreak = (b.correctStreak||0) + 1;
+    b.kotonohaMeienMissStreak = 0; // 正解でミスの連続が途切れる＝冥淵の「1回だけ許される」猶予が復活する
     /* 必殺技ゲージは「不正解でリセットされる連続正解数」で管理する（correctStreakは
        国語の神のstreakToWin判定にも使う既存カウンタなので、混同しないよう別カウンタにする）。
        満タンになったら、bossUseFinisher()側で押した瞬間に即座に発動・消費される
@@ -6801,9 +6806,23 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
       }
     }
   }else{
-    // 不正解で「連続」が途切れるので、必殺技ゲージもリセットする
+    // 不正解で「連続」が途切れるので、必殺技ゲージもリセットする。
+    // ただし冥淵は成人体（KOTONOHA_MEIEN_GAUGE_GRACE_STAGE）以降、1回のミスだけなら
+    // ゲージが解除されない（2回連続でミスして初めてリセットされる、教員の指示、2026-08-08〜）。
     b.correctStreak = 0;
-    b.finisherGauge = 0;
+    const meienGraceActive = st.kotonohaRebirth && st.kotonohaRebirth.line === "meien"
+      && kotonohaRebirthStageIndex(st) >= KOTONOHA_MEIEN_GAUGE_GRACE_STAGE;
+    if(meienGraceActive){
+      b.kotonohaMeienMissStreak = (b.kotonohaMeienMissStreak||0) + 1;
+      if(b.kotonohaMeienMissStreak >= 2){
+        b.finisherGauge = 0;
+        b.kotonohaMeienMissStreak = 0;
+      }else{
+        meienGraceUsed = true;
+      }
+    }else{
+      b.finisherGauge = 0;
+    }
     b.kotonohaFinisherUseLine = false;
     if(b.boss.defTripleOnMiss) b.bossDefMissStreak = (b.bossDefMissStreak||0) + 1;
     // ゲームマニア８９専用：プレイヤーが不正解のとき、自分の最大HPの一定割合を回復する
@@ -6848,7 +6867,8 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
         : survived
         ? `<span class="lvup-chip">${esc(b.boss.name)}に ${dealt} ダメージ！ しかしギリギリ耐えた…！</span>`
         : `<span class="lvup-chip">${crit ? "💥会心の一撃！ " : ""}${esc(b.boss.name)}に ${dealt} ダメージ！</span>`)
-    : (b.boss.healOnMissPct ? `<span class="lvup-chip">💚${esc(b.boss.name)}のHPが少し回復した！</span>` : "");
+    : (b.boss.healOnMissPct ? `<span class="lvup-chip">💚${esc(b.boss.name)}のHPが少し回復した！</span>` : "")
+      + (meienGraceUsed ? `<span class="lvup-chip">🌑必殺技ゲージは崩れなかった！</span>` : "");
   const streakMsg = (ok && b.boss.streakToWin) ? `<span class="lvup-chip">🔥連続正解 ${b.correctStreak} / ${b.boss.streakToWin}</span>` : "";
   fb.innerHTML = `<div class="verdict">あなたのターン　${ok?"○ 正解！":(timedOut?"⏰ 時間切れ…":"× ざんねん…")}${dmgMsg}${streakMsg}</div>${expl}`;
   if(bossQuit){
