@@ -846,6 +846,26 @@
     background:linear-gradient(135deg,#fdf6e3,#fbeecb); border:1px solid var(--gold); border-radius:10px; padding:4px 10px;
   }
   ul.item-list.treasure-list li{ border-bottom-color:rgba(184,134,11,.25); }
+  /* ボス戦アイテムパネルのカテゴリー別グリッド表示（2026-08-09〜）。制限時間15秒の中でも
+     アイコン・効果の強さ(badge)・所持数だけをパッと見て選べるよう、1アイテム=1つの正方形に
+     近いチップボタンにした（文章の説明はtitle属性のツールチップに回す）。 */
+  .item-panel{ padding:10px; }
+  .item-cat-block{ margin-bottom:10px; }
+  .item-cat-block:last-child{ margin-bottom:0; }
+  .item-cat-title{ font-size:.82rem; font-weight:bold; margin:0 0 6px; padding-left:8px; border-left:4px solid var(--accent2); color:var(--ink); }
+  .item-cat-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(84px, 1fr)); gap:6px; }
+  .item-chip-btn{
+    display:flex; flex-direction:column; align-items:center; gap:2px;
+    background:var(--bg); border:1px solid var(--line); border-radius:10px;
+    padding:6px 4px; cursor:pointer; font-family:inherit; text-align:center;
+  }
+  .item-chip-btn:active{ background:var(--accent2); border-color:var(--accent2); }
+  .item-chip-btn:active .item-chip-name, .item-chip-btn:active .item-chip-badge{ color:#fff; }
+  .item-chip-top{ display:flex; align-items:center; justify-content:center; gap:4px; width:100%; }
+  .item-chip-icon{ font-size:1.3rem; line-height:1; }
+  .item-chip-count{ font-size:.72rem; color:var(--sub); }
+  .item-chip-name{ font-size:.72rem; color:var(--ink); line-height:1.2; }
+  .item-chip-badge{ font-size:.78rem; font-weight:bold; color:var(--accent); }
   .note a{ color:var(--accent2); text-decoration:none; }
   .note a:hover{ text-decoration:underline; }
   .help-list{list-style:none; margin-top:2px;}
@@ -984,7 +1004,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.115</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.116</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -5443,6 +5463,18 @@ const BOSSES = [
      5000帯(33)と15000帯(50)の中間で42とした。制限時間は教員の指示で12秒（answerTimeMs、
      他ボスの標準15秒より短い個別設定）。 */
   {id:"game_maniac_89", name:"ゲームマニア８９", icon:"👾", item:"ジョイコン", treasure:"なにかのソフト", hp:6796, atk:900, defPct:20, accuracy:180, evadePct:25, luck:15, lv:42, recPts:10000, minXpRatio:0.5, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, answerTimeMs:12000, healOnMissPct:0.10},
+  /* recPts10000帯の新5体（2026-08-09〜、教員の指示）。「ルオー帯(recPts5000)を土台に、ことのはの
+     必殺技を前提とした強さ」という位置づけで、HPは教員の指示どおりルオー帯の基準HP(31000)の
+     3倍＝93000に統一（fixedHitTurns:8のボスがちょうど割り切れる数でもある）。atk/defPct/accuracy/
+     evadePct/luckは「ゲームマニア８９」と同じ標準値を土台にし、各ボスの特殊能力で個性を出す設計
+     （教員から「その他は任せる」との指示）。出現条件（minXpRatio:0.5＝経験値5000超）・
+     ドロップ設定はゲームマニア８９を踏襲。名前・アイテム・宝具は教員の指示になかったため、
+     各ボスの特殊能力にちなんだ仮称として提案したもの（変更歓迎）。 */
+  {id:"mushin_zen", name:"座禅の達人・無心さん", icon:"🧘", item:"座布団", treasure:"無心の境地", hp:93000, atk:400, defPct:20, accuracy:180, evadePct:25, luck:15, lv:42, recPts:10000, minXpRatio:0.5, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, fixedHitTurns:8},
+  {id:"idaten", name:"俊足の韋駄天", icon:"🏃", item:"俊足のお守り", treasure:"韋駄天の羽根", hp:93000, atk:400, defPct:20, accuracy:180, evadePct:25, luck:15, lv:42, recPts:10000, minXpRatio:0.5, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, lowSpdEvade:{threshold:2000, evadePct:80, taunt:"あなたの動きでは、私の速さにはついてこられまい！"}},
+  {id:"tekpeki_guard", name:"鉄壁の守衛さん", icon:"🛡️", item:"警備員証", treasure:"鉄壁の盾", hp:93000, atk:400, defPct:20, accuracy:180, evadePct:25, luck:15, lv:42, recPts:10000, minXpRatio:0.5, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, nonCritCapPct:0.05},
+  {id:"ko_king", name:"プレッシャー系ボクサー・KOキング", icon:"🥊", item:"グローブ", treasure:"王者の帯", hp:93000, atk:400, defPct:20, accuracy:180, evadePct:25, luck:15, lv:42, recPts:10000, minXpRatio:0.5, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, lowDefAtkDouble:{threshold:2000, mult:2}},
+  {id:"noroi_karakuri", name:"のろいのカラクリ人形", icon:"🪆", item:"呪いのお札", treasure:"封印の鍵", hp:93000, atk:400, defPct:20, accuracy:180, evadePct:25, luck:15, lv:42, recPts:10000, minXpRatio:0.5, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, fixedDamageRange:{min:1500, max:2000}},
   /* 適正経験値15000の新最上位ボス（2026-07-21〜、教員の指示）。「今までで一番強いボス」という
      位置づけで、既存最上位ルオー(recPts5000)からさらに3倍の帯に置いた。個性は既存の「ステータス
      依存だが特殊反撃を持つ」型：①`atkHalvedUnlessFinisher`＝必殺技以外の通常攻撃はダメージが
@@ -5761,50 +5793,70 @@ const TREASURE_NAMES = new Set(BOSSES.map(b => b.treasure));
 /* 通常アイテムをボス戦で消費すると効果を発揮する。ドロップ元のボスの個性（攻撃特化・防御特化など）
    に合わせて効果を割りふっている（例：攻撃特化型のボスが落とす鉄球・包丁は攻撃力アップ、
    防御・回避特化型のボスが落とす三角定規は防御力アップ）。 */
+/* アイテムをUI表示用にグルーピングするカテゴリー定義（2026-08-09〜、教員の指示）。
+   種類が増えすぎて15秒の制限時間内に選びにくくなっていた問題への対応で、bossItemBarHtml側で
+   このカテゴリー単位に見出しを立てて表示する。各アイテムのbadgeは「パッと見て効果の強さが
+   わかる」ための短い表示（詳しい文章はlabelに残す）。 */
+const ITEM_CATEGORY_META = {
+  heal:    {icon:"💚", title:"回復"},
+  atk:     {icon:"⚔️", title:"攻撃力アップ"},
+  def:     {icon:"🛡️", title:"防御力アップ（被ダメージ軽減）"},
+  evade:   {icon:"💨", title:"回避率アップ"},
+  acc:     {icon:"🎯", title:"命中率アップ"},
+  luck:    {icon:"🍀", title:"運アップ（会心率）"},
+  special: {icon:"✨", title:"特殊効果"},
+};
 const ITEM_EFFECTS = {
-  "バレーボール": {type:"heal",      amount:35,          label:"HPを35回復する",                       icon:"💚"},
-  "ふつうの筆":   {type:"heal",      amount:45,          label:"HPを45回復する",                       icon:"💚"},
-  "野球ボール":   {type:"missGuard",                     label:"次に1回だけ、間違えてもダメージを受けない", icon:"✨"},
-  "鉄球":         {type:"atkBuff",   amount:15, turns:3, label:"次の3ターン、攻撃力が上がる",           icon:"🔥"},
-  "包丁":         {type:"atkBuff",   amount:30, turns:3, label:"次の3ターン、攻撃力が大きく上がる",     icon:"🔥"},
-  "三角定規":     {type:"defBuff",   amount:25, turns:3, label:"次の3ターン、防御力が上がる",           icon:"🛡️"},
-  "シランちゃんのサイン": {type:"hpHalve",                label:"敵のHPを半分に減らす",                 icon:"🌀"},
-  "スポーツドリンク": {type:"heal",   amount:220,         label:"HPを220回復する",                      icon:"🥤"},
-  "受け身のこつ": {type:"defBuff",   amount:50, turns:3, label:"次の3ターン、防御力が大きく上がる",     icon:"🛡️"},
-  "会長の激励":   {type:"atkBuff",   amount:70, turns:3, label:"次の3ターン、攻撃力が大きく上がる",     icon:"🔥"},
-  "会心の一手":   {type:"luckBuff",  amount:40, turns:3, label:"次の3ターン、運が上がる（会心率アップ）", icon:"🍀"},
-  "静寂の栞":     {type:"defBuff",   amount:60, turns:3, label:"次の3ターン、防御力が大きく上がる",     icon:"🛡️"},
-  "文殊の知恵":   {type:"hpCut99",                        label:"敵のHPを、その時点から99%減らす",       icon:"🪷"},
-  "メスシリンダー": {type:"healPct", amount:0.20,          label:"自分のMAXHPの20%を回復する",           icon:"🧪"},
-  "さびついたノコギリ": {type:"atkMultBuff", mult:1.5, turns:1, label:"次のターンだけ、攻撃力が1.5倍になる", icon:"🪚"},
+  "バレーボール": {type:"heal",      amount:35,          label:"HPを35回復する",                       icon:"💚", category:"heal", badge:"+35"},
+  "ふつうの筆":   {type:"heal",      amount:45,          label:"HPを45回復する",                       icon:"💚", category:"heal", badge:"+45"},
+  "野球ボール":   {type:"missGuard",                     label:"次に1回だけ、間違えてもダメージを受けない", icon:"✨", category:"special", badge:"1回だけ無効"},
+  "鉄球":         {type:"atkBuff",   amount:15, turns:3, label:"次の3ターン、攻撃力が上がる",           icon:"🔥", category:"atk", badge:"+15/3T"},
+  "包丁":         {type:"atkBuff",   amount:30, turns:3, label:"次の3ターン、攻撃力が大きく上がる",     icon:"🔥", category:"atk", badge:"+30/3T"},
+  "三角定規":     {type:"defBuff",   amount:25, turns:3, label:"次の3ターン、防御力が上がる",           icon:"🛡️", category:"def", badge:"+25/3T"},
+  "シランちゃんのサイン": {type:"hpHalve",                label:"敵のHPを半分に減らす",                 icon:"🌀", category:"special", badge:"敵HP半分"},
+  "スポーツドリンク": {type:"heal",   amount:220,         label:"HPを220回復する",                      icon:"🥤", category:"heal", badge:"+220"},
+  "受け身のこつ": {type:"defBuff",   amount:50, turns:3, label:"次の3ターン、防御力が大きく上がる",     icon:"🛡️", category:"def", badge:"+50/3T"},
+  "会長の激励":   {type:"atkBuff",   amount:70, turns:3, label:"次の3ターン、攻撃力が大きく上がる",     icon:"🔥", category:"atk", badge:"+70/3T"},
+  "会心の一手":   {type:"luckBuff",  amount:40, turns:3, label:"次の3ターン、運が上がる（会心率アップ）", icon:"🍀", category:"luck", badge:"+40/3T"},
+  "静寂の栞":     {type:"defBuff",   amount:60, turns:3, label:"次の3ターン、防御力が大きく上がる",     icon:"🛡️", category:"def", badge:"+60/3T"},
+  "文殊の知恵":   {type:"hpCut99",                        label:"敵のHPを、その時点から99%減らす",       icon:"🪷", category:"special", badge:"敵HP99%減"},
+  "メスシリンダー": {type:"healPct", amount:0.20,          label:"自分のMAXHPの20%を回復する",           icon:"🧪", category:"heal", badge:"+20%"},
+  "さびついたノコギリ": {type:"atkMultBuff", mult:1.5, turns:1, label:"次のターンだけ、攻撃力が1.5倍になる", icon:"🪚", category:"atk", badge:"1.5倍/1T"},
   /* 適正経験値5000「アイスホッケー選手ルオー」の落とすアイテム（2026-07-19〜）。あえて
      atkBuff（固定加算）ではなくatkMultBuff（倍率）にした。加算バフは自分の攻撃力が育つほど
      相対的な効果が薄まる（例：会長の激励+70は、攻撃力ステータス300ptの終盤では全体ダメージの
      1割にも満たない）のに対し、倍率バフはどの育成段階でも常に一定割合の底上げになるため、
      終盤の最上位ボス用アイテムとして倍率型の方が「効いている実感」を保てると判断した。 */
-  "ホッケー用スティック": {type:"atkMultBuff", mult:1.3, turns:3, label:"次の3ターン、攻撃力が1.3倍になる", icon:"🏒"},
-  "青いハチマキ":   {type:"atkMultBuff", mult:2.0, turns:3, label:"次の3ターン、攻撃力が2倍になる",     icon:"🎽"},
-  /* ルオーと同じrecPts5000帯の新5体（2026-07-22〜）が落とすアイテム。ホッケー用スティックと
-     同じ設計方針（倍率型atkMultBuffの方が育成段階を問わず「効いている実感」を保てる）を
-     そのまま踏襲し、同格の効果量にそろえている。 */
-  "バスケットボール": {type:"atkMultBuff", mult:1.3, turns:3, label:"次の3ターン、攻撃力が1.3倍になる", icon:"🏀"},
-  "掃除機":         {type:"atkMultBuff", mult:1.3, turns:3, label:"次の3ターン、攻撃力が1.3倍になる", icon:"🧹"},
-  "なおじいの涙":   {type:"atkMultBuff", mult:1.3, turns:3, label:"次の3ターン、攻撃力が1.3倍になる", icon:"💧"},
-  "竹刀":           {type:"atkMultBuff", mult:1.3, turns:3, label:"次の3ターン、攻撃力が1.3倍になる", icon:"🎋"},
-  "スピードスケートの靴": {type:"atkMultBuff", mult:1.3, turns:3, label:"次の3ターン、攻撃力が1.3倍になる", icon:"⛸️"},
-  /* さらに新5体（2026-07-23〜）が落とすアイテム。エナドリ（HP50回復）だけ教員が効果を指定
-     （既存のheal型をそのまま流用）。折れたシャー芯・プラモデル・紅茶は指定がなかったため、
-     上と同じ「倍率型atkMultBuff」の路線を踏襲した。少年コミックだけは教員の指示どおり全く新しい
-     効果（4択の不正解選択肢を1つ消す）で、新しいtype:"revealWrong"をuseBossItem/renderBossBattle
-     側に追加している（詳細はそちらのコメント参照）。 */
-  "折れたシャー芯": {type:"atkMultBuff", mult:1.3, turns:3, label:"次の3ターン、攻撃力が1.3倍になる", icon:"✏️"},
-  "プラモデル":     {type:"atkMultBuff", mult:1.3, turns:3, label:"次の3ターン、攻撃力が1.3倍になる", icon:"🧩"},
-  "紅茶":           {type:"atkMultBuff", mult:1.3, turns:3, label:"次の3ターン、攻撃力が1.3倍になる", icon:"🍵"},
-  "エナドリ":       {type:"heal", amount:50,                label:"HPを50回復する",                    icon:"🧃"},
-  "少年コミック":   {type:"revealWrong",                     label:"4択問題のとき、不正解の選択肢を1つ消す（記述式には効果なし）", icon:"📙"},
+  "ホッケー用スティック": {type:"atkMultBuff", mult:1.3, turns:3, label:"次の3ターン、攻撃力が1.3倍になる", icon:"🏒", category:"atk", badge:"1.3倍/3T"},
+  "青いハチマキ":   {type:"atkMultBuff", mult:2.0, turns:3, label:"次の3ターン、攻撃力が2倍になる",     icon:"🎽", category:"atk", badge:"2.0倍/3T"},
+  /* 2026-08-09〜、教員の指示で全面改訂。旧「ルオーと同じrecPts5000帯の新5体」5種
+     （バスケットボール・掃除機・なおじいの涙・竹刀・スピードスケートの靴）は、いずれも
+     atkMultBuff 1.3倍/3ターンという完全に同じ効果で、種類だけ増えて実質的な選択肢になっていない
+     という問題があった（教員からの指摘）。攻撃力だけでなく防御力・回避率・命中率の4系統に
+     再配分し、それぞれ効果の度合いで個性を持たせた。防御力＝被ダメージを一定%カットする新type
+     "defCutBuff"、回避率＝プレイヤーの回避率に加点する新type"evadeBuff"、命中率＝ボスの回避率を
+     減点する新type"accBuff"（いずれもbossGrade/bossCounterAttack側に実装、詳細はそちらのコメント
+     参照）。紅茶だけは「お茶を飲んでほっと一息」という見た目に合わせてheal（小回復）に変更した。 */
+  "竹刀":           {type:"defCutBuff", amount:0.15, turns:3, label:"次の3ターン、受けるダメージが15%減る", icon:"🎋", category:"def", badge:"被ダメ-15%/3T"},
+  "なおじいの涙":   {type:"defCutBuff", amount:0.20, turns:3, label:"次の3ターン、受けるダメージが20%減る", icon:"💧", category:"def", badge:"被ダメ-20%/3T"},
+  "掃除機":         {type:"evadeBuff",  amount:15,   turns:3, label:"次の3ターン、ボスの攻撃を回避しやすくなる（回避率+15pt）", icon:"🧹", category:"evade", badge:"回避+15pt/3T"},
+  "スピードスケートの靴": {type:"evadeBuff", amount:20, turns:3, label:"次の3ターン、ボスの攻撃を回避しやすくなる（回避率+20pt）", icon:"⛸️", category:"evade", badge:"回避+20pt/3T"},
+  "バスケットボール": {type:"accBuff", amount:20, turns:3, label:"次の3ターン、ボスに攻撃が当たりやすくなる（命中率+20pt）", icon:"🏀", category:"acc", badge:"命中+20pt/3T"},
+  "プラモデル":     {type:"accBuff",   amount:15, turns:3, label:"次の3ターン、ボスに攻撃が当たりやすくなる（命中率+15pt）", icon:"🧩", category:"acc", badge:"命中+15pt/3T"},
+  "折れたシャー芯": {type:"atkMultBuff", mult:1.4, turns:3, label:"次の3ターン、攻撃力が1.4倍になる", icon:"✏️", category:"atk", badge:"1.4倍/3T"},
+  "紅茶":           {type:"heal", amount:60,                label:"HPを60回復する",                    icon:"🍵", category:"heal", badge:"+60"},
+  "エナドリ":       {type:"heal", amount:50,                label:"HPを50回復する",                    icon:"🧃", category:"heal", badge:"+50"},
+  "少年コミック":   {type:"revealWrong",                     label:"4択問題のとき、不正解の選択肢を1つ消す（記述式には効果なし）", icon:"📙", category:"special", badge:"誤答1つ消去"},
   /* 適正経験値10000「ゲームマニア８９」が落とすアイテム（2026-07-23〜）。教員の指示どおり、
      既存のheal型をそのまま流用して回復量300を指定。 */
-  "ジョイコン":     {type:"heal", amount:300,                label:"HPを300回復する",                   icon:"🕹️"},
+  "ジョイコン":     {type:"heal", amount:300,                label:"HPを300回復する",                   icon:"🕹️", category:"heal", badge:"+300"},
+  /* recPts10000帯の新5体（2026-08-09〜）が落とすアイテム。上と同じ4系統（攻撃/防御/回避/命中）に
+     ボスのキャラクター性にあわせて割り当て、5000帯より一段強い数値にした。 */
+  "座布団":         {type:"defCutBuff", amount:0.25, turns:3, label:"次の3ターン、受けるダメージが25%減る", icon:"🧘", category:"def", badge:"被ダメ-25%/3T"},
+  "警備員証":       {type:"defCutBuff", amount:0.30, turns:3, label:"次の3ターン、受けるダメージが30%減る", icon:"🛡️", category:"def", badge:"被ダメ-30%/3T"},
+  "俊足のお守り":   {type:"evadeBuff",  amount:30,   turns:3, label:"次の3ターン、ボスの攻撃を回避しやすくなる（回避率+30pt）", icon:"🏃", category:"evade", badge:"回避+30pt/3T"},
+  "グローブ":       {type:"atkMultBuff", mult:1.6, turns:3, label:"次の3ターン、攻撃力が1.6倍になる", icon:"🥊", category:"atk", badge:"1.6倍/3T"},
+  "呪いのお札":     {type:"accBuff",    amount:30,   turns:3, label:"次の3ターン、ボスに攻撃が当たりやすくなる（命中率+30pt）", icon:"🪬", category:"acc", badge:"命中+30pt/3T"},
 };
 function randInt(min, max){ return min + Math.floor(Math.random() * (max - min + 1)); }
 
@@ -6056,6 +6108,7 @@ function rollBossEncounter(resumeFn, hyakuninMode){
    xpAbove（この値を超えたら）とretireAtOrBelowRecPts（この適正経験値以下のボスを除外）の
    組の配列で、複数の段階を持たせられる。 */
 const BOSS_RETIREMENT_TIERS = [
+  {xpAbove: 7000, retireAtOrBelowRecPts: 4999}, // 2026-08-09〜、教員の指示：経験値7000超で適正経験値5000未満のボスが卒業（5000ちょうどのルオー帯11体は対象外）
   {xpAbove: 4000, retireAtOrBelowRecPts: 2000},
   {xpAbove: 3000, retireAtOrBelowRecPts: 1000},
 ];
@@ -6211,6 +6264,25 @@ function useBossItem(name){
     msg = effect.turns > 1
       ? `${effect.icon} 「${name}」を使った！ 次の${effect.turns}ターン、攻撃力が${effect.mult}倍になる！`
       : `${effect.icon} 「${name}」を使った！ 次のターン、攻撃力が${effect.mult}倍になる！`;
+  }else if(effect.type === "defCutBuff"){
+    /* 防御力アップ系（2026-08-09〜、教員の指示）。既存のdefBuff（防御力ステータスへの固定加算）
+       とは別枠で、被ダメージそのものをamount(0〜1)ぶん割合カットする。bossCounterAttack側の
+       通常反撃・無敵艦隊のcounterOkFixedMin反撃の2箇所で、防御力軽減の後段に適用する
+       （防御力を無視するstatIgnore/fixedDamageRange系のボスにはそもそも適用箇所がないため、
+       教員の指示どおり「防御力に関係なく」の演出は壊れない）。 */
+    b.defCutBuffTurns = effect.turns;
+    b.defCutBuffAmount = effect.amount;
+    msg = `${effect.icon} 「${name}」を使った！ 次の${effect.turns}ターン、受けるダメージが${Math.round(effect.amount*100)}%減る！`;
+  }else if(effect.type === "evadeBuff"){
+    // 回避率アップ系：bossCounterAttack側のevasionPct計算に、素早さの回避率とは別枠でamount(pt)を加算する
+    b.evadeBuffTurns = effect.turns;
+    b.evadeBuffAmount = effect.amount;
+    msg = `${effect.icon} 「${name}」を使った！ 次の${effect.turns}ターン、ボスの攻撃を回避しやすくなった！`;
+  }else if(effect.type === "accBuff"){
+    // 命中率アップ系：bossGrade側のeffEvadePct（ボスの回避率）から、素早さの命中ボーナスとは別枠でamount(pt)を差し引く
+    b.accBuffTurns = effect.turns;
+    b.accBuffAmount = effect.amount;
+    msg = `${effect.icon} 「${name}」を使った！ 次の${effect.turns}ターン、ボスに攻撃が当たりやすくなった！`;
   }else if(effect.type === "revealWrong"){
     /* 少年コミック専用（2026-07-23〜）。記述式（it.ansが配列）の問題には効果がなく、その旨だけ
        伝えて選択肢には触れない。4択でも、すでに他の同種アイテムで1つ消えている場合や
@@ -6623,12 +6695,19 @@ function refreshBossHpBars(){
   saveBossBattleState();
 }
 /* ボス戦中の「アイテムを使う」まわりのUI（発動中のバフ表示・使用ボタン・アイテム選択パネル） */
+/* アイテム選択パネルでカテゴリーを並べる順序（2026-08-09〜）。制限時間15秒の中で選ぶことが
+   多いので、「まず回復か特殊効果（今すぐ効く系）」「次に防御・回避（守り）」「最後に攻撃・命中・運
+   （攻め）」という優先度で並べ、一番使いたいものが上に来るようにした。 */
+const ITEM_CATEGORY_ORDER = ["heal", "special", "def", "evade", "acc", "atk", "luck"];
 function bossItemBarHtml(){
   const b = bossBattle;
   if(b.boss.noItems) return `<p class="note">🎒 このボスとの戦いでは、アイテムは使えない。</p>`;
   const buffChips = [];
-  if(b.atkBuffTurns > 0) buffChips.push(`<span class="lvup-chip">🔥攻撃力UP（あと${b.atkBuffTurns}ターン）</span>`);
+  if(b.atkBuffTurns > 0) buffChips.push(`<span class="lvup-chip">⚔️攻撃力UP（あと${b.atkBuffTurns}ターン）</span>`);
   if(b.defBuffTurns > 0) buffChips.push(`<span class="lvup-chip">🛡️防御力UP（あと${b.defBuffTurns}ターン）</span>`);
+  if(b.defCutBuffTurns > 0) buffChips.push(`<span class="lvup-chip">🛡️被ダメージ軽減中（あと${b.defCutBuffTurns}ターン）</span>`);
+  if(b.evadeBuffTurns > 0) buffChips.push(`<span class="lvup-chip">💨回避率UP（あと${b.evadeBuffTurns}ターン）</span>`);
+  if(b.accBuffTurns > 0) buffChips.push(`<span class="lvup-chip">🎯命中率UP（あと${b.accBuffTurns}ターン）</span>`);
   if(b.luckBuffTurns > 0) buffChips.push(`<span class="lvup-chip">🍀運UP（あと${b.luckBuffTurns}ターン）</span>`);
   if(b.missGuard) buffChips.push(`<span class="lvup-chip">✨ミス回避 スタンバイ中</span>`);
   const buffRow = buffChips.length ? `<p class="note">${buffChips.join(" ")}</p>` : "";
@@ -6636,17 +6715,38 @@ function bossItemBarHtml(){
   const usable = usableBossItems();
   let panel = "";
   if(b.showItemPanel && !b.usedItemThisTurn){
-    panel = usable.length
-      ? `<div class="card" style="margin:8px 0">` + usable.map(name => {
-          const st = loadStats();
+    if(usable.length){
+      const st = loadStats();
+      /* カテゴリーごとにグルーピングして見出しを立てる（2026-08-09〜、教員の指示：種類が
+         増えすぎて15秒以内に選びにくいという問題への対応）。1アイテム＝1つの小さなチップ
+         ボタンにして、アイコン・効果の強さ(badge)・所持数だけをパッと見でわかるようにし、
+         文章の説明(label)はチップ下の小さな文字に留める。 */
+      const byCat = {};
+      usable.forEach(name => {
+        const effect = ITEM_EFFECTS[name];
+        const cat = effect.category || "special";
+        (byCat[cat] = byCat[cat] || []).push(name);
+      });
+      const blocks = ITEM_CATEGORY_ORDER.filter(cat => byCat[cat]).map(cat => {
+        const meta = ITEM_CATEGORY_META[cat];
+        const chips = byCat[cat].map(name => {
           const n = (st.items && st.items[name]) || 0;
           const effect = ITEM_EFFECTS[name];
-          return `<div class="btn-row" style="justify-content:space-between; align-items:center; margin-top:6px">
-            <span>${effect.icon} <b>${esc(name)}</b>（${n}コ）<br><span class="note" style="margin:0">${esc(effect.label)}</span></span>
-            <button class="btn inline" onclick="useBossItem('${esc(name)}')">使う</button>
-          </div>`;
-        }).join("") + `</div>`
-      : `<div class="card" style="margin:8px 0"><p class="note">使えるアイテムを持っていません。ボスを倒すと手に入ります。</p></div>`;
+          return `<button class="item-chip-btn" onclick="useBossItem('${esc(name)}')" title="${esc(effect.label)}">
+            <span class="item-chip-top"><span class="item-chip-icon">${effect.icon}</span><span class="item-chip-count">×${n}</span></span>
+            <span class="item-chip-name">${esc(name)}</span>
+            <span class="item-chip-badge">${esc(effect.badge || "")}</span>
+          </button>`;
+        }).join("");
+        return `<div class="item-cat-block">
+          <div class="item-cat-title">${meta.icon} ${esc(meta.title)}</div>
+          <div class="item-cat-grid">${chips}</div>
+        </div>`;
+      }).join("");
+      panel = `<div class="card item-panel" style="margin:8px 0">${blocks}</div>`;
+    }else{
+      panel = `<div class="card" style="margin:8px 0"><p class="note">使えるアイテムを持っていません。ボスを倒すと手に入ります。</p></div>`;
+    }
   }
   const itemBtn = b.usedItemThisTurn
     ? `<button class="btn inline secondary disabled" disabled>🎒 このターンはもう使えません</button>`
@@ -6724,7 +6824,7 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
   const b = bossBattle, it = b.item;
   const st = loadStats();
   const gateActive = bossXpGateActive(b.boss, st);
-  let dealt = 0, crit = false, evaded = false, fled = false, survived = false, bossQuit = false, meienGraceUsed = false;
+  let dealt = 0, crit = false, evaded = false, fled = false, survived = false, bossQuit = false, meienGraceUsed = false, lowSpdTaunt = "";
   if(ok){
     b.correctStreak = (b.correctStreak||0) + 1;
     b.kotonohaMeienMissStreak = 0; // 正解でミスの連続が途切れる＝冥淵の「1回だけ許される」猶予が復活する
@@ -6749,12 +6849,32 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
       const ps = kotonohaEffStats(st);
       // 素早さは、ボスの回避率を少し下げる命中率ボーナスも持つ（上限つきなので他ステータスとのバランスは崩れない）
       const accBonus = STAT_SPD_ACC_MAX_BONUS * ps.spd / (ps.spd + STAT_SPD_ACC_HALF_POINT);
-      const effEvadePct = b.boss.fixedEvade ? (b.boss.evadePct||0) : Math.max(0, (b.boss.evadePct||0) - accBonus);
+      /* 韋駄天専用：素早さがlowSpdEvade.threshold未満のときは、通常の回避率計算を無視して
+         固定の高確率で回避する（2026-08-09〜、教員の指示）。回避が発生したターンは専用の
+         セリフ(lowSpdTaunt)をdmgMsg側で表示する。 */
+      const lowSpdEvadeActive = !!(b.boss.lowSpdEvade && ps.spd < b.boss.lowSpdEvade.threshold);
+      const baseEvadePct = lowSpdEvadeActive ? b.boss.lowSpdEvade.evadePct
+        : b.boss.fixedEvade ? (b.boss.evadePct||0) : Math.max(0, (b.boss.evadePct||0) - accBonus);
+      // 命中率アップ系アイテム（バスケットボール等）：発動源に関係なく、ボスの回避率を一律で差し引く
+      const effEvadePct = Math.max(0, baseEvadePct - (b.accBuffTurns > 0 ? b.accBuffAmount : 0));
       if(Math.random() * 100 < effEvadePct){
         evaded = true;
+        if(lowSpdEvadeActive) lowSpdTaunt = b.boss.lowSpdEvade.taunt || "";
       }else if(b.boss.isShiran && Math.random() < SHIRAN_FLEE_RATE){
         // シランちゃんは、攻撃が命中する寸前でも一定確率で逃げ出す（正解でも不正解でも「逃げる可能性」を持たせるため）
         fled = true;
+      }else if(b.boss.fixedHitTurns){
+        /* 無心さん専用：攻撃力無効化（2026-08-09〜、教員の指示）。ステータス・会心を一切参照せず、
+           通常攻撃は必ずbossMaxHp/fixedHitTurnsだけ削る固定ダメージにする（＝通常攻撃だけなら
+           必ずfixedHitTurnsターンかかる）。必殺技は教員の指示で特別扱いとし対象外
+           （bossResolveFinisherは通常どおりの計算のまま、必殺技を使えば早く倒せる）。 */
+        dealt = Math.max(1, Math.round(b.bossMaxHp / b.boss.fixedHitTurns));
+        if(gateActive && b.bossHp - dealt <= 0){
+          evaded = true;
+          dealt = 0;
+        }else{
+          b.bossHp = Math.max(0, b.bossHp - dealt);
+        }
       }else{
         dealt = randInt(BOSS_PLAYER_DMG[0], BOSS_PLAYER_DMG[1]) + ps.atk * STAT_ATK_PER_POINT + (b.atkBuffTurns > 0 ? b.atkBuffAmount : 0);
         // さびついたノコギリ等の「次のターンだけ攻撃力n倍」効果（攻撃力依存の倍率、既存の加算式atkBuffとは別枠）
@@ -6785,8 +6905,12 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
         dealt = Math.max(1, Math.round(dealt * (1 - effBossDefPct / 100)));
         /* 極端な攻撃力特化ビルド対策（2026-08-03〜、教員の指示）。適正経験値5000以上のボス限定で、
            通常攻撃1発あたりの上限をボス最大HPの33%に固定する。必殺技（bossResolveFinisher、
-           完全に別関数・別のdealt計算）はこの上限の対象外。 */
-        if((b.boss.recPts||0) >= NORMAL_ATK_CAP_MIN_RECPTS){
+           完全に別関数・別のdealt計算）はこの上限の対象外。鉄壁の守衛さん専用のnonCritCapPct
+           （会心以外は最大HPの5%までしか通らない、2026-08-09〜、教員の指示）を持つ場合は
+           そちらを優先し、会心のときだけ既存の33/40%上限を適用する。 */
+        if(b.boss.nonCritCapPct && !crit){
+          dealt = Math.min(dealt, Math.max(1, Math.round(b.bossMaxHp * b.boss.nonCritCapPct)));
+        }else if((b.boss.recPts||0) >= NORMAL_ATK_CAP_MIN_RECPTS){
           dealt = Math.min(dealt, Math.max(1, Math.round(b.bossMaxHp * NORMAL_ATK_MAX_HIT_PCT)));
         }
         if(gateActive && b.bossHp - dealt <= 0){
@@ -6863,7 +6987,7 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
     ? (fled
         ? `<span class="lvup-chip">😲すんでのところで${esc(b.boss.name)}に逃げられた！</span>`
         : evaded
-        ? `<span class="lvup-chip">💨${esc(b.boss.name)}に回避された！</span>`
+        ? `${lowSpdTaunt ? `<span class="lvup-chip">😤${esc(b.boss.name)}「${esc(lowSpdTaunt)}」</span>` : ""}<span class="lvup-chip">💨${esc(b.boss.name)}に回避された！</span>`
         : survived
         ? `<span class="lvup-chip">${esc(b.boss.name)}に ${dealt} ダメージ！ しかしギリギリ耐えた…！</span>`
         : `<span class="lvup-chip">${crit ? "💥会心の一撃！ " : ""}${esc(b.boss.name)}に ${dealt} ダメージ！</span>`)
@@ -7007,11 +7131,16 @@ function bossCounterAttack(playerWasCorrect){
     const effDef2 = ps2.def + (b.defBuffTurns > 0 ? b.defBuffAmount : 0);
     const defReduction2 = cappedDefReduction(effDef2, b.boss);
     taken = Math.max(1, Math.round(taken * (1 - defReduction2)));
+    // 防御力アップ系アイテム（座布団等）：防御力ステータスとは別枠で被ダメージをさらに割合カットする
+    if(b.defCutBuffTurns > 0) taken = Math.max(1, Math.round(taken * (1 - b.defCutBuffAmount)));
     b.playerHp = Math.max(0, b.playerHp - taken);
     if(b.atkBuffTurns > 0) b.atkBuffTurns--;
     if(b.defBuffTurns > 0) b.defBuffTurns--;
     if(b.luckBuffTurns > 0) b.luckBuffTurns--;
     if(b.atkMultTurns > 0) b.atkMultTurns--;
+    if(b.defCutBuffTurns > 0) b.defCutBuffTurns--;
+    if(b.evadeBuffTurns > 0) b.evadeBuffTurns--;
+    if(b.accBuffTurns > 0) b.accBuffTurns--;
     refreshBossHpBars();
     const fb = document.getElementById("fb");
     fb.innerHTML += `<div class="boss-turn">👹 ${esc(b.boss.name)}のターン。あなたは ${taken} ダメージを受けた。</div>`;
@@ -7026,8 +7155,11 @@ function bossCounterAttack(playerWasCorrect){
   const ps = kotonohaEffStats(st);
   const accuracy = b.boss.accuracy || 100;
   const evasionHalfPoint = STAT_SPD_EVASION_HALF_POINT_BASE * (accuracy / 100);
-  const evasionPct = STAT_SPD_EVASION_MAX_PCT * ps.spd / (ps.spd + evasionHalfPoint);
-  const hitChance = 1 - evasionPct / 100; // 素早さによる回避率（上限35%）
+  /* 回避率アップ系アイテム（掃除機等）：素早さによる回避率（上限35%）とは別枠でamount(pt)を上乗せ。
+     アイテム込みでも際限なく100%に近づかないよう、合計は90%で頭打ちにする（2026-08-09〜、教員の指示）。 */
+  const baseEvasionPct = STAT_SPD_EVASION_MAX_PCT * ps.spd / (ps.spd + evasionHalfPoint);
+  const evasionPct = Math.min(90, baseEvasionPct + (b.evadeBuffTurns > 0 ? b.evadeBuffAmount : 0));
+  const hitChance = 1 - evasionPct / 100;
   let taken = 0, bossCrit = false, playerEvaded = false, guarded = false;
   /* ロボットに乗ったくらちゃん専用：命中/回避に関わらず「反撃のターンそのもの」を数えて、
      攻撃力を複利で伸ばす（教員の指示で上限なし）。命中判定より前に消費しておくことで、
@@ -7040,9 +7172,21 @@ function bossCounterAttack(playerWasCorrect){
     guarded = true;
   }else if(Math.random() >= hitChance){
     playerEvaded = true;
+  }else if(b.boss.fixedDamageRange){
+    /* のろいのカラクリ人形専用：命中すれば防御力に関係なく固定レンジのダメージを必ず与える
+       （2026-08-09〜、教員の指示）。命中/回避の判定（素早さ）は上のhitChanceでこれまでどおり
+       行っており、防御力だけを無視する（回避には関係する）。 */
+    taken = randInt(b.boss.fixedDamageRange.min, b.boss.fixedDamageRange.max);
+    b.playerHp = Math.max(0, b.playerHp - taken);
   }else{
     const effDef = ps.def + (b.defBuffTurns > 0 ? b.defBuffAmount : 0) + (b.kotonohaDefBuffAmount||0);
     let effAtk = defGateActive(effDef, st) ? (b.boss.atk||1) * DEF_GATE_ATK_MULT : (b.boss.atk||1);
+    /* KOキング専用：防御力がlowDefAtkDouble.threshold未満だと攻撃力が2倍になる（2026-08-09〜、
+       教員の指示）。全ボス共通の防御力ゲート（defGateActive、経験値÷6未満で5倍）とは別枠の
+       追加ルールとして重ねがけする設計で教員に確認済み。 */
+    if(b.boss.lowDefAtkDouble && effDef < b.boss.lowDefAtkDouble.threshold){
+      effAtk *= b.boss.lowDefAtkDouble.mult;
+    }
     if(b.boss.selfHpAtkBoost){
       // 咆哮のソーマー専用：自分のHPが閾値を切ると攻撃力の倍率が跳ね上がる（教員の指示）
       const cfg = b.boss.selfHpAtkBoost;
@@ -7057,12 +7201,17 @@ function bossCounterAttack(playerWasCorrect){
     }
     const defReduction = cappedDefReduction(effDef, b.boss);
     taken = Math.max(1, Math.round(raw * (1 - defReduction)));
+    // 防御力アップ系アイテム（座布団等）：防御力ステータスとは別枠で被ダメージをさらに割合カットする
+    if(b.defCutBuffTurns > 0) taken = Math.max(1, Math.round(taken * (1 - b.defCutBuffAmount)));
     b.playerHp = Math.max(0, b.playerHp - taken);
   }
   if(b.atkBuffTurns > 0) b.atkBuffTurns--;
   if(b.defBuffTurns > 0) b.defBuffTurns--;
   if(b.luckBuffTurns > 0) b.luckBuffTurns--;
   if(b.atkMultTurns > 0) b.atkMultTurns--;
+  if(b.defCutBuffTurns > 0) b.defCutBuffTurns--;
+  if(b.evadeBuffTurns > 0) b.evadeBuffTurns--;
+  if(b.accBuffTurns > 0) b.accBuffTurns--;
   refreshBossHpBars();
   const fb = document.getElementById("fb");
   fb.innerHTML += guarded
