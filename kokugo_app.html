@@ -999,12 +999,39 @@
      （2026-07-18、章クリア画面で同種の問題が起きた前例[[kokugo-story-mode]]と同じ対策）。 */
   .bb-victory .drop-item{ color:var(--accent); background:rgba(255,255,255,.6); border-color:rgba(192,57,43,.4); }
   .bb-victory .drop-item.treasure-drop{ color:#8a5a00; background:rgba(255,255,255,.75); box-shadow:0 0 10px rgba(184,134,11,.4); }
+
+  /* ===== サブクエスト「ボキャブラ・シューティング」（2026-08-10〜） ===== */
+  .vs-topbar{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px; }
+  .vs-lives{ display:flex; gap:3px; font-size:16px; }
+  .vs-lives .heart{ color:#ff5577; }
+  .vs-lives .heart-empty{ color:rgba(255,85,119,0.28); }
+  .vs-scorebox{ text-align:right; }
+  .vs-score{ font-size:20px; font-weight:bold; color:var(--gold); font-variant-numeric:tabular-nums; }
+  .vs-best{ font-size:11px; color:var(--sub); margin-top:2px; }
+  .vs-wordbanner{ text-align:center; margin-bottom:8px; }
+  .vs-word{ font-size:clamp(20px,6vw,28px); font-weight:bold; letter-spacing:2px; color:var(--ink); }
+  .vs-sub{ font-size:11px; color:var(--sub); margin-top:2px; }
+  .vs-wrap{ position:relative; width:100%; max-width:340px; margin:0 auto; touch-action:none; }
+  .vs-wrap canvas{
+    width:100%; height:auto; display:block; border-radius:12px;
+    background:linear-gradient(180deg,#0a0a1a 0%,#12122a 100%); box-shadow:0 0 24px rgba(80,120,255,0.2);
+  }
+  .vs-fire{
+    position:absolute; right:12px; bottom:22px; z-index:2;
+    width:64px; height:64px; border-radius:50%; border:3px solid rgba(255,255,255,0.5);
+    background: radial-gradient(circle at 35% 30%, #ff9dc0, #ff6b9d 60%, #c4498a 100%);
+    color:#fff; font-weight:bold; font-size:11px; letter-spacing:1px;
+    box-shadow:0 4px 16px rgba(255,107,157,0.55), inset 0 -3px 6px rgba(0,0,0,0.25);
+  }
+  .vs-fire:active{ transform:scale(0.92); }
+  .vs-result-score{ font-size:clamp(28px,8vw,40px); font-weight:bold; color:var(--gold); margin:10px 0; text-align:center; }
+  .vs-newbest{ text-align:center; font-weight:bold; color:var(--accent); margin:6px 0; }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.116</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.117</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3168,6 +3195,7 @@ function showHome(){
   clearStoryProofreadTimer(); // 校正ミニゲームを中断して離れたときに、残った制限時間タイマーを止める
   clearStoryComboTimer(); // コンボアタックを中断して離れたときに、残ったカウントダウン/制限時間タイマーを止める
   clearBaseballTimers(); // 野球ミニゲームを中断して離れたときに、残ったカウントダウン・制限時間タイマーを止める
+  vsStopLoop(); // ボキャブラ・シューティングを中断して離れたときに、動作中のゲームループ・キー入力リスナーを止める
   const st = loadStats();
   if(st.pendingDailyLoginStamp){ showDailyLoginStampOverlay(st); return; }
   if(kotonohaHasPendingEvolveCutscene(st)){ showKotonohaEvolveCutscene(st); return; }
@@ -8601,6 +8629,27 @@ function storyChosenKumiValue(st){
   return STORY_KUMI_LABELS[sp.flags.kumiSlogan] ? sp.flags.kumiSlogan : null;
 }
 
+/* サブクエスト（メインストーリーの進行とは無関係に、いつでも挑戦できる番外編、2026-08-10〜）。
+   メインストーリー(STORY_CHAPTERS)とは別のオブジェクトで管理し、storyChapterUnlockedは
+   このオブジェクトのキーを常に解放済み扱いにする。章の実体（beats/epilogue）の形式は
+   STORY_CHAPTERSと共通なので、既存のbeat型（line/choice/quiz等）もそのまま使い回せる。 */
+const STORY_SIDEQUESTS = {
+  sqShooting: {
+    title: "サブクエスト「ボキャブラ・シューティング」",
+    beats: [
+      {type:"line", speaker:"ことのは", text:"ねえ、面白いものを見つけたよ。\n降ってくる「意味」の中から、正しいものを選んで撃ち落とすゲームなんだって。"},
+      {type:"line", speaker:"ことのは", text:"表示された言葉の、正しい意味を選んで撃とう。\n間違った意味に当てたり、正解を撃ちもらしたりすると、ライフが減っちゃうから気をつけてね！"},
+      {type:"shooting", cat:"goi"},
+    ],
+    epilogue: "「おつかれさま！ 自己ベストは更新できたかな？\nまた挑戦して、記録をのばしてね。」",
+  },
+};
+/* STORY_CHAPTERS・STORY_SIDEQUESTSのどちらのキーでも章の定義を引けるようにする共通ヘルパー。
+   storyRenderBeat等、章の種類を意識せず進行させたい箇所から使う。 */
+function storyChapterDef(key){
+  return STORY_CHAPTERS[key] || STORY_SIDEQUESTS[key];
+}
+
 let storyRun = null; // 実行中の一時状態（セーブしない。直前の出題・選択肢の並び順・合格ゲートの進捗など）
 function storyFreshRun(){
   return {
@@ -8612,6 +8661,7 @@ function storyFreshRun(){
     comboBeatIdx:null, combo:null,
     matchOrder:null,
     wpWords:null, wpFound:null, wpDeadline:null, wpDone:false, wpTimerId:null,
+    shootBeatIdx:null, shoot:null,
   };
 }
 
@@ -8634,22 +8684,39 @@ function storyEntryHtml(st){
 const STORY_TEST_RANGE_MARKER = {afterChapter:"ch7", label:"📝 夏休み明けのテスト範囲は、ここまで！"};
 function showStoryMenu(){
   const st = loadStats();
-  let html = `<div class="card"><h3 class="section">📖 ストーリーモード</h3>
+  let html = `<div class="card"><h3 class="section">📖 メインストーリー</h3>
     <p class="note">ことのはと一緒に、中学校生活を歩む物語です。章を選んで読み進めよう。前の章をクリアすると、次の章が解放されます。</p></div>`;
   html += Object.keys(STORY_CHAPTERS).map(key => {
     const marker = key === STORY_TEST_RANGE_MARKER.afterChapter
       ? `<div class="story-test-range-banner">${esc(STORY_TEST_RANGE_MARKER.label)}</div>` : "";
     return storyChapterButtonHtml(key, st) + marker;
   }).join("");
+  html += `<div class="card"><h3 class="section">⭐ サブクエスト</h3>
+    <p class="note">メインストーリーの進み具合とは関係なく、いつでも遊べる番外編です。</p></div>`;
+  html += Object.keys(STORY_SIDEQUESTS).map(key => storySideQuestButtonHtml(key, st)).join("");
   html += `<div class="btn-row" style="justify-content:center; margin-top:10px">
     <button class="btn secondary" onclick="showHome()">ホームへ</button>
   </div>`;
   screen.innerHTML = html;
 }
+/* サブクエストのカード。メインストーリーの章カード(storyChapterButtonHtml)と違い、
+   ロック・クリア済みという状態を持たない（常に「挑戦する」）。自己ベストがあれば表示する。 */
+function storySideQuestButtonHtml(key, st){
+  const q = STORY_SIDEQUESTS[key];
+  const best = key === "sqShooting" ? (st.vocabShooterHighScore || 0) : 0;
+  const sub = best > 0 ? `<p class="note">自己ベスト：${best}点</p>` : `<p>タップして挑戦しよう</p>`;
+  return `
+    <div class="card menu-card" onclick="startStoryMode('${key}')">
+      <div class="menu-icon">🚀</div>
+      <div><h2>${esc(q.title)}</h2>${sub}</div>
+      <div class="right"><span class="shogo-badge">挑戦する</span></div>
+    </div>`;
+}
 /* 章の解放システム（2026-07-19〜、教員の指示で追加）。STORY_CHAPTERSの並び順で、直前の章を
    クリアしていないと次の章には挑戦できない（先頭の章は常に解放されている）。今後3章目以降を
    追加しても、この関数・呼び出し側は変更不要（並び順から自動的に判定する）。 */
 function storyChapterUnlocked(key, st){
+  if(STORY_SIDEQUESTS[key]) return true; // サブクエストは常に解放（メインストーリーの進行と無関係）
   const keys = Object.keys(STORY_CHAPTERS);
   const idx = keys.indexOf(key);
   if(idx <= 0) return true;
@@ -8694,7 +8761,12 @@ function startStoryMode(chapterKey){
     const st = loadStats();
     if(!storyChapterUnlocked(chapterKey, st)){ showStoryMenu(); return; }
     const sp = storyProgress(st);
-    if(sp.chapter !== chapterKey){ sp.chapter = chapterKey; sp.beatIdx = 0; storyResetJudgedRun(sp); }
+    /* サブクエストは「クリア」という概念のない常設スコアアタックのため、メインストーリーの
+       既存の挙動（クリア済みの章をタップすると、まずクリア画面だけを再表示する。作り直すには
+       専用の「もう一度プレイする」ボタンを押す必要がある）とは違い、一覧からタップするたびに
+       毎回beatIdx0から新しいプレイを始める（教員の指示、2026-08-10〜）。 */
+    const isSideQuest = !!STORY_SIDEQUESTS[chapterKey];
+    if(sp.chapter !== chapterKey || isSideQuest){ sp.chapter = chapterKey; sp.beatIdx = 0; storyResetJudgedRun(sp); }
     saveStats(st);
   }
   storyRun = storyFreshRun();
@@ -8703,7 +8775,7 @@ function startStoryMode(chapterKey){
 function storyRenderBeat(){
   const st = loadStats();
   const sp = storyProgress(st);
-  const chapter = STORY_CHAPTERS[sp.chapter];
+  const chapter = storyChapterDef(sp.chapter);
   if(!chapter || sp.beatIdx >= chapter.beats.length){ storyChapterEnd(); return; }
   const beat = chapter.beats[sp.beatIdx];
   if(beat.type === "line") storyRenderLine(beat, sp);
@@ -8717,6 +8789,7 @@ function storyRenderBeat(){
   else if(beat.type === "baseball") storyRenderBaseball(beat, sp.beatIdx);
   else if(beat.type === "combo") storyRenderCombo(beat, sp.beatIdx);
   else if(beat.type === "wordPick") storyRenderWordPick(beat);
+  else if(beat.type === "shooting") storyRenderShooting(beat, sp.beatIdx);
   else if(beat.type === "kotonohaRebirthReveal") storyRenderKotonohaRebirthReveal();
   else showHome();
 }
@@ -8784,7 +8857,7 @@ function storyRenderChoice(beat){
 function storyChoose(i){
   const st = loadStats();
   const sp = storyProgress(st);
-  const chapter = STORY_CHAPTERS[sp.chapter];
+  const chapter = storyChapterDef(sp.chapter);
   const beat = chapter.beats[sp.beatIdx];
   const opt = beat.options[i];
   if(beat.flagKey) sp.flags[beat.flagKey] = opt.value;
@@ -8834,7 +8907,7 @@ function storyJudgedChoose(i){
   clearChoiceKeys();
   const st = loadStats();
   const sp = storyProgress(st);
-  const chapter = STORY_CHAPTERS[sp.chapter];
+  const chapter = storyChapterDef(sp.chapter);
   const beat = chapter.beats[sp.beatIdx];
   const opt = beat.options[i];
   const ok = !!opt.correct;
@@ -8889,7 +8962,7 @@ function storyShortAnswerSubmit(){
   if(!val) return;
   const st = loadStats();
   const sp = storyProgress(st);
-  const chapter = STORY_CHAPTERS[sp.chapter];
+  const chapter = storyChapterDef(sp.chapter);
   const beat = chapter.beats[sp.beatIdx];
   const ok = beat.answers.map(normalizeAns).includes(val);
   el.disabled = true;
@@ -10021,6 +10094,534 @@ function storyRenderBaseballScreen(){
   if(bb.phase === "question" && bb.selected === null) animateBaseballTimerBar(bb.answerDeadline - Date.now());
 }
 
+/* ================= サブクエスト「ボキャブラ・シューティング」（shooting beat、2026-08-10〜） =================
+   元々は独立した単一HTMLファイル（ボキャブラ・シューティング/vocab_shooter.html）だったシューティング
+   ゲームを、ストーリーモードのサブクエストとして移植したもの。教員の指示で、以下の3点を本編仕様から
+   変更している：
+   1. 出題は単体データ(VOCAB_LEVELSという学年別10段階の独自プール)をやめ、知識クイズの「語彙」
+      （goi）分野の問題（4択・206問）をそのまま使う。selectOne("goi", ...)で通常のクイズと同じ
+      難度調整・出題解放プールに従う。
+   2. 正解するたびにrecord("goi", ...)を呼び、「語彙」分野のレベルを通常のクイズと同じ仕組みで
+      上げる（診断的難度調整st.diffLv.goiも連動して上がっていく）。ただしskipRecentAcc:trueを
+      指定し、野球ミニゲーム（storyBaseballAnswer参照）と同じ理由で、テンポの速いこのミニゲーム
+      の結果を「直近30問の正答率」（ボスのランダム遭遇率等に使う全ジャンル共通の統計）には
+      混ぜない。1つの単語（1ラウンド）につき、record()は「正解オーブに命中」または「正解オーブを
+      撃ちもらして画面外へ」のどちらか一度だけ呼ぶ（誤答オーブに命中しても、そのタップ単体では
+      record()を呼ばない＝ライフが減るだけの既存の「ちがう！」の挙動のまま）。
+   3. ハイスコアは、st.vocabShooterHighScore としてほかの全データと同じ`st`オブジェクトに載せ、
+      saveStats()経由でlocalStorageに保存する（本編スタンドアロン版はページ内保持のみだった）。
+   「クリア」という概念のない常設スコアアタックのため、章の解放は常に真（storyChapterUnlocked参照）、
+   一覧からタップするたびに毎回beatIdx0から新しいプレイを始める（startStoryMode参照）。 */
+const VS_W = 340, VS_H = 600;
+const VS_ITEM_TYPES = [
+  {type:'slow', weight:0.40, color:'#4fc3f7', symbol:'S'},
+  {type:'life', weight:0.35, color:'#ff5577', symbol:'♥'},
+  {type:'ship', weight:0.25, color:'#ffd24f', symbol:'★'},
+];
+const VS_ITEM_DROP_CHANCE = 0.32;
+const VS_CORRECT_PER_SPEEDUP = 4;
+function storyRenderShooting(beat, idx){
+  if(storyRun.shootBeatIdx !== idx){
+    storyRun.shootBeatIdx = idx;
+    storyRun.shoot = { cat: beat.cat || "goi", phase:"ready" };
+  }
+  storyRun.curBeat = beat;
+  if(storyRun.shoot.phase === "gameover") vsRenderResult();
+  else storyRenderShootingReady();
+}
+function storyRenderShootingReady(){
+  screen.innerHTML = `
+    <div class="card story-scene">
+      <h3 class="section">🚀 ボキャブラ・シューティング</h3>
+      <p class="story-text">上から降ってくる「意味」の中から、表示された言葉の正しい意味を選んで撃ち落とそう。</p>
+      <p class="note">・自機は画面をドラッグして操作する<br>・SHOOTボタンを押している間、連射される<br>・まちがった意味に当てたり、正解を撃ちもらしたりすると、ライフが減る</p>
+      <div class="btn-row" style="justify-content:center">
+        <button class="btn story-advance-btn" onclick="vsStartGame()">スタート</button>
+      </div>
+    </div>
+    ${storyFooterHtml()}`;
+}
+function vsRenderPlayScreen(){
+  const st = loadStats();
+  const best = st.vocabShooterHighScore || 0;
+  screen.innerHTML = `
+    <div class="card story-scene">
+      <div class="vs-topbar">
+        <div class="vs-lives" id="vsLives"></div>
+        <div class="vs-scorebox">
+          <div class="vs-score" id="vsScore">0</div>
+          <div class="vs-best">ベスト：${best}</div>
+        </div>
+      </div>
+      <div class="vs-wordbanner">
+        <div class="vs-word" id="vsWord">―</div>
+        <div class="vs-sub">この意味を撃て</div>
+      </div>
+      <div class="vs-wrap">
+        <canvas id="vsCanvas" width="${VS_W}" height="${VS_H}"></canvas>
+        <button class="vs-fire" id="vsFireBtn">SHOOT</button>
+      </div>
+    </div>`;
+  vsUpdateHud();
+}
+function vsStartGame(){
+  vsStopLoop(); // 念のため、前のセッションのリスナー・ループが残っていれば止めてから始める
+  const st = loadStats();
+  storyRun.shoot = Object.assign(storyRun.shoot, {
+    phase:'playing', W:VS_W, H:VS_H,
+    score:0, lives:3, maxLives:3, combo:0,
+    player:{x:VS_W/2, y:VS_H-70, w:40, h:36, targetX:VS_W/2},
+    bullets:[], orbs:[], items:[], particles:[], popups:[],
+    currentItem:null, currentOrder:null, lastQ:null, itemShownAt:null,
+    orbFallSpeed:1.1, lastFire:0, fireCooldown:220, spawnedForItem:false,
+    shakeTime:0, slowCharges:0, shipLevel:0, correctSinceSpeedUp:0,
+    isFiring:false, rafId:null, handlers:null,
+    bestBefore: st.vocabShooterHighScore || 0,
+  });
+  vsRenderPlayScreen();
+  vsPickNextItem();
+  vsAttachHandlers();
+  storyRun.shoot.rafId = requestAnimationFrame(vsLoop);
+}
+function vsAttachHandlers(){
+  const shoot = storyRun.shoot;
+  const canvas = document.getElementById("vsCanvas");
+  const fireBtn = document.getElementById("vsFireBtn");
+  if(!canvas || !fireBtn) return;
+  const move = e=>{
+    if(!storyRun || storyRun.shoot !== shoot) return;
+    const t = e.touches ? e.touches[0] : e;
+    shoot.player.targetX = vsGetCanvasX(canvas, t.clientX);
+  };
+  const touchMove = e=>{ e.preventDefault(); move(e); };
+  const mouseMove = e=>{ if(e.buttons!==1) return; move(e); };
+  canvas.addEventListener('touchstart', touchMove, {passive:false});
+  canvas.addEventListener('touchmove', touchMove, {passive:false});
+  canvas.addEventListener('mousemove', mouseMove);
+  canvas.addEventListener('mousedown', move);
+  const fireStart = e=>{ e.preventDefault(); shoot.isFiring = true; };
+  const fireEnd = e=>{ if(e) e.preventDefault(); shoot.isFiring = false; };
+  fireBtn.addEventListener('touchstart', fireStart, {passive:false});
+  fireBtn.addEventListener('touchend', fireEnd, {passive:false});
+  fireBtn.addEventListener('touchcancel', fireEnd);
+  fireBtn.addEventListener('mousedown', fireStart);
+  /* window直付けのキーボード・mouseupリスナーだけは、画面遷移してもcanvas/fireBtnと違って
+     自動では消えない（DOM要素と一緒に回収されない）ので、shoot.handlersに控えておき、
+     vsStopLoop()で明示的に外す。 */
+  const keydown = e=>{
+    if(!storyRun || storyRun.shoot !== shoot) return;
+    if(e.code==='Space'){ e.preventDefault(); shoot.isFiring = true; }
+  };
+  const keyup = e=>{
+    if(!storyRun || storyRun.shoot !== shoot) return;
+    if(e.code==='Space'){ shoot.isFiring = false; }
+  };
+  const mouseUp = ()=>{ shoot.isFiring = false; };
+  window.addEventListener('keydown', keydown);
+  window.addEventListener('keyup', keyup);
+  window.addEventListener('mouseup', mouseUp);
+  shoot.handlers = {keydown, keyup, mouseUp};
+}
+function vsStopLoop(){
+  const shoot = storyRun && storyRun.shoot;
+  if(!shoot) return;
+  if(shoot.rafId){ cancelAnimationFrame(shoot.rafId); shoot.rafId = null; }
+  if(shoot.handlers){
+    window.removeEventListener('keydown', shoot.handlers.keydown);
+    window.removeEventListener('keyup', shoot.handlers.keyup);
+    window.removeEventListener('mouseup', shoot.handlers.mouseUp);
+    shoot.handlers = null;
+  }
+  shoot.isFiring = false;
+}
+function vsGetCanvasX(canvas, clientX){
+  const rect = canvas.getBoundingClientRect();
+  return (clientX - rect.left) * (VS_W/rect.width);
+}
+/* 次に出題する単語（＝知識クイズ「語彙」分野の1問）を選ぶ。通常のクイズと同じselectOne()を
+   使うので、出題解放プール・診断的難度調整（st.diffLv.goi）にそのまま従う。 */
+function vsPickNextItem(){
+  const shoot = storyRun.shoot;
+  const it = selectOne(shoot.cat, shoot.lastQ);
+  shoot.lastQ = it.q;
+  shoot.currentItem = it;
+  shoot.currentOrder = shuffledOrder(it.c.length);
+  shoot.spawnedForItem = false;
+  shoot.bullets = [];
+  const el = document.getElementById("vsWord");
+  if(el) el.innerHTML = markQuestionHtml(it.q);
+}
+function vsSpawnOrbs(){
+  const shoot = storyRun.shoot;
+  const it = shoot.currentItem, order = shoot.currentOrder;
+  let speedMul = 1;
+  if(shoot.slowCharges > 0){ speedMul = 0.5; shoot.slowCharges--; }
+  const laneW = shoot.W / order.length;
+  shoot.orbs = order.map((origIdx, i) => ({
+    text: it.c[origIdx], correct: origIdx === it.a,
+    x: laneW*i + laneW/2, y: -40 - Math.random()*60,
+    vy: (shoot.orbFallSpeed + Math.random()*0.3) * speedMul,
+    w: laneW*0.9, h: 50, hit:false,
+  }));
+  shoot.spawnedForItem = true;
+  shoot.itemShownAt = Date.now();
+}
+function vsGetBulletPattern(shipLevel){
+  if(shipLevel===0) return [{dx:0, vx:0, big:false, diag:false}];
+  if(shipLevel===1) return [{dx:-7,vx:0,big:false,diag:false},{dx:7,vx:0,big:false,diag:false}];
+  if(shipLevel===2) return [
+    {dx:-7,vx:0,big:false,diag:false},{dx:7,vx:0,big:false,diag:false},
+    {dx:-14,vx:-1.8,big:false,diag:true},{dx:14,vx:1.8,big:false,diag:true}
+  ];
+  return [
+    {dx:0,vx:0,big:true,diag:false},
+    {dx:-14,vx:-1.8,big:false,diag:true},{dx:14,vx:1.8,big:false,diag:true}
+  ];
+}
+function vsFireBullet(){
+  const shoot = storyRun.shoot;
+  const now = performance.now();
+  if(now - shoot.lastFire < shoot.fireCooldown) return;
+  shoot.lastFire = now;
+  vsGetBulletPattern(shoot.shipLevel).forEach(p=>{
+    shoot.bullets.push({x:shoot.player.x+p.dx, y:shoot.player.y-20, vx:p.vx, vy:-9, big:p.big, diag:p.diag});
+  });
+  vsBeep(880,0.05,'square',0.06);
+}
+let vsAudioCtx = null;
+function vsBeep(freq, dur, type, vol){
+  try{
+    if(!vsAudioCtx) vsAudioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    const o = vsAudioCtx.createOscillator(), g = vsAudioCtx.createGain();
+    o.type = type; o.frequency.value = freq; g.gain.value = vol;
+    o.connect(g); g.connect(vsAudioCtx.destination);
+    o.start();
+    g.gain.exponentialRampToValueAtTime(0.001, vsAudioCtx.currentTime + dur);
+    o.stop(vsAudioCtx.currentTime + dur);
+  }catch(e){}
+}
+function vsPickItemType(){
+  const total = VS_ITEM_TYPES.reduce((s,t)=>s+t.weight,0);
+  let r = Math.random()*total;
+  for(const t of VS_ITEM_TYPES){ if(r < t.weight) return t; r -= t.weight; }
+  return VS_ITEM_TYPES[0];
+}
+function vsSpawnItem(){
+  const shoot = storyRun.shoot;
+  const def = vsPickItemType();
+  shoot.items.push({
+    type: def.type, color: def.color, symbol: def.symbol,
+    x: 30 + Math.random()*(shoot.W-60), y:-30, vy: 1.6+Math.random()*0.4, r:16,
+  });
+}
+function vsCollectItem(it){
+  const shoot = storyRun.shoot;
+  vsBeep(1500,0.1,'triangle',0.15);
+  if(it.type === 'slow'){
+    shoot.slowCharges += 3;
+    vsSpawnPopup(it.x, it.y, 'スロー×3問!', '#4fc3f7');
+    vsSpawnParticles(it.x, it.y, '#4fc3f7', 16);
+  }else if(it.type === 'life'){
+    if(shoot.lives < shoot.maxLives){ shoot.lives++; vsSpawnPopup(it.x, it.y, 'HP回復!', '#ff5577'); }
+    else vsSpawnPopup(it.x, it.y, 'HP満タン', '#8899cc');
+    vsSpawnParticles(it.x, it.y, '#ff5577', 16);
+  }else if(it.type === 'ship'){
+    if(shoot.shipLevel < 3){ shoot.shipLevel++; shoot.maxLives++; vsSpawnPopup(it.x, it.y, `機体強化 Lv${shoot.shipLevel}!`, '#ffd24f'); }
+    else vsSpawnPopup(it.x, it.y, '機体最大強化中!', '#ffd24f');
+    shoot.lives = shoot.maxLives;
+    vsSpawnParticles(it.x, it.y, '#ffd24f', 22);
+  }
+  vsUpdateHud();
+}
+function vsSpawnParticles(x,y,color,n){
+  const shoot = storyRun.shoot;
+  for(let i=0;i<n;i++){
+    const ang = Math.random()*Math.PI*2, spd = 1+Math.random()*3.5;
+    shoot.particles.push({x,y, vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd, life:1, color, size:2+Math.random()*3});
+  }
+}
+function vsSpawnPopup(x,y,text,color){
+  storyRun.shoot.popups.push({x,y,text,color,life:1});
+}
+function vsUpdateHud(){
+  const shoot = storyRun.shoot;
+  const scoreEl = document.getElementById("vsScore");
+  if(scoreEl) scoreEl.textContent = shoot.score;
+  const livesEl = document.getElementById("vsLives");
+  if(livesEl){
+    livesEl.innerHTML = "";
+    for(let i=0;i<shoot.lives;i++){ const s=document.createElement("span"); s.className="heart"; s.textContent="♥"; livesEl.appendChild(s); }
+    for(let i=0;i<shoot.maxLives-shoot.lives;i++){ const s=document.createElement("span"); s.className="heart-empty"; s.textContent="♥"; livesEl.appendChild(s); }
+  }
+}
+/* 正解オーブに命中したとき／誤答オーブに命中したときの処理。record()は正解命中時のみ
+   ここで呼ぶ（誤答命中は、単体では分野レベル・診断的難度調整に触れない既存仕様）。 */
+function vsHitOrb(o){
+  const shoot = storyRun.shoot;
+  o.hit = true; o.gone = true;
+  const elapsedMs = Date.now() - (shoot.itemShownAt || Date.now());
+  if(o.correct){
+    shoot.combo++;
+    const gain = 10 + shoot.combo*2;
+    shoot.score += gain;
+    vsSpawnParticles(o.x,o.y,'#7ee8fa',20);
+    const r = record(shoot.cat, shoot.currentItem, true, elapsedMs, {skipRecentAcc:true});
+    vsSpawnPopup(o.x,o.y, `+${gain}` + (shoot.combo>1?`  ${shoot.combo}COMBO`:``), '#ffe66d');
+    if(r.lvup) vsSpawnPopup(o.x,o.y-24, `語彙 Lv.${r.lv} UP!`, '#8ff0d6');
+    if(r.evolved) vsSpawnPopup(o.x,o.y-48, `${r.evolved.icon} ${r.evolved.name}に進化！`, '#ffd24f');
+    vsBeep(1200,0.12,'sine',0.15);
+    shoot.orbs.forEach(other=>{ if(!other.hit){ other.hit=true; other.gone=true; } });
+    shoot.bullets = [];
+    if(Math.random() < VS_ITEM_DROP_CHANCE) vsSpawnItem();
+    shoot.correctSinceSpeedUp++;
+    if(shoot.correctSinceSpeedUp >= VS_CORRECT_PER_SPEEDUP){
+      shoot.correctSinceSpeedUp = 0;
+      shoot.orbFallSpeed += 0.1;
+      vsSpawnPopup(shoot.W/2, shoot.H/2, 'スピードアップ!', '#ff9dc0');
+    }
+  }else{
+    shoot.combo = 0;
+    vsSpawnParticles(o.x,o.y,'#ff5577',14);
+    vsSpawnPopup(o.x,o.y,'ちがう!', '#ff5577');
+    vsBeep(220,0.18,'sawtooth',0.12);
+    vsLoseLife();
+  }
+  vsUpdateHud();
+}
+function vsLoseLife(){
+  const shoot = storyRun.shoot;
+  shoot.lives--; shoot.shakeTime = 12;
+  vsUpdateHud();
+}
+function vsRoundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+function vsWrapText(ctx, text, x, y, maxWidth, lineHeight){
+  const chars = String(text).split('');
+  let lines = [], cur='';
+  chars.forEach(ch=>{
+    const test = cur+ch;
+    if(ctx.measureText(test).width > maxWidth && cur!==''){ lines.push(cur); cur=ch; }
+    else cur = test;
+  });
+  if(cur) lines.push(cur);
+  const totalH = lines.length*lineHeight;
+  lines.forEach((line,i)=>{ ctx.fillText(line, x, y - totalH/2 + lineHeight/2 + i*lineHeight); });
+}
+function vsRender(){
+  const shoot = storyRun.shoot;
+  const canvas = document.getElementById("vsCanvas");
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = shoot.W, H = shoot.H;
+  ctx.save();
+  if(shoot.shakeTime>0) ctx.translate((Math.random()-0.5)*6, (Math.random()-0.5)*6);
+  ctx.clearRect(-10,-10,W+20,H+20);
+
+  ctx.fillStyle='rgba(255,255,255,0.5)';
+  for(let i=0;i<40;i++){
+    const sx=(i*97)%W, sy=(i*53+(performance.now()*0.02))%H;
+    ctx.globalAlpha = 0.15+(i%5)*0.05;
+    ctx.fillRect(sx,sy,2,2);
+  }
+  ctx.globalAlpha=1;
+
+  shoot.orbs.forEach(o=>{
+    if(o.hit) return;
+    ctx.save();
+    ctx.translate(o.x,o.y);
+    const grad = ctx.createLinearGradient(-o.w/2,0,o.w/2,0);
+    grad.addColorStop(0,'#2a3a6a'); grad.addColorStop(1,'#3a4a8a');
+    ctx.fillStyle = grad;
+    vsRoundRect(ctx,-o.w/2,-o.h/2,o.w,o.h,10);
+    ctx.fill();
+    ctx.strokeStyle='rgba(126,232,250,0.35)'; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.fillStyle='#e8f0ff'; ctx.font='bold 12px sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    vsWrapText(ctx, o.text, 0, 0, o.w-10, 14);
+    ctx.restore();
+  });
+
+  shoot.items.forEach(it=>{
+    const bob = Math.sin(performance.now()*0.006+it.x)*3;
+    ctx.save();
+    ctx.translate(it.x, it.y+bob);
+    ctx.shadowColor = it.color; ctx.shadowBlur = 16;
+    ctx.beginPath(); ctx.arc(0,0,it.r,0,Math.PI*2);
+    const g = ctx.createRadialGradient(0,0,2,0,0,it.r);
+    g.addColorStop(0,'#ffffff'); g.addColorStop(0.35,it.color); g.addColorStop(1,'#1a1a3e');
+    ctx.fillStyle=g; ctx.fill();
+    ctx.lineWidth=1.5; ctx.strokeStyle='rgba(255,255,255,0.6)'; ctx.stroke();
+    ctx.shadowBlur=0;
+    ctx.fillStyle='#1a1a3e'; ctx.font='bold 14px sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(it.symbol,0,1);
+    ctx.restore();
+  });
+
+  const bulletColors=['#7ee8fa','#8ff0d6','#ffe38a','#ffb37e'];
+  const bulletColor = bulletColors[Math.min(shoot.shipLevel,bulletColors.length-1)];
+  const baseBulletW = 4+shoot.shipLevel*1.2, baseBulletH = 14+shoot.shipLevel*2;
+  const rainbowHue = (performance.now()*0.25)%360;
+  shoot.bullets.forEach(b=>{
+    const bw = b.big?baseBulletW*2.1:baseBulletW, bh = b.big?baseBulletH*1.35:baseBulletH;
+    ctx.save();
+    if(b.big){
+      const hue=(rainbowHue+b.x)%360;
+      const rc = `hsl(${hue},90%,65%)`;
+      ctx.shadowColor=rc; ctx.shadowBlur=18; ctx.fillStyle=rc;
+    }else if(b.diag){
+      ctx.shadowColor=bulletColor; ctx.shadowBlur=6+shoot.shipLevel*2;
+      ctx.globalAlpha=0.75; ctx.fillStyle=bulletColor;
+    }else{
+      ctx.shadowColor=bulletColor; ctx.shadowBlur=8+shoot.shipLevel*3; ctx.fillStyle=bulletColor;
+    }
+    vsRoundRect(ctx, b.x-bw/2, b.y-bh/2, bw, bh, bw/2.2);
+    ctx.fill();
+    ctx.restore();
+  });
+
+  ctx.save();
+  ctx.translate(shoot.player.x, shoot.player.y);
+  const shipScale = 1+shoot.shipLevel*0.1;
+  ctx.scale(shipScale,shipScale);
+  const shipColors=['#ff6b9d','#ff6b9d','#c9a4ff','#ffd24f'];
+  const shipColor = shipColors[Math.min(shoot.shipLevel,shipColors.length-1)];
+  ctx.shadowColor=shipColor; ctx.shadowBlur=14+shoot.shipLevel*5;
+  ctx.fillStyle=shipColor;
+  ctx.beginPath();
+  ctx.moveTo(0,-22); ctx.lineTo(18,18); ctx.lineTo(0,10); ctx.lineTo(-18,18); ctx.closePath();
+  ctx.fill();
+  if(shoot.shipLevel>=1){
+    ctx.fillStyle='rgba(255,255,255,0.55)';
+    ctx.beginPath(); ctx.moveTo(-18,18); ctx.lineTo(-28,10); ctx.lineTo(-14,6); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(18,18); ctx.lineTo(28,10); ctx.lineTo(14,6); ctx.closePath(); ctx.fill();
+  }
+  if(shoot.shipLevel>=2){
+    ctx.fillStyle='#fff';
+    ctx.beginPath(); ctx.arc(0,2,4,0,Math.PI*2); ctx.fill();
+  }
+  if(shoot.shipLevel>=3){
+    ctx.fillStyle='rgba(255,210,79,0.5)';
+    ctx.beginPath(); ctx.moveTo(-8,16); ctx.lineTo(0,32); ctx.lineTo(8,16); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+
+  shoot.particles.forEach(p=>{
+    ctx.globalAlpha = Math.max(p.life,0);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size);
+  });
+  ctx.globalAlpha=1;
+
+  shoot.popups.forEach(p=>{
+    ctx.globalAlpha = Math.max(p.life,0);
+    ctx.fillStyle = p.color;
+    ctx.font='bold 14px sans-serif';
+    ctx.textAlign='center';
+    ctx.fillText(p.text, p.x, p.y);
+  });
+  ctx.globalAlpha=1;
+
+  ctx.restore();
+}
+function vsLoop(){
+  const shoot = storyRun && storyRun.shoot;
+  if(!shoot || shoot.phase !== "playing") return;
+
+  shoot.player.x += (shoot.player.targetX - shoot.player.x) * 0.18;
+  shoot.player.x = Math.max(24, Math.min(shoot.W-24, shoot.player.x));
+
+  if(shoot.isFiring) vsFireBullet();
+
+  if(!shoot.spawnedForItem) vsSpawnOrbs();
+
+  shoot.bullets.forEach(b=>{ b.y += b.vy; b.x += (b.vx||0); });
+  shoot.bullets = shoot.bullets.filter(b=> b.y > -20 && b.x > -40 && b.x < shoot.W+40);
+
+  shoot.orbs.forEach(o=>{ if(!o.hit) o.y += o.vy; });
+
+  shoot.bullets.forEach(b=>{
+    if(b.diag) return;
+    shoot.orbs.forEach(o=>{
+      if(o.hit) return;
+      if(Math.abs(b.x-o.x) < o.w/2 && Math.abs(b.y-o.y) < o.h/2){
+        b.y = -9999;
+        vsHitOrb(o);
+      }
+    });
+  });
+
+  shoot.orbs.forEach(o=>{
+    if(!o.hit && o.y > shoot.H+30){
+      o.hit = true; o.gone = true;
+      if(o.correct){
+        vsLoseLife();
+        vsSpawnPopup(o.x, shoot.H-100, "取り逃し!", "#ff5577");
+        const elapsedMs = Date.now() - (shoot.itemShownAt || Date.now());
+        record(shoot.cat, shoot.currentItem, false, elapsedMs, {skipRecentAcc:true});
+      }
+    }
+  });
+  shoot.orbs = shoot.orbs.filter(o=>!o.gone);
+
+  if(shoot.spawnedForItem && shoot.orbs.length===0) vsPickNextItem();
+
+  shoot.items.forEach(it=>{
+    it.y += it.vy;
+    const dx = Math.abs(it.x - shoot.player.x), dy = Math.abs(it.y - shoot.player.y);
+    if(!it.gone && dx < (shoot.player.w/2 + it.r*0.7) && dy < (shoot.player.h/2 + it.r*0.7)){
+      it.gone = true; vsCollectItem(it);
+    }else if(!it.gone && it.y > shoot.H+30){ it.gone = true; }
+  });
+  shoot.items = shoot.items.filter(it=>!it.gone);
+
+  shoot.particles.forEach(p=>{ p.x+=p.vx; p.y+=p.vy; p.vy+=0.08; p.life-=0.03; });
+  shoot.particles = shoot.particles.filter(p=>p.life>0);
+
+  shoot.popups.forEach(p=>{ p.y -= 0.6; p.life -= 0.02; });
+  shoot.popups = shoot.popups.filter(p=>p.life>0);
+
+  if(shoot.shakeTime>0) shoot.shakeTime--;
+
+  vsRender();
+
+  if(shoot.lives<=0){ vsEndGame(); return; }
+  shoot.rafId = requestAnimationFrame(vsLoop);
+}
+function vsEndGame(){
+  const shoot = storyRun.shoot;
+  vsStopLoop();
+  shoot.phase = 'gameover';
+  const st = loadStats();
+  const prevBest = st.vocabShooterHighScore || 0;
+  const isNewRecord = shoot.score > 0 && shoot.score > prevBest;
+  if(isNewRecord){ st.vocabShooterHighScore = shoot.score; saveStats(st); }
+  shoot.finalScore = shoot.score;
+  shoot.isNewRecord = isNewRecord;
+  shoot.bestAfter = Math.max(prevBest, shoot.score);
+  vsRenderResult();
+}
+function vsRenderResult(){
+  const shoot = storyRun.shoot;
+  screen.innerHTML = `
+    <div class="card story-scene">
+      <h3 class="section">📖 けっか</h3>
+      ${shoot.isNewRecord ? `<div class="vs-newbest">🎉 自己ベスト更新！ 🎉</div>` : ``}
+      <div class="vs-result-score">${shoot.finalScore} 点</div>
+      <p class="note" style="text-align:center">自己ベスト：${shoot.bestAfter}点</p>
+      <div class="btn-row" style="justify-content:center">
+        <button class="btn story-advance-btn" onclick="storyAdvance()">つづける</button>
+      </div>
+    </div>`;
+}
+
 /* コンボアタック（combo beat、2026-07-19〜、第5章「朝読書をしよう！」用）。beat.cat（この章では
    ことわざ）の4択問題をSTORY_COMBO_TIME_MS（60秒）のあいだ連続で出題し続け、何問正解できたか、
    また連続正解（コンボ）が何回続いたかを競うタイムアタック形式。時間を使い切るまでずっと出題を
@@ -10363,8 +10964,8 @@ function storyChapterEnd(){
     : "";
   screen.innerHTML = `
     <div class="card story-scene">
-      <div class="story-chapter-end">📖 ${esc(STORY_CHAPTERS[sp.chapter].title)} クリア！</div>
-      <p class="story-text">${esc(STORY_CHAPTERS[sp.chapter].epilogue || "")}</p>
+      <div class="story-chapter-end">📖 ${esc(storyChapterDef(sp.chapter).title)} クリア！</div>
+      <p class="story-text">${esc(storyChapterDef(sp.chapter).epilogue || "")}</p>
       ${pronounNote}
       ${kumiNote}
       ${rateNote}
