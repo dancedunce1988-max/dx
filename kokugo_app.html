@@ -1042,7 +1042,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.118</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.119</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -10189,11 +10189,12 @@ function storyRenderShooting(beat, idx){
   else storyRenderShootingReady();
 }
 function storyRenderShootingReady(){
+  clearChoiceKeys(); // 直前の別画面のクイズ選択肢キー状態が残っていて、数字キーに誤反応しないようにする
   screen.innerHTML = `
     <div class="card story-scene">
       <h3 class="section">🚀 ボキャブラ・シューティング</h3>
       <p class="story-text">上から降ってくる「意味」の中から、表示された言葉の正しい意味を選んで撃ち落とそう。</p>
-      <p class="note">・自機は画面をドラッグして操作する<br>・SHOOTボタンを押している間、連射される<br>・まちがった意味に当てたり、正解を撃ちもらしたりすると、ライフが減る</p>
+      <p class="note">・自機は画面をドラッグして操作する（または数字キー1〜4／矢印キーで移動）<br>・SHOOTボタン、またはEnter／スペースキーを押している間、連射される<br>・まちがった意味に当てたり、正解を撃ちもらしたりすると、ライフが減る</p>
       <div class="btn-row" style="justify-content:center">
         <button class="btn story-advance-btn" onclick="vsStartGame()">スタート</button>
       </div>
@@ -10236,7 +10237,7 @@ function vsStartGame(){
     orbFallSpeed:1.1, lastFire:0, fireCooldown:220, spawnedForItem:false,
     shakeTime:0, slowCharges:0, shipLevel:0, correctSinceSpeedUp:0,
     vsLevelIndex:0, correctSinceLevelUp:0, usedWords:[],
-    isFiring:false, rafId:null, handlers:null,
+    isFiring:false, rafId:null, handlers:null, laneIndex:1,
     bestBefore: st.vocabShooterHighScore || 0,
   });
   vsRenderPlayScreen();
@@ -10268,14 +10269,20 @@ function vsAttachHandlers(){
   fireBtn.addEventListener('mousedown', fireStart);
   /* window直付けのキーボード・mouseupリスナーだけは、画面遷移してもcanvas/fireBtnと違って
      自動では消えない（DOM要素と一緒に回収されない）ので、shoot.handlersに控えておき、
-     vsStopLoop()で明示的に外す。 */
+     vsStopLoop()で明示的に外す。
+     キーボード操作（教員の指示、2026-08-10〜）：数字キー1〜4でその選択肢のレーンへ直接移動、
+     矢印キー(←→)で隣のレーンへ1つずつ移動。発射はSpaceキーに加えてEnterキーでも
+     できるようにする（押している間、連射。SHOOTボタンと同じisFiringフラグを共有）。 */
   const keydown = e=>{
     if(!storyRun || storyRun.shoot !== shoot) return;
-    if(e.code==='Space'){ e.preventDefault(); shoot.isFiring = true; }
+    if(e.code==='Space' || e.key==='Enter'){ e.preventDefault(); shoot.isFiring = true; }
+    else if(e.key>='1' && e.key<='4'){ e.preventDefault(); vsMoveToLane(shoot, Number(e.key)-1); }
+    else if(e.key==='ArrowLeft'){ e.preventDefault(); vsMoveToLane(shoot, shoot.laneIndex-1); }
+    else if(e.key==='ArrowRight'){ e.preventDefault(); vsMoveToLane(shoot, shoot.laneIndex+1); }
   };
   const keyup = e=>{
     if(!storyRun || storyRun.shoot !== shoot) return;
-    if(e.code==='Space'){ shoot.isFiring = false; }
+    if(e.code==='Space' || e.key==='Enter'){ shoot.isFiring = false; }
   };
   const mouseUp = ()=>{ shoot.isFiring = false; };
   window.addEventListener('keydown', keydown);
@@ -10298,6 +10305,20 @@ function vsStopLoop(){
 function vsGetCanvasX(canvas, clientX){
   const rect = canvas.getBoundingClientRect();
   return (clientX - rect.left) * (VS_W/rect.width);
+}
+/* 現在の選択肢の数（＝レーン数。goiは常に4択だが、将来別カテゴリを使う可能性も考えて
+   currentOrderから動的に求める）。 */
+function vsLaneCount(shoot){
+  return (shoot.currentOrder && shoot.currentOrder.length) || 4;
+}
+/* 指定したレーン番号(0始まり)の中央へ、自機の目標位置(targetX)を移動する。
+   範囲外の番号は端に丸める。 */
+function vsMoveToLane(shoot, idx){
+  const n = vsLaneCount(shoot);
+  idx = Math.max(0, Math.min(n-1, idx));
+  shoot.laneIndex = idx;
+  const laneW = shoot.W / n;
+  shoot.player.targetX = laneW*idx + laneW/2;
 }
 /* 次に出題する単語を選ぶ。今の出題レベル(vsLevelIndex)のプールから、そのレベル内で
    一巡するまで同じ単語が続けて出ないようにする（usedWords、スタンドアロン版のpickNextWordと
