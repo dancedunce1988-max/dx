@@ -1024,6 +1024,17 @@
     box-shadow:0 4px 16px rgba(255,107,157,0.55), inset 0 -3px 6px rgba(0,0,0,0.25);
   }
   .vs-fire:active{ transform:scale(0.92); }
+  .vs-level-banner{
+    position:absolute; top:38%; left:50%; z-index:3;
+    transform:translate(-50%,-50%) scale(0.85);
+    padding:10px 18px; border-radius:12px; text-align:center;
+    background: linear-gradient(135deg, rgba(196,113,237,0.92), rgba(126,232,250,0.92));
+    color:#0a0a1a; font-weight:bold; font-size:13px; letter-spacing:1px;
+    box-shadow: 0 0 24px rgba(196,113,237,0.6);
+    opacity:0; pointer-events:none; white-space:nowrap;
+    transition: opacity 0.35s ease, transform 0.35s ease;
+  }
+  .vs-level-banner.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
   .vs-result-score{ font-size:clamp(28px,8vw,40px); font-weight:bold; color:var(--gold); margin:10px 0; text-align:center; }
   .vs-newbest{ text-align:center; font-weight:bold; color:var(--accent); margin:6px 0; }
 </style>
@@ -1031,7 +1042,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.117</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.118</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -8635,7 +8646,7 @@ function storyChosenKumiValue(st){
    STORY_CHAPTERSと共通なので、既存のbeat型（line/choice/quiz等）もそのまま使い回せる。 */
 const STORY_SIDEQUESTS = {
   sqShooting: {
-    title: "サブクエスト「ボキャブラ・シューティング」",
+    title: "ボキャブラ・シューティング",
     beats: [
       {type:"line", speaker:"ことのは", text:"ねえ、面白いものを見つけたよ。\n降ってくる「意味」の中から、正しいものを選んで撃ち落とすゲームなんだって。"},
       {type:"line", speaker:"ことのは", text:"表示された言葉の、正しい意味を選んで撃とう。\n間違った意味に当てたり、正解を撃ちもらしたりすると、ライフが減っちゃうから気をつけてね！"},
@@ -8682,7 +8693,28 @@ function storyEntryHtml(st){
 /* 「夏休み明けのテスト範囲」の目印（2026-07-22〜、教員の指示）。この章のカードの直後に、
    目立つ帯を1本はさむ。テスト範囲が変わったら、この定数のキーを書き換えるだけでよい。 */
 const STORY_TEST_RANGE_MARKER = {afterChapter:"ch7", label:"📝 夏休み明けのテスト範囲は、ここまで！"};
+/* ストーリー画面の入口。「メインストーリー」か「サブクエスト」かをまず選ばせる
+   2択画面にする（教員の指示、2026-08-10〜。以前は1画面に両方をまとめて表示していたが、
+   煩雑という指摘を受けて分離した）。 */
 function showStoryMenu(){
+  screen.innerHTML = `
+    <div class="card"><h3 class="section">📖 ストーリーモード</h3>
+      <p class="note">ことのはと一緒に歩む物語です。「メインストーリー」か「サブクエスト」かを選んでね。</p></div>
+    <div class="card menu-card" onclick="showMainStoryMenu()">
+      <div class="menu-icon">📖</div>
+      <div><h2>メインストーリー</h2><p>ことのはと一緒に、中学校生活を歩む物語</p></div>
+      <div class="right"><span class="shogo-badge">すすむ</span></div>
+    </div>
+    <div class="card menu-card" onclick="showSideQuestMenu()">
+      <div class="menu-icon">⭐</div>
+      <div><h2>サブクエスト</h2><p>メインストーリーとは関係なく、いつでも遊べる番外編</p></div>
+      <div class="right"><span class="shogo-badge">すすむ</span></div>
+    </div>
+    <div class="btn-row" style="justify-content:center; margin-top:10px">
+      <button class="btn secondary" onclick="showHome()">ホームへ</button>
+    </div>`;
+}
+function showMainStoryMenu(){
   const st = loadStats();
   let html = `<div class="card"><h3 class="section">📖 メインストーリー</h3>
     <p class="note">ことのはと一緒に、中学校生活を歩む物語です。章を選んで読み進めよう。前の章をクリアすると、次の章が解放されます。</p></div>`;
@@ -8691,11 +8723,18 @@ function showStoryMenu(){
       ? `<div class="story-test-range-banner">${esc(STORY_TEST_RANGE_MARKER.label)}</div>` : "";
     return storyChapterButtonHtml(key, st) + marker;
   }).join("");
-  html += `<div class="card"><h3 class="section">⭐ サブクエスト</h3>
+  html += `<div class="btn-row" style="justify-content:center; margin-top:10px">
+    <button class="btn secondary" onclick="showStoryMenu()">戻る</button>
+  </div>`;
+  screen.innerHTML = html;
+}
+function showSideQuestMenu(){
+  const st = loadStats();
+  let html = `<div class="card"><h3 class="section">⭐ サブクエスト</h3>
     <p class="note">メインストーリーの進み具合とは関係なく、いつでも遊べる番外編です。</p></div>`;
   html += Object.keys(STORY_SIDEQUESTS).map(key => storySideQuestButtonHtml(key, st)).join("");
   html += `<div class="btn-row" style="justify-content:center; margin-top:10px">
-    <button class="btn secondary" onclick="showHome()">ホームへ</button>
+    <button class="btn secondary" onclick="showStoryMenu()">戻る</button>
   </div>`;
   screen.innerHTML = html;
 }
@@ -10096,23 +10135,36 @@ function storyRenderBaseballScreen(){
 
 /* ================= サブクエスト「ボキャブラ・シューティング」（shooting beat、2026-08-10〜） =================
    元々は独立した単一HTMLファイル（ボキャブラ・シューティング/vocab_shooter.html）だったシューティング
-   ゲームを、ストーリーモードのサブクエストとして移植したもの。教員の指示で、以下の3点を本編仕様から
+   ゲームを、ストーリーモードのサブクエストとして移植したもの。教員の指示で、以下の点を本編仕様から
    変更している：
    1. 出題は単体データ(VOCAB_LEVELSという学年別10段階の独自プール)をやめ、知識クイズの「語彙」
-      （goi）分野の問題（4択・206問）をそのまま使う。selectOne("goi", ...)で通常のクイズと同じ
-      難度調整・出題解放プールに従う。
+      （goi）分野の問題を流用する。ただし本家のselectOne()（診断的難度調整st.diffLv.goi連動）
+      とは別に、このミニゲーム専用の8段階レベル制（小学校中学年〜大学生、VS_LEVEL_NAMES）を
+      再現するため、goiの各アイテムに新設した`vsLv`フィールド(1〜8)で出題プールを絞り込む
+      （vsPickNextItem参照）。既存206問はgrade/lv値をもとに8段階へ再分類し、当時データが
+      存在しなかった「小学校高学年」（vsLv2）だけ新規に16問を作問してgoiへ追加した
+      （教員向けメモ: 2026-08-10時点でgoi全222問、分布は[[kokugo_story_mode]]参照）。
+      5問正解でレベルが1つ上がり（VS_CORRECT_PER_LEVEL）、レベル5（中学2年生レベル）到達後は
+      正解を重ねるごとに落下速度が徐々に上がっていく（VS_SPEEDUP_START_LEVEL_INDEX）。
    2. 正解するたびにrecord("goi", ...)を呼び、「語彙」分野のレベルを通常のクイズと同じ仕組みで
       上げる（診断的難度調整st.diffLv.goiも連動して上がっていく）。ただしskipRecentAcc:trueを
       指定し、野球ミニゲーム（storyBaseballAnswer参照）と同じ理由で、テンポの速いこのミニゲーム
       の結果を「直近30問の正答率」（ボスのランダム遭遇率等に使う全ジャンル共通の統計）には
       混ぜない。1つの単語（1ラウンド）につき、record()は「正解オーブに命中」または「正解オーブを
       撃ちもらして画面外へ」のどちらか一度だけ呼ぶ（誤答オーブに命中しても、そのタップ単体では
-      record()を呼ばない＝ライフが減るだけの既存の「ちがう！」の挙動のまま）。
+      record()を呼ばない＝ライフが減るだけの既存の「ちがう！」の挙動のまま）。上記1のミニゲーム
+      専用レベルとは完全に別物（両方が同時並行で進む）。
    3. ハイスコアは、st.vocabShooterHighScore としてほかの全データと同じ`st`オブジェクトに載せ、
       saveStats()経由でlocalStorageに保存する（本編スタンドアロン版はページ内保持のみだった）。
    「クリア」という概念のない常設スコアアタックのため、章の解放は常に真（storyChapterUnlocked参照）、
    一覧からタップするたびに毎回beatIdx0から新しいプレイを始める（startStoryMode参照）。 */
 const VS_W = 340, VS_H = 600;
+const VS_LEVEL_NAMES = [
+  "小学校中学年レベル", "小学校高学年レベル", "中学1年生前半レベル", "中学1年生後半レベル",
+  "中学2年生レベル", "中学3年生レベル", "高校生レベル", "大学生レベル",
+];
+const VS_CORRECT_PER_LEVEL = 5;       // これだけ正解すると出題レベルが1つ上がる
+const VS_SPEEDUP_START_LEVEL_INDEX = 4; // レベル5「中学2年生レベル」(0始まりで4)到達後、徐々に速度上昇
 const VS_ITEM_TYPES = [
   {type:'slow', weight:0.40, color:'#4fc3f7', symbol:'S'},
   {type:'life', weight:0.35, color:'#ff5577', symbol:'♥'},
@@ -10120,6 +10172,13 @@ const VS_ITEM_TYPES = [
 ];
 const VS_ITEM_DROP_CHANCE = 0.32;
 const VS_CORRECT_PER_SPEEDUP = 4;
+const VS_ORB_FONT = 'bold 11px sans-serif';
+const VS_ORB_LINE_H = 13;
+/* vsLv（1〜8）で絞り込んだ、そのレベルの単語プール。goi全体からのフィルタなので、
+   将来goiに問題が追加されればそのまま反映される。 */
+function vsLevelPool(levelIndex){
+  return CATS.goi.items.filter(it => it.vsLv === levelIndex + 1);
+}
 function storyRenderShooting(beat, idx){
   if(storyRun.shootBeatIdx !== idx){
     storyRun.shootBeatIdx = idx;
@@ -10159,6 +10218,7 @@ function vsRenderPlayScreen(){
       </div>
       <div class="vs-wrap">
         <canvas id="vsCanvas" width="${VS_W}" height="${VS_H}"></canvas>
+        <div class="vs-level-banner" id="vsLevelBanner"></div>
         <button class="vs-fire" id="vsFireBtn">SHOOT</button>
       </div>
     </div>`;
@@ -10175,6 +10235,7 @@ function vsStartGame(){
     currentItem:null, currentOrder:null, lastQ:null, itemShownAt:null,
     orbFallSpeed:1.1, lastFire:0, fireCooldown:220, spawnedForItem:false,
     shakeTime:0, slowCharges:0, shipLevel:0, correctSinceSpeedUp:0,
+    vsLevelIndex:0, correctSinceLevelUp:0, usedWords:[],
     isFiring:false, rafId:null, handlers:null,
     bestBefore: st.vocabShooterHighScore || 0,
   });
@@ -10238,11 +10299,17 @@ function vsGetCanvasX(canvas, clientX){
   const rect = canvas.getBoundingClientRect();
   return (clientX - rect.left) * (VS_W/rect.width);
 }
-/* 次に出題する単語（＝知識クイズ「語彙」分野の1問）を選ぶ。通常のクイズと同じselectOne()を
-   使うので、出題解放プール・診断的難度調整（st.diffLv.goi）にそのまま従う。 */
+/* 次に出題する単語を選ぶ。今の出題レベル(vsLevelIndex)のプールから、そのレベル内で
+   一巡するまで同じ単語が続けて出ないようにする（usedWords、スタンドアロン版のpickNextWordと
+   同じ方式）。プールが1問しかない場合の無限ループを避けるため、その場合はusedWordsを無視する。 */
 function vsPickNextItem(){
   const shoot = storyRun.shoot;
-  const it = selectOne(shoot.cat, shoot.lastQ);
+  const pool = vsLevelPool(shoot.vsLevelIndex);
+  if(shoot.usedWords.length >= pool.length) shoot.usedWords = [];
+  let idx;
+  do { idx = Math.floor(Math.random()*pool.length); } while(pool.length > 1 && shoot.usedWords.includes(idx));
+  shoot.usedWords.push(idx);
+  const it = pool[idx];
   shoot.lastQ = it.q;
   shoot.currentItem = it;
   shoot.currentOrder = shuffledOrder(it.c.length);
@@ -10251,18 +10318,51 @@ function vsPickNextItem(){
   const el = document.getElementById("vsWord");
   if(el) el.innerHTML = markQuestionHtml(it.q);
 }
+/* レベルアップ演出：画面中央に大きく一度だけバナー表示する（スタンドアロン版のshowLevelUpBanner
+   を移植）。setTimeoutでの非表示は、その間に別のセッションが始まっていないか
+   （storyRun.shoot === shootの一致）を確認してから行う。 */
+function vsShowLevelUpBanner(){
+  const shoot = storyRun.shoot;
+  const el = document.getElementById("vsLevelBanner");
+  if(!el) return;
+  el.textContent = `レベル${shoot.vsLevelIndex+1} 〜${VS_LEVEL_NAMES[shoot.vsLevelIndex]}〜`;
+  el.classList.add("show");
+  vsBeep(660,0.1,'triangle',0.12);
+  setTimeout(()=>vsBeep(990,0.15,'triangle',0.14), 120);
+  setTimeout(()=>{
+    if(storyRun && storyRun.shoot === shoot){
+      const el2 = document.getElementById("vsLevelBanner");
+      if(el2) el2.classList.remove("show");
+    }
+  }, 2200);
+}
+/* オーブの高さは、中の文章の長さに応じて動的に決める（教員の指摘、2026-08-10〜。
+   語彙の説明文は最長26文字ほどあり、固定の高さ(旧:50px)だとはみ出すことがあった）。
+   実際にvsWrapLines()で折り返した行数から必要な高さを逆算するので、どんなに長い
+   説明文でも箱からはみ出さない。 */
 function vsSpawnOrbs(){
   const shoot = storyRun.shoot;
   const it = shoot.currentItem, order = shoot.currentOrder;
   let speedMul = 1;
   if(shoot.slowCharges > 0){ speedMul = 0.5; shoot.slowCharges--; }
   const laneW = shoot.W / order.length;
-  shoot.orbs = order.map((origIdx, i) => ({
-    text: it.c[origIdx], correct: origIdx === it.a,
-    x: laneW*i + laneW/2, y: -40 - Math.random()*60,
-    vy: (shoot.orbFallSpeed + Math.random()*0.3) * speedMul,
-    w: laneW*0.9, h: 50, hit:false,
-  }));
+  const canvas = document.getElementById("vsCanvas");
+  const ctx = canvas && canvas.getContext('2d');
+  const orbW = laneW*0.92;
+  shoot.orbs = order.map((origIdx, i) => {
+    const text = it.c[origIdx];
+    let lineCount = 2;
+    if(ctx){
+      ctx.font = VS_ORB_FONT;
+      lineCount = vsWrapLines(ctx, text, orbW - 10).length;
+    }
+    return {
+      text, correct: origIdx === it.a,
+      x: laneW*i + laneW/2, y: -50 - i*70 - Math.random()*40,
+      vy: (shoot.orbFallSpeed + Math.random()*0.3) * speedMul,
+      w: orbW, h: Math.max(40, lineCount * VS_ORB_LINE_H + 18), hit:false,
+    };
+  });
   shoot.spawnedForItem = true;
   shoot.itemShownAt = Date.now();
 }
@@ -10373,11 +10473,24 @@ function vsHitOrb(o){
     shoot.orbs.forEach(other=>{ if(!other.hit){ other.hit=true; other.gone=true; } });
     shoot.bullets = [];
     if(Math.random() < VS_ITEM_DROP_CHANCE) vsSpawnItem();
-    shoot.correctSinceSpeedUp++;
-    if(shoot.correctSinceSpeedUp >= VS_CORRECT_PER_SPEEDUP){
-      shoot.correctSinceSpeedUp = 0;
-      shoot.orbFallSpeed += 0.1;
-      vsSpawnPopup(shoot.W/2, shoot.H/2, 'スピードアップ!', '#ff9dc0');
+    // 出題レベルの進行（まだ最大レベルでなければ）
+    if(shoot.vsLevelIndex < VS_LEVEL_NAMES.length-1){
+      shoot.correctSinceLevelUp++;
+      if(shoot.correctSinceLevelUp >= VS_CORRECT_PER_LEVEL){
+        shoot.correctSinceLevelUp = 0;
+        shoot.vsLevelIndex++;
+        shoot.usedWords = [];
+        vsShowLevelUpBanner();
+      }
+    }
+    // レベル5「中学2年生レベル」到達後は、正解を重ねるごとに徐々に速度が上がっていく
+    if(shoot.vsLevelIndex >= VS_SPEEDUP_START_LEVEL_INDEX){
+      shoot.correctSinceSpeedUp++;
+      if(shoot.correctSinceSpeedUp >= VS_CORRECT_PER_SPEEDUP){
+        shoot.correctSinceSpeedUp = 0;
+        shoot.orbFallSpeed += 0.1;
+        vsSpawnPopup(shoot.W/2, shoot.H/2, 'スピードアップ!', '#ff9dc0');
+      }
     }
   }else{
     shoot.combo = 0;
@@ -10402,7 +10515,7 @@ function vsRoundRect(ctx,x,y,w,h,r){
   ctx.arcTo(x,y,x+w,y,r);
   ctx.closePath();
 }
-function vsWrapText(ctx, text, x, y, maxWidth, lineHeight){
+function vsWrapLines(ctx, text, maxWidth){
   const chars = String(text).split('');
   let lines = [], cur='';
   chars.forEach(ch=>{
@@ -10411,6 +10524,10 @@ function vsWrapText(ctx, text, x, y, maxWidth, lineHeight){
     else cur = test;
   });
   if(cur) lines.push(cur);
+  return lines;
+}
+function vsWrapText(ctx, text, x, y, maxWidth, lineHeight){
+  const lines = vsWrapLines(ctx, text, maxWidth);
   const totalH = lines.length*lineHeight;
   lines.forEach((line,i)=>{ ctx.fillText(line, x, y - totalH/2 + lineHeight/2 + i*lineHeight); });
 }
@@ -10442,9 +10559,9 @@ function vsRender(){
     vsRoundRect(ctx,-o.w/2,-o.h/2,o.w,o.h,10);
     ctx.fill();
     ctx.strokeStyle='rgba(126,232,250,0.35)'; ctx.lineWidth=1.5; ctx.stroke();
-    ctx.fillStyle='#e8f0ff'; ctx.font='bold 12px sans-serif';
+    ctx.fillStyle='#e8f0ff'; ctx.font=VS_ORB_FONT;
     ctx.textAlign='center'; ctx.textBaseline='middle';
-    vsWrapText(ctx, o.text, 0, 0, o.w-10, 14);
+    vsWrapText(ctx, o.text, 0, 0, o.w-10, VS_ORB_LINE_H);
     ctx.restore();
   });
 
