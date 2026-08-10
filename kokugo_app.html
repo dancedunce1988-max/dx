@@ -1063,13 +1063,14 @@
     box-shadow:0 4px 16px rgba(196,113,237,0.5); letter-spacing:1px;
   }
   .vs-newbest{ text-align:center; font-weight:bold; color:#ffe66d; margin:6px 0; }
+  .vs-level-result{ text-align:center; font-size:13px; color:#aab8dd; line-height:1.6; margin:4px 0 2px; }
   .vs-controls-hint{ text-align:center; font-size:11px; color:var(--sub); opacity:0.75; margin-top:10px; line-height:1.6; }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.123</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.124</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -10275,6 +10276,10 @@ function vsOverlayHtml(){
         ${shoot.isNewRecord ? `<div class="vs-newbest">🎉 自己ベスト更新！ 🎉</div>` : ``}
         <div class="vs-overlay-big">${shoot.finalScore} 点</div>
         <p>自己ベスト：${shoot.bestAfter}点</p>
+        <div class="vs-level-result">
+          レベル${shoot.finalLevelIndex+1}〜${esc(VS_LEVEL_NAMES[shoot.finalLevelIndex])}〜に到達
+          ${shoot.levelUpsGained > 0 ? `<br>${shoot.levelUpsGained}回レベルアップ！` : ``}
+        </div>
         <button class="vs-overlay-btn story-advance-btn" onclick="storyAdvance()">つづける</button>
       </div>`;
   }
@@ -10850,6 +10855,11 @@ function vsEndGame(){
   shoot.finalScore = shoot.score;
   shoot.isNewRecord = isNewRecord;
   shoot.bestAfter = Math.max(prevBest, shoot.score);
+  /* 出題レベルはvsStartGameで必ずvsLevelIndex:0(表示上は「レベル1」)から始まるので、
+     終了時点のvsLevelIndexがそのまま「今回のプレイで何回レベルアップしたか」になる
+     （教員の指示、2026-08-10〜。結果画面に到達レベルとレベルアップ数を表示するため）。 */
+  shoot.finalLevelIndex = shoot.vsLevelIndex;
+  shoot.levelUpsGained = shoot.vsLevelIndex;
   vsRenderGameScreen(); // gameover状態のオーバーレイ(vsOverlayHtml)を重ねて表示
 }
 
