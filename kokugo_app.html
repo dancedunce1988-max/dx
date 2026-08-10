@@ -1001,8 +1001,15 @@
   .bb-victory .drop-item.treasure-drop{ color:#8a5a00; background:rgba(255,255,255,.75); box-shadow:0 0 10px rgba(184,134,11,.4); }
 
   /* ===== サブクエスト「ボキャブラ・シューティング」（2026-08-10〜） ===== */
-  .vs-topbar{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px; }
-  .vs-lives{ display:flex; gap:3px; font-size:16px; }
+  .vs-topbar{ display:flex; justify-content:flex-end; align-items:flex-start; margin-bottom:6px; }
+  /* ライフ表示はスコア欄と離れて見づらいとの指摘で、ヘッダーからゲーム画面(canvas)左上への
+     重ね表示に変更した（教員の指示、2026-08-10〜。.vs-wrap内に置くことで、位置合わせは
+     .vs-wrapのposition:relativeにそのまま乗せられる）。 */
+  .vs-lives{
+    position:absolute; top:8px; left:8px; z-index:2;
+    display:flex; gap:3px; font-size:16px;
+    background:rgba(5,5,20,0.55); padding:4px 7px; border-radius:10px;
+  }
   .vs-lives .heart{ color:#ff5577; }
   .vs-lives .heart-empty{ color:rgba(255,85,119,0.28); }
   .vs-scorebox{ text-align:right; }
@@ -1049,6 +1056,7 @@
     display:flex; flex-direction:column; align-items:center; justify-content:center;
     text-align:center; padding:20px; gap:4px;
     background:rgba(5,5,20,0.88); color:#fff;
+    overflow-y:auto; /* 結果画面の「まちがえた言葉」一覧が長いと収まらないため、縦スクロール可にする */
   }
   .vs-overlay h4{
     font-size:16px; margin-bottom:6px; letter-spacing:1px;
@@ -1065,12 +1073,19 @@
   .vs-newbest{ text-align:center; font-weight:bold; color:#ffe66d; margin:6px 0; }
   .vs-level-result{ text-align:center; font-size:13px; color:#aab8dd; line-height:1.6; margin:4px 0 2px; }
   .vs-controls-hint{ text-align:center; font-size:11px; color:var(--sub); opacity:0.75; margin-top:10px; line-height:1.6; }
+  .vs-wronglist{ width:100%; max-width:280px; margin-top:14px; text-align:left; }
+  .vs-wronglist-title{ font-size:12px; color:#aab8dd; margin-bottom:6px; text-align:center; }
+  .vs-wronglist-item{
+    font-size:12px; line-height:1.5; padding:6px 10px; margin-bottom:4px;
+    background:rgba(255,255,255,0.08); border-radius:8px; color:#e8f0ff;
+  }
+  .vs-wronglist-q{ font-weight:bold; color:#ffe66d; margin-right:6px; }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.124</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.125</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -2813,10 +2828,12 @@ const SEIKI_ATK_MULT = [1.5, 1.5, 2, 2.5, 3];
 const KOTONOHA_LINE_MOVES = {
   tensho: {
     names:["疾風の一閃","旋風の斬撃","暴風の剛刃","神速の破空","天翔絶刃"],
-    desc:"少年体から4問で発動できる代わり威力ひかえめ。成熟体で3倍・伝説級で4倍に強化",
-    /* ゲージは少年体(解禁時)から一律4問。以前は段階に応じて5→4→3と連続的に減らしていたが、
-       教員の指示（2026-08-02〜）で「少年体から4問」に単純化し、以後は変えない。 */
-    gaugeMax: () => 4,
+    desc:"少年体から4問で発動できる代わり威力ひかえめ。成熟体で3倍・伝説級で4倍に強化、伝説級はゲージも3問に短縮",
+    /* ゲージは少年体(解禁時)〜成熟体は一律4問。以前は段階に応じて5→4→3と連続的に減らしていたが、
+       教員の指示（2026-08-02〜）で「少年体から4問」に単純化した。その後、伝説級だけは到達の
+       ご褒美として3問に短縮する指示が入った（2026-08-10〜）。powerMultと同じ階段状のstage判定
+       （stage=round(2+4t)、6=伝説級）を流用し、伝説級のときだけ3を返す。 */
+    gaugeMax: t => (Math.round(2 + 4*t) >= 6 ? 3 : 4),
     /* 威力は段階ごとの明確な区切り（少年体〜成人体は2倍、成熟体で3倍、伝説級で4倍）。
        tから段階インデックスを逆算(stage=round(2+4t))し、しきい値で判定する（教員の指示どおり、
        連続的な線形補間ではなく「その段階に達したら一段強くなる」階段状にしている）。 */
@@ -8833,7 +8850,29 @@ function startStoryMode(chapterKey){
        専用の「もう一度プレイする」ボタンを押す必要がある）とは違い、一覧からタップするたびに
        毎回beatIdx0から新しいプレイを始める（教員の指示、2026-08-10〜）。 */
     const isSideQuest = !!STORY_SIDEQUESTS[chapterKey];
-    if(sp.chapter !== chapterKey || isSideQuest){ sp.chapter = chapterKey; sp.beatIdx = 0; storyResetJudgedRun(sp); }
+    if(sp.chapter !== chapterKey || isSideQuest){
+      sp.chapter = chapterKey;
+      storyResetJudgedRun(sp);
+      /* サブクエストは毎回beatIdx0からだが、2回目以降は導入の「line」セリフを毎回
+         読ませると煩わしいので、一度でも遊んだことがあれば最初の非line beat（ゲーム本体）
+         まで自動で読み飛ばす（教員の指示、2026-08-10〜）。st.sideQuestSeenは
+         vocabShooterHighScoreと同じくstに直接載せる軽量フラグで、旧セーブにも
+         存在しないだけで安全にfalsy扱いされるためSAVE_FORMAT_VERSIONの更新は不要。 */
+      if(isSideQuest){
+        if(!st.sideQuestSeen) st.sideQuestSeen = {};
+        const alreadySeen = !!st.sideQuestSeen[chapterKey];
+        st.sideQuestSeen[chapterKey] = true;
+        let startIdx = 0;
+        if(alreadySeen){
+          const beats = STORY_SIDEQUESTS[chapterKey].beats;
+          const idx = beats.findIndex(b => b.type !== "line");
+          if(idx >= 0) startIdx = idx;
+        }
+        sp.beatIdx = startIdx;
+      }else{
+        sp.beatIdx = 0;
+      }
+    }
     saveStats(st);
   }
   storyRun = storyFreshRun();
@@ -10247,7 +10286,6 @@ function vsRenderGameScreen(){
   screen.innerHTML = `
     <div class="card story-scene">
       <div class="vs-topbar">
-        <div class="vs-lives" id="vsLives"></div>
         <div class="vs-scorebox">
           <div class="vs-score" id="vsScore">0</div>
           <div class="vs-best">ベスト：${best}</div>
@@ -10259,6 +10297,7 @@ function vsRenderGameScreen(){
       </div>
       <div class="vs-wrap">
         <canvas id="vsCanvas" width="${VS_W}" height="${VS_H}"></canvas>
+        <div class="vs-lives" id="vsLives"></div>
         <div class="vs-level-banner" id="vsLevelBanner"></div>
         <button class="vs-fire" id="vsFireBtn">SHOOT</button>
         ${shoot.phase !== 'playing' ? vsOverlayHtml() : ''}
@@ -10267,6 +10306,18 @@ function vsRenderGameScreen(){
     </div>
     ${storyFooterHtml()}`;
   vsUpdateHud();
+}
+/* 結果画面の最後に出す「間違えた問題」一覧（教員の指示、2026-08-10〜）。誤答オーブに
+   命中した単語・撃ちもらした単語の正しい意味を、vsRecordWrongWord()でshoot.wrongWordsに
+   ため込んだものをそのまま表示するだけ。1問もまちがえていなければ何も表示しない。 */
+function vsWrongWordsHtml(shoot){
+  const entries = Object.entries(shoot.wrongWords || {});
+  if(entries.length === 0) return "";
+  return `
+    <div class="vs-wronglist">
+      <p class="vs-wronglist-title">まちがえた言葉（${entries.length}）</p>
+      ${entries.map(([q, meaning]) => `<div class="vs-wronglist-item"><span class="vs-wronglist-q">${esc(q)}</span>${esc(meaning)}</div>`).join("")}
+    </div>`;
 }
 function vsOverlayHtml(){
   const shoot = storyRun.shoot;
@@ -10280,7 +10331,11 @@ function vsOverlayHtml(){
           レベル${shoot.finalLevelIndex+1}〜${esc(VS_LEVEL_NAMES[shoot.finalLevelIndex])}〜に到達
           ${shoot.levelUpsGained > 0 ? `<br>${shoot.levelUpsGained}回レベルアップ！` : ``}
         </div>
-        <button class="vs-overlay-btn story-advance-btn" onclick="storyAdvance()">つづける</button>
+        <div class="btn-row" style="justify-content:center; flex-wrap:wrap">
+          <button class="vs-overlay-btn story-advance-btn" onclick="vsStartGame()">もう一度プレイする</button>
+          <button class="vs-overlay-btn story-advance-btn" onclick="showHome()">ホームに戻る</button>
+        </div>
+        ${vsWrongWordsHtml(shoot)}
       </div>`;
   }
   return `
@@ -10305,6 +10360,7 @@ function vsStartGame(){
     vsLevelIndex:0, correctSinceLevelUp:0, usedWords:[],
     isFiring:false, rafId:null, handlers:null, laneIndex:1,
     bestBefore: st.vocabShooterHighScore || 0,
+    wrongWords:{},
   });
   vsRenderGameScreen(); // オーバーレイなしの画面に描き直す
   vsPickNextItem();
@@ -10526,7 +10582,11 @@ function vsCollectItem(it){
     else vsSpawnPopup(it.x, it.y, 'HP満タン', '#8899cc');
     vsSpawnParticles(it.x, it.y, '#ff5577', 16);
   }else if(it.type === 'ship'){
-    if(shoot.shipLevel < 3){ shoot.shipLevel++; shoot.maxLives++; vsSpawnPopup(it.x, it.y, `機体強化 Lv${shoot.shipLevel}!`, '#ffd24f'); }
+    /* 表示する「Lv」は必ずvsBulletDamage(shoot.shipLevel)＝実際の弾の攻撃力と同じ数字にする
+       （教員の指摘、2026-08-10〜。以前は内部のshipLevelをそのまま表示していたため、
+       「Lv2」なのに実際の攻撃力は3(=shipLevel+1)という1ズレが起き、「HPと攻撃力が同じ数の
+       はずなのに1発で倒せた」という混乱の原因になっていた）。 */
+    if(shoot.shipLevel < 3){ shoot.shipLevel++; shoot.maxLives++; vsSpawnPopup(it.x, it.y, `機体強化 Lv${vsBulletDamage(shoot.shipLevel)}!`, '#ffd24f'); }
     else vsSpawnPopup(it.x, it.y, '機体最大強化中!', '#ffd24f');
     shoot.lives = shoot.maxLives;
     vsSpawnParticles(it.x, it.y, '#ffd24f', 22);
@@ -10562,6 +10622,16 @@ function vsGrazeOrb(o){
   o.flashTime = 6;
   vsSpawnParticles(o.x, o.y, '#cfd8ff', 4);
   vsBeep(1400, 0.04, 'square', 0.05);
+}
+/* 結果画面の最後に出す「間違えた問題」一覧のために、その単語の正しい意味を記録する
+   （教員の指示、2026-08-10〜）。誤答オーブに命中した瞬間・正解オーブを撃ちもらした瞬間の
+   両方から呼ぶ。shoot.wrongWordsは{単語: 正しい意味}のオブジェクトなので、同じ単語で
+   複数回まちがえてもリストには1回しか載らない（重複排除）。currentItem.c[currentItem.a]は
+   シャッフル前の元配列を見るので、画面上の選択肢の並び順には左右されない。 */
+function vsRecordWrongWord(shoot){
+  const it = shoot.currentItem;
+  if(!it) return;
+  shoot.wrongWords[it.q] = it.c[it.a];
 }
 /* 正解オーブに命中したとき／誤答オーブに命中したときの処理。record()は正解命中時のみ
    ここで呼ぶ（誤答命中は、単体では分野レベル・診断的難度調整に触れない既存仕様）。
@@ -10605,6 +10675,7 @@ function vsHitOrb(o){
     vsSpawnParticles(o.x,o.y,'#ff5577',14);
     vsSpawnPopup(o.x,o.y,'ちがう!', '#ff5577');
     vsBeep(220,0.18,'sawtooth',0.12);
+    vsRecordWrongWord(shoot);
     vsLoseLife();
   }
   vsUpdateHud();
@@ -10813,6 +10884,7 @@ function vsLoop(){
       if(o.correct){
         vsLoseLife();
         vsSpawnPopup(o.x, shoot.H-100, "取り逃し!", "#ff5577");
+        vsRecordWrongWord(shoot);
         const elapsedMs = Date.now() - (shoot.itemShownAt || Date.now());
         record(shoot.cat, shoot.currentItem, false, elapsedMs, {skipRecentAcc:true});
       }
