@@ -1016,7 +1016,7 @@
      canvas自体の内部解像度もvsComputeCanvasSize()でこの閾値に合わせて切り替えているので、
      ここは表示サイズの上限を広げるだけでよい（引き伸ばしによるぼやけは発生しない）。 */
   @media (min-width:700px){
-    .vs-wrap{ max-width:480px; }
+    .vs-wrap{ max-width:400px; }
   }
   .vs-wrap canvas{
     width:100%; height:auto; display:block; border-radius:12px;
@@ -1068,7 +1068,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.120</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.121</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -10210,7 +10210,7 @@ function vsLevelPool(levelIndex){
    （storyRenderShooting）に一度だけ計算し、以後そのプレイセッション中は変えない
    （プレイ中にウィンドウ幅が変わってもレーン計算等がズレないようにするため）。 */
 function vsComputeCanvasSize(){
-  if(window.innerWidth >= 700){ VS_W = 480; VS_H = 840; }
+  if(window.innerWidth >= 700){ VS_W = 400; VS_H = 700; }
   else{ VS_W = 340; VS_H = 600; }
 }
 function storyRenderShooting(beat, idx){
@@ -10470,15 +10470,20 @@ function vsBeep(freq, dur, type, vol){
     o.stop(vsAudioCtx.currentTime + dur);
   }catch(e){}
 }
-function vsPickItemType(){
-  const total = VS_ITEM_TYPES.reduce((s,t)=>s+t.weight,0);
+/* 機体強化(ship)は3段階が上限なので、すでに最大まで強化済みならそもそも候補から除外する
+   （教員の指示、2026-08-10〜。以前は上限後も同じ確率で出続け、拾っても「機体最大強化中!」と
+   出るだけの無駄なアイテムになっていた）。除外した分の重みは、残りの種類（スロー/ライフ）に
+   自動的に再配分される（totalが除外後の合計になるため）。 */
+function vsPickItemType(shipLevel){
+  const pool = VS_ITEM_TYPES.filter(t => t.type !== 'ship' || shipLevel < 3);
+  const total = pool.reduce((s,t)=>s+t.weight,0);
   let r = Math.random()*total;
-  for(const t of VS_ITEM_TYPES){ if(r < t.weight) return t; r -= t.weight; }
-  return VS_ITEM_TYPES[0];
+  for(const t of pool){ if(r < t.weight) return t; r -= t.weight; }
+  return pool[0];
 }
 function vsSpawnItem(){
   const shoot = storyRun.shoot;
-  const def = vsPickItemType();
+  const def = vsPickItemType(shoot.shipLevel);
   shoot.items.push({
     type: def.type, color: def.color, symbol: def.symbol,
     x: 30 + Math.random()*(shoot.W-60), y:-30, vy: 1.6+Math.random()*0.4, r:16,
