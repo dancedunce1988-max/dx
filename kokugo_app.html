@@ -1091,7 +1091,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.128</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.129</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3775,6 +3775,179 @@ function endSession(clearedAll){
         <button class="btn secondary" onclick="showHome()">ホームへ</button>
       </div>
     </div>`;
+}
+
+/* ================= 総合診断テスト =================
+   20分野（CAT_KEYS）を毎回まんべんなくチェックする独立モード。「漢字の書き取り学習」等と同じく
+   quiz/record()の通常経路は使わず、経験値・分野レベル・diffLv・「ことのは」の成長には一切影響させない
+   （固定の問題セットだと答えを覚えてしまうという教員の指摘を受け、分野ごとの出題数だけを固定し、
+   実際に出す問題は毎回diffLvに関係なく分野内から無作為に選び直す設計にした）。
+   ホーム画面には置かず、「成績・称号」画面の目立たない場所からだけ入れる。 */
+const DIAG_PER_CAT = 2;
+let diag = null;
+function buildDiagnosticQueue(){
+  const list = [];
+  CAT_KEYS.forEach(cat=>{
+    const items = CATS[cat].items;
+    const n = Math.min(DIAG_PER_CAT, items.length);
+    shuffledOrder(items.length).slice(0, n).forEach(i => list.push({cat, item: items[i]}));
+  });
+  for(let i=list.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [list[i],list[j]]=[list[j],list[i]]; }
+  return list;
+}
+function startDiagnostic(){
+  const catStats = {};
+  CAT_KEYS.forEach(k => { catStats[k] = {t:0, c:0}; });
+  diag = {queue: buildDiagnosticQueue(), idx:0, n:0, correct:0, catStats, cat:null, item:null, order:null, shownAt:null};
+  diagNextQuestion();
+}
+function diagNextQuestion(){
+  if(diag.idx >= diag.queue.length){ diagEndSession(); return; }
+  const cur = diag.queue[diag.idx];
+  diag.idx++;
+  diag.cat = cur.cat; diag.item = cur.item;
+  diagRenderQuestion();
+}
+function diagRenderQuestion(){
+  diag.shownAt = Date.now();
+  const it = diag.item, cat = diag.cat;
+  let answerArea;
+  if(Array.isArray(it.ans)){
+    clearChoiceKeys();
+    answerArea = `
+      <div class="ans-row">
+        <input type="text" id="diagAnsIn" class="ans-input" placeholder="ひらがなで入力" autocomplete="off"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();diagSubmitInput();}">
+        <button class="btn inline" id="diagSubmitBtn" onclick="diagSubmitInput()">こたえる</button>
+      </div>`;
+  }else{
+    diag.order = shuffledOrder(it.c.length);
+    answerArea = `
+      <div class="choices${choicesClass(it)}">
+        ${diag.order.map((oi,pos)=>`<button class="choice" onclick="diagAnswerChoice(${oi})"><span class="choice-num">${pos+1}</span>${it.ckb ? kanbunMiniHtml(it.ckb[oi]) : esc(it.c[oi])}</button>`).join("")}
+      </div>`;
+    setupChoiceKeys(pos => diagAnswerChoice(diag.order[pos]), it.c.length);
+  }
+  screen.innerHTML = `
+    <div class="session-bar">
+      <span>${diag.n+1}問目 / 全${diag.queue.length}問　｜　正解 ${diag.correct}問</span>
+      <span class="catstat">${esc(CATS[cat].name)}</span>
+    </div>
+    <div class="card">
+      <div class="q-category"><span>🔍 総合診断テスト</span></div>
+      ${subInstructionHtml(cat, it)}
+      ${kanbunBoxHtml(it.kb)}
+      <div class="q-text">${markQuestionHtml(it.q)}</div>
+      ${answerArea}
+      <div class="feedback" id="diagFb"></div>
+      <div class="btn-row">
+        <button class="btn tap-advance-btn" id="diagNextBtn" style="display:none" onclick="diagNextQuestion()">次へ</button>
+        <button class="btn secondary" id="diagQuitBtn" style="display:none" onclick="diagEndSession()">ここまでにする</button>
+      </div>
+    </div>`;
+  if(Array.isArray(it.ans)){ const el = document.getElementById("diagAnsIn"); if(el) el.focus(); }
+}
+function diagAnswerChoice(origIdx){
+  diagGrade(origIdx === diag.item.a, origIdx, null);
+}
+function diagSubmitInput(){
+  const el = document.getElementById("diagAnsIn");
+  if(!el || el.disabled) return;
+  const val = normalizeAns(el.value);
+  if(!val) return;
+  const ok = diag.item.ans.map(normalizeAns).includes(val);
+  el.disabled = true;
+  const sb = document.getElementById("diagSubmitBtn");
+  if(sb) sb.disabled = true;
+  diagGrade(ok, null, el.value);
+}
+function diagGrade(ok, chosenOrig, typed){
+  const it = diag.item, cat = diag.cat;
+  diag.n++;
+  if(ok) diag.correct++;
+  diag.catStats[cat].t++;
+  if(ok) diag.catStats[cat].c++;
+  const btns = screen.querySelectorAll(".choice");
+  btns.forEach((b,pos)=>{
+    const oi = diag.order ? diag.order[pos] : pos;
+    b.disabled = true;
+    if(oi===it.a) b.classList.add("correct");
+    else if(oi===chosenOrig) b.classList.add("wrong");
+    else b.classList.add("dim");
+  });
+  const fb = document.getElementById("diagFb");
+  fb.className = "feedback show " + (ok?"ok":"ng");
+  let expl;
+  if(Array.isArray(it.ans)){
+    const wrongMsg = ok ? "" : `正解は「${esc(it.ans.join("」または「"))}」（あなたの答え：${esc(typed||"")}）`;
+    expl = [wrongMsg, it.e ? esc(it.e) : ""].filter(Boolean).join("<br>");
+  }else{
+    expl = it.e ? esc(it.e) : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
+  }
+  fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}</div>${expl}`;
+  document.getElementById("diagNextBtn").style.display = "inline-block";
+  document.getElementById("diagQuitBtn").style.display = "inline-block";
+  document.getElementById("diagNextBtn").focus();
+}
+function diagEndSession(){
+  const st = loadStats();
+  const groupResults = (DATA.groups || []).map(g=>{
+    let t=0, c=0;
+    g.keys.forEach(k=>{
+      const s = diag.catStats[k];
+      if(s){ t += s.t; c += s.c; }
+    });
+    return {name: g.name, t, c};
+  });
+  const catRows = CAT_KEYS.map(k=>({key:k, name:CATS[k].name, s: diag.catStats[k]})).filter(r=>r.s.t>0);
+  if(!st.diag) st.diag = {};
+  st.diag.lastResult = {
+    at: new Date().toISOString(),
+    total: diag.n, correct: diag.correct,
+    groups: groupResults.filter(g=>g.t>0).map(g=>({name:g.name, t:g.t, c:g.c})),
+    cats: catRows.map(r=>({name:r.name, t:r.s.t, c:r.s.c})),
+  };
+  saveStats(st);
+
+  let html = `<div class="card">
+    <h3 class="section">🔍 総合診断テストの結果</h3>
+    <div class="result-score">${diag.correct} <span style="font-size:1.2rem;color:var(--sub)">/ ${diag.n}問 正解</span></div>`;
+  if(diag.n > 0) html += `<p class="result-msg">総合正答率：${Math.round(100*diag.correct/diag.n)}%</p>`;
+  const groupsSeen = groupResults.filter(g=>g.t>0);
+  if(groupsSeen.length){
+    html += `<table class="stats" style="margin-top:10px"><tr><th>グループ</th><th style="text-align:right">正答率</th></tr>`;
+    groupsSeen.forEach(g=>{
+      html += `<tr><td>${esc(g.name)}</td><td class="num">${g.c}/${g.t}（${Math.round(100*g.c/g.t)}%）</td></tr>`;
+    });
+    html += `</table>`;
+  }
+  html += `</div>`;
+  if(catRows.length){
+    catRows.sort((a,b)=> (a.s.c/a.s.t) - (b.s.c/b.s.t));
+    html += `<div class="card"><h3 class="section">分野ごとの内訳（苦手な分野から）</h3><table class="stats"><tr><th>分野</th><th style="text-align:right">正答率</th></tr>`;
+    catRows.forEach(r=>{
+      html += `<tr><td>${esc(r.name)}</td><td class="num">${r.s.c}/${r.s.t}（${Math.round(100*r.s.c/r.s.t)}%）</td></tr>`;
+    });
+    html += `</table></div>`;
+  }
+  html += `<div class="btn-row">
+      <button class="btn" onclick="startDiagnostic()">もう一度受ける</button>
+      <button class="btn secondary" onclick="showStats()">成績を見る</button>
+      <button class="btn secondary" onclick="showHome()">ホームへ</button>
+    </div>`;
+  screen.innerHTML = html;
+}
+/* 「成績・称号」画面の下のほうに置く、目立たない一行リンク（教員の指示：ホーム画面ではなく
+   目立たない場所から入れる）。前回の結果があれば、日付と点数だけをさりげなく添える。 */
+function diagEntryHtml(st){
+  const r = st.diag && st.diag.lastResult;
+  const sub = r
+    ? `前回：${esc(new Date(r.at).toLocaleDateString("ja-JP"))}　${r.correct}/${r.total}問正解`
+    : `20分野から${DIAG_PER_CAT}問ずつ無作為に出題（経験値には影響しません）`;
+  return `<p class="note" style="margin-top:14px">
+    <a href="#" onclick="startDiagnostic(); return false;">🔍 総合診断テストを受けてみる</a><br>
+    <span style="font-size:.82rem; color:var(--sub)">${sub}</span>
+  </p>`;
 }
 
 /* ================= 漢字の書き取り学習 =================
@@ -7669,6 +7842,7 @@ function showStats(){
     html += `</ul>
       <button class="btn" onclick="startReview()">この問題たちを復習する</button></div>`;
   }
+  html += diagEntryHtml(st);
   html += `<div class="card"><h3 class="section">きろくの保存・引きつぎ</h3>
     <p style="font-size:.88rem">記録は自動でこのブラウザに保存され、再読み込みしても消えません。
     ただし<b>別のパソコンやタブレット、別のブラウザには引き継がれません</b>。
