@@ -1014,7 +1014,13 @@
   .vs-lives .heart-empty{ color:rgba(255,85,119,0.28); }
   .vs-scorebox{ text-align:right; }
   .vs-score{ font-size:20px; font-weight:bold; color:var(--gold); font-variant-numeric:tabular-nums; }
-  .vs-best{ font-size:11px; color:var(--sub); margin-top:2px; }
+  /* ベストスコアもライフと同じくcanvas右上への重ね表示にする（教員の指示、2026-08-10〜。
+     プレイ中に現在スコアがベストを上回ったらvsUpdateHud()内でリアルタイムに更新する）。 */
+  .vs-best{
+    position:absolute; top:8px; right:8px; z-index:2;
+    font-size:11px; color:#e8f0ff;
+    background:rgba(5,5,20,0.55); padding:5px 7px; border-radius:10px;
+  }
   .vs-wordbanner{ text-align:center; margin-bottom:8px; }
   .vs-word{ font-size:clamp(20px,6vw,28px); font-weight:bold; letter-spacing:2px; color:var(--ink); }
   .vs-sub{ font-size:11px; color:var(--sub); margin-top:2px; }
@@ -1085,7 +1091,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.126</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.127</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -10288,7 +10294,6 @@ function vsRenderGameScreen(){
       <div class="vs-topbar">
         <div class="vs-scorebox">
           <div class="vs-score" id="vsScore">0</div>
-          <div class="vs-best">ベスト：${best}</div>
         </div>
       </div>
       <div class="vs-wordbanner">
@@ -10298,6 +10303,7 @@ function vsRenderGameScreen(){
       <div class="vs-wrap">
         <canvas id="vsCanvas" width="${VS_W}" height="${VS_H}"></canvas>
         <div class="vs-lives" id="vsLives"></div>
+        <div class="vs-best" id="vsBest">ベスト：${best}</div>
         <div class="vs-level-banner" id="vsLevelBanner"></div>
         <button class="vs-fire" id="vsFireBtn">SHOOT</button>
         ${shoot.phase !== 'playing' ? vsOverlayHtml() : ''}
@@ -10618,6 +10624,11 @@ function vsUpdateHud(){
     for(let i=0;i<shoot.lives;i++){ const s=document.createElement("span"); s.className="heart"; s.textContent="♥"; livesEl.appendChild(s); }
     for(let i=0;i<shoot.maxLives-shoot.lives;i++){ const s=document.createElement("span"); s.className="heart-empty"; s.textContent="♥"; livesEl.appendChild(s); }
   }
+  /* ベストスコアはプレイ中に現在スコアが上回った瞬間からリアルタイムで更新表示する
+     （教員の指示、2026-08-10〜）。実際のセーブ(st.vocabShooterHighScore)への反映は
+     従来どおりvsEndGame()でのみ行うので、ここはあくまで表示だけの先行更新。 */
+  const bestEl = document.getElementById("vsBest");
+  if(bestEl) bestEl.textContent = `ベスト：${Math.max(shoot.bestBefore || 0, shoot.score)}`;
 }
 /* オーブに弾は当たったが、まだHPが残っていて撃破に至らなかったときの軽い演出
    （教員の指示、2026-08-10〜。出題レベルが上がるほどオーブのHPが増え、複数発
