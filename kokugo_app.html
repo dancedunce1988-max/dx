@@ -1068,7 +1068,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.121</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.122</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -10170,8 +10170,11 @@ function storyRenderBaseballScreen(){
       （vsPickNextItem参照）。既存206問はgrade/lv値をもとに8段階へ再分類し、当時データが
       存在しなかった「小学校高学年」（vsLv2）だけ新規に16問を作問してgoiへ追加した
       （教員向けメモ: 2026-08-10時点でgoi全222問、分布は[[kokugo_story_mode]]参照）。
-      5問正解でレベルが1つ上がり（VS_CORRECT_PER_LEVEL）、レベル5（中学2年生レベル）到達後は
-      正解を重ねるごとに落下速度が徐々に上がっていく（VS_SPEEDUP_START_LEVEL_INDEX）。
+      5問正解でレベルが1つ上がり（VS_CORRECT_PER_LEVEL）、落下速度は最初から正解を重ねる
+      たびに徐々に上がっていく（VS_CORRECT_PER_SPEEDUP問ごとにVS_SPEEDUP_STEP）。ミスをした
+      とき（誤答オーブに命中／正解を撃ちもらす）は、ライフが1減るのに加えて、速度が2段階分
+      （VS_SPEEDUP_STEP×2）下がる——ペナルティではなく、直後の1〜2問の難易度を一旦やわらげる
+      救済措置という位置づけ（教員の指示、2026-08-10〜、vsLoseLife参照）。
    2. 正解するたびにrecord("goi", ...)を呼び、「語彙」分野のレベルを通常のクイズと同じ仕組みで
       上げる（診断的難度調整st.diffLv.goiも連動して上がっていく）。ただしskipRecentAcc:trueを
       指定し、野球ミニゲーム（storyBaseballAnswer参照）と同じ理由で、テンポの速いこのミニゲーム
@@ -10190,7 +10193,8 @@ const VS_LEVEL_NAMES = [
   "中学2年生レベル", "中学3年生レベル", "高校生レベル", "大学生レベル",
 ];
 const VS_CORRECT_PER_LEVEL = 5;       // これだけ正解すると出題レベルが1つ上がる
-const VS_SPEEDUP_START_LEVEL_INDEX = 4; // レベル5「中学2年生レベル」(0始まりで4)到達後、徐々に速度上昇
+const VS_BASE_SPEED = 1.1;            // 落下速度の初期値・ミスで下がりきったときの下限
+const VS_SPEEDUP_STEP = 0.1;          // 速度が1段階変化する幅（上昇・下降とも共通）
 const VS_ITEM_TYPES = [
   {type:'slow', weight:0.40, color:'#4fc3f7', symbol:'S'},
   {type:'life', weight:0.35, color:'#ff5577', symbol:'♥'},
@@ -10283,7 +10287,7 @@ function vsStartGame(){
     player:{x:VS_W/2, y:VS_H-70, w:40, h:36, targetX:VS_W/2},
     bullets:[], orbs:[], items:[], particles:[], popups:[],
     currentItem:null, currentOrder:null, lastQ:null, itemShownAt:null,
-    orbFallSpeed:1.1, lastFire:0, fireCooldown:220, spawnedForItem:false,
+    orbFallSpeed:VS_BASE_SPEED, lastFire:0, fireCooldown:220, spawnedForItem:false,
     shakeTime:0, slowCharges:0, shipLevel:0, correctSinceSpeedUp:0,
     vsLevelIndex:0, correctSinceLevelUp:0, usedWords:[],
     isFiring:false, rafId:null, handlers:null, laneIndex:1,
@@ -10558,14 +10562,12 @@ function vsHitOrb(o){
         vsShowLevelUpBanner();
       }
     }
-    // レベル5「中学2年生レベル」到達後は、正解を重ねるごとに徐々に速度が上がっていく
-    if(shoot.vsLevelIndex >= VS_SPEEDUP_START_LEVEL_INDEX){
-      shoot.correctSinceSpeedUp++;
-      if(shoot.correctSinceSpeedUp >= VS_CORRECT_PER_SPEEDUP){
-        shoot.correctSinceSpeedUp = 0;
-        shoot.orbFallSpeed += 0.1;
-        vsSpawnPopup(shoot.W/2, shoot.H/2, 'スピードアップ!', '#ff9dc0');
-      }
+    // 落下速度は最初から、正解を重ねるごとに徐々に上がっていく
+    shoot.correctSinceSpeedUp++;
+    if(shoot.correctSinceSpeedUp >= VS_CORRECT_PER_SPEEDUP){
+      shoot.correctSinceSpeedUp = 0;
+      shoot.orbFallSpeed += VS_SPEEDUP_STEP;
+      vsSpawnPopup(shoot.W/2, shoot.H/2, 'スピードアップ!', '#ff9dc0');
     }
   }else{
     shoot.combo = 0;
@@ -10576,9 +10578,17 @@ function vsHitOrb(o){
   }
   vsUpdateHud();
 }
+/* ミス（誤答オーブに命中／正解を撃ちもらす）のたびに呼ぶ。ライフを1減らすのに加えて、
+   落下速度を2段階分やわらげる（ペナルティではなく、直後の1〜2問の難易度を一旦下げて
+   立て直せるようにする救済措置、教員の指示、2026-08-10〜）。speedUpの歩数(correctSinceSpeedUp)
+   は0に戻さない——ここをリセットすると次のスピードアップまでの必要正解数が変わってしまい、
+   意図（速度そのものを下げる）とズレるため。 */
 function vsLoseLife(){
   const shoot = storyRun.shoot;
   shoot.lives--; shoot.shakeTime = 12;
+  const before = shoot.orbFallSpeed;
+  shoot.orbFallSpeed = Math.max(VS_BASE_SPEED, shoot.orbFallSpeed - VS_SPEEDUP_STEP*2);
+  if(shoot.orbFallSpeed < before) vsSpawnPopup(shoot.W/2, shoot.H/2 - 40, 'スピードダウン', '#4fc3f7');
   vsUpdateHud();
 }
 function vsRoundRect(ctx,x,y,w,h,r){
