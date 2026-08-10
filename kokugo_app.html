@@ -1012,6 +1012,12 @@
   .vs-word{ font-size:clamp(20px,6vw,28px); font-weight:bold; letter-spacing:2px; color:var(--ink); }
   .vs-sub{ font-size:11px; color:var(--sub); margin-top:2px; }
   .vs-wrap{ position:relative; width:100%; max-width:340px; margin:0 auto; touch-action:none; }
+  /* デスクトップ相当の画面幅では、ゲーム画面を大きく表示する（教員の指示、2026-08-10〜）。
+     canvas自体の内部解像度もvsComputeCanvasSize()でこの閾値に合わせて切り替えているので、
+     ここは表示サイズの上限を広げるだけでよい（引き伸ばしによるぼやけは発生しない）。 */
+  @media (min-width:700px){
+    .vs-wrap{ max-width:480px; }
+  }
   .vs-wrap canvas{
     width:100%; height:auto; display:block; border-radius:12px;
     background:linear-gradient(180deg,#0a0a1a 0%,#12122a 100%); box-shadow:0 0 24px rgba(80,120,255,0.2);
@@ -1035,14 +1041,34 @@
     transition: opacity 0.35s ease, transform 0.35s ease;
   }
   .vs-level-banner.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
-  .vs-result-score{ font-size:clamp(28px,8vw,40px); font-weight:bold; color:var(--gold); margin:10px 0; text-align:center; }
-  .vs-newbest{ text-align:center; font-weight:bold; color:var(--accent); margin:6px 0; }
+  /* スタート前・ゲームオーバー時にcanvasの上に重ねる半透明オーバーレイ（教員の指示、2026-08-10〜。
+     スタンドアロン版vocab_shooter.htmlの#overlayと同じ見せ方：ゲーム画面自体は常に見えていて、
+     その上に説明・スタートボタンや結果を重ねる）。 */
+  .vs-overlay{
+    position:absolute; inset:0; z-index:4; border-radius:12px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:20px; gap:4px;
+    background:rgba(5,5,20,0.88); color:#fff;
+  }
+  .vs-overlay h4{
+    font-size:16px; margin-bottom:6px; letter-spacing:1px;
+    background:linear-gradient(90deg,#7ee8fa,#eec0c6);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+  }
+  .vs-overlay p{ font-size:12px; color:#aab8dd; line-height:1.7; max-width:280px; }
+  .vs-overlay-big{ font-size:clamp(26px,8vw,38px); font-weight:bold; color:#ffe66d; margin:8px 0; }
+  .vs-overlay-btn{
+    margin-top:14px; padding:11px 34px; font-size:15px; font-weight:bold;
+    background:linear-gradient(135deg,#ff6b9d,#c471ed); color:#fff; border:none; border-radius:26px;
+    box-shadow:0 4px 16px rgba(196,113,237,0.5); letter-spacing:1px;
+  }
+  .vs-newbest{ text-align:center; font-weight:bold; color:#ffe66d; margin:6px 0; }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.119</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.120</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -10158,7 +10184,7 @@ function storyRenderBaseballScreen(){
       saveStats()経由でlocalStorageに保存する（本編スタンドアロン版はページ内保持のみだった）。
    「クリア」という概念のない常設スコアアタックのため、章の解放は常に真（storyChapterUnlocked参照）、
    一覧からタップするたびに毎回beatIdx0から新しいプレイを始める（startStoryMode参照）。 */
-const VS_W = 340, VS_H = 600;
+let VS_W = 340, VS_H = 600; // vsComputeCanvasSize()で画面幅に応じて上書きされる
 const VS_LEVEL_NAMES = [
   "小学校中学年レベル", "小学校高学年レベル", "中学1年生前半レベル", "中学1年生後半レベル",
   "中学2年生レベル", "中学3年生レベル", "高校生レベル", "大学生レベル",
@@ -10179,29 +10205,31 @@ const VS_ORB_LINE_H = 13;
 function vsLevelPool(levelIndex){
   return CATS.goi.items.filter(it => it.vsLv === levelIndex + 1);
 }
+/* 画面サイズに応じてゲーム画面(canvas)の内部解像度を決める（教員の指示、2026-08-10〜。
+   デスクトップ相当の横幅があれば、ゲーム画面を大きく表示する）。ビートに入るたび
+   （storyRenderShooting）に一度だけ計算し、以後そのプレイセッション中は変えない
+   （プレイ中にウィンドウ幅が変わってもレーン計算等がズレないようにするため）。 */
+function vsComputeCanvasSize(){
+  if(window.innerWidth >= 700){ VS_W = 480; VS_H = 840; }
+  else{ VS_W = 340; VS_H = 600; }
+}
 function storyRenderShooting(beat, idx){
   if(storyRun.shootBeatIdx !== idx){
     storyRun.shootBeatIdx = idx;
     storyRun.shoot = { cat: beat.cat || "goi", phase:"ready" };
   }
   storyRun.curBeat = beat;
-  if(storyRun.shoot.phase === "gameover") vsRenderResult();
-  else storyRenderShootingReady();
-}
-function storyRenderShootingReady(){
   clearChoiceKeys(); // 直前の別画面のクイズ選択肢キー状態が残っていて、数字キーに誤反応しないようにする
-  screen.innerHTML = `
-    <div class="card story-scene">
-      <h3 class="section">🚀 ボキャブラ・シューティング</h3>
-      <p class="story-text">上から降ってくる「意味」の中から、表示された言葉の正しい意味を選んで撃ち落とそう。</p>
-      <p class="note">・自機は画面をドラッグして操作する（または数字キー1〜4／矢印キーで移動）<br>・SHOOTボタン、またはEnter／スペースキーを押している間、連射される<br>・まちがった意味に当てたり、正解を撃ちもらしたりすると、ライフが減る</p>
-      <div class="btn-row" style="justify-content:center">
-        <button class="btn story-advance-btn" onclick="vsStartGame()">スタート</button>
-      </div>
-    </div>
-    ${storyFooterHtml()}`;
+  vsComputeCanvasSize();
+  vsRenderGameScreen();
 }
-function vsRenderPlayScreen(){
+/* ゲーム画面本体は常にcanvas入りで構築し（教員の指示、2026-08-10〜。以前は「説明カード→
+   スタートボタン」の別画面を経てからcanvas画面に切り替えていたが、canvasを画面に出した
+   状態のまま、その上に半透明のオーバーレイでスタート/結果を重ねる、スタンドアロン版
+   （vocab_shooter.html）と同じ見せ方に変更した）、phaseに応じてvs-overlayを重ねるかどうかだけ
+   切り替える。vsStartGame/vsEndGameは、phaseを切り替えたあとこの関数を呼び直すだけでよい。 */
+function vsRenderGameScreen(){
+  const shoot = storyRun.shoot;
   const st = loadStats();
   const best = st.vocabShooterHighScore || 0;
   screen.innerHTML = `
@@ -10221,9 +10249,30 @@ function vsRenderPlayScreen(){
         <canvas id="vsCanvas" width="${VS_W}" height="${VS_H}"></canvas>
         <div class="vs-level-banner" id="vsLevelBanner"></div>
         <button class="vs-fire" id="vsFireBtn">SHOOT</button>
+        ${shoot.phase !== 'playing' ? vsOverlayHtml() : ''}
       </div>
-    </div>`;
+    </div>
+    ${storyFooterHtml()}`;
   vsUpdateHud();
+}
+function vsOverlayHtml(){
+  const shoot = storyRun.shoot;
+  if(shoot.phase === 'gameover'){
+    return `
+      <div class="vs-overlay">
+        ${shoot.isNewRecord ? `<div class="vs-newbest">🎉 自己ベスト更新！ 🎉</div>` : ``}
+        <div class="vs-overlay-big">${shoot.finalScore} 点</div>
+        <p>自己ベスト：${shoot.bestAfter}点</p>
+        <button class="vs-overlay-btn story-advance-btn" onclick="storyAdvance()">つづける</button>
+      </div>`;
+  }
+  return `
+    <div class="vs-overlay">
+      <h4>🚀 ボキャブラ・シューティング</h4>
+      <p>上から降ってくる「意味」の中から、表示された言葉の正しい意味を選んで撃ち落とそう。</p>
+      <p>・自機は画面をドラッグ、または数字キー1〜4／矢印キーで移動<br>・SHOOTボタン、またはEnter／スペースキーを押している間、連射<br>・まちがった意味に当てたり、正解を撃ちもらすとライフが減る</p>
+      <button class="vs-overlay-btn story-advance-btn" onclick="vsStartGame()">スタート</button>
+    </div>`;
 }
 function vsStartGame(){
   vsStopLoop(); // 念のため、前のセッションのリスナー・ループが残っていれば止めてから始める
@@ -10240,7 +10289,7 @@ function vsStartGame(){
     isFiring:false, rafId:null, handlers:null, laneIndex:1,
     bestBefore: st.vocabShooterHighScore || 0,
   });
-  vsRenderPlayScreen();
+  vsRenderGameScreen(); // オーバーレイなしの画面に描き直す
   vsPickNextItem();
   vsAttachHandlers();
   storyRun.shoot.rafId = requestAnimationFrame(vsLoop);
@@ -10744,20 +10793,7 @@ function vsEndGame(){
   shoot.finalScore = shoot.score;
   shoot.isNewRecord = isNewRecord;
   shoot.bestAfter = Math.max(prevBest, shoot.score);
-  vsRenderResult();
-}
-function vsRenderResult(){
-  const shoot = storyRun.shoot;
-  screen.innerHTML = `
-    <div class="card story-scene">
-      <h3 class="section">📖 けっか</h3>
-      ${shoot.isNewRecord ? `<div class="vs-newbest">🎉 自己ベスト更新！ 🎉</div>` : ``}
-      <div class="vs-result-score">${shoot.finalScore} 点</div>
-      <p class="note" style="text-align:center">自己ベスト：${shoot.bestAfter}点</p>
-      <div class="btn-row" style="justify-content:center">
-        <button class="btn story-advance-btn" onclick="storyAdvance()">つづける</button>
-      </div>
-    </div>`;
+  vsRenderGameScreen(); // gameover状態のオーバーレイ(vsOverlayHtml)を重ねて表示
 }
 
 /* コンボアタック（combo beat、2026-07-19〜、第5章「朝読書をしよう！」用）。beat.cat（この章では
