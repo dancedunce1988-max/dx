@@ -1085,7 +1085,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.125</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.126</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -10500,11 +10500,16 @@ function vsSpawnOrbs(){
       lineCount = vsWrapLines(ctx, text, orbW - 10).length;
     }
     const hp = shoot.vsLevelIndex + 1;
+    /* HPドット(○)は本文の下に専用の帯(dotRowH)を確保して描く（教員の指摘、2026-08-10〜。
+       以前は本文の下端ぎりぎりにドットを重ねて描いていたため、文章が2〜3行になると
+       最後の行とドットが接近して読みにくかった）。maxHp===1(ドットを出さないレベル1)の
+       ときは帯を確保しない。 */
+    const dotRowH = hp > 1 ? 16 : 0;
     return {
       text, correct: origIdx === it.a,
       x: laneW*i + laneW/2, y: -50 - i*70 - Math.random()*40,
       vy: (shoot.orbFallSpeed + Math.random()*0.3) * speedMul,
-      w: orbW, h: Math.max(40, lineCount * VS_ORB_LINE_H + 18), hit:false,
+      w: orbW, h: Math.max(40, lineCount * VS_ORB_LINE_H + 18 + dotRowH), hit:false,
       hp, maxHp: hp, flashTime:0,
     };
   });
@@ -10756,7 +10761,7 @@ function vsRender(){
       const dotR = 3, gap = 9, totalW = (o.maxHp-1)*gap;
       for(let i=0;i<o.maxHp;i++){
         ctx.beginPath();
-        ctx.arc(-totalW/2 + i*gap, o.h/2 - 8, dotR, 0, Math.PI*2);
+        ctx.arc(-totalW/2 + i*gap, o.h/2 - 6, dotR, 0, Math.PI*2);
         ctx.fillStyle = i < o.hp ? '#ffe66d' : 'rgba(255,255,255,0.25)';
         ctx.fill();
       }
@@ -10863,12 +10868,21 @@ function vsLoop(){
 
   shoot.orbs.forEach(o=>{ if(!o.hit) o.y += o.vy; });
 
+  /* 機体レベル1・2は非diag弾を1回の発射で2発同時に(dx±7で)撃つため、幅の広いオーブに
+     その2発が同じフレームでどちらも命中してしまい、「1発分」のはずの攻撃力が実質2倍
+     （ダメージが二重に入る）になってしまうバグがあった（教員の指摘、2026-08-10〜。
+     ○(HP)が3つ表示されているのに機体レベル2で瞬殺できる、という違和感の原因）。
+     1フレームにつき1オーブへのダメージ適用は1回までに制限する（弾自体は見た目のつじつまが
+     合うよう、命中した弾は全て消費する＝的に当たって消える）。 */
+  shoot.orbs.forEach(o=>{ o.hitThisFrame = false; });
   shoot.bullets.forEach(b=>{
     if(b.diag) return;
     shoot.orbs.forEach(o=>{
       if(o.hit) return;
       if(Math.abs(b.x-o.x) < o.w/2 && Math.abs(b.y-o.y) < o.h/2){
         b.y = -9999;
+        if(o.hitThisFrame) return;
+        o.hitThisFrame = true;
         o.hp -= (b.dmg || 1);
         if(o.hp <= 0) vsHitOrb(o);
         else vsGrazeOrb(o);
