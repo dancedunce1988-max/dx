@@ -1063,12 +1063,13 @@
     box-shadow:0 4px 16px rgba(196,113,237,0.5); letter-spacing:1px;
   }
   .vs-newbest{ text-align:center; font-weight:bold; color:#ffe66d; margin:6px 0; }
+  .vs-controls-hint{ text-align:center; font-size:11px; color:var(--sub); opacity:0.75; margin-top:10px; line-height:1.6; }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.122</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.123</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -10193,6 +10194,12 @@ const VS_LEVEL_NAMES = [
   "中学2年生レベル", "中学3年生レベル", "高校生レベル", "大学生レベル",
 ];
 const VS_CORRECT_PER_LEVEL = 5;       // これだけ正解すると出題レベルが1つ上がる
+/* オーブのHP＝撃破に必要な弾の数は「出題レベル(vsLevelIndex, 0始まり)+1」発
+   （レベル1=1発、レベル2=2発…、教員の指示、2026-08-10〜。vsSpawnOrbs参照）。
+   一方、弾1発あたりの攻撃力は機体形態(shipLevel, 0始まり)によって決まり、
+   vsBulletDamage(shipLevel) = shipLevel+1 発分（第一形態=1発分、第二形態=2発分…）。
+   実際に必要な命中回数は Math.ceil(オーブのHP / 弾の攻撃力) となり、機体を
+   強化するほど高レベルのオーブも少ない命中回数で倒せるようになる。 */
 const VS_BASE_SPEED = 1.1;            // 落下速度の初期値・ミスで下がりきったときの下限
 const VS_SPEEDUP_STEP = 0.1;          // 速度が1段階変化する幅（上昇・下降とも共通）
 const VS_ITEM_TYPES = [
@@ -10255,6 +10262,7 @@ function vsRenderGameScreen(){
         <button class="vs-fire" id="vsFireBtn">SHOOT</button>
         ${shoot.phase !== 'playing' ? vsOverlayHtml() : ''}
       </div>
+      <div class="vs-controls-hint">⌨️ ←→キー／数字1〜4キーで移動・Space／Enterキーで連射（押しっぱなしで連射）　※画面ドラッグ・SHOOTボタンでも操作可</div>
     </div>
     ${storyFooterHtml()}`;
   vsUpdateHud();
@@ -10430,11 +10438,13 @@ function vsSpawnOrbs(){
       ctx.font = VS_ORB_FONT;
       lineCount = vsWrapLines(ctx, text, orbW - 10).length;
     }
+    const hp = shoot.vsLevelIndex + 1;
     return {
       text, correct: origIdx === it.a,
       x: laneW*i + laneW/2, y: -50 - i*70 - Math.random()*40,
       vy: (shoot.orbFallSpeed + Math.random()*0.3) * speedMul,
       w: orbW, h: Math.max(40, lineCount * VS_ORB_LINE_H + 18), hit:false,
+      hp, maxHp: hp, flashTime:0,
     };
   });
   shoot.spawnedForItem = true;
@@ -10452,13 +10462,19 @@ function vsGetBulletPattern(shipLevel){
     {dx:-14,vx:-1.8,big:false,diag:true},{dx:14,vx:1.8,big:false,diag:true}
   ];
 }
+/* 弾1発あたりの攻撃力（教員の指示、2026-08-10〜）。機体強化(shipLevel)が上がるほど、
+   弾を1発当てたときにオーブへ与えるダメージも増える（第一形態=1発分、第二形態=2発分…）。 */
+function vsBulletDamage(shipLevel){
+  return shipLevel + 1;
+}
 function vsFireBullet(){
   const shoot = storyRun.shoot;
   const now = performance.now();
   if(now - shoot.lastFire < shoot.fireCooldown) return;
   shoot.lastFire = now;
+  const dmg = vsBulletDamage(shoot.shipLevel);
   vsGetBulletPattern(shoot.shipLevel).forEach(p=>{
-    shoot.bullets.push({x:shoot.player.x+p.dx, y:shoot.player.y-20, vx:p.vx, vy:-9, big:p.big, diag:p.diag});
+    shoot.bullets.push({x:shoot.player.x+p.dx, y:shoot.player.y-20, vx:p.vx, vy:-9, big:p.big, diag:p.diag, dmg});
   });
   vsBeep(880,0.05,'square',0.06);
 }
@@ -10533,8 +10549,18 @@ function vsUpdateHud(){
     for(let i=0;i<shoot.maxLives-shoot.lives;i++){ const s=document.createElement("span"); s.className="heart-empty"; s.textContent="♥"; livesEl.appendChild(s); }
   }
 }
+/* オーブに弾は当たったが、まだHPが残っていて撃破に至らなかったときの軽い演出
+   （教員の指示、2026-08-10〜。出題レベルが上がるほどオーブのHPが増え、複数発
+   当てないと撃破できなくなる。正解・誤答どちらのオーブも同じHPにしてあるので、
+   このかすり演出だけでは正解／不正解の見分けがつかない＝答えのヒントにならない）。 */
+function vsGrazeOrb(o){
+  o.flashTime = 6;
+  vsSpawnParticles(o.x, o.y, '#cfd8ff', 4);
+  vsBeep(1400, 0.04, 'square', 0.05);
+}
 /* 正解オーブに命中したとき／誤答オーブに命中したときの処理。record()は正解命中時のみ
-   ここで呼ぶ（誤答命中は、単体では分野レベル・診断的難度調整に触れない既存仕様）。 */
+   ここで呼ぶ（誤答命中は、単体では分野レベル・診断的難度調整に触れない既存仕様）。
+   ここに来るのはオーブのHPが0以下になった＝撃破が確定した弾のときだけ。 */
 function vsHitOrb(o){
   const shoot = storyRun.shoot;
   o.hit = true; o.gone = true;
@@ -10639,7 +10665,8 @@ function vsRender(){
     ctx.save();
     ctx.translate(o.x,o.y);
     const grad = ctx.createLinearGradient(-o.w/2,0,o.w/2,0);
-    grad.addColorStop(0,'#2a3a6a'); grad.addColorStop(1,'#3a4a8a');
+    if(o.flashTime>0){ grad.addColorStop(0,'#8fb0ff'); grad.addColorStop(1,'#aac0ff'); }
+    else{ grad.addColorStop(0,'#2a3a6a'); grad.addColorStop(1,'#3a4a8a'); }
     ctx.fillStyle = grad;
     vsRoundRect(ctx,-o.w/2,-o.h/2,o.w,o.h,10);
     ctx.fill();
@@ -10647,6 +10674,17 @@ function vsRender(){
     ctx.fillStyle='#e8f0ff'; ctx.font=VS_ORB_FONT;
     ctx.textAlign='center'; ctx.textBaseline='middle';
     vsWrapText(ctx, o.text, 0, 0, o.w-10, VS_ORB_LINE_H);
+    /* 出題レベルが2以上（maxHp>=2）のときだけ、残りHPを丸ドットで表示する。
+       正解・誤答どちらのオーブも同じmaxHpなので、これを見ても答えは分からない。 */
+    if(o.maxHp > 1){
+      const dotR = 3, gap = 9, totalW = (o.maxHp-1)*gap;
+      for(let i=0;i<o.maxHp;i++){
+        ctx.beginPath();
+        ctx.arc(-totalW/2 + i*gap, o.h/2 - 8, dotR, 0, Math.PI*2);
+        ctx.fillStyle = i < o.hp ? '#ffe66d' : 'rgba(255,255,255,0.25)';
+        ctx.fill();
+      }
+    }
     ctx.restore();
   });
 
@@ -10755,10 +10793,14 @@ function vsLoop(){
       if(o.hit) return;
       if(Math.abs(b.x-o.x) < o.w/2 && Math.abs(b.y-o.y) < o.h/2){
         b.y = -9999;
-        vsHitOrb(o);
+        o.hp -= (b.dmg || 1);
+        if(o.hp <= 0) vsHitOrb(o);
+        else vsGrazeOrb(o);
       }
     });
   });
+
+  shoot.orbs.forEach(o=>{ if(o.flashTime>0) o.flashTime--; });
 
   shoot.orbs.forEach(o=>{
     if(!o.hit && o.y > shoot.H+30){
