@@ -1087,13 +1087,18 @@
   }
   .vs-wronglist-q{ font-weight:bold; color:#ffe66d; margin-right:6px; }
 
-  /* ===== サブクエスト「文節斬り」（2026-08-12〜） =====
+  /* ===== サブクエスト「文節斬り」（2026-08-12〜、2026-08-13 縦書きに変更） =====
      独立版（文節切り/bunsetsu_giri_3.html）の拍合わせリズムゲームは、AudioContext・
      canvas相当の描画・段位/免許状の進行システムまで含む大掛かりな作りで、そのまま移植すると
      このアプリの他の要素と足並みが揃わない。そこで、同ファイルにもともと入っていた「留め」
-     （文を横書きで並べ、すき間をタップして印をつけてから、まとめて判定する自分のペースの
-     モード）だけを移植のベースに選んだ。タイミングを問わない分、「なぜそこが（そこが）
-     切れ目なのか／ではないのか」という理由の解説に画面をしっかり使える。 */
+     （文を並べ、すき間をタップして印をつけてから、まとめて判定する自分のペースのモード）
+     だけを移植のベースに選んだ。タイミングを問わない分、「なぜそこが（そこが）切れ目なのか
+     ／ではないのか」という理由の解説に画面をしっかり使える。
+     文の並びは縦書きに統一する（教員の指示、2026-08-13〜。最初に横書き＋画面内スクロールで
+     作ったところ「一見性がなく分かりにくい」との指摘を受けたための変更）。1本の縦列に高さの
+     上限を設けないことで横方向のスクロールを発生させず、ページ全体の縦スクロールだけで
+     最後まで読めるようにしている（.card/.story-sceneにはmax-height/overflow指定が無いので、
+     このまま伸びた分はページごと下に流れる）。 */
   .bg-badge-row{ display:flex; justify-content:center; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
   .bg-mode-badge{
     display:inline-block; padding:4px 12px; border-radius:14px; font-size:12px; font-weight:bold;
@@ -1109,31 +1114,34 @@
   .bg-instruction b{ color:var(--ink); }
   .bg-sentence-box{
     background:var(--card); border:1px solid var(--line); border-radius:12px;
-    padding:18px 10px; margin-bottom:12px; overflow-x:auto;
+    padding:24px 14px; margin-bottom:12px; display:flex; justify-content:center;
   }
-  .bg-sentence{ display:flex; align-items:stretch; justify-content:center; flex-wrap:nowrap; width:max-content; margin:0 auto; }
+  .bg-sentence{ writing-mode:vertical-rl; text-orientation:upright; display:inline-block; line-height:1; }
   .bg-tc{
-    display:flex; align-items:center; justify-content:center;
-    min-width:1.9em; height:2.1em; font-size:22px; font-weight:600; color:var(--ink);
-    flex-shrink:0;
+    display:inline-flex; align-items:center; justify-content:center;
+    width:2.4em; height:2.4em; font-size:26px; font-weight:600; color:var(--ink);
   }
+  /* 句読点は縦書きの慣例どおり、マスの左上に寄せる */
+  .bg-tc.kutou{ align-items:flex-start; justify-content:flex-start; }
   .bg-tg{
-    display:flex; align-items:center; justify-content:center; flex-shrink:0;
-    width:22px; height:2.1em; cursor:pointer; position:relative; background:none; border:none; padding:0;
+    display:inline-flex; align-items:center; justify-content:center;
+    width:2.4em; height:18px; cursor:pointer; position:relative; background:none; border:none; padding:0;
   }
-  .bg-tg::after{ content:""; width:2px; height:55%; background:var(--line); border-radius:1px; transition:background .12s,width .12s; }
+  /* 印は、縦に流れる文字を横切る「横棒」で表す（縦棒だと文字の流れに紛れて見づらいため。
+     独立版の.cutmark .hbarと同じ考え方）。✕だけは棒ではなく文字のまま使う。 */
+  .bg-tg::after{ content:""; width:56%; height:2px; background:var(--line); border-radius:1px; transition:background .12s,height .12s; }
   .bg-tg:disabled{ cursor:default; }
-  .bg-tg .bg-mk{ position:absolute; font-size:15px; font-weight:bold; line-height:1; }
+  .bg-tg .bg-mk{ width:66%; height:3px; border-radius:1.5px; background:currentColor; }
+  .bg-tg .bg-mk.bg-x{ width:auto; height:auto; background:none; font-size:15px; font-weight:bold; line-height:1; color:var(--ng); }
   .bg-tg.marked-bunsetsu::after{ display:none; }
-  .bg-tg.marked-bunsetsu .bg-mk{ color:var(--accent); font-size:20px; }
+  .bg-tg.marked-bunsetsu .bg-mk{ color:var(--accent); height:4px; }
   .bg-tg.marked-tango::after{ display:none; }
   .bg-tg.marked-tango .bg-mk{ color:var(--accent2); }
   .bg-tg.judge-hit::after{ display:none; }
-  .bg-tg.judge-hit .bg-mk{ color:var(--ok); }
-  .bg-tg.judge-miss::after{ width:2px; background:var(--ng); }
-  .bg-tg.judge-miss .bg-mk{ color:var(--ng); opacity:.85; }
+  .bg-tg.judge-hit .bg-mk{ color:var(--ok); height:4px; }
+  .bg-tg.judge-missed::after{ display:none; }
+  .bg-tg.judge-missed .bg-mk{ color:var(--ng); opacity:.85; }
   .bg-tg.judge-extra::after{ display:none; }
-  .bg-tg.judge-extra .bg-mk{ color:var(--ng); font-size:17px; }
   .bg-tg.judge-ok::after{ background:transparent; }
   .bg-legend{ text-align:center; font-size:11px; color:var(--sub); margin-bottom:10px; line-height:1.8; }
   .bg-legend span{ margin:0 6px; white-space:nowrap; }
@@ -1156,7 +1164,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.130</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.131</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -11844,16 +11852,17 @@ function bgRenderReady(){
     </div>
     ${storyFooterHtml()}`;
 }
+/* 句読点は縦書きのマスで左上に寄せる（bg-tc.kutou、CSS側で位置を調整）。 */
+function bgTcCls(ch){ return (ch==="。"||ch==="、") ? " kutou" : ""; }
 function bgRenderPlaying(){
   const bg = storyRun.bg, q = bg.q;
   const label = bgModeLabel(q.mode);
-  let line = `<span class="bg-tc">${esc(q.chars[0])}</span>`;
+  let line = `<span class="bg-tc${bgTcCls(q.chars[0])}">${esc(q.chars[0])}</span>`;
   for(let i=1;i<q.chars.length;i++){
     const marked = q.marks[i];
     const markCls = marked ? (q.mode==="bunsetsu" ? "marked-bunsetsu" : "marked-tango") : "";
-    const markChar = marked ? (q.mode==="bunsetsu" ? "／" : "｜") : "";
-    line += `<button type="button" class="bg-tg ${markCls}" onclick="bgToggleGap(${i})">${markChar ? `<span class="bg-mk">${markChar}</span>` : ""}</button>`;
-    line += `<span class="bg-tc">${esc(q.chars[i])}</span>`;
+    line += `<button type="button" class="bg-tg ${markCls}" onclick="bgToggleGap(${i})">${marked ? `<span class="bg-mk"></span>` : ""}</button>`;
+    line += `<span class="bg-tc${bgTcCls(q.chars[i])}">${esc(q.chars[i])}</span>`;
   }
   screen.innerHTML = `
     <div class="card story-scene">
@@ -11870,18 +11879,17 @@ function bgRenderPlaying(){
     ${storyFooterHtml()}`;
 }
 function bgJudgeMarkHtml(q, res){
-  if(res.outcome==="hit") return `<span class="bg-mk">${res.raw==="bunsetsu"?"／":"｜"}</span>`;
-  if(res.outcome==="missed") return `<span class="bg-mk">${res.raw==="bunsetsu"?"／":"｜"}</span>`;
-  if(res.outcome==="extra") return `<span class="bg-mk">✕</span>`;
+  if(res.outcome==="hit" || res.outcome==="missed") return `<span class="bg-mk"></span>`;
+  if(res.outcome==="extra") return `<span class="bg-mk bg-x">✕</span>`;
   return "";
 }
 function bgRenderJudged(){
   const bg = storyRun.bg, q = bg.q;
-  let line = `<span class="bg-tc">${esc(q.chars[0])}</span>`;
+  let line = `<span class="bg-tc${bgTcCls(q.chars[0])}">${esc(q.chars[0])}</span>`;
   for(let i=1;i<q.chars.length;i++){
     const res = q.results[i-1];
     line += `<span class="bg-tg judge-${res.outcome}">${bgJudgeMarkHtml(q,res)}</span>`;
-    line += `<span class="bg-tc">${esc(q.chars[i])}</span>`;
+    line += `<span class="bg-tc${bgTcCls(q.chars[i])}">${esc(q.chars[i])}</span>`;
   }
   const mistakes = q.results.filter(r=>r.outcome==="missed"||r.outcome==="extra");
   const explainHtml = mistakes.length ? `
