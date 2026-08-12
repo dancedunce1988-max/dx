@@ -1155,6 +1155,10 @@
   #bgApp .hud .snd{background:transparent;border:1px solid rgba(242,237,224,.45);color:#f2ede0;
     border-radius:3px;font-size:.68rem;letter-spacing:.08em;padding:4px 8px;cursor:pointer;font-family:var(--gothic);}
   #bgApp .hud .snd.off{opacity:.5;}
+  /* 重要な巻（三の巻・六の巻）をプレイ中は、藍の帯を朱・金基調に変えて分かるようにする
+     （教員の指示、2026-08-19〜：「重要性をアピールしてください」）。 */
+  #bgApp.important-stage .hud{background:linear-gradient(120deg, var(--shu), #7a2113);}
+  #bgApp.important-stage .infobar{border-bottom-color:var(--kin);}
 
   /* ===== 情報バー ===== */
   #bgApp .infobar{display:flex;align-items:baseline;gap:10px;padding:7px 14px 5px;
@@ -1200,11 +1204,13 @@
     background:currentColor; border-radius:1.5px;
   }
   /* 文節の切れ目「／」は、以前は文字グリフのまま置いていたため細く見づらかった
-     （教員の指示、2026-08-18〜：「スラッシュが細くて醜いから太くして」）。単語の切れ目
-     （.hbar）と同じ、色つきの太い棒をCSSで描く方式に統一し、太さを自由に調整できるようにした。 */
+     （教員の指示、2026-08-18〜：「スラッシュが細くて醜いから太くして」）ので、いったん
+     色つきの太い棒をCSSで描く方式にしたが、今度は太すぎて文字に被るようになったため
+     （教員の指示、2026-08-19〜：「太すぎて文字に被っている、細くするか字間を空けて」）、
+     幅・太さを控えめに調整し直した。 */
   #bgApp .cutmark .slash{
-    display:block; width:74%; height:4.5px; margin:0 auto;
-    background:currentColor; border-radius:2.5px;
+    display:block; width:56%; height:2.5px; margin:0 auto;
+    background:currentColor; border-radius:1.25px;
     transform:rotate(-58deg);
   }
   #bgApp .cutmark .ko-hint{
@@ -1316,6 +1322,14 @@
     56%{transform:rotate(-11deg) scale(1.06);} 75%{transform:rotate(-11deg) scale(1);}
     100%{opacity:0;transform:rotate(-11deg) scale(1);}
   }
+  /* 小刀（単語）の会心も同じ「会心」スタンプを出す（教員の指示、2026-08-19〜：
+     「単語で分けるときも会心の演出を入れて」）。大太刀の朱に対し、小刀は藍で
+     一回り小さく出し、大太刀の一撃と見た目で区別できるようにする。 */
+  #bgApp .hanko.ko{
+    width:54px;height:54px;margin-left:-27px;top:-28px;
+    border-color:var(--ai-l);box-shadow:0 0 0 3px rgba(44,92,134,.22) inset,0 3px 10px rgba(0,0,0,.22);
+    color:var(--ai-l);font-size:.94rem;
+  }
   #bgApp .screenflash{position:absolute;inset:0;background:#fff;pointer-events:none;animation:screenFlashGo .26s ease-out forwards;}
   @keyframes screenFlashGo{0%{opacity:.5;}100%{opacity:0;}}
   #bgApp .badcut{position:absolute;left:0;width:100%;text-align:center;color:var(--shu);
@@ -1385,6 +1399,28 @@
   #bgApp .demotag.echo{background:var(--shu);color:#fdf6ef;}
   @keyframes demoPulse{0%,100%{box-shadow:0 3px 10px rgba(0,0,0,.16);}
     50%{box-shadow:0 3px 16px rgba(20,57,94,.5);}}
+
+  /* 称号アップの演出（教員の指示、2026-08-19〜：「ジャンルの称号がUPした場合も、
+     そのことも伝える」）。1文クリアごとの「識別Lv.」表示はbanner（.verdict）に相乗りさせるが、
+     称号が変わる節目だけは、プレイの手を止めない範囲でこちらの専用カードを出す。 */
+  #bgApp .titleupFx{
+    position:absolute; left:6%; right:6%; top:14%; z-index:11; text-align:center; pointer-events:none;
+    background:linear-gradient(135deg, rgba(247,243,233,.97), rgba(247,238,214,.97));
+    border:2px solid var(--kin); border-radius:4px; padding:10px 14px;
+    box-shadow:0 6px 20px rgba(0,0,0,.25), 0 0 0 3px rgba(156,124,42,.18) inset;
+    font-family:var(--mincho); color:var(--shu);
+    animation:titleupGo 1.7s cubic-bezier(.2,1.3,.3,1) forwards;
+  }
+  #bgApp .titleupFx .ic{display:block;font-size:1.5rem;margin-bottom:2px;}
+  #bgApp .titleupFx b{display:block;font-size:1.05rem;letter-spacing:.28em;color:var(--kin);}
+  #bgApp .titleupFx .nm{display:block;font-size:.84rem;margin-top:4px;color:var(--sumi);letter-spacing:.05em;}
+  @keyframes titleupGo{
+    0%{opacity:0;transform:translateY(-10px) scale(.85);}
+    12%{opacity:1;transform:translateY(0) scale(1.04);}
+    20%{transform:scale(1);}
+    82%{opacity:1;}
+    100%{opacity:0;transform:translateY(-8px) scale(.97);}
+  }
 
   /* ===== 構え ===== */
   #bgApp .kamae{position:absolute;inset:0;z-index:14;overflow:hidden;
@@ -1570,6 +1606,17 @@
   #bgApp .stagecard.locked{border-left-color:#b9b3a4;opacity:.62;cursor:default;box-shadow:none;background:transparent;}
   #bgApp .stagecard.locked b{color:var(--sub);}
   #bgApp .stagecard.locked:active{transform:none;}
+  /* 「まとめ」の巻（三の巻・六の巻）は、他の巻より重要なので背景色を変えて目立たせる
+     （教員の指示、2026-08-19〜：「重要性をアピールしてください」）。裏ボス的な位置づけの
+     七の巻（免許皆伝）には、あえてこの強調をつけない。 */
+  #bgApp .stagecard.important{
+    background:linear-gradient(135deg, rgba(194,65,44,.09), rgba(156,124,42,.16));
+    border:1px solid var(--kin); border-left:5px solid var(--shu);
+    box-shadow:0 0 0 1px rgba(156,124,42,.25) inset, 0 2px 0 rgba(120,105,80,.2);
+  }
+  #bgApp .stagecard.important b{color:var(--shu);}
+  #bgApp .stagecard-badge{display:inline-block;font-size:.58rem;letter-spacing:.1em;color:#fff;
+    background:var(--shu);border-radius:2px;padding:2px 6px;margin-left:7px;vertical-align:middle;}
 
   /* 免許状：通した巻が朱の落款で埋まっていく */
   #bgApp .menkyo{width:100%;max-width:400px;background:var(--maki);border:1px solid var(--line);
@@ -12173,7 +12220,25 @@ const BUNSETSU_SENTENCES = [
   {lv:3, seg:"妹|は/急い|で/家|を/出|て/いっ|た。"},
 ];
 
-/* ---------- 巻（段階）の定義（独立版STAGESのまま） ---------- */
+/* ---------- 巻（段階）の定義 ----------
+   2026-08-19〜、教員の指示で8巻→7巻に再編した。
+   ・一の巻／二の巻は変更なし。
+   ・三の巻は「文節分け まとめ」として新設。文節編（一〜三の巻）の集大成。
+   ・四の巻は「しるしつき」（印つきのみ）、五の巻は「手本付き」（手本つきのみ）に
+     組み替え、旧・四の巻（印つき・手本つき両方）と旧・五の巻（支えなし）を
+     一の巻／二の巻と同じ「印→手本→支えなし」の順に並べ直した。
+   ・六の巻は「単語分け まとめ」として新設。単語編（四〜六の巻）の集大成。
+   ・七の巻は「免許皆伝」として新設し、旧・六の巻（二刀の手本）／七の巻（二刀を使う）／
+     奥ノ巻（免許皆伝）の3巻ぶんの役割をここに統合した。文節・単語を同時に見分ける、
+     三の巻・六の巻と同じ「まとめ」システムの、隠しボス的な最終巻という位置づけ。
+   `escalate:true` は、出題がやさしい文からランダムに始まり、正解を重ねるほど
+   速度が徐々に上がり（bgNudgeSpeed）、得点で合否が決まる（bgRankOfEscalate）
+   「まとめ」専用のシステムを使う巻の印。`important:true` は、巻えらび画面・
+   プレイ中の背景色を変えて重要性をアピールする印（三・六の巻のみ。七の巻は
+   あえて付けず、裏ボス的に控えめに置く）。`clearPct` は、理論上の満点
+   （bgMaxScoreForTrack）に対する得点の割合で初伝／目録／免許／皆伝の
+   ラインを決める（「十分に理解できている」と判断できる基準として、六の巻は
+   三の巻よりかなり厳しくしてある）。 */
 const BG_STAGES = [
   {id:1, name:"一の巻", sub:"拍をつかむ",   blades:["bunsetsu"], lv:[1], count:5, hints:true,  beat:900,
    lead:'<b>答えは見えている。</b>緑の「ね」が出ているところを、<br>拍に合わせて大太刀で斬るだけ。',
@@ -12181,24 +12246,24 @@ const BG_STAGES = [
   {id:2, name:"二の巻", sub:"手本を真似る", blades:["bunsetsu"], lv:[1], count:4, demo:true,   beat:900,
    lead:'同じ文が<b>二度</b>流れる。<br>一度目は機械が斬ってみせる（手本）。二度目に真似る（返し）。',
    goal:"見てから真似る。まだ考えなくていい"},
-  {id:3, name:"三の巻", sub:"文節を斬る",   blades:["bunsetsu"], lv:[1,2], count:5,            beat:800,
-   lead:'支えなし。<b>文節の切れ目</b>だけを斬る。<br>自立語（それだけで意味がわかる語）の直前を見きわめよう。',
-   goal:"自分で切れ目を見つける"},
-  {id:4, name:"四の巻", sub:"単語を見る",   blades:["tango"], lv:[1], count:3, demo:true, hints:true, beat:900,
-   lead:'小刀にもちかえる。<b>単語の切れ目すべて</b>。<br>印つき・手本つきで、まず形を見る。',
+  {id:3, name:"三の巻", sub:"文節分け まとめ", blades:["bunsetsu"], lv:[1,2,3], count:12, escalate:true, important:true, beat:800,
+   lead:'<b>文節編のまとめ。</b>支えなし。やさしい文からランダムに出て、<br>正解を重ねるほど少しずつ速くなる。間違えると二段階遅くなる。',
+   goal:"文節の切れ目を、状況に合わせて自分の力で見きわめる",
+   clearPct:{pass:.45, good:.60, great:.75, perfect:.90}},
+  {id:4, name:"四の巻", sub:"しるしつき",   blades:["tango"], lv:[1], count:3, hints:true, beat:900,
+   lead:'小刀にもちかえる。<b>単語の切れ目すべて</b>。<br>緑の印や横棒がもう出ているので、迷わず斬ってみよう。',
    goal:"文節の中にも切れ目があると知る"},
-  {id:5, name:"五の巻", sub:"単語に斬る",   blades:["tango"], lv:[1,2], count:5,               beat:800,
-   lead:'支えなし。単語の切れ目をすべて小刀で。<br>斬らないのは<b>一つの語の中</b>だけ。',
-   goal:"付属語の切れ目を自分で見つける"},
-  {id:6, name:"六の巻", sub:"二刀の手本",   blades:["bunsetsu","tango"], lv:[2], count:3, demo:true, beat:820,
-   lead:'二刀。手本つきで、<b>大太刀と小刀の使い分け</b>を見る。<br>文節の変わり目は大太刀、文節の中は小刀。',
-   goal:"二本の刀の役割の違いを見る"},
-  {id:7, name:"七の巻", sub:"二刀を使う",   blades:["bunsetsu","tango"], lv:[2,3], count:5,     beat:740,
-   lead:'支えなし。すき間ごとに<b>大太刀・小刀・見送る</b>の三択。',
-   goal:"文節と単語を、その場で見分ける"},
-  {id:8, name:"奥ノ巻", sub:"免許皆伝",     blades:["bunsetsu","tango"], lv:[3], count:6,       beat:680,
-   lead:'長い文で二刀。補助の動詞、助詞の連なり。<br>ここを通れば<b>免許皆伝</b>。',
-   goal:"すべてを自分の力で"},
+  {id:5, name:"五の巻", sub:"手本付き",     blades:["tango"], lv:[1], count:4, demo:true,   beat:900,
+   lead:'同じ文が<b>二度</b>流れる。<br>一度目は機械が小刀で斬ってみせる（手本）。二度目に真似る（返し）。',
+   goal:"単語の切れ目の見つけ方を、見て覚える"},
+  {id:6, name:"六の巻", sub:"単語分け まとめ", blades:["tango"], lv:[1,2,3], count:12, escalate:true, important:true, beat:800,
+   lead:'<b>単語編のまとめ。</b>支えなし。やさしい文からランダムに出て、<br>正解を重ねるほど少しずつ速くなる。間違えると二段階遅くなる。',
+   goal:"単語の切れ目を、状況に合わせて自分の力で見きわめる",
+   clearPct:{pass:.65, good:.78, great:.88, perfect:.95}},
+  {id:7, name:"七の巻", sub:"免許皆伝",     blades:["bunsetsu","tango"], lv:[1,2,3], count:10, escalate:true, beat:780,
+   lead:'二刀。すき間ごとに<b>大太刀・小刀・見送る</b>の三択。<br>三の巻・六の巻と同じ、まとめのシステムで挑む最終試練。',
+   goal:"文節と単語を、その場で自分の力で見分ける",
+   clearPct:{pass:.65, good:.80, great:.90, perfect:.97}},
 ];
 
 /* 速さは巻ごとの基準拍に掛ける（独立版TEMPOSのまま） */
@@ -12207,6 +12272,15 @@ const BG_TEMPOS = [
   {key:"mid",  name:"常の間", rate:1.00, mult:1.0},
   {key:"fast", name:"疾風",   rate:0.80, mult:1.7},
 ];
+
+/* 「まとめ」の巻（escalate:true）専用：正解を重ねるほど拍間隔（beatMs）に掛ける
+   倍率が小さくなり＝速くなり、間違えると倍率が大きくなる＝遅くなる（教員の指示、
+   2026-08-19〜：「問題が流れる速度が徐々に早くなっていく。間違いがあると、
+   問題が流れる速度は二段階遅くなるが、また正解していくと徐々に速くなる」）。
+   BG_SPEED_START_IDXの倍率1.00が、これまでの巻と同じ基準速度にあたる。 */
+const BG_SPEED_STEPS = [1.35,1.30,1.25,1.20,1.15,1.10,1.05,1.00,0.95,0.90,0.85,0.80,0.75,0.70,0.65];
+const BG_SPEED_START_IDX = 7;
+const BG_SPEED_STEP_UP = 1, BG_SPEED_STEP_DOWN = 2;
 
 /* ---------- 判定（すべて「拍」を単位にする、独立版のまま） ---------- */
 const BG_WIN_HIT     = 0.46;
@@ -12410,6 +12484,12 @@ let BG = null, bgRaf = null;
    （教員の指示「進捗・スコアの保存先を知識DXを利用して組み替える」）。
    形（{open, rank, best}）は独立版のRECと同じなので、以降のロジックは無改造。 */
 let BG_REC = null;
+/* 2026-08-19〜、8巻→7巻へ再編（三・六の巻を新設のまとめ巻に、旧・六〜奥ノ巻を七の巻へ
+   統合）したのに合わせたバージョン番号。中身が別物になった巻に、差し替え前の段位・
+   自己ベストがそのまま残って見えてしまわないよう、バージョンが古いセーブは巻の進捗
+   （open/rank/best/milestones）だけ一度だけ初期化する。既存コードのCAT_POOL_VERSIONと
+   同じ考え方（教員の指示：巻の中身を大きく変えたら、その進捗はリセットする）。 */
+const BG_REC_VERSION = 2;
 function bgLoadRec(){
   const st = loadStats();
   BG_REC = (st.bunsetsuGiri && st.bunsetsuGiri.open) ? st.bunsetsuGiri : {open:1, rank:{}, best:{}};
@@ -12418,6 +12498,10 @@ function bgLoadRec(){
   /* 「文節」編・「単語」編・最後の巻のオールクリアお祝い（＋30経験値・ド派手な演出）は
      一度きりなので、すでにお祝い済みかどうかをここに持たせる（教員の指示、2026-08-17〜）。 */
   if(!BG_REC.milestones) BG_REC.milestones = {bunsetsu:false, tango:false, final:false};
+  if(BG_REC.version !== BG_REC_VERSION){
+    BG_REC = {open:1, rank:{}, best:{}, milestones:{bunsetsu:false, tango:false, final:false}, version:BG_REC_VERSION};
+    bgSaveRec();
+  }
 }
 function bgSaveRec(){
   const st = loadStats();
@@ -12440,6 +12524,36 @@ function bgMeasure(){
 function bgMetrics(){ return BG_M || bgMeasure(); }
 function bgComboMult(){ return Math.min(BG_COMBO_CAP, 1 + BG.combo*BG_COMBO_STEP); }
 function bgAddScore(n){ BG.score += Math.round(n * BG.tempo.mult); }
+/* 「まとめ」の巻（escalate:true）の合否を得点で判定するための、理論上の満点
+   （全部会心・ノーミスで走りきった場合の得点）を、実際のスコア計算（bgSlashの的中分岐・
+   bgUpdateSentenceの1文クリア加点）と全く同じ式でシミュレーションする（教員の指示、
+   2026-08-19〜：「クリア条件を、点数で設定する」）。コンボ倍率はbgComboMultと同じ式
+   （BG_COMBO_STEP/BG_COMBO_CAP）を、ノーミスなので毎回combo++しながらその場で計算する。
+   tempoMultをここで掛けておくことで、bgRankOfEscalateはBG.scoreとそのまま比較できる
+   （bgAddScoreも1打ごとにtempo.multを掛けて丸めているので、丸め誤差もふくめて同じ式）。 */
+function bgMaxScoreForTrack(track, tempoMult){
+  let score=0, combo=0;
+  const gapsBySentence = {};
+  track.gaps.forEach(g=>{
+    if(!g.need || g.demo) return;
+    (gapsBySentence[g.si] = gapsBySentence[g.si] || []).push(g);
+  });
+  track.sentences.forEach(s=>{
+    if(s.kind==="demo") return;
+    const gs = gapsBySentence[s.idx] || [];
+    gs.forEach(g=>{
+      combo++;
+      const mult = Math.min(BG_COMBO_CAP, 1 + combo*BG_COMBO_STEP);
+      const base = (g.need==="bunsetsu") ? 100 : 80;
+      score += Math.round(base*1.6*mult*tempoMult);
+    });
+    if(gs.length){
+      const mult = Math.min(BG_COMBO_CAP, 1 + combo*BG_COMBO_STEP);
+      score += Math.round(300*mult*tempoMult);
+    }
+  });
+  return score;
+}
 
 /* ---------- 区切り記号の解釈（独立版のまま） ---------- */
 function bgParseSeg(seg){
@@ -12601,9 +12715,13 @@ function bgStartStage(stageId, tempo){
   bgAc();
   const stage = BG_STAGES.find(s=>s.id===stageId);
   const track = bgBuildTrack(stage);
+  /* 「まとめ」の巻（escalate:true）だけ、理論上の満点（全部会心・ノーミス）を
+     あらかじめ計算しておき、得点の何％取れたかで段位を決める（bgRankOfEscalate参照）。 */
+  if(stage.escalate) track.maxScore = bgMaxScoreForTrack(track, tempo.mult);
   BG = {
     stage, tempo, track,
     beatMs: Math.round(stage.beat * tempo.rate),
+    speedIdx: BG_SPEED_START_IDX,
     phase:"countin",
     beat:-BG_LEAD_BEATS,
     t0:0, score:0, combo:0, maxCombo:0,
@@ -12619,14 +12737,33 @@ function bgStartStage(stageId, tempo){
   bg$("bgVeil").style.display="none";
   bg$("bgHudTitle").textContent = stage.name;
   bg$("bgInfoLv").textContent = stage.sub;
-  bg$("bgInfoBpm").textContent = tempo.name;
+  bg$("bgInfoBpm").textContent = stage.escalate ? (tempo.name+"（速さ100%）") : tempo.name;
   bgSetPad(stage);
   bgDemoNow=false; bg$("bgField").style.opacity=""; bgTagKind=null; bg$("bgDemoTag").className="demotag";
+  bg$("bgApp").classList.toggle("important-stage", !!stage.important);
   bgMeasure();
   bgBuildStrip();
   bgDrawHud();
   bgLastT=0;
   if(!bgRaf) bgRaf=requestAnimationFrame(bgLoop);
+}
+/* 「まとめ」の巻の速度昇降（教員の指示、2026-08-19〜）。正解1回ごとに1段階速く、
+   ミス1回ごとに二段階遅くする。BG_SPEED_STEPSの範囲内にクランプしたうえで
+   BG.beatMsを引き直し、bgLoopの拍換算アンカー（audio0/beat0）も同時に引き直すことで、
+   速度が変わった瞬間に帯の動きが飛ばないようにする。 */
+function bgNudgeSpeed(delta){
+  if(!BG || !BG.stage.escalate) return;
+  const next = Math.max(0, Math.min(BG_SPEED_STEPS.length-1, BG.speedIdx+delta));
+  if(next === BG.speedIdx) return;
+  BG.speedIdx = next;
+  BG.beatMs = Math.round(BG.stage.beat * BG.tempo.rate * BG_SPEED_STEPS[next]);
+  BG.beat0 = BG.beat;
+  const ctxRaw = BG_SND.on ? bgAc() : null;
+  const ctx = (ctxRaw && ctxRaw.state === "running") ? ctxRaw : null;
+  BG.audio0 = ctx ? ctx.currentTime : null;
+  const pct = Math.round(100/BG_SPEED_STEPS[next]);
+  const bpmEl = bg$("bgInfoBpm");
+  if(bpmEl) bpmEl.textContent = BG.tempo.name+"（速さ"+pct+"%）";
 }
 function bgSetPad(stage){
   const two = stage.blades.length===2;
@@ -12933,9 +13070,10 @@ function bgUpdateSentence(){
     if(BG.sentenceClean){
       BG.cleanSentences++;
       bgAddScore(300*bgComboMult());
-      bgBanner("一刀両断","＋三〇〇");
+      const lvResult = bgLevelUpShikibetsu();
+      bgBanner("一刀両断","＋三〇〇"+(lvResult.leveledUp?"　識別 Lv."+lvResult.lvAfter:""));
       bgSndClear();
-      bgLevelUpShikibetsu();
+      if(lvResult.titleUp) bgFxTitleUp(lvResult.titleName, lvResult.titleIcon);
     }
     BG.sentenceClean=true;
     BG.sentenceLifeLost=false;
@@ -12957,15 +13095,47 @@ function bgUpdateSentence(){
    仕組みも一緒に更新してしまい、文節斬りの文（QUESTION_DATA外）には当てはまらないため。
    st.bunsetsuGiriBonusExpの加算自体は今後行わないが、これまでに貯まった分は
    kotonohaTotalXP/totalEarnedStatPoints側の加算式にそのまま残してあるので、
-   すでに稼いだ経験値が消えることはない。 */
+   すでに稼いだ経験値が消えることはない。
+   2026-08-19〜、教員の指示「テキストを一つ正解したら経験値が上がるシステムのはず。
+   ゲーム画面でもレベルが上がっていることを表示して。称号がUPした場合もそのことを
+   伝えて」に対応するため、上がった後のレベル・称号が変わったかどうかを呼び出し元
+   （bgUpdateSentence）へ返すようにした。称号の比較にはTITLES／titleOf（既存の
+   分野共通の称号テーブル）をそのまま使う。 */
 function bgLevelUpShikibetsu(){
   const st = loadStats();
-  if((st.lv.shikibetsu||1) < MAX_CAT_LV){
-    st.lv.shikibetsu = (st.lv.shikibetsu||1) + 1;
+  const lvBefore = st.lv.shikibetsu||1;
+  let lvAfter = lvBefore, leveledUp = false;
+  if(lvBefore < MAX_CAT_LV){
+    lvAfter = lvBefore + 1;
+    st.lv.shikibetsu = lvAfter;
     st.totalLevelUps = (st.totalLevelUps||0) + 1;
     if(st.totalLevelUps % 10 === 0) st.bossTickets = (st.bossTickets||0) + 1;
+    leveledUp = true;
   }
   saveStats(st);
+  const titleBefore = titleOf(lvBefore), titleAfter = titleOf(lvAfter);
+  return {
+    leveledUp, lvAfter,
+    titleUp: leveledUp && titleBefore.name !== titleAfter.name,
+    titleName: titleAfter.name, titleIcon: titleAfter.icon,
+  };
+}
+/* 称号アップの専用演出（1文クリアごとの「識別Lv.」表示より目立たせる、教員の指示、
+   2026-08-19〜）。プレイを止めない軽いカードを画面上寄りに出し、簡単なファンファーレを
+   鳴らす。CSSの.titleupFxは既存の.demotag付近に定義している。 */
+function bgFxTitleUp(name, icon){
+  const fieldEl = bg$("bgField");
+  if(!fieldEl) return;
+  const el = document.createElement("div");
+  el.className = "titleupFx";
+  el.innerHTML = '<span class="ic">'+icon+'</span><b>称号 UP</b><span class="nm">「'+name+'」に到達！</span>';
+  fieldEl.appendChild(el);
+  setTimeout(()=>el.remove(), 1700);
+  const ctx = bgAc();
+  if(ctx){
+    const t = ctx.currentTime;
+    [784.0,987.8,1174.7,1568.0].forEach((f,i)=>bgTone(ctx,"triangle",f,f,t+i*0.09,0.5,0.14));
+  }
 }
 const BG_KANSUJI=["〇","一","二","三","四","五","六","七","八","九","十"];
 function bgKansuji(n){ if(n<=10) return BG_KANSUJI[n]; if(n<20) return "十"+BG_KANSUJI[n-10];
@@ -13030,6 +13200,7 @@ function bgSlash(blade){
            if(Math.abs(off)>0.30) bgVerdict(off<0?"早い":"遅い", off<0?"#2c5c86":"#9c7c2a"); }
     bgDrawHud();
     if(perfect) bgBumpCombo(true);
+    bgNudgeSpeed(BG_SPEED_STEP_UP);
   }else{
     let kind;
     if(!best.need)                                        kind="gochu";
@@ -13054,6 +13225,7 @@ function bgPushMiss(kind, g){
   const around = g ? (g.chars.slice(Math.max(0,g.ci-3),g.ci).join("")+"／"+g.chars.slice(g.ci,g.ci+3).join("")) : "";
   BG.misses.push({kind, at:around, si: g?g.si:null, ci: g?g.ci:null, chars: g?g.chars:null});
   BG.sentenceClean=false;
+  bgNudgeSpeed(-BG_SPEED_STEP_DOWN);
 }
 /* ライフが0になったら、そこで強制終了する（教員の指示、2026-08-15〜。独立版は
    「曲は最後まで流れきる」設計だったが、ライフを本物の失敗条件に変える）。
@@ -13100,11 +13272,16 @@ function bgFxSlash(y, perfect, g){
     sh.style.marginLeft=Math.round((Math.random()-0.5)*m.CELL*0.7)+"px";
     box.appendChild(sh);
   }
-  if(perfect && !small){
-    const hk=document.createElement("div"); hk.className="hanko"; hk.textContent="会心";
+  if(perfect){
+    /* 小刀（単語）の会心にもスタンプを出す（教員の指示、2026-08-19〜：「単語で分けるときも
+       会心の演出を入れて」）。画面フラッシュは大太刀の一撃だけに残す（小刀は打つ回数が
+       多く、毎回フラッシュすると目がちかちかするため）。 */
+    const hk=document.createElement("div"); hk.className="hanko"+(small?" ko":""); hk.textContent="会心";
     box.appendChild(hk);
-    const fl=document.createElement("div"); fl.className="screenflash";
-    fieldEl.appendChild(fl); setTimeout(()=>fl.remove(),280);
+    if(!small){
+      const fl=document.createElement("div"); fl.className="screenflash";
+      fieldEl.appendChild(fl); setTimeout(()=>fl.remove(),280);
+    }
   }
   fieldEl.appendChild(box);
   setTimeout(()=>box.remove(), perfect?620:500);
@@ -13205,7 +13382,21 @@ function bgFailStage(){
    結果：段位で返す（独立版のまま）
    ========================================================================= */
 function bgNeedCount(){ return BG.track.gaps.filter(g=>g.need && !g.demo).length; }
+/* 「まとめ」の巻（escalate:true）は、正誤の内わけではなく得点で合否を決める
+   （教員の指示、2026-08-19〜：「クリア条件を、点数で設定する」）。理論上の満点
+   （BG.track.maxScore、bgMaxScoreForTrack）に対する得点の割合を、巻ごとの
+   clearPct（三の巻より六の巻・七の巻をかなり厳しくしてある）と比べるだけ。 */
+function bgRankOfEscalate(){
+  const p = BG.stage.clearPct;
+  const ratio = BG.track.maxScore>0 ? BG.score/BG.track.maxScore : 0;
+  if(ratio>=p.perfect) return {mark:"皆　伝", good:true, msg:"満点に近い出来。まとめは完全にものにした"};
+  if(ratio>=p.great)   return {mark:"免　許", good:true, msg:"高い得点。細かいミスだけ見直しておこう"};
+  if(ratio>=p.good)    return {mark:"目　録", good:true, msg:"合格ラインを大きく超えた。まずまずの理解"};
+  if(ratio>=p.pass)    return {mark:"初　伝", good:true, msg:"合格。まとめの内容はひとまず身についた"};
+  return {mark:"再　試", good:false, msg:"得点が合格ラインに届かなかった。もう一度、落ち着いて挑もう"};
+}
 function bgRankOf(){
+  if(BG.stage.escalate) return bgRankOfEscalate();
   const need=bgNeedCount();
   const acc  = need ? BG.hit/need : 0;
   const pAcc = BG.hit ? BG.perfect/BG.hit : 0;
@@ -13249,11 +13440,12 @@ function bgMistakeDetailHtml(){
   html += '</div>';
   return html;
 }
-/* 「文節」編（一の巻〜三の巻、大太刀のみ）・「単語」編（四の巻・五の巻、小刀のみ）・
-   最後の巻（奥ノ巻）の区切り（教員の指示、2026-08-17〜）。 */
+/* 「文節」編（一の巻〜三の巻、大太刀のみ）・「単語」編（四の巻〜六の巻、小刀のみ）・
+   最後の巻（七の巻・免許皆伝）の区切り（教員の指示、2026-08-17〜。2026-08-19〜の
+   7巻再編で、単語編は六の巻〈単語分けまとめ〉まで、最後の巻は七の巻に変更）。 */
 const BG_BUNSETSU_STAGE_IDS = [1,2,3];
-const BG_TANGO_STAGE_IDS = [4,5];
-const BG_FINAL_STAGE_ID = 8;
+const BG_TANGO_STAGE_IDS = [4,5,6];
+const BG_FINAL_STAGE_ID = 7;
 /* 巻クリア（＋10）・オールクリアのお祝い（＋30）ぶんの経験値。以前の1文クリアぶんと違い、
    こちらは特定の分野レベルには結びつけない、達成お祝い型の経験値として、
    st.bunsetsuGiriBonusExp（百人一首のhyakuninBonusExpと同じ位置づけ）にそのまま足す。 */
@@ -13295,10 +13487,10 @@ function bgShowResult(){
         milestone={title:"「文節」編マスター達成！", sub:"一の巻〜三の巻を、すべて突破した"};
       }else if(BG_TANGO_STAGE_IDS.includes(sid) && !BG_REC.milestones.tango && BG_TANGO_STAGE_IDS.every(id=>BG_REC.rank[id])){
         BG_REC.milestones.tango=true; bgGrantBonusExp(30);
-        milestone={title:"「単語」編マスター達成！", sub:"四の巻・五の巻を、すべて突破した"};
+        milestone={title:"「単語」編マスター達成！", sub:"四の巻〜六の巻を、すべて突破した"};
       }else if(sid===BG_FINAL_STAGE_ID && !BG_REC.milestones.final){
         BG_REC.milestones.final=true; bgGrantBonusExp(30);
-        milestone={title:"免許皆伝！全巻クリア！", sub:"奥ノ巻を突破し、すべての巻を制した"};
+        milestone={title:"免許皆伝！全巻クリア！", sub:"七の巻を突破し、すべての巻を制した"};
       }
     }
     bgSaveRec();
@@ -13423,7 +13615,12 @@ function bgRuleProse(stage){
       : "使う刀は小刀だけです。単語の切れ目を、すべて小刀で斬っていきます。";
 
   let support;
-  if(stage.hints && stage.demo){
+  if(stage.escalate){
+    support = "支えは何もありません。出題はやさしい文からランダムに始まり、正解を重ねるほど"+
+      "少しずつ難しく・速くなっていきます。間違えると速さが二段階落ちますが、また正解を"+
+      "重ねればすぐに戻ります。得点が理論上の満点の"+Math.round(stage.clearPct.pass*100)+
+      "％に届けば合格（初伝）です。";
+  }else if(stage.hints && stage.demo){
     support = "切れ目にはあらかじめ印が出ていて、しかも最初にお手本も流れます。まずは見て、そのとおりに斬ってみてください。";
   }else if(stage.hints){
     support = "切れ目には緑の「ね」や横棒の印がもう出ています。迷うことはないので、拍に合わせて斬ることだけを考えてください。";
@@ -13444,8 +13641,11 @@ function bgShowRule(stageId){
   const veilEl=bg$("bgVeil");
   veilEl.innerHTML=
     '<h1>'+stage.name+'</h1><div class="rule"></div>'+
-    '<p style="margin-bottom:2px"><b>'+stage.sub+'</b></p>'+
+    '<p style="margin-bottom:2px"><b>'+stage.sub+'</b>'+
+    (stage.important?'<span class="stagecard-badge">重要・まとめ</span>':"")+'</p>'+
     '<p style="margin-top:10px">'+bgRuleProse(stage)+'</p>'+
+    (stage.escalate?'<p class="sub" style="margin-top:8px;color:var(--shu);font-weight:600">'+
+      '合格ライン：理論上の満点の'+Math.round(stage.clearPct.pass*100)+'％以上（初伝）</p>':"")+
     (rk?'<div class="sub" style="margin-top:10px">前回の段位　'+rk+'</div>':"")+
     '<button class="btn" id="bgGoStart">はじめる</button>'+
     '<button class="btn ghost" id="bgBackSel">巻をえらぶに戻る</button>';
@@ -13534,6 +13734,7 @@ function bgTitle(){
   if(bgRaf){ cancelAnimationFrame(bgRaf); bgRaf=null; bgLastT=0; }
   const cellsEl=bg$("bgCells"), fieldEl=bg$("bgField"), veilEl=bg$("bgVeil");
   cellsEl.innerHTML=""; fieldEl.classList.remove("peril");
+  bg$("bgApp").classList.remove("important-stage");
   bg$("bgHudTitle").textContent="言の刃斬";
   bg$("bgInfoLv").textContent="—"; bg$("bgInfoNo").textContent=""; bg$("bgInfoBpm").textContent="";
   bg$("bgProg").style.width="0";
@@ -13544,11 +13745,11 @@ function bgTitle(){
     const shadow = (st.id===BG_REC.open+1);
     if(!open && !shadow) return;
     const rk=BG_REC.rank[st.id];
-    const support = st.hints&&st.demo ? "印つき・手本つき" : st.hints ? "印つき" : st.demo ? "手本つき" : "支えなし";
+    const support = st.escalate ? "まとめ・支えなし" : st.hints&&st.demo ? "印つき・手本つき" : st.hints ? "印つき" : st.demo ? "手本つき" : "支えなし";
     if(open){
-      cards+='<div class="stagecard s'+Math.min(4,Math.ceil(st.id/2))+'" data-id="'+st.id+'" tabindex="0">'+
+      cards+='<div class="stagecard'+(st.important?" important":"")+' s'+Math.min(4,Math.ceil(st.id/2))+'" data-id="'+st.id+'" tabindex="0">'+
         (rk?'<span class="rank">'+rk+'</span>':"")+
-        '<b>'+st.name+'　'+st.sub+'</b>'+
+        '<b>'+st.name+'　'+st.sub+(st.important?'<span class="stagecard-badge">重要</span>':"")+'</b>'+
         '<span class="support">'+support+'</span>'+
         '<small>'+st.lead+'</small></div>';
     }else{
