@@ -1699,7 +1699,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.141</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.142</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -12240,8 +12240,9 @@ const BUNSETSU_SENTENCES = [
    ・七の巻は「免許皆伝」として新設し、旧・六の巻（二刀の手本）／七の巻（二刀を使う）／
      奥ノ巻（免許皆伝）の3巻ぶんの役割をここに統合した。文節・単語を同時に見分ける、
      三の巻・六の巻と同じ「まとめ」システムの、隠しボス的な最終巻という位置づけ。
-   `escalate:true` は、出題がやさしい文からランダムに始まり、正解を重ねるほど
-   速度が徐々に上がる（bgNudgeSpeed）「まとめ」専用のシステムを使う巻の印。
+   `escalate:true` は、出題がやさしい文からランダムに始まり、最初の10問を過ぎると
+   2問ごとに速度が際限なく上がっていく（bgSpeedStepUp、正解・ミスは問わない）
+   「まとめ」専用のシステムを使う巻の印。
    `important:true` は、巻えらび画面・プレイ中の背景色を変えて重要性をアピールする印
    （三・六の巻のみ。七の巻はあえて付けず、裏ボス的に控えめに置く）。まとめの巻の
    合否は、得点ではなく出題数（`count`）を最後まで解ききれたかどうかで決める
@@ -12256,16 +12257,16 @@ const BG_STAGES = [
    lead:'同じ文が二度流れる。<br>一度目は手本（機械が斬ってみせる）、二度目は返し（自分で真似て斬る）。',
    goal:"見てから真似る。まだ考えなくていい"},
   {id:3, name:"三の巻", sub:"文節分け まとめ", blades:["bunsetsu"], lv:[1,2,3], count:20, escalate:true, important:true, beat:800,
-   lead:'<b>文節編のまとめ。</b>支えなし。やさしい文からランダムに出て、<br>正解を重ねるほど少しずつ速くなる。全20問を解ききれば合格。',
+   lead:'<b>文節編のまとめ。</b>支えなし。やさしい文からランダムに出て、<br>10問を過ぎると少しずつ速くなっていく。全20問を解ききれば合格。',
    goal:"文節の切れ目を、状況に合わせて自分の力で見きわめる"},
   {id:4, name:"四の巻", sub:"しるしつき",   blades:["tango"], lv:[1], count:3, hints:true, beat:900,
-   lead:'小刀にもちかえる。<b>単語の切れ目すべて</b>。<br>緑の印や横棒がもう出ているので、迷わず斬ってみよう。',
+   lead:'小刀にもちかえる。<b>単語の切れ目すべて</b><br>緑の印や横棒がもう出ているので、迷わず斬ってみよう。',
    goal:"文節の中にも切れ目があると知る"},
   {id:5, name:"五の巻", sub:"手本付き",     blades:["tango"], lv:[1], count:4, demo:true,   beat:900,
    lead:'同じ文が二度流れる。<br>一度目は手本（機械が小刀で斬ってみせる）、二度目は返し（自分で真似て斬る）。',
    goal:"単語の切れ目の見つけ方を、見て覚える"},
   {id:6, name:"六の巻", sub:"単語分け まとめ", blades:["tango"], lv:[1,2,3], count:40, escalate:true, important:true, beat:800,
-   lead:'<b>単語編のまとめ。</b>支えなし。やさしい文からランダムに出て、<br>正解を重ねるほど少しずつ速くなる。全40問を解ききれば合格。',
+   lead:'<b>単語編のまとめ。</b>支えなし。やさしい文からランダムに出て、<br>10問を過ぎると少しずつ速くなっていく。全40問を解ききれば合格。',
    goal:"単語の切れ目を、状況に合わせて自分の力で見きわめる"},
   {id:7, name:"七の巻", sub:"免許皆伝",     blades:["bunsetsu","tango"], lv:[1,2,3], count:10, escalate:true, beat:780,
    lead:'二刀。すき間ごとに<b>大太刀・小刀・見送る</b>の三択。<br>三の巻・六の巻と同じ、まとめのシステムで挑む最終試練。',
@@ -12279,14 +12280,17 @@ const BG_TEMPOS = [
   {key:"mid",  name:"常の間", rate:1.00, mult:1.0},
 ];
 
-/* 「まとめ」の巻（escalate:true）専用：正解を重ねるほど拍間隔（beatMs）に掛ける
-   倍率が小さくなり＝速くなり、間違えると倍率が大きくなる＝遅くなる（教員の指示、
-   2026-08-19〜：「問題が流れる速度が徐々に早くなっていく。間違いがあると、
-   問題が流れる速度は二段階遅くなるが、また正解していくと徐々に速くなる」）。
-   BG_SPEED_START_IDXの倍率1.00が、これまでの巻と同じ基準速度にあたる。 */
-const BG_SPEED_STEPS = [1.35,1.30,1.25,1.20,1.15,1.10,1.05,1.00,0.95,0.90,0.85,0.80,0.75,0.70,0.65];
-const BG_SPEED_START_IDX = 7;
-const BG_SPEED_STEP_UP = 1, BG_SPEED_STEP_DOWN = 2;
+/* 「まとめ」の巻（escalate:true）専用の速度スケジュール（教員の指示、2026-08-19〜：
+   「スピードアップシステムは、その問題の10問後から発生。2問経過ごとにスピードが
+   徐々に増します。間違っても、減速はしないことに変更。さらに、スピードは際限なく
+   上げ続けます」）。正解・ミスに関わらず、解いた文の数（bgUpdateSentenceのBG.curSentence）
+   だけで進む固定スケジュール：最初のBG_SPEED_GRACE問は基準速度のまま、それ以降は
+   BG_SPEED_INTERVAL問ごとにBG.speedStepが1つ増える。拍間隔にかける倍率は
+   1 - speedStep*BG_SPEED_STEP_DELTAで、上限（＝これ以上は上げない、という頭打ち）を
+   設けず、BG_SPEED_MULT_FLOORは無限に0や負値へ向かって拍間隔が壊れるのを防ぐための、
+   ゲームロジック上の安全弁（技術的な下限）にすぎない。 */
+const BG_SPEED_GRACE = 10, BG_SPEED_INTERVAL = 2;
+const BG_SPEED_STEP_DELTA = 0.05, BG_SPEED_MULT_FLOOR = 0.1;
 
 /* ---------- 判定（すべて「拍」を単位にする、独立版のまま） ---------- */
 const BG_WIN_HIT     = 0.46;
@@ -12641,14 +12645,17 @@ function bgPickSentencesForStage(stage){
 /* =========================================================================
    巻物を編む（独立版buildTrackと同じ組み立て方。出題の抽選だけbgPickSentencesForStageへ差し替え）
    ========================================================================= */
-/* 3文クリアごとに、文と文のあいだの休み（BG_REST_BEATS）にライフ回復アイテムを
-   1つ置く（教員の指示、2026-08-15〜）。手本（kind==="demo"）は数えない。
+/* 文と文のあいだの休み（BG_REST_BEATS）に、ライフ回復アイテムをランダムに置く
+   （教員の指示、2026-08-15〜は「3文クリアごと」の固定間隔だったが、2026-08-19〜
+   「5問に1回を目安に、ランダムで出現」に変更。1文ごとに20％の確率で抽選するので、
+   平均すれば5問に1回のペースで出現する）。手本（kind==="demo"）は数えない。
    休みは2拍あるので、その2拍目（b+1）に置けば次の文の1文字目とは重ならない。 */
+const BG_ITEM_CHANCE = 0.2;
 function bgBuildTrack(stage){
   const picked = bgPickSentencesForStage(stage);
 
   const cells=[], gaps=[], sentences=[], items=[];
-  let b = BG_LEAD_BEATS, si = 0, realCount = 0;
+  let b = BG_LEAD_BEATS, si = 0;
   picked.forEach(s => {
     const passes = stage.demo ? ["demo","echo"] : ["solo"];
     passes.forEach(kind => {
@@ -12671,9 +12678,8 @@ function bgBuildTrack(stage){
       });
       sentences.push({seg:s.seg, lv:s.lv, chars, start, end:b, idx:si, kind});
       si++;
-      if(kind!=="demo"){
-        realCount++;
-        if(realCount % 3 === 0) items.push({beat:b+1, done:false});
+      if(kind!=="demo" && Math.random() < BG_ITEM_CHANCE){
+        items.push({beat:b+1, done:false});
       }
       b += BG_REST_BEATS;
     });
@@ -12694,7 +12700,7 @@ function bgStartStage(stageId, tempo){
   BG = {
     stage, tempo, track,
     beatMs: Math.round(stage.beat * tempo.rate),
-    speedIdx: BG_SPEED_START_IDX,
+    speedStep: 0,
     phase:"countin",
     beat:-BG_LEAD_BEATS,
     t0:0, score:0, combo:0, maxCombo:0,
@@ -12720,21 +12726,23 @@ function bgStartStage(stageId, tempo){
   bgLastT=0;
   if(!bgRaf) bgRaf=requestAnimationFrame(bgLoop);
 }
-/* 「まとめ」の巻の速度昇降（教員の指示、2026-08-19〜）。正解1回ごとに1段階速く、
-   ミス1回ごとに二段階遅くする。BG_SPEED_STEPSの範囲内にクランプしたうえで
-   BG.beatMsを引き直し、bgLoopの拍換算アンカー（audio0/beat0）も同時に引き直すことで、
-   速度が変わった瞬間に帯の動きが飛ばないようにする。 */
-function bgNudgeSpeed(delta){
+/* 「まとめ」の巻の速度アップ（教員の指示、2026-08-19〜）。bgUpdateSentenceが、
+   文を1つ解き終えるたびに呼ぶ（正解・ミスは問わない）。BG_SPEED_GRACE問より先は
+   何もせず、それ以降はBG_SPEED_INTERVAL問ごとに1段だけ速度を上げる。BG.speedStepに
+   際限なく足していくだけなので、速度そのものに頭打ちは無い（BG_SPEED_MULT_FLOORは
+   拍間隔が0や負値に壊れないための技術的な下限）。BG.beatMsを引き直したあと、
+   bgLoopの拍換算アンカー（audio0/beat0）も同時に引き直すことで、速度が変わった
+   瞬間に帯の動きが飛ばないようにする。 */
+function bgSpeedStepUp(){
   if(!BG || !BG.stage.escalate) return;
-  const next = Math.max(0, Math.min(BG_SPEED_STEPS.length-1, BG.speedIdx+delta));
-  if(next === BG.speedIdx) return;
-  BG.speedIdx = next;
-  BG.beatMs = Math.round(BG.stage.beat * BG.tempo.rate * BG_SPEED_STEPS[next]);
+  BG.speedStep = (BG.speedStep||0) + 1;
+  const mult = Math.max(BG_SPEED_MULT_FLOOR, 1 - BG.speedStep*BG_SPEED_STEP_DELTA);
+  BG.beatMs = Math.round(BG.stage.beat * BG.tempo.rate * mult);
   BG.beat0 = BG.beat;
   const ctxRaw = BG_SND.on ? bgAc() : null;
   const ctx = (ctxRaw && ctxRaw.state === "running") ? ctxRaw : null;
   BG.audio0 = ctx ? ctx.currentTime : null;
-  const pct = Math.round(100/BG_SPEED_STEPS[next]);
+  const pct = Math.round(100/mult);
   const bpmEl = bg$("bgInfoBpm");
   if(bpmEl) bpmEl.textContent = BG.tempo.name+"（速さ"+pct+"%）";
 }
@@ -13056,6 +13064,12 @@ function bgUpdateSentence(){
     BG.sentenceClean=true;
     BG.sentenceLifeLost=false;
     BG.curSentence++;
+    /* 速度スケジュール：正解・ミスは問わず、解いた文の数だけで判定する
+       （教員の指示、2026-08-19〜。詳しくはbgSpeedStepUpのコメント参照）。 */
+    if(BG.stage.escalate && BG.curSentence > BG_SPEED_GRACE &&
+       (BG.curSentence - BG_SPEED_GRACE) % BG_SPEED_INTERVAL === 0){
+      bgSpeedStepUp();
+    }
     bgDrawHud();
   }
   bg$("bgProg").style.width = Math.min(100, Math.max(0, BG.beat/BG.track.totalBeats*100))+"%";
@@ -13192,7 +13206,6 @@ function bgSlash(blade){
            if(Math.abs(off)>0.30) bgVerdict(off<0?"早い":"遅い", off<0?"#2c5c86":"#9c7c2a"); }
     bgDrawHud();
     if(perfect) bgBumpCombo(true);
-    bgNudgeSpeed(BG_SPEED_STEP_UP);
   }else{
     let kind;
     if(!best.need)                                        kind="gochu";
@@ -13217,7 +13230,6 @@ function bgPushMiss(kind, g){
   const around = g ? (g.chars.slice(Math.max(0,g.ci-3),g.ci).join("")+"／"+g.chars.slice(g.ci,g.ci+3).join("")) : "";
   BG.misses.push({kind, at:around, si: g?g.si:null, ci: g?g.ci:null, chars: g?g.chars:null});
   BG.sentenceClean=false;
-  bgNudgeSpeed(-BG_SPEED_STEP_DOWN);
 }
 /* ライフが0になったら、そこで強制終了する（教員の指示、2026-08-15〜。独立版は
    「曲は最後まで流れきる」設計だったが、ライフを本物の失敗条件に変える）。
@@ -13611,8 +13623,10 @@ function bgRuleProse(stage){
 
   let support;
   if(stage.escalate){
-    support = "支えは何もありません。出題はやさしい文からランダムに始まり、正解を重ねるほど"+
-      "少しずつ難しく・速くなっていきます。全"+stage.count+"問を最後まで解ききれば合格です。";
+    support = "支えは何もありません。出題はやさしい文からランダムに始まり、少しずつ難しく"+
+      "なっていきます。速さは最初の"+BG_SPEED_GRACE+"問はそのまま、"+(BG_SPEED_GRACE+1)+"問目からは"+
+      BG_SPEED_INTERVAL+"問ごとに際限なく上がり続けます（間違えても遅くはなりません）。"+
+      "全"+stage.count+"問を最後まで解ききれば合格です。";
   }else if(stage.hints && stage.demo){
     support = "切れ目にはあらかじめ印が出ていて、しかも最初にお手本も流れます。まずは見て、そのとおりに斬ってみてください。";
   }else if(stage.hints){
