@@ -1187,6 +1187,18 @@
     display:block; width:64%; height:0; margin:0 auto;
     border-top:3px dashed var(--ai-l); opacity:.85;
   }
+  /* ライフ回復アイテム（3文クリアごとに休みの拍に浮かぶ、教員の指示、2026-08-15〜）。
+     位置合わせ（JSがtranslateYを直接当てる）と鼓動アニメーションがどちらもtransformを
+     使うため、外側（位置）と内側のspan（鼓動）で役割を分けて競合を避ける。 */
+  #bgApp .bgItem{
+    position:absolute; left:0; width:100%; text-align:center; line-height:1;
+    pointer-events:none; will-change:transform;
+  }
+  #bgApp .bgItem span{
+    display:inline-block; color:var(--midori); text-shadow:0 0 6px rgba(47,125,91,.45);
+    animation:bgItemPulse 0.7s ease-in-out infinite;
+  }
+  @keyframes bgItemPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.18);}}
 
   /* 斬撃線：拍ごとに脈打つ */
   #bgApp .blade{position:absolute;left:0;right:0;height:0;pointer-events:none;}
@@ -1477,8 +1489,6 @@
   #bgApp .pad .cut:active{transform:translateY(2px);box-shadow:0 1px 0 #8e2e1f;}
   #bgApp .pad .ko{background:var(--ai);color:#f2ede0;font-size:1rem;box-shadow:0 3px 0 #0d2740;flex:1.7;}
   #bgApp .pad .ko:active{transform:translateY(2px);box-shadow:0 1px 0 #0d2740;}
-  #bgApp .pad .ne{background:var(--midori);color:#f0f7f2;font-size:1rem;box-shadow:0 3px 0 #1f5a40;}
-  #bgApp .pad .ne:active{transform:translateY(2px);box-shadow:0 1px 0 #1f5a40;}
   #bgApp .pad button:disabled{background:#b9b3a4;box-shadow:0 3px 0 #9d978a;opacity:.6;cursor:default;}
   #bgApp .pad button.hidden{display:none;}
   #bgApp .pad small{font-family:var(--gothic);font-size:.6rem;letter-spacing:.02em;display:block;margin-top:3px;opacity:.85;}
@@ -1492,7 +1502,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.133</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.134</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -12012,7 +12022,7 @@ const BG_STAGES = [
    lead:'同じ文が<b>二度</b>流れる。<br>一度目は機械が斬ってみせる（手本）。二度目に真似る（返し）。',
    goal:"見てから真似る。まだ考えなくていい"},
   {id:3, name:"三の巻", sub:"文節を斬る",   blades:["bunsetsu"], lv:[1,2], count:5,            beat:800,
-   lead:'支えなし。<b>文節の切れ目</b>だけを斬る。<br>迷ったら「ね」を入れて確かめる。',
+   lead:'支えなし。<b>文節の切れ目</b>だけを斬る。<br>自立語（それだけで意味がわかる語）の直前を見きわめよう。',
    goal:"自分で切れ目を見つける"},
   {id:4, name:"四の巻", sub:"単語を見る",   blades:["tango"], lv:[1], count:3, demo:true, hints:true, beat:900,
    lead:'小刀にもちかえる。<b>単語の切れ目すべて</b>。<br>印つき・手本つきで、まず形を見る。',
@@ -12044,7 +12054,7 @@ const BG_WIN_PERFECT = 0.17;
 const BG_REST_BEATS  = 2;
 const BG_LEAD_BEATS  = 4;
 const BG_COMBO_STEP = 0.10, BG_COMBO_CAP = 5.0;
-const BG_NE_BEATS = 8, BG_NE_MAX = 5, BG_LIFE_MAX = 3;
+const BG_LIFE_MAX = 3;
 
 /* 見出しだけの短いラベル。具体的な理由はbgExplainMiss()が、その場で
    実際に斬りそこねた語の中身から作る（教員の指示：「間違ったところの解説は、
@@ -12061,28 +12071,80 @@ const BG_MISS_LABEL = {
    出てくる助詞・助動詞だけをカバーしている。無い語は、付属語である旨だけの
    汎用の説明にフォールバックする（bgExplainMiss参照）。 */
 const BG_PARTICLE_NOTES = {
-  "が": "「が」は主語（〜が）を示す付属語の助詞です。",
-  "は": "「は」は文の話題（〜は）を示す付属語の助詞です。",
-  "を": "「を」は動作の対象（〜を）を示す付属語の助詞です。",
-  "も": "「も」は「〜もまた」の意味を加える付属語の助詞です。",
-  "の": "「の」は所有・修飾の関係（〜の）を示す付属語の助詞です。",
-  "から": "「から」は出発点や理由（〜から）を示す付属語の助詞です。",
-  "へ": "「へ」は動作の向かう方向（〜へ）を示す付属語の助詞です。",
-  "と": "「と」は動作の相手や物事の並立（〜と）を示す付属語の助詞です。",
-  "で": "「で」は場所や手段（〜で）を示す付属語の助詞です。",
-  "に": "「に」は場所・対象・時間（〜に）を示す付属語の助詞です。",
-  "より": "「より」は比較の基準（〜より）を示す付属語の助詞です。",
-  "ので": "「ので」は理由（〜ので）を示す付属語の助詞です。",
-  "ば": "「ば」は仮定の条件（〜ば）を示す付属語の助詞です。",
-  "て": "「て」は動作をつなぐ付属語の助詞です。",
-  "た": "「た」は過去・完了（〜た）を表す付属語の助動詞です。",
-  "だ": "「だ」は断定（〜だ）を表す付属語の助動詞です。",
-  "だら": "「だら」は仮定の条件（〜たら）を表す付属語の助動詞です。",
-  "ない": "「ない」は打ち消し（〜ない）を表す付属語の助動詞です。",
-  "たい": "「たい」は希望（〜たい）を表す付属語の助動詞です。",
-  "らしい": "「らしい」は推定（〜らしい）を表す付属語の助動詞です。",
-  "う": "「う」は意志・勧誘（〜う）を表す付属語の助動詞です。",
+  "が": {pos:"助詞", note:"主語（〜が）を示します。"},
+  "は": {pos:"助詞", note:"文の話題（〜は）を示します。"},
+  "を": {pos:"助詞", note:"動作の対象（〜を）を示します。"},
+  "も": {pos:"助詞", note:"「〜もまた」の意味を加えます。"},
+  "の": {pos:"助詞", note:"所有・修飾の関係（〜の）を示します。"},
+  "から": {pos:"助詞", note:"出発点や理由（〜から）を示します。"},
+  "へ": {pos:"助詞", note:"動作の向かう方向（〜へ）を示します。"},
+  "と": {pos:"助詞", note:"動作の相手や物事の並立（〜と）を示します。"},
+  "で": {pos:"助詞", note:"場所や手段（〜で）を示します。"},
+  "に": {pos:"助詞", note:"場所・対象・時間（〜に）を示します。"},
+  "より": {pos:"助詞", note:"比較の基準（〜より）を示します。"},
+  "ので": {pos:"助詞", note:"理由（〜ので）を示します。"},
+  "ば": {pos:"助詞", note:"仮定の条件（〜ば）を示します。"},
+  "て": {pos:"助詞", note:"動作をつなぎます。"},
+  "た": {pos:"助動詞", note:"過去・完了（〜た）を表します。"},
+  "だ": {pos:"助動詞", note:"断定（〜だ）を表します。"},
+  "だら": {pos:"助動詞", note:"仮定の条件（〜たら）を表します。"},
+  "ない": {pos:"助動詞", note:"打ち消し（〜ない）を表します。"},
+  "たい": {pos:"助動詞", note:"希望（〜たい）を表します。"},
+  "らしい": {pos:"助動詞", note:"推定（〜らしい）を表します。"},
+  "う": {pos:"助動詞", note:"意志・勧誘（〜う）を表します。"},
 };
+/* 自立語（文節の最初の語）の品詞辞書。BUNSETSU_SENTENCESに実際に出てくる語だけを
+   カバーしている（教員の指示：「解説では、何がどんな品詞かも教えてください」）。
+   活用して辞書の見出し語と形が変わっている語は、もとの形も添える。 */
+const BG_WORD_POS = {
+  // 名詞
+  "犬":"名詞", "空":"名詞", "風":"名詞", "妹":"名詞", "歌":"名詞", "鳥":"名詞", "父":"名詞", "新聞":"名詞",
+  "母":"名詞", "台所":"名詞", "本":"名詞", "わたし":"名詞", "山":"名詞", "弟":"名詞", "今日":"名詞", "兄":"名詞",
+  "声":"名詞", "上":"名詞", "景色":"名詞", "先生":"名詞", "黒板":"名詞", "字":"名詞", "毎日":"名詞", "学校":"名詞",
+  "川":"名詞", "水":"名詞", "彼":"名詞", "毎朝":"名詞", "六時":"名詞", "荷物":"名詞", "一人":"名詞", "祖母":"名詞",
+  "料理":"名詞", "町":"名詞", "中心":"名詞", "寺":"名詞", "昨日":"名詞", "一日中":"名詞", "雨":"名詞", "海":"名詞",
+  "向こう":"名詞", "船":"名詞", "友達":"名詞", "公園":"名詞", "野球":"名詞", "庭":"名詞", "明日":"名詞",
+  "自転車":"名詞", "彼女":"名詞", "桜":"名詞", "花":"名詞", "市役所":"名詞", "うそ":"名詞", "人":"名詞",
+  "こと":"名詞", "子ども":"名詞", "野菜":"名詞", "宿題":"名詞", "足":"名詞", "知らせ":"名詞", "駅":"名詞",
+  "話":"名詞", "前":"名詞", "家":"名詞", "枝":"名詞", "道":"名詞",
+  // 動詞（辞書の見出し語のまま出てくる語）
+  "走る":"動詞", "見える":"動詞", "書く":"動詞", "行く":"動詞", "起きる":"動詞", "ある":"動詞", "いる":"動詞",
+  "降る":"動詞", "いく":"動詞（もとの形は「行く」）", "咲く":"動詞", "着く":"動詞", "歌う":"動詞", "読む":"動詞", "飛ぶ":"動詞",
+  "吹く":"動詞",
+  // 動詞（活用してもとの形と見た目が変わっている語）
+  "走り出し":"動詞（もとの形は「走り出す」）", "やん":"動詞（もとの形は「やむ」）",
+  "出かけよ":"動詞（もとの形は「出かける」）", "とまっ":"動詞（もとの形は「とまる」）",
+  "なっ":"動詞（もとの形は「なる」）", "笑っ":"動詞（もとの形は「笑う」）", "歩い":"動詞（もとの形は「歩く」）",
+  "運ん":"動詞（もとの形は「運ぶ」）", "作っ":"動詞（もとの形は「作る」）",
+  "降り続い":"動詞（もとの形は「降り続く」）", "見え":"動詞（もとの形は「見える」）", "し":"動詞（もとの形は「する」）",
+  "走り回っ":"動詞（もとの形は「走り回る」）", "買っ":"動詞（もとの形は「買う」）", "もらっ":"動詞（もとの形は「もらう」）",
+  "あきらめ":"動詞（もとの形は「あきらめる」）", "いけ":"動詞（もとの形は「いける」）", "読ん":"動詞（もとの形は「読む」）",
+  "い":"動詞（もとの形は「いる」）", "散っ":"動詞（もとの形は「散る」）", "働い":"動詞（もとの形は「働く」）",
+  "咲い":"動詞（もとの形は「咲く」）", "つか":"動詞（もとの形は「つく」）", "遊ん":"動詞（もとの形は「遊ぶ」）",
+  "切っ":"動詞（もとの形は「切る」）", "やっ":"動詞（もとの形は「やる」）", "き":"動詞（もとの形は「くる」）",
+  "思っ":"動詞（もとの形は「思う」）", "行け":"動詞（もとの形は「行く」）", "聞い":"動詞（もとの形は「聞く」）",
+  "急い":"動詞（もとの形は「急ぐ」）", "出":"動詞（もとの形は「出る」）", "いっ":"動詞（もとの形は「行く」）",
+  "行き":"動詞（もとの形は「行く」）", "驚い":"動詞（もとの形は「驚く」）",
+  // 形容詞
+  "青い":"形容詞", "美しい":"形容詞", "古い":"形容詞", "おいしい":"形容詞", "白い":"形容詞", "新しい":"形容詞",
+  "高い":"形容詞", "痛い":"形容詞",
+  "強く":"形容詞（もとの形は「強い」）", "大きく":"形容詞（もとの形は「大きい」）", "面白かっ":"形容詞（もとの形は「面白い」）",
+  "冷たかっ":"形容詞（もとの形は「冷たい」）", "寒く":"形容詞（もとの形は「寒い」）", "冷たく":"形容詞（もとの形は「冷たい」）",
+  // 形容動詞
+  "大切だ":"形容動詞",
+  "きれいに":"形容動詞（もとの形は「きれいだ」）", "静かに":"形容動詞（もとの形は「静かだ」）",
+  "急に":"形容動詞（もとの形は「急だ」）",
+  // 連体詞
+  "この":"連体詞", "その":"連体詞", "あの":"連体詞", "大きな":"連体詞", "小さな":"連体詞",
+  // 副詞
+  "とても":"副詞", "一緒に":"副詞", "ずいぶん":"副詞", "決して":"副詞", "たくさん":"副詞", "まっすぐ":"副詞", "まだ":"副詞",
+};
+/* word（句読点を取り除いた見出し語）の品詞を、自立語辞書・付属語辞書のどちらからでも引く。 */
+function bgPosOf(word){
+  if(BG_WORD_POS[word]) return BG_WORD_POS[word];
+  if(BG_PARTICLE_NOTES[word]) return BG_PARTICLE_NOTES[word].pos;
+  return null;
+}
 const BG_RANK_ORDER = {"再　試":0, "初　伝":1, "目　録":2, "免　許":3, "皆　伝":4};
 /* =========================================================================
    音：拍を鳴らしつづける（独立版のまま。専用のAudioContextを持つ）
@@ -12260,25 +12322,28 @@ function bgExplainMiss(mi){
   const chars=mi.chars, gapType=bgGapTypeOfSentence(mi.si), ci=mi.ci;
   if(mi.kind==="gochu"){
     const word = bgStripPunct(bgEnclosingWord(chars, gapType, ci));
-    return `「${word}」は一つの単語の途中です。ここで分けると、意味の通じる言葉になりません。`;
+    const pos = bgPosOf(word);
+    return (pos ? `「${word}」は${pos}です。` : "")
+      + `一つの単語（「${word}」）の途中なので、ここで分けると意味の通じる言葉になりません。`;
   }
   const word = bgStripPunct(bgWordAt(chars, gapType, ci));
-  const note = BG_PARTICLE_NOTES[word];
+  const info = BG_PARTICLE_NOTES[word];
+  const wordPos = BG_WORD_POS[word] || "自立語";
   if(mi.kind==="minogashi"){
-    return `「${word}」は自立語（それだけで意味がわかる言葉）です。自立語の直前は、必ず文節の切れ目になります。大太刀で斬りましょう。`;
+    return `「${word}」は${wordPos}（それだけで意味がわかる自立語）です。自立語の直前は、必ず文節の切れ目になります。大太刀で斬りましょう。`;
   }
   if(mi.kind==="minogashiT"){
-    return note
-      ? `「${word}」の前で、単語の切れ目になります。${note}小刀で斬りましょう。`
+    return info
+      ? `「${word}」の前で、単語の切れ目になります。「${word}」は${info.pos}です。${info.note}付属語なので、単語としては切れ目になります。小刀で斬りましょう。`
       : `「${word}」は付属語（前の言葉にくっついて働く言葉）なので、単語としては切れ目になります。小刀で斬りましょう。`;
   }
   if(mi.kind==="ooburi"){
     return `「${word}」の前は、単語としては切れますが、文節はまだ続きます。`
-      + (note || `「${word}」は付属語（前の自立語にくっついて働く言葉）です。`)
+      + (info ? `「${word}」は${info.pos}です。${info.note}` : `「${word}」は付属語（前の自立語にくっついて働く言葉）です。`)
       + "付属語の前では文節は変わらないので、大太刀ではなく小刀の出番でした。";
   }
   if(mi.kind==="kogatana"){
-    return `「${word}」は自立語です。自立語の直前は必ず文節の切れ目になるので、小刀ではなく大太刀の出番でした。`;
+    return `「${word}」は${wordPos}（自立語）です。自立語の直前は必ず文節の切れ目になるので、小刀ではなく大太刀の出番でした。`;
   }
   return "";
 }
@@ -12322,14 +12387,18 @@ function bgPickSentencesForStage(stage){
    ========================================================================= */
 function bgRewind(tr){
   tr.gaps.forEach(g=>{ g.done=false; g.judged=null; });
+  (tr.items||[]).forEach(it=>{ it.done=false; it.el=null; });
   return {cells:tr.cells.map(c=>({ch:c.ch,beat:c.beat,si:c.si})), gaps:tr.gaps,
-          sentences:tr.sentences, totalBeats:tr.totalBeats, picked:tr.picked};
+          sentences:tr.sentences, items:tr.items||[], totalBeats:tr.totalBeats, picked:tr.picked};
 }
+/* 3文クリアごとに、文と文のあいだの休み（BG_REST_BEATS）にライフ回復アイテムを
+   1つ置く（教員の指示、2026-08-15〜）。手本（kind==="demo"）は数えない。
+   休みは2拍あるので、その2拍目（b+1）に置けば次の文の1文字目とは重ならない。 */
 function bgBuildTrack(stage){
   const picked = bgPickSentencesForStage(stage);
 
-  const cells=[], gaps=[], sentences=[];
-  let b = BG_LEAD_BEATS, si = 0;
+  const cells=[], gaps=[], sentences=[], items=[];
+  let b = BG_LEAD_BEATS, si = 0, realCount = 0;
   picked.forEach(s => {
     const passes = stage.demo ? ["demo","echo"] : ["solo"];
     passes.forEach(kind => {
@@ -12352,10 +12421,14 @@ function bgBuildTrack(stage){
       });
       sentences.push({seg:s.seg, lv:s.lv, chars, start, end:b, idx:si, kind});
       si++;
+      if(kind!=="demo"){
+        realCount++;
+        if(realCount % 3 === 0) items.push({beat:b+1, done:false});
+      }
       b += BG_REST_BEATS;
     });
   });
-  return {cells, gaps, sentences, totalBeats:b, picked, hints:!!stage.hints};
+  return {cells, gaps, sentences, items, totalBeats:b, picked, hints:!!stage.hints};
 }
 
 /* =========================================================================
@@ -12371,7 +12444,7 @@ function bgStartStage(stageId, tempo, keepTrack){
     phase:"countin",
     beat:-BG_LEAD_BEATS,
     t0:0, score:0, combo:0, maxCombo:0,
-    life:BG_LIFE_MAX, ne:3, neUntil:-99,
+    life:BG_LIFE_MAX, failed:false,
     misses:[], offsets:[],
     hit:0, perfect:0, miss:0,
     gi:0, di:0,
@@ -12394,17 +12467,16 @@ function bgStartStage(stageId, tempo, keepTrack){
 }
 function bgSetPad(stage){
   const two = stage.blades.length===2;
-  bg$("bgBtnNe").classList.toggle("hidden", !!stage.hints);
   bg$("bgBtnCut").classList.toggle("hidden", !stage.blades.includes("bunsetsu"));
   bg$("bgBtnKo").classList.toggle("hidden",  !stage.blades.includes("tango"));
   bg$("bgBtnCut").disabled=false; bg$("bgBtnKo").disabled=false;
   if(stage.blades[0]==="tango" && !two){
     bg$("bgBtnKo").innerHTML = "小　刀<small>単語の切れ目</small>";
-    bg$("bgHint").textContent = "スペース／→／F＝小刀　　語の途中は見送る　　N＝「ね」";
+    bg$("bgHint").textContent = "スペース／→／F＝小刀　　語の途中は見送る";
   }else if(!two){
-    bg$("bgHint").textContent = "スペース／→／J＝大太刀　　文節でないところは見送る　　N＝「ね」";
+    bg$("bgHint").textContent = "スペース／→／J＝大太刀　　文節でないところは見送る";
   }else{
-    bg$("bgHint").textContent = "←／F＝小刀　　→／J／スペース＝大太刀　　語の途中は見送る　　N＝「ね」";
+    bg$("bgHint").textContent = "←／F＝小刀　　→／J／スペース＝大太刀　　語の途中は見送る";
   }
 }
 /* ---------- 盤面（独立版のまま） ---------- */
@@ -12450,6 +12522,18 @@ function bgBuildStrip(){
       BG.markData.push({beat:g.beat, el, hint:true, guide:g});
     });
   }
+  (tr.items||[]).forEach(it => {
+    if(it.done) return;
+    const el=document.createElement("div");
+    el.className="bgItem";
+    el.innerHTML="<span>❤</span>";
+    el.style.height=m.CELL+"px";
+    el.style.fontSize=Math.round(m.CELL*0.6)+"px";
+    el.style.left=(m.W/2-m.CELL/2)+"px";
+    el.style.width=m.CELL+"px";
+    cellsEl.appendChild(el);
+    it.el=el;
+  });
 }
 
 function bgYOf(beat){ const m=bgMetrics(); return m.BLADE + (beat - BG.beat)*m.CELL; }
@@ -12506,6 +12590,8 @@ function bgLoop(t){
       }
       if(BG.stage.demo) bgSetDemoTag(bgCurrentKind(BG.beat));
       bgSweepMissed();
+      bgSweepItems();
+      if(BG.phase!=="run"){ bgRender(); return; }   // ライフが尽きてbgFailStageが呼ばれた場合はここで打ち切る
       bgUpdateSentence();
       if(BG.beat > BG.track.totalBeats + 1){ bgFinishStage(); return; }
     }
@@ -12612,6 +12698,40 @@ function bgSweepMissed(){
     }else break;
   }
 }
+/* ライフ回復アイテム：拍の当たり幅に入っていれば、大太刀・小刀どちらでも拾える
+   （文節・単語の判定とは無関係の、休みの間に浮かぶ別物なので、刀の種類は問わない）。
+   ライフが満タンのときに拾うと、代わりに得点が入る。 */
+function bgCheckItemHit(){
+  const items = (BG.track.items)||[];
+  for(const it of items){
+    if(it.done) continue;
+    if(Math.abs(it.beat-BG.beat) <= BG_WIN_HIT){
+      it.done=true;
+      if(it.el){ it.el.remove(); it.el=null; }
+      if(BG.life < BG_LIFE_MAX){
+        BG.life++;
+        bgVerdict("ライフ回復！","#2f7d5b");
+      }else{
+        bgAddScore(200*bgComboMult());
+        bgVerdict("満タン！＋200","#2f7d5b");
+      }
+      const ctx=bgAc(); if(ctx) bgTone(ctx,"sine",1046.5,1568,ctx.currentTime,0.3,0.12);
+      bgDrawHud();
+      return true;
+    }
+  }
+  return false;
+}
+/* 拾いそこねたアイテムは、当たり幅を過ぎたら静かに消える（ペナルティなし）。 */
+function bgSweepItems(){
+  ((BG.track.items)||[]).forEach(it => {
+    if(it.done) return;
+    if(BG.beat > it.beat + BG_WIN_HIT){
+      it.done=true;
+      if(it.el){ it.el.remove(); it.el=null; }
+    }
+  });
+}
 function bgUpdateSentence(){
   const tr=BG.track;
   const s=tr.sentences[BG.curSentence];
@@ -12628,7 +12748,6 @@ function bgUpdateSentence(){
       bgAddScore(300*bgComboMult());
       bgBanner("一刀両断","＋三〇〇");
       bgSndClear();
-      if(BG.ne<BG_NE_MAX) BG.ne++;
     }
     BG.sentenceClean=true;
     BG.curSentence++;
@@ -12658,6 +12777,10 @@ function bgRender(){
     const y=bgYOf(k.beat) - Math.round(m.CELL*BG_MARK_H_RATIO)/2;
     k.el.style.transform="translateY("+y+"px)";
   });
+  (BG.track.items||[]).forEach(it => {
+    if(it.done || !it.el) return;
+    it.el.style.transform="translateY("+bgYOf(it.beat)+"px)";
+  });
 }
 /* =========================================================================
    斬る（独立版のまま）
@@ -12666,6 +12789,7 @@ function bgSlash(blade){
   if(!BG || BG.phase!=="run") return;
   if(!BG.stage.blades.includes(blade)) return;
   if(bgInDemo(BG.beat)){ bgVerdict("いまは見る","#7b7466"); return; }
+  if(bgCheckItemHit()) return;
   const tr=BG.track;
   let best=null, bd=1e9;
   for(let i=Math.max(0,BG.gi-2); i<tr.gaps.length; i++){
@@ -12723,6 +12847,8 @@ function bgPushMiss(kind, g){
   BG.misses.push({kind, at:around, si: g?g.si:null, ci: g?g.ci:null, chars: g?g.chars:null});
   BG.sentenceClean=false;
 }
+/* ライフが0になったら、そこで強制終了する（教員の指示、2026-08-15〜。独立版は
+   「曲は最後まで流れきる」設計だったが、ライフを本物の失敗条件に変える）。 */
 function bgOnMiss(kind,g){
   bgPushMiss(kind,g);
   bgLoseCombo();
@@ -12731,6 +12857,7 @@ function bgOnMiss(kind,g){
   const fieldEl=bg$("bgField");
   fieldEl.classList.remove("shake"); void fieldEl.offsetWidth; fieldEl.classList.add("shake");
   bgDrawHud();
+  if(BG.life<=0) bgFailStage();
 }
 
 /* ---------- 演出（独立版のまま） ---------- */
@@ -12807,34 +12934,6 @@ function bgBanner(t,s){
   bg$("bgField").appendChild(d); setTimeout(()=>d.remove(),1100);
 }
 
-/* ---------- 「ね」（独立版のまま） ---------- */
-function bgUseNe(){
-  if(!BG || BG.phase!=="run" || BG.ne<=0) return;
-  if(BG.beat < BG.neUntil) return;
-  BG.ne--; BG.usedNe=true;
-  BG.neUntil=BG.beat+BG_NE_BEATS;
-  const ctx=bgAc(); if(ctx) bgTone(ctx,"sine",880,1320,ctx.currentTime,0.45,0.1);
-  const m=bgMetrics(), shown=[];
-  const cellsEl=bg$("bgCells");
-  BG.track.gaps.forEach(g => {
-    if(!g.need || g.done) return;
-    if(g.beat < BG.beat-1 || g.beat > BG.beat+BG_NE_BEATS) return;
-    const isB=(g.raw==="bunsetsu");
-    const el=document.createElement("div");
-    el.className="cutmark";
-    el.style.fontSize=Math.round(m.CELL*(isB?0.5:0.56))+"px";
-    el.style.height=Math.round(m.CELL*BG_MARK_H_RATIO)+"px";
-    el.style.left=(m.W/2-m.CELL/2)+"px"; el.style.width=m.CELL+"px";
-    el.innerHTML=isB?'<span class="ne">ね</span>':'<span class="ko-hint"></span>';
-    cellsEl.appendChild(el);
-    const rec={beat:g.beat, el, hint:true};
-    BG.markData.push(rec); shown.push(rec);
-  });
-  setTimeout(()=>{
-    shown.forEach(r=>{ r.el.remove(); const i=BG.markData.indexOf(r); if(i>=0) BG.markData.splice(i,1); });
-  }, BG_NE_BEATS*BG.beatMs);
-  bgDrawHud();
-}
 /* =========================================================================
    HUD（独立版のまま）
    ========================================================================= */
@@ -12849,8 +12948,6 @@ function bgDrawHud(){
   mb.classList.toggle("blaze", mv>=3.2);
   bg$("bgField").classList.toggle("peril", BG.life<=1 && BG.phase==="run");
   bg$("bgHudCombo").textContent=BG.combo;
-  bg$("bgNeLeft").textContent=BG.ne;
-  bg$("bgBtnNe").disabled = BG.ne<=0 || BG.phase!=="run";
   let lb="";
   for(let i=0;i<BG_LIFE_MAX;i++) lb+='<span class="life-dot'+(i<BG.life?"":" gone")+'"></span>';
   bg$("bgLifeBox").innerHTML=lb;
@@ -12880,6 +12977,15 @@ function bgFinishStage(){
   BG.phase="over";
   bgShowResult();
 }
+/* ライフが尽きたときの強制終了。曲の途中でも、そこで即座に結果画面へ進む
+   （クリアはできなかった扱いになる。bgShowResult側でBG.failedを見て分岐する）。 */
+function bgFailStage(){
+  if(BG.phase==="over") return;
+  if(bgRaf){ cancelAnimationFrame(bgRaf); bgRaf=null; bgLastT=0; }
+  BG.phase="over";
+  BG.failed=true;
+  bgShowResult();
+}
 /* =========================================================================
    結果：段位で返す（独立版のまま）
    ========================================================================= */
@@ -12893,7 +12999,7 @@ function bgRankOf(){
   if(acc>=1 && clean)              return {mark:"免　許", good:true, msg:"切れ目は完璧。あとは拍を合わせるだけ"};
   if(acc>=0.9)                     return {mark:"目　録", good:true, msg:"あと少し。落としたところを見ておく"};
   if(acc>=0.75)                    return {mark:"初　伝", good:true, msg:"通った。同じ段をもう一度"};
-  return {mark:"再　試", good:false, msg:"「ね」を使ってよい。切れ目の見当から"};
+  return {mark:"再　試", good:false, msg:"結果の解説を読んで、切れ目の見当からもう一度"};
 }
 /* まちがいの解説（結果画面用）。教員の指示：「間違ったところの解説は、きちんと
    間違った部分を示して、どこがどう間違ったか丁寧に解説して」。同じ文で複数
@@ -12932,19 +13038,25 @@ function bgShowResult(){
   const fieldEl=bg$("bgField"), veilEl=bg$("bgVeil");
   fieldEl.classList.remove("peril");
   bg$("bgBtnCut").disabled=false; bg$("bgBtnKo").disabled=false;
-  const r=bgRankOf();
+
+  /* ライフが尽きた回は「クリアできず」の扱いにする（教員の指示、2026-08-15〜）。
+     段位は付けず、自己ベスト・巻の解放にも一切数えない。まちがいの解説は
+     力尽きた回こそ大事なので、ここでも変わらず見せる。 */
+  const failed = !!BG.failed;
+  const r = failed ? {mark:"力尽きた", good:false, msg:"ライフがなくなり、クリアできませんでした。もう一度挑戦してみよう。"} : bgRankOf();
   bgSndRank(r.good);
   const key=BG.stage.id+"_"+BG.tempo.key;
-  const isBest = BG.score > (BG_BEST[key]||0);
-  if(isBest) BG_BEST[key]=BG.score;
-
-  const sid=BG.stage.id;
-  if(!BG_REC.best[sid] || BG.score>BG_REC.best[sid]) BG_REC.best[sid]=BG.score;
-  const wasRank = BG_REC.rank[sid];
-  if(BG_RANK_ORDER[r.mark] > (wasRank!==undefined ? BG_RANK_ORDER[wasRank] : -1)) BG_REC.rank[sid]=r.mark;
-  let opened=false;
-  if(BG_RANK_ORDER[r.mark]>=1 && BG_REC.open===sid && sid<BG_STAGES.length){ BG_REC.open=sid+1; opened=true; }
-  bgSaveRec();
+  let isBest=false, opened=false;
+  if(!failed){
+    isBest = BG.score > (BG_BEST[key]||0);
+    if(isBest) BG_BEST[key]=BG.score;
+    const sid=BG.stage.id;
+    if(!BG_REC.best[sid] || BG.score>BG_REC.best[sid]) BG_REC.best[sid]=BG.score;
+    const wasRank = BG_REC.rank[sid];
+    if(BG_RANK_ORDER[r.mark] > (wasRank!==undefined ? BG_RANK_ORDER[wasRank] : -1)) BG_REC.rank[sid]=r.mark;
+    if(BG_RANK_ORDER[r.mark]>=1 && BG_REC.open===sid && sid<BG_STAGES.length){ BG_REC.open=sid+1; opened=true; }
+    bgSaveRec();
+  }
 
   const need=bgNeedCount();
   const early=BG.offsets.filter(o=>o<-BG_WIN_PERFECT).length;
@@ -12955,10 +13067,10 @@ function bgShowResult(){
   const nextStage = BG_STAGES.find(s=>s.id===BG.stage.id+1);
   veilEl.innerHTML=
     '<h1>'+BG.stage.name+'</h1><div class="rule"></div>'+
-    '<div class="rankmark" style="color:'+(r.good?"#9c7c2a":"#7b7466")+'">'+r.mark+'</div>'+
+    '<div class="rankmark" style="color:'+(failed?"#c62828":r.good?"#9c7c2a":"#7b7466")+'">'+r.mark+'</div>'+
     '<div class="sub">'+r.msg+'</div>'+
     '<div class="big" id="bgBigScore">'+BG.score+'</div><div class="sub">得点</div>'+
-    (isBest?'<div class="newbest">自 己 最 高</div>':'<div class="sub" style="margin-top:6px">最高 '+(BG_BEST[key]||0)+'</div>')+
+    (failed ? "" : isBest?'<div class="newbest">自 己 最 高</div>':'<div class="sub" style="margin-top:6px">最高 '+(BG_BEST[key]||0)+'</div>')+
     '<div class="timing"><span>斬れた <b>'+BG.hit+'</b>／'+need+'</span>'+
       '<span>会心 <b>'+BG.perfect+'</b></span><span>最大連斬 <b>'+BG.maxCombo+'</b></span></div>'+
     '<div class="timing"><span>早い <b>'+early+'</b></span><span>ちょうど <b>'+BG.perfect+'</b></span><span>遅い <b>'+late+'</b></span></div>'+
@@ -13036,7 +13148,7 @@ function bgRuleProse(stage){
   }else if(stage.demo){
     support = "答えの印は出ませんが、同じ文が二回流れます。一回目は機械が斬ってみせるお手本なので、よく見てから、二回目に自分で真似て斬ってください。";
   }else{
-    support = "支えは何もありません。自分の判断だけを頼りに、その場で答えていきます。迷ったら「ね」で確かめてもかまいません。";
+    support = "支えは何もありません。自分の判断だけを頼りに、その場で答えていきます。";
   }
   return unit+" "+support;
 }
@@ -13138,7 +13250,6 @@ function bgAttachHandlers(){
   });
   bg$("bgBtnCut").addEventListener("click",e=>{e.preventDefault(); bgSlash("bunsetsu");});
   bg$("bgBtnKo").addEventListener("click",e=>{e.preventDefault(); bgSlash("tango");});
-  bg$("bgBtnNe").addEventListener("click",e=>{e.preventDefault(); bgUseNe();});
   bg$("bgField").addEventListener("pointerdown",e=>{
     if(!BG || BG.phase!=="run") return;
     e.preventDefault();
@@ -13158,7 +13269,6 @@ function bgAttachHandlers(){
     if(e.key==="ArrowLeft"||e.key==="f"||e.key==="F"){
       e.preventDefault(); bgSlash(one?BG.stage.blades[0]:"tango"); return;
     }
-    if(e.key==="n"||e.key==="N"){ e.preventDefault(); bgUseNe(); }
   };
   const resize = ()=>{ if(BG && (BG.phase==="run"||BG.phase==="countin")) bgBuildStrip(); };
   window.addEventListener("keydown", keydown);
@@ -13213,9 +13323,8 @@ function bgSkeletonHtml(){
     <div class="pad">
       <button class="ko"  id="bgBtnKo">小　刀<small>単語の切れ目</small></button>
       <button class="cut" id="bgBtnCut">大太刀<small>文節の切れ目</small></button>
-      <button class="ne"  id="bgBtnNe">ね<small>のこり <span id="bgNeLeft">3</span></small></button>
     </div>
-    <div class="hint" id="bgHint">←／F＝小刀　→／J／スペース＝大太刀　語の途中は見送る　N＝「ね」</div>
+    <div class="hint" id="bgHint">←／F＝小刀　→／J／スペース＝大太刀　語の途中は見送る</div>
 
     <div class="veil" id="bgVeil"></div>
   </div>`;
