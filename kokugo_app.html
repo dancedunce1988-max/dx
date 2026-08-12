@@ -1086,12 +1086,77 @@
     background:rgba(255,255,255,0.08); border-radius:8px; color:#e8f0ff;
   }
   .vs-wronglist-q{ font-weight:bold; color:#ffe66d; margin-right:6px; }
+
+  /* ===== サブクエスト「文節斬り」（2026-08-12〜） =====
+     独立版（文節切り/bunsetsu_giri_3.html）の拍合わせリズムゲームは、AudioContext・
+     canvas相当の描画・段位/免許状の進行システムまで含む大掛かりな作りで、そのまま移植すると
+     このアプリの他の要素と足並みが揃わない。そこで、同ファイルにもともと入っていた「留め」
+     （文を横書きで並べ、すき間をタップして印をつけてから、まとめて判定する自分のペースの
+     モード）だけを移植のベースに選んだ。タイミングを問わない分、「なぜそこが（そこが）
+     切れ目なのか／ではないのか」という理由の解説に画面をしっかり使える。 */
+  .bg-badge-row{ display:flex; justify-content:center; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+  .bg-mode-badge{
+    display:inline-block; padding:4px 12px; border-radius:14px; font-size:12px; font-weight:bold;
+    letter-spacing:.05em; color:#fff;
+  }
+  .bg-mode-badge.bunsetsu{ background:var(--accent); }
+  .bg-mode-badge.tango{ background:var(--accent2); }
+  .bg-round-badge{
+    display:inline-block; padding:4px 12px; border-radius:14px; font-size:12px;
+    background:var(--card); border:1px solid var(--line); color:var(--sub);
+  }
+  .bg-instruction{ text-align:center; font-size:13px; color:var(--sub); line-height:1.7; margin-bottom:10px; }
+  .bg-instruction b{ color:var(--ink); }
+  .bg-sentence-box{
+    background:var(--card); border:1px solid var(--line); border-radius:12px;
+    padding:18px 10px; margin-bottom:12px; overflow-x:auto;
+  }
+  .bg-sentence{ display:flex; align-items:stretch; justify-content:center; flex-wrap:nowrap; width:max-content; margin:0 auto; }
+  .bg-tc{
+    display:flex; align-items:center; justify-content:center;
+    min-width:1.9em; height:2.1em; font-size:22px; font-weight:600; color:var(--ink);
+    flex-shrink:0;
+  }
+  .bg-tg{
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    width:22px; height:2.1em; cursor:pointer; position:relative; background:none; border:none; padding:0;
+  }
+  .bg-tg::after{ content:""; width:2px; height:55%; background:var(--line); border-radius:1px; transition:background .12s,width .12s; }
+  .bg-tg:disabled{ cursor:default; }
+  .bg-tg .bg-mk{ position:absolute; font-size:15px; font-weight:bold; line-height:1; }
+  .bg-tg.marked-bunsetsu::after{ display:none; }
+  .bg-tg.marked-bunsetsu .bg-mk{ color:var(--accent); font-size:20px; }
+  .bg-tg.marked-tango::after{ display:none; }
+  .bg-tg.marked-tango .bg-mk{ color:var(--accent2); }
+  .bg-tg.judge-hit::after{ display:none; }
+  .bg-tg.judge-hit .bg-mk{ color:var(--ok); }
+  .bg-tg.judge-miss::after{ width:2px; background:var(--ng); }
+  .bg-tg.judge-miss .bg-mk{ color:var(--ng); opacity:.85; }
+  .bg-tg.judge-extra::after{ display:none; }
+  .bg-tg.judge-extra .bg-mk{ color:var(--ng); font-size:17px; }
+  .bg-tg.judge-ok::after{ background:transparent; }
+  .bg-legend{ text-align:center; font-size:11px; color:var(--sub); margin-bottom:10px; line-height:1.8; }
+  .bg-legend span{ margin:0 6px; white-space:nowrap; }
+  .bg-scoreline{ text-align:center; font-size:14px; margin-bottom:8px; }
+  .bg-scoreline b{ color:var(--gold); font-size:18px; }
+  .bg-explain-list{ margin-top:4px; }
+  .bg-explain-item{
+    background:var(--ngbg); border:1px solid rgba(198,40,40,.25); border-radius:10px;
+    padding:10px 12px; margin-bottom:8px; font-size:13px; line-height:1.7; color:var(--ink);
+  }
+  .bg-explain-item .bg-ex-head{ font-weight:bold; color:var(--ng); margin-bottom:3px; }
+  .bg-explain-item .bg-ex-word{ color:var(--accent); font-weight:bold; }
+  .bg-perfect-note{
+    text-align:center; font-size:13px; color:var(--ok); font-weight:bold; margin-bottom:8px;
+  }
+  .bg-final-score{ text-align:center; font-size:clamp(26px,8vw,36px); font-weight:bold; color:var(--gold); margin:10px 0 4px; }
+  .bg-final-acc{ text-align:center; font-size:13px; color:var(--sub); margin-bottom:12px; }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.129</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.130</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -8879,6 +8944,15 @@ const STORY_SIDEQUESTS = {
     ],
     epilogue: "「おつかれさま！ 自己ベストは更新できたかな？\nまた挑戦して、記録をのばしてね。」",
   },
+  sqBunsetsu: {
+    title: "文節斬り",
+    beats: [
+      {type:"line", speaker:"ことのは", text:"今度は「文節斬り」だよ。文が横に並ぶから、切れ目だと思うところをタップして、印をつけてね。"},
+      {type:"line", speaker:"ことのは", text:"大太刀は「文節」の切れ目、小刀は「単語」の切れ目。どちらを探すかは、そのつど画面に出すよ。\n間違えても大丈夫、あとで理由をちゃんと説明するからね！"},
+      {type:"bunsetsu"},
+    ],
+    epilogue: "「おつかれさま！ まちがえたところは、ちゃんと理由を覚えておいてね。」",
+  },
 };
 /* STORY_CHAPTERS・STORY_SIDEQUESTSのどちらのキーでも章の定義を引けるようにする共通ヘルパー。
    storyRenderBeat等、章の種類を意識せず進行させたい箇所から使う。 */
@@ -8898,6 +8972,7 @@ function storyFreshRun(){
     matchOrder:null,
     wpWords:null, wpFound:null, wpDeadline:null, wpDone:false, wpTimerId:null,
     shootBeatIdx:null, shoot:null,
+    bgBeatIdx:null, bg:null,
   };
 }
 
@@ -8965,9 +9040,17 @@ function showSideQuestMenu(){
 }
 /* サブクエストのカード。メインストーリーの章カード(storyChapterButtonHtml)と違い、
    ロック・クリア済みという状態を持たない（常に「挑戦する」）。自己ベストがあれば表示する。 */
+/* サブクエストごとの自己ベストは、それぞれ別のフィールドにstを直接載せて保存している
+   （vocabShooterHighScoreと同じ軽量パターン）。ここに1行足すだけで、新しいサブクエストの
+   ベスト表示にも対応できる。 */
+const STORY_SIDEQUEST_BEST_FIELD = {
+  sqShooting: "vocabShooterHighScore",
+  sqBunsetsu: "bunsetsuGiriHighScore",
+};
 function storySideQuestButtonHtml(key, st){
   const q = STORY_SIDEQUESTS[key];
-  const best = key === "sqShooting" ? (st.vocabShooterHighScore || 0) : 0;
+  const field = STORY_SIDEQUEST_BEST_FIELD[key];
+  const best = field ? (st[field] || 0) : 0;
   const sub = best > 0 ? `<p class="note">自己ベスト：${best}点</p>` : `<p>タップして挑戦しよう</p>`;
   return `
     <div class="card menu-card" onclick="startStoryMode('${key}')">
@@ -9076,6 +9159,7 @@ function storyRenderBeat(){
   else if(beat.type === "combo") storyRenderCombo(beat, sp.beatIdx);
   else if(beat.type === "wordPick") storyRenderWordPick(beat);
   else if(beat.type === "shooting") storyRenderShooting(beat, sp.beatIdx);
+  else if(beat.type === "bunsetsu") storyRenderBunsetsu(beat, sp.beatIdx);
   else if(beat.type === "kotonohaRebirthReveal") storyRenderKotonohaRebirthReveal();
   else showHome();
 }
@@ -11506,6 +11590,339 @@ function storyReplayChapter(){
   storyRun = storyFreshRun();
   storyRenderBeat();
 }
+
+/* ================= サブクエスト「文節斬り」（bunsetsu beat、2026-08-12〜） =================
+   元は独立した単一HTMLファイル（文節切り/bunsetsu_giri_3.html）の、拍に合わせて文を斬る
+   リズムアクションゲーム。大太刀＝文節の切れ目、小刀＝単語の切れ目、という2本の刀の
+   使い分けは移植でもそのまま残すが、独自のAudioContext・拍合わせの描画ループ・段位や
+   免許状の進行システムは持ち込まない（vsループに続けてもう一つ増やすと、他のサブクエスト
+   と作りが揃わなくなる）。代わりに、同ファイルにもともと入っていた「留め」――文を横書きで
+   並べ、すき間をタップして印をつけてから、まとめて判定する、タイミングを問わない自分の
+   ペースのモード――だけを移植の土台に選んだ。タイミングを問わない分、「なぜそこが
+   （そこが）切れ目なのか／ではないのか」という理由の解説に画面をしっかり使える
+   （教員の指示：「間違ったときに、その理由をあとでちゃんとわかりやすく解説する」）。
+   出題データ（BUNSETSU_SENTENCES）は、独立版のSENTENCES配列をそのまま流用している
+   （教員の指示：「既存のデータを上手く使って」）。seg欄の記法（｜＝単語だけの切れ目、
+   ／＝文節の切れ目）も独立版と同じ。 */
+const BUNSETSU_SENTENCES = [
+  {lv:1, seg:"犬|が/走る。"},
+  {lv:1, seg:"空|が/青い。"},
+  {lv:1, seg:"風|が/強く/吹く。"},
+  {lv:1, seg:"妹|は/歌|を/歌う。"},
+  {lv:1, seg:"花|が/きれいに/咲く。"},
+  {lv:1, seg:"鳥|が/空|を/飛ぶ。"},
+  {lv:1, seg:"父|は/新聞|を/読む。"},
+  {lv:1, seg:"わたし|も/一緒に/行き|たい。"},
+  {lv:1, seg:"雨|が/やん|だら/出かけよ|う。"},
+  {lv:1, seg:"母|が/台所|で/歌う。"},
+  {lv:2, seg:"この/本|は/とても/面白かっ|た。"},
+  {lv:2, seg:"小さな/鳥|が/枝|に/とまっ|た。"},
+  {lv:2, seg:"弟|が/急に/走り出し|た。"},
+  {lv:2, seg:"今日|は/ずいぶん/寒く/なっ|た。"},
+  {lv:2, seg:"兄|は/とても/大きな/声|で/笑っ|た。"},
+  {lv:2, seg:"山|の/上|から/美しい/景色|が/見える。"},
+  {lv:2, seg:"先生|が/黒板|に/大きく/字|を/書く。"},
+  {lv:2, seg:"わたし|は/毎日/学校|へ/歩い|て/行く。"},
+  {lv:2, seg:"川|の/水|が/とても/冷たかっ|た。"},
+  {lv:2, seg:"彼|は/毎朝/六時|に/起きる。"},
+  {lv:2, seg:"大きな/荷物|を/一人|で/運ん|だ。"},
+  {lv:2, seg:"祖母|が/作っ|た/料理|は/おいしい。"},
+  {lv:2, seg:"町|の/中心|に/古い/寺|が/ある。"},
+  {lv:2, seg:"昨日|は/一日中/雨|が/降り続い|た。"},
+  {lv:2, seg:"海|の/向こう|に/白い/船|が/見え|た。"},
+  {lv:2, seg:"友達|と/公園|で/野球|を/し|た。"},
+  {lv:3, seg:"犬|が/庭|を/走り回っ|て/いる。"},
+  {lv:3, seg:"明日|は/雨|が/降る|らしい。"},
+  {lv:3, seg:"新しい/自転車|を/買っ|て/もらっ|た。"},
+  {lv:3, seg:"決して/あきらめ|て|は/いけ|ない。"},
+  {lv:3, seg:"彼女|は/静かに/本|を/読ん|で/い|た。"},
+  {lv:3, seg:"桜|の/花|が/静かに/散っ|て/いく。"},
+  {lv:3, seg:"わたし|の/父|は/市役所|で/働い|て/いる。"},
+  {lv:3, seg:"白い/花|が/庭|に/たくさん/咲い|て/いる。"},
+  {lv:3, seg:"彼|は/決して/うそ|を/つか|ない/人|だ。"},
+  {lv:3, seg:"本|を/読む/こと|は/とても/大切だ。"},
+  {lv:3, seg:"小さな/子ども|が/公園|で/遊ん|で/いる。"},
+  {lv:3, seg:"母|は/台所|で/野菜|を/切っ|て/いる。"},
+  {lv:3, seg:"弟|は/まだ/宿題|を/やっ|て/い|ない。"},
+  {lv:3, seg:"風|が/急に/冷たく/なっ|て/き|た。"},
+  {lv:3, seg:"あの/山|は/思っ|た|より/高い。"},
+  {lv:3, seg:"たくさん/歩い|た|ので/足|が/痛い。"},
+  {lv:3, seg:"その/知らせ|を/聞い|て/とても/驚い|た。"},
+  {lv:3, seg:"この/道|を/まっすぐ/行け|ば/駅|に/着く。"},
+  {lv:3, seg:"その/話|は/前|に/聞い|た/こと|が/ある。"},
+  {lv:3, seg:"妹|は/急い|で/家|を/出|て/いっ|た。"},
+];
+const BG_ROUNDS = 6;
+
+/* 単語だけの切れ目（付属語の直前）の解説辞書。BUNSETSU_SENTENCESに実際に出てくる
+   助詞・助動詞だけをカバーしている。ここに無い語は、付属語である旨だけの
+   汎用の説明にフォールバックする（bgExplainGap参照）。 */
+const BUNSETSU_WORD_NOTES = {
+  "が": "「が」は主語（〜が）を示す付属語の助詞です。",
+  "は": "「は」は文の話題（〜は）を示す付属語の助詞です。",
+  "を": "「を」は動作の対象（〜を）を示す付属語の助詞です。",
+  "も": "「も」は「〜もまた」の意味を加える付属語の助詞です。",
+  "の": "「の」は所有・修飾の関係（〜の）を示す付属語の助詞です。",
+  "から": "「から」は出発点や理由（〜から）を示す付属語の助詞です。",
+  "へ": "「へ」は動作の向かう方向（〜へ）を示す付属語の助詞です。",
+  "と": "「と」は動作の相手や物事の並立（〜と）を示す付属語の助詞です。",
+  "で": "「で」は場所や手段（〜で）を示す付属語の助詞です。",
+  "に": "「に」は場所・対象・時間（〜に）を示す付属語の助詞です。",
+  "より": "「より」は比較の基準（〜より）を示す付属語の助詞です。",
+  "ので": "「ので」は理由（〜ので）を示す付属語の助詞です。",
+  "ば": "「ば」は仮定の条件（〜ば）を示す付属語の助詞です。",
+  "て": "「て」は動作をつなぐ付属語の助詞です。",
+  "た": "「た」は過去・完了（〜た）を表す付属語の助動詞です。",
+  "だ": "「だ」は断定（〜だ）を表す付属語の助動詞です。",
+  "だら": "「だら」は仮定の条件（〜たら）を表す付属語の助動詞です。",
+  "ない": "「ない」は打ち消し（〜ない）を表す付属語の助動詞です。",
+  "たい": "「たい」は希望（〜たい）を表す付属語の助動詞です。",
+  "らしい": "「らしい」は推定（〜らしい）を表す付属語の助動詞です。",
+  "う": "「う」は意志・勧誘（〜う）を表す付属語の助動詞です。",
+};
+/* seg文字列を、文字の配列と「その文字の直前のすき間の種類」に分解する
+   （独立版のparseSegと同じロジック）。gapType[i]が"bunsetsu"なら文節の切れ目、
+   "tango"なら単語だけの切れ目（文節の中）、キーが無ければ切れ目ではない
+   （一つの単語の途中）。 */
+function bgParseSeg(seg){
+  const chars=[], gapType={};
+  let pending=null;
+  for(const ch of seg){
+    if(ch==="/") pending="bunsetsu";
+    else if(ch==="|"){ if(pending!=="bunsetsu") pending="tango"; }
+    else{ if(chars.length>0 && pending) gapType[chars.length]=pending; pending=null; chars.push(ch); }
+  }
+  return {chars, gapType};
+}
+/* すき間iから始まる語（次の切れ目、または文末まで）の文字列を取り出す。
+   まちがいの解説で「そこにある語」を示すために使う。 */
+function bgWordAt(chars, gapType, i){
+  let j=i+1;
+  while(j<chars.length && !gapType[j]) j++;
+  return chars.slice(i,j).join("");
+}
+/* すき間iを内側にふくむ、切れ目から切れ目までの語まるごとを取り出す。
+   一語の途中（切れ目のない場所）に印をつけてしまったときの解説で使う
+   （bgWordAtはiから右だけを見るので、語の後半しか拾えず分かりにくい）。 */
+function bgEnclosingWord(chars, gapType, i){
+  let start=i; while(start>0 && !gapType[start]) start--;
+  let end=i; while(end<chars.length && !gapType[end]) end++;
+  return chars.slice(start,end).join("");
+}
+/* 表示・辞書引き用に文末の句読点を取り除く。ただし語そのものが句読点だけ
+   （「。」など）の場合は取り除くと空文字になってしまうので、元の文字列に戻す。 */
+function bgStripPunct(s){ const t = s.replace(/[。、]+$/,""); return t || s; }
+/* すき間iの判定結果（missed＝つけ忘れ／extra＝余分な印）に応じて、なぜそこが
+   （またはそこが）切れ目なのかを、その語の実際の内容から具体的に説明する文を作る。
+   BUNSETSU_SENTENCESのseg欄がすでに正しい分け方を持っているので、辞書
+   （BUNSETSU_WORD_NOTES）と「自立語の直前は必ず文節の切れ目になる」という一般規則
+   だけで、文ごとの説明文を新たに書き足さずに済む。 */
+function bgExplainGap(chars, gapType, i, mode, marked){
+  const raw = gapType[i];
+  if(marked && !raw){
+    const word = bgStripPunct(bgEnclosingWord(chars, gapType, i));
+    return `「${word}」の前は、一つの単語の途中です。ここで分けると、意味の通じる言葉になりません。`;
+  }
+  const word = bgStripPunct(bgWordAt(chars, gapType, i));
+  const note = BUNSETSU_WORD_NOTES[word];
+  if(marked){ // ここまで来るのは mode==="bunsetsu" && raw==="tango" のときだけ
+    return `「${word}」の前は、単語としては切れますが、文節はまだ続きます。`
+      + (note || `「${word}」は付属語（前の自立語にくっついて働く言葉）です。`)
+      + "付属語の前では文節は変わりません。ここは小刀の出番です。";
+  }
+  if(raw==="bunsetsu"){
+    return `「${word}」は自立語（それだけで意味がわかる言葉）です。自立語の直前は、必ず文節の切れ目になります。大太刀で切りましょう。`;
+  }
+  return note
+    ? `「${word}」の前で、単語の切れ目になります。${note}`
+    : `「${word}」は付属語（前の言葉にくっついて働く言葉）です。単語としては切れ目になります。`;
+}
+function bgPickSentence(bg){
+  if(!bg.usedIdx || bg.usedIdx.length >= BUNSETSU_SENTENCES.length) bg.usedIdx = [];
+  let idx;
+  do{ idx = Math.floor(Math.random()*BUNSETSU_SENTENCES.length); }
+  while(BUNSETSU_SENTENCES.length>1 && bg.usedIdx.includes(idx));
+  bg.usedIdx.push(idx);
+  return BUNSETSU_SENTENCES[idx];
+}
+function bgModeLabel(mode){
+  return mode==="bunsetsu"
+    ? {cls:"bunsetsu", icon:"⚔️", label:"大太刀で「文節」の切れ目を探そう"}
+    : {cls:"tango", icon:"🗡️", label:"小刀で「単語」の切れ目を探そう（文節の切れ目もふくむ）"};
+}
+function bgNextRound(){
+  const bg = storyRun.bg;
+  bg.round++;
+  const s = bgPickSentence(bg);
+  const {chars, gapType} = bgParseSeg(s.seg);
+  const mode = Math.random() < 0.5 ? "bunsetsu" : "tango";
+  bg.q = {chars, gapType, mode, marks:new Array(chars.length).fill(false), results:null};
+  bg.phase = "playing";
+  bgRenderScreen();
+}
+function bgStart(){
+  storyRun.bg = {phase:"playing", round:0, totalRounds:BG_ROUNDS, score:0, hitTotal:0, needTotal:0, usedIdx:[], q:null};
+  bgNextRound();
+}
+function bgToggleGap(i){
+  const bg = storyRun.bg;
+  if(!bg || bg.phase !== "playing") return;
+  bg.q.marks[i] = !bg.q.marks[i];
+  bgRenderScreen();
+}
+/* すき間ごとに、必要な印（required）と実際につけた印（marked）を突き合わせて判定する。
+   文節モードは「raw==="bunsetsu"」の場所だけが対象。単語モードは、単語の切れ目は
+   文節の切れ目もすべて含む（自立語＋付属語のどちらの境目も単語の境目になる）ので、
+   rawが何であれ真なら対象になる。 */
+function bgSubmit(){
+  const bg = storyRun.bg, q = bg.q;
+  const results = [];
+  let hit=0, need=0, extra=0, missed=0;
+  for(let i=1;i<q.chars.length;i++){
+    const raw = q.gapType[i];
+    const required = q.mode==="bunsetsu" ? (raw==="bunsetsu") : !!raw;
+    const marked = !!q.marks[i];
+    let outcome = "ok";
+    if(required && marked){ outcome="hit"; hit++; need++; }
+    else if(required && !marked){ outcome="missed"; missed++; need++; }
+    else if(!required && marked){ outcome="extra"; extra++; }
+    results.push({i, raw, outcome});
+  }
+  q.results = results;
+  q.perfect = (extra===0 && missed===0);
+  q.roundScore = hit*100 + (q.perfect && need>0 ? 200 : 0);
+  bg.score += q.roundScore;
+  bg.hitTotal += hit;
+  bg.needTotal += need;
+  bg.phase = "judged";
+  bgRenderScreen();
+}
+function bgNext(){
+  const bg = storyRun.bg;
+  if(bg.round >= bg.totalRounds){ bgFinish(); return; }
+  bgNextRound();
+}
+function bgFinish(){
+  const bg = storyRun.bg;
+  const st = loadStats();
+  const prevBest = st.bunsetsuGiriHighScore || 0;
+  const isNewRecord = bg.score>0 && bg.score>prevBest;
+  if(isNewRecord){ st.bunsetsuGiriHighScore = bg.score; saveStats(st); }
+  bg.phase = "gameover";
+  bg.isNewRecord = isNewRecord;
+  bg.bestAfter = Math.max(prevBest, bg.score);
+  bgRenderScreen();
+}
+function storyRenderBunsetsu(beat, idx){
+  if(storyRun.bgBeatIdx !== idx){
+    storyRun.bgBeatIdx = idx;
+    storyRun.bg = {phase:"ready"};
+  }
+  storyRun.curBeat = beat;
+  clearChoiceKeys();
+  bgRenderScreen();
+}
+function bgRenderScreen(){
+  const bg = storyRun.bg;
+  if(!bg || bg.phase==="ready"){ bgRenderReady(); return; }
+  if(bg.phase==="playing"){ bgRenderPlaying(); return; }
+  if(bg.phase==="judged"){ bgRenderJudged(); return; }
+  bgRenderGameover();
+}
+function bgRenderReady(){
+  const st = loadStats();
+  const best = st.bunsetsuGiriHighScore || 0;
+  screen.innerHTML = `
+    <div class="card story-scene">
+      <h3 class="section">🗡️ 文節斬り</h3>
+      <p class="story-text">文が横に並んだら、切れ目だと思うすき間をタップして印をつけよう。つけ終わったら「これで斬る」で判定するよ。</p>
+      <p class="bg-instruction"><b>大太刀</b>＝文節の切れ目　<b>小刀</b>＝単語の切れ目<br>そのつど、どちらを探すか画面の上に出るよ。まちがえても、あとでちゃんと理由を説明するから安心してね。</p>
+      ${best>0 ? `<p class="note" style="text-align:center">自己ベスト：${best}点</p>` : ""}
+      <div class="btn-row" style="justify-content:center">
+        <button class="btn" onclick="bgStart()">はじめる</button>
+      </div>
+    </div>
+    ${storyFooterHtml()}`;
+}
+function bgRenderPlaying(){
+  const bg = storyRun.bg, q = bg.q;
+  const label = bgModeLabel(q.mode);
+  let line = `<span class="bg-tc">${esc(q.chars[0])}</span>`;
+  for(let i=1;i<q.chars.length;i++){
+    const marked = q.marks[i];
+    const markCls = marked ? (q.mode==="bunsetsu" ? "marked-bunsetsu" : "marked-tango") : "";
+    const markChar = marked ? (q.mode==="bunsetsu" ? "／" : "｜") : "";
+    line += `<button type="button" class="bg-tg ${markCls}" onclick="bgToggleGap(${i})">${markChar ? `<span class="bg-mk">${markChar}</span>` : ""}</button>`;
+    line += `<span class="bg-tc">${esc(q.chars[i])}</span>`;
+  }
+  screen.innerHTML = `
+    <div class="card story-scene">
+      <div class="bg-badge-row"><span class="bg-mode-badge ${label.cls}">${label.icon} ${label.label}</span></div>
+      <div class="bg-badge-row">
+        <span class="bg-round-badge">第 ${bg.round} ／ ${bg.totalRounds} 問</span>
+        <span class="bg-round-badge">合計得点 ${bg.score}</span>
+      </div>
+      <div class="bg-sentence-box"><div class="bg-sentence">${line}</div></div>
+      <div class="btn-row" style="justify-content:center">
+        <button class="btn" onclick="bgSubmit()">これで斬る</button>
+      </div>
+    </div>
+    ${storyFooterHtml()}`;
+}
+function bgJudgeMarkHtml(q, res){
+  if(res.outcome==="hit") return `<span class="bg-mk">${res.raw==="bunsetsu"?"／":"｜"}</span>`;
+  if(res.outcome==="missed") return `<span class="bg-mk">${res.raw==="bunsetsu"?"／":"｜"}</span>`;
+  if(res.outcome==="extra") return `<span class="bg-mk">✕</span>`;
+  return "";
+}
+function bgRenderJudged(){
+  const bg = storyRun.bg, q = bg.q;
+  let line = `<span class="bg-tc">${esc(q.chars[0])}</span>`;
+  for(let i=1;i<q.chars.length;i++){
+    const res = q.results[i-1];
+    line += `<span class="bg-tg judge-${res.outcome}">${bgJudgeMarkHtml(q,res)}</span>`;
+    line += `<span class="bg-tc">${esc(q.chars[i])}</span>`;
+  }
+  const mistakes = q.results.filter(r=>r.outcome==="missed"||r.outcome==="extra");
+  const explainHtml = mistakes.length ? `
+    <div class="bg-explain-list">
+      <p class="note" style="text-align:center">まちがえたところの解説</p>
+      ${mistakes.map(r => `
+        <div class="bg-explain-item">
+          <div class="bg-ex-head">${r.outcome==="missed" ? "切れ目を見のがした" : "余分な印をつけた"}</div>
+          ${bgExplainGap(q.chars, q.gapType, r.i, q.mode, r.outcome==="extra")}
+        </div>`).join("")}
+    </div>` : `<p class="bg-perfect-note">🎉 パーフェクト！ この文の切れ目を、ぜんぶ正しく見つけたね！</p>`;
+  screen.innerHTML = `
+    <div class="card story-scene">
+      <div class="bg-badge-row"><span class="bg-round-badge">第 ${bg.round} ／ ${bg.totalRounds} 問　結果</span></div>
+      <div class="bg-sentence-box"><div class="bg-sentence">${line}</div></div>
+      <div class="bg-legend"><span style="color:var(--ok)">緑＝合っていた印</span><span style="color:var(--ng)">赤＝まちがい（✕は余分な印、赤い印はつけ忘れ）</span></div>
+      <div class="bg-scoreline">この問題の得点：<b>+${q.roundScore}</b></div>
+      ${explainHtml}
+      <div class="btn-row" style="justify-content:center">
+        <button class="btn story-advance-btn" onclick="bgNext()">${bg.round>=bg.totalRounds?"結果を見る":"つぎの文へ"}</button>
+      </div>
+    </div>
+    ${storyFooterHtml()}`;
+}
+function bgRenderGameover(){
+  const bg = storyRun.bg;
+  const acc = bg.needTotal>0 ? Math.round(100*bg.hitTotal/bg.needTotal) : 100;
+  screen.innerHTML = `
+    <div class="card story-scene">
+      <h3 class="section">🗡️ 文節斬り　けっか</h3>
+      ${bg.isNewRecord ? `<p class="bg-perfect-note">🎉 自己ベスト更新！ 🎉</p>` : ""}
+      <div class="bg-final-score">${bg.score} 点</div>
+      <div class="bg-final-acc">切れ目の正解率：${acc}%　（自己ベスト：${bg.bestAfter}点）</div>
+      <div class="btn-row" style="justify-content:center">
+        <button class="btn" onclick="bgStart()">もう一度あそぶ</button>
+        <button class="btn secondary" onclick="showSideQuestMenu()">サブクエスト一覧へ</button>
+      </div>
+    </div>
+    ${storyFooterHtml()}`;
+}
+
 /* ================================================================
    ストーリーモード ここまで
    ================================================================ */
