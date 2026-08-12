@@ -910,6 +910,13 @@
   .menu-card.story-btn .menu-icon{background:rgba(255,255,255,.22); font-size:1.7rem; width:54px; height:54px;}
   .menu-card.story-btn h2{color:#fff; font-size:1.15rem;}
   .menu-card.story-btn p{color:rgba(255,255,255,.9);}
+  /* ミニゲーム（旧サブクエスト）の入口カード。ストーリーモードの直下、ホーム画面に
+     独立して置く（教員の指示、2026-08-17〜）。story-btnと見分けがつくよう別の色にする。 */
+  .menu-card.minigame-btn{background:linear-gradient(135deg, #5e35b1, #8561d6); border:none;}
+  .menu-card.minigame-btn:hover{transform:translateY(-3px); box-shadow:0 8px 20px rgba(0,0,0,.22);}
+  .menu-card.minigame-btn .menu-icon{background:rgba(255,255,255,.22); font-size:1.7rem; width:54px; height:54px;}
+  .menu-card.minigame-btn h2{color:#fff; font-size:1.15rem;}
+  .menu-card.minigame-btn p{color:rgba(255,255,255,.9);}
   .story-scene{text-align:left;}
   .story-speaker{font-weight:bold; color:var(--accent2); margin-bottom:6px; font-size:.95rem;}
   .story-face{float:right; width:78px; margin:0 0 8px 12px; border-radius:12px; box-shadow:0 2px 6px rgba(0,0,0,.15);}
@@ -1077,6 +1084,15 @@
     box-shadow:0 4px 16px rgba(196,113,237,0.5); letter-spacing:1px;
   }
   .vs-newbest{ text-align:center; font-weight:bold; color:#ffe66d; margin:6px 0; }
+  /* 自己ベストが100点きざみの大台を初めて超えたときの、経験値お祝いメッセージ
+     （教員の指示、2026-08-17〜：「演出と共に、お祝いメッセージをはっきりと示すこと」）。 */
+  .vs-xp-celebrate{
+    text-align:center; font-size:13px; font-weight:bold; line-height:1.7; color:#3a2a00;
+    background:linear-gradient(135deg,#ffe66d,#ffb347); border-radius:10px;
+    padding:9px 14px; margin:6px 0 8px; box-shadow:0 3px 12px rgba(255,179,71,.45);
+    animation:vsXpCelebrateGo .5s cubic-bezier(.2,1.4,.4,1);
+  }
+  @keyframes vsXpCelebrateGo{0%{opacity:0;transform:scale(.7);}60%{opacity:1;transform:scale(1.06);}100%{transform:scale(1);}}
   .vs-level-result{ text-align:center; font-size:13px; color:#aab8dd; line-height:1.6; margin:4px 0 2px; }
   .vs-controls-hint{ text-align:center; font-size:11px; color:var(--sub); opacity:0.75; margin-top:10px; line-height:1.6; }
   .vs-wronglist{ width:100%; max-width:280px; margin-top:14px; text-align:left; }
@@ -1425,6 +1441,33 @@
     justify-content:safe center;
     padding:22px;text-align:center;z-index:20;overflow-y:auto;}
   #bgApp .veil h1{font-family:var(--mincho);font-size:2rem;letter-spacing:.4em;color:var(--ai);font-weight:600;padding-left:.4em;}
+  /* タイトル画面だけの、和風で少し派手な題字（教員の指示、2026-08-17〜：「かっこいい和風に、
+     フォントの色・種類・配置・向きも見直して」）。縦に「言の刃／斬／～ZAN～」の3段に組み、
+     まん中の「斬」だけを大きく朱の縦グラデーションで浮かせ、刃こぼれのような切っ先の
+     アクセント線を左右に添える。 */
+  #bgApp .kzTitle{ text-align:center; margin-bottom:2px; position:relative; }
+  #bgApp .kzTitle .kz-main{
+    display:block; font-family:var(--mincho); font-size:1.15rem; font-weight:700;
+    color:var(--sumi); letter-spacing:.5em; padding-left:.5em;
+  }
+  #bgApp .kzTitle .kz-zan{
+    display:block; font-family:var(--mincho); font-size:3.6rem; font-weight:900;
+    line-height:1; margin:2px 0 4px; letter-spacing:.04em;
+    background:linear-gradient(175deg,#ff6b52 0%,var(--shu) 45%,#7a2113 100%);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+    filter:drop-shadow(0 3px 6px rgba(142,46,31,.4));
+    position:relative;
+  }
+  #bgApp .kzTitle .kz-zan::before, #bgApp .kzTitle .kz-zan::after{
+    content:""; position:absolute; top:50%; width:34px; height:3px;
+    background:linear-gradient(90deg,transparent,var(--shu));
+  }
+  #bgApp .kzTitle .kz-zan::before{ left:-42px; }
+  #bgApp .kzTitle .kz-zan::after{ right:-42px; transform:scaleX(-1); }
+  #bgApp .kzTitle .kz-sub{
+    display:block; font-family:'Times New Roman',var(--gothic),serif; font-size:.86rem;
+    letter-spacing:.42em; padding-left:.42em; color:var(--kin); font-style:italic; font-weight:700;
+  }
   #bgApp .veil .rule{width:52px;height:2px;background:var(--shu);margin:13px 0 15px;}
   #bgApp .veil p{font-size:.82rem;color:var(--sub);line-height:1.9;letter-spacing:.03em;max-width:400px;}
   #bgApp .veil p b{color:var(--sumi);font-weight:600;}
@@ -1432,6 +1475,38 @@
     margin:6px 0 2px;font-variant-numeric:tabular-nums;font-weight:600;}
   #bgApp .veil .sub{font-size:.74rem;color:var(--sub);letter-spacing:.1em;}
   #bgApp .veil .newbest{color:var(--kin);font-family:var(--mincho);letter-spacing:.26em;font-size:.92rem;margin-top:8px;}
+  /* 巻クリア・オールクリアの経験値表示（教員の指示、2026-08-17〜） */
+  #bgApp .xp-note{color:var(--midori);font-size:.76rem;letter-spacing:.06em;margin-top:8px;font-weight:600;}
+  #bgApp .xp-milestone-note{color:var(--kin);font-size:.86rem;letter-spacing:.06em;margin-top:6px;font-weight:700;
+    text-shadow:0 0 8px rgba(156,124,42,.35);}
+  /* オールクリアのド派手な演出（#bgApp全体を覆う） */
+  #bgApp .milestoneFx{position:absolute;inset:0;z-index:30;pointer-events:none;overflow:hidden;}
+  #bgApp .milestoneFx-flash{position:absolute;inset:0;background:#fff;animation:milestoneFlashGo .5s ease-out forwards;}
+  @keyframes milestoneFlashGo{0%{opacity:.85;}100%{opacity:0;}}
+  #bgApp .milestoneFx-stamp{
+    position:absolute;left:50%;top:34%;width:200px;margin-left:-100px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:22px 14px;border-radius:50%;aspect-ratio:1;
+    border:5px solid var(--kin);box-shadow:0 0 0 5px rgba(156,124,42,.22) inset,0 8px 26px rgba(0,0,0,.28);
+    background:rgba(247,243,233,.97);color:var(--shu);font-family:var(--mincho);
+    text-align:center;animation:milestoneStampGo .7s cubic-bezier(.2,1.5,.4,1) forwards;
+  }
+  #bgApp .milestoneFx-stamp b{display:block;font-size:1.02rem;letter-spacing:.06em;line-height:1.5;}
+  #bgApp .milestoneFx-stamp small{display:block;margin-top:8px;font-size:.62rem;letter-spacing:.04em;
+    color:var(--sub);font-family:var(--gothic);line-height:1.6;}
+  @keyframes milestoneStampGo{
+    0%{opacity:0;transform:rotate(-10deg) scale(2.6);}
+    45%{opacity:1;transform:rotate(-10deg) scale(.92);}
+    62%{transform:rotate(-10deg) scale(1.06);}
+    80%{transform:rotate(-10deg) scale(1);}
+    100%{opacity:1;transform:rotate(-10deg) scale(1);}
+  }
+  #bgApp .milestoneFx-confetti{position:absolute;top:-16px;width:8px;height:15px;pointer-events:none;
+    animation:milestoneConfettiGo 1.3s cubic-bezier(.4,0,.2,1) forwards;}
+  @keyframes milestoneConfettiGo{
+    0%{opacity:1;transform:translateY(0) rotate(0deg);}
+    100%{opacity:0;transform:translateY(var(--fy)) rotate(var(--fr));}
+  }
   #bgApp .btn{margin-top:18px;background:var(--ai);color:#f5f1e6;border:none;font-family:var(--mincho);
     font-size:1rem;letter-spacing:.34em;padding:13px 30px 13px 36px;border-radius:2px;cursor:pointer;
     box-shadow:0 3px 0 #0d2740;transition:transform .08s,box-shadow .08s;}
@@ -1560,7 +1635,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.136</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.137</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -1798,9 +1873,11 @@ function totalEarnedStatPoints(st){
      問題全開放のお祝い経験値（totalUnlockCelebrationExp、2026-08-03〜）も同じ扱いで加算する。
      こちらもst.lvの分布ではなくst.groupUnlockから毎回その場で導出するだけなので、
      進化の分岐には影響しない。
-     文節斬りの1文クリアぶん（st.bunsetsuGiriBonusExp、2026-08-16〜）も、hyakuninBonusExpと
-     全く同じ扱い（分野に関係なく全額加算、進化の分岐には影響させない）で加える。 */
-  return Math.min(KOTONOHA_XP_CAP, Math.floor(fromLevels + effectiveBonusExp(st) + (st.hyakuninBonusExp||0) + (st.bunsetsuGiriBonusExp||0) + totalUnlockCelebrationExp(st)));
+     文節斬り（言の刃斬）の巻クリア・オールクリアぶん（st.bunsetsuGiriBonusExp、
+     2026-08-16〜）、ボキャブラ・シューティングの自己ベスト100点大台突破ぶん
+     （st.vocabShooterBonusExp、2026-08-17〜）も、hyakuninBonusExpと全く同じ扱い
+     （分野に関係なく全額加算、進化の分岐には影響させない）で加える。 */
+  return Math.min(KOTONOHA_XP_CAP, Math.floor(fromLevels + effectiveBonusExp(st) + (st.hyakuninBonusExp||0) + (st.bunsetsuGiriBonusExp||0) + (st.vocabShooterBonusExp||0) + totalUnlockCelebrationExp(st)));
 }
 function spentStatPoints(st){
   return Object.values(st.stats||{}).reduce((sum,v) => sum + (v||0), 0);
@@ -2825,9 +2902,11 @@ function kotonohaTotalXP(st){
      見るがst.hyakuninBonusExp自体は見ないので、この変更後も進化の分岐判定には影響しない。
      問題全開放のお祝い経験値（totalUnlockCelebrationExp、2026-08-03〜）も同様に加算するだけで、
      進化の分岐には影響しない。
-     文節斬りの1文クリアぶん（st.bunsetsuGiriBonusExp、2026-08-16〜）も、hyakuninBonusExpと
-     全く同じ位置づけで加える（教員の指示：「一文クリアすると、経験値が1獲得できるように」）。 */
-  return Math.min(KOTONOHA_XP_CAP, Math.floor(CAT_KEYS.reduce((sum,k)=> sum + catExpPoints(st.lv[k]||1), 0) + effectiveBonusExp(st) + (st.hyakuninBonusExp||0) + (st.bunsetsuGiriBonusExp||0) + totalUnlockCelebrationExp(st)));
+     文節斬り（言の刃斬）の巻クリア・オールクリアぶん（st.bunsetsuGiriBonusExp、
+     2026-08-16〜。1文クリアぶんは2026-08-17〜、分野レベル「識別」に組み替え済み）、
+     ボキャブラ・シューティングの自己ベスト100点大台突破ぶん（st.vocabShooterBonusExp、
+     2026-08-17〜）も、hyakuninBonusExpと全く同じ位置づけで加える。 */
+  return Math.min(KOTONOHA_XP_CAP, Math.floor(CAT_KEYS.reduce((sum,k)=> sum + catExpPoints(st.lv[k]||1), 0) + effectiveBonusExp(st) + (st.hyakuninBonusExp||0) + (st.bunsetsuGiriBonusExp||0) + (st.vocabShooterBonusExp||0) + totalUnlockCelebrationExp(st)));
 }
 function kotonohaOtherType(st, stageIdx){
   const roll = st.kotonohaOtherRoll;
@@ -3738,6 +3817,7 @@ function showHome(){
   let html = "";
   html += kotonohaCardHtml(st);
   html += storyEntryHtml(st);
+  html += miniGameEntryHtml(st);
   html += balancedTrainingBtnHtml();
   html += notLearnedBtnHtml(st);
   html += bossTicketHtml(st);
@@ -9354,9 +9434,9 @@ const STORY_SIDEQUESTS = {
     epilogue: "「おつかれさま！ 自己ベストは更新できたかな？\nまた挑戦して、記録をのばしてね。」",
   },
   sqBunsetsu: {
-    title: "文節斬り",
+    title: "言の刃（ことのは）斬～ZAN～",
     beats: [
-      {type:"line", speaker:"ことのは", text:"今度は「文節斬り」だよ。文字が一つ流れるたびに一拍。\n拍にのって、大太刀（文節の切れ目）と小刀（単語の切れ目）で斬っていくよ。遊び方は、この次の画面でも説明するね。"},
+      {type:"line", speaker:"ことのは", text:"今度は「言の刃斬～ZAN～」だよ。文字が一つ流れるたびに一拍。\n拍にのって、大太刀（文節の切れ目）と小刀（単語の切れ目）で斬っていくよ。遊び方は、この次の画面でも説明するね。"},
       {type:"bunsetsu"},
     ],
     epilogue: "「おつかれさま！ まちがえたところは、ちゃんと理由を覚えておいてね。」",
@@ -9390,10 +9470,21 @@ function storyProgress(st){
 }
 function storyEntryHtml(st){
   return `
-    <div class="card menu-card story-btn" onclick="showStoryMenu()">
+    <div class="card menu-card story-btn" onclick="showMainStoryMenu()">
       <div class="menu-icon">📖</div>
       <div><h2>ストーリーモード</h2>
       <p>ことのはと一緒に、中学校生活を歩む物語</p></div>
+    </div>`;
+}
+/* ミニゲーム（旧サブクエスト）の入口カード。ストーリーモードのすぐ下、ホーム画面に
+   直接置く（教員の指示、2026-08-17〜。以前は「ストーリーモード」→「メインストーリー／
+   サブクエスト」の2段の選択だったが、ミニゲームを独立させて1段で行けるようにした）。 */
+function miniGameEntryHtml(st){
+  return `
+    <div class="card menu-card minigame-btn" onclick="showSideQuestMenu()">
+      <div class="menu-icon">🎮</div>
+      <div><h2>ミニゲーム</h2>
+      <p>いつでも遊べる番外編（旧サブクエスト）</p></div>
     </div>`;
 }
 /* 章選択画面。STORY_CHAPTERSのキーをそのまま順番にボタン化するので、
@@ -9401,30 +9492,9 @@ function storyEntryHtml(st){
 /* 「夏休み明けのテスト範囲」の目印（2026-07-22〜、教員の指示）。この章のカードの直後に、
    目立つ帯を1本はさむ。テスト範囲が変わったら、この定数のキーを書き換えるだけでよい。 */
 const STORY_TEST_RANGE_MARKER = {afterChapter:"ch7", label:"📝 夏休み明けのテスト範囲は、ここまで！"};
-/* ストーリー画面の入口。「メインストーリー」か「サブクエスト」かをまず選ばせる
-   2択画面にする（教員の指示、2026-08-10〜。以前は1画面に両方をまとめて表示していたが、
-   煩雑という指摘を受けて分離した）。 */
-function showStoryMenu(){
-  screen.innerHTML = `
-    <div class="card"><h3 class="section">📖 ストーリーモード</h3>
-      <p class="note">ことのはと一緒に歩む物語です。「メインストーリー」か「サブクエスト」かを選んでね。</p></div>
-    <div class="card menu-card" onclick="showMainStoryMenu()">
-      <div class="menu-icon">📖</div>
-      <div><h2>メインストーリー</h2><p>ことのはと一緒に、中学校生活を歩む物語</p></div>
-      <div class="right"><span class="shogo-badge">すすむ</span></div>
-    </div>
-    <div class="card menu-card" onclick="showSideQuestMenu()">
-      <div class="menu-icon">⭐</div>
-      <div><h2>サブクエスト</h2><p>メインストーリーとは関係なく、いつでも遊べる番外編</p></div>
-      <div class="right"><span class="shogo-badge">すすむ</span></div>
-    </div>
-    <div class="btn-row" style="justify-content:center; margin-top:10px">
-      <button class="btn secondary" onclick="showHome()">ホームへ</button>
-    </div>`;
-}
 function showMainStoryMenu(){
   const st = loadStats();
-  let html = `<div class="card"><h3 class="section">📖 メインストーリー</h3>
+  let html = `<div class="card"><h3 class="section">📖 第一部</h3>
     <p class="note">ことのはと一緒に、中学校生活を歩む物語です。章を選んで読み進めよう。前の章をクリアすると、次の章が解放されます。</p></div>`;
   html += Object.keys(STORY_CHAPTERS).map(key => {
     const marker = key === STORY_TEST_RANGE_MARKER.afterChapter
@@ -9432,17 +9502,17 @@ function showMainStoryMenu(){
     return storyChapterButtonHtml(key, st) + marker;
   }).join("");
   html += `<div class="btn-row" style="justify-content:center; margin-top:10px">
-    <button class="btn secondary" onclick="showStoryMenu()">戻る</button>
+    <button class="btn secondary" onclick="showHome()">ホームへ</button>
   </div>`;
   screen.innerHTML = html;
 }
 function showSideQuestMenu(){
   const st = loadStats();
-  let html = `<div class="card"><h3 class="section">⭐ サブクエスト</h3>
-    <p class="note">メインストーリーの進み具合とは関係なく、いつでも遊べる番外編です。</p></div>`;
+  let html = `<div class="card"><h3 class="section">🎮 ミニゲーム</h3>
+    <p class="note">ストーリーの進み具合とは関係なく、いつでも遊べる番外編です。</p></div>`;
   html += Object.keys(STORY_SIDEQUESTS).map(key => storySideQuestButtonHtml(key, st)).join("");
   html += `<div class="btn-row" style="justify-content:center; margin-top:10px">
-    <button class="btn secondary" onclick="showStoryMenu()">戻る</button>
+    <button class="btn secondary" onclick="showHome()">戻る</button>
   </div>`;
   screen.innerHTML = html;
 }
@@ -9518,7 +9588,7 @@ function storyChapterButtonHtml(key, st){
 function startStoryMode(chapterKey){
   if(chapterKey){
     const st = loadStats();
-    if(!storyChapterUnlocked(chapterKey, st)){ showStoryMenu(); return; }
+    if(!storyChapterUnlocked(chapterKey, st)){ showHome(); return; }
     const sp = storyProgress(st);
     /* サブクエストは「クリア」という概念のない常設スコアアタックのため、メインストーリーの
        既存の挙動（クリア済みの章をタップすると、まずクリア画面だけを再表示する。作り直すには
@@ -11001,6 +11071,7 @@ function vsOverlayHtml(){
     return `
       <div class="vs-overlay">
         ${shoot.isNewRecord ? `<div class="vs-newbest">🎉 自己ベスト更新！ 🎉</div>` : ``}
+        ${shoot.xpGained > 0 ? `<div class="vs-xp-celebrate">🏆 自己ベストで${shoot.xpTierReached}点を初めて超えたので、<br>お祝いとして経験値＋${shoot.xpGained}獲得した！</div>` : ``}
         <div class="vs-overlay-big">${shoot.finalScore} 点</div>
         <p>自己ベスト：${shoot.bestAfter}点</p>
         <div class="vs-level-result">
@@ -11618,7 +11689,26 @@ function vsEndGame(){
   const st = loadStats();
   const prevBest = st.vocabShooterHighScore || 0;
   const isNewRecord = shoot.score > 0 && shoot.score > prevBest;
-  if(isNewRecord){ st.vocabShooterHighScore = shoot.score; saveStats(st); }
+  shoot.xpGained = 0; shoot.xpTierReached = 0;
+  if(isNewRecord){
+    st.vocabShooterHighScore = shoot.score;
+    /* 自己ベストが100点きざみの大台（100・200・300…）を初めて超えるたびに、お祝いとして
+       経験値＋10（教員の指示、2026-08-17〜）。すでに超えた大台は、以後は同じか下回る
+       自己ベストを出しても再加算しない。いきなり400点なら、100〜400の4段ぶんまとめて
+       ＋40。次に一度も更新できなかったあと500点を初めて超えたら、そのぶんだけ＋10。
+       すでに超えた大台の位置は、st.vocabShooterXpTier（超えた最大の「◯◯0点」÷100）に
+       持たせておく。 */
+    const oldTier = st.vocabShooterXpTier || 0;
+    const newTier = Math.floor(shoot.score / 100);
+    if(newTier > oldTier){
+      const gained = (newTier - oldTier) * 10;
+      st.vocabShooterBonusExp = (st.vocabShooterBonusExp||0) + gained;
+      st.vocabShooterXpTier = newTier;
+      shoot.xpGained = gained;
+      shoot.xpTierReached = newTier * 100;
+    }
+    saveStats(st);
+  }
   shoot.finalScore = shoot.score;
   shoot.isNewRecord = isNewRecord;
   shoot.bestAfter = Math.max(prevBest, shoot.score);
@@ -12317,6 +12407,9 @@ function bgLoadRec(){
   BG_REC = (st.bunsetsuGiri && st.bunsetsuGiri.open) ? st.bunsetsuGiri : {open:1, rank:{}, best:{}};
   if(!BG_REC.rank) BG_REC.rank={};
   if(!BG_REC.best) BG_REC.best={};
+  /* 「文節」編・「単語」編・最後の巻のオールクリアお祝い（＋30経験値・ド派手な演出）は
+     一度きりなので、すでにお祝い済みかどうかをここに持たせる（教員の指示、2026-08-17〜）。 */
+  if(!BG_REC.milestones) BG_REC.milestones = {bunsetsu:false, tango:false, final:false};
 }
 function bgSaveRec(){
   const st = loadStats();
@@ -12834,8 +12927,8 @@ function bgUpdateSentence(){
       bgAddScore(300*bgComboMult());
       bgBanner("一刀両断","＋三〇〇");
       bgSndClear();
+      bgLevelUpShikibetsu();
     }
-    bgGrantSentenceXP();
     BG.sentenceClean=true;
     BG.sentenceLifeLost=false;
     BG.curSentence++;
@@ -12846,14 +12939,24 @@ function bgUpdateSentence(){
   const doneReal=BG.track.sentences.slice(0,BG.curSentence+1).filter(x=>x.kind!=="demo").length;
   bg$("bgInfoNo").textContent = "第"+bgKansuji(Math.max(1,Math.min(real.length,doneReal)))+"文／"+bgKansuji(real.length);
 }
-/* 1文クリアするたびに、ことのはの経験値を1もらう（教員の指示、2026-08-16〜）。
-   百人一首コーナーのst.hyakuninBonusExpと全く同じ位置づけ（分野レベルst.lv・進化の
-   分岐には一切影響させず、経験値の合計にだけ加算する。totalEarnedStatPoints・
-   kotonohaTotalXP側の加算はすでに済ませてある）。手本（kind==="demo"）は自分で
-   斬っていないので対象外（bgUpdateSentenceのdemo分岐からはそもそも呼ばれない）。 */
-function bgGrantSentenceXP(){
+/* 1文をノーミスでクリアするたびに、分野レベルの「識別」を1つ上げる（教員の指示、
+   2026-08-17〜：「分野レベルの『識別』に影響するようにして。経験値の＋も、それに
+   応じて変更があるようにする」）。以前はst.bunsetsuGiriBonusExpという、どの分野にも
+   属さない専用の経験値ぷ―ルに+1していたが、それをやめて、record()のレベルアップ
+   処理（st.lv[cat]++・totalLevelUps・10回ごとの挑戦チケット）だけを、識別カテゴリに
+   対してその場で再現する。record()本体は呼ばない：本体はst.q（問題ごとの正誤履歴）・
+   間隔反復レビュー・分野の出題プール解放率のような、実在の問題プールを前提にした
+   仕組みも一緒に更新してしまい、文節斬りの文（QUESTION_DATA外）には当てはまらないため。
+   st.bunsetsuGiriBonusExpの加算自体は今後行わないが、これまでに貯まった分は
+   kotonohaTotalXP/totalEarnedStatPoints側の加算式にそのまま残してあるので、
+   すでに稼いだ経験値が消えることはない。 */
+function bgLevelUpShikibetsu(){
   const st = loadStats();
-  st.bunsetsuGiriBonusExp = (st.bunsetsuGiriBonusExp||0) + 1;
+  if((st.lv.shikibetsu||1) < MAX_CAT_LV){
+    st.lv.shikibetsu = (st.lv.shikibetsu||1) + 1;
+    st.totalLevelUps = (st.totalLevelUps||0) + 1;
+    if(st.totalLevelUps % 10 === 0) st.bossTickets = (st.bossTickets||0) + 1;
+  }
   saveStats(st);
 }
 const BG_KANSUJI=["〇","一","二","三","四","五","六","七","八","九","十"];
@@ -13138,19 +13241,32 @@ function bgMistakeDetailHtml(){
   html += '</div>';
   return html;
 }
+/* 「文節」編（一の巻〜三の巻、大太刀のみ）・「単語」編（四の巻・五の巻、小刀のみ）・
+   最後の巻（奥ノ巻）の区切り（教員の指示、2026-08-17〜）。 */
+const BG_BUNSETSU_STAGE_IDS = [1,2,3];
+const BG_TANGO_STAGE_IDS = [4,5];
+const BG_FINAL_STAGE_ID = 8;
+/* 巻クリア（＋10）・オールクリアのお祝い（＋30）ぶんの経験値。以前の1文クリアぶんと違い、
+   こちらは特定の分野レベルには結びつけない、達成お祝い型の経験値として、
+   st.bunsetsuGiriBonusExp（百人一首のhyakuninBonusExpと同じ位置づけ）にそのまま足す。 */
+function bgGrantBonusExp(amount){
+  const st = loadStats();
+  st.bunsetsuGiriBonusExp = (st.bunsetsuGiriBonusExp||0) + amount;
+  saveStats(st);
+}
 function bgShowResult(){
   const fieldEl=bg$("bgField"), veilEl=bg$("bgVeil");
   fieldEl.classList.remove("peril");
   bg$("bgBtnCut").disabled=false; bg$("bgBtnKo").disabled=false;
 
   /* ライフが尽きた回は「クリアできず」の扱いにする（教員の指示、2026-08-15〜）。
-     段位は付けず、自己ベスト・巻の解放にも一切数えない。まちがいの解説は
+     段位は付けず、自己ベスト・巻の解放・クリア経験値にも一切数えない。まちがいの解説は
      力尽きた回こそ大事なので、ここでも変わらず見せる。 */
   const failed = !!BG.failed;
   const r = failed ? {mark:"力尽きた", good:false, msg:"ライフがなくなり、クリアできませんでした。もう一度挑戦してみよう。"} : bgRankOf();
   bgSndRank(r.good);
   const key=BG.stage.id+"_"+BG.tempo.key;
-  let isBest=false, opened=false;
+  let isBest=false, opened=false, cleared=false, milestone=null;
   if(!failed){
     isBest = BG.score > (BG_BEST[key]||0);
     if(isBest) BG_BEST[key]=BG.score;
@@ -13159,6 +13275,24 @@ function bgShowResult(){
     const wasRank = BG_REC.rank[sid];
     if(BG_RANK_ORDER[r.mark] > (wasRank!==undefined ? BG_RANK_ORDER[wasRank] : -1)) BG_REC.rank[sid]=r.mark;
     if(BG_RANK_ORDER[r.mark]>=1 && BG_REC.open===sid && sid<BG_STAGES.length){ BG_REC.open=sid+1; opened=true; }
+    /* 巻を1つクリアするごとに＋10（教員の指示：「巻を一つクリアするごとに、経験値＋10を
+       与える」。初伝以上ならクリア扱いで、同じ巻を何度クリアしても毎回もらえる）。 */
+    cleared = BG_RANK_ORDER[r.mark] >= 1;
+    if(cleared){
+      bgGrantBonusExp(10);
+      /* オールクリアのお祝い（＋30、ド派手な演出）は一度きり。BG_REC.rankを更新した
+         あとで判定するので、「今回のクリアでちょうど揃った」瞬間を正しく検出できる。 */
+      if(BG_BUNSETSU_STAGE_IDS.includes(sid) && !BG_REC.milestones.bunsetsu && BG_BUNSETSU_STAGE_IDS.every(id=>BG_REC.rank[id])){
+        BG_REC.milestones.bunsetsu=true; bgGrantBonusExp(30);
+        milestone={title:"「文節」編マスター達成！", sub:"一の巻〜三の巻を、すべて突破した"};
+      }else if(BG_TANGO_STAGE_IDS.includes(sid) && !BG_REC.milestones.tango && BG_TANGO_STAGE_IDS.every(id=>BG_REC.rank[id])){
+        BG_REC.milestones.tango=true; bgGrantBonusExp(30);
+        milestone={title:"「単語」編マスター達成！", sub:"四の巻・五の巻を、すべて突破した"};
+      }else if(sid===BG_FINAL_STAGE_ID && !BG_REC.milestones.final){
+        BG_REC.milestones.final=true; bgGrantBonusExp(30);
+        milestone={title:"免許皆伝！全巻クリア！", sub:"奥ノ巻を突破し、すべての巻を制した"};
+      }
+    }
     bgSaveRec();
   }
 
@@ -13175,6 +13309,8 @@ function bgShowResult(){
     '<div class="sub">'+r.msg+'</div>'+
     '<div class="big" id="bgBigScore">'+BG.score+'</div><div class="sub">得点</div>'+
     (failed ? "" : isBest?'<div class="newbest">自 己 最 高</div>':'<div class="sub" style="margin-top:6px">最高 '+(BG_BEST[key]||0)+'</div>')+
+    (cleared?'<div class="xp-note">🎉 巻クリア！　経験値＋10</div>':"")+
+    (milestone?'<div class="xp-milestone-note">🏆 '+milestone.title+'　経験値＋30</div>':"")+
     '<div class="timing"><span>斬れた <b>'+BG.hit+'</b>／'+need+'</span>'+
       '<span>会心 <b>'+BG.perfect+'</b></span><span>最大連斬 <b>'+BG.maxCombo+'</b></span></div>'+
     '<div class="timing"><span>早い <b>'+early+'</b></span><span>ちょうど <b>'+BG.perfect+'</b></span><span>遅い <b>'+late+'</b></span></div>'+
@@ -13187,10 +13323,44 @@ function bgShowResult(){
   bgAnimateScore(bg$("bgBigScore"), BG.score);
   if(opened) setTimeout(()=>{ const c=bgAc(); if(c){ const t=c.currentTime;
     [523.3,659.3,784.0,1046.5].forEach((f,i)=>bgTone(c,"triangle",f,f,t+i*0.12,0.55,0.14)); } }, 500);
+  if(milestone) setTimeout(()=>bgFxMilestone(milestone.title, milestone.sub), 550);
   bg$("bgAgain").onclick=()=>bgStartStage(BG.stage.id, BG.tempo);
   if(bg$("bgNext")) bg$("bgNext").onclick=()=>bgShowRule(nextStage.id);
   bg$("bgHome").onclick=bgTitle;
   bg$("bgAgain").focus();
+}
+/* オールクリアお祝いの、ド派手な演出（教員の指示、2026-08-17〜）。#bgApp全体を覆う
+   高いz-indexの層に、白フラッシュ→金の落款スタンプ→紙吹雪の順で重ねる。留めの全問正解
+   演出（廃止済み）よりもさらに大きく、長く見せる。 */
+function bgFxMilestone(title, sub){
+  const root = bg$("bgApp");
+  const wrap = document.createElement("div");
+  wrap.className = "milestoneFx";
+  const flash = document.createElement("div");
+  flash.className = "milestoneFx-flash";
+  wrap.appendChild(flash);
+  const stamp = document.createElement("div");
+  stamp.className = "milestoneFx-stamp";
+  stamp.innerHTML = '<b>'+title+'</b><small>'+sub+'</small>';
+  wrap.appendChild(stamp);
+  const colors=["var(--shu)","var(--kin)","var(--ai-l)","var(--midori)"];
+  for(let i=0;i<48;i++){
+    const c=document.createElement("div");
+    c.className="milestoneFx-confetti";
+    c.style.left=Math.round(Math.random()*98)+"%";
+    c.style.background=colors[i%colors.length];
+    c.style.setProperty("--fy",(70+Math.random()*40)+"vh");
+    c.style.setProperty("--fr",Math.round((Math.random()-0.5)*900)+"deg");
+    c.style.animationDelay=(Math.random()*0.5)+"s";
+    wrap.appendChild(c);
+  }
+  root.appendChild(wrap);
+  const ctx=bgAc();
+  if(ctx){
+    const t=ctx.currentTime;
+    [523.3,659.3,784.0,1046.5,1318.5,1568.0].forEach((f,i)=>bgTone(ctx,"triangle",f,f,t+i*0.09,0.6,0.15));
+  }
+  setTimeout(()=>wrap.remove(), 2600);
 }
 
 /* =========================================================================
@@ -13356,7 +13526,7 @@ function bgTitle(){
   if(bgRaf){ cancelAnimationFrame(bgRaf); bgRaf=null; bgLastT=0; }
   const cellsEl=bg$("bgCells"), fieldEl=bg$("bgField"), veilEl=bg$("bgVeil");
   cellsEl.innerHTML=""; fieldEl.classList.remove("peril");
-  bg$("bgHudTitle").textContent="文節斬り";
+  bg$("bgHudTitle").textContent="言の刃斬";
   bg$("bgInfoLv").textContent="—"; bg$("bgInfoNo").textContent=""; bg$("bgInfoBpm").textContent="";
   bg$("bgProg").style.width="0";
 
@@ -13402,7 +13572,8 @@ function bgTitle(){
     '</div>';
 
   veilEl.innerHTML=
-    '<h1>文節斬り</h1><div class="rule"></div>'+
+    '<div class="kzTitle"><span class="kz-main">言の刃</span><span class="kz-zan">斬</span><span class="kz-sub">～ Z A N ～</span></div>'+
+    '<div class="rule"></div>'+
     '<p style="margin-bottom:10px">文字が一つ通るたびに<b>一拍</b>。<br>拍にのって、切れ目だけを斬る。</p>'+
     guideRow +
     seal + tempos + '<div class="stagelist">'+cards+'</div>';
@@ -13483,7 +13654,7 @@ function bgSkeletonHtml(){
   return `
   <div id="bgApp">
     <div class="hud">
-      <span class="title" id="bgHudTitle">文節斬り</span>
+      <span class="title" id="bgHudTitle">言の刃斬</span>
       <span class="gauge" id="bgLifeBox"></span>
       <span class="gauge">連斬 <b id="bgHudCombo">0</b></span>
       <span class="multBox" id="bgMultBox"><span class="x">×</span><span class="v" id="bgMultV">1.0</span></span>
