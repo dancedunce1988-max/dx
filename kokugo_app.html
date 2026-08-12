@@ -1199,6 +1199,34 @@
     animation:bgItemPulse 0.7s ease-in-out infinite;
   }
   @keyframes bgItemPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.18);}}
+  /* アイテム回収の軽い演出（教員の指示、2026-08-16〜） */
+  #bgApp .itemFxCore{
+    position:absolute; left:50%; top:0; width:30px; height:30px; margin:-15px 0 0 -15px;
+    border-radius:50%; pointer-events:none; z-index:6;
+    background:radial-gradient(circle,#fff 0%,var(--fxc,#2f7d5b) 55%,transparent 75%);
+    animation:itemFxCore .4s ease-out forwards;
+  }
+  @keyframes itemFxCore{0%{opacity:.95;transform:scale(.3);}100%{opacity:0;transform:scale(2.4);}}
+  #bgApp .itemFxSpark{
+    position:absolute; left:50%; top:0; width:6px; height:6px; margin:-3px 0 0 -3px;
+    border-radius:50%; pointer-events:none; z-index:6;
+    animation:itemFxSpark .48s cubic-bezier(.15,.7,.3,1) forwards;
+  }
+  @keyframes itemFxSpark{
+    0%{opacity:1; transform:translate(0,0) scale(1);}
+    100%{opacity:0; transform:translate(var(--dx),var(--dy)) scale(.4);}
+  }
+  #bgApp .itemFxLabel{
+    position:absolute; left:0; right:0; text-align:center; pointer-events:none;
+    font-family:var(--mincho); font-weight:700; font-size:1rem; letter-spacing:.1em;
+    z-index:7; animation:itemFxLabel .95s ease-out forwards; white-space:nowrap;
+  }
+  #bgApp .itemFxSub{ display:block; font-size:.66rem; letter-spacing:.06em; margin-top:3px; opacity:.9; }
+  @keyframes itemFxLabel{
+    0%{opacity:0; transform:translateY(10px) scale(.85);}
+    20%{opacity:1; transform:translateY(0) scale(1);}
+    100%{opacity:0; transform:translateY(-22px) scale(1);}
+  }
 
   /* 斬撃線：拍ごとに脈打つ */
   #bgApp .blade{position:absolute;left:0;right:0;height:0;pointer-events:none;}
@@ -1398,7 +1426,7 @@
     padding:22px;text-align:center;z-index:20;overflow-y:auto;}
   #bgApp .veil h1{font-family:var(--mincho);font-size:2rem;letter-spacing:.4em;color:var(--ai);font-weight:600;padding-left:.4em;}
   #bgApp .veil .rule{width:52px;height:2px;background:var(--shu);margin:13px 0 15px;}
-  #bgApp .veil p{font-size:.82rem;color:var(--sub);line-height:1.9;letter-spacing:.03em;max-width:350px;}
+  #bgApp .veil p{font-size:.82rem;color:var(--sub);line-height:1.9;letter-spacing:.03em;max-width:400px;}
   #bgApp .veil p b{color:var(--sumi);font-weight:600;}
   #bgApp .veil .big{font-family:var(--mincho);font-size:2.9rem;letter-spacing:.1em;color:var(--sumi);
     margin:6px 0 2px;font-variant-numeric:tabular-nums;font-weight:600;}
@@ -1412,8 +1440,38 @@
     font-size:.8rem;letter-spacing:.2em;padding:9px 20px 9px 24px;margin-top:10px;}
   #bgApp .btn:focus-visible,#bgApp .maai:focus-visible{outline:2px solid var(--shu);outline-offset:2px;}
 
+  /* 解説コーナー「文節の切り方」「単語の切り方」（教員の指示、2026-08-16〜） */
+  #bgApp .guide-row{ display:flex; gap:8px; justify-content:center; margin:2px 0 16px; flex-wrap:wrap; }
+  #bgApp .guide-row .btn{ margin-top:0; font-size:.7rem; letter-spacing:.05em; padding:9px 14px 9px 18px; }
+  #bgApp .guide{ width:100%; max-width:400px; text-align:left; margin:4px 0 6px; }
+  #bgApp .guide h2{ font-family:var(--mincho); font-size:1.2rem; color:var(--ai); text-align:center;
+    letter-spacing:.14em; margin-bottom:4px; padding-left:.14em; }
+  #bgApp .guide h3{ font-family:var(--mincho); font-size:.84rem; color:var(--shu); letter-spacing:.04em;
+    margin:18px 0 8px; padding-left:8px; border-left:4px solid var(--shu); line-height:1.5; }
+  #bgApp .guide p{ font-size:.78rem; color:var(--sumi); line-height:1.95; letter-spacing:.02em; margin-bottom:8px;
+    overflow-wrap:break-word; }
+  #bgApp .guide p b{ color:var(--shu); font-weight:700; }
+  #bgApp .guide-lead{ text-align:center!important; color:var(--sub)!important; font-size:.76rem!important;
+    line-height:1.9!important; margin:6px 0 14px!important; }
+  #bgApp .guide-ex{ background:var(--maki); border:1px solid var(--line); border-left:4px solid var(--ai-l);
+    border-radius:2px; padding:10px 12px; margin:8px 0; }
+  #bgApp .guide-ex-cut{ font-family:var(--mincho); font-size:.94rem; font-weight:600; color:var(--sumi);
+    letter-spacing:.02em; line-height:1.9; overflow-wrap:break-word; }
+  #bgApp .guide-ex-cut .cutmk{ color:var(--shu); font-weight:700; }
+  #bgApp .guide-ex-note{ font-size:.68rem; color:var(--sub); margin-top:6px; line-height:1.8; }
+  #bgApp .guide-table{ margin:8px 0; }
+  #bgApp .guide-table-row{ display:flex; gap:8px; padding:7px 0; border-top:1px solid var(--line);
+    font-size:.72rem; line-height:1.9; }
+  #bgApp .guide-table-row:first-child{ border-top:none; }
+  #bgApp .guide-table-h{ flex-shrink:0; width:3.4em; font-family:var(--mincho); font-weight:700; color:var(--ai); }
+  #bgApp .guide-jump{ text-align:center; font-size:.68rem; color:var(--sub); margin-top:18px; letter-spacing:.02em; }
+  /* 「単語の切り方を読む」のような長いボタン文字は、既定の.btn（letter-spacing:.34em/.2em、
+     短い「はじめる」等の4文字前後を想定）のままだと折り返しが増えて窮屈になるので、
+     字間を詰めて1〜2行で収まりやすくする。 */
+  #bgApp .guide-nav-btn{ font-size:.78rem; letter-spacing:.04em; padding:11px 20px 11px 22px; }
+
   /* 段の一覧 */
-  #bgApp .stagelist{width:100%;max-width:360px;display:flex;flex-direction:column;gap:9px;margin-top:6px;}
+  #bgApp .stagelist{width:100%;max-width:400px;display:flex;flex-direction:column;gap:9px;margin-top:6px;}
   #bgApp .stagecard{background:var(--maki);border:1px solid var(--line);border-left:5px solid var(--ai);
     border-radius:2px;padding:12px 14px;text-align:left;cursor:pointer;
     box-shadow:0 2px 0 rgba(120,105,80,.2);transition:transform .08s,box-shadow .08s;}
@@ -1431,7 +1489,7 @@
   #bgApp .stagecard.locked:active{transform:none;}
 
   /* 免許状：通した巻が朱の落款で埋まっていく */
-  #bgApp .menkyo{width:100%;max-width:360px;background:var(--maki);border:1px solid var(--line);
+  #bgApp .menkyo{width:100%;max-width:400px;background:var(--maki);border:1px solid var(--line);
     border-top:3px solid var(--ai);border-bottom:3px solid var(--ai);padding:11px 12px 9px;margin-top:4px;}
   #bgApp .menkyo h3{font-family:var(--mincho);font-size:.76rem;letter-spacing:.42em;color:var(--ai);
     font-weight:600;padding-left:.42em;margin-bottom:9px;}
@@ -1451,14 +1509,14 @@
   @keyframes unlockGo{0%{opacity:0;transform:scale(.6);}55%{opacity:1;transform:scale(1.07);}100%{transform:scale(1);}}
 
   /* 速さ（曲じゅう変わらない。だから拍が身体に入る） */
-  #bgApp .temporow{display:flex;gap:8px;width:100%;max-width:360px;margin:14px 0 4px;}
+  #bgApp .temporow{display:flex;gap:8px;width:100%;max-width:400px;margin:14px 0 4px;}
   #bgApp .tempo{flex:1;background:transparent;border:1px solid var(--line);border-radius:2px;padding:8px 2px;
     cursor:pointer;font-family:var(--mincho);font-size:.86rem;letter-spacing:.14em;color:var(--sub);}
   #bgApp .tempo.on{background:var(--ai);color:#f2ede0;border-color:var(--ai);}
   #bgApp .tempo span{display:block;font-family:var(--gothic);font-size:.56rem;letter-spacing:.04em;margin-top:3px;opacity:.85;}
 
   /* 判定の内わけ */
-  #bgApp .tally{margin-top:16px;width:100%;max-width:340px;text-align:left;border-top:1px solid var(--line);padding-top:11px;}
+  #bgApp .tally{margin-top:16px;width:100%;max-width:400px;text-align:left;border-top:1px solid var(--line);padding-top:11px;}
   #bgApp .tally h3{font-size:.7rem;letter-spacing:.22em;color:var(--sub);margin-bottom:8px;font-weight:600;}
   #bgApp .tally .row{display:flex;align-items:baseline;gap:8px;font-size:.77rem;padding:3px 0;}
   #bgApp .tally .row .nm{color:var(--sumi);}
@@ -1502,7 +1560,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.135</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.136</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -1696,7 +1754,7 @@ function emptyStats(){
   const diffLv = {};
   CAT_KEYS.forEach(k => { cats[k] = {t:0,c:0}; lv[k] = 1; diffLv[k] = 1; });
   return {cats, q:{}, lv, diffLv, items:{}, usedTreasures:{}, usedStoryRewards:{}, bossPity:{}, bossItemPity:{}, kotonohaOtherRoll:null, bossTickets:0, totalLevelUps:0,
-    bonusExp:0, hyakuninBonusExp:0, stats:{hp:0, atk:0, def:0, spd:0, luck:0}, kotonohaSeenForms:[], kotonohaDisplayOverride:null, specialMoveUnlocked:false, storyFaceUnlocked:false,
+    bonusExp:0, hyakuninBonusExp:0, bunsetsuGiriBonusExp:0, stats:{hp:0, atk:0, def:0, spd:0, luck:0}, kotonohaSeenForms:[], kotonohaDisplayOverride:null, specialMoveUnlocked:false, storyFaceUnlocked:false,
     kotonohaRebirthUnlocked:false, kotonohaRebirth:null, kotonohaRebirthLinesSeen:[], kotonohaSeigakiMeienUnlocked:false, groupUnlock:{},
     kanjiWrite:{totalOk:0, itemHist:{}, levelRecent:{}},
     kanjiWriteElem:{totalOk:0, itemHist:{}, targetLv:1, recent:[]},
@@ -1739,8 +1797,10 @@ function totalEarnedStatPoints(st){
      判定しておりここには関与しないため、この変更で分岐判定への影響はない。
      問題全開放のお祝い経験値（totalUnlockCelebrationExp、2026-08-03〜）も同じ扱いで加算する。
      こちらもst.lvの分布ではなくst.groupUnlockから毎回その場で導出するだけなので、
-     進化の分岐には影響しない。 */
-  return Math.min(KOTONOHA_XP_CAP, Math.floor(fromLevels + effectiveBonusExp(st) + (st.hyakuninBonusExp||0) + totalUnlockCelebrationExp(st)));
+     進化の分岐には影響しない。
+     文節斬りの1文クリアぶん（st.bunsetsuGiriBonusExp、2026-08-16〜）も、hyakuninBonusExpと
+     全く同じ扱い（分野に関係なく全額加算、進化の分岐には影響させない）で加える。 */
+  return Math.min(KOTONOHA_XP_CAP, Math.floor(fromLevels + effectiveBonusExp(st) + (st.hyakuninBonusExp||0) + (st.bunsetsuGiriBonusExp||0) + totalUnlockCelebrationExp(st)));
 }
 function spentStatPoints(st){
   return Object.values(st.stats||{}).reduce((sum,v) => sum + (v||0), 0);
@@ -2764,8 +2824,10 @@ function kotonohaTotalXP(st){
      （2026-08-02〜、教員の指示）。totalEarnedStatPointsもkotonohaBaseCategoryもst.lvの分布は
      見るがst.hyakuninBonusExp自体は見ないので、この変更後も進化の分岐判定には影響しない。
      問題全開放のお祝い経験値（totalUnlockCelebrationExp、2026-08-03〜）も同様に加算するだけで、
-     進化の分岐には影響しない。 */
-  return Math.min(KOTONOHA_XP_CAP, Math.floor(CAT_KEYS.reduce((sum,k)=> sum + catExpPoints(st.lv[k]||1), 0) + effectiveBonusExp(st) + (st.hyakuninBonusExp||0) + totalUnlockCelebrationExp(st)));
+     進化の分岐には影響しない。
+     文節斬りの1文クリアぶん（st.bunsetsuGiriBonusExp、2026-08-16〜）も、hyakuninBonusExpと
+     全く同じ位置づけで加える（教員の指示：「一文クリアすると、経験値が1獲得できるように」）。 */
+  return Math.min(KOTONOHA_XP_CAP, Math.floor(CAT_KEYS.reduce((sum,k)=> sum + catExpPoints(st.lv[k]||1), 0) + effectiveBonusExp(st) + (st.hyakuninBonusExp||0) + (st.bunsetsuGiriBonusExp||0) + totalUnlockCelebrationExp(st)));
 }
 function kotonohaOtherType(st, stageIdx){
   const roll = st.kotonohaOtherRoll;
@@ -12317,33 +12379,36 @@ function bgGapTypeOfSentence(si){
 }
 /* 1件のまちがい（BG.missesの要素）から、具体的な語を示した解説文を作る。
    karaburi（空振り）だけは、当たったgapが無い（見当のずれ）ので語を示せない。 */
+/* 文法が苦手な子でも読めるように、（教員の指示、2026-08-16〜）
+   ①その語が何なのか一言で言う → ②なぜそこが切れ目なのか／ではないのかを短く言う →
+   ③次はどうすればいいかで締める、の3段構えにそろえてある。専門用語（自立語・付属語）は
+   必ず、それが何かの説明をカッコで添えてから使う。 */
 function bgExplainMiss(mi){
-  if(!mi.chars) return "拍がずれたか、切れ目のない場所で刀を振りました。あわてずに、拍にのってから斬りましょう。";
+  if(!mi.chars) return "タイミングがずれたか、切れ目のない場所で刀を振っちゃったみたい。あわてなくて大丈夫。拍に合わせて、もう一度ねらってみよう。";
   const chars=mi.chars, gapType=bgGapTypeOfSentence(mi.si), ci=mi.ci;
   if(mi.kind==="gochu"){
     const word = bgStripPunct(bgEnclosingWord(chars, gapType, ci));
     const pos = bgPosOf(word);
-    return (pos ? `「${word}」は${pos}です。` : "")
-      + `一つの単語（「${word}」）の途中なので、ここで分けると意味の通じる言葉になりません。`;
+    return (pos ? `「${word}」は${pos}だよ。` : `「${word}」は、これで1つの言葉だよ。`)
+      + `ここは1つの単語のとちゅう。ここで切ってしまうと、意味がわからないバラバラの音になってしまうよ。`;
   }
   const word = bgStripPunct(bgWordAt(chars, gapType, ci));
   const info = BG_PARTICLE_NOTES[word];
   const wordPos = BG_WORD_POS[word] || "自立語";
   if(mi.kind==="minogashi"){
-    return `「${word}」は${wordPos}（それだけで意味がわかる自立語）です。自立語の直前は、必ず文節の切れ目になります。大太刀で斬りましょう。`;
+    return `「${word}」は${wordPos}だよ。自分1つだけで意味がわかる言葉（これを「自立語」と呼ぶよ）は、いつも新しい文節のスタート地点。だから、ここは大太刀で切ってほしかったところ。`;
   }
   if(mi.kind==="minogashiT"){
     return info
-      ? `「${word}」の前で、単語の切れ目になります。「${word}」は${info.pos}です。${info.note}付属語なので、単語としては切れ目になります。小刀で斬りましょう。`
-      : `「${word}」は付属語（前の言葉にくっついて働く言葉）なので、単語としては切れ目になります。小刀で斬りましょう。`;
+      ? `「${word}」は${info.pos}。${info.note}こういう、前の言葉にくっついてはたらく言葉（「付属語」と呼ぶよ）の前は、単語としては切れ目になる。ここは小刀で切ってほしかったところ。`
+      : `「${word}」は、前の言葉にくっついてはたらく「付属語」だよ。付属語の前は、単語としては切れ目になる。ここは小刀で切ってほしかったところ。`;
   }
   if(mi.kind==="ooburi"){
-    return `「${word}」の前は、単語としては切れますが、文節はまだ続きます。`
-      + (info ? `「${word}」は${info.pos}です。${info.note}` : `「${word}」は付属語（前の自立語にくっついて働く言葉）です。`)
-      + "付属語の前では文節は変わらないので、大太刀ではなく小刀の出番でした。";
+    return (info ? `「${word}」は${info.pos}。${info.note}` : `「${word}」は、前の言葉にくっついてはたらく「付属語」だよ。`)
+      + `付属語は前の自立語とセットで1つの文節を作るから、ここではまだ文節は終わっていないよ。単語としては切れても、文節としてはまだ続いているから、大太刀ではなく小刀の出番だった。`;
   }
   if(mi.kind==="kogatana"){
-    return `「${word}」は${wordPos}（自立語）です。自立語の直前は必ず文節の切れ目になるので、小刀ではなく大太刀の出番でした。`;
+    return `「${word}」は${wordPos}だよ。自分1つだけで意味がわかる言葉（「自立語」）だから、ここから新しい文節が始まる。単語の切れ目でもあるけれど、それ以上に文節の切れ目。だから小刀ではなく大太刀の出番だった。`;
   }
   return "";
 }
@@ -12695,39 +12760,63 @@ function bgSweepMissed(){
     }else break;
   }
 }
-/* ライフ回復アイテム：拍の当たり幅に入っていれば、大太刀・小刀どちらでも拾える
-   （文節・単語の判定とは無関係の、休みの間に浮かぶ別物なので、刀の種類は問わない）。
-   ライフが満タンのときに拾うと、代わりに得点が入る。 */
-function bgCheckItemHit(){
-  const items = (BG.track.items)||[];
-  for(const it of items){
-    if(it.done) continue;
-    if(Math.abs(it.beat-BG.beat) <= BG_WIN_HIT){
-      it.done=true;
-      if(it.el){ it.el.remove(); it.el=null; }
-      if(BG.life < BG_LIFE_MAX){
-        BG.life++;
-        bgVerdict("ライフ回復！","#2f7d5b");
-      }else{
-        bgAddScore(200*bgComboMult());
-        bgVerdict("満タン！＋200","#2f7d5b");
-      }
-      const ctx=bgAc(); if(ctx) bgTone(ctx,"sine",1046.5,1568,ctx.currentTime,0.3,0.12);
-      bgDrawHud();
-      return true;
-    }
-  }
-  return false;
-}
-/* 拾いそこねたアイテムは、当たり幅を過ぎたら静かに消える（ペナルティなし）。 */
+/* ライフ回復アイテム：タップ不要。斬撃線（画面中央あたり）に来た瞬間、自動で回収する
+   （教員の指示、2026-08-16〜：「画面の中央に来たら、軽い演出と共に回復した/得点に
+   ＋したことを伝える」）。ライフが満タンのときに回収すると、代わりに得点が入る。
+   毎フレームbgLoopから呼ばれるので、BG.beatがit.beatを超えた最初のフレームで発火する。 */
 function bgSweepItems(){
   ((BG.track.items)||[]).forEach(it => {
     if(it.done) return;
-    if(BG.beat > it.beat + BG_WIN_HIT){
+    if(BG.beat >= it.beat){
       it.done=true;
+      const y = bgYOf(it.beat);
+      let gained;
+      if(BG.life < BG_LIFE_MAX){
+        BG.life++;
+        gained = {text:"ライフ回復！", sub:"❤ +1", color:"#2f7d5b"};
+      }else{
+        bgAddScore(200*bgComboMult());
+        gained = {text:"ライフは満タン！", sub:"かわりに ＋200点", color:"#9c7c2a"};
+      }
+      bgFxItem(y, gained);
       if(it.el){ it.el.remove(); it.el=null; }
+      const ctx=bgAc(); if(ctx) bgTone(ctx,"sine",1046.5,1568,ctx.currentTime,0.3,0.12);
+      bgDrawHud();
     }
   });
+}
+/* アイテム回収の軽い演出：光の輪が一瞬広がり、粒がぱっと散って、
+   「ライフ回復！／ライフは満タン！」の文字が浮かんで消える（独立版のfxSlashを
+   参考にした簡易版）。 */
+function bgFxItem(y, gained){
+  const fieldEl=bg$("bgField");
+  const core=document.createElement("div");
+  core.className="itemFxCore";
+  core.style.top=y+"px";
+  core.style.setProperty("--fxc", gained.color);
+  fieldEl.appendChild(core);
+  setTimeout(()=>core.remove(), 400);
+
+  const n=7;
+  for(let i=0;i<n;i++){
+    const p=document.createElement("div");
+    p.className="itemFxSpark";
+    p.style.top=y+"px";
+    p.style.background=gained.color;
+    const ang=(i/n)*Math.PI*2 + Math.random()*0.4;
+    p.style.setProperty("--dx", Math.round(Math.cos(ang)*44)+"px");
+    p.style.setProperty("--dy", Math.round(Math.sin(ang)*44)+"px");
+    fieldEl.appendChild(p);
+    setTimeout(()=>p.remove(), 480);
+  }
+
+  const label=document.createElement("div");
+  label.className="itemFxLabel";
+  label.style.top=y+"px";
+  label.style.color=gained.color;
+  label.innerHTML=gained.text+'<span class="itemFxSub">'+gained.sub+'</span>';
+  fieldEl.appendChild(label);
+  setTimeout(()=>label.remove(), 950);
 }
 function bgUpdateSentence(){
   const tr=BG.track;
@@ -12746,6 +12835,7 @@ function bgUpdateSentence(){
       bgBanner("一刀両断","＋三〇〇");
       bgSndClear();
     }
+    bgGrantSentenceXP();
     BG.sentenceClean=true;
     BG.sentenceLifeLost=false;
     BG.curSentence++;
@@ -12755,6 +12845,16 @@ function bgUpdateSentence(){
   const real=BG.track.sentences.filter(x=>x.kind!=="demo");
   const doneReal=BG.track.sentences.slice(0,BG.curSentence+1).filter(x=>x.kind!=="demo").length;
   bg$("bgInfoNo").textContent = "第"+bgKansuji(Math.max(1,Math.min(real.length,doneReal)))+"文／"+bgKansuji(real.length);
+}
+/* 1文クリアするたびに、ことのはの経験値を1もらう（教員の指示、2026-08-16〜）。
+   百人一首コーナーのst.hyakuninBonusExpと全く同じ位置づけ（分野レベルst.lv・進化の
+   分岐には一切影響させず、経験値の合計にだけ加算する。totalEarnedStatPoints・
+   kotonohaTotalXP側の加算はすでに済ませてある）。手本（kind==="demo"）は自分で
+   斬っていないので対象外（bgUpdateSentenceのdemo分岐からはそもそも呼ばれない）。 */
+function bgGrantSentenceXP(){
+  const st = loadStats();
+  st.bunsetsuGiriBonusExp = (st.bunsetsuGiriBonusExp||0) + 1;
+  saveStats(st);
 }
 const BG_KANSUJI=["〇","一","二","三","四","五","六","七","八","九","十"];
 function bgKansuji(n){ if(n<=10) return BG_KANSUJI[n]; if(n<20) return "十"+BG_KANSUJI[n-10];
@@ -12787,7 +12887,6 @@ function bgSlash(blade){
   if(!BG || BG.phase!=="run") return;
   if(!BG.stage.blades.includes(blade)) return;
   if(bgInDemo(BG.beat)){ bgVerdict("いまは見る","#7b7466"); return; }
-  if(bgCheckItemHit()) return;
   const tr=BG.track;
   let best=null, bd=1e9;
   for(let i=Math.max(0,BG.gi-2); i<tr.gaps.length; i++){
@@ -13182,6 +13281,77 @@ function bgShowRule(stageId){
    巻えらび（免許状）（独立版のまま）
    ========================================================================= */
 let bgChosenTempo = BG_TEMPOS[1];
+/* =========================================================================
+   解説コーナー「文節の切り方」「単語の切り方」
+   教員の指示：「勉強が苦手な中学生にも分かるように、例を出しながら、順を追って
+   説明してください」。段位の進行とは無関係に、いつでも読める独立した記事として
+   置く（bgTitleの巻選びから入る）。例文はBUNSETSU_SENTENCESに実在する文をそのまま
+   使う。cutTextは、すでに／・｜で切れ目を書き込んだ完成形の文字列（HTMLの一部）。
+   ========================================================================= */
+function bgGuideEx(cutText, note){
+  return '<div class="guide-ex"><div class="guide-ex-cut">'+cutText+'</div>'+
+    '<div class="guide-ex-note">'+note+'</div></div>';
+}
+const BG_GUIDE_BUNSETSU =
+  '<h2>文節の切り方</h2>'+
+  '<p class="guide-lead">「文節」は、文をこわれない一番小さいまとまりに分けたもの。<br>コツさえつかめば、迷わず切れるようになるよ。</p>'+
+
+  '<h3>①「ね」を入れて読んでみる</h3>'+
+  '<p>文節と文節の間には、「ね」を入れてもヘンにならない。逆に、単語の途中に「ね」を入れると、変な感じになる。</p>'+
+  bgGuideEx('犬が<span class="cutmk">／</span>走る。', '「犬が（ね）　走る（ね）。」→ どちらも自然。2文節。') +
+  bgGuideEx('妹は<span class="cutmk">／</span>歌を<span class="cutmk">／</span>歌う。', '「妹は（ね）　歌を（ね）　歌う（ね）。」→ 3か所とも自然。3文節。') +
+
+  '<h3>②自立語をさがす</h3>'+
+  '<p>もっと確実な見つけ方がある。文節は、必ず<b>自立語</b>（それだけで意味がわかる言葉。「犬」「走る」「きれいだ」のような、名詞・動詞・形容詞・形容動詞など）から始まる。自立語を見つけたら、そこが新しい文節のスタート地点。</p>'+
+  bgGuideEx('小さな<span class="cutmk">／</span>鳥が<span class="cutmk">／</span>枝に<span class="cutmk">／</span>とまった。', '自立語は「小さな」「鳥」「枝」「とまっ」の4つ→4文節。') +
+  '<p>「が」「に」「た」のような、それだけでは意味がわからずに前の言葉にくっつく言葉（<b>付属語</b>）は、直前の自立語と同じ文節に入る。「鳥」と「が」を別々の文節にはしない。</p>'+
+
+  '<h3>③気をつけたいところ</h3>'+
+  '<p><b>複合動詞</b>（2つの動詞が合体して1つの意味になった言葉）は、まん中で切らない。</p>'+
+  bgGuideEx('弟が<span class="cutmk">／</span>走り出した。', '「走り出し」で1つの自立語（もとは「走る」＋「出す」）。「走り／出した」のようには切らない。') +
+  '<p>迷ったときは、①の「ね」を入れる方法にもどって確かめよう。「ね」がしっくりくる場所が、文節の切れ目。</p>'+
+
+  '<div class="guide-jump"><span>単語まで、もっと細かく切りたくなったら →</span></div>';
+
+const BG_GUIDE_TANGO =
+  '<h2>単語の切り方</h2>'+
+  '<p class="guide-lead">「単語」は、文節よりもさらに細かい、意味を持つ最小の単位。<br>文節の中に、自立語と付属語がいくつ入っているかを数えるだけ。</p>'+
+
+  '<h3>①ルールはシンプル</h3>'+
+  '<p>1つの文節の中には、<b>自立語が1つ</b>と、それにくっつく<b>付属語がいくつか</b>入っている。単語の切り方は、この自立語と付属語を、1つずつバラバラに切り分けるだけでいい。</p>'+
+  bgGuideEx('妹<span class="cutmk">｜</span>は<span class="cutmk">｜</span>歌<span class="cutmk">｜</span>を<span class="cutmk">｜</span>歌う。', '「は」も「を」も、それぞれ1つの単語として数える。5単語。') +
+
+  '<h3>②文節と並べて比べてみる</h3>'+
+  '<p>同じ文を、文節と単語の両方で切ってみると、違いがよく分かる。</p>'+
+  bgGuideEx('小さな<span class="cutmk">／</span>鳥が<span class="cutmk">／</span>枝に<span class="cutmk">／</span>とまった。', '文節で切ると4つ。') +
+  bgGuideEx('小さな<span class="cutmk">｜</span>鳥<span class="cutmk">｜</span>が<span class="cutmk">｜</span>枝<span class="cutmk">｜</span>に<span class="cutmk">｜</span>とまっ<span class="cutmk">｜</span>た。', '同じ文を単語で切ると7つ。文節の切れ目（／）は、必ず単語の切れ目（｜）でもある。') +
+
+  '<h3>③よく出てくる付属語</h3>'+
+  '<p>次のような言葉の<b>直前</b>は、必ず単語の切れ目になる（文節の切れ目とはかぎらない）。見た目で覚えておくと、単語の切れ目がすぐに分かるようになる。</p>'+
+  '<div class="guide-table">'+
+    '<div class="guide-table-row"><span class="guide-table-h">助詞</span><span>が・は・を・も・の・に・で・と・へ・から・より・ば・ので・て</span></div>'+
+    '<div class="guide-table-row"><span class="guide-table-h">助動詞</span><span>た・ない・たい・らしい・だ・う（よう）</span></div>'+
+  '</div>'+
+
+  '<h3>④気をつけたいところ</h3>'+
+  '<p>複合動詞は、単語で切るときも1つの語のまん中では切らない。ただし、複合動詞にくっつく付属語は、そこでちゃんと切る。</p>'+
+  bgGuideEx('弟が<span class="cutmk">｜</span>走り出した。', '「走り出し」はまとめて1単語。そのあとの「た」だけ切り分ける。') +
+
+  '<div class="guide-jump"><span>← 文節の切り方も読んでみる</span></div>';
+
+function bgShowGuide(kind){
+  const veilEl = bg$("bgVeil");
+  const isTango = (kind==="tango");
+  veilEl.innerHTML =
+    '<div class="guide">'+(isTango?BG_GUIDE_TANGO:BG_GUIDE_BUNSETSU)+'</div>'+
+    '<button class="btn ghost guide-nav-btn" id="bgGuideSwap">'+(isTango?'📖 文節の切り方を読む':'📖 単語の切り方を読む')+'</button>'+
+    '<button class="btn guide-nav-btn" id="bgGuideBack">巻えらびへもどる</button>';
+  veilEl.style.display="flex";
+  veilEl.scrollTop = 0;
+  bg$("bgGuideSwap").onclick = ()=>bgShowGuide(isTango?"bunsetsu":"tango");
+  bg$("bgGuideBack").onclick = bgTitle;
+}
+
 function bgTitle(){
   if(bgRaf){ cancelAnimationFrame(bgRaf); bgRaf=null; bgLastT=0; }
   const cellsEl=bg$("bgCells"), fieldEl=bg$("bgField"), veilEl=bg$("bgVeil");
@@ -13222,9 +13392,19 @@ function bgTitle(){
   });
   seal+='</div><div class="menkyo-note">'+Object.keys(BG_REC.rank).length+' ／ '+BG_STAGES.length+' 巻</div></div>';
 
+  /* 巻の解放とは別に、いつでも読める「文節の切り方」「単語の切り方」の解説コーナー
+     （教員の指示、2026-08-16〜）。段位を上げるための場ではなく、行き詰まったときに
+     いつでも戻って読み直せる、独立した読みものという位置づけ。 */
+  const guideRow =
+    '<div class="guide-row">'+
+      '<button class="btn ghost" data-guide="bunsetsu">📖 文節の切り方</button>'+
+      '<button class="btn ghost" data-guide="tango">📖 単語の切り方</button>'+
+    '</div>';
+
   veilEl.innerHTML=
     '<h1>文節斬り</h1><div class="rule"></div>'+
     '<p style="margin-bottom:10px">文字が一つ通るたびに<b>一拍</b>。<br>拍にのって、切れ目だけを斬る。</p>'+
+    guideRow +
     seal + tempos + '<div class="stagelist">'+cards+'</div>';
   veilEl.style.display="flex";
   veilEl.querySelectorAll(".stagecard[data-id]").forEach(el=>{
@@ -13234,6 +13414,9 @@ function bgTitle(){
   });
   veilEl.querySelectorAll(".tempo").forEach(el=>{
     el.addEventListener("click",()=>{ bgChosenTempo=BG_TEMPOS.find(t=>t.key===el.dataset.t); bgAc(); bgSndTick(true); bgTitle(); });
+  });
+  veilEl.querySelectorAll("[data-guide]").forEach(el=>{
+    el.addEventListener("click",()=>bgShowGuide(el.dataset.guide));
   });
 }
 /* =========================================================================
