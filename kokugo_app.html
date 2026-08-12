@@ -1087,84 +1087,458 @@
   }
   .vs-wronglist-q{ font-weight:bold; color:#ffe66d; margin-right:6px; }
 
-  /* ===== サブクエスト「文節斬り」（2026-08-12〜、2026-08-13 縦書きに変更） =====
-     独立版（文節切り/bunsetsu_giri_3.html）の拍合わせリズムゲームは、AudioContext・
-     canvas相当の描画・段位/免許状の進行システムまで含む大掛かりな作りで、そのまま移植すると
-     このアプリの他の要素と足並みが揃わない。そこで、同ファイルにもともと入っていた「留め」
-     （文を並べ、すき間をタップして印をつけてから、まとめて判定する自分のペースのモード）
-     だけを移植のベースに選んだ。タイミングを問わない分、「なぜそこが（そこが）切れ目なのか
-     ／ではないのか」という理由の解説に画面をしっかり使える。
-     文の並びは縦書きに統一する（教員の指示、2026-08-13〜。最初に横書き＋画面内スクロールで
-     作ったところ「一見性がなく分かりにくい」との指摘を受けたための変更）。1本の縦列に高さの
-     上限を設けないことで横方向のスクロールを発生させず、ページ全体の縦スクロールだけで
-     最後まで読めるようにしている（.card/.story-sceneにはmax-height/overflow指定が無いので、
-     このまま伸びた分はページごと下に流れる）。 */
-  .bg-badge-row{ display:flex; justify-content:center; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
-  .bg-mode-badge{
-    display:inline-block; padding:4px 12px; border-radius:14px; font-size:12px; font-weight:bold;
-    letter-spacing:.05em; color:#fff;
+  /* ===== サブクエスト「文節斬り」（2026-08-12〜、2026-08-14 本家エンジンを忠実移植） =====
+     独立版（文節切り/bunsetsu_giri_3.html）のCSSをほぼそのまま移植している。
+     ただし以下の3点だけ手を入れている（教員の指示：「基本的にはこれをそのまま入れる」）。
+     1) :root{--sumi:...; --sub:...; --line:...; ...} は、このアプリ自身の:root
+        （--sub/--lineが既に別の色で定義されている）と衝突するため、#bgApp{...}に
+        スコープし直した。#bgAppの子孫はCSS変数の継承でそのまま同じ値を拾える。
+     2) html,body{height:100%} と body{display:flex;justify-content:center;...} は、
+        独立版が「ページ全体がこのゲームそのもの」だったための指定なので不要。
+        該当のfont-family/背景/overflow:hiddenは#bgApp自身に移した。
+     3) それ以外の全セレクタは、このアプリの.btn/.big等と名前がぶつかるため、
+        「#bgApp 」を頭に付けて子孫セレクタ化しただけで、中身（プロパティ）は
+        独立版と一字一句同じ。@keyframesは名前の衝突が無いことを確認済みなので無改造。 */
+  #bgApp{
+    --sumi:#22262b; --kinari:#e8e1d2; --maki:#f7f3e9;
+    --ai:#14395e; --ai-l:#2c5c86; --shu:#c2412c; --kin:#9c7c2a;
+    --midori:#2f7d5b;
+    --sub:#7b7466; --line:#d6cdb9;
+    --gothic:"Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif;
+    --mincho:"Yu Mincho","YuMincho","Hiragino Mincho ProN","MS PMincho",serif;
+    width:100%;max-width:520px;height:clamp(440px,72vh,660px);margin:0 auto;
+    display:flex;flex-direction:column;position:relative;
+    font-family:var(--gothic);background:var(--kinari);color:var(--sumi);
+    overflow:hidden;border-radius:12px;
+    background-image:
+      repeating-linear-gradient(58deg, rgba(140,125,95,.035) 0 1px, transparent 1px 4px),
+      repeating-linear-gradient(-32deg, rgba(140,125,95,.025) 0 1px, transparent 1px 6px);
   }
-  .bg-mode-badge.bunsetsu{ background:var(--accent); }
-  .bg-mode-badge.tango{ background:var(--accent2); }
-  .bg-round-badge{
-    display:inline-block; padding:4px 12px; border-radius:14px; font-size:12px;
-    background:var(--card); border:1px solid var(--line); color:var(--sub);
+  #bgApp *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+
+  /* ===== 藍の帯 ===== */
+  #bgApp .hud{
+    background:var(--ai);color:#f2ede0;padding:9px 14px;
+    display:flex;align-items:center;gap:12px;flex-shrink:0;
+    box-shadow:0 2px 0 rgba(0,0,0,.12);
   }
-  .bg-instruction{ text-align:center; font-size:13px; color:var(--sub); line-height:1.7; margin-bottom:10px; }
-  .bg-instruction b{ color:var(--ink); }
-  .bg-sentence-box{
-    background:var(--card); border:1px solid var(--line); border-radius:12px;
-    padding:24px 14px; margin-bottom:12px; display:flex; justify-content:center;
+  #bgApp .hud .title{font-family:var(--mincho);font-size:.98rem;letter-spacing:.3em;font-weight:600;margin-right:auto;}
+  #bgApp .hud .gauge{display:flex;align-items:center;gap:5px;font-size:.72rem;letter-spacing:.06em;}
+  #bgApp .hud .gauge b{font-family:var(--mincho);font-size:1rem;letter-spacing:.1em;font-weight:600;}
+  #bgApp .life-dot{width:13px;height:13px;border-radius:50%;background:var(--shu);
+    box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.35);transition:background .2s,opacity .2s;}
+  #bgApp .life-dot.gone{background:transparent;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.28);opacity:.5;}
+  #bgApp .hud .multBox{display:flex;align-items:baseline;gap:3px;font-family:var(--mincho);
+    letter-spacing:.04em;transition:color .2s,transform .12s;}
+  #bgApp .hud .multBox .x{font-size:.72rem;opacity:.75;}
+  #bgApp .hud .multBox .v{font-size:1.2rem;font-weight:600;font-variant-numeric:tabular-nums;}
+  #bgApp .hud .multBox.hot{color:var(--kin);}
+  #bgApp .hud .multBox.blaze{color:#ffd36e;text-shadow:0 0 9px rgba(255,190,80,.75);}
+  #bgApp .hud .multBox.pop{animation:multPop .2s ease-out;}
+  @keyframes multPop{0%{transform:scale(1.4);}100%{transform:scale(1);}}
+  #bgApp .hud .snd{background:transparent;border:1px solid rgba(242,237,224,.45);color:#f2ede0;
+    border-radius:3px;font-size:.68rem;letter-spacing:.08em;padding:4px 8px;cursor:pointer;font-family:var(--gothic);}
+  #bgApp .hud .snd.off{opacity:.5;}
+
+  /* ===== 情報バー ===== */
+  #bgApp .infobar{display:flex;align-items:baseline;gap:10px;padding:7px 14px 5px;
+    border-bottom:1px solid var(--line);flex-shrink:0;font-size:.72rem;color:var(--sub);letter-spacing:.05em;}
+  #bgApp .infobar .score{margin-left:auto;font-family:var(--mincho);font-size:1.2rem;letter-spacing:.12em;
+    color:var(--sumi);font-weight:600;font-variant-numeric:tabular-nums;}
+  #bgApp .infobar .score small{font-size:.6rem;letter-spacing:.14em;color:var(--sub);margin-right:4px;font-family:var(--gothic);}
+  #bgApp .infobar .bpm{font-family:var(--mincho);letter-spacing:.1em;}
+
+  /* 進み具合（曲の残り） */
+  #bgApp .progress{height:3px;background:var(--line);flex-shrink:0;}
+  #bgApp .progress i{display:block;height:100%;background:var(--ai);width:0;transition:width .35s cubic-bezier(.2,.9,.3,1);}
+
+  /* ===== 盤面 ===== */
+  #bgApp .field{flex:1;position:relative;overflow:hidden;touch-action:manipulation;cursor:pointer;}
+  #bgApp .strip{position:absolute;top:0;bottom:0;left:50%;transform:translateX(-50%);
+    background:var(--maki);border-left:1px solid var(--line);border-right:1px solid var(--line);
+    box-shadow:0 0 14px rgba(90,75,45,.09) inset;}
+  #bgApp .cellwrap{position:absolute;top:0;left:0;width:100%;}
+  #bgApp .cell{position:absolute;left:0;width:100%;font-family:var(--mincho);
+    display:flex;align-items:center;justify-content:center;color:var(--sumi);font-weight:600;will-change:transform;}
+  #bgApp .cell.kutou{justify-content:flex-end;align-items:flex-start;}
+  #bgApp .cell.small{align-items:flex-start;justify-content:flex-end;}
+  #bgApp .cell span{display:block;line-height:1;}
+  #bgApp .cell.jolt span{animation:joltGo .40s cubic-bezier(.2,.85,.3,1);}
+  @keyframes joltGo{
+    0%{transform:translateX(0) rotate(0deg);} 16%{transform:translateX(8px) rotate(5deg);}
+    42%{transform:translateX(-5px) rotate(-2.5deg);} 70%{transform:translateX(2px) rotate(1deg);}
+    100%{transform:translateX(0) rotate(0deg);}
   }
-  .bg-sentence{ writing-mode:vertical-rl; text-orientation:upright; display:inline-block; line-height:1; }
-  .bg-tc{
-    display:inline-flex; align-items:center; justify-content:center;
-    width:2.4em; height:2.4em; font-size:26px; font-weight:600; color:var(--ink);
+
+  /* 切れ目に残る印 */
+  #bgApp .cutmark{position:absolute;left:0;width:100%;text-align:center;color:var(--shu);
+    font-family:var(--mincho);font-weight:700;pointer-events:none;line-height:1;
+    display:flex;align-items:center;justify-content:center;}
+  #bgApp .cutmark.tango{color:var(--ai-l);}
+  #bgApp .cutmark.missed{color:#a8a293;}
+  #bgApp .cutmark.tango.missed{color:#a8a293;}
+  #bgApp .cutmark.pass{color:#b9b3a4;}
+  #bgApp .cutmark .ne{color:var(--midori);font-size:.8em;}
+  #bgApp .cutmark .hbar{
+    display:block; width:64%; height:3px; margin:0 auto;
+    background:currentColor; border-radius:1.5px;
   }
-  /* 句読点は縦書きの慣例どおり、マスの左上に寄せる */
-  .bg-tc.kutou{ align-items:flex-start; justify-content:flex-start; }
-  .bg-tg{
-    display:inline-flex; align-items:center; justify-content:center;
-    width:2.4em; height:18px; cursor:pointer; position:relative; background:none; border:none; padding:0;
+  #bgApp .cutmark .ko-hint{
+    display:block; width:64%; height:0; margin:0 auto;
+    border-top:3px dashed var(--ai-l); opacity:.85;
   }
-  /* 印は、縦に流れる文字を横切る「横棒」で表す（縦棒だと文字の流れに紛れて見づらいため。
-     独立版の.cutmark .hbarと同じ考え方）。✕だけは棒ではなく文字のまま使う。 */
-  .bg-tg::after{ content:""; width:56%; height:2px; background:var(--line); border-radius:1px; transition:background .12s,height .12s; }
-  .bg-tg:disabled{ cursor:default; }
-  .bg-tg .bg-mk{ width:66%; height:3px; border-radius:1.5px; background:currentColor; }
-  .bg-tg .bg-mk.bg-x{ width:auto; height:auto; background:none; font-size:15px; font-weight:bold; line-height:1; color:var(--ng); }
-  .bg-tg.marked-bunsetsu::after{ display:none; }
-  .bg-tg.marked-bunsetsu .bg-mk{ color:var(--accent); height:4px; }
-  .bg-tg.marked-tango::after{ display:none; }
-  .bg-tg.marked-tango .bg-mk{ color:var(--accent2); }
-  .bg-tg.judge-hit::after{ display:none; }
-  .bg-tg.judge-hit .bg-mk{ color:var(--ok); height:4px; }
-  .bg-tg.judge-missed::after{ display:none; }
-  .bg-tg.judge-missed .bg-mk{ color:var(--ng); opacity:.85; }
-  .bg-tg.judge-extra::after{ display:none; }
-  .bg-tg.judge-ok::after{ background:transparent; }
-  .bg-legend{ text-align:center; font-size:11px; color:var(--sub); margin-bottom:10px; line-height:1.8; }
-  .bg-legend span{ margin:0 6px; white-space:nowrap; }
-  .bg-scoreline{ text-align:center; font-size:14px; margin-bottom:8px; }
-  .bg-scoreline b{ color:var(--gold); font-size:18px; }
-  .bg-explain-list{ margin-top:4px; }
-  .bg-explain-item{
-    background:var(--ngbg); border:1px solid rgba(198,40,40,.25); border-radius:10px;
-    padding:10px 12px; margin-bottom:8px; font-size:13px; line-height:1.7; color:var(--ink);
+
+  /* 斬撃線：拍ごとに脈打つ */
+  #bgApp .blade{position:absolute;left:0;right:0;height:0;pointer-events:none;}
+  #bgApp .blade i{position:absolute;left:14px;right:14px;top:-1px;height:2px;
+    background:linear-gradient(90deg,transparent,var(--shu) 14%,var(--shu) 86%,transparent);opacity:.85;}
+  #bgApp .blade i::before,#bgApp .blade i::after{content:"";position:absolute;top:-5px;
+    border-top:6px solid transparent;border-bottom:6px solid transparent;}
+  #bgApp .blade i::before{left:-9px;border-left:9px solid var(--shu);}
+  #bgApp .blade i::after{right:-9px;border-right:9px solid var(--shu);}
+  #bgApp .blade u{position:absolute;left:0;right:0;display:block;background:rgba(194,65,44,.055);text-decoration:none;}
+  #bgApp .blade.beat i{animation:beatPulse .18s ease-out;}
+  @keyframes beatPulse{
+    0%{transform:scaleY(3.2);opacity:1;filter:drop-shadow(0 0 6px rgba(194,65,44,.9));}
+    100%{transform:scaleY(1);opacity:.85;filter:none;}
   }
-  .bg-explain-item .bg-ex-head{ font-weight:bold; color:var(--ng); margin-bottom:3px; }
-  .bg-explain-item .bg-ex-word{ color:var(--accent); font-weight:bold; }
-  .bg-perfect-note{
-    text-align:center; font-size:13px; color:var(--ok); font-weight:bold; margin-bottom:8px;
+  #bgApp .beatdot{position:absolute;left:50%;width:0;height:0;pointer-events:none;}
+  #bgApp .beatdot em{position:absolute;top:-4px;width:8px;height:8px;border-radius:50%;
+    background:var(--shu);opacity:0;}
+  #bgApp .beatdot em.l{left:-64px;} #bgApp .beatdot em.r{left:56px;}
+  #bgApp .beatdot.on em{animation:beatDot .34s ease-out;}
+  @keyframes beatDot{0%{opacity:.85;transform:scale(1.5);}100%{opacity:0;transform:scale(.6);}}
+
+  /* ===== 斬撃エフェクト ===== */
+  #bgApp .cutfx{position:absolute;left:0;width:100%;height:0;pointer-events:none;z-index:5;}
+  #bgApp .streak{position:absolute;left:-10%;width:120%;height:4px;top:-2px;
+    background:linear-gradient(90deg,transparent,#fff 18%,var(--shu) 50%,#fff 82%,transparent);
+    transform-origin:center;filter:drop-shadow(0 0 5px rgba(194,65,44,.65));
+    animation:streakGo .26s cubic-bezier(.15,.9,.25,1) forwards;}
+  #bgApp .streak.after{height:2px;opacity:.5;filter:none;
+    background:linear-gradient(90deg,transparent,var(--shu) 30%,var(--shu) 70%,transparent);
+    animation:streakGo .30s cubic-bezier(.15,.9,.25,1) .05s forwards;}
+  #bgApp .streak.perfect{height:6px;filter:drop-shadow(0 0 9px rgba(156,124,42,.8));
+    background:linear-gradient(90deg,transparent,#fff 14%,var(--kin) 50%,#fff 86%,transparent);}
+  #bgApp .streak.ko{height:2px;background:linear-gradient(90deg,transparent,#fff 26%,var(--ai-l) 50%,#fff 74%,transparent);
+    filter:drop-shadow(0 0 3px rgba(44,92,134,.6));}
+  @keyframes streakGo{
+    0%{opacity:0;transform:scaleX(.05) rotate(-2deg);}
+    30%{opacity:1;transform:scaleX(1.02) rotate(-2deg);}
+    100%{opacity:0;transform:scaleX(1.15) rotate(-2deg);}
   }
-  .bg-final-score{ text-align:center; font-size:clamp(26px,8vw,36px); font-weight:bold; color:var(--gold); margin:10px 0 4px; }
-  .bg-final-acc{ text-align:center; font-size:13px; color:var(--sub); margin-bottom:12px; }
+  #bgApp .flashcore{position:absolute;left:50%;top:-2px;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;
+    background:radial-gradient(circle,#fff 0%,var(--shu) 45%,transparent 72%);animation:flashCore .32s ease-out forwards;}
+  #bgApp .flashcore.perfect{width:40px;height:40px;margin:-20px 0 0 -20px;
+    background:radial-gradient(circle,#fff 0%,var(--kin) 42%,transparent 74%);}
+  #bgApp .flashcore.ko{width:16px;height:16px;margin:-8px 0 0 -8px;
+    background:radial-gradient(circle,#fff 0%,var(--ai-l) 45%,transparent 72%);}
+  @keyframes flashCore{0%{opacity:.95;transform:scale(.25);}55%{opacity:.7;}100%{opacity:0;transform:scale(2.5);}}
+  #bgApp .shard{position:absolute;left:50%;top:-3px;width:6px;height:6px;background:var(--shu);opacity:.9;
+    pointer-events:none;animation:shardFly .46s cubic-bezier(.15,.7,.3,1) forwards;}
+  #bgApp .shard.perfect{background:var(--kin);width:7px;height:7px;}
+  #bgApp .shard.ko{background:var(--ai-l);width:4px;height:4px;}
+  @keyframes shardFly{
+    0%{opacity:1;transform:translate(0,0) rotate(0deg) scale(1);}
+    100%{opacity:0;transform:translate(var(--dx),var(--dy)) rotate(var(--rot)) scale(.4);}
+  }
+  #bgApp .hanko{position:absolute;left:50%;top:-38px;width:76px;height:76px;margin-left:-38px;border-radius:50%;
+    border:3px solid var(--shu);box-shadow:0 0 0 3px rgba(194,65,44,.22) inset,0 3px 10px rgba(0,0,0,.22);
+    background:rgba(247,243,233,.92);display:flex;align-items:center;justify-content:center;
+    color:var(--shu);font-family:var(--mincho);font-weight:700;font-size:1.15rem;letter-spacing:.06em;
+    transform:rotate(-11deg);pointer-events:none;animation:hankoStamp .56s cubic-bezier(.2,1.5,.4,1) forwards;}
+  @keyframes hankoStamp{
+    0%{opacity:0;transform:rotate(-11deg) scale(2.4);} 40%{opacity:1;transform:rotate(-11deg) scale(.92);}
+    56%{transform:rotate(-11deg) scale(1.06);} 75%{transform:rotate(-11deg) scale(1);}
+    100%{opacity:0;transform:rotate(-11deg) scale(1);}
+  }
+  #bgApp .screenflash{position:absolute;inset:0;background:#fff;pointer-events:none;animation:screenFlashGo .26s ease-out forwards;}
+  @keyframes screenFlashGo{0%{opacity:.5;}100%{opacity:0;}}
+  #bgApp .badcut{position:absolute;left:0;width:100%;text-align:center;color:var(--shu);
+    font-size:1.5rem;font-weight:700;pointer-events:none;animation:badGo .5s ease-out forwards;}
+  @keyframes badGo{0%{opacity:0;transform:scale(.5);}25%{opacity:1;transform:scale(1.15);}
+    100%{opacity:0;transform:scale(1.15) translateY(-10px);}}
+  #bgApp .field.shake{animation:shakeIt .3s;}
+  #bgApp .field.shake.big{animation:shakeItBig .38s;}
+  @keyframes shakeIt{0%,100%{transform:translateX(0);}20%{transform:translateX(-7px);}
+    45%{transform:translateX(6px);}70%{transform:translateX(-4px);}88%{transform:translateX(3px);}}
+  @keyframes shakeItBig{0%,100%{transform:translate(0,0);}15%{transform:translate(-11px,2px);}
+    35%{transform:translate(9px,-2px);}55%{transform:translate(-7px,1px);}
+    75%{transform:translate(5px,-1px);}90%{transform:translate(-2px,0);}}
+  #bgApp .combobreak{position:absolute;left:0;right:0;text-align:center;pointer-events:none;
+    font-family:var(--mincho);color:#9a9282;letter-spacing:.3em;animation:cbGo .95s ease-out forwards;}
+  @keyframes cbGo{0%{opacity:0;transform:scale(1.5);}18%{opacity:1;transform:scale(1);}
+    100%{opacity:0;transform:scale(1) translateY(24px);}}
+  #bgApp .combobreak .big{display:block;font-size:2.2rem;color:#9a9282;line-height:1;}
+  #bgApp .combobreak .lab{display:block;font-size:.62rem;letter-spacing:.34em;color:var(--sub);margin-top:8px;}
+  #bgApp .field.peril::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:8;
+    box-shadow:inset 0 0 60px 12px rgba(194,65,44,.34);animation:perilPulse 1.15s ease-in-out infinite;}
+  @keyframes perilPulse{0%,100%{opacity:.55;}50%{opacity:1;}}
+  #bgApp .combo{position:absolute;right:12px;top:34%;text-align:center;pointer-events:none;
+    color:var(--kin);font-family:var(--mincho);opacity:0;transition:opacity .2s;}
+  #bgApp .combo.on{opacity:1;}
+  #bgApp .combo .n{display:block;font-size:2.3rem;line-height:1;font-weight:600;transition:color .15s;}
+  #bgApp .combo .l{display:block;font-size:.6rem;letter-spacing:.3em;color:var(--sub);margin-top:3px;}
+  #bgApp .combo.pop .n{animation:comboPop .22s ease-out;}
+  @keyframes comboPop{0%{transform:scale(1.55);}100%{transform:scale(1);}}
+  #bgApp .combo.hot .n{color:#e0a020;}
+  #bgApp .combo.blaze .n{color:#ffd36e;text-shadow:0 0 12px rgba(255,190,80,.85);}
+  #bgApp .combo.crit .n{animation:comboCrit .5s cubic-bezier(.2,1.6,.3,1);}
+  @keyframes comboCrit{
+    0%{transform:scale(1);}
+    30%{transform:scale(2.0);text-shadow:0 0 22px rgba(255,205,90,.95);}
+    60%{transform:scale(.92);}
+    100%{transform:scale(1);}
+  }
+  #bgApp .combo.crit::before{
+    content:"";position:absolute;left:50%;top:50%;width:10px;height:10px;margin:-5px 0 0 -5px;
+    border-radius:50%;border:2px solid var(--kin);
+    animation:comboRing .5s ease-out forwards;
+  }
+  @keyframes comboRing{
+    0%{opacity:.9;transform:scale(1);} 100%{opacity:0;transform:scale(6);}
+  }
+  #bgApp .verdict{position:absolute;left:0;right:0;text-align:center;pointer-events:none;
+    font-family:var(--mincho);font-size:1.02rem;letter-spacing:.22em;animation:vGo .62s ease-out forwards;}
+  @keyframes vGo{0%{opacity:0;transform:translateY(8px);}22%{opacity:1;transform:translateY(0);}
+    100%{opacity:0;transform:translateY(-14px);}}
+  #bgApp .remain{position:absolute;left:12px;text-align:center;pointer-events:none;
+    font-family:var(--mincho);color:var(--midori);opacity:.9;}
+  #bgApp .remain .n{display:block;font-size:1.9rem;line-height:1;font-weight:600;}
+  #bgApp .remain .l{display:block;font-size:.56rem;letter-spacing:.24em;color:var(--sub);margin-top:2px;}
+
+  #bgApp .demotag{
+    position:absolute;left:50%;top:10px;transform:translateX(-50%) translateY(-14px);
+    padding:7px 20px;border-radius:3px;font-family:var(--mincho);letter-spacing:.32em;
+    font-size:.86rem;text-align:center;pointer-events:none;white-space:nowrap;
+    opacity:0;transition:opacity .18s,transform .18s;z-index:9;
+    box-shadow:0 3px 10px rgba(0,0,0,.16);
+  }
+  #bgApp .demotag small{display:block;font-family:var(--gothic);font-size:.56rem;letter-spacing:.06em;
+    margin-top:3px;opacity:.9;}
+  #bgApp .demotag.on{opacity:1;transform:translateX(-50%) translateY(0);}
+  #bgApp .demotag.demo{background:var(--ai);color:#f2ede0;animation:demoPulse 1.3s ease-in-out infinite;}
+  #bgApp .demotag.echo{background:var(--shu);color:#fdf6ef;}
+  @keyframes demoPulse{0%,100%{box-shadow:0 3px 10px rgba(0,0,0,.16);}
+    50%{box-shadow:0 3px 16px rgba(20,57,94,.5);}}
+
+  /* ===== 構え ===== */
+  #bgApp .kamae{position:absolute;inset:0;z-index:14;overflow:hidden;
+    background:repeating-linear-gradient(58deg,rgba(140,125,95,.04) 0 1px,transparent 1px 4px),var(--kinari);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px 14px;}
+  #bgApp .kamae-inner{background:var(--maki);border:1px solid var(--line);
+    border-top:3px solid var(--ai);border-bottom:3px solid var(--ai);
+    box-shadow:0 4px 18px rgba(90,75,45,.16);padding:16px 18px;max-width:100%;
+    display:flex;flex-direction:column;align-items:center;gap:10px;
+    animation:kamaeIn .42s cubic-bezier(.2,.9,.3,1);}
+  @keyframes kamaeIn{0%{opacity:0;transform:scaleY(.04);}60%{opacity:1;transform:scaleY(1.03);}
+    100%{opacity:1;transform:scaleY(1);}}
+  #bgApp .kamae-label{font-size:.64rem;letter-spacing:.3em;color:var(--sub);border-bottom:1px solid var(--line);padding:0 4px 6px;}
+  #bgApp .kamae-text{writing-mode:vertical-rl;text-orientation:upright;font-family:var(--mincho);
+    font-weight:600;color:var(--sumi);line-height:1.75;letter-spacing:.06em;max-height:44vh;}
+  #bgApp .kamae-hint{margin-top:13px;font-size:.7rem;color:var(--sub);letter-spacing:.06em;text-align:center;line-height:1.8;}
+  #bgApp .kamae-hint b{color:var(--shu);font-weight:600;}
+  #bgApp .maai-row{display:flex;gap:8px;margin-top:14px;width:100%;max-width:400px;}
+  #bgApp .maai{flex:1;background:var(--maki);border:1px solid var(--line);border-radius:2px;
+    padding:11px 4px 9px;cursor:pointer;text-align:center;
+    transition:transform .08s,box-shadow .08s;box-shadow:0 2px 0 rgba(120,105,80,.22);}
+  #bgApp .maai:active{transform:translateY(2px);box-shadow:0 0 0 rgba(120,105,80,.22);}
+  #bgApp .maai b{display:block;font-family:var(--mincho);font-size:1.04rem;letter-spacing:.18em;font-weight:600;padding-left:.18em;}
+  #bgApp .maai .mult{display:block;font-family:var(--mincho);font-size:.72rem;letter-spacing:.1em;margin-top:3px;}
+  #bgApp .maai small{display:block;font-size:.56rem;color:var(--sub);margin-top:6px;line-height:1.6;}
+  #bgApp .maai.far{border-color:#4a7c6a;} #bgApp .maai.far b{color:var(--midori);} #bgApp .maai.far .mult{color:#4a7c6a;}
+  #bgApp .maai.mid{border-color:var(--ai);} #bgApp .maai.mid b{color:var(--ai);} #bgApp .maai.mid .mult{color:var(--sub);}
+  #bgApp .maai.near{border-color:var(--shu);} #bgApp .maai.near b{color:var(--shu);} #bgApp .maai.near .mult{color:var(--kin);}
+  #bgApp .kamae.going .maai-row,#bgApp .kamae.going .kamae-hint,#bgApp .kamae.going .draw{opacity:0;transition:opacity .12s;}
+  #bgApp .draw{margin-top:16px;background:var(--shu);color:#fdf6ef;border:none;font-family:var(--mincho);
+    font-size:1.2rem;letter-spacing:.42em;padding:13px 34px 13px 44px;border-radius:2px;cursor:pointer;
+    box-shadow:0 4px 0 #8e2e1f;transition:transform .08s,box-shadow .08s;}
+  #bgApp .draw:active{transform:translateY(3px);box-shadow:0 1px 0 #8e2e1f;}
+  #bgApp .half{position:absolute;left:0;right:0;display:flex;justify-content:center;pointer-events:none;}
+  #bgApp .half.top{animation:halfTop .58s cubic-bezier(.3,.1,.2,1) forwards;}
+  #bgApp .half.bot{animation:halfBot .58s cubic-bezier(.3,.1,.2,1) forwards;}
+  @keyframes halfTop{0%{opacity:1;transform:translate(0,0) rotate(0deg);}
+    16%{transform:translate(0,-3px);}100%{opacity:0;transform:translate(-26px,-160px) rotate(-7deg);}}
+  @keyframes halfBot{0%{opacity:1;transform:translate(0,0) rotate(0deg);}
+    16%{transform:translate(0,3px);}100%{opacity:0;transform:translate(26px,180px) rotate(7deg);}}
+  #bgApp .bigslash{position:absolute;left:-14%;right:-14%;height:7px;
+    background:linear-gradient(90deg,transparent,#fff 12%,var(--shu) 50%,#fff 88%,transparent);
+    filter:drop-shadow(0 0 14px rgba(194,65,44,.85));pointer-events:none;transform-origin:center;
+    animation:bigSlashGo .40s cubic-bezier(.1,.85,.2,1) forwards;}
+  @keyframes bigSlashGo{0%{opacity:0;transform:scaleX(0) rotate(-3deg);}
+    24%{opacity:1;transform:scaleX(1.04) rotate(-3deg);}100%{opacity:0;transform:scaleX(1.2) rotate(-3deg);}}
+
+  /* カウントイン */
+  #bgApp .countin{position:absolute;inset:0;z-index:12;pointer-events:none;
+    display:flex;align-items:center;justify-content:center;}
+  #bgApp .countin span{font-family:var(--mincho);font-size:5.4rem;color:var(--ai);opacity:0;
+    letter-spacing:.1em;text-shadow:0 2px 0 rgba(255,255,255,.6);}
+  #bgApp .countin span.go{animation:countGo .5s ease-out;}
+  @keyframes countGo{0%{opacity:0;transform:scale(1.9);}20%{opacity:.9;transform:scale(1);}
+    100%{opacity:0;transform:scale(.9);}}
+
+  /* ===== 留め（宣言方式） ===== */
+  #bgApp .tome{position:absolute;inset:0;display:flex;flex-direction:column;background:var(--kinari);z-index:16;}
+  #bgApp .tome-head{text-align:center;padding:14px 16px 6px;flex-shrink:0;}
+  #bgApp .tome-head h2{font-family:var(--mincho);font-size:1.1rem;letter-spacing:.3em;color:var(--ai);font-weight:600;}
+  #bgApp .tome-head p{font-size:.72rem;color:var(--sub);margin-top:5px;letter-spacing:.04em;line-height:1.7;}
+  #bgApp .tome-head p.ok{color:var(--kin);} #bgApp .tome-head p.ng{color:#c62828;}
+  #bgApp .tome-body{flex:1;display:flex;align-items:center;justify-content:flex-start;justify-content:safe center;padding:6px 10px;overflow:auto;}
+  #bgApp .tome-line{display:flex;flex-direction:row;align-items:flex-start;justify-content:center;flex-wrap:nowrap;}
+  #bgApp .tc{font-family:var(--mincho);font-weight:600;color:var(--sumi);
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  #bgApp .tc.kutou,#bgApp .tc.small{align-items:flex-start;justify-content:flex-end;}
+  #bgApp .tg{display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;flex-shrink:0;}
+  #bgApp .tg::after{content:"";width:2px;height:56%;background:var(--line);transition:background .15s;}
+  #bgApp .tg:hover::after{background:var(--ai-l);}
+  #bgApp .tg.marked::after,#bgApp .tg.judged::after{display:none;}
+  #bgApp .tg.judged{cursor:default;}
+  #bgApp .tg .mk{font-family:var(--mincho);font-weight:700;line-height:1;color:var(--shu);}
+  #bgApp .tg .mk.ko{color:var(--ai-l);}
+  #bgApp .tg .mk.bad{color:#c62828;}
+  #bgApp .tg .mk.late{color:#a29b8c;}
+  #bgApp .tome-foot{flex-shrink:0;padding:8px 16px 14px;display:flex;gap:10px;}
+  #bgApp .tome-foot button{flex:1;border:none;border-radius:3px;cursor:pointer;font-family:var(--mincho);
+    letter-spacing:.24em;padding:14px 0 14px 6px;font-size:1.02rem;transition:transform .07s,box-shadow .07s,opacity .15s;}
+  #bgApp .tome-foot .decide{background:var(--ai);color:#f2ede0;box-shadow:0 3px 0 #0d2740;}
+  #bgApp .tome-foot .decide:active{transform:translateY(2px);box-shadow:0 1px 0 #0d2740;}
+  #bgApp .tome-foot .go{background:var(--shu);color:#fdf6ef;box-shadow:0 3px 0 #8e2e1f;}
+  #bgApp .tome-foot .go:active{transform:translateY(2px);box-shadow:0 1px 0 #8e2e1f;}
+  #bgApp .tome-foot button:disabled{cursor:default;}
+  #bgApp .shakeit{animation:shakeIt .3s;}
+
+  /* ===== 留め：全問正解の演出 ===== */
+  #bgApp .tome-flash{position:absolute;inset:0;background:#fff;pointer-events:none;z-index:20;
+    animation:screenFlashGo .32s ease-out forwards;}
+  #bgApp .tome-hanko{position:absolute;left:50%;top:36%;width:120px;height:120px;margin:-60px 0 0 -60px;
+    border-radius:50%;border:4px solid var(--kin);
+    box-shadow:0 0 0 4px rgba(156,124,42,.22) inset,0 6px 18px rgba(0,0,0,.25);
+    background:rgba(247,243,233,.96);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    color:var(--kin);font-family:var(--mincho);font-weight:700;
+    pointer-events:none;z-index:21;
+    animation:tomeStamp .62s cubic-bezier(.2,1.5,.4,1) forwards;}
+  #bgApp .tome-hanko b{font-size:1.5rem;letter-spacing:.16em;padding-left:.16em;}
+  #bgApp .tome-hanko small{font-size:.58rem;letter-spacing:.2em;margin-top:5px;color:var(--sub);font-family:var(--gothic);}
+  @keyframes tomeStamp{
+    0%{opacity:0;transform:rotate(-9deg) scale(2.6);}
+    42%{opacity:1;transform:rotate(-9deg) scale(.92);}
+    58%{transform:rotate(-9deg) scale(1.06);}
+    78%{transform:rotate(-9deg) scale(1);}
+    100%{opacity:1;transform:rotate(-9deg) scale(1);}
+  }
+  #bgApp .tome-confetti{position:absolute;top:-14px;width:7px;height:13px;pointer-events:none;z-index:19;
+    animation:tomeConfetti 1.15s cubic-bezier(.4,0,.2,1) forwards;}
+  @keyframes tomeConfetti{
+    0%{opacity:1;transform:translateY(0) rotate(0deg);}
+    100%{opacity:0;transform:translateY(var(--fy)) rotate(var(--fr));}
+  }
+
+  /* ===== 覆い ===== */
+  #bgApp .veil{position:absolute;inset:0;background:rgba(232,225,210,.96);
+    display:flex;flex-direction:column;align-items:center;
+    justify-content:flex-start;
+    justify-content:safe center;
+    padding:22px;text-align:center;z-index:20;overflow-y:auto;}
+  #bgApp .veil h1{font-family:var(--mincho);font-size:2rem;letter-spacing:.4em;color:var(--ai);font-weight:600;padding-left:.4em;}
+  #bgApp .veil .rule{width:52px;height:2px;background:var(--shu);margin:13px 0 15px;}
+  #bgApp .veil p{font-size:.82rem;color:var(--sub);line-height:1.9;letter-spacing:.03em;max-width:350px;}
+  #bgApp .veil p b{color:var(--sumi);font-weight:600;}
+  #bgApp .veil .big{font-family:var(--mincho);font-size:2.9rem;letter-spacing:.1em;color:var(--sumi);
+    margin:6px 0 2px;font-variant-numeric:tabular-nums;font-weight:600;}
+  #bgApp .veil .sub{font-size:.74rem;color:var(--sub);letter-spacing:.1em;}
+  #bgApp .veil .newbest{color:var(--kin);font-family:var(--mincho);letter-spacing:.26em;font-size:.92rem;margin-top:8px;}
+  #bgApp .btn{margin-top:18px;background:var(--ai);color:#f5f1e6;border:none;font-family:var(--mincho);
+    font-size:1rem;letter-spacing:.34em;padding:13px 30px 13px 36px;border-radius:2px;cursor:pointer;
+    box-shadow:0 3px 0 #0d2740;transition:transform .08s,box-shadow .08s;}
+  #bgApp .btn:active{transform:translateY(2px);box-shadow:0 1px 0 #0d2740;}
+  #bgApp .btn.ghost{background:transparent;color:var(--ai);box-shadow:none;border:1px solid var(--ai);
+    font-size:.8rem;letter-spacing:.2em;padding:9px 20px 9px 24px;margin-top:10px;}
+  #bgApp .btn:focus-visible,#bgApp .tg:focus-visible,#bgApp .maai:focus-visible{outline:2px solid var(--shu);outline-offset:2px;}
+
+  /* 段の一覧 */
+  #bgApp .stagelist{width:100%;max-width:360px;display:flex;flex-direction:column;gap:9px;margin-top:6px;}
+  #bgApp .stagecard{background:var(--maki);border:1px solid var(--line);border-left:5px solid var(--ai);
+    border-radius:2px;padding:12px 14px;text-align:left;cursor:pointer;
+    box-shadow:0 2px 0 rgba(120,105,80,.2);transition:transform .08s,box-shadow .08s;}
+  #bgApp .stagecard:active{transform:translateY(2px);box-shadow:0 0 0 rgba(120,105,80,.2);}
+  #bgApp .stagecard.s2{border-left-color:var(--ai-l);}
+  #bgApp .stagecard.s3{border-left-color:var(--shu);}
+  #bgApp .stagecard.s4{border-left-color:var(--kin);}
+  #bgApp .stagecard b{font-family:var(--mincho);font-size:1.06rem;letter-spacing:.16em;color:var(--sumi);display:block;}
+  #bgApp .stagecard small{display:block;font-size:.68rem;color:var(--sub);margin-top:5px;line-height:1.7;letter-spacing:.02em;}
+  #bgApp .stagecard .rank{float:right;font-family:var(--mincho);font-size:.9rem;letter-spacing:.14em;color:var(--kin);}
+  #bgApp .stagecard .support{display:inline-block;font-size:.6rem;letter-spacing:.1em;color:#fff;
+    background:var(--midori);border-radius:2px;padding:2px 7px;margin-top:6px;}
+  #bgApp .stagecard.locked{border-left-color:#b9b3a4;opacity:.62;cursor:default;box-shadow:none;background:transparent;}
+  #bgApp .stagecard.locked b{color:var(--sub);}
+  #bgApp .stagecard.locked:active{transform:none;}
+
+  /* 免許状：通した巻が朱の落款で埋まっていく */
+  #bgApp .menkyo{width:100%;max-width:360px;background:var(--maki);border:1px solid var(--line);
+    border-top:3px solid var(--ai);border-bottom:3px solid var(--ai);padding:11px 12px 9px;margin-top:4px;}
+  #bgApp .menkyo h3{font-family:var(--mincho);font-size:.76rem;letter-spacing:.42em;color:var(--ai);
+    font-weight:600;padding-left:.42em;margin-bottom:9px;}
+  #bgApp .seals{display:flex;gap:6px;justify-content:center;}
+  #bgApp .seal{flex:1;aspect-ratio:1;max-width:36px;border-radius:50%;border:1.5px dashed var(--line);
+    display:flex;align-items:center;justify-content:center;}
+  #bgApp .seal .sn{font-family:var(--mincho);font-size:.78rem;color:#c9c1ad;}
+  #bgApp .seal.got{border:2px solid var(--shu);border-style:solid;background:rgba(194,65,44,.07);
+    box-shadow:0 0 0 2px rgba(194,65,44,.16) inset;transform:rotate(-6deg);}
+  #bgApp .seal.got .sn{color:var(--shu);font-weight:700;}
+  #bgApp .menkyo-note{text-align:center;font-size:.6rem;letter-spacing:.14em;color:var(--sub);margin-top:8px;}
+
+  /* 巻がひらいた瞬間 */
+  #bgApp .unlocked{margin-top:14px;font-family:var(--mincho);font-size:1rem;letter-spacing:.18em;
+    color:#fdf6ef;background:var(--shu);padding:9px 18px;border-radius:2px;
+    box-shadow:0 3px 0 #8e2e1f;animation:unlockGo .7s cubic-bezier(.2,1.4,.4,1);}
+  @keyframes unlockGo{0%{opacity:0;transform:scale(.6);}55%{opacity:1;transform:scale(1.07);}100%{transform:scale(1);}}
+
+  /* 速さ（曲じゅう変わらない。だから拍が身体に入る） */
+  #bgApp .temporow{display:flex;gap:8px;width:100%;max-width:360px;margin:14px 0 4px;}
+  #bgApp .tempo{flex:1;background:transparent;border:1px solid var(--line);border-radius:2px;padding:8px 2px;
+    cursor:pointer;font-family:var(--mincho);font-size:.86rem;letter-spacing:.14em;color:var(--sub);}
+  #bgApp .tempo.on{background:var(--ai);color:#f2ede0;border-color:var(--ai);}
+  #bgApp .tempo span{display:block;font-family:var(--gothic);font-size:.56rem;letter-spacing:.04em;margin-top:3px;opacity:.85;}
+
+  /* 判定の内わけ */
+  #bgApp .tally{margin-top:16px;width:100%;max-width:340px;text-align:left;border-top:1px solid var(--line);padding-top:11px;}
+  #bgApp .tally h3{font-size:.7rem;letter-spacing:.22em;color:var(--sub);margin-bottom:8px;font-weight:600;}
+  #bgApp .tally .row{display:flex;align-items:baseline;gap:8px;font-size:.77rem;padding:3px 0;}
+  #bgApp .tally .row .nm{color:var(--sumi);}
+  #bgApp .tally .row .ct{margin-left:auto;font-family:var(--mincho);font-size:.94rem;color:var(--shu);font-weight:600;}
+  #bgApp .tally .row .ex{font-size:.67rem;color:var(--sub);}
+  #bgApp .tally .none{font-size:.76rem;color:var(--kin);letter-spacing:.1em;}
+  #bgApp .rankmark{font-family:var(--mincho);font-size:2.6rem;letter-spacing:.28em;padding-left:.28em;
+    color:var(--kin);margin:4px 0 2px;animation:hankoStamp2 .6s cubic-bezier(.2,1.4,.4,1);}
+  @keyframes hankoStamp2{0%{opacity:0;transform:scale(2.2);}45%{opacity:1;transform:scale(.94);}100%{transform:scale(1);}}
+  #bgApp .timing{display:flex;gap:12px;margin-top:10px;font-size:.72rem;color:var(--sub);}
+  #bgApp .timing b{font-family:var(--mincho);font-size:1.02rem;color:var(--sumi);}
+
+  /* ===== 下部の操作 ===== */
+  #bgApp .pad{display:flex;gap:10px;padding:10px 14px 12px;flex-shrink:0;border-top:1px solid var(--line);background:var(--kinari);}
+  #bgApp .pad button{flex:1;border:none;border-radius:3px;cursor:pointer;font-family:var(--mincho);
+    letter-spacing:.26em;padding:12px 0 11px 6px;transition:transform .07s,box-shadow .07s,opacity .15s;}
+  #bgApp .pad .cut{background:var(--shu);color:#fdf6ef;font-size:1.14rem;box-shadow:0 3px 0 #8e2e1f;flex:2;}
+  #bgApp .pad .cut:active{transform:translateY(2px);box-shadow:0 1px 0 #8e2e1f;}
+  #bgApp .pad .ko{background:var(--ai);color:#f2ede0;font-size:1rem;box-shadow:0 3px 0 #0d2740;flex:1.7;}
+  #bgApp .pad .ko:active{transform:translateY(2px);box-shadow:0 1px 0 #0d2740;}
+  #bgApp .pad .ne{background:var(--midori);color:#f0f7f2;font-size:1rem;box-shadow:0 3px 0 #1f5a40;}
+  #bgApp .pad .ne:active{transform:translateY(2px);box-shadow:0 1px 0 #1f5a40;}
+  #bgApp .pad button:disabled{background:#b9b3a4;box-shadow:0 3px 0 #9d978a;opacity:.6;cursor:default;}
+  #bgApp .pad button.hidden{display:none;}
+  #bgApp .pad small{font-family:var(--gothic);font-size:.6rem;letter-spacing:.02em;display:block;margin-top:3px;opacity:.85;}
+  #bgApp .hint{font-size:.63rem;color:var(--sub);text-align:center;padding:0 14px 8px;letter-spacing:.03em;flex-shrink:0;}
+  @media (max-width:400px){#bgApp .hint{display:none;}}
+  @media (prefers-reduced-motion:reduce){
+    #bgApp *{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;}
+  }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.131</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.132</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3331,6 +3705,7 @@ function showHome(){
   clearStoryComboTimer(); // コンボアタックを中断して離れたときに、残ったカウントダウン/制限時間タイマーを止める
   clearBaseballTimers(); // 野球ミニゲームを中断して離れたときに、残ったカウントダウン・制限時間タイマーを止める
   vsStopLoop(); // ボキャブラ・シューティングを中断して離れたときに、動作中のゲームループ・キー入力リスナーを止める
+  bgStopLoop(); // 文節斬りを中断して離れたときに、動作中のゲームループ・キー入力リスナーを止める
   const st = loadStats();
   if(st.pendingDailyLoginStamp){ showDailyLoginStampOverlay(st); return; }
   if(kotonohaHasPendingEvolveCutscene(st)){ showKotonohaEvolveCutscene(st); return; }
@@ -8955,8 +9330,7 @@ const STORY_SIDEQUESTS = {
   sqBunsetsu: {
     title: "文節斬り",
     beats: [
-      {type:"line", speaker:"ことのは", text:"今度は「文節斬り」だよ。文が横に並ぶから、切れ目だと思うところをタップして、印をつけてね。"},
-      {type:"line", speaker:"ことのは", text:"大太刀は「文節」の切れ目、小刀は「単語」の切れ目。どちらを探すかは、そのつど画面に出すよ。\n間違えても大丈夫、あとで理由をちゃんと説明するからね！"},
+      {type:"line", speaker:"ことのは", text:"今度は「文節斬り」だよ。文字が一つ流れるたびに一拍。\n拍にのって、大太刀（文節の切れ目）と小刀（単語の切れ目）で斬っていくよ。遊び方は、この次の画面でも説明するね。"},
       {type:"bunsetsu"},
     ],
     epilogue: "「おつかれさま！ まちがえたところは、ちゃんと理由を覚えておいてね。」",
@@ -9048,17 +9422,21 @@ function showSideQuestMenu(){
 }
 /* サブクエストのカード。メインストーリーの章カード(storyChapterButtonHtml)と違い、
    ロック・クリア済みという状態を持たない（常に「挑戦する」）。自己ベストがあれば表示する。 */
-/* サブクエストごとの自己ベストは、それぞれ別のフィールドにstを直接載せて保存している
-   （vocabShooterHighScoreと同じ軽量パターン）。ここに1行足すだけで、新しいサブクエストの
-   ベスト表示にも対応できる。 */
-const STORY_SIDEQUEST_BEST_FIELD = {
-  sqShooting: "vocabShooterHighScore",
-  sqBunsetsu: "bunsetsuGiriHighScore",
+/* サブクエストごとの自己ベストの取り出し方。多くはstに直接載せた軽量フィールド
+   （vocabShooterHighScoreと同じパターン）だが、文節斬りは巻（段位）ごとに得点が
+   分かれているので、その中の最高点を返す関数にしている。 */
+const STORY_SIDEQUEST_BEST_FN = {
+  sqShooting: st => st.vocabShooterHighScore || 0,
+  sqBunsetsu: st => {
+    const best = st.bunsetsuGiri && st.bunsetsuGiri.best;
+    if(!best) return 0;
+    return Math.max(0, ...Object.values(best));
+  },
 };
 function storySideQuestButtonHtml(key, st){
   const q = STORY_SIDEQUESTS[key];
-  const field = STORY_SIDEQUEST_BEST_FIELD[key];
-  const best = field ? (st[field] || 0) : 0;
+  const fn = STORY_SIDEQUEST_BEST_FN[key];
+  const best = fn ? fn(st) : 0;
   const sub = best > 0 ? `<p class="note">自己ベスト：${best}点</p>` : `<p>タップして挑戦しよう</p>`;
   return `
     <div class="card menu-card" onclick="startStoryMode('${key}')">
@@ -11599,19 +11977,29 @@ function storyReplayChapter(){
   storyRenderBeat();
 }
 
-/* ================= サブクエスト「文節斬り」（bunsetsu beat、2026-08-12〜） =================
-   元は独立した単一HTMLファイル（文節切り/bunsetsu_giri_3.html）の、拍に合わせて文を斬る
-   リズムアクションゲーム。大太刀＝文節の切れ目、小刀＝単語の切れ目、という2本の刀の
-   使い分けは移植でもそのまま残すが、独自のAudioContext・拍合わせの描画ループ・段位や
-   免許状の進行システムは持ち込まない（vsループに続けてもう一つ増やすと、他のサブクエスト
-   と作りが揃わなくなる）。代わりに、同ファイルにもともと入っていた「留め」――文を横書きで
-   並べ、すき間をタップして印をつけてから、まとめて判定する、タイミングを問わない自分の
-   ペースのモード――だけを移植の土台に選んだ。タイミングを問わない分、「なぜそこが
-   （そこが）切れ目なのか／ではないのか」という理由の解説に画面をしっかり使える
-   （教員の指示：「間違ったときに、その理由をあとでちゃんとわかりやすく解説する」）。
-   出題データ（BUNSETSU_SENTENCES）は、独立版のSENTENCES配列をそのまま流用している
-   （教員の指示：「既存のデータを上手く使って」）。seg欄の記法（｜＝単語だけの切れ目、
-   ／＝文節の切れ目）も独立版と同じ。 */
+/* ================= サブクエスト「文節斬り」（bunsetsu beat、2026-08-12〜、2026-08-14 本家エンジンを忠実移植） =================
+   独立版（文節切り/bunsetsu_giri_3.html）の、下から上へ流れる帯に合わせて拍で斬る
+   リズムアクションゲームを、ほぼそのまま移植したもの（教員の指示：「基本的にはこれを
+   そのまま入れる」）。エンジン本体（拍の進み方・判定・演出・段位「一の巻〜奥ノ巻」・
+   免許皆伝・留めなど）は独立版と一字一句同じロジックで、次の2点だけ知識DXの仕組みに
+   組み替えている（教員の指示）。
+   1. 進捗・スコアの保存先：独立版は専用のlocalStorageキー（bunsetsu_giri_v3）に
+      REC={open,rank,best}を保存していたが、ここではst.bunsetsuGiriとして
+      loadStats/saveStatsに乗せる（bgLoadRec/bgSaveRec参照）。
+   2. 出題する文の選び方：独立版のbuildTrack()は「巻の対象lvの文をシャッフルして
+      先頭からcount個」という、巻を選ぶたびにやり直しの抽選だった。ここでは
+      ボキャブラ・シューティングのvsPickNextItemと同じ「使い切るまで同じ文を
+      引かない」方式（bgPickOneSentence）に組み替えている。対象となる文の範囲
+      （stage.lv）自体は独立版のSTAGES定義のまま変えていない。
+   識別子はすべて衝突を避けるためbg/BG_接頭辞を付けている（内部ロジックは不変）。
+   DOM要素は、独立版が静的なページに一度だけ$(id)でキャッシュしていたのに対し、
+   ここでは骨格HTMLをstoryRenderBunsetsuで一度だけ描いたあと、bg$(id)で毎回
+   document.getElementByIdする形に変えている（screen.innerHTMLの再代入が
+   起きない限り、骨格は保持され続けるので、独立版と同じように動く）。 */
+
+const bg$ = id => document.getElementById(id);
+
+/* ---------- 問題データ（独立版SENTENCESをそのまま流用） ---------- */
 const BUNSETSU_SENTENCES = [
   {lv:1, seg:"犬|が/走る。"},
   {lv:1, seg:"空|が/青い。"},
@@ -11660,38 +12048,202 @@ const BUNSETSU_SENTENCES = [
   {lv:3, seg:"その/話|は/前|に/聞い|た/こと|が/ある。"},
   {lv:3, seg:"妹|は/急い|で/家|を/出|て/いっ|た。"},
 ];
-const BG_ROUNDS = 6;
 
-/* 単語だけの切れ目（付属語の直前）の解説辞書。BUNSETSU_SENTENCESに実際に出てくる
-   助詞・助動詞だけをカバーしている。ここに無い語は、付属語である旨だけの
-   汎用の説明にフォールバックする（bgExplainGap参照）。 */
-const BUNSETSU_WORD_NOTES = {
-  "が": "「が」は主語（〜が）を示す付属語の助詞です。",
-  "は": "「は」は文の話題（〜は）を示す付属語の助詞です。",
-  "を": "「を」は動作の対象（〜を）を示す付属語の助詞です。",
-  "も": "「も」は「〜もまた」の意味を加える付属語の助詞です。",
-  "の": "「の」は所有・修飾の関係（〜の）を示す付属語の助詞です。",
-  "から": "「から」は出発点や理由（〜から）を示す付属語の助詞です。",
-  "へ": "「へ」は動作の向かう方向（〜へ）を示す付属語の助詞です。",
-  "と": "「と」は動作の相手や物事の並立（〜と）を示す付属語の助詞です。",
-  "で": "「で」は場所や手段（〜で）を示す付属語の助詞です。",
-  "に": "「に」は場所・対象・時間（〜に）を示す付属語の助詞です。",
-  "より": "「より」は比較の基準（〜より）を示す付属語の助詞です。",
-  "ので": "「ので」は理由（〜ので）を示す付属語の助詞です。",
-  "ば": "「ば」は仮定の条件（〜ば）を示す付属語の助詞です。",
-  "て": "「て」は動作をつなぐ付属語の助詞です。",
-  "た": "「た」は過去・完了（〜た）を表す付属語の助動詞です。",
-  "だ": "「だ」は断定（〜だ）を表す付属語の助動詞です。",
-  "だら": "「だら」は仮定の条件（〜たら）を表す付属語の助動詞です。",
-  "ない": "「ない」は打ち消し（〜ない）を表す付属語の助動詞です。",
-  "たい": "「たい」は希望（〜たい）を表す付属語の助動詞です。",
-  "らしい": "「らしい」は推定（〜らしい）を表す付属語の助動詞です。",
-  "う": "「う」は意志・勧誘（〜う）を表す付属語の助動詞です。",
+/* ---------- 巻（段階）の定義（独立版STAGESのまま） ---------- */
+const BG_STAGES = [
+  {id:1, name:"一の巻", sub:"拍をつかむ",   blades:["bunsetsu"], lv:[1], count:5, hints:true,  beat:900,
+   lead:'<b>答えは見えている。</b>緑の「ね」が出ているところを、<br>拍に合わせて大太刀で斬るだけ。',
+   goal:"「ね」が入るところ＝文節の切れ目、と目で覚える"},
+  {id:2, name:"二の巻", sub:"手本を真似る", blades:["bunsetsu"], lv:[1], count:4, demo:true,   beat:900,
+   lead:'同じ文が<b>二度</b>流れる。<br>一度目は機械が斬ってみせる（手本）。二度目に真似る（返し）。',
+   goal:"見てから真似る。まだ考えなくていい"},
+  {id:3, name:"三の巻", sub:"文節を斬る",   blades:["bunsetsu"], lv:[1,2], count:5,            beat:800,
+   lead:'支えなし。<b>文節の切れ目</b>だけを斬る。<br>迷ったら「ね」を入れて確かめる。',
+   goal:"自分で切れ目を見つける"},
+  {id:4, name:"四の巻", sub:"単語を見る",   blades:["tango"], lv:[1], count:3, demo:true, hints:true, beat:900,
+   lead:'小刀にもちかえる。<b>単語の切れ目すべて</b>。<br>印つき・手本つきで、まず形を見る。',
+   goal:"文節の中にも切れ目があると知る"},
+  {id:5, name:"五の巻", sub:"単語に斬る",   blades:["tango"], lv:[1,2], count:5,               beat:800,
+   lead:'支えなし。単語の切れ目をすべて小刀で。<br>斬らないのは<b>一つの語の中</b>だけ。',
+   goal:"付属語の切れ目を自分で見つける"},
+  {id:6, name:"六の巻", sub:"二刀の手本",   blades:["bunsetsu","tango"], lv:[2], count:3, demo:true, beat:820,
+   lead:'二刀。手本つきで、<b>大太刀と小刀の使い分け</b>を見る。<br>文節の変わり目は大太刀、文節の中は小刀。',
+   goal:"二本の刀の役割の違いを見る"},
+  {id:7, name:"七の巻", sub:"二刀を使う",   blades:["bunsetsu","tango"], lv:[2,3], count:5,     beat:740,
+   lead:'支えなし。すき間ごとに<b>大太刀・小刀・見送る</b>の三択。',
+   goal:"文節と単語を、その場で見分ける"},
+  {id:8, name:"奥ノ巻", sub:"免許皆伝",     blades:["bunsetsu","tango"], lv:[3], count:6,       beat:680,
+   lead:'長い文で二刀。補助の動詞、助詞の連なり。<br>ここを通れば<b>免許皆伝</b>。',
+   goal:"すべてを自分の力で"},
+];
+
+/* 速さは巻ごとの基準拍に掛ける（独立版TEMPOSのまま） */
+const BG_TEMPOS = [
+  {key:"slow", name:"ゆるり", rate:1.20, mult:0.7},
+  {key:"mid",  name:"常の間", rate:1.00, mult:1.0},
+  {key:"fast", name:"疾風",   rate:0.80, mult:1.7},
+];
+
+/* ---------- 判定（すべて「拍」を単位にする、独立版のまま） ---------- */
+const BG_WIN_HIT     = 0.46;
+const BG_WIN_PERFECT = 0.17;
+const BG_REST_BEATS  = 2;
+const BG_LEAD_BEATS  = 4;
+const BG_COMBO_STEP = 0.10, BG_COMBO_CAP = 5.0;
+const BG_NE_BEATS = 8, BG_NE_MAX = 5, BG_LIFE_MAX = 3;
+
+const BG_MISS_LABEL = {
+  ooburi:   {nm:"単語の切れ目を大太刀で斬った", ex:"「わたし／は」は文節の中。ここは小刀"},
+  kogatana: {nm:"文節の切れ目を小刀で斬った",   ex:"文節の変わり目は、大太刀で断ち切る"},
+  gochu:    {nm:"単語の途中で斬った",           ex:"「走り／出す」のように、一語の中で斬った"},
+  minogashi:{nm:"文節の切れ目を見のがした",     ex:"文節の変わり目を斬らずに通した"},
+  minogashiT:{nm:"単語の切れ目を見のがした",    ex:"付属語との切れ目を、小刀で入れそこねた"},
+  karaburi: {nm:"切れ目のないところで振った",   ex:"拍からずれたか、語の途中で手が出た"},
+  tango:    {nm:"留めで、余分な印をつけた",     ex:"一語の中に切れ目を入れた"},
+  tangoOver:{nm:"留めで、切れ目を見落とした",   ex:"付属語との切れ目に印をつけ忘れた"},
 };
-/* seg文字列を、文字の配列と「その文字の直前のすき間の種類」に分解する
-   （独立版のparseSegと同じロジック）。gapType[i]が"bunsetsu"なら文節の切れ目、
-   "tango"なら単語だけの切れ目（文節の中）、キーが無ければ切れ目ではない
-   （一つの単語の途中）。 */
+const BG_RANK_ORDER = {"再　試":0, "初　伝":1, "目　録":2, "免　許":3, "皆　伝":4};
+/* =========================================================================
+   音：拍を鳴らしつづける（独立版のまま。専用のAudioContextを持つ）
+   ========================================================================= */
+const BG_SND = {ctx:null, on:true};
+function bgAc(){
+  if(!BG_SND.on) return null;
+  if(!BG_SND.ctx){
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if(!AC) return null;
+    try{ BG_SND.ctx = new AC(); }catch(e){ return null; }
+  }
+  if(BG_SND.ctx.state === "suspended") BG_SND.ctx.resume();
+  return BG_SND.ctx;
+}
+let BG_NOISE = null;
+function bgNoiseSrc(ctx){
+  if(!BG_NOISE || BG_NOISE.sampleRate !== ctx.sampleRate){
+    const n = Math.floor(ctx.sampleRate*0.4);
+    BG_NOISE = ctx.createBuffer(1, n, ctx.sampleRate);
+    const d = BG_NOISE.getChannelData(0);
+    for(let i=0;i<n;i++) d[i] = Math.random()*2-1;
+  }
+  const s = ctx.createBufferSource(); s.buffer = BG_NOISE; return s;
+}
+function bgTone(ctx,type,f0,f1,t0,dur,peak){
+  const o=ctx.createOscillator(), g=ctx.createGain();
+  o.type=type; o.frequency.setValueAtTime(f0,t0);
+  if(f1!==f0) o.frequency.exponentialRampToValueAtTime(Math.max(20,f1),t0+dur);
+  g.gain.setValueAtTime(0.0001,t0);
+  g.gain.exponentialRampToValueAtTime(peak,t0+0.008);
+  g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+  o.connect(g); g.connect(ctx.destination); o.start(t0); o.stop(t0+dur+0.02);
+}
+function bgSchedKo(ctx, t, accent){
+  const o=ctx.createOscillator(), g=ctx.createGain();
+  o.type="sine";
+  o.frequency.setValueAtTime(accent?340:520, t);
+  o.frequency.exponentialRampToValueAtTime(accent?120:230, t+0.09);
+  g.gain.setValueAtTime(0.0001,t);
+  g.gain.exponentialRampToValueAtTime(accent?0.17:0.085, t+0.005);
+  g.gain.exponentialRampToValueAtTime(0.0001, t+(accent?0.16:0.1));
+  o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t+0.2);
+  if(accent){
+    const s=bgNoiseSrc(ctx), bp=ctx.createBiquadFilter(), gg=ctx.createGain();
+    bp.type="lowpass"; bp.frequency.value=420;
+    gg.gain.setValueAtTime(0.09,t); gg.gain.exponentialRampToValueAtTime(0.0001,t+0.11);
+    s.connect(bp); bp.connect(gg); gg.connect(ctx.destination); s.start(t); s.stop(t+0.13);
+  }
+}
+function bgSndCut(perfect){
+  const ctx=bgAc(); if(!ctx) return; const t=ctx.currentTime;
+  const src=bgNoiseSrc(ctx), bp=ctx.createBiquadFilter(), g=ctx.createGain();
+  bp.type="bandpass"; bp.Q.value=1.6;
+  bp.frequency.setValueAtTime(perfect?4200:3000,t);
+  bp.frequency.exponentialRampToValueAtTime(perfect?500:700,t+0.16);
+  g.gain.setValueAtTime(0.0001,t);
+  g.gain.exponentialRampToValueAtTime(perfect?0.3:0.2,t+0.006);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+0.19);
+  src.connect(bp); bp.connect(g); g.connect(ctx.destination); src.start(t); src.stop(t+0.22);
+  if(perfect) bgTone(ctx,"sine",1568,1568,t+0.02,0.4,0.12);
+}
+function bgSndKo(){
+  const ctx=bgAc(); if(!ctx) return; const t=ctx.currentTime;
+  const src=bgNoiseSrc(ctx), bp=ctx.createBiquadFilter(), g=ctx.createGain();
+  bp.type="bandpass"; bp.Q.value=4; bp.frequency.setValueAtTime(5200,t);
+  bp.frequency.exponentialRampToValueAtTime(1800,t+0.09);
+  g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.2,t+0.004);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+0.11);
+  src.connect(bp); bp.connect(g); g.connect(ctx.destination); src.start(t); src.stop(t+0.13);
+}
+function bgSndTick(on){
+  const ctx=bgAc(); if(!ctx) return; const t=ctx.currentTime;
+  const src=bgNoiseSrc(ctx), bp=ctx.createBiquadFilter(), g=ctx.createGain();
+  bp.type="bandpass"; bp.Q.value=7; bp.frequency.value=on?2100:1300;
+  g.gain.setValueAtTime(0.2,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.055);
+  src.connect(bp); bp.connect(g); g.connect(ctx.destination); src.start(t); src.stop(t+0.07);
+  bgTone(ctx,"sine",on?1200:820,on?1200:820,t,0.05,0.08);
+}
+function bgSndBad(){ const ctx=bgAc(); if(!ctx) return; const t=ctx.currentTime;
+  bgTone(ctx,"sawtooth",190,82,t,0.26,0.15); bgTone(ctx,"square",128,62,t+0.02,0.2,0.08); }
+function bgSndMiss(){ const ctx=bgAc(); if(!ctx) return; bgTone(ctx,"sine",233,155,ctx.currentTime,0.3,0.14); }
+function bgSndAir(){ const ctx=bgAc(); if(!ctx) return; const t=ctx.currentTime;
+  const s=bgNoiseSrc(ctx), bp=ctx.createBiquadFilter(), g=ctx.createGain();
+  bp.type="bandpass"; bp.Q.value=2; bp.frequency.setValueAtTime(1400,t);
+  bp.frequency.exponentialRampToValueAtTime(500,t+0.12);
+  g.gain.setValueAtTime(0.1,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.14);
+  s.connect(bp); bp.connect(g); g.connect(ctx.destination); s.start(t); s.stop(t+0.16); }
+function bgSndClear(){ const ctx=bgAc(); if(!ctx) return; const t=ctx.currentTime;
+  [523.3,587.3,659.3,784.0,1046.5].forEach((f,i)=>bgTone(ctx,"triangle",f,f,t+i*0.07,0.32,0.13)); }
+function bgSndSubClear(){ const ctx=bgAc(); if(!ctx) return; const t=ctx.currentTime;
+  [659.3,880.0].forEach((f,i)=>bgTone(ctx,"triangle",f,f,t+i*0.08,0.24,0.11)); }
+function bgSndTomePerfect(){
+  bgSndSubClear();
+  const ctx=bgAc(); if(!ctx) return;
+  const t=ctx.currentTime+0.2;
+  [1046.5,1318.5,1568.0,2093.0].forEach((f,i)=>bgTone(ctx,"sine",f,f,t+i*0.065,0.5,0.11));
+}
+function bgSndRank(good){ const ctx=bgAc(); if(!ctx) return; const t=ctx.currentTime;
+  const sc = good ? [523.3,659.3,784.0,1046.5,1318.5] : [392.0,440.0,523.3];
+  sc.forEach((f,i)=>bgTone(ctx,"triangle",f,f,t+i*0.11,0.5,0.13)); }
+/* =========================================================================
+   状態
+   ========================================================================= */
+let BG = null, bgRaf = null;
+
+/* =========================================================================
+   記録：開いた巻と、巻ごとの段位・最高得点
+   独立版は専用のlocalStorageキーに保存していたが、ここではこのアプリの
+   共通スコア（st、loadStats/saveStats）にst.bunsetsuGiriとして載せる
+   （教員の指示「進捗・スコアの保存先を知識DXを利用して組み替える」）。
+   形（{open, rank, best}）は独立版のRECと同じなので、以降のロジックは無改造。 */
+let BG_REC = null;
+function bgLoadRec(){
+  const st = loadStats();
+  BG_REC = (st.bunsetsuGiri && st.bunsetsuGiri.open) ? st.bunsetsuGiri : {open:1, rank:{}, best:{}};
+  if(!BG_REC.rank) BG_REC.rank={};
+  if(!BG_REC.best) BG_REC.best={};
+}
+function bgSaveRec(){
+  const st = loadStats();
+  st.bunsetsuGiri = BG_REC;
+  saveStats(st);
+}
+const BG_BEST = {};
+
+/* ---------- 拍・盤面の寸法 ---------- */
+const BG_BLADE_RATIO = 0.36;
+const BG_MARK_H_RATIO = 0.62;
+let BG_M = null;
+function bgMeasure(){
+  const field = bg$("bgField");
+  const h=field.clientHeight, w=field.clientWidth;
+  const cell=Math.max(26, Math.min(46, Math.floor(h/13), Math.floor(w/5.2)));
+  BG_M={H:h, W:w, CELL:cell, BLADE:Math.round(h*BG_BLADE_RATIO)};
+  return BG_M;
+}
+function bgMetrics(){ return BG_M || bgMeasure(); }
+function bgComboMult(){ return Math.min(BG_COMBO_CAP, 1 + BG.combo*BG_COMBO_STEP); }
+function bgAddScore(n){ BG.score += Math.round(n * BG.tempo.mult); }
+
+/* ---------- 区切り記号の解釈（独立版のまま） ---------- */
 function bgParseSeg(seg){
   const chars=[], gapType={};
   let pending=null;
@@ -11702,233 +12254,1061 @@ function bgParseSeg(seg){
   }
   return {chars, gapType};
 }
-/* すき間iから始まる語（次の切れ目、または文末まで）の文字列を取り出す。
-   まちがいの解説で「そこにある語」を示すために使う。 */
-function bgWordAt(chars, gapType, i){
-  let j=i+1;
-  while(j<chars.length && !gapType[j]) j++;
-  return chars.slice(i,j).join("");
+function bgParseBunsetsu(seg){ return seg.split("/").map(b=>b.split("|")); }
+
+/* =========================================================================
+   出題する文を選ぶ
+   独立版のbuildTrack()は「巻の対象lvの文をシャッフルして先頭からcount個」だったが、
+   ここではボキャブラ・シューティングのvsPickNextItem（既出単語を使い切るまで
+   同じ語を引かない）と同じ考え方に組み替える（教員の指示「出題の範囲・選び方を
+   知識DXを利用して組み替える」）。対象となる文の範囲（stage.lv）自体は
+   STAGES定義のまま変えていない。使用済みの記録はプレイセッション中だけ持てば
+   十分なので（vsのusedWordsと同じく）永続化はしない。 */
+let bgUsedIdx = {};
+function bgPickOneSentence(stage){
+  const key = stage.lv.join(",");
+  const pool = BUNSETSU_SENTENCES
+    .map((s, idx) => ({s, idx}))
+    .filter(x => stage.lv.includes(x.s.lv));
+  if(!pool.length) return null;
+  if(!bgUsedIdx[key] || bgUsedIdx[key].length >= pool.length) bgUsedIdx[key] = [];
+  const used = bgUsedIdx[key];
+  let pick;
+  do{ pick = pool[Math.floor(Math.random()*pool.length)]; }
+  while(pool.length > 1 && used.includes(pick.idx));
+  used.push(pick.idx);
+  return pick.s;
 }
-/* すき間iを内側にふくむ、切れ目から切れ目までの語まるごとを取り出す。
-   一語の途中（切れ目のない場所）に印をつけてしまったときの解説で使う
-   （bgWordAtはiから右だけを見るので、語の後半しか拾えず分かりにくい）。 */
-function bgEnclosingWord(chars, gapType, i){
-  let start=i; while(start>0 && !gapType[start]) start--;
-  let end=i; while(end<chars.length && !gapType[end]) end++;
-  return chars.slice(start,end).join("");
-}
-/* 表示・辞書引き用に文末の句読点を取り除く。ただし語そのものが句読点だけ
-   （「。」など）の場合は取り除くと空文字になってしまうので、元の文字列に戻す。 */
-function bgStripPunct(s){ const t = s.replace(/[。、]+$/,""); return t || s; }
-/* すき間iの判定結果（missed＝つけ忘れ／extra＝余分な印）に応じて、なぜそこが
-   （またはそこが）切れ目なのかを、その語の実際の内容から具体的に説明する文を作る。
-   BUNSETSU_SENTENCESのseg欄がすでに正しい分け方を持っているので、辞書
-   （BUNSETSU_WORD_NOTES）と「自立語の直前は必ず文節の切れ目になる」という一般規則
-   だけで、文ごとの説明文を新たに書き足さずに済む。 */
-function bgExplainGap(chars, gapType, i, mode, marked){
-  const raw = gapType[i];
-  if(marked && !raw){
-    const word = bgStripPunct(bgEnclosingWord(chars, gapType, i));
-    return `「${word}」の前は、一つの単語の途中です。ここで分けると、意味の通じる言葉になりません。`;
+function bgPickSentencesForStage(stage){
+  const picked = [];
+  const n = Math.min(stage.count, BUNSETSU_SENTENCES.filter(s=>stage.lv.includes(s.lv)).length);
+  for(let i=0;i<n;i++){
+    const s = bgPickOneSentence(stage);
+    if(s) picked.push(s);
   }
-  const word = bgStripPunct(bgWordAt(chars, gapType, i));
-  const note = BUNSETSU_WORD_NOTES[word];
-  if(marked){ // ここまで来るのは mode==="bunsetsu" && raw==="tango" のときだけ
-    return `「${word}」の前は、単語としては切れますが、文節はまだ続きます。`
-      + (note || `「${word}」は付属語（前の自立語にくっついて働く言葉）です。`)
-      + "付属語の前では文節は変わりません。ここは小刀の出番です。";
+  picked.sort((x,y)=>x.lv-y.lv);            // 段の中でも、易しい文から
+  return picked;
+}
+
+/* =========================================================================
+   巻物を編む（独立版buildTrackと同じ組み立て方。出題の抽選だけbgPickSentencesForStageへ差し替え）
+   ========================================================================= */
+function bgRewind(tr){
+  tr.gaps.forEach(g=>{ g.done=false; g.judged=null; });
+  return {cells:tr.cells.map(c=>({ch:c.ch,beat:c.beat,si:c.si})), gaps:tr.gaps,
+          sentences:tr.sentences, totalBeats:tr.totalBeats, picked:tr.picked};
+}
+function bgBuildTrack(stage){
+  const picked = bgPickSentencesForStage(stage);
+
+  const cells=[], gaps=[], sentences=[];
+  let b = BG_LEAD_BEATS, si = 0;
+  picked.forEach(s => {
+    const passes = stage.demo ? ["demo","echo"] : ["solo"];
+    passes.forEach(kind => {
+      const {chars, gapType} = bgParseSeg(s.seg);
+      const start = b;
+      chars.forEach((ch,i) => {
+        if(i>0){
+          const raw = gapType[i];
+          let need = null;
+          if(raw){
+            if(stage.blades.length === 2)         need = raw;
+            else if(stage.blades[0]==="bunsetsu") need = (raw==="bunsetsu") ? "bunsetsu" : null;
+            else                                  need = "tango";
+          }
+          gaps.push({beat:b, need, raw, si, ci:i, chars, demo:(kind==="demo"),
+                     done:false, judged:null});
+        }
+        cells.push({ch, beat:b, si});
+        b++;
+      });
+      sentences.push({seg:s.seg, lv:s.lv, chars, start, end:b, idx:si, kind});
+      si++;
+      b += BG_REST_BEATS;
+    });
+  });
+  return {cells, gaps, sentences, totalBeats:b, picked, hints:!!stage.hints};
+}
+
+/* =========================================================================
+   段を始める（独立版startStageのまま。要素はすべてbg$で取得）
+   ========================================================================= */
+function bgStartStage(stageId, tempo, keepTrack){
+  bgAc();
+  const stage = BG_STAGES.find(s=>s.id===stageId);
+  const track = (keepTrack && BG && BG.stage.id===stageId) ? bgRewind(BG.track) : bgBuildTrack(stage);
+  BG = {
+    stage, tempo, track,
+    beatMs: Math.round(stage.beat * tempo.rate),
+    phase:"countin",
+    beat:-BG_LEAD_BEATS,
+    t0:0, score:0, combo:0, maxCombo:0,
+    life:BG_LIFE_MAX, ne:3, neUntil:-99,
+    misses:[], offsets:[],
+    hit:0, perfect:0, miss:0,
+    gi:0, di:0,
+    schedBeat:0,
+    audio0:null, beat0:0,
+    lastCount:-99,
+    curSentence:0, cleanSentences:0, sentenceClean:true,
+  };
+  bg$("bgVeil").style.display="none";
+  bg$("bgHudTitle").textContent = stage.name;
+  bg$("bgInfoLv").textContent = stage.sub;
+  bg$("bgInfoBpm").textContent = tempo.name;
+  bgSetPad(stage);
+  bgDemoNow=false; bg$("bgField").style.opacity=""; bgTagKind=null; bg$("bgDemoTag").className="demotag";
+  bgMeasure();
+  bgBuildStrip();
+  bgDrawHud();
+  bgLastT=0;
+  if(!bgRaf) bgRaf=requestAnimationFrame(bgLoop);
+}
+function bgSetPad(stage){
+  const two = stage.blades.length===2;
+  bg$("bgBtnNe").classList.toggle("hidden", !!stage.hints);
+  bg$("bgBtnCut").classList.toggle("hidden", !stage.blades.includes("bunsetsu"));
+  bg$("bgBtnKo").classList.toggle("hidden",  !stage.blades.includes("tango"));
+  bg$("bgBtnCut").disabled=false; bg$("bgBtnKo").disabled=false;
+  if(stage.blades[0]==="tango" && !two){
+    bg$("bgBtnKo").innerHTML = "小　刀<small>単語の切れ目</small>";
+    bg$("bgHint").textContent = "スペース／→／F＝小刀　　語の途中は見送る　　N＝「ね」";
+  }else if(!two){
+    bg$("bgHint").textContent = "スペース／→／J＝大太刀　　文節でないところは見送る　　N＝「ね」";
+  }else{
+    bg$("bgHint").textContent = "←／F＝小刀　　→／J／スペース＝大太刀　　語の途中は見送る　　N＝「ね」";
   }
-  if(raw==="bunsetsu"){
-    return `「${word}」は自立語（それだけで意味がわかる言葉）です。自立語の直前は、必ず文節の切れ目になります。大太刀で切りましょう。`;
+}
+/* ---------- 盤面（独立版のまま） ---------- */
+const BG_SMALL_KANA="ぁぃぅぇぉっゃゅょゎァィゥェォッャュョヮ";
+function bgBuildStrip(){
+  const m=bgMeasure(), tr=BG.track;
+  const stripEl=bg$("bgStrip"), bladeEl=bg$("bgBlade"), beatDotEl=bg$("bgBeatdot"),
+        bandEl=bg$("bgBladeBand"), cellsEl=bg$("bgCells");
+  stripEl.style.width=m.CELL+"px";
+  bladeEl.style.top=m.BLADE+"px";
+  beatDotEl.style.top=m.BLADE+"px";
+  const tolPx = BG_WIN_HIT*m.CELL;
+  bandEl.style.top=(-tolPx)+"px"; bandEl.style.height=(tolPx*2)+"px";
+  cellsEl.innerHTML="";
+  tr.cells.forEach(c => {
+    const d=document.createElement("div");
+    d.className="cell";
+    if(c.ch==="。"||c.ch==="、") d.classList.add("kutou");
+    else if(BG_SMALL_KANA.includes(c.ch)) d.classList.add("small");
+    d.innerHTML="<span></span>"; d.firstChild.textContent=c.ch;
+    d.style.height=m.CELL+"px";
+    d.style.fontSize=Math.round(m.CELL*0.72)+"px";
+    d.style.left=(m.W/2-m.CELL/2)+"px";
+    d.style.width=m.CELL+"px";
+    cellsEl.appendChild(d);
+    c.el=d;
+  });
+  BG.marks = BG.marks || {};
+  const keep = (BG.markData || []).filter(k=>!k.hint);
+  BG.markData = [];
+  keep.forEach(k => bgAddMark(k.beat, k.kind, k.type));
+  if(BG.track.hints){
+    BG.track.gaps.forEach(g => {
+      if(!g.need || g.done) return;
+      const isB = (g.raw==="bunsetsu");
+      const el=document.createElement("div");
+      el.className="cutmark";
+      el.style.fontSize=Math.round(m.CELL*(isB?0.46:0.56))+"px";
+      el.style.height=Math.round(m.CELL*BG_MARK_H_RATIO)+"px";
+      el.style.left=(m.W/2-m.CELL/2)+"px"; el.style.width=m.CELL+"px";
+      el.innerHTML=isB?'<span class="ne">ね</span>':'<span class="ko-hint"></span>';
+      cellsEl.appendChild(el);
+      BG.markData.push({beat:g.beat, el, hint:true, guide:g});
+    });
   }
-  return note
-    ? `「${word}」の前で、単語の切れ目になります。${note}`
-    : `「${word}」は付属語（前の言葉にくっついて働く言葉）です。単語としては切れ目になります。`;
 }
-function bgPickSentence(bg){
-  if(!bg.usedIdx || bg.usedIdx.length >= BUNSETSU_SENTENCES.length) bg.usedIdx = [];
-  let idx;
-  do{ idx = Math.floor(Math.random()*BUNSETSU_SENTENCES.length); }
-  while(BUNSETSU_SENTENCES.length>1 && bg.usedIdx.includes(idx));
-  bg.usedIdx.push(idx);
-  return BUNSETSU_SENTENCES[idx];
+
+function bgYOf(beat){ const m=bgMetrics(); return m.BLADE + (beat - BG.beat)*m.CELL; }
+
+/* ---------- 切れ目の印（独立版のまま） ---------- */
+function bgAddMark(beat, kind, type){
+  const m=bgMetrics();
+  const small=(type==="tango");
+  const el=document.createElement("div");
+  el.className="cutmark"+(kind==="missed"?" missed":kind==="pass"?" pass":"")+(small?" tango":"");
+  el.style.fontSize=Math.round(m.CELL*0.56)+"px";
+  el.style.height=Math.round(m.CELL*BG_MARK_H_RATIO)+"px";
+  el.innerHTML = small ? '<span class="hbar"></span>' : "／";
+  el.style.left=(m.W/2-m.CELL/2)+"px";
+  el.style.width=m.CELL+"px";
+  bg$("bgCells").appendChild(el);
+  BG.markData.push({beat, kind, type, el});
 }
-function bgModeLabel(mode){
-  return mode==="bunsetsu"
-    ? {cls:"bunsetsu", icon:"⚔️", label:"大太刀で「文節」の切れ目を探そう"}
-    : {cls:"tango", icon:"🗡️", label:"小刀で「単語」の切れ目を探そう（文節の切れ目もふくむ）"};
+/* =========================================================================
+   メインループ（独立版のまま。時間だけが進む。押しても止まらない）
+   ========================================================================= */
+let bgLastT=0;
+function bgLoop(t){
+  bgRaf=requestAnimationFrame(bgLoop);
+  if(!BG){ return; }
+  const dt = bgLastT ? Math.min(0.1,(t-bgLastT)/1000) : 0;
+  bgLastT=t;
+
+  if(BG.phase==="countin" || BG.phase==="run"){
+    const ctxRaw = BG_SND.on ? bgAc() : null;
+    const ctx = (ctxRaw && ctxRaw.state === "running") ? ctxRaw : null;
+    if(ctx){
+      if(BG.audio0===null || Math.abs((ctx.currentTime-BG.audio0)*1000/BG.beatMs - (BG.beat-BG.beat0)) > 0.9){
+        BG.audio0 = ctx.currentTime; BG.beat0 = BG.beat;
+      }
+      BG.beat = BG.beat0 + (ctx.currentTime - BG.audio0)*1000/BG.beatMs;
+    }else{
+      BG.audio0 = null;
+      BG.beat += dt*1000 / BG.beatMs;
+    }
+    bgSchedule();
+    bgPulse();
+    if(BG.phase==="countin"){
+      bgCountIn();
+      if(BG.beat >= 0){ BG.phase="run"; }
+    }
+    if(BG.phase==="run"){
+      bgAutoDemo();
+      const dm=bgInDemo(BG.beat);
+      if(dm!==bgDemoNow){
+        bgDemoNow=dm;
+        bg$("bgBtnCut").disabled=dm; bg$("bgBtnKo").disabled=dm;
+        bg$("bgField").style.opacity = dm ? ".82" : "";
+      }
+      if(BG.stage.demo) bgSetDemoTag(bgCurrentKind(BG.beat));
+      bgSweepMissed();
+      bgUpdateSentence();
+      if(BG.beat > BG.track.totalBeats + 1){ bgFinishStage(); return; }
+    }
+  }
+  bgRender();
 }
-function bgNextRound(){
-  const bg = storyRun.bg;
-  bg.round++;
-  const s = bgPickSentence(bg);
+
+function bgSchedule(){
+  const ctxRaw = BG_SND.on ? bgAc() : null;
+  const ctx = (ctxRaw && ctxRaw.state === "running") ? ctxRaw : null;
+  if(!ctx) { BG.schedBeat = Math.floor(BG.beat)+1; return; }
+  const now = ctx.currentTime, secPerBeat = BG.beatMs/1000;
+  let b = Math.max(BG.schedBeat, Math.ceil(BG.beat));
+  while((b - BG.beat)*secPerBeat < 0.3){
+    const at = (BG.audio0!==null) ? BG.audio0 + (b - BG.beat0)*secPerBeat : now + (b - BG.beat)*secPerBeat;
+    if(at > now - 0.02) bgSchedKo(ctx, Math.max(now, at), ((b%4)+4)%4===0);
+    b++;
+    if(b > BG.track.totalBeats+2) break;
+  }
+  BG.schedBeat = b;
+}
+function bgPulse(){
+  const b=Math.floor(BG.beat);
+  if(b!==BG.lastPulse){
+    BG.lastPulse=b;
+    const bladeEl=bg$("bgBlade"), beatDotEl=bg$("bgBeatdot");
+    bladeEl.classList.remove("beat"); void bladeEl.offsetWidth; bladeEl.classList.add("beat");
+    beatDotEl.classList.remove("on"); void beatDotEl.offsetWidth; beatDotEl.classList.add("on");
+  }
+}
+function bgCountIn(){
+  const n = Math.ceil(-BG.beat);
+  if(n!==BG.lastCount && n>=1 && n<=BG_LEAD_BEATS){
+    BG.lastCount=n;
+    const w=document.createElement("div");
+    w.className="countin";
+    w.innerHTML='<span class="go">'+["","一","二","三","四"][Math.min(4,n)]+'</span>';
+    bg$("bgField").appendChild(w); setTimeout(()=>w.remove(), 520);
+  }
+}
+
+/* 手本：機械がその場で斬ってみせる（独立版のまま） */
+function bgAutoDemo(){
+  const tr=BG.track;
+  while(BG.di < tr.gaps.length){
+    const g=tr.gaps[BG.di];
+    if(!g.demo){ BG.di++; continue; }
+    if(BG.beat >= g.beat){
+      if(!g.done && g.need){
+        g.done=true; g.judged="demo";
+        bgAddMark(g.beat,"cut",g.need);
+        bgEatHint(g.beat);
+        bgFxSlash(bgYOf(g.beat), false, g);
+        g.need==="tango" ? bgSndKo() : bgSndCut(false);
+      }else if(!g.done){ g.done=true; g.judged="pass"; }
+      BG.di++;
+    }else break;
+  }
+}
+let bgDemoNow=false, bgTagKind=null;
+function bgCurrentKind(beat){
+  const s=BG.track.sentences.find(x=>beat>=x.start-1 && beat<=x.end+0.5);
+  return s ? s.kind : null;
+}
+function bgInDemo(beat){ return bgCurrentKind(beat)==="demo"; }
+function bgSetDemoTag(kind){
+  if(kind===bgTagKind) return;
+  bgTagKind=kind;
+  const el=bg$("bgDemoTag");
+  if(kind==="demo"){
+    el.className="demotag on demo";
+    el.innerHTML='手 本 中<small>見て覚える。まだ斬らなくていい</small>';
+  }else if(kind==="echo"){
+    el.className="demotag on echo";
+    el.innerHTML='返 し<small>いまの手本のとおりに、自分で斬る</small>';
+  }else{
+    el.className="demotag";
+  }
+}
+function bgEatHint(beat){
+  const i=(BG.markData||[]).findIndex(k=>k.hint && Math.abs(k.beat-beat)<0.01);
+  if(i>=0){ BG.markData[i].el.remove(); BG.markData.splice(i,1); }
+}
+
+/* 見のがし：狙点を当たり幅ぶん過ぎたら確定（独立版のまま） */
+function bgSweepMissed(){
+  const tr=BG.track;
+  while(BG.gi < tr.gaps.length){
+    const g=tr.gaps[BG.gi];
+    if(g.done){ BG.gi++; continue; }
+    if(BG.beat > g.beat + BG_WIN_HIT){
+      g.done=true;
+      if(g.demo){ g.judged="demo"; BG.gi++; continue; }
+      if(g.need){
+        g.judged="missed";
+        bgAddMark(g.beat,"missed",g.need);
+        bgEatHint(g.beat);
+        bgOnMiss(g.need==="bunsetsu"?"minogashi":"minogashiT", g);
+        bgVerdict("見のがし","#7b7466"); bgSndMiss();
+      }else{
+        g.judged="pass";
+      }
+      BG.gi++;
+    }else break;
+  }
+}
+function bgUpdateSentence(){
+  const tr=BG.track;
+  const s=tr.sentences[BG.curSentence];
+  const nx=tr.sentences[BG.curSentence];
+  if(nx && !nx.announced && BG.beat > nx.start - BG_LEAD_BEATS + 1){
+    nx.announced=true;
+    if(nx.kind==="demo") bgBanner("手　本","見ているだけでいい");
+    else if(nx.kind==="echo") bgBanner("返　し","いまのとおりに斬る");
+  }
+  if(s && BG.beat > s.end){
+    if(s.kind==="demo"){ BG.sentenceClean=true; BG.curSentence++; bgDrawHud(); return; }
+    if(BG.sentenceClean){
+      BG.cleanSentences++;
+      bgAddScore(300*bgComboMult());
+      bgBanner("一刀両断","＋三〇〇");
+      bgSndClear();
+      if(BG.ne<BG_NE_MAX) BG.ne++;
+    }
+    BG.sentenceClean=true;
+    BG.curSentence++;
+    bgDrawHud();
+  }
+  bg$("bgProg").style.width = Math.min(100, Math.max(0, BG.beat/BG.track.totalBeats*100))+"%";
+  const real=BG.track.sentences.filter(x=>x.kind!=="demo");
+  const doneReal=BG.track.sentences.slice(0,BG.curSentence+1).filter(x=>x.kind!=="demo").length;
+  bg$("bgInfoNo").textContent = "第"+bgKansuji(Math.max(1,Math.min(real.length,doneReal)))+"文／"+bgKansuji(real.length);
+}
+const BG_KANSUJI=["〇","一","二","三","四","五","六","七","八","九","十"];
+function bgKansuji(n){ if(n<=10) return BG_KANSUJI[n]; if(n<20) return "十"+BG_KANSUJI[n-10];
+  const t=Math.floor(n/10),o=n%10; return BG_KANSUJI[t]+"十"+(o?BG_KANSUJI[o]:""); }
+
+function bgRender(){
+  if(!BG || !BG.track) return;
+  const m=bgMetrics();
+  const top=-m.CELL*2, bot=m.H+m.CELL*2;
+  BG.track.cells.forEach(c => {
+    if(!c.el) return;
+    const y=bgYOf(c.beat);
+    if(y<top-m.CELL*6 || y>bot+m.CELL*6){ if(c.el.style.visibility!=="hidden") c.el.style.visibility="hidden"; return; }
+    if(c.el.style.visibility==="hidden") c.el.style.visibility="";
+    c.el.style.transform="translateY("+y+"px)";
+  });
+  (BG.markData||[]).forEach(k => {
+    const y=bgYOf(k.beat) - Math.round(m.CELL*BG_MARK_H_RATIO)/2;
+    k.el.style.transform="translateY("+y+"px)";
+  });
+}
+/* =========================================================================
+   斬る（独立版のまま）
+   ========================================================================= */
+function bgSlash(blade){
+  if(!BG || BG.phase!=="run") return;
+  if(!BG.stage.blades.includes(blade)) return;
+  if(bgInDemo(BG.beat)){ bgVerdict("いまは見る","#7b7466"); return; }
+  const tr=BG.track;
+  let best=null, bd=1e9;
+  for(let i=Math.max(0,BG.gi-2); i<tr.gaps.length; i++){
+    const g=tr.gaps[i];
+    if(g.done) continue;
+    const d=Math.abs(g.beat-BG.beat);
+    if(d<bd){ bd=d; best=g; }
+    if(g.beat-BG.beat > 1.2) break;
+  }
+  if(!best || bd>BG_WIN_HIT){
+    bgLoseCombo(); bgPushMiss("karaburi", null);
+    bgVerdict("空振り","#7b7466"); bgSndAir(); bgDrawHud();
+    return;
+  }
+  best.done=true;
+  const off = BG.beat - best.beat;
+  if(best.need===blade){
+    BG.offsets.push(off);
+    const perfect = Math.abs(off)<=BG_WIN_PERFECT;
+    BG.hit++; if(perfect) BG.perfect++;
+    best.judged="cut";
+    bgAddMark(best.beat,"cut",best.need);
+    bgEatHint(best.beat);
+    bgFxSlash(bgYOf(best.beat), perfect, best);
+    BG.combo++; BG.maxCombo=Math.max(BG.maxCombo,BG.combo);
+    const base=(best.need==="bunsetsu")?100:80;
+    bgAddScore((perfect?base*1.6:base)*bgComboMult());
+    if(perfect) bgSndCut(true);
+    else { blade==="tango"?bgSndKo():bgSndCut(false);
+           if(Math.abs(off)>0.30) bgVerdict(off<0?"早い":"遅い", off<0?"#2c5c86":"#9c7c2a"); }
+    bgDrawHud();
+    if(perfect) bgBumpCombo(true);
+  }else{
+    let kind;
+    if(!best.need)                                        kind="gochu";
+    else if(blade==="bunsetsu" && best.need==="tango")    kind="ooburi";
+    else                                                  kind="kogatana";
+    best.judged="bad";
+    bgAddMark(best.beat,"missed",best.need||blade);
+    bgEatHint(best.beat);
+    bgOnMiss(kind,best);
+    bgFxBad(bgYOf(best.beat));
+    bgSndBad();
+  }
+}
+
+/* ---------- ミスの記録と代償（独立版のまま） ---------- */
+function bgLoseCombo(){
+  const before=BG.combo;
+  BG.combo=0;
+  if(before>=8) bgFxComboBreak(before);
+}
+function bgPushMiss(kind, g){
+  const around = g ? (g.chars.slice(Math.max(0,g.ci-3),g.ci).join("")+"／"+g.chars.slice(g.ci,g.ci+3).join("")) : "";
+  BG.misses.push({kind, at:around});
+  BG.sentenceClean=false;
+}
+function bgOnMiss(kind,g){
+  bgPushMiss(kind,g);
+  bgLoseCombo();
+  BG.miss++;
+  BG.life = Math.max(0, BG.life-1);
+  const fieldEl=bg$("bgField");
+  fieldEl.classList.remove("shake"); void fieldEl.offsetWidth; fieldEl.classList.add("shake");
+  bgDrawHud();
+}
+
+/* ---------- 演出（独立版のまま） ---------- */
+function bgFxSlash(y, perfect, g){
+  const small=(g.need==="tango");
+  const m=bgMetrics();
+  const fieldEl=bg$("bgField");
+  const box=document.createElement("div");
+  box.className="cutfx"; box.style.top=y+"px";
+  const s1=document.createElement("div");
+  s1.className="streak"+(perfect?" perfect":"")+(small?" ko":"");
+  const s2=document.createElement("div"); s2.className="streak after";
+  const core=document.createElement("div");
+  core.className="flashcore"+(perfect?" perfect":"")+(small?" ko":"");
+  box.appendChild(s2); box.appendChild(s1); box.appendChild(core);
+  const n=small?4:(perfect?10:6);
+  for(let i=0;i<n;i++){
+    const sh=document.createElement("div");
+    sh.className="shard"+(perfect?" perfect":"")+(small?" ko":"");
+    const dir=i%2?1:-1, dist=(perfect?46:32)+Math.random()*46;
+    sh.style.setProperty("--dx",(dir*dist)+"px");
+    sh.style.setProperty("--dy",((Math.random()-0.45)*54)+"px");
+    sh.style.setProperty("--rot",Math.round((Math.random()-0.5)*540)+"deg");
+    sh.style.animationDelay=(Math.random()*0.05)+"s";
+    sh.style.marginLeft=Math.round((Math.random()-0.5)*m.CELL*0.7)+"px";
+    box.appendChild(sh);
+  }
+  if(perfect && !small){
+    const hk=document.createElement("div"); hk.className="hanko"; hk.textContent="会心";
+    box.appendChild(hk);
+    const fl=document.createElement("div"); fl.className="screenflash";
+    fieldEl.appendChild(fl); setTimeout(()=>fl.remove(),280);
+  }
+  fieldEl.appendChild(box);
+  setTimeout(()=>box.remove(), perfect?620:500);
+  const cells=BG.track.cells;
+  for(let i=0;i<cells.length;i++){
+    if(cells[i].beat>=g.beat && cells[i].beat<g.beat+2 && cells[i].el){
+      const el=cells[i].el;
+      el.classList.remove("jolt"); void el.offsetWidth; el.classList.add("jolt");
+      setTimeout(((e)=>()=>e.classList.remove("jolt"))(el),430);
+    }
+  }
+}
+function bgFxBad(y){
+  const m=bgMetrics();
+  const d=document.createElement("div");
+  d.className="badcut"; d.style.top=(y-m.CELL*0.4)+"px"; d.textContent="✕";
+  bg$("bgField").appendChild(d); setTimeout(()=>d.remove(),520);
+}
+function bgVerdict(text,color){
+  const m=bgMetrics();
+  const d=document.createElement("div");
+  d.className="verdict"; d.style.top=(m.BLADE-m.CELL*2.1)+"px";
+  d.style.color=color; d.textContent=text;
+  bg$("bgField").appendChild(d); setTimeout(()=>d.remove(),640);
+}
+function bgFxComboBreak(before){
+  const m=bgMetrics();
+  const d=document.createElement("div");
+  d.className="combobreak"; d.style.top=(m.H*0.28)+"px";
+  d.innerHTML='<span class="big">'+before+'</span><span class="lab">連 斬 断 絶</span>';
+  bg$("bgField").appendChild(d); setTimeout(()=>d.remove(),980);
+  const ctx=bgAc();
+  if(ctx){ const t=ctx.currentTime;
+    [523.3,415.3,311.1,207.7].forEach((f,i)=>bgTone(ctx,"triangle",f,f,t+i*0.08,0.36,0.12)); }
+}
+function bgBanner(t,s){
+  const m=bgMetrics();
+  const d=document.createElement("div");
+  d.className="verdict"; d.style.top=(m.H*0.34)+"px"; d.style.color="#9c7c2a";
+  d.style.fontSize="1.6rem"; d.style.animationDuration="1.05s";
+  d.innerHTML=t+'<div style="font-size:.58rem;letter-spacing:.3em;margin-top:6px;color:#7b7466">'+s+"</div>";
+  bg$("bgField").appendChild(d); setTimeout(()=>d.remove(),1100);
+}
+
+/* 留めで全問正解したときだけの演出（独立版のまま） */
+function bgFxTomePerfect(wrap){
+  const fl=document.createElement("div"); fl.className="tome-flash";
+  wrap.appendChild(fl); setTimeout(()=>fl.remove(),340);
+
+  const hk=document.createElement("div"); hk.className="tome-hanko";
+  hk.innerHTML="<b>皆　伝</b><small>ひとつも落とさなかった</small>";
+  wrap.appendChild(hk); setTimeout(()=>hk.remove(),1700);
+
+  const colors=["var(--shu)","var(--kin)","var(--ai-l)","var(--midori)"];
+  for(let i=0;i<28;i++){
+    const c=document.createElement("div");
+    c.className="tome-confetti";
+    c.style.left=Math.round(Math.random()*94)+"%";
+    c.style.background=colors[i%colors.length];
+    c.style.setProperty("--fy",(58+Math.random()*36)+"vh");
+    c.style.setProperty("--fr",Math.round((Math.random()-0.5)*720)+"deg");
+    c.style.animationDelay=(Math.random()*0.3)+"s";
+    wrap.appendChild(c);
+    setTimeout(()=>c.remove(),1600);
+  }
+  wrap.classList.remove("shakeit"); void wrap.offsetWidth; wrap.classList.add("shakeit");
+}
+
+/* ---------- 「ね」（独立版のまま） ---------- */
+function bgUseNe(){
+  if(!BG || BG.phase!=="run" || BG.ne<=0) return;
+  if(BG.beat < BG.neUntil) return;
+  BG.ne--; BG.usedNe=true;
+  BG.neUntil=BG.beat+BG_NE_BEATS;
+  const ctx=bgAc(); if(ctx) bgTone(ctx,"sine",880,1320,ctx.currentTime,0.45,0.1);
+  const m=bgMetrics(), shown=[];
+  const cellsEl=bg$("bgCells");
+  BG.track.gaps.forEach(g => {
+    if(!g.need || g.done) return;
+    if(g.beat < BG.beat-1 || g.beat > BG.beat+BG_NE_BEATS) return;
+    const isB=(g.raw==="bunsetsu");
+    const el=document.createElement("div");
+    el.className="cutmark";
+    el.style.fontSize=Math.round(m.CELL*(isB?0.5:0.56))+"px";
+    el.style.height=Math.round(m.CELL*BG_MARK_H_RATIO)+"px";
+    el.style.left=(m.W/2-m.CELL/2)+"px"; el.style.width=m.CELL+"px";
+    el.innerHTML=isB?'<span class="ne">ね</span>':'<span class="ko-hint"></span>';
+    cellsEl.appendChild(el);
+    const rec={beat:g.beat, el, hint:true};
+    BG.markData.push(rec); shown.push(rec);
+  });
+  setTimeout(()=>{
+    shown.forEach(r=>{ r.el.remove(); const i=BG.markData.indexOf(r); if(i>=0) BG.markData.splice(i,1); });
+  }, BG_NE_BEATS*BG.beatMs);
+  bgDrawHud();
+}
+/* =========================================================================
+   HUD（独立版のまま）
+   ========================================================================= */
+function bgDrawHud(){
+  bg$("bgScore").textContent=BG.score;
+  const mv=bgComboMult(), mb=bg$("bgMultBox"), shown=mv.toFixed(1);
+  if(mb.dataset.v!==shown){
+    mb.dataset.v=shown; bg$("bgMultV").textContent=shown;
+    mb.classList.remove("pop"); void mb.offsetWidth; mb.classList.add("pop");
+  }
+  mb.classList.toggle("hot", mv>=2.0&&mv<3.2);
+  mb.classList.toggle("blaze", mv>=3.2);
+  bg$("bgField").classList.toggle("peril", BG.life<=1 && BG.phase==="run");
+  bg$("bgHudCombo").textContent=BG.combo;
+  bg$("bgNeLeft").textContent=BG.ne;
+  bg$("bgBtnNe").disabled = BG.ne<=0 || BG.phase!=="run";
+  let lb="";
+  for(let i=0;i<BG_LIFE_MAX;i++) lb+='<span class="life-dot'+(i<BG.life?"":" gone")+'"></span>';
+  bg$("bgLifeBox").innerHTML=lb;
+  const comboEl=bg$("bgCombo");
+  if(BG.combo>=1){
+    comboEl.classList.add("on");
+    comboEl.classList.toggle("hot", BG.combo>=10 && BG.combo<25);
+    comboEl.classList.toggle("blaze", BG.combo>=25);
+    comboEl.querySelector(".n").textContent=BG.combo;
+    comboEl.classList.remove("pop"); void comboEl.offsetWidth; comboEl.classList.add("pop");
+  }else comboEl.classList.remove("on","hot","blaze");
+}
+function bgBumpCombo(perfect){
+  if(!perfect || BG.combo<1) return;
+  const comboEl=bg$("bgCombo");
+  comboEl.classList.remove("crit"); void comboEl.offsetWidth; comboEl.classList.add("crit");
+  setTimeout(()=>comboEl.classList.remove("crit"), 600);
+}
+
+/* =========================================================================
+   段の終わり：留め → 判定（独立版のまま）
+   ========================================================================= */
+function bgFinishStage(){
+  if(BG.phase==="over"||BG.phase==="tome") return;
+  if(bgRaf){ cancelAnimationFrame(bgRaf); bgRaf=null; bgLastT=0; }
+  BG.phase="tome";
+  bgStartTome();
+}
+
+function bgStartTome(){
+  const tr=BG.track;
+  const stage=BG.stage;
+  if(stage.hints || stage.demo){ BG.phase="over"; bgShowResult(); return; }
+  const cand = tr.sentences.filter(s => bgParseBunsetsu(s.seg).some(b=>b.length>1));
+  if(!cand.length){ BG.phase="over"; bgShowResult(); return; }
+  const s = cand[Math.floor(Math.random()*cand.length)];
+  const askB = (stage.blades.length===1 && stage.blades[0]==="bunsetsu");
+
+  const m=bgMeasure();
   const {chars, gapType} = bgParseSeg(s.seg);
-  const mode = Math.random() < 0.5 ? "bunsetsu" : "tango";
-  bg.q = {chars, gapType, mode, marks:new Array(chars.length).fill(false), results:null};
-  bg.phase = "playing";
-  bgRenderScreen();
+  const size=Math.max(20, Math.min(38, Math.floor(m.H/12), Math.floor(m.W/(chars.length*1.35))));
+
+  const wrap=document.createElement("div");
+  wrap.className="tome";
+  wrap.innerHTML=
+    '<div class="tome-head"><h2>留　め</h2>'+
+    '<p id="bgTomeMsg">時間の外で、もう一度だけ。'+
+      (askB?'<b>文節の切れ目</b>':'<b>単語の切れ目</b>')+'に印をつけて「これで斬る」</p></div>'+
+    '<div class="tome-body"><div class="tome-line" id="bgTomeLine"></div></div>'+
+    '<div class="tome-foot"><button class="decide" id="bgDecide">これで斬る</button></div>';
+  bg$("bgField").appendChild(wrap);
+  BG.tomeWrap=wrap;
+
+  const line=wrap.querySelector("#bgTomeLine");
+  const recs=[];
+  chars.forEach((ch,i) => {
+    if(i>0){
+      const raw=gapType[i];
+      const correct = askB ? (raw==="bunsetsu") : !!raw;
+      const g0=document.createElement("div");
+      g0.className="tg"; g0.tabIndex=0;
+      g0.style.width=Math.round(size*0.44)+"px"; g0.style.height=size+"px";
+      const rec={i,el:g0,marked:false,correct,raw};
+      const sym = (raw==="tango") ? "｜" : "／";
+      const toggle=()=>{
+        if(BG.phase!=="tome") return;
+        rec.marked=!rec.marked;
+        g0.classList.toggle("marked",rec.marked);
+        g0.innerHTML=rec.marked?'<span class="mk'+(raw==="tango"?" ko":"")+'" style="font-size:'+Math.round(size*0.62)+'px">'+sym+'</span>':"";
+        bgSndTick(rec.marked);
+      };
+      g0.addEventListener("click",toggle);
+      g0.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){e.preventDefault();toggle();} });
+      line.appendChild(g0); recs.push(rec);
+    }
+    const cel=document.createElement("div");
+    cel.className="tc";
+    if(ch==="。"||ch==="、") cel.classList.add("kutou");
+    else if(BG_SMALL_KANA.includes(ch)) cel.classList.add("small");
+    cel.style.width=size+"px"; cel.style.height=size+"px";
+    cel.style.fontSize=Math.round(size*0.72)+"px";
+    cel.textContent=ch;
+    line.appendChild(cel);
+  });
+  BG.tomeRecs=recs; BG.tomeChars=chars; BG.tomeSize=size; BG.tomeAskB=askB;
+  const dec=wrap.querySelector("#bgDecide");
+  dec.disabled=true; dec.style.opacity=".45";
+  setTimeout(()=>{ if(dec.isConnected){ dec.disabled=false; dec.style.opacity=""; } },450);
+  dec.addEventListener("click", bgJudgeTome);
+  bg$("bgBtnCut").disabled=true; bg$("bgBtnKo").disabled=true; bg$("bgBtnNe").disabled=true;
 }
-function bgStart(){
-  storyRun.bg = {phase:"playing", round:0, totalRounds:BG_ROUNDS, score:0, hitTotal:0, needTotal:0, usedIdx:[], q:null};
-  bgNextRound();
-}
-function bgToggleGap(i){
-  const bg = storyRun.bg;
-  if(!bg || bg.phase !== "playing") return;
-  bg.q.marks[i] = !bg.q.marks[i];
-  bgRenderScreen();
-}
-/* すき間ごとに、必要な印（required）と実際につけた印（marked）を突き合わせて判定する。
-   文節モードは「raw==="bunsetsu"」の場所だけが対象。単語モードは、単語の切れ目は
-   文節の切れ目もすべて含む（自立語＋付属語のどちらの境目も単語の境目になる）ので、
-   rawが何であれ真なら対象になる。 */
-function bgSubmit(){
-  const bg = storyRun.bg, q = bg.q;
-  const results = [];
-  let hit=0, need=0, extra=0, missed=0;
-  for(let i=1;i<q.chars.length;i++){
-    const raw = q.gapType[i];
-    const required = q.mode==="bunsetsu" ? (raw==="bunsetsu") : !!raw;
-    const marked = !!q.marks[i];
-    let outcome = "ok";
-    if(required && marked){ outcome="hit"; hit++; need++; }
-    else if(required && !marked){ outcome="missed"; missed++; need++; }
-    else if(!required && marked){ outcome="extra"; extra++; }
-    results.push({i, raw, outcome});
+function bgJudgeTome(){
+  if(BG.phase!=="tome") return;
+  BG.phase="tomeJudged";
+  const size=BG.tomeSize, fs='style="font-size:'+Math.round(size*0.62)+'px"';
+  let hit=0, over=0, missed=0;
+  BG.tomeRecs.forEach(rec => {
+    const el=rec.el; el.classList.remove("marked"); el.classList.add("judged");
+    const sym = (rec.raw==="tango") ? "｜" : "／";
+    if(rec.correct && rec.marked){
+      el.innerHTML='<span class="mk'+(rec.raw==="tango"?" ko":"")+'" '+fs+'>'+sym+'</span>'; hit++;
+    }else if(rec.correct && !rec.marked){
+      el.innerHTML='<span class="mk late'+(rec.raw==="tango"?" ko":"")+'" '+fs+'>'+sym+'</span>'; missed++;
+      bgPushMiss("tangoOver", {chars:BG.tomeChars, ci:rec.i});
+    }else if(!rec.correct && rec.marked){
+      el.innerHTML='<span class="mk bad" '+fs+'>✕</span>'; over++;
+      bgPushMiss("tango", {chars:BG.tomeChars, ci:rec.i});
+    }else el.innerHTML="";
+  });
+  bgAddScore(hit*100*bgComboMult());
+  const msg=BG.tomeWrap.querySelector("#bgTomeMsg");
+  if(over+missed===0){
+    bgAddScore(400*bgComboMult());
+    msg.className="ok"; msg.textContent="すべて斬れた　＋四〇〇";
+    bgSndTomePerfect();
+    bgFxTomePerfect(BG.tomeWrap);
+  }else{
+    msg.className="ng"; msg.textContent="朱・藍＝合っていた印　✕＝余分な印　灰＝つけ忘れ";
+    bgSndBad();
   }
-  q.results = results;
-  q.perfect = (extra===0 && missed===0);
-  q.roundScore = hit*100 + (q.perfect && need>0 ? 200 : 0);
-  bg.score += q.roundScore;
-  bg.hitTotal += hit;
-  bg.needTotal += need;
-  bg.phase = "judged";
-  bgRenderScreen();
+  const foot=BG.tomeWrap.querySelector(".tome-foot");
+  foot.innerHTML='<button class="go" id="bgGoNext">結果を見る</button>';
+  foot.querySelector("#bgGoNext").addEventListener("click",()=>{
+    if(BG.tomeWrap){ BG.tomeWrap.remove(); BG.tomeWrap=null; }
+    BG.phase="over"; bgShowResult();
+  });
 }
-function bgNext(){
-  const bg = storyRun.bg;
-  if(bg.round >= bg.totalRounds){ bgFinish(); return; }
-  bgNextRound();
+/* =========================================================================
+   結果：段位で返す（独立版のまま）
+   ========================================================================= */
+function bgNeedCount(){ return BG.track.gaps.filter(g=>g.need && !g.demo).length; }
+function bgRankOf(){
+  const need=bgNeedCount();
+  const acc  = need ? BG.hit/need : 0;
+  const pAcc = BG.hit ? BG.perfect/BG.hit : 0;
+  const TOME=["tango","tangoOver"];
+  const clean = BG.misses.filter(m=>m.kind!=="karaburi" && !TOME.includes(m.kind)).length===0;
+  const tomeBad = BG.misses.filter(m=>TOME.includes(m.kind)).length;
+  if(acc>=1 && clean && pAcc>=0.8 && !tomeBad) return {mark:"皆　伝", good:true, msg:"一つも落とさず、拍にも乗りきった"};
+  if(acc>=1 && clean)              return {mark:"免　許", good:true, msg:tomeBad?"走りは完璧。留めを落とした":"切れ目は完璧。あとは拍を合わせるだけ"};
+  if(acc>=0.9)                     return {mark:"目　録", good:true, msg:"あと少し。落としたところを見ておく"};
+  if(acc>=0.75)                    return {mark:"初　伝", good:true, msg:"通った。同じ段をもう一度"};
+  return {mark:"再　試", good:false, msg:"「ね」を使ってよい。切れ目の見当から"};
 }
-function bgFinish(){
-  const bg = storyRun.bg;
-  const st = loadStats();
-  const prevBest = st.bunsetsuGiriHighScore || 0;
-  const isNewRecord = bg.score>0 && bg.score>prevBest;
-  if(isNewRecord){ st.bunsetsuGiriHighScore = bg.score; saveStats(st); }
-  bg.phase = "gameover";
-  bg.isNewRecord = isNewRecord;
-  bg.bestAfter = Math.max(prevBest, bg.score);
-  bgRenderScreen();
+function bgShowResult(){
+  if(BG.tomeWrap){ BG.tomeWrap.remove(); BG.tomeWrap=null; }
+  const fieldEl=bg$("bgField"), veilEl=bg$("bgVeil");
+  fieldEl.classList.remove("peril");
+  bg$("bgBtnCut").disabled=false; bg$("bgBtnKo").disabled=false;
+  const r=bgRankOf();
+  bgSndRank(r.good);
+  const key=BG.stage.id+"_"+BG.tempo.key;
+  const isBest = BG.score > (BG_BEST[key]||0);
+  if(isBest) BG_BEST[key]=BG.score;
+
+  const sid=BG.stage.id;
+  if(!BG_REC.best[sid] || BG.score>BG_REC.best[sid]) BG_REC.best[sid]=BG.score;
+  const wasRank = BG_REC.rank[sid];
+  if(BG_RANK_ORDER[r.mark] > (wasRank!==undefined ? BG_RANK_ORDER[wasRank] : -1)) BG_REC.rank[sid]=r.mark;
+  let opened=false;
+  if(BG_RANK_ORDER[r.mark]>=1 && BG_REC.open===sid && sid<BG_STAGES.length){ BG_REC.open=sid+1; opened=true; }
+  bgSaveRec();
+
+  const need=bgNeedCount();
+  const early=BG.offsets.filter(o=>o<-BG_WIN_PERFECT).length;
+  const late =BG.offsets.filter(o=>o> BG_WIN_PERFECT).length;
+
+  const tally={};
+  BG.misses.forEach(mi=>{ tally[mi.kind]=tally[mi.kind]||{n:0}; tally[mi.kind].n++; });
+  let tallyHtml='<div class="tally"><h3>あやまりの内わけ</h3>';
+  const keys=Object.keys(tally);
+  if(!keys.length) tallyHtml+='<div class="none">一度も斬りそこねなかった</div>';
+  else keys.sort((a,b)=>tally[b].n-tally[a].n).forEach(k=>{
+    tallyHtml+='<div class="row"><span class="nm">'+BG_MISS_LABEL[k].nm+'</span><span class="ct">'+tally[k].n+'</span></div>'+
+      '<div class="row"><span class="ex">'+BG_MISS_LABEL[k].ex+'</span></div>';
+  });
+  tallyHtml+="</div>";
+
+  const nextStage = BG_STAGES.find(s=>s.id===BG.stage.id+1);
+  veilEl.innerHTML=
+    '<h1>'+BG.stage.name+'</h1><div class="rule"></div>'+
+    '<div class="rankmark" style="color:'+(r.good?"#9c7c2a":"#7b7466")+'">'+r.mark+'</div>'+
+    '<div class="sub">'+r.msg+'</div>'+
+    '<div class="big" id="bgBigScore">'+BG.score+'</div><div class="sub">得点</div>'+
+    (isBest?'<div class="newbest">自 己 最 高</div>':'<div class="sub" style="margin-top:6px">最高 '+(BG_BEST[key]||0)+'</div>')+
+    '<div class="timing"><span>斬れた <b>'+BG.hit+'</b>／'+need+'</span>'+
+      '<span>会心 <b>'+BG.perfect+'</b></span><span>最大連斬 <b>'+BG.maxCombo+'</b></span></div>'+
+    '<div class="timing"><span>早い <b>'+early+'</b></span><span>ちょうど <b>'+BG.perfect+'</b></span><span>遅い <b>'+late+'</b></span></div>'+
+    tallyHtml+
+    (opened&&nextStage?'<div class="unlocked">'+nextStage.name+'「'+nextStage.sub+'」がひらいた</div>':"")+
+    '<button class="btn" id="bgAgain">もう一度</button>'+
+    (nextStage && BG_REC.open>nextStage.id-1 ?'<button class="btn ghost" id="bgNext">'+nextStage.name+'へ</button>':"")+
+    '<button class="btn ghost" id="bgHome">巻をえらぶ</button>';
+  veilEl.style.display="flex";
+  bgAnimateScore(bg$("bgBigScore"), BG.score);
+  if(opened) setTimeout(()=>{ const c=bgAc(); if(c){ const t=c.currentTime;
+    [523.3,659.3,784.0,1046.5].forEach((f,i)=>bgTone(c,"triangle",f,f,t+i*0.12,0.55,0.14)); } }, 500);
+  bg$("bgAgain").onclick=()=>bgStartStage(BG.stage.id, BG.tempo, true);
+  if(bg$("bgNext")) bg$("bgNext").onclick=()=>bgShowRule(nextStage.id);
+  bg$("bgHome").onclick=bgTitle;
+  bg$("bgAgain").focus();
 }
+
+/* =========================================================================
+   得点発表（独立版のまま）
+   ========================================================================= */
+function bgAnimateScore(el, target){
+  if(!el) return;
+  const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const final = String(target);
+  if(reduce){ el.textContent = final; return; }
+  const len = final.length;
+  const cur = new Array(len).fill("0");
+  el.textContent = cur.join("");
+
+  const SHUFFLE_MS = 480, STEP_MS = 45;
+  let shuffled = 0;
+  const shuffleTimer = setInterval(() => {
+    for(let i=0;i<len;i++) cur[i] = String(Math.floor(Math.random()*10));
+    el.textContent = cur.join("");
+    shuffled += STEP_MS;
+    if(shuffled >= SHUFFLE_MS){
+      clearInterval(shuffleTimer);
+      settle(0);
+    }
+  }, STEP_MS);
+
+  function settle(i){
+    if(i >= len){ el.textContent = final; return; }
+    let rolls = 0;
+    const rollTimer = setInterval(() => {
+      cur[i] = String(Math.floor(Math.random()*10));
+      el.textContent = cur.join("");
+      rolls++;
+      if(rolls >= 3){
+        clearInterval(rollTimer);
+        cur[i] = final[i];
+        el.textContent = cur.join("");
+        bgSndTick(true);
+        setTimeout(() => settle(i+1), 45);
+      }
+    }, 40);
+  }
+}
+
+/* 巻ごとのルールを、地の文で二・三文にまとめる（独立版のまま） */
+function bgRuleProse(stage){
+  const two = stage.blades.length===2;
+  const unit = two
+    ? "大太刀と小刀の二刀を使います。文節の変わり目は大太刀で、その中にある単語の切れ目は小刀で斬ります。"
+    : stage.blades[0]==="bunsetsu"
+      ? "使う刀は大太刀だけです。文節の切れ目を、大太刀で斬っていきます。"
+      : "使う刀は小刀だけです。単語の切れ目を、すべて小刀で斬っていきます。";
+
+  let support;
+  if(stage.hints && stage.demo){
+    support = "切れ目にはあらかじめ印が出ていて、しかも最初にお手本も流れます。まずは見て、そのとおりに斬ってみてください。";
+  }else if(stage.hints){
+    support = "切れ目には緑の「ね」や横棒の印がもう出ています。迷うことはないので、拍に合わせて斬ることだけを考えてください。";
+  }else if(stage.demo){
+    support = "答えの印は出ませんが、同じ文が二回流れます。一回目は機械が斬ってみせるお手本なので、よく見てから、二回目に自分で真似て斬ってください。";
+  }else{
+    support = "支えは何もありません。自分の判断だけを頼りに、その場で答えていきます。迷ったら「ね」で確かめてもかまいません。";
+  }
+  return unit+" "+support;
+}
+
+/* =========================================================================
+   ルール説明：巻を選んだ直後、始める前に必ず一度通す（独立版のまま）
+   ========================================================================= */
+function bgShowRule(stageId){
+  const stage=BG_STAGES.find(s=>s.id===stageId);
+  const rk=BG_REC.rank[stage.id];
+  const veilEl=bg$("bgVeil");
+  veilEl.innerHTML=
+    '<h1>'+stage.name+'</h1><div class="rule"></div>'+
+    '<p style="margin-bottom:2px"><b>'+stage.sub+'</b></p>'+
+    '<p style="margin-top:10px">'+bgRuleProse(stage)+'</p>'+
+    (rk?'<div class="sub" style="margin-top:10px">前回の段位　'+rk+'</div>':"")+
+    '<button class="btn" id="bgGoStart">はじめる</button>'+
+    '<button class="btn ghost" id="bgBackSel">巻をえらぶに戻る</button>';
+  veilEl.style.display="flex";
+  bg$("bgGoStart").onclick=()=>bgStartStage(stageId, bgChosenTempo);
+  bg$("bgBackSel").onclick=bgTitle;
+  bg$("bgGoStart").focus();
+}
+
+/* =========================================================================
+   巻えらび（免許状）（独立版のまま）
+   ========================================================================= */
+let bgChosenTempo = BG_TEMPOS[1];
+function bgTitle(){
+  if(bgRaf){ cancelAnimationFrame(bgRaf); bgRaf=null; bgLastT=0; }
+  if(BG && BG.tomeWrap){ BG.tomeWrap.remove(); BG.tomeWrap=null; }
+  const cellsEl=bg$("bgCells"), fieldEl=bg$("bgField"), veilEl=bg$("bgVeil");
+  cellsEl.innerHTML=""; fieldEl.classList.remove("peril");
+  bg$("bgHudTitle").textContent="文節斬り";
+  bg$("bgInfoLv").textContent="—"; bg$("bgInfoNo").textContent=""; bg$("bgInfoBpm").textContent="";
+  bg$("bgProg").style.width="0";
+
+  let cards="";
+  BG_STAGES.forEach(st=>{
+    const open = st.id<=BG_REC.open;
+    const shadow = (st.id===BG_REC.open+1);
+    if(!open && !shadow) return;
+    const rk=BG_REC.rank[st.id];
+    const support = st.hints&&st.demo ? "印つき・手本つき" : st.hints ? "印つき" : st.demo ? "手本つき" : "支えなし";
+    if(open){
+      cards+='<div class="stagecard s'+Math.min(4,Math.ceil(st.id/2))+'" data-id="'+st.id+'" tabindex="0">'+
+        (rk?'<span class="rank">'+rk+'</span>':"")+
+        '<b>'+st.name+'　'+st.sub+'</b>'+
+        '<span class="support">'+support+'</span>'+
+        '<small>'+st.lead+'</small></div>';
+    }else{
+      cards+='<div class="stagecard locked"><b>'+st.name+'　？？？</b>'+
+        '<small>ひとつ前の巻を<b>初伝</b>以上で通すと開く</small></div>';
+    }
+  });
+
+  let tempos='<div class="temporow">';
+  BG_TEMPOS.forEach(t=>{ tempos+='<button class="tempo'+(t.key===bgChosenTempo.key?" on":"")+'" data-t="'+t.key+'">'+
+    t.name+'<span>得点 ×'+t.mult+'</span></button>'; });
+  tempos+="</div>";
+
+  let seal='<div class="menkyo"><h3>免　許　状</h3><div class="seals">';
+  BG_STAGES.forEach(st=>{
+    const rk=BG_REC.rank[st.id];
+    seal+='<div class="seal'+(rk?" got":"")+'" title="'+st.name+'">'+
+      (rk?'<span class="sn">'+st.name.replace(/の巻|ノ巻/,"")+'</span>':'<span class="sn">・</span>')+'</div>';
+  });
+  seal+='</div><div class="menkyo-note">'+Object.keys(BG_REC.rank).length+' ／ '+BG_STAGES.length+' 巻</div></div>';
+
+  veilEl.innerHTML=
+    '<h1>文節斬り</h1><div class="rule"></div>'+
+    '<p style="margin-bottom:10px">文字が一つ通るたびに<b>一拍</b>。<br>拍にのって、切れ目だけを斬る。</p>'+
+    seal + tempos + '<div class="stagelist">'+cards+'</div>';
+  veilEl.style.display="flex";
+  veilEl.querySelectorAll(".stagecard[data-id]").forEach(el=>{
+    const go=()=>bgShowRule(Number(el.dataset.id));
+    el.addEventListener("click",go);
+    el.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){e.preventDefault();go();} });
+  });
+  veilEl.querySelectorAll(".tempo").forEach(el=>{
+    el.addEventListener("click",()=>{ bgChosenTempo=BG_TEMPOS.find(t=>t.key===el.dataset.t); bgAc(); bgSndTick(true); bgTitle(); });
+  });
+}
+/* =========================================================================
+   入力の取り付け・取り外し
+   独立版は、静的ページの固定要素に一度だけaddEventListenerしていた。
+   ここでは骨格HTMLを描くたびに（＝サブクエストへ入り直すたびに）付け直す必要が
+   あるが、window直付けのkeydown/resizeだけは自動では外れない（ボキャブラ・
+   シューティングのvsStopLoop/shoot.handlersと同じ理由）ので、bgHandlersに
+   控えておき、bgStopLoopで明示的に外す。ボタン・field直付けの分は、骨格ごと
+   screen.innerHTMLで捨てられるときに自動的に片づく。 */
+let bgHandlers = null;
+function bgAttachHandlers(){
+  bg$("bgBtnSnd").addEventListener("click",()=>{
+    BG_SND.on=!BG_SND.on;
+    const b=bg$("bgBtnSnd");
+    b.textContent=BG_SND.on?"♪ 入":"♪ 切";
+    b.classList.toggle("off",!BG_SND.on);
+    if(BG_SND.on) bgSndTick(true);
+  });
+  bg$("bgBtnCut").addEventListener("click",e=>{e.preventDefault(); bgSlash("bunsetsu");});
+  bg$("bgBtnKo").addEventListener("click",e=>{e.preventDefault(); bgSlash("tango");});
+  bg$("bgBtnNe").addEventListener("click",e=>{e.preventDefault(); bgUseNe();});
+  bg$("bgField").addEventListener("pointerdown",e=>{
+    if(!BG || BG.phase!=="run") return;
+    e.preventDefault();
+    if(BG.stage.blades.length===1){ bgSlash(BG.stage.blades[0]); return; }
+    const r=bg$("bgField").getBoundingClientRect();
+    bgSlash((e.clientX-r.left)<r.width/2 ? "tango" : "bunsetsu");
+  });
+  const keydown = e=>{
+    if(!BG || BG.phase!=="run") return;
+    const one = BG.stage.blades.length===1;
+    if(e.code==="Space"||e.key==="Enter"){
+      e.preventDefault(); bgSlash(one?BG.stage.blades[0]:"bunsetsu"); return;
+    }
+    if(e.key==="ArrowRight"||e.key==="j"||e.key==="J"){
+      e.preventDefault(); bgSlash(one?BG.stage.blades[0]:"bunsetsu"); return;
+    }
+    if(e.key==="ArrowLeft"||e.key==="f"||e.key==="F"){
+      e.preventDefault(); bgSlash(one?BG.stage.blades[0]:"tango"); return;
+    }
+    if(e.key==="n"||e.key==="N"){ e.preventDefault(); bgUseNe(); }
+  };
+  const resize = ()=>{ if(BG && (BG.phase==="run"||BG.phase==="countin")) bgBuildStrip(); };
+  window.addEventListener("keydown", keydown);
+  window.addEventListener("resize", resize);
+  bgHandlers = {keydown, resize};
+}
+/* サブクエストを離れるとき（showHomeから呼ばれる）に、window直付けの
+   リスナーとアニメーションループを止める。vsStopLoopと同じ役割。 */
+function bgStopLoop(){
+  if(bgRaf){ cancelAnimationFrame(bgRaf); bgRaf=null; }
+  bgLastT=0;
+  if(bgHandlers){
+    window.removeEventListener("keydown", bgHandlers.keydown);
+    window.removeEventListener("resize", bgHandlers.resize);
+    bgHandlers=null;
+  }
+  BG=null;
+}
+
+/* =========================================================================
+   骨格HTML（独立版<body>の中身とほぼ同じ。id="app"だけid="bgApp"に変更）
+   ========================================================================= */
+function bgSkeletonHtml(){
+  return `
+  <div id="bgApp">
+    <div class="hud">
+      <span class="title" id="bgHudTitle">文節斬り</span>
+      <span class="gauge" id="bgLifeBox"></span>
+      <span class="gauge">連斬 <b id="bgHudCombo">0</b></span>
+      <span class="multBox" id="bgMultBox"><span class="x">×</span><span class="v" id="bgMultV">1.0</span></span>
+      <button class="snd" id="bgBtnSnd" aria-label="音の入り切り">♪ 入</button>
+    </div>
+
+    <div class="infobar">
+      <span id="bgInfoLv">—</span>
+      <span id="bgInfoNo"></span>
+      <span class="bpm" id="bgInfoBpm"></span>
+      <span class="score"><small>得点</small><span id="bgScore">0</span></span>
+    </div>
+    <div class="progress"><i id="bgProg"></i></div>
+
+    <div class="field" id="bgField">
+      <div class="strip" id="bgStrip"></div>
+      <div class="cellwrap" id="bgCells"></div>
+      <div class="blade" id="bgBlade"><u id="bgBladeBand"></u><i></i></div>
+      <div class="beatdot" id="bgBeatdot"><em class="l"></em><em class="r"></em></div>
+      <div class="combo" id="bgCombo"><span class="n">0</span><span class="l">連斬</span></div>
+      <div class="remain" id="bgRemain" style="display:none"><span class="n">0</span><span class="l">のこり</span></div>
+      <div class="demotag" id="bgDemoTag"></div>
+    </div>
+
+    <div class="pad">
+      <button class="ko"  id="bgBtnKo">小　刀<small>単語の切れ目</small></button>
+      <button class="cut" id="bgBtnCut">大太刀<small>文節の切れ目</small></button>
+      <button class="ne"  id="bgBtnNe">ね<small>のこり <span id="bgNeLeft">3</span></small></button>
+    </div>
+    <div class="hint" id="bgHint">←／F＝小刀　→／J／スペース＝大太刀　語の途中は見送る　N＝「ね」</div>
+
+    <div class="veil" id="bgVeil"></div>
+  </div>`;
+}
+
+/* =========================================================================
+   サブクエストの入口。idx-guardで、同じビートへの再描画では骨格を作り直さない
+   （作り直すと進行中のゲーム状態・リスナーが失われるため。vsのidx-guardと同じ）。 */
 function storyRenderBunsetsu(beat, idx){
-  if(storyRun.bgBeatIdx !== idx){
-    storyRun.bgBeatIdx = idx;
-    storyRun.bg = {phase:"ready"};
-  }
   storyRun.curBeat = beat;
   clearChoiceKeys();
-  bgRenderScreen();
-}
-function bgRenderScreen(){
-  const bg = storyRun.bg;
-  if(!bg || bg.phase==="ready"){ bgRenderReady(); return; }
-  if(bg.phase==="playing"){ bgRenderPlaying(); return; }
-  if(bg.phase==="judged"){ bgRenderJudged(); return; }
-  bgRenderGameover();
-}
-function bgRenderReady(){
-  const st = loadStats();
-  const best = st.bunsetsuGiriHighScore || 0;
-  screen.innerHTML = `
-    <div class="card story-scene">
-      <h3 class="section">🗡️ 文節斬り</h3>
-      <p class="story-text">文が横に並んだら、切れ目だと思うすき間をタップして印をつけよう。つけ終わったら「これで斬る」で判定するよ。</p>
-      <p class="bg-instruction"><b>大太刀</b>＝文節の切れ目　<b>小刀</b>＝単語の切れ目<br>そのつど、どちらを探すか画面の上に出るよ。まちがえても、あとでちゃんと理由を説明するから安心してね。</p>
-      ${best>0 ? `<p class="note" style="text-align:center">自己ベスト：${best}点</p>` : ""}
-      <div class="btn-row" style="justify-content:center">
-        <button class="btn" onclick="bgStart()">はじめる</button>
-      </div>
-    </div>
-    ${storyFooterHtml()}`;
-}
-/* 句読点は縦書きのマスで左上に寄せる（bg-tc.kutou、CSS側で位置を調整）。 */
-function bgTcCls(ch){ return (ch==="。"||ch==="、") ? " kutou" : ""; }
-function bgRenderPlaying(){
-  const bg = storyRun.bg, q = bg.q;
-  const label = bgModeLabel(q.mode);
-  let line = `<span class="bg-tc${bgTcCls(q.chars[0])}">${esc(q.chars[0])}</span>`;
-  for(let i=1;i<q.chars.length;i++){
-    const marked = q.marks[i];
-    const markCls = marked ? (q.mode==="bunsetsu" ? "marked-bunsetsu" : "marked-tango") : "";
-    line += `<button type="button" class="bg-tg ${markCls}" onclick="bgToggleGap(${i})">${marked ? `<span class="bg-mk"></span>` : ""}</button>`;
-    line += `<span class="bg-tc${bgTcCls(q.chars[i])}">${esc(q.chars[i])}</span>`;
-  }
-  screen.innerHTML = `
-    <div class="card story-scene">
-      <div class="bg-badge-row"><span class="bg-mode-badge ${label.cls}">${label.icon} ${label.label}</span></div>
-      <div class="bg-badge-row">
-        <span class="bg-round-badge">第 ${bg.round} ／ ${bg.totalRounds} 問</span>
-        <span class="bg-round-badge">合計得点 ${bg.score}</span>
-      </div>
-      <div class="bg-sentence-box"><div class="bg-sentence">${line}</div></div>
-      <div class="btn-row" style="justify-content:center">
-        <button class="btn" onclick="bgSubmit()">これで斬る</button>
-      </div>
-    </div>
-    ${storyFooterHtml()}`;
-}
-function bgJudgeMarkHtml(q, res){
-  if(res.outcome==="hit" || res.outcome==="missed") return `<span class="bg-mk"></span>`;
-  if(res.outcome==="extra") return `<span class="bg-mk bg-x">✕</span>`;
-  return "";
-}
-function bgRenderJudged(){
-  const bg = storyRun.bg, q = bg.q;
-  let line = `<span class="bg-tc${bgTcCls(q.chars[0])}">${esc(q.chars[0])}</span>`;
-  for(let i=1;i<q.chars.length;i++){
-    const res = q.results[i-1];
-    line += `<span class="bg-tg judge-${res.outcome}">${bgJudgeMarkHtml(q,res)}</span>`;
-    line += `<span class="bg-tc${bgTcCls(q.chars[i])}">${esc(q.chars[i])}</span>`;
-  }
-  const mistakes = q.results.filter(r=>r.outcome==="missed"||r.outcome==="extra");
-  const explainHtml = mistakes.length ? `
-    <div class="bg-explain-list">
-      <p class="note" style="text-align:center">まちがえたところの解説</p>
-      ${mistakes.map(r => `
-        <div class="bg-explain-item">
-          <div class="bg-ex-head">${r.outcome==="missed" ? "切れ目を見のがした" : "余分な印をつけた"}</div>
-          ${bgExplainGap(q.chars, q.gapType, r.i, q.mode, r.outcome==="extra")}
-        </div>`).join("")}
-    </div>` : `<p class="bg-perfect-note">🎉 パーフェクト！ この文の切れ目を、ぜんぶ正しく見つけたね！</p>`;
-  screen.innerHTML = `
-    <div class="card story-scene">
-      <div class="bg-badge-row"><span class="bg-round-badge">第 ${bg.round} ／ ${bg.totalRounds} 問　結果</span></div>
-      <div class="bg-sentence-box"><div class="bg-sentence">${line}</div></div>
-      <div class="bg-legend"><span style="color:var(--ok)">緑＝合っていた印</span><span style="color:var(--ng)">赤＝まちがい（✕は余分な印、赤い印はつけ忘れ）</span></div>
-      <div class="bg-scoreline">この問題の得点：<b>+${q.roundScore}</b></div>
-      ${explainHtml}
-      <div class="btn-row" style="justify-content:center">
-        <button class="btn story-advance-btn" onclick="bgNext()">${bg.round>=bg.totalRounds?"結果を見る":"つぎの文へ"}</button>
-      </div>
-    </div>
-    ${storyFooterHtml()}`;
-}
-function bgRenderGameover(){
-  const bg = storyRun.bg;
-  const acc = bg.needTotal>0 ? Math.round(100*bg.hitTotal/bg.needTotal) : 100;
-  screen.innerHTML = `
-    <div class="card story-scene">
-      <h3 class="section">🗡️ 文節斬り　けっか</h3>
-      ${bg.isNewRecord ? `<p class="bg-perfect-note">🎉 自己ベスト更新！ 🎉</p>` : ""}
-      <div class="bg-final-score">${bg.score} 点</div>
-      <div class="bg-final-acc">切れ目の正解率：${acc}%　（自己ベスト：${bg.bestAfter}点）</div>
-      <div class="btn-row" style="justify-content:center">
-        <button class="btn" onclick="bgStart()">もう一度あそぶ</button>
-        <button class="btn secondary" onclick="showSideQuestMenu()">サブクエスト一覧へ</button>
-      </div>
-    </div>
-    ${storyFooterHtml()}`;
+  if(storyRun.bgBeatIdx === idx && bg$("bgApp")) return;
+  storyRun.bgBeatIdx = idx;
+  bgStopLoop();       // 念のため、前のセッションのリスナー・ループが残っていれば止めてから始める
+  screen.innerHTML = `<div class="card story-scene">${bgSkeletonHtml()}</div>${storyFooterHtml()}`;
+  bgAttachHandlers();
+  bgLoadRec();
+  bgTitle();
 }
 
 /* ================================================================
