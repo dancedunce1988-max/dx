@@ -1199,6 +1199,14 @@
     display:block; width:64%; height:3px; margin:0 auto;
     background:currentColor; border-radius:1.5px;
   }
+  /* 文節の切れ目「／」は、以前は文字グリフのまま置いていたため細く見づらかった
+     （教員の指示、2026-08-18〜：「スラッシュが細くて醜いから太くして」）。単語の切れ目
+     （.hbar）と同じ、色つきの太い棒をCSSで描く方式に統一し、太さを自由に調整できるようにした。 */
+  #bgApp .cutmark .slash{
+    display:block; width:74%; height:4.5px; margin:0 auto;
+    background:currentColor; border-radius:2.5px;
+    transform:rotate(-58deg);
+  }
   #bgApp .cutmark .ko-hint{
     display:block; width:64%; height:0; margin:0 auto;
     border-top:3px dashed var(--ai-l); opacity:.85;
@@ -1635,7 +1643,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.138</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.139</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -12701,7 +12709,7 @@ function bgAddMark(beat, kind, type){
   el.className="cutmark"+(kind==="missed"?" missed":kind==="pass"?" pass":"")+(small?" tango":"");
   el.style.fontSize=Math.round(m.CELL*0.56)+"px";
   el.style.height=Math.round(m.CELL*BG_MARK_H_RATIO)+"px";
-  el.innerHTML = small ? '<span class="hbar"></span>' : "／";
+  el.innerHTML = small ? '<span class="hbar"></span>' : '<span class="slash"></span>';
   el.style.left=(m.W/2-m.CELL/2)+"px";
   el.style.width=m.CELL+"px";
   bg$("bgCells").appendChild(el);
