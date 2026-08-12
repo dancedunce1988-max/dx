@@ -1502,7 +1502,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.134</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.135</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -12385,12 +12385,6 @@ function bgPickSentencesForStage(stage){
 /* =========================================================================
    巻物を編む（独立版buildTrackと同じ組み立て方。出題の抽選だけbgPickSentencesForStageへ差し替え）
    ========================================================================= */
-function bgRewind(tr){
-  tr.gaps.forEach(g=>{ g.done=false; g.judged=null; });
-  (tr.items||[]).forEach(it=>{ it.done=false; it.el=null; });
-  return {cells:tr.cells.map(c=>({ch:c.ch,beat:c.beat,si:c.si})), gaps:tr.gaps,
-          sentences:tr.sentences, items:tr.items||[], totalBeats:tr.totalBeats, picked:tr.picked};
-}
 /* 3文クリアごとに、文と文のあいだの休み（BG_REST_BEATS）にライフ回復アイテムを
    1つ置く（教員の指示、2026-08-15〜）。手本（kind==="demo"）は数えない。
    休みは2拍あるので、その2拍目（b+1）に置けば次の文の1文字目とは重ならない。 */
@@ -12433,11 +12427,14 @@ function bgBuildTrack(stage){
 
 /* =========================================================================
    段を始める（独立版startStageのまま。要素はすべてbg$で取得）
-   ========================================================================= */
-function bgStartStage(stageId, tempo, keepTrack){
+   独立版にあった「同じ譜面をそのまま再走できる」keepTrack/bgRewindは廃止し、
+   もう一度あそぶときも常に新しくbgBuildTrackする（教員の指示：「一回やって、
+   そのあとまたやろうとしたら、動きません」の修正。gaps/itemsをrewindで
+   使い回す作りが再走時の不具合の温床になっていたため、作り直しに一本化した）。 */
+function bgStartStage(stageId, tempo){
   bgAc();
   const stage = BG_STAGES.find(s=>s.id===stageId);
-  const track = (keepTrack && BG && BG.stage.id===stageId) ? bgRewind(BG.track) : bgBuildTrack(stage);
+  const track = bgBuildTrack(stage);
   BG = {
     stage, tempo, track,
     beatMs: Math.round(stage.beat * tempo.rate),
@@ -12451,7 +12448,7 @@ function bgStartStage(stageId, tempo, keepTrack){
     schedBeat:0,
     audio0:null, beat0:0,
     lastCount:-99,
-    curSentence:0, cleanSentences:0, sentenceClean:true,
+    curSentence:0, cleanSentences:0, sentenceClean:true, sentenceLifeLost:false,
   };
   bg$("bgVeil").style.display="none";
   bg$("bgHudTitle").textContent = stage.name;
@@ -12742,7 +12739,7 @@ function bgUpdateSentence(){
     else if(nx.kind==="echo") bgBanner("返　し","いまのとおりに斬る");
   }
   if(s && BG.beat > s.end){
-    if(s.kind==="demo"){ BG.sentenceClean=true; BG.curSentence++; bgDrawHud(); return; }
+    if(s.kind==="demo"){ BG.sentenceClean=true; BG.sentenceLifeLost=false; BG.curSentence++; bgDrawHud(); return; }
     if(BG.sentenceClean){
       BG.cleanSentences++;
       bgAddScore(300*bgComboMult());
@@ -12750,6 +12747,7 @@ function bgUpdateSentence(){
       bgSndClear();
     }
     BG.sentenceClean=true;
+    BG.sentenceLifeLost=false;
     BG.curSentence++;
     bgDrawHud();
   }
@@ -12848,12 +12846,19 @@ function bgPushMiss(kind, g){
   BG.sentenceClean=false;
 }
 /* ライフが0になったら、そこで強制終了する（教員の指示、2026-08-15〜。独立版は
-   「曲は最後まで流れきる」設計だったが、ライフを本物の失敗条件に変える）。 */
+   「曲は最後まで流れきる」設計だったが、ライフを本物の失敗条件に変える）。
+   ライフが減るのは1文につき1回だけ（教員の指示：「ライフの減り方は、一文につき、
+   ミスがあれば一つ減るように変更して」）。同じ文の中で2回目以降のミスは、
+   連斬が切れて記録には残るが、ライフはもう減らない。次の文に進むと
+   sentenceLifeLostがbgUpdateSentenceで改めてfalseに戻る。 */
 function bgOnMiss(kind,g){
   bgPushMiss(kind,g);
   bgLoseCombo();
   BG.miss++;
-  BG.life = Math.max(0, BG.life-1);
+  if(!BG.sentenceLifeLost){
+    BG.sentenceLifeLost = true;
+    BG.life = Math.max(0, BG.life-1);
+  }
   const fieldEl=bg$("bgField");
   fieldEl.classList.remove("shake"); void fieldEl.offsetWidth; fieldEl.classList.add("shake");
   bgDrawHud();
@@ -13083,7 +13088,7 @@ function bgShowResult(){
   bgAnimateScore(bg$("bgBigScore"), BG.score);
   if(opened) setTimeout(()=>{ const c=bgAc(); if(c){ const t=c.currentTime;
     [523.3,659.3,784.0,1046.5].forEach((f,i)=>bgTone(c,"triangle",f,f,t+i*0.12,0.55,0.14)); } }, 500);
-  bg$("bgAgain").onclick=()=>bgStartStage(BG.stage.id, BG.tempo, true);
+  bg$("bgAgain").onclick=()=>bgStartStage(BG.stage.id, BG.tempo);
   if(bg$("bgNext")) bg$("bgNext").onclick=()=>bgShowRule(nextStage.id);
   bg$("bgHome").onclick=bgTitle;
   bg$("bgAgain").focus();
