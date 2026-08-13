@@ -1699,7 +1699,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.148</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.149</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -12894,6 +12894,17 @@ function bgBuildStrip(){
     d.style.fontSize=Math.round(m.CELL*0.72)+"px";
     d.style.left=(m.W/2-m.CELL/2)+"px";
     d.style.width=m.CELL+"px";
+    /* 文字が流れる帯の上のほうに、黒い■のような塊が出るバグの修正（教員の指示、
+       2026-08-20〜）。原因はbgRenderの間引き最適化：まだ画面に入ってこない先の文字は
+       「触らずに済ませる」ため一切のスタイル更新をスキップするようにしたが、生成した
+       直後のcell要素はtransform（位置）はおろかvisibilityも一度も設定されていない状態
+       だった。position:absoluteでtopもtransformも無い要素は、初期状態のまま帯の
+       いちばん上（0付近）に visible で重なって並んでしまい、まだ出番の来ていない
+       何十〜何百文字ぶんの文字（色は--sumiの濃いインク色）が積み重なって、遠目には
+       黒く塗りつぶしたような塊に見えていた。生成した時点で最初からvisibility:hiddenに
+       しておき、bgRenderが実際に画面内に入ってきたときだけ表示・位置決めするように
+       直す（bgRender側の「触らずに済ませる」最適化はそのまま活かせる）。 */
+    d.style.visibility="hidden";
     cellsEl.appendChild(d);
     c.el=d;
   });
