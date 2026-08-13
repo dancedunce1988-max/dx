@@ -1699,7 +1699,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.147</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.148</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6345,23 +6345,27 @@ const BOSSES = [
      dropAccuracyThreshold(0.8)・itemDropFloor/Ceil(0.4/1.0)はrecPts5000帯と同じ基準を踏襲。lvは
      5000帯(33)と15000帯(50)の中間で42とした。制限時間は教員の指示で12秒（answerTimeMs、
      他ボスの標準15秒より短い個別設定）。 */
-  {id:"game_maniac_89", name:"ゲームマニア８９", icon:"👾", item:"ジョイコン", treasure:"なにかのソフト", hp:6796, atk:900, defPct:20, accuracy:180, evadePct:25, luck:15, lv:42, recPts:10000, minXpRatio:0.5, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, answerTimeMs:12000, healOnMissPct:0.10},
+  /* 2026-08-20〜、教員の指示で「適正経験値10000のボスは、全てHPを今の倍にして」に対応。
+     元のhp:6796（本ボスだけhealOnMissPct:0.10・answerTimeMs:12000という個別調整の上で
+     二分探索して決めた特殊値）を、他5体と同じ「今の値の2倍」ルールでそのまま2倍にした。 */
+  {id:"game_maniac_89", name:"ゲームマニア８９", icon:"👾", item:"ジョイコン", treasure:"なにかのソフト", hp:13592, atk:900, defPct:20, accuracy:180, evadePct:25, luck:15, lv:42, recPts:10000, minXpRatio:0.5, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, answerTimeMs:12000, healOnMissPct:0.10},
   /* recPts10000帯の新5体（2026-08-09〜、教員の指示）。「ルオー帯(recPts5000)を土台に、ことのはの
      必殺技を前提とした強さ」という位置づけで、HPは教員の指示どおりルオー帯の基準HP(31000)の
      3倍＝93000に統一（fixedHitTurns:8のボスがちょうど割り切れる数でもある）。atk/defPct/accuracy/
      evadePct/luckは「ゲームマニア８９」と同じ標準値を土台にし、各ボスの特殊能力で個性を出す設計
      （教員から「その他は任せる」との指示）。出現条件（minXpRatio:0.5＝経験値5000超）・
      ドロップ設定はゲームマニア８９を踏襲。名前・アイテム・宝具は教員の指示になかったため、
-     各ボスの特殊能力にちなんだ仮称として提案したもの（変更歓迎）。 */
-  {id:"mushin_zen", name:"座禅の達人・無心さん", icon:"🧘", item:"座布団", treasure:"無心の境地", hp:93000, atk:400, defPct:20, accuracy:180, evadePct:25, luck:15, lv:42, recPts:10000, minXpRatio:0.5, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, fixedHitTurns:8},
-  {id:"idaten", name:"俊足の韋駄天", icon:"🏃", item:"俊足のお守り", treasure:"韋駄天の羽根", hp:93000, atk:400, defPct:20, accuracy:180, evadePct:25, luck:15, lv:42, recPts:10000, minXpRatio:0.5, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, lowSpdEvade:{threshold:2000, evadePct:80, taunt:"あなたの動きでは、私の速さにはついてこられまい！"}},
-  /* 教員の指示（2026-08-20〜）で、HP・防御力をrecPts10000帯の標準値（hp:93000、defPct:20）の
-     2倍に強化。名前どおりの「鉄壁」らしさを、非会心ダメージ上限（nonCritCapPct）に加えて
-     生の耐久力でも表現する狙い。他4体（無心さん・韋駄天・KOキング・カラクリ人形）は
-     標準値のまま変更していない。 */
-  {id:"tekpeki_guard", name:"鉄壁の守衛さん", icon:"🛡️", item:"警備員証", treasure:"鉄壁の盾", hp:186000, atk:400, defPct:40, accuracy:180, evadePct:25, luck:15, lv:42, recPts:10000, minXpRatio:0.5, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, nonCritCapPct:0.05},
-  {id:"ko_king", name:"プレッシャー系ボクサー・KOキング", icon:"🥊", item:"グローブ", treasure:"王者の帯", hp:93000, atk:400, defPct:20, accuracy:180, evadePct:25, luck:15, lv:42, recPts:10000, minXpRatio:0.5, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, lowDefAtkDouble:{threshold:2000, mult:2}},
-  {id:"noroi_karakuri", name:"のろいのカラクリ人形", icon:"🪆", item:"呪いのお札", treasure:"封印の鍵", hp:93000, atk:400, defPct:20, accuracy:180, evadePct:25, luck:15, lv:42, recPts:10000, minXpRatio:0.5, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, fixedDamageRange:{min:1500, max:2000}},
+     各ボスの特殊能力にちなんだ仮称として提案したもの（変更歓迎）。
+     2026-08-20〜、教員の指示で「守衛さんのHPをさらに倍に」「その他の10000帯ボスもHPを今の倍に」
+     に対応。無心さん・韋駄天・KOキング・カラクリ人形は標準値93000→186000（2倍）。守衛さんは
+     すでに一度2倍（93000→186000）にしていたところから、さらにもう一度2倍にして372000
+     （防御力40%はそのまま、今回はHPだけの指示のため変更していない）。あわせて、のろいの
+     カラクリ人形は攻撃力を1.5倍（400→600）にした。 */
+  {id:"mushin_zen", name:"座禅の達人・無心さん", icon:"🧘", item:"座布団", treasure:"無心の境地", hp:186000, atk:400, defPct:20, accuracy:180, evadePct:25, luck:15, lv:42, recPts:10000, minXpRatio:0.5, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, fixedHitTurns:8},
+  {id:"idaten", name:"俊足の韋駄天", icon:"🏃", item:"俊足のお守り", treasure:"韋駄天の羽根", hp:186000, atk:400, defPct:20, accuracy:180, evadePct:25, luck:15, lv:42, recPts:10000, minXpRatio:0.5, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, lowSpdEvade:{threshold:2000, evadePct:80, taunt:"あなたの動きでは、私の速さにはついてこられまい！"}},
+  {id:"tekpeki_guard", name:"鉄壁の守衛さん", icon:"🛡️", item:"警備員証", treasure:"鉄壁の盾", hp:372000, atk:400, defPct:40, accuracy:180, evadePct:25, luck:15, lv:42, recPts:10000, minXpRatio:0.5, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, nonCritCapPct:0.05},
+  {id:"ko_king", name:"プレッシャー系ボクサー・KOキング", icon:"🥊", item:"グローブ", treasure:"王者の帯", hp:186000, atk:400, defPct:20, accuracy:180, evadePct:25, luck:15, lv:42, recPts:10000, minXpRatio:0.5, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, lowDefAtkDouble:{threshold:2000, mult:2}},
+  {id:"noroi_karakuri", name:"のろいのカラクリ人形", icon:"🪆", item:"呪いのお札", treasure:"封印の鍵", hp:186000, atk:600, defPct:20, accuracy:180, evadePct:25, luck:15, lv:42, recPts:10000, minXpRatio:0.5, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, fixedDamageRange:{min:1500, max:2000}},
   /* 適正経験値15000の新最上位ボス（2026-07-21〜、教員の指示）。「今までで一番強いボス」という
      位置づけで、既存最上位ルオー(recPts5000)からさらに3倍の帯に置いた。個性は既存の「ステータス
      依存だが特殊反撃を持つ」型：①`atkHalvedUnlessFinisher`＝必殺技以外の通常攻撃はダメージが
@@ -12915,7 +12919,13 @@ function bgBuildStrip(){
     if(it.done) return;
     const el=document.createElement("div");
     el.className="bgItem";
-    el.innerHTML="<span>❤</span>";
+    /* 「❤」を異体字セレクタ（U+FE0F）無しで使うと、端末やフォントによっては
+       絵文字ではなく文字扱いになり、対応するグリフが無いフォントで黒い「■」
+       （いわゆる「豆腐」）として表示されてしまう（教員の指示、2026-08-20〜：
+       「流れる文字の上の方に、黒い『■』が表示されるバグ」の原因）。アプリの
+       他の箇所（STAT_LABEL_SHORT等）はすべて「❤️」とVS16付きで統一しているので、
+       ここも合わせる。 */
+    el.innerHTML="<span>❤️</span>";
     el.style.height=m.CELL+"px";
     el.style.fontSize=Math.round(m.CELL*0.6)+"px";
     el.style.left=(m.W/2-m.CELL/2)+"px";
@@ -13100,7 +13110,7 @@ function bgSweepItems(){
       let gained;
       if(BG.life < BG_LIFE_MAX){
         BG.life++;
-        gained = {text:"ライフ回復！", sub:"❤ +1", color:"#2f7d5b"};
+        gained = {text:"ライフ回復！", sub:"❤️ +1", color:"#2f7d5b"};
       }else{
         bgAddScore(200*bgComboMult());
         gained = {text:"ライフは満タン！", sub:"かわりに ＋200点", color:"#9c7c2a"};
