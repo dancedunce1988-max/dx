@@ -1699,7 +1699,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.142</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.143</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -12245,10 +12245,14 @@ const BUNSETSU_SENTENCES = [
    「まとめ」専用のシステムを使う巻の印。
    `important:true` は、巻えらび画面・プレイ中の背景色を変えて重要性をアピールする印
    （三・六の巻のみ。七の巻はあえて付けず、裏ボス的に控えめに置く）。まとめの巻の
-   合否は、得点ではなく出題数（`count`）を最後まで解ききれたかどうかで決める
-   （教員の指示、2026-08-19〜：「◯問を攻略したら〈そこまで強制終了されなければ〉
-   クリア」。ライフが尽きての強制終了だけが不合格で、最後まで到達すれば必ず合格に
-   なる。六の巻は三の巻よりcountを多くして、合格の重みをかなり厳しくしてある）。 */
+   合否は、得点ではなく出題数を解ききれたかどうかで決める（教員の指示、2026-08-19〜：
+   「◯問を攻略したら〈そこまで強制終了されなければ〉クリア」）。ライフが尽きての
+   強制終了だけが不合格で、そこに達する前に強制終了すれば不合格になる。
+   `clearCount`（未指定なら`count`と同じ）が「合格に必要な問数」で、`count`は
+   「実際に用意する問題の総数」。六の巻はこの2つを分け、20問で合格にしつつ
+   （教員の指示、2026-08-20〜：「六巻は20問でクリア。クリアとなる20問以降も、
+   問題は出続けるようにして」）、countだけを大きくして合格後も問題が出続ける
+   「腕試し」区間を用意している（bgPickSentencesForStage・bgShowResult参照）。 */
 const BG_STAGES = [
   {id:1, name:"一の巻", sub:"拍をつかむ",   blades:["bunsetsu"], lv:[1], count:5, hints:true,  beat:900,
    lead:'<b>答えは見えている。</b>緑の「ね」が出ているところを、<br>拍に合わせて大太刀で斬るだけ。',
@@ -12265,8 +12269,8 @@ const BG_STAGES = [
   {id:5, name:"五の巻", sub:"手本付き",     blades:["tango"], lv:[1], count:4, demo:true,   beat:900,
    lead:'同じ文が二度流れる。<br>一度目は手本（機械が小刀で斬ってみせる）、二度目は返し（自分で真似て斬る）。',
    goal:"単語の切れ目の見つけ方を、見て覚える"},
-  {id:6, name:"六の巻", sub:"単語分け まとめ", blades:["tango"], lv:[1,2,3], count:40, escalate:true, important:true, beat:800,
-   lead:'<b>単語編のまとめ。</b>支えなし。やさしい文からランダムに出て、<br>10問を過ぎると少しずつ速くなっていく。全40問を解ききれば合格。',
+  {id:6, name:"六の巻", sub:"単語分け まとめ", blades:["tango"], lv:[1,2,3], count:200, clearCount:20, escalate:true, important:true, beat:800,
+   lead:'<b>単語編のまとめ。</b>支えなし。やさしい文からランダムに出て、<br>10問を過ぎると少しずつ速くなっていく。20問を解ききれば合格、<br>その先も問題は出続け、速さも上がり続ける（腕試し）。',
    goal:"単語の切れ目を、状況に合わせて自分の力で見きわめる"},
   {id:7, name:"七の巻", sub:"免許皆伝",     blades:["bunsetsu","tango"], lv:[1,2,3], count:10, escalate:true, beat:780,
    lead:'二刀。すき間ごとに<b>大太刀・小刀・見送る</b>の三択。<br>三の巻・六の巻と同じ、まとめのシステムで挑む最終試練。',
@@ -12631,15 +12635,26 @@ function bgPickOneSentence(stage){
   used.push(pick.idx);
   return pick.s;
 }
+/* 合格に必要な問数（stage.clearCount、無ければstage.count）ぶんは、これまでどおり
+   やさしい文から順に並べる「本編」。六の巻のように count が clearCount より大きい巻は、
+   本編のあとに残りをそのままランダムな順（並べ替えない）で継ぎ足す「腕試し」区間になる
+   （教員の指示、2026-08-20〜：「クリアとなる20問以降も、問題は出続けるように」）。
+   bgPickOneSentence自体がプールを使い切ったら払い出し済みをリセットして続けられるので、
+   countがプールの総数（46）を超えても問題なく必要数だけ引ける。 */
 function bgPickSentencesForStage(stage){
-  const picked = [];
-  const n = Math.min(stage.count, BUNSETSU_SENTENCES.filter(s=>stage.lv.includes(s.lv)).length);
-  for(let i=0;i<n;i++){
+  const coreN = Math.min(stage.clearCount || stage.count, stage.count);
+  const core = [];
+  for(let i=0;i<coreN;i++){
     const s = bgPickOneSentence(stage);
-    if(s) picked.push(s);
+    if(s) core.push(s);
   }
-  picked.sort((x,y)=>x.lv-y.lv);            // 段の中でも、易しい文から
-  return picked;
+  core.sort((x,y)=>x.lv-y.lv);              // 本編は、易しい文から
+  const tail = [];
+  for(let i=coreN;i<stage.count;i++){
+    const s = bgPickOneSentence(stage);
+    if(s) tail.push(s);
+  }
+  return core.concat(tail);
 }
 
 /* =========================================================================
@@ -12684,7 +12699,11 @@ function bgBuildTrack(stage){
       b += BG_REST_BEATS;
     });
   });
-  return {cells, gaps, sentences, items, totalBeats:b, picked, hints:!!stage.hints};
+  /* clearCountを持つ巻（六の巻）は、合格ラインまでの拍数も控えておく（進み具合バーを
+     「合格までの距離」として見せるのに使う、bgUpdateSentence参照。教員の指示、
+     2026-08-20〜：「クリアとなる20問以降も、問題は出続けるように」）。 */
+  const clearBeat = stage.clearCount ? (sentences[stage.clearCount-1] || sentences[sentences.length-1] || {}).end : null;
+  return {cells, gaps, sentences, items, totalBeats:b, picked, hints:!!stage.hints, clearBeat};
 }
 
 /* =========================================================================
@@ -12712,6 +12731,7 @@ function bgStartStage(stageId, tempo){
     audio0:null, beat0:0,
     lastCount:-99,
     curSentence:0, cleanSentences:0, sentenceClean:true, sentenceLifeLost:false,
+    clearAnnounced:false,
   };
   bg$("bgVeil").style.display="none";
   bg$("bgHudTitle").textContent = stage.name;
@@ -13048,11 +13068,21 @@ function bgUpdateSentence(){
   }
   if(s && BG.beat > s.end){
     if(s.kind==="demo"){ BG.sentenceClean=true; BG.sentenceLifeLost=false; BG.curSentence++; bgDrawHud(); return; }
+    /* clearCountを持つ巻（六の巻）は、その問数に達した瞬間だけ「一刀両断」の
+       代わりにクリア達成の合図を出す（教員の指示、2026-08-20〜：「六巻は20問で
+       クリア。クリアとなる20問以降も、問題は出続けるようにして」）。同じ拍に
+       2つの中央バナーが重ならないよう、一刀両断とは排他で出す。 */
+    const justCleared = !!(BG.stage.clearCount && !BG.clearAnnounced && (BG.curSentence+1) >= BG.stage.clearCount);
     if(BG.sentenceClean){
       BG.cleanSentences++;
       bgAddScore(300*bgComboMult());
       const lvResult = bgLevelUpShikibetsu();
-      bgBanner("一刀両断","＋三〇〇");
+      if(justCleared){
+        BG.clearAnnounced = true;
+        bgBanner("クリア達成","ここからは腕試し。速さはさらに上がる");
+      }else{
+        bgBanner("一刀両断","＋三〇〇");
+      }
       bgSndClear();
       /* レベルアップ・称号アップは、問題の文字が流れる中央帯に被らないよう、
          右側の専用表示に出す（教員の指示、2026-08-19〜：「文字が小さく見にくいので、
@@ -13060,6 +13090,10 @@ function bgUpdateSentence(){
          節目は、レベル表示を兼ねたより目立つカードにまとめて出す（重ねて出さない）。 */
       if(lvResult.titleUp) bgFxTitleUp(lvResult.lvAfter, lvResult.titleName, lvResult.titleIcon);
       else if(lvResult.leveledUp) bgFxLevelUp(lvResult.lvAfter);
+    }else if(justCleared){
+      /* ミスがあった文でクリア問数に到達した場合も、達成そのものは変わらず伝える。 */
+      BG.clearAnnounced = true;
+      bgBanner("クリア達成","ここからは腕試し。速さはさらに上がる");
     }
     BG.sentenceClean=true;
     BG.sentenceLifeLost=false;
@@ -13072,10 +13106,22 @@ function bgUpdateSentence(){
     }
     bgDrawHud();
   }
-  bg$("bgProg").style.width = Math.min(100, Math.max(0, BG.beat/BG.track.totalBeats*100))+"%";
+  /* clearCountを持つ巻（六の巻）は、進み具合バー・問題番号を「合格ラインまでの距離」で
+     見せ、合格後はバーを満タンのまま、番号は「腕試し中」と数字だけの表示に切り替える
+     （教員の指示、2026-08-20〜：「クリアとなる20問以降も、問題は出続けるように」。
+     合格ラインより先の、まだ用意しただけの問題数を見せても混乱するだけなので隠す）。 */
+  const progDenom = (BG.stage.clearCount && BG.track.clearBeat) ? BG.track.clearBeat : BG.track.totalBeats;
+  bg$("bgProg").style.width = Math.min(100, Math.max(0, BG.beat/progDenom*100))+"%";
   const real=BG.track.sentences.filter(x=>x.kind!=="demo");
   const doneReal=BG.track.sentences.slice(0,BG.curSentence+1).filter(x=>x.kind!=="demo").length;
-  bg$("bgInfoNo").textContent = "第"+bgKansuji(Math.max(1,Math.min(real.length,doneReal)))+"文／"+bgKansuji(real.length);
+  const shownDone = Math.max(1,Math.min(real.length,doneReal));
+  if(BG.stage.clearCount){
+    bg$("bgInfoNo").textContent = shownDone<=BG.stage.clearCount
+      ? "第"+bgKansuji(shownDone)+"文／"+bgKansuji(BG.stage.clearCount)
+      : "第"+bgKansuji(shownDone)+"文（腕試し中）";
+  }else{
+    bg$("bgInfoNo").textContent = "第"+bgKansuji(shownDone)+"文／"+bgKansuji(real.length);
+  }
 }
 /* 1文をノーミスでクリアするたびに、分野レベルの「識別」を1つ上げる（教員の指示、
    2026-08-17〜：「分野レベルの『識別』に影響するようにして。経験値の＋も、それに
@@ -13385,13 +13431,21 @@ function bgFailStage(){
 /* =========================================================================
    結果：段位で返す（独立版のまま）
    ========================================================================= */
-function bgNeedCount(){ return BG.track.gaps.filter(g=>g.need && !g.demo).length; }
-/* 「まとめ」の巻（escalate:true）は、出題数（stage.count）を最後まで解ききれたか
-   （＝ライフが尽きて強制終了されなかったか）で合否を決める（教員の指示、2026-08-19〜：
-   「◯問を攻略したら〈そこまで強制終了されなければ〉クリア」）。bgRankOfEscalateは
-   bgShowResult側でBG.failedがfalse（＝最後まで到達できた）のときしか呼ばれないので、
-   ここに来た時点で合格（初伝以上）は確定している。正答率・会心率で、その中の段位
-   （初伝〜皆伝）を決める。 */
+/* g.si（その区切りが属する文の番号）がBG.curSentence未満＝すでに解き終えた文だけを
+   数える。以前は track.gaps 全体（＝用意した譜面の全問）を分母にしていたが、
+   六の巻のように合格後もplayが続く「腕試し」区間を長く用意した巻では、まだ
+   到達してすらいない先の問題まで「落とした」ことになってしまい正答率が不当に
+   下がる（教員の指示、2026-08-20〜の「20問クリア後も出題を続ける」変更に対応）。
+   最後まで到達した通常の巻ではBG.curSentence===sentences.lengthなので、
+   この変更による見え方の違いは無い。 */
+function bgNeedCount(){ return BG.track.gaps.filter(g=>g.need && !g.demo && g.si<BG.curSentence).length; }
+/* 「まとめ」の巻（escalate:true）は、合格に必要な問数（clearCount、無ければcount）を
+   解ききれたか（＝そこに達する前にライフが尽きて強制終了しなかったか）で合否を決める
+   （教員の指示、2026-08-19〜：「◯問を攻略したら〈そこまで強制終了されなければ〉
+   クリア」）。bgRankOfEscalateはbgShowResult側で「合格ラインに到達した」と判定された
+   ときしか呼ばれない（BG.failedがfalseの通常クリアだけでなく、六の巻のように合格後の
+   腕試し中に力尽きた場合も含む、2026-08-20〜）ので、ここに来た時点で合格（初伝以上）は
+   確定している。正答率・会心率で、その中の段位（初伝〜皆伝）を決める。 */
 function bgRankOfEscalate(){
   const need = bgNeedCount();
   const acc  = need ? BG.hit/need : 0;
@@ -13468,13 +13522,20 @@ function bgShowResult(){
 
   /* ライフが尽きた回は「クリアできず」の扱いにする（教員の指示、2026-08-15〜）。
      段位は付けず、自己ベスト・巻の解放・クリア経験値にも一切数えない。まちがいの解説は
-     力尽きた回こそ大事なので、ここでも変わらず見せる。 */
-  const failed = !!BG.failed;
-  const r = failed ? {mark:"力尽きた", good:false, msg:"ライフがなくなり、クリアできませんでした。もう一度挑戦してみよう。"} : bgRankOf();
+     力尽きた回こそ大事なので、ここでも変わらず見せる。
+     ただし、clearCountを持つ巻（六の巻）は、合格に必要な問数へすでに到達していれば、
+     その後の「腕試し」区間で力尽きても不合格にはしない（教員の指示、2026-08-20〜：
+     「クリアとなる20問以降も、問題は出続けるように」＝合格後に力尽きても合格は取り消さない）。 */
+  const rawFailed = !!BG.failed;
+  const clearedByCount = !!(BG.stage.clearCount && BG.curSentence >= BG.stage.clearCount);
+  const trueFail = rawFailed && !clearedByCount;
+  const lateFail = rawFailed && clearedByCount;
+  const r = trueFail ? {mark:"力尽きた", good:false, msg:"ライフがなくなり、クリアできませんでした。もう一度挑戦してみよう。"} : bgRankOf();
+  if(lateFail) r.msg = "合格ラインを超えたあとで力尽きましたが、記録は合格として残ります。　"+r.msg;
   bgSndRank(r.good);
   const key=BG.stage.id+"_"+BG.tempo.key;
   let isBest=false, opened=false, cleared=false, milestone=null;
-  if(!failed){
+  if(!trueFail){
     isBest = BG.score > (BG_BEST[key]||0);
     if(isBest) BG_BEST[key]=BG.score;
     const sid=BG.stage.id;
@@ -13512,10 +13573,10 @@ function bgShowResult(){
   const nextStage = BG_STAGES.find(s=>s.id===BG.stage.id+1);
   veilEl.innerHTML=
     '<h1>'+BG.stage.name+'</h1><div class="rule"></div>'+
-    '<div class="rankmark" style="color:'+(failed?"#c62828":r.good?"#9c7c2a":"#7b7466")+'">'+r.mark+'</div>'+
+    '<div class="rankmark" style="color:'+(trueFail?"#c62828":r.good?"#9c7c2a":"#7b7466")+'">'+r.mark+'</div>'+
     '<div class="sub">'+r.msg+'</div>'+
     '<div class="big" id="bgBigScore">'+BG.score+'</div><div class="sub">得点</div>'+
-    (failed ? "" : isBest?'<div class="newbest">自 己 最 高</div>':'<div class="sub" style="margin-top:6px">最高 '+(BG_BEST[key]||0)+'</div>')+
+    (trueFail ? "" : isBest?'<div class="newbest">自 己 最 高</div>':'<div class="sub" style="margin-top:6px">最高 '+(BG_BEST[key]||0)+'</div>')+
     (cleared?'<div class="xp-note">🎉 巻クリア！　経験値＋10</div>':"")+
     (milestone?'<div class="xp-milestone-note">🏆 '+milestone.title+'　経験値＋30</div>':"")+
     '<div class="timing"><span>斬れた <b>'+BG.hit+'</b>／'+need+'</span>'+
@@ -13623,10 +13684,13 @@ function bgRuleProse(stage){
 
   let support;
   if(stage.escalate){
+    const clearN = stage.clearCount || stage.count;
     support = "支えは何もありません。出題はやさしい文からランダムに始まり、少しずつ難しく"+
       "なっていきます。速さは最初の"+BG_SPEED_GRACE+"問はそのまま、"+(BG_SPEED_GRACE+1)+"問目からは"+
       BG_SPEED_INTERVAL+"問ごとに際限なく上がり続けます（間違えても遅くはなりません）。"+
-      "全"+stage.count+"問を最後まで解ききれば合格です。";
+      (stage.clearCount
+        ? clearN+"問を解ききれば合格です。そこから先も問題は出続け、速さも上がり続けます（腕試し）。"
+        : "全"+clearN+"問を最後まで解ききれば合格です。");
   }else if(stage.hints && stage.demo){
     support = "切れ目にはあらかじめ印が出ていて、しかも最初にお手本も流れます。まずは見て、そのとおりに斬ってみてください。";
   }else if(stage.hints){
@@ -13652,7 +13716,8 @@ function bgShowRule(stageId){
     (stage.important?'<span class="stagecard-badge">重要・まとめ</span>':"")+'</p>'+
     '<p style="margin-top:10px">'+bgRuleProse(stage)+'</p>'+
     (stage.escalate?'<p class="sub" style="margin-top:8px;color:var(--shu);font-weight:600">'+
-      '合格ライン：全'+stage.count+'問を最後まで解ききる（ライフが尽きて途中終了すると不合格）</p>':"")+
+      '合格ライン：'+(stage.clearCount||stage.count)+'問を解ききる（ライフが尽きて途中終了すると不合格）'+
+      (stage.clearCount?'。合格後も問題は出続け、そのまま挑戦を続けられます':'')+'</p>':"")+
     (rk?'<div class="sub" style="margin-top:10px">前回の段位　'+rk+'</div>':"")+
     '<button class="btn" id="bgGoStart">はじめる</button>'+
     '<button class="btn ghost" id="bgBackSel">巻をえらぶに戻る</button>';
