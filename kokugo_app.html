@@ -1699,7 +1699,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.143</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.144</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -1939,9 +1939,10 @@ function totalEarnedStatPoints(st){
      進化の分岐には影響しない。
      文節斬り（言の刃斬）の巻クリア・オールクリアぶん（st.bunsetsuGiriBonusExp、
      2026-08-16〜）、ボキャブラ・シューティングの自己ベスト100点大台突破ぶん
-     （st.vocabShooterBonusExp、2026-08-17〜）も、hyakuninBonusExpと全く同じ扱い
+     （st.vocabShooterBonusExp、2026-08-17〜）、野球で勝負！（ミニゲーム版）の
+     勝利ぶん（st.baseballBonusExp、2026-08-20〜）も、hyakuninBonusExpと全く同じ扱い
      （分野に関係なく全額加算、進化の分岐には影響させない）で加える。 */
-  return Math.min(KOTONOHA_XP_CAP, Math.floor(fromLevels + effectiveBonusExp(st) + (st.hyakuninBonusExp||0) + (st.bunsetsuGiriBonusExp||0) + (st.vocabShooterBonusExp||0) + totalUnlockCelebrationExp(st)));
+  return Math.min(KOTONOHA_XP_CAP, Math.floor(fromLevels + effectiveBonusExp(st) + (st.hyakuninBonusExp||0) + (st.bunsetsuGiriBonusExp||0) + (st.vocabShooterBonusExp||0) + (st.baseballBonusExp||0) + totalUnlockCelebrationExp(st)));
 }
 function spentStatPoints(st){
   return Object.values(st.stats||{}).reduce((sum,v) => sum + (v||0), 0);
@@ -2969,8 +2970,9 @@ function kotonohaTotalXP(st){
      文節斬り（言の刃斬）の巻クリア・オールクリアぶん（st.bunsetsuGiriBonusExp、
      2026-08-16〜。1文クリアぶんは2026-08-17〜、分野レベル「識別」に組み替え済み）、
      ボキャブラ・シューティングの自己ベスト100点大台突破ぶん（st.vocabShooterBonusExp、
-     2026-08-17〜）も、hyakuninBonusExpと全く同じ位置づけで加える。 */
-  return Math.min(KOTONOHA_XP_CAP, Math.floor(CAT_KEYS.reduce((sum,k)=> sum + catExpPoints(st.lv[k]||1), 0) + effectiveBonusExp(st) + (st.hyakuninBonusExp||0) + (st.bunsetsuGiriBonusExp||0) + (st.vocabShooterBonusExp||0) + totalUnlockCelebrationExp(st)));
+     2026-08-17〜）、野球で勝負！（ミニゲーム版）の勝利ぶん（st.baseballBonusExp、
+     2026-08-20〜）も、hyakuninBonusExpと全く同じ位置づけで加える。 */
+  return Math.min(KOTONOHA_XP_CAP, Math.floor(CAT_KEYS.reduce((sum,k)=> sum + catExpPoints(st.lv[k]||1), 0) + effectiveBonusExp(st) + (st.hyakuninBonusExp||0) + (st.bunsetsuGiriBonusExp||0) + (st.vocabShooterBonusExp||0) + (st.baseballBonusExp||0) + totalUnlockCelebrationExp(st)));
 }
 function kotonohaOtherType(st, stageIdx){
   const roll = st.kotonohaOtherRoll;
@@ -9505,6 +9507,23 @@ const STORY_SIDEQUESTS = {
     ],
     epilogue: "「おつかれさま！ まちがえたところは、ちゃんと理由を覚えておいてね。」",
   },
+  /* 「野球で勝負！」（baseball beat）のミニゲーム版（2026-08-20〜、教員の指示：
+     「以前作った、野球ゲーム（ストーリーモードに搭載済み）も、ミニゲームに加えて
+     実装して。もちろん、ストーリーは省く」）。エンジン（storyRenderBaseball以下）は
+     第4章と完全に共通で無改造。beatに`free:true`を付けることだけで、勝利時の分岐を
+     storyBaseballResolve（章のアイテム・宝具ドロップ）からstoryBaseballResolveFree
+     （他のミニゲームと同じ、勝利ごとの経験値ボーナス＋自己ベスト記録）に切り替えている
+     （storyRenderBaseballScreen参照）。第4章の入部先輩とのやり取りは省き、ことのはの
+     短い導入だけにした。 */
+  sqBaseball: {
+    title: "野球で勝負！",
+    beats: [
+      {type:"line", speaker:"ことのは", text:"今度は野球で勝負だよ！\n相手は県内屈指の剛腕エース。四字熟語の問題に正解して、ヒットを打とう。"},
+      {type:"line", speaker:"ことのは", text:"ヒットが続くほど、球はどんどん速くなっていくよ。3イニング終わったときに、相手より得点が多ければ勝ち！"},
+      {type:"baseball", boss:"baseballMatch", free:true},
+    ],
+    epilogue: "「おつかれさま！ また挑戦して、大金星をねらおうね。」",
+  },
 };
 /* STORY_CHAPTERS・STORY_SIDEQUESTSのどちらのキーでも章の定義を引けるようにする共通ヘルパー。
    storyRenderBeat等、章の種類を意識せず進行させたい箇所から使う。 */
@@ -9592,6 +9611,7 @@ const STORY_SIDEQUEST_BEST_FN = {
     if(!best) return 0;
     return Math.max(0, ...Object.values(best));
   },
+  sqBaseball: st => st.baseballHighScore || 0,
 };
 function storySideQuestButtonHtml(key, st){
   const q = STORY_SIDEQUESTS[key];
@@ -10876,6 +10896,37 @@ function storyBaseballResolve(){
       </div>
     </div>`;
 }
+/* ミニゲーム版「野球で勝負！」（sqBaseball、beat.free:true）の勝利画面（2026-08-20〜、
+   教員の指示：「野球ゲームもミニゲームに加えて実装して。ストーリーは省く」）。
+   storyBaseballResolveとの違いは、章のアイテム・宝具ドロップ（st.items/st.bossPity、
+   sp.completedChaptersのisReplay判定）を一切行わない点だけ。代わりに、他のミニゲーム
+   （文節斬りのbgGrantBonusExp、ボキャブラ・シューティングのvocabShooterBonusExp）と
+   同じ位置づけで、勝つたびに経験値＋10（st.baseballBonusExp）を加算し、自己ベスト
+   （st.baseballHighScore＝1試合の自軍得点の最高値、STORY_SIDEQUEST_BEST_FN参照）を
+   更新する。四字熟語のレベルアップ表示は、章版と同じくそのまま見せる。 */
+function storyBaseballResolveFree(){
+  const bb = storyRun.bb;
+  const st = loadStats();
+  st.baseballBonusExp = (st.baseballBonusExp||0) + 10;
+  if(bb.totalRuns > (st.baseballHighScore||0)) st.baseballHighScore = bb.totalRuns;
+  saveStats(st);
+  const yojiLvStart = bb.yojiLvStart || 1;
+  const yojiLvEnd = st.lv.yoji || 1;
+  const yojiLvUpHtml = yojiLvEnd > yojiLvStart
+    ? `<p class="lvup-chip">📚 四字熟語 Lv.${yojiLvStart} → Lv.${yojiLvEnd} にアップ！</p>`
+    : "";
+  screen.innerHTML = `
+    <div class="card story-scene bb-victory">
+      <div class="bb-victory-burst">🎉⚾✨🏆✨⚾🎉</div>
+      <div class="bb-victory-title">大金星！　強豪校のエースを打ち崩した！</div>
+      <div class="bb-victory-score">自軍 ${bb.totalRuns} － ${bb.opponentTotalRuns} 相手</div>
+      ${yojiLvUpHtml}
+      <p class="lvup-chip">🎉 勝利ボーナス　経験値＋10</p>
+      <div class="btn-row" style="justify-content:center">
+        <button class="btn story-advance-btn" onclick="storyAdvance()">つづける</button>
+      </div>
+    </div>`;
+}
 
 function baseballDiamondSVG(bases){
   const HOME = { x:200, y:352 }, FIRST = { x:322, y:230 }, SECOND = { x:200, y:108 }, THIRD = { x:78, y:230 }, MOUND = { x:200, y:268 };
@@ -10941,11 +10992,15 @@ function storyRenderBaseballScreen(){
     const yojiLvUpHtml = yojiLvNow > (bb.yojiLvStart || 1)
       ? `<p class="lvup-chip">📚 四字熟語 Lv.${bb.yojiLvStart} → Lv.${yojiLvNow} にアップ！</p>`
       : "";
+    /* ミニゲーム版（beat.free:true）は、勝利時にアイテム・宝具ドロップのある
+       storyBaseballResolveではなく、経験値ボーナスだけのstoryBaseballResolveFreeへ
+       進む（教員の指示、2026-08-20〜：「ミニゲームに加えて実装して。ストーリーは省く」）。 */
+    const winFn = storyRun.curBeat.free ? "storyBaseballResolveFree()" : "storyBaseballResolve()";
     bodyHtml = `
       <div class="bb-ready-card">
         <p class="story-text">試合終了<br>自軍 ${bb.totalRuns}点 － 相手 ${bb.opponentTotalRuns}点<br><b>${esc(resultMsg)}</b></p>
         ${yojiLvUpHtml}
-        <button class="btn story-advance-btn" onclick="${won ? "storyBaseballResolve()" : "storyBaseballRetry()"}">${won ? "つづける" : "もう一度挑戦する"}</button>
+        <button class="btn story-advance-btn" onclick="${won ? winFn : "storyBaseballRetry()"}">${won ? "つづける" : "もう一度挑戦する"}</button>
       </div>`;
   }else if(bb.phase === "ready"){
     bodyHtml = `
