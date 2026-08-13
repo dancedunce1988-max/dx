@@ -1699,7 +1699,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.145</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.146</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -9490,8 +9490,29 @@ function storyChosenKumiValue(st){
    このオブジェクトのキーを常に解放済み扱いにする。章の実体（beats/epilogue）の形式は
    STORY_CHAPTERSと共通なので、既存のbeat型（line/choice/quiz等）もそのまま使い回せる。 */
 const STORY_SIDEQUESTS = {
+  /* 「野球で勝負！」（baseball beat）のミニゲーム版（2026-08-20〜、教員の指示：
+     「以前作った、野球ゲーム（ストーリーモードに搭載済み）も、ミニゲームに加えて
+     実装して。もちろん、ストーリーは省く」）。エンジン（storyRenderBaseball以下）は
+     第4章と完全に共通で無改造。beatに`free:true`を付けることだけで、勝利時の分岐を
+     storyBaseballResolve（章のアイテム・宝具ドロップ）からstoryBaseballResolveFree
+     （他のミニゲームと同じ、勝利ごとの自己ベスト更新時に経験値ボーナス）に切り替えている
+     （storyRenderBaseballScreen参照）。第4章の入部先輩とのやり取りは省き、ことのはの
+     短い導入だけにした。教員の指示（2026-08-20〜）で、タイトルを「熱闘！四字熟語甲子園！」
+     に変更し、ミニゲーム一覧の先頭に置いた（Object.keysの列挙順はオブジェクトの記述順に
+     従うので、STORY_SIDEQUESTSの中で一番先に書くだけでよい）。 */
+  sqBaseball: {
+    title: "熱闘！四字熟語甲子園！",
+    icon: "⚾",
+    beats: [
+      {type:"line", speaker:"ことのは", text:"今度は野球で勝負だよ！\n相手は県内屈指の剛腕エース。四字熟語の問題に正解して、ヒットを打とう。"},
+      {type:"line", speaker:"ことのは", text:"ヒットが続くほど、球はどんどん速くなっていくよ。3イニング終わったときに、相手より得点が多ければ勝ち！"},
+      {type:"baseball", boss:"baseballMatch", free:true},
+    ],
+    epilogue: "「おつかれさま！ また挑戦して、大金星をねらおうね。」",
+  },
   sqShooting: {
     title: "ボキャブラ・シューティング",
+    icon: "🚀",
     beats: [
       {type:"line", speaker:"ことのは", text:"ねえ、面白いものを見つけたよ。\n降ってくる「意味」の中から、正しいものを選んで撃ち落とすゲームなんだって。"},
       {type:"line", speaker:"ことのは", text:"表示された言葉の、正しい意味を選んで撃とう。\n間違った意味に当てたり、正解を撃ちもらしたりすると、ライフが減っちゃうから気をつけてね！"},
@@ -9501,28 +9522,12 @@ const STORY_SIDEQUESTS = {
   },
   sqBunsetsu: {
     title: "言の刃（ことのは）斬～ZAN～",
+    icon: "🗡️",
     beats: [
       {type:"line", speaker:"ことのは", text:"今度は「言の刃斬～ZAN～」だよ。文字が一つ流れるたびに一拍。\n拍にのって、大太刀（文節の切れ目）と小刀（単語の切れ目）で斬っていくよ。遊び方は、この次の画面でも説明するね。"},
       {type:"bunsetsu"},
     ],
     epilogue: "「おつかれさま！ まちがえたところは、ちゃんと理由を覚えておいてね。」",
-  },
-  /* 「野球で勝負！」（baseball beat）のミニゲーム版（2026-08-20〜、教員の指示：
-     「以前作った、野球ゲーム（ストーリーモードに搭載済み）も、ミニゲームに加えて
-     実装して。もちろん、ストーリーは省く」）。エンジン（storyRenderBaseball以下）は
-     第4章と完全に共通で無改造。beatに`free:true`を付けることだけで、勝利時の分岐を
-     storyBaseballResolve（章のアイテム・宝具ドロップ）からstoryBaseballResolveFree
-     （他のミニゲームと同じ、勝利ごとの経験値ボーナス＋自己ベスト記録）に切り替えている
-     （storyRenderBaseballScreen参照）。第4章の入部先輩とのやり取りは省き、ことのはの
-     短い導入だけにした。 */
-  sqBaseball: {
-    title: "野球で勝負！",
-    beats: [
-      {type:"line", speaker:"ことのは", text:"今度は野球で勝負だよ！\n相手は県内屈指の剛腕エース。四字熟語の問題に正解して、ヒットを打とう。"},
-      {type:"line", speaker:"ことのは", text:"ヒットが続くほど、球はどんどん速くなっていくよ。3イニング終わったときに、相手より得点が多ければ勝ち！"},
-      {type:"baseball", boss:"baseballMatch", free:true},
-    ],
-    epilogue: "「おつかれさま！ また挑戦して、大金星をねらおうね。」",
   },
 };
 /* STORY_CHAPTERS・STORY_SIDEQUESTSのどちらのキーでも章の定義を引けるようにする共通ヘルパー。
@@ -9620,7 +9625,7 @@ function storySideQuestButtonHtml(key, st){
   const sub = best > 0 ? `<p class="note">自己ベスト：${best}点</p>` : `<p>タップして挑戦しよう</p>`;
   return `
     <div class="card menu-card" onclick="startStoryMode('${key}')">
-      <div class="menu-icon">🚀</div>
+      <div class="menu-icon">${esc(q.icon || "🚀")}</div>
       <div><h2>${esc(q.title)}</h2>${sub}</div>
       <div class="right"><span class="shogo-badge">挑戦する</span></div>
     </div>`;
@@ -10896,32 +10901,50 @@ function storyBaseballResolve(){
       </div>
     </div>`;
 }
-/* ミニゲーム版「野球で勝負！」（sqBaseball、beat.free:true）の勝利画面（2026-08-20〜、
-   教員の指示：「野球ゲームもミニゲームに加えて実装して。ストーリーは省く」）。
-   storyBaseballResolveとの違いは、章のアイテム・宝具ドロップ（st.items/st.bossPity、
-   sp.completedChaptersのisReplay判定）を一切行わない点だけ。代わりに、他のミニゲーム
-   （文節斬りのbgGrantBonusExp、ボキャブラ・シューティングのvocabShooterBonusExp）と
-   同じ位置づけで、勝つたびに経験値＋10（st.baseballBonusExp）を加算し、自己ベスト
-   （st.baseballHighScore＝1試合の自軍得点の最高値、STORY_SIDEQUEST_BEST_FN参照）を
-   更新する。四字熟語のレベルアップ表示は、章版と同じくそのまま見せる。 */
+/* ミニゲーム版「熱闘！四字熟語甲子園！」（sqBaseball、beat.free:true）の勝利画面
+   （2026-08-20〜、教員の指示：「野球ゲームもミニゲームに加えて実装して。ストーリーは
+   省く」）。storyBaseballResolveとの違いは、章のアイテム・宝具ドロップ（st.items/
+   st.bossPity、sp.completedChaptersのisReplay判定）を一切行わない点だけ。代わりに、
+   自己ベスト（st.baseballHighScore＝1試合の自軍得点の最高値、STORY_SIDEQUEST_BEST_FN
+   参照）を更新し、ボキャブラ・シューティング（vocabShooterBonusExp、5点＝100点きざみの
+   大台）と同じ仕組みで、自己ベストが5点きざみの大台（5・10・15…）を初めて超えるたびに
+   経験値＋10を加算する（教員の指示、2026-08-20〜：「最高得点はボキャブラ・シューティング
+   のように、5点ごとにお祝いの経験値を上げて」。すでに超えた大台の位置はst.baseballXpTierに
+   持たせ、以後は同じか下回る自己ベストを出しても再加算しない）。四字熟語のレベルアップ
+   表示は、章版と同じくそのまま見せる。 */
 function storyBaseballResolveFree(){
   const bb = storyRun.bb;
   const st = loadStats();
-  st.baseballBonusExp = (st.baseballBonusExp||0) + 10;
-  if(bb.totalRuns > (st.baseballHighScore||0)) st.baseballHighScore = bb.totalRuns;
+  const prevBest = st.baseballHighScore||0;
+  const isNewRecord = bb.totalRuns > prevBest;
+  let xpGained = 0, xpTierReached = 0;
+  if(isNewRecord){
+    st.baseballHighScore = bb.totalRuns;
+    const oldTier = st.baseballXpTier||0;
+    const newTier = Math.floor(bb.totalRuns / 5);
+    if(newTier > oldTier){
+      xpGained = (newTier - oldTier) * 10;
+      st.baseballBonusExp = (st.baseballBonusExp||0) + xpGained;
+      st.baseballXpTier = newTier;
+      xpTierReached = newTier * 5;
+    }
+  }
   saveStats(st);
   const yojiLvStart = bb.yojiLvStart || 1;
   const yojiLvEnd = st.lv.yoji || 1;
   const yojiLvUpHtml = yojiLvEnd > yojiLvStart
     ? `<p class="lvup-chip">📚 四字熟語 Lv.${yojiLvStart} → Lv.${yojiLvEnd} にアップ！</p>`
     : "";
+  const recordHtml = isNewRecord ? `<p class="lvup-chip">🏅 自己ベスト更新！（${bb.totalRuns}点）</p>` : "";
+  const xpHtml = xpGained > 0 ? `<p class="lvup-chip">🎉 自己ベスト${xpTierReached}点突破！　経験値＋${xpGained}</p>` : "";
   screen.innerHTML = `
     <div class="card story-scene bb-victory">
       <div class="bb-victory-burst">🎉⚾✨🏆✨⚾🎉</div>
       <div class="bb-victory-title">大金星！　強豪校のエースを打ち崩した！</div>
       <div class="bb-victory-score">自軍 ${bb.totalRuns} － ${bb.opponentTotalRuns} 相手</div>
       ${yojiLvUpHtml}
-      <p class="lvup-chip">🎉 勝利ボーナス　経験値＋10</p>
+      ${recordHtml}
+      ${xpHtml}
       <div class="btn-row" style="justify-content:center">
         <button class="btn story-advance-btn" onclick="storyAdvance()">つづける</button>
       </div>
