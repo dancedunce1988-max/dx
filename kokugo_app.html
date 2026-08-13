@@ -1622,9 +1622,9 @@
   #bgApp .stagecard.locked{border-left-color:#b9b3a4;opacity:.62;cursor:default;box-shadow:none;background:transparent;}
   #bgApp .stagecard.locked b{color:var(--sub);}
   #bgApp .stagecard.locked:active{transform:none;}
-  /* 「まとめ」の巻（三の巻・六の巻）は、他の巻より重要なので背景色を変えて目立たせる
-     （教員の指示、2026-08-19〜：「重要性をアピールしてください」）。裏ボス的な位置づけの
-     七の巻（免許皆伝）には、あえてこの強調をつけない。 */
+  /* 「まとめ」の巻（三・六・七の巻）は、他の巻より重要なので背景色を変えて目立たせる
+     （教員の指示、2026-08-19〜：「重要性をアピールしてください」。七の巻は当初は
+     あえて控えめにしていたが、2026-08-20〜の指示で「背景色は3と6のように」に変更）。 */
   #bgApp .stagecard.important{
     background:linear-gradient(135deg, rgba(194,65,44,.09), rgba(156,124,42,.16));
     border:1px solid var(--kin); border-left:5px solid var(--shu);
@@ -1633,6 +1633,11 @@
   #bgApp .stagecard.important b{color:var(--shu);}
   #bgApp .stagecard-badge{display:inline-block;font-size:.58rem;letter-spacing:.1em;color:#fff;
     background:var(--shu);border-radius:2px;padding:2px 6px;margin-left:7px;vertical-align:middle;}
+  /* 全7巻クリア後の簡易4ボタン表示（教員の指示、2026-08-20〜：「シンプルにしたい」）。
+     通常のstagecardは<small>の説明文がある前提のレイアウトなので、説明文の無いこの
+     簡易ボタンは中央寄せ・大きめの文字にして、押しやすい単独ボタンらしく見せる。 */
+  #bgApp .stagecard.simple{text-align:center;padding:20px 14px;}
+  #bgApp .stagecard.simple b{font-size:1.2rem;letter-spacing:.24em;padding-left:.24em;}
 
   /* 免許状：通した巻が朱の落款で埋まっていく */
   #bgApp .menkyo{width:100%;max-width:400px;background:var(--maki);border:1px solid var(--line);
@@ -1699,7 +1704,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.153</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.154</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -12274,7 +12279,7 @@ const BUNSETSU_SENTENCES = [
   {lv:1, seg:"花|が/きれいに/咲く。"},
   {lv:1, seg:"鳥|が/空|を/飛ぶ。"},
   {lv:1, seg:"父|は/新聞|を/読む。"},
-  {lv:1, seg:"わたし|も/一緒に/行き|たい。"},
+  {lv:1, seg:"わたし|も/一緒|に/行き|たい。"},
   {lv:1, seg:"雨|が/やん|だら/出かけ|よう。"},
   {lv:1, seg:"母|が/台所|で/歌う。"},
   /* サ行変格活用の動詞（する）の例文（教員の指示、2026-08-20〜：「サ行変格活用の動詞も、
@@ -12434,7 +12439,7 @@ const BG_PARTICLE_NOTES = {
   "へ": {pos:"助詞", note:"動作の向かう方向（〜へ）を示します。"},
   "と": {pos:"助詞", note:"動作の相手や物事の並立（〜と）を示します。"},
   "で": {pos:"助詞", note:"場所や手段（〜で）を示します。"},
-  "に": {pos:"助詞", note:"場所・対象・時間（〜に）を示します。"},
+  "に": {pos:"助詞", note:"場所・対象・時間・様子（〜に）を示します。「一緒に」は「一緒（名詞）＋に（助詞）」で、形容動詞の活用ではありません。"},
   "より": {pos:"助詞", note:"比較の基準（〜より）を示します。"},
   "ので": {pos:"助詞", note:"理由（〜ので）を示します。"},
   "ば": {pos:"助詞", note:"仮定の条件（〜ば）を示します。"},
@@ -12462,7 +12467,7 @@ const BG_WORD_POS = {
   "自転車":"名詞", "彼女":"名詞", "桜":"名詞", "花":"名詞", "市役所":"名詞", "うそ":"名詞", "人":"名詞",
   "こと":"名詞", "子ども":"名詞", "野菜":"名詞", "宿題":"名詞", "足":"名詞", "知らせ":"名詞", "駅":"名詞",
   "話":"名詞", "前":"名詞", "家":"名詞", "枝":"名詞", "道":"名詞",
-  "姉":"名詞",
+  "姉":"名詞", "一緒":"名詞",
   // 動詞（辞書の見出し語のまま出てくる語）
   "走る":"動詞", "見える":"動詞", "書く":"動詞", "行く":"動詞", "起きる":"動詞", "ある":"動詞", "いる":"動詞",
   "降る":"動詞", "いく":"動詞（もとの形は「行く」）", "咲く":"動詞", "着く":"動詞", "歌う":"動詞", "読む":"動詞", "飛ぶ":"動詞",
@@ -12505,7 +12510,7 @@ const BG_WORD_POS = {
   // 連体詞
   "この":"連体詞", "その":"連体詞", "あの":"連体詞", "大きな":"連体詞", "小さな":"連体詞",
   // 副詞
-  "とても":"副詞", "一緒に":"副詞", "ずいぶん":"副詞", "決して":"副詞", "たくさん":"副詞", "まっすぐ":"副詞", "まだ":"副詞",
+  "とても":"副詞", "ずいぶん":"副詞", "決して":"副詞", "たくさん":"副詞", "まっすぐ":"副詞", "まだ":"副詞",
 };
 /* word（句読点を取り除いた見出し語）の品詞を、自立語辞書・付属語辞書のどちらからでも引く。 */
 function bgPosOf(word){
@@ -12624,6 +12629,12 @@ let BG_REC = null;
    （open/rank/best/milestones）だけ一度だけ初期化する。既存コードのCAT_POOL_VERSIONと
    同じ考え方（教員の指示：巻の中身を大きく変えたら、その進捗はリセットする）。 */
 const BG_REC_VERSION = 2;
+/* 全7巻クリア後の巻えらび画面を、簡易な4ボタン表示にするか、通常の一覧表示にするかの
+   一時的な状態（セーブしない、教員の指示、2026-08-20〜：「7巻まで達成した場合は、
+   シンプルにしたい。『〜巻』というボタンはやめて、4つだけに」）。「クリアした問題に
+   挑戦」ボタンを押すとtrueにして通常の一覧を出す。サブクエストに入り直すたび
+   （bgLoadRec）に、必ず簡易表示へ戻す。 */
+let bgShowFullList = false;
 function bgLoadRec(){
   const st = loadStats();
   BG_REC = (st.bunsetsuGiri && st.bunsetsuGiri.open) ? st.bunsetsuGiri : {open:1, rank:{}, best:{}};
@@ -12636,6 +12647,7 @@ function bgLoadRec(){
     BG_REC = {open:1, rank:{}, best:{}, milestones:{bunsetsu:false, tango:false, final:false}, version:BG_REC_VERSION};
     bgSaveRec();
   }
+  bgShowFullList = false;
 }
 function bgSaveRec(){
   const st = loadStats();
@@ -13987,13 +13999,66 @@ function bgTitle(){
   bg$("bgInfoLv").textContent="—"; bg$("bgInfoNo").textContent=""; bg$("bgInfoBpm").textContent="";
   bg$("bgProg").style.width="0";
 
+  /* 巻の解放とは別に、いつでも読める「文節の切り方」「単語の切り方」の解説コーナー
+     （教員の指示、2026-08-16〜）。段位を上げるための場ではなく、行き詰まったときに
+     いつでも戻って読み直せる、独立した読みものという位置づけ。簡易表示・通常一覧の
+     どちらでも変わらず出す。 */
+  const guideRow =
+    '<div class="guide-row">'+
+      '<button class="btn ghost" data-guide="bunsetsu">📖 文節の切り方</button>'+
+      '<button class="btn ghost" data-guide="tango">📖 単語の切り方</button>'+
+    '</div>';
+  const titleHtml =
+    '<div class="kzTitle"><span class="kz-main">言の刃</span><span class="kz-zan">斬</span><span class="kz-sub">～ Z A N ～</span></div>'+
+    '<div class="rule"></div>'+
+    '<p style="margin-bottom:10px">文字が一つ通るたびに<b>一拍</b>。<br>拍にのって、切れ目だけを斬る。</p>';
+
+  const allCleared = BG_STAGES.every(st=>!!BG_REC.rank[st.id]);
+
+  /* 全7巻をクリア済みなら、巻えらびを簡易な4ボタンに変える（教員の指示、2026-08-20〜：
+     「7巻まで達成した場合の見た目は、シンプルにしたい。『〜巻』というボタンはやめて、
+     『文節斬り』『単語斬り』『二刀斬り』『クリアした問題に挑戦』の四つだけに。細かい
+     説明は付けない。『クリアした問題に挑戦』にすると、それまでの問題が挑戦できる形に
+     変更」）。「文節斬り」「単語斬り」「二刀斬り」は、それぞれ三・六・七の巻へ直接
+     入る近道。「クリアした問題に挑戦」だけは巻を始めず、bgShowFullListをtrueにして
+     このあと（allCleared && bgShowFullList）の通常一覧を出し直す。 */
+  if(allCleared && !bgShowFullList){
+    const shortcuts = [
+      {id:3, label:"文節斬り"},
+      {id:6, label:"単語斬り"},
+      {id:7, label:"二刀斬り"},
+    ];
+    let cards = shortcuts.map(sc=>{
+      const st = BG_STAGES.find(s=>s.id===sc.id);
+      return '<div class="stagecard simple'+(st&&st.important?" important":"")+'" data-id="'+sc.id+'" tabindex="0"><b>'+sc.label+'</b></div>';
+    }).join("");
+    cards += '<div class="stagecard simple" data-fulllist="1" tabindex="0"><b>クリアした問題に挑戦</b></div>';
+
+    veilEl.innerHTML = titleHtml + guideRow + '<div class="stagelist">'+cards+'</div>';
+    veilEl.style.display="flex";
+    veilEl.querySelectorAll(".stagecard[data-id]").forEach(el=>{
+      const go=()=>bgShowRule(Number(el.dataset.id));
+      el.addEventListener("click",go);
+      el.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){e.preventDefault();go();} });
+    });
+    const fullListEl = veilEl.querySelector('[data-fulllist="1"]');
+    if(fullListEl){
+      const goFull=()=>{ bgShowFullList=true; bgTitle(); };
+      fullListEl.addEventListener("click",goFull);
+      fullListEl.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){e.preventDefault();goFull();} });
+    }
+    veilEl.querySelectorAll("[data-guide]").forEach(el=>{
+      el.addEventListener("click",()=>bgShowGuide(el.dataset.guide));
+    });
+    return;
+  }
+
   /* 全7巻をクリア済みなら、免許状の表示をやめ、まとめ3巻（三・六・七）を一覧の
      先頭に並べ替える（教員の指示、2026-08-20〜：「7巻まで全部クリアしたら、
      『免許状』の表示はなくして、3巻と6巻と7巻が上の方に来るように場所を移動…
      挑戦しやすくする為」）。免許状はもう埋まりきっていて情報として意味が無くなる一方、
      クリア後に繰り返し挑むのはこの3巻（腕試しの「まとめ」巻）が中心になるはずなので、
      一・二・四・五の巻をかき分けなくてもすぐ選べるようにする。 */
-  const allCleared = BG_STAGES.every(st=>!!BG_REC.rank[st.id]);
   const MAIN_STAGE_IDS = [3,6,7];
   const orderedStages = allCleared
     ? BG_STAGES.filter(st=>MAIN_STAGE_IDS.includes(st.id)).concat(BG_STAGES.filter(st=>!MAIN_STAGE_IDS.includes(st.id)))
@@ -14031,21 +14096,12 @@ function bgTitle(){
     seal+='</div><div class="menkyo-note">'+Object.keys(BG_REC.rank).length+' ／ '+BG_STAGES.length+' 巻</div></div>';
   }
 
-  /* 巻の解放とは別に、いつでも読める「文節の切り方」「単語の切り方」の解説コーナー
-     （教員の指示、2026-08-16〜）。段位を上げるための場ではなく、行き詰まったときに
-     いつでも戻って読み直せる、独立した読みものという位置づけ。 */
-  const guideRow =
-    '<div class="guide-row">'+
-      '<button class="btn ghost" data-guide="bunsetsu">📖 文節の切り方</button>'+
-      '<button class="btn ghost" data-guide="tango">📖 単語の切り方</button>'+
-    '</div>';
+  /* 全7巻クリア後に、簡易表示（bgShowFullList=false）へ戻れる導線。 */
+  const backRow = allCleared
+    ? '<div class="guide-row"><button class="btn ghost" data-back-simple="1">↩ かんたん表示にもどる</button></div>'
+    : "";
 
-  veilEl.innerHTML=
-    '<div class="kzTitle"><span class="kz-main">言の刃</span><span class="kz-zan">斬</span><span class="kz-sub">～ Z A N ～</span></div>'+
-    '<div class="rule"></div>'+
-    '<p style="margin-bottom:10px">文字が一つ通るたびに<b>一拍</b>。<br>拍にのって、切れ目だけを斬る。</p>'+
-    guideRow +
-    seal + '<div class="stagelist">'+cards+'</div>';
+  veilEl.innerHTML= titleHtml + guideRow + backRow + seal + '<div class="stagelist">'+cards+'</div>';
   veilEl.style.display="flex";
   veilEl.querySelectorAll(".stagecard[data-id]").forEach(el=>{
     const go=()=>bgShowRule(Number(el.dataset.id));
@@ -14055,6 +14111,10 @@ function bgTitle(){
   veilEl.querySelectorAll("[data-guide]").forEach(el=>{
     el.addEventListener("click",()=>bgShowGuide(el.dataset.guide));
   });
+  const backSimpleEl = veilEl.querySelector("[data-back-simple]");
+  if(backSimpleEl){
+    backSimpleEl.addEventListener("click",()=>{ bgShowFullList=false; bgTitle(); });
+  }
 }
 /* =========================================================================
    入力の取り付け・取り外し
