@@ -1699,7 +1699,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.144</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.145</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -12324,7 +12324,7 @@ const BG_STAGES = [
   {id:5, name:"五の巻", sub:"手本付き",     blades:["tango"], lv:[1], count:4, demo:true,   beat:900,
    lead:'同じ文が二度流れる。<br>一度目は手本（機械が小刀で斬ってみせる）、二度目は返し（自分で真似て斬る）。',
    goal:"単語の切れ目の見つけ方を、見て覚える"},
-  {id:6, name:"六の巻", sub:"単語分け まとめ", blades:["tango"], lv:[1,2,3], count:200, clearCount:20, escalate:true, important:true, beat:800,
+  {id:6, name:"六の巻", sub:"単語分け まとめ", blades:["tango"], lv:[1,2,3], count:80, clearCount:20, escalate:true, important:true, beat:800,
    lead:'<b>単語編のまとめ。</b>支えなし。やさしい文からランダムに出て、<br>10問を過ぎると少しずつ速くなっていく。20問を解ききれば合格、<br>その先も問題は出続け、速さも上がり続ける（腕試し）。',
    goal:"単語の切れ目を、状況に合わせて自分の力で見きわめる"},
   {id:7, name:"七の巻", sub:"免許皆伝",     blades:["bunsetsu","tango"], lv:[1,2,3], count:10, escalate:true, beat:780,
@@ -12775,6 +12775,7 @@ function bgStartStage(stageId, tempo){
     stage, tempo, track,
     beatMs: Math.round(stage.beat * tempo.rate),
     speedStep: 0,
+    renderFrom: 0,
     phase:"countin",
     beat:-BG_LEAD_BEATS,
     t0:0, score:0, combo:0, maxCombo:0,
@@ -12847,6 +12848,11 @@ function bgBuildStrip(){
   const tolPx = BG_WIN_HIT*m.CELL;
   bandEl.style.top=(-tolPx)+"px"; bandEl.style.height=(tolPx*2)+"px";
   cellsEl.innerHTML="";
+  /* リサイズ時などbgBuildStripが再実行されると、cells全部に新しいDOM要素が作り直される
+     （tr.cells.forEachの中でc.elを丸ごと差し替える）。bgRenderの間引きポインタ
+     （BG.renderFrom）を進めたままにしておくと、差し替わった先頭側の要素が二度と
+     位置・非表示の更新を受けられず置き去りになるので、作り直すたびに0へ戻す。 */
+  BG.renderFrom=0;
   tr.cells.forEach(c => {
     const d=document.createElement("div");
     d.className="cell";
@@ -13248,21 +13254,53 @@ const BG_KANSUJI=["〇","一","二","三","四","五","六","七","八","九","�
 function bgKansuji(n){ if(n<=10) return BG_KANSUJI[n]; if(n<20) return "十"+BG_KANSUJI[n-10];
   const t=Math.floor(n/10),o=n%10; return BG_KANSUJI[t]+"十"+(o?BG_KANSUJI[o]:""); }
 
+/* モバイルで遊ぶほど（＝時間が経つほど）ラグがひどくなるバグの修正（教員の指示、
+   2026-08-20〜：「モバイル版でやってみたら、ラグついてしまうバグが発生しているので、
+   修正して」）。原因は2つ重なっていた。
+   1. 斬った跡の印（BG.markData、bgAddMark）が、画面外に去ったあとも配列にもDOMにも
+      残り続けていた。六の巻の「腕試し」区間（合格後も出題が続く）のように長く遊ぶほど、
+      毎フレーム動かす印の数が際限なく増えていき、じわじわ重くなっていく（＝プレイ時間に
+      比例して悪化する、まさに「ラグついてしまう」症状）。→ 画面から永久に去った印は
+      DOM要素ごと間引く。
+   2. 文字のセル（BG.track.cells）を、六の巻のように用意する問題数が多い巻では
+      毎フレーム全部（六の巻は最大で数百個）走査していた。cellsはbeatの昇順で並んでいる
+      （bgBuildTrackが先頭からbeatを増やしながら積むだけなので必ず昇順）ので、
+      「もう二度と画面に映らない」と分かった先頭側だけを指すポインタ（BG.renderFrom、
+      前にしか進めない）を導入し、そこより前は毎フレーム触らずに済ませる。あわせて、
+      まだ画面に入ってこない先の文字も、最初に1つ見つかった時点で打ち切ることで、
+      実質「今どのみち見えている範囲」の分だけを毎フレーム処理するようにした。 */
 function bgRender(){
   if(!BG || !BG.track) return;
   const m=bgMetrics();
   const top=-m.CELL*2, bot=m.H+m.CELL*2;
-  BG.track.cells.forEach(c => {
-    if(!c.el) return;
+  const cells=BG.track.cells;
+  let i=BG.renderFrom||0;
+  while(i<cells.length){
+    const c=cells[i];
+    const y=c.el ? bgYOf(c.beat) : -Infinity;
+    if(y>=top-m.CELL*6) break;
+    if(c.el && c.el.style.visibility!=="hidden") c.el.style.visibility="hidden";
+    i++;
+  }
+  BG.renderFrom=i;
+  for(; i<cells.length; i++){
+    const c=cells[i];
+    if(!c.el) continue;
     const y=bgYOf(c.beat);
-    if(y<top-m.CELL*6 || y>bot+m.CELL*6){ if(c.el.style.visibility!=="hidden") c.el.style.visibility="hidden"; return; }
+    if(y>bot+m.CELL*6) break;
     if(c.el.style.visibility==="hidden") c.el.style.visibility="";
     c.el.style.transform="translateY("+y+"px)";
-  });
-  (BG.markData||[]).forEach(k => {
-    const y=bgYOf(k.beat) - Math.round(m.CELL*BG_MARK_H_RATIO)/2;
-    k.el.style.transform="translateY("+y+"px)";
-  });
+  }
+  if(BG.markData && BG.markData.length){
+    const kept=[];
+    for(const k of BG.markData){
+      const y=bgYOf(k.beat) - Math.round(m.CELL*BG_MARK_H_RATIO)/2;
+      if(y<top-m.CELL*6){ if(k.el) k.el.remove(); continue; }
+      if(k.el) k.el.style.transform="translateY("+y+"px)";
+      kept.push(k);
+    }
+    BG.markData=kept;
+  }
   (BG.track.items||[]).forEach(it => {
     if(it.done || !it.el) return;
     it.el.style.transform="translateY("+bgYOf(it.beat)+"px)";
