@@ -1704,7 +1704,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.154</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.155</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -14053,19 +14053,15 @@ function bgTitle(){
     return;
   }
 
-  /* 全7巻をクリア済みなら、免許状の表示をやめ、まとめ3巻（三・六・七）を一覧の
-     先頭に並べ替える（教員の指示、2026-08-20〜：「7巻まで全部クリアしたら、
-     『免許状』の表示はなくして、3巻と6巻と7巻が上の方に来るように場所を移動…
-     挑戦しやすくする為」）。免許状はもう埋まりきっていて情報として意味が無くなる一方、
-     クリア後に繰り返し挑むのはこの3巻（腕試しの「まとめ」巻）が中心になるはずなので、
-     一・二・四・五の巻をかき分けなくてもすぐ選べるようにする。 */
-  const MAIN_STAGE_IDS = [3,6,7];
-  const orderedStages = allCleared
-    ? BG_STAGES.filter(st=>MAIN_STAGE_IDS.includes(st.id)).concat(BG_STAGES.filter(st=>!MAIN_STAGE_IDS.includes(st.id)))
-    : BG_STAGES;
-
+  /* 全7巻をクリア済みなら、免許状の表示をやめる（教員の指示、2026-08-20〜：「7巻まで
+     全部クリアしたら、『免許状』の表示はなくして」）。免許状はもう埋まりきっていて
+     情報として意味が無くなるため。三・六・七の巻を一覧の先頭に並べ替える対応は、
+     このあと簡易4ボタン（「文節斬り」等）で直接その3巻へ入れるようになったため不要になり、
+     教員の指示（2026-08-20〜：「これまで通りの巻一覧については、3・6・7は先頭にする
+     必要はなくなったので、完全に元に戻して」）で通常の巻順（BG_STAGESの並びのまま）に
+     戻した。 */
   let cards="";
-  orderedStages.forEach(st=>{
+  BG_STAGES.forEach(st=>{
     const open = st.id<=BG_REC.open;
     const shadow = (st.id===BG_REC.open+1);
     if(!open && !shadow) return;
