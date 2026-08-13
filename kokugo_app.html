@@ -1699,7 +1699,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.149</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.150</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -12338,7 +12338,10 @@ const BUNSETSU_SENTENCES = [
    「実際に用意する問題の総数」。六の巻はこの2つを分け、20問で合格にしつつ
    （教員の指示、2026-08-20〜：「六巻は20問でクリア。クリアとなる20問以降も、
    問題は出続けるようにして」）、countだけを大きくして合格後も問題が出続ける
-   「腕試し」区間を用意している（bgPickSentencesForStage・bgShowResult参照）。 */
+   「腕試し」区間を用意している（bgPickSentencesForStage・bgShowResult参照）。
+   同日、教員の指示「7巻は、3と6と同じように、終わりなく続くようにして」で、
+   三の巻・七の巻にも同じclearCount/countの分離を適用した（三の巻：20問で合格、
+   countは80。七の巻：10問で合格、countは40）。 */
 const BG_STAGES = [
   {id:1, name:"一の巻", sub:"拍をつかむ",   blades:["bunsetsu"], lv:[1], count:5, hints:true,  beat:900,
    lead:'<b>答えは見えている。</b>緑の「ね」が出ているところを、<br>拍に合わせて大太刀で斬るだけ。',
@@ -12346,8 +12349,8 @@ const BG_STAGES = [
   {id:2, name:"二の巻", sub:"手本を真似る", blades:["bunsetsu"], lv:[1], count:4, demo:true,   beat:900,
    lead:'同じ文が二度流れる。<br>一度目は手本（機械が斬ってみせる）、二度目は返し（自分で真似て斬る）。',
    goal:"見てから真似る。まだ考えなくていい"},
-  {id:3, name:"三の巻", sub:"文節分け まとめ", blades:["bunsetsu"], lv:[1,2,3], count:20, escalate:true, important:true, beat:800,
-   lead:'<b>文節編のまとめ。</b>支えなし。やさしい文からランダムに出て、<br>10問を過ぎると少しずつ速くなっていく。全20問を解ききれば合格。',
+  {id:3, name:"三の巻", sub:"文節分け まとめ", blades:["bunsetsu"], lv:[1,2,3], count:80, clearCount:20, escalate:true, important:true, beat:800,
+   lead:'<b>文節編のまとめ。</b>支えなし。やさしい文からランダムに出て、<br>10問を過ぎると少しずつ速くなっていく。20問を解ききれば合格、<br>その先も問題は出続け、速さも上がり続ける（腕試し）。',
    goal:"文節の切れ目を、状況に合わせて自分の力で見きわめる"},
   {id:4, name:"四の巻", sub:"しるしつき",   blades:["tango"], lv:[1], count:3, hints:true, beat:900,
    lead:'小刀にもちかえる。<b>単語の切れ目すべて</b><br>緑の印や横棒がもう出ているので、迷わず斬ってみよう。',
@@ -12358,8 +12361,8 @@ const BG_STAGES = [
   {id:6, name:"六の巻", sub:"単語分け まとめ", blades:["tango"], lv:[1,2,3], count:80, clearCount:20, escalate:true, important:true, beat:800,
    lead:'<b>単語編のまとめ。</b>支えなし。やさしい文からランダムに出て、<br>10問を過ぎると少しずつ速くなっていく。20問を解ききれば合格、<br>その先も問題は出続け、速さも上がり続ける（腕試し）。',
    goal:"単語の切れ目を、状況に合わせて自分の力で見きわめる"},
-  {id:7, name:"七の巻", sub:"免許皆伝",     blades:["bunsetsu","tango"], lv:[1,2,3], count:10, escalate:true, beat:780,
-   lead:'二刀。すき間ごとに<b>大太刀・小刀・見送る</b>の三択。<br>三の巻・六の巻と同じ、まとめのシステムで挑む最終試練。',
+  {id:7, name:"七の巻", sub:"免許皆伝",     blades:["bunsetsu","tango"], lv:[1,2,3], count:40, clearCount:10, escalate:true, beat:780,
+   lead:'二刀。すき間ごとに<b>大太刀・小刀・見送る</b>の三択。<br>三の巻・六の巻と同じ、まとめのシステムで挑む最終試練。<br>10問を解ききれば合格、その先も終わりなく続く（腕試し）。',
    goal:"文節と単語を、その場で自分の力で見分ける"},
 ];
 
