@@ -1869,6 +1869,42 @@
     border:1px solid rgba(127,233,200,.3); border-radius:14px; padding:14px 16px; font-size:13.5px; line-height:1.95; color:#e2fbf3;
   }
   #kzApp .kz-trans-panel-title{ font-size:11px; font-weight:bold; color:var(--kz-teal); letter-spacing:1px; margin-bottom:6px; }
+
+  /* かなづかいの直し方ガイド（教員の指示：初心者でも分かるように、いつでもボタンで
+     見られるようゲーム画面の一番上に置く）。翻訳トグルと同じ開閉パターンを流用。 */
+  #kzApp .kz-guide-toggle{
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    margin:0 auto 4px; padding:11px 20px; width:fit-content; border-radius:999px; cursor:pointer; user-select:none;
+    background:linear-gradient(135deg, rgba(255,215,107,.22), rgba(255,183,71,.14));
+    border:1px solid rgba(255,215,107,.5);
+    color:var(--kz-gold); font-size:13px; font-weight:bold; letter-spacing:.5px; transition:background .25s ease;
+  }
+  #kzApp .kz-guide-toggle .kz-arrow{ display:inline-block; transition:transform .3s ease; font-size:10px; }
+  #kzApp .kz-guide-toggle.open .kz-arrow{ transform:rotate(180deg); }
+  #kzApp .kz-guide-panel{
+    max-height:0; overflow:hidden; opacity:0;
+    transition:max-height .5s ease, opacity .4s ease, margin .4s ease; margin-top:0;
+  }
+  #kzApp .kz-guide-panel.open{ max-height:2000px; opacity:1; margin-top:10px; }
+  #kzApp .kz-guide-inner{
+    background:linear-gradient(180deg,var(--kz-paper),var(--kz-paper2));
+    color:var(--kz-ink); border-radius:16px; padding:18px 18px 16px;
+    box-shadow:0 10px 30px rgba(0,0,0,.3); font-size:13.5px; line-height:1.85;
+  }
+  #kzApp .kz-guide-lead{ margin-bottom:14px; }
+  #kzApp .kz-guide-rule{
+    background:rgba(255,255,255,.5); border-radius:12px; padding:10px 12px; margin-bottom:10px;
+    border-left:4px solid var(--kz-gold2);
+  }
+  #kzApp .kz-guide-rule-title{ font-weight:bold; margin-bottom:3px; }
+  #kzApp .kz-guide-example{ color:#6b5636; font-size:12.5px; }
+  #kzApp .kz-guide-warn{
+    background:rgba(127,200,180,.18); border-radius:12px; padding:10px 12px; margin-top:4px;
+    border-left:4px solid var(--kz-teal2);
+  }
+  #kzApp .kz-guide-warn-title{ font-weight:bold; margin-bottom:3px; color:#1f6b57; }
+  #kzApp .kz-guide-foot{ margin-top:12px; font-size:12.5px; }
+
   /* 結果画面 */
   #kzApp .kz-result-visual{ width:110px; height:130px; position:relative; margin:6px auto 14px; }
   @keyframes kzRiseIn{ 0%{opacity:0; transform:translateY(24px) scale(.85);} 100%{opacity:1; transform:translateY(0) scale(1);} }
@@ -1911,7 +1947,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.156</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.157</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -4146,10 +4182,9 @@ function showHome(){
       <div><h2>百人一首</h2><p>100首の意味・技法・作者・出典を一覧で学び、クイズにも挑戦（進化の分岐には影響しません）</p></div>
       <div class="right"><span class="shogo-badge">🎴 Lv.${hyaLv(st)}</span></div>
     </div>
-    <div class="card menu-card" onclick="showKanazukaiTokkunMenu()">
+    <div class="card menu-card" onclick="kzStart(0)">
       <div class="menu-icon">🎋</div>
       <div><h2>かなづかい特訓「光る竹」</h2><p>教科書の古文を文脈ごと読んで、歴史的仮名遣いを直す特訓。ヒントなしの正解ぶんが仮名遣いのレベルに反映されます</p></div>
-      <div class="right"><span class="shogo-badge">${titleOf(st.lv.kanazukai||1).icon} Lv.${st.lv.kanazukai||1}</span></div>
     </div>
     <div class="card menu-card" onclick="showStats()">
       <div class="menu-icon">📊</div>
@@ -14801,33 +14836,59 @@ function kzCandidates(){ return kzPassage().tokens.filter(t=>t.type==='cand'); }
 function kzShortGrade(p){ return p.source.replace(/（.*）/,''); }
 function kzIsAssisted(status){ return status==='hint' || status==='missed'; }
 
-/* ---- 画面：特訓メニュー（教材えらび） ---- */
-function showKanazukaiTokkunMenu(){
-  const st = loadStats();
-  const lv = st.lv.kanazukai||1, t = titleOf(lv);
-  const html = `
-    <h3 class="section">🎋 かなづかい特訓「光る竹」</h3>
-    <p class="note">光村図書の古典単元（竹取物語・いろは歌・枕草子・徒然草・平家物語・おくのほそ道）の教科書本文から出題します。文章の中の✦をタップして、現代仮名遣いに直すか、そのままでよいかを見きわめましょう。まちがえても大丈夫、竹の光は増えるだけです。1エピソードを終えると、ヒントなしで正解した数ぶん「仮名遣い」のレベルが上がります（他の分野と同じしくみです）。</p>
-    <div class="card menu-card" style="cursor:default">
-      <div class="menu-icon">🎋</div>
-      <div><h2>仮名遣い</h2><p>この特訓での正解は、下の分野と同じレベルに反映されます</p></div>
-      <div class="right"><span class="shogo-badge ${t.hidden?"top":""}">${t.icon} ${esc(t.name)} Lv.${lv}</span></div>
-    </div>
-    ${KZ_PASSAGES.map((p,i)=>`
-    <div class="card menu-card" onclick="kzStart(${i})">
-      <div class="menu-icon">${KZ.clearedSet.has(p.key) ? "✨" : "📜"}</div>
-      <div><h2>${esc(p.title)}</h2><p>${esc(p.source)}　全${p.tokens.filter(t=>t.type==='cand').length}問</p></div>
-    </div>`).join('')}
-    <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
-  screen.innerHTML = html;
-}
-
 /* ---- 画面：ゲーム本体 ---- */
 function kzStart(idx){
   KZ.idx = idx; KZ.resolved = {}; KZ.attempts = {}; KZ.hintUsed = {}; KZ.curId = null; KZ.selfStreak = 0;
   screen.innerHTML = `
   <div id="kzApp">
     <h3 class="kz-title">光る竹</h3>
+
+    <div class="kz-guide-toggle" id="kzGuideToggle" onclick="kzToggleGuide()">
+      <span>📖</span><span id="kzGuideToggleLabel">かなづかいの直し方を見る</span><span class="kz-arrow">▼</span>
+    </div>
+    <div class="kz-guide-panel" id="kzGuidePanel">
+      <div class="kz-guide-inner">
+        <p class="kz-guide-lead">昔の書き方（歴史的仮名遣い）を今の書き方（現代仮名遣い）に直すルールは、じつはそんなに多くありません。この5つを知っていれば、たいてい解けるよ。</p>
+
+        <div class="kz-guide-rule">
+          <div class="kz-guide-rule-title">① 言葉の"とちゅう"にある「は・ひ・ふ・へ・ほ」→「わ・い・う・え・お」</div>
+          <div>いちばんよく出てくる、基本のルール。言葉の一番はじめではなく、中や終わりにある場合だけ変わるよ。</div>
+          <div class="kz-guide-example">例：つかひ→つかい／いふ→いう／おもへ→おもえ</div>
+        </div>
+
+        <div class="kz-guide-rule">
+          <div class="kz-guide-rule-title">② 「ゐ」「ゑ」→「い」「え」</div>
+          <div>今は使われていない、昔だけの文字。見た目は違っても、読み方が変わるだけと考えよう。</div>
+          <div class="kz-guide-example">例：ゐたり→いたり／こゑ→こえ</div>
+        </div>
+
+        <div class="kz-guide-rule">
+          <div class="kz-guide-rule-title">③ 音がのびる言葉「やう・まう・〜しう」→「よう・もう・〜しゅう」</div>
+          <div>声に出して読むと、音がのびて聞こえる言葉。のびた音のとおりに書き直すよ。</div>
+          <div class="kz-guide-example">例：やうやう→ようよう／まうづ→もうず／うつくしう→うつくしゅう</div>
+        </div>
+
+        <div class="kz-guide-rule">
+          <div class="kz-guide-rule-title">④ 「む」→「ん」</div>
+          <div>「〜だろう」という意味を表す「む」は、今の「ん」と同じ。</div>
+          <div class="kz-guide-example">例：あらむ→あらん</div>
+        </div>
+
+        <div class="kz-guide-rule">
+          <div class="kz-guide-rule-title">⑤ 「づ」→「ず」（ただし例外に注意）</div>
+          <div>ふつうは「ず」に変わるけれど、「つづく」「つれづれ」のように同じ音がくり返される言葉だけは、今でも「づ」のまま書くよ。</div>
+          <div class="kz-guide-example">例：よろづ→よろず／（例外）つづく・つれづれ はそのまま</div>
+        </div>
+
+        <div class="kz-guide-warn">
+          <div class="kz-guide-warn-title">⚠ ひっかけ注意：助詞の「は・を・へ」は変わらない</div>
+          <div>「今日<b>は</b>」「花<b>を</b>」「山<b>へ</b>」のように、言葉と言葉をつなぐ役目の「は・を・へ」は、歴史的仮名遣いでも現代仮名遣いでも書き方は同じ。変わるのは、言葉の"中身"にある場合だけだよ。</div>
+        </div>
+
+        <p class="kz-guide-foot">むずかしく見えても、ルールはこれだけ。✦をタップしたら「これは言葉の真ん中？　それとも助詞？」と考えてみよう。まちがえても大丈夫、竹の光は減らないよ。</p>
+      </div>
+    </div>
+
     <div class="kz-tabs-row" id="kzTabsRow"></div>
     <div class="kz-reassure">
       🎋 光る竹の中に、歴史的仮名遣いで書かれた文章がねむっています。<br>
@@ -14851,7 +14912,7 @@ function kzStart(idx){
     </div>
     <p class="kz-hint-note">✦ のついた言葉をタップしてみよう</p>
   </div>
-  <div class="btn-row"><button class="btn secondary" onclick="showKanazukaiTokkunMenu()">特訓メニューへ</button></div>
+  <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>
 
   <div id="kzModalWrap">
     <div class="kz-modal">
@@ -14924,6 +14985,13 @@ function kzToggleTranslation(){
   const open = panel.classList.toggle('open');
   toggle.classList.toggle('open', open);
   document.getElementById('kzTransToggleLabel').textContent = open ? '現代語訳をとじる' : '現代語訳を見る';
+}
+function kzToggleGuide(){
+  const panel = document.getElementById('kzGuidePanel');
+  const toggle = document.getElementById('kzGuideToggle');
+  const open = panel.classList.toggle('open');
+  toggle.classList.toggle('open', open);
+  document.getElementById('kzGuideToggleLabel').textContent = open ? 'かなづかいの直し方をとじる' : 'かなづかいの直し方を見る';
 }
 /* 対象の語だけを見せても文脈が分からず判断できないので、前後の地の文つきで見せる。
    直前直後のトークンを文字数上限まで連結し、対象語だけ大きく強調する。 */
@@ -15130,7 +15198,6 @@ function kzShowResults(){
   <div class="btn-row">
     <button class="btn secondary" onclick="kzStart(${KZ.idx})">この文をもう一度</button>
     ${hasNext ? `<button class="btn" onclick="kzStart(${KZ.idx+1})">つぎの文へ</button>` : ``}
-    <button class="btn secondary" onclick="showKanazukaiTokkunMenu()">特訓メニューへ</button>
     <button class="btn secondary" onclick="showHome()">ホームへ</button>
   </div>`;
 }
