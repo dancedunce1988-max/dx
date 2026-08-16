@@ -1699,12 +1699,219 @@
   @media (prefers-reduced-motion:reduce){
     #bgApp *{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;}
   }
+
+  /* ============ かなづかい特訓「光る竹」（2026-〜）============
+     光村図書の古典単元（竹取物語・いろは歌・枕草子・徒然草・平家物語・おくのほそ道）から、
+     歴史的仮名遣いの変化点が多い一節を出題する専用ミニゲーム。#kzAppの中だけで完結する
+     ように、色などは全て--kz-プレフィックスの独自変数にして、アプリ本体の:root変数
+     （--sub等）とは絶対に衝突しないようにしてある。 */
+  #kzApp{
+    --kz-bg1:#0b1030; --kz-bg2:#161c46; --kz-bg3:#1f2a5e;
+    --kz-gold:#ffd76b; --kz-gold2:#ffb347;
+    --kz-teal:#7fe9c8; --kz-teal2:#4fd6b0;
+    --kz-paper:#fbf3df; --kz-paper2:#f3e6c4; --kz-ink:#4a3a20;
+    --kz-text:#eef0ff; --kz-sub:#a9b2e8;
+    background:
+      radial-gradient(1.5px 1.5px at 20% 15%, rgba(255,255,255,.9), transparent),
+      radial-gradient(1.5px 1.5px at 70% 8%, rgba(255,255,255,.7), transparent),
+      radial-gradient(1px 1px at 85% 25%, rgba(255,255,255,.8), transparent),
+      radial-gradient(ellipse at 50% -10%, var(--kz-bg3) 0%, var(--kz-bg2) 45%, var(--kz-bg1) 100%);
+    color:var(--kz-text); border-radius:18px; padding:18px 16px 20px; margin:10px 0;
+    font-family:'Hiragino Sans','Yu Gothic',sans-serif;
+  }
+  #kzApp h3.kz-title{
+    text-align:center; font-size:clamp(18px,5.5vw,24px); letter-spacing:2px; margin-bottom:2px;
+    background:linear-gradient(90deg,var(--kz-gold),#fff6dd,var(--kz-gold2));
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    text-shadow:0 0 30px rgba(255,215,107,.25);
+  }
+  #kzApp .kz-tabs-row{ display:flex; gap:8px; overflow-x:auto; padding:12px 2px 4px; scrollbar-width:none; }
+  #kzApp .kz-tabs-row::-webkit-scrollbar{ display:none; }
+  #kzApp .kz-tab{
+    flex:0 0 auto; padding:9px 16px; border-radius:999px; font-size:12.5px; font-weight:bold;
+    background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.14); color:var(--kz-sub);
+    white-space:nowrap; display:flex; align-items:center; gap:5px; cursor:pointer;
+  }
+  #kzApp .kz-tab .kz-src{ font-size:9.5px; font-weight:normal; opacity:.75; }
+  #kzApp .kz-tab.active{
+    background:linear-gradient(135deg,var(--kz-gold),var(--kz-gold2)); color:#3a2c0c; border-color:transparent;
+    box-shadow:0 4px 16px rgba(255,183,71,.4);
+  }
+  #kzApp .kz-reassure{
+    margin:10px 0 14px; padding:12px 14px; border-radius:14px;
+    background:linear-gradient(135deg, rgba(127,233,200,.14), rgba(255,215,107,.10));
+    border:1px solid rgba(127,233,200,.35);
+    font-size:12.5px; line-height:1.7; color:#dff7ec;
+  }
+  #kzApp .kz-reassure b{ color:var(--kz-teal); }
+  #kzApp .kz-bamboo-row{ display:flex; gap:6px; justify-content:center; margin:16px 0 20px; flex-wrap:wrap; }
+  #kzApp .kz-fushi{
+    width:34px; height:46px; border-radius:9px;
+    background:linear-gradient(180deg,#1c3d33,#12261f);
+    border:1px solid rgba(127,233,200,.25); position:relative; overflow:hidden; transition:all .5s ease;
+  }
+  #kzApp .kz-fushi::after{ content:""; position:absolute; left:0; right:0; top:50%; height:2px; background:rgba(0,0,0,.35); }
+  #kzApp .kz-fushi.lit-self{
+    background:linear-gradient(180deg,#5a4415,#7a5c12 40%, #3a2c0c);
+    box-shadow:0 0 18px rgba(255,215,107,.7), inset 0 0 12px rgba(255,246,220,.4); border-color:var(--kz-gold);
+  }
+  #kzApp .kz-fushi.lit-hint{
+    background:linear-gradient(180deg,#124a42,#0f3730);
+    box-shadow:0 0 16px rgba(127,233,200,.55), inset 0 0 10px rgba(127,233,200,.25); border-color:var(--kz-teal);
+  }
+  @keyframes kzFushiPop{ 0%{transform:scale(1);} 40%{transform:scale(1.35);} 65%{transform:scale(.92);} 100%{transform:scale(1);} }
+  #kzApp .kz-fushi.fresh{ animation:kzFushiPop .5s ease; }
+  #kzApp .kz-progress-label{ text-align:center; font-size:11.5px; color:var(--kz-sub); margin-bottom:4px; }
+  #kzApp .kz-scroll{
+    background:linear-gradient(180deg,var(--kz-paper),var(--kz-paper2));
+    color:var(--kz-ink); border-radius:16px; padding:26px 20px 24px;
+    box-shadow:0 10px 40px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.4); position:relative;
+  }
+  #kzApp .kz-scroll-badge{
+    position:absolute; top:-11px; left:16px; right:16px;
+    background:var(--kz-gold); color:#3a2c0c; font-family:'Hiragino Sans','Yu Gothic',sans-serif;
+    font-size:11px; font-weight:bold; padding:3px 10px; border-radius:999px; box-shadow:0 2px 8px rgba(0,0,0,.3);
+    max-width:fit-content; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  #kzApp .kz-scroll-body{
+    font-family:'Hiragino Mincho ProN','Yu Mincho',serif; font-size:17px; line-height:2.4; letter-spacing:.5px;
+    line-break:strict; word-break:normal; overflow-wrap:normal; text-align:justify;
+  }
+  #kzApp .kz-cand{
+    position:relative; display:inline-block; white-space:nowrap; cursor:pointer;
+    padding:1px 7px 1px 3px; margin:0 1px; border-radius:5px; transition:background .35s ease, box-shadow .35s ease;
+  }
+  #kzApp .kz-cand:not(.lit){ background:rgba(255,183,71,.18); box-shadow:0 0 0 1px rgba(255,183,71,.35) inset; }
+  #kzApp .kz-cand:not(.lit)::after{
+    content:"✦"; font-size:9px; color:#c9860f; position:absolute; top:-2px; right:-1px;
+    animation:kzTwinkle 1.6s ease-in-out infinite;
+  }
+  @keyframes kzTwinkle{ 0%,100%{opacity:.35;} 50%{opacity:1;} }
+  #kzApp .kz-cand.lit-self{ background:rgba(255,215,107,.4); box-shadow:0 0 0 1px rgba(255,183,71,.6) inset; }
+  #kzApp .kz-cand.lit-hint{ background:rgba(127,233,200,.35); box-shadow:0 0 0 1px rgba(79,214,176,.6) inset; }
+  #kzApp .kz-cand.lit::after{ content:""; }
+  #kzApp .kz-hint-note{ text-align:center; font-size:11px; color:var(--kz-sub); margin-top:10px; }
+  #kzModalWrap{
+    position:fixed; inset:0; background:rgba(6,8,26,.72);
+    display:none; align-items:center; justify-content:center; z-index:9999; padding:20px;
+    font-family:'Hiragino Sans','Yu Gothic',sans-serif;
+  }
+  #kzModalWrap.show{ display:flex; }
+  #kzModalWrap .kz-modal{
+    width:100%; max-width:380px; background:linear-gradient(180deg,#1c234f,#12173a);
+    border:1px solid rgba(255,215,107,.25); border-radius:18px; padding:20px 18px; box-shadow:0 20px 60px rgba(0,0,0,.5);
+  }
+  #kzModalWrap .kz-context{
+    text-align:center; font-family:'Hiragino Mincho ProN','Yu Mincho',serif;
+    font-size:16px; line-height:2; color:#c3caf2; margin-bottom:6px; letter-spacing:.5px; word-break:keep-all;
+  }
+  #kzModalWrap .kz-context-target{
+    font-size:30px; font-weight:bold; color:#ffd76b; padding:0 5px; letter-spacing:1px;
+    text-shadow:0 0 18px rgba(255,215,107,.6);
+  }
+  #kzModalWrap .kz-ask{ text-align:center; font-size:12.5px; color:#a9b2e8; margin-bottom:16px; }
+  #kzModalWrap .kz-keep-btn{
+    width:100%; margin-top:10px; padding:11px 8px; border-radius:12px; border:1px solid rgba(255,255,255,.15);
+    background:rgba(255,255,255,.06); color:#eef0ff; font-size:13px; font-weight:bold; text-align:center;
+  }
+  #kzModalWrap .kz-keep-btn:active{ transform:scale(.97); background:rgba(255,215,107,.18); }
+  #kzModalWrap .kz-input-area{ margin-top:6px; }
+  #kzModalWrap .kz-input-area input{
+    width:100%; padding:12px 14px; border-radius:12px; border:1px solid rgba(255,255,255,.2);
+    background:rgba(255,255,255,.08); color:#eef0ff; font-size:16px; text-align:center; letter-spacing:1px;
+  }
+  #kzModalWrap .kz-input-area input::placeholder{ color:#8891c9; }
+  #kzModalWrap .kz-submit-btn{
+    width:100%; margin-top:10px; padding:12px; border-radius:12px; border:none;
+    background:linear-gradient(135deg,#7fe9c8,#4fd6b0); color:#0c2b23; font-weight:bold; font-size:14px;
+  }
+  #kzModalWrap .kz-submit-btn:active{ transform:scale(.98); }
+  #kzModalWrap .kz-feedback{ margin-top:14px; font-size:13px; line-height:1.8; border-radius:12px; padding:0; }
+  #kzModalWrap .kz-feedback.show{ padding:12px 14px; }
+  #kzModalWrap .kz-feedback.ok{ background:rgba(255,215,107,.14); border:2px solid rgba(255,215,107,.7); color:#ffe9b0; }
+  #kzModalWrap .kz-feedback.hint{ background:rgba(127,233,200,.12); border:1px solid rgba(127,233,200,.4); color:#d6fff1; }
+  #kzModalWrap .kz-verdict-ok{
+    font-size:22px; font-weight:bold; color:#ffd76b; margin-bottom:6px;
+    text-shadow:0 0 16px rgba(255,215,107,.6); animation:kzVerdictPop .4s ease;
+  }
+  @keyframes kzVerdictPop{ 0%{transform:scale(.6);opacity:0;} 60%{transform:scale(1.12);opacity:1;} 100%{transform:scale(1);} }
+  #kzModalWrap .kz-continue-btn{
+    width:100%; margin-top:10px; padding:12px; border-radius:12px; border:none;
+    background:linear-gradient(135deg,#7fe9c8,#4fd6b0); color:#0c2b23; font-weight:bold; font-size:14px;
+    animation:kzContPulse 1.6s ease-in-out infinite;
+  }
+  #kzModalWrap .kz-continue-btn:active{ transform:scale(.97); }
+  @keyframes kzContPulse{ 0%,100%{box-shadow:0 0 0 rgba(127,233,200,0);} 50%{box-shadow:0 0 16px rgba(127,233,200,.55);} }
+  #kzModalWrap .kz-hint-link{
+    display:block; text-align:center; margin-top:14px; font-size:12px; color:#a9b2e8;
+    text-decoration:underline; text-underline-offset:3px; cursor:pointer;
+  }
+  #kzModalWrap .kz-close-btn{
+    display:block; margin:16px auto 0; padding:10px 26px; border-radius:999px;
+    border:1px solid rgba(255,255,255,.25); background:transparent; color:#a9b2e8; font-size:12px;
+  }
+  #kzApp .kz-firefly{ font-size:18px; margin-right:6px; }
+  #kzApp .kz-trans-toggle{
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    margin:14px auto 0; padding:9px 18px; width:fit-content; border-radius:999px; cursor:pointer; user-select:none;
+    background:rgba(127,233,200,.12); border:1px solid rgba(127,233,200,.4);
+    color:var(--kz-teal); font-size:12.5px; font-weight:bold; letter-spacing:.5px; transition:background .25s ease;
+  }
+  #kzApp .kz-trans-toggle .kz-arrow{ display:inline-block; transition:transform .3s ease; font-size:10px; }
+  #kzApp .kz-trans-toggle.open .kz-arrow{ transform:rotate(180deg); }
+  #kzApp .kz-trans-panel{
+    max-height:0; overflow:hidden; opacity:0;
+    transition:max-height .4s ease, opacity .35s ease, margin .4s ease; margin-top:0;
+  }
+  #kzApp .kz-trans-panel.open{ max-height:400px; opacity:1; margin-top:10px; }
+  #kzApp .kz-trans-panel-inner{
+    background:linear-gradient(135deg, rgba(127,233,200,.10), rgba(79,214,176,.06));
+    border:1px solid rgba(127,233,200,.3); border-radius:14px; padding:14px 16px; font-size:13.5px; line-height:1.95; color:#e2fbf3;
+  }
+  #kzApp .kz-trans-panel-title{ font-size:11px; font-weight:bold; color:var(--kz-teal); letter-spacing:1px; margin-bottom:6px; }
+  /* 結果画面 */
+  #kzApp .kz-result-visual{ width:110px; height:130px; position:relative; margin:6px auto 14px; }
+  @keyframes kzRiseIn{ 0%{opacity:0; transform:translateY(24px) scale(.85);} 100%{opacity:1; transform:translateY(0) scale(1);} }
+  #kzApp .kz-result-visual{ animation:kzRiseIn 1s ease; }
+  #kzApp .kz-fv-glow{
+    position:absolute; inset:-26px; border-radius:50%;
+    background:radial-gradient(circle, rgba(255,246,220,.9), rgba(255,215,107,.3) 45%, transparent 70%);
+    filter:blur(2px); animation:kzPulseGlow 2.4s ease-in-out infinite;
+  }
+  @keyframes kzPulseGlow{ 0%,100%{transform:scale(1);opacity:.85;} 50%{transform:scale(1.15);opacity:1;} }
+  #kzApp .kz-fv-fig{
+    position:absolute; left:50%; top:26px; transform:translateX(-50%); width:60px; height:88px;
+    background:linear-gradient(180deg,#fff6dd,#ffe2a8); border-radius:50% 50% 40% 40% / 55% 55% 45% 45%;
+    box-shadow:0 0 40px rgba(255,246,220,.9);
+  }
+  #kzApp .kz-fv-emoji{
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    font-size:46px; filter:drop-shadow(0 0 18px rgba(255,246,220,.8));
+  }
+  #kzApp .kz-result-title{ text-align:center; font-size:20px; color:var(--kz-gold); margin-bottom:8px; letter-spacing:1px; }
+  #kzApp .kz-result-msg{ text-align:center; font-size:13.5px; color:var(--kz-sub); line-height:1.8; margin:0 auto 18px; max-width:340px; }
+  #kzApp .kz-stat-card{
+    background:rgba(255,255,255,.05); border-radius:14px; padding:16px; margin-bottom:14px;
+  }
+  #kzApp .kz-stat-big{ font-size:17px; font-weight:bold; color:var(--kz-gold); text-align:center; margin-bottom:4px; }
+  #kzApp .kz-stat-sub{ font-size:12px; color:var(--kz-sub); text-align:center; }
+  #kzApp .kz-lvup-card{
+    background:linear-gradient(135deg, rgba(255,215,107,.16), rgba(255,183,71,.08));
+    border:1px solid rgba(255,215,107,.4); border-radius:14px; padding:16px; margin-bottom:14px; text-align:center;
+  }
+  #kzApp .kz-lvup-card .kz-lv-row{ font-size:18px; font-weight:bold; color:var(--kz-gold); margin-bottom:4px; }
+  #kzApp .kz-lvup-card .kz-lv-sub{ font-size:12px; color:var(--kz-sub); }
+  #kzApp .kz-recap{ background:rgba(255,255,255,.05); border-radius:14px; padding:14px 16px; margin-bottom:16px; }
+  #kzApp .kz-recap-title{ font-size:11px; color:var(--kz-sub); margin-bottom:8px; letter-spacing:1px; }
+  #kzApp .kz-recap-item{ display:flex; justify-content:space-between; font-size:13px; padding:6px 0; border-bottom:1px dashed rgba(255,255,255,.1); }
+  #kzApp .kz-recap-item:last-child{ border-bottom:none; }
+  #kzApp .kz-recap-item .kz-badge{ font-size:11px; color:var(--kz-sub); }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.155</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.156</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3938,6 +4145,11 @@ function showHome(){
       <div class="menu-icon">🎴</div>
       <div><h2>百人一首</h2><p>100首の意味・技法・作者・出典を一覧で学び、クイズにも挑戦（進化の分岐には影響しません）</p></div>
       <div class="right"><span class="shogo-badge">🎴 Lv.${hyaLv(st)}</span></div>
+    </div>
+    <div class="card menu-card" onclick="showKanazukaiTokkunMenu()">
+      <div class="menu-icon">🎋</div>
+      <div><h2>かなづかい特訓「光る竹」</h2><p>教科書の古文を文脈ごと読んで、歴史的仮名遣いを直す特訓。ヒントなしの正解ぶんが仮名遣いのレベルに反映されます</p></div>
+      <div class="right"><span class="shogo-badge">${titleOf(st.lv.kanazukai||1).icon} Lv.${st.lv.kanazukai||1}</span></div>
     </div>
     <div class="card menu-card" onclick="showStats()">
       <div class="menu-icon">📊</div>
@@ -14229,6 +14441,699 @@ function storyRenderBunsetsu(beat, idx){
 /* ================================================================
    ストーリーモード ここまで
    ================================================================ */
+
+/* ================================================================
+   かなづかい特訓「光る竹」（2026-〜）
+   光村図書１〜３年の古典単元（竹取物語・いろは歌・枕草子・徒然草・平家物語・
+   おくのほそ道）の教科書本文から、歴史的仮名遣いの変化点をすべて拾って出題する
+   専用ミニゲーム。文脈（前後の地の文）ごと見せ、対象の語だけ大きく強調する。
+   間違えても竹の光は減らない（マイナスのイメージにしない）が、2回間違えたときは
+   「ヒントで気づけた」と嘘をつかず、正直に「まちがえた」と伝える。
+   経験値の扱いは「とっくん・読解・記録」の他コーナーとは違い、文節斬りの
+   bgLevelUpShikibetsu()と同じ方式：record()本体は呼ばず（st.q・間隔反復レビュー・
+   出題プール解放率など、実在の問題プールが前提の仕組みは光る竹には当てはまらない
+   ため）、レベルアップ処理（st.lv.kanazukai++・totalLevelUps・10回ごとの挑戦
+   チケット）だけを、1エピソード終了時に「ヒントを見ずに正解した数」ぶんまとめて
+   再現する。つまり分野レベルの分布が変わるので、他の分野と同じく進化の分岐にも
+   影響しうる（教員の指示、この仕様で確定）。 */
+const KZ_PASSAGES = [
+  {
+    key:'iroha', title:'いろは歌', source:'光村１年',
+    finaleTitle:'✨ 47文字が、ひとつに集まった ✨',
+    finaleMsg:'ひらがな47文字を一度だけ使って詠まれた歌。すべての文字が、あなたの手で現代の姿になりました。',
+    finaleVisual:'🌸',
+    translation:'色は美しく照り映えていても、花は散ってしまうものである。私たちが生きているこの世界の誰が、永久に変わらないことがあろうか（、いや、だれも変わらないではいられない）。いろいろなことがある人生の深い山を、今日も越えていくが、浅い夢など見ることはしない。心をまどわされることもない。',
+    tokens: [
+      {type:'text', t:'色'},
+      {type:'cand', id:0, t:'は', needsFix:false, modern:'は',
+        short:'助詞の「は」', rule:'「は」が主語・話題を表す助詞のときは、現代でもそのまま「は」と書くよ。'},
+      {type:'cand', id:1, t:'にほへど', needsFix:true, modern:'におえど',
+        short:'語中の「ほ」「へ」', rule:'言葉の中にある「ほ」と「へ」は、現代仮名遣いではそれぞれ「お」「え」に変わるよ。'},
+      {type:'br'},
+      {type:'text', t:'散りぬる'},
+      {type:'cand', id:2, t:'を', needsFix:false, modern:'を',
+        short:'助詞の「を」', rule:'「を」が物事を表す助詞のときは、現代でもそのまま「を」と書くよ。'},
+      {type:'br'},
+      {type:'text', t:'我が世たれぞ'},
+      {type:'br'},
+      {type:'text', t:'常'},
+      {type:'cand', id:3, t:'ならむ', needsFix:true, modern:'ならん',
+        short:'「む」の変化', rule:'推量を表す助動詞「む」は、現代仮名遣いでは「ん」に変わるよ。'},
+      {type:'br'},
+      {type:'text', t:'有為の奥山'},
+      {type:'br'},
+      {type:'text', t:'今日越えて'},
+      {type:'br'},
+      {type:'text', t:'浅き夢見じ'},
+      {type:'br'},
+      {type:'cand', id:4, t:'酔ひ', needsFix:true, modern:'えい',
+        short:'「ゑ」と「ひ」の変化', rule:'「酔」は歴史的仮名遣いでは「ゑひ」と読むよ。「ゑ」は「え」に、言葉の中の「ひ」は「い」に変わるので、あわせて「えい」になるよ。'},
+      {type:'text', t:'もせず'}
+    ]
+  },
+  {
+    key:'taketori', title:'竹取物語①', source:'光村１年（冒頭）',
+    finaleTitle:'✨ かぐや姫があらわれた ✨',
+    finaleMsg:'筒の中から、光り輝く小さな人があらわれました。あなたが直した言葉が、竹を最後まで光らせました。',
+    finaleVisual:'princess',
+    translation:'今ではもう昔のことだが、竹取の翁とよばれる人がいた。野や山に分け入って竹を取っては、いろいろな物を作るのに使っていた。名前を、さぬきのみやつこといった。（ある日のこと、）その竹林の中に、根元の光る竹が一本あった。不思議に思って、近寄って見ると、筒の中が光っている。それを見ると、（背丈）三寸ほどの人が、まことにかわいらしい様子で座っていた。',
+    tokens: [
+      {type:'text', t:'今'},
+      {type:'cand', id:0, t:'は', needsFix:false, modern:'は',
+        short:'助詞の「は」', rule:'「は」が主語・話題を表す助詞のときは、現代でもそのまま「は」と書くよ。'},
+      {type:'text', t:'昔、竹取の翁と'},
+      {type:'cand', id:1, t:'いふ', needsFix:true, modern:'いう',
+        short:'語中の「ふ」', rule:'言葉の中にある「ふ」は、現代仮名遣いでは「う」に変わるよ。'},
+      {type:'text', t:'ものありけり。野山にまじりて竹'},
+      {type:'cand', id:2, t:'を', needsFix:false, modern:'を',
+        short:'助詞の「を」', rule:'「を」が物事を表す助詞のときは、現代でもそのまま「を」と書くよ。'},
+      {type:'text', t:'取りつつ、'},
+      {type:'cand', id:3, t:'よろづ', needsFix:true, modern:'よろず',
+        short:'語中の「づ」', rule:'言葉の中にある「づ」は、現代仮名遣いでは「ず」に変わるよ。「よろづ」→「よろず」のように使うよ。'},
+      {type:'text', t:'のことに'},
+      {type:'cand', id:4, t:'使ひ', needsFix:true, modern:'つかい',
+        short:'語中の「ひ」', rule:'言葉の中にある「ひ」は、現代仮名遣いでは「い」に変わるよ。漢字の部分もふくめて、すべてひらがなで書こう。'},
+      {type:'text', t:'けり。名'},
+      {type:'cand', id:5, t:'をば', needsFix:false, modern:'をば',
+        short:'助詞の「を」', rule:'「を」が物事を表す助詞のときは、現代でもそのまま「を」と書くよ。'},
+      {type:'text', t:'、さぬきのみやつことなむ'},
+      {type:'cand', id:6, t:'いひ', needsFix:true, modern:'いい',
+        short:'語中の「ひ」', rule:'言葉の中にある「ひ」は、現代仮名遣いでは「い」に変わるよ。'},
+      {type:'text', t:'ける。その竹の中に、もと光る竹なむ一筋ありける。あやしがりて、寄りて見るに、筒の中光りたり。それ'},
+      {type:'cand', id:7, t:'を', needsFix:false, modern:'を',
+        short:'助詞の「を」', rule:'「を」が物事を表す助詞のときは、現代でもそのまま「を」と書くよ。'},
+      {type:'text', t:'見れば、三寸ばかりなる人、いと'},
+      {type:'cand', id:8, t:'うつくしう', needsFix:true, modern:'うつくしゅう',
+        short:'「しう」の変化', rule:'「しう」は音がのびて、現代仮名遣いでは「しゅう」に変わるよ。'},
+      {type:'text', t:'て'},
+      {type:'cand', id:9, t:'ゐたり', needsFix:true, modern:'いたり',
+        short:'「ゐ」の変化', rule:'「ゐ」は、現代仮名遣いでは「い」に変わるよ。'},
+      {type:'text', t:'。'}
+    ]
+  },
+  {
+    key:'taketori2', title:'竹取物語②', source:'光村１年（蓬莱の玉の枝）',
+    finaleTitle:'✨ にせものの枝が、光の中に見えた ✨',
+    finaleMsg:'くらもちの皇子が語る、まぼろしの蓬莱の山。その言葉の真偽を、あなたの目が見きわめました。',
+    finaleVisual:'🌺',
+    translation:'その山は、見ると、（険しくて）全く登りようがありません。その山の斜面の裾を回ってみると、この世には見られない花の木々が立っています。金・銀・瑠璃色の水が、山から流れ出てきます。その流れには、色さまざまの玉でできた橋が架かっています。その付近に、光り輝く木々が立っています。その中で、ここに取ってまいりましたのは、たいそう見劣りするものでしたが、（姫が）おっしゃったものと違っていては（いけないだろう）と思い、この花の枝を折ってまいったのです。',
+    tokens: [
+      {type:'text', t:'その山、見るに、さらに登るべき'},
+      {type:'cand', id:0, t:'やう', needsFix:true, modern:'よう',
+        short:'「やう」の変化', rule:'「やう」は音がのびて、現代仮名遣いでは「よう」に変わるよ。'},
+      {type:'text', t:'なし。その山のそばひら'},
+      {type:'cand', id:1, t:'を', needsFix:false, modern:'を',
+        short:'助詞の「を」', rule:'「を」が物事を表す助詞のときは、現代でもそのまま「を」と書くよ。'},
+      {type:'text', t:'めぐれば、世の中になき花の木ども立てり。金・銀・瑠璃色の水、山より流れいでたり。それ'},
+      {type:'cand', id:2, t:'には', needsFix:false, modern:'には',
+        short:'「に」＋「は」の助詞', rule:'「に」と「は」が組み合わさった助詞なので、現代でもそのまま「には」と書くよ。'},
+      {type:'text', t:'、色々の玉の橋渡せり。そのあたりに、照り輝く木ども立てり。その中に、この取りて'},
+      {type:'cand', id:3, t:'まうで', needsFix:true, modern:'もうで',
+        short:'「まう」の変化', rule:'「まう」は音がのびて、現代仮名遣いでは「もう」に変わるよ。'},
+      {type:'text', t:'来たりし'},
+      {type:'cand', id:4, t:'は', needsFix:false, modern:'は',
+        short:'助詞の「は」', rule:'「は」が主語・話題を表す助詞のときは、現代でもそのまま「は」と書くよ。'},
+      {type:'text', t:'、いとわろかりしかども、'},
+      {type:'cand', id:5, t:'のたまひし', needsFix:true, modern:'のたまいし',
+        short:'語中の「ひ」', rule:'言葉の中にある「ひ」は、現代仮名遣いでは「い」に変わるよ。'},
+      {type:'text', t:'に'},
+      {type:'cand', id:6, t:'違は', needsFix:true, modern:'たがわ',
+        short:'語中の「は」', rule:'言葉の中にある「は」は、現代仮名遣いでは「わ」に変わるよ。漢字の部分もふくめて、すべてひらがなで書こう。'},
+      {type:'text', t:'ましかばと、この花'},
+      {type:'cand', id:7, t:'を', needsFix:false, modern:'を',
+        short:'助詞の「を」', rule:'「を」が物事を表す助詞のときは、現代でもそのまま「を」と書くよ。'},
+      {type:'text', t:'折りて'},
+      {type:'cand', id:8, t:'まうで', needsFix:true, modern:'もうで',
+        short:'「まう」の変化', rule:'「まう」は音がのびて、現代仮名遣いでは「もう」に変わるよ。'},
+      {type:'text', t:'来たるなり。'}
+    ]
+  },
+  {
+    key:'makura', title:'枕草子', source:'光村２年',
+    finaleTitle:'✨ 山ぎわが白く輝いた ✨',
+    finaleMsg:'春の曙の空が、少しずつ紫に色づいていく。あなたの言葉が、その一瞬をくっきりと照らし出しました。',
+    finaleVisual:'🌸',
+    translation:'春は明け方がいい。だんだん白くなっていく山ぎわの空が少し明るくなって、紫がかった雲が細くたなびいているのがいい。夏は夜がいい。月が出ている頃はもちろん、月のない闇夜でも、蛍がたくさん飛びかっているのがいい。',
+    tokens: [
+      {type:'text', t:'春'},
+      {type:'cand', id:0, t:'は', needsFix:false, modern:'は',
+        short:'助詞の「は」', rule:'「は」が主語・話題を表す助詞のときは、現代でもそのまま「は」と書くよ。'},
+      {type:'text', t:'あけぼの。'},
+      {type:'cand', id:1, t:'やうやう', needsFix:true, modern:'ようよう',
+        short:'「やう」の変化', rule:'「やう」は音がのびて、現代仮名遣いでは「よう」に変わるよ。'},
+      {type:'text', t:'白くなりゆく'},
+      {type:'cand', id:2, t:'山ぎは', needsFix:true, modern:'やまぎわ',
+        short:'語中の「は」', rule:'言葉の中にある「は」は、現代仮名遣いでは「わ」に変わるよ。漢字の部分もふくめて、すべてひらがなで書こう。'},
+      {type:'text', t:'、少し明かりて、紫だちたる雲の細くたなびきたる。夏'},
+      {type:'cand', id:3, t:'は', needsFix:false, modern:'は',
+        short:'助詞の「は」', rule:'「は」が主語・話題を表す助詞のときは、現代でもそのまま「は」と書くよ。'},
+      {type:'text', t:'夜。月のころ'},
+      {type:'cand', id:4, t:'は', needsFix:false, modern:'は',
+        short:'助詞の「は」', rule:'「は」が主語・話題を表す助詞のときは、現代でもそのまま「は」と書くよ。'},
+      {type:'text', t:'さらなり、闇も'},
+      {type:'cand', id:5, t:'なほ', needsFix:true, modern:'なお',
+        short:'語中の「ほ」', rule:'言葉の中にある「ほ」は、現代仮名遣いでは「お」に変わるよ。「なほ」→「なお」のように使うよ。'},
+      {type:'text', t:'、蛍の多く'},
+      {type:'cand', id:6, t:'飛びちがひ', needsFix:true, modern:'とびちがい',
+        short:'語中の「ひ」', rule:'言葉の中にある「ひ」は、現代仮名遣いでは「い」に変わるよ。漢字の部分もふくめて、すべてひらがなで書こう。'},
+      {type:'text', t:'たる。'}
+    ]
+  },
+  {
+    key:'tsurezure1', title:'徒然草①', source:'光村２年（序段）',
+    finaleTitle:'✨ 筆がすらすらと動きだした ✨',
+    finaleMsg:'心にうつりゆく、とりとめのない思いが、静かに言葉になっていく。あなたの言葉が、その筆の運びを照らしました。',
+    finaleVisual:'📜',
+    translation:'することがなく退屈にまかせて、一日中、硯に向かって、心の中に浮かんでは消えていくとりとめもないことを、なんということもなく書きつけていくと、不思議なほど心がおかしくなってくる（妙にものぐるおしい気持ちになる）。',
+    tokens: [
+      {type:'cand', id:0, t:'つれづれ', needsFix:false, modern:'つれづれ',
+        short:'「づ」の例外', rule:'「つれづれ」「つづく」のように、同じ音がくり返される言葉の「づ」は、現代仮名遣いでも例外的に「づ」のまま書くよ（「ず」にはしない）。'},
+      {type:'text', t:'なるままに、日暮らし、硯に'},
+      {type:'cand', id:1, t:'むかひて', needsFix:true, modern:'むかいて',
+        short:'語中の「ひ」', rule:'言葉の中にある「ひ」は、現代仮名遣いでは「い」に変わるよ。'},
+      {type:'text', t:'、心にうつりゆくよしなしごと'},
+      {type:'cand', id:2, t:'を', needsFix:false, modern:'を',
+        short:'助詞の「を」', rule:'「を」が物事を表す助詞のときは、現代でもそのまま「を」と書くよ。'},
+      {type:'text', t:'、そこはかとなく書きつくれば、'},
+      {type:'cand', id:3, t:'あやしう', needsFix:true, modern:'あやしゅう',
+        short:'「しう」の変化', rule:'「しう」は音がのびて、現代仮名遣いでは「しゅう」に変わるよ。'},
+      {type:'text', t:'こそもの'},
+      {type:'cand', id:4, t:'ぐるほし', needsFix:true, modern:'ぐるおし',
+        short:'語中の「ほ」', rule:'言葉の中にある「ほ」は、現代仮名遣いでは「お」に変わるよ。「ものぐるほし」→「ものぐるおし」のように使うよ。'},
+      {type:'text', t:'けれ。'}
+    ]
+  },
+  {
+    key:'tsurezure2', title:'徒然草②', source:'光村２年（仁和寺にある法師）',
+    finaleTitle:'✨ 山のふもとで、答えが見えた ✨',
+    finaleMsg:'「少しのことにも、先達はあらまほしき事なり」――ちょっとしたことにも、案内をしてくれる人がいてほしいもの。あなたの言葉が、その教えをくっきりと照らしました。',
+    finaleVisual:'⛩️',
+    translation:'仁和寺にいたある法師が、年を取るまで石清水八幡宮に参拝したことがなかったので、残念に思い、ある時思い立って、たった一人で徒歩でお参りに行った。極楽寺・高良神社などを拝んで、これで全部だと思い込んで帰ってしまった。そして仲間に向かって、「長年思っていたことを、成し遂げました。聞いていた以上に、尊いものでした。それにしても、お参りに来ていた人がみんな山へ登っていったのは、何かあったのでしょうか。気にはなりましたが、神様にお参りするのが本来の目的だと思って、山までは見ませんでした」と言った。ちょっとしたことにも、案内をしてくれる人はいてほしいものである。',
+    tokens: [
+      {type:'text', t:'仁和寺にある法師、年寄るまで、石清水'},
+      {type:'cand', id:0, t:'を', needsFix:false, modern:'を',
+        short:'助詞の「を」', rule:'「を」が物事を表す助詞のときは、現代でもそのまま「を」と書くよ。'},
+      {type:'text', t:'拝まざりければ、心うく覚えて、ある時'},
+      {type:'cand', id:1, t:'思ひ立ち', needsFix:true, modern:'おもいたち',
+        short:'語中の「ひ」', rule:'言葉の中にある「ひ」は、現代仮名遣いでは「い」に変わるよ。漢字の部分もふくめて、すべてひらがなで書こう。'},
+      {type:'text', t:'て、たゞひとり、徒歩より'},
+      {type:'cand', id:2, t:'まうで', needsFix:true, modern:'もうで',
+        short:'「まう」の変化', rule:'「まう」は音がのびて、現代仮名遣いでは「もう」に変わるよ。'},
+      {type:'text', t:'けり。極楽寺・高良など'},
+      {type:'cand', id:3, t:'を', needsFix:false, modern:'を',
+        short:'助詞の「を」', rule:'「を」が物事を表す助詞のときは、現代でもそのまま「を」と書くよ。'},
+      {type:'text', t:'拝みて、かばかりと心得て帰りにけり。さて、かたへの人に'},
+      {type:'cand', id:4, t:'あひて', needsFix:true, modern:'あいて',
+        short:'語中の「ひ」', rule:'言葉の中にある「ひ」は、現代仮名遣いでは「い」に変わるよ。'},
+      {type:'text', t:'、「年ごろ'},
+      {type:'cand', id:5, t:'思ひ', needsFix:true, modern:'おもい',
+        short:'語中の「ひ」', rule:'言葉の中にある「ひ」は、現代仮名遣いでは「い」に変わるよ。漢字の部分もふくめて、すべてひらがなで書こう。'},
+      {type:'text', t:'つること、果たし'},
+      {type:'cand', id:6, t:'はべり', needsFix:false, modern:'はべり',
+        short:'語頭の「は」', rule:'「は」が言葉のいちばん初め（語頭）にあるときは、現代仮名遣いでも「は」のまま変わらないよ。変わるのは、言葉の"途中"にあるときだけ。'},
+      {type:'text', t:'ぬ。聞きしにも過ぎて、尊くこそおはしけれ。そも、参りたる人ごとに山'},
+      {type:'cand', id:7, t:'へ', needsFix:false, modern:'へ',
+        short:'助詞の「へ」', rule:'「へ」が方向を表す助詞のときは、現代でもそのまま「へ」と書くよ。'},
+      {type:'text', t:'登りし'},
+      {type:'cand', id:8, t:'は', needsFix:false, modern:'は',
+        short:'助詞の「は」', rule:'「は」が主語・話題を表す助詞のときは、現代でもそのまま「は」と書くよ。'},
+      {type:'text', t:'、何事かありけん、ゆかしかりしかど、神'},
+      {type:'cand', id:9, t:'へ', needsFix:false, modern:'へ',
+        short:'助詞の「へ」', rule:'「へ」が方向を表す助詞のときは、現代でもそのまま「へ」と書くよ。'},
+      {type:'text', t:'参るこそ本意なれと'},
+      {type:'cand', id:10, t:'思ひて', needsFix:true, modern:'おもいて',
+        short:'語中の「ひ」', rule:'言葉の中にある「ひ」は、現代仮名遣いでは「い」に変わるよ。'},
+      {type:'text', t:'、山まで'},
+      {type:'cand', id:11, t:'は', needsFix:false, modern:'は',
+        short:'助詞の「は」', rule:'「まで」に「は」が付いた形。「は」が助詞のときは、現代でもそのまま「は」と書くよ。'},
+      {type:'text', t:'見ず。」とぞ'},
+      {type:'cand', id:12, t:'言ひ', needsFix:true, modern:'いい',
+        short:'語中の「ひ」', rule:'言葉の中にある「ひ」は、現代仮名遣いでは「い」に変わるよ。漢字の部分もふくめて、すべてひらがなで書こう。'},
+      {type:'text', t:'ける。すこしのことにも、先達'},
+      {type:'cand', id:13, t:'は', needsFix:false, modern:'は',
+        short:'助詞の「は」', rule:'「は」が主語・話題を表す助詞のときは、現代でもそのまま「は」と書くよ。'},
+      {type:'text', t:'あらまほしき事なり。'}
+    ]
+  },
+  {
+    key:'heike', title:'平家物語', source:'光村２年（扇の的）',
+    finaleTitle:'✨ 扇が空に舞い上がった ✨',
+    finaleMsg:'与一の矢が、みごと扇の要を射抜きました。あなたの言葉が、その一瞬の祈りと集中を照らしました。',
+    finaleVisual:'🏹',
+    translation:'与一は目を閉じて、「南無八幡大菩薩、とりわけ我が国の神々よ、日光権現、宇都宮、那須の温泉大明神様、どうかあの扇の真ん中に矢を当てさせてください。これを射損じるようなら、弓を折って自害し、二度と人に顔を合わせられません。もう一度国元へ帰らせようとお思いになるなら、この矢を外させないでください」と心の中で祈って目を見開くと、風も少し吹きおさまって、扇も射やすいようすになった。与一は鏑矢を取ってつがえ、よく引き絞ってひょうと放った。……鏑矢は海に落ち、扇は空へと舞い上がった。',
+    tokens: [
+      {type:'text', t:'与一、目をふさいで、「南無八幡大菩薩、別して'},
+      {type:'cand', id:0, t:'は', needsFix:false, modern:'は',
+        short:'助詞の「は」', rule:'「は」が主語・話題を表す助詞のときは、現代でもそのまま「は」と書くよ。'},
+      {type:'text', t:'我が国の神明、日光権現、宇都宮、那須湯泉大明神、'},
+      {type:'cand', id:1, t:'願はくは', needsFix:true, modern:'ねがわくは',
+        short:'語中の「は」', rule:'言葉の中にある「は」は「わ」に変わるけれど、最後の「は」は意味を強める助詞だからそのまま残るよ。合わせて「ねがわくは」になるよ。漢字の部分もふくめて、すべてひらがなで書こう。'},
+      {type:'text', t:'あの扇の真中射させてたばせ'},
+      {type:'cand', id:2, t:'給へ', needsFix:true, modern:'たまえ',
+        short:'語中の「へ」', rule:'言葉の中にある「へ」は、現代仮名遣いでは「え」に変わるよ。漢字の部分もふくめて、すべてひらがなで書こう。'},
+      {type:'text', t:'。これ'},
+      {type:'cand', id:3, t:'を', needsFix:false, modern:'を',
+        short:'助詞の「を」', rule:'「を」が物事を表す助詞のときは、現代でもそのまま「を」と書くよ。'},
+      {type:'text', t:'射損ずるほどならば、弓切り折り自害して、人に二度面を'},
+      {type:'cand', id:4, t:'向かふ', needsFix:true, modern:'むかう',
+        short:'語中の「ふ」', rule:'言葉の中にある「ふ」は、現代仮名遣いでは「う」に変わるよ。漢字の部分もふくめて、すべてひらがなで書こう。'},
+      {type:'text', t:'べからず。今一度本国'},
+      {type:'cand', id:5, t:'へ', needsFix:false, modern:'へ',
+        short:'助詞の「へ」', rule:'「へ」が方向を表す助詞のときは、現代でもそのまま「へ」と書くよ。'},
+      {type:'cand', id:6, t:'向かへん', needsFix:true, modern:'むかえん',
+        short:'語中の「へ」', rule:'言葉の中にある「へ」は、現代仮名遣いでは「え」に変わるよ。漢字の部分もふくめて、すべてひらがなで書こう。'},
+      {type:'text', t:'と思し召さば、この矢'},
+      {type:'cand', id:7, t:'はづさせ', needsFix:true, modern:'はずさせ',
+        short:'語中の「づ」', rule:'言葉の中にある「づ」は、現代仮名遣いでは「ず」に変わるよ。'},
+      {type:'cand', id:8, t:'給ふ', needsFix:true, modern:'たまう',
+        short:'語中の「ふ」', rule:'言葉の中にある「ふ」は、現代仮名遣いでは「う」に変わるよ。漢字の部分もふくめて、すべてひらがなで書こう。'},
+      {type:'text', t:'な」と心の内に祈念して、目を見開いたれば、風も少し吹き弱つて、扇も射よげにぞなつたりける。与一、鏑'},
+      {type:'cand', id:9, t:'を', needsFix:false, modern:'を',
+        short:'助詞の「を」', rule:'「を」が物事を表す助詞のときは、現代でもそのまま「を」と書くよ。'},
+      {type:'text', t:'取つて'},
+      {type:'cand', id:10, t:'つがひ', needsFix:true, modern:'つがい',
+        short:'語中の「ひ」', rule:'言葉の中にある「ひ」は、現代仮名遣いでは「い」に変わるよ。'},
+      {type:'text', t:'、よつぴいてひやうど放つ。鏑'},
+      {type:'cand', id:11, t:'は', needsFix:false, modern:'は',
+        short:'助詞の「は」', rule:'「は」が主語・話題を表す助詞のときは、現代でもそのまま「は」と書くよ。'},
+      {type:'text', t:'海'},
+      {type:'cand', id:12, t:'へ', needsFix:false, modern:'へ',
+        short:'助詞の「へ」', rule:'「へ」が方向を表す助詞のときは、現代でもそのまま「へ」と書くよ。'},
+      {type:'text', t:'入りければ、扇'},
+      {type:'cand', id:13, t:'は', needsFix:false, modern:'は',
+        short:'助詞の「は」', rule:'「は」が主語・話題を表す助詞のときは、現代でもそのまま「は」と書くよ。'},
+      {type:'text', t:'空'},
+      {type:'cand', id:14, t:'へ', needsFix:false, modern:'へ',
+        short:'助詞の「へ」', rule:'「へ」が方向を表す助詞のときは、現代でもそのまま「へ」と書くよ。'},
+      {type:'text', t:'ぞ上がりける。'}
+    ]
+  },
+  {
+    key:'oku', title:'おくのほそ道', source:'光村３年',
+    finaleTitle:'✨ 旅がはじまった ✨',
+    finaleMsg:'月日という名の旅人が、静かに歩き出しました。あなたの言葉が、その一歩を照らしています。',
+    finaleVisual:'🌙',
+    translation:'月日は永遠に旅を続ける旅人のようなもので、過ぎては来る年もまた旅人と同じだ。船の上で一生を過ごしたり、馬のたづなを引きながら老いを迎えたりする人は、毎日が旅であって、旅そのものをすみかとしている。',
+    tokens: [
+      {type:'text', t:'月日'},
+      {type:'cand', id:0, t:'は', needsFix:false, modern:'は',
+        short:'助詞の「は」', rule:'「は」が主語・話題を表す助詞のときは、現代でもそのまま「は」と書くよ。'},
+      {type:'text', t:'百代の過客にして、'},
+      {type:'cand', id:1, t:'行きかふ', needsFix:true, modern:'ゆきかう',
+        short:'語中の「ふ」', rule:'言葉の中にある「ふ」は、現代仮名遣いでは「う」に変わるよ。漢字の部分もふくめて、すべてひらがなで書こう。'},
+      {type:'text', t:'年もまた旅人なり。舟の上に生涯'},
+      {type:'cand', id:2, t:'を', needsFix:false, modern:'を',
+        short:'助詞の「を」', rule:'「を」が物事を表す助詞のときは、現代でもそのまま「を」と書くよ。'},
+      {type:'text', t:'浮かべ、馬の口'},
+      {type:'cand', id:3, t:'とらへて', needsFix:true, modern:'とらえて',
+        short:'語中の「へ」', rule:'言葉の中にある「へ」は、現代仮名遣いでは「え」に変わるよ。'},
+      {type:'text', t:'老い'},
+      {type:'cand', id:4, t:'を', needsFix:false, modern:'を',
+        short:'助詞の「を」', rule:'「を」が物事を表す助詞のときは、現代でもそのまま「を」と書くよ。'},
+      {type:'cand', id:5, t:'迎ふる', needsFix:true, modern:'むかうる',
+        short:'語中の「ふ」', rule:'言葉の中にある「ふ」は、現代仮名遣いでは「う」に変わるよ。漢字の部分もふくめて、すべてひらがなで書こう。'},
+      {type:'text', t:'者'},
+      {type:'cand', id:6, t:'は', needsFix:false, modern:'は',
+        short:'助詞の「は」', rule:'「は」が主語・話題を表す助詞のときは、現代でもそのまま「は」と書くよ。'},
+      {type:'text', t:'、日々旅にして、旅'},
+      {type:'cand', id:7, t:'を', needsFix:false, modern:'を',
+        short:'助詞の「を」', rule:'「を」が物事を表す助詞のときは、現代でもそのまま「を」と書くよ。'},
+      {type:'text', t:'栖とす。'}
+    ]
+  }
+];
+
+let KZ = { idx:0, resolved:{}, attempts:{}, hintUsed:{}, curId:null, selfStreak:0, justResolvedId:null, clearedSet:new Set() };
+
+/* ---- 効果音（外部音源なし、Web Audioでその場生成。他ミニゲームと同じく専用のAudioContextを持つ） ---- */
+let kzAudioCtx = null;
+function kzGetAudioCtx(){
+  if(!kzAudioCtx){
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if(!AC) return null;
+    kzAudioCtx = new AC();
+  }
+  if(kzAudioCtx.state === 'suspended') kzAudioCtx.resume();
+  return kzAudioCtx;
+}
+function kzBeep(freq, start, dur, vol){
+  const ctx = kzGetAudioCtx();
+  if(!ctx) return;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine'; osc.frequency.value = freq;
+  osc.connect(gain); gain.connect(ctx.destination);
+  const t0 = ctx.currentTime + start;
+  gain.gain.setValueAtTime(vol, t0);
+  gain.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+  osc.start(t0); osc.stop(t0 + dur);
+}
+function kzPlayCorrectChime(){ try{ kzBeep(740,0,0.10,0.14); kzBeep(990,0.07,0.16,0.16); }catch(e){} }
+function kzPlayResultChime(){
+  try{
+    kzBeep(660,0,0.14,0.15); kzBeep(880,0.1,0.14,0.16);
+    kzBeep(990,0.2,0.16,0.17); kzBeep(1320,0.32,0.34,0.2);
+  }catch(e){}
+}
+
+function kzPassage(){ return KZ_PASSAGES[KZ.idx]; }
+function kzCandidates(){ return kzPassage().tokens.filter(t=>t.type==='cand'); }
+function kzShortGrade(p){ return p.source.replace(/（.*）/,''); }
+function kzIsAssisted(status){ return status==='hint' || status==='missed'; }
+
+/* ---- 画面：特訓メニュー（教材えらび） ---- */
+function showKanazukaiTokkunMenu(){
+  const st = loadStats();
+  const lv = st.lv.kanazukai||1, t = titleOf(lv);
+  const html = `
+    <h3 class="section">🎋 かなづかい特訓「光る竹」</h3>
+    <p class="note">光村図書の古典単元（竹取物語・いろは歌・枕草子・徒然草・平家物語・おくのほそ道）の教科書本文から出題します。文章の中の✦をタップして、現代仮名遣いに直すか、そのままでよいかを見きわめましょう。まちがえても大丈夫、竹の光は増えるだけです。1エピソードを終えると、ヒントなしで正解した数ぶん「仮名遣い」のレベルが上がります（他の分野と同じしくみです）。</p>
+    <div class="card menu-card" style="cursor:default">
+      <div class="menu-icon">🎋</div>
+      <div><h2>仮名遣い</h2><p>この特訓での正解は、下の分野と同じレベルに反映されます</p></div>
+      <div class="right"><span class="shogo-badge ${t.hidden?"top":""}">${t.icon} ${esc(t.name)} Lv.${lv}</span></div>
+    </div>
+    ${KZ_PASSAGES.map((p,i)=>`
+    <div class="card menu-card" onclick="kzStart(${i})">
+      <div class="menu-icon">${KZ.clearedSet.has(p.key) ? "✨" : "📜"}</div>
+      <div><h2>${esc(p.title)}</h2><p>${esc(p.source)}　全${p.tokens.filter(t=>t.type==='cand').length}問</p></div>
+    </div>`).join('')}
+    <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
+  screen.innerHTML = html;
+}
+
+/* ---- 画面：ゲーム本体 ---- */
+function kzStart(idx){
+  KZ.idx = idx; KZ.resolved = {}; KZ.attempts = {}; KZ.hintUsed = {}; KZ.curId = null; KZ.selfStreak = 0;
+  screen.innerHTML = `
+  <div id="kzApp">
+    <h3 class="kz-title">光る竹</h3>
+    <div class="kz-tabs-row" id="kzTabsRow"></div>
+    <div class="kz-reassure">
+      🎋 光る竹の中に、歴史的仮名遣いで書かれた文章がねむっています。<br>
+      <b>✦ の場所</b>をタップして、「現代の書き方に直す」か「このままでよい」かを見きわめよう。<br>
+      <b>まちがえても大丈夫。減点はありません。</b>何度でも直せます。竹の光は増えるだけで、消えることはありません。
+    </div>
+    <div class="kz-progress-label">竹のふし　<span id="kzProgressText">0 / 0</span></div>
+    <div class="kz-bamboo-row" id="kzBambooRow"></div>
+    <div class="kz-scroll">
+      <span class="kz-scroll-badge" id="kzScrollBadge">―</span>
+      <div class="kz-scroll-body" id="kzScrollText"></div>
+    </div>
+    <div class="kz-trans-toggle" id="kzTransToggle" onclick="kzToggleTranslation()">
+      <span>📖</span><span id="kzTransToggleLabel">現代語訳を見る</span><span class="kz-arrow">▼</span>
+    </div>
+    <div class="kz-trans-panel" id="kzTransPanel">
+      <div class="kz-trans-panel-inner">
+        <div class="kz-trans-panel-title">現代語訳</div>
+        <p id="kzTransText"></p>
+      </div>
+    </div>
+    <p class="kz-hint-note">✦ のついた言葉をタップしてみよう</p>
+  </div>
+  <div class="btn-row"><button class="btn secondary" onclick="showKanazukaiTokkunMenu()">特訓メニューへ</button></div>
+
+  <div id="kzModalWrap">
+    <div class="kz-modal">
+      <div class="kz-context" id="kzModalContext">―</div>
+      <div class="kz-ask">現代の書き方に直すなら、ひらがなで入力。<br>変わらないなら「そのまま」を選ぼう。</div>
+      <div class="kz-input-area" id="kzInputArea">
+        <input type="text" id="kzModernInput" placeholder="ひらがなで入力" autocomplete="off" enterkeyhint="done">
+        <button class="kz-submit-btn" onclick="kzSubmitFix()">これでいく！</button>
+      </div>
+      <button class="kz-keep-btn" id="kzBtnKeep" onclick="kzSelectChoice('keep')">このままでよい（直さない）</button>
+      <div class="kz-feedback" id="kzFeedback"></div>
+      <a class="kz-hint-link" id="kzHintLink" onclick="kzShowRuleHint()">💡 ヒントを見る</a>
+      <button class="kz-close-btn" onclick="kzCloseModal()">とじる</button>
+    </div>
+  </div>`;
+  document.getElementById('kzModernInput').addEventListener('keydown', e=>{
+    if(e.key !== 'Enter') return;
+    if(e.isComposing) return; // 日本語入力の変換確定でのEnterは無視（二重発火を防ぐ）
+    const contBtn = document.getElementById('kzContBtn');
+    if(contBtn){ contBtn.click(); return; } // 「つぎへ」待ちのときはEnterで進む（再送信しない）
+    kzSubmitFix();
+  });
+  kzRenderAll();
+}
+function kzSelectPassage(i){
+  if(i===KZ.idx) return;
+  KZ.idx = i; KZ.resolved = {}; KZ.attempts = {}; KZ.hintUsed = {}; KZ.curId = null; KZ.selfStreak = 0;
+  kzCloseModal();
+  document.getElementById('kzTransPanel').classList.remove('open');
+  document.getElementById('kzTransToggle').classList.remove('open');
+  document.getElementById('kzTransToggleLabel').textContent = '現代語訳を見る';
+  kzRenderAll();
+}
+function kzRenderAll(){
+  const row = document.getElementById('kzTabsRow');
+  row.innerHTML = KZ_PASSAGES.map((p,i)=>{
+    const active = i===KZ.idx ? 'active' : '';
+    const doneMark = KZ.clearedSet.has(p.key) ? '✨' : '';
+    return `<div class="kz-tab ${active}" onclick="kzSelectPassage(${i})">${doneMark}${esc(p.title)}<span class="kz-src">${esc(kzShortGrade(p))}</span></div>`;
+  }).join('');
+  document.getElementById('kzScrollBadge').textContent = kzPassage().title + '　' + kzPassage().source;
+  document.getElementById('kzTransText').textContent = kzPassage().translation;
+  kzRenderScroll();
+  kzRenderBamboo();
+}
+function kzRenderScroll(){
+  const el = document.getElementById('kzScrollText');
+  el.innerHTML = kzPassage().tokens.map(seg=>{
+    if(seg.type==='br') return '<br>';
+    if(seg.type==='text') return esc(seg.t);
+    const litClass = KZ.resolved[seg.id] ? ('lit ' + (kzIsAssisted(KZ.resolved[seg.id]) ? 'lit-hint':'lit-self')) : '';
+    return `<span class="kz-cand ${litClass}" data-id="${seg.id}" onclick="kzOpenModal(${seg.id})">${esc(seg.t)}</span>`;
+  }).join('');
+}
+function kzRenderBamboo(){
+  const row = document.getElementById('kzBambooRow');
+  const cands = kzCandidates();
+  row.innerHTML = cands.map(c=>{
+    const cls = KZ.resolved[c.id] ? (kzIsAssisted(KZ.resolved[c.id]) ? 'lit-hint' : 'lit-self') : '';
+    const fresh = (c.id===KZ.justResolvedId) ? ' fresh' : '';
+    return `<div class="kz-fushi ${cls}${fresh}"></div>`;
+  }).join('');
+  KZ.justResolvedId = null; // ポップ演出は1回きり
+  const doneCount = Object.keys(KZ.resolved).length;
+  document.getElementById('kzProgressText').textContent = `${doneCount} / ${cands.length}`;
+}
+function kzToggleTranslation(){
+  const panel = document.getElementById('kzTransPanel');
+  const toggle = document.getElementById('kzTransToggle');
+  const open = panel.classList.toggle('open');
+  toggle.classList.toggle('open', open);
+  document.getElementById('kzTransToggleLabel').textContent = open ? '現代語訳をとじる' : '現代語訳を見る';
+}
+/* 対象の語だけを見せても文脈が分からず判断できないので、前後の地の文つきで見せる。
+   直前直後のトークンを文字数上限まで連結し、対象語だけ大きく強調する。 */
+function kzGetContextHtml(id){
+  const tokens = kzPassage().tokens;
+  const idx = tokens.findIndex(t => t.type==='cand' && t.id===id);
+  if(idx<0) return '';
+  const BUDGET = 10;
+  let before = '';
+  for(let i=idx-1; i>=0 && before.length<BUDGET; i--){
+    const tk = tokens[i];
+    before = (tk.type==='br' ? '　' : (tk.t||'')) + before;
+  }
+  if(before.length>BUDGET) before = '…' + before.slice(before.length-BUDGET);
+  let after = '';
+  for(let i=idx+1; i<tokens.length && after.length<BUDGET; i++){
+    const tk = tokens[i];
+    after += (tk.type==='br' ? '　' : (tk.t||''));
+  }
+  if(after.length>BUDGET) after = after.slice(0,BUDGET) + '…';
+  return `${esc(before)}<span class="kz-context-target">${esc(tokens[idx].t)}</span>${esc(after)}`;
+}
+/* 正解／わかった、の後に出す「つぎへ」系のボタン。自動では進めない
+   （解説をじっくり読みたい人を急かさないため）。 */
+function kzShowContinueButton(label, onClick){
+  const old = document.getElementById('kzContBtn');
+  if(old) old.remove();
+  const btn = document.createElement('button');
+  btn.id = 'kzContBtn'; btn.className = 'kz-continue-btn'; btn.textContent = label;
+  btn.onclick = onClick;
+  document.getElementById('kzFeedback').after(btn);
+}
+function kzOpenModal(id){
+  if(KZ.resolved[id]) return; // すでに光った場所は静かに眺めるだけ
+  KZ.curId = id;
+  document.getElementById('kzModalContext').innerHTML = kzGetContextHtml(id);
+  document.getElementById('kzModernInput').value = '';
+  const fb = document.getElementById('kzFeedback');
+  fb.className = ''; fb.textContent='';
+  const old = document.getElementById('kzContBtn');
+  if(old) old.remove();
+  document.getElementById('kzModalWrap').classList.add('show');
+  document.getElementById('kzModernInput').focus(); // ジェスチャー起点なら、そのままキーボードが開く
+}
+function kzCloseModal(){
+  const wrap = document.getElementById('kzModalWrap');
+  if(wrap) wrap.classList.remove('show');
+}
+function kzSelectChoice(choice){
+  if(choice==='keep') kzJudge('keep', '');
+}
+function kzSubmitFix(){
+  const val = document.getElementById('kzModernInput').value.trim();
+  if(!val) return;
+  kzJudge('fix', val);
+}
+/* 正解のたびに、閉じずにそのまま次の未解決の✦へ連続で進む（テンポ優先）。
+   すべて解決したときだけ閉じて結果画面へ。 */
+function kzAdvanceOrResults(){
+  const next = kzCandidates().find(c => !KZ.resolved[c.id]);
+  if(next){
+    kzOpenModal(next.id);
+  }else{
+    kzCloseModal();
+    setTimeout(kzShowResults, 300);
+  }
+}
+function kzShowRuleHint(){
+  const cand = kzCandidates().find(c=>c.id===KZ.curId);
+  if(!cand) return;
+  KZ.hintUsed[KZ.curId] = true;
+  KZ.selfStreak = 0;
+  const fb = document.getElementById('kzFeedback');
+  fb.className = 'show hint';
+  fb.innerHTML = `<span class="kz-firefly">🌙</span>${esc(cand.rule || 'ここは形が変わらない言葉だよ。もう一度、じっくり見てみよう。')}`;
+}
+const KZ_PRAISE = ['そのとおり！', 'やった！', '見事！', 'さすが！', 'いいね！', 'ばっちり！'];
+function kzNormalize(s){ return s.replace(/\s/g,''); }
+function kzJudge(choice, value){
+  if(KZ.resolved[KZ.curId]) return; // すでに光った問題を二重に採点しない（保険）
+  const cand = kzCandidates().find(c=>c.id===KZ.curId);
+  const fb = document.getElementById('kzFeedback');
+  let correct;
+  if(choice==='keep'){
+    correct = (cand.needsFix===false);
+  }else{
+    // 直すべきでない語も、入力欄にもとの形をそのまま打てば正解とする
+    // （「そのまま」ボタンと同じ判定。cand.modernは変化なしの語だと原文と同じ値になっている）。
+    correct = kzNormalize(value)===kzNormalize(cand.modern);
+  }
+  if(correct){
+    const status = KZ.hintUsed[KZ.curId] ? 'hint' : 'self';
+    KZ.resolved[KZ.curId] = status;
+    if(status==='self'){ KZ.selfStreak++; } else { KZ.selfStreak = 0; }
+    const praise = KZ_PRAISE[Math.floor(Math.random()*KZ_PRAISE.length)];
+    const streakText = KZ.selfStreak>=2 ? `　🔥自力で${KZ.selfStreak}連続！` : '';
+    fb.className = 'show ok';
+    fb.innerHTML = `<div class="kz-verdict-ok">◯ 正解！</div><span class="kz-firefly">✨</span>${esc(praise)}${cand.short ? esc(cand.short)+'のルールだね。' : ''}竹が少し明るくなった。${streakText}`;
+    kzPlayCorrectChime();
+    KZ.justResolvedId = KZ.curId;
+    kzRenderScroll(); kzRenderBamboo();
+    // 自動では進めない。解説をじっくり読みたい人もいるので、「つぎへ」を押すまで待つ。
+    kzShowContinueButton('つぎへ ▶', kzAdvanceOrResults);
+  }else{
+    KZ.attempts[KZ.curId] = (KZ.attempts[KZ.curId]||0) + 1;
+    if(KZ.attempts[KZ.curId] >= 2){
+      // 2回まちがえても減点はしない。ただし「ヒントで気づけた」というのは嘘になるので、
+      // まちがえたこと自体は正直に伝え、その上で正解を教えて前を向く。
+      KZ.selfStreak = 0;
+      fb.className = 'show hint';
+      fb.innerHTML = `<span class="kz-firefly">🌱</span>まちがえてしまったね。${esc(cand.rule || '')}<br>正しくは「<b>${esc(cand.needsFix ? cand.modern : cand.t)}</b>」だよ。次はきっと分かるよ。`;
+      kzShowContinueButton('次は頑張ろう', ()=>{
+        KZ.resolved[KZ.curId] = 'missed';
+        KZ.justResolvedId = KZ.curId;
+        kzRenderScroll(); kzRenderBamboo();
+        kzAdvanceOrResults();
+      });
+    }else{
+      fb.className = 'show hint';
+      let msg;
+      if(choice==='keep' && cand.needsFix){
+        msg = 'うーん、ここは言葉の"真ん中"にある音だよ。何かに変わりそうな気配……もう一度考えてみよう。';
+      }else if(choice==='fix' && !cand.needsFix){
+        msg = 'これは言葉と言葉をつなぐ「助詞」。じつは形が変わらない言葉なんだ。もう一度考えてみよう。';
+      }else{
+        msg = 'おしい！もういちど、' + (cand.short||'この言葉') + 'のルールを思い出してみよう。';
+      }
+      fb.innerHTML = `<span class="kz-firefly">🌙</span>${esc(msg)}`;
+    }
+  }
+}
+
+/* 1エピソード終了時、ヒントを見ずに正解した数ぶんだけ「仮名遣い」のレベルを
+   まとめて上げる。文節斬りのbgLevelUpShikibetsu()と同じ方式（record()本体は
+   呼ばない）で、st.lv.kanazukai・totalLevelUps・挑戦チケットだけをその場で再現する。
+   selfCount回ぶんループしてから1回だけsaveStatsするので、途中経過の保存漏れはない。 */
+function kzApplyLevelUp(selfCount){
+  const st = loadStats();
+  const lvBefore = st.lv.kanazukai||1;
+  let lvAfter = lvBefore, gained = 0, ticketsGained = 0;
+  for(let i=0; i<selfCount; i++){
+    if(lvAfter >= MAX_CAT_LV) break;
+    lvAfter++;
+    st.totalLevelUps = (st.totalLevelUps||0) + 1;
+    if(st.totalLevelUps % 10 === 0){ st.bossTickets = (st.bossTickets||0) + 1; ticketsGained++; }
+    gained++;
+  }
+  st.lv.kanazukai = lvAfter;
+  saveStats(st);
+  const titleBefore = titleOf(lvBefore), titleAfter = titleOf(lvAfter);
+  return {
+    lvBefore, lvAfter, gained, ticketsGained,
+    titleUp: gained>0 && titleBefore.name !== titleAfter.name,
+    titleName: titleAfter.name, titleIcon: titleAfter.icon,
+  };
+}
+
+/* ---- 画面：1エピソード終了時の結果画面 ---- */
+function kzShowResults(){
+  const p = kzPassage();
+  KZ.clearedSet.add(p.key);
+  const cands = kzCandidates();
+  const selfCount = cands.filter(c => KZ.resolved[c.id]==='self').length;
+  const pct = Math.round(selfCount/cands.length*100);
+  const lv = kzApplyLevelUp(selfCount);
+  kzPlayResultChime();
+
+  const visualHtml = p.finaleVisual === 'princess'
+    ? `<div class="kz-fv-glow"></div><div class="kz-fv-fig"></div>`
+    : `<div class="kz-fv-glow"></div><div class="kz-fv-emoji">${p.finaleVisual}</div>`;
+
+  const lvupHtml = lv.gained>0
+    ? `<div class="kz-lvup-card">
+         <div class="kz-lv-row">📈 「仮名遣い」Lv.${lv.lvBefore} → Lv.${lv.lvAfter}（+${lv.gained}）</div>
+         ${lv.titleUp ? `<div class="kz-lv-sub">称号が「${lv.titleIcon} ${esc(lv.titleName)}」になりました！</div>` : ``}
+         ${lv.ticketsGained>0 ? `<div class="kz-lv-sub">挑戦チケットを${lv.ticketsGained}枚獲得！</div>` : ``}
+       </div>`
+    : `<div class="kz-lvup-card">
+         <div class="kz-lv-sub">今回はヒントを使った問題が多かったね。次はヒントなしに挑戦してみよう！（レベルアップは0でした）</div>
+       </div>`;
+
+  const recapHtml = cands.map(c=>{
+    const st = KZ.resolved[c.id];
+    const badge = st==='hint' ? '🌙 ヒントで気づいた' : (st==='missed' ? '🌱 まちがえたので、次は頑張ろう' : '✨ 自分で気づいた');
+    return `<div class="kz-recap-item"><span>${esc(c.t)} → ${esc(c.needsFix?c.modern:'（そのまま）')}</span><span class="kz-badge">${badge}</span></div>`;
+  }).join('');
+
+  const hasNext = KZ.idx < KZ_PASSAGES.length-1;
+  screen.innerHTML = `
+  <div id="kzApp">
+    <div class="kz-result-visual">${visualHtml}</div>
+    <div class="kz-result-title">${esc(p.finaleTitle)}</div>
+    <div class="kz-result-msg">${esc(p.finaleMsg)}</div>
+    <div class="kz-stat-card">
+      <div class="kz-stat-big">🎯 ヒントなしで正解：${selfCount} / ${cands.length}問（${pct}%）</div>
+      <div class="kz-stat-sub">ヒントを見た問題・まちがえた問題も、竹はちゃんと光っています</div>
+    </div>
+    ${lvupHtml}
+    <div class="kz-recap">
+      <div class="kz-recap-title">今日、光らせた言葉</div>
+      ${recapHtml}
+    </div>
+  </div>
+  <div class="btn-row">
+    <button class="btn secondary" onclick="kzStart(${KZ.idx})">この文をもう一度</button>
+    ${hasNext ? `<button class="btn" onclick="kzStart(${KZ.idx+1})">つぎの文へ</button>` : ``}
+    <button class="btn secondary" onclick="showKanazukaiTokkunMenu()">特訓メニューへ</button>
+    <button class="btn secondary" onclick="showHome()">ホームへ</button>
+  </div>`;
+}
 
 bootApp();
 </script>
