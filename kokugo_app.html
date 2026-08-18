@@ -2478,7 +2478,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.169</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.170</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -15228,6 +15228,10 @@ const PS_LEVELS = {
 // そのレベルで十分に理解したと言える点数を取ると、次のレベルが解放される
 const PS_LEVEL_UNLOCK_SCORE = { 1:4000, 2:4000, 3:4000, 4:4000, 5:4000, 6:4000 };
 
+// 難易度が高いレベルほど、同じ動きでも多く得点できるようにする倍率
+const PS_LEVEL_SCORE_MULT = { 6: 1.5, 7: 2 };
+function psScoreMult(){ return PS_LEVEL_SCORE_MULT[psCurrentLevel] || 1; }
+
 const PS_BOMB_TIME_MS = 20000;
 const PS_DOUBLE_SCORE_MS = 10000;
 const PS_ITEM_CHANCE = 0.06;
@@ -15730,7 +15734,7 @@ function psPopChain(){
   const gotTenseiMeishi = psChain.some(c=> !c.isItem && c.word && PS_TENSEI_MEISHI.has(c.word));
   if(gotTenseiMeishi) psActivateDoubleScore();
 
-  const gain = n*n*5 * (psDoubleScoreActive ? 2 : 1);
+  const gain = Math.round(n*n*5 * psScoreMult() * (psDoubleScoreActive ? 2 : 1));
   psScore += gain;
   if(n > psBestCombo) psBestCombo = n;
   psScoreValEl.textContent = psScore;
@@ -15794,7 +15798,7 @@ function psPopChain(){
       psBoard[cellObj.row][cellObj.col] = null;
       if(cellObj.isItem === "reduce") psReduceItemOnBoard = false;
     });
-    const bombGain = bombCells.length * 15 * (psDoubleScoreActive ? 2 : 1);
+    const bombGain = Math.round(bombCells.length * 15 * psScoreMult() * (psDoubleScoreActive ? 2 : 1));
     if(bombGain > 0){
       psScore += bombGain;
       psScoreValEl.textContent = psScore;
