@@ -2453,7 +2453,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.163</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.164</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -15946,20 +15946,24 @@ function psEndGame(){
   const st = loadStats();
   if(!st.partsOfSpeechBest) st.partsOfSpeechBest = {};
   if(!st.partsOfSpeechUnlockedLevel) st.partsOfSpeechUnlockedLevel = 1;
+  // 経験値はレベルごとに独立して計算し、レベルが高いほど同じ点数でも多くもらえるようにする
+  // （300点区切りごとに「レベル番号×10」の経験値。レベル7なら1区切りで70、レベル1なら10）。
+  if(!st.partsOfSpeechXpTier || typeof st.partsOfSpeechXpTier !== "object") st.partsOfSpeechXpTier = {};
+  const PS_XP_TIER_SIZE = 300;
   const prevLevelBest = st.partsOfSpeechBest[psCurrentLevel] || 0;
   const isNewRecord = psScore > 0 && psScore > prevLevelBest;
   let xpGained = 0, xpTierReached = 0;
   let statsChanged = false;
   if(isNewRecord){
     st.partsOfSpeechBest[psCurrentLevel] = psScore;
-    const overallBest = Math.max(0, ...Object.values(st.partsOfSpeechBest));
-    const oldTier = st.partsOfSpeechXpTier || 0;
-    const newTier = Math.floor(overallBest / 300);
+    const oldTier = st.partsOfSpeechXpTier[psCurrentLevel] || 0;
+    const newTier = Math.floor(psScore / PS_XP_TIER_SIZE);
     if(newTier > oldTier){
-      xpGained = (newTier - oldTier) * 10;
+      const xpPerTier = psCurrentLevel * 10;
+      xpGained = (newTier - oldTier) * xpPerTier;
       st.partsOfSpeechBonusExp = (st.partsOfSpeechBonusExp||0) + xpGained;
-      st.partsOfSpeechXpTier = newTier;
-      xpTierReached = newTier * 300;
+      st.partsOfSpeechXpTier[psCurrentLevel] = newTier;
+      xpTierReached = newTier * PS_XP_TIER_SIZE;
     }
     statsChanged = true;
   }
@@ -15977,7 +15981,7 @@ function psEndGame(){
   const allClear = justUnlocked === 7;
 
   const recordHtml = isNewRecord ? `<p class="psLevelDesc">🎉 レベル${psCurrentLevel}の自己ベスト更新！（${psScore}点）</p>` : "";
-  const xpHtml = xpGained > 0 ? `<p class="psLevelDesc">🏆 自己ベストで${xpTierReached}点を初めて超えたので、経験値＋${xpGained}獲得！</p>` : "";
+  const xpHtml = xpGained > 0 ? `<p class="psLevelDesc">🏆 レベル${psCurrentLevel}の自己ベストで${xpTierReached}点を初めて超えたので、経験値＋${xpGained}獲得！</p>` : "";
   const unlockHtml = justUnlocked
     ? (allClear
         ? `<div class="psUnlockCelebrate allClear">🎉 全てのレベルを解放した！ 🌟</div>`
