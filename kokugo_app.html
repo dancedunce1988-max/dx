@@ -1737,6 +1737,7 @@
     background:linear-gradient(135deg,var(--kz-gold),var(--kz-gold2)); color:#3a2c0c; border-color:transparent;
     box-shadow:0 4px 16px rgba(255,183,71,.4);
   }
+  #kzApp .kz-tab.locked{ opacity:.45; cursor:default; }
   #kzApp .kz-reassure{
     margin:10px 0 14px; padding:12px 14px; border-radius:14px;
     background:linear-gradient(135deg, rgba(127,233,200,.14), rgba(255,215,107,.10));
@@ -1947,7 +1948,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.157</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.158</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6543,6 +6544,14 @@ const BOSSES = [
        増えていく（教員の指示で上限なし＝長期戦になるほど詰みやすい設計を明示的に了承済み）。
        雪だるま式に伸びるぶん、初期atk・hpとも他ボスよりかなり低め（hp40000・atk150）にしないと
        終盤で理不尽な即死になってしまうため、平均決着ターン数が短くなるようシミュレータで調整した。
+       【2026-08-18追記】教員の指示で「二段攻撃であることが明確にわかるように」`doubleAttack:true`
+       を追加。bossCounterAttack側で、1発ずつ独立して命中判定・ダメージ計算を行う2連続ヒットに
+       変更し、1発目の演出→画面シェイク＋「追撃」メッセージ→2発目の演出、と時間差で表示する
+       （bossCounterAttackDoubleHit）。純粋な演出変更ではなく実ダメージにも反映される仕様（教員の
+       指示：「２回攻撃も実装です」）。1ターンに2発になるぶん、期待値ベースでの合計火力が
+       単発時と同水準に収まるよう、atkを150→75へ半減して補正した（線形性より、独立な2発×半分の
+       威力の期待値合計は、1発×満威力の期待値と一致する）。会心・回避・防御軽減は1発ごとに
+       個別抽選されるため、体感の振れ幅（大外れ／大会心）は単発時よりマイルドになる。
      ・ゲーム好きのN：「会心の一撃が出やすい」という指示を、luckステータス（会心率に直結する
        既存パラメータ）を他ボスの基準(15)よりはっきり高い45に設定することで表現（新規コード不要）。
        会心が絡む分、素のatkは他ボスよりやや低め(340)に調整。
@@ -6575,7 +6584,7 @@ const BOSSES = [
        1.7〜1.9回）。必殺技なし（ストーリー第3章クリア前）のプレイヤーにとっては相変わらず
        ほぼ勝てないボスのままである点は変わらない（教員もこれは許容済み）。 */
   {id:"soumaa", name:"咆哮のソーマー", icon:"🦁", item:"折れたシャー芯", treasure:"奇跡の一本シャー芯", hp:31000, atk:200, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, selfHpAtkBoost:{normalMult:1.5, lowMult:2.5, hpThreshold:0.5}},
-  {id:"kuratyan_robot", name:"ロボットに乗ったくらちゃん", icon:"🤖", item:"プラモデル", treasure:"ピストルダム", hp:20820, atk:150, defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, atkGrowthPerTurn:1.2},
+  {id:"kuratyan_robot", name:"ロボットに乗ったくらちゃん", icon:"🤖", item:"プラモデル", treasure:"ピストルダム", hp:20820, atk:75, defPct:20, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, atkGrowthPerTurn:1.2, doubleAttack:true},
   {id:"game_n", name:"ゲーム好きのN", icon:"🎮", item:"エナドリ", treasure:"プロコン", hp:31000, atk:340, defPct:55, accuracy:180, evadePct:25, luck:45, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0},
   {id:"ultra_k", name:"漫画が好きなウルトラK", icon:"📖", item:"少年コミック", treasure:"未来を予知する漫画", hp:24292, atk:400, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, playerAtkHalved:true},
   {id:"walking_person", name:"ぶらぶら歩く人", icon:"🚶", item:"紅茶", treasure:"緑茶", hp:31000, atk:400, defPct:55, accuracy:180, evadePct:25, luck:15, lv:33, recPts:5000, minXpRatio:0.6, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, defTripleOnMiss:true, finisherDamageMultBoost:[2,4]},
@@ -8179,6 +8188,76 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
   bossBattle._resolving = true;
   setTimeout(() => { if(bossBattle && bossBattle._resolving) bossCounterAttack(ok); }, 1000);
 }
+/* ボスの通常反撃1発ぶんのダメージ計算だけを切り出したもの（命中判定はしない＝呼び出し側で
+   既にヒット確定した後の「威力」計算のみを担う）。bossCounterAttackの元々の通常分岐と、
+   doubleAttackボス用のbossCounterAttackDoubleHitの両方から共用する（2026-08-18〜）。 */
+function bossComputeHitDamage(b, st, ps, range, atkGrowthTurn){
+  const effDef = ps.def + (b.defBuffTurns > 0 ? b.defBuffAmount : 0) + (b.kotonohaDefBuffAmount||0);
+  let effAtk = defGateActive(effDef, st) ? (b.boss.atk||1) * DEF_GATE_ATK_MULT : (b.boss.atk||1);
+  if(b.boss.lowDefAtkDouble && effDef < b.boss.lowDefAtkDouble.threshold){
+    effAtk *= b.boss.lowDefAtkDouble.mult;
+  }
+  if(b.boss.selfHpAtkBoost){
+    const cfg = b.boss.selfHpAtkBoost;
+    const hpRatio = b.bossMaxHp > 0 ? b.bossHp / b.bossMaxHp : 1;
+    effAtk *= (hpRatio < cfg.hpThreshold ? cfg.lowMult : cfg.normalMult);
+  }
+  if(b.boss.atkGrowthPerTurn) effAtk *= Math.pow(b.boss.atkGrowthPerTurn, atkGrowthTurn);
+  let raw = randInt(range[0], range[1]) * effAtk;
+  let crit = false;
+  if(Math.random() * 100 < (b.boss.luck||0)){
+    crit = true;
+    raw *= 1.5;
+  }
+  const defReduction = cappedDefReduction(effDef, b.boss);
+  let dmg = Math.max(1, Math.round(raw * (1 - defReduction)));
+  if(b.defCutBuffTurns > 0) dmg = Math.max(1, Math.round(dmg * (1 - b.defCutBuffAmount)));
+  return {crit, dmg};
+}
+/* doubleAttackボス（ロボットに乗ったくらちゃん）専用：1ターンに独立した2発を撃つ。
+   命中判定・ダメージ計算はそれぞれ別抽選（片方だけ回避／会心もありうる）。バフのターン消費は
+   通常の反撃と同じく「1ターンにつき1回」なので、2発ぶん計算し終えたあとにまとめて減らす。
+   演出は1発目を即表示→画面シェイク＋「追撃」メッセージ→2発目、と時間差で出すことで、
+   1回の反撃で終わらない「二段攻撃」であることが見た目でもはっきりわかるようにする。 */
+function bossCounterAttackDoubleHit(b, hitChance, range, atkGrowthTurn, st, ps){
+  const rollHit = () => {
+    if(Math.random() >= hitChance) return {evaded:true, crit:false, dmg:0};
+    const r = bossComputeHitDamage(b, st, ps, range, atkGrowthTurn);
+    return {evaded:false, crit:r.crit, dmg:r.dmg};
+  };
+  const hit1 = rollHit();
+  const hit2 = rollHit();
+  if(b.atkBuffTurns > 0) b.atkBuffTurns--;
+  if(b.defBuffTurns > 0) b.defBuffTurns--;
+  if(b.luckBuffTurns > 0) b.luckBuffTurns--;
+  if(b.atkMultTurns > 0) b.atkMultTurns--;
+  if(b.defCutBuffTurns > 0) b.defCutBuffTurns--;
+  if(b.evadeBuffTurns > 0) b.evadeBuffTurns--;
+  if(b.accBuffTurns > 0) b.accBuffTurns--;
+  const fb = document.getElementById("fb");
+  const nextBtn = document.getElementById("nextBtn");
+  nextBtn.style.display = "none";
+  const applyHit = (r, label) => {
+    if(!r.evaded) b.playerHp = Math.max(0, b.playerHp - r.dmg);
+    refreshBossHpBars();
+    fb.innerHTML += r.evaded
+      ? `<div class="boss-turn">👹 ${esc(b.boss.name)}の${label}。💨あなたはこうげきを回避した！</div>`
+      : `<div class="boss-turn">👹 ${esc(b.boss.name)}の${label}。${r.crit ? "🔥ボスの会心の一撃！ " : ""}あなたは ${r.dmg} ダメージを受けた。</div>`;
+  };
+  applyHit(hit1, "1段目の攻撃");
+  setTimeout(() => {
+    if(bossBattle !== b) return; // 待っている間に戦闘が終了・リセットされていたら何もしない
+    triggerFinisherShake();
+    fb.innerHTML += `<div class="boss-turn">🤖 ${esc(b.boss.name)}は、すかさず追撃してきた！</div>`;
+    setTimeout(() => {
+      if(bossBattle !== b) return;
+      applyHit(hit2, "2段目の攻撃");
+      nextBtn.style.display = "inline-block";
+      nextBtn.textContent = b.playerHp<=0 ? "けっかを見る" : "つぎへ";
+      nextBtn.focus();
+    }, 700);
+  }, 550);
+}
 function bossCounterAttack(playerWasCorrect){
   const b = bossBattle;
   /* 翠森「眠りの胞子」：眠っている間はボスの反撃ターンそのものを丸ごとスキップする
@@ -8313,6 +8392,10 @@ function bossCounterAttack(playerWasCorrect){
     // ミス回避アイテムの効果：まちがえたターンのダメージを1回だけ完全に防ぐ
     b.missGuard = false;
     guarded = true;
+  }else if(b.boss.doubleAttack){
+    // ロボットに乗ったくらちゃん専用：1ターンに独立した2発を撃つ（詳細はbossCounterAttackDoubleHit参照）
+    bossCounterAttackDoubleHit(b, hitChance, range, atkGrowthTurn, st, ps);
+    return;
   }else if(Math.random() >= hitChance){
     playerEvaded = true;
   }else if(b.boss.fixedDamageRange){
@@ -8322,30 +8405,9 @@ function bossCounterAttack(playerWasCorrect){
     taken = randInt(b.boss.fixedDamageRange.min, b.boss.fixedDamageRange.max);
     b.playerHp = Math.max(0, b.playerHp - taken);
   }else{
-    const effDef = ps.def + (b.defBuffTurns > 0 ? b.defBuffAmount : 0) + (b.kotonohaDefBuffAmount||0);
-    let effAtk = defGateActive(effDef, st) ? (b.boss.atk||1) * DEF_GATE_ATK_MULT : (b.boss.atk||1);
-    /* KOキング専用：防御力がlowDefAtkDouble.threshold未満だと攻撃力が2倍になる（2026-08-09〜、
-       教員の指示）。全ボス共通の防御力ゲート（defGateActive、経験値÷6未満で5倍）とは別枠の
-       追加ルールとして重ねがけする設計で教員に確認済み。 */
-    if(b.boss.lowDefAtkDouble && effDef < b.boss.lowDefAtkDouble.threshold){
-      effAtk *= b.boss.lowDefAtkDouble.mult;
-    }
-    if(b.boss.selfHpAtkBoost){
-      // 咆哮のソーマー専用：自分のHPが閾値を切ると攻撃力の倍率が跳ね上がる（教員の指示）
-      const cfg = b.boss.selfHpAtkBoost;
-      const hpRatio = b.bossMaxHp > 0 ? b.bossHp / b.bossMaxHp : 1;
-      effAtk *= (hpRatio < cfg.hpThreshold ? cfg.lowMult : cfg.normalMult);
-    }
-    if(b.boss.atkGrowthPerTurn) effAtk *= Math.pow(b.boss.atkGrowthPerTurn, atkGrowthTurn);
-    let raw = randInt(range[0], range[1]) * effAtk;
-    if(Math.random() * 100 < (b.boss.luck||0)){
-      bossCrit = true;
-      raw *= 1.5;
-    }
-    const defReduction = cappedDefReduction(effDef, b.boss);
-    taken = Math.max(1, Math.round(raw * (1 - defReduction)));
-    // 防御力アップ系アイテム（座布団等）：防御力ステータスとは別枠で被ダメージをさらに割合カットする
-    if(b.defCutBuffTurns > 0) taken = Math.max(1, Math.round(taken * (1 - b.defCutBuffAmount)));
+    const r = bossComputeHitDamage(b, st, ps, range, atkGrowthTurn);
+    bossCrit = r.crit;
+    taken = r.dmg;
     b.playerHp = Math.max(0, b.playerHp - taken);
   }
   if(b.atkBuffTurns > 0) b.atkBuffTurns--;
@@ -14937,8 +14999,12 @@ function kzStart(idx){
   });
   kzRenderAll();
 }
+/* 最初の作品だけ最初から挑戦できる。ひとつ前の作品をクリアする（clearedSetに入る）たびに
+   ひとつずつ解放していく。 */
+function kzIsUnlocked(i){ return i===0 || KZ.clearedSet.has(KZ_PASSAGES[i-1].key); }
 function kzSelectPassage(i){
   if(i===KZ.idx) return;
+  if(!kzIsUnlocked(i)) return; // まだ竹が育っていない先の作品には進めない
   KZ.idx = i; KZ.resolved = {}; KZ.attempts = {}; KZ.hintUsed = {}; KZ.curId = null; KZ.selfStreak = 0;
   kzCloseModal();
   document.getElementById('kzTransPanel').classList.remove('open');
@@ -14949,9 +15015,12 @@ function kzSelectPassage(i){
 function kzRenderAll(){
   const row = document.getElementById('kzTabsRow');
   row.innerHTML = KZ_PASSAGES.map((p,i)=>{
+    const unlocked = kzIsUnlocked(i);
     const active = i===KZ.idx ? 'active' : '';
+    const lockedCls = unlocked ? '' : 'locked';
     const doneMark = KZ.clearedSet.has(p.key) ? '✨' : '';
-    return `<div class="kz-tab ${active}" onclick="kzSelectPassage(${i})">${doneMark}${esc(p.title)}<span class="kz-src">${esc(kzShortGrade(p))}</span></div>`;
+    const lockMark = unlocked ? '' : '🔒';
+    return `<div class="kz-tab ${active} ${lockedCls}" onclick="kzSelectPassage(${i})">${doneMark}${lockMark}${esc(p.title)}<span class="kz-src">${esc(kzShortGrade(p))}</span></div>`;
   }).join('');
   document.getElementById('kzScrollBadge').textContent = kzPassage().title + '　' + kzPassage().source;
   document.getElementById('kzTransText').textContent = kzPassage().translation;
