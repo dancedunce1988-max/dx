@@ -2478,7 +2478,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.172</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.173</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -16000,7 +16000,13 @@ function psShowLevelSelect(){
 }
 
 /* ラウンド終了：st.partsOfSpeechBestはレベル番号キーのオブジェクト（自己ベスト表示用）。
-   経験値は自己ベスト更新の有無に関わらず毎回そのラウンドの得点から計算する（1ラウンドPS_XP_CAPまで）。 */
+   経験値は固定の専用プール（partsOfSpeechBonusExp）には貯めず、「品詞」ジャンルのレベル
+   （st.lv.hinshi）自体を毎ラウンドの得点に応じて上げることで連動させる（教員の指示、
+   2026-08-21〜：文節斬りの「識別」ジャンルと同じ考え方）。難しいレベルほど少ない点数で
+   ジャンルレベルが上がる一方、1ラウンドで一気に上がるのは最大PS_GENRE_LV_CAPレベルまでとする。
+   record()本体は呼ばず、bgLevelUpShikibetsu()と同じ流れ（st.lv.hinshi++・totalLevelUps・
+   10回ごとの挑戦チケット）をその場で再現する。partsOfSpeechBonusExpへの新規加算はやめるが、
+   これまでに貯まった分はtotalEarnedStatPoints側の加算式にそのまま残してあるので消えない。 */
 function psEndGame(){
   psPlaying = false;
   clearInterval(psTimerId);
@@ -16014,13 +16020,6 @@ function psEndGame(){
   const st = loadStats();
   if(!st.partsOfSpeechBest) st.partsOfSpeechBest = {};
   if(!st.partsOfSpeechUnlockedLevel) st.partsOfSpeechUnlockedLevel = 1;
-  // 経験値は自己ベストを更新した時だけでなく、プレイするたびに（そのラウンドの得点に応じて）もらえる
-  // （何度も遊んでもらうための仕様、教員の指示）。500点区切りごとに+1、さらに1000点区切りごとに
-  // レベルに応じた追加ボーナス。ただし1ラウンドで獲得できる経験値はPS_XP_CAPまで。
-  const PS_XP_TIER_SIZE = 500;
-  const PS_XP_CAP = 30;
-  // 1000点区切り（＝500点区切り2回に1回）ごとの追加ボーナス。レベル1-2:+0 3-4:+1 5-6:+2 7:+4
-  const PS_XP_1000_BONUS = psCurrentLevel <= 2 ? 0 : psCurrentLevel <= 4 ? 1 : psCurrentLevel <= 6 ? 2 : 4;
   const prevLevelBest = st.partsOfSpeechBest[psCurrentLevel] || 0;
   const isNewRecord = psScore > 0 && psScore > prevLevelBest;
   let statsChanged = false;
@@ -16028,13 +16027,30 @@ function psEndGame(){
     st.partsOfSpeechBest[psCurrentLevel] = psScore;
     statsChanged = true;
   }
-  let xpGained = 0;
+  // レベル1-2:1000点ごと 3-4:900点ごと 5-6:800点ごと 7:500点ごとに「品詞」のジャンルレベルが1上がる
+  const PS_GENRE_LV_THRESHOLD = { 1:1000, 2:1000, 3:900, 4:900, 5:800, 6:800, 7:500 };
+  const PS_GENRE_LV_CAP = 20;
+  let genreLvGained = 0, genreTitleUp = false, genreTitleName = "", genreTitleIcon = "";
   if(psScore > 0){
-    const tierCount = Math.floor(psScore / PS_XP_TIER_SIZE);
-    xpGained = Math.min(tierCount + PS_XP_1000_BONUS * Math.floor(tierCount / 2), PS_XP_CAP);
-    if(xpGained > 0){
-      st.partsOfSpeechBonusExp = (st.partsOfSpeechBonusExp||0) + xpGained;
-      statsChanged = true;
+    const threshold = PS_GENRE_LV_THRESHOLD[psCurrentLevel] || 1000;
+    const lvUps = Math.min(Math.floor(psScore / threshold), PS_GENRE_LV_CAP);
+    if(lvUps > 0){
+      const lvBefore = st.lv.hinshi || 1;
+      let lvAfter = lvBefore;
+      for(let i=0; i<lvUps && lvAfter < MAX_CAT_LV; i++){
+        lvAfter++;
+        st.totalLevelUps = (st.totalLevelUps||0) + 1;
+        if(st.totalLevelUps % 10 === 0) st.bossTickets = (st.bossTickets||0) + 1;
+      }
+      if(lvAfter > lvBefore){
+        st.lv.hinshi = lvAfter;
+        genreLvGained = lvAfter - lvBefore;
+        const titleBefore = titleOf(lvBefore), titleAfter = titleOf(lvAfter);
+        genreTitleUp = titleBefore.name !== titleAfter.name;
+        genreTitleName = titleAfter.name;
+        genreTitleIcon = titleAfter.icon;
+        statsChanged = true;
+      }
     }
   }
   const bestAfter = Math.max(prevLevelBest, psScore);
@@ -16051,7 +16067,9 @@ function psEndGame(){
   const allClear = justUnlocked === 7;
 
   const recordHtml = isNewRecord ? `<p class="psLevelDesc">🎉 レベル${psCurrentLevel}の自己ベスト更新！（${psScore}点）</p>` : "";
-  const xpHtml = xpGained > 0 ? `<p class="psLevelDesc">🏆 経験値＋${xpGained}獲得！</p>` : "";
+  const xpHtml = genreLvGained > 0
+    ? `<p class="psLevelDesc">🏆 「品詞」のレベルが${genreLvGained}アップした！${genreTitleUp ? `（称号「${genreTitleIcon} ${genreTitleName}」にアップ！）` : ""}</p>`
+    : "";
   const unlockHtml = justUnlocked
     ? (allClear
         ? `<div class="psUnlockCelebrate allClear">🎉 全てのレベルを解放した！ 🌟</div>`
