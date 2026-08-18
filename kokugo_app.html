@@ -2478,7 +2478,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.168</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.169</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -15990,9 +15990,12 @@ function psEndGame(){
   if(!st.partsOfSpeechBest) st.partsOfSpeechBest = {};
   if(!st.partsOfSpeechUnlockedLevel) st.partsOfSpeechUnlockedLevel = 1;
   // 経験値はレベルごとに独立して計算し、レベルが高いほど同じ点数でも多くもらえるようにする
-  // （500点区切りごとに「レベル番号×1」の経験値。レベル7なら1区切りで7、レベル1なら1）。
+  // （500点区切りごとに+1。さらに1000点区切りごとに、レベルに応じた追加ボーナスが乗る）。
   if(!st.partsOfSpeechXpTier || typeof st.partsOfSpeechXpTier !== "object") st.partsOfSpeechXpTier = {};
   const PS_XP_TIER_SIZE = 500;
+  // 1000点区切り（＝500点区切り2回に1回）ごとの追加ボーナス。レベル1-2:+0 3-4:+1 5-6:+2 7:+4
+  const PS_XP_1000_BONUS = psCurrentLevel <= 2 ? 0 : psCurrentLevel <= 4 ? 1 : psCurrentLevel <= 6 ? 2 : 4;
+  const psXpForTierCount = tierCount => tierCount + PS_XP_1000_BONUS * Math.floor(tierCount / 2);
   const prevLevelBest = st.partsOfSpeechBest[psCurrentLevel] || 0;
   const isNewRecord = psScore > 0 && psScore > prevLevelBest;
   let xpGained = 0, xpTierReached = 0;
@@ -16002,8 +16005,7 @@ function psEndGame(){
     const oldTier = st.partsOfSpeechXpTier[psCurrentLevel] || 0;
     const newTier = Math.floor(psScore / PS_XP_TIER_SIZE);
     if(newTier > oldTier){
-      const xpPerTier = psCurrentLevel * 1;
-      xpGained = (newTier - oldTier) * xpPerTier;
+      xpGained = psXpForTierCount(newTier) - psXpForTierCount(oldTier);
       st.partsOfSpeechBonusExp = (st.partsOfSpeechBonusExp||0) + xpGained;
       st.partsOfSpeechXpTier[psCurrentLevel] = newTier;
       xpTierReached = newTier * PS_XP_TIER_SIZE;
