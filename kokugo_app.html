@@ -1859,15 +1859,18 @@
     transition: top 0.32s cubic-bezier(.4,1.4,.6,1), left 0.25s ease, transform 0.15s ease, opacity 0.22s ease;
     line-height:1.15;
     padding:2px;
-    word-break:keep-all;
+    word-break:break-all;
+    overflow-wrap:break-word;
+    overflow:hidden;
   }
   #psApp .tsum .word{
     font-size:0.85em;
     text-shadow:0 1px 2px rgba(0,0,0,0.35);
     pointer-events:none;
   }
-  #psApp .tsum .word.long1{ font-size:0.68em; }
-  #psApp .tsum .word.long2{ font-size:0.56em; }
+  #psApp .tsum .word.long1{ font-size:0.63em; }
+  #psApp .tsum .word.long2{ font-size:0.5em; }
+  #psApp .tsum .word.long3{ font-size:0.4em; line-height:1.05; }
   #psApp .tsum.selected{
     transform:scale(1.14);
     box-shadow:
@@ -2083,6 +2086,30 @@
     0%{ transform:scale(0.3); opacity:0; }
     40%{ transform:scale(1.3); opacity:1; }
     100%{ transform:scale(1); opacity:1; }
+  }
+  #psApp .psUnlockCelebrate{
+    display:inline-block;
+    margin-top:10px;
+    padding:10px 24px;
+    border-radius:22px;
+    font-weight:900;
+    font-size:1.15em;
+    color:#fff;
+    background:linear-gradient(180deg,#ffd76b,#e0a72f);
+    box-shadow:0 4px 10px rgba(224,167,47,0.45);
+    animation: psUnlockPop 0.8s cubic-bezier(.34,1.56,.64,1);
+  }
+  #psApp .psUnlockCelebrate.allClear{
+    font-size:1.3em;
+    background:linear-gradient(180deg,#ff9f57,#e0722f 55%,#ffd76b);
+    box-shadow:0 0 0 4px #fff, 0 0 22px 8px rgba(255,215,80,0.7);
+    animation: psUnlockPop 1s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes psUnlockPop{
+    0%{ transform:scale(0.3) rotate(-10deg); opacity:0; }
+    55%{ transform:scale(1.18) rotate(4deg); opacity:1; }
+    80%{ transform:scale(0.94) rotate(-2deg); }
+    100%{ transform:scale(1) rotate(0deg); opacity:1; }
   }
   #psApp .psBtnRow{
     display:flex; gap:12px; justify-content:center; margin-top:16px; flex-wrap:wrap;
@@ -2369,7 +2396,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.159</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.160</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -10278,7 +10305,7 @@ const STORY_SIDEQUESTS = {
     icon: "🔤",
     beats: [
       {type:"line", speaker:"ことのは", text:"今度は「品詞つなぎ」だよ。同じ品詞の言葉を3つ以上つなげて消していく、スコアアタックのゲームなんだ。"},
-      {type:"line", speaker:"ことのは", text:"色のヒントはないから、言葉の意味や形をよく見て判断してね。7つ以上つなげるとボムタイムに突入したり、特別なツムが出てきたりするよ！"},
+      {type:"line", speaker:"ことのは", text:"色のヒントはないから、言葉の意味や形をよく見て判断してね。7つ以上つなげるとボムタイムに突入したり、特別なたまが出てきたりするよ！"},
       {type:"partsOfSpeech"},
     ],
     epilogue: "「おつかれさま！ また挑戦して、自己ベストをのばしてね。」",
@@ -14997,7 +15024,7 @@ const PS_CATEGORIES = [
   { name:"名詞",
     base:["犬","学校","机","教科書","桜","電車","空","海","音楽","友達"],
     extra:["図書館","教室","黒板","宿題","季節","台風","湖","星座","図鑑","国旗",
-           "トンネル","雪国","夜","アイスクリーム","パイナップル","パキスタン","フランケンシュタイン","花"] },
+           "トンネル","雪国","夜","アイスクリーム","パイナップル","パキスタン","花"] },
   { name:"動詞",
     base:["走る","食べる","読む","書く","見る","聞く","歩く","笑う","遊ぶ","飛ぶ"],
     extra:["泳ぐ","話す","立つ","座る","開ける","閉める","忘れる","覚える","教える","習う",
@@ -15081,10 +15108,10 @@ const PS_LEVELS = {
   3: { cols:7, rows:8, time:60, wordSet:"all",
     desc: "動詞・形容詞・形容動詞の3種類（すべて終止形）<br>各20語 / 60秒",
     pickCats: ()=> PS_YOUGEN_CATS.slice() },
-  4: { cols:7, rows:8, time:60, wordSet:"conjMixed",
+  4: { cols:6, rows:7, time:60, wordSet:"conjMixed",
     desc: "動詞・形容詞・形容動詞の3種類（活用がごちゃまぜ）<br>各20語+活用形 / 60秒",
     pickCats: ()=> PS_YOUGEN_CATS.slice() },
-  5: { cols:8, rows:9, time:60, wordSet:"conjMixed",
+  5: { cols:7, rows:8, time:60, wordSet:"conjMixed",
     desc: "自立語から3種類（ランダム・用言を1つ以上ふくむ・活用もごちゃまぜ）<br>各20語+活用形 / 60秒",
     pickCats: ()=>{
       const yougenPick = PS_YOUGEN_CATS[Math.floor(Math.random()*PS_YOUGEN_CATS.length)];
@@ -15093,6 +15120,9 @@ const PS_LEVELS = {
       return [yougenPick, ...others];
     } },
 };
+
+// そのレベルで十分に理解したと言える点数を取ると、次のレベルが解放される
+const PS_LEVEL_UNLOCK_SCORE = { 1:400, 2:500, 3:600, 4:700 };
 
 const PS_BOMB_TIME_MS = 20000;
 const PS_DOUBLE_SCORE_MS = 10000;
@@ -15263,7 +15293,7 @@ function psMakeCell(row, col, tile, startAboveOffset){
   } else {
     el.className = "tsum";
     word = psRandWord(catIndex);
-    const sizeClass = word.length >= 6 ? " long2" : (word.length >= 5 ? " long1" : "");
+    const sizeClass = word.length >= 8 ? " long3" : (word.length >= 6 ? " long2" : (word.length >= 5 ? " long1" : ""));
     el.innerHTML = `<span class="word${sizeClass}">${word}</span>`;
   }
   psBoardWrapEl.appendChild(el);
@@ -15771,17 +15801,28 @@ function psPlayIntroSequence(cats, onDone){
 function psShowLevelSelect(){
   psPlaying = false;
   clearInterval(psTimerId);
+  const st = loadStats();
+  const unlocked = st.partsOfSpeechUnlockedLevel || 1;
   const buttonsHtml = Object.keys(PS_LEVELS).map(lvNum=>{
+    const n = Number(lvNum);
     const conf = PS_LEVELS[lvNum];
+    if(n <= unlocked){
+      return `
+        <div class="psLevelRow">
+          <button class="psStartBtn lv${lvNum}" data-level="${lvNum}">レベル${lvNum}</button>
+          <p class="psLevelDesc">${conf.desc}</p>
+        </div>`;
+    }
+    const needScore = PS_LEVEL_UNLOCK_SCORE[n-1] || 0;
     return `
       <div class="psLevelRow">
-        <button class="psStartBtn lv${lvNum}" data-level="${lvNum}">レベル${lvNum}</button>
-        <p class="psLevelDesc">${conf.desc}</p>
+        <button class="psStartBtn secondary" disabled style="opacity:0.45; cursor:default;">🔒 レベル${lvNum}</button>
+        <p class="psLevelDesc">レベル${n-1}で${needScore}点以上とると解放されるよ</p>
       </div>`;
   }).join("");
   psOverlayCardEl.innerHTML = `
     <h2>品詞つなぎ</h2>
-    <p class="psLevelDesc">⏰は+5秒、🔻は画面上の品詞を1種類消す特別なツム。7チェーン以上つなげると20秒間のボムタイムに突入するよ！</p>
+    <p class="psLevelDesc">⏰は+5秒、🔻は画面上の品詞を1種類消す特別なたま。7チェーン以上つなげると20秒間のボムタイムに突入するよ！</p>
     <div class="psBtnCol">${buttonsHtml}</div>
   `;
   psOverlayEl.classList.remove("hidden");
@@ -15804,9 +15845,11 @@ function psEndGame(){
 
   const st = loadStats();
   if(!st.partsOfSpeechBest) st.partsOfSpeechBest = {};
+  if(!st.partsOfSpeechUnlockedLevel) st.partsOfSpeechUnlockedLevel = 1;
   const prevLevelBest = st.partsOfSpeechBest[psCurrentLevel] || 0;
   const isNewRecord = psScore > 0 && psScore > prevLevelBest;
   let xpGained = 0, xpTierReached = 0;
+  let statsChanged = false;
   if(isNewRecord){
     st.partsOfSpeechBest[psCurrentLevel] = psScore;
     const overallBest = Math.max(0, ...Object.values(st.partsOfSpeechBest));
@@ -15818,12 +15861,28 @@ function psEndGame(){
       st.partsOfSpeechXpTier = newTier;
       xpTierReached = newTier * 300;
     }
-    saveStats(st);
+    statsChanged = true;
   }
   const bestAfter = Math.max(prevLevelBest, psScore);
 
+  // そのレベルで十分に理解したと言える点数を取れたら、次のレベルを解放してお祝いする
+  let justUnlocked = null;
+  const needScore = PS_LEVEL_UNLOCK_SCORE[psCurrentLevel];
+  if(needScore && psCurrentLevel === st.partsOfSpeechUnlockedLevel && psScore >= needScore && st.partsOfSpeechUnlockedLevel < 5){
+    st.partsOfSpeechUnlockedLevel = psCurrentLevel + 1;
+    justUnlocked = st.partsOfSpeechUnlockedLevel;
+    statsChanged = true;
+  }
+  if(statsChanged) saveStats(st);
+  const allClear = justUnlocked === 5;
+
   const recordHtml = isNewRecord ? `<p class="psLevelDesc">🎉 レベル${psCurrentLevel}の自己ベスト更新！（${psScore}点）</p>` : "";
   const xpHtml = xpGained > 0 ? `<p class="psLevelDesc">🏆 自己ベストで${xpTierReached}点を初めて超えたので、経験値＋${xpGained}獲得！</p>` : "";
+  const unlockHtml = justUnlocked
+    ? (allClear
+        ? `<div class="psUnlockCelebrate allClear">🎉 全てのレベルを解放した！ 🌟</div>`
+        : `<div class="psUnlockCelebrate">🔓 レベル${justUnlocked}を解放した！ ✨</div>`)
+    : "";
 
   psOverlayCardEl.innerHTML = `
     <h2>タイムアップ！（レベル${psCurrentLevel}）</h2>
@@ -15832,6 +15891,7 @@ function psEndGame(){
     <p class="psLevelDesc">レベル${psCurrentLevel}の自己ベスト：${bestAfter}点</p>
     ${recordHtml}
     ${xpHtml}
+    ${unlockHtml}
     <div class="psBtnRow">
       <button class="psStartBtn" id="psRetryBtn">もう一度あそぶ</button>
       <button class="psStartBtn secondary" id="psHomeBtn">ホームに戻る</button>
@@ -15868,7 +15928,7 @@ function psSkeletonHtml(){
     </div>
 
     <div id="psLegend"></div>
-    <p id="psRuleText">同じ品詞のツムを3つ以上つなげると消えるよ！ ⏰(+5秒)・🔻(画面上の品詞を1種類消す)は、どの品詞ともつなげられる特別なツム。7つ以上つなげると、その瞬間から20秒間「ボムタイム」に突入！ボムタイム中にもう一度7チェーン以上つなげると本物のボムが爆発して周りも巻き込むよ！</p>
+    <p id="psRuleText">同じ品詞のたまを3つ以上つなげると消えるよ！ ⏰(+5秒)・🔻(画面上の品詞を1種類消す)は、どの品詞ともつなげられる特別なたま。7つ以上つなげると、その瞬間から20秒間「ボムタイム」に突入！ボムタイム中にもう一度7チェーン以上つなげると本物のボムが爆発して周りも巻き込むよ！</p>
 
     <div id="psOverlay">
       <div id="psOverlayCard"></div>
