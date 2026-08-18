@@ -14,10 +14,39 @@
   *{box-sizing:border-box; margin:0; padding:0;}
   body{
     font-family:"Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif;
-    background:var(--bg); color:var(--ink); line-height:1.7;
+    color:var(--ink); line-height:1.7;
     display:flex; justify-content:center; min-height:100vh;
+    background:
+      radial-gradient(ellipse 60% 30% at 50% 0%, rgba(255,255,255,0.55), rgba(255,255,255,0) 70%),
+      linear-gradient(180deg, #eef4e6 0%, #dcebd0 25%, #cfe3bd 55%, #b3d39c 100%);
+    background-attachment: fixed;
+    position:relative;
   }
-  #app{width:100%; max-width:720px; padding:16px 16px 48px;}
+  /* アプリ全体の背景を「森」モチーフに（教員の指示、2026-〜）。画像ファイルは使わず、
+     インラインSVGの葉っぱ模様＋木立のシルエットをCSSだけで自己完結させている
+     （外部画像に依存しないので、読み込み失敗や重量化の心配がない）。 */
+  body::before{
+    content:"";
+    position:fixed; inset:0;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="220" height="220" viewBox="0 0 220 220"><g fill="%235c8a52" opacity="0.11"><path d="M30 20 C55 20 60 45 40 60 C20 45 15 20 30 20 Z" transform="rotate(20 35 40)"/><path d="M160 80 C185 80 190 105 170 120 C150 105 145 80 160 80 Z" transform="rotate(-25 165 100)"/><path d="M75 145 C100 145 105 170 85 185 C65 170 60 145 75 145 Z" transform="rotate(50 80 165)"/><path d="M190 20 C210 20 214 40 198 52 C182 40 178 20 190 20 Z" transform="rotate(-10 195 36)"/></g></svg>');
+    background-repeat: repeat;
+    background-size: 220px 220px;
+    pointer-events:none;
+    z-index:0;
+  }
+  body::after{
+    content:"";
+    position:fixed;
+    left:0; right:0; bottom:0;
+    height:200px;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="180" height="200" viewBox="0 0 180 200"><g opacity="0.55" fill="%235c8a52"><polygon points="35,50 60,130 10,130"/><polygon points="35,80 68,145 2,145"/><rect x="30" y="143" width="10" height="28" fill="%23705032"/></g><g opacity="0.7" fill="%23477a45"><polygon points="100,20 132,110 68,110"/><polygon points="100,58 140,130 60,130"/><rect x="94" y="128" width="12" height="40" fill="%23604226"/></g><g opacity="0.5" fill="%236f9a5c"><polygon points="155,65 178,135 132,135"/><polygon points="155,90 182,150 128,150"/><rect x="150" y="148" width="10" height="25" fill="%23705032"/></g></svg>');
+    background-repeat: repeat-x;
+    background-position: bottom;
+    background-size: 180px 200px;
+    pointer-events:none;
+    z-index:0;
+  }
+  #app{width:100%; max-width:720px; padding:16px 16px 48px; position:relative; z-index:1;}
   header{
     display:flex; align-items:baseline; justify-content:space-between;
     padding:12px 4px 16px; border-bottom:3px double var(--line); margin-bottom:16px;
@@ -2166,6 +2195,8 @@
   #psApp button.psStartBtn.lv3{ background:linear-gradient(180deg,#f0ad4e,#d98a2b); }
   #psApp button.psStartBtn.lv4{ background:linear-gradient(180deg,#e57373,#c0392b); }
   #psApp button.psStartBtn.lv5{ background:linear-gradient(180deg,#b48ee0,#7d4fb0); }
+  #psApp button.psStartBtn.lv6{ background:linear-gradient(180deg,#7fbf5c,#457a34); }
+  #psApp button.psStartBtn.lv7{ background:linear-gradient(180deg,#5c5c5c,#2e2e2e); }
   #psApp button.psStartBtn:active{ transform:translateY(2px); }
   #psApp .psLevelDesc{
     font-size:0.8em; color:#6b5744; margin:0 0 2px;
@@ -2422,7 +2453,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.162</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.163</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -15097,6 +15128,15 @@ const PS_CATEGORIES = [
   { name:"助詞",
     base:["は","が","を","に","で","と","から","まで","より","の"],
     extra:["へ","や","ば","ながら","ので","のに","けれど","しか","ばかり","さえ","か"] },
+  { name:"接続詞",
+    base:["そして","しかし","だから","けれども","または","つまり","なぜなら","ところで","しかも","それとも"],
+    extra:["したがって","ただし","すなわち","もしくは","そのうえ","ゆえに","さて","だが","でも","それに"] },
+  { name:"感動詞",
+    base:["ああ","おや","まあ","さあ","ねえ","はい","いいえ","やあ","えっ","おっと"],
+    extra:["わあ","きゃあ","もしもし","こんにちは","さようなら","ありがとう","すみません","おはよう","こんばんは","ごめん"] },
+  { name:"連体詞",
+    base:["この","その","あの","どの","大きな","小さな","おかしな","いろんな","あらゆる","ある"],
+    extra:["いわゆる","たいした","とんだ","あんな","こんな","そんな","どんな","我が","単なる","明くる"] },
 ];
 
 const PS_TENSEI_MEISHI_LIST = ["動き","考え","眺め","香り","喜び","楽しさ","美しさ","静かさ"];
@@ -15104,6 +15144,10 @@ const PS_TENSEI_MEISHI = new Set(PS_TENSEI_MEISHI_LIST);
 const PS_TENSEI_MEISHI_CHANCE = 0.08;
 
 const PS_NOUN_CAT = 0;
+const PS_FUKUSHI_CAT = 4;
+const PS_SETSUZOKUSHI_CAT = 6; // 接続詞
+const PS_KANDOUSHI_CAT = 7;    // 感動詞
+const PS_RENTAISHI_CAT = 8;    // 連体詞
 const PS_JIRITSUGO_CATS = [0,1,2,3,4];
 
 function psShuffleCopy(arr){
@@ -15134,10 +15178,16 @@ const PS_LEVELS = {
   3: { cols:7, rows:8, time:60, wordSet:"all",
     desc: "動詞・形容詞・形容動詞の3種類（すべて終止形）<br>各20語 / 60秒",
     pickCats: ()=> PS_YOUGEN_CATS.slice() },
-  4: { cols:6, rows:7, time:60, wordSet:"conjMixed",
+  4: { cols:7, rows:7, time:60, wordSet:"all",
+    desc: "接続詞・感動詞の2種類<br>各20語 / 60秒",
+    pickCats: ()=> [PS_SETSUZOKUSHI_CAT, PS_KANDOUSHI_CAT] },
+  5: { cols:7, rows:7, time:60, wordSet:"all",
+    desc: "連体詞・副詞の2種類<br>各20語 / 60秒",
+    pickCats: ()=> [PS_RENTAISHI_CAT, PS_FUKUSHI_CAT] },
+  6: { cols:6, rows:7, time:60, wordSet:"conjMixed",
     desc: "動詞・形容詞・形容動詞の3種類（活用がごちゃまぜ）<br>各20語+活用形 / 60秒",
     pickCats: ()=> PS_YOUGEN_CATS.slice() },
-  5: { cols:7, rows:8, time:60, wordSet:"conjMixed",
+  7: { cols:7, rows:8, time:60, wordSet:"conjMixed",
     desc: "自立語から3種類（ランダム・用言を1つ以上ふくむ・活用もごちゃまぜ）<br>各20語+活用形 / 60秒",
     pickCats: ()=>{
       const yougenPick = PS_YOUGEN_CATS[Math.floor(Math.random()*PS_YOUGEN_CATS.length)];
@@ -15148,7 +15198,7 @@ const PS_LEVELS = {
 };
 
 // そのレベルで十分に理解したと言える点数を取ると、次のレベルが解放される
-const PS_LEVEL_UNLOCK_SCORE = { 1:400, 2:500, 3:600, 4:700 };
+const PS_LEVEL_UNLOCK_SCORE = { 1:4000, 2:4000, 3:4000, 4:4000, 5:4000, 6:4000 };
 
 const PS_BOMB_TIME_MS = 20000;
 const PS_DOUBLE_SCORE_MS = 10000;
@@ -15918,13 +15968,13 @@ function psEndGame(){
   // そのレベルで十分に理解したと言える点数を取れたら、次のレベルを解放してお祝いする
   let justUnlocked = null;
   const needScore = PS_LEVEL_UNLOCK_SCORE[psCurrentLevel];
-  if(needScore && psCurrentLevel === st.partsOfSpeechUnlockedLevel && psScore >= needScore && st.partsOfSpeechUnlockedLevel < 5){
+  if(needScore && psCurrentLevel === st.partsOfSpeechUnlockedLevel && psScore >= needScore && st.partsOfSpeechUnlockedLevel < 7){
     st.partsOfSpeechUnlockedLevel = psCurrentLevel + 1;
     justUnlocked = st.partsOfSpeechUnlockedLevel;
     statsChanged = true;
   }
   if(statsChanged) saveStats(st);
-  const allClear = justUnlocked === 5;
+  const allClear = justUnlocked === 7;
 
   const recordHtml = isNewRecord ? `<p class="psLevelDesc">🎉 レベル${psCurrentLevel}の自己ベスト更新！（${psScore}点）</p>` : "";
   const xpHtml = xpGained > 0 ? `<p class="psLevelDesc">🏆 自己ベストで${xpTierReached}点を初めて超えたので、経験値＋${xpGained}獲得！</p>` : "";
