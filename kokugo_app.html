@@ -14,39 +14,10 @@
   *{box-sizing:border-box; margin:0; padding:0;}
   body{
     font-family:"Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif;
-    color:var(--ink); line-height:1.7;
+    background:var(--bg); color:var(--ink); line-height:1.7;
     display:flex; justify-content:center; min-height:100vh;
-    background:
-      radial-gradient(ellipse 60% 30% at 50% 0%, rgba(255,255,255,0.55), rgba(255,255,255,0) 70%),
-      linear-gradient(180deg, #eef4e6 0%, #dcebd0 25%, #cfe3bd 55%, #b3d39c 100%);
-    background-attachment: fixed;
-    position:relative;
   }
-  /* アプリ全体の背景を「森」モチーフに（教員の指示、2026-〜）。画像ファイルは使わず、
-     インラインSVGの葉っぱ模様＋木立のシルエットをCSSだけで自己完結させている
-     （外部画像に依存しないので、読み込み失敗や重量化の心配がない）。 */
-  body::before{
-    content:"";
-    position:fixed; inset:0;
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="220" height="220" viewBox="0 0 220 220"><g fill="%235c8a52" opacity="0.11"><path d="M30 20 C55 20 60 45 40 60 C20 45 15 20 30 20 Z" transform="rotate(20 35 40)"/><path d="M160 80 C185 80 190 105 170 120 C150 105 145 80 160 80 Z" transform="rotate(-25 165 100)"/><path d="M75 145 C100 145 105 170 85 185 C65 170 60 145 75 145 Z" transform="rotate(50 80 165)"/><path d="M190 20 C210 20 214 40 198 52 C182 40 178 20 190 20 Z" transform="rotate(-10 195 36)"/></g></svg>');
-    background-repeat: repeat;
-    background-size: 220px 220px;
-    pointer-events:none;
-    z-index:0;
-  }
-  body::after{
-    content:"";
-    position:fixed;
-    left:0; right:0; bottom:0;
-    height:200px;
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="180" height="200" viewBox="0 0 180 200"><g opacity="0.55" fill="%235c8a52"><polygon points="35,50 60,130 10,130"/><polygon points="35,80 68,145 2,145"/><rect x="30" y="143" width="10" height="28" fill="%23705032"/></g><g opacity="0.7" fill="%23477a45"><polygon points="100,20 132,110 68,110"/><polygon points="100,58 140,130 60,130"/><rect x="94" y="128" width="12" height="40" fill="%23604226"/></g><g opacity="0.5" fill="%236f9a5c"><polygon points="155,65 178,135 132,135"/><polygon points="155,90 182,150 128,150"/><rect x="150" y="148" width="10" height="25" fill="%23705032"/></g></svg>');
-    background-repeat: repeat-x;
-    background-position: bottom;
-    background-size: 180px 200px;
-    pointer-events:none;
-    z-index:0;
-  }
-  #app{width:100%; max-width:720px; padding:16px 16px 48px; position:relative; z-index:1;}
+  #app{width:100%; max-width:720px; padding:16px 16px 48px;}
   header{
     display:flex; align-items:baseline; justify-content:space-between;
     padding:12px 4px 16px; border-bottom:3px double var(--line); margin-bottom:16px;
@@ -1741,13 +1712,42 @@
         独立版と一字一句同じ。@keyframesは名前衝突を避けるため全てps接頭辞に変更。
         独立版はbody.doubleScoreBgでページ全体の背景を変えていたが、ここでは#psApp自身に
         psDoubleScoreBgクラスを付け外しする形に変更（アプリ全体の背景に影響させないため）。 */
+  /* 「森」の背景は言の葉つなぎのカードだけに限定する（教員の指示：アプリ全体には広げない）。
+     #psApp自身の中身ではなく、それを包む.cardの余白部分にだけ森を敷き、#psApp本体は
+     従来どおりの暖色背景のまま（葉っぱのたまの視認性を優先）。 */
+  .psForestCard{
+    background:
+      radial-gradient(ellipse 70% 40% at 50% 0%, rgba(255,255,255,0.5), rgba(255,255,255,0) 70%),
+      linear-gradient(180deg, #eef4e6 0%, #dcebd0 30%, #cfe3bd 65%, #b3d39c 100%);
+    position:relative;
+    overflow:hidden;
+  }
+  .psForestCard::before{
+    content:"";
+    position:absolute; inset:0;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 150 150"><g fill="%235c8a52" opacity="0.13"><path d="M22 15 C40 15 44 33 30 44 C16 33 12 15 22 15 Z" transform="rotate(20 25 30)"/><path d="M110 55 C128 55 132 73 118 84 C104 73 100 55 110 55 Z" transform="rotate(-25 115 70)"/><path d="M55 100 C73 100 77 118 63 129 C49 118 45 100 55 100 Z" transform="rotate(50 60 115)"/></g></svg>');
+    background-repeat: repeat;
+    background-size: 150px 150px;
+    pointer-events:none;
+    z-index:0;
+  }
+  .psForestCard::after{
+    content:"";
+    position:absolute; left:0; right:0; bottom:0; height:70px;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="140" height="70" viewBox="0 0 140 70"><g opacity="0.6" fill="%235c8a52"><polygon points="25,20 42,58 8,58"/><rect x="22" y="56" width="6" height="12" fill="%23705032"/></g><g opacity="0.75" fill="%23477a45"><polygon points="75,6 98,52 52,52"/><rect x="71" y="50" width="8" height="18" fill="%23604226"/></g><g opacity="0.55" fill="%236f9a5c"><polygon points="118,26 135,58 101,58"/><rect x="115" y="56" width="6" height="12" fill="%23705032"/></g></svg>');
+    background-repeat: repeat-x;
+    background-position: bottom;
+    background-size: 140px 70px;
+    pointer-events:none;
+    z-index:0;
+  }
   #psApp{
     --ps-bg1:#fdf6ec; --ps-bg2:#fbe9d0;
     --ps-leaf-light:#c8ecab; --ps-leaf-mid:#7fbf5c; --ps-leaf-dark:#457a34;
     display:flex; flex-direction:column; align-items:center;
     width:100%; max-width:560px; margin:0 auto;
-    height:clamp(560px, 80vh, 760px);
-    padding:10px;
+    height:clamp(480px, 78vh, 760px);
+    padding:8px;
     font-family:"Hiragino Maru Gothic ProN","Yu Gothic",sans-serif;
     background:linear-gradient(160deg,var(--ps-bg1),var(--ps-bg2));
     border-radius:12px;
@@ -1756,6 +1756,7 @@
     user-select:none;
     transition:background 0.5s ease;
     position:relative;
+    z-index:1;
   }
   #psApp.psDoubleScoreBg{
     background:linear-gradient(160deg,#fff2b8,#ffd966);
@@ -1874,7 +1875,7 @@
   }
   #psApp .tsum{
     position:absolute;
-    border-radius: 0 70% 0 70%;
+    border-radius: 12% 55% 12% 55%;
     display:flex; align-items:center; justify-content:center;
     text-align:center;
     color:#fff;
@@ -2205,6 +2206,30 @@
     color:#6b5744; font-size:0.85em; margin:2px 0 0;
   }
 
+  /* スマホなど横幅が狭い画面向け：ボムパネルを盤面の横から下へ移し、盤面の横幅を
+     フルに使えるようにする（教員の指示：モバイルで文字が葉からはみ出す問題の修正）。
+     マスの文字サイズ自体はpsPositionEl側でマスの実サイズに比例させて解決済みなので、
+     ここではレイアウトの取り合いだけを直す。 */
+  @media (max-width:480px){
+    #psApp{ padding:6px; height:clamp(420px, 82vh, 700px); }
+    #psApp h1{ font-size:1.1em; margin:2px 0 4px; }
+    #psApp #psHud{ padding:4px 8px; gap:8px; font-size:0.82em; margin-bottom:6px; }
+    #psApp #psHud .val{ font-size:1.05em; }
+    #psApp #psPlayArea{ flex-direction:column; gap:6px; }
+    #psApp #psBombPanel{ flex-direction:row; width:auto; gap:8px; }
+    #psApp .psBombAlert{ min-height:1.3em; font-size:0.68em; writing-mode:horizontal-tb; }
+    #psApp #psBombIcon{ width:44px; height:44px; font-size:1.1em; }
+    #psApp #psBombGaugeWrap{ width:10px; height:44px; }
+    #psApp #psLegend{ margin-top:6px; }
+    #psApp .psLegendItem{ font-size:0.7em; padding:3px 9px; }
+    #psApp #psRuleText{ font-size:0.68em; }
+    #psApp #psOverlayCard{ padding:16px 14px; }
+    #psApp #psOverlayCard h2{ font-size:1.05em; }
+    #psApp .psLevelDesc{ font-size:0.72em; }
+    #psApp .psLevelRow{ gap:8px; }
+    #psApp button.psStartBtn{ padding:8px 16px; font-size:0.9em; }
+  }
+
   /* ============ かなづかい特訓「光る竹」（2026-〜）============
      光村図書の古典単元（竹取物語・いろは歌・枕草子・徒然草・平家物語・おくのほそ道）から、
      歴史的仮名遣いの変化点が多い一節を出題する専用ミニゲーム。#kzAppの中だけで完結する
@@ -2453,7 +2478,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.165</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.166</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -15220,7 +15245,8 @@ let psHandlers = null;
 let psAppEl=null, psBoardWrapEl=null, psSvgEl=null, psPopupLayerEl=null,
     psScoreValEl=null, psTimeValEl=null, psComboValEl=null, psLevelValEl=null,
     psOverlayEl=null, psOverlayCardEl=null, psLegendEl=null,
-    psBombIconEl=null, psBombAlertEl=null, psBombGaugeWrapEl=null, psBombGaugeFillEl=null, psBombGaugeLabelEl=null;
+    psBombIconEl=null, psBombAlertEl=null, psBombGaugeWrapEl=null, psBombGaugeFillEl=null, psBombGaugeLabelEl=null,
+    psPlayAreaEl=null, psBombPanelEl=null;
 
 const ps$ = id => document.getElementById(id);
 
@@ -15241,6 +15267,8 @@ function psCacheDom(){
   psBombGaugeWrapEl = ps$("psBombGaugeWrap");
   psBombGaugeFillEl = ps$("psBombGaugeFill");
   psBombGaugeLabelEl = ps$("psBombGaugeLabel");
+  psPlayAreaEl = ps$("psPlayArea");
+  psBombPanelEl = ps$("psBombPanel");
 }
 
 function psClearIntroTimers(){
@@ -15317,10 +15345,19 @@ function psBuildLegend(indices){
 function psSizeBoard(){
   const w = (psAppEl && psAppEl.clientWidth) || 560;
   const h = (psAppEl && psAppEl.clientHeight) || 640;
-  const maxW = Math.min(w - 108, 560);
+  // ボムパネルが盤面の横に並んでいる（#psPlayAreaがrow）ときだけ、その実際の幅ぶんを
+  // 差し引く。狭い画面ではCSSでcolumn（縦積み）に切り替わるので、その場合は横幅を
+  // 丸ごと盤面に使える（以前は固定108pxを常に引いていたため、スマホでマスが
+  // 強制的に最小サイズを超えてはみ出す原因になっていた）。
+  let reserveW = 0;
+  if(psPlayAreaEl && psBombPanelEl){
+    const isRow = getComputedStyle(psPlayAreaEl).flexDirection !== "column";
+    if(isRow) reserveW = psBombPanelEl.offsetWidth + 12;
+  }
+  const maxW = Math.min(w - reserveW, 560);
   const maxH = Math.min(h - 230, 640);
   psCell = Math.floor(Math.min(maxW / psCols, maxH / psRows));
-  psCell = Math.max(34, Math.min(72, psCell));
+  psCell = Math.max(24, Math.min(72, psCell));
   psBoardWrapEl.style.width = (psCell*psCols) + "px";
   psBoardWrapEl.style.height = (psCell*psRows) + "px";
   psSvgEl.setAttribute("width", psCell*psCols);
@@ -15354,6 +15391,9 @@ function psPositionEl(el, row, col){
   el.style.top = (row*psCell + pad) + "px";
   el.style.width = (psCell - pad*2) + "px";
   el.style.height = (psCell - pad*2) + "px";
+  // 文字サイズをマスの実サイズに連動させる（以前は固定サイズだったため、
+  // スマホ等でマスが小さくなると文字だけ大きいまま葉からはみ出していた）。
+  el.style.fontSize = Math.max(9, Math.round(psCell * 0.3)) + "px";
 }
 
 function psMakeCell(row, col, tile, startAboveOffset){
@@ -16050,7 +16090,7 @@ function storyRenderPartsOfSpeech(beat, idx){
   if(storyRun.psBeatIdx === idx && ps$("psApp")) return;
   storyRun.psBeatIdx = idx;
   psStopLoop();
-  screen.innerHTML = `<div class="card story-scene">${psSkeletonHtml()}</div>${storyFooterHtml()}`;
+  screen.innerHTML = `<div class="card story-scene psForestCard">${psSkeletonHtml()}</div>${storyFooterHtml()}`;
   psCacheDom();
   psAttachHandlers();
   psSizeBoard();
