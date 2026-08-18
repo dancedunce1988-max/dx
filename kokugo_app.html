@@ -1700,6 +1700,427 @@
     #bgApp *{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;}
   }
 
+  /* ===== サブクエスト「品詞つなぎ」（parts-of-speech beat、2026-〜、独立版を忠実移植） =====
+     独立版（品詞つなぎ/index.html）のCSSをほぼそのまま移植。言の刃斬（#bgApp）と同じ3点だけ
+     手を入れている。
+     1) :root{--bg1;--bg2;--tsum-*} は #psApp{...} にスコープし直した。
+     2) html,body向けだった指定（font-family/背景/overflow:hidden/touch-action:none/
+        user-select:none/transition）と、#app向けだった指定（display:flex等）をあわせて
+        #psApp自身に統合。ページ全体ではなくカード内におさまるよう、height:100%ではなく
+        clamp()の固定高さにした（言の刃斬の#bgAppと同じ考え方）。
+     3) それ以外の全セレクタは「#psApp 」を頭に付けて子孫セレクタ化しただけで、プロパティは
+        独立版と一字一句同じ。@keyframesは名前衝突を避けるため全てps接頭辞に変更。
+        独立版はbody.doubleScoreBgでページ全体の背景を変えていたが、ここでは#psApp自身に
+        psDoubleScoreBgクラスを付け外しする形に変更（アプリ全体の背景に影響させないため）。 */
+  #psApp{
+    --ps-bg1:#fdf6ec; --ps-bg2:#fbe9d0;
+    --ps-tsum-light:#f7b878; --ps-tsum-mid:#eb9b5f; --ps-tsum-dark:#c9773a;
+    display:flex; flex-direction:column; align-items:center;
+    width:100%; max-width:560px; margin:0 auto;
+    height:clamp(560px, 80vh, 760px);
+    padding:10px;
+    font-family:"Hiragino Maru Gothic ProN","Yu Gothic",sans-serif;
+    background:linear-gradient(160deg,var(--ps-bg1),var(--ps-bg2));
+    border-radius:12px;
+    overflow:hidden;
+    touch-action:none;
+    user-select:none;
+    transition:background 0.5s ease;
+    position:relative;
+  }
+  #psApp.psDoubleScoreBg{
+    background:linear-gradient(160deg,#fff2b8,#ffd966);
+  }
+  #psApp *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  #psApp h1{
+    margin:4px 0 8px;
+    font-size:1.4em;
+    color:#5a3e2b;
+    text-shadow:1px 1px 0 #fff;
+  }
+  #psApp #psHud{
+    display:flex; gap:18px; align-items:center;
+    background:#ffffffcc;
+    border-radius:14px;
+    padding:6px 18px;
+    margin-bottom:8px;
+    box-shadow:0 3px 8px rgba(0,0,0,0.12);
+    font-size:1em;
+    color:#4a3a2a;
+  }
+  #psApp #psHud .label{ font-size:0.75em; opacity:0.7; }
+  #psApp #psHud .val{ font-size:1.3em; font-weight:bold; }
+  #psApp #psTimeVal.warn{ color:#d9435a; }
+
+  #psApp #psPlayArea{
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  #psApp #psBoardWrap{
+    position:relative;
+    border-radius:18px;
+    background:#fffaf2;
+    box-shadow:0 6px 18px rgba(0,0,0,0.18), inset 0 0 0 3px #eddcc0;
+    overflow:hidden;
+  }
+  #psApp #psBombPanel{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+    width:76px;
+  }
+  #psApp .psBombAlert{
+    font-weight:900;
+    font-size:0.78em;
+    line-height:1.15;
+    color:#e0472f;
+    text-align:center;
+    text-shadow:0 1px 0 #fff;
+    min-height:2.3em;
+    opacity:0;
+    transform:scale(0.5);
+  }
+  #psApp .psBombAlert.show{
+    animation: psBombAlertPop 1.7s ease-out forwards;
+  }
+  @keyframes psBombAlertPop{
+    0%{ transform:scale(0.4); opacity:0; }
+    15%{ transform:scale(1.3); opacity:1; }
+    30%{ transform:scale(1); opacity:1; }
+    78%{ transform:scale(1); opacity:1; }
+    100%{ transform:scale(0.9); opacity:0; }
+  }
+  #psApp #psBombIcon{
+    width:56px; height:56px;
+    border-radius:50%;
+    background:radial-gradient(circle at 32% 28%, #ffd8a8, #e0722f 60%, #a4501c);
+    color:#fff;
+    font-size:1.3em;
+    font-weight:bold;
+    box-shadow:0 4px 10px rgba(0,0,0,0.18),
+      inset -3px -4px 8px rgba(0,0,0,0.22),
+      inset 3px 4px 6px rgba(255,255,255,0.35);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    line-height:1;
+    opacity:0.3;
+    filter:grayscale(70%);
+    transition:opacity .2s ease, filter .2s ease, transform .2s ease;
+  }
+  #psApp #psBombIcon.active{
+    opacity:1;
+    filter:grayscale(0%);
+    animation:psBombIconPulse 0.9s ease-in-out infinite;
+    box-shadow:0 4px 14px rgba(224,90,50,0.55),
+      inset -3px -4px 8px rgba(0,0,0,0.22),
+      inset 3px 4px 6px rgba(255,255,255,0.35),
+      0 0 0 4px #fff;
+  }
+  @keyframes psBombIconPulse{
+    0%,100%{ transform:scale(1); }
+    50%{ transform:scale(1.1); }
+  }
+  #psApp #psBombGaugeWrap{
+    width:14px; height:110px;
+    background:rgba(0,0,0,0.15);
+    border-radius:7px;
+    overflow:hidden;
+    display:none;
+    align-items:flex-end;
+    box-shadow:inset 0 0 4px rgba(0,0,0,0.3);
+  }
+  #psApp #psBombGaugeWrap.visible{ display:flex; }
+  #psApp #psBombGaugeFill{
+    width:100%; height:100%;
+    background:linear-gradient(180deg,#ff9f57,#d9435a);
+  }
+  #psApp #psBombGaugeLabel{
+    font-size:0.72em;
+    font-weight:bold;
+    color:#c0392b;
+    min-height:1.1em;
+  }
+  #psApp .tsum{
+    position:absolute;
+    border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    text-align:center;
+    color:#fff;
+    font-weight:bold;
+    cursor:pointer;
+    background:radial-gradient(circle at 32% 28%, var(--ps-tsum-light), var(--ps-tsum-mid) 60%, var(--ps-tsum-dark));
+    box-shadow:
+      inset -4px -6px 10px rgba(0,0,0,0.22),
+      inset 4px 5px 8px rgba(255,255,255,0.45),
+      0 3px 5px rgba(0,0,0,0.15);
+    transition: top 0.32s cubic-bezier(.4,1.4,.6,1), left 0.25s ease, transform 0.15s ease, opacity 0.22s ease;
+    line-height:1.15;
+    padding:2px;
+    word-break:keep-all;
+  }
+  #psApp .tsum .word{
+    font-size:0.85em;
+    text-shadow:0 1px 2px rgba(0,0,0,0.35);
+    pointer-events:none;
+  }
+  #psApp .tsum .word.long1{ font-size:0.68em; }
+  #psApp .tsum .word.long2{ font-size:0.56em; }
+  #psApp .tsum.selected{
+    transform:scale(1.14);
+    box-shadow:
+      inset -4px -6px 10px rgba(0,0,0,0.22),
+      inset 4px 5px 8px rgba(255,255,255,0.5),
+      0 0 0 4px #fff, 0 0 14px 4px #ffe066;
+    z-index:5;
+  }
+  #psApp .tsum.popping{
+    transform:scale(1.5);
+    opacity:0;
+    z-index:6;
+  }
+  #psApp .tsum.reducePop{
+    animation: psReducePopKf 0.5s ease-in forwards;
+    z-index:7;
+  }
+  @keyframes psReducePopKf{
+    0%{ transform:scale(1) rotate(0deg); opacity:1; filter:brightness(1); }
+    35%{
+      transform:scale(1.3) rotate(0deg);
+      opacity:1;
+      filter:brightness(1.9);
+      box-shadow:0 0 0 6px #fff, 0 0 22px 10px #4caf50;
+    }
+    100%{ transform:scale(0.15) rotate(25deg); opacity:0; filter:brightness(1.9); }
+  }
+  #psApp .tsum.bombPop{
+    transform:scale(1.4);
+  }
+  #psApp .tsum.item-time{
+    background:radial-gradient(circle at 32% 28%, #cdeaff, #4fa3e0 60%, #1f6fa8);
+    box-shadow:
+      inset -4px -6px 10px rgba(0,0,0,0.22),
+      inset 4px 5px 8px rgba(255,255,255,0.45),
+      0 3px 5px rgba(0,0,0,0.15),
+      0 0 0 3px #fff;
+  }
+  #psApp .tsum.item-reduce{
+    background:radial-gradient(circle at 32% 28%, #d9f7d4, #4caf50 60%, #2e7d32);
+    box-shadow:
+      inset -4px -6px 10px rgba(0,0,0,0.22),
+      inset 4px 5px 8px rgba(255,255,255,0.45),
+      0 3px 5px rgba(0,0,0,0.15),
+      0 0 0 3px #fff;
+  }
+  #psApp .tsum .itemIcon{
+    font-size:1.25em;
+    line-height:1.1;
+    pointer-events:none;
+  }
+  #psApp .tsum .itemLabel{
+    font-size:0.5em;
+    display:block;
+    margin-top:1px;
+    pointer-events:none;
+  }
+  #psApp #psLineSvg{
+    position:absolute; top:0; left:0;
+    pointer-events:none;
+    z-index:4;
+  }
+  #psApp #psLegend{
+    display:flex; flex-wrap:wrap; justify-content:center; gap:8px;
+    margin-top:10px;
+    max-width:640px;
+  }
+  #psApp .psLegendItem{
+    background:#ffffffcc;
+    border-radius:20px;
+    padding:4px 12px;
+    font-size:0.78em;
+    color:#4a3a2a;
+    box-shadow:0 2px 4px rgba(0,0,0,0.1);
+  }
+  #psApp #psPopupLayer{
+    position:absolute; top:0; left:0; width:100%; height:100%;
+    pointer-events:none; z-index:8;
+  }
+  #psApp .psFloatScore{
+    position:absolute;
+    font-weight:bold;
+    color:#ff7a3d;
+    text-shadow:1px 1px 2px #fff, 0 0 4px #fff;
+    font-size:1.1em;
+    animation:psFloatUp 0.9s ease-out forwards;
+    white-space:nowrap;
+  }
+  @keyframes psFloatUp{
+    0%{ opacity:1; transform:translate(-50%,0); }
+    100%{ opacity:0; transform:translate(-50%,-46px); }
+  }
+  #psApp .psItemPopup{ font-size:1.05em; }
+  #psApp .psItemPopupTime{ color:#1f6fa8; }
+  #psApp .psItemPopupReduce{ color:#c0392b; }
+  #psApp .psItemPopupBomb{ color:#e0722f; }
+  #psApp .psItemPopupDouble{ color:#b8860b; }
+  #psApp .psCategoryPopup{
+    position:absolute;
+    transform:translate(-50%,-50%);
+    font-size:1.4em;
+    font-weight:900;
+    color:#fff;
+    background:rgba(74,58,42,0.85);
+    padding:4px 16px;
+    border-radius:14px;
+    white-space:nowrap;
+    pointer-events:none;
+    animation:psCategoryPopKf 0.7s ease-out forwards;
+    z-index:10;
+  }
+  @keyframes psCategoryPopKf{
+    0%{ transform:translate(-50%,-50%) scale(0.5); opacity:0; }
+    20%{ transform:translate(-50%,-50%) scale(1.2); opacity:1; }
+    70%{ transform:translate(-50%,-50%) scale(1); opacity:1; }
+    100%{ transform:translate(-50%,-50%) scale(0.85); opacity:0; }
+  }
+  #psApp .psBombLabel{
+    color:#ff3d1f;
+    font-size:1.3em;
+    text-shadow:1px 1px 2px #fff, 0 0 6px #fff;
+  }
+  @keyframes psBombShakeKf{
+    0%,100%{ transform:translate(0,0); }
+    20%{ transform:translate(-6px,3px); }
+    40%{ transform:translate(6px,-4px); }
+    60%{ transform:translate(-4px,4px); }
+    80%{ transform:translate(4px,-2px); }
+  }
+  #psApp #psBoardWrap.bombShake{ animation:psBombShakeKf 0.4s ease; }
+  #psApp .psBombRing{
+    position:absolute;
+    width:10px; height:10px;
+    border-radius:50%;
+    transform:translate(-50%,-50%);
+    background:radial-gradient(circle, rgba(255,214,74,0.9), rgba(255,90,50,0.6) 55%, rgba(255,90,50,0) 75%);
+    animation:psBombRingKf 0.5s ease-out forwards;
+    z-index:9;
+  }
+  @keyframes psBombRingKf{
+    0%{ width:10px; height:10px; opacity:1; }
+    100%{ width:260px; height:260px; opacity:0; }
+  }
+  #psApp .psBombParticle{
+    position:absolute;
+    width:8px; height:8px;
+    border-radius:50%;
+    transform:translate(-50%,-50%);
+    animation:psBombParticleKf 0.55s ease-out forwards;
+    z-index:9;
+  }
+  @keyframes psBombParticleKf{
+    0%{ transform:translate(-50%,-50%) translate(0,0); opacity:1; }
+    100%{ transform:translate(-50%,-50%) translate(var(--dx),var(--dy)); opacity:0; }
+  }
+  #psApp #psOverlay{
+    position:absolute; inset:0;
+    background:rgba(40,25,15,0.55);
+    display:flex; align-items:center; justify-content:center;
+    z-index:20;
+    border-radius:12px;
+  }
+  #psApp #psOverlay.hidden{ display:none; }
+  #psApp #psOverlayCard{
+    background:#fffaf2;
+    border-radius:18px;
+    padding:28px 36px;
+    text-align:center;
+    box-shadow:0 10px 30px rgba(0,0,0,0.3);
+    max-width:88vw;
+    max-height:88%;
+    overflow-y:auto;
+  }
+  #psApp #psOverlayCard h2{ margin:0 0 6px; color:#5a3e2b; }
+  #psApp #psOverlayCard p{ margin:4px 0; color:#4a3a2a; }
+  #psApp #psOverlayCard .psBigScore{
+    font-size:2.2em; font-weight:bold; color:#e0722f;
+    margin:10px 0;
+  }
+  #psApp .psThemeReveal{
+    display:flex; gap:10px; justify-content:center; flex-wrap:wrap;
+    margin:16px 0;
+    min-height:2.2em;
+  }
+  #psApp .psThemeBadge{
+    display:inline-block;
+    padding:8px 18px;
+    border-radius:20px;
+    background:linear-gradient(180deg,#ffb877,#e0722f);
+    color:#fff; font-weight:bold; font-size:1.15em;
+    box-shadow:0 3px 6px rgba(0,0,0,0.2);
+  }
+  #psApp .psThemeBadge.final{
+    animation:psThemeBadgePop 0.4s ease-out;
+    background:linear-gradient(180deg,#7dd0a0,#2e9e5b);
+  }
+  @keyframes psThemeBadgePop{
+    0%{ transform:scale(0.5); opacity:0; }
+    60%{ transform:scale(1.15); opacity:1; }
+    100%{ transform:scale(1); opacity:1; }
+  }
+  #psApp .psCountdownNum{
+    font-size:3.2em;
+    font-weight:900;
+    color:#e0722f;
+    margin-top:8px;
+    min-height:1.2em;
+  }
+  #psApp .psCountdownNum.pop{
+    animation:psCountdownPop 0.6s ease-out;
+  }
+  @keyframes psCountdownPop{
+    0%{ transform:scale(0.3); opacity:0; }
+    40%{ transform:scale(1.3); opacity:1; }
+    100%{ transform:scale(1); opacity:1; }
+  }
+  #psApp .psBtnRow{
+    display:flex; gap:12px; justify-content:center; margin-top:16px; flex-wrap:wrap;
+  }
+  #psApp .psBtnCol{
+    display:flex; flex-direction:column; gap:10px; margin-top:16px;
+  }
+  #psApp .psLevelRow{
+    display:flex; align-items:center; gap:14px;
+    text-align:left;
+  }
+  #psApp .psLevelRow .psStartBtn{ flex:0 0 auto; min-width:88px; }
+  #psApp .psLevelRow .psLevelDesc{ margin:0; flex:1 1 auto; }
+  #psApp button.psStartBtn{
+    padding:10px 26px;
+    font-size:1.02em;
+    font-weight:bold;
+    color:#fff;
+    background:linear-gradient(180deg,#ff9f57,#e0722f);
+    border:none;
+    border-radius:24px;
+    box-shadow:0 4px 8px rgba(0,0,0,0.25);
+    cursor:pointer;
+  }
+  #psApp button.psStartBtn.secondary{ background:linear-gradient(180deg,#8fb3d9,#4a7fb0); }
+  #psApp button.psStartBtn.lv1{ background:linear-gradient(180deg,#8bc98f,#4e9c56); }
+  #psApp button.psStartBtn.lv2{ background:linear-gradient(180deg,#8fb3d9,#4a7fb0); }
+  #psApp button.psStartBtn.lv3{ background:linear-gradient(180deg,#f0ad4e,#d98a2b); }
+  #psApp button.psStartBtn.lv4{ background:linear-gradient(180deg,#e57373,#c0392b); }
+  #psApp button.psStartBtn.lv5{ background:linear-gradient(180deg,#b48ee0,#7d4fb0); }
+  #psApp button.psStartBtn:active{ transform:translateY(2px); }
+  #psApp .psLevelDesc{
+    font-size:0.8em; color:#6b5744; margin:0 0 2px;
+  }
+  #psApp #psRuleText{
+    color:#6b5744; font-size:0.85em; margin:2px 0 0;
+  }
+
   /* ============ かなづかい特訓「光る竹」（2026-〜）============
      光村図書の古典単元（竹取物語・いろは歌・枕草子・徒然草・平家物語・おくのほそ道）から、
      歴史的仮名遣いの変化点が多い一節を出題する専用ミニゲーム。#kzAppの中だけで完結する
@@ -1948,7 +2369,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.158</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.159</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -2191,7 +2612,7 @@ function totalEarnedStatPoints(st){
      （st.vocabShooterBonusExp、2026-08-17〜）、野球で勝負！（ミニゲーム版）の
      勝利ぶん（st.baseballBonusExp、2026-08-20〜）も、hyakuninBonusExpと全く同じ扱い
      （分野に関係なく全額加算、進化の分岐には影響させない）で加える。 */
-  return Math.min(KOTONOHA_XP_CAP, Math.floor(fromLevels + effectiveBonusExp(st) + (st.hyakuninBonusExp||0) + (st.bunsetsuGiriBonusExp||0) + (st.vocabShooterBonusExp||0) + (st.baseballBonusExp||0) + totalUnlockCelebrationExp(st)));
+  return Math.min(KOTONOHA_XP_CAP, Math.floor(fromLevels + effectiveBonusExp(st) + (st.hyakuninBonusExp||0) + (st.bunsetsuGiriBonusExp||0) + (st.vocabShooterBonusExp||0) + (st.baseballBonusExp||0) + (st.partsOfSpeechBonusExp||0) + totalUnlockCelebrationExp(st)));
 }
 function spentStatPoints(st){
   return Object.values(st.stats||{}).reduce((sum,v) => sum + (v||0), 0);
@@ -3221,7 +3642,7 @@ function kotonohaTotalXP(st){
      ボキャブラ・シューティングの自己ベスト100点大台突破ぶん（st.vocabShooterBonusExp、
      2026-08-17〜）、野球で勝負！（ミニゲーム版）の勝利ぶん（st.baseballBonusExp、
      2026-08-20〜）も、hyakuninBonusExpと全く同じ位置づけで加える。 */
-  return Math.min(KOTONOHA_XP_CAP, Math.floor(CAT_KEYS.reduce((sum,k)=> sum + catExpPoints(st.lv[k]||1), 0) + effectiveBonusExp(st) + (st.hyakuninBonusExp||0) + (st.bunsetsuGiriBonusExp||0) + (st.vocabShooterBonusExp||0) + (st.baseballBonusExp||0) + totalUnlockCelebrationExp(st)));
+  return Math.min(KOTONOHA_XP_CAP, Math.floor(CAT_KEYS.reduce((sum,k)=> sum + catExpPoints(st.lv[k]||1), 0) + effectiveBonusExp(st) + (st.hyakuninBonusExp||0) + (st.bunsetsuGiriBonusExp||0) + (st.vocabShooterBonusExp||0) + (st.baseballBonusExp||0) + (st.partsOfSpeechBonusExp||0) + totalUnlockCelebrationExp(st)));
 }
 function kotonohaOtherType(st, stageIdx){
   const roll = st.kotonohaOtherRoll;
@@ -4126,6 +4547,7 @@ function showHome(){
   clearBaseballTimers(); // 野球ミニゲームを中断して離れたときに、残ったカウントダウン・制限時間タイマーを止める
   vsStopLoop(); // ボキャブラ・シューティングを中断して離れたときに、動作中のゲームループ・キー入力リスナーを止める
   bgStopLoop(); // 文節斬りを中断して離れたときに、動作中のゲームループ・キー入力リスナーを止める
+  psStopLoop(); // 品詞つなぎを中断して離れたときに、動作中のタイマー・イベントリスナーを止める
   const st = loadStats();
   if(st.pendingDailyLoginStamp){ showDailyLoginStampOverlay(st); return; }
   if(kotonohaHasPendingEvolveCutscene(st)){ showKotonohaEvolveCutscene(st); return; }
@@ -9851,6 +10273,16 @@ const STORY_SIDEQUESTS = {
     ],
     epilogue: "「おつかれさま！ まちがえたところは、ちゃんと理由を覚えておいてね。」",
   },
+  sqPartsOfSpeech: {
+    title: "品詞つなぎ",
+    icon: "🔤",
+    beats: [
+      {type:"line", speaker:"ことのは", text:"今度は「品詞つなぎ」だよ。同じ品詞の言葉を3つ以上つなげて消していく、スコアアタックのゲームなんだ。"},
+      {type:"line", speaker:"ことのは", text:"色のヒントはないから、言葉の意味や形をよく見て判断してね。7つ以上つなげるとボムタイムに突入したり、特別なツムが出てきたりするよ！"},
+      {type:"partsOfSpeech"},
+    ],
+    epilogue: "「おつかれさま！ また挑戦して、自己ベストをのばしてね。」",
+  },
 };
 /* STORY_CHAPTERS・STORY_SIDEQUESTSのどちらのキーでも章の定義を引けるようにする共通ヘルパー。
    storyRenderBeat等、章の種類を意識せず進行させたい箇所から使う。 */
@@ -9871,6 +10303,7 @@ function storyFreshRun(){
     wpWords:null, wpFound:null, wpDeadline:null, wpDone:false, wpTimerId:null,
     shootBeatIdx:null, shoot:null,
     bgBeatIdx:null, bg:null,
+    psBeatIdx:null,
   };
 }
 
@@ -9939,6 +10372,11 @@ const STORY_SIDEQUEST_BEST_FN = {
     return Math.max(0, ...Object.values(best));
   },
   sqBaseball: st => st.baseballHighScore || 0,
+  sqPartsOfSpeech: st => {
+    const b = st.partsOfSpeechBest;
+    if(!b) return 0;
+    return Math.max(0, ...Object.values(b));
+  },
 };
 function storySideQuestButtonHtml(key, st){
   const q = STORY_SIDEQUESTS[key];
@@ -10053,6 +10491,7 @@ function storyRenderBeat(){
   else if(beat.type === "wordPick") storyRenderWordPick(beat);
   else if(beat.type === "shooting") storyRenderShooting(beat, sp.beatIdx);
   else if(beat.type === "bunsetsu") storyRenderBunsetsu(beat, sp.beatIdx);
+  else if(beat.type === "partsOfSpeech") storyRenderPartsOfSpeech(beat, sp.beatIdx);
   else if(beat.type === "kotonohaRebirthReveal") storyRenderKotonohaRebirthReveal();
   else showHome();
 }
@@ -14533,6 +14972,923 @@ function storyRenderBunsetsu(beat, idx){
   bgAttachHandlers();
   bgLoadRec();
   bgTitle();
+}
+
+/* ================= サブクエスト「品詞つなぎ」（parts-of-speech beat、2026-〜） =================
+   独立版（品詞つなぎ/index.html）を、文節斬り（bg/BG_接頭辞）と同じ方針でほぼそのまま移植。
+   識別子はすべてps/PS_接頭辞を付けて衝突を避けている。内部ロジック（品詞判定・アイテム・
+   ボムタイム・転成名詞ボーナス等）は独立版と一字一句同じ。DOM要素は骨格HTMLをstoryRender
+   PartsOfSpeechで一度だけ描いたあと、ps$(id)で毎回document.getElementByIdする（文節斬りの
+   bg$と同じ考え方）。以下の3点だけ独立版から手を入れている。
+   1) 独立版はページ全体がゲームそのものだったため、盤面サイズをwindow.innerWidth/Height
+      基準で計算していたが、ここではカード内におさまる#psApp自身のclientWidth/Height基準に
+      変更（psSizeBoard参照）。
+   2) 転成名詞ボーナス中の背景色変化は、独立版はdocument.body（ページ全体）に対して行って
+      いたが、アプリ全体の背景に影響させないよう#psApp自身にクラスを付け外しする形に変更
+      （psActivateDoubleScore/psStopDoubleScore参照）。
+   3) ラウンド終了時、独立版は「同じレベルでもう一度／レベルを選び直す」の2択だったが、
+      ボキャブラ・シューティング（vsEndGame）と同じ「自己ベスト・経験値ボーナス」の仕組みを
+      追加し、ボタンも「もう一度あそぶ／ホームに戻る」に揃えた（psEndGame参照）。
+   お題発表演出（3-2-1カウントダウン）の途中でsuspend Home等に離脱された場合に備え、
+   psIntroTimersでその一連のタイマーIDを記録し、psStopLoopで確実に止める。 */
+
+// 品詞・活用の種類ジャンル（知識ドリルDX本体のクイズデータ）の語彙を、それぞれ反映している
+const PS_CATEGORIES = [
+  { name:"名詞",
+    base:["犬","学校","机","教科書","桜","電車","空","海","音楽","友達"],
+    extra:["図書館","教室","黒板","宿題","季節","台風","湖","星座","図鑑","国旗",
+           "トンネル","雪国","夜","アイスクリーム","パイナップル","パキスタン","フランケンシュタイン","花"] },
+  { name:"動詞",
+    base:["走る","食べる","読む","書く","見る","聞く","歩く","笑う","遊ぶ","飛ぶ"],
+    extra:["泳ぐ","話す","立つ","座る","開ける","閉める","忘れる","覚える","教える","習う",
+           "頼む","着く","過ぎる","上る","走り抜ける","居る","着る","感じる","飽きる","借りる",
+           "足りる","生きる","閉じる","射る","似る","描く","生かす","叫ぶ","回る","ころぶ",
+           "産む","行く","得る","負ける","生ける","飼える","舞える","産める","する","来る","野宿する"],
+    conj:["食べ（た）","食べ（ない）","食べ（れば）","食べ（よう）","食べ（て）","食べ（ます）","食べ（たい）",
+          "走っ（た）","走っ（て）","走ら（ない）","走れ（ば）","走ろ（う）","走り（ます）",
+          "読ん（だ）","読ん（で）","読ま（ない）","読め（ば）","読も（う）","読み（ます）",
+          "書い（た）","書い（て）","書か（ない）","書け（ば）","書こ（う）","書き（ます）",
+          "遊ん（だ）","遊ん（で）","遊ば（ない）","遊べ（ば）","遊ぼ（う）","遊び（ます）",
+          "休め","待て","読め","振れ","歩こ（う）","踊ろ（う）","泣き（たい）","行き（ます）",
+          "来（ない）","飾れ（ない）","見つめ（ない）","迎え（た）","脱出し（た）","飲ん（で）",
+          "終わっ（た）","誘っ（て）","泳い（だ）","叫ん（だ）","飛ば（ない）","打ち（ます）",
+          "触れ（ない）","飲ん（だ）","かぶり（たい）"] },
+  { name:"形容詞",
+    base:["楽しい","美しい","大きい","小さい","早い","暗い","明るい","高い","低い","優しい",
+          "痛い","長い","薄い","怖い","赤い"],
+    extra:["難しい","易しい","重い","軽い","強い","弱い","広い","狭い","深い","浅い"],
+    conj:["楽しかっ（た）","楽しく（ない）","楽しけれ（ば）","楽しく（て）",
+          "美しかっ（た）","美しく（ない）","美しけれ（ば）","美しく（て）",
+          "大きかっ（た）","大きく（ない）","大きけれ（ば）","大きく（て）",
+          "高かっ（た）","高く（ない）","高けれ（ば）","高く（て）",
+          "優しかっ（た）","優しく（ない）","優しけれ（ば）","優しく（て）",
+          "珍しく","可愛けれ（ば）","醜く（ない）","古かっ（た）","遠けれ（ば）",
+          "美しかろ（う）","賢く（ない）","悔しかっ（た）","明るかろ（う）"] },
+  { name:"形容動詞",
+    base:["静かだ","元気だ","綺麗だ","便利だ","有名だ","簡単だ","素敵だ","立派だ","親切だ","正直だ","確かだ",
+          "安全だ","素直だ","にぎやかだ","かすかだ","気の毒だ","のどかだ","積極的だ","専門的だ","急だ","きれいだ"],
+    extra:["豊かだ","穏やかだ","爽やかだ","華やかだ","健康だ","快適だ","頑丈だ","上品だ","自由だ","特別だ","素朴だ"],
+    conj:["静かだった","静かで（ない）","静かなら","静かに（なる）","静かな",
+          "元気だった","元気で（ない）","元気なら","元気に（なる）","元気な",
+          "綺麗だった","綺麗で（ない）","綺麗なら","綺麗に（なる）","綺麗な",
+          "便利だった","便利で（ない）","便利なら","便利に（なる）","便利な",
+          "親切だった","親切で（ない）","親切なら","親切に（なる）","親切な",
+          "確かだった","確かで（ない）","確かなら","確かに（なる）","確かな",
+          "にぎやかだろ（う）","かすかな","きれいで（ない）","気の毒だろ（う）",
+          "のどかだっ（た）","積極的な","専門的で（ない）","急に"] },
+  { name:"副詞",
+    base:["とても","ゆっくり","すぐに","いつも","かなり","もっと","ちょっと","きっと","やっと","なかなか"],
+    extra:["しばらく","たびたび","まさに","おそらく","せっかく","わざと","どうか","まもなく","ようやく","なにしろ",
+           "ぜんぜん","わざわざ","決して","もし","メラメラと","しっかり","ときどき","ドンドンと","ぐらぐら","やや",
+           "恐らく","ぜひ","まるで","なぜ","ゆっくりと"] },
+  { name:"助詞",
+    base:["は","が","を","に","で","と","から","まで","より","の"],
+    extra:["へ","や","ば","ながら","ので","のに","けれど","しか","ばかり","さえ","か"] },
+];
+
+const PS_TENSEI_MEISHI_LIST = ["動き","考え","眺め","香り","喜び","楽しさ","美しさ","静かさ"];
+const PS_TENSEI_MEISHI = new Set(PS_TENSEI_MEISHI_LIST);
+const PS_TENSEI_MEISHI_CHANCE = 0.08;
+
+const PS_NOUN_CAT = 0;
+const PS_JIRITSUGO_CATS = [0,1,2,3,4];
+
+function psShuffleCopy(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+function psPickRandomCats(pool, count){
+  return psShuffleCopy(pool).slice(0, count);
+}
+
+const PS_YOUGEN_CATS = [1,2,3];
+
+const PS_LEVELS = {
+  1: { cols:6, rows:7, time:60, wordSet:"base",
+    desc: "名詞 ＋ もう1つの自立語（ランダム）<br>各10語 / 60秒",
+    pickCats: ()=>{
+      const others = PS_JIRITSUGO_CATS.filter(i=> i!==PS_NOUN_CAT);
+      const x = others[Math.floor(Math.random()*others.length)];
+      return [PS_NOUN_CAT, x];
+    } },
+  2: { cols:7, rows:7, time:60, wordSet:"base",
+    desc: "名詞以外の自立語から2種類（ランダム）<br>各10語 / 60秒",
+    pickCats: ()=> psPickRandomCats(PS_JIRITSUGO_CATS.filter(i=> i!==PS_NOUN_CAT), 2) },
+  3: { cols:7, rows:8, time:60, wordSet:"all",
+    desc: "動詞・形容詞・形容動詞の3種類（すべて終止形）<br>各20語 / 60秒",
+    pickCats: ()=> PS_YOUGEN_CATS.slice() },
+  4: { cols:7, rows:8, time:60, wordSet:"conjMixed",
+    desc: "動詞・形容詞・形容動詞の3種類（活用がごちゃまぜ）<br>各20語+活用形 / 60秒",
+    pickCats: ()=> PS_YOUGEN_CATS.slice() },
+  5: { cols:8, rows:9, time:60, wordSet:"conjMixed",
+    desc: "自立語から3種類（ランダム・用言を1つ以上ふくむ・活用もごちゃまぜ）<br>各20語+活用形 / 60秒",
+    pickCats: ()=>{
+      const yougenPick = PS_YOUGEN_CATS[Math.floor(Math.random()*PS_YOUGEN_CATS.length)];
+      const rest = PS_JIRITSUGO_CATS.filter(i=> i!==yougenPick);
+      const others = psPickRandomCats(rest, 2);
+      return [yougenPick, ...others];
+    } },
+};
+
+const PS_BOMB_TIME_MS = 20000;
+const PS_DOUBLE_SCORE_MS = 10000;
+const PS_ITEM_CHANCE = 0.06;
+
+let psCols = 7, psRows = 8, psCell = 60;
+let psCurrentLevel = 1;
+let psActiveCats = [0,1];
+let psWordPools = [];
+let psBoard = [];
+let psScore = 0, psBestCombo = 0, psTimeLeft = 60, psTimerId = null;
+let psPlaying = false, psDragging = false, psChain = [];
+let psBombModeActive = false, psBombEndTime = 0, psBombGaugeRAF = null;
+let psDoubleScoreActive = false, psDoubleScoreTimer = null;
+let psReduceItemOnBoard = false;
+let psIntroTimers = [];
+let psHandlers = null;
+
+let psAppEl=null, psBoardWrapEl=null, psSvgEl=null, psPopupLayerEl=null,
+    psScoreValEl=null, psTimeValEl=null, psComboValEl=null, psLevelValEl=null,
+    psOverlayEl=null, psOverlayCardEl=null, psLegendEl=null,
+    psBombIconEl=null, psBombAlertEl=null, psBombGaugeWrapEl=null, psBombGaugeFillEl=null, psBombGaugeLabelEl=null;
+
+const ps$ = id => document.getElementById(id);
+
+function psCacheDom(){
+  psAppEl = ps$("psApp");
+  psBoardWrapEl = ps$("psBoardWrap");
+  psSvgEl = ps$("psLineSvg");
+  psPopupLayerEl = ps$("psPopupLayer");
+  psScoreValEl = ps$("psScoreVal");
+  psTimeValEl = ps$("psTimeVal");
+  psComboValEl = ps$("psComboVal");
+  psLevelValEl = ps$("psLevelVal");
+  psOverlayEl = ps$("psOverlay");
+  psOverlayCardEl = ps$("psOverlayCard");
+  psLegendEl = ps$("psLegend");
+  psBombIconEl = ps$("psBombIcon");
+  psBombAlertEl = ps$("psBombAlert");
+  psBombGaugeWrapEl = ps$("psBombGaugeWrap");
+  psBombGaugeFillEl = ps$("psBombGaugeFill");
+  psBombGaugeLabelEl = ps$("psBombGaugeLabel");
+}
+
+function psClearIntroTimers(){
+  psIntroTimers.forEach(id => { clearTimeout(id); clearInterval(id); });
+  psIntroTimers = [];
+}
+
+/* サブクエストを離れるとき（showHomeから呼ばれる）に、ループ・タイマー・windowリスナーを
+   確実に止める。bgStopLoopと同じ役割。 */
+function psStopLoop(){
+  if(psTimerId){ clearInterval(psTimerId); psTimerId = null; }
+  if(psBombGaugeRAF){ cancelAnimationFrame(psBombGaugeRAF); psBombGaugeRAF = null; }
+  if(psDoubleScoreTimer){ clearTimeout(psDoubleScoreTimer); psDoubleScoreTimer = null; }
+  psClearIntroTimers();
+  if(psHandlers){
+    document.removeEventListener("pointermove", psHandlers.pointermove);
+    document.removeEventListener("pointerup", psHandlers.pointerup);
+    document.removeEventListener("pointercancel", psHandlers.pointercancel);
+    window.removeEventListener("resize", psHandlers.resize);
+    psHandlers = null;
+  }
+  psPlaying = false;
+  psDragging = false;
+  psBombModeActive = false;
+  psDoubleScoreActive = false;
+}
+
+function psAttachHandlers(){
+  const pointermove = e => psOnPointerMove(e);
+  const pointerup = e => psOnPointerUp(e);
+  const pointercancel = e => psOnPointerUp(e);
+  const resize = ()=>{
+    if(!psPlaying) return;
+    psSizeBoard();
+    for(let r=0;r<psRows;r++) for(let c=0;c<psCols;c++){
+      const cell = psBoard[r][c];
+      if(cell) psPositionEl(cell.el, r, c);
+    }
+  };
+  document.addEventListener("pointermove", pointermove, {passive:true});
+  document.addEventListener("pointerup", pointerup, {passive:true});
+  document.addEventListener("pointercancel", pointercancel, {passive:true});
+  window.addEventListener("resize", resize);
+  psHandlers = {pointermove, pointerup, pointercancel, resize};
+}
+
+function psActivateDoubleScore(){
+  psDoubleScoreActive = true;
+  if(psAppEl) psAppEl.classList.add("psDoubleScoreBg");
+  clearTimeout(psDoubleScoreTimer);
+  psDoubleScoreTimer = setTimeout(()=>{
+    psDoubleScoreActive = false;
+    if(psAppEl) psAppEl.classList.remove("psDoubleScoreBg");
+  }, PS_DOUBLE_SCORE_MS);
+}
+
+function psStopDoubleScore(){
+  psDoubleScoreActive = false;
+  clearTimeout(psDoubleScoreTimer);
+  psDoubleScoreTimer = null;
+  if(psAppEl) psAppEl.classList.remove("psDoubleScoreBg");
+}
+
+function psBuildLegend(indices){
+  psLegendEl.innerHTML = "";
+  indices.forEach(i=>{
+    const item = document.createElement("div");
+    item.className = "psLegendItem";
+    item.textContent = PS_CATEGORIES[i].name;
+    psLegendEl.appendChild(item);
+  });
+}
+
+function psSizeBoard(){
+  const w = (psAppEl && psAppEl.clientWidth) || 560;
+  const h = (psAppEl && psAppEl.clientHeight) || 640;
+  const maxW = Math.min(w - 108, 560);
+  const maxH = Math.min(h - 230, 640);
+  psCell = Math.floor(Math.min(maxW / psCols, maxH / psRows));
+  psCell = Math.max(34, Math.min(72, psCell));
+  psBoardWrapEl.style.width = (psCell*psCols) + "px";
+  psBoardWrapEl.style.height = (psCell*psRows) + "px";
+  psSvgEl.setAttribute("width", psCell*psCols);
+  psSvgEl.setAttribute("height", psCell*psRows);
+}
+
+function psRandCat(){ return psActiveCats[Math.floor(Math.random()*psActiveCats.length)]; }
+function psRandWord(catIndex){
+  if(catIndex === PS_NOUN_CAT && Math.random() < PS_TENSEI_MEISHI_CHANCE){
+    return PS_TENSEI_MEISHI_LIST[Math.floor(Math.random()*PS_TENSEI_MEISHI_LIST.length)];
+  }
+  const list = psWordPools[catIndex];
+  return list[Math.floor(Math.random()*list.length)];
+}
+
+function psRollTile(){
+  if(Math.random() < PS_ITEM_CHANCE){
+    let type = Math.random() < 0.5 ? "time" : "reduce";
+    if(type === "reduce" && psReduceItemOnBoard){
+      type = "time";
+    }
+    if(type === "reduce") psReduceItemOnBoard = true;
+    return { catIndex:-1, isItem:type };
+  }
+  return { catIndex: psRandCat(), isItem:null };
+}
+
+function psPositionEl(el, row, col){
+  const pad = 3;
+  el.style.left = (col*psCell + pad) + "px";
+  el.style.top = (row*psCell + pad) + "px";
+  el.style.width = (psCell - pad*2) + "px";
+  el.style.height = (psCell - pad*2) + "px";
+}
+
+function psMakeCell(row, col, tile, startAboveOffset){
+  const catIndex = tile.catIndex, isItem = tile.isItem;
+  const el = document.createElement("div");
+  let word = null;
+  if(isItem === "time"){
+    el.className = "tsum item-time";
+    el.innerHTML = `<span class="itemIcon">⏰<span class="itemLabel">+5秒</span></span>`;
+  } else if(isItem === "reduce"){
+    el.className = "tsum item-reduce";
+    el.innerHTML = `<span class="itemIcon">🔻<span class="itemLabel">品詞減</span></span>`;
+  } else {
+    el.className = "tsum";
+    word = psRandWord(catIndex);
+    const sizeClass = word.length >= 6 ? " long2" : (word.length >= 5 ? " long1" : "");
+    el.innerHTML = `<span class="word${sizeClass}">${word}</span>`;
+  }
+  psBoardWrapEl.appendChild(el);
+
+  const cellObj = { el, catIndex, isItem, word, row, col };
+
+  if(startAboveOffset){
+    const pad = 3;
+    el.style.left = (col*psCell + pad) + "px";
+    el.style.top = ((row - startAboveOffset)*psCell + pad) + "px";
+    el.style.width = (psCell - pad*2) + "px";
+    el.style.height = (psCell - pad*2) + "px";
+    requestAnimationFrame(()=>{
+      requestAnimationFrame(()=>{
+        psPositionEl(el, row, col);
+      });
+    });
+  } else {
+    psPositionEl(el, row, col);
+  }
+
+  el.addEventListener("pointerdown", (e)=> psOnCellPointerDown(e, cellObj));
+  return cellObj;
+}
+
+function psInitBoard(){
+  psBoardWrapEl.querySelectorAll(".tsum").forEach(n=>n.remove());
+  psBoard = [];
+  for(let r=0;r<psRows;r++){
+    const rowArr = [];
+    for(let c=0;c<psCols;c++){
+      rowArr.push(psMakeCell(r,c,psRollTile(),false));
+    }
+    psBoard.push(rowArr);
+  }
+}
+
+function psIsAdjacent(a,b){
+  const dr = Math.abs(a.row-b.row), dc = Math.abs(a.col-b.col);
+  return dr<=1 && dc<=1 && !(dr===0 && dc===0);
+}
+
+function psCellCenter(cellObj){
+  return {
+    x: cellObj.col*psCell + psCell/2,
+    y: cellObj.row*psCell + psCell/2
+  };
+}
+
+function psClearHighlight(){
+  psChain.forEach(c=> c.el.classList.remove("selected"));
+}
+
+function psUpdateLine(){
+  if(psChain.length < 2){
+    psSvgEl.innerHTML = "";
+    return;
+  }
+  const pts = psChain.map(c=>{
+    const p = psCellCenter(c);
+    return `${p.x},${p.y}`;
+  }).join(" ");
+  psSvgEl.innerHTML = `<polyline points="${pts}" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" opacity="0.55"/>
+    <polyline points="${pts}" fill="none" stroke="#c9773a" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>`;
+}
+
+function psOnCellPointerDown(e, cellObj){
+  if(!psPlaying) return;
+  e.preventDefault();
+  psDragging = true;
+  psChain = [cellObj];
+  cellObj.el.classList.add("selected");
+  psUpdateLine();
+}
+
+function psFindCellFromPoint(x,y){
+  const target = document.elementFromPoint(x,y);
+  if(!target) return null;
+  const tsumEl = target.closest(".tsum");
+  if(!tsumEl) return null;
+  for(let r=0;r<psRows;r++){
+    for(let c=0;c<psCols;c++){
+      const cell = psBoard[r][c];
+      if(cell && cell.el === tsumEl) return cell;
+    }
+  }
+  return null;
+}
+
+function psCurrentChainCat(){
+  for(const c of psChain){ if(!c.isItem) return c.catIndex; }
+  return null;
+}
+
+function psOnPointerMove(e){
+  if(!psDragging || !psPlaying) return;
+  const cell = psFindCellFromPoint(e.clientX, e.clientY);
+  if(!cell) return;
+  const last = psChain[psChain.length-1];
+  if(cell === last) return;
+
+  if(psChain.length>=2 && cell === psChain[psChain.length-2]){
+    last.el.classList.remove("selected");
+    psChain.pop();
+    psUpdateLine();
+    return;
+  }
+
+  if(psChain.includes(cell)) return;
+  const targetCat = psCurrentChainCat();
+  if(targetCat !== null && !cell.isItem && cell.catIndex !== targetCat) return;
+  if(!psIsAdjacent(last, cell)) return;
+
+  psChain.push(cell);
+  cell.el.classList.add("selected");
+  psUpdateLine();
+}
+
+function psOnPointerUp(e){
+  if(!psDragging) return;
+  psDragging = false;
+  if(psChain.length >= 3){
+    psPopChain();
+  } else {
+    psClearHighlight();
+    psChain = [];
+    psUpdateLine();
+  }
+}
+
+function psShowFloatScore(cellsForPos, gain){
+  const p = psCellCenter(cellsForPos[Math.floor(cellsForPos.length/2)]);
+  const el = document.createElement("div");
+  el.className = "psFloatScore";
+  el.textContent = "+" + gain;
+  el.style.left = p.x + "px";
+  el.style.top = p.y + "px";
+  psPopupLayerEl.appendChild(el);
+  setTimeout(()=> el.remove(), 900);
+}
+
+function psShowCategoryPopup(cellsForPos, catName){
+  const p = psCellCenter(cellsForPos[cellsForPos.length-1]);
+  const el = document.createElement("div");
+  el.className = "psCategoryPopup";
+  el.textContent = catName;
+  el.style.left = p.x + "px";
+  el.style.top = (p.y - 8) + "px";
+  psPopupLayerEl.appendChild(el);
+  setTimeout(()=> el.remove(), 700);
+}
+
+function psShowItemPopup(cellsForPos, text, cls){
+  const p = psCellCenter(cellsForPos[Math.floor(cellsForPos.length/2)]);
+  const el = document.createElement("div");
+  el.className = "psFloatScore psItemPopup " + cls;
+  el.textContent = text;
+  el.style.left = p.x + "px";
+  el.style.top = (p.y - 24) + "px";
+  psPopupLayerEl.appendChild(el);
+  setTimeout(()=> el.remove(), 1000);
+}
+
+function psTriggerReduceCategory(){
+  const presentCats = new Set();
+  for(let r=0;r<psRows;r++) for(let c=0;c<psCols;c++){
+    const cell = psBoard[r][c];
+    if(cell && !cell.isItem) presentCats.add(cell.catIndex);
+  }
+  const list = Array.from(presentCats);
+  if(list.length === 0) return { cells:[], catIndex:null };
+  const removedCat = list[Math.floor(Math.random()*list.length)];
+  const toClear = [];
+  for(let r=0;r<psRows;r++) for(let c=0;c<psCols;c++){
+    const cell = psBoard[r][c];
+    if(cell && !cell.isItem && cell.catIndex === removedCat) toClear.push(cell);
+  }
+  toClear.forEach(cellObj=>{
+    cellObj.el.classList.add("reducePop");
+    psBoard[cellObj.row][cellObj.col] = null;
+  });
+  return { cells: toClear, catIndex: removedCat };
+}
+
+function psCollectBombCells(chainCells){
+  const inChain = new Set(chainCells);
+  const extra = new Set();
+  chainCells.forEach(cellObj=>{
+    for(let dr=-1; dr<=1; dr++){
+      for(let dc=-1; dc<=1; dc++){
+        if(dr===0 && dc===0) continue;
+        const rr = cellObj.row+dr, cc = cellObj.col+dc;
+        if(rr<0||rr>=psRows||cc<0||cc>=psCols) continue;
+        const neighbor = psBoard[rr][cc];
+        if(neighbor && !inChain.has(neighbor)) extra.add(neighbor);
+      }
+    }
+  });
+  return Array.from(extra);
+}
+
+function psTriggerBombEffect(chainCells){
+  let sx=0, sy=0;
+  chainCells.forEach(c=>{ const p=psCellCenter(c); sx+=p.x; sy+=p.y; });
+  const cx = sx/chainCells.length, cy = sy/chainCells.length;
+
+  psBoardWrapEl.classList.add("bombShake");
+  setTimeout(()=> psBoardWrapEl.classList.remove("bombShake"), 420);
+
+  const ring = document.createElement("div");
+  ring.className = "psBombRing";
+  ring.style.left = cx + "px";
+  ring.style.top = cy + "px";
+  psPopupLayerEl.appendChild(ring);
+  setTimeout(()=> ring.remove(), 500);
+
+  const colors = ["#ff6b3d","#ffcf4a","#ff3d63","#ffffff"];
+  for(let i=0;i<14;i++){
+    const p = document.createElement("div");
+    p.className = "psBombParticle";
+    const angle = (Math.PI*2*i)/14 + Math.random()*0.3;
+    const dist = 40 + Math.random()*50;
+    p.style.left = cx + "px";
+    p.style.top = cy + "px";
+    p.style.setProperty("--dx", Math.cos(angle)*dist + "px");
+    p.style.setProperty("--dy", Math.sin(angle)*dist + "px");
+    p.style.background = colors[i % colors.length];
+    psPopupLayerEl.appendChild(p);
+    setTimeout(()=> p.remove(), 600);
+  }
+
+  const label = document.createElement("div");
+  label.className = "psFloatScore psBombLabel";
+  label.textContent = "💥 ボム！周りも消えた！";
+  label.style.left = cx + "px";
+  label.style.top = (cy - 30) + "px";
+  psPopupLayerEl.appendChild(label);
+  setTimeout(()=> label.remove(), 1000);
+}
+
+function psUpdateBombUI(){
+  psBombIconEl.classList.toggle("active", psBombModeActive);
+  psBombGaugeWrapEl.classList.toggle("visible", psBombModeActive);
+  if(!psBombModeActive) psBombGaugeLabelEl.textContent = "";
+}
+
+function psStopBombMode(){
+  psBombModeActive = false;
+  if(psBombGaugeRAF){ cancelAnimationFrame(psBombGaugeRAF); psBombGaugeRAF = null; }
+  psUpdateBombUI();
+}
+
+function psBombGaugeTick(now){
+  if(!psBombModeActive) return;
+  const remain = Math.max(0, psBombEndTime - now);
+  const frac = Math.min(1, remain / PS_BOMB_TIME_MS);
+  psBombGaugeFillEl.style.height = (frac*100) + "%";
+  psBombGaugeLabelEl.textContent = Math.ceil(remain/1000) + "秒";
+  if(remain <= 0){
+    psStopBombMode();
+    return;
+  }
+  psBombGaugeRAF = requestAnimationFrame(psBombGaugeTick);
+}
+
+function psShowBombAlert(text){
+  psBombAlertEl.textContent = text;
+  psBombAlertEl.classList.remove("show");
+  void psBombAlertEl.offsetWidth;
+  psBombAlertEl.classList.add("show");
+}
+
+function psStartBombMode(){
+  psBombModeActive = true;
+  psBombEndTime = performance.now() + PS_BOMB_TIME_MS;
+  if(psBombGaugeRAF){ cancelAnimationFrame(psBombGaugeRAF); psBombGaugeRAF = null; }
+  psUpdateBombUI();
+  psBombGaugeRAF = requestAnimationFrame(psBombGaugeTick);
+  psShowBombAlert("ボムが起動！");
+}
+
+function psExtendBombMode(extraMs){
+  if(!psBombModeActive) return;
+  psBombEndTime += extraMs;
+}
+
+function psPopChain(){
+  const n = psChain.length;
+  const sevenPlus = n >= 7;
+  const isBomb = sevenPlus && psBombModeActive;
+
+  const gotTenseiMeishi = psChain.some(c=> !c.isItem && c.word && PS_TENSEI_MEISHI.has(c.word));
+  if(gotTenseiMeishi) psActivateDoubleScore();
+
+  const gain = n*n*5 * (psDoubleScoreActive ? 2 : 1);
+  psScore += gain;
+  if(n > psBestCombo) psBestCombo = n;
+  psScoreValEl.textContent = psScore;
+  psComboValEl.textContent = psBestCombo;
+  psShowFloatScore(psChain, gain);
+
+  if(gotTenseiMeishi){
+    psShowItemPopup(psChain, "転成名詞を消した！10秒間得点2倍！", "psItemPopupDouble");
+  }
+
+  const chainCatIdx = psCurrentChainCat();
+  if(chainCatIdx !== null){
+    psShowCategoryPopup(psChain, PS_CATEGORIES[chainCatIdx].name);
+  }
+
+  let timeBonus = 0;
+  let reducedCells = [];
+  let reducedCatName = null;
+  psChain.forEach(cellObj=>{
+    if(cellObj.isItem === "time") timeBonus += 5;
+    if(cellObj.isItem === "reduce"){
+      const result = psTriggerReduceCategory();
+      reducedCells = reducedCells.concat(result.cells);
+      if(result.catIndex !== null) reducedCatName = PS_CATEGORIES[result.catIndex].name;
+      psReduceItemOnBoard = false;
+    }
+  });
+  if(timeBonus > 0){
+    psTimeLeft += timeBonus;
+    psTimeValEl.textContent = psTimeLeft;
+    if(psTimeLeft > 10) psTimeValEl.classList.remove("warn");
+    psShowItemPopup(psChain, `+${timeBonus}秒`, "psItemPopupTime");
+  }
+  if(reducedCells.length){
+    const label = reducedCatName ? `「${reducedCatName}」が全部消えた！` : "品詞がへった！";
+    psShowItemPopup(psChain, label, "psItemPopupReduce");
+  }
+
+  if(isBomb){
+    psExtendBombMode(10000);
+    psShowItemPopup(psChain, "ボムタイム+10秒！", "psItemPopupBomb");
+  } else if(sevenPlus){
+    psStartBombMode();
+    psShowItemPopup(psChain, "💣ボムタイム突入！", "psItemPopupBomb");
+  }
+
+  const bombCells = isBomb ? psCollectBombCells(psChain) : [];
+
+  psChain.forEach(cellObj=>{
+    cellObj.el.classList.remove("selected");
+    cellObj.el.classList.add("popping");
+    psBoard[cellObj.row][cellObj.col] = null;
+  });
+  psUpdateLine();
+
+  if(isBomb){
+    psTriggerBombEffect(psChain);
+    bombCells.forEach(cellObj=>{
+      cellObj.el.classList.add("popping","bombPop");
+      psBoard[cellObj.row][cellObj.col] = null;
+      if(cellObj.isItem === "reduce") psReduceItemOnBoard = false;
+    });
+    const bombGain = bombCells.length * 15 * (psDoubleScoreActive ? 2 : 1);
+    if(bombGain > 0){
+      psScore += bombGain;
+      psScoreValEl.textContent = psScore;
+    }
+  }
+
+  const poppedEls = psChain.map(c=>c.el)
+    .concat(bombCells.map(c=>c.el))
+    .concat(reducedCells.map(c=>c.el));
+  psChain = [];
+
+  const popDelay = isBomb ? 420 : (reducedCells.length ? 520 : 220);
+  setTimeout(()=>{
+    poppedEls.forEach(el=> el.remove());
+    psCollapseAndRefill();
+  }, popDelay);
+}
+
+function psCollapseAndRefill(){
+  for(let c=0;c<psCols;c++){
+    let writeRow = psRows-1;
+    for(let r=psRows-1;r>=0;r--){
+      const cell = psBoard[r][c];
+      if(cell){
+        if(writeRow !== r){
+          psBoard[writeRow][c] = cell;
+          psBoard[r][c] = null;
+          cell.row = writeRow;
+          psPositionEl(cell.el, writeRow, c);
+        }
+        writeRow--;
+      }
+    }
+    let fillCount = 0;
+    for(let r=writeRow;r>=0;r--){
+      fillCount++;
+      const cellObj = psMakeCell(r, c, psRollTile(), fillCount + (writeRow - r));
+      psBoard[r][c] = cellObj;
+    }
+  }
+}
+
+function psTick(){
+  psTimeLeft--;
+  psTimeValEl.textContent = psTimeLeft;
+  if(psTimeLeft <= 10){ psTimeValEl.classList.add("warn"); }
+  if(psTimeLeft <= 0){
+    psEndGame();
+  }
+}
+
+function psBuildWordPools(conf){
+  psWordPools = PS_CATEGORIES.map(cat=>{
+    if(conf.wordSet === "conjMixed"){
+      const pool = cat.base.concat(cat.extra);
+      return cat.conj ? pool.concat(cat.conj) : pool;
+    }
+    return conf.wordSet === "all" ? cat.base.concat(cat.extra) : cat.base.slice();
+  });
+}
+
+function psStartGame(level){
+  psCurrentLevel = level;
+  const conf = PS_LEVELS[level];
+  psCols = conf.cols; psRows = conf.rows;
+  psActiveCats = conf.pickCats();
+  psBuildWordPools(conf);
+  psBuildLegend(psActiveCats);
+
+  psScore = 0; psBestCombo = 0; psTimeLeft = conf.time;
+  psScoreValEl.textContent = "0";
+  psComboValEl.textContent = "0";
+  psTimeValEl.textContent = String(psTimeLeft);
+  psTimeValEl.classList.remove("warn");
+  psLevelValEl.textContent = String(level);
+  psPlaying = false;
+  psChain = []; psDragging = false;
+  psStopBombMode();
+  psBombAlertEl.classList.remove("show");
+  psBombAlertEl.textContent = "";
+  psStopDoubleScore();
+  psReduceItemOnBoard = false;
+  psSizeBoard();
+  psInitBoard();
+  clearInterval(psTimerId);
+
+  psPlayIntroSequence(psActiveCats, ()=>{
+    psOverlayEl.classList.add("hidden");
+    psPlaying = true;
+    psTimerId = setInterval(psTick, 1000);
+  });
+}
+
+function psPlayIntroSequence(cats, onDone){
+  psOverlayEl.classList.remove("hidden");
+  const catNames = cats.map(i=> PS_CATEGORIES[i].name);
+  const allNames = PS_CATEGORIES.map(c=> c.name);
+
+  psOverlayCardEl.innerHTML = `
+    <h2>今回のお題は…</h2>
+    <div id="psThemeReveal" class="psThemeReveal"></div>
+  `;
+  const themeReveal = ps$("psThemeReveal");
+
+  let flickerCount = 0;
+  const flickerMax = 12;
+  const flickerTimer = setInterval(()=>{
+    const shuffled = psShuffleCopy(allNames).slice(0, catNames.length);
+    themeReveal.innerHTML = shuffled.map(n=> `<span class="psThemeBadge">【${n}】</span>`).join("");
+    flickerCount++;
+    if(flickerCount >= flickerMax){
+      clearInterval(flickerTimer);
+      themeReveal.innerHTML = catNames.map(n=> `<span class="psThemeBadge final">【${n}】</span>`).join("");
+      const t = setTimeout(startCountdown, 900);
+      psIntroTimers.push(t);
+    }
+  }, 80);
+  psIntroTimers.push(flickerTimer);
+
+  function startCountdown(){
+    psOverlayCardEl.innerHTML = `
+      <h2>今回のお題は…</h2>
+      <div class="psThemeReveal">${catNames.map(n=> `<span class="psThemeBadge final">【${n}】</span>`).join("")}</div>
+      <div id="psCountdownNum" class="psCountdownNum"></div>
+    `;
+    const numEl = ps$("psCountdownNum");
+    const seq = ["3","2","1","スタート！"];
+    let idx = 0;
+    const showNext = ()=>{
+      numEl.textContent = seq[idx];
+      numEl.classList.remove("pop");
+      void numEl.offsetWidth;
+      numEl.classList.add("pop");
+      idx++;
+      if(idx < seq.length){
+        const t = setTimeout(showNext, 650);
+        psIntroTimers.push(t);
+      } else {
+        const t = setTimeout(onDone, 500);
+        psIntroTimers.push(t);
+      }
+    };
+    showNext();
+  }
+}
+
+function psShowLevelSelect(){
+  psPlaying = false;
+  clearInterval(psTimerId);
+  const buttonsHtml = Object.keys(PS_LEVELS).map(lvNum=>{
+    const conf = PS_LEVELS[lvNum];
+    return `
+      <div class="psLevelRow">
+        <button class="psStartBtn lv${lvNum}" data-level="${lvNum}">レベル${lvNum}</button>
+        <p class="psLevelDesc">${conf.desc}</p>
+      </div>`;
+  }).join("");
+  psOverlayCardEl.innerHTML = `
+    <h2>品詞つなぎ</h2>
+    <p class="psLevelDesc">⏰は+5秒、🔻は画面上の品詞を1種類消す特別なツム。7チェーン以上つなげると20秒間のボムタイムに突入するよ！</p>
+    <div class="psBtnCol">${buttonsHtml}</div>
+  `;
+  psOverlayEl.classList.remove("hidden");
+  psOverlayCardEl.querySelectorAll("[data-level]").forEach(btn=>{
+    btn.addEventListener("click", ()=> psStartGame(Number(btn.dataset.level)));
+  });
+}
+
+/* ラウンド終了：ボキャブラ・シューティング（vsEndGame）と同じ「レベルごとの自己ベスト＋
+   300点区切りごとに経験値+10」方式。st.partsOfSpeechBestはレベル番号キーのオブジェクト。 */
+function psEndGame(){
+  psPlaying = false;
+  clearInterval(psTimerId);
+  psDragging = false;
+  psClearHighlight();
+  psChain = [];
+  psUpdateLine();
+  psStopBombMode();
+  psStopDoubleScore();
+
+  const st = loadStats();
+  if(!st.partsOfSpeechBest) st.partsOfSpeechBest = {};
+  const prevLevelBest = st.partsOfSpeechBest[psCurrentLevel] || 0;
+  const isNewRecord = psScore > 0 && psScore > prevLevelBest;
+  let xpGained = 0, xpTierReached = 0;
+  if(isNewRecord){
+    st.partsOfSpeechBest[psCurrentLevel] = psScore;
+    const overallBest = Math.max(0, ...Object.values(st.partsOfSpeechBest));
+    const oldTier = st.partsOfSpeechXpTier || 0;
+    const newTier = Math.floor(overallBest / 300);
+    if(newTier > oldTier){
+      xpGained = (newTier - oldTier) * 10;
+      st.partsOfSpeechBonusExp = (st.partsOfSpeechBonusExp||0) + xpGained;
+      st.partsOfSpeechXpTier = newTier;
+      xpTierReached = newTier * 300;
+    }
+    saveStats(st);
+  }
+  const bestAfter = Math.max(prevLevelBest, psScore);
+
+  const recordHtml = isNewRecord ? `<p class="psLevelDesc">🎉 レベル${psCurrentLevel}の自己ベスト更新！（${psScore}点）</p>` : "";
+  const xpHtml = xpGained > 0 ? `<p class="psLevelDesc">🏆 自己ベストで${xpTierReached}点を初めて超えたので、経験値＋${xpGained}獲得！</p>` : "";
+
+  psOverlayCardEl.innerHTML = `
+    <h2>タイムアップ！（レベル${psCurrentLevel}）</h2>
+    <div class="psBigScore">${psScore} 点</div>
+    <p>さいこうコンボ：${psBestCombo} 個つなげ</p>
+    <p class="psLevelDesc">レベル${psCurrentLevel}の自己ベスト：${bestAfter}点</p>
+    ${recordHtml}
+    ${xpHtml}
+    <div class="psBtnRow">
+      <button class="psStartBtn" id="psRetryBtn">もう一度あそぶ</button>
+      <button class="psStartBtn secondary" id="psHomeBtn">ホームに戻る</button>
+    </div>
+  `;
+  psOverlayEl.classList.remove("hidden");
+  ps$("psRetryBtn").addEventListener("click", psShowLevelSelect);
+  ps$("psHomeBtn").addEventListener("click", showHome);
+}
+
+function psSkeletonHtml(){
+  return `
+  <div id="psApp">
+    <h1>品詞つなぎ</h1>
+    <div id="psHud">
+      <div><span class="label">レベル</span><br><span class="val" id="psLevelVal">-</span></div>
+      <div><span class="label">スコア</span><br><span class="val" id="psScoreVal">0</span></div>
+      <div><span class="label">のこり時間</span><br><span class="val" id="psTimeVal">60</span></div>
+      <div><span class="label">さいこうコンボ</span><br><span class="val" id="psComboVal">0</span></div>
+    </div>
+
+    <div id="psPlayArea">
+      <div id="psBoardWrap">
+        <svg id="psLineSvg"></svg>
+        <div id="psPopupLayer"></div>
+      </div>
+
+      <div id="psBombPanel">
+        <div id="psBombAlert" class="psBombAlert"></div>
+        <div id="psBombIcon">💣</div>
+        <div id="psBombGaugeWrap"><div id="psBombGaugeFill"></div></div>
+        <div id="psBombGaugeLabel"></div>
+      </div>
+    </div>
+
+    <div id="psLegend"></div>
+    <p id="psRuleText">同じ品詞のツムを3つ以上つなげると消えるよ！ ⏰(+5秒)・🔻(画面上の品詞を1種類消す)は、どの品詞ともつなげられる特別なツム。7つ以上つなげると、その瞬間から20秒間「ボムタイム」に突入！ボムタイム中にもう一度7チェーン以上つなげると本物のボムが爆発して周りも巻き込むよ！</p>
+
+    <div id="psOverlay">
+      <div id="psOverlayCard"></div>
+    </div>
+  </div>`;
+}
+
+/* サブクエストの入口。idx-guardで、同じビートへの再描画では骨格を作り直さない
+   （bunsetsu/shootingのidx-guardと同じ）。 */
+function storyRenderPartsOfSpeech(beat, idx){
+  storyRun.curBeat = beat;
+  clearChoiceKeys();
+  if(storyRun.psBeatIdx === idx && ps$("psApp")) return;
+  storyRun.psBeatIdx = idx;
+  psStopLoop();
+  screen.innerHTML = `<div class="card story-scene">${psSkeletonHtml()}</div>${storyFooterHtml()}`;
+  psCacheDom();
+  psAttachHandlers();
+  psSizeBoard();
+  psShowLevelSelect();
 }
 
 /* ================================================================
