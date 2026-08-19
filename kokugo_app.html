@@ -466,16 +466,12 @@
   .boss-timer-fill{ height:100%; width:100%; background:linear-gradient(90deg,#ffd76a,#ff8a5c); }
   .boss-q-text{ font-size:1.1rem; font-weight:bold; margin-bottom:14px; white-space:pre-wrap; }
   /* 第6章ボス「接続詞の見分けテスト」専用のヒント（教員の指示、2026-08-19〜：問題が難しすぎるので
-     「どんな時に使う接続詞なのか」だけ分かるヒントを付けてほしいとのこと）。story-scene（明るい
-     .card）の中に置かれるので、ボス戦の他パーツ（暗い背景前提の.boss-q-card等）とは合わせず、
-     このアプリの地の色（--accent2の緑系）に寄せた軽いヒントボックスにしている。 */
-  .boss-hint-wrap{ margin:-4px 0 12px; }
-  .boss-hint-link{
-    display:inline-block; font-size:.78rem; color:var(--accent2);
-    text-decoration:underline; text-underline-offset:3px; cursor:pointer;
-  }
+     「どんな時に使う接続詞なのか」だけ分かるヒントを付けてほしいとのこと。最初はクリックで開閉
+     する任意ヒントだったが、同日中に「『ヒントを見る』は廃止、最初から表示」に変更指示を受けた）。
+     story-scene（明るい.card）の中に置かれるので、ボス戦の他パーツ（暗い背景前提の.boss-q-card
+     等）とは合わせず、このアプリの地の色（--accent2の緑系）に寄せた軽いヒントボックスにしている。 */
   .boss-hint-box{
-    font-size:.82rem; color:var(--ink); line-height:1.7; margin-top:8px;
+    font-size:.82rem; color:var(--ink); line-height:1.7; margin:-4px 0 12px;
     background:rgba(44,110,99,.08); border:1px solid rgba(44,110,99,.25);
     border-radius:8px; padding:8px 12px;
   }
@@ -2500,7 +2496,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.175</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.176</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -11055,26 +11051,17 @@ function storyQuizNext(){
    データ側の各問題が持つe（解説文）は、末尾に正解の分類名をそのまま含んでいる
    （例：「…あとに続く順接の接続詞。」）ので、そのまま出すと答えを教えてしまう。
    分類名＋「の接続詞」の部分だけを「接続詞」に置きかえ、使われる場面の説明だけをヒントとして見せる。
-   クリックで開閉する方式にして、常時表示で難易度を下げすぎないようにしている
-   （かなづかい特訓「光る竹」のkzShowRuleHintと同じ、見たい人だけ見る任意ヒントの考え方）。 */
+   最初はクリックで開閉する任意ヒントだったが、教員の指示（2026-08-19〜、同日中）で
+   「『ヒントを見る』は廃止、最初から表示」に変更し、常時表示にした。 */
 const SETSUZOKU_HINT_CATS = ["並立・累加（添加）","対比・選択","説明・補足","順接","逆接","転換"];
 function storySetsuzokuHintText(e){
   let t = e;
   SETSUZOKU_HINT_CATS.forEach(cat => { t = t.split(cat + "の接続詞").join("接続詞"); });
   return t;
 }
-function storyToggleBattleHint(btn){
-  const box = btn.nextElementSibling;
-  const show = box.style.display === "none";
-  box.style.display = show ? "block" : "none";
-  btn.textContent = show ? "💡 ヒントをとじる" : "💡 ヒントを見る（どんな時に使う接続詞か）";
-}
 function storyBattleHintHtml(beat, it){
   if(beat.boss !== "setsuzokushiTest" || !it.e) return "";
-  return `<div class="boss-hint-wrap">
-    <a class="boss-hint-link" onclick="storyToggleBattleHint(this)">💡 ヒントを見る（どんな時に使う接続詞か）</a>
-    <div class="boss-hint-box" style="display:none">${esc(storySetsuzokuHintText(it.e))}</div>
-  </div>`;
+  return `<div class="boss-hint-box">💡 ヒント：${esc(storySetsuzokuHintText(it.e))}</div>`;
 }
 /* イベント戦（ステータス非依存）：total問中need問正解で確定クリア。
    既存のボス戦（HP・ステータス依存の戦闘システム）は一切呼ばない、完全に別実装。 */
