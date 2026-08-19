@@ -465,6 +465,20 @@
   .boss-timer-bar{ height:8px; border-radius:99px; overflow:hidden; background:rgba(255,255,255,.12); }
   .boss-timer-fill{ height:100%; width:100%; background:linear-gradient(90deg,#ffd76a,#ff8a5c); }
   .boss-q-text{ font-size:1.1rem; font-weight:bold; margin-bottom:14px; white-space:pre-wrap; }
+  /* 第6章ボス「接続詞の見分けテスト」専用のヒント（教員の指示、2026-08-19〜：問題が難しすぎるので
+     「どんな時に使う接続詞なのか」だけ分かるヒントを付けてほしいとのこと）。story-scene（明るい
+     .card）の中に置かれるので、ボス戦の他パーツ（暗い背景前提の.boss-q-card等）とは合わせず、
+     このアプリの地の色（--accent2の緑系）に寄せた軽いヒントボックスにしている。 */
+  .boss-hint-wrap{ margin:-4px 0 12px; }
+  .boss-hint-link{
+    display:inline-block; font-size:.78rem; color:var(--accent2);
+    text-decoration:underline; text-underline-offset:3px; cursor:pointer;
+  }
+  .boss-hint-box{
+    font-size:.82rem; color:var(--ink); line-height:1.7; margin-top:8px;
+    background:rgba(44,110,99,.08); border:1px solid rgba(44,110,99,.25);
+    border-radius:8px; padding:8px 12px;
+  }
   .boss-turn{
     margin-top:10px; padding-top:10px; border-top:1px dashed rgba(255,255,255,.25);
     color:#ffb0c0; font-weight:bold; animation:pop .3s ease;
@@ -3858,9 +3872,11 @@ function kotonohaEffStats(st){
    kotonohaOtherTypePool参照）、以後は「転生時の経験値との差分」だけで、
    6系統×7段階のイラスト（画像/ことのは進化図鑑.PNG から切り出した42枚、
    kotonoha_evolution_images.js に埋め込み）が育っていく。
-   type1（一領域特化）・type2（二領域特化）のときは、対応する絵が無いため転生できない
-   （今までどおりの言葉＋絵文字表示のまま）。type4（全領域バランス）は「始原龍」という
-   専用ライン（六つの力を統合した存在という設定、教員が別途用意した専用アートを使用、
+   type1（一領域特化）・type2（二領域特化）のときも、他の育て方と同じように転生できる
+   （2026-08-19〜、教員の指示：「一領域型、二領域型の場合でも、他と同じで転生できるように」。
+   専用のイラストは用意されていないため、type"other"（３領域以上バランス型）と同じ4〜6系統
+   プールを共用する。kotonohaEligibleRebirthLines参照）。type4（全領域バランス）は「始原龍」
+   という専用ライン（六つの力を統合した存在という設定、教員が別途用意した専用アートを使用、
    2026-07-31〜）で転生できる。始原龍だけ卵の絵が無いため、幼体の絵を卵の代わりに流用している。
    転生は何度でもやり直せる（そのたびに、その瞬間の系統で卵から再スタート＝st.kotonohaRebirthを
    上書きするだけ）。既存の「すがたを選ぶ」機能（kotonohaDisplayOverride）で言葉版に戻すことも
@@ -3887,21 +3903,21 @@ const KOTONOHA_MATURE_STAGE_IDX = 5; // 成熟体
    卵からの再スタートなので、通常の進化（KOTONOHA_STAGE_XP、最終到達10000）よりずっと短い
    スパンで7段階に到達するよう設計している。 */
 const KOTONOHA_REBIRTH_STAGE_XP = [0, 30, 100, 300, 700, 1500, 4000];
-/* 転生できるかどうかの判定（一領域特化=1・二領域特化=2のときは不可）。kotonohaBaseCategory()は
-   CAT_KEYSの分野別レベル分布だけを見る副作用のない純粋関数なので、通常進化の絵文字系統ロール
-   （kotonohaOtherType、乱数消費・保存あり）を余計に起こさずに判定できる。 */
+/* 転生できるかどうかの判定。kotonohaBaseCategory()が返す4種類（1・2・4・"other"）すべてに
+   転生先の系統が用意されている（kotonohaEligibleRebirthLines参照）ため、常にtrue。
+   （2026-08-19〜、教員の指示で一領域特化=1・二領域特化=2も対象に追加。以前はこの2つだけ不可
+   だったが、呼び出し元での早期returnに使う関数として残してある。） */
 function kotonohaRebirthEligible(st){
-  const cat = kotonohaBaseCategory(st);
-  return cat === 4 || cat === "other";
+  return true;
 }
 /* 転生先の系統として今選べる候補一覧（今の系統は除く）。全領域バランス型（cat===4）のときだけ
-   「始原龍」も候補に加わる。３領域以上バランス型（cat==="other"）は、以前と同じくその6系統
-   プール（天翔・焔獄・蒼海・翠森の4系統、「聖輝」「冥淵」アンロック後はこの2つも加えた6系統、
-   kotonohaOtherTypePool参照）から選ぶ（始原龍はここには含めない＝全領域バランス型専用ラインという
-   位置づけは維持）。一領域/二領域特化（cat===1・2）のときは空配列＝転生不可。 */
+   「始原龍」も候補に加わる。それ以外（３領域以上バランス型＝cat==="other"、および一領域特化・
+   二領域特化＝cat===1・2、2026-08-19〜：専用イラストが無いためother型と同じプールを共用する）は、
+   共通の系統プール（天翔・焔獄・蒼海・翠森の4系統、「聖輝」「冥淵」アンロック後はこの2つも加えた
+   6系統、kotonohaOtherTypePool参照）から選ぶ（始原龍はここには含めない＝全領域バランス型専用
+   ラインという位置づけは維持）。 */
 function kotonohaEligibleRebirthLines(st){
   const cat = kotonohaBaseCategory(st);
-  if(cat !== 4 && cat !== "other") return [];
   const currentLine = st.kotonohaRebirth ? st.kotonohaRebirth.line : null;
   const otherPool = kotonohaOtherTypePool(st).map(t => KOTONOHA_IMAGE_LINES[t]);
   const lines = cat === 4 ? otherPool.concat(["shigen"]) : otherPool.slice();
@@ -4443,23 +4459,20 @@ function kotonohaCardHtml(st){
 }
 /* 第9章クリアで解放される「転生」の導線。カード下部に小さく表示する。
    ・未解放：何も表示しない
-   ・解放済み・今の育て方では転生できない（type1/2/4）：理由つきで案内だけ表示
-   ・解放済み・転生可能・まだ一度も転生していない：無料の初回転生ボタンを表示
-   ・解放済み・転生可能・転生済み（育て直し）：「転生の種」を1つ消費するボタンを表示
+   ・解放済み・まだ一度も転生していない：無料の初回転生ボタンを表示
+   ・解放済み・転生済み（育て直し）：「転生の種」を1つ消費するボタンを表示
+   （育て方の種類（一領域特化・二領域特化・全領域バランス・３領域以上バランス型）を問わず、
+   どの育て方でも転生できる。2026-08-19〜、教員の指示。以前は一領域特化・二領域特化のときだけ
+   「転生できません」という案内を出していたが、その分岐は撤去した）。
    デイリーログイン報酬（7日目に「転生の種」を1つ付与、2026-08-01〜）導入に伴い、
    2回目以降の転生（育て直し）だけ種を消費する仕様にした。初回の転生は、第9章クライマックスの
-   ストーリー演出（kotonohaRebirthReveal）経由でもこのボタン経由でも無料のまま：ストーリー演出は
-   一度きりの盛り上がりどころであり、育て方（全領域バランス型）がその時点で条件を満たしていないと
-   演出内では発動しない（storyRenderKotonohaRebirthReveal参照）。もしそこで発動しなかった場合、
-   このボタンが実質的な「初めての転生」の入口になるため、ここも無料にしないと、まだ一度も
-   デイリーログイン7日目に到達していないプレイヤーが初回から詰んでしまう（教員の指示、2026-08-01。
-   2026-08-02に一度「初回も種必須」に変更したが、同日中に「初回は無料のままで」と訂正指示を
-   受けたため、この元の仕様に戻した）。 */
+   ストーリー演出（kotonohaRebirthReveal）経由でもこのボタン経由でも無料のまま（storyRenderKotonohaRebirthReveal
+   参照）。もしそこで発動しなかった場合、このボタンが実質的な「初めての転生」の入口になるため、
+   ここも無料にしないと、まだ一度もデイリーログイン7日目に到達していないプレイヤーが初回から
+   詰んでしまう（教員の指示、2026-08-01。2026-08-02に一度「初回も種必須」に変更したが、同日中に
+   「初回は無料のままで」と訂正指示を受けたため、この元の仕様に戻した）。 */
 function kotonohaRebirthSectionHtml(st){
   if(!st.kotonohaRebirthUnlocked) return "";
-  if(!kotonohaRebirthEligible(st)){
-    return `<p class="note kotonoha-rebirth-note">🔁 今の育て方（一領域特化・二領域特化のいずれか）では転生できません。分野のバランスを変えると、転生できるようになります。</p>`;
-  }
   const already = !!st.kotonohaRebirth;
   if(!already){
     return `<div class="btn-row" style="margin-top:10px"><button class="btn inline secondary" onclick="showKotonohaRebirthConfirm()">🔁 転生する</button></div>`;
@@ -11005,6 +11018,32 @@ function storyQuizNext(){
   else storyRenderBeat();
 }
 
+/* 第6章ボス「接続詞の見分けテスト」専用のヒント（教員の指示、2026-08-19〜：問題が難しすぎるので
+   このボスだけ「どんな時に使う接続詞なのか」が分かるヒントを付けてほしいとのこと）。
+   データ側の各問題が持つe（解説文）は、末尾に正解の分類名をそのまま含んでいる
+   （例：「…あとに続く順接の接続詞。」）ので、そのまま出すと答えを教えてしまう。
+   分類名＋「の接続詞」の部分だけを「接続詞」に置きかえ、使われる場面の説明だけをヒントとして見せる。
+   クリックで開閉する方式にして、常時表示で難易度を下げすぎないようにしている
+   （かなづかい特訓「光る竹」のkzShowRuleHintと同じ、見たい人だけ見る任意ヒントの考え方）。 */
+const SETSUZOKU_HINT_CATS = ["並立・累加（添加）","対比・選択","説明・補足","順接","逆接","転換"];
+function storySetsuzokuHintText(e){
+  let t = e;
+  SETSUZOKU_HINT_CATS.forEach(cat => { t = t.split(cat + "の接続詞").join("接続詞"); });
+  return t;
+}
+function storyToggleBattleHint(btn){
+  const box = btn.nextElementSibling;
+  const show = box.style.display === "none";
+  box.style.display = show ? "block" : "none";
+  btn.textContent = show ? "💡 ヒントをとじる" : "💡 ヒントを見る（どんな時に使う接続詞か）";
+}
+function storyBattleHintHtml(beat, it){
+  if(beat.boss !== "setsuzokushiTest" || !it.e) return "";
+  return `<div class="boss-hint-wrap">
+    <a class="boss-hint-link" onclick="storyToggleBattleHint(this)">💡 ヒントを見る（どんな時に使う接続詞か）</a>
+    <div class="boss-hint-box" style="display:none">${esc(storySetsuzokuHintText(it.e))}</div>
+  </div>`;
+}
 /* イベント戦（ステータス非依存）：total問中need問正解で確定クリア。
    既存のボス戦（HP・ステータス依存の戦闘システム）は一切呼ばない、完全に別実装。 */
 function storyRenderBattle(beat, idx){
@@ -11047,6 +11086,7 @@ function storyRenderBattle(beat, idx){
         ${subInstructionHtml(beat.cat, it)}
         <div class="boss-timer-row" id="storyTimerRow"><div class="boss-timer-bar"><div id="storyTimerFill" class="boss-timer-fill"></div></div></div>
         <div class="boss-q-text">${markQuestionHtml(it.q)}</div>
+        ${storyBattleHintHtml(beat, it)}
         ${answerArea}
         <div class="feedback" id="fb"></div>
         <div class="btn-row"><button class="btn story-advance-btn" id="storyNextBtn" style="display:none" onclick="storyBattleNext()">つぎへ</button></div>
