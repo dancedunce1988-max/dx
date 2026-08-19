@@ -1045,15 +1045,23 @@
   .vs-wordbanner{ text-align:center; margin-bottom:8px; }
   .vs-word{ font-size:clamp(20px,6vw,28px); font-weight:bold; letter-spacing:2px; color:var(--ink); }
   .vs-sub{ font-size:11px; color:var(--sub); margin-top:2px; }
-  .vs-wrap{ position:relative; width:100%; max-width:340px; margin:0 auto; touch-action:none; }
+  .vs-wrap{ position:relative; width:fit-content; max-width:100%; margin:0 auto; touch-action:none; }
   /* デスクトップ相当の画面幅では、ゲーム画面を大きく表示する（教員の指示、2026-08-10〜）。
      canvas自体の内部解像度もvsComputeCanvasSize()でこの閾値に合わせて切り替えているので、
      ここは表示サイズの上限を広げるだけでよい（引き伸ばしによるぼやけは発生しない）。 */
   @media (min-width:700px){
-    .vs-wrap{ max-width:400px; }
+    .vs-wrap canvas{ max-width:400px; }
   }
+  /* canvasは横幅だけでなく画面の高さでも収まるようにする（教員の指示、2026-08-19〜：
+     PCで見たとき、ウィンドウが低いと「お題」（.vs-wordbanner）と機体・ライフが同時に
+     画面内に収まらず、スクロールしないと機体側が見えなかったため）。max-heightで頭上の
+     見出し類がだいたい収まる分（ヘッダー・カード余白・スコア欄・お題欄など）を差し引き、
+     canvas自体をビューポートの高さに応じて縮小させる。widthをautoにしたことで、.vs-wrapを
+     width:fit-contentにした効果と合わせ、縮小時もcanvasの実際の見た目の幅にvs-lives等の
+     重ね要素がぴったり追従する。 */
   .vs-wrap canvas{
-    width:100%; height:auto; display:block; border-radius:12px;
+    width:auto; height:auto; max-width:340px; max-height:clamp(320px, calc(100vh - 260px), 700px);
+    display:block; border-radius:12px;
     background:linear-gradient(180deg,#0a0a1a 0%,#12122a 100%); box-shadow:0 0 24px rgba(80,120,255,0.2);
   }
   .vs-fire{
