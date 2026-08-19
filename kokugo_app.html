@@ -2500,7 +2500,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.174</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.175</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -10320,11 +10320,12 @@ const STORY_CHAPTERS = {
       {type:"line", speaker:"太郎", text:"「おお、なんかロマンあるな！　自由研究、めちゃくちゃおもしろくなってきたじゃん」"},
       {type:"line", speaker:"ことのは", text:"試してみたい。ぼくの、本当の姿……。単語の見きわめ、試されているのかもしれない。"},
       {type:"line", text:"本の最後のページに、小さな試練が記されていた。「正しく言葉の最小の単位（単語）を見きわめられるか、試されよ」"},
-      /* サ変活用（勉強する／提出する等）や、助動詞が連続して切れ方が特殊になる問題
-         （られ／た、なかっ／た、い／た等）は難しすぎるとの指摘を受け、基本的な問題だけに
-         限定した（教員の指示、2026-08-19〜。除外対象8問にはkokugo_data.js側でtag:"advanced"
-         を付与済み、excludeTag参照）。 */
-      {type:"battle", cat:"shikibetsu", filterS:"正しく単語で区切られているのはどれか", excludeTag:"advanced", boss:"wordSpiritTrial"},
+      /* サ変活用や、助動詞が連続して切れ方が特殊になる問題は難しすぎるとの指摘を受け、
+         基本的な問題だけに限定した（教員の指示、2026-08-19〜）。教員が実際に全問リストを
+         レビューし、「OK」とした7問に、同じ難易度で新たに20問追加した計27問だけを対象にする
+         （kokugo_data.js側でtag:"basic"を付与済み。それ以外の問題は、ストーリー本編には出さない
+         だけで、通常の識別ジャンルの練習では引き続き出題される）。 */
+      {type:"battle", cat:"shikibetsu", filterS:"正しく単語で区切られているのはどれか", filterTag:"basic", boss:"wordSpiritTrial"},
       {type:"line", text:"最後の問題に正解した瞬間、ことのはの体が、淡い光に包まれた。"},
       {type:"line", speaker:"ことのは", text:"……あれ？　なんだか、体の奥から、力があふれてくるみたいだ。"},
       /* ここで実際にkotonohaDoRebirth()を実行し、揺れ→明転→新しい卵の絵、という演出を挟む
@@ -10926,19 +10927,16 @@ function storyMatchSubmit(){
    問題を出し続ける（beatIdxは進めない）。1問ごとにrecord()を呼ぶので、
    合格するまでに解いた問題もすべて分野レベル・XPに反映される（再プレイ時を除く）。 */
 /* quiz/battle beatが問題プールを絞り込むための共通フィルタ。beat.maxGrade（学年の目安以下に限定、
-   語彙で使用）・beat.filterTag（q.tagが一致するものだけ、接続詞の種類分類などで使用）・
+   語彙で使用）・beat.filterTag（q.tagが一致するものだけ、接続詞の種類分類や第9章の単語分け
+   （tag:"basic"、教員が選んだ基本問題だけに限定、2026-08-19〜）で使用）・
    beat.filterS（q.sが完全一致するものだけ、第9章の文節分け/単語分けのように、同じカテゴリ内に
-   複数の出題形式が混在していて`s`フィールドでしか区別できない場合に使用）・
-   beat.excludeTag（q.tagが一致するものを除外。第9章の単語分けから、サ変活用や助動詞で
-   切れ方が特殊になる問題＝tag:"advanced"を除くために追加、2026-08-19〜、教員の指示：
-   「基本的な問題のみに限定」）を、あれば全部AND条件で組み合わせる。
-   どれも指定がなければundefined（＝絞り込みなし）を返す。 */
+   複数の出題形式が混在していて`s`フィールドでしか区別できない場合に使用）を、あれば全部AND条件
+   で組み合わせる。どれも指定がなければundefined（＝絞り込みなし）を返す。 */
 function storyBeatFilter(beat){
-  if(!beat.maxGrade && !beat.filterTag && !beat.filterS && !beat.excludeTag) return undefined;
+  if(!beat.maxGrade && !beat.filterTag && !beat.filterS) return undefined;
   return q => (!beat.maxGrade || (q.grade||99) <= beat.maxGrade)
     && (!beat.filterTag || q.tag === beat.filterTag)
-    && (!beat.filterS || q.s === beat.filterS)
-    && (!beat.excludeTag || q.tag !== beat.excludeTag);
+    && (!beat.filterS || q.s === beat.filterS);
 }
 function storyRenderQuiz(beat, idx){
   if(storyRun.gateBeatIdx !== idx){
