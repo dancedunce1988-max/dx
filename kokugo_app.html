@@ -2202,20 +2202,31 @@
     font-size:1.05em; font-weight:900; margin-top:8px; color:#e0722f;
   }
   #psApp .psBonusResult.ng .psBonusMsg{ color:#6b5744; font-size:1.5em; margin-top:16px; }
+  #psApp .psBonusResult .psBonusSub{
+    font-size:0.9em; font-weight:bold; margin-top:4px; color:#4e9c56;
+  }
 
   /* ボーナス正解後の15秒間：#psApp.psDoubleScoreBg（転成名詞ボーナス）と同じ仕組みだが、
-     見分けがつくよう緑系の色でうっすら明滅させている。最初は金→ピンクの2色を0.9秒周期で
-     切り替える派手な演出にしていたが、「目がちかちかする」とのフィードバックを受けて
-     2026-08-21に変更：色相を大きく変えず、緑を基準にごくわずかに色味を変える・周期も
-     ゆっくりにする、の2点でちらつきを弱めた。転成名詞ボーナスと同時に発動しても見た目が
-     競合しないよう、psBonusRewardBgを後勝ちにする（CSS順序で下に書き、同じ.psApp要素に
-     両クラスが付いてもこちらが効くようにする）。 */
+     見分けがつくよう緑系の色でうっすら演出している。最初は金→ピンクの2色を0.9秒周期で
+     切り替える派手な明滅にしていたが「目がちかちかする」→次に緑系2色の切り替えに変えたが
+     それでも「まだチカチカする」とのフィードバックを受けて2026-08-21に再修正：
+     background（グラデーション）そのものをkeyframesで切り替える書き方は、ブラウザが2つの
+     状態を滑らかに補間できず必ず一瞬でパッと切り替わってしまうのが「チカチカ」の正体だった。
+     そこで、同じ帯を横に連ねた1枚の大きいグラデーション画像を用意し、background-position
+     （これは滑らかに補間できるプロパティ）を動かして横にゆっくり流れさせる方式に変更。
+     色の切り替わりが一切なく、常に連続的に推移するので明滅・点滅がなくなる。転成名詞
+     ボーナスと同時に発動しても見た目が競合しないよう、psBonusRewardBgを後勝ちにする
+     （CSS順序で下に書き、同じ.psApp要素に両クラスが付いてもこちらが効くようにする）。 */
   #psApp.psBonusRewardBg{
-    animation: psBonusRewardShimmer 1.8s ease-in-out infinite;
+    background-image: linear-gradient(120deg, #eef8e0, #d8f0c4, #b9e0b0, #d8f0c4, #eef8e0);
+    background-size: 300% 300%;
+    /* alternate（往復）にすることで、ループの継ぎ目でパッと戻る瞬間を作らない。
+       0%→100%→0%と向きが変わるだけで位置は常に連続しているので、動きが途切れない。 */
+    animation: psBonusRewardShimmer 6s ease-in-out infinite alternate;
   }
   @keyframes psBonusRewardShimmer{
-    0%,100%{ background:linear-gradient(160deg,#eef8e0,#cdead2); }
-    50%{ background:linear-gradient(160deg,#e0f3cc,#b9e0b0); }
+    0%{ background-position: 0% 50%; }
+    100%{ background-position: 100% 50%; }
   }
 
   #psApp .psThemeReveal{
@@ -2595,7 +2606,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.183</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.184</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -15655,7 +15666,7 @@ function psAnswerBonusQuestion(picked){
   const correct = picked !== null && picked === psBonusCorrectName;
   if(correct){
     psBonusResultEl.className = "psBonusResult ok";
-    psBonusResultEl.innerHTML = `<div class="psBonusMedal">💮</div><div class="psBonusMsg">15秒追加！ボーナスタイム突入！</div>`;
+    psBonusResultEl.innerHTML = `<div class="psBonusMedal">💮</div><div class="psBonusMsg">15秒追加！ボーナスタイム突入！</div><div class="psBonusSub">得点1.5倍！</div>`;
   } else {
     psBonusResultEl.className = "psBonusResult ng";
     psBonusResultEl.innerHTML = `<div class="psBonusMsg">残念！</div>`;
