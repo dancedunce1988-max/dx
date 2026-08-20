@@ -2496,7 +2496,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.179</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.180</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -16783,7 +16783,7 @@ function kzOpenModal(id){
   document.getElementById('kzModalContext').innerHTML = kzGetContextHtml(id);
   document.getElementById('kzModernInput').value = '';
   const fb = document.getElementById('kzFeedback');
-  fb.className = ''; fb.textContent='';
+  fb.className = 'kz-feedback'; fb.textContent='';
   const old = document.getElementById('kzContBtn');
   if(old) old.remove();
   document.getElementById('kzModalWrap').classList.add('show');
@@ -16818,7 +16818,7 @@ function kzShowRuleHint(){
   KZ.hintUsed[KZ.curId] = true;
   KZ.selfStreak = 0;
   const fb = document.getElementById('kzFeedback');
-  fb.className = 'show hint';
+  fb.className = 'kz-feedback show hint';
   fb.innerHTML = `<span class="kz-firefly">🌙</span>${esc(cand.rule || 'ここは形が変わらない言葉だよ。もう一度、じっくり見てみよう。')}`;
 }
 const KZ_PRAISE = ['そのとおり！', 'やった！', '見事！', 'さすが！', 'いいね！', 'ばっちり！'];
@@ -16841,7 +16841,7 @@ function kzJudge(choice, value){
     if(status==='self'){ KZ.selfStreak++; } else { KZ.selfStreak = 0; }
     const praise = KZ_PRAISE[Math.floor(Math.random()*KZ_PRAISE.length)];
     const streakText = KZ.selfStreak>=2 ? `　🔥自力で${KZ.selfStreak}連続！` : '';
-    fb.className = 'show ok';
+    fb.className = 'kz-feedback show ok';
     fb.innerHTML = `<div class="kz-verdict-ok">◯ 正解！</div><span class="kz-firefly">✨</span>${esc(praise)}${cand.short ? esc(cand.short)+'のルールだね。' : ''}竹が少し明るくなった。${streakText}`;
     kzPlayCorrectChime();
     KZ.justResolvedId = KZ.curId;
@@ -16854,7 +16854,7 @@ function kzJudge(choice, value){
       // 2回まちがえても減点はしない。ただし「ヒントで気づけた」というのは嘘になるので、
       // まちがえたこと自体は正直に伝え、その上で正解を教えて前を向く。
       KZ.selfStreak = 0;
-      fb.className = 'show hint';
+      fb.className = 'kz-feedback show hint';
       fb.innerHTML = `<span class="kz-firefly">🌱</span>まちがえてしまったね。${esc(cand.rule || '')}<br>正しくは「<b>${esc(cand.needsFix ? cand.modern : cand.t)}</b>」だよ。次はきっと分かるよ。`;
       kzShowContinueButton('次は頑張ろう', ()=>{
         KZ.resolved[KZ.curId] = 'missed';
@@ -16863,7 +16863,7 @@ function kzJudge(choice, value){
         kzAdvanceOrResults();
       });
     }else{
-      fb.className = 'show hint';
+      fb.className = 'kz-feedback show hint';
       let msg;
       if(choice==='keep' && cand.needsFix){
         msg = 'うーん、ここは言葉の"真ん中"にある音だよ。何かに変わりそうな気配……もう一度考えてみよう。';
