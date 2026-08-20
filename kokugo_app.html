@@ -2496,7 +2496,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.178</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.179</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -13322,6 +13322,12 @@ const BG_STAGES = [
    goal:"文節と単語を、その場で自分の力で見分ける"},
 ];
 
+/* 三の巻限定の、もう一つの四の巻解放ルート（教員の指示、2026-08-20〜：「三巻について、
+   スコアが5000に届いたら、四巻が開くように」）。既存の合格条件（20問を解ききって
+   初伝以上の段位を取る）による解放はそのまま残し、それとは別に「合否を問わず、
+   その回の得点がここに届けば解放」という条件を追加する（bgShowResult参照）。 */
+const BG_STAGE3_SCORE_UNLOCK = 5000;
+
 /* 速さは巻ごとの基準拍に掛ける。独立版は「ゆるり／常の間／疾風」を選ばせていたが、
    教員の指示（2026-08-19〜：「選択肢はなしにする。常の間のみ」）で、選択画面を廃止し
    「常の間」固定にした。rate/multの意味（bgStartStage・bgAddScoreが参照）はそのまま。 */
@@ -14682,6 +14688,15 @@ function bgShowResult(){
         milestone={title:"免許皆伝！全巻クリア！", sub:"七の巻を突破し、すべての巻を制した"};
       }
     }
+    bgSaveRec();
+  }
+
+  /* 三の巻→四の巻の、得点によるもう一つの解放ルート。上のif(!trueFail)ブロックとは
+     独立に判定するので、20問を解ききれず「力尽きた」扱いになった回でも、その回の
+     得点が5000に届いていれば四の巻が解放される。 */
+  if(BG.stage.id===3 && BG_REC.open===3 && BG.score>=BG_STAGE3_SCORE_UNLOCK){
+    BG_REC.open=4;
+    opened=true;
     bgSaveRec();
   }
 
