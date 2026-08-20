@@ -2606,7 +2606,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.184</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.185</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -15618,7 +15618,9 @@ function psPickBonusWordCell(){
   return candidates[Math.floor(Math.random()*candidates.length)];
 }
 function psMaybeStartBonusQuestion(){
-  if(!psPlaying || psBonusActive) return;
+  // psBonusRewardActive中（正解後の15秒間）は、ボーナスチャンス問題そのものを再発生させない
+  // （教員の指示、2026-08-21〜：ボーナスタイムの最中にまた出題されると忙しすぎるため）。
+  if(!psPlaying || psBonusActive || psBonusRewardActive) return;
   const cell = psPickBonusWordCell();
   if(!cell) return;
   psStartBonusQuestion(cell);
