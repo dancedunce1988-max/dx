@@ -2204,15 +2204,18 @@
   #psApp .psBonusResult.ng .psBonusMsg{ color:#6b5744; font-size:1.5em; margin-top:16px; }
 
   /* ボーナス正解後の15秒間：#psApp.psDoubleScoreBg（転成名詞ボーナス）と同じ仕組みだが、
-     「ピカピカ光る」演出にするため単色ではなく2色を交互に切り替えるアニメーションにしている。
-     転成名詞ボーナスと同時に発動しても見た目が競合しないよう、psBonusRewardBgを後勝ちにする
-     （CSS順序で下に書き、同じ.psApp要素に両クラスが付いてもこちらが効くようにする）。 */
+     見分けがつくよう緑系の色でうっすら明滅させている。最初は金→ピンクの2色を0.9秒周期で
+     切り替える派手な演出にしていたが、「目がちかちかする」とのフィードバックを受けて
+     2026-08-21に変更：色相を大きく変えず、緑を基準にごくわずかに色味を変える・周期も
+     ゆっくりにする、の2点でちらつきを弱めた。転成名詞ボーナスと同時に発動しても見た目が
+     競合しないよう、psBonusRewardBgを後勝ちにする（CSS順序で下に書き、同じ.psApp要素に
+     両クラスが付いてもこちらが効くようにする）。 */
   #psApp.psBonusRewardBg{
-    animation: psBonusRewardShimmer 0.9s ease-in-out infinite;
+    animation: psBonusRewardShimmer 1.8s ease-in-out infinite;
   }
   @keyframes psBonusRewardShimmer{
-    0%,100%{ background:linear-gradient(160deg,#fff2b8,#ffd966); }
-    50%{ background:linear-gradient(160deg,#ffd6f0,#ff9fd6); }
+    0%,100%{ background:linear-gradient(160deg,#eef8e0,#cdead2); }
+    50%{ background:linear-gradient(160deg,#e0f3cc,#b9e0b0); }
   }
 
   #psApp .psThemeReveal{
@@ -2592,7 +2595,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.182</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.183</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -15421,20 +15424,24 @@ const PS_LEVEL_SCORE_MULT = { 6: 1.5 };
 function psScoreMult(){ return PS_LEVEL_SCORE_MULT[psCurrentLevel] || 1; }
 
 // レベル1-2:1000点ごと 3-4:900点ごと 5-6:800点ごと 7:500点ごとに「品詞」のジャンルレベルが1上がる。
-// 1ラウンドで一気に上がるのは最大PS_GENRE_LV_CAPレベルまで（psEndGame参照）。psItemsCappedは
-// これと同じ式で「このラウンドはもう経験値が上限に達している」を判定し、それ以降アイテムの葉を
-// 出さないようにする（教員の指示、2026-08-21〜：経験値が伸びなくなった後もアイテムで延々と
-// 遊び続けてしまうのを防ぐため）。
+// 1ラウンドで一気に上がるのは最大PS_GENRE_LV_CAPレベルまで（psEndGame参照）。
 const PS_GENRE_LV_THRESHOLD = { 1:1000, 2:1000, 3:900, 4:900, 5:800, 6:800, 7:500 };
 const PS_GENRE_LV_CAP = 20;
-function psItemsCapped(){
-  const threshold = PS_GENRE_LV_THRESHOLD[psCurrentLevel] || 1000;
-  return psScore >= threshold * PS_GENRE_LV_CAP;
-}
 
 const PS_BOMB_TIME_MS = 20000;
 const PS_DOUBLE_SCORE_MS = 10000;
 const PS_ITEM_CHANCE = 0.06;
+/* アイテムの葉（⏰・🔻）の出現率は、そのラウンドの得点が経験値上限
+   （PS_GENRE_LV_THRESHOLD×PS_GENRE_LV_CAP）に近づくほど少しずつ下げていき、上限に達したら
+   ちょうど0%になる（教員の指示、2026-08-21〜：経験値上限に達した後もアイテムに釣られて
+   延々と遊び続けてしまうのを防ぐため。最初は上限到達で急に出なくなる作りにしていたが、
+   「ぱたっと止まる」のではなく「だんだん減っていく」ほうが自然、との指示で変更）。 */
+function psCurrentItemChance(){
+  const threshold = PS_GENRE_LV_THRESHOLD[psCurrentLevel] || 1000;
+  const capScore = threshold * PS_GENRE_LV_CAP;
+  const remainRatio = capScore > 0 ? Math.max(0, 1 - psScore / capScore) : 1;
+  return PS_ITEM_CHANCE * remainRatio;
+}
 
 /* ボーナスチャンス問題（2026-〜）：葉を1回消すたびに10%の確率で発生する品詞クイズ。
    発生中はメインの残り時間タイマーを止め（＝時間が止まる演出）、盤面操作もpsPlaying=falseで
@@ -15712,7 +15719,7 @@ function psRandWord(catIndex){
 }
 
 function psRollTile(){
-  if(!psItemsCapped() && Math.random() < PS_ITEM_CHANCE){
+  if(Math.random() < psCurrentItemChance()){
     let type = Math.random() < 0.5 ? "time" : "reduce";
     if(type === "reduce" && psReduceItemOnBoard){
       type = "time";
@@ -16352,7 +16359,7 @@ function psEndGame(){
     st.partsOfSpeechBest[psCurrentLevel] = psScore;
     statsChanged = true;
   }
-  // PS_GENRE_LV_THRESHOLD・PS_GENRE_LV_CAPは上のほう（psItemsCapped付近）で定義済み
+  // PS_GENRE_LV_THRESHOLD・PS_GENRE_LV_CAPは上のほう（psCurrentItemChance付近）で定義済み
   let genreLvGained = 0, genreTitleUp = false, genreTitleName = "", genreTitleIcon = "";
   if(psScore > 0){
     const threshold = PS_GENRE_LV_THRESHOLD[psCurrentLevel] || 1000;
