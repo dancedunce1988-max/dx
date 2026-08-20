@@ -2124,6 +2124,97 @@
     font-size:2.2em; font-weight:bold; color:#e0722f;
     margin:10px 0;
   }
+
+  /* ボーナスチャンス問題（2026-〜）：葉を消すと10%で発生する品詞クイズのオーバーレイ。
+     #psOverlay（開始前・終了後の画面）より濃い暗さと高いz-indexで、プレー中に画面ごと
+     「時間が止まった」感を出す。答えている間はpsPlaying=falseかつpsTimerIdを止めているので、
+     盤面操作もタイマー進行もこのカードの裏で完全に止まっている。 */
+  #psApp #psBonusOverlay{
+    position:absolute; inset:0;
+    background:rgba(12,8,22,0.86);
+    display:none;
+    align-items:center; justify-content:center;
+    z-index:40;
+    border-radius:12px;
+  }
+  #psApp #psBonusOverlay.show{ display:flex; }
+  #psApp .psBonusCard{
+    background:#fffaf2;
+    border-radius:18px;
+    padding:22px 22px 24px;
+    text-align:center;
+    box-shadow:0 0 44px rgba(255,215,107,0.55), 0 10px 30px rgba(0,0,0,0.4);
+    max-width:90vw;
+    width:340px;
+    max-height:90%;
+    overflow-y:auto;
+    animation: psBonusCardIn 0.35s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes psBonusCardIn{
+    0%{ transform:scale(0.6); opacity:0; }
+    100%{ transform:scale(1); opacity:1; }
+  }
+  #psApp .psBonusStopTag{
+    font-size:0.8em; font-weight:bold; color:#8a7660;
+    margin-bottom:8px; letter-spacing:0.04em;
+  }
+  #psApp .psBonusWord{
+    font-size:1.7em; font-weight:900; color:#5a3e2b;
+    margin:2px 0 12px;
+    line-height:1.25;
+    word-break:keep-all;
+  }
+  #psApp .psBonusQText{
+    font-size:1em; font-weight:bold; color:#4a3a2a; margin-bottom:12px;
+  }
+  #psApp .psBonusTimerBar{
+    width:100%; height:8px; border-radius:5px; background:rgba(0,0,0,0.12);
+    overflow:hidden; margin-bottom:14px;
+  }
+  #psApp .psBonusTimerBar i{
+    display:block; height:100%; width:100%; transform-origin:left center;
+    background:linear-gradient(90deg,#7fbf5c,#e0722f,#d9435a);
+  }
+  #psApp .psBonusChoices{
+    display:grid; grid-template-columns:repeat(2,1fr); gap:8px;
+  }
+  #psApp button.psBonusChoice{
+    padding:10px 4px; font-size:0.95em; font-weight:bold;
+    border:none; border-radius:12px; cursor:pointer;
+    background:linear-gradient(180deg,#ffe0a8,#ffb877);
+    color:#5a3e2b;
+    box-shadow:0 3px 6px rgba(0,0,0,0.15);
+    transition:transform .12s ease;
+  }
+  #psApp button.psBonusChoice:active{ transform:scale(0.94); }
+  #psApp button.psBonusChoice:disabled{ opacity:0.5; cursor:default; }
+  #psApp .psBonusResult{ margin-top:6px; min-height:1px; }
+  #psApp .psBonusResult .psBonusMedal{
+    font-size:3.4em; line-height:1;
+    animation: psBonusMedalPop 0.5s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes psBonusMedalPop{
+    0%{ transform:scale(0.3) rotate(-15deg); opacity:0; }
+    60%{ transform:scale(1.25) rotate(8deg); opacity:1; }
+    100%{ transform:scale(1) rotate(0); opacity:1; }
+  }
+  #psApp .psBonusResult .psBonusMsg{
+    font-size:1.05em; font-weight:900; margin-top:8px; color:#e0722f;
+  }
+  #psApp .psBonusResult.ng .psBonusMsg{ color:#6b5744; font-size:1.5em; margin-top:16px; }
+
+  /* ボーナス正解後の15秒間：#psApp.psDoubleScoreBg（転成名詞ボーナス）と同じ仕組みだが、
+     「ピカピカ光る」演出にするため単色ではなく2色を交互に切り替えるアニメーションにしている。
+     転成名詞ボーナスと同時に発動しても見た目が競合しないよう、psBonusRewardBgを後勝ちにする
+     （CSS順序で下に書き、同じ.psApp要素に両クラスが付いてもこちらが効くようにする）。 */
+  #psApp.psBonusRewardBg{
+    animation: psBonusRewardShimmer 0.9s ease-in-out infinite;
+  }
+  @keyframes psBonusRewardShimmer{
+    0%,100%{ background:linear-gradient(160deg,#fff2b8,#ffd966); }
+    50%{ background:linear-gradient(160deg,#ffd6f0,#ff9fd6); }
+  }
+
   #psApp .psThemeReveal{
     display:flex; gap:10px; justify-content:center; flex-wrap:wrap;
     margin:16px 0;
@@ -2246,6 +2337,11 @@
     #psApp .psLevelDesc{ font-size:0.72em; }
     #psApp .psLevelRow{ gap:8px; }
     #psApp button.psStartBtn{ padding:8px 16px; font-size:0.9em; }
+    #psApp .psBonusCard{ width:auto; padding:16px 14px 18px; }
+    #psApp .psBonusWord{ font-size:1.35em; }
+    #psApp .psBonusQText{ font-size:0.88em; }
+    #psApp button.psBonusChoice{ font-size:0.85em; padding:8px 4px; }
+    #psApp .psBonusResult .psBonusMedal{ font-size:2.6em; }
   }
 
   /* ============ かなづかい特訓「光る竹」（2026-〜）============
@@ -2496,7 +2592,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.181</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.182</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -15324,9 +15420,34 @@ const PS_LEVEL_UNLOCK_SCORE = { 1:4000, 2:4000, 3:4000, 4:4000, 5:4000, 6:4000 }
 const PS_LEVEL_SCORE_MULT = { 6: 1.5 };
 function psScoreMult(){ return PS_LEVEL_SCORE_MULT[psCurrentLevel] || 1; }
 
+// レベル1-2:1000点ごと 3-4:900点ごと 5-6:800点ごと 7:500点ごとに「品詞」のジャンルレベルが1上がる。
+// 1ラウンドで一気に上がるのは最大PS_GENRE_LV_CAPレベルまで（psEndGame参照）。psItemsCappedは
+// これと同じ式で「このラウンドはもう経験値が上限に達している」を判定し、それ以降アイテムの葉を
+// 出さないようにする（教員の指示、2026-08-21〜：経験値が伸びなくなった後もアイテムで延々と
+// 遊び続けてしまうのを防ぐため）。
+const PS_GENRE_LV_THRESHOLD = { 1:1000, 2:1000, 3:900, 4:900, 5:800, 6:800, 7:500 };
+const PS_GENRE_LV_CAP = 20;
+function psItemsCapped(){
+  const threshold = PS_GENRE_LV_THRESHOLD[psCurrentLevel] || 1000;
+  return psScore >= threshold * PS_GENRE_LV_CAP;
+}
+
 const PS_BOMB_TIME_MS = 20000;
 const PS_DOUBLE_SCORE_MS = 10000;
 const PS_ITEM_CHANCE = 0.06;
+
+/* ボーナスチャンス問題（2026-〜）：葉を1回消すたびに10%の確率で発生する品詞クイズ。
+   発生中はメインの残り時間タイマーを止め（＝時間が止まる演出）、盤面操作もpsPlaying=falseで
+   封じる。正解すると+15秒とスコア1.5倍タイムをもらえる、というボーナス版
+   psActivateDoubleScore（転成名詞アイテムと同じ仕組み）。 */
+const PS_BONUS_QUESTION_CHANCE = 0.10;
+const PS_BONUS_QUESTION_TIME_MS = 10000;
+const PS_BONUS_SETTLE_DELAY_MS = 420; // 葉が落ちて盤面が落ち着くのを待ってから出題する
+const PS_BONUS_CORRECT_SHOW_MS = 1600;
+const PS_BONUS_WRONG_SHOW_MS = 1100;
+const PS_BONUS_REWARD_TIME_MS = 15000;
+const PS_BONUS_REWARD_SCORE_MULT = 1.5;
+const PS_BONUS_POS_CHOICES = ["名詞","動詞","形容詞","形容動詞","接続詞","連体詞","副詞","感動詞","助詞","助動詞"];
 
 let psCols = 7, psRows = 8, psCell = 60;
 let psCurrentLevel = 1;
@@ -15337,6 +15458,8 @@ let psScore = 0, psBestCombo = 0, psTimeLeft = 60, psTimerId = null;
 let psPlaying = false, psDragging = false, psChain = [];
 let psBombModeActive = false, psBombEndTime = 0, psBombGaugeRAF = null;
 let psDoubleScoreActive = false, psDoubleScoreTimer = null;
+let psBonusActive = false, psBonusTimerId = null, psBonusCorrectName = null;
+let psBonusRewardActive = false, psBonusRewardTimer = null;
 let psReduceItemOnBoard = false;
 let psIntroTimers = [];
 let psHandlers = null;
@@ -15345,7 +15468,8 @@ let psAppEl=null, psBoardWrapEl=null, psSvgEl=null, psPopupLayerEl=null,
     psScoreValEl=null, psTimeValEl=null, psComboValEl=null, psLevelValEl=null,
     psOverlayEl=null, psOverlayCardEl=null, psLegendEl=null,
     psBombIconEl=null, psBombAlertEl=null, psBombGaugeWrapEl=null, psBombGaugeFillEl=null, psBombGaugeLabelEl=null,
-    psPlayAreaEl=null, psBombPanelEl=null;
+    psPlayAreaEl=null, psBombPanelEl=null,
+    psBonusOverlayEl=null, psBonusWordEl=null, psBonusTimerFillEl=null, psBonusChoicesEl=null, psBonusResultEl=null;
 
 const ps$ = id => document.getElementById(id);
 
@@ -15368,6 +15492,11 @@ function psCacheDom(){
   psBombGaugeLabelEl = ps$("psBombGaugeLabel");
   psPlayAreaEl = ps$("psPlayArea");
   psBombPanelEl = ps$("psBombPanel");
+  psBonusOverlayEl = ps$("psBonusOverlay");
+  psBonusWordEl = ps$("psBonusWord");
+  psBonusTimerFillEl = ps$("psBonusTimerFill");
+  psBonusChoicesEl = ps$("psBonusChoices");
+  psBonusResultEl = ps$("psBonusResult");
 }
 
 function psClearIntroTimers(){
@@ -15381,6 +15510,8 @@ function psStopLoop(){
   if(psTimerId){ clearInterval(psTimerId); psTimerId = null; }
   if(psBombGaugeRAF){ cancelAnimationFrame(psBombGaugeRAF); psBombGaugeRAF = null; }
   if(psDoubleScoreTimer){ clearTimeout(psDoubleScoreTimer); psDoubleScoreTimer = null; }
+  if(psBonusTimerId){ clearTimeout(psBonusTimerId); psBonusTimerId = null; }
+  if(psBonusRewardTimer){ clearTimeout(psBonusRewardTimer); psBonusRewardTimer = null; }
   psClearIntroTimers();
   if(psHandlers){
     document.removeEventListener("pointermove", psHandlers.pointermove);
@@ -15393,6 +15524,10 @@ function psStopLoop(){
   psDragging = false;
   psBombModeActive = false;
   psDoubleScoreActive = false;
+  psBonusActive = false;
+  psBonusRewardActive = false;
+  if(psAppEl) psAppEl.classList.remove("psBonusRewardBg");
+  if(psBonusOverlayEl) psBonusOverlayEl.classList.remove("show");
 }
 
 function psAttachHandlers(){
@@ -15429,6 +15564,110 @@ function psStopDoubleScore(){
   clearTimeout(psDoubleScoreTimer);
   psDoubleScoreTimer = null;
   if(psAppEl) psAppEl.classList.remove("psDoubleScoreBg");
+}
+
+/* ボーナス正解後の15秒間、得点1.5倍＋背景ピカピカ。転成名詞ボーナス（psActivateDoubleScore）と
+   同じ「タイマーで自動解除」の作りだが、別クラス・別フラグにしてあるので両方同時に走っても
+   （転成名詞2倍×ボーナス1.5倍で）矛盾なく掛け算されるだけになる。 */
+function psActivateBonusReward(){
+  psBonusRewardActive = true;
+  if(psAppEl) psAppEl.classList.add("psBonusRewardBg");
+  clearTimeout(psBonusRewardTimer);
+  psBonusRewardTimer = setTimeout(()=>{
+    psBonusRewardActive = false;
+    if(psAppEl) psAppEl.classList.remove("psBonusRewardBg");
+  }, PS_BONUS_REWARD_TIME_MS);
+}
+function psStopBonusReward(){
+  psBonusRewardActive = false;
+  clearTimeout(psBonusRewardTimer);
+  psBonusRewardTimer = null;
+  if(psAppEl) psAppEl.classList.remove("psBonusRewardBg");
+}
+
+/* ボーナスチャンス問題本体。盤面に残っている（＝今まさに消した葉ではない）通常の葉から
+   1つ選んで、その品詞を10択で当てさせる。アイテムの葉（⏰・🔻）はcatIndex:-1で品詞を
+   持たないので候補から除外する。 */
+function psPickBonusWordCell(){
+  const candidates = [];
+  for(let r=0;r<psRows;r++){
+    for(let c=0;c<psCols;c++){
+      const cell = psBoard[r][c];
+      if(cell && !cell.isItem && cell.word) candidates.push(cell);
+    }
+  }
+  if(!candidates.length) return null;
+  return candidates[Math.floor(Math.random()*candidates.length)];
+}
+function psMaybeStartBonusQuestion(){
+  if(!psPlaying || psBonusActive) return;
+  const cell = psPickBonusWordCell();
+  if(!cell) return;
+  psStartBonusQuestion(cell);
+}
+function psStartBonusQuestion(cell){
+  psBonusActive = true;
+  psPlaying = false;         // 盤面のドラッグ操作を封じる（「時間が止まる」演出の一部）
+  psDragging = false;
+  psClearHighlight();
+  psChain = [];
+  psUpdateLine();
+  clearInterval(psTimerId);  // メインの残り時間タイマーを止める＝本当に時間が止まる
+
+  psBonusCorrectName = PS_CATEGORIES[cell.catIndex].name;
+  psBonusWordEl.textContent = cell.word;
+  psBonusResultEl.className = "psBonusResult";
+  psBonusResultEl.innerHTML = "";
+
+  psBonusChoicesEl.innerHTML = PS_BONUS_POS_CHOICES.map(name=>
+    `<button type="button" class="psBonusChoice">${esc(name)}</button>`
+  ).join("");
+  psBonusChoicesEl.querySelectorAll("button").forEach(btn=>{
+    btn.addEventListener("click", ()=> psAnswerBonusQuestion(btn.textContent));
+  });
+
+  const fill = psBonusTimerFillEl;
+  fill.style.transition = "none";
+  fill.style.transform = "scaleX(1)";
+  void fill.offsetWidth; // 強制リフロー（transition:noneを実際に反映させてからアニメーションを再開させるため）
+  fill.style.transition = `transform ${PS_BONUS_QUESTION_TIME_MS}ms linear`;
+  fill.style.transform = "scaleX(0)";
+
+  psBonusOverlayEl.classList.add("show");
+
+  clearTimeout(psBonusTimerId);
+  psBonusTimerId = setTimeout(()=> psAnswerBonusQuestion(null), PS_BONUS_QUESTION_TIME_MS);
+}
+function psAnswerBonusQuestion(picked){
+  if(!psBonusActive) return;
+  psBonusActive = false;
+  clearTimeout(psBonusTimerId);
+  psBonusTimerId = null;
+  psBonusChoicesEl.querySelectorAll("button").forEach(btn=> btn.disabled = true);
+
+  const correct = picked !== null && picked === psBonusCorrectName;
+  if(correct){
+    psBonusResultEl.className = "psBonusResult ok";
+    psBonusResultEl.innerHTML = `<div class="psBonusMedal">💮</div><div class="psBonusMsg">15秒追加！ボーナスタイム突入！</div>`;
+  } else {
+    psBonusResultEl.className = "psBonusResult ng";
+    psBonusResultEl.innerHTML = `<div class="psBonusMsg">残念！</div>`;
+  }
+
+  setTimeout(()=>{
+    psBonusOverlayEl.classList.remove("show");
+    if(!psPlaying){           // psStopLoop等で途中離脱されていた場合はここで再開させない
+      psPlaying = true;
+      clearInterval(psTimerId);
+      psTimerId = setInterval(psTick, 1000); // 時計が再スタートする
+    }
+    if(correct){
+      psTimeLeft += 15;
+      psTimeValEl.textContent = psTimeLeft;
+      if(psTimeLeft > 10) psTimeValEl.classList.remove("warn");
+      psActivateBonusReward();
+    }
+  }, correct ? PS_BONUS_CORRECT_SHOW_MS : PS_BONUS_WRONG_SHOW_MS);
 }
 
 function psBuildLegend(indices){
@@ -15473,7 +15712,7 @@ function psRandWord(catIndex){
 }
 
 function psRollTile(){
-  if(Math.random() < PS_ITEM_CHANCE){
+  if(!psItemsCapped() && Math.random() < PS_ITEM_CHANCE){
     let type = Math.random() < 0.5 ? "time" : "reduce";
     if(type === "reduce" && psReduceItemOnBoard){
       type = "time";
@@ -15826,7 +16065,10 @@ function psPopChain(){
   const gotTenseiMeishi = psChain.some(c=> !c.isItem && c.word && PS_TENSEI_MEISHI.has(c.word));
   if(gotTenseiMeishi) psActivateDoubleScore();
 
-  const gain = Math.round(n*n*5 * psScoreMult() * (psDoubleScoreActive ? 2 : 1));
+  // 転成名詞ボーナス（×2）とボーナスチャンス問題の正解報酬（×1.5）は独立に発動しうるので、
+  // 両方立っていれば掛け算でそのまま重なる（教員への確認不要な自然な仕様として掛け算にした）。
+  const scoreMultAll = psScoreMult() * (psDoubleScoreActive ? 2 : 1) * (psBonusRewardActive ? PS_BONUS_REWARD_SCORE_MULT : 1);
+  const gain = Math.round(n*n*5 * scoreMultAll);
   psScore += gain;
   if(n > psBestCombo) psBestCombo = n;
   psScoreValEl.textContent = psScore;
@@ -15890,7 +16132,7 @@ function psPopChain(){
       psBoard[cellObj.row][cellObj.col] = null;
       if(cellObj.isItem === "reduce") psReduceItemOnBoard = false;
     });
-    const bombGain = Math.round(bombCells.length * 15 * psScoreMult() * (psDoubleScoreActive ? 2 : 1));
+    const bombGain = Math.round(bombCells.length * 15 * scoreMultAll);
     if(bombGain > 0){
       psScore += bombGain;
       psScoreValEl.textContent = psScore;
@@ -15903,9 +16145,13 @@ function psPopChain(){
   psChain = [];
 
   const popDelay = isBomb ? 420 : (reducedCells.length ? 520 : 220);
+  const rollBonusQuestion = Math.random() < PS_BONUS_QUESTION_CHANCE;
   setTimeout(()=>{
     poppedEls.forEach(el=> el.remove());
     psCollapseAndRefill();
+    // 葉が落ちて盤面が落ち着いてから出題する（消えたばかりの葉が対象に選ばれることはない：
+    // psPickBonusWordCellはpsCollapseAndRefill後のpsBoardを見るので、すでに空のマスは候補に入らない）
+    if(rollBonusQuestion) setTimeout(psMaybeStartBonusQuestion, PS_BONUS_SETTLE_DELAY_MS);
   }, popDelay);
 }
 
@@ -15972,6 +16218,10 @@ function psStartGame(level){
   psBombAlertEl.classList.remove("show");
   psBombAlertEl.textContent = "";
   psStopDoubleScore();
+  psStopBonusReward();
+  psBonusActive = false;
+  if(psBonusTimerId){ clearTimeout(psBonusTimerId); psBonusTimerId = null; }
+  if(psBonusOverlayEl) psBonusOverlayEl.classList.remove("show");
   psReduceItemOnBoard = false;
   psSizeBoard();
   psInitBoard();
@@ -16090,6 +16340,7 @@ function psEndGame(){
   psUpdateLine();
   psStopBombMode();
   psStopDoubleScore();
+  psStopBonusReward();
 
   const st = loadStats();
   if(!st.partsOfSpeechBest) st.partsOfSpeechBest = {};
@@ -16101,9 +16352,7 @@ function psEndGame(){
     st.partsOfSpeechBest[psCurrentLevel] = psScore;
     statsChanged = true;
   }
-  // レベル1-2:1000点ごと 3-4:900点ごと 5-6:800点ごと 7:500点ごとに「品詞」のジャンルレベルが1上がる
-  const PS_GENRE_LV_THRESHOLD = { 1:1000, 2:1000, 3:900, 4:900, 5:800, 6:800, 7:500 };
-  const PS_GENRE_LV_CAP = 20;
+  // PS_GENRE_LV_THRESHOLD・PS_GENRE_LV_CAPは上のほう（psItemsCapped付近）で定義済み
   let genreLvGained = 0, genreTitleUp = false, genreTitleName = "", genreTitleIcon = "";
   if(psScore > 0){
     const threshold = PS_GENRE_LV_THRESHOLD[psCurrentLevel] || 1000;
@@ -16200,6 +16449,17 @@ function psSkeletonHtml(){
 
     <div id="psOverlay">
       <div id="psOverlayCard"></div>
+    </div>
+
+    <div id="psBonusOverlay">
+      <div class="psBonusCard">
+        <div class="psBonusStopTag">⏸ 時間が止まった…</div>
+        <div class="psBonusWord" id="psBonusWord">―</div>
+        <div class="psBonusQText">この単語の品詞は何？</div>
+        <div class="psBonusTimerBar"><i id="psBonusTimerFill"></i></div>
+        <div class="psBonusChoices" id="psBonusChoices"></div>
+        <div class="psBonusResult" id="psBonusResult"></div>
+      </div>
     </div>
   </div>`;
 }
