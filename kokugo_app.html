@@ -2606,7 +2606,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.185</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.186</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -9365,7 +9365,13 @@ function showStats(){
   const st = loadStats();
   const rows = CAT_KEYS.map(k => [k, CATS[k].name]).concat([["dokkai","読解"]]);
   let weakest = null;
-  let html = `<div class="card"><h3 class="section">成績（累計）</h3><table class="stats">
+  /* 「今のことのは（ドラゴン）の状態が記録画面でも見えるようにしてほしい」という要望
+     （2026-08-21〜）を受けて追加。ホーム画面のkotonohaCardHtmlをそのまま流用しているので、
+     見た目・ステータス・転生ボタンまで含めて完全に同じ内容が表示される（二重管理を避けるため
+     複製せず共通関数を呼ぶだけ）。転生すると育て直し（卵からの再スタート）になる仕様上、
+     ここで今の状態を確認したり、下の「記録を書き出す」でファイルに保存しておけたりする。 */
+  let html = kotonohaCardHtml(st);
+  html += `<div class="card"><h3 class="section">成績（累計）</h3><table class="stats">
     <tr><th>分野</th><th>称号</th><th style="text-align:right">Lv</th><th style="text-align:right">解いた数</th><th style="text-align:right">正解</th><th style="width:22%">正答率<br><span style="font-weight:normal">(直近30問)</span></th><th style="width:18%">問題解放率</th></tr>`;
   rows.forEach(([k,label])=>{
     const s = st.cats[k] || {t:0,c:0};
