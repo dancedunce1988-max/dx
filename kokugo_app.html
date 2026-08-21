@@ -2606,7 +2606,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.186</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.187</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -4110,23 +4110,14 @@ function kotonohaImageSrcForStage(line, idx){
 function kotonohaHasPendingEvolveCutscene(st){
   return !!(st.kotonohaRebirth && kotonohaRebirthStageIndex(st) > (st.kotonohaRebirth.seenStage||0));
 }
-/* 一領域特化・二領域特化型でも転生できるようにした変更（2026-08-19〜）に伴う救済処理。
-   それ以前に第9章をクリアして「転生」を解放済み（st.kotonohaRebirthUnlocked）だったのに、
-   その時点の育て方（一領域/二領域特化）が原因で一度も転生できていなかった
-   （st.kotonohaRebirthが未セットのまま）プレイヤーが対象。ホーム画面に戻るたびにチェックし
-   （kotonohaHasPendingEvolveCutsceneと同じ、showHome側のガードパターン）、該当すれば
-   自動的に初回の転生を実行してド派手な演出を出す（教員の指示、2026-08-19〜：「すでに9章を
-   クリアしている人は、自動的に転生イベントが発生されるようにしてほしい」）。転生できるように
-   なった今、kotonohaDoRebirthは必ず成功する（kotonohaEligibleRebirthLines参照）ので、
-   失敗チェックは行わない。 */
-function kotonohaHasPendingBelatedRebirth(st){
-  return !!(st.kotonohaRebirthUnlocked && !st.kotonohaRebirth);
-}
-function kotonohaTriggerBelatedRebirth(st){
-  const fromIcon = kotonohaForm(st).icon;
-  kotonohaDoRebirth(st);
-  kotonohaRebirthFxSequence(st, null, fromIcon, null);
-}
+/* 一領域特化・二領域特化型でも転生できるようにした変更（2026-08-19〜）で、それ以前に
+   第9章をクリアして「転生」を解放済み（st.kotonohaRebirthUnlocked）だったのに一度も
+   転生できていなかったプレイヤー向けに、ホーム画面を開いた瞬間に確認なしで自動的に
+   初回転生を実行する救済処理を一度入れていたが、「今まで育てた成熟体などの見た目が、
+   更新しただけで断りなく卵に戻ってしまう」という教員からの指摘（2026-08-21）を受けて撤去。
+   今は自動発生させず、kotonohaRebirthSectionHtml（st.kotonohaRebirthUnlocked && !st.kotonohaRebirth
+   のときに「🔁 転生する」ボタンを出す）に任せている＝救済対象の生徒も、他の生徒の初回転生と
+   全く同じ「本人がボタンを押すまで待つ」流れになった。 */
 const KOTONOHA_EVOLVE_STEP_MS = 1300;
 const KOTONOHA_EVOLVE_SHAKE_MS = 900;
 const KOTONOHA_EVOLVE_FLASH_MS = 450;
@@ -4803,7 +4794,6 @@ function showHome(){
   psStopLoop(); // 言の葉つなぎを中断して離れたときに、動作中のタイマー・イベントリスナーを止める
   const st = loadStats();
   if(st.pendingDailyLoginStamp){ showDailyLoginStampOverlay(st); return; }
-  if(kotonohaHasPendingBelatedRebirth(st)){ kotonohaTriggerBelatedRebirth(st); return; }
   if(kotonohaHasPendingEvolveCutscene(st)){ showKotonohaEvolveCutscene(st); return; }
   let html = "";
   html += kotonohaCardHtml(st);
