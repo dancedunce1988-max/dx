@@ -2606,7 +2606,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.187</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.188</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -13700,6 +13700,26 @@ function bgSaveRec(){
   st.bunsetsuGiri = BG_REC;
   saveStats(st);
 }
+/* clearCountを持つ巻（三・六・七の巻）は、合格ラインの問数に達したあとも「腕試し」として
+   問題が出続け（count問まで、または力尽きるまで）、段位・次の巻の解放は今までbgShowResult
+   （その回が正式に終わったとき＝力尽きたか、countぶん全部解き終えたとき）でしか保存して
+   いなかった。そのため、合格ラインの20問（七の巻は10問）を正解していても、その後「腕試し」
+   区間の途中でホームに戻る・アプリを閉じるなどして回を最後まで終えなかった場合、その回の
+   結果が一切保存されず、次の巻が開かないことがあった（教員の指摘、2026-08-21〜：「20問以上
+   正解しているのに七の巻が開かないことがある」）。これを防ぐため、合格ラインに達した
+   その瞬間（bgUpdateSentenceのjustCleared）に、最低でも「初伝」の段位と次の巻の解放を
+   その場で確定・保存する。escalate系の巻の最終段位（bgRankOfEscalate）は合格すれば必ず
+   初伝以上になる設計なので、ここで先に初伝を確定させても、あとで回を最後まで終えたときに
+   より良い段位（目録・免許・皆伝）で上書きされる分には何の問題もない（bgShowResult側の
+   「今までより良い段位のときだけ上書き」という既存ロジックがそのまま働く）。 */
+function bgSecureClearUnlock(sid){
+  const wasRank = BG_REC.rank[sid];
+  if(BG_RANK_ORDER["初　伝"] > (wasRank!==undefined ? BG_RANK_ORDER[wasRank] : -1)){
+    BG_REC.rank[sid] = "初　伝";
+  }
+  if(BG_REC.open===sid && sid<BG_STAGES.length){ BG_REC.open = sid+1; }
+  bgSaveRec();
+}
 const BG_BEST = {};
 
 /* ---------- 拍・盤面の寸法 ---------- */
@@ -14274,6 +14294,7 @@ function bgUpdateSentence(){
        クリア。クリアとなる20問以降も、問題は出続けるようにして」）。同じ拍に
        2つの中央バナーが重ならないよう、一刀両断とは排他で出す。 */
     const justCleared = !!(BG.stage.clearCount && !BG.clearAnnounced && (BG.curSentence+1) >= BG.stage.clearCount);
+    if(justCleared) bgSecureClearUnlock(BG.stage.id);
     if(BG.sentenceClean){
       BG.cleanSentences++;
       bgAddScore(300*bgComboMult());
