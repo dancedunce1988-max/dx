@@ -2602,6 +2602,12 @@
   #kzApp .kz-recap-item:last-child{ border-bottom:none; }
   #kzApp .kz-recap-item .kz-badge{ font-size:11px; color:var(--kz-sub); }
 
+  /* 「一レ」「上レ」など合体マークの縦並び2段書き。ktMarkInner()（返り点をつける・読む順タップの
+     両方から呼ばれる共通関数）が出力する共通クラスなので、#ktApp/#yjAppどちらのスコープにも
+     属さない共通ルールにしてある（色に依存しないレイアウトのみなので、スコープごとの独自変数は不要）。 */
+  .mark-stack{ display:flex; flex-direction:column; align-items:center; line-height:.88; }
+  .mark-stack span{ display:block; }
+
   /* ============ 返り点をつける（2026-〜）============
      漢文の白文に、返り点をドラッグ／タップで置く専用ミニゲーム。#ktAppの中だけで完結する
      ように、色・フォントなどは全て--kt-プレフィックスの独自変数にして、アプリ本体の
@@ -2661,8 +2667,6 @@
   }
   #ktApp .kt-slot.filled{ border-style:solid; border-color:var(--kt-shu); background:#fff3ea; }
   #ktApp .kt-slot.combo{ font-size:.54rem; }
-  #ktApp .kt-mark-stack{ display:flex; flex-direction:column; align-items:center; line-height:.88; }
-  #ktApp .kt-mark-stack span{ display:block; }
   #ktApp .kt-slot.target-hover{ border-color:var(--kt-ai); background:#eaf1f8; transform:scale(1.08); }
   #ktApp .kt-slot.ok{ border-color:var(--kt-midori); background:#eef7f0; color:var(--kt-midori); }
   #ktApp .kt-slot.bad{ animation:ktSlotShake .32s ease-out; border-color:var(--kt-shu); background:#fdeceb; }
@@ -2767,8 +2771,6 @@
     font-size:.7rem; font-weight:bold; color:var(--yj-shu); line-height:1;
   }
   #yjApp .yj-mark.combo{ font-size:.54rem; }
-  #yjApp .yj-mark-stack{ display:flex; flex-direction:column; align-items:center; line-height:.88; }
-  #yjApp .yj-mark-stack span{ display:block; }
   #yjApp .yj-row.bad-tap .yj-glyph{ animation:yjGlyphShake .32s ease-out; color:var(--yj-shu); }
   @keyframes yjGlyphShake{
     0%{transform:translateX(0);} 20%{transform:translateX(-5px);} 45%{transform:translateX(4px);}
@@ -17821,8 +17823,14 @@ const KT = {
   correctLocked:[], renderGen:0, shownAt:0,
 };
 
+/* 「一レ」「上レ」など合体マークを縦並び2段書きにする。ktMarkInner()は「返り点をつける」
+   （#ktApp）・「読む順タップ」（#yjApp）の両方から呼ばれる共通関数なので、出力するクラスは
+   どちらのスコープにも属さない共通クラス.mark-stackにする（教員の指摘、2026-08-22：
+   「読む順タップの一レ点や上下点で、一レ・上レが縦並びに表示されていない」。原因は、
+   以前はkt-mark-stackというktApp専用クラス名を出力していたため、#yjApp側ではCSSが
+   一切効かず横並びのまま表示されていたこと）。 */
 function ktMarkInner(v){
-  if(v.length===2) return `<span class="kt-mark-stack"><span>${esc(v[0])}</span><span>${esc(v[1])}</span></span>`;
+  if(v.length===2) return `<span class="mark-stack"><span>${esc(v[0])}</span><span>${esc(v[1])}</span></span>`;
   return esc(v);
 }
 function ktRuby(s){
