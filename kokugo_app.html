@@ -2601,12 +2601,213 @@
   #kzApp .kz-recap-item{ display:flex; justify-content:space-between; font-size:13px; padding:6px 0; border-bottom:1px dashed rgba(255,255,255,.1); }
   #kzApp .kz-recap-item:last-child{ border-bottom:none; }
   #kzApp .kz-recap-item .kz-badge{ font-size:11px; color:var(--kz-sub); }
+
+  /* ============ 返り点をつける（2026-〜）============
+     漢文の白文に、返り点をドラッグ／タップで置く専用ミニゲーム。#ktAppの中だけで完結する
+     ように、色・フォントなどは全て--kt-プレフィックスの独自変数にして、アプリ本体の
+     :root変数とは絶対に衝突しないようにしてある（かなづかい特訓「光る竹」と同じ方針）。
+     ナビゲーション用ボタン（次の問題へ／ホームへ等）はアプリ本体の.btnをそのまま使う。 */
+  #ktApp{
+    --kt-sumi:#22262b; --kt-kinari:#e8e1d2; --kt-maki:#f7f3e9; --kt-card:#fffdf7;
+    --kt-ai:#14395e; --kt-ai-l:#2c5c86; --kt-shu:#c2412c; --kt-kin:#9c7c2a; --kt-midori:#2f7d5b;
+    --kt-sub:#7b7466; --kt-line:#d6cdb9;
+    --kt-mincho:"Yu Mincho","YuMincho","Hiragino Mincho ProN","MS PMincho",serif;
+    font-family:'Hiragino Sans','Yu Gothic',sans-serif; color:var(--kt-sumi);
+    background:var(--kt-kinari); border-radius:14px; padding:14px 12px 18px; margin:10px 0;
+    background-image:
+      repeating-linear-gradient(58deg, rgba(140,125,95,.035) 0 1px, transparent 1px 4px),
+      repeating-linear-gradient(-32deg, rgba(140,125,95,.025) 0 1px, transparent 1px 6px);
+  }
+  #ktApp .kt-hud{ display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+  #ktApp .kt-title{ font-family:var(--kt-mincho); font-size:1.05rem; letter-spacing:.24em; font-weight:600; color:var(--kt-ai); margin-right:auto; }
+  #ktApp .kt-prog{ font-size:.72rem; color:var(--kt-sub); letter-spacing:.06em; }
+  #ktApp .kt-progress{ height:3px; background:var(--kt-line); border-radius:2px; margin-bottom:10px; overflow:hidden; }
+  #ktApp .kt-progress i{ display:block; height:100%; background:var(--kt-ai); transition:width .35s cubic-bezier(.2,.9,.3,1); }
+  #ktApp .kt-card{ background:var(--kt-card); border:1px solid var(--kt-line); border-radius:12px; padding:14px 16px; margin-bottom:12px; }
+  #ktApp .kt-lv-badge{ display:inline-block; font-size:.68rem; letter-spacing:.08em; color:#fff; background:var(--kt-ai-l); border-radius:99px; padding:2px 10px; margin-bottom:8px; font-weight:600; }
+  #ktApp .kt-instr{ font-size:.86rem; line-height:1.6; }
+  #ktApp .kt-instr b{ color:var(--kt-shu); }
+  #ktApp .kt-help{ font-size:.72rem; color:var(--kt-sub); line-height:1.6; margin-top:8px; border-top:1px dashed var(--kt-line); padding-top:8px; }
+  #ktApp .kt-help-btn{ margin-top:8px; font-size:.7rem; padding:6px 12px; background:transparent; color:var(--kt-ai); border:1.5px solid var(--kt-ai-l); border-radius:8px; cursor:pointer; }
+  #ktApp .kt-stage{ display:flex; justify-content:center; padding:10px 4px; }
+  #ktApp .kt-stage-row{ display:flex; flex-direction:row; align-items:flex-start; gap:14px; }
+  #ktApp .kt-actions-mid{ display:flex; flex-direction:column; justify-content:center; align-self:stretch; gap:8px; }
+  #ktApp .kt-actions-mid .btn{ padding:14px 8px; font-size:.78rem; letter-spacing:.15em; writing-mode:vertical-rl; text-orientation:upright; margin-top:0; min-width:auto; }
+  #ktApp .kt-box{
+    font-family:var(--kt-mincho); background:var(--kt-card); border:1px solid var(--kt-line); border-radius:10px;
+    padding:16px 30px 26px 30px; display:inline-flex; flex-direction:column; align-items:flex-end; gap:30px;
+  }
+  #ktApp .kt-row{ display:flex; flex-direction:row-reverse; align-items:flex-end; gap:3px; position:relative; padding:4px 2px; border-radius:8px; transition:background .12s; }
+  #ktApp .kt-row.row-hover{ background:rgba(44,92,134,.1); }
+  #ktApp .kt-glyph{ position:relative; font-size:1.9rem; line-height:1; width:2.1rem; height:2.1rem; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  /* 読み仮名(.kt-ok)・送り仮名(.kt-okuri)の置き場所。文字(kt-glyph)と同じ高さぶんを確保した
+     専用のflexコンテナ(.kt-anno)を右横に置き、中でflexboxに配置を任せる（返り点タッチの
+     試作で「bottom:0の絶対配置は文字数が多いと右下に収まって見えない」と分かったための
+     改良版。教員の指摘、2026-08-22で本体側にも反映）。 */
+  #ktApp .kt-anno{ position:absolute; left:100%; top:0; bottom:0; margin-left:3px; display:flex; flex-direction:column; align-items:center; }
+  #ktApp .kt-ok{ writing-mode:vertical-rl; text-orientation:upright; font-family:'Hiragino Sans','Yu Gothic',sans-serif; font-weight:700; font-size:.6rem; color:var(--kt-sub); letter-spacing:0; line-height:1; white-space:nowrap; }
+  /* 送り仮名(okuri)が無く、読み仮名(ok)だけの字は、そのままだと一番上に張り付いてしまう
+     （okuriのmargin-top:autoが無いため）。ひとりっ子のときだけ上下autoで縦の中央＝字の真横に
+     くるようにする（教員の指摘、2026-08-22：「不」の「ず」の位置が上過ぎる）。 */
+  #ktApp .kt-anno .kt-ok:only-child{ margin-top:auto; margin-bottom:auto; }
+  #ktApp .kt-okuri{ writing-mode:vertical-rl; text-orientation:upright; font-family:'Hiragino Sans','Yu Gothic',sans-serif; font-weight:700; font-size:.6rem; color:var(--kt-sub); letter-spacing:0; line-height:1; white-space:nowrap; margin-top:auto; }
+  #ktApp .kt-okuri.long{ font-size:.46rem; }
+  #ktApp .kt-slot{
+    width:25px; height:25px; flex-shrink:0; position:relative; top:25px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:.7rem; font-weight:bold; color:var(--kt-shu); line-height:1;
+    border-radius:5px; border:1.5px dashed rgba(123,116,102,.5); background:rgba(255,255,255,.65);
+    transition:background .15s, border-color .15s, transform .12s;
+  }
+  #ktApp .kt-slot.filled{ border-style:solid; border-color:var(--kt-shu); background:#fff3ea; }
+  #ktApp .kt-slot.combo{ font-size:.54rem; }
+  #ktApp .kt-mark-stack{ display:flex; flex-direction:column; align-items:center; line-height:.88; }
+  #ktApp .kt-mark-stack span{ display:block; }
+  #ktApp .kt-slot.target-hover{ border-color:var(--kt-ai); background:#eaf1f8; transform:scale(1.08); }
+  #ktApp .kt-slot.ok{ border-color:var(--kt-midori); background:#eef7f0; color:var(--kt-midori); }
+  #ktApp .kt-slot.bad{ animation:ktSlotShake .32s ease-out; border-color:var(--kt-shu); background:#fdeceb; }
+  #ktApp .kt-slot.missing{ border-color:var(--kt-kin); background:#fbf3df; }
+  @keyframes ktSlotShake{
+    0%{transform:translateX(0);} 20%{transform:translateX(-6px);} 45%{transform:translateX(5px);}
+    70%{transform:translateX(-3px);} 100%{transform:translateX(0);}
+  }
+  #ktApp .kt-order-badge{
+    position:absolute; right:-8px; top:-8px; font-family:'Hiragino Sans','Yu Gothic',sans-serif; font-size:.66rem; font-weight:700;
+    color:#fff; background:var(--kt-ai); border-radius:50%; width:19px; height:19px;
+    display:flex; align-items:center; justify-content:center; opacity:0; transform:scale(.4);
+    transition:opacity .25s, transform .25s;
+  }
+  #ktApp .kt-order-badge.show{ opacity:1; transform:scale(1); }
+  #ktApp .kt-kudashi{
+    display:flex; flex-direction:column; align-items:center;
+    background:var(--kt-maki); border:1.5px solid var(--kt-ai-l); border-radius:10px;
+    padding:10px 10px 14px; transition:background .3s, border-color .3s;
+  }
+  #ktApp .kt-kudashi-label{ font-size:.62rem; color:var(--kt-ai); letter-spacing:.1em; font-weight:700; margin-bottom:6px; }
+  #ktApp .kt-kudashi-text{ writing-mode:vertical-rl; text-orientation:mixed; font-family:var(--kt-mincho); font-size:1rem; letter-spacing:.1em; color:var(--kt-sumi); line-height:1.9; max-height:250px; }
+  #ktApp .kt-kudashi-text ruby rt{ font-size:.5em; color:var(--kt-sub); letter-spacing:0; }
+  #ktApp .kt-kudashi.solved{ background:#eef7f0; border-color:var(--kt-midori); }
+  #ktApp .kt-kudashi.solved .kt-kudashi-label{ color:var(--kt-midori); }
+  #ktApp .kt-msg{ text-align:center; font-size:.8rem; min-height:1.2em; color:var(--kt-sub); letter-spacing:.04em; margin-top:10px; }
+  #ktApp .kt-msg.good{ color:var(--kt-midori); font-weight:700; }
+  #ktApp .kt-msg.bad{ color:var(--kt-shu); font-weight:700; }
+  #ktApp .kt-stars{ text-align:center; font-size:1.2rem; letter-spacing:.15em; min-height:1.5em; }
+  #ktApp .kt-stars span{ opacity:.25; transition:opacity .2s, transform .2s; }
+  #ktApp .kt-stars span.on{ opacity:1; transform:scale(1.15); }
+  #ktApp .kt-tray-label{ font-size:.66rem; color:var(--kt-sub); letter-spacing:.08em; margin:10px 0 6px; text-align:center; }
+  #ktApp .kt-tray{ display:flex; gap:9px; justify-content:center; flex-wrap:wrap; background:var(--kt-maki); border:1px solid var(--kt-line); border-radius:12px; padding:11px; min-height:58px; }
+  #ktApp .kt-chip{
+    font-family:var(--kt-mincho); font-size:1.15rem; font-weight:700; color:var(--kt-shu);
+    background:#fff; border:1.5px solid var(--kt-shu); border-radius:8px; width:48px; height:48px;
+    display:flex; align-items:center; justify-content:center; cursor:grab; touch-action:none;
+    box-shadow:0 2px 0 rgba(194,65,44,.18); transition:transform .12s, box-shadow .12s, opacity .15s;
+    writing-mode:vertical-rl; text-orientation:upright; letter-spacing:0;
+  }
+  #ktApp .kt-chip:active{ cursor:grabbing; }
+  #ktApp .kt-chip.selected{ outline:3px solid var(--kt-ai-l); outline-offset:2px; transform:translateY(-2px); }
+  #ktApp .kt-chip.dragging{ opacity:.25; }
+  #ktApp .kt-chip.ghost{ position:fixed; z-index:999; pointer-events:none; box-shadow:0 6px 14px rgba(0,0,0,.22); transform:scale(1.06) rotate(-3deg); }
+  #ktApp .kt-done{ text-align:center; padding:30px 16px; }
+  #ktApp .kt-done .kt-big{ font-family:var(--kt-mincho); font-size:1.3rem; color:var(--kt-ai); letter-spacing:.15em; margin-bottom:10px; }
+  #ktApp .kt-done .kt-stat{ font-size:.84rem; color:var(--kt-sub); margin-bottom:18px; }
+  @media (max-width:360px){ #ktApp .kt-box{ padding:14px 22px 20px 22px; } #ktApp .kt-chip{ width:44px; height:44px; font-size:1.05rem; } }
+
+  /* ============ 読む順タップ（2026-〜）============
+     「返り点をつける」（#ktApp）の対になる問題。あちらは白文に返り点を置く問題、
+     こちらは返り点がすでに付いている白文を見て、読む順に字をタップする問題
+     （教員の提案、2026-08-22：案A「順番タップ」）。問題データはKT_PROBLEMSをそのまま
+     流用する（chars/order/kudashi/noteの形が完全に一致するため）。
+     ドラッグ操作は無いのでトレイやチップは無く、代わりに返り点は最初から読み取り専用で
+     表示する（.yj-mark。位置はktの.kt-slotと同じ「文字の左下」＝row-reverse＋flex-end＋
+     top:25pxのオフセットを踏襲。教員の指示：「返り点は漢字の左下につくものだから、
+     返り点の位置をしっかり確認して作成すること」）。
+     書き下し文は正解するまで隠す（先に見せると読む順の答えになってしまうため。
+     返り点をつける側とは逆の設計判断）。 */
+  #yjApp{
+    --yj-sumi:#22262b; --yj-kinari:#e8e1d2; --yj-maki:#f7f3e9; --yj-card:#fffdf7;
+    --yj-ai:#14395e; --yj-ai-l:#2c5c86; --yj-shu:#c2412c; --yj-kin:#9c7c2a; --yj-midori:#2f7d5b;
+    --yj-sub:#7b7466; --yj-line:#d6cdb9;
+    --yj-mincho:"Yu Mincho","YuMincho","Hiragino Mincho ProN","MS PMincho",serif;
+    font-family:'Hiragino Sans','Yu Gothic',sans-serif; color:var(--yj-sumi);
+    background:var(--yj-kinari); border-radius:14px; padding:14px 12px 18px; margin:10px 0;
+    background-image:
+      repeating-linear-gradient(58deg, rgba(140,125,95,.035) 0 1px, transparent 1px 4px),
+      repeating-linear-gradient(-32deg, rgba(140,125,95,.025) 0 1px, transparent 1px 6px);
+  }
+  #yjApp .yj-hud{ display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+  #yjApp .yj-title{ font-family:var(--yj-mincho); font-size:1.05rem; letter-spacing:.24em; font-weight:600; color:var(--yj-ai); margin-right:auto; }
+  #yjApp .yj-prog{ font-size:.72rem; color:var(--yj-sub); letter-spacing:.06em; }
+  #yjApp .yj-progress{ height:3px; background:var(--yj-line); border-radius:2px; margin-bottom:10px; overflow:hidden; }
+  #yjApp .yj-progress i{ display:block; height:100%; background:var(--yj-ai); transition:width .35s cubic-bezier(.2,.9,.3,1); }
+  #yjApp .yj-card{ background:var(--yj-card); border:1px solid var(--yj-line); border-radius:12px; padding:14px 16px; margin-bottom:12px; }
+  #yjApp .yj-lv-badge{ display:inline-block; font-size:.68rem; letter-spacing:.08em; color:#fff; background:var(--yj-ai-l); border-radius:99px; padding:2px 10px; margin-bottom:8px; font-weight:600; }
+  #yjApp .yj-instr{ font-size:.86rem; line-height:1.6; }
+  #yjApp .yj-instr b{ color:var(--yj-shu); }
+  #yjApp .yj-help{ font-size:.72rem; color:var(--yj-sub); line-height:1.6; margin-top:8px; border-top:1px dashed var(--yj-line); padding-top:8px; }
+  #yjApp .yj-help-btn{ margin-top:8px; font-size:.7rem; padding:6px 12px; background:transparent; color:var(--yj-ai); border:1.5px solid var(--yj-ai-l); border-radius:8px; cursor:pointer; }
+  #yjApp .yj-stage{ display:flex; justify-content:center; padding:14px 4px 4px; }
+  #yjApp .yj-box{
+    font-family:var(--yj-mincho); background:var(--yj-card); border:1px solid var(--yj-line); border-radius:10px;
+    padding:16px 30px 22px 30px; display:inline-flex; flex-direction:column; align-items:flex-end; gap:14px;
+  }
+  #yjApp .yj-row{ display:flex; flex-direction:row-reverse; align-items:flex-end; gap:5px; position:relative; padding:5px 3px; border-radius:8px; transition:background .12s; cursor:pointer; }
+  #yjApp .yj-row.row-hover, #yjApp .yj-row:active{ background:rgba(44,92,134,.1); }
+  #yjApp .yj-row.done{ cursor:default; }
+  #yjApp .yj-row.done .yj-glyph{ color:var(--yj-midori); }
+  #yjApp .yj-glyph{ position:relative; font-size:1.9rem; line-height:1; width:2.1rem; height:2.1rem; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:color .15s; }
+  #yjApp .yj-anno{ position:absolute; left:100%; top:0; bottom:0; margin-left:3px; display:flex; flex-direction:column; align-items:center; }
+  #yjApp .yj-ok{ writing-mode:vertical-rl; text-orientation:upright; font-family:'Hiragino Sans','Yu Gothic',sans-serif; font-weight:700; font-size:.6rem; color:var(--yj-sub); letter-spacing:0; line-height:1; white-space:nowrap; }
+  #yjApp .yj-anno .yj-ok:only-child{ margin-top:auto; margin-bottom:auto; }
+  #yjApp .yj-okuri{ writing-mode:vertical-rl; text-orientation:upright; font-family:'Hiragino Sans','Yu Gothic',sans-serif; font-weight:700; font-size:.6rem; color:var(--yj-sub); letter-spacing:0; line-height:1; white-space:nowrap; margin-top:auto; }
+  #yjApp .yj-okuri.long{ font-size:.46rem; }
+  /* 返り点（読み取り専用）：ktの.kt-slotと同じ「文字の左下」の位置・大きさに、
+     押せない表示として出す（マス枠は無し）。マスが無い字も同じ幅を確保して字がまっすぐ並ぶ。 */
+  #yjApp .yj-mark{
+    width:25px; height:25px; flex-shrink:0; position:relative; top:25px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:.7rem; font-weight:bold; color:var(--yj-shu); line-height:1;
+  }
+  #yjApp .yj-mark.combo{ font-size:.54rem; }
+  #yjApp .yj-mark-stack{ display:flex; flex-direction:column; align-items:center; line-height:.88; }
+  #yjApp .yj-mark-stack span{ display:block; }
+  #yjApp .yj-row.bad-tap .yj-glyph{ animation:yjGlyphShake .32s ease-out; color:var(--yj-shu); }
+  @keyframes yjGlyphShake{
+    0%{transform:translateX(0);} 20%{transform:translateX(-5px);} 45%{transform:translateX(4px);}
+    70%{transform:translateX(-2px);} 100%{transform:translateX(0);}
+  }
+  #yjApp .yj-order-badge{
+    position:absolute; right:-8px; top:-8px; font-family:'Hiragino Sans','Yu Gothic',sans-serif; font-size:.66rem; font-weight:700;
+    color:#fff; background:var(--yj-ai); border-radius:50%; width:19px; height:19px;
+    display:flex; align-items:center; justify-content:center; opacity:0; transform:scale(.4);
+    transition:opacity .18s, transform .18s;
+  }
+  #yjApp .yj-order-badge.show{ opacity:1; transform:scale(1); background:var(--yj-midori); }
+  #yjApp .yj-progress-text{ text-align:center; font-size:.78rem; color:var(--yj-ai); font-weight:700; letter-spacing:.04em; min-height:1.2em; margin-top:6px; }
+  #yjApp .yj-kudashi{
+    width:100%; text-align:center; background:var(--yj-maki); border:1.5px solid var(--yj-midori);
+    border-radius:10px; padding:12px 16px; margin-top:12px; opacity:0; transform:translateY(6px);
+    transition:opacity .35s, transform .35s; display:none;
+  }
+  #yjApp .yj-kudashi.show{ opacity:1; transform:translateY(0); }
+  #yjApp .yj-kudashi-label{ font-size:.62rem; color:var(--yj-midori); letter-spacing:.1em; font-weight:700; margin-bottom:4px; }
+  #yjApp .yj-kudashi-text{ font-family:var(--yj-mincho); font-size:1.1rem; letter-spacing:.06em; color:var(--yj-sumi); line-height:1.7; }
+  #yjApp .yj-kudashi-text ruby rt{ font-size:.5em; color:var(--yj-sub); letter-spacing:0; }
+  #yjApp .yj-msg{ text-align:center; font-size:.8rem; min-height:1.2em; color:var(--yj-sub); letter-spacing:.04em; margin-top:10px; }
+  #yjApp .yj-msg.good{ color:var(--yj-midori); font-weight:700; }
+  #yjApp .yj-msg.bad{ color:var(--yj-shu); font-weight:700; }
+  #yjApp .yj-stars{ text-align:center; font-size:1.2rem; letter-spacing:.15em; min-height:1.5em; }
+  #yjApp .yj-stars span{ opacity:.25; transition:opacity .2s, transform .2s; }
+  #yjApp .yj-stars span.on{ opacity:1; transform:scale(1.15); }
+  #yjApp .yj-done{ text-align:center; padding:30px 16px; }
+  #yjApp .yj-done .yj-big{ font-family:var(--yj-mincho); font-size:1.3rem; color:var(--yj-ai); letter-spacing:.15em; margin-bottom:10px; }
+  #yjApp .yj-done .yj-stat{ font-size:.84rem; color:var(--yj-sub); margin-bottom:18px; }
+  @media (max-width:360px){ #yjApp .yj-box{ padding:14px 22px 18px 22px; } }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.188</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver8.190</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -2789,7 +2990,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 43;
+const SAVE_FORMAT_VERSION = 45;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -2805,6 +3006,7 @@ function emptyStats(){
     kanjiWrite:{totalOk:0, itemHist:{}, levelRecent:{}},
     kanjiWriteElem:{totalOk:0, itemHist:{}, targetLv:1, recent:[]},
     hyakunin:{totalOk:0, itemHist:{}, targetLv:1, recent:[]},
+    ktSolved:[],
     dailyLogin:{lastDate:null, cycleDay:0, totalLoginDays:0}, pendingDailyLoginStamp:null,
     notLearnedCats:{},
     story:{chapter:"ch1", beatIdx:0, flags:{}, completedChapters:[], judgedRunCorrect:0, judgedRunTotal:0, judgedBest:{}, comboBest:{}}};
@@ -2912,6 +3114,7 @@ function loadStats(){
         if(typeof st.kanjiWriteElem.targetLv !== "number") st.kanjiWriteElem.targetLv = 1;
         if(!st.hyakunin) st.hyakunin = {totalOk:0, itemHist:{}, targetLv:1, recent:[]};
         if(!st.hyakunin.itemHist) st.hyakunin.itemHist = {};
+        if(!Array.isArray(st.ktSolved)) st.ktSolved = [];
         if(!Array.isArray(st.hyakunin.recent)) st.hyakunin.recent = [];
         if(typeof st.hyakunin.totalOk !== "number") st.hyakunin.totalOk = 0;
         if(typeof st.hyakunin.targetLv !== "number") st.hyakunin.targetLv = 1;
@@ -4820,6 +5023,20 @@ function showHome(){
         </div>
       </div>`;
     });
+    if(g.name === "古典・表現"){
+      const ktT = titleOf(st.lv.kanbun);
+      html += `
+      <div class="card menu-card" onclick="ktShowMenu()">
+        <div class="menu-icon">🖌️</div>
+        <div><h2>返り点をつける</h2><p>漢文の白文に、返り点をドラッグ（またはタップ）で置く特訓。8問ずつ解禁されます。正解すると「漢文」のレベルが上がります</p></div>
+        <div class="right"><span class="shogo-badge ${ktT.hidden?"top":""}">${ktT.icon} ${esc(ktT.name)} Lv.${st.lv.kanbun}</span></div>
+      </div>
+      <div class="card menu-card" onclick="yjShowMenu()">
+        <div class="menu-icon">👆</div>
+        <div><h2>読む順タップ</h2><p>返り点がすでに付いている白文を見て、読む順に字をタップする特訓。8問ずつ解禁されます。正解すると「漢文」のレベルが上がります</p></div>
+        <div class="right"><span class="shogo-badge ${ktT.hidden?"top":""}">${ktT.icon} ${esc(ktT.name)} Lv.${st.lv.kanbun}</span></div>
+      </div>`;
+    }
   });
   const weak = weakItems();
   const dt = titleOf(st.lv.dokkai);
@@ -17250,6 +17467,963 @@ function kzShowResults(){
     ${hasNext ? `<button class="btn" onclick="kzStart(${KZ.idx+1})">つぎの文へ</button>` : ``}
     <button class="btn secondary" onclick="showHome()">ホームへ</button>
   </div>`;
+}
+
+/* ============ 返り点をつける（2026-〜）============
+   漢文の白文に、返り点をドラッグ／タップで置く専用ミニゲーム。
+   問題データ・判定ロジックは 知識ドリルDX/漢文返り点ドラッグ/kaeriten_drag.html で
+   教員確認済みの内容をそのまま移植した（9問、レ点〜上下点〜総合）。
+   1問を最後まで正しく置けたら record("kanbun", ...) を呼び、既存の漢文4択（272問）と
+   同じ st.lv.kanbun（レベル・経験値・称号）を共有する。ペースが速い/遅いミニゲーム特有の
+   結果を通常クイズの「直近正答率」に混ぜない既存方針（baseball/comboビート等と同じ）に
+   ならい、record()には{skipRecentAcc:true}を渡す。 */
+const KT_BASELINE_MARKS = ["レ","一","二"];
+const KT_COMBINABLE_WITH_RE = ["一","二","三","上","下"];
+const KT_PROBLEMS = [
+  { lv:"れんしゅう１　レ点（読書）", white:"読書",
+    chars:[{ch:"読",mark:"レ",okuri:"ム"},{ch:"書",okuri:"ヲ"}],
+    order:[1,0], kudashi:"書を読む",
+    note:"レ点は、すぐ下の一字を先に読んでから、レ点のついた字にもどって読む印。"
+  },
+  { lv:"れんしゅう２　レ点（見山）", white:"見山",
+    chars:[{ch:"見",mark:"レ",okuri:"ル"},{ch:"山",okuri:"ヲ"}],
+    order:[1,0], kudashi:"山を見る",
+    note:"レ点は、すぐ下の一字を先に読んでから、レ点のついた字にもどって読む印。"
+  },
+  { lv:"れんしゅう３　レ点（愛人）", white:"愛人",
+    chars:[{ch:"愛",mark:"レ",okuri:"ス"},{ch:"人",okuri:"ヲ"}],
+    order:[1,0], kudashi:"人を愛す",
+    note:"レ点は、すぐ下の一字を先に読んでから、レ点のついた字にもどって読む印。"
+  },
+  { lv:"れんしゅう４　レ点（好学）", white:"好学",
+    chars:[{ch:"好",mark:"レ",okuri:"ム"},{ch:"学",okuri:"ヲ"}],
+    order:[1,0], kudashi:"学を好む",
+    note:"レ点は、すぐ下の一字を先に読んでから、レ点のついた字にもどって読む印。"
+  },
+  { lv:"れんしゅう５　レ点（聞声）", white:"聞声",
+    chars:[{ch:"聞",mark:"レ",okuri:"ク"},{ch:"声",okuri:"ヲ"}],
+    order:[1,0], kudashi:"声を聞く",
+    note:"レ点は、すぐ下の一字を先に読んでから、レ点のついた字にもどって読む印。"
+  },
+  { lv:"れんしゅう６　レ点（帰家）", white:"帰家",
+    chars:[{ch:"帰",mark:"レ",okuri:"ル"},{ch:"家",okuri:"ニ"}],
+    order:[1,0], kudashi:"家に帰る",
+    note:"レ点は、すぐ下の一字を先に読んでから、レ点のついた字にもどって読む印。"
+  },
+  { lv:"れんしゅう７　レ点（光陰如矢）", white:"光陰如矢",
+    chars:[{ch:"光"},{ch:"陰"},{ch:"如",mark:"レ",ok:"ごと",okuri:"シ"},{ch:"矢",okuri:"ノ"}],
+    order:[0,1,3,2], kudashi:"光陰(こういん)矢(や)の如(ごと)し",
+    note:"レ点は、すぐ下（あと）の一字を先に読んでから、レ点のついた字にもどって読む印。"
+  },
+  { lv:"れんしゅう８　レ点（学而時習之）", white:"学而時習之",
+    chars:[{ch:"学",okuri:"ビテ"},{ch:"而",oki:true},{ch:"時",okuri:"ニ"},{ch:"習",mark:"レ",okuri:"ウ"},{ch:"之",ok:"これ",okuri:"ヲ"}],
+    order:[0,2,4,3], kudashi:"学びて時に之(これ)を習う",
+    note:"「而」は置き字。学びて→時に→之を→習う、の順に読む。"
+  },
+  { lv:"れんしゅう９　レ点（光陰可惜）", white:"光陰可惜",
+    chars:[{ch:"光"},{ch:"陰"},{ch:"可",mark:"レ",ok:"べ",okuri:"シ"},{ch:"惜",okuri:"シム"}],
+    order:[0,1,3,2], kudashi:"光陰惜しむべし",
+    note:"「可」はレ点のついた字。すぐ下の「惜」を先に読んでから「可（べし）」にもどる。"
+  },
+  { lv:"れんしゅう10　レ点（過猶不及）", white:"過猶不及",
+    chars:[{ch:"過",okuri:"ギタルハ"},{ch:"猶",ok:"なお"},{ch:"不",mark:"レ",ok:"ざ",okuri:"ルガゴトシ"},{ch:"及",okuri:"バ"}],
+    order:[0,1,3,2], kudashi:"過ぎたるは猶(なお)及ばざるがごとし",
+    note:"「猶…ごとし」は決まった言い回し。「不」はレ点で「及」の後にもどって読む。"
+  },
+  { lv:"れんしゅう11　レ点（温故知新）", white:"温故知新",
+    chars:[{ch:"温",mark:"レ",okuri:"メテ"},{ch:"故",okuri:"キヲ"},{ch:"知",mark:"レ",okuri:"ル"},{ch:"新",okuri:"シキヲ"}],
+    order:[1,0,3,2], kudashi:"故(ふる)きを温(あたた)めて新(あたら)しきを知(し)る",
+    note:"レ点は１字ずつのペアで働く。二か所に付いていても、それぞれ別々に「すぐ下→もどる」を行う。"
+  },
+  { lv:"れんしゅう12　レ点が２つ連続（光陰不待人）", white:"光陰不待人",
+    chars:[{ch:"光"},{ch:"陰"},{ch:"不",mark:"レ",ok:"ず"},{ch:"待",mark:"レ",okuri:"タ"},{ch:"人",okuri:"ヲ"}],
+    order:[0,1,4,3,2], kudashi:"光陰人を待たず",
+    note:"レ点が２つ連続するときは、いちばん下（あと）の字から順にもどっていく。"
+  },
+  { lv:"れんしゅう13　レ点（過而不改）", white:"過而不改",
+    chars:[{ch:"過",okuri:"チテ"},{ch:"而",oki:true},{ch:"不",mark:"レ",ok:"ず"},{ch:"改",okuri:"メ"}],
+    order:[0,3,2], kudashi:"過ちて改めず",
+    note:"「而」は置き字。「不」はレ点で「改」の後にもどって読む。"
+  },
+  { lv:"れんしゅう14　レ点が２つ連続（人不知己）", white:"人不知己",
+    chars:[{ch:"人"},{ch:"不",mark:"レ",ok:"ず"},{ch:"知",mark:"レ",okuri:"ラ"},{ch:"己",okuri:"ヲ"}],
+    order:[0,3,2,1], kudashi:"人己を知らず",
+    note:"レ点が２つ連続するときは、いちばん下（あと）の字から順にもどっていく。"
+  },
+  { lv:"れんしゅう15　レ点（光陰不可失）", white:"光陰不可失",
+    chars:[{ch:"光"},{ch:"陰"},{ch:"不",mark:"レ",ok:"ず"},{ch:"可",mark:"レ",ok:"べ",okuri:"カラ"},{ch:"失",okuri:"ウ"}],
+    order:[0,1,4,3,2], kudashi:"光陰(こういん)失(うしな)うべからず",
+    note:"レ点が２つ連続するときは、いちばん下（あと）の字から順にもどっていく。"
+  },
+  { lv:"れんしゅう16　レ点が２つ連続（心不可忘）", white:"心不可忘",
+    chars:[{ch:"心"},{ch:"不",mark:"レ",ok:"ず"},{ch:"可",mark:"レ",ok:"べ",okuri:"カラ"},{ch:"忘",okuri:"ル"}],
+    order:[0,3,2,1], kudashi:"心忘るべからず",
+    note:"レ点が２つ連続するときは、いちばん下（あと）の字から順にもどっていく。"
+  },
+  { lv:"れんしゅう17　レ点が２つ連続（言不可信）", white:"言不可信",
+    chars:[{ch:"言"},{ch:"不",mark:"レ",ok:"ず"},{ch:"可",mark:"レ",ok:"べ",okuri:"カラ"},{ch:"信",okuri:"ズ"}],
+    order:[0,3,2,1], kudashi:"言信ずべからず",
+    note:"レ点が２つ連続するときは、いちばん下（あと）の字から順にもどっていく。"
+  },
+  { lv:"れんしゅう18　一二点（登富士山）", white:"登富士山",
+    chars:[{ch:"登",mark:"二",okuri:"ル"},{ch:"富"},{ch:"士"},{ch:"山",mark:"一",okuri:"ニ"}],
+    order:[1,2,3,0], kudashi:"富士山に登る",
+    note:"一二点は、２字以上とばして返るときに使う。「一」の字まで読んでから「二」の字にもどる。"
+  },
+  { lv:"れんしゅう19　一二点（読漢書）", white:"読漢書",
+    chars:[{ch:"読",mark:"二",okuri:"ム"},{ch:"漢"},{ch:"書",mark:"一",okuri:"ヲ"}],
+    order:[1,2,0], kudashi:"漢書を読む",
+    note:"一二点は、２字以上とばして返るときに使う。「一」の字まで読んでから「二」の字にもどる。"
+  },
+  { lv:"れんしゅう20　一二点（愛国土）", white:"愛国土",
+    chars:[{ch:"愛",mark:"二",okuri:"ス"},{ch:"国"},{ch:"土",mark:"一",okuri:"ヲ"}],
+    order:[1,2,0], kudashi:"国土を愛す",
+    note:"一二点は、２字以上とばして返るときに使う。「一」の字まで読んでから「二」の字にもどる。"
+  },
+  { lv:"れんしゅう21　一二点（見故郷）", white:"見故郷",
+    chars:[{ch:"見",mark:"二",okuri:"ル"},{ch:"故"},{ch:"郷",mark:"一",okuri:"ヲ"}],
+    order:[1,2,0], kudashi:"故郷を見る",
+    note:"一二点は、２字以上とばして返るときに使う。「一」の字まで読んでから「二」の字にもどる。"
+  },
+  { lv:"れんしゅう22　一二点（学漢文）", white:"学漢文",
+    chars:[{ch:"学",mark:"二",okuri:"ブ"},{ch:"漢"},{ch:"文",mark:"一",okuri:"ヲ"}],
+    order:[1,2,0], kudashi:"漢文を学ぶ",
+    note:"一二点は、２字以上とばして返るときに使う。「一」の字まで読んでから「二」の字にもどる。"
+  },
+  { lv:"れんしゅう23　一二点（疑心生暗鬼）", white:"疑心生暗鬼",
+    chars:[{ch:"疑"},{ch:"心"},{ch:"生",mark:"二",okuri:"ズ"},{ch:"暗"},{ch:"鬼",mark:"一",okuri:"ヲ"}],
+    order:[0,1,3,4,2], kudashi:"疑心(ぎしん)暗鬼(あんき)を生(しょう)ず",
+    note:"一二点は、２字以上とばして返るときに使う。「一」の字まで読んでから「二」の字にもどる。"
+  },
+  { lv:"れんしゅう24　一二点（児読古文）", white:"児読古文",
+    chars:[{ch:"児"},{ch:"読",mark:"二",okuri:"ム"},{ch:"古"},{ch:"文",mark:"一",okuri:"ヲ"}],
+    order:[0,2,3,1], kudashi:"児古文を読む",
+    note:"一二点は、２字以上とばして返るときに使う。「一」の字まで読んでから「二」の字にもどる。"
+  },
+  { lv:"れんしゅう25　一二点（我聞其声）", white:"我聞其声",
+    chars:[{ch:"我"},{ch:"聞",mark:"二",okuri:"ク"},{ch:"其",okuri:"ノ"},{ch:"声",mark:"一",okuri:"ヲ"}],
+    order:[0,2,3,1], kudashi:"我其の声を聞く",
+    note:"一二点は、２字以上とばして返るときに使う。「一」の字まで読んでから「二」の字にもどる。"
+  },
+  { lv:"れんしゅう26　一二点（民信其上）", white:"民信其上",
+    chars:[{ch:"民"},{ch:"信",mark:"二",okuri:"ズ"},{ch:"其",okuri:"ノ"},{ch:"上",mark:"一",okuri:"ヲ"}],
+    order:[0,2,3,1], kudashi:"民其の上を信ず",
+    note:"一二点は、２字以上とばして返るときに使う。「一」の字まで読んでから「二」の字にもどる。"
+  },
+  { lv:"れんしゅう27　一二点＋置き字（三人行必有我師焉）", white:"三人行必有我師焉",
+    chars:[{ch:"三"},{ch:"人"},{ch:"行",okuri:"ヘバ"},{ch:"必",okuri:"ズ"},{ch:"有",mark:"二",okuri:"リ"},{ch:"我",okuri:"ガ"},{ch:"師",mark:"一"},{ch:"焉",oki:true}],
+    order:[0,1,2,3,5,6,4], kudashi:"三人(さんにん)行(おこな)へば必(かなら)ず我(わ)が師(し)有(あ)り",
+    note:"「焉」のようなうすい字は置き字。文の形を整えるだけで、声に出しては読まない＝返り点も付かない。"
+  },
+  { lv:"れんしゅう28　三点（王必使民治其国）", extra:["三"], white:"王必使民治其国",
+    chars:[{ch:"王"},{ch:"必",okuri:"ズ"},{ch:"使",mark:"三",okuri:"シム"},{ch:"民",okuri:"ヲシテ"},{ch:"治",mark:"二",okuri:"メ"},{ch:"其",okuri:"ノ"},{ch:"国",mark:"一",okuri:"ヲ"}],
+    order:[0,1,3,5,6,4,2], kudashi:"王必ず民をして其の国を治めしむ",
+    note:"一二点をこえて、さらに大きくまたぐときは三点を使う（一→二→三の順に返る）。使役「～しむ」は「三」に付く。"
+  },
+  { lv:"れんしゅう29　一レ点（我知人之所好）", white:"我知人之所好",
+    chars:[{ch:"我"},{ch:"知",mark:"二",okuri:"ル"},{ch:"人"},{ch:"之",ok:"の"},{ch:"所",mark:"一レ",okuri:"ヲ"},{ch:"好",okuri:"ム"}],
+    order:[0,2,3,5,4,1], kudashi:"我(われ)人(ひと)の好(この)む所(ところ)を知(し)る",
+    note:"「一レ」は、同じマスに「一」と「レ」を重ねて置くと自動的にできる合体マーク。先に置く順番はどちらでもよい。"
+  },
+  { lv:"れんしゅう30　一レ点（従吾所好）", white:"従吾所好",
+    chars:[{ch:"従",mark:"二",okuri:"ワン"},{ch:"吾",okuri:"ガ"},{ch:"所",mark:"一レ",okuri:"ニ"},{ch:"好",okuri:"ム"}],
+    order:[1,3,2,0], kudashi:"吾が好む所に従わん",
+    note:"「一レ」は、同じマスに「一」と「レ」を重ねて置くと自動的にできる合体マーク。"
+  },
+  { lv:"れんしゅう31　一レ点（王知民之所欲）", white:"王知民之所欲",
+    chars:[{ch:"王"},{ch:"知",mark:"二",okuri:"ル"},{ch:"民"},{ch:"之",ok:"の"},{ch:"所",mark:"一レ",okuri:"ヲ"},{ch:"欲",okuri:"スル"}],
+    order:[0,2,3,5,4,1], kudashi:"王民の欲する所を知る",
+    note:"「一レ」は、同じマスに「一」と「レ」を重ねて置くと自動的にできる合体マーク。"
+  },
+  { lv:"れんしゅう32　一レ点（子察人之所好）", white:"子察人之所好",
+    chars:[{ch:"子"},{ch:"察",mark:"二",okuri:"ス"},{ch:"人"},{ch:"之",ok:"の"},{ch:"所",mark:"一レ",okuri:"ヲ"},{ch:"好",okuri:"ム"}],
+    order:[0,2,3,5,4,1], kudashi:"子人の好む所を察す",
+    note:"「一レ」は、同じマスに「一」と「レ」を重ねて置くと自動的にできる合体マーク。"
+  },
+  { lv:"れんしゅう33　一レ点（我察民之所悪）", white:"我察民之所悪",
+    chars:[{ch:"我"},{ch:"察",mark:"二",okuri:"ス"},{ch:"民"},{ch:"之",ok:"の"},{ch:"所",mark:"一レ",okuri:"ヲ"},{ch:"悪",okuri:"ム"}],
+    order:[0,2,3,5,4,1], kudashi:"我民の悪む所を察す",
+    note:"「一レ」は、同じマスに「一」と「レ」を重ねて置くと自動的にできる合体マーク。"
+  },
+  { lv:"れんしゅう34　一レ点（王聞民之所楽）", white:"王聞民之所楽",
+    chars:[{ch:"王"},{ch:"聞",mark:"二",okuri:"ク"},{ch:"民"},{ch:"之",ok:"の"},{ch:"所",mark:"一レ",okuri:"ヲ"},{ch:"楽",okuri:"シム"}],
+    order:[0,2,3,5,4,1], kudashi:"王民の楽しむ所を聞く",
+    note:"「一レ」は、同じマスに「一」と「レ」を重ねて置くと自動的にできる合体マーク。"
+  },
+  { lv:"れんしゅう35　上下点（我聞人愛其子之声）", extra:["上","下"], white:"我聞人愛其子之声",
+    chars:[{ch:"我"},{ch:"聞",mark:"下",okuri:"ク"},{ch:"人",okuri:"ノ"},{ch:"愛",mark:"二",okuri:"スル"},{ch:"其",okuri:"ノ"},{ch:"子",mark:"一",okuri:"ヲ"},{ch:"之",ok:"の"},{ch:"声",mark:"上",okuri:"ヲ"}],
+    order:[0,2,4,5,3,6,7,1], kudashi:"我(われ)人(ひと)の其(そ)の子(こ)を愛(あい)するの声(こえ)を聞(き)く",
+    note:"一二点をふくむ範囲を、さらに大きくまたいで返るときは上下点を使う。読む順は「一二→上下」の順。"
+  },
+  { lv:"れんしゅう36　上下点（王見民憂其国之色）", extra:["上","下"], white:"王見民憂其国之色",
+    chars:[{ch:"王"},{ch:"見",mark:"下",okuri:"ル"},{ch:"民",okuri:"ノ"},{ch:"憂",mark:"二",okuri:"フル"},{ch:"其",okuri:"ノ"},{ch:"国",mark:"一",okuri:"ヲ"},{ch:"之",ok:"の"},{ch:"色",mark:"上",okuri:"ヲ"}],
+    order:[0,2,4,5,3,6,7,1], kudashi:"王民の其の国を憂ふるの色を見る",
+    note:"一二点をふくむ範囲を、さらに大きくまたいで返るときは上下点を使う。読む順は「一二→上下」の順。"
+  },
+  { lv:"れんしゅう37　上下点（我知人愛其身之心）", extra:["上","下"], white:"我知人愛其身之心",
+    chars:[{ch:"我"},{ch:"知",mark:"下",okuri:"ル"},{ch:"人",okuri:"ノ"},{ch:"愛",mark:"二",okuri:"スル"},{ch:"其",okuri:"ノ"},{ch:"身",mark:"一",okuri:"ヲ"},{ch:"之",ok:"の"},{ch:"心",mark:"上",okuri:"ヲ"}],
+    order:[0,2,4,5,3,6,7,1], kudashi:"我人の其の身を愛するの心を知る",
+    note:"一二点をふくむ範囲を、さらに大きくまたいで返るときは上下点を使う。読む順は「一二→上下」の順。"
+  },
+  { lv:"れんしゅう38　上下点（子察人愛其友之心）", extra:["上","下"], white:"子察人愛其友之心",
+    chars:[{ch:"子"},{ch:"察",mark:"下",okuri:"ス"},{ch:"人",okuri:"ノ"},{ch:"愛",mark:"二",okuri:"スル"},{ch:"其",okuri:"ノ"},{ch:"友",mark:"一",okuri:"ヲ"},{ch:"之",ok:"の"},{ch:"心",mark:"上",okuri:"ヲ"}],
+    order:[0,2,4,5,3,6,7,1], kudashi:"子人の其の友を愛するの心を察す",
+    note:"一二点をふくむ範囲を、さらに大きくまたいで返るときは上下点を使う。読む順は「一二→上下」の順。"
+  },
+  { lv:"れんしゅう39　上下点（王聞民治其国之声）", extra:["上","下"], white:"王聞民治其国之声",
+    chars:[{ch:"王"},{ch:"聞",mark:"下",okuri:"ク"},{ch:"民",okuri:"ノ"},{ch:"治",mark:"二",okuri:"ムル"},{ch:"其",okuri:"ノ"},{ch:"国",mark:"一",okuri:"ヲ"},{ch:"之",ok:"の"},{ch:"声",mark:"上",okuri:"ヲ"}],
+    order:[0,2,4,5,3,6,7,1], kudashi:"王民の其の国を治むるの声を聞く",
+    note:"一二点をふくむ範囲を、さらに大きくまたいで返るときは上下点を使う。読む順は「一二→上下」の順。"
+  },
+  { lv:"れんしゅう40　送り仮名（カタカナ）", white:"良薬苦口",
+    chars:[{ch:"良"},{ch:"薬",okuri:"ハ"},{ch:"苦",mark:"レ",ok:"にが",okuri:"シ"},{ch:"口",okuri:"ニ"}],
+    order:[0,1,3,2], kudashi:"良薬(りょうやく)は口(くち)に苦(にが)し",
+    note:"「苦」のように、字だけでは読み方が一つに決まらない字には、送り仮名（読み方のヒント）をカタカナで小さく添える。返り点のルール自体はこれまでと同じ。"
+  },
+  { lv:"そうごう１　混在（レ点＋一二点）", extra:["上","下"], white:"光陰如矢而人愛其子",
+    chars:[{ch:"光"},{ch:"陰"},{ch:"如",mark:"レ",ok:"ごと",okuri:"クニシテ"},{ch:"矢",okuri:"ノ"},{ch:"而",oki:true},{ch:"人"},{ch:"愛",mark:"二",okuri:"ス"},{ch:"其",okuri:"ノ"},{ch:"子",mark:"一",okuri:"ヲ"}],
+    order:[0,1,3,2,5,7,8,6], kudashi:"光陰(こういん)矢(や)の如(ごと)くにして人(ひと)其(そ)の子(こ)を愛(あい)す",
+    note:"レ点と一二点が同じ文の中に混ざることもある。それぞれのペアで別々に考えれば大丈夫（この文に上下点は出てこない）。"
+  },
+  { lv:"そうごう２　混在（レ点＋一二点）", extra:["上","下"], white:"過猶不及而王好征戦",
+    chars:[{ch:"過",okuri:"ギタルハ"},{ch:"猶",ok:"なお"},{ch:"不",mark:"レ",ok:"ざ",okuri:"ルガゴトクニシテ"},{ch:"及",okuri:"バ"},{ch:"而",oki:true},{ch:"王"},{ch:"好",mark:"二",okuri:"ム"},{ch:"征"},{ch:"戦",mark:"一",okuri:"ヲ"}],
+    order:[0,1,3,2,5,7,8,6], kudashi:"過ぎたるは猶(なお)及ばざるがごとくにして王征戦を好む",
+    note:"レ点と一二点が同じ文の中に混ざることもある。それぞれのペアで別々に考えれば大丈夫（この文に上下点は出てこない）。"
+  },
+  { lv:"そうごう３　混在（レ点＋一二点）", extra:["上","下"], white:"良薬苦口而民信其上",
+    chars:[{ch:"良"},{ch:"薬"},{ch:"苦",mark:"レ",okuri:"クシテ"},{ch:"口",okuri:"ニ"},{ch:"而",oki:true},{ch:"民"},{ch:"信",mark:"二",okuri:"ズ"},{ch:"其",okuri:"ノ"},{ch:"上",mark:"一",okuri:"ヲ"}],
+    order:[0,1,3,2,5,7,8,6], kudashi:"良薬口に苦くして民其の上を信ず",
+    note:"レ点と一二点が同じ文の中に混ざることもある。それぞれのペアで別々に考えれば大丈夫（この文に上下点は出てこない）。"
+  },
+  { lv:"そうごう４　最上級（上下点＋レ点混在）", extra:["上","下"], white:"聞人愛其子之声而民不来",
+    chars:[{ch:"聞",mark:"下",okuri:"キテ"},{ch:"人",okuri:"ノ"},{ch:"愛",mark:"二",okuri:"スル"},{ch:"其",okuri:"ノ"},{ch:"子",mark:"一",okuri:"ヲ"},{ch:"之",ok:"の"},{ch:"声",mark:"上",okuri:"ヲ"},{ch:"而",oki:true},{ch:"民"},{ch:"不",mark:"レ",ok:"ず"},{ch:"来",okuri:"タラ"}],
+    order:[1,3,4,2,5,6,0,8,10,9], kudashi:"人の其の子を愛するの声を聞きて民来たらず",
+    note:"上下点の範囲が終わったあとに、さらにレ点が続く最上級パターン。あわてず、ひとつずつのペアで考えよう。"
+  },
+  { lv:"そうごう５　最上級（上下点＋レ点混在）", extra:["上","下"], white:"見民憂其国之色而王不楽",
+    chars:[{ch:"見",mark:"下",okuri:"テ"},{ch:"民",okuri:"ノ"},{ch:"憂",mark:"二",okuri:"フル"},{ch:"其",okuri:"ノ"},{ch:"国",mark:"一",okuri:"ヲ"},{ch:"之",ok:"の"},{ch:"色",mark:"上",okuri:"ヲ"},{ch:"而",oki:true},{ch:"王"},{ch:"不",mark:"レ",ok:"ず"},{ch:"楽",okuri:"シマ"}],
+    order:[1,3,4,2,5,6,0,8,10,9], kudashi:"民の其の国を憂ふるの色を見て王楽しまず",
+    note:"上下点の範囲が終わったあとに、さらにレ点が続く最上級パターン。あわてず、ひとつずつのペアで考えよう。"
+  },
+  { lv:"そうごう６　最上級（上下点＋レ点混在）", extra:["上","下"], white:"察人愛其友之心而子不言",
+    chars:[{ch:"察",mark:"下",okuri:"シテ"},{ch:"人",okuri:"ノ"},{ch:"愛",mark:"二",okuri:"スル"},{ch:"其",okuri:"ノ"},{ch:"友",mark:"一",okuri:"ヲ"},{ch:"之",ok:"の"},{ch:"心",mark:"上",okuri:"ヲ"},{ch:"而",oki:true},{ch:"子"},{ch:"不",mark:"レ",ok:"ず"},{ch:"言",okuri:"ハ"}],
+    order:[1,3,4,2,5,6,0,8,10,9], kudashi:"人の其の友を愛するの心を察して子言はず",
+    note:"上下点の範囲が終わったあとに、さらにレ点が続く最上級パターン。あわてず、ひとつずつのペアで考えよう。"
+  },
+  { lv:"はってん１　論語（有朋自遠方来）", extra:["上","下"], white:"有朋自遠方来",
+    chars:[{ch:"有",mark:"レ",okuri:"リ"},{ch:"朋"},{ch:"自",mark:"二",ok:"より"},{ch:"遠"},{ch:"方",mark:"一"},{ch:"来",okuri:"ル"}],
+    order:[1,0,3,4,2,5], kudashi:"朋(とも)有(あ)り、遠方(えんぽう)自(よ)り来(きた)る",
+    note:"論語の有名な一節。「朋」が「有」より先に読まれる（レ点）。「自」は「遠方」の後にもどって読む（一二点）。"
+  },
+  { lv:"はってん２　論語（不亦楽乎）", white:"不亦楽乎",
+    chars:[{ch:"不",mark:"二",ok:"ず"},{ch:"亦",ok:"また"},{ch:"楽",mark:"一",okuri:"シカラ"},{ch:"乎",ok:"や"}],
+    order:[1,2,0,3], kudashi:"亦(また)楽(たの)しからずや",
+    note:"「亦…ずや」は「なんと～ではないか」という感動をこめた言い方。「不」は一二点で「楽」の後にもどる。"
+  },
+  { lv:"はってん３　論語（過則勿憚改）", white:"過則勿憚改",
+    chars:[{ch:"過",okuri:"テバ"},{ch:"則",ok:"すなわち"},{ch:"勿",mark:"二",ok:"な"},{ch:"憚",mark:"一レ",ok:"はばか",okuri:"ル"},{ch:"改",okuri:"ムルニ"}],
+    order:[0,1,4,3,2], kudashi:"過(あやま)てば則(すなわ)ち改(あらた)むるに憚(はばか)ること勿(な)かれ",
+    note:"「一レ」の合体マークが登場する応用パターン。「憚」がレ点で「改」の後にもどり、そのうえで一二点の「一」もかねる。"
+  },
+  { lv:"はってん４　論語（人不知而不慍）", white:"人不知而不慍",
+    chars:[{ch:"人"},{ch:"不",mark:"レ",ok:"ず"},{ch:"知",okuri:"ラ"},{ch:"而",oki:true},{ch:"不",mark:"レ",ok:"ず"},{ch:"慍",ok:"うら",okuri:"ミ"}],
+    order:[0,2,1,5,4], kudashi:"人(ひと)知(し)らずして慍(うら)みず",
+    note:"レ点が離れた場所に2つ。「而」は置き字で読まない。"
+  },
+  { lv:"はってん５　論語（不亦君子乎）", white:"不亦君子乎",
+    chars:[{ch:"不",mark:"二",ok:"ず"},{ch:"亦",ok:"また"},{ch:"君"},{ch:"子",mark:"一"},{ch:"乎",ok:"や"}],
+    order:[1,2,3,0,4], kudashi:"亦(また)君子(くんし)ならずや",
+    note:"「不亦楽乎」と同じ形。一二点でとばす字が「亦君子」の3字に増えている。"
+  },
+  { lv:"はってん６　論語（見賢思斉焉）", white:"見賢思斉焉",
+    chars:[{ch:"見",mark:"レ",okuri:"テ"},{ch:"賢"},{ch:"思",okuri:"ウ"},{ch:"斉",mark:"レ",ok:"ひとし",okuri:"カラント"},{ch:"焉",oki:true}],
+    order:[1,0,3,2], kudashi:"賢(けん)を見(み)て斉(ひと)しからんと思(おも)う",
+    note:"「焉」は置き字。レ点が2か所、それぞれ別々のペアで働く。"
+  },
+  { lv:"はってん７　論語（学而不思則罔）", white:"学而不思則罔",
+    chars:[{ch:"学",okuri:"ビテ"},{ch:"而",oki:true},{ch:"不",mark:"レ",ok:"ざれば"},{ch:"思",okuri:"ワ"},{ch:"則",ok:"すなわち"},{ch:"罔",ok:"くら",okuri:"シ"}],
+    order:[0,3,2,4,5], kudashi:"学(まな)びて思(おも)わざれば則(すなわ)ち罔(くら)し",
+    note:"「学びて思わざれば罔し、思いて学ばざれば殆し」の前半。「而」は置き字。"
+  },
+  { lv:"はってん８　論語（思而不学則殆）", white:"思而不学則殆",
+    chars:[{ch:"思",okuri:"イテ"},{ch:"而",oki:true},{ch:"不",mark:"レ",ok:"ざれば"},{ch:"学",okuri:"バ"},{ch:"則",ok:"すなわち"},{ch:"殆",ok:"あやう",okuri:"シ"}],
+    order:[0,3,2,4,5], kudashi:"思(おも)いて学(まな)ばざれば則(すなわ)ち殆(あやう)し",
+    note:"「学びて思わざれば罔し、思いて学ばざれば殆し」の後半。前の問題と同じ形。"
+  },
+  { lv:"はってん９　論語（徳不孤必有隣）", white:"徳不孤必有隣",
+    chars:[{ch:"徳",okuri:"ハ"},{ch:"不",mark:"レ",ok:"ず"},{ch:"孤",okuri:"ナラ"},{ch:"必",okuri:"ズ"},{ch:"有",mark:"レ",okuri:"リ"},{ch:"隣"}],
+    order:[0,2,1,3,5,4], kudashi:"徳(とく)は孤(こ)ならず必(かなら)ず隣(となり)有(あ)り",
+    note:"「徳は孤ならず、必ず隣有り」。レ点が2か所、それぞれ別々のペアで働く。"
+  },
+  { lv:"はってん10　論語（与朋友交而不信乎）", extra:["上","下"], white:"与朋友交而不信乎",
+    chars:[{ch:"与",mark:"二",ok:"と"},{ch:"朋"},{ch:"友",mark:"一"},{ch:"交",okuri:"ワリテ"},{ch:"而",oki:true},{ch:"不",mark:"レ",ok:"ざる"},{ch:"信",okuri:"ナラ"},{ch:"乎",ok:"か"}],
+    order:[1,2,0,3,6,5,7], kudashi:"朋友(ほうゆう)と交(まじ)わりて信(しん)ならざるか",
+    note:"「与」が一二点、「不」がレ点。ひとつの文にちがう種類の返り点が混ざる、そうごう問題。"
+  },
+
+];
+
+/* ================= 「返り点をつける」の8問グループ化（段階的アンロック） =================
+   20分野・百人一首と同じGROUP_SIZE(8)・st.groupUnlockを流用するが、判定方法は簡略化している：
+   20分野・百人一首は「ランダム出題される小テスト」なので、streak/正答率ベースの
+   UnlockEngine.isGroupClearedで習熟度を判定しているが、このコーナーは1問ごとが独立した
+   パズル（同じ問題を連続で何度も出す形式ではない）なので、「今のグループの全問を
+   一度でも正しく解き終えたか」だけを解禁条件にする（教員の指摘、2026-08-22：
+   「8ずつチャンク化して解放するシステムを、他のジャンル同様作成して」）。
+   st.groupUnlock.kanbun_ktというキーを使う（"kanbun"はCAT_KEYSの4択問題プール自身の
+   解禁進捗が既に使っているキーなので、混ざらないよう別名にした。百人一首のst.groupUnlock.hyakunin
+   と同じ「CAT_KEYではない専用キー」パターン）。 */
+let _ktGroupsCache = null;
+function ktGroups(){
+  if(_ktGroupsCache) return _ktGroupsCache;
+  const groups = [];
+  for(let i=0;i<KT_PROBLEMS.length;i+=GROUP_SIZE){
+    groups.push({level:groups.length+1, indices: KT_PROBLEMS.slice(i, i+GROUP_SIZE).map((_,j)=>i+j)});
+  }
+  _ktGroupsCache = groups;
+  return groups;
+}
+function ktUnlockedGroupCount(st){
+  return (st.groupUnlock && st.groupUnlock.kanbun_kt) || 1;
+}
+function ktUnlockedCount(st){
+  const groups = ktGroups();
+  const n = Math.min(ktUnlockedGroupCount(st), groups.length);
+  let cnt = 0;
+  for(let i=0;i<n;i++) cnt += groups[i].indices.length;
+  return cnt;
+}
+function ktUnlockedQuestionPct(st){
+  if(KT_PROBLEMS.length === 0) return null;
+  return Math.round(ktUnlockedCount(st) / KT_PROBLEMS.length * 100);
+}
+function ktIsSolved(st, idx){
+  return (st.ktSolved||[]).includes(KT_PROBLEMS[idx].white);
+}
+/* 今といた問題(idx)を正解ぶんとしてst.ktSolvedに記録し、それが属するグループの全問が
+   解けていれば次のグループを解禁する。呼び出し側（ktJudge）でloadStats→この関数→saveStatsの
+   順に呼ぶ。戻り値は「今回新しくグループが解禁されたか」。 */
+function ktMarkSolvedAndCheckUnlock(st, idx){
+  if(!Array.isArray(st.ktSolved)) st.ktSolved = [];
+  const white = KT_PROBLEMS[idx].white;
+  if(!st.ktSolved.includes(white)) st.ktSolved.push(white);
+  const groups = ktGroups();
+  const gIdx = ktUnlockedGroupCount(st) - 1;
+  if(gIdx >= groups.length - 1) return false; // 既に全解禁
+  const cur = groups[gIdx];
+  if(!cur.indices.includes(idx)) return false; // 今といたのは、今アンロック中のグループの外の問題
+  const allSolved = cur.indices.every(i => ktIsSolved(st, i));
+  if(!allSolved) return false;
+  if(!st.groupUnlock) st.groupUnlock = {};
+  st.groupUnlock.kanbun_kt = ktUnlockedGroupCount(st) + 1;
+  return true;
+}
+
+const KT = {
+  qi:0, placed:[], attempts:0, solved:0, selectedVal:null, dragCtx:null,
+  correctLocked:[], renderGen:0, shownAt:0,
+};
+
+function ktMarkInner(v){
+  if(v.length===2) return `<span class="kt-mark-stack"><span>${esc(v[0])}</span><span>${esc(v[1])}</span></span>`;
+  return esc(v);
+}
+function ktRuby(s){
+  return esc(s).replace(/([^()ぁ-んー]+)\(([^)]+)\)/g, (m, base, yomi) => `<ruby>${base}<rt>${yomi}</rt></ruby>`);
+}
+
+/* 「返り点をつける」問題一覧（8問グループごとの解禁状況を表示）。 */
+function ktShowMenu(){
+  const st = loadStats();
+  const groups = ktGroups();
+  const unlockedN = ktUnlockedGroupCount(st);
+  const pct = ktUnlockedQuestionPct(st);
+  let html = `
+    <h3 class="section">🖌️ 返り点をつける</h3>
+    <p class="note">漢文の白文に、返り点をドラッグ（またはタップ）で置く特訓です。8問のまとまりを解き終えるごとに、次のまとまりが解禁されます。正解すると「漢文」のレベルが上がります。</p>
+    ${unlockFooterHtml("漢文（返り点をつける）", pct)}
+  `;
+  groups.forEach((g,gi)=>{
+    const locked = (gi+1) > unlockedN;
+    const solvedCount = g.indices.filter(i=>ktIsSolved(st,i)).length;
+    const firstIdx = g.indices[0];
+    const lastLabel = KT_PROBLEMS[g.indices[0]].lv.replace(/^れんしゅう\d+　|^そうごう\d+　/,"");
+    html += `
+    <div class="card menu-card${locked?" locked":""}" ${locked?"":`onclick="ktStart(${firstIdx})"`}>
+      <div class="menu-icon">${locked?"🔒":(solvedCount===g.indices.length?"✅":"🖌️")}</div>
+      <div><h2>まとまり${g.level}（${g.indices.length}問）</h2><p>${locked?"前のまとまりを解き終えると解禁されます":esc(lastLabel)+" など"}</p></div>
+      <div class="right"><span class="count">${solvedCount}/${g.indices.length}問クリア</span></div>
+    </div>`;
+  });
+  html += `<div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
+  screen.innerHTML = html;
+}
+
+function ktStart(i){
+  const st = loadStats();
+  if(i < KT_PROBLEMS.length && i >= ktUnlockedCount(st)){
+    // まだ解禁されていない問題（不正な直接呼び出し対策）。問題一覧へ戻す。
+    ktShowMenu();
+    return;
+  }
+  KT.renderGen++;
+  KT.qi = i;
+  if(i < KT_PROBLEMS.length){
+    const p = KT_PROBLEMS[KT.qi];
+    KT.placed = p.chars.map(()=>null);
+    KT.attempts = 0;
+    KT.selectedVal = null;
+    KT.correctLocked = p.chars.map(()=>false);
+    KT.shownAt = Date.now();
+  }
+  ktRender();
+}
+
+function ktRender(){
+  if(KT.qi >= KT_PROBLEMS.length){
+    screen.innerHTML = `<div id="ktApp"><div class="kt-done">
+      <div class="kt-big">全問クリア！</div>
+      <div class="kt-stat">${KT_PROBLEMS.length}問すべての返り点を正しく置けました。</div>
+    </div></div>
+    <div class="btn-row">
+      <button class="btn secondary" onclick="ktStart(0)">もう一度さいしょから</button>
+      <button class="btn secondary" onclick="showHome()">ホームへ</button>
+    </div>`;
+    return;
+  }
+
+  const p = KT_PROBLEMS[KT.qi];
+  const anyPlaced = KT.placed.some(v=>v);
+  const palette = KT_BASELINE_MARKS.concat(p.extra || []);
+
+  const rowsHtml = p.chars.map((c,idx)=>{
+    const filled = KT.placed[idx];
+    const lockedCls = KT.correctLocked[idx] ? " ok" : "";
+    const comboCls = filled && filled.length===2 ? " combo" : "";
+    const slotHtml = `<span class="kt-slot${filled?" filled":""}${comboCls}${lockedCls}" data-idx="${idx}">${filled?ktMarkInner(filled):""}</span>`;
+    const okHtml = c.ok ? `<span class="kt-ok">${esc(c.ok)}</span>` : "";
+    const okuriCls = c.okuri && c.okuri.length>=3 ? " long" : "";
+    const okuriHtml = c.okuri ? `<span class="kt-okuri${okuriCls}">${esc(c.okuri)}</span>` : "";
+    const annoHtml = (okHtml || okuriHtml) ? `<span class="kt-anno">${okHtml}${okuriHtml}</span>` : "";
+    return `<div class="kt-row"><span class="kt-glyph">${esc(c.ch)}<span class="kt-order-badge" data-badge="${idx}"></span>${annoHtml}</span>${slotHtml}</div>`;
+  }).join("");
+
+  const chipsHtml = palette.map(v=>`<div class="kt-chip${v===KT.selectedVal?" selected":""}" data-val="${esc(v)}">${esc(v)}</div>`).join("");
+
+  screen.innerHTML = `
+  <div id="ktApp">
+    <div class="kt-hud">
+      <div class="kt-title">返り点をつける</div>
+      <div class="kt-prog">問 ${KT.qi+1} / ${KT_PROBLEMS.length}</div>
+    </div>
+    <div class="kt-progress"><i style="width:${100*KT.solved/KT_PROBLEMS.length}%"></i></div>
+
+    <div class="kt-card">
+      <span class="kt-lv-badge">${esc(p.lv)}</span>
+      <div class="kt-instr">白文「<b>${esc(p.white)}</b>」が、右の書き下し文のとおりに読めるように、返り点が必要な字の<b>マス</b>に、下のカードから正しい返り点をドラッグ（またはタップ）して置こう。（返り点がいらない字のマスは、空のままでよい）</div>
+      <div class="kt-help" id="ktHelpNote" style="display:none">${esc(p.note)}</div>
+      <button class="kt-help-btn" onclick="ktToggleHelp()">ヒントを見る</button>
+    </div>
+
+    <div class="kt-card" style="padding:14px 12px;">
+      <div class="kt-stage">
+        <div class="kt-stage-row">
+          <div class="kt-actions-mid">
+            <button class="btn" id="ktJudgeBtn" ${anyPlaced?"":"disabled"} onclick="ktJudge()">判定する</button>
+            <button class="btn secondary" id="ktNextBtn" style="display:none" onclick="ktStart(KT.qi+1)">次の問題へ</button>
+          </div>
+          <div class="kt-box" id="ktBox">${rowsHtml}</div>
+          <div class="kt-kudashi" id="ktKudashiBox">
+            <div class="kt-kudashi-label">書き下し文</div>
+            <div class="kt-kudashi-text">${ktRuby(p.kudashi)}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="kt-msg" id="ktMsg"></div>
+    <div class="kt-stars" id="ktStars"></div>
+
+    <div class="kt-tray-label">返り点カード（何回でも使える。タップして選び、マスをタップ／またはドラッグして置く）</div>
+    <div class="kt-tray" id="ktTray">${chipsHtml}</div>
+  </div>
+  <div class="btn-row">
+    <button class="btn secondary" onclick="ktShowMenu()">問題一覧へ</button>
+    <button class="btn secondary" onclick="showHome()">ホームへ</button>
+  </div>`;
+
+  ktAttachEvents();
+}
+
+function ktToggleHelp(){
+  const el = document.getElementById("ktHelpNote");
+  el.style.display = el.style.display==="none" ? "block" : "none";
+}
+
+function ktDropMark(idx, newVal){
+  const cur = KT.placed[idx];
+  if(cur && KT_COMBINABLE_WITH_RE.includes(cur) && newVal==="レ"){
+    KT.placed[idx] = cur + "レ";
+  } else if(cur==="レ" && KT_COMBINABLE_WITH_RE.includes(newVal)){
+    KT.placed[idx] = newVal + "レ";
+  } else {
+    KT.placed[idx] = newVal;
+  }
+}
+
+function ktAttachEvents(){
+  document.querySelectorAll("#ktApp .kt-row").forEach(row=>{
+    row.addEventListener("click", ()=>{
+      const idx = +row.querySelector(".kt-slot").dataset.idx;
+      if(KT.correctLocked[idx]) return;
+      if(KT.selectedVal){
+        ktDropMark(idx, KT.selectedVal);
+        KT.selectedVal = null;
+        ktRender();
+      } else if(KT.placed[idx]){
+        KT.placed[idx] = null;
+        ktRender();
+      }
+    });
+  });
+  document.querySelectorAll("#ktApp .kt-chip").forEach(el=>{
+    el.addEventListener("pointerdown", ktChipPointerDown);
+    el.addEventListener("click", ()=>{
+      if(KT.dragCtx && KT.dragCtx.moved) return;
+      const v = el.dataset.val;
+      KT.selectedVal = (KT.selectedVal===v) ? null : v;
+      // カード選択だけなら画面全体を作り直さない（教員の指摘、2026-08-22：
+      // 選択のたびに画面全体を再描画すると不自然に揺れる）。選択の色つけだけ軽く更新する。
+      document.querySelectorAll("#ktApp .kt-chip").forEach(c=>{
+        c.classList.toggle("selected", KT.selectedVal!==null && c.dataset.val===KT.selectedVal);
+      });
+    });
+  });
+}
+
+function ktSlotUnderPoint(x,y){
+  const under = document.elementFromPoint(x,y);
+  if(!under || !under.closest) return null;
+  let slot = under.closest(".kt-slot");
+  if(slot) return slot;
+  const row = under.closest(".kt-row");
+  if(row) return row.querySelector(".kt-slot");
+  return null;
+}
+
+function ktChipPointerDown(e){
+  const el = e.currentTarget;
+  const val = el.dataset.val;
+  const startX = e.clientX, startY = e.clientY;
+  el.setPointerCapture(e.pointerId);
+
+  // 単なるタップ（選択）では、回転・拡大したゴーストを一切出さない（教員の指摘、2026-08-22：
+  // 「タップした瞬間に画面が揺れる」の原因が、動いてもいないのに一瞬だけ出るゴーストの
+  // 回転・拡大アニメーションだった）。実際に指がある程度動いてから、初めてゴーストを作る。
+  const DRAG_THRESHOLD = 6;
+  KT.dragCtx = {val, el, ghost:null, moved:false, pointerId:e.pointerId, ox:0, oy:0};
+
+  const startGhost = (ev)=>{
+    const rect = el.getBoundingClientRect();
+    const ghost = el.cloneNode(true);
+    ghost.classList.add("ghost");
+    ghost.style.width = rect.width+"px";
+    ghost.style.height = rect.height+"px";
+    ghost.style.left = rect.left+"px";
+    ghost.style.top = rect.top+"px";
+    document.body.appendChild(ghost);
+    el.classList.add("dragging");
+    KT.dragCtx.ghost = ghost;
+    KT.dragCtx.ox = startX-rect.left;
+    KT.dragCtx.oy = startY-rect.top;
+    KT.dragCtx.moved = true;
+    ghost.style.left = (ev.clientX-KT.dragCtx.ox)+"px";
+    ghost.style.top = (ev.clientY-KT.dragCtx.oy)+"px";
+  };
+
+  const move = (ev)=>{
+    if(!KT.dragCtx || ev.pointerId!==KT.dragCtx.pointerId) return;
+    if(!KT.dragCtx.moved){
+      if(Math.hypot(ev.clientX-startX, ev.clientY-startY) < DRAG_THRESHOLD) return;
+      startGhost(ev);
+    } else {
+      KT.dragCtx.ghost.style.left = (ev.clientX-KT.dragCtx.ox)+"px";
+      KT.dragCtx.ghost.style.top = (ev.clientY-KT.dragCtx.oy)+"px";
+    }
+    document.querySelectorAll("#ktApp .kt-slot.target-hover").forEach(s=>s.classList.remove("target-hover"));
+    document.querySelectorAll("#ktApp .kt-row.row-hover").forEach(r=>r.classList.remove("row-hover"));
+    const slot = ktSlotUnderPoint(ev.clientX, ev.clientY);
+    if(slot && !KT.correctLocked[+slot.dataset.idx]){
+      slot.classList.add("target-hover");
+      slot.closest(".kt-row").classList.add("row-hover");
+    }
+  };
+  const up = (ev)=>{
+    if(!KT.dragCtx || ev.pointerId!==KT.dragCtx.pointerId) return;
+    document.removeEventListener("pointermove", move);
+    document.removeEventListener("pointerup", up);
+    document.querySelectorAll("#ktApp .kt-slot.target-hover").forEach(s=>s.classList.remove("target-hover"));
+    document.querySelectorAll("#ktApp .kt-row.row-hover").forEach(r=>r.classList.remove("row-hover"));
+    if(KT.dragCtx.moved){
+      KT.dragCtx.ghost.remove();
+      el.classList.remove("dragging");
+      const slot = ktSlotUnderPoint(ev.clientX, ev.clientY);
+      if(slot && !KT.correctLocked[+slot.dataset.idx]){
+        ktDropMark(+slot.dataset.idx, KT.dragCtx.val);
+        KT.selectedVal = null;
+        ktRender();
+      }
+    }
+    KT.dragCtx = null;
+  };
+  document.addEventListener("pointermove", move);
+  document.addEventListener("pointerup", up);
+}
+
+function ktJudge(){
+  const p = KT_PROBLEMS[KT.qi];
+  const gen = KT.renderGen;
+  KT.attempts++;
+  let allOk = true;
+  let anyBad = false;
+  p.chars.forEach((c,idx)=>{
+    const slotEl = document.querySelector(`#ktApp .kt-slot[data-idx="${idx}"]`);
+    if(!slotEl) return;
+    const val = KT.placed[idx];
+    const expect = c.mark || null;
+    if(val === expect){
+      slotEl.classList.remove("bad","missing");
+      if(val) slotEl.classList.add("ok");
+      KT.correctLocked[idx] = true;
+    } else if(val){
+      slotEl.classList.add("bad");
+      anyBad = true; allOk = false;
+      setTimeout(()=>{ if(gen!==KT.renderGen) return; KT.placed[idx] = null; ktRender(); }, 550);
+    } else {
+      slotEl.classList.add("missing");
+      allOk = false;
+    }
+  });
+
+  const msg = document.getElementById("ktMsg");
+  if(allOk){
+    msg.textContent = "正解！すべての返り点が正しく置けました。";
+    msg.className = "kt-msg good";
+    document.getElementById("ktJudgeBtn").style.display = "none";
+    ktShowStars();
+    ktAnimateReveal();
+    document.getElementById("ktNextBtn").style.display = "inline-block";
+    KT.solved++;
+    const bar = document.querySelector("#ktApp .kt-progress i");
+    if(bar) bar.style.width = (100*KT.solved/KT_PROBLEMS.length) + "%";
+    const elapsedMs = Date.now() - (KT.shownAt || Date.now());
+    const r = record("kanbun", {q:p.white, lv:KT.qi+1}, true, elapsedMs, {skipRecentAcc:true});
+    // 8問グループの解禁状況もあわせて更新する（教員の指摘、2026-08-22：8問ずつ解放するしくみ）。
+    const st2 = loadStats();
+    const groupUnlocked = ktMarkSolvedAndCheckUnlock(st2, KT.qi);
+    saveStats(st2);
+    if(r.lvup){
+      const extra = document.createElement("div");
+      extra.className = "kt-msg good";
+      extra.style.marginTop = "4px";
+      extra.textContent = r.evolved ? `漢文 Lv.${r.lv} UP！${r.evolved.icon} ${r.evolved.name}になりました` : `漢文 Lv.${r.lv} UP！`;
+      msg.after(extra);
+    }
+    if(groupUnlocked){
+      const extra2 = document.createElement("div");
+      extra2.className = "kt-msg good";
+      extra2.style.marginTop = "4px";
+      extra2.textContent = "🎉 次のまとまり（8問）が解禁されました！";
+      msg.after(extra2);
+    }
+  } else if(anyBad){
+    msg.textContent = "ちがう場所（または印）があります。赤いマスはいったん空になります。";
+    msg.className = "kt-msg bad";
+  } else {
+    msg.textContent = "まだ印が足りないマスがあります（金色のマス）。";
+    msg.className = "kt-msg bad";
+  }
+}
+
+function ktShowStars(){
+  const starsEl = document.getElementById("ktStars");
+  const n = KT.attempts<=1 ? 3 : KT.attempts===2 ? 2 : 1;
+  let html = "";
+  for(let i=0;i<3;i++) html += `<span class="${i<n?"on":""}">★</span>`;
+  starsEl.innerHTML = html;
+}
+
+function ktAnimateReveal(){
+  const gen = KT.renderGen;
+  setTimeout(()=>{
+    if(gen !== KT.renderGen) return;
+    const kb = document.getElementById("ktKudashiBox");
+    if(kb) kb.classList.add("solved");
+  }, 200);
+}
+
+/* ============ 読む順タップ（2026-〜）============
+   「返り点をつける」（KT）の対になる問題。あちらは白文に返り点を置く問題、こちらは
+   返り点がすでに付いている白文を見て、読む順に字をタップする問題。
+   問題データはKT_PROBLEMS（56問、教員確認済み）をそのまま流用する：chars（ch/mark/oki/ok/okuri）・
+   order・kudashi・note・lvの形が完全に一致するため、複製せず同じ配列を参照する。
+   8問グループの解禁・record()によるlv.kanbun/経験値の加算は、KTと同じ方式・同じ"kanbun"カテゴリで
+   行うが、グループ解禁の進捗（st.yjSolved／st.groupUnlock.kanbun_yj）はKT側とは独立させる
+   （KTと同じ"kanbun_kt"キーを使うと、片方だけ解いても両方解禁されてしまうため）。 */
+const YJ_PROBLEMS = KT_PROBLEMS;
+
+let _yjGroupsCache = null;
+function yjGroups(){
+  if(_yjGroupsCache) return _yjGroupsCache;
+  const groups = [];
+  for(let i=0;i<YJ_PROBLEMS.length;i+=GROUP_SIZE){
+    groups.push({level:groups.length+1, indices: YJ_PROBLEMS.slice(i, i+GROUP_SIZE).map((_,j)=>i+j)});
+  }
+  _yjGroupsCache = groups;
+  return groups;
+}
+function yjUnlockedGroupCount(st){
+  return (st.groupUnlock && st.groupUnlock.kanbun_yj) || 1;
+}
+function yjUnlockedCount(st){
+  const groups = yjGroups();
+  const n = Math.min(yjUnlockedGroupCount(st), groups.length);
+  let cnt = 0;
+  for(let i=0;i<n;i++) cnt += groups[i].indices.length;
+  return cnt;
+}
+function yjUnlockedQuestionPct(st){
+  if(YJ_PROBLEMS.length === 0) return null;
+  return Math.round(yjUnlockedCount(st) / YJ_PROBLEMS.length * 100);
+}
+function yjIsSolved(st, idx){
+  return (st.yjSolved||[]).includes(YJ_PROBLEMS[idx].white);
+}
+function yjMarkSolvedAndCheckUnlock(st, idx){
+  if(!Array.isArray(st.yjSolved)) st.yjSolved = [];
+  const white = YJ_PROBLEMS[idx].white;
+  if(!st.yjSolved.includes(white)) st.yjSolved.push(white);
+  const groups = yjGroups();
+  const gIdx = yjUnlockedGroupCount(st) - 1;
+  if(gIdx >= groups.length - 1) return false;
+  const cur = groups[gIdx];
+  if(!cur.indices.includes(idx)) return false;
+  const allSolved = cur.indices.every(i => yjIsSolved(st, i));
+  if(!allSolved) return false;
+  if(!st.groupUnlock) st.groupUnlock = {};
+  st.groupUnlock.kanbun_yj = yjUnlockedGroupCount(st) + 1;
+  return true;
+}
+
+const YJ = {
+  qi:0, nextPos:0, tappedNum:[], mistakes:0, solvedThis:false, solved:0,
+  badTapIdx:null, renderGen:0, shownAt:0,
+};
+
+function yjShowMenu(){
+  const st = loadStats();
+  const groups = yjGroups();
+  const unlockedN = yjUnlockedGroupCount(st);
+  const pct = yjUnlockedQuestionPct(st);
+  let html = `
+    <h3 class="section">👆 読む順タップ</h3>
+    <p class="note">返り点がすでに付いている白文を見て、読む順に字をタップしていく特訓です。8問のまとまりを解き終えるごとに、次のまとまりが解禁されます。正解すると「漢文」のレベルが上がります。</p>
+    ${unlockFooterHtml("漢文（読む順タップ）", pct)}
+  `;
+  groups.forEach((g,gi)=>{
+    const locked = (gi+1) > unlockedN;
+    const solvedCount = g.indices.filter(i=>yjIsSolved(st,i)).length;
+    const firstIdx = g.indices[0];
+    const lastLabel = YJ_PROBLEMS[g.indices[0]].lv.replace(/^れんしゅう\d+　|^そうごう\d+　/,"");
+    html += `
+    <div class="card menu-card${locked?" locked":""}" ${locked?"":`onclick="yjStart(${firstIdx})"`}>
+      <div class="menu-icon">${locked?"🔒":(solvedCount===g.indices.length?"✅":"👆")}</div>
+      <div><h2>まとまり${g.level}（${g.indices.length}問）</h2><p>${locked?"前のまとまりを解き終えると解禁されます":esc(lastLabel)+" など"}</p></div>
+      <div class="right"><span class="count">${solvedCount}/${g.indices.length}問クリア</span></div>
+    </div>`;
+  });
+  html += `<div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
+  screen.innerHTML = html;
+}
+
+function yjStart(i){
+  const st = loadStats();
+  if(i < YJ_PROBLEMS.length && i >= yjUnlockedCount(st)){
+    yjShowMenu();
+    return;
+  }
+  YJ.renderGen++;
+  YJ.qi = i;
+  if(i < YJ_PROBLEMS.length){
+    YJ.nextPos = 0;
+    YJ.tappedNum = [];
+    YJ.mistakes = 0;
+    YJ.solvedThis = false;
+    YJ.badTapIdx = null;
+    YJ.shownAt = Date.now();
+  }
+  yjRender();
+}
+
+function yjRender(){
+  if(YJ.qi >= YJ_PROBLEMS.length){
+    screen.innerHTML = `<div id="yjApp"><div class="yj-done">
+      <div class="yj-big">全問クリア！</div>
+      <div class="yj-stat">${YJ_PROBLEMS.length}問すべて、正しい順に読めました。</div>
+    </div></div>
+    <div class="btn-row">
+      <button class="btn secondary" onclick="yjStart(0)">もう一度さいしょから</button>
+      <button class="btn secondary" onclick="showHome()">ホームへ</button>
+    </div>`;
+    return;
+  }
+
+  const p = YJ_PROBLEMS[YJ.qi];
+  const nextLabel = YJ.solvedThis ? "" : `${YJ.nextPos+1}番目に読む字をさがして、タップしよう。`;
+
+  const rowsHtml = p.chars.map((c,idx)=>{
+    const num = YJ.tappedNum[idx];
+    const markHtml = c.mark
+      ? `<span class="yj-mark${c.mark.length===2?" combo":""}">${ktMarkInner(c.mark)}</span>`
+      : `<span class="yj-mark"></span>`;
+    const okHtml = c.ok ? `<span class="yj-ok">${esc(c.ok)}</span>` : "";
+    const okuriCls = c.okuri && c.okuri.length>=3 ? " long" : "";
+    const okuriHtml = c.okuri ? `<span class="yj-okuri${okuriCls}">${esc(c.okuri)}</span>` : "";
+    const annoHtml = (okHtml || okuriHtml) ? `<span class="yj-anno">${okHtml}${okuriHtml}</span>` : "";
+    const badgeHtml = `<span class="yj-order-badge${num?" show":""}">${num||""}</span>`;
+    const rowCls = (num?" done":"") + (YJ.badTapIdx===idx?" bad-tap":"");
+    return `<div class="yj-row${rowCls}" data-idx="${idx}">
+      ${markHtml}
+      <span class="yj-glyph">${esc(c.ch)}${badgeHtml}${annoHtml}</span>
+    </div>`;
+  }).join("");
+
+  screen.innerHTML = `
+  <div id="yjApp">
+    <div class="yj-hud">
+      <div class="yj-title">読む順タップ</div>
+      <div class="yj-prog">問 ${YJ.qi+1} / ${YJ_PROBLEMS.length}</div>
+    </div>
+    <div class="yj-progress"><i style="width:${100*YJ.solved/YJ_PROBLEMS.length}%"></i></div>
+
+    <div class="yj-card">
+      <span class="yj-lv-badge">${esc(p.lv)}</span>
+      <div class="yj-instr">白文「<b>${esc(p.white)}</b>」には、すでに返り点が付いています。<b>読む順に</b>字をタップしていこう。（書き下し文は、全部読み終わるまでナイショ）</div>
+      <div class="yj-help" id="yjHelpNote" style="display:none">${esc(p.note)}</div>
+      <button class="yj-help-btn" onclick="yjToggleHelp()">ヒントを見る</button>
+    </div>
+
+    <div class="yj-card" style="padding:14px 12px;">
+      <div class="yj-stage"><div class="yj-box" id="yjBox">${rowsHtml}</div></div>
+      <div class="yj-progress-text" id="yjProgressText">${esc(nextLabel)}</div>
+      <div class="yj-msg" id="yjMsg"></div>
+      <div class="yj-stars" id="yjStars"></div>
+      <div class="yj-kudashi${YJ.solvedThis?" show":""}" id="yjKudashiBox" style="display:${YJ.solvedThis?"block":"none"}">
+        <div class="yj-kudashi-label">書き下し文</div>
+        <div class="yj-kudashi-text">${ktRuby(p.kudashi)}</div>
+      </div>
+    </div>
+  </div>
+  <div class="btn-row">
+    <button class="btn secondary" onclick="yjStart(YJ.qi)">この問題をやり直す</button>
+    <button class="btn secondary" id="yjNextBtn" style="display:${YJ.solvedThis?"inline-block":"none"}" onclick="yjStart(YJ.qi+1)">次の問題へ</button>
+    <button class="btn secondary" onclick="yjShowMenu()">問題一覧へ</button>
+    <button class="btn secondary" onclick="showHome()">ホームへ</button>
+  </div>`;
+
+  if(YJ.solvedThis) yjShowStars();
+  yjAttachEvents();
+}
+
+function yjToggleHelp(){
+  const el = document.getElementById("yjHelpNote");
+  el.style.display = el.style.display==="none" ? "block" : "none";
+}
+
+function yjAttachEvents(){
+  document.querySelectorAll("#yjApp .yj-row").forEach(row=>{
+    row.addEventListener("click", ()=>{
+      yjHandleTap(+row.dataset.idx);
+    });
+  });
+}
+
+function yjHandleTap(idx){
+  if(YJ.solvedThis) return;
+  const p = YJ_PROBLEMS[YJ.qi];
+  if(YJ.tappedNum[idx]) return; // すでに読んだ字は無視（誤タップ扱いにしない）
+
+  const expectedIdx = p.order[YJ.nextPos];
+  const msg = document.getElementById("yjMsg");
+
+  if(idx === expectedIdx){
+    YJ.tappedNum[idx] = YJ.nextPos+1;
+    YJ.nextPos++;
+    YJ.badTapIdx = null;
+    if(YJ.nextPos === p.order.length){
+      YJ.solvedThis = true;
+      YJ.solved++;
+      const elapsedMs = Date.now() - (YJ.shownAt || Date.now());
+      const r = record("kanbun", {q:p.white, lv:YJ.qi+1}, true, elapsedMs, {skipRecentAcc:true});
+      const st2 = loadStats();
+      const groupUnlocked = yjMarkSolvedAndCheckUnlock(st2, YJ.qi);
+      saveStats(st2);
+      yjRender();
+      msg.textContent = "正解！すべて読む順どおりにタップできました。";
+      msg.className = "yj-msg good";
+      if(r.lvup){
+        const extra = document.createElement("div");
+        extra.className = "yj-msg good";
+        extra.style.marginTop = "4px";
+        extra.textContent = r.evolved ? `漢文 Lv.${r.lv} UP！${r.evolved.icon} ${r.evolved.name}になりました` : `漢文 Lv.${r.lv} UP！`;
+        msg.after(extra);
+      }
+      if(groupUnlocked){
+        const extra2 = document.createElement("div");
+        extra2.className = "yj-msg good";
+        extra2.style.marginTop = "4px";
+        extra2.textContent = "🎉 次のまとまり（8問）が解禁されました！";
+        msg.after(extra2);
+      }
+      yjAnimateReveal();
+    } else {
+      yjRender();
+      msg.textContent = "";
+    }
+  } else {
+    YJ.mistakes++;
+    YJ.badTapIdx = idx;
+    yjRender();
+    const m2 = document.getElementById("yjMsg");
+    m2.textContent = YJ_PROBLEMS[YJ.qi].chars[idx].oki
+      ? "その字は置き字。声に出して読まない字だよ。"
+      : "ちがう字だよ。もう一度、次に読む字をさがしてみよう。";
+    m2.className = "yj-msg bad";
+    const gen = YJ.renderGen;
+    setTimeout(()=>{
+      if(gen !== YJ.renderGen) return;
+      YJ.badTapIdx = null;
+      const row = document.querySelector(`#yjApp .yj-row[data-idx="${idx}"]`);
+      if(row) row.classList.remove("bad-tap");
+    }, 400);
+  }
+}
+
+function yjShowStars(){
+  const starsEl = document.getElementById("yjStars");
+  const n = YJ.mistakes===0 ? 3 : YJ.mistakes<=2 ? 2 : 1;
+  let html = "";
+  for(let i=0;i<3;i++) html += `<span class="${i<n?"on":""}">★</span>`;
+  starsEl.innerHTML = html;
+}
+
+function yjAnimateReveal(){
+  const gen = YJ.renderGen;
+  setTimeout(()=>{
+    if(gen !== YJ.renderGen) return;
+    const kb = document.getElementById("yjKudashiBox");
+    if(kb){ kb.style.display = "block"; requestAnimationFrame(()=> kb.classList.add("show")); }
+  }, 200);
 }
 
 bootApp();
