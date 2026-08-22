@@ -2806,7 +2806,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.05</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.06</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6983,7 +6983,14 @@ function battleDamage(it){
    （2026-07-19〜、第6章のボス戦でit.tagが特定の値の問題だけを出したいケース用）。 */
 function pickBattleQuestion(cat, lastQ, filterFn){
   let pool = CATS[cat].items;
-  if(filterFn) pool = pool.filter(filterFn);
+  if(filterFn){
+    const filtered = pool.filter(filterFn);
+    /* 絞り込み条件（beat.maxGrade等）に合う問題が1問も無い場合は、絞り込み自体を諦めて
+       全体プールから出す（教員の指摘、2026-08-23：goiの441問全件にgradeフィールドが
+       付いておらず、maxGrade:3で絞り込むと0件になりCannot read properties of undefinedで
+       クラッシュしていた）。出題ゼロで詰まるより、学年に合わない問題が出る方がまし。 */
+    pool = filtered.length > 0 ? filtered : pool;
+  }
   if(pool.length > 1 && lastQ) pool = pool.filter(it => it.q !== lastQ);
   return pool[Math.floor(Math.random() * pool.length)];
 }
