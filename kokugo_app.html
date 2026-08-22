@@ -2806,7 +2806,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.03</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.05</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -5315,7 +5315,7 @@ function balancedCatWeight(lv, avgLv){
    ランダム遭遇でジャンルが未確定なとき）の対象から除外される。ホーム画面からその分野を直接選んで
    ふつうにクイズを解くこと自体は、ONのままでも今までどおりでき（生徒本人の意思による直接の選択は
    妨げない）、そのときにボスが出れば今までどおりその分野で戦う。 */
-const NOT_LEARNED_ELIGIBLE_CATS = ["kanbun", "kobun", "kanazukai", "katsuyo", "shikibetsu"];
+const NOT_LEARNED_ELIGIBLE_CATS = ["kanbun", "kobun", "kanazukai", "katsuyo", "shikibetsu", "doushi_katsuyo"];
 function notLearnedExcludedKeys(st){
   return NOT_LEARNED_ELIGIBLE_CATS.filter(k => st.notLearnedCats && st.notLearnedCats[k]);
 }
@@ -6280,8 +6280,24 @@ const GROUP_UNLOCK_CATS = CAT_KEYS;
    識別15問（計39問）を追加した上で、lv値をカテゴリ帯（文節分け0/単語分け+10/文節同士の
    関係+20/連文節同士の関係+30/接続詞の種類+40/そのほか+50）にオフセットし直し、8問グループが
    「文節分け→単語分け→文節同士の関係→連文節同士の関係→接続詞の種類→そのほか」の順に
-   解放されるよう並べ替えた（2026-08-04、教員の指示）。 */
-const CAT_POOL_VERSION = { kanbun: 4, shikibetsu: 1 };
+   解放されるよう並べ替えた（2026-08-04、教員の指示）。
+   2026-08-23：kokugo_data.jsを生成するmake_data.pyの誤実行（古いExcelから再生成）により、
+   kanji_yomi/okurigana/busyu/jukugo/taigigo/ruigigo/yoji/kotowaza/kanyoku/koji/keigo/
+   hinshi/katsuyo/kobun/kanazukai/kigo/shikibetsu（計17ジャンル）・表現技法(hyougen)が、
+   1か月ぶんの追加・修正を巻き戻された状態（ほぼ初回公開版相当）になっていたと判明し、
+   直前の健全な状態（コミットc96e956）から復旧した（漢文の返り点も同種の事故で消えており
+   d0e05f7で既に復旧済みだったが、他の17ジャンルは今回まで気づかれていなかった。詳細は
+   [[kokugo-drill-dx-workflow]]参照）。goiは復旧後(300問)と現在(441問)の内容が一致せず
+   （76問が復旧後になく217問が現在にしかない）機械的な復旧が危険なため対象外とし、
+   yojiは復旧後の105問に、事故後に追加された記述式40問（8ccd6b7）をマージして145問にした。
+   影響した全ジャンルのバージョンを一律1に設定し、問題解放率を強制リセットする
+   （教員の指示「問題を挿入した場合には0%から再スタートする設計に」を踏襲）。 */
+const CAT_POOL_VERSION = {
+  kanbun: 4, shikibetsu: 2,
+  kanji_yomi: 1, okurigana: 1, busyu: 1, jukugo: 1, taigigo: 1, ruigigo: 1,
+  yoji: 1, kotowaza: 1, kanyoku: 1, koji: 1, keigo: 1, hinshi: 1, katsuyo: 1,
+  kobun: 1, kanazukai: 1, kigo: 1, hyougen: 1,
+};
 let _catGroupsCache = {};
 /* 各ジャンルの問題を8問ずつの小グループに分割する。既存のlv（難易度）フィールドの昇順で並べ、
    同lv内はデータ配列の元の順序を保つ（＝難易度が近い問題同士がまとまる）。端数は最終グループが
