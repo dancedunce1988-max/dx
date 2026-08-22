@@ -2686,8 +2686,9 @@
   #ktApp .kt-kudashi-label{ font-size:.62rem; color:var(--kt-ai); letter-spacing:.1em; font-weight:700; margin-bottom:6px; }
   #ktApp .kt-kudashi-text{ writing-mode:vertical-rl; text-orientation:mixed; font-family:var(--kt-mincho); font-size:1rem; letter-spacing:.1em; color:var(--kt-sumi); line-height:1.9; max-height:250px; }
   #ktApp .kt-kudashi-text ruby rt{ font-size:.5em; color:var(--kt-sub); letter-spacing:0; }
-  #ktApp .kt-kudashi.solved{ background:#eef7f0; border-color:var(--kt-midori); }
+  #ktApp .kt-kudashi.solved{ background:#eef7f0; border-color:var(--kt-midori); cursor:pointer; }
   #ktApp .kt-kudashi.solved .kt-kudashi-label{ color:var(--kt-midori); }
+  #ktApp .kt-tap-hint{ writing-mode:horizontal-tb; font-size:.6rem; color:var(--kt-sub); letter-spacing:.02em; margin-top:8px; }
   #ktApp .kt-msg{ text-align:center; font-size:.8rem; min-height:1.2em; color:var(--kt-sub); letter-spacing:.04em; margin-top:10px; }
   #ktApp .kt-msg.good{ color:var(--kt-midori); font-weight:700; }
   #ktApp .kt-msg.bad{ color:var(--kt-shu); font-weight:700; }
@@ -2737,8 +2738,6 @@
   #yjApp .yj-hud{ display:flex; align-items:center; gap:10px; margin-bottom:8px; }
   #yjApp .yj-title{ font-family:var(--yj-mincho); font-size:1.05rem; letter-spacing:.24em; font-weight:600; color:var(--yj-ai); margin-right:auto; }
   #yjApp .yj-prog{ font-size:.72rem; color:var(--yj-sub); letter-spacing:.06em; }
-  #yjApp .yj-progress{ height:3px; background:var(--yj-line); border-radius:2px; margin-bottom:10px; overflow:hidden; }
-  #yjApp .yj-progress i{ display:block; height:100%; background:var(--yj-ai); transition:width .35s cubic-bezier(.2,.9,.3,1); }
   #yjApp .yj-card{ background:var(--yj-card); border:1px solid var(--yj-line); border-radius:12px; padding:14px 16px; margin-bottom:12px; }
   #yjApp .yj-lv-badge{ display:inline-block; font-size:.68rem; letter-spacing:.08em; color:#fff; background:var(--yj-ai-l); border-radius:99px; padding:2px 10px; margin-bottom:8px; font-weight:600; }
   #yjApp .yj-instr{ font-size:.86rem; line-height:1.6; }
@@ -2788,19 +2787,17 @@
     border-radius:10px; padding:12px 16px; margin-top:12px; opacity:0; transform:translateY(6px);
     transition:opacity .35s, transform .35s; display:none;
   }
-  #yjApp .yj-kudashi.show{ opacity:1; transform:translateY(0); }
+  #yjApp .yj-kudashi.show{ opacity:1; transform:translateY(0); cursor:pointer; }
   #yjApp .yj-kudashi-label{ font-size:.62rem; color:var(--yj-midori); letter-spacing:.1em; font-weight:700; margin-bottom:4px; }
   #yjApp .yj-kudashi-text{ font-family:var(--yj-mincho); font-size:1.1rem; letter-spacing:.06em; color:var(--yj-sumi); line-height:1.7; }
   #yjApp .yj-kudashi-text ruby rt{ font-size:.5em; color:var(--yj-sub); letter-spacing:0; }
+  #yjApp .yj-tap-hint{ font-size:.66rem; color:var(--yj-sub); letter-spacing:.04em; margin-top:8px; }
   #yjApp .yj-msg{ text-align:center; font-size:.8rem; min-height:1.2em; color:var(--yj-sub); letter-spacing:.04em; margin-top:10px; }
   #yjApp .yj-msg.good{ color:var(--yj-midori); font-weight:700; }
   #yjApp .yj-msg.bad{ color:var(--yj-shu); font-weight:700; }
   #yjApp .yj-stars{ text-align:center; font-size:1.2rem; letter-spacing:.15em; min-height:1.5em; }
   #yjApp .yj-stars span{ opacity:.25; transition:opacity .2s, transform .2s; }
   #yjApp .yj-stars span.on{ opacity:1; transform:scale(1.15); }
-  #yjApp .yj-done{ text-align:center; padding:30px 16px; }
-  #yjApp .yj-done .yj-big{ font-family:var(--yj-mincho); font-size:1.3rem; color:var(--yj-ai); letter-spacing:.15em; margin-bottom:10px; }
-  #yjApp .yj-done .yj-stat{ font-size:.84rem; color:var(--yj-sub); margin-bottom:18px; }
   @media (max-width:360px){ #yjApp .yj-box{ padding:14px 22px 18px 22px; } }
 </style>
 </head>
@@ -5031,9 +5028,9 @@ function showHome(){
         <div><h2>返り点をつける</h2><p>漢文の白文に、返り点をドラッグ（またはタップ）で置く特訓。8問ずつ解禁されます。正解すると「漢文」のレベルが上がります</p></div>
         <div class="right"><span class="shogo-badge ${ktT.hidden?"top":""}">${ktT.icon} ${esc(ktT.name)} Lv.${st.lv.kanbun}</span></div>
       </div>
-      <div class="card menu-card" onclick="yjShowMenu()">
+      <div class="card menu-card" onclick="yjStart()">
         <div class="menu-icon">👆</div>
-        <div><h2>読む順タップ</h2><p>返り点がすでに付いている白文を見て、読む順に字をタップする特訓。8問ずつ解禁されます。正解すると「漢文」のレベルが上がります</p></div>
+        <div><h2>読む順タップ</h2><p>返り点がすでに付いている白文を見て、読む順に字をタップする特訓。はじめは8問からランダムに出題され、正答率に応じて出題範囲が広がります。正解すると「漢文」のレベルが上がります</p></div>
         <div class="right"><span class="shogo-badge ${ktT.hidden?"top":""}">${ktT.icon} ${esc(ktT.name)} Lv.${st.lv.kanbun}</span></div>
       </div>`;
     }
@@ -18113,6 +18110,25 @@ function ktJudge(){
     ktShowStars();
     ktAnimateReveal();
     document.getElementById("ktNextBtn").style.display = "inline-block";
+    /* 判定後は、ヒントボタン等を除く画面のどこをタップしても次の問題に進めるようにする
+       （教員の指示、2026-08-22：「判定した後は、適当に押せば次の問題に行くように」）。
+       ktJudge()はDOMを直接書き換えるだけでktRender()を呼び直さないため、このリスナーは
+       正解した瞬間に一度だけ付ければよい（次の問題に進む＝ktStart()が新しく#ktAppを
+       作り直すので、古いリスナーが残って二重に効くことはない）。 */
+    const ktAppEl = document.getElementById("ktApp");
+    if(ktAppEl){
+      ktAppEl.addEventListener("click", (e)=>{
+        if(e.target.closest("button")) return; // ヒントを見るボタン等は個別の動作を優先する
+        ktStart(KT.qi+1);
+      });
+    }
+    const ktKudashiBox = document.getElementById("ktKudashiBox");
+    if(ktKudashiBox && !ktKudashiBox.querySelector(".kt-tap-hint")){
+      const hint = document.createElement("div");
+      hint.className = "kt-tap-hint";
+      hint.textContent = "画面をタップすると次の問題へ";
+      ktKudashiBox.appendChild(hint);
+    }
     KT.solved++;
     const bar = document.querySelector("#ktApp .kt-progress i");
     if(bar) bar.style.width = (100*KT.solved/KT_PROBLEMS.length) + "%";
@@ -18167,17 +18183,27 @@ function ktAnimateReveal(){
    返り点がすでに付いている白文を見て、読む順に字をタップする問題。
    問題データはKT_PROBLEMS（56問、教員確認済み）をそのまま流用する：chars（ch/mark/oki/ok/okuri）・
    order・kudashi・note・lvの形が完全に一致するため、複製せず同じ配列を参照する。
-   8問グループの解禁・record()によるlv.kanbun/経験値の加算は、KTと同じ方式・同じ"kanbun"カテゴリで
-   行うが、グループ解禁の進捗（st.yjSolved／st.groupUnlock.kanbun_yj）はKT側とは独立させる
-   （KTと同じ"kanbun_kt"キーを使うと、片方だけ解いても両方解禁されてしまうため）。 */
+   出題・解禁の方式は、KTの「8問ずつ手動で選ぶまとまり画面」ではなく、20分野・百人一首と同じ
+   「はじめは8問のプールからランダムに出題し、正答率・連続正解に応じて次の8問が自動的に解禁される」
+   方式にする（教員の指摘、2026-08-22：「そういうことではない。他のジャンルの問題と同じシステムで、
+   初めは8つの問題からランダムで出し、正答率等に応じて少しずつ開くシステムに。ボタンを分ける
+   ということではない」）。そのため、専用のGROUP_SIZE・UnlockEngine・fastUnlockEligibleは
+   ホームの「返り点をつける」ボタンとは分けたまま、既存の20分野／百人一首と全く同じ判定式
+   （UnlockEngine.isGroupCleared、GROUP_UNLOCK_STREAK/QUORUM/ACC、高速解放モード）を流用する。
+   グループ解禁の進捗（st.groupUnlock.kanbun_yj）・解禁の材料になる連続正解数はKT側とは独立させる
+   （KTと同じキーや同じqKeyを使うと、片方だけ解いてももう片方まで解禁・進捗してしまうため、
+   st.q側のキーもyjQ()で"読順:"という専用の接頭辞を付けて区別する）。 */
 const YJ_PROBLEMS = KT_PROBLEMS;
+
+function yjQ(idx){ return "読順:" + YJ_PROBLEMS[idx].white; }
 
 let _yjGroupsCache = null;
 function yjGroups(){
   if(_yjGroupsCache) return _yjGroupsCache;
   const groups = [];
   for(let i=0;i<YJ_PROBLEMS.length;i+=GROUP_SIZE){
-    groups.push({level:groups.length+1, indices: YJ_PROBLEMS.slice(i, i+GROUP_SIZE).map((_,j)=>i+j)});
+    const indices = YJ_PROBLEMS.slice(i, i+GROUP_SIZE).map((_,j)=>i+j);
+    groups.push({level:groups.length+1, indices, keys: indices.map(idx => qKey("kanbun", yjQ(idx)))});
   }
   _yjGroupsCache = groups;
   return groups;
@@ -18185,101 +18211,120 @@ function yjGroups(){
 function yjUnlockedGroupCount(st){
   return (st.groupUnlock && st.groupUnlock.kanbun_yj) || 1;
 }
-function yjUnlockedCount(st){
-  const groups = yjGroups();
-  const n = Math.min(yjUnlockedGroupCount(st), groups.length);
-  let cnt = 0;
-  for(let i=0;i<n;i++) cnt += groups[i].indices.length;
-  return cnt;
-}
 function yjUnlockedQuestionPct(st){
   if(YJ_PROBLEMS.length === 0) return null;
-  return Math.round(yjUnlockedCount(st) / YJ_PROBLEMS.length * 100);
+  const groups = yjGroups();
+  const n = Math.min(yjUnlockedGroupCount(st), groups.length);
+  let unlockedQ = 0;
+  for(let i=0;i<n;i++) unlockedQ += groups[i].indices.length;
+  return Math.round(unlockedQ / YJ_PROBLEMS.length * 100);
 }
-function yjIsSolved(st, idx){
-  return (st.yjSolved||[]).includes(YJ_PROBLEMS[idx].white);
+/* 現在解禁済みの全グループぶんの出題インデックス（累積的・不可逆。20分野のgroupUnlockedPoolと同じ方針）。 */
+function yjUnlockedIndices(st){
+  const groups = yjGroups();
+  const n = Math.min(yjUnlockedGroupCount(st), groups.length);
+  const out = [];
+  for(let i=0;i<n;i++) out.push(...groups[i].indices);
+  return out;
 }
-function yjMarkSolvedAndCheckUnlock(st, idx){
-  if(!Array.isArray(st.yjSolved)) st.yjSolved = [];
-  const white = YJ_PROBLEMS[idx].white;
-  if(!st.yjSolved.includes(white)) st.yjSolved.push(white);
+/* 高速解放モード中に使う「今まさに解禁の最前線になっている8問」だけのインデックス（20分野の
+   activeGroupPoolと同じ考え方）。既に全解禁済みならnullを返し、呼び出し側が通常の
+   yjUnlockedIndicesにフォールバックする。 */
+function yjActiveGroupIndices(st){
+  const groups = yjGroups();
+  const count = yjUnlockedGroupCount(st);
+  if(count >= groups.length) return null;
+  return groups[count - 1].indices;
+}
+function yjFastUnlockEligible(st){
+  const recent = st.yjRecent || [];
+  const misses = recent.reduce((n,v) => n + (v ? 0 : 1), 0);
+  return misses <= FAST_UNLOCK_MAX_MISSES;
+}
+/* 正解のたびに呼ぶ。20分野のcheckGroupUnlock／百人一首のhyaCheckGroupUnlockと同じ判定式を、
+   yj専用の記録（st.yjRecent＝高速解放判定用の直近30件、st.yjGroupRecent＝現在の最前線グループへの
+   直近正答率、st.q[yjQ(idx)]の連続正解数k＝record()が既に積んでくれている）だけを使って行う。 */
+function yjCheckGroupUnlock(st, idx, correct){
+  if(!Array.isArray(st.yjRecent)) st.yjRecent = [];
+  st.yjRecent.push(correct ? 1 : 0);
+  while(st.yjRecent.length > FAST_UNLOCK_RECENT_WINDOW) st.yjRecent.shift();
+
   const groups = yjGroups();
   const gIdx = yjUnlockedGroupCount(st) - 1;
-  if(gIdx >= groups.length - 1) return false;
+  if(gIdx >= groups.length - 1) return false; // 既に全解禁
   const cur = groups[gIdx];
-  if(!cur.indices.includes(idx)) return false;
-  const allSolved = cur.indices.every(i => yjIsSolved(st, i));
-  if(!allSolved) return false;
-  if(!st.groupUnlock) st.groupUnlock = {};
-  st.groupUnlock.kanbun_yj = yjUnlockedGroupCount(st) + 1;
-  return true;
+  if(cur.indices.includes(idx)){
+    if(!Array.isArray(st.yjGroupRecent)) st.yjGroupRecent = [];
+    st.yjGroupRecent.push(correct ? 1 : 0);
+    while(st.yjGroupRecent.length > GROUP_RECENT_WINDOW) st.yjGroupRecent.shift();
+  }
+  if(correct && yjFastUnlockEligible(st)){
+    if(!st.groupUnlock) st.groupUnlock = {};
+    st.groupUnlock.kanbun_yj = yjUnlockedGroupCount(st) + 1;
+    st.yjGroupRecent = [];
+    return true;
+  }
+  const streakMap = {};
+  cur.keys.forEach(k => { const rec = st.q[k]; streakMap[k] = rec ? (rec.k||0) : 0; });
+  const recentWindow = st.yjGroupRecent || [];
+  if(UnlockEngine.isGroupCleared(cur.keys, streakMap, recentWindow, GROUP_UNLOCK_STREAK, GROUP_UNLOCK_ACC, GROUP_UNLOCK_QUORUM)){
+    if(!st.groupUnlock) st.groupUnlock = {};
+    st.groupUnlock.kanbun_yj = yjUnlockedGroupCount(st) + 1;
+    st.yjGroupRecent = [];
+    return true;
+  }
+  return false;
+}
+/* 出題する1問をランダムに選ぶ（20分野の考え方に合わせ、直前と同じ問題は連続させない）。
+   高速解放モード中は、解禁済み全問題ではなく「今解禁されたばかりの8問」だけから出す
+   （教員の指示、2026-08-04の20分野・百人一首と同じ意図：既習問題の正解だけで
+   どんどん解放され続けてしまうのを防ぐ）。 */
+function yjSelectOne(st, lastIdx){
+  let pool = yjFastUnlockEligible(st) ? (yjActiveGroupIndices(st) || yjUnlockedIndices(st)) : yjUnlockedIndices(st);
+  if(pool.length > 1 && lastIdx != null) pool = pool.filter(i => i !== lastIdx);
+  return pool[Math.floor(Math.random()*pool.length)];
 }
 
 const YJ = {
-  qi:0, nextPos:0, tappedNum:[], mistakes:0, solvedThis:false, solved:0,
+  idx:0, lastIdx:null, nextPos:0, tappedNum:[], mistakes:0, solvedThis:false, solved:0,
   badTapIdx:null, renderGen:0, shownAt:0,
 };
 
-function yjShowMenu(){
-  const st = loadStats();
-  const groups = yjGroups();
-  const unlockedN = yjUnlockedGroupCount(st);
-  const pct = yjUnlockedQuestionPct(st);
-  let html = `
-    <h3 class="section">👆 読む順タップ</h3>
-    <p class="note">返り点がすでに付いている白文を見て、読む順に字をタップしていく特訓です。8問のまとまりを解き終えるごとに、次のまとまりが解禁されます。正解すると「漢文」のレベルが上がります。</p>
-    ${unlockFooterHtml("漢文（読む順タップ）", pct)}
-  `;
-  groups.forEach((g,gi)=>{
-    const locked = (gi+1) > unlockedN;
-    const solvedCount = g.indices.filter(i=>yjIsSolved(st,i)).length;
-    const firstIdx = g.indices[0];
-    const lastLabel = YJ_PROBLEMS[g.indices[0]].lv.replace(/^れんしゅう\d+　|^そうごう\d+　/,"");
-    html += `
-    <div class="card menu-card${locked?" locked":""}" ${locked?"":`onclick="yjStart(${firstIdx})"`}>
-      <div class="menu-icon">${locked?"🔒":(solvedCount===g.indices.length?"✅":"👆")}</div>
-      <div><h2>まとまり${g.level}（${g.indices.length}問）</h2><p>${locked?"前のまとまりを解き終えると解禁されます":esc(lastLabel)+" など"}</p></div>
-      <div class="right"><span class="count">${solvedCount}/${g.indices.length}問クリア</span></div>
-    </div>`;
-  });
-  html += `<div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
-  screen.innerHTML = html;
+function yjStart(){
+  YJ.solved = 0;
+  YJ.lastIdx = null;
+  yjNextQuestion();
 }
 
-function yjStart(i){
+function yjNextQuestion(){
   const st = loadStats();
-  if(i < YJ_PROBLEMS.length && i >= yjUnlockedCount(st)){
-    yjShowMenu();
-    return;
-  }
   YJ.renderGen++;
-  YJ.qi = i;
-  if(i < YJ_PROBLEMS.length){
-    YJ.nextPos = 0;
-    YJ.tappedNum = [];
-    YJ.mistakes = 0;
-    YJ.solvedThis = false;
-    YJ.badTapIdx = null;
-    YJ.shownAt = Date.now();
-  }
+  YJ.idx = yjSelectOne(st, YJ.lastIdx);
+  YJ.lastIdx = YJ.idx;
+  YJ.nextPos = 0;
+  YJ.tappedNum = [];
+  YJ.mistakes = 0;
+  YJ.solvedThis = false;
+  YJ.badTapIdx = null;
+  YJ.shownAt = Date.now();
+  yjRender();
+}
+
+function yjRetry(){
+  YJ.renderGen++;
+  YJ.nextPos = 0;
+  YJ.tappedNum = [];
+  YJ.mistakes = 0;
+  YJ.solvedThis = false;
+  YJ.badTapIdx = null;
+  YJ.shownAt = Date.now();
   yjRender();
 }
 
 function yjRender(){
-  if(YJ.qi >= YJ_PROBLEMS.length){
-    screen.innerHTML = `<div id="yjApp"><div class="yj-done">
-      <div class="yj-big">全問クリア！</div>
-      <div class="yj-stat">${YJ_PROBLEMS.length}問すべて、正しい順に読めました。</div>
-    </div></div>
-    <div class="btn-row">
-      <button class="btn secondary" onclick="yjStart(0)">もう一度さいしょから</button>
-      <button class="btn secondary" onclick="showHome()">ホームへ</button>
-    </div>`;
-    return;
-  }
-
-  const p = YJ_PROBLEMS[YJ.qi];
+  const p = YJ_PROBLEMS[YJ.idx];
   const nextLabel = YJ.solvedThis ? "" : `${YJ.nextPos+1}番目に読む字をさがして、タップしよう。`;
+  const st = loadStats();
 
   const rowsHtml = p.chars.map((c,idx)=>{
     const num = YJ.tappedNum[idx];
@@ -18293,8 +18338,8 @@ function yjRender(){
     const badgeHtml = `<span class="yj-order-badge${num?" show":""}">${num||""}</span>`;
     const rowCls = (num?" done":"") + (YJ.badTapIdx===idx?" bad-tap":"");
     return `<div class="yj-row${rowCls}" data-idx="${idx}">
-      ${markHtml}
       <span class="yj-glyph">${esc(c.ch)}${badgeHtml}${annoHtml}</span>
+      ${markHtml}
     </div>`;
   }).join("");
 
@@ -18302,9 +18347,8 @@ function yjRender(){
   <div id="yjApp">
     <div class="yj-hud">
       <div class="yj-title">読む順タップ</div>
-      <div class="yj-prog">問 ${YJ.qi+1} / ${YJ_PROBLEMS.length}</div>
+      <div class="yj-prog">今回 ${YJ.solved}問クリア</div>
     </div>
-    <div class="yj-progress"><i style="width:${100*YJ.solved/YJ_PROBLEMS.length}%"></i></div>
 
     <div class="yj-card">
       <span class="yj-lv-badge">${esc(p.lv)}</span>
@@ -18321,15 +18365,16 @@ function yjRender(){
       <div class="yj-kudashi${YJ.solvedThis?" show":""}" id="yjKudashiBox" style="display:${YJ.solvedThis?"block":"none"}">
         <div class="yj-kudashi-label">書き下し文</div>
         <div class="yj-kudashi-text">${ktRuby(p.kudashi)}</div>
+        <div class="yj-tap-hint">画面をタップすると次の問題へ</div>
       </div>
     </div>
   </div>
   <div class="btn-row">
-    <button class="btn secondary" onclick="yjStart(YJ.qi)">この問題をやり直す</button>
-    <button class="btn secondary" id="yjNextBtn" style="display:${YJ.solvedThis?"inline-block":"none"}" onclick="yjStart(YJ.qi+1)">次の問題へ</button>
-    <button class="btn secondary" onclick="yjShowMenu()">問題一覧へ</button>
+    <button class="btn secondary" onclick="yjRetry()">この問題をやり直す</button>
+    <button class="btn secondary" id="yjNextBtn" style="display:${YJ.solvedThis?"inline-block":"none"}" onclick="yjNextQuestion()">次の問題へ</button>
     <button class="btn secondary" onclick="showHome()">ホームへ</button>
-  </div>`;
+  </div>
+  ${unlockFooterHtml("漢文（読む順タップ）", yjUnlockedQuestionPct(st))}`;
 
   if(YJ.solvedThis) yjShowStars();
   yjAttachEvents();
@@ -18346,15 +18391,27 @@ function yjAttachEvents(){
       yjHandleTap(+row.dataset.idx);
     });
   });
+  /* 正解して書き下し文が表示された後は、ヒントボタンなどを除く画面のどこをタップしても
+     次の問題に進めるようにする（教員の指示、2026-08-22：「答えが表示されている画面からは、
+     どこかを押せば、次の問題に進むように」）。#yjAppはyjRender()のたびにinnerHTMLごと
+     作り直されるので、ここで付けたリスナーが前回描画ぶんと二重に残ることはない。 */
+  if(YJ.solvedThis){
+    const appEl = document.getElementById("yjApp");
+    if(appEl){
+      appEl.addEventListener("click", (e)=>{
+        if(e.target.closest("button")) return; // ヒントを見るボタン等は個別の動作を優先する
+        yjNextQuestion();
+      });
+    }
+  }
 }
 
 function yjHandleTap(idx){
   if(YJ.solvedThis) return;
-  const p = YJ_PROBLEMS[YJ.qi];
+  const p = YJ_PROBLEMS[YJ.idx];
   if(YJ.tappedNum[idx]) return; // すでに読んだ字は無視（誤タップ扱いにしない）
 
   const expectedIdx = p.order[YJ.nextPos];
-  const msg = document.getElementById("yjMsg");
 
   if(idx === expectedIdx){
     YJ.tappedNum[idx] = YJ.nextPos+1;
@@ -18364,11 +18421,12 @@ function yjHandleTap(idx){
       YJ.solvedThis = true;
       YJ.solved++;
       const elapsedMs = Date.now() - (YJ.shownAt || Date.now());
-      const r = record("kanbun", {q:p.white, lv:YJ.qi+1}, true, elapsedMs, {skipRecentAcc:true});
+      const r = record("kanbun", {q:yjQ(YJ.idx)}, true, elapsedMs, {skipRecentAcc:true});
       const st2 = loadStats();
-      const groupUnlocked = yjMarkSolvedAndCheckUnlock(st2, YJ.qi);
+      const groupUnlocked = yjCheckGroupUnlock(st2, YJ.idx, true);
       saveStats(st2);
       yjRender();
+      const msg = document.getElementById("yjMsg");
       msg.textContent = "正解！すべて読む順どおりにタップできました。";
       msg.className = "yj-msg good";
       if(r.lvup){
@@ -18382,20 +18440,20 @@ function yjHandleTap(idx){
         const extra2 = document.createElement("div");
         extra2.className = "yj-msg good";
         extra2.style.marginTop = "4px";
-        extra2.textContent = "🎉 次のまとまり（8問）が解禁されました！";
+        extra2.textContent = "🎉 次の8問が解禁されました！";
         msg.after(extra2);
       }
       yjAnimateReveal();
     } else {
       yjRender();
-      msg.textContent = "";
+      document.getElementById("yjMsg").textContent = "";
     }
   } else {
     YJ.mistakes++;
     YJ.badTapIdx = idx;
     yjRender();
     const m2 = document.getElementById("yjMsg");
-    m2.textContent = YJ_PROBLEMS[YJ.qi].chars[idx].oki
+    m2.textContent = YJ_PROBLEMS[YJ.idx].chars[idx].oki
       ? "その字は置き字。声に出して読まない字だよ。"
       : "ちがう字だよ。もう一度、次に読む字をさがしてみよう。";
     m2.className = "yj-msg bad";
