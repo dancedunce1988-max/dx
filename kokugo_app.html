@@ -2806,7 +2806,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.02</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.03</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -17720,9 +17720,9 @@ const KT_PROBLEMS = [
     note:"「亦…ずや」は「なんと～ではないか」という感動をこめた言い方。「不」は一二点で「楽」の後にもどる。"
   },
   { lv:"はってん３　論語（過則勿憚改）", white:"過則勿憚改",
-    chars:[{ch:"過",okuri:"テバ"},{ch:"則",ok:"すなわち"},{ch:"勿",mark:"二",ok:"な"},{ch:"憚",mark:"一レ",ok:"はばか",okuri:"ル"},{ch:"改",okuri:"ムルニ"}],
+    chars:[{ch:"過",okuri:"テバ"},{ch:"則",ok:"すなわち"},{ch:"勿",mark:"レ",ok:"な"},{ch:"憚",mark:"レ",ok:"はばか",okuri:"ル"},{ch:"改",okuri:"ムルニ"}],
     order:[0,1,4,3,2], kudashi:"過(あやま)てば則(すなわ)ち改(あらた)むるに憚(はばか)ること勿(な)かれ",
-    note:"「一レ」の合体マークが登場する応用パターン。「憚」がレ点で「改」の後にもどり、そのうえで一二点の「一」もかねる。"
+    note:"レ点が2つ連続するパターン。「憚」がレ点で「改」の後にもどり、さらに「勿」もレ点で「憚」の後にもどる。1字ずつのとなり合う返りなので、一二点は使わない。"
   },
   { lv:"はってん４　論語（人不知而不慍）", white:"人不知而不慍",
     chars:[{ch:"人"},{ch:"不",mark:"レ",ok:"ず"},{ch:"知",okuri:"ラ"},{ch:"而",oki:true},{ch:"不",mark:"レ",ok:"ず"},{ch:"慍",ok:"うら",okuri:"ミ"}],
@@ -18140,25 +18140,37 @@ function ktJudge(){
     KT.solved++;
     const bar = document.querySelector("#ktApp .kt-progress i");
     if(bar) bar.style.width = (100*KT.solved/KT_PROBLEMS.length) + "%";
-    const elapsedMs = Date.now() - (KT.shownAt || Date.now());
-    const r = record("kanbun", {q:p.white, lv:KT.qi+1}, true, elapsedMs, {skipRecentAcc:true});
-    // 8問グループの解禁状況もあわせて更新する（教員の指摘、2026-08-22：8問ずつ解放するしくみ）。
-    const st2 = loadStats();
-    const groupUnlocked = ktMarkSolvedAndCheckUnlock(st2, KT.qi);
-    saveStats(st2);
-    if(r.lvup){
-      const extra = document.createElement("div");
-      extra.className = "kt-msg good";
-      extra.style.marginTop = "4px";
-      extra.textContent = r.evolved ? `漢文 Lv.${r.lv} UP！${r.evolved.icon} ${r.evolved.name}になりました` : `漢文 Lv.${r.lv} UP！`;
-      msg.after(extra);
-    }
-    if(groupUnlocked){
-      const extra2 = document.createElement("div");
-      extra2.className = "kt-msg good";
-      extra2.style.marginTop = "4px";
-      extra2.textContent = "🎉 次のまとまり（8問）が解禁されました！";
-      msg.after(extra2);
+    /* ミスなく（判定するボタンを1回押しただけで）正解できたときだけ、漢文レベル・経験値と
+       まとまり解禁の対象にする（教員の指示、2026-08-22：「1回でもミスしたら、漢文のジャンルの
+       レベルは上がらないようにしてほしい」）。星の判定（3つ星＝attempts<=1）と同じ基準。
+       ミスがあった場合はrecord()自体を呼ばない＝正誤記録にも解禁ストリークにも一切影響しない
+       （不正解として記録してマイナスにするのではなく、今回ぶんの加点なしという扱いにする）。 */
+    if(KT.attempts === 1){
+      const elapsedMs = Date.now() - (KT.shownAt || Date.now());
+      const r = record("kanbun", {q:p.white, lv:KT.qi+1}, true, elapsedMs, {skipRecentAcc:true});
+      const st2 = loadStats();
+      const groupUnlocked = ktMarkSolvedAndCheckUnlock(st2, KT.qi);
+      saveStats(st2);
+      if(r.lvup){
+        const extra = document.createElement("div");
+        extra.className = "kt-msg good";
+        extra.style.marginTop = "4px";
+        extra.textContent = r.evolved ? `漢文 Lv.${r.lv} UP！${r.evolved.icon} ${r.evolved.name}になりました` : `漢文 Lv.${r.lv} UP！`;
+        msg.after(extra);
+      }
+      if(groupUnlocked){
+        const extra2 = document.createElement("div");
+        extra2.className = "kt-msg good";
+        extra2.style.marginTop = "4px";
+        extra2.textContent = "🎉 次のまとまり（8問）が解禁されました！";
+        msg.after(extra2);
+      }
+    } else {
+      const extra3 = document.createElement("div");
+      extra3.className = "kt-msg";
+      extra3.style.marginTop = "4px";
+      extra3.textContent = "ミスがあったので、今回は漢文のレベルアップの対象外です。";
+      msg.after(extra3);
     }
   } else if(anyBad){
     msg.textContent = "ちがう場所（または印）があります。赤いマスはいったん空になります。";
@@ -18428,28 +18440,40 @@ function yjHandleTap(idx){
     if(YJ.nextPos === p.order.length){
       YJ.solvedThis = true;
       YJ.solved++;
-      const elapsedMs = Date.now() - (YJ.shownAt || Date.now());
-      const r = record("kanbun", {q:yjQ(YJ.idx)}, true, elapsedMs, {skipRecentAcc:true});
-      const st2 = loadStats();
-      const groupUnlocked = yjCheckGroupUnlock(st2, YJ.idx, true);
-      saveStats(st2);
       yjRender();
       const msg = document.getElementById("yjMsg");
       msg.textContent = "正解！すべて読む順どおりにタップできました。";
       msg.className = "yj-msg good";
-      if(r.lvup){
-        const extra = document.createElement("div");
-        extra.className = "yj-msg good";
-        extra.style.marginTop = "4px";
-        extra.textContent = r.evolved ? `漢文 Lv.${r.lv} UP！${r.evolved.icon} ${r.evolved.name}になりました` : `漢文 Lv.${r.lv} UP！`;
-        msg.after(extra);
-      }
-      if(groupUnlocked){
-        const extra2 = document.createElement("div");
-        extra2.className = "yj-msg good";
-        extra2.style.marginTop = "4px";
-        extra2.textContent = "🎉 次の8問が解禁されました！";
-        msg.after(extra2);
+      /* ミスなく（誤タップ0回で）正解できたときだけ、漢文レベル・経験値と解禁ストリークの
+         対象にする（教員の指示、2026-08-22：「1回でもミスしたら、漢文のジャンルのレベルは
+         上がらないようにしてほしい」、返り点をつける側と同じ基準）。星の判定
+         （3つ星＝mistakes===0）と同じ。ミスがあった場合はrecord()自体を呼ばない。 */
+      if(YJ.mistakes === 0){
+        const elapsedMs = Date.now() - (YJ.shownAt || Date.now());
+        const r = record("kanbun", {q:yjQ(YJ.idx)}, true, elapsedMs, {skipRecentAcc:true});
+        const st2 = loadStats();
+        const groupUnlocked = yjCheckGroupUnlock(st2, YJ.idx, true);
+        saveStats(st2);
+        if(r.lvup){
+          const extra = document.createElement("div");
+          extra.className = "yj-msg good";
+          extra.style.marginTop = "4px";
+          extra.textContent = r.evolved ? `漢文 Lv.${r.lv} UP！${r.evolved.icon} ${r.evolved.name}になりました` : `漢文 Lv.${r.lv} UP！`;
+          msg.after(extra);
+        }
+        if(groupUnlocked){
+          const extra2 = document.createElement("div");
+          extra2.className = "yj-msg good";
+          extra2.style.marginTop = "4px";
+          extra2.textContent = "🎉 次の8問が解禁されました！";
+          msg.after(extra2);
+        }
+      } else {
+        const extra3 = document.createElement("div");
+        extra3.className = "yj-msg";
+        extra3.style.marginTop = "4px";
+        extra3.textContent = "ミスがあったので、今回は漢文のレベルアップの対象外です。";
+        msg.after(extra3);
       }
       yjAnimateReveal();
     } else {
