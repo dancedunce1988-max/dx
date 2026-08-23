@@ -444,6 +444,22 @@
     background:rgba(180,140,255,.35); border-color:#d8c2ff; box-shadow:0 0 16px rgba(180,140,255,.7);
   }
   .boss-enc-hint{ color:#9a8ec2; margin-top:16px; }
+  /* チケット3枚での「相手を選ぶ」画面用（2026-08-23〜）。候補ボスの数が多いとき用に、
+     .boss-enc-choicesの横並びではなく縦並び・スクロール可のリストにする。 */
+  .boss-choose-list{
+    display:flex; flex-direction:column; gap:10px; max-height:52vh; overflow-y:auto;
+    padding:4px 2px; margin:14px 0;
+  }
+  .boss-choose-btn{
+    display:flex; align-items:center; gap:10px; text-align:left;
+    background:rgba(255,255,255,.07); color:#f0e6ff; border:2px solid rgba(180,140,255,.4);
+    border-radius:10px; padding:10px 16px; font-size:.95rem; cursor:pointer; font-family:inherit;
+    transition:all .15s;
+  }
+  .boss-choose-btn:hover{ background:rgba(180,140,255,.2); border-color:#d8c2ff; }
+  .boss-choose-btn .icon{ font-size:1.4rem; }
+  .boss-choose-btn .name{ flex:1; }
+  .boss-choose-btn .recpts{ color:#9a8ec2; font-size:.82rem; white-space:nowrap; }
   .boss-battle-screen{
     background:linear-gradient(160deg,#0d0d16,#1a1030 55%,#0d0d16); color:#f0e6ff;
     border-radius:14px; padding:22px 18px; margin-bottom:14px;
@@ -2806,7 +2822,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.08</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.09</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -5234,7 +5250,7 @@ function showHelp(){
         <li><b>漢字・語彙・文法</b>など、ジャンル（分野）ごとに、自分だけの「レベル」があります。</li>
         <li>問題に<b>正解するたびにレベルが1上がります</b>（不正解でレベルが下がることはありません）。</li>
         <li>レベルが上がると、「むらびと」→「村人」→…→「伝説の勇者」というように<b>称号</b>が変わっていきます。伝説の勇者のさらに先には、正体がナゾの「かくし称号」もかくされています。</li>
-        <li>レベルが<b>10回上がるごとに</b>、ボスへの「挑戦チケット」を1枚もらえます。</li>
+        <li>レベルが<b>10回上がるごとに</b>、ボスへの「挑戦チケット」を1枚もらえます。<b>チケット1枚</b>でランダムなボスに、<b>チケット3枚</b>を使えば今戦えるボスの中から相手を選んで挑戦できます。</li>
         <li>選択肢を適当に選び続けるなど、<b>直近の正答率が極端に低いとき</b>や、<b>問題をよく読まずに素早く答え続けているとき</b>は、正解してもレベルアップが一時的にお休みになります。落ち着いて問題を読んで答えるようにすれば、また通常どおりレベルが上がるようになります。</li>
       </ul>
     </div>
@@ -9499,12 +9515,21 @@ function endBossBattle(){
    どこから呼んでも変わらない。ボス戦自体はそもそもrecord()を呼ばない設計（[[kokugo-boss-status-system]]、
    分野レベルst.lvは一切変動しない）なので、このボタンを百人一首メニューに置いても、ことのはの
    「全領域バランス型」進化判定（20分野の相対レベル差で決まる）には何の影響も生まれない。 */
+/* チケットで「相手を選ぶ」ときの消費枚数（2026-08-23〜、教員の指示：
+   「3枚消費すれば、現在戦う可能性のある任意のボスと戦えるように」）。候補の絞り込みは
+   ticketEligibleBossesをそのまま使い、ランダム抽選(useTicketAndFight)と完全に同じ対象から
+   選ばせる。1枚消費のランダム挑戦より確実に狙ったボスと戦えるぶん、割高な3枚にしている。 */
+const TICKET_CHOOSE_COST = 3;
 function showTicketConfirm(){
   const st = loadStats();
   if((st.bossTickets||0) <= 0){ showHome(); return; }
   const xp = kotonohaTotalXP(st);
   const candidates = ticketEligibleBosses(xp);
   const names = candidates.map(b => b.name.match(/【(.+)】/)?.[1] || b.name).join("・");
+  const n = st.bossTickets||0;
+  const chooseBtnHtml = n >= TICKET_CHOOSE_COST
+    ? `<button class="boss-enc-btn" onclick="showTicketChooseBoss()">チケットを${TICKET_CHOOSE_COST}枚使って相手を選ぶ</button>`
+    : `<button class="boss-enc-btn disabled" disabled>チケットを${TICKET_CHOOSE_COST}枚使って相手を選ぶ（あと${TICKET_CHOOSE_COST-n}枚必要）</button>`;
   screen.innerHTML = `
     <div class="card boss-encounter">
       <div class="boss-enc-icon">🎟️</div>
@@ -9514,6 +9539,9 @@ function showTicketConfirm(){
       <div class="boss-enc-choices">
         <button class="boss-enc-btn" onclick="showHome()">やめる</button>
         <button class="boss-enc-btn selected" onclick="useTicketAndFight()">チケットを1枚使って挑戦する</button>
+      </div>
+      <div class="boss-enc-choices">
+        ${chooseBtnHtml}
       </div>
     </div>`;
 }
@@ -9525,6 +9553,47 @@ function showTicketConfirm(){
    独自の上限ルールは廃止し、ランダム遭遇に出てくるボスの候補と完全に一致させる。 */
 function ticketEligibleBosses(xp){
   return BOSSES.filter(b => (!b.minXpRatio || xp >= b.recPts * b.minXpRatio) && !isBossRetired(b, xp));
+}
+/* チケット3枚を使って、ticketEligibleBossesの候補の中から任意の1体を選んで挑戦する
+   （2026-08-23〜、教員の指示）。抽選（ランダム）ではなく確定選択なので、useTicketAndFightとは
+   別関数にし、候補一覧をボタンで並べる。 */
+function showTicketChooseBoss(){
+  const st = loadStats();
+  if((st.bossTickets||0) < TICKET_CHOOSE_COST){ showTicketConfirm(); return; }
+  const xp = kotonohaTotalXP(st);
+  const candidates = ticketEligibleBosses(xp);
+  const listHtml = candidates.map(b => `
+    <button class="boss-choose-btn" onclick="useTicketAndFightChosen('${b.id}')">
+      <span class="icon">${b.icon}</span>
+      <span class="name">${esc(b.name)}　<span class="boss-lv-tag">Lv.${b.lv||"?"}</span></span>
+      <span class="recpts">適正経験値：${b.hideRecPts ? "？？？" : (b.recPts||0)+"pt"}</span>
+    </button>`).join("");
+  screen.innerHTML = `
+    <div class="card boss-encounter">
+      <div class="boss-enc-icon">🎟️🎟️🎟️</div>
+      <p class="boss-enc-text">チケットを${TICKET_CHOOSE_COST}枚使って、挑戦したいボスを選んでください。</p>
+      <p class="note boss-enc-hint">（今の手持ち：${st.bossTickets||0}枚）</p>
+      <div class="boss-choose-list">${listHtml}</div>
+      <div class="boss-enc-choices">
+        <button class="boss-enc-btn" onclick="showTicketConfirm()">もどる</button>
+      </div>
+    </div>`;
+}
+function useTicketAndFightChosen(bossId){
+  const st = loadStats();
+  if((st.bossTickets||0) < TICKET_CHOOSE_COST){ showHome(); return; }
+  const xp = kotonohaTotalXP(st);
+  const boss = ticketEligibleBosses(xp).find(b => b.id === bossId);
+  if(!boss){ showTicketConfirm(); return; } // 候補から外れていたら（経験値変動等）安全に戻す
+  st.bossTickets -= TICKET_CHOOSE_COST;
+  saveStats(st);
+  pendingBoss = boss;
+  pendingBossAllGenre = true;
+  pendingBossHyakunin = false;
+  bossPromptResumeFn = () => showHome();
+  bossPromptActive = true;
+  bossPromptSelection = "no";
+  renderBossPrompt();
 }
 function useTicketAndFight(){
   const st = loadStats();
