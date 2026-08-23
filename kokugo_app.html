@@ -2806,7 +2806,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.07</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.08</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3037,23 +3037,31 @@ function catExpPoints(lv){
   if(L <= 1000) return 1097 + (L - 500);
   return 1597 + (L - 1000) * 0.2;
 }
-function totalEarnedStatPoints(st){
+/* 「ことのはの経験値」の生の計算式（totalEarnedStatPoints・kotonohaTotalXPの両方が使う共通部分）。
+   百人一首の正解ぶん（st.hyakuninBonusExp）・問題全開放のお祝い経験値（totalUnlockCelebrationExp、
+   2026-08-23〜はst.unlockBonusEarnedへの積み上げ方式）・文節斬りの巻クリアぶん
+   （st.bunsetsuGiriBonusExp）・ボキャブラ・シューティングの自己ベスト突破ぶん
+   （st.vocabShooterBonusExp）・野球で勝負！の勝利ぶん（st.baseballBonusExp）は、いずれも
+   st.lvの分布を見ずに全額そのまま加算する（進化の分岐＝kotonohaBaseCategoryはst.lvの分布だけを
+   見て判定するため、これらの加算は分岐判定に一切影響しない）。 */
+function rawKotonohaExp(st){
   const fromLevels = CAT_KEYS.reduce((sum,k) => sum + catExpPoints(st.lv[k]||1), 0);
-  /* 百人一首の正解ぶん（st.hyakuninBonusExp）もbonusExpと同じくステータスポイントに全額加算する
-     （教員の指示、2026-08-02〜）。進化の分岐（kotonohaBaseCategory）はst.lvの分布だけを見て
-     判定しておりここには関与しないため、この変更で分岐判定への影響はない。
-     問題全開放のお祝い経験値（totalUnlockCelebrationExp、2026-08-03〜、2026-08-23〜は
-     st.unlockBonusEarnedへの積み上げ方式）も同じ扱いで加算する。こちらもst.lvの分布を
-     見ないので、進化の分岐には影響しない。
-     文節斬り（言の刃斬）の巻クリア・オールクリアぶん（st.bunsetsuGiriBonusExp、
-     2026-08-16〜）、ボキャブラ・シューティングの自己ベスト100点大台突破ぶん
-     （st.vocabShooterBonusExp、2026-08-17〜）、野球で勝負！（ミニゲーム版）の
-     勝利ぶん（st.baseballBonusExp、2026-08-20〜）も、hyakuninBonusExpと全く同じ扱い
-     （分野に関係なく全額加算、進化の分岐には影響させない）で加える。 */
-  return Math.min(KOTONOHA_XP_CAP, Math.floor(fromLevels + effectiveBonusExp(st) + (st.hyakuninBonusExp||0) + (st.bunsetsuGiriBonusExp||0) + (st.vocabShooterBonusExp||0) + (st.baseballBonusExp||0) + (st.partsOfSpeechBonusExp||0) + totalUnlockCelebrationExp(st)));
+  return fromLevels + effectiveBonusExp(st) + (st.hyakuninBonusExp||0) + (st.bunsetsuGiriBonusExp||0) + (st.vocabShooterBonusExp||0) + (st.baseballBonusExp||0) + (st.partsOfSpeechBonusExp||0) + totalUnlockCelebrationExp(st);
 }
 function spentStatPoints(st){
   return Object.values(st.stats||{}).reduce((sum,v) => sum + (v||0), 0);
+}
+/* 経験値は、これまでに実際に使ったステータスポイント（spentStatPoints）を絶対に下回らない
+   （2026-08-23〜、教員の指示：「全プレイヤーに、自動的に不足分を補填する仕組みを」）。
+   CAT_POOL_VERSIONによる問題解放率の強制リセットなど、将来また何らかの理由で
+   rawKotonohaExpが一時的に下がる事態が起きても、既に振り分け済みのステータスポイントの
+   裏付けが消えることはない（「レベルは上がるのに経験値・ステータスが増えない」不具合の
+   根本対策。積み上げ方式＝st.unlockBonusEarned導入だけでは、導入タイミングによっては
+   その時点で既に生じていた不足分までは救えなかったため、この床上げを追加した）。
+   通常運用ではspentStatPoints<=rawKotonohaExpが常に成り立つ（稼いだ分しか配分できない
+   ため）ので、この床は普段は何も変えず、rawKotonohaExpがそのまま使われる。 */
+function totalEarnedStatPoints(st){
+  return Math.min(KOTONOHA_XP_CAP, Math.max(Math.floor(rawKotonohaExp(st)), spentStatPoints(st)));
 }
 function unspentStatPoints(st){
   return Math.max(0, totalEarnedStatPoints(st) - spentStatPoints(st));
@@ -4094,29 +4102,16 @@ function kotonohaOtherTypePool(st){
     : KOTONOHA_OTHER_TYPES.filter(t => !KOTONOHA_LOCKED_OTHER_TYPES.includes(t));
 }
 function kotonohaTotalXP(st){
-  /* ステータスポイント側(totalEarnedStatPoints)と同じcatExpPoints()を使い、1領域のレベルが
-     1000を超えた分は0.2ptに逓減する（2026-07-15〜。従来はここだけ逓減なしの生レベル合計だったため、
-     1領域だけをlv1000超まで伸ばすとことのはの経験値だけ青天井で伸びてしまう不整合があった）。
-     st.lvから毎回その場で計算し直すので、旧セーブを引き継いだ場合も自動的に反映される。
-     宝具を使って得たボーナス経験値（bonusExp）は今までどおり全額そのまま加算する（2026-07-14〜）。
-     KOTONOHA_XP_CAP（20000、2026-07-22〜）で、これ以上は増えないようクランプする。
-     effectiveBonusExp()は、シランちゃんの宝具の使用回数が上限(3回)を超えている分だけbonusExpから
-     差し引いた値を返す（2026-07-22〜、詳細はSHIRAN_TREASURE_USE_CAP周辺のコメント参照）。
-     百人一首の正解ぶん（st.hyakuninBonusExp、2026-07-31〜）も、bonusExpと同じく「進化の分岐
-     （kotonohaType、CAT_KEYSの分野別レベル分布だけを見て判定）には一切影響させず、経験値の
-     合計にだけ加算する」という位置づけで加える。百人一首コーナーは経験値と非連動の自己完結
-     モードのままだが（[[kokugo-hyakunin-isshu-mode]]参照）、ここだけ例外的に経験値に反映する。
-     ステータスポイント（totalEarnedStatPoints）にもbonusExpと同じ扱いで加算するようになった
-     （2026-08-02〜、教員の指示）。totalEarnedStatPointsもkotonohaBaseCategoryもst.lvの分布は
-     見るがst.hyakuninBonusExp自体は見ないので、この変更後も進化の分岐判定には影響しない。
-     問題全開放のお祝い経験値（totalUnlockCelebrationExp、2026-08-03〜、2026-08-23〜は
-     st.unlockBonusEarnedへの積み上げ方式）も同様に加算するだけで、進化の分岐には影響しない。
-     文節斬り（言の刃斬）の巻クリア・オールクリアぶん（st.bunsetsuGiriBonusExp、
-     2026-08-16〜。1文クリアぶんは2026-08-17〜、分野レベル「識別」に組み替え済み）、
-     ボキャブラ・シューティングの自己ベスト100点大台突破ぶん（st.vocabShooterBonusExp、
-     2026-08-17〜）、野球で勝負！（ミニゲーム版）の勝利ぶん（st.baseballBonusExp、
-     2026-08-20〜）も、hyakuninBonusExpと全く同じ位置づけで加える。 */
-  return Math.min(KOTONOHA_XP_CAP, Math.floor(CAT_KEYS.reduce((sum,k)=> sum + catExpPoints(st.lv[k]||1), 0) + effectiveBonusExp(st) + (st.hyakuninBonusExp||0) + (st.bunsetsuGiriBonusExp||0) + (st.vocabShooterBonusExp||0) + (st.baseballBonusExp||0) + (st.partsOfSpeechBonusExp||0) + totalUnlockCelebrationExp(st)));
+  /* 生の計算式（rawKotonohaExp、上部のtotalEarnedStatPoints周辺参照）はステータスポイント側と
+     完全に共通。1領域のレベルが1000を超えた分は0.2ptに逓減する（2026-07-15〜。従来はここだけ
+     逓減なしの生レベル合計だったため、1領域だけをlv1000超まで伸ばすとことのはの経験値だけ
+     青天井で伸びてしまう不整合があった）。st.lvから毎回その場で計算し直すので、旧セーブを
+     引き継いだ場合も自動的に反映される。KOTONOHA_XP_CAP（20000、2026-07-22〜）で、これ以上は
+     増えないようクランプする。
+     2026-08-23〜：totalEarnedStatPointsと同じく、spentStatPoints（実際に使ったステータス
+     ポイント）を下回らない床上げも共通で適用する（教員の指示）。これにより「ことのはの経験値」
+     表示と「割りふれるステータスポイント」の計算が常に完全に一致し続ける。 */
+  return Math.min(KOTONOHA_XP_CAP, Math.max(Math.floor(rawKotonohaExp(st)), spentStatPoints(st)));
 }
 function kotonohaOtherType(st, stageIdx){
   const roll = st.kotonohaOtherRoll;
