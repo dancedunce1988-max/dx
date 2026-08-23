@@ -2843,7 +2843,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.17</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.18</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -5150,9 +5150,9 @@ function showHome(){
     if(g.name === "古典・表現"){
       const ktT = titleOf(st.lv.kanbun);
       html += `
-      <div class="card menu-card" onclick="ktShowMenu()">
+      <div class="card menu-card" onclick="ktStart()">
         <div class="menu-icon">🖌️</div>
-        <div><h2>返り点をつける</h2><p>白文に返り点をドラッグで置く特訓。8問ずつ解禁</p></div>
+        <div><h2>返り点をつける</h2><p>白文に返り点をドラッグで置く特訓。正解で徐々に解禁</p></div>
         <div class="right"><span class="shogo-badge ${ktT.hidden?"top":""}">${ktT.icon} ${esc(ktT.name)} Lv.${st.lv.kanbun}</span></div>
       </div>
       <div class="card menu-card" onclick="yjStart()">
@@ -18005,12 +18005,16 @@ const KT_PROBLEMS = [
    st.groupUnlock.kanbun_ktというキーを使う（"kanbun"はCAT_KEYSの4択問題プール自身の
    解禁進捗が既に使っているキーなので、混ざらないよう別名にした。百人一首のst.groupUnlock.hyakunin
    と同じ「CAT_KEYではない専用キー」パターン）。 */
+function ktQ(idx){ return "返点:" + KT_PROBLEMS[idx].white; }
+
 let _ktGroupsCache = null;
 function ktGroups(){
   if(_ktGroupsCache) return _ktGroupsCache;
   const groups = [];
   for(let i=0;i<KT_PROBLEMS.length;i+=GROUP_SIZE){
-    groups.push({level:groups.length+1, indices: KT_PROBLEMS.slice(i, i+GROUP_SIZE).map((_,j)=>i+j)});
+    groups.push({level:groups.length+1,
+      indices: KT_PROBLEMS.slice(i, i+GROUP_SIZE).map((_,j)=>i+j),
+      keys: KT_PROBLEMS.slice(i, i+GROUP_SIZE).map((_,j)=>qKey("kanbun", ktQ(i+j)))});
   }
   _ktGroupsCache = groups;
   return groups;
@@ -18051,8 +18055,62 @@ function ktMarkSolvedAndCheckUnlock(st, idx){
   return true;
 }
 
+function ktUnlockedIndices(st){
+  const groups = ktGroups();
+  const n = Math.min(ktUnlockedGroupCount(st), groups.length);
+  const out = [];
+  for(let i=0;i<n;i++) out.push(...groups[i].indices);
+  return out;
+}
+function ktActiveGroupIndices(st){
+  const groups = ktGroups();
+  const count = ktUnlockedGroupCount(st);
+  if(count >= groups.length) return null;
+  return groups[count - 1].indices;
+}
+function ktFastUnlockEligible(st){
+  const recent = st.ktRecent || [];
+  const misses = recent.reduce((n,v) => n + (v ? 0 : 1), 0);
+  return misses <= FAST_UNLOCK_MAX_MISSES;
+}
+function ktCheckGroupUnlock(st, idx, correct){
+  if(!Array.isArray(st.ktRecent)) st.ktRecent = [];
+  st.ktRecent.push(correct ? 1 : 0);
+  while(st.ktRecent.length > FAST_UNLOCK_RECENT_WINDOW) st.ktRecent.shift();
+  const groups = ktGroups();
+  const gIdx = ktUnlockedGroupCount(st) - 1;
+  if(gIdx >= groups.length - 1) return false;
+  const cur = groups[gIdx];
+  if(cur.indices.includes(idx)){
+    if(!Array.isArray(st.ktGroupRecent)) st.ktGroupRecent = [];
+    st.ktGroupRecent.push(correct ? 1 : 0);
+    while(st.ktGroupRecent.length > GROUP_RECENT_WINDOW) st.ktGroupRecent.shift();
+  }
+  if(correct && ktFastUnlockEligible(st)){
+    if(!st.groupUnlock) st.groupUnlock = {};
+    st.groupUnlock.kanbun_kt = ktUnlockedGroupCount(st) + 1;
+    st.ktGroupRecent = [];
+    return true;
+  }
+  const streakMap = {};
+  cur.keys.forEach(k => { const rec = st.q[k]; streakMap[k] = rec ? (rec.k||0) : 0; });
+  const recentWindow = st.ktGroupRecent || [];
+  if(UnlockEngine.isGroupCleared(cur.keys, streakMap, recentWindow, GROUP_UNLOCK_STREAK, GROUP_UNLOCK_ACC, GROUP_UNLOCK_QUORUM)){
+    if(!st.groupUnlock) st.groupUnlock = {};
+    st.groupUnlock.kanbun_kt = ktUnlockedGroupCount(st) + 1;
+    st.ktGroupRecent = [];
+    return true;
+  }
+  return false;
+}
+function ktSelectOne(st, lastIdx){
+  let pool = ktFastUnlockEligible(st) ? (ktActiveGroupIndices(st) || ktUnlockedIndices(st)) : ktUnlockedIndices(st);
+  if(pool.length > 1 && lastIdx != null) pool = pool.filter(i => i !== lastIdx);
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+
 const KT = {
-  qi:0, placed:[], attempts:0, solved:0, selectedVal:null, dragCtx:null,
+  qi:0, lastIdx:null, placed:[], attempts:0, solved:0, selectedVal:null, dragCtx:null,
   correctLocked:[], renderGen:0, shownAt:0,
 };
 
@@ -18097,39 +18155,23 @@ function ktShowMenu(){
   screen.innerHTML = html;
 }
 
-function ktStart(i){
+function ktStart(){
   const st = loadStats();
-  if(i < KT_PROBLEMS.length && i >= ktUnlockedCount(st)){
-    // まだ解禁されていない問題（不正な直接呼び出し対策）。問題一覧へ戻す。
-    ktShowMenu();
-    return;
-  }
   KT.renderGen++;
-  KT.qi = i;
-  if(i < KT_PROBLEMS.length){
-    const p = KT_PROBLEMS[KT.qi];
-    KT.placed = p.chars.map(()=>null);
-    KT.attempts = 0;
-    KT.selectedVal = null;
-    KT.correctLocked = p.chars.map(()=>false);
-    KT.shownAt = Date.now();
-  }
+  KT.qi = ktSelectOne(st, KT.lastIdx);
+  KT.lastIdx = KT.qi;
+  const p = KT_PROBLEMS[KT.qi];
+  KT.placed = p.chars.map(()=>null);
+  KT.attempts = 0;
+  KT.selectedVal = null;
+  KT.correctLocked = p.chars.map(()=>false);
+  KT.shownAt = Date.now();
   ktRender();
 }
 
 function ktRender(){
-  if(KT.qi >= KT_PROBLEMS.length){
-    screen.innerHTML = `<div id="ktApp"><div class="kt-done">
-      <div class="kt-big">全問クリア！</div>
-      <div class="kt-stat">${KT_PROBLEMS.length}問すべての返り点を正しく置けました。</div>
-    </div></div>
-    <div class="btn-row">
-      <button class="btn secondary" onclick="ktStart(0)">もう一度さいしょから</button>
-      <button class="btn secondary" onclick="showHome()">ホームへ</button>
-    </div>`;
-    return;
-  }
-
+  const st = loadStats();
+  const pct = ktUnlockedQuestionPct(st);
   const p = KT_PROBLEMS[KT.qi];
   const anyPlaced = KT.placed.some(v=>v);
   const palette = KT_BASELINE_MARKS.concat(p.extra || []);
@@ -18152,9 +18194,8 @@ function ktRender(){
   <div id="ktApp">
     <div class="kt-hud">
       <div class="kt-title">返り点をつける</div>
-      <div class="kt-prog">問 ${KT.qi+1} / ${KT_PROBLEMS.length}</div>
+      <div class="kt-prog">今回 ${KT.solved}問正解 / 解禁 ${pct!==null?pct+"%":"—"}</div>
     </div>
-    <div class="kt-progress"><i style="width:${100*KT.solved/KT_PROBLEMS.length}%"></i></div>
 
     <div class="kt-card">
       <span class="kt-lv-badge">${esc(p.lv)}</span>
@@ -18168,7 +18209,7 @@ function ktRender(){
         <div class="kt-stage-row">
           <div class="kt-actions-mid">
             <button class="btn" id="ktJudgeBtn" ${anyPlaced?"":"disabled"} onclick="ktJudge()">判定する</button>
-            <button class="btn secondary" id="ktNextBtn" style="display:none" onclick="ktStart(KT.qi+1)">次の問題へ</button>
+            <button class="btn secondary" id="ktNextBtn" style="display:none" onclick="ktStart()">次の問題へ</button>
           </div>
           <div class="kt-box" id="ktBox">${rowsHtml}</div>
           <div class="kt-kudashi" id="ktKudashiBox">
@@ -18186,7 +18227,6 @@ function ktRender(){
     <div class="kt-tray" id="ktTray">${chipsHtml}</div>
   </div>
   <div class="btn-row">
-    <button class="btn secondary" onclick="ktShowMenu()">問題一覧へ</button>
     <button class="btn secondary" onclick="showHome()">ホームへ</button>
   </div>`;
 
@@ -18360,7 +18400,7 @@ function ktJudge(){
     if(ktAppEl){
       ktAppEl.addEventListener("click", (e)=>{
         if(e.target.closest("button")) return; // ヒントを見るボタン等は個別の動作を優先する
-        ktStart(KT.qi+1);
+        ktStart();
       });
     }
     const ktKudashiBox = document.getElementById("ktKudashiBox");
@@ -18371,8 +18411,6 @@ function ktJudge(){
       ktKudashiBox.appendChild(hint);
     }
     KT.solved++;
-    const bar = document.querySelector("#ktApp .kt-progress i");
-    if(bar) bar.style.width = (100*KT.solved/KT_PROBLEMS.length) + "%";
     /* ミスなく（判定するボタンを1回押しただけで）正解できたときだけ、漢文レベル・経験値と
        まとまり解禁の対象にする（教員の指示、2026-08-22：「1回でもミスしたら、漢文のジャンルの
        レベルは上がらないようにしてほしい」）。星の判定（3つ星＝attempts<=1）と同じ基準。
@@ -18380,9 +18418,9 @@ function ktJudge(){
        （不正解として記録してマイナスにするのではなく、今回ぶんの加点なしという扱いにする）。 */
     if(KT.attempts === 1){
       const elapsedMs = Date.now() - (KT.shownAt || Date.now());
-      const r = record("kanbun", {q:p.white, lv:KT.qi+1}, true, elapsedMs, {skipRecentAcc:true});
+      const r = record("kanbun", ktQ(KT.qi), true, elapsedMs, {skipRecentAcc:true});
       const st2 = loadStats();
-      const groupUnlocked = ktMarkSolvedAndCheckUnlock(st2, KT.qi);
+      const groupUnlocked = ktCheckGroupUnlock(st2, KT.qi, true);
       saveStats(st2);
       if(r.lvup){
         const extra = document.createElement("div");
@@ -18395,7 +18433,7 @@ function ktJudge(){
         const extra2 = document.createElement("div");
         extra2.className = "kt-msg good";
         extra2.style.marginTop = "4px";
-        extra2.textContent = "🎉 次のまとまり（8問）が解禁されました！";
+        extra2.textContent = "🎉 次の8問が解禁されました！";
         msg.after(extra2);
       }
     } else {
