@@ -2843,7 +2843,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.18</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.19</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -5149,16 +5149,18 @@ function showHome(){
     });
     if(g.name === "古典・表現"){
       const ktT = titleOf(st.lv.kanbun);
+      const ktLocked = !!(st.notLearnedCats && st.notLearnedCats.kanbun_kt);
+      const yjLocked = !!(st.notLearnedCats && st.notLearnedCats.kanbun_yj);
       html += `
-      <div class="card menu-card" onclick="ktStart()">
-        <div class="menu-icon">🖌️</div>
-        <div><h2>返り点をつける</h2><p>白文に返り点をドラッグで置く特訓。正解で徐々に解禁</p></div>
-        <div class="right"><span class="shogo-badge ${ktT.hidden?"top":""}">${ktT.icon} ${esc(ktT.name)} Lv.${st.lv.kanbun}</span></div>
+      <div class="card menu-card${ktLocked?" locked":""}" ${ktLocked?"":`onclick="ktStart()"`}>
+        <div class="menu-icon">${ktLocked?"🔒":"🖌️"}</div>
+        <div><h2>返り点をつける</h2><p>${ktLocked?"まだ習っていない":"白文に返り点をドラッグで置く特訓。正解で徐々に解禁"}</p></div>
+        ${ktLocked?"":`<div class="right"><span class="shogo-badge ${ktT.hidden?"top":""}">${ktT.icon} ${esc(ktT.name)} Lv.${st.lv.kanbun}</span></div>`}
       </div>
-      <div class="card menu-card" onclick="yjStart()">
-        <div class="menu-icon">👆</div>
-        <div><h2>読む順タップ</h2><p>返り点付きの白文を見て、読む順に字をタップする特訓</p></div>
-        <div class="right"><span class="shogo-badge ${ktT.hidden?"top":""}">${ktT.icon} ${esc(ktT.name)} Lv.${st.lv.kanbun}</span></div>
+      <div class="card menu-card${yjLocked?" locked":""}" ${yjLocked?"":`onclick="yjStart()"`}>
+        <div class="menu-icon">${yjLocked?"🔒":"👆"}</div>
+        <div><h2>読む順タップ</h2><p>${yjLocked?"まだ習っていない":"返り点付きの白文を見て、読む順に字をタップする特訓"}</p></div>
+        ${yjLocked?"":`<div class="right"><span class="shogo-badge ${ktT.hidden?"top":""}">${ktT.icon} ${esc(ktT.name)} Lv.${st.lv.kanbun}</span></div>`}
       </div>`;
     }
   });
@@ -5440,7 +5442,8 @@ function balancedCatWeight(lv, avgLv){
    ランダム遭遇でジャンルが未確定なとき）の対象から除外される。ホーム画面からその分野を直接選んで
    ふつうにクイズを解くこと自体は、ONのままでも今までどおりでき（生徒本人の意思による直接の選択は
    妨げない）、そのときにボスが出れば今までどおりその分野で戦う。 */
-const NOT_LEARNED_ELIGIBLE_CATS = ["kanbun", "kobun", "kanazukai", "katsuyo", "shikibetsu", "doushi_katsuyo"];
+const NOT_LEARNED_ELIGIBLE_CATS = ["kanbun", "kobun", "kanazukai", "katsuyo", "shikibetsu", "doushi_katsuyo", "kanbun_kt", "kanbun_yj"];
+const NOT_LEARNED_SPECIAL_LABEL = { kanbun_kt:"返り点をつける", kanbun_yj:"読み順タップ" };
 function notLearnedExcludedKeys(st){
   return NOT_LEARNED_ELIGIBLE_CATS.filter(k => st.notLearnedCats && st.notLearnedCats[k]);
 }
@@ -5481,9 +5484,10 @@ function showNotLearnedSettings(){
     <p class="note">授業でまだ習っていない分野をONにすると、「バランスよく鍛える」とボス戦（挑戦チケット・ランダム遭遇）で出題されにくくなります。ホーム画面からその分野を直接選んで解くことは、ONのままでも今までどおりできます。</p>
     <div class="genre-pick-grid">`;
   NOT_LEARNED_ELIGIBLE_CATS.forEach(key=>{
-    if(!CATS[key]) return;
+    const label = CATS[key] ? CATS[key].name : NOT_LEARNED_SPECIAL_LABEL[key];
+    if(!label) return;
     const on = !!(st.notLearnedCats && st.notLearnedCats[key]);
-    html += `<button class="genre-pick-chip ${on?'on':''}" onclick="toggleNotLearnedCat('${key}')">${esc(CATS[key].name)}${on?" ✓":""}</button>`;
+    html += `<button class="genre-pick-chip ${on?'on':''}" onclick="toggleNotLearnedCat('${key}')">${esc(label)}${on?" ✓":""}</button>`;
   });
   html += `</div>
     <div class="btn-row" style="margin-top:10px">
