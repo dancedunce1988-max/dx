@@ -2822,7 +2822,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.11</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.12</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3222,14 +3222,23 @@ function loadStats(){
           });
           st.unlockBonusEarned.hyakunin = unlockCelebrationExpForPct(hyaUnlockedQuestionPct(st));
         }
-        /* 一度限り補填（2026-08-23〜の床上げ追加の追加対策）：CAT_POOL_VERSIONリセット等で
-           rawKotonohaExpがspentStatPointsを下回っている場合、差分をbonusExpに加算して底上げする。
-           これにより次のレベルアップから正常に新ポイントが得られるようになる。 */
+        /* 一度限り是正（2026-08-23〜の床上げ追加の追加対策）：CAT_POOL_VERSIONリセット等で
+           spentStatPointsがrawKotonohaExpを上回っている場合、差分を振り分け済みの最大ステータス項目
+           から順に引いてspentStatPointsをrawKotonohaExpに揃える。これにより次のレベルアップから
+           正常に新ポイントが得られるようになる。 */
         if(!st.statPointsGapFixed){
           st.statPointsGapFixed = true;
-          const _spent = spentStatPoints(st);
-          const _earned = Math.floor(rawKotonohaExp(st));
-          if(_spent > _earned) st.bonusExp = (st.bonusExp||0) + (_spent - _earned);
+          let _gap = spentStatPoints(st) - Math.floor(rawKotonohaExp(st));
+          if(_gap > 0 && st.stats){
+            const _keys = ['hp','atk','def','spd','luck'];
+            while(_gap > 0){
+              const _top = _keys.reduce((a,b) => (st.stats[a]||0) >= (st.stats[b]||0) ? a : b);
+              if((st.stats[_top]||0) <= 0) break;
+              const _cut = Math.min(_gap, st.stats[_top]);
+              st.stats[_top] -= _cut;
+              _gap -= _cut;
+            }
+          }
         }
         /* デイリーログイン報酬（7日サイクル、2026-08-01〜）導入前のセーブデータには
            dailyLoginが無いので補完する。totalLoginDays等を過去にさかのぼって推定することはせず、
