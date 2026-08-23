@@ -2806,7 +2806,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.06</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.07</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3042,9 +3042,9 @@ function totalEarnedStatPoints(st){
   /* 百人一首の正解ぶん（st.hyakuninBonusExp）もbonusExpと同じくステータスポイントに全額加算する
      （教員の指示、2026-08-02〜）。進化の分岐（kotonohaBaseCategory）はst.lvの分布だけを見て
      判定しておりここには関与しないため、この変更で分岐判定への影響はない。
-     問題全開放のお祝い経験値（totalUnlockCelebrationExp、2026-08-03〜）も同じ扱いで加算する。
-     こちらもst.lvの分布ではなくst.groupUnlockから毎回その場で導出するだけなので、
-     進化の分岐には影響しない。
+     問題全開放のお祝い経験値（totalUnlockCelebrationExp、2026-08-03〜、2026-08-23〜は
+     st.unlockBonusEarnedへの積み上げ方式）も同じ扱いで加算する。こちらもst.lvの分布を
+     見ないので、進化の分岐には影響しない。
      文節斬り（言の刃斬）の巻クリア・オールクリアぶん（st.bunsetsuGiriBonusExp、
      2026-08-16〜）、ボキャブラ・シューティングの自己ベスト100点大台突破ぶん
      （st.vocabShooterBonusExp、2026-08-17〜）、野球で勝負！（ミニゲーム版）の
@@ -3138,7 +3138,13 @@ function loadStats(){
            バージョン0として扱う。この管理自体を初めて導入したタイミング（st.catPoolVersion[cat]が
            まだ無い）では、それまで通り運用されてきたジャンル（CAT_POOL_VERSIONに値が無い＝0のまま）
            まで巻き込んでリセットしないよう、want>0（＝このタイミングで実際にプールを変えたジャンル）
-           のときだけリセットする。 */
+           のときだけリセットする。
+           2026-08-23〜：ここでリセットするのはst.groupUnlock（問題解放率のもと）だけで、
+           st.unlockBonusEarned（解放お祝い経験値の積み上げ、下部のtotalUnlockCelebrationExp
+           参照）には触れない。以前は解放お祝い経験値を毎回その場で計算していたため、この
+           リセットだけで既に稼いだ経験値まで一緒に失われる不具合があった。積み上げ方式に
+           変えた今は、このリセットをしても経験値は後退せず、もう一度解放し直せばそのぶん
+           改めて加算される（教員の指示）。 */
         if(!st.catPoolVersion) st.catPoolVersion = {};
         GROUP_UNLOCK_CATS.forEach(cat => {
           const want = CAT_POOL_VERSION[cat] || 0;
@@ -3173,6 +3179,25 @@ function loadStats(){
           st.hyakunin.poolVersion = HYAKUNIN_POOL_VERSION;
         }
         if(typeof st.groupUnlock.hyakunin !== "number") st.groupUnlock.hyakunin = migrateInitialHyaGroupUnlock(st);
+        /* 解放お祝い経験値の「積み上げ方式」導入（2026-08-23〜、教員の指示）：それまでは
+           毎回その場でcatUnlockedQuestionPct/hyaUnlockedQuestionPctから計算していたが、
+           CAT_POOL_VERSIONによる問題解放率の強制リセットと組み合わさると、既に稼いだ分の
+           経験値・ステータスポイントが一瞬で失われる不具合につながっていた（[[kokugo-drill-dx-workflow]]
+           参照）。今後はcrossedUnlockMilestones判定時（record()/hyaRecord()参照）に一度だけ
+           加算し、st.unlockBonusEarnedへ積み上げる。導入した瞬間に「今まで享受できていたはずの
+           解放ボーナス」までゼロから始まってしまわないよう、まだ記録が無いプレイヤーは、
+           この時点の解放率からその場で計算した値をそのまま初期値として引き継ぐ（この直後の
+           時点なら、まだ今回導入分の巻き戻りは起きていないので後退にはならない。ただし
+           CAT_POOL_VERSIONによる強制リセットが既にこのタイミングより前に行われた分＝
+           2026-08-23の事故対応で影響した18ジャンルぶんは、この時点で既に低い解放率になって
+           いるため、そのまま低い初期値になる＝もう一度解いて自然に埋め直す、教員の指示）。 */
+        if(!st.unlockBonusEarned){
+          st.unlockBonusEarned = {};
+          GROUP_UNLOCK_CATS.forEach(cat => {
+            st.unlockBonusEarned[cat] = unlockCelebrationExpForPct(catUnlockedQuestionPct(st, cat));
+          });
+          st.unlockBonusEarned.hyakunin = unlockCelebrationExpForPct(hyaUnlockedQuestionPct(st));
+        }
         /* デイリーログイン報酬（7日サイクル、2026-08-01〜）導入前のセーブデータには
            dailyLoginが無いので補完する。totalLoginDays等を過去にさかのぼって推定することはせず、
            素直に0から開始する（「今日初めて解答した」時点からカウントが始まる）。 */
@@ -3303,12 +3328,22 @@ function record(cat, item, correct, elapsedMs, opts){
      st.q更新の直後だった旧位置から移動した、2026-08-02〜） */
   const pctBeforeUnlock = catUnlockedQuestionPct(st, cat);
   const groupJustUnlocked = checkGroupUnlock(st, cat, item, correct, fastGuess);
-  /* お祝い演出用（2026-08-03〜）。実際の経験値はtotalEarnedStatPoints/kotonohaTotalXP側が
-     totalUnlockCelebrationExpで毎回その場で計算するので、ここでは表示に使う「今回新しく
-     跨いだマイルストーン」だけを求める。 */
+  /* 今回新しく跨いだマイルストーン（お祝い演出用、かつ2026-08-23〜は経験値の加算元でもある）。 */
   const celebrateMilestones = groupJustUnlocked
     ? crossedUnlockMilestones(pctBeforeUnlock, catUnlockedQuestionPct(st, cat))
     : [];
+  /* 解放お祝い経験値は「毎回その場で解放率から計算」ではなく、今回のグループ解禁で新しく
+     跨いだマイルストーンぶんだけを一度きり加算して積み上げる方式にした（2026-08-23〜、教員の
+     指示）。CAT_POOL_VERSIONによる問題解放率の強制リセット（loadStats()参照）が起きても、
+     ここに積み上げた分は減らない。かつリセット後にもう一度同じマイルストーンへ到達すれば
+     crossedUnlockMilestonesがまた「新しく跨いだ」と判定するため、そのぶんもう一度加算される
+     （教員の指示：「早く解放するほど、あとで巻き戻りがあってもまた確認できる」ので二重加算を
+     あえて許容する。通常運用ではpctは単調増加するため同じマイルストーンを二重に跨ぐことはない）。 */
+  if(celebrateMilestones.length){
+    if(!st.unlockBonusEarned) st.unlockBonusEarned = {};
+    const gain = celebrateMilestones.reduce((s,m) => s + m.exp, 0);
+    st.unlockBonusEarned[cat] = (st.unlockBonusEarned[cat]||0) + gain;
+  }
 
   let lvup = false, evolved = null, gotTicket = false;
   if(correct && !lowAccuracy && !fastGuess && st.lv[cat] < MAX_CAT_LV){
@@ -4074,8 +4109,8 @@ function kotonohaTotalXP(st){
      ステータスポイント（totalEarnedStatPoints）にもbonusExpと同じ扱いで加算するようになった
      （2026-08-02〜、教員の指示）。totalEarnedStatPointsもkotonohaBaseCategoryもst.lvの分布は
      見るがst.hyakuninBonusExp自体は見ないので、この変更後も進化の分岐判定には影響しない。
-     問題全開放のお祝い経験値（totalUnlockCelebrationExp、2026-08-03〜）も同様に加算するだけで、
-     進化の分岐には影響しない。
+     問題全開放のお祝い経験値（totalUnlockCelebrationExp、2026-08-03〜、2026-08-23〜は
+     st.unlockBonusEarnedへの積み上げ方式）も同様に加算するだけで、進化の分岐には影響しない。
      文節斬り（言の刃斬）の巻クリア・オールクリアぶん（st.bunsetsuGiriBonusExp、
      2026-08-16〜。1文クリアぶんは2026-08-17〜、分野レベル「識別」に組み替え済み）、
      ボキャブラ・シューティングの自己ベスト100点大台突破ぶん（st.vocabShooterBonusExp、
@@ -6071,9 +6106,10 @@ const HYAKUNIN_MAX_LV = 6;
    この値を1つ上げること。loadStats()側でst.hyakunin.poolVersionと比較し、古いセーブは
    st.groupUnlock.hyakunin（問題解放率のもと）をグループ1（ほぼ0%）へ強制的に巻き戻す
    （教員の指示、2026-08-04：「問題を挿入した場合には0%から再スタートする設計に」。
-   「解放のお祝い」経験値(totalUnlockCelebrationExp)は専用フラグを持たず毎回その場で
-   hyaUnlockedQuestionPctから導出する設計のため、この解放率リセットだけで自動的に
-   0に戻り、再度達成した時点でもう一度お祝いされる）。 */
+   「解放のお祝い」経験値は積み上げ方式（2026-08-23〜、totalUnlockCelebrationExp参照）なので、
+   この解放率リセット自体で既に稼いだ経験値が減ることはない。そのうえで、リセット後に
+   もう一度25/50/75/100%へ到達すればhyaRecord()がまた「新しく跨いだ」と判定するため、
+   そのぶんもう一度お祝いされる）。 */
 const HYAKUNIN_POOL_VERSION = 2;
 const HYAKUNIN_QTYPE_LV = {kami2shimo:1, kimariji2shimo:2, meaning:3, technique:4, author:5, source:6};
 const HYAKUNIN_QTYPE_INSTR = {
@@ -6463,14 +6499,22 @@ function hyaUnlockedQuestionPct(st){
 }
 /* 「問題全開放のお祝い」経験値（2026-08-03〜、教員の指示）。ジャンルごとの問題解放率
    （catUnlockedQuestionPct/hyaUnlockedQuestionPct）が25/50/75/100%に達した段階で、それぞれ
-   固定の経験値を加算する。加算済みフラグや累計カウンタは一切持たず、totalEarnedStatPoints/
-   kotonohaTotalXP側から呼ばれるたびに、現在の解放率からその場で導出し直す（bonusExp等とは
-   異なり「イベント発生時に1回だけ加算する」方式にしない）。これにより、①セーブ改変で
-   同じ達成を何度も加算させることが構造的にできない（経験値チート防止、教員の指示）、
-   ②[[kokugo-drill-dx-workflow]]で触れたとおり後から問題を追加して解放率の分母が変わっても
-   毎回自動的に正しい値へ再計算される、③既にジャンルを解放し終えているプレイヤーにも、
-   次にこの関数が呼ばれた瞬間から自動的にボーナスが反映される（マイグレーション不要）、
-   という3点をまとめて満たせる。 */
+   固定の経験値を加算する。
+   2026-08-23〜：以前は加算済みフラグや累計カウンタを持たず、totalEarnedStatPoints/
+   kotonohaTotalXP側から呼ばれるたびに現在の解放率からその場で導出し直す方式だったが、
+   CAT_POOL_VERSIONによる問題解放率の強制リセット（loadStats()参照）と組み合わさると、
+   既に稼いだぶんの経験値・ステータスポイントが一瞬で失われてしまう不具合につながっていた
+   （その場計算なので、解放率が下がればボーナスも即座に下がる）。そこで教員の指示により、
+   record()/hyaRecord()内でcrossedUnlockMilestonesが「今回新しく跨いだ」と判定した瞬間に
+   一度だけst.unlockBonusEarned[cat]へ積み上げる方式に変更した。CAT_POOL_VERSIONによる
+   リセットが起きてもこの積み上げ分は減らないため経験値は後退しない。かつ、リセット後に
+   もう一度同じマイルストーンへ到達すればまた「新しく跨いだ」と判定されるので、そのぶん
+   もう一度加算される（教員の指示：「早く解放しておくほど、あとで問題を追加・修正した
+   ときにまたボーナスを確認できる」ようにしたい、とのことでこの二重加算をあえて許容する。
+   通常運用ではpctは単調増加するため同じマイルストーンを二重に跨ぐことはない）。
+   totalUnlockCelebrationExpは、この積み上げ済みの値の合計を返すだけになった
+   （catUnlockedQuestionPct/hyaUnlockedQuestionPct自体は、crossedUnlockMilestones判定・
+   成績画面表示・loadStats()の初回マイグレーションで引き続き使うため残してある）。 */
 const UNLOCK_CELEBRATION_MILESTONES = [
   {pct:25, exp:10}, {pct:50, exp:50}, {pct:75, exp:10}, {pct:100, exp:100},
 ];
@@ -6479,9 +6523,9 @@ function unlockCelebrationExpForPct(pct){
   return UNLOCK_CELEBRATION_MILESTONES.reduce((sum,m) => sum + (pct >= m.pct ? m.exp : 0), 0);
 }
 function totalUnlockCelebrationExp(st){
-  let sum = GROUP_UNLOCK_CATS.reduce((s,cat) => s + unlockCelebrationExpForPct(catUnlockedQuestionPct(st, cat)), 0);
-  sum += unlockCelebrationExpForPct(hyaUnlockedQuestionPct(st));
-  return sum;
+  const earned = st.unlockBonusEarned || {};
+  const perCat = GROUP_UNLOCK_CATS.reduce((s,cat) => s + (earned[cat]||0), 0);
+  return perCat + (earned.hyakunin||0);
 }
 /* グループが新たに解禁された直後（record()/hyaRecord()内）に、解禁前後の解放率を比べて、
    このグループ解禁ぶんで新しく跨いだマイルストーンだけを返す（お祝い演出の表示専用。
@@ -6676,6 +6720,12 @@ function hyaRecord(it, correct){
   const celebrateMilestones = groupJustUnlocked
     ? crossedUnlockMilestones(pctBeforeUnlock, hyaUnlockedQuestionPct(st))
     : [];
+  /* 20分野側のrecord()と同じ理由（2026-08-23〜）で、その場計算ではなく積み上げ方式にする。 */
+  if(celebrateMilestones.length){
+    if(!st.unlockBonusEarned) st.unlockBonusEarned = {};
+    const gain = celebrateMilestones.reduce((s,m) => s + m.exp, 0);
+    st.unlockBonusEarned.hyakunin = (st.unlockBonusEarned.hyakunin||0) + gain;
+  }
   saveStats(st);
   return {lv: hyaLv(st), acc: hyaAccuracy(st), diffLv: st.hyakunin.targetLv, groupJustUnlocked, gotTicket, celebrateMilestones};
 }
