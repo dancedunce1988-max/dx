@@ -2843,7 +2843,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.20</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.21</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -2994,11 +2994,20 @@ const DATA = window.QUESTION_DATA;
 const CATS = DATA.cats;
 const CAT_KEYS = Object.keys(CATS);
 const DOKKAI = DATA.dokkai || [];
+/* 「返り点をつける」「読む順タップ」専用のジャンルレベル・経験値枠（2026-08-24〜、教員の指示：
+   「それぞれのジャンルレベル」＝漢文4択（kanbun）とは別に、この2つに独立したレベル・経験値を
+   持たせる）。DATA.cats（CAT_KEYS）には含めない：CAT_KEYSは通常クイズの出題プール
+   （CATS[k].items）を前提に、診断・バランス学習・全ジャンル対戦・成績表などあちこちで
+   「実際に4択問題を出せるジャンル」として扱われるが、この2つは専用ミニゲームで出題形式が
+   全く違うため、そこに混ぜると出題ロジックが壊れる。そのためrawKotonohaExp・
+   totalCorrectCount・emptyStats・loadStatsの各所にだけ、CAT_KEYSとは別枠で個別に加算する。 */
+const EXTRA_LEVEL_CATS = ["kanbun_kt", "kanbun_yj"];
 /* 今までに正解した問題の総数（2026-07-19〜、「ことのは」カードでの表示用）。record()で
-   正誤を記録している全分野（20の知識クイズ分野＋読解）を合計する。漢字の書き取り学習系
-   （kw/kwe）は自己採点でrecord()を呼ばず経験値にも影響しない別枠のため、ここには含めない。 */
+   正誤を記録している全分野（20の知識クイズ分野＋読解＋返り点をつける・読む順タップ）を合計する。
+   漢字の書き取り学習系（kw/kwe）は自己採点でrecord()を呼ばず経験値にも影響しない別枠のため、
+   ここには含めない。 */
 function totalCorrectCount(st){
-  return CAT_KEYS.concat(["dokkai"]).reduce((sum,k) => sum + ((st.cats[k]||{}).c || 0), 0);
+  return CAT_KEYS.concat(["dokkai"], EXTRA_LEVEL_CATS).reduce((sum,k) => sum + ((st.cats[k]||{}).c || 0), 0);
 }
 const MAX_LV = {};
 CAT_KEYS.forEach(k => MAX_LV[k] = Math.max(...CATS[k].items.map(it => it.lv)));
@@ -3026,7 +3035,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 45;
+const SAVE_FORMAT_VERSION = 46;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -3036,6 +3045,7 @@ function emptyStats(){
   const lv = {dokkai:1};
   const diffLv = {};
   CAT_KEYS.forEach(k => { cats[k] = {t:0,c:0}; lv[k] = 1; diffLv[k] = 1; });
+  EXTRA_LEVEL_CATS.forEach(k => { cats[k] = {t:0,c:0}; lv[k] = 1; });
   return {cats, q:{}, lv, diffLv, items:{}, usedTreasures:{}, usedStoryRewards:{}, bossPity:{}, bossItemPity:{}, kotonohaOtherRoll:null, bossTickets:0, totalLevelUps:0,
     bonusExp:0, hyakuninBonusExp:0, bunsetsuGiriBonusExp:0, stats:{hp:0, atk:0, def:0, spd:0, luck:0}, kotonohaSeenForms:[], kotonohaDisplayOverride:null, specialMoveUnlocked:false, storyFaceUnlocked:false,
     kotonohaRebirthUnlocked:false, kotonohaRebirth:null, kotonohaRebirthLinesSeen:[], kotonohaSeigakiMeienUnlocked:false, groupUnlock:{},
@@ -3101,10 +3111,14 @@ function eventBonusAdd(st, id, amount){
    （st.bunsetsuGiriBonusExp）・ボキャブラ・シューティングの自己ベスト突破ぶん
    （st.vocabShooterBonusExp）・野球で勝負！の勝利ぶん（st.baseballBonusExp）は、いずれも
    st.lvの分布を見ずに全額そのまま加算する（進化の分岐＝kotonohaBaseCategoryはst.lvの分布だけを
-   見て判定するため、これらの加算は分岐判定に一切影響しない）。 */
+   見て判定するため、これらの加算は分岐判定に一切影響しない）。
+   「返り点をつける」「読む順タップ」（EXTRA_LEVEL_CATS、2026-08-24〜）はfromExtraLevelsとして
+   CAT_KEYSと同じcatExpPoints()の逓減カーブでレベル→経験値換算するが、CAT_KEYS本体には含めない
+   （kotonohaBaseCategoryのst.lv分布判定・診断モード等に混ざらないようにするため）。 */
 function rawKotonohaExp(st){
   const fromLevels = CAT_KEYS.reduce((sum,k) => sum + catExpPoints(st.lv[k]||1), 0);
-  return fromLevels + effectiveBonusExp(st) + (st.hyakuninBonusExp||0) + (st.bunsetsuGiriBonusExp||0) + (st.vocabShooterBonusExp||0) + (st.baseballBonusExp||0) + (st.partsOfSpeechBonusExp||0) + totalUnlockCelebrationExp(st) + totalEventBonusExp(st);
+  const fromExtraLevels = EXTRA_LEVEL_CATS.reduce((sum,k) => sum + catExpPoints(st.lv[k]||1), 0);
+  return fromLevels + fromExtraLevels + effectiveBonusExp(st) + (st.hyakuninBonusExp||0) + (st.bunsetsuGiriBonusExp||0) + (st.vocabShooterBonusExp||0) + (st.baseballBonusExp||0) + (st.partsOfSpeechBonusExp||0) + totalUnlockCelebrationExp(st) + totalEventBonusExp(st);
 }
 function spentStatPoints(st){
   return Object.values(st.stats||{}).reduce((sum,v) => sum + (v||0), 0);
@@ -3131,6 +3145,10 @@ function loadStats(){
       const st = JSON.parse(s);
       if(st && st.cats && st.q && st.lv){
         CAT_KEYS.concat(["dokkai"]).forEach(k => {
+          if(!st.cats[k]) st.cats[k] = {t:0,c:0};
+          if(!st.lv[k]) st.lv[k] = 1;
+        });
+        EXTRA_LEVEL_CATS.forEach(k => {
           if(!st.cats[k]) st.cats[k] = {t:0,c:0};
           if(!st.lv[k]) st.lv[k] = 1;
         });
@@ -5148,19 +5166,20 @@ function showHome(){
       </div>`;
     });
     if(g.name === "古典・表現"){
-      const ktT = titleOf(st.lv.kanbun);
+      const ktT = titleOf(st.lv.kanbun_kt);
+      const yjT = titleOf(st.lv.kanbun_yj);
       const ktLocked = !!(st.notLearnedCats && st.notLearnedCats.kanbun_kt);
       const yjLocked = !!(st.notLearnedCats && st.notLearnedCats.kanbun_yj);
       html += `
       <div class="card menu-card${ktLocked?" locked":""}" ${ktLocked?"":`onclick="ktStart()"`}>
         <div class="menu-icon">${ktLocked?"🔒":"🖌️"}</div>
         <div><h2>返り点をつける</h2><p>${ktLocked?"まだ習っていない":"白文に返り点をドラッグで置く特訓。正解で徐々に解禁"}</p></div>
-        ${ktLocked?"":`<div class="right"><span class="shogo-badge ${ktT.hidden?"top":""}">${ktT.icon} ${esc(ktT.name)} Lv.${st.lv.kanbun}</span></div>`}
+        ${ktLocked?"":`<div class="right"><span class="shogo-badge ${ktT.hidden?"top":""}">${ktT.icon} ${esc(ktT.name)} Lv.${st.lv.kanbun_kt}</span></div>`}
       </div>
       <div class="card menu-card${yjLocked?" locked":""}" ${yjLocked?"":`onclick="yjStart()"`}>
         <div class="menu-icon">${yjLocked?"🔒":"👆"}</div>
         <div><h2>読む順タップ</h2><p>${yjLocked?"まだ習っていない":"返り点付きの白文を見て、読む順に字をタップする特訓"}</p></div>
-        ${yjLocked?"":`<div class="right"><span class="shogo-badge ${ktT.hidden?"top":""}">${ktT.icon} ${esc(ktT.name)} Lv.${st.lv.kanbun}</span></div>`}
+        ${yjLocked?"":`<div class="right"><span class="shogo-badge ${yjT.hidden?"top":""}">${yjT.icon} ${esc(yjT.name)} Lv.${st.lv.kanbun_yj}</span></div>`}
       </div>`;
     }
   });
@@ -17709,10 +17728,11 @@ function kzShowResults(){
    漢文の白文に、返り点をドラッグ／タップで置く専用ミニゲーム。
    問題データ・判定ロジックは 知識ドリルDX/漢文返り点ドラッグ/kaeriten_drag.html で
    教員確認済みの内容をそのまま移植した（9問、レ点〜上下点〜総合）。
-   1問を最後まで正しく置けたら record("kanbun", ...) を呼び、既存の漢文4択（272問）と
-   同じ st.lv.kanbun（レベル・経験値・称号）を共有する。ペースが速い/遅いミニゲーム特有の
-   結果を通常クイズの「直近正答率」に混ぜない既存方針（baseball/comboビート等と同じ）に
-   ならい、record()には{skipRecentAcc:true}を渡す。 */
+   1問を最後まで正しく置けたら record("kanbun_kt", ...) を呼ぶ。以前は既存の漢文4択（272問）と
+   同じst.lv.kanbunを共有していたが、教員の指示（2026-08-24〜）で「返り点をつける」専用の
+   独立したレベル・経験値（st.lv.kanbun_kt、EXTRA_LEVEL_CATS参照）に切り離した。ペースが速い/遅い
+   ミニゲーム特有の結果を通常クイズの「直近正答率」に混ぜない既存方針（baseball/comboビート等と
+   同じ）にならい、record()には{skipRecentAcc:true}を渡す。 */
 const KT_BASELINE_MARKS = ["レ","一","二"];
 const KT_COMBINABLE_WITH_RE = ["一","二","三","上","下"];
 const KT_PROBLEMS = [
@@ -18018,7 +18038,7 @@ function ktGroups(){
   for(let i=0;i<KT_PROBLEMS.length;i+=GROUP_SIZE){
     groups.push({level:groups.length+1,
       indices: KT_PROBLEMS.slice(i, i+GROUP_SIZE).map((_,j)=>i+j),
-      keys: KT_PROBLEMS.slice(i, i+GROUP_SIZE).map((_,j)=>qKey("kanbun", ktQ(i+j)))});
+      keys: KT_PROBLEMS.slice(i, i+GROUP_SIZE).map((_,j)=>qKey("kanbun_kt", ktQ(i+j)))});
   }
   _ktGroupsCache = groups;
   return groups;
@@ -18415,14 +18435,20 @@ function ktJudge(){
       ktKudashiBox.appendChild(hint);
     }
     KT.solved++;
-    /* ミスなく（判定するボタンを1回押しただけで）正解できたときだけ、漢文レベル・経験値と
-       まとまり解禁の対象にする（教員の指示、2026-08-22：「1回でもミスしたら、漢文のジャンルの
-       レベルは上がらないようにしてほしい」）。星の判定（3つ星＝attempts<=1）と同じ基準。
-       ミスがあった場合はrecord()自体を呼ばない＝正誤記録にも解禁ストリークにも一切影響しない
-       （不正解として記録してマイナスにするのではなく、今回ぶんの加点なしという扱いにする）。 */
+    /* ミスなく（判定するボタンを1回押しただけで）正解できたときだけ、「返り点をつける」専用の
+       レベル・経験値（st.lv.kanbun_kt）とまとまり解禁の対象にする（教員の指示、2026-08-22：
+       「1回でもミスしたら、漢文のジャンルのレベルは上がらないようにしてほしい」。2026-08-24〜、
+       教員の指示でst.lv.kanbun（漢文4択）とは独立したst.lv.kanbun_ktに切り離した）。
+       星の判定（3つ星＝attempts<=1）と同じ基準。ミスがあった場合はrecord()自体を呼ばない＝
+       正誤記録にも解禁ストリークにも一切影響しない（不正解として記録してマイナスにするのではなく、
+       今回ぶんの加点なしという扱いにする）。
+       record()はitem.qを読むオブジェクト前提（yjJudge側の{q:yjQ(...)}と同じ形）なので、
+       ktQ()が返す文字列を{q:...}で包む。以前はここが裸の文字列のままで、record()内部の
+       qKey(cat, item.q)がitem.q===undefinedとなってqText.length参照時に例外を投げ、
+       レベルアップ処理そのものが最後まで実行されない不具合になっていた（2026-08-24修正）。 */
     if(KT.attempts === 1){
       const elapsedMs = Date.now() - (KT.shownAt || Date.now());
-      const r = record("kanbun", ktQ(KT.qi), true, elapsedMs, {skipRecentAcc:true});
+      const r = record("kanbun_kt", {q: ktQ(KT.qi)}, true, elapsedMs, {skipRecentAcc:true});
       const st2 = loadStats();
       const groupUnlocked = ktCheckGroupUnlock(st2, KT.qi, true);
       saveStats(st2);
@@ -18430,7 +18456,7 @@ function ktJudge(){
         const extra = document.createElement("div");
         extra.className = "kt-msg good";
         extra.style.marginTop = "4px";
-        extra.textContent = r.evolved ? `漢文 Lv.${r.lv} UP！${r.evolved.icon} ${r.evolved.name}になりました` : `漢文 Lv.${r.lv} UP！`;
+        extra.textContent = r.evolved ? `返り点をつける Lv.${r.lv} UP！${r.evolved.icon} ${r.evolved.name}になりました` : `返り点をつける Lv.${r.lv} UP！`;
         msg.after(extra);
       }
       if(groupUnlocked){
@@ -18444,7 +18470,7 @@ function ktJudge(){
       const extra3 = document.createElement("div");
       extra3.className = "kt-msg";
       extra3.style.marginTop = "4px";
-      extra3.textContent = "ミスがあったので、今回は漢文のレベルアップの対象外です。";
+      extra3.textContent = "ミスがあったので、今回は「返り点をつける」のレベルアップの対象外です。";
       msg.after(extra3);
     }
   } else if(anyBad){
@@ -18498,7 +18524,7 @@ function yjGroups(){
   const groups = [];
   for(let i=0;i<YJ_PROBLEMS.length;i+=GROUP_SIZE){
     const indices = YJ_PROBLEMS.slice(i, i+GROUP_SIZE).map((_,j)=>i+j);
-    groups.push({level:groups.length+1, indices, keys: indices.map(idx => qKey("kanbun", yjQ(idx)))});
+    groups.push({level:groups.length+1, indices, keys: indices.map(idx => qKey("kanbun_yj", yjQ(idx)))});
   }
   _yjGroupsCache = groups;
   return groups;
@@ -18719,13 +18745,15 @@ function yjHandleTap(idx){
       const msg = document.getElementById("yjMsg");
       msg.textContent = "正解！すべて読む順どおりにタップできました。";
       msg.className = "yj-msg good";
-      /* ミスなく（誤タップ0回で）正解できたときだけ、漢文レベル・経験値と解禁ストリークの
-         対象にする（教員の指示、2026-08-22：「1回でもミスしたら、漢文のジャンルのレベルは
-         上がらないようにしてほしい」、返り点をつける側と同じ基準）。星の判定
-         （3つ星＝mistakes===0）と同じ。ミスがあった場合はrecord()自体を呼ばない。 */
+      /* ミスなく（誤タップ0回で）正解できたときだけ、「読む順タップ」専用のレベル・経験値
+         （st.lv.kanbun_yj）と解禁ストリークの対象にする（教員の指示、2026-08-22：「1回でも
+         ミスしたら、漢文のジャンルのレベルは上がらないようにしてほしい」、返り点をつける側と
+         同じ基準。2026-08-24〜、教員の指示でst.lv.kanbun（漢文4択）とは独立したst.lv.kanbun_yj
+         に切り離した）。星の判定（3つ星＝mistakes===0）と同じ。ミスがあった場合はrecord()自体を
+         呼ばない。 */
       if(YJ.mistakes === 0){
         const elapsedMs = Date.now() - (YJ.shownAt || Date.now());
-        const r = record("kanbun", {q:yjQ(YJ.idx)}, true, elapsedMs, {skipRecentAcc:true});
+        const r = record("kanbun_yj", {q:yjQ(YJ.idx)}, true, elapsedMs, {skipRecentAcc:true});
         const st2 = loadStats();
         const groupUnlocked = yjCheckGroupUnlock(st2, YJ.idx, true);
         saveStats(st2);
@@ -18733,7 +18761,7 @@ function yjHandleTap(idx){
           const extra = document.createElement("div");
           extra.className = "yj-msg good";
           extra.style.marginTop = "4px";
-          extra.textContent = r.evolved ? `漢文 Lv.${r.lv} UP！${r.evolved.icon} ${r.evolved.name}になりました` : `漢文 Lv.${r.lv} UP！`;
+          extra.textContent = r.evolved ? `読む順タップ Lv.${r.lv} UP！${r.evolved.icon} ${r.evolved.name}になりました` : `読む順タップ Lv.${r.lv} UP！`;
           msg.after(extra);
         }
         if(groupUnlocked){
@@ -18747,7 +18775,7 @@ function yjHandleTap(idx){
         const extra3 = document.createElement("div");
         extra3.className = "yj-msg";
         extra3.style.marginTop = "4px";
-        extra3.textContent = "ミスがあったので、今回は漢文のレベルアップの対象外です。";
+        extra3.textContent = "ミスがあったので、今回は「読む順タップ」のレベルアップの対象外です。";
         msg.after(extra3);
       }
       yjAnimateReveal();
