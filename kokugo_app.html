@@ -2843,7 +2843,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.14</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.15</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -14744,6 +14744,10 @@ function bgUpdateSentence(){
          節目は、レベル表示を兼ねたより目立つカードにまとめて出す（重ねて出さない）。 */
       if(lvResult.titleUp) bgFxTitleUp(lvResult.lvAfter, lvResult.titleName, lvResult.titleIcon);
       else if(lvResult.leveledUp) bgFxLevelUp(lvResult.lvAfter);
+      if(eventActive("2026_09_bunsetsu")){
+        const _st=loadStats(); eventBonusAdd(_st,"2026_09_bunsetsu",1); saveStats(_st);
+        bgFxEventXp();
+      }
     }else if(justCleared){
       /* ミスがあった文でクリア問数に到達した場合も、達成そのものは変わらず伝える。 */
       BG.clearAnnounced = true;
@@ -14935,10 +14939,6 @@ function bgSlash(blade){
     BG.offsets.push(off);
     const perfect = Math.abs(off)<=BG_WIN_PERFECT;
     BG.hit++; if(perfect) BG.perfect++;
-    if(eventActive("2026_09_bunsetsu")){
-      const _st=loadStats(); eventBonusAdd(_st,"2026_09_bunsetsu",1); saveStats(_st);
-      bgFxEventXp();
-    }
     best.judged="cut";
     bgAddMark(best.beat,"cut",best.need);
     bgEatHint(best.beat);
