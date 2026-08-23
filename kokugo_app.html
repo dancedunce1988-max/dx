@@ -47,6 +47,13 @@
   .menu-card.review{border-left:5px solid var(--accent);}
   /* ストーリーモードの章解放システム（2026-07-19〜）で、まだ解放されていない章のカードに使う。 */
   .menu-card.locked{cursor:default; opacity:.55;}
+  /* 期間限定イベントバナー */
+  .event-banner{border:2px solid #e8a000; background:linear-gradient(135deg,#fffbe6,#fff3c0); padding:14px 16px;}
+  .event-banner-head{font-size:1.05rem; font-weight:bold; color:#b87000; margin-bottom:4px;}
+  .event-banner-body{font-size:.88rem; line-height:1.7; color:#333;}
+  .event-banner-pts{font-size:1.1rem; font-weight:bold; color:#c05000; margin-top:4px;}
+  /* 言の刃ゲーム内イベント表示 */
+  .bg-event-hud{position:absolute; top:6px; right:8px; font-size:.72rem; background:rgba(255,200,0,.18); border:1px solid #e8a000; border-radius:6px; padding:2px 8px; color:#8a5000; font-weight:bold; pointer-events:none;}
   .menu-card.locked:hover{transform:none; box-shadow:none;}
   .menu-card.locked .menu-icon{background:var(--line); color:var(--sub);}
   .menu-card.locked .shogo-badge{background:var(--sub);}
@@ -2822,7 +2829,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.12</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.13</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3053,6 +3060,27 @@ function catExpPoints(lv){
   if(L <= 1000) return 1097 + (L - 500);
   return 1597 + (L - 1000) * 0.2;
 }
+/* ================= 期間限定イベント経験値プール =================
+   イベントIDをキーに、そのイベントで獲得した経験値を st.eventBonusEarned に積み上げる。
+   rawKotonohaExp / kotonohaTotalXP の両方に totalEventBonusExp(st) として加算される。
+   新しい期間限定イベントを追加するときは、EVENTS オブジェクトにエントリを追加し、
+   対象のゲームの「正解ハンドラ」で eventBonusAdd(st, eventId, amount) を呼ぶだけでよい。 */
+const EVENTS = {
+  "2026_09_bunsetsu": {
+    label: "言の刃 正解数イベント",
+    end: new Date('2026-09-10T23:59:59'),
+    desc: "言の刃（文節斬り）での正解1回 ＝ 経験値＋1！",
+  },
+};
+function eventActive(id){ return new Date() <= EVENTS[id].end; }
+function anyEventActive(){ return Object.keys(EVENTS).some(id => eventActive(id)); }
+function totalEventBonusExp(st){
+  return Object.values(st.eventBonusEarned||{}).reduce((s,v) => s+(v||0), 0);
+}
+function eventBonusAdd(st, id, amount){
+  if(!st.eventBonusEarned) st.eventBonusEarned = {};
+  st.eventBonusEarned[id] = (st.eventBonusEarned[id]||0) + amount;
+}
 /* 「ことのはの経験値」の生の計算式（totalEarnedStatPoints・kotonohaTotalXPの両方が使う共通部分）。
    百人一首の正解ぶん（st.hyakuninBonusExp）・問題全開放のお祝い経験値（totalUnlockCelebrationExp、
    2026-08-23〜はst.unlockBonusEarnedへの積み上げ方式）・文節斬りの巻クリアぶん
@@ -3062,7 +3090,7 @@ function catExpPoints(lv){
    見て判定するため、これらの加算は分岐判定に一切影響しない）。 */
 function rawKotonohaExp(st){
   const fromLevels = CAT_KEYS.reduce((sum,k) => sum + catExpPoints(st.lv[k]||1), 0);
-  return fromLevels + effectiveBonusExp(st) + (st.hyakuninBonusExp||0) + (st.bunsetsuGiriBonusExp||0) + (st.vocabShooterBonusExp||0) + (st.baseballBonusExp||0) + (st.partsOfSpeechBonusExp||0) + totalUnlockCelebrationExp(st);
+  return fromLevels + effectiveBonusExp(st) + (st.hyakuninBonusExp||0) + (st.bunsetsuGiriBonusExp||0) + (st.vocabShooterBonusExp||0) + (st.baseballBonusExp||0) + (st.partsOfSpeechBonusExp||0) + totalUnlockCelebrationExp(st) + totalEventBonusExp(st);
 }
 function spentStatPoints(st){
   return Object.values(st.stats||{}).reduce((sum,v) => sum + (v||0), 0);
@@ -3246,6 +3274,7 @@ function loadStats(){
         if(!st.dailyLogin) st.dailyLogin = {lastDate:null, cycleDay:0, totalLoginDays:0};
         if(st.pendingDailyLoginStamp === undefined) st.pendingDailyLoginStamp = null;
         if(!st.notLearnedCats) st.notLearnedCats = {};
+        if(!st.eventBonusEarned) st.eventBonusEarned = {};
         if(!st.story) st.story = {chapter:"ch1", beatIdx:0, flags:{}, completedChapters:[], judgedRunCorrect:0, judgedRunTotal:0, judgedBest:{}, comboBest:{}};
         if(!st.story.flags) st.story.flags = {};
         if(!Array.isArray(st.story.completedChapters)) st.story.completedChapters = [];
@@ -5050,6 +5079,23 @@ function balancedTrainingBtnHtml(){
       <div><h2>バランスよく鍛える</h2><p>レベルが低いジャンルほど出やすくなるよう調整しながら出題（読解・漢字の書き学習・苦手復習は含みません）</p></div>
     </div>`;
 }
+function eventBannerHtml(st){
+  if(!anyEventActive()) return "";
+  let html = "";
+  Object.entries(EVENTS).forEach(([id, ev]) => {
+    if(!eventActive(id)) return;
+    const earned = (st.eventBonusEarned && st.eventBonusEarned[id]) || 0;
+    const end = ev.end;
+    const endStr = `${end.getMonth()+1}月${end.getDate()}日`;
+    html += `
+    <div class="card event-banner">
+      <div class="event-banner-head">🎉 期間限定イベント開催中！（〜${endStr}）</div>
+      <div class="event-banner-body">${esc(ev.label)}<br>${esc(ev.desc)}</div>
+      <div class="event-banner-pts">あなたのイベント経験値：${earned} pt</div>
+    </div>`;
+  });
+  return html;
+}
 function showHome(){
   clearStoryBattleTimer(); // 中ボス戦を中断して離れたときに、残った制限時間タイマーを止める
   clearStoryProofreadTimer(); // 校正ミニゲームを中断して離れたときに、残った制限時間タイマーを止める
@@ -5062,6 +5108,7 @@ function showHome(){
   if(st.pendingDailyLoginStamp){ showDailyLoginStampOverlay(st); return; }
   if(kotonohaHasPendingEvolveCutscene(st)){ showKotonohaEvolveCutscene(st); return; }
   let html = "";
+  html += eventBannerHtml(st);
   html += kotonohaCardHtml(st);
   html += storyEntryHtml(st);
   html += miniGameEntryHtml(st);
@@ -14295,7 +14342,7 @@ function bgStartStage(stageId, tempo){
     t0:0, score:0, combo:0, maxCombo:0,
     life:BG_LIFE_MAX, failed:false,
     misses:[], offsets:[],
-    hit:0, perfect:0, miss:0,
+    hit:0, perfect:0, miss:0, eventCorrect:0,
     gi:0, di:0,
     schedBeat:0,
     audio0:null, beat0:0,
@@ -14865,6 +14912,7 @@ function bgSlash(blade){
     BG.offsets.push(off);
     const perfect = Math.abs(off)<=BG_WIN_PERFECT;
     BG.hit++; if(perfect) BG.perfect++;
+    if(eventActive("2026_09_bunsetsu")) BG.eventCorrect++;
     best.judged="cut";
     bgAddMark(best.beat,"cut",best.need);
     bgEatHint(best.beat);
@@ -15038,8 +15086,18 @@ function bgBumpCombo(perfect){
    段の終わり：そのまま判定へ
    独立版にあった「留め」（時間の外でもう一度だけ確かめる画面）は廃止した
    （教員の指示：「止めは廃止」）。走り終えたら、そのまま結果画面へ進む。 */
+/* イベント期間中の正解数を st.eventBonusEarned に保存する（クリア・失敗どちらも保存）。 */
+function bgCommitEventExp(){
+  const n = BG.eventCorrect||0;
+  if(n <= 0) return;
+  const st = loadStats();
+  eventBonusAdd(st, "2026_09_bunsetsu", n);
+  saveStats(st);
+  BG.eventCorrect = 0;
+}
 function bgFinishStage(){
   if(BG.phase==="over") return;
+  bgCommitEventExp();
   if(bgRaf){ cancelAnimationFrame(bgRaf); bgRaf=null; bgLastT=0; }
   BG.phase="over";
   bgShowResult();
@@ -15048,6 +15106,7 @@ function bgFinishStage(){
    （クリアはできなかった扱いになる。bgShowResult側でBG.failedを見て分岐する）。 */
 function bgFailStage(){
   if(BG.phase==="over") return;
+  bgCommitEventExp();
   if(bgRaf){ cancelAnimationFrame(bgRaf); bgRaf=null; bgLastT=0; }
   BG.phase="over";
   BG.failed=true;
