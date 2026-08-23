@@ -2843,7 +2843,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.15</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.16</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -14745,8 +14745,10 @@ function bgUpdateSentence(){
       if(lvResult.titleUp) bgFxTitleUp(lvResult.lvAfter, lvResult.titleName, lvResult.titleIcon);
       else if(lvResult.leveledUp) bgFxLevelUp(lvResult.lvAfter);
       if(eventActive("2026_09_bunsetsu")){
-        const _st=loadStats(); eventBonusAdd(_st,"2026_09_bunsetsu",1); saveStats(_st);
-        bgFxEventXp();
+        const _bl=BG.stage.blades;
+        const _xp=_bl.length===2?2:_bl.includes("tango")?1.5:1;
+        const _st=loadStats(); eventBonusAdd(_st,"2026_09_bunsetsu",_xp); saveStats(_st);
+        bgFxEventXp(_xp);
       }
     }else if(justCleared){
       /* ミスがあった文でクリア問数に到達した場合も、達成そのものは変わらず伝える。 */
@@ -14847,12 +14849,13 @@ function bgFxTitleUp(lv, name, icon){
     [784.0,987.8,1174.7,1568.0].forEach((f,i)=>bgTone(ctx,"triangle",f,f,t+i*0.09,0.5,0.14));
   }
 }
-function bgFxEventXp(){
+function bgFxEventXp(amount){
   const fieldEl = bg$("bgField");
   if(!fieldEl) return;
   const el = document.createElement("div");
   el.className = "eventXpFx";
-  el.innerHTML = '<span class="lb">🎉 イベント経験値</span><span class="n">＋１ 獲得！</span>';
+  const disp = amount===2?"＋２":amount===1.5?"＋1.5":"＋１";
+  el.innerHTML = '<span class="lb">🎉 イベント経験値</span><span class="n">'+disp+' 獲得！</span>';
   fieldEl.appendChild(el);
   setTimeout(()=>el.remove(), 1050);
 }
