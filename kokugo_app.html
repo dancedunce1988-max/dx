@@ -1479,6 +1479,20 @@
     100%{opacity:0;transform:translateY(-8px) scale(.97);}
   }
 
+  #bgApp .eventXpFx{
+    position:absolute; right:10px; top:30%; z-index:10; text-align:right; pointer-events:none;
+    font-family:var(--mincho); color:#b87000;
+    animation:eventXpGo 1.05s ease-out forwards;
+  }
+  #bgApp .eventXpFx .lb{display:block;font-size:.56rem;letter-spacing:.05em;color:#c07000;}
+  #bgApp .eventXpFx .n{display:block;font-size:1.15rem;font-weight:700;line-height:1.2;}
+  @keyframes eventXpGo{
+    0%{opacity:0;transform:translateX(12px);}
+    15%{opacity:1;transform:translateX(0);}
+    75%{opacity:1;}
+    100%{opacity:0;transform:translateY(-10px);}
+  }
+
   /* ===== 構え ===== */
   #bgApp .kamae{position:absolute;inset:0;z-index:14;overflow:hidden;
     background:repeating-linear-gradient(58deg,rgba(140,125,95,.04) 0 1px,transparent 1px 4px),var(--kinari);
@@ -2829,7 +2843,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.13</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.14</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -14342,7 +14356,7 @@ function bgStartStage(stageId, tempo){
     t0:0, score:0, combo:0, maxCombo:0,
     life:BG_LIFE_MAX, failed:false,
     misses:[], offsets:[],
-    hit:0, perfect:0, miss:0, eventCorrect:0,
+    hit:0, perfect:0, miss:0,
     gi:0, di:0,
     schedBeat:0,
     audio0:null, beat0:0,
@@ -14829,6 +14843,15 @@ function bgFxTitleUp(lv, name, icon){
     [784.0,987.8,1174.7,1568.0].forEach((f,i)=>bgTone(ctx,"triangle",f,f,t+i*0.09,0.5,0.14));
   }
 }
+function bgFxEventXp(){
+  const fieldEl = bg$("bgField");
+  if(!fieldEl) return;
+  const el = document.createElement("div");
+  el.className = "eventXpFx";
+  el.innerHTML = '<span class="lb">🎉 イベント経験値</span><span class="n">＋１ 獲得！</span>';
+  fieldEl.appendChild(el);
+  setTimeout(()=>el.remove(), 1050);
+}
 const BG_KANSUJI=["〇","一","二","三","四","五","六","七","八","九","十"];
 function bgKansuji(n){ if(n<=10) return BG_KANSUJI[n]; if(n<20) return "十"+BG_KANSUJI[n-10];
   const t=Math.floor(n/10),o=n%10; return BG_KANSUJI[t]+"十"+(o?BG_KANSUJI[o]:""); }
@@ -14912,7 +14935,10 @@ function bgSlash(blade){
     BG.offsets.push(off);
     const perfect = Math.abs(off)<=BG_WIN_PERFECT;
     BG.hit++; if(perfect) BG.perfect++;
-    if(eventActive("2026_09_bunsetsu")) BG.eventCorrect++;
+    if(eventActive("2026_09_bunsetsu")){
+      const _st=loadStats(); eventBonusAdd(_st,"2026_09_bunsetsu",1); saveStats(_st);
+      bgFxEventXp();
+    }
     best.judged="cut";
     bgAddMark(best.beat,"cut",best.need);
     bgEatHint(best.beat);
@@ -15087,17 +15113,8 @@ function bgBumpCombo(perfect){
    独立版にあった「留め」（時間の外でもう一度だけ確かめる画面）は廃止した
    （教員の指示：「止めは廃止」）。走り終えたら、そのまま結果画面へ進む。 */
 /* イベント期間中の正解数を st.eventBonusEarned に保存する（クリア・失敗どちらも保存）。 */
-function bgCommitEventExp(){
-  const n = BG.eventCorrect||0;
-  if(n <= 0) return;
-  const st = loadStats();
-  eventBonusAdd(st, "2026_09_bunsetsu", n);
-  saveStats(st);
-  BG.eventCorrect = 0;
-}
 function bgFinishStage(){
   if(BG.phase==="over") return;
-  bgCommitEventExp();
   if(bgRaf){ cancelAnimationFrame(bgRaf); bgRaf=null; bgLastT=0; }
   BG.phase="over";
   bgShowResult();
@@ -15106,7 +15123,6 @@ function bgFinishStage(){
    （クリアはできなかった扱いになる。bgShowResult側でBG.failedを見て分岐する）。 */
 function bgFailStage(){
   if(BG.phase==="over") return;
-  bgCommitEventExp();
   if(bgRaf){ cancelAnimationFrame(bgRaf); bgRaf=null; bgLastT=0; }
   BG.phase="over";
   BG.failed=true;
