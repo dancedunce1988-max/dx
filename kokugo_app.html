@@ -2822,7 +2822,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.10</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.11</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3221,6 +3221,15 @@ function loadStats(){
             st.unlockBonusEarned[cat] = unlockCelebrationExpForPct(catUnlockedQuestionPct(st, cat));
           });
           st.unlockBonusEarned.hyakunin = unlockCelebrationExpForPct(hyaUnlockedQuestionPct(st));
+        }
+        /* 一度限り補填（2026-08-23〜の床上げ追加の追加対策）：CAT_POOL_VERSIONリセット等で
+           rawKotonohaExpがspentStatPointsを下回っている場合、差分をbonusExpに加算して底上げする。
+           これにより次のレベルアップから正常に新ポイントが得られるようになる。 */
+        if(!st.statPointsGapFixed){
+          st.statPointsGapFixed = true;
+          const _spent = spentStatPoints(st);
+          const _earned = Math.floor(rawKotonohaExp(st));
+          if(_spent > _earned) st.bonusExp = (st.bonusExp||0) + (_spent - _earned);
         }
         /* デイリーログイン報酬（7日サイクル、2026-08-01〜）導入前のセーブデータには
            dailyLoginが無いので補完する。totalLoginDays等を過去にさかのぼって推定することはせず、
