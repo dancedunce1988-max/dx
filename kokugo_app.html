@@ -2889,7 +2889,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.23</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.24</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3352,6 +3352,18 @@ function loadStats(){
               _gap -= _cut;
             }
           }
+        }
+        /* 「ことのは」の転生基準値（st.kotonohaRebirth.baseXP）は、転生した瞬間のkotonohaTotalXP
+           をそのまま保存したもの。上のspentStatPoints是正を入れる前（ver9.22以前）に転生した
+           プレイヤーは、その瞬間のkotonohaTotalXPがspentStatPointsの床上げで本来より高くかさ
+           上げされていたことがあり得る。その場合、是正後の正しいkotonohaTotalXPがそのかさ上げ
+           された基準値を追い越すまで、経験値を正しく稼いでいても「卵」から一切進化できない
+           状態が残ってしまう（教員から、上の是正を入れた後も進化しないという報告があり発覚。
+           2026-08-24〜）。baseXPが現在のkotonohaTotalXPを上回ることは本来あり得ない（経験値は
+           生涯で減らない）ため、上回っていたらそれ自体をかさ上げの痕跡とみなし、現在値まで
+           引き下げる（＝そこを新しい基準点として、そこから正常に進化が進むようにする）。 */
+        if(st.kotonohaRebirth && st.kotonohaRebirth.baseXP > kotonohaTotalXP(st)){
+          st.kotonohaRebirth.baseXP = kotonohaTotalXP(st);
         }
         /* デイリーログイン報酬（7日サイクル、2026-08-01〜）導入前のセーブデータには
            dailyLoginが無いので補完する。totalLoginDays等を過去にさかのぼって推定することはせず、
