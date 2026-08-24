@@ -57,6 +57,11 @@
   .menu-card.locked:hover{transform:none; box-shadow:none;}
   .menu-card.locked .menu-icon{background:var(--line); color:var(--sub);}
   .menu-card.locked .shogo-badge{background:var(--sub);}
+  /* クリア済みのストーリー章カード：カード全体タップではなく、中の2つのボタン
+     （「ストーリーを見る」「問題だけ」）で選ぶ形にしたので、カード自体はクリック不可にする
+     （教員の指示、2026-08-24〜）。 */
+  .menu-card.story-done{cursor:default;}
+  .menu-card.story-done:hover{transform:none; box-shadow:0 1px 3px rgba(0,0,0,.05);}
   .menu-card.balanced-btn{
     background:linear-gradient(135deg, var(--accent2), var(--accent));
     border:none; padding:20px 16px; margin-bottom:18px;
@@ -1035,10 +1040,22 @@
     .bb-victory{ animation:none; }
   }
   /* .drop-item/.treasure-dropは元々ボス戦の暗い背景を想定した淡い金色文字なので、
-     このbb-victoryの明るい金色背景の上では読みにくい。ここだけ濃い色に上書きする
-     （2026-07-18、章クリア画面で同種の問題が起きた前例[[kokugo-story-mode]]と同じ対策）。 */
-  .bb-victory .drop-item{ color:var(--accent); background:rgba(255,255,255,.6); border-color:rgba(192,57,43,.4); }
-  .bb-victory .drop-item.treasure-drop{ color:#8a5a00; background:rgba(255,255,255,.75); box-shadow:0 0 10px rgba(184,134,11,.4); }
+     ストーリーモードの章クリア画面（.story-scene、明るい.card背景）の上では読みにくい
+     （教員の指摘、2026-08-24〜：「白い背景に黄色い字で非常に見づらい」）。以前は
+     .bb-victory（野球の章）だけに個別の上書きを当てていたが、.story-scene自体が常に
+     明るい.cardの中でしか使われないため、他の章（proofread/battle/combo/wordpick等）の
+     クリア画面には上書きが効いておらず、同じ見づらさが再発していた。scopeを.story-scene
+     まで広げて、ストーリーモードの全クリア画面をまとめて直す（.bb-victoryは常に
+     .story-sceneと併記されるクラスなので、個別ルールは不要になり削除）。文字色を
+     濃くするだけでなく縁取り（text-shadow）も足して、明るい背景でも一目で読めるようにする。 */
+  .story-scene .drop-item{
+    color:var(--accent); background:rgba(255,255,255,.6); border-color:rgba(192,57,43,.4);
+    text-shadow:0 0 4px #fff, 0 0 4px #fff;
+  }
+  .story-scene .drop-item.treasure-drop{
+    color:#8a5a00; background:rgba(255,255,255,.75); box-shadow:0 0 10px rgba(184,134,11,.4);
+    text-shadow:0 0 4px #fff8e6, 0 0 4px #fff8e6;
+  }
 
   /* ===== サブクエスト「ボキャブラ・シューティング」（2026-08-10〜） ===== */
   .vs-topbar{ display:flex; justify-content:flex-end; align-items:flex-start; margin-bottom:6px; }
@@ -2838,12 +2855,41 @@
   #yjApp .yj-stars span{ opacity:.25; transition:opacity .2s, transform .2s; }
   #yjApp .yj-stars span.on{ opacity:1; transform:scale(1.15); }
   @media (max-width:360px){ #yjApp .yj-box{ padding:14px 22px 18px 22px; } }
+
+  /* ============ 返り点をつける／読む順タップ 共通の解説ページ（教員の指示、2026-08-24〜：
+     「読む順タップと返り点を付けるの問題の上に、それぞれ解説ページへのボタンを置いて」）。
+     図解には実際の問題画面と同じ#ktApp/#yjAppの色・フォント変数、kt-box/yj-box等の見た目
+     クラスをそのまま再利用する（画像のスクリーンショットを別途用意すると見た目を変える
+     たびに古くなってしまうため、常に本物と同じ見た目になる「生きた図」にしてある）。
+     レイアウト用の.kg-*クラスだけは#ktApp/#yjApp両方から呼べる無scopedクラスにした。 */
+  .kt-guide-btn, .yj-guide-btn{ font-size:.68rem; padding:5px 12px; border-radius:99px; cursor:pointer; white-space:nowrap; background:transparent; }
+  #ktApp .kt-hud{ flex-wrap:wrap; }
+  #ktApp .kt-guide-btn{ color:var(--kt-ai); border:1px solid var(--kt-ai-l); }
+  #yjApp .yj-hud{ flex-wrap:wrap; }
+  #yjApp .yj-guide-btn{ color:var(--yj-ai); border:1px solid var(--yj-ai-l); }
+
+  .kg-guide{ max-width:480px; margin:0 auto; }
+  .kg-guide h2{ font-size:1.1rem; letter-spacing:.05em; margin:2px 0 10px; }
+  .kg-guide h3{ font-size:.9rem; margin:20px 0 8px; }
+  .kg-guide p{ font-size:.83rem; line-height:1.8; margin:0 0 8px; }
+  .kg-guide b{ font-weight:700; }
+  .kg-lead{ font-size:.85rem; line-height:1.85; margin-bottom:6px; }
+  .kg-example{ display:flex; align-items:center; gap:14px; margin:10px 0 6px; padding:12px; border-radius:10px; background:rgba(255,255,255,.55); flex-wrap:wrap; }
+  .kg-example .kt-box, .kg-example .yj-box{ margin:0; }
+  .kg-example-note{ flex:1; min-width:150px; font-size:.76rem; line-height:1.8; }
+  .kg-example-note .kg-kudashi{ display:block; margin-top:6px; font-weight:700; }
+  .kg-callout{ font-size:.78rem; line-height:1.8; padding:10px 12px; border-radius:8px; margin:10px 0 16px; border-left:4px solid; background:rgba(255,255,255,.4); }
+  #ktApp .kg-callout{ border-color:var(--kt-shu); }
+  #yjApp .kg-callout{ border-color:var(--yj-shu); }
+  .kg-steps{ margin:0 0 8px; padding-left:1.3em; font-size:.83rem; line-height:1.9; }
+  .kg-steps li{ margin-bottom:5px; }
+  .kg-nav{ display:flex; gap:8px; flex-wrap:wrap; margin-top:20px; }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.21</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.22</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -11143,13 +11189,32 @@ function storyChapterButtonHtml(key, st){
       </div>`;
   }
   const isCompleted = sp.completedChapters.includes(key);
-  const inProgress = sp.chapter === key && !isCompleted && sp.beatIdx > 0;
-  const badge = isCompleted ? "クリア済み" : inProgress ? "つづきから" : "はじめから";
-  const sub = isCompleted ? "クリア済み。もう一度プレイすることもできます。" : inProgress ? "続きから読み進めよう" : "タップして読みはじめる";
   const best = sp.judgedBest && sp.judgedBest[key];
   const rateNote = best ? `<p class="note">クリア率 ${Math.round(100*best.correct/best.total)}%</p>` : "";
   const comboBest = sp.comboBest && sp.comboBest[key];
   const comboNote = comboBest ? `<p class="note"><span class="shogo-badge top">🔥 最大コンボ数 ${comboBest}回</span></p>` : "";
+  /* クリア済みの章は、カード全体タップの代わりに「ストーリーを見る」（従来どおりの
+     startStoryMode、地の文つきで最初から読み返す）「問題だけ」（storyQuizOnlyChapter、
+     ボス戦だけに挑戦する）の2択にする（教員の指示、2026-08-24〜：「一度クリアしたストーリーは、
+     『問題だけ』『ストーリーを見る』の選択ができるように」）。 */
+  if(isCompleted){
+    return `
+      <div class="card menu-card story-done">
+        <div class="menu-icon">📖</div>
+        <div>
+          <h2>${esc(chapter.title)}</h2>
+          <p>クリア済み。物語を読み返すか、ボス戦だけに挑戦できます。</p>
+          ${rateNote}${comboNote}
+          <div class="btn-row" style="margin-top:10px">
+            <button class="btn inline secondary" onclick="startStoryMode('${key}')">📖 ストーリーを見る</button>
+            <button class="btn inline secondary" onclick="storyQuizOnlyChapter('${key}')">⚔️ 問題だけ</button>
+          </div>
+        </div>
+      </div>`;
+  }
+  const inProgress = sp.chapter === key && sp.beatIdx > 0;
+  const badge = inProgress ? "つづきから" : "はじめから";
+  const sub = inProgress ? "続きから読み進めよう" : "タップして読みはじめる";
   return `
     <div class="card menu-card" onclick="startStoryMode('${key}')">
       <div class="menu-icon">📖</div>
@@ -11198,6 +11263,30 @@ function startStoryMode(chapterKey){
     saveStats(st);
   }
   storyRun = storyFreshRun();
+  storyRenderBeat();
+}
+/* クリア済みの章の「ボス戦だけ」に挑戦する（教員の指示、2026-08-24〜：「一度クリアした
+   ストーリーは、問題だけ／ストーリーを見る、の選択ができるように。問題だけのときは、
+   中間含めボスだけが行われるように」）。章のbeats配列の中で、boss:フィールドを持つ
+   beat（battle/proofread/baseball/combo/wordPickのいずれか）は必ずちょうど1つなので、
+   そこへ直接beatIdxを進めてから通常のstoryRenderBeat()に渡すだけでよい。ボスに勝ったあと
+   「次のbeat（地の文）」へは進めず章の終わりへ直行させる処理はstoryAdvance()側で
+   storyRun.quizOnlyを見て行う。isReplay判定（宝具・アイテムを渡さない）は各ボスbeatの
+   resolve関数がsp.completedChapters.includes(sp.chapter)から自動的に行うので、
+   ここでは何もしなくてよい。 */
+function storyQuizOnlyChapter(chapterKey){
+  const st = loadStats();
+  if(!storyChapterUnlocked(chapterKey, st)){ showHome(); return; }
+  const sp = storyProgress(st);
+  const chapter = STORY_CHAPTERS[chapterKey];
+  const bossIdx = chapter ? chapter.beats.findIndex(b => b.boss) : -1;
+  if(bossIdx < 0){ startStoryMode(chapterKey); return; } // 念のための保険（本来は必ず1つ見つかる）
+  sp.chapter = chapterKey;
+  sp.beatIdx = bossIdx;
+  storyResetJudgedRun(sp);
+  saveStats(st);
+  storyRun = storyFreshRun();
+  storyRun.quizOnly = true;
   storyRenderBeat();
 }
 function storyRenderBeat(){
@@ -11299,7 +11388,17 @@ function storyAdvance(){
   if(kotonohaMaybeInterruptForEvolve(() => storyAdvance())) return;
   const st = loadStats();
   const sp = storyProgress(st);
-  sp.beatIdx++;
+  /* 「問題だけ」モード（storyQuizOnlyChapter、教員の指示2026-08-24〜）でボスbeatに
+     勝ったときだけは、次のbeat（地の文）には進めず、章の終わり（storyChapterEnd）まで
+     一気に進める。storyRun.quizOnlyはstoryQuizOnlyChapterでセットしたあと、ボスbeatの
+     やり直し（storyBattleRetry等）はstoryRunを丸ごと差し替えず個々のフィールドだけを
+     リセットするので、勝つまでずっと立ったままになる。 */
+  if(storyRun && storyRun.quizOnly){
+    const chapter = storyChapterDef(sp.chapter);
+    sp.beatIdx = chapter ? chapter.beats.length : sp.beatIdx + 1;
+  }else{
+    sp.beatIdx++;
+  }
   saveStats(st);
   storyRenderBeat();
 }
@@ -18152,6 +18251,148 @@ function ktRuby(s){
   return esc(s).replace(/([^()ぁ-んー]+)\(([^)]+)\)/g, (m, base, yomi) => `<ruby>${base}<rt>${yomi}</rt></ruby>`);
 }
 
+/* ============ 返り点をつける／読む順タップ 共通の解説ページ（2026-08-24〜、教員の指示：
+   「読む順タップと返り点を付けるの問題の上に、それぞれ解説ページへのボタンを設置して」）。
+   例文はKT_PROBLEMS/YJ_PROBLEMSを直接参照せず、ここ専用のKG_EXAMPLESに持たせてある
+   （内容自体は教員確認済みの実際の問題文と同じものを使うが、今後どちらかの問題データが
+   並べ替わっても解説の例文が意図せず変わらないようにするため）。 */
+const KG_EXAMPLES = {
+  re:     { chars:[{ch:"読",mark:"レ",okuri:"ム"},{ch:"書",okuri:"ヲ"}],
+            order:[1,0], kudashi:"書を読む" },
+  ichini: { chars:[{ch:"登",mark:"二",okuri:"ル"},{ch:"富"},{ch:"士"},{ch:"山",mark:"一",okuri:"ニ"}],
+            order:[1,2,3,0], kudashi:"富士山に登る" },
+  jouge:  { chars:[{ch:"我"},{ch:"聞",mark:"下",okuri:"ク"},{ch:"人",okuri:"ノ"},{ch:"愛",mark:"二",okuri:"スル"},
+                    {ch:"其",okuri:"ノ"},{ch:"子",mark:"一",okuri:"ヲ"},{ch:"之",ok:"の"},{ch:"声",mark:"上",okuri:"ヲ"}],
+            order:[0,2,4,5,3,6,7,1], kudashi:"我(われ)人(ひと)の其(そ)の子(こ)を愛(あい)するの声(こえ)を聞(き)く" },
+};
+/* order（何番目に読むか、を字のインデックスで並べた配列）から、字ごとの「何番目に読むか」
+   の番号に変換する。yjRender()のYJ.tappedNum、ktAnimateReveal()と同じ考え方。 */
+function kgOrderNums(chars, order){
+  const nums = new Array(chars.length);
+  order.forEach((charIdx,pos)=>{ nums[charIdx] = pos+1; });
+  return nums;
+}
+function kgAnnoHtml(prefix, c){
+  const okHtml = c.ok ? `<span class="${prefix}-ok">${esc(c.ok)}</span>` : "";
+  const okuriCls = c.okuri && c.okuri.length>=3 ? " long" : "";
+  const okuriHtml = c.okuri ? `<span class="${prefix}-okuri${okuriCls}">${esc(c.okuri)}</span>` : "";
+  return (okHtml||okuriHtml) ? `<span class="${prefix}-anno">${okHtml}${okuriHtml}</span>` : "";
+}
+/* 「返り点をつける」の見た目（kt-slot等）を使い、返り点が正しく置かれた状態＋読む順の
+   番号バッジを常時表示した例文を描く。 */
+function kgKtBoxHtml(ex){
+  const nums = kgOrderNums(ex.chars, ex.order);
+  const rows = ex.chars.map((c,idx)=>{
+    const slotHtml = c.mark
+      ? `<span class="kt-slot filled ok${c.mark.length===2?" combo":""}">${ktMarkInner(c.mark)}</span>`
+      : `<span class="kt-slot"></span>`;
+    return `<div class="kt-row"><span class="kt-glyph">${esc(c.ch)}<span class="kt-order-badge show">${nums[idx]}</span>${kgAnnoHtml("kt",c)}</span>${slotHtml}</div>`;
+  }).join("");
+  return `<div class="kt-box">${rows}</div>`;
+}
+/* 「読む順タップ」の見た目（yj-mark等）を使い、返り点は最初から表示・読む順の番号バッジも
+   常時表示した（＝解き終わった状態そのままの）例文を描く。 */
+function kgYjBoxHtml(ex){
+  const nums = kgOrderNums(ex.chars, ex.order);
+  const rows = ex.chars.map((c,idx)=>{
+    const markHtml = c.mark
+      ? `<span class="yj-mark${c.mark.length===2?" combo":""}">${ktMarkInner(c.mark)}</span>`
+      : `<span class="yj-mark"></span>`;
+    const badgeHtml = `<span class="yj-order-badge show">${nums[idx]}</span>`;
+    return `<div class="yj-row done"><span class="yj-glyph">${esc(c.ch)}${badgeHtml}${kgAnnoHtml("yj",c)}</span>${markHtml}</div>`;
+  }).join("");
+  return `<div class="yj-box">${rows}</div>`;
+}
+function kgExampleHtml(boxHtml, note, kudashi){
+  return `<div class="kg-example">${boxHtml}<div class="kg-example-note">${esc(note)}<span class="kg-kudashi">→ ${ktRuby(kudashi)}</span></div></div>`;
+}
+
+function ktShowGuide(){
+  screen.innerHTML = `
+  <div id="ktApp">
+    <div class="kt-card">
+      <div class="kg-guide">
+        <h2>📘 返り点を付ける ってどんな問題？</h2>
+        <p class="kg-lead">漢文の「白文」（返り点も送り仮名も付いていない、漢字だけの文）を、日本語の順番で読めるように、<b>返り点という印を付けていく</b>特訓です。</p>
+
+        <div class="kg-callout"><b>そもそも返り点って？</b><br>漢文はもともと中国語の語順のまま漢字が並んでいるので、そのままでは日本語として読めないことがあります。「どの字を先に読むか」を教えてくれる目印が返り点です。</div>
+
+        <h3>① レ点 —— すぐ下の字を先に</h3>
+        <p>レ点が付いた字は、<b>すぐ下の1字を先に読んでから</b>、レ点の字にもどって読みます。</p>
+        ${kgExampleHtml(kgKtBoxHtml(KG_EXAMPLES.re), "「読」にレ点が付いている。", "書を読む")}
+
+        <h3>② 一二点 —— ２字以上とばして戻る</h3>
+        <p>レ点だけでは足りない（2字以上とばして戻りたい）ときに使います。「二」の字はあと回しにして、<b>まず「一」の字まで読んでから</b>、「二」の字にもどります。</p>
+        ${kgExampleHtml(kgKtBoxHtml(KG_EXAMPLES.ichini), "「登」に二点、「山」に一点。", "富士山に登る")}
+
+        <h3>③ 上下点 —— 一二点をまるごとまたぐ</h3>
+        <p>一二点を使った区間を、<b>さらに外側から</b>大きくまたいで戻りたいときに使います。読む順は「一二点の中を先に全部読み終えてから、上下点で外にもどる」です。</p>
+        ${kgExampleHtml(kgKtBoxHtml(KG_EXAMPLES.jouge), "一二点の外側に、下・上が付いている。", "我(われ)人(ひと)の其(そ)の子(こ)を愛(あい)するの声(こえ)を聞(き)く")}
+
+        <div class="kg-callout">これより大きくまたぐときは「三点」（一→二→三の順）も使います。レ点と一二点が同じ字に組み合わさって「一レ」のようになることもありますが、考え方は同じです。</div>
+
+        <h3>④ 画面での操作のしかた</h3>
+        <ol class="kg-steps">
+          <li>白文の字の下に、点線のマス（返り点を置く場所）があります。返り点が要らない字は、マスを空のままでOK。</li>
+          <li>下の「返り点カード」をタップして選び、置きたい字のマスをタップすると置けます（カードをそのままマスまでドラッグしてもOK）。カードは何回でも使えます。</li>
+          <li>置き終わったら「判定する」を押します。まちがっているマスは赤くゆれ、足りないマスは黄色で教えてくれます。</li>
+          <li>全部正解すると、右側に「書き下し文」で答え合わせができます。ノーミスでクリアすると星3つ＆レベルアップ！</li>
+        </ol>
+
+        <div class="kg-nav">
+          <button class="kt-guide-btn" style="padding:8px 16px;font-size:.78rem" onclick="yjShowGuide()">📗「読む順タップ」の解説を読む</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="btn-row">
+    <button class="btn secondary" onclick="ktRender()">問題にもどる</button>
+    <button class="btn secondary" onclick="showHome()">ホームへ</button>
+  </div>`;
+}
+
+function yjShowGuide(){
+  screen.innerHTML = `
+  <div id="yjApp">
+    <div class="yj-card">
+      <div class="kg-guide">
+        <h2>📗 読む順タップ ってどんな問題？</h2>
+        <p class="kg-lead">すでに返り点が付いている白文を見て、<b>日本語として読む順番に、字を1つずつタップしていく</b>特訓です。「返り点を付ける」の逆で、返り点を見て順番を読み取る力を鍛えます。</p>
+
+        <div class="kg-callout"><b>返り点のおさらい</b><br>
+        ・レ点＝すぐ下の1字を先に読んでからもどる。<br>
+        ・一二点＝「一」の字まで読んでから「二」にもどる（2字以上とばすとき）。<br>
+        ・上下点＝一二点のまとまりを先に全部読んでから、さらに外側からもどる。<br>
+        くわしい説明は下のボタンから読めます。</div>
+
+        <h3>① 例：レ点</h3>
+        <p>「読」にレ点が付いているので、すぐ下の「書」を①番目に、もどって「読」を②番目にタップします。</p>
+        ${kgExampleHtml(kgYjBoxHtml(KG_EXAMPLES.re), "返り点はもう付いている（読み取り専用）。", "書を読む")}
+
+        <h3>② 例：上下点（一二点入り）</h3>
+        <p>一二点のまとまり（愛・其・子）を先に読み終えてから、上下点（聞・声）で外にもどります。</p>
+        ${kgExampleHtml(kgYjBoxHtml(KG_EXAMPLES.jouge), "一二点の外側に、下・上が付いている。", "我(われ)人(ひと)の其(そ)の子(こ)を愛(あい)するの声(こえ)を聞(き)く")}
+
+        <h3>③ 画面での操作のしかた</h3>
+        <ol class="kg-steps">
+          <li>白文の字と、その左下に小さく返り点が見えています（もう置いてあるので動かせません）。</li>
+          <li>「〇番目に読む字をさがして、タップしよう」という案内にしたがって、読む順だと思う字を上から順にタップしていきます。</li>
+          <li>正しくタップできると、字の右上に①②③…と番号が付きます。まちがえた字をタップすると、その字がぷるぷる震えて教えてくれます（消えずに何度でもやり直せます）。</li>
+          <li>全部の字を正しい順にタップし終えると、初めて「書き下し文」が表示されます。「この問題をやり直す」でもう一度同じ問題に挑戦できます。</li>
+        </ol>
+
+        <div class="kg-nav">
+          <button class="yj-guide-btn" style="padding:8px 16px;font-size:.78rem" onclick="ktShowGuide()">📘「返り点を付ける」の解説を読む</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="btn-row">
+    <button class="btn secondary" onclick="yjRender()">問題にもどる</button>
+    <button class="btn secondary" onclick="showHome()">ホームへ</button>
+  </div>`;
+}
+
 /* 「返り点をつける」問題一覧（8問グループごとの解禁状況を表示）。 */
 function ktShowMenu(){
   const st = loadStats();
@@ -18218,6 +18459,7 @@ function ktRender(){
   <div id="ktApp">
     <div class="kt-hud">
       <div class="kt-title">返り点をつける</div>
+      <button class="kt-guide-btn" onclick="ktShowGuide()">📘 解説を読む</button>
       <div class="kt-prog">今回 ${KT.solved}問正解 / 解禁 ${pct!==null?pct+"%":"—"}</div>
     </div>
 
@@ -18668,6 +18910,7 @@ function yjRender(){
   <div id="yjApp">
     <div class="yj-hud">
       <div class="yj-title">読む順タップ</div>
+      <button class="yj-guide-btn" onclick="yjShowGuide()">📗 解説を読む</button>
       <div class="yj-prog">今回 ${YJ.solved}問クリア</div>
     </div>
 
