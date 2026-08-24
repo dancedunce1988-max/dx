@@ -682,12 +682,19 @@
   }
   /* ことのはの転生後イラストが次の段階に進化したときの、全画面演出（教員の指示、2026-07-31〜）。
      document.body直下の専用オーバーレイ。①②のセリフ表示→③画面ごと振動→④白い明転→
-     ⑤新しい姿とお祝いメッセージ、の5段階。finisher-overlayと似た構造だが別要素・別スタイル。 */
+     ⑤新しい姿とお祝いメッセージ、の5段階。finisher-overlayと似た構造だが別要素・別スタイル。
+     【2026-08-24修正】finisher-overlayを踏襲してpointer-events:noneにしていたが、この演出は
+     4秒近く続く長めの全画面演出で、しかも背後には直前の問題画面（「次へ」ボタンなど）がまだ
+     残ったままになっている。pointer-events:noneだとこの間のタップが演出を素通りして背後の
+     ボタンに届いてしまい、①〜④の途中でホーム画面等に遷移されると、演出のチェックが二重に
+     走って表示が競合し、結果として演出が最後まで見えないまま進化だけ完了する不具合につながる
+     （教員より、進化演出が一切表示されないまま「卵」から2段階先まで進化していたとの報告で発覚）。
+     演出中（⑤の「つづける」ボタンが出るまで）はタップを全て吸収し、背後への素通りを止める。 */
   .kotonoha-evolve-overlay{
     position:fixed; inset:0; z-index:9600;
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px;
     background:radial-gradient(circle at 50% 45%, rgba(30,30,40,.92) 0%, rgba(4,4,8,.97) 78%);
-    padding:24px; text-align:center; pointer-events:none;
+    padding:24px; text-align:center; pointer-events:auto;
     animation:finisherOverlayFadeIn .25s ease;
   }
   .kotonoha-evolve-overlay.kotonoha-evolve-clickable{ pointer-events:auto; }
@@ -2889,7 +2896,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.25</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.26</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
