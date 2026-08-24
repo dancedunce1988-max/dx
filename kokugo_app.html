@@ -2889,7 +2889,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.24</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.25</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -9873,6 +9873,13 @@ function showItemCollection(){
 /* ================= 成績・称号 ================= */
 function showStats(){
   const st = loadStats();
+  /* ホーム画面（showHome）と同じく、進化演出が未消化ならこの画面を描く前に先に見せる
+   （2026-08-24〜）。この画面はkotonohaCardHtml(st)をホーム画面と共用しているが、ホーム画面と
+   違ってこのチェックが漏れていたため、成績画面を開くと演出なしで進化後の姿が見えてしまう
+   （＝先にネタバレしてしまう）抜けがあった。kotonohaCardHtml自体はseenStageを更新しないので、
+   この画面を経由しただけでは後のホーム画面での演出が消えるわけではないはずだが、念のため
+   同じガードをここにも入れておく。 */
+  if(kotonohaHasPendingEvolveCutscene(st)){ showKotonohaEvolveCutscene(st); return; }
   const rows = CAT_KEYS.map(k => [k, CATS[k].name]).concat([["dokkai","読解"]]);
   let weakest = null;
   /* 「今のことのは（ドラゴン）の状態が記録画面でも見えるようにしてほしい」という要望
