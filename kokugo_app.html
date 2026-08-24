@@ -2889,7 +2889,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.22</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.23</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3328,12 +3328,19 @@ function loadStats(){
           });
           st.unlockBonusEarned.hyakunin = unlockCelebrationExpForPct(hyaUnlockedQuestionPct(st));
         }
-        /* 一度限り是正（2026-08-23〜の床上げ追加の追加対策）：CAT_POOL_VERSIONリセット等で
-           spentStatPointsがrawKotonohaExpを上回っている場合、差分を振り分け済みの最大ステータス項目
+        /* spentStatPointsがrawKotonohaExpを上回っている場合、差分を振り分け済みの最大ステータス項目
            から順に引いてspentStatPointsをrawKotonohaExpに揃える。これにより次のレベルアップから
-           正常に新ポイントが得られるようになる。 */
-        if(!st.statPointsGapFixed){
-          st.statPointsGapFixed = true;
+           正常に新ポイントが得られるようになる。
+           2026-08-24〜：以前はstatPointsGapFixedフラグで「一度だけ」の是正にしていたが、
+           CAT_POOL_VERSIONによる問題解放率の強制リセット（教員の指示による意図的なもの含む）は
+           今後も起こり得る。一度是正済みのプレイヤーで再びズレが生じても二度目は直らず、
+           ズレが解消するまでkotonohaTotalXP（＝ボス出現・ステータスポイントだけでなく、
+           「ことのは」の転生後の進化段階＝卵から幼体への孵化も含む）がぴたりと止まってしまう
+           不具合が実際に発生した（経験値15249＝振り分け済みステータスポイントの合計と完全一致、
+           残りステータスポイント0のまま「卵」から進化しないプレイヤーで確認）。フラグでの
+           ガードをやめ、毎回のloadStats()でズレの有無を確認する方式に変更した。ズレが無ければ
+           （通常運用ではspentStatPoints<=rawKotonohaExpが常に成り立つため）何もしない。 */
+        {
           let _gap = spentStatPoints(st) - Math.floor(rawKotonohaExp(st));
           if(_gap > 0 && st.stats){
             const _keys = ['hp','atk','def','spd','luck'];
@@ -12747,7 +12754,13 @@ const VS_CORRECT_PER_SPEEDUP = 4;
 const VS_ORB_FONT = 'bold 11px sans-serif';
 const VS_ORB_LINE_H = 13;
 /* vsLv（1〜8）で絞り込んだ、そのレベルの単語プール。goi全体からのフィルタなので、
-   将来goiに問題が追加されればそのまま反映される。 */
+   将来goiに問題が追加されればそのまま反映される。
+   【注意、2026-08-24〜】vsLvはExcel側には存在せず、kokugo_data.js側にだけ持たせている
+   独自フィールドのため、make_data.pyがExcelから再生成するたびに消えてしまう
+   （2026-08-20のExcel再生成でgoi全441問のvsLv・gradeが消え、全レベルのプールが空になって
+   ボキャブラ・シューティングが開始直後に例外で落ちる不具合が実際に発生した）。goiのExcelを
+   編集してmake_data.pyを再実行したときは、必ずgoiの全問題にvsLv（1〜8）が付いているか
+   確認すること。 */
 function vsLevelPool(levelIndex){
   return CATS.goi.items.filter(it => it.vsLv === levelIndex + 1);
 }
