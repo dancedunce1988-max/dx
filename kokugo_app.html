@@ -2896,7 +2896,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.26</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.27</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -12380,7 +12380,13 @@ function storyBaseballStartPitch(){
 function storyBaseballBeginQuestion(){
   const bb = storyRun.bb;
   const limit = baseballTimeLimit(bb.batterNumber);
-  bb.question = pickBattleQuestion("yoji", bb.lastQ);
+  /* yojiプールには選択式（c/a）と記述式（ansのみ、書いてみようコーナー用）が混在しており、
+     記述式が当たるとbb.question.cがundefinedになり、この直後のshuffledOrder()で例外が発生して
+     storyRenderBaseballScreen()まで到達できなくなる。その結果、直前のカウントダウン画面（"1"）の
+     ままフリーズして見える不具合があった（ボキャブラ・シューティングでプールが0件になり開始直後に
+     例外で落ちていたのと同種のバグ。2026-08-25、教員の指摘で修正）。野球ミニゲームは選択式前提の
+     UIしか無いので、選択式の問題だけに絞って出題する。 */
+  bb.question = pickBattleQuestion("yoji", bb.lastQ, it => Array.isArray(it.c));
   bb.lastQ = bb.question.q;
   bb.order = shuffledOrder(bb.question.c.length);
   bb.selected = null;
