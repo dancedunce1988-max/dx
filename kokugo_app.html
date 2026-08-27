@@ -2891,7 +2891,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.30</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.32</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -8085,6 +8085,11 @@ const STAT_CRIT_MULT = 2;                  // 会心の一撃のダメージ倍�
    プレイヤー」が8割の正解率で挑んだとき、勝率がおよそ85〜90%になるようシミュレーションで
    調整している。ステータス未強化のままだと、適正経験値の高いボスほど勝つのが難しくなる。 */
 const TREASURE_NAMES = new Set(BOSSES.map(b => b.treasure));
+/* デイリーログイン報酬（4日目）専用の宝具プール。TREASURE_NAMESはこのあとシランちゃん・
+   国語の神・ストーリーイベントボスの宝具も.add()で追加され、最終的に「入手可能な宝具全部」
+   になってしまうため、通常ボス（BOSSES）の宝具だけをここで固定して切り分けておく
+   （教員の指示、2026-08-27：低確率レアボスの宝具がデイリー報酬に出てしまう不具合の修正）。 */
+const DAILY_LOGIN_TREASURE_POOL = BOSSES.map(b => b.treasure);
 /* 通常アイテムをボス戦で消費すると効果を発揮する。ドロップ元のボスの個性（攻撃特化・防御特化など）
    に合わせて効果を割りふっている（例：攻撃特化型のボスが落とす鉄球・包丁は攻撃力アップ、
    防御・回避特化型のボスが落とす三角定規は防御力アップ）。 */
@@ -8189,7 +8194,7 @@ function maybeGrantDailyLogin(st){
     rewardName = pool[Math.floor(Math.random()*pool.length)];
     rewardKind = "item";
   }else if(st.dailyLogin.cycleDay === 4){
-    const pool = [...TREASURE_NAMES];
+    const pool = DAILY_LOGIN_TREASURE_POOL;
     rewardName = pool[Math.floor(Math.random()*pool.length)];
     rewardKind = "treasure";
   }else if(st.dailyLogin.cycleDay === DAILY_LOGIN_CYCLE){
