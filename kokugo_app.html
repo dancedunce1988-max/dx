@@ -2891,7 +2891,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.32</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.33</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3208,6 +3208,24 @@ function loadStats(){
         if(typeof st.bossTickets !== "number") st.bossTickets = 0;
         if(typeof st.totalLevelUps !== "number") st.totalLevelUps = 0;
         if(typeof st.bonusExp !== "number") st.bonusExp = 0;
+        /* 不正なセーブデータ改ざん対策（2026-08-27〜、教員の指示）。挑戦チケットは
+           totalLevelUpsが10増えるごとに1枚しか増えない仕組みなので、所持数が
+           Math.floor(totalLevelUps/10)を超えることはありえない。ボーナス経験値も、
+           宝具（useTreasureItem）とストーリー報酬アイテム（useStoryRewardItem）を
+           使った実績（st.usedTreasures・st.usedStoryRewards）から計算できる理論上限を
+           超えることはありえない。超えている場合はlocalStorage直接編集や書き出した
+           セーブファイルの手編集による改ざんとみなし、毎回の読み込み時に理論上限まで
+           自動的に切り詰める。 */
+        {
+          const maxTickets = Math.floor(st.totalLevelUps / 10);
+          if(st.bossTickets > maxTickets) st.bossTickets = maxTickets;
+        }
+        {
+          const maxBonusExp =
+            Object.entries(st.usedTreasures).reduce((s,[name,cnt]) => s + (cnt||0) * treasureExpAmount(name), 0) +
+            Object.entries(st.usedStoryRewards).reduce((s,[name,cnt]) => s + (cnt||0) * (STORY_REWARD_ITEM_EXP.get(name) || STORY_REWARD_EXP_AMOUNT), 0);
+          if(st.bonusExp > maxBonusExp) st.bonusExp = maxBonusExp;
+        }
         if(typeof st.hyakuninBonusExp !== "number") st.hyakuninBonusExp = 0;
         if(typeof st.specialMoveUnlocked !== "boolean") st.specialMoveUnlocked = false;
         if(typeof st.storyFaceUnlocked !== "boolean") st.storyFaceUnlocked = false;
