@@ -341,6 +341,9 @@
   .kotonoha-legendary-bg-seiki{ background-image:linear-gradient(135deg,#ffffff,#fff4cc 35%,#ffe98a 70%,#ffffff); }
   .kotonoha-legendary-bg-meien{ background-image:linear-gradient(135deg,#050208,#3a1a5e 35%,#8a5ce0 70%,#050208); }
   .kotonoha-legendary-bg-shigen{ background-image:linear-gradient(120deg,#ff6a3d,#ffe98a 20%,#4f9c3a 40%,#2b6fd6 60%,#8a5ce0 80%,#ff6a3d); }
+  /* 古代龍：土・岩・琥珀色の大地系グラデーション。未来龍：ネオンの近未来系グラデーション（2026-08-29〜） */
+  .kotonoha-legendary-bg-kodai{ background-image:linear-gradient(135deg,#241506,#b8862b 35%,#e8c98a 70%,#241506); }
+  .kotonoha-legendary-bg-mirai{ background-image:linear-gradient(135deg,#030818,#00eaff 35%,#ff2fd0 70%,#030818); }
   /* 伝説級の淡い（seiki）系統だけ、カード内の文字色が浮かないよう既存のink色のままでよいが、
      見出し等の白文字前提の演出（もしあれば）と衝突しないことを別途確認済み（カードは元々不透明な
      白背景を持つため、背景演出は主にカードの外側の余白・隙間にだけ見える）。 */
@@ -673,6 +676,38 @@
     0%{ transform:translate(0,0) scale(1); filter:brightness(1); }
     50%{ transform:translate(-2px,1px) scale(1.003); filter:brightness(.7); }
     100%{ transform:translate(0,0) scale(1); filter:brightness(1); }
+  }
+  /* 古代龍（土・琥珀、復活）：どっしり重い縦揺れ（教員の指示（2026-08-29〜）：復活演出でも流用するため
+     "揺れ"は控えめ・重厚にした） */
+  .finisher-overlay.fx-kodai{ background:radial-gradient(circle at 50% 50%, rgba(90,60,10,.88) 0%, rgba(14,8,2,.96) 75%); }
+  .finisher-overlay-text.fx-kodai{ color:#ffe4b0; text-shadow:0 0 10px rgba(184,134,43,.9); }
+  .finisher-overlay-text.finisher-name-big.fx-kodai{
+    background:linear-gradient(90deg,#b8862b,#e8c98a,#fff3d6,#b8862b);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 0 26px rgba(184,134,43,.85));
+  }
+  .boss-battle-screen.finisher-shake.fx-kodai{ animation:finisherShakeKodai 1.2s ease; }
+  @keyframes finisherShakeKodai{
+    0%{ transform:translate(0,0); box-shadow:0 0 30px rgba(184,134,43,.3); }
+    20%{ transform:translate(0,8px); box-shadow:0 0 55px rgba(184,134,43,.9); }
+    40%{ transform:translate(0,-5px); } 60%{ transform:translate(0,4px); }
+    80%{ transform:translate(0,-2px); } 100%{ transform:translate(0,0); box-shadow:0 0 30px rgba(184,134,43,.3); }
+  }
+  /* 未来龍（近未来ネオン、全ステータス倍化）：シャープなグリッチ風の点滅 */
+  .finisher-overlay.fx-mirai{ background:radial-gradient(circle at 50% 50%, rgba(0,60,80,.88) 0%, rgba(4,4,20,.96) 75%); }
+  .finisher-overlay-text.fx-mirai{ color:#d6faff; text-shadow:0 0 10px rgba(0,234,255,.9); }
+  .finisher-overlay-text.finisher-name-big.fx-mirai{
+    background:linear-gradient(90deg,#00eaff,#7cf7ff,#ff2fd0,#00eaff);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 0 26px rgba(0,234,255,.85));
+  }
+  .boss-battle-screen.finisher-shake.fx-mirai{ animation:finisherShakeMirai .35s steps(2, end); }
+  @keyframes finisherShakeMirai{
+    0%{ transform:translate(0,0); box-shadow:0 0 30px rgba(0,234,255,.3); }
+    25%{ transform:translate(-8px,0); box-shadow:0 0 55px rgba(255,47,208,.9); }
+    50%{ transform:translate(8px,0); box-shadow:0 0 55px rgba(0,234,255,.9); }
+    75%{ transform:translate(-4px,0); }
+    100%{ transform:translate(0,0); box-shadow:0 0 30px rgba(0,234,255,.3); }
   }
   /* ことのはの転生後イラストが次の段階に進化したときの、全画面演出（教員の指示、2026-07-31〜）。
      document.body直下の専用オーバーレイ。①②のセリフ表示→③画面ごと振動→④白い明転→
@@ -3115,7 +3150,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.46</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.47</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -4612,6 +4647,19 @@ function kotonohaEffStats(st){
   STAT_KEYS_ALL.forEach(k => { out[k] = (base[k]||0) + (bonus[k]||0); });
   return out;
 }
+/* 未来龍「超進化」用：ボス戦中だけkotonohaEffStatsの全ステータスにbossBattle.kotonohaMiraiStatMultStack
+   を掛けて返す（2026-08-29〜）。kotonohaEffStats自体は称号カード表示・戦闘開始時のplayerMaxHp
+   算出など戦闘外でも使う共通関数なので変更せず、実際の戦闘計算（bossGrade・bossResolveFinisher・
+   bossCounterAttack）側だけをこちらに差し替える。bossBattleが無い／スタックが1（未発動）のときは
+   kotonohaEffStatsとまったく同じ値を返すため、未来龍以外のプレイヤーには一切影響しない。 */
+function bossEffStats(st){
+  const base = kotonohaEffStats(st);
+  const mult = (bossBattle && bossBattle.kotonohaMiraiStatMultStack) || 1;
+  if(mult === 1) return base;
+  const out = {};
+  STAT_KEYS_ALL.forEach(k => { out[k] = base[k] * mult; });
+  return out;
+}
 /* ================= ことのは転生システム（2026-07-31〜、第9章クリアで解放） =================
    経験値の合計（kotonohaTotalXP）自体は今までどおり増え続ける。分野レベル・ステータス
    ポイント・ボス出現判定への影響は一切ない。「転生」すると、見た目の進化だけを卵から
@@ -4643,7 +4691,7 @@ const KOTONOHA_IMAGE_LINES = {
 const KOTONOHA_IMAGE_LINE_LABEL = {
   tensho:"天翔（風）", engoku:"焔獄（火）", soukai:"蒼海（水）",
   meien:"冥淵（闇）", seiki:"聖輝（光）", suishin:"翠森（土）",
-  shigen:"始原龍",
+  shigen:"始原龍", kodai:"古代龍", mirai:"未来龍",
 };
 const KOTONOHA_IMAGE_STAGE_KEYS = ["1_tamago","2_youtai","3_shounentai","4_seinentai","5_seijintai","6_seijukutai","7_densetsu"];
 const KOTONOHA_IMAGE_STAGE_LABEL = ["卵","幼体","少年体","青年体","成人体","成熟体","伝説級"];
@@ -4666,11 +4714,43 @@ function kotonohaRebirthEligible(st){
    共通の系統プール（天翔・焔獄・蒼海・翠森の4系統、「聖輝」「冥淵」アンロック後はこの2つも加えた
    6系統、kotonohaOtherTypePool参照）から選ぶ（始原龍はここには含めない＝全領域バランス型専用
    ラインという位置づけは維持）。 */
+/* 専用イラストの安全弁（2026-08-29〜）。古代龍・未来龍は画像/未来龍と古代龍.png から切り出した
+   専用イラストがkotonoha_evolution_images.jsに埋め込まれて初めて解禁対象になる。埋め込みが
+   済むまでは下のkotonohaAscendLinesUnlocked等の条件を満たしていても抽選対象から除外し、
+   生徒が壊れた画像を引く事故を防ぐ（教員が座標を決め、画像を埋め込んだ瞬間に自動で解禁される）。 */
+function kotonohaImagesReady(line){
+  return typeof KOTONOHA_EVOLUTION_IMAGES !== "undefined" && !!KOTONOHA_EVOLUTION_IMAGES[`${line}_7_densetsu`];
+}
+/* 抽選ロジック側（kotonohaPickRebirthLine）で「レア枠」として特別に重み付けする系統の一覧。
+   始原龍だけがここに入る（既存仕様のまま）。古代龍・未来龍は特別重み付けを持たず、条件
+   （kotonohaAscendLinesUnlocked）を満たしたときは、なったことがない他の系統（天翔・焔獄・
+   蒼海・翠森・聖輝・冥淵）と完全に同列・均等な確率で抽選される（教員の指示、2026-08-29〜：
+   「なったことがない龍の中から同程度」）。 */
+const KOTONOHA_RARE_LINES = ["shigen"];
+/* 古代龍・未来龍（「昇華ライン」）専用の解禁条件（2026-08-29〜、教員の指示）：
+   ①これまでに聖輝（光）または冥淵（闇）のいずれかを経験したことがある
+     （st.kotonohaRebirthLinesSeenに記録済み＝一度でもその系統で転生していればよく、
+     伝説級まで育てている必要はない）。
+   ②「今まさに」別の龍の伝説級（段階6）にいる状態から転生しようとしている
+     （＝「他の龍の、伝説級からしか進化できない」。次に転生する瞬間の状態を見るので、
+     一度満たせば以後ずっと解禁され続けるわけではなく、毎回の転生ごとに再判定される）。
+   全領域バランス型に限らずどのカテゴリ（1・2・4・other）からでも到達できる、
+   既存6系統＋始原龍とは独立した「もう一段上」の到達ラインという位置づけ。 */
+function kotonohaAscendLinesUnlocked(st){
+  const seen = st.kotonohaRebirthLinesSeen || [];
+  const sawLightOrDark = seen.includes("seiki") || seen.includes("meien");
+  const atLegendary = !!st.kotonohaRebirth && kotonohaRebirthStageIndex(st) === 6;
+  return sawLightOrDark && atLegendary;
+}
+const KOTONOHA_ASCEND_LINES = ["kodai", "mirai"];
 function kotonohaEligibleRebirthLines(st){
   const cat = kotonohaBaseCategory(st);
   const currentLine = st.kotonohaRebirth ? st.kotonohaRebirth.line : null;
   const otherPool = kotonohaOtherTypePool(st).map(t => KOTONOHA_IMAGE_LINES[t]);
-  const lines = cat === 4 ? otherPool.concat(["shigen"]) : otherPool.slice();
+  let lines = cat === 4 && kotonohaImagesReady("shigen") ? otherPool.concat(["shigen"]) : otherPool.slice();
+  if(kotonohaAscendLinesUnlocked(st)){
+    lines = lines.concat(KOTONOHA_ASCEND_LINES.filter(kotonohaImagesReady));
+  }
   return lines.filter(l => l !== currentLine);
 }
 /* 今選べる候補のうち、まだ一度もなったことがない系統だけ（教員の指示、2026-08-03〜：
@@ -4699,7 +4779,12 @@ function kotonohaSeenEligibleRebirthLines(st){
    たびにしか再抽選しない）とはあえて独立させている：経験値が伸びきったベテランプレイヤーほど
    絵文字系統ロールが固定されがちで、それに連動させると同じ系統の卵しか出なくなってしまうため
    （2026-08-01〜）。 */
-const KOTONOHA_SHIGEN_WEIGHT = 0.4;
+/* 始原龍（KOTONOHA_RARE_LINES）だけ、従来どおりKOTONOHA_RARE_WEIGHT(40%)の特別重み付けを
+   維持する。古代龍・未来龍はこの重み付けの対象外＝restプール（なったことがない他の系統と
+   完全に同じ配列）に混ざり、Math.random()による均等な1/n抽選で選ばれる（教員の指示、
+   2026-08-29〜：「条件を満たしたとしても、それになる確率は、なったことがない龍の中から
+   同程度にしてほしい」＝古代龍・未来龍だけを優遇/冷遇しない）。 */
+const KOTONOHA_RARE_WEIGHT = 0.4;
 function kotonohaPickRebirthLine(st){
   const eligible = kotonohaEligibleRebirthLines(st);
   if(eligible.length === 0) return null; // 一領域/二領域特化＝転生不可
@@ -4707,15 +4792,18 @@ function kotonohaPickRebirthLine(st){
   // 候補を全て経験済み（＝本来は選択UIを経由する想定）のときの保険。呼び出し元が
   // 誤って選択を渡さなかった場合でも、eligible全体から抽選して転生自体は成立させる。
   const pool = unseen.length > 0 ? unseen : eligible;
-  if(pool.includes("shigen") && Math.random() < KOTONOHA_SHIGEN_WEIGHT) return "shigen";
-  const rest = pool.filter(l => l !== "shigen");
-  if(rest.length === 0) return pool.includes("shigen") ? "shigen" : null;
+  const rarePool = pool.filter(l => KOTONOHA_RARE_LINES.includes(l));
+  if(rarePool.length > 0 && Math.random() < KOTONOHA_RARE_WEIGHT){
+    return rarePool[Math.floor(Math.random() * rarePool.length)];
+  }
+  const rest = pool.filter(l => !KOTONOHA_RARE_LINES.includes(l));
+  if(rest.length === 0) return rarePool.length > 0 ? rarePool[Math.floor(Math.random() * rarePool.length)] : null;
   return rest[Math.floor(Math.random() * rest.length)];
 }
 /* 伝説級（最終段階）に到達すると、ホーム画面の背景を系統の色でドラマチックに演出する
    （教員の指示、2026-08-01〜）。screen.innerHTML側でラップするクラスなので、他の画面に
    遷移すれば自動的に消える（body側にクラスを持ち回って手動で消し忘れる心配がない）。 */
-const KOTONOHA_LEGENDARY_BG_LINES = ["tensho","engoku","soukai","suishin","seiki","meien","shigen"];
+const KOTONOHA_LEGENDARY_BG_LINES = ["tensho","engoku","soukai","suishin","seiki","meien","shigen","kodai","mirai"];
 function kotonohaLegendaryBgClass(st){
   if(!st.kotonohaRebirth || kotonohaRebirthStageIndex(st) !== 6) return null;
   return "kotonoha-legendary-bg kotonoha-legendary-bg-" + st.kotonohaRebirth.line;
@@ -4977,8 +5065,13 @@ function kotonohaRebirthSparkleHtml(){
 const KOTONOHA_LINE_MOVE_MIN_STAGE = 2; // 少年体
 /* 冥淵専用：成人体（段階4）以降は、必殺技ゲージが1回のミスでは解除されなくなる
    （2回連続でミスして初めてリセットされる、教員の指示、2026-08-08〜）。bossGrade側で
-   b.kotonohaMeienMissStreakを管理し、この段階に達した冥淵プレイヤーだけ適用する。 */
+   b.kotonohaGraceMissStreakを管理し、この段階に達した冥淵プレイヤーだけ適用する（同じ
+   カウンタを古代龍・未来龍の猶予にも流用している、2026-08-29〜。詳細はbossGrade参照）。 */
 const KOTONOHA_MEIEN_GAUGE_GRACE_STAGE = 4; // 成人体
+/* 必殺技ゲージの「猶予」チップ表示（🌑必殺技ゲージは崩れなかった！）の絵文字を、系統ごとに
+   変えるための対応表（2026-08-29〜、古代龍・未来龍の追加に合わせて）。未定義の系統は
+   呼び出し側で🌑にフォールバックする。 */
+const KOTONOHA_GRACE_EMOJI = {meien:"🌑", kodai:"🏛️", mirai:"🚀"};
 function kotonohaLineMoveT(stageIdx){
   return Math.max(0, Math.min(1, (stageIdx - KOTONOHA_LINE_MOVE_MIN_STAGE) / 4));
 }
@@ -5002,6 +5095,15 @@ const ENGOKU_BURN_PCT = [0.01, 0.02, 0.03, 0.04, 0.06];
    成人体2倍・伝説級3倍は教員の指示どおり、成熟体2.5倍は2倍と3倍の中間で補間した
    （教員の指示、2026-08-08〜）。 */
 const SEIKI_ATK_MULT = [1.5, 1.5, 2, 2.5, 3];
+/* 古代龍「輪廻転生」の復活時HP回復率（少年体〜伝説級の5段階、2026-08-29〜、教員の指示：
+   「一度HPがなくなり切っても復活。回復率は伝説級で100%になるが、それまでなだらかに徐々に
+   強くなる」）。他の系統の階段状カーブ（ENGOKU_BURN_PCT・SEIKI_ATK_MULT）と同じ配列直接指定。 */
+const KODAI_REVIVE_PCT = [0.25, 0.4, 0.6, 0.8, 1.0];
+/* 未来龍「超進化」の1発動あたり全ステータス倍率（少年体〜伝説級の5段階、2026-08-29〜、教員の指示：
+   「必殺を打つと全ステータスを倍率で高める。上昇率は伝説級で3倍になるが、それまでなだらかに
+   徐々に強くなる」）。聖輝のatkMultPerUseと同じ「発動のたびに複利で掛かる永続バフ」方式を踏襲し、
+   対象をatkだけでなく全ステータスに広げたもの。 */
+const MIRAI_STAT_MULT = [1.4, 1.7, 2.1, 2.5, 3.0];
 const KOTONOHA_LINE_MOVES = {
   tensho: {
     names:["疾風の一閃","旋風の斬撃","暴風の剛刃","神速の破空","天翔絶刃"],
@@ -5064,6 +5166,28 @@ const KOTONOHA_LINE_MOVES = {
        2回目以降の伸び幅だけ2倍速くした）。 */
     powerMult: kotonohaLinePower,
     powerGrowthPerUse: 2.0,
+  },
+  /* 古代龍「輪廻転生」（2026-08-29〜、教員の指示）：発動しておくと、そのボス戦の間だけ
+     「力尽きても一度だけ復活できる権利」を得る。実際にHPが0になった瞬間（bossAdvance→
+     kotonohaKodaiRevive）に権利を消費し、専用演出とともにHPをrevivePct分だけ回復して
+     続行する。何度でも打てるので、打つたびに権利を立て直せる（＝直前に一度使い切っていても
+     再度発動すればもう一度だけ復活できる）。ダメージ自体は他系統と同じ共通カーブ（3〜5倍）。 */
+  kodai: {
+    names:["太古の目覚め","古代の咆哮","悠久の顕現","太古龍の覇道","古代龍絶技・輪廻転生"],
+    desc:"発動しておくと、そのボス戦中にHPが0になっても一度だけ「古代龍」が復活を果たしてHPが回復する（回復率は少年体でひかえめ、伝説級で100%）。まちがえても2回連続までなら必殺技ゲージは崩れない",
+    powerMult: kotonohaLinePower,
+    revivePct: t => KODAI_REVIVE_PCT[Math.round(t*4)],
+  },
+  /* 未来龍「超進化」（2026-08-29〜、教員の指示）：発動のたびに自分の全ステータス（HP・攻撃力・
+     防御力・素早さ・運）を掛け算で倍化する（重ねがけ・永続、上限なし、聖輝と同じ複利方式）。
+     聖輝が通常攻撃だけに効かせ必殺技ダメージ自体は据え置きにしたのとは異なり、未来龍は
+     「全ステータス」を高める設計のため、bossEffStats経由で必殺技のダメージ計算にも自然に乗る
+     （＝打てば打つほど次の必殺技もさらに強くなる）。 */
+  mirai: {
+    names:["未来への胎動","近未来の加速","次元を超える力","未来龍の覚醒","未来龍絶技・超進化"],
+    desc:"発動するたびに、自分の全ステータスがそのボス戦の間だけ倍化する（重ねがけ・永続、上限なし）。倍率は少年体でひかえめ、伝説級で3倍。まちがえても2回連続までなら必殺技ゲージは崩れない",
+    powerMult: kotonohaLinePower,
+    statMultPerUse: t => MIRAI_STAT_MULT[Math.round(t*4)],
   },
 };
 /* 系統別必殺技が使える段階まで育っているか（転生済み＆少年体以上）。ボタンを出すかどうかの
@@ -8743,7 +8867,8 @@ function startBossBattle(boss, allGenre, hyakuninMode){
     kotonohaAtkMultStack:1, kotonohaDefBuffAmount:0,
     kotonohaSleepTurnsLeft:0, kotonohaSleepFirstTurnDone:false, kotonohaSleepWakeChance:0,
     kotonohaShigenMoveLine:null, kotonohaFinisherUseLine:false,
-    kotonohaBurnPct:0, kotonohaMeienUseCount:0, kotonohaMeienMissStreak:0,
+    kotonohaBurnPct:0, kotonohaMeienUseCount:0, kotonohaGraceMissStreak:0,
+    kotonohaKodaiReviveReady:false, kotonohaKodaiRevivePct:0, kotonohaMiraiStatMultStack:1,
   };
   if(boss.preemptiveHalfHp){
     // 丸刈りのさるちゃん専用：戦闘開始と同時に、プレイヤーのHPを半分にする先制攻撃を受ける
@@ -8908,7 +9033,7 @@ function refreshBossFinisherBar(){
 }
 /* 戦闘エリア（.boss-battle-screen）だけを一瞬揺らす演出。bossUseFinisher専用に切り出した
    （画面全体ではなく戦闘エリアに限定、というのは教員の指示で確認済み）。 */
-const KOTONOHA_FX_LINES = ["fx-tensho","fx-engoku","fx-soukai","fx-suishin","fx-seiki","fx-meien"];
+const KOTONOHA_FX_LINES = ["fx-tensho","fx-engoku","fx-soukai","fx-suishin","fx-seiki","fx-meien","fx-kodai","fx-mirai"];
 /* fxLine（tensho/engoku/soukai/suishin/seiki/meien）を渡すと、系統ごとに個性化した
    揺れ方（CSS側のfx-◯◯キーフレーム）になる。省略時（言霊一閃／大きないびき使用時）は
    今までどおりの既存finisherShakeのまま（教員の指示、2026-08-01〜）。 */
@@ -9016,7 +9141,7 @@ function bossResolveFinisher(){
   const lm = kotonohaActiveLineMove(st);
   b.finisherGauge = 0;
   b.kotonohaFinisherUseLine = false; // 選択状態をリセット（次にゲージが満タンになるまでは言霊一閃側の表示に戻す）
-  const ps = kotonohaEffStats(st);
+  const ps = bossEffStats(st);
   let dealt = randInt(BOSS_PLAYER_DMG[0], BOSS_PLAYER_DMG[1]) + ps.atk * STAT_ATK_PER_POINT
     + (b.atkBuffTurns > 0 ? b.atkBuffAmount : 0);
   if(b.atkMultTurns > 0) dealt = Math.round(dealt * b.atkMultAmount);
@@ -9099,6 +9224,24 @@ function bossResolveFinisher(){
     b.kotonohaBurnPct = (b.kotonohaBurnPct||0) + lm.def.burnPctPerTurn(lm.t);
     burnMsg = `<div class="boss-turn">🔥${esc(b.boss.name)}に火傷を負わせた！（毎ターン最大HPの${Math.round(b.kotonohaBurnPct*100)}%を追加ダメージ）</div>`;
   }
+  /* 古代龍「輪廻転生」：発動しておくと、このボス戦中にHPが0になっても一度だけ復活できる権利
+     （kotonohaKodaiReviveReady）を得る。実際の復活処理・演出はHPが0になった瞬間
+     （bossAdvance→kotonohaKodaiRevive）が担当し、ここでは権利を立てるだけ（2026-08-29〜）。 */
+  let reviveMsg = "";
+  if(lm && lm.def.revivePct){
+    b.kotonohaKodaiReviveReady = true;
+    b.kotonohaKodaiRevivePct = lm.def.revivePct(lm.t);
+    reviveMsg = `<div class="boss-turn">🏛️古代龍の力が目覚めた……この戦い、力尽きても一度だけ復活できる！</div>`;
+  }
+  /* 未来龍「超進化」：発動のたびに自分の全ステータスを掛け算で倍化する（重ねがけ・永続、上限なし、
+     2026-08-29〜）。b.kotonohaMiraiStatMultStackに毎回この段階の倍率を掛け続け、以降は
+     bossEffStats経由で通常攻撃・必殺技・回避率・会心率などすべての戦闘計算に反映される。 */
+  let futureMsg = "";
+  if(lm && lm.def.statMultPerUse){
+    const mult = lm.def.statMultPerUse(lm.t);
+    b.kotonohaMiraiStatMultStack = (b.kotonohaMiraiStatMultStack||1) * mult;
+    futureMsg = `<div class="boss-turn">🚀自分の全ステータスが${mult}倍になった！（現在×${b.kotonohaMiraiStatMultStack.toFixed(2)}）</div>`;
+  }
   refreshBossHpBars();
   refreshBossFinisherBar();
   const fb = document.getElementById("fb");
@@ -9107,7 +9250,7 @@ function bossResolveFinisher(){
   fb.innerHTML = (dodged
     ? `<span class="finisher-dmg">💨 ${esc(b.boss.name)}に、すんでのところでかわされた！</span>`
     : `<span class="finisher-dmg">${crit ? "💥会心の一撃！ " : ""}${esc(b.boss.name)}に ${dealt} ダメージ！</span>`)
-    + healMsg + buffMsg + sleepMsg + growthMsg + burnMsg;
+    + healMsg + buffMsg + sleepMsg + growthMsg + burnMsg + reviveMsg + futureMsg;
   if(!dodged) triggerFinisherShake(b.kotonohaFinisherFxLine);
   if(b.bossHp <= 0){
     setTimeout(() => { if(bossBattle && bossBattle._resolving) bossWin(); }, 1300);
@@ -9253,6 +9396,10 @@ function bossItemBarHtml(){
   if(b.accBuffTurns > 0) buffChips.push(`<span class="lvup-chip">🎯命中率UP（あと${b.accBuffTurns}ターン）</span>`);
   if(b.luckBuffTurns > 0) buffChips.push(`<span class="lvup-chip">🍀運UP（あと${b.luckBuffTurns}ターン）</span>`);
   if(b.missGuard) buffChips.push(`<span class="lvup-chip">✨ミス回避 スタンバイ中</span>`);
+  // 古代龍・未来龍の必殺技効果は、通常のターン制バフ（○ターンで切れる）とは違い戦闘終了まで
+  // 持続するので、ターン数ではなく状態そのものを表示する（2026-08-29〜）。
+  if(b.kotonohaKodaiReviveReady) buffChips.push(`<span class="lvup-chip">🏛️古代龍の加護：復活スタンバイ中</span>`);
+  if(b.kotonohaMiraiStatMultStack && b.kotonohaMiraiStatMultStack !== 1) buffChips.push(`<span class="lvup-chip">🚀未来龍の力：全ステータス×${b.kotonohaMiraiStatMultStack.toFixed(2)}</span>`);
   const buffRow = buffChips.length ? `<p class="note">${buffChips.join(" ")}</p>` : "";
   const useMsg = b.itemUseMsg ? `<p class="note">${esc(b.itemUseMsg)}</p>` : "";
   const usable = usableBossItems();
@@ -9367,10 +9514,10 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
   const b = bossBattle, it = b.item;
   const st = loadStats();
   const gateActive = bossXpGateActive(b.boss, st);
-  let dealt = 0, crit = false, evaded = false, fled = false, survived = false, bossQuit = false, meienGraceUsed = false, lowSpdTaunt = "";
+  let dealt = 0, crit = false, evaded = false, fled = false, survived = false, bossQuit = false, graceUsed = false, lowSpdTaunt = "";
   if(ok){
     b.correctStreak = (b.correctStreak||0) + 1;
-    b.kotonohaMeienMissStreak = 0; // 正解でミスの連続が途切れる＝冥淵の「1回だけ許される」猶予が復活する
+    b.kotonohaGraceMissStreak = 0; // 正解でミスの連続が途切れる＝冥淵/古代龍/未来龍の「猶予」カウントが復活する
     /* 必殺技ゲージは「不正解でリセットされる連続正解数」で管理する（correctStreakは
        国語の神のstreakToWin判定にも使う既存カウンタなので、混同しないよう別カウンタにする）。
        満タンになったら、bossUseFinisher()側で押した瞬間に即座に発動・消費される
@@ -9389,7 +9536,7 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
         b.bossHp = Math.max(0, b.bossHp - dealt);
       }
     }else{
-      const ps = kotonohaEffStats(st);
+      const ps = bossEffStats(st);
       // 素早さは、ボスの回避率を少し下げる命中率ボーナスも持つ（上限つきなので他ステータスとのバランスは崩れない）
       const accBonus = STAT_SPD_ACC_MAX_BONUS * ps.spd / (ps.spd + STAT_SPD_ACC_HALF_POINT);
       /* 韋駄天専用：素早さがlowSpdEvade.threshold未満のときは、通常の回避率計算を無視して
@@ -9476,16 +9623,22 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
     // 不正解で「連続」が途切れるので、必殺技ゲージもリセットする。
     // ただし冥淵は成人体（KOTONOHA_MEIEN_GAUGE_GRACE_STAGE）以降、1回のミスだけなら
     // ゲージが解除されない（2回連続でミスして初めてリセットされる、教員の指示、2026-08-08〜）。
+    // 古代龍・未来龍は、少年体以上ならいつでも2回連続のミスまで許容する（3回連続で初めて
+    // リセットされる、教員の指示、2026-08-29〜：「どちらも、２回間違っても、必殺技を打てる」）。
+    // どちらも同時に成立することはない（1人が持てる転生ラインは常に1つ）ので、カウンタ
+    // 自体は共通のkotonohaGraceMissStreakを使い回し、しきい値だけラインごとに変える。
     b.correctStreak = 0;
-    const meienGraceActive = st.kotonohaRebirth && st.kotonohaRebirth.line === "meien"
-      && kotonohaRebirthStageIndex(st) >= KOTONOHA_MEIEN_GAUGE_GRACE_STAGE;
-    if(meienGraceActive){
-      b.kotonohaMeienMissStreak = (b.kotonohaMeienMissStreak||0) + 1;
-      if(b.kotonohaMeienMissStreak >= 2){
+    const line = st.kotonohaRebirth && st.kotonohaRebirth.line;
+    const meienGraceActive = line === "meien" && kotonohaRebirthStageIndex(st) >= KOTONOHA_MEIEN_GAUGE_GRACE_STAGE;
+    const dragonGraceActive = (line === "kodai" || line === "mirai") && kotonohaLineMoveStageOk(st);
+    const graceMissLimit = meienGraceActive ? 2 : dragonGraceActive ? 3 : 0; // この回数連続でミスするとリセット
+    if(graceMissLimit > 0){
+      b.kotonohaGraceMissStreak = (b.kotonohaGraceMissStreak||0) + 1;
+      if(b.kotonohaGraceMissStreak >= graceMissLimit){
         b.finisherGauge = 0;
-        b.kotonohaMeienMissStreak = 0;
+        b.kotonohaGraceMissStreak = 0;
       }else{
-        meienGraceUsed = true;
+        graceUsed = true;
       }
     }else{
       b.finisherGauge = 0;
@@ -9535,7 +9688,7 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
         ? `<span class="lvup-chip">${esc(b.boss.name)}に ${dealt} ダメージ！ しかしギリギリ耐えた…！</span>`
         : `<span class="lvup-chip">${crit ? "💥会心の一撃！ " : ""}${esc(b.boss.name)}に ${dealt} ダメージ！</span>`)
     : (b.boss.healOnMissPct ? `<span class="lvup-chip">💚${esc(b.boss.name)}のHPが少し回復した！</span>` : "")
-      + (meienGraceUsed ? `<span class="lvup-chip">🌑必殺技ゲージは崩れなかった！</span>` : "");
+      + (graceUsed ? `<span class="lvup-chip">${esc(KOTONOHA_GRACE_EMOJI[st.kotonohaRebirth && st.kotonohaRebirth.line] || "🌑")}必殺技ゲージは崩れなかった！</span>` : "");
   const streakMsg = (ok && b.boss.streakToWin) ? `<span class="lvup-chip">🔥連続正解 ${b.correctStreak} / ${b.boss.streakToWin}</span>` : "";
   fb.innerHTML = `<div class="verdict">あなたのターン　${ok?"○ 正解！":(timedOut?"⏰ 時間切れ…":"× ざんねん…")}${dmgMsg}${streakMsg}</div>${expl}`;
   if(bossQuit){
@@ -9765,7 +9918,7 @@ function bossCounterAttack(playerWasCorrect){
   }
   const range = playerWasCorrect ? BOSS_DMG_ON_CORRECT : BOSS_DMG_ON_WRONG;
   const st = loadStats();
-  const ps = kotonohaEffStats(st);
+  const ps = bossEffStats(st);
   const accuracy = b.boss.accuracy || 100;
   const evasionHalfPoint = STAT_SPD_EVASION_HALF_POINT_BASE * (accuracy / 100);
   /* 回避率アップ系アイテム（掃除機等）：素早さによる回避率（上限35%）とは別枠でamount(pt)を上乗せ。
@@ -9840,11 +9993,37 @@ function kotonohaBurnTick(){
   }
   return false;
 }
+/* 古代龍「輪廻転生」：HPが0になった瞬間（bossAdvance）に呼ばれる。事前にbossResolveFinisherで
+   権利（kotonohaKodaiReviveReady）を立てていれば、その権利を消費して専用の全画面演出とともに
+   HPをrevivePct分だけ回復し、そのまま戦闘を続ける（bossLose()は呼ばない）。権利が無ければ
+   何もせずfalseを返し、呼び出し元がbossLose()に進む（教員の指示、2026-08-29〜：「必殺技を
+   打っておけば、一度HPがなくなり切っても、復活を果たしてHPを回復」）。 */
+function kotonohaKodaiRevive(){
+  const b = bossBattle;
+  if(!b || !b.kotonohaKodaiReviveReady) return false;
+  b.kotonohaKodaiReviveReady = false;
+  const pct = b.kotonohaKodaiRevivePct || KODAI_REVIVE_PCT[0];
+  b.playerHp = Math.max(1, Math.round(b.playerMaxHp * pct));
+  b._resolving = true;
+  refreshBossHpBars();
+  showFinisherOverlay(
+    `🏛️💫<br>古代龍は、復活を果たした！<br><span style="font-size:.55em">HPが${b.playerHp}回復した！</span>`,
+    "finisher-name-big", "fx-kodai"
+  );
+  setTimeout(() => {
+    hideFinisherOverlay();
+    if(bossBattle === b){ b._resolving = false; bossNextQuestion(); }
+  }, 2200);
+  return true;
+}
 function bossAdvance(){
   const b = bossBattle;
   if(!b || b.bossHp <= 0) return;
   b._resolving = false;
-  if(b.playerHp <= 0){ bossLose(); return; }
+  if(b.playerHp <= 0){
+    if(kotonohaKodaiRevive()) return;
+    bossLose(); return;
+  }
   if(kotonohaBurnTick()) return;
   bossNextQuestion();
 }
