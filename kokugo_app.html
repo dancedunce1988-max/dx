@@ -2888,16 +2888,19 @@
   .kg-nav{ display:flex; gap:8px; flex-wrap:wrap; margin-top:20px; }
 
 /* ============================================================
-   YOMUNO打（サブクエスト sqYomunoDa）専用スタイル
+   YOMUの打（サブクエスト sqYomunoDa）専用スタイル
    :root変数とは絶対に衝突しないよう、すべて#ydRootにスコープした
    --yd-接頭辞のカスタムプロパティのみを使う（かなづかい特訓「光る竹」と同じ方針）。
    ============================================================ */
 #ydRoot{
-  --yd-void:#0a0f18; --yd-scroll:#152238; --yd-scroll-edge:#0e1626;
-  --yd-line:#3a4d70; --yd-line-dim:#263a5a;
-  --yd-paper:#ede7d8; --yd-paper-dim:#8fa0bd; --yd-paper-faint:#5a6d90;
-  --yd-shu:#d8482c; --yd-shu-bright:#ff6a45; --yd-shu-glow:rgba(216,72,44,0.45);
-  --yd-gold:#cda227; --yd-gold-bright:#e8c34f;
+  /* 「祭っぽい色」（教員の指示、2026-08-28〜）：夜店・提灯を思わせる濃紺〜臙脂の夜空に、
+     朱と金を効かせた配色。文字色(--yd-paper系)は可読性最優先でそのまま高コントラストに保つ。 */
+  --yd-void:#12080d; --yd-scroll:#2a1420; --yd-scroll-edge:#170a10;
+  --yd-line:#5c3642; --yd-line-dim:#3a222a;
+  --yd-paper:#ede7d8; --yd-paper-dim:#c9a8ae; --yd-paper-faint:#8a6570;
+  --yd-shu:#e0432a; --yd-shu-bright:#ff6a45; --yd-shu-glow:rgba(224,67,42,0.45);
+  --yd-gold:#d4a017; --yd-gold-bright:#f0c94a;
+  --yd-lantern:rgba(255,140,60,0.16);
   position:relative; display:flex; flex-direction:column;
   width:min(100%, 420px); height:min(78vh, 640px); margin:0 auto;
   background: var(--yd-void);
@@ -2907,9 +2910,12 @@
 }
 #ydScroll{
   position:relative; flex:1; display:flex; flex-direction:column;
-  background: linear-gradient(180deg, var(--yd-scroll) 0%, var(--yd-scroll-edge) 100%);
+  background:
+    radial-gradient(ellipse 70% 40% at 8% -6%, var(--yd-lantern), transparent 60%),
+    radial-gradient(ellipse 70% 40% at 96% 106%, var(--yd-lantern), transparent 60%),
+    linear-gradient(180deg, var(--yd-scroll) 0%, var(--yd-scroll-edge) 100%);
   border:1px solid var(--yd-line); border-radius:6px;
-  box-shadow: 0 0 0 6px var(--yd-void), 0 0 0 7px rgba(156,124,42,0.55), inset 0 0 80px rgba(0,0,0,0.35);
+  box-shadow: 0 0 0 6px var(--yd-void), 0 0 0 7px rgba(212,160,23,0.55), inset 0 0 80px rgba(0,0,0,0.35);
   overflow:hidden; margin:6px;
 }
 #ydScrollInner{
@@ -2977,6 +2983,16 @@
 #ydComboPop{ position:absolute; top:-4px; right:2px; z-index:1; font-family:"Yu Mincho","YuMincho",serif; color:var(--yd-gold-bright); font-size:13px; opacity:0; transform:translateY(6px); transition:opacity .2s, transform .2s; }
 #ydComboPop.yd-show{ opacity:1; transform:translateY(0); }
 #ydProblemText{ position:relative; z-index:1; font-family:"Yu Mincho","YuMincho","Hiragino Mincho ProN","MS PMincho",serif; font-size:clamp(22px, 6.5vw, 34px); line-height:1.5; color:var(--yd-paper); text-shadow:0 2px 10px rgba(0,0,0,0.5); padding:0 4px; }
+.yd-countdown-num{
+  display:inline-block; font-size:clamp(52px, 16vw, 88px); font-weight:900;
+  color:var(--yd-gold-bright); text-shadow:0 0 24px var(--yd-shu-glow), 0 2px 8px rgba(0,0,0,0.6);
+  animation: ydCountdownPop .7s ease-out;
+}
+@keyframes ydCountdownPop{
+  0%{ opacity:0; transform:scale(1.8); }
+  40%{ opacity:1; transform:scale(1); }
+  100%{ opacity:1; transform:scale(1); }
+}
 #ydRomajiLine{ position:relative; z-index:1; font-family:Consolas,"SF Mono",Menlo,"Courier New",monospace; font-size:clamp(18px, 5.4vw, 25px); letter-spacing:2px; line-height:1.5; min-height:1.3em; width:100%; max-width:100%; overflow-wrap:anywhere; word-break:break-word; }
 #ydRomajiLine.yd-long{ font-size:clamp(14px, 4vw, 17px); letter-spacing:1px; }
 #ydRomajiLine .yd-typed{ color:var(--yd-shu-bright); text-shadow:0 0 12px var(--yd-shu-glow); }
@@ -2997,14 +3013,14 @@
 }
 .yd-shake{ animation: ydShake .32s; }
 @keyframes ydShake{ 10%,90%{ transform:translateX(-3px); } 20%,80%{ transform:translateX(5px); } 30%,50%,70%{ transform:translateX(-7px); } 40%,60%{ transform:translateX(7px); } }
-.yd-strike-fx{ position:fixed; z-index:9999; pointer-events:none; font-family:"Yu Mincho","YuMincho",serif; font-size:min(30vw,170px); color:var(--yd-gold-bright); opacity:0; top:50%; left:50%; transform:translate(-50%,-50%) scale(0.5); text-shadow:0 0 30px var(--yd-shu-glow); }
+.yd-strike-fx{ position:absolute; z-index:0; pointer-events:none; font-family:"Yu Mincho","YuMincho",serif; font-size:min(45vw,130px); color:var(--yd-gold-bright); opacity:0; top:50%; left:50%; transform:translate(-50%,-50%) scale(0.5); text-shadow:0 0 30px var(--yd-shu-glow); }
 .yd-strike-fx.yd-run{ animation: ydStrikeRun .34s cubic-bezier(.3,1.6,.4,1) forwards; }
 @keyframes ydStrikeRun{ 0%{ opacity:0; transform:translate(-50%,-50%) scale(0.4); } 35%{ opacity:1; transform:translate(-50%,-50%) scale(1.15); } 100%{ opacity:0; transform:translate(-50%,-50%) scale(1); } }
-.yd-ripple-fx{ position:fixed; z-index:9998; pointer-events:none; top:50%; left:50%; width:56px; height:56px; border:3px solid var(--yd-shu-bright); border-radius:50%; transform:translate(-50%,-50%) scale(0.3); opacity:0.9; }
+.yd-ripple-fx{ position:absolute; z-index:0; pointer-events:none; top:50%; left:50%; width:56px; height:56px; border:3px solid var(--yd-shu-bright); border-radius:50%; transform:translate(-50%,-50%) scale(0.3); opacity:0.7; }
 .yd-ripple-fx.yd-run{ animation: ydRippleRun .4s ease-out forwards; }
 @keyframes ydRippleRun{ 0%{ transform:translate(-50%,-50%) scale(0.3); opacity:0.9; } 100%{ transform:translate(-50%,-50%) scale(4.2); opacity:0; } }
 
-.yd-overlay-screen{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:22px 18px; text-align:center; background: linear-gradient(180deg, rgba(21,34,56,1), rgba(14,22,38,1)); z-index:2; overflow-y:auto; }
+.yd-overlay-screen{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:22px 18px; text-align:center; background: linear-gradient(180deg, var(--yd-scroll) 0%, var(--yd-scroll-edge) 100%); z-index:2; overflow-y:auto; }
 .yd-brush-title{ font-family:"Yu Mincho","YuMincho","Hiragino Mincho ProN","MS PMincho",serif; font-size:clamp(30px,9vw,42px); color:var(--yd-paper); letter-spacing:4px; text-shadow:0 0 26px rgba(216,72,44,0.35), 0 2px 8px rgba(0,0,0,0.6); }
 .yd-tagline{ font-size:13px; color:var(--yd-paper-dim); letter-spacing:2px; margin-top:-6px; }
 .yd-band-list{ display:flex; flex-direction:column; gap:8px; width:100%; max-width:300px; }
@@ -3047,7 +3063,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.37</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.38</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -5385,7 +5401,7 @@ function showHome(){
   vsStopLoop(); // ボキャブラ・シューティングを中断して離れたときに、動作中のゲームループ・キー入力リスナーを止める
   bgStopLoop(); // 文節斬りを中断して離れたときに、動作中のゲームループ・キー入力リスナーを止める
   psStopLoop(); // 言の葉つなぎを中断して離れたときに、動作中のタイマー・イベントリスナーを止める
-  ydStopLoop(); // YOMUNO打を中断して離れたときに、動作中のゲームループ・キー入力リスナーを止める
+  ydStopLoop(); // YOMUの打を中断して離れたときに、動作中のゲームループ・キー入力リスナーを止める
   const st = loadStats();
   if(st.pendingDailyLoginStamp){ showDailyLoginStampOverlay(st); return; }
   if(kotonohaHasPendingEvolveCutscene(st)){ showKotonohaEvolveCutscene(st); return; }
@@ -11256,10 +11272,10 @@ const STORY_SIDEQUESTS = {
     epilogue: "「おつかれさま！ また挑戦して、自己ベストをのばしてね。」",
   },
   sqYomunoDa: {
-    title: "YOMUNO打",
+    title: "YOMUの打",
     icon: "🥁",
     beats: [
-      {type:"line", speaker:"ことのは", text:"「YOMUNO打」だよ。漢字の読みをローマ字で打ち込む、タイピングのゲームなんだ。"},
+      {type:"line", speaker:"ことのは", text:"「YOMUの打」だよ。漢字の読みをローマ字で打ち込む、タイピングのゲームなんだ。"},
       {type:"line", speaker:"ことのは", text:"文が出た瞬間から打てるよ。3秒たつと読み方のヒントが出てくるけど、漢字のまま速く読めたら、ヒントが出る前に打ち抜けるよ！"},
       {type:"yomunoda"},
     ],
@@ -19386,7 +19402,7 @@ function yjAnimateReveal(){
 
 
 /* ===================================================================
-   YOMUNO打（サブクエスト sqYomunoDa）
+   YOMUの打（サブクエスト sqYomunoDa）
    漢字の読みをローマ字で打つタイピングゲーム。
    識別子はすべて yd/YD 接頭辞にして、アプリ本体の関数・変数と衝突しないようにしてある。
    状態は storyRun.yd に保持し（ボキャブラ・シューティングのstoryRun.shootと同じ作法）、
@@ -19649,7 +19665,7 @@ function ydRenderGameScreen(){
             <div id="ydTimerTrack"><div id="ydTimerFill"></div></div>
             <div class="yd-hit-counter">現在<span id="ydHitCount">0</span><span class="yd-hit-kanji">打</span></div>
             <div id="ydLevelUpFloat"></div>
-            <div class="yd-problem-area">
+            <div class="yd-problem-area" id="ydProblemArea">
               <div id="ydComboPop">3連打!</div>
               <div id="ydProblemText"></div>
               <div id="ydRomajiLine"><span class="yd-typed"></span><span class="yd-rest"></span></div>
@@ -19658,7 +19674,7 @@ function ydRenderGameScreen(){
           </div>
 
           <div class="yd-overlay-screen" id="ydScreenTitle">
-            <div class="yd-brush-title">YOMUNO打</div>
+            <div class="yd-brush-title">YOMUの打</div>
             <div class="yd-tagline">打ち込め！</div>
             <div class="yd-band-list">
               <button class="yd-band-btn" data-band="easy">
@@ -19812,15 +19828,20 @@ function ydPopLevelUp(text){
   f.textContent = text;
   f.classList.remove('yd-show'); void f.offsetWidth; f.classList.add('yd-show');
 }
+/* 正解時の「打」演出は、問題文より必ず奥（z-index:0）に出す。問題文(#ydProblemText等)は
+   z-index:1なので、どんなに演出が大きくても文字が隠れることは絶対にない
+   （教員の指示：「問題文が隠れることは絶対にないようにしたい」）。 */
 function ydSpawnStrike(){
+  const area = ydEl('ydProblemArea');
+  if(!area) return;
   const s = document.createElement('div');
   s.className = 'yd-strike-fx yd-run';
   s.textContent = '打';
-  document.body.appendChild(s);
+  area.appendChild(s);
   setTimeout(()=>s.remove(), 380);
   const r = document.createElement('div');
   r.className = 'yd-ripple-fx yd-run';
-  document.body.appendChild(r);
+  area.appendChild(r);
   setTimeout(()=>r.remove(), 420);
 }
 function ydFlashMiss(){
@@ -19959,10 +19980,34 @@ function ydSelectBand(bandKey){
     esc('Lv.' + lvs[0] + '〜' + lvs[lvs.length-1] + '　／　' + (G.band.time/1000) + '秒') +
     '</span>';
 }
+/* スペース/Enter・タップで即開始せず、「3・2・1」と数えてから始める
+   （教員の指示、2026-08-28〜）。#ydProblemTextを一時的にカウントダウン表示に使う。
+   G.countingはydStopLoop()から離脱時にfalseへ戻し、離れた後にタイマーが生きて
+   ydBeginRound()を呼んでしまわないようにする。 */
+function ydStartCountdown(){
+  const G = storyRun.yd;
+  if(!G || !G.awaitingStart || G.counting) return;
+  G.awaitingStart = false;
+  G.counting = true;
+  ydEl('ydRomajiLine').innerHTML = '';
+  let n = 3;
+  const tick = () => {
+    if(!storyRun.yd || !storyRun.yd.counting) return;
+    if(n <= 0){
+      storyRun.yd.counting = false;
+      ydBeginRound();
+      return;
+    }
+    const pt = ydEl('ydProblemText');
+    if(pt) pt.innerHTML = '<span class="yd-countdown-num">' + n + '</span>';
+    ydPlayKeyTick(true);
+    n--;
+    setTimeout(tick, 700);
+  };
+  tick();
+}
 function ydBeginRound(){
   const G = storyRun.yd;
-  if(!G.awaitingStart) return;
-  G.awaitingStart = false;
   G.running = true;
   G.timeLeft = G.band.time;
   G.lastTs = 0;
@@ -19972,6 +20017,7 @@ function ydBeginRound(){
   G.used = {};
   G.levelUpCounter = 0;
   G.stats = {correct:0, missKeys:0, correctKeys:0};
+  ydPlayTaikoHit();
   ydUpdateHud();
   ydNextProblem();
   ydRafId = requestAnimationFrame(ydLoop);
@@ -20029,7 +20075,7 @@ let ydMenuKeyHandler = null;
 let ydScrollClickHandler = null;
 function ydStopLoop(){
   if(ydRafId){ cancelAnimationFrame(ydRafId); ydRafId = null; }
-  if(storyRun && storyRun.yd) storyRun.yd.running = false;
+  if(storyRun && storyRun.yd){ storyRun.yd.running = false; storyRun.yd.counting = false; }
   window.removeEventListener('keydown', ydOnKey);
   if(ydMenuKeyHandler){ window.removeEventListener('keydown', ydMenuKeyHandler); ydMenuKeyHandler = null; }
 }
@@ -20053,7 +20099,7 @@ function ydAttachMenuHandlers(){
     const G = storyRun.yd;
     if(!G || G.running) return;
     if(G.awaitingStart){
-      if(e.key === ' ' || e.key === 'Enter'){ e.preventDefault(); ydBeginRound(); }
+      if(e.key === ' ' || e.key === 'Enter'){ e.preventDefault(); ydStartCountdown(); }
       return;
     }
     if(ydEl('ydScreenTitle').classList.contains('yd-hidden')) return;
@@ -20074,7 +20120,7 @@ function ydAttachMenuHandlers(){
 
   ydEl('ydScroll').addEventListener('click', () => {
     const G = storyRun.yd;
-    if(G && G.awaitingStart) ydBeginRound();
+    if(G && G.awaitingStart) ydStartCountdown();
   });
   ydEl('ydViewRanksBtn').addEventListener('click', ()=>{
     ydRenderRanksScreen();
