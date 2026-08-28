@@ -2950,7 +2950,7 @@
   text-shadow:0 0 12px rgba(232,195,79,0.55);
   opacity:0; transform:translateY(-4px); transition:none;
 }
-#ydLevelUpFloat.yd-show{ animation: ydLevelUpPop 1.6s ease-out forwards; }
+#ydLevelUpFloat.yd-show{ animation: ydLevelUpPop 2.2s ease-out forwards; }
 @keyframes ydLevelUpPop{
   0%{ opacity:0; transform:translateY(-4px) scale(0.85); }
   15%{ opacity:1; transform:translateY(0) scale(1.05); }
@@ -2982,9 +2982,19 @@
 #ydRomajiLine .yd-typed{ color:var(--yd-shu-bright); text-shadow:0 0 12px var(--yd-shu-glow); }
 #ydRomajiLine .yd-rest{ color:var(--yd-paper); opacity:0.9; transition:opacity .25s; }
 #ydRomajiLine .yd-rest.yd-hidden-hint{ opacity:0; }
-#ydFeedbackFloat{ position:absolute; top:38%; left:50%; z-index:1; transform:translate(-50%,-50%) scale(0.6); font-family:"Yu Mincho","YuMincho",serif; font-size:20px; color:var(--yd-gold-bright); opacity:0; pointer-events:none; white-space:nowrap; text-shadow:0 0 18px rgba(232,195,79,0.6); }
-#ydFeedbackFloat.yd-show{ animation: ydFeedPop .7s ease-out forwards; }
-@keyframes ydFeedPop{ 0%{ opacity:0; transform:translate(-50%,-50%) scale(0.5); } 25%{ opacity:1; transform:translate(-50%,-58%) scale(1.05); } 100%{ opacity:0; transform:translate(-50%,-85%) scale(1); } }
+#ydFeedbackFloat{
+  position:relative; z-index:1; min-height:26px; margin-top:2px;
+  font-family:"Yu Mincho","YuMincho",serif; font-size:18px; color:var(--yd-gold-bright);
+  opacity:0; pointer-events:none; white-space:nowrap; text-shadow:0 0 18px rgba(232,195,79,0.6);
+}
+#ydFeedbackFloat.yd-show{ animation: ydFeedPop 2.2s ease-out forwards; }
+@keyframes ydFeedPop{
+  0%{ opacity:0; transform:scale(0.7) translateY(-4px); }
+  15%{ opacity:1; transform:scale(1.08) translateY(0); }
+  25%{ transform:scale(1) translateY(0); }
+  82%{ opacity:1; }
+  100%{ opacity:0; transform:scale(1) translateY(0); }
+}
 .yd-shake{ animation: ydShake .32s; }
 @keyframes ydShake{ 10%,90%{ transform:translateX(-3px); } 20%,80%{ transform:translateX(5px); } 30%,50%,70%{ transform:translateX(-7px); } 40%,60%{ transform:translateX(7px); } }
 .yd-strike-fx{ position:fixed; z-index:9999; pointer-events:none; font-family:"Yu Mincho","YuMincho",serif; font-size:min(30vw,170px); color:var(--yd-gold-bright); opacity:0; top:50%; left:50%; transform:translate(-50%,-50%) scale(0.5); text-shadow:0 0 30px var(--yd-shu-glow); }
@@ -3037,7 +3047,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.36</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.37</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -19880,7 +19890,7 @@ function ydOnCorrect(){
 
   ydSpawnStrike();
   ydPlayTaikoHit();
-  feedbackQueue.forEach((msg,i) => setTimeout(()=>ydPopFeedback(msg), i*550));
+  feedbackQueue.forEach((msg,i) => setTimeout(()=>ydPopFeedback(msg), i*1900));
   ydUpdateHud();
   ydNextProblem();
 }
@@ -19896,7 +19906,7 @@ function ydOnKey(e){
   const filtered = c.candidates.filter(s => s.startsWith(testTyped));
   if(filtered.length === 0){
     c.miss++;
-    G.stats.miss++;
+    G.stats.missKeys++;
     G.score = Math.max(0, G.score - 5);
     ydPlayKeyTick(false);
     ydFlashMiss();
@@ -19904,6 +19914,7 @@ function ydOnKey(e){
     return;
   }
   ydPlayKeyTick(true);
+  G.stats.correctKeys++;
   c.typed = testTyped;
   c.candidates = filtered;
   if(filtered.includes(testTyped)){
@@ -19960,7 +19971,7 @@ function ydBeginRound(){
   G.cleanStreak = 0;
   G.used = {};
   G.levelUpCounter = 0;
-  G.stats = {correct:0, miss:0};
+  G.stats = {correct:0, missKeys:0, correctKeys:0};
   ydUpdateHud();
   ydNextProblem();
   ydRafId = requestAnimationFrame(ydLoop);
@@ -20005,10 +20016,10 @@ function ydEndGame(){
   ydEl('ydRankDesc').textContent = rank.desc;
   ydEl('ydResultScore').textContent = G.score;
   ydEl('ydNewBestTag').style.display = isNewBest ? '' : 'none';
-  const total = G.stats.correct + G.stats.miss;
-  const acc = total > 0 ? Math.round(G.stats.correct/total*100) : 100;
+  const totalKeys = G.stats.correctKeys + G.stats.missKeys;
+  const acc = totalKeys > 0 ? Math.round(G.stats.correctKeys/totalKeys*100) : 100;
   ydEl('ydStatCorrect').textContent = G.stats.correct;
-  ydEl('ydStatMiss').textContent = G.stats.miss;
+  ydEl('ydStatMiss').textContent = G.stats.missKeys;
   ydEl('ydStatAcc').textContent = acc + '%';
   ydEl('ydScreenResult').classList.remove('yd-hidden');
 }
