@@ -2943,6 +2943,21 @@
   font-size:20px; font-weight:700; color:var(--yd-shu-bright);
   text-shadow:0 0 10px var(--yd-shu-glow);
 }
+#ydLevelUpFloat{
+  min-height:20px; margin-bottom:4px; text-align:center;
+  font-family:"Yu Mincho","YuMincho","Hiragino Mincho ProN","MS PMincho",serif;
+  font-size:14px; font-weight:700; color:var(--yd-gold-bright);
+  text-shadow:0 0 12px rgba(232,195,79,0.55);
+  opacity:0; transform:translateY(-4px); transition:none;
+}
+#ydLevelUpFloat.yd-show{ animation: ydLevelUpPop 1.6s ease-out forwards; }
+@keyframes ydLevelUpPop{
+  0%{ opacity:0; transform:translateY(-4px) scale(0.85); }
+  15%{ opacity:1; transform:translateY(0) scale(1.05); }
+  25%{ transform:translateY(0) scale(1); }
+  80%{ opacity:1; }
+  100%{ opacity:0; transform:translateY(0) scale(1); }
+}
 
 .yd-problem-area{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:18px; min-height:0; position:relative; z-index:0; }
 .yd-problem-area::before{
@@ -3022,7 +3037,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.35</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.36</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -19623,6 +19638,7 @@ function ydRenderGameScreen(){
             </div>
             <div id="ydTimerTrack"><div id="ydTimerFill"></div></div>
             <div class="yd-hit-counter">現在<span id="ydHitCount">0</span><span class="yd-hit-kanji">打</span></div>
+            <div id="ydLevelUpFloat"></div>
             <div class="yd-problem-area">
               <div id="ydComboPop">3連打!</div>
               <div id="ydProblemText"></div>
@@ -19779,6 +19795,13 @@ function ydPopFeedback(text){
   f.textContent = text;
   f.classList.remove('yd-show'); void f.offsetWidth; f.classList.add('yd-show');
 }
+/* 「漢字を読む」のレベルアップ通知は、問題文に重ならないよう「現在○打」の下の専用欄に出す
+   （教員の指示：レベルアップ表示が問題に被って見づらいので分けてほしい）。 */
+function ydPopLevelUp(text){
+  const f = ydEl('ydLevelUpFloat');
+  f.textContent = text;
+  f.classList.remove('yd-show'); void f.offsetWidth; f.classList.add('yd-show');
+}
 function ydSpawnStrike(){
   const s = document.createElement('div');
   s.className = 'yd-strike-fx yd-run';
@@ -19851,7 +19874,7 @@ function ydOnCorrect(){
   if(shouldLevelUp && c.origItem){
     const res = record('kanji_yomi', c.origItem, true, elapsed, {skipRecentAcc:true});
     if(res && res.lvup){
-      feedbackQueue.push('「漢字を読む」Lv.' + res.lv + '！');
+      ydPopLevelUp('「漢字を読む」Lv.' + res.lv + '！');
     }
   }
 
