@@ -3115,7 +3115,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.45</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.46</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -19789,7 +19789,7 @@ function ydRenderGameScreen(){
             <div class="yd-tagline" style="margin-top:-4px;">得点に応じて称号が授かる。</div>
             <div class="yd-rank-table-wrap">
               <table class="yd-rank-table">
-                <thead><tr><th>称号</th><th>スコア</th></tr></thead>
+                <thead><tr><th>称号</th></tr></thead>
                 <tbody id="ydRankTableBody"></tbody>
               </table>
             </div>
@@ -19834,14 +19834,11 @@ function ydRenderRanksScreen(bandKey){
     const ref = list[i];
     const isSecret = (i >= YD_RANK_BASIC_COUNT);
     const hide = isSecret && (i - YD_RANK_BASIC_COUNT) > maxSecretDepth;
-    const name = hide ? '？？？' : ref.name;
-    const desc = hide ? '条件を満たすと明らかになる、幻の称号。' : ref.desc;
-    const score = hide ? '？' : ref.min;
-    rows += '<tr' + (hide ? ' class="yd-secret-row"' : '') + '>'
-      + '<td>' + esc(name) + '</td>'
-      + '<td>' + score + '</td>'
+    if(hide) continue; // 未到達の隠し称号は「？？？」すら出さず、一覧から丸ごと省く（教員の指示、2026-08-29〜）
+    rows += '<tr>'
+      + '<td>' + esc(ref.name) + '</td>'
       + '</tr>'
-      + '<tr class="yd-desc-row"><td colspan="2">' + esc(desc) + '</td></tr>';
+      + '<tr class="yd-desc-row"><td>' + esc(ref.desc) + '</td></tr>';
   }
   ydEl('ydRankTableBody').innerHTML = rows;
   const titleEl = ydEl('ydRanksTitle');
