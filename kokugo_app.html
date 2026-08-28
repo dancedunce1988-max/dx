@@ -2886,12 +2886,128 @@
   .kg-steps{ margin:0 0 8px; padding-left:1.3em; font-size:.83rem; line-height:1.9; }
   .kg-steps li{ margin-bottom:5px; }
   .kg-nav{ display:flex; gap:8px; flex-wrap:wrap; margin-top:20px; }
+
+/* ============================================================
+   YOMUNO打（サブクエスト sqYomunoDa）専用スタイル
+   :root変数とは絶対に衝突しないよう、すべて#ydRootにスコープした
+   --yd-接頭辞のカスタムプロパティのみを使う（かなづかい特訓「光る竹」と同じ方針）。
+   ============================================================ */
+#ydRoot{
+  --yd-void:#0a0f18; --yd-scroll:#152238; --yd-scroll-edge:#0e1626;
+  --yd-line:#3a4d70; --yd-line-dim:#263a5a;
+  --yd-paper:#ede7d8; --yd-paper-dim:#8fa0bd; --yd-paper-faint:#5a6d90;
+  --yd-shu:#d8482c; --yd-shu-bright:#ff6a45; --yd-shu-glow:rgba(216,72,44,0.45);
+  --yd-gold:#cda227; --yd-gold-bright:#e8c34f;
+  position:relative; display:flex; flex-direction:column;
+  width:min(100%, 420px); height:min(78vh, 640px); margin:0 auto;
+  background: var(--yd-void);
+  border-radius:10px; overflow:hidden;
+  font-family:'Hiragino Kaku Gothic ProN','Yu Gothic','Meiryo',sans-serif;
+  color:var(--yd-paper); user-select:none;
+}
+#ydScroll{
+  position:relative; flex:1; display:flex; flex-direction:column;
+  background: linear-gradient(180deg, var(--yd-scroll) 0%, var(--yd-scroll-edge) 100%);
+  border:1px solid var(--yd-line); border-radius:6px;
+  box-shadow: 0 0 0 6px var(--yd-void), 0 0 0 7px rgba(156,124,42,0.55), inset 0 0 80px rgba(0,0,0,0.35);
+  overflow:hidden; margin:6px;
+}
+#ydScrollInner{
+  position:relative; flex:1; display:flex; flex-direction:column;
+  padding:16px 18px 20px; min-height:0; overflow-y:auto;
+}
+.yd-hidden{ display:none !important; }
+#ydHud{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+.yd-tier-badge{ font-size:12px; letter-spacing:1px; color:var(--yd-paper-dim); display:flex; align-items:center; gap:6px; }
+.yd-kata{ font-family:"Yu Mincho","YuMincho","Hiragino Mincho ProN","MS PMincho",serif; font-size:16px; color:var(--yd-gold-bright); }
+.yd-mode-badge{ font-size:10px; color:var(--yd-paper-faint); border:1px solid var(--yd-line-dim); border-radius:3px; padding:2px 6px; letter-spacing:1px; }
+.yd-score-badge{ display:flex; flex-direction:column; align-items:flex-end; font-family:Consolas,"SF Mono",Menlo,"Courier New",monospace; font-variant-numeric:tabular-nums; }
+.yd-score-label{ font-size:9px; color:var(--yd-paper-faint); letter-spacing:2px; font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif; }
+.yd-score-num{ font-size:22px; font-weight:700; color:var(--yd-gold-bright); line-height:1.1; text-shadow:0 0 14px rgba(205,162,39,0.35); }
+#ydTimerTrack{ position:relative; height:5px; border-radius:3px; background:var(--yd-line-dim); overflow:hidden; margin-bottom:16px; box-shadow: inset 0 1px 2px rgba(0,0,0,0.4); }
+#ydTimerFill{ position:absolute; left:0; top:0; bottom:0; background: linear-gradient(90deg, var(--yd-gold), var(--yd-shu)); width:100%; transition: background .4s; }
+#ydTimerFill.yd-urgent{ background:linear-gradient(90deg, var(--yd-shu), var(--yd-shu-bright)); animation: ydPulse .6s infinite; }
+@keyframes ydPulse{ 50%{ filter:brightness(1.5); } }
+
+.yd-problem-area{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:18px; min-height:0; position:relative; z-index:0; }
+.yd-problem-area::before{
+  content:""; position:absolute; left:50%; top:48%; width:min(74vw,240px); height:min(74vw,240px);
+  transform:translate(-50%,-50%); border-radius:50%;
+  background: radial-gradient(circle, rgba(198,150,90,0.16) 0%, rgba(150,100,55,0.09) 45%, transparent 70%);
+  box-shadow: inset 0 0 40px rgba(0,0,0,0.35); z-index:0; pointer-events:none;
+}
+.yd-problem-area::after{
+  content:""; position:absolute; left:50%; top:48%; width:min(74vw,240px); height:min(74vw,240px);
+  transform:translate(-50%,-50%); border-radius:50%;
+  background: repeating-conic-gradient(rgba(232,195,79,0.55) 0deg 5deg, transparent 5deg 24deg);
+  -webkit-mask: radial-gradient(circle, transparent 0 47%, #000 48% 51%, transparent 52%);
+          mask: radial-gradient(circle, transparent 0 47%, #000 48% 51%, transparent 52%);
+  opacity:0.7; z-index:0; pointer-events:none;
+}
+#ydComboPop{ position:absolute; top:-4px; right:2px; z-index:1; font-family:"Yu Mincho","YuMincho",serif; color:var(--yd-gold-bright); font-size:13px; opacity:0; transform:translateY(6px); transition:opacity .2s, transform .2s; }
+#ydComboPop.yd-show{ opacity:1; transform:translateY(0); }
+#ydProblemText{ position:relative; z-index:1; font-family:"Yu Mincho","YuMincho","Hiragino Mincho ProN","MS PMincho",serif; font-size:clamp(22px, 6.5vw, 34px); line-height:1.5; color:var(--yd-paper); text-shadow:0 2px 10px rgba(0,0,0,0.5); padding:0 4px; }
+#ydRomajiLine{ position:relative; z-index:1; font-family:Consolas,"SF Mono",Menlo,"Courier New",monospace; font-size:clamp(18px, 5.4vw, 25px); letter-spacing:2px; line-height:1.5; min-height:1.3em; width:100%; max-width:100%; overflow-wrap:anywhere; word-break:break-word; }
+#ydRomajiLine.yd-long{ font-size:clamp(14px, 4vw, 17px); letter-spacing:1px; }
+#ydRomajiLine .yd-typed{ color:var(--yd-shu-bright); text-shadow:0 0 12px var(--yd-shu-glow); }
+#ydRomajiLine .yd-rest{ color:var(--yd-paper); opacity:0.9; transition:opacity .25s; }
+#ydRomajiLine .yd-rest.yd-hidden-hint{ opacity:0; }
+#ydFeedbackFloat{ position:absolute; top:38%; left:50%; z-index:1; transform:translate(-50%,-50%) scale(0.6); font-family:"Yu Mincho","YuMincho",serif; font-size:20px; color:var(--yd-gold-bright); opacity:0; pointer-events:none; white-space:nowrap; text-shadow:0 0 18px rgba(232,195,79,0.6); }
+#ydFeedbackFloat.yd-show{ animation: ydFeedPop .7s ease-out forwards; }
+@keyframes ydFeedPop{ 0%{ opacity:0; transform:translate(-50%,-50%) scale(0.5); } 25%{ opacity:1; transform:translate(-50%,-58%) scale(1.05); } 100%{ opacity:0; transform:translate(-50%,-85%) scale(1); } }
+.yd-shake{ animation: ydShake .32s; }
+@keyframes ydShake{ 10%,90%{ transform:translateX(-3px); } 20%,80%{ transform:translateX(5px); } 30%,50%,70%{ transform:translateX(-7px); } 40%,60%{ transform:translateX(7px); } }
+.yd-strike-fx{ position:fixed; z-index:9999; pointer-events:none; font-family:"Yu Mincho","YuMincho",serif; font-size:min(30vw,170px); color:var(--yd-gold-bright); opacity:0; top:50%; left:50%; transform:translate(-50%,-50%) scale(0.5); text-shadow:0 0 30px var(--yd-shu-glow); }
+.yd-strike-fx.yd-run{ animation: ydStrikeRun .34s cubic-bezier(.3,1.6,.4,1) forwards; }
+@keyframes ydStrikeRun{ 0%{ opacity:0; transform:translate(-50%,-50%) scale(0.4); } 35%{ opacity:1; transform:translate(-50%,-50%) scale(1.15); } 100%{ opacity:0; transform:translate(-50%,-50%) scale(1); } }
+.yd-ripple-fx{ position:fixed; z-index:9998; pointer-events:none; top:50%; left:50%; width:56px; height:56px; border:3px solid var(--yd-shu-bright); border-radius:50%; transform:translate(-50%,-50%) scale(0.3); opacity:0.9; }
+.yd-ripple-fx.yd-run{ animation: ydRippleRun .4s ease-out forwards; }
+@keyframes ydRippleRun{ 0%{ transform:translate(-50%,-50%) scale(0.3); opacity:0.9; } 100%{ transform:translate(-50%,-50%) scale(4.2); opacity:0; } }
+
+.yd-overlay-screen{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:22px 18px; text-align:center; background: linear-gradient(180deg, rgba(21,34,56,1), rgba(14,22,38,1)); z-index:2; overflow-y:auto; }
+.yd-brush-title{ font-family:"Yu Mincho","YuMincho","Hiragino Mincho ProN","MS PMincho",serif; font-size:clamp(30px,9vw,42px); color:var(--yd-paper); letter-spacing:4px; text-shadow:0 0 26px rgba(216,72,44,0.35), 0 2px 8px rgba(0,0,0,0.6); }
+.yd-tagline{ font-size:13px; color:var(--yd-paper-dim); letter-spacing:2px; margin-top:-6px; }
+.yd-band-list{ display:flex; flex-direction:column; gap:8px; width:100%; max-width:300px; }
+.yd-band-btn{ display:flex; justify-content:space-between; align-items:center; background:rgba(237,231,216,0.04); border:1px solid var(--yd-line-dim); border-left:4px solid var(--yd-shu); border-radius:6px; padding:9px 14px; cursor:pointer; text-align:left; font-family:inherit; color:inherit; transition: background .15s, transform .1s; }
+.yd-band-btn:hover{ background:rgba(237,231,216,0.08); }
+.yd-band-btn:active{ transform:scale(0.98); }
+.yd-band-btn.yd-selected{ border-color: var(--yd-gold-bright); background: rgba(237,231,216,0.10); box-shadow: 0 0 0 2px rgba(232,195,79,0.5) inset, 0 0 16px rgba(205,162,39,0.25); }
+.yd-band-top{ display:flex; flex-direction:column; gap:2px; }
+.yd-band-name{ font-family:"Yu Mincho","YuMincho",serif; font-size:18px; color:var(--yd-gold-bright); }
+.yd-band-meta{ font-size:10.5px; color:var(--yd-paper-faint); letter-spacing:0.5px; }
+.yd-band-best{ font-size:9.5px; color:var(--yd-paper-faint); font-family:Consolas,"SF Mono",Menlo,monospace; text-align:right; display:flex; flex-direction:column; align-items:flex-end; gap:2px; }
+.yd-band-best b{ color:var(--yd-gold-bright); font-size:14px; font-weight:700; }
+.yd-kbd-hint{ font-size:10.5px; color:var(--yd-paper-faint); letter-spacing:0.5px; }
+.yd-kbd-hint b{ color:var(--yd-gold-bright); }
+.yd-stamp-btn{ margin-top:4px; padding:13px 40px; font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif; font-weight:900; font-size:15px; letter-spacing:3px; color:#fff3ec; background: radial-gradient(circle at 35% 30%, var(--yd-shu-bright), var(--yd-shu) 70%); border:none; cursor:pointer; border-radius:255px 15px 225px 15px / 15px 225px 15px 255px; box-shadow: 0 6px 0 #7a2515, 0 10px 24px rgba(216,72,44,0.4); transform:rotate(-1.5deg); transition: transform .12s, box-shadow .12s; }
+.yd-stamp-btn:active{ transform:rotate(-1.5deg) translateY(4px); box-shadow:0 2px 0 #7a2515; }
+.yd-ghost-btn{ margin-top:2px; background:none; border:1px solid var(--yd-line); color:var(--yd-paper-dim); font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif; padding:8px 22px; border-radius:4px; font-size:12px; letter-spacing:2px; cursor:pointer; }
+.yd-hanko{ width:104px; height:104px; border-radius:14px; border:5px solid var(--yd-shu); display:flex; align-items:center; justify-content:center; font-family:"Yu Mincho","YuMincho",serif; font-size:48px; color:var(--yd-shu); transform:rotate(-4deg) scale(0.5); opacity:0; box-shadow:0 0 0 2px rgba(216,72,44,0.15), 0 0 30px rgba(216,72,44,0.25); animation: ydStampIn .5s cubic-bezier(.2,1.4,.4,1) .15s forwards; }
+@keyframes ydStampIn{ to{ transform:rotate(-4deg) scale(1); opacity:1; } }
+.yd-rank-name{ font-family:"Yu Mincho","YuMincho",serif; font-size:20px; color:var(--yd-gold-bright); letter-spacing:2px; margin-top:2px; }
+.yd-rank-desc{ font-size:11px; color:var(--yd-paper-faint); margin-top:-6px; max-width:250px; }
+.yd-result-score{ font-family:Consolas,"SF Mono",Menlo,monospace; font-variant-numeric:tabular-nums; font-size:34px; font-weight:700; color:var(--yd-paper); }
+.yd-new-best{ font-size:11px; color:var(--yd-gold-bright); letter-spacing:2px; animation:ydPulse 1s infinite; }
+.yd-stats-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; width:100%; max-width:290px; margin-top:2px; }
+.yd-stat-cell{ background:rgba(237,231,216,0.04); border:1px solid var(--yd-line-dim); border-radius:6px; padding:7px 4px; }
+.yd-stat-cell .yd-stat-v{ font-family:Consolas,"SF Mono",Menlo,monospace; font-size:17px; color:var(--yd-paper); font-variant-numeric:tabular-nums; }
+.yd-stat-cell .yd-stat-k{ font-size:9px; color:var(--yd-paper-faint); letter-spacing:1px; margin-top:2px; }
+.yd-btn-row{ display:flex; gap:10px; margin-top:6px; }
+.yd-credit-footer{ text-align:center; font-size:9px; color:var(--yd-paper-faint); letter-spacing:1px; padding-top:4px; opacity:0.6; }
+.yd-rank-table-wrap{ width:100%; max-width:310px; overflow-x:auto; }
+.yd-rank-table{ width:100%; border-collapse:collapse; font-size:11px; }
+.yd-rank-table th{ font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif; font-weight:700; color:var(--yd-paper-dim); font-size:9.5px; letter-spacing:1px; padding:5px 4px; border-bottom:1px solid var(--yd-line); text-align:right; }
+.yd-rank-table th:first-child{ text-align:left; }
+.yd-rank-table td{ padding:5px 4px; border-bottom:1px solid var(--yd-line-dim); font-family:Consolas,"SF Mono",Menlo,monospace; font-variant-numeric:tabular-nums; text-align:right; color:var(--yd-paper); }
+.yd-rank-table td:first-child{ text-align:left; font-family:"Yu Mincho","YuMincho",serif; font-size:13px; color:var(--yd-gold-bright); }
+.yd-rank-table tr.yd-secret-row td:first-child{ color:var(--yd-paper-faint); letter-spacing:1px; }
+.yd-rank-table tr.yd-desc-row td{ text-align:left; font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif; color:var(--yd-paper-faint); font-size:9.5px; padding:0 4px 7px; border-bottom:1px solid var(--yd-line); }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.33</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.34</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3166,7 +3282,7 @@ function eventBonusAdd(st, id, amount){
 function rawKotonohaExp(st){
   const fromLevels = CAT_KEYS.reduce((sum,k) => sum + catExpPoints(st.lv[k]||1), 0);
   const fromExtraLevels = EXTRA_LEVEL_CATS.reduce((sum,k) => sum + catExpPoints(st.lv[k]||1), 0);
-  return fromLevels + fromExtraLevels + effectiveBonusExp(st) + (st.hyakuninBonusExp||0) + (st.bunsetsuGiriBonusExp||0) + (st.vocabShooterBonusExp||0) + (st.baseballBonusExp||0) + (st.partsOfSpeechBonusExp||0) + totalUnlockCelebrationExp(st) + totalEventBonusExp(st);
+  return fromLevels + fromExtraLevels + effectiveBonusExp(st) + (st.hyakuninBonusExp||0) + (st.bunsetsuGiriBonusExp||0) + (st.vocabShooterBonusExp||0) + (st.baseballBonusExp||0) + (st.partsOfSpeechBonusExp||0) + (st.ydBonusExp||0) + totalUnlockCelebrationExp(st) + totalEventBonusExp(st);
 }
 function spentStatPoints(st){
   return Object.values(st.stats||{}).reduce((sum,v) => sum + (v||0), 0);
@@ -5229,6 +5345,7 @@ function showHome(){
   vsStopLoop(); // ボキャブラ・シューティングを中断して離れたときに、動作中のゲームループ・キー入力リスナーを止める
   bgStopLoop(); // 文節斬りを中断して離れたときに、動作中のゲームループ・キー入力リスナーを止める
   psStopLoop(); // 言の葉つなぎを中断して離れたときに、動作中のタイマー・イベントリスナーを止める
+  ydStopLoop(); // YOMUNO打を中断して離れたときに、動作中のゲームループ・キー入力リスナーを止める
   const st = loadStats();
   if(st.pendingDailyLoginStamp){ showDailyLoginStampOverlay(st); return; }
   if(kotonohaHasPendingEvolveCutscene(st)){ showKotonohaEvolveCutscene(st); return; }
@@ -11098,6 +11215,16 @@ const STORY_SIDEQUESTS = {
     ],
     epilogue: "「おつかれさま！ また挑戦して、自己ベストをのばしてね。」",
   },
+  sqYomunoDa: {
+    title: "YOMUNO打",
+    icon: "🥁",
+    beats: [
+      {type:"line", speaker:"ことのは", text:"「YOMUNO打」だよ。漢字の読みをローマ字で打ち込む、タイピングのゲームなんだ。"},
+      {type:"line", speaker:"ことのは", text:"文が出た瞬間から打てるよ。3秒たつと読み方のヒントが出てくるけど、漢字のまま速く読めたら、ヒントが出る前に打ち抜けるよ！"},
+      {type:"yomunoda"},
+    ],
+    epilogue: "「おつかれさま！ また挑戦して、自己ベストをのばしてね。」",
+  },
 };
 /* STORY_CHAPTERS・STORY_SIDEQUESTSのどちらのキーでも章の定義を引けるようにする共通ヘルパー。
    storyRenderBeat等、章の種類を意識せず進行させたい箇所から使う。 */
@@ -11119,6 +11246,7 @@ function storyFreshRun(){
     shootBeatIdx:null, shoot:null,
     bgBeatIdx:null, bg:null,
     psBeatIdx:null,
+    ydBeatIdx:null, yd:null,
   };
 }
 
@@ -11185,6 +11313,11 @@ const STORY_SIDEQUEST_BEST_FN = {
     if(!b) return 0;
     return Math.max(0, ...Object.values(b));
   },
+  sqYomunoDa: st => {
+    const b = st.ydBest;
+    if(!b) return 0;
+    return Math.max(0, ...Object.values(b));
+  },
 };
 /* サブクエストの入口カードに出す自己ベストの文言を、単純な「自己ベスト：n点」以外の形で
    出したい場合はここに追加する（言の葉つなぎはレベルごとに得点規模が違うので、
@@ -11199,6 +11332,17 @@ const STORY_SIDEQUEST_BEST_LABEL_FN = {
     });
     if(!bestLevel || bestScore <= 0) return null;
     return `最高得点：レベル${bestLevel}　${bestScore}点`;
+  },
+  sqYomunoDa: st => {
+    const b = st.ydBest;
+    if(!b) return null;
+    const labels = {easy:"初級", mid:"中級", hard:"上級"};
+    let bestKey = null, bestScore = 0;
+    Object.keys(b).forEach(k=>{
+      if((b[k]||0) > bestScore){ bestScore = b[k]; bestKey = k; }
+    });
+    if(!bestKey || bestScore <= 0) return null;
+    return `最高得点：${labels[bestKey]||bestKey}　${bestScore}点`;
   },
 };
 function storySideQuestButtonHtml(key, st){
@@ -11361,6 +11505,7 @@ function storyRenderBeat(){
   else if(beat.type === "shooting") storyRenderShooting(beat, sp.beatIdx);
   else if(beat.type === "bunsetsu") storyRenderBunsetsu(beat, sp.beatIdx);
   else if(beat.type === "partsOfSpeech") storyRenderPartsOfSpeech(beat, sp.beatIdx);
+  else if(beat.type === "yomunoda") storyRenderYomunoDa(beat, sp.beatIdx);
   else if(beat.type === "kotonohaRebirthReveal") storyRenderKotonohaRebirthReveal();
   else showHome();
 }
@@ -19199,6 +19344,674 @@ function yjAnimateReveal(){
   }, 200);
 }
 
+
+/* ===================================================================
+   YOMUNO打（サブクエスト sqYomunoDa）
+   漢字の読みをローマ字で打つタイピングゲーム。
+   識別子はすべて yd/YD 接頭辞にして、アプリ本体の関数・変数と衝突しないようにしてある。
+   状態は storyRun.yd に保持し（ボキャブラ・シューティングのstoryRun.shootと同じ作法）、
+   出題データは CATS.kanji_yomi.items（=kokugo_data.jsの「漢字の読み」）をそのまま使う
+   （データを別途持たない。教員の指示：「漢字の読み」ジャンルを使うこと）。
+   =================================================================== */
+const YD_KANA1 = {
+  'あ':['a'],'い':['i'],'う':['u'],'え':['e'],'お':['o'],
+  'か':['ka'],'き':['ki'],'く':['ku'],'け':['ke'],'こ':['ko'],
+  'さ':['sa'],'し':['shi','si'],'す':['su'],'せ':['se'],'そ':['so'],
+  'た':['ta'],'ち':['chi','ti'],'つ':['tsu','tu'],'て':['te'],'と':['to'],
+  'な':['na'],'に':['ni'],'ぬ':['nu'],'ね':['ne'],'の':['no'],
+  'は':['ha'],'ひ':['hi'],'ふ':['fu','hu'],'へ':['he'],'ほ':['ho'],
+  'ま':['ma'],'み':['mi'],'む':['mu'],'め':['me'],'も':['mo'],
+  'や':['ya'],'ゆ':['yu'],'よ':['yo'],
+  'ら':['ra'],'り':['ri'],'る':['ru'],'れ':['re'],'ろ':['ro'],
+  'わ':['wa'],'を':['wo'],'ん':['n','nn'],
+  'が':['ga'],'ぎ':['gi'],'ぐ':['gu'],'げ':['ge'],'ご':['go'],
+  'ざ':['za'],'じ':['ji','zi'],'ず':['zu'],'ぜ':['ze'],'ぞ':['zo'],
+  'だ':['da'],'ぢ':['ji','di'],'づ':['zu','du'],'で':['de'],'ど':['do'],
+  'ば':['ba'],'び':['bi'],'ぶ':['bu'],'べ':['be'],'ぼ':['bo'],
+  'ぱ':['pa'],'ぴ':['pi'],'ぷ':['pu'],'ぺ':['pe'],'ぽ':['po'],
+  'ぁ':['a'],'ぃ':['i'],'ぅ':['u'],'ぇ':['e'],'ぉ':['o'],'ゔ':['vu'],
+};
+const YD_KANA2 = {
+  'きゃ':['kya'],'きゅ':['kyu'],'きょ':['kyo'],
+  'しゃ':['sha','sya'],'しゅ':['shu','syu'],'しょ':['sho','syo'],
+  'ちゃ':['cha','tya'],'ちゅ':['chu','tyu'],'ちょ':['cho','tyo'],
+  'にゃ':['nya'],'にゅ':['nyu'],'にょ':['nyo'],
+  'ひゃ':['hya'],'ひゅ':['hyu'],'ひょ':['hyo'],
+  'みゃ':['mya'],'みゅ':['myu'],'みょ':['myo'],
+  'りゃ':['rya'],'りゅ':['ryu'],'りょ':['ryo'],
+  'ぎゃ':['gya'],'ぎゅ':['gyu'],'ぎょ':['gyo'],
+  'じゃ':['ja','zya'],'じゅ':['ju','zyu'],'じょ':['jo','zyo'],
+  'びゃ':['bya'],'びゅ':['byu'],'びょ':['byo'],
+  'ぴゃ':['pya'],'ぴゅ':['pyu'],'ぴょ':['pyo'],
+  'いぇ':['ye'],
+  'うぃ':['wi'],'うぇ':['we'],'うぉ':['wo'],
+  'ゔぁ':['va'],'ゔぃ':['vi'],'ゔぇ':['ve'],'ゔぉ':['vo'],'ゔゅ':['vyu'],
+  'きぇ':['kye'],'しぇ':['she'],'じぇ':['je'],'ちぇ':['che'],
+  'つぁ':['tsa'],'つぃ':['tsi'],'つぇ':['tse'],'つぉ':['tso'],
+  'てぃ':['ti'],'とぅ':['tu'],'でぃ':['di'],'どぅ':['du'],
+  'にぇ':['nye'],'ひぇ':['hye'],
+  'ふぁ':['fa'],'ふぃ':['fi'],'ふぇ':['fe'],'ふぉ':['fo'],'ふゅ':['fyu'],
+  'みぇ':['mye'],'りぇ':['rye'],
+};
+/* 外来語の拗音（ファ・ツァ・シェなど）は、ひとかたまりの音（例:"fa"）だけでなく、
+   IME式に「基本のかな＋x/l＋小書き母音」（例:"fu"+"xa"="fuxa"）で打つ流儀も許容する。 */
+const YD_SMALL_SUFFIX = {'ぁ':['xa','la'],'ぃ':['xi','li'],'ぅ':['xu','lu'],'ぇ':['xe','le'],'ぉ':['xo','lo'],'ゅ':['xyu','lyu']};
+const YD_BASE_EXTRA = {'ゔ':['vu']};
+for(const key of Object.keys(YD_KANA2)){
+  const small = key[1];
+  if(key.length === 2 && YD_SMALL_SUFFIX[small]){
+    const baseChar = key[0];
+    const baseRomajis = YD_KANA1[baseChar] || YD_BASE_EXTRA[baseChar];
+    if(baseRomajis){
+      const extra = [];
+      for(const br of baseRomajis) for(const suf of YD_SMALL_SUFFIX[small]) extra.push(br + suf);
+      YD_KANA2[key] = Array.from(new Set([...YD_KANA2[key], ...extra]));
+    }
+  }
+}
+function ydKataToHira(s){ return s.replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60)); }
+function ydFullwidthAlphaToHalf(s){ return s.replace(/[Ａ-Ｚａ-ｚ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).toLowerCase(); }
+function ydTokenize(kana){
+  const tokens = [];
+  let i = 0;
+  while(i < kana.length){
+    const c = kana[i], c2 = kana.slice(i,i+2);
+    if(c === 'っ'){
+      i++;
+      let cands;
+      if(YD_KANA2[kana.slice(i,i+2)]){ cands = YD_KANA2[kana.slice(i,i+2)]; i+=2; }
+      else if(YD_KANA1[kana[i]]){ cands = YD_KANA1[kana[i]]; i+=1; }
+      else { cands = ['']; }
+      tokens.push({candidates: Array.from(new Set(cands.map(s => s ? s[0]+s : s)))});
+      continue;
+    }
+    if(c === 'ー'){
+      const prev = tokens[tokens.length-1];
+      const v = prev ? prev.candidates[0].slice(-1) : 'o';
+      tokens.push({candidates:[v, '-']}); i++; continue;
+    }
+    if(YD_KANA2[c2]){ tokens.push({candidates:YD_KANA2[c2]}); i+=2; continue; }
+    if(YD_KANA1[c]){ tokens.push({candidates:YD_KANA1[c]}); i+=1; continue; }
+    if(/[a-z]/.test(c)){ tokens.push({candidates:[c]}); i+=1; continue; }
+    i++;
+  }
+  return tokens;
+}
+function ydExpandCandidates(tokens){
+  let results = [''];
+  for(const tok of tokens){
+    const cands = (results.length * tok.candidates.length > 4000) ? [tok.candidates[0]] : tok.candidates;
+    const next = [];
+    for(const r of results) for(const c of cands) next.push(r+c);
+    results = next;
+  }
+  return Array.from(new Set(results));
+}
+function ydRomajiCandidatesFor(kana){ return ydExpandCandidates(ydTokenize(kana)); }
+
+/* ===================================================================
+   出題データ：CATS.kanji_yomi.items（=「漢字の読み」ジャンル全問）を、実行時に
+   難易度(lv 1〜10)で分類する。データを別途持たず、常に本体と同じ問題集合を使う。
+   =================================================================== */
+const YD_KANA_ONLY_RE = /^[ぁ-んー]+$/;
+const YD_WORD_BY_LV = {}; for(let l=1;l<=10;l++) YD_WORD_BY_LV[l] = [];
+const YD_SENT_BY_LV = {}; for(let l=1;l<=10;l++) YD_SENT_BY_LV[l] = [];
+(function ydBuildPools(){
+  const items = (CATS.kanji_yomi && CATS.kanji_yomi.items) || [];
+  for(const it of items){
+    const m = it.q.match(/^(.*)\[([^\]]*)\](.*)$/);
+    if(!m) continue;
+    if(!it.ans.every(a => YD_KANA_ONLY_RE.test(a))) continue;
+    const before = m[1], word = m[2], after = m[3];
+    const lv = Math.min(10, Math.max(1, it.lv||1));
+    YD_WORD_BY_LV[lv].push({before, word, yomiList: it.ans, after, lv});
+    if(!/[一-龯]/.test(before + after)){
+      YD_SENT_BY_LV[lv].push({before, word, yomiList: it.ans, after, lv});
+    }
+  }
+})();
+const YD_BANDS = {
+  easy: {key:'easy', label:'初級', lvs:[1,2,3],    time:60000},
+  mid:  {key:'mid',  label:'中級', lvs:[4,5,6],    time:90000},
+  hard: {key:'hard', label:'上級', lvs:[7,8,9,10], time:120000},
+};
+const YD_WORD_BY_BAND = {};
+const YD_SENT_BY_BAND = {};
+for(const bandKey of Object.keys(YD_BANDS)){
+  const lvs = YD_BANDS[bandKey].lvs;
+  YD_WORD_BY_BAND[bandKey] = lvs.flatMap(l => YD_WORD_BY_LV[l]);
+  YD_SENT_BY_BAND[bandKey] = lvs.flatMap(l => YD_SENT_BY_LV[l]);
+}
+
+const YD_RANK_BASIC_COUNT = 5;
+function ydMakeRankSet(scale){
+  return [
+    {min:Math.round(0*scale),    name:'見習い', kanji:'習', desc:'まだ刃こぼれだらけ。素振りから始めよう。'},
+    {min:Math.round(150*scale),  name:'腕自慢', kanji:'腕', desc:'筋はいい。もっと速く読めるはずだ。'},
+    {min:Math.round(380*scale),  name:'手練れ', kanji:'練', desc:'刃筋が安定してきた。次は迷いを消せ。'},
+    {min:Math.round(700*scale),  name:'達人',   kanji:'達', desc:'漢字を見た瞬間に打ち込めている。見事。'},
+    {min:Math.round(1100*scale), name:'皆伝',   kanji:'皆', desc:'言霊を完全に手中に収めた証。'},
+    {min:Math.round(1350*scale), name:'神速',   kanji:'神', desc:'目にも止まらぬ速さ。もう指が考えている。'},
+    {min:Math.round(1650*scale), name:'一閃',   kanji:'閃', desc:'迷いのない、たった一打ち。'},
+    {min:Math.round(2000*scale), name:'無双',   kanji:'無', desc:'並び立つ者なし。'},
+    {min:Math.round(2400*scale), name:'鬼才',   kanji:'鬼', desc:'常人の理解を超えた読みの冴え。'},
+    {min:Math.round(2850*scale), name:'天賦',   kanji:'天', desc:'これはもう、生まれ持った才能だ。'},
+    {min:Math.round(3350*scale), name:'極意',   kanji:'極', desc:'言霊を操る、その奥義に達した。'},
+    {min:Math.round(3900*scale), name:'聖域',   kanji:'聖', desc:'もはや誰も踏み込めない領域。'},
+    {min:Math.round(4500*scale), name:'神域',   kanji:'域', desc:'人の技を超えた、神々の技。'},
+    {min:Math.round(5150*scale), name:'不動',   kanji:'不', desc:'何があっても、指は乱れない。'},
+    {min:Math.round(5850*scale), name:'龍伝説', kanji:'龍', desc:'伝説の域。もはや誰にも読み負けぬ。'},
+  ];
+}
+/* 級ごとに到達できる称号の上限：初級は「皆伝」まで、中級は「神速」まで、それより上は上級のみ。 */
+const YD_RANKS = {
+  easy: ydMakeRankSet(1).slice(0, YD_RANK_BASIC_COUNT),
+  mid:  ydMakeRankSet(1.6).slice(0, YD_RANK_BASIC_COUNT + 1),
+  hard: ydMakeRankSet(2.4),
+};
+function ydRankFor(score, bandKey){
+  const list = YD_RANKS[bandKey];
+  let r = list[0];
+  for(const x of list){ if(score >= x.min) r = x; }
+  return r;
+}
+
+/* ===================================================================
+   効果音（Web Audio APIでその場合成。音声ファイルは使わない）
+   =================================================================== */
+let ydAudioCtx = null;
+function ydEnsureAudio(){
+  try{
+    if(!ydAudioCtx){ ydAudioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    else if(ydAudioCtx.state === 'suspended'){ ydAudioCtx.resume(); }
+  }catch(e){}
+}
+function ydPlayKeyTick(ok){
+  if(!ydAudioCtx) return;
+  try{
+    const t = ydAudioCtx.currentTime;
+    const osc = ydAudioCtx.createOscillator();
+    const gain = ydAudioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(ok ? (740 + Math.random()*180) : (240 + Math.random()*30), t);
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(ok ? 0.16 : 0.11, t + 0.004);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + (ok ? 0.075 : 0.09));
+    osc.connect(gain).connect(ydAudioCtx.destination);
+    osc.start(t); osc.stop(t + 0.12);
+  }catch(e){}
+}
+function ydPlayTaikoHit(){
+  if(!ydAudioCtx) return;
+  try{
+    const t = ydAudioCtx.currentTime;
+    const osc = ydAudioCtx.createOscillator();
+    const oscGain = ydAudioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(160, t);
+    osc.frequency.exponentialRampToValueAtTime(48, t + 0.2);
+    oscGain.gain.setValueAtTime(0.0001, t);
+    oscGain.gain.exponentialRampToValueAtTime(0.85, t + 0.006);
+    oscGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+    osc.connect(oscGain).connect(ydAudioCtx.destination);
+    osc.start(t); osc.stop(t + 0.32);
+    const bufSize = Math.floor(ydAudioCtx.sampleRate * 0.03);
+    const buf = ydAudioCtx.createBuffer(1, bufSize, ydAudioCtx.sampleRate);
+    const data = buf.getChannelData(0);
+    for(let i=0;i<bufSize;i++) data[i] = (Math.random()*2-1) * (1 - i/bufSize);
+    const noise = ydAudioCtx.createBufferSource();
+    noise.buffer = buf;
+    const noiseFilter = ydAudioCtx.createBiquadFilter();
+    noiseFilter.type = 'lowpass';
+    noiseFilter.frequency.value = 1100;
+    const noiseGain = ydAudioCtx.createGain();
+    noiseGain.gain.setValueAtTime(0.4, t);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+    noise.connect(noiseFilter).connect(noiseGain).connect(ydAudioCtx.destination);
+    noise.start(t);
+  }catch(e){}
+}
+
+/* ===================================================================
+   画面の描画・遷移
+   =================================================================== */
+function ydEl(id){ return document.getElementById(id); }
+
+function storyRenderYomunoDa(beat, idx){
+  ydStopLoop(); // 前セッションのループ・リスナーが残っていれば止めてから始める（vsStartGameと同じ作法）
+  if(storyRun.ydBeatIdx !== idx){
+    storyRun.ydBeatIdx = idx;
+    storyRun.yd = null;
+  }
+  storyRun.curBeat = beat;
+  clearChoiceKeys();
+  if(!storyRun.yd){
+    storyRun.yd = {
+      running:false, awaitingStart:false, band:null, currentLv:1,
+      timeLeft:60000, lastTs:0, score:0, mode:'word', cleanStreak:0,
+      used:{}, current:null, stats:{correct:0, miss:0},
+    };
+  }
+  ydRenderGameScreen();
+}
+
+function ydRenderGameScreen(){
+  const st = loadStats();
+  screen.innerHTML = `
+    <div class="card story-scene">
+      <div id="ydRoot">
+        <div id="ydScroll">
+          <div id="ydScrollInner">
+            <div id="ydHud">
+              <div class="yd-tier-badge"><span class="yd-kata" id="ydTierKata">―</span><span class="yd-mode-badge" id="ydModeBadge">単語打ち</span></div>
+              <div class="yd-score-badge"><span class="yd-score-label">SCORE</span><span class="yd-score-num" id="ydScoreNum">0</span></div>
+            </div>
+            <div id="ydTimerTrack"><div id="ydTimerFill"></div></div>
+            <div class="yd-problem-area">
+              <div id="ydComboPop">3連打!</div>
+              <div id="ydProblemText"></div>
+              <div id="ydRomajiLine"><span class="yd-typed"></span><span class="yd-rest"></span></div>
+              <div id="ydFeedbackFloat"></div>
+            </div>
+          </div>
+
+          <div class="yd-overlay-screen" id="ydScreenTitle">
+            <div class="yd-brush-title">YOMUNO打</div>
+            <div class="yd-tagline">打ち込め！</div>
+            <div class="yd-band-list">
+              <button class="yd-band-btn" data-band="easy">
+                <span class="yd-band-top"><span class="yd-band-name">初級</span><span class="yd-band-meta">Lv.1〜3 ／ 60秒</span></span>
+                <span class="yd-band-best">自己ベスト<b class="yd-band-best-num" data-yd-band="easy">0</b></span>
+              </button>
+              <button class="yd-band-btn" data-band="mid">
+                <span class="yd-band-top"><span class="yd-band-name">中級</span><span class="yd-band-meta">Lv.4〜6 ／ 90秒</span></span>
+                <span class="yd-band-best">自己ベスト<b class="yd-band-best-num" data-yd-band="mid">0</b></span>
+              </button>
+              <button class="yd-band-btn" data-band="hard">
+                <span class="yd-band-top"><span class="yd-band-name">上級</span><span class="yd-band-meta">Lv.7〜10 ／ 120秒</span></span>
+                <span class="yd-band-best">自己ベスト<b class="yd-band-best-num" data-yd-band="hard">0</b></span>
+              </button>
+            </div>
+            <div class="yd-kbd-hint">↑↓で選択　<b>スペースキー</b>か<b>Enterキー</b>でスタート</div>
+            <button class="yd-ghost-btn" id="ydViewRanksBtn">称号を見る</button>
+            <div class="yd-credit-footer">「漢字の読み」からランダム出題</div>
+          </div>
+
+          <div class="yd-overlay-screen yd-hidden" id="ydScreenResult">
+            <div class="yd-hanko" id="ydRankKanji">習</div>
+            <div class="yd-rank-name" id="ydRankName">見習い</div>
+            <div class="yd-rank-desc" id="ydRankDesc"></div>
+            <div class="yd-result-score" id="ydResultScore">0</div>
+            <div class="yd-new-best" id="ydNewBestTag" style="display:none;">✨ 自己ベスト更新！</div>
+            <div class="yd-stats-grid">
+              <div class="yd-stat-cell"><div class="yd-stat-v" id="ydStatCorrect">0</div><div class="yd-stat-k">正解数</div></div>
+              <div class="yd-stat-cell"><div class="yd-stat-v" id="ydStatMiss">0</div><div class="yd-stat-k">ミス数</div></div>
+              <div class="yd-stat-cell"><div class="yd-stat-v" id="ydStatAcc">0%</div><div class="yd-stat-k">正確率</div></div>
+            </div>
+            <div class="yd-btn-row">
+              <button class="yd-stamp-btn" id="ydRetryBtn" style="padding:12px 28px;font-size:13px;">もう一度</button>
+              <button class="yd-ghost-btn" id="ydTitleBtn">タイトルへ</button>
+            </div>
+          </div>
+
+          <div class="yd-overlay-screen yd-hidden" id="ydScreenRanks">
+            <div class="yd-brush-title" style="font-size:clamp(24px,7vw,30px);">称号一覧</div>
+            <div class="yd-tagline" style="margin-top:-4px;">得点に応じて称号が授かる。称号は級ごとに競うぞ。</div>
+            <div class="yd-rank-table-wrap">
+              <table class="yd-rank-table">
+                <thead><tr><th>称号</th><th>初級</th><th>中級</th><th>上級</th></tr></thead>
+                <tbody id="ydRankTableBody"></tbody>
+              </table>
+            </div>
+            <button class="yd-ghost-btn" id="ydRanksBackBtn">タイトルへ戻る</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    ${storyFooterHtml()}`;
+  ydAttachMenuHandlers();
+  ydRefreshBandBests();
+}
+
+function ydRefreshBandBests(){
+  const st = loadStats();
+  const best = st.ydBest || {};
+  document.querySelectorAll('.yd-band-best-num').forEach(elm => {
+    elm.textContent = best[elm.dataset.ydBand] || 0;
+  });
+}
+
+function ydRenderRanksScreen(){
+  const st = loadStats();
+  const maxSecretDepth = (typeof st.ydMaxSecretDepth === 'number') ? st.ydMaxSecretDepth : -1;
+  const bandKeys = ['easy','mid','hard'];
+  const n = YD_RANKS.hard.length;
+  let rows = '';
+  for(let i=0;i<n;i++){
+    const ref = YD_RANKS.hard[i];
+    const isSecret = (i >= YD_RANK_BASIC_COUNT);
+    const hide = isSecret && (i - YD_RANK_BASIC_COUNT) > maxSecretDepth;
+    const name = hide ? '？？？' : ref.name;
+    const desc = hide ? '条件を満たすと明らかになる、幻の称号。' : ref.desc;
+    const cells = bandKeys.map(bk => {
+      if(i >= YD_RANKS[bk].length) return '―';
+      return hide ? '？' : YD_RANKS[bk][i].min;
+    });
+    rows += '<tr' + (hide ? ' class="yd-secret-row"' : '') + '>'
+      + '<td>' + esc(name) + '</td>'
+      + cells.map(c => '<td>' + c + '</td>').join('')
+      + '</tr>'
+      + '<tr class="yd-desc-row"><td colspan="4">' + esc(desc) + '</td></tr>';
+  }
+  ydEl('ydRankTableBody').innerHTML = rows;
+}
+
+/* ===================================================================
+   出題・進行ロジック（storyRun.ydを状態として使う）
+   =================================================================== */
+function ydPickNext(){
+  const G = storyRun.yd;
+  const pool = (G.mode === 'sentence') ? YD_SENT_BY_BAND : YD_WORD_BY_BAND;
+  const arr = pool[G.band.key];
+  const key = G.mode + '_' + G.band.key;
+  if(!G.used[key]) G.used[key] = new Set();
+  let avail = arr.map((_,i)=>i).filter(i => !G.used[key].has(i));
+  if(avail.length === 0){ G.used[key] = new Set(); avail = arr.map((_,i)=>i); }
+  const idx = avail[Math.floor(Math.random()*avail.length)];
+  G.used[key].add(idx);
+  return arr[idx];
+}
+function ydNextProblem(){
+  const G = storyRun.yd;
+  const raw = ydPickNext();
+  let displayHTML, kanaTargets;
+  const {before, word, yomiList, after, lv} = raw;
+  G.currentLv = lv;
+  ydUpdateHud();
+  const afterDisplay = after.replace(/。$/, '');
+  if(G.mode === 'sentence'){
+    displayHTML = '【<span style="color:var(--yd-gold-bright)">' + esc(before) + esc(word) + esc(afterDisplay) + '</span>】';
+    kanaTargets = yomiList.map(y => ydFullwidthAlphaToHalf(ydKataToHira(before + y + after)).replace(/[^ぁ-んーa-z]/g, ''));
+  } else {
+    const goldWord = '<span style="color:var(--yd-gold-bright)">' + esc(word) + '</span>';
+    displayHTML = esc(before) + '【' + goldWord + '】' + esc(afterDisplay);
+    kanaTargets = yomiList;
+  }
+  let candidates = [];
+  for(const kt of kanaTargets) candidates.push(...ydRomajiCandidatesFor(kt));
+  candidates = Array.from(new Set(candidates));
+  G.current = { displayHTML, candidates, typed:'', miss:0, shownAt: performance.now() };
+  ydEl('ydProblemText').innerHTML = displayHTML;
+  ydRenderRomaji();
+}
+function ydRenderRomaji(){
+  const G = storyRun.yd;
+  const c = G.current;
+  if(!c) return;
+  const hintVisible = (performance.now() - c.shownAt) >= 3000;
+  const target = c.candidates[0] || '';
+  const typedPart = target.slice(0, c.typed.length);
+  const restPart = target.slice(c.typed.length);
+  const line = ydEl('ydRomajiLine');
+  line.classList.toggle('yd-long', target.length > 14);
+  line.innerHTML =
+    '<span class="yd-typed">' + esc(typedPart) + '</span>' +
+    '<span class="yd-rest' + (hintVisible ? '' : ' yd-hidden-hint') + '">' + esc(restPart) + '</span>';
+}
+function ydPopFeedback(text){
+  const f = ydEl('ydFeedbackFloat');
+  f.textContent = text;
+  f.classList.remove('yd-show'); void f.offsetWidth; f.classList.add('yd-show');
+}
+function ydSpawnStrike(){
+  const s = document.createElement('div');
+  s.className = 'yd-strike-fx yd-run';
+  s.textContent = '打';
+  document.body.appendChild(s);
+  setTimeout(()=>s.remove(), 380);
+  const r = document.createElement('div');
+  r.className = 'yd-ripple-fx yd-run';
+  document.body.appendChild(r);
+  setTimeout(()=>r.remove(), 420);
+}
+function ydFlashMiss(){
+  const scr = ydEl('ydScroll');
+  scr.classList.remove('yd-shake'); void scr.offsetWidth; scr.classList.add('yd-shake');
+}
+function ydUpdateHud(){
+  const G = storyRun.yd;
+  ydEl('ydScoreNum').textContent = G.score;
+  ydEl('ydTierKata').textContent = G.band ? (G.band.label + ' Lv.' + G.currentLv) : '―';
+  ydEl('ydModeBadge').textContent = G.mode === 'sentence' ? '文章打ち' : '単語打ち';
+}
+function ydOnCorrect(){
+  const G = storyRun.yd;
+  const c = G.current;
+  const elapsed = performance.now() - c.shownAt;
+  const chars = c.candidates[0].length;
+  let bonus = 0, label = null;
+  if(c.miss === 0){
+    if(elapsed < 3000){ bonus += 50; label = '直感突破!'; }
+    else if(elapsed < 5000){ bonus += 20; label = 'はやい!'; }
+    G.cleanStreak++;
+    const comboBonus = Math.min(50, G.cleanStreak*3);
+    bonus += comboBonus;
+    if(G.cleanStreak >= 3){
+      const cp = ydEl('ydComboPop');
+      cp.textContent = G.cleanStreak + '連打!';
+      cp.classList.remove('yd-show'); void cp.offsetWidth; cp.classList.add('yd-show');
+      setTimeout(()=>cp.classList.remove('yd-show'), 650);
+    }
+  } else {
+    G.cleanStreak = 0;
+  }
+  G.score += chars*10 + bonus;
+  G.stats.correct++;
+  if(G.mode === 'word' && G.stats.correct >= 8){
+    G.mode = 'sentence';
+    setTimeout(()=>ydPopFeedback('文章打ちモード!'), label ? 400 : 0);
+  }
+  ydSpawnStrike();
+  ydPlayTaikoHit();
+  if(label) ydPopFeedback(label);
+  ydUpdateHud();
+  ydNextProblem();
+}
+function ydOnKey(e){
+  const G = storyRun.yd;
+  if(!G || !G.running) return;
+  const key = e.key;
+  if(key.length !== 1 || !/[a-zA-Z-]/.test(key)) return;
+  e.preventDefault();
+  const c = G.current;
+  if(!c) return;
+  const testTyped = c.typed + key.toLowerCase();
+  const filtered = c.candidates.filter(s => s.startsWith(testTyped));
+  if(filtered.length === 0){
+    c.miss++;
+    G.stats.miss++;
+    G.score = Math.max(0, G.score - 5);
+    ydPlayKeyTick(false);
+    ydFlashMiss();
+    ydUpdateHud();
+    return;
+  }
+  ydPlayKeyTick(true);
+  c.typed = testTyped;
+  c.candidates = filtered;
+  if(filtered.includes(testTyped)){
+    ydOnCorrect();
+  } else {
+    ydRenderRomaji();
+  }
+}
+let ydRafId = null;
+function ydLoop(ts){
+  const G = storyRun.yd;
+  if(!G || !G.running) return;
+  if(!G.lastTs) G.lastTs = ts;
+  const dt = ts - G.lastTs;
+  G.lastTs = ts;
+  G.timeLeft -= dt;
+  ydRenderRomaji();
+  const track = ydEl('ydTimerFill');
+  const pct = Math.max(0, G.timeLeft) / G.band.time * 100;
+  track.style.width = pct + '%';
+  track.classList.toggle('yd-urgent', G.timeLeft < 10000);
+  if(G.timeLeft <= 0){ ydEndGame(); return; }
+  ydRafId = requestAnimationFrame(ydLoop);
+}
+function ydSelectBand(bandKey){
+  ydEnsureAudio();
+  const G = storyRun.yd;
+  G.band = YD_BANDS[bandKey];
+  G.awaitingStart = true;
+  ydEl('ydScreenTitle').classList.add('yd-hidden');
+  ydEl('ydScreenResult').classList.add('yd-hidden');
+  ydEl('ydTimerFill').style.width = '100%';
+  ydEl('ydTimerFill').classList.remove('yd-urgent');
+  ydEl('ydScoreNum').textContent = '0';
+  ydEl('ydTierKata').textContent = G.band.label;
+  ydEl('ydModeBadge').textContent = '準備';
+  ydEl('ydProblemText').innerHTML = 'スペースキーか<br>Enterキーで<br>スタート';
+  const lvs = G.band.lvs;
+  ydEl('ydRomajiLine').classList.remove('yd-long');
+  ydEl('ydRomajiLine').innerHTML = '<span class="yd-rest">' +
+    esc('Lv.' + lvs[0] + '〜' + lvs[lvs.length-1] + '　／　' + (G.band.time/1000) + '秒') +
+    '</span>';
+}
+function ydBeginRound(){
+  const G = storyRun.yd;
+  if(!G.awaitingStart) return;
+  G.awaitingStart = false;
+  G.running = true;
+  G.timeLeft = G.band.time;
+  G.lastTs = 0;
+  G.score = 0;
+  G.mode = 'word';
+  G.cleanStreak = 0;
+  G.used = {};
+  G.stats = {correct:0, miss:0};
+  ydUpdateHud();
+  ydNextProblem();
+  ydRafId = requestAnimationFrame(ydLoop);
+}
+/* 自己ベスト（級ごと）・隠し称号の最高到達段階はstオブジェクトに持たせ、loadStats/saveStats
+   で読み書きする（他のミニゲームと同じ単一JSON blob方式）。自己ベストが50点きざみの大台を
+   初めて超えるたびに経験値＋10を加算する（野球ミニゲーム・ボキャブラ・シューティングと同じ
+   「大台ごとにお祝い経験値」の仕組みを、この得点スケールに合わせて50点刻みにしたもの）。 */
+function ydEndGame(){
+  const G = storyRun.yd;
+  G.running = false;
+  if(ydRafId) cancelAnimationFrame(ydRafId);
+  G.current = null;
+  ydEl('ydProblemText').innerHTML = '';
+  ydEl('ydRomajiLine').innerHTML = '';
+
+  const st = loadStats();
+  if(!st.ydBest) st.ydBest = {};
+  if(!st.ydXpTier) st.ydXpTier = {};
+  const prevBest = st.ydBest[G.band.key] || 0;
+  const isNewBest = G.score > prevBest;
+  if(isNewBest){
+    st.ydBest[G.band.key] = G.score;
+    const oldTier = st.ydXpTier[G.band.key] || 0;
+    const newTier = Math.floor(G.score / 50);
+    if(newTier > oldTier){
+      st.ydBonusExp = (st.ydBonusExp||0) + (newTier - oldTier) * 10;
+      st.ydXpTier[G.band.key] = newTier;
+    }
+  }
+  const rank = ydRankFor(G.score, G.band.key);
+  const rankIdx = YD_RANKS[G.band.key].indexOf(rank);
+  const secretDepth = rankIdx - YD_RANK_BASIC_COUNT;
+  if(secretDepth >= 0){
+    const cur = (typeof st.ydMaxSecretDepth === 'number') ? st.ydMaxSecretDepth : -1;
+    if(secretDepth > cur) st.ydMaxSecretDepth = secretDepth;
+  }
+  saveStats(st);
+
+  ydEl('ydRankKanji').textContent = rank.kanji;
+  ydEl('ydRankName').textContent = rank.name;
+  ydEl('ydRankDesc').textContent = rank.desc;
+  ydEl('ydResultScore').textContent = G.score;
+  ydEl('ydNewBestTag').style.display = isNewBest ? '' : 'none';
+  const total = G.stats.correct + G.stats.miss;
+  const acc = total > 0 ? Math.round(G.stats.correct/total*100) : 100;
+  ydEl('ydStatCorrect').textContent = G.stats.correct;
+  ydEl('ydStatMiss').textContent = G.stats.miss;
+  ydEl('ydStatAcc').textContent = acc + '%';
+  ydEl('ydScreenResult').classList.remove('yd-hidden');
+}
+/* window直付けのkeydownリスナーだけは、他の場面に移ってもDOM要素と一緒には回収されない
+   （ボキャブラ・シューティングと同じ理由）ので、showHome()からydStopLoop()を明示的に呼んで外す。 */
+let ydMenuKeyHandler = null;
+let ydScrollClickHandler = null;
+function ydStopLoop(){
+  if(ydRafId){ cancelAnimationFrame(ydRafId); ydRafId = null; }
+  if(storyRun && storyRun.yd) storyRun.yd.running = false;
+  window.removeEventListener('keydown', ydOnKey);
+  if(ydMenuKeyHandler){ window.removeEventListener('keydown', ydMenuKeyHandler); ydMenuKeyHandler = null; }
+}
+function ydAttachMenuHandlers(){
+  window.addEventListener('keydown', ydOnKey);
+
+  const bandKeys = ['easy','mid','hard'];
+  let selectIndex = 0;
+  function updateSelection(){
+    document.querySelectorAll('.yd-band-btn').forEach((btn,i) => {
+      btn.classList.toggle('yd-selected', i === selectIndex);
+    });
+  }
+  document.querySelectorAll('.yd-band-btn').forEach((btn,i) => {
+    btn.addEventListener('mouseenter', () => { selectIndex = i; updateSelection(); });
+    btn.addEventListener('click', (e) => { e.stopPropagation(); ydSelectBand(btn.dataset.band); });
+  });
+  updateSelection();
+
+  ydMenuKeyHandler = function(e){
+    const G = storyRun.yd;
+    if(!G || G.running) return;
+    if(G.awaitingStart){
+      if(e.key === ' ' || e.key === 'Enter'){ e.preventDefault(); ydBeginRound(); }
+      return;
+    }
+    if(ydEl('ydScreenTitle').classList.contains('yd-hidden')) return;
+    if(e.key === 'ArrowUp' || e.key === 'ArrowLeft'){
+      e.preventDefault();
+      selectIndex = (selectIndex + bandKeys.length - 1) % bandKeys.length;
+      updateSelection();
+    } else if(e.key === 'ArrowDown' || e.key === 'ArrowRight'){
+      e.preventDefault();
+      selectIndex = (selectIndex + 1) % bandKeys.length;
+      updateSelection();
+    } else if(e.key === ' ' || e.key === 'Enter'){
+      e.preventDefault();
+      ydSelectBand(bandKeys[selectIndex]);
+    }
+  };
+  window.addEventListener('keydown', ydMenuKeyHandler);
+
+  ydEl('ydScroll').addEventListener('click', () => {
+    const G = storyRun.yd;
+    if(G && G.awaitingStart) ydBeginRound();
+  });
+  ydEl('ydViewRanksBtn').addEventListener('click', ()=>{
+    ydRenderRanksScreen();
+    ydEl('ydScreenTitle').classList.add('yd-hidden');
+    ydEl('ydScreenRanks').classList.remove('yd-hidden');
+  });
+  ydEl('ydRanksBackBtn').addEventListener('click', ()=>{
+    ydEl('ydScreenRanks').classList.add('yd-hidden');
+    ydEl('ydScreenTitle').classList.remove('yd-hidden');
+  });
+  ydEl('ydRetryBtn').addEventListener('click', (e) => { e.stopPropagation(); ydSelectBand(storyRun.yd.band.key); });
+  ydEl('ydTitleBtn').addEventListener('click', ()=>{
+    ydRefreshBandBests();
+    ydEl('ydScreenResult').classList.add('yd-hidden');
+    ydEl('ydScreenTitle').classList.remove('yd-hidden');
+  });
+}
 bootApp();
 </script>
 </body>
