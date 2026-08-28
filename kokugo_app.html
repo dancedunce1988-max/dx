@@ -3115,7 +3115,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.44</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.45</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -19583,6 +19583,8 @@ const YD_BANDS = {
   mid:  {key:'mid',  label:'中級', lvs:[4,5,6],    time:90000},
   hard: {key:'hard', label:'上級', lvs:[7,8,9,10], time:120000},
 };
+/* 「漢字を読む」本体のレベルアップ頻度（教員の指示、2026-08-28〜：初級3問・中級2問・上級1問に1回）。 */
+const YD_LEVEL_UP_EVERY = {easy:3, mid:2, hard:1};
 const YD_WORD_BY_BAND = {};
 const YD_SENT_BY_BAND = {};
 for(const bandKey of Object.keys(YD_BANDS)){
@@ -19985,20 +19987,15 @@ function ydOnCorrect(){
   }
 
   /* 「漢字を読む」本体のレベルを、級ごとの条件で上げる（教員の指示、2026-08-28〜）。
-     初級＝2問正解ごとに1、中級＝ノーミスで正解するたびに1、上級＝打ち間違えがあっても
-     書ききるたびに1。record()はskipRecentAcc:trueで呼び、通常のクイズモードで使う
-     適応難度(diffLv)・直近正答率には混ぜない（野球ミニゲーム等と同じ方針）。
-     correct=trueのときしか呼ばないので、diffLvを不用意に下げることもない。 */
+     初級＝3問正解ごとに1、中級＝2問正解ごとに1、上級＝1問正解するたびに1。
+     record()はskipRecentAcc:trueで呼び、通常のクイズモードで使う適応難度(diffLv)・
+     直近正答率には混ぜない（野球ミニゲーム等と同じ方針）。correct=trueのときしか
+     呼ばないので、diffLvを不用意に下げることもない。 */
   const bandKey = G.band.key;
+  const levelUpEvery = YD_LEVEL_UP_EVERY[bandKey] || 1;
+  G.levelUpCounter = (G.levelUpCounter||0) + 1;
   let shouldLevelUp = false;
-  if(bandKey === 'easy'){
-    G.levelUpCounter = (G.levelUpCounter||0) + 1;
-    if(G.levelUpCounter >= 2){ shouldLevelUp = true; G.levelUpCounter = 0; }
-  } else if(bandKey === 'mid'){
-    shouldLevelUp = (c.miss === 0);
-  } else if(bandKey === 'hard'){
-    shouldLevelUp = true;
-  }
+  if(G.levelUpCounter >= levelUpEvery){ shouldLevelUp = true; G.levelUpCounter = 0; }
   if(shouldLevelUp && c.origItem){
     const res = record('kanji_yomi', c.origItem, true, elapsed, {skipRecentAcc:true});
     if(res && res.lvup){
