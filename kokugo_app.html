@@ -2981,17 +2981,9 @@
   background: radial-gradient(circle, rgba(8,4,6,0.6) 0%, rgba(8,4,6,0.42) 55%, transparent 76%);
   z-index:0; pointer-events:none;
 }
-.yd-problem-area::after{
-  content:""; position:absolute; left:50%; top:48%; width:min(74vw,240px); height:min(74vw,240px);
-  transform:translate(-50%,-50%); border-radius:50%;
-  background: repeating-conic-gradient(rgba(232,195,79,0.55) 0deg 5deg, transparent 5deg 24deg);
-  -webkit-mask: radial-gradient(circle, transparent 0 47%, #000 48% 51%, transparent 52%);
-          mask: radial-gradient(circle, transparent 0 47%, #000 48% 51%, transparent 52%);
-  opacity:0.7; z-index:0; pointer-events:none;
-}
 #ydComboPop{ position:absolute; top:-4px; right:2px; z-index:1; font-family:"Yu Mincho","YuMincho",serif; color:var(--yd-gold-bright); font-size:13px; opacity:0; transform:translateY(6px); transition:opacity .2s, transform .2s; }
 #ydComboPop.yd-show{ opacity:1; transform:translateY(0); }
-#ydProblemText{ position:relative; z-index:1; font-family:"Yu Mincho","YuMincho","Hiragino Mincho ProN","MS PMincho",serif; font-size:clamp(23px, 6.8vw, 35px); line-height:1.5; color:var(--yd-paper); text-shadow:0 2px 4px rgba(0,0,0,0.9), 0 4px 16px rgba(0,0,0,0.7); padding:0 6px; }
+#ydProblemText{ position:relative; z-index:1; font-family:"Yu Mincho","YuMincho","Hiragino Mincho ProN","MS PMincho",serif; font-size:35px; line-height:1.4; color:var(--yd-paper); text-shadow:0 2px 4px rgba(0,0,0,0.9), 0 4px 16px rgba(0,0,0,0.7); padding:0 6px; white-space:nowrap; max-width:100%; }
 .yd-countdown-num{
   display:inline-block; font-size:clamp(52px, 16vw, 88px); font-weight:900;
   color:var(--yd-gold-bright); text-shadow:0 0 24px var(--yd-shu-glow), 0 2px 8px rgba(0,0,0,0.6);
@@ -3089,7 +3081,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.40</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.41</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -19743,7 +19735,7 @@ function ydRenderGameScreen(){
             <div class="yd-tagline" style="margin-top:-4px;">得点に応じて称号が授かる。称号は級ごとに競うぞ。</div>
             <div class="yd-rank-table-wrap">
               <table class="yd-rank-table">
-                <thead><tr><th>称号</th><th>初級</th><th>中級</th><th>上級</th></tr></thead>
+                <thead><tr><th>称号</th><th>スコア</th></tr></thead>
                 <tbody id="ydRankTableBody"></tbody>
               </table>
             </div>
@@ -19768,7 +19760,6 @@ function ydRefreshBandBests(){
 function ydRenderRanksScreen(){
   const st = loadStats();
   const maxSecretDepth = (typeof st.ydMaxSecretDepth === 'number') ? st.ydMaxSecretDepth : -1;
-  const bandKeys = ['easy','mid','hard'];
   const n = YD_RANKS.hard.length;
   let rows = '';
   for(let i=0;i<n;i++){
@@ -19777,15 +19768,12 @@ function ydRenderRanksScreen(){
     const hide = isSecret && (i - YD_RANK_BASIC_COUNT) > maxSecretDepth;
     const name = hide ? '？？？' : ref.name;
     const desc = hide ? '条件を満たすと明らかになる、幻の称号。' : ref.desc;
-    const cells = bandKeys.map(bk => {
-      if(i >= YD_RANKS[bk].length) return '―';
-      return hide ? '？' : YD_RANKS[bk][i].min;
-    });
+    const score = hide ? '？' : ref.min;
     rows += '<tr' + (hide ? ' class="yd-secret-row"' : '') + '>'
       + '<td>' + esc(name) + '</td>'
-      + cells.map(c => '<td>' + c + '</td>').join('')
+      + '<td>' + score + '</td>'
       + '</tr>'
-      + '<tr class="yd-desc-row"><td colspan="4">' + esc(desc) + '</td></tr>';
+      + '<tr class="yd-desc-row"><td colspan="2">' + esc(desc) + '</td></tr>';
   }
   ydEl('ydRankTableBody').innerHTML = rows;
 }
@@ -19826,7 +19814,22 @@ function ydNextProblem(){
   candidates = Array.from(new Set(candidates));
   G.current = { displayHTML, candidates, typed:'', miss:0, shownAt: performance.now(), origItem };
   ydEl('ydProblemText').innerHTML = displayHTML;
+  ydFitProblemText();
   ydRenderRomaji();
+}
+/* 問題文が2行に折り返すと読みにくいので、実際の描画幅を見ながら1行に収まるまで
+   フォントサイズを少しずつ縮める（教員の指示、2026-08-28〜）。 */
+function ydFitProblemText(){
+  const el = ydEl('ydProblemText');
+  const box = el && el.parentElement;
+  if(!el || !box) return;
+  const avail = box.clientWidth - 16;
+  let size = 35;
+  el.style.fontSize = size + 'px';
+  while(size > 11 && el.scrollWidth > avail){
+    size -= 1;
+    el.style.fontSize = size + 'px';
+  }
 }
 function ydRenderRomaji(){
   const G = storyRun.yd;
@@ -19877,7 +19880,7 @@ function ydFlashMiss(){
 function ydUpdateHud(){
   const G = storyRun.yd;
   ydEl('ydScoreNum').textContent = G.score;
-  ydEl('ydTierKata').textContent = G.band ? (G.band.label + ' Lv.' + G.currentLv) : '―';
+  ydEl('ydTierKata').textContent = G.band ? G.band.label : '―';
   ydEl('ydModeBadge').textContent = G.mode === 'sentence' ? '文章打ち' : '単語打ち';
   const hc = ydEl('ydHitCount');
   if(hc) hc.textContent = G.stats.correct;
@@ -20000,10 +20003,9 @@ function ydSelectBand(bandKey){
   ydEl('ydTierKata').textContent = G.band.label;
   ydEl('ydModeBadge').textContent = '準備';
   ydEl('ydProblemText').innerHTML = 'スペースキーか<br>Enterキーで<br>スタート';
-  const lvs = G.band.lvs;
   ydEl('ydRomajiLine').classList.remove('yd-long');
   ydEl('ydRomajiLine').innerHTML = '<span class="yd-rest">' +
-    esc('Lv.' + lvs[0] + '〜' + lvs[lvs.length-1] + '　／　' + (G.band.time/1000) + '秒') +
+    esc('制限時間　' + (G.band.time/1000) + '秒') +
     '</span>';
 }
 /* スペース/Enter・タップで即開始せず、「3・2・1」と数えてから始める
