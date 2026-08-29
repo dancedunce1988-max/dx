@@ -3160,7 +3160,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.52</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.53</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -19779,32 +19779,41 @@ for(const bandKey of Object.keys(YD_BANDS)){
 }
 
 const YD_RANK_BASIC_COUNT = 5;
-function ydMakeRankSet(scale){
+/* 「見習い」〜「皆伝」（上位5段階、常時表示）は従来どおりscale倍率で算出する。
+   「神速」〜「龍伝説」（隠し10段階）は、2026-08-29〜教員の指示で級ごとに「龍伝説」到達点を
+   個別指定（初級7777・中級10000・上級15000）できるようにしたため、単純な共通scale倍率では
+   表現できなくなった。「皆伝」のしきい値を起点(start)、指定された「龍伝説」到達点を終点(legendEnd)
+   とし、その間の9段階を滑らかな二次曲線（threshold(i) = start + (legendEnd-start)*(i/10)^2、
+   i=1〜10）で補間する＝きざみ幅がなだらかに広がっていく、元のカーブ（きざみが50ずつ増える
+   等差数列）と同じ「じわじわ加速する」感触を保ったまま、終点だけ級ごとに変えられる。 */
+function ydMakeRankSet(scale, legendEnd){
+  const start = Math.round(1100*scale); // 「皆伝」のしきい値＝隠し段階の補間の起点
+  const secretMin = i => i >= 10 ? legendEnd : Math.round(start + (legendEnd - start) * Math.pow(i/10, 2));
   return [
-    {min:Math.round(0*scale),    name:'見習い', kanji:'習', desc:'まだ刃こぼれだらけ。素振りから始めよう。'},
-    {min:Math.round(150*scale),  name:'腕自慢', kanji:'腕', desc:'筋はいい。もっと速く読めるはずだ。'},
-    {min:Math.round(380*scale),  name:'手練れ', kanji:'練', desc:'刃筋が安定してきた。次は迷いを消せ。'},
-    {min:Math.round(700*scale),  name:'達人',   kanji:'達', desc:'漢字を見た瞬間に打ち込めている。見事。'},
-    {min:Math.round(1100*scale), name:'皆伝',   kanji:'皆', desc:'言霊を完全に手中に収めた証。'},
-    {min:Math.round(1350*scale), name:'神速',   kanji:'神', desc:'目にも止まらぬ速さ。もう指が考えている。'},
-    {min:Math.round(1650*scale), name:'一閃',   kanji:'閃', desc:'迷いのない、たった一打ち。'},
-    {min:Math.round(2000*scale), name:'無双',   kanji:'無', desc:'並び立つ者なし。'},
-    {min:Math.round(2400*scale), name:'鬼才',   kanji:'鬼', desc:'常人の理解を超えた読みの冴え。'},
-    {min:Math.round(2850*scale), name:'天賦',   kanji:'天', desc:'これはもう、生まれ持った才能だ。'},
-    {min:Math.round(3350*scale), name:'極意',   kanji:'極', desc:'言霊を操る、その奥義に達した。'},
-    {min:Math.round(3900*scale), name:'聖域',   kanji:'聖', desc:'もはや誰も踏み込めない領域。'},
-    {min:Math.round(4500*scale), name:'神域',   kanji:'域', desc:'人の技を超えた、神々の技。'},
-    {min:Math.round(5150*scale), name:'不動',   kanji:'不', desc:'何があっても、指は乱れない。'},
-    {min:Math.round(5850*scale), name:'龍伝説', kanji:'龍', desc:'伝説の域。もはや誰にも読み負けぬ。'},
+    {min:Math.round(0*scale),   name:'見習い', kanji:'習', desc:'まだ刃こぼれだらけ。素振りから始めよう。'},
+    {min:Math.round(150*scale), name:'腕自慢', kanji:'腕', desc:'筋はいい。もっと速く読めるはずだ。'},
+    {min:Math.round(380*scale), name:'手練れ', kanji:'練', desc:'刃筋が安定してきた。次は迷いを消せ。'},
+    {min:Math.round(700*scale), name:'達人',   kanji:'達', desc:'漢字を見た瞬間に打ち込めている。見事。'},
+    {min:start,                 name:'皆伝',   kanji:'皆', desc:'言霊を完全に手中に収めた証。'},
+    {min:secretMin(1),  name:'神速',   kanji:'神', desc:'目にも止まらぬ速さ。もう指が考えている。'},
+    {min:secretMin(2),  name:'一閃',   kanji:'閃', desc:'迷いのない、たった一打ち。'},
+    {min:secretMin(3),  name:'無双',   kanji:'無', desc:'並び立つ者なし。'},
+    {min:secretMin(4),  name:'鬼才',   kanji:'鬼', desc:'常人の理解を超えた読みの冴え。'},
+    {min:secretMin(5),  name:'天賦',   kanji:'天', desc:'これはもう、生まれ持った才能だ。'},
+    {min:secretMin(6),  name:'極意',   kanji:'極', desc:'言霊を操る、その奥義に達した。'},
+    {min:secretMin(7),  name:'聖域',   kanji:'聖', desc:'もはや誰も踏み込めない領域。'},
+    {min:secretMin(8),  name:'神域',   kanji:'域', desc:'人の技を超えた、神々の技。'},
+    {min:secretMin(9),  name:'不動',   kanji:'不', desc:'何があっても、指は乱れない。'},
+    {min:secretMin(10), name:'龍伝説', kanji:'龍', desc:'伝説の域。もはや誰にも読み負けぬ。'}, // = legendEnd
   ];
 }
 /* 級ごとに称号の上限は設けず、初級・中級・上級のいずれも上級と同じ15段階すべてを用意する
    （教員の指示、2026-08-28〜：「初級、中級、上級について、それぞれ称号を上級と同様に準備」）。
-   得点しきい値だけ級ごとにスケールする（初級1倍・中級1.6倍・上級2.4倍）。 */
+   「龍伝説」到達点は級ごとに教員が個別指定（2026-08-29〜：初級7777・中級10000・上級15000）。 */
 const YD_RANKS = {
-  easy: ydMakeRankSet(1),
-  mid:  ydMakeRankSet(1.6),
-  hard: ydMakeRankSet(2.4),
+  easy: ydMakeRankSet(1,   7777),
+  mid:  ydMakeRankSet(1.6, 10000),
+  hard: ydMakeRankSet(2.4, 15000),
 };
 function ydRankFor(score, bandKey){
   const list = YD_RANKS[bandKey];
