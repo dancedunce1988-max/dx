@@ -3164,7 +3164,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.54</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.55</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -10566,6 +10566,75 @@ function finishPrologue(){
   if(fn) fn();
 }
 
+/* ================= ことのは転生 管理者プレビューツール（2026-08-29〜） =================
+   教員がURLに ?devtool=kotonoha を付けて開いたときだけ現れる、通常のプレイでは一切到達しない
+   隠しツール（bootApp参照）。転生の系統×段階のあらゆる組み合わせを、実際のホーム画面と
+   同じ見た目でプレビューできる。
+   【安全設計】kotonohaCardHtml()は初見の「すがた」を記録するためにsaveStats()を内部で呼ぶ
+   （＝呼ぶたびに実データを上書きしうる）ため、プレビューではあえて使わない。かわりに
+   kotonohaRebirthImageSrc・kotonohaLegendaryBgClassなど「読み取るだけで保存しない」純粋な
+   関数だけを使い、実際のホーム画面の構造（.kotonoha-icon-wrap等）を手で再現する。ここで
+   作るstはloadStats()の値をJSON経由で複製した使い捨てのコピーで、saveStats()には一度も
+   渡さない＝教員の本当の育成データ・進行状況には一切触れない。 */
+const KOTONOHA_DEV_ALL_LINES = ["tensho","engoku","soukai","suishin","meien","seiki","shigen","kodai","mirai"];
+function kotonohaDevBuildFakeSt(line, stageIdx){
+  const st = JSON.parse(JSON.stringify(loadStats()));
+  const totalXP = kotonohaTotalXP(st);
+  const targetGained = KOTONOHA_REBIRTH_STAGE_XP[stageIdx] || 0;
+  // baseXPを逆算し、kotonohaRebirthStageIndex(st)が狙ったstageIdxにぴったり一致するようにする。
+  st.kotonohaRebirth = {line, baseXP: totalXP - targetGained, seenStage: stageIdx};
+  st.kotonohaDisplayOverride = null;
+  return st;
+}
+function showKotonohaDevTool(){
+  const rows = KOTONOHA_DEV_ALL_LINES.map(line => {
+    const label = KOTONOHA_IMAGE_LINE_LABEL[line];
+    const ready = kotonohaImagesReady(line);
+    const stageButtons = KOTONOHA_IMAGE_STAGE_LABEL.map((stLabel, idx) =>
+      `<button class="btn inline small" ${ready ? `onclick="kotonohaDevShowPreview('${line}',${idx})"` : "disabled"}>${esc(stLabel)}</button>`
+    ).join(" ");
+    return `<div class="card">
+      <h3 class="section">${esc(label)}${ready ? "" : "（画像未実装）"}</h3>
+      <div class="btn-row" style="flex-wrap:wrap; gap:6px; justify-content:flex-start;">${stageButtons}</div>
+    </div>`;
+  }).join("");
+  screen.innerHTML = `
+    <div class="card">
+      <h3 class="section">🔧 ことのは転生 管理者プレビューツール</h3>
+      <p class="note">系統×段階のボタンを押すと、実際のホーム画面と同じ表示でプレビューできます。実際のセーブデータは一切変更しません。</p>
+      <button class="btn secondary" onclick="showHome()">ホームへ戻る</button>
+    </div>
+    ${rows}`;
+}
+function kotonohaDevShowPreview(line, stageIdx){
+  const st = kotonohaDevBuildFakeSt(line, stageIdx);
+  const bgClass = kotonohaLegendaryBgClass(st); // 伝説級（段階6）のときだけ背景演出クラスが付く
+  const src = kotonohaRebirthImageSrc(st);
+  const stageLabel = KOTONOHA_IMAGE_STAGE_LABEL[stageIdx];
+  const lineLabel = KOTONOHA_IMAGE_LINE_LABEL[line];
+  const isFinal = stageIdx === 6;
+  screen.innerHTML = `
+    <div class="${bgClass || ""}">
+      <div class="card">
+        <p class="note">🔧 管理者プレビュー：実際のセーブデータは一切変更していません。</p>
+        <button class="btn secondary" onclick="showKotonohaDevTool()">← 一覧に戻る</button>
+      </div>
+      <div class="card kotonoha-card">
+        <h3 class="section">プレビュー</h3>
+        <div class="kotonoha-row">
+          <div class="kotonoha-icon-wrap">
+            <img class="kotonoha-icon kotonoha-icon-img" src="${src || ""}" alt="${esc(lineLabel)}">
+            ${isFinal ? `<div class="kotonoha-evo-next">最終進化系です</div>` : ""}
+          </div>
+          <div class="kotonoha-info">
+            <span class="kotonoha-stage${isFinal ? " final" : ""}">${esc(stageLabel)}</span>
+            <span class="kotonoha-type">${esc(lineLabel)}</span>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
 /* 起動時ガード：保存されている記録が、今開いているコードより新しいverで作られていたら、
    通常の起動（showPrologue/showHomeなど）を一切行わない。ここでアプリの初期化を止めることで、
    その後どこからもsaveStats()が呼ばれず、新しい記録が古い形式で上書きされる事故を防ぐ。 */
@@ -10586,6 +10655,11 @@ function bootApp(){
       </div>`;
     return;
   }
+  /* 教員向けの見た目確認ツール（URLに ?devtool=kotonoha を付けたときだけ現れる、通常のプレイでは
+     一切露出しない隠しルート、2026-08-29〜：「未来龍と古代龍のビジュアルをゲーム画面で確認したい」）。
+     ことのは転生の系統×段階のあらゆる組み合わせを、実際のセーブデータを一切書き換えずに
+     プレビューできる（showKotonohaDevTool参照）。 */
+  if(new URLSearchParams(location.search).get('devtool') === 'kotonoha'){ showKotonohaDevTool(); return; }
   if(resumeBossBattleIfSaved()) return;
   showPrologue(showHome);
 }
