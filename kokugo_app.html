@@ -3150,7 +3150,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.47</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.48</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -19757,10 +19757,19 @@ const YD_SENT_BY_LV = {}; for(let l=1;l<=10;l++) YD_SENT_BY_LV[l] = [];
     }
   }
 })();
+/* 上級（hard）のlvsは意図的にmid（4〜6）も含めた広い範囲にしてある（2026-08-29〜、教員の指示）。
+   理由：正解を続けると自動的に「文章打ちモード」（ydOnCorrect参照、correct8問で切りかわり、
+   以後その回のプレイ中はずっと文章打ちのまま）に入るが、文章打ち用プール（YD_SENT_BY_BAND、
+   前後の地の文に漢字を含まない問題だけに絞った、単語打ち用よりずっと小さいサブセット）は
+   上級専用（lv7〜10のみ）だと174問しかなく、出題を使い切って再抽選（ydPickNext）を繰り返す
+   うちに似たような文章ばかり出ている感覚になりやすかった（教員からの報告で発覚）。中級の
+   lv4〜6ぶんもプールに合流させることで、上級プレイ中の実質プール数を約3倍（word:2428→4107、
+   sentence:174→296）に広げ、体感の出題バリエーションを増やす。中級（mid）・初級（easy）の
+   lvsはこれまでどおり変更しない＝この拡張は上級プレイのときだけに効く。 */
 const YD_BANDS = {
-  easy: {key:'easy', label:'初級', lvs:[1,2,3],    time:60000},
-  mid:  {key:'mid',  label:'中級', lvs:[4,5,6],    time:90000},
-  hard: {key:'hard', label:'上級', lvs:[7,8,9,10], time:120000},
+  easy: {key:'easy', label:'初級', lvs:[1,2,3],           time:60000},
+  mid:  {key:'mid',  label:'中級', lvs:[4,5,6],           time:90000},
+  hard: {key:'hard', label:'上級', lvs:[4,5,6,7,8,9,10],  time:120000},
 };
 /* 「漢字を読む」本体のレベルアップ頻度（教員の指示、2026-08-28〜：初級3問・中級2問・上級1問に1回）。 */
 const YD_LEVEL_UP_EVERY = {easy:3, mid:2, hard:1};
