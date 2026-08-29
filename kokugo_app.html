@@ -304,6 +304,10 @@
     width:88px; height:88px; object-fit:contain; font-size:0; box-sizing:border-box;
     background:var(--card); border-color:var(--gold); border-width:3px; border-radius:10px;
   }
+  /* 転生で卵を選ぶ画面だけ、金の枠線を消す（教員の指示、2026-08-29〜：「卵の周りの『枠』が、
+     文字にかかっているので」）。卵イラストの縁ぎりぎりまで絵柄が入っているため、枠線が
+     絵の一部（文字・模様）に重なって見えていた。背景・角丸はそのまま残し、線だけ消す。 */
+  .kotonoha-icon.kotonoha-icon-noframe{ border-width:0; }
   .kotonoha-icon-wrap{display:flex; flex-direction:column; align-items:center; flex-shrink:0;}
   .kotonoha-evo-next{font-size:.62rem; color:var(--sub); text-align:center; margin-top:4px; max-width:94px; line-height:1.35;}
   .kotonoha-rebirth-note{background:var(--bg); border:1px dashed var(--line); border-radius:8px; padding:8px 10px; margin-top:10px;}
@@ -3160,7 +3164,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.53</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.54</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -5461,14 +5465,35 @@ function showKotonohaRebirthConfirm(){
     : `<p class="note boss-enc-hint">✨ 初回の転生は無料です。</p>`;
   const currentLineLabel = already ? KOTONOHA_IMAGE_LINE_LABEL[st.kotonohaRebirth.line] : null;
   const seenLines = kotonohaSeenEligibleRebirthLines(st);
-  const hasUnseen = kotonohaUnseenRebirthLines(st).length > 0;
   const ruleLines = [];
   if(currentLineLabel) ruleLines.push(`🚫 今の系統「${esc(currentLineLabel)}」には転生しません。`);
   if(seenLines.length > 0) ruleLines.push(`✅ これまでになったことがある系統は、下の一覧から選んで転生できます。`);
-  ruleLines.push(hasUnseen
-    ? `🎲 選ばずに「おまかせで転生する」を選ぶと、まだなったことがない系統の中からランダムに選ばれます（お楽しみに！）。`
-    : `🎲 「おまかせで転生する」を選ぶと、これまでになった系統（すべて経験済み）の中からランダムに選ばれます。`);
+  /* 2026-08-29〜、教員の指示で文言を変更。古代龍・未来龍のような条件付きライン
+     （kotonohaAscendLinesUnlocked）の存在を、この画面でも一言注意喚起する。 */
+  ruleLines.push(`🎲 「おまかせで転生する」と、まだなったことがない系統を優先してランダムで転生します※一部の龍は、条件をクリアしないと転生しないので注意してください※`);
+  /* 2026-08-29〜、教員の指示で追加：「おまかせ」で新しい系統が出ない状況（kotonohaUnseenRebirthLines
+     が空）のとき、その理由が①本当に実装ぶん全部を経験済みなのか、②まだ実装されている系統は
+     残っているが条件（聖輝/冥淵のアンロック、古代龍/未来龍のkotonohaAscendLinesUnlocked等）を
+     満たしていないだけなのか、で表示を出し分ける。①は「実装済みの系統数」と「経験済み系統数」の
+     単純な比較で判定できる（kotonohaImagesReadyで画像が無い＝未実装の系統は数えない）。 */
+  if(kotonohaUnseenRebirthLines(st).length === 0){
+    const totalImplemented = Object.keys(KOTONOHA_IMAGE_LINE_LABEL).filter(kotonohaImagesReady).length;
+    const seenCount = (st.kotonohaRebirthLinesSeen || []).length;
+    ruleLines.push(seenCount >= totalImplemented
+      ? `🎉 現在実装している全ての卵を経験しました。`
+      : `🔒 現在なれる、新しい種類の卵はありません。条件をクリアすると、新しい種類の卵が解放されます`);
+  }
   const rulesNote = `<div class="note kotonoha-rebirth-note">${ruleLines.map(l=>`<div>${l}</div>`).join("")}</div>`;
+  /* 2026-08-29〜、教員の指示で追加：「今この瞬間に転生しうる系統」を一覧で見せる
+     （kotonohaEligibleRebirthLines＝古代龍・未来龍のような条件つきラインも、条件を満たして
+     いなければここに出ない＝一覧そのものが今の解禁状況の目安になる）。 */
+  const eligibleLines = kotonohaEligibleRebirthLines(st);
+  const eligibleNote = eligibleLines.length > 0
+    ? `<div class="note kotonoha-rebirth-note">
+        <div style="font-weight:bold; margin-bottom:4px;">🥚 現在転生する可能性がある卵の種類一覧</div>
+        <div>${eligibleLines.map(l => esc(KOTONOHA_IMAGE_LINE_LABEL[l])).join("　")}</div>
+      </div>`
+    : "";
   screen.innerHTML = `
     <div class="card boss-encounter">
       <div class="boss-enc-icon">🔁</div>
@@ -5478,6 +5503,7 @@ function showKotonohaRebirthConfirm(){
       ${already ? `<p class="note boss-enc-hint">🔄 今のすがた・必殺技の育ち具合は失われます。</p>` : ""}
       ${seedNote}
       ${rulesNote}
+      ${eligibleNote}
       <div class="boss-enc-choices">
         <button class="boss-enc-btn" onclick="showHome()">やめる</button>
         <button class="boss-enc-btn selected" onclick="kotonohaRebirthConfirmed()">🎲 おまかせで転生する</button>
@@ -5487,7 +5513,7 @@ function showKotonohaRebirthConfirm(){
     <p class="note kotonoha-rebirth-note">🥚 転生先を自分で選ぶこともできます：</p>
     ${seenLines.map(line => `
       <div class="card menu-card" onclick="kotonohaRebirthConfirmed('${line}')">
-        <div class="menu-icon"><img class="kotonoha-icon kotonoha-icon-img" src="${kotonohaImageSrcForStage(line,0)}" alt="${esc(KOTONOHA_IMAGE_LINE_LABEL[line])}"></div>
+        <div class="menu-icon"><img class="kotonoha-icon kotonoha-icon-img kotonoha-icon-noframe" src="${kotonohaImageSrcForStage(line,0)}" alt="${esc(KOTONOHA_IMAGE_LINE_LABEL[line])}"></div>
         <div><h2>${esc(KOTONOHA_IMAGE_LINE_LABEL[line])}に転生する</h2></div>
       </div>`).join("")}
     <div class="btn-row"><button class="btn secondary" onclick="showHome()">やめる</button></div>` : ""}`;
