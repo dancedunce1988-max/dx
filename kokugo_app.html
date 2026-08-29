@@ -302,20 +302,26 @@
   .kotonoha-icon.kotonoha-overridden{border-color:#8e44ad; box-shadow:0 0 10px rgba(142,68,173,.5);}
   .kotonoha-icon.kotonoha-icon-img{
     width:88px; height:88px; object-fit:contain; font-size:0; box-sizing:border-box;
-    background:var(--card); border-color:var(--gold); border-width:3px; border-radius:10px;
+    background:#efe6da; border-color:var(--gold); border-width:3px; border-radius:10px;
   }
   /* 転生で卵を選ぶ画面だけ、金の枠線を消す（教員の指示、2026-08-29〜：「卵の周りの『枠』が、
      文字にかかっているので」）。卵イラストの縁ぎりぎりまで絵柄が入っているため、枠線が
      絵の一部（文字・模様）に重なって見えていた。背景・角丸はそのまま残し、線だけ消す。 */
   .kotonoha-icon.kotonoha-icon-noframe{ border-width:0; }
-  /* 画像枠の中に、object-fit:containで生じる余白（枠の背景色）がそのまま見えてしまう問題への
-     対応（教員の指示、2026-08-29〜）。最初は「同じ画像をぼかして背景に敷く」手法を試したが、
-     ぼかした画像そのものがグラデーションとして目立ってしまうとの指摘を受け、方針を変更
-     （2026-08-29〜、再指示：「ホーム画面に使っている背景色を、そのまま使って淵をなだらかに
-     した方が自然」）。画像自身の色を使うのではなく、mask-imageで本体画像の縁を透明にフェード
-     させ、その下にある枠本来の背景色（var(--card)等、既存のまま）がなだらかに透けて見える
-     ようにした＝背景色は増やさず、輪郭だけを柔らかくする方式。 */
-  .kotonoha-icon.kotonoha-icon-img,
+  /* 画像枠の中に、object-fit:containで生じる余白がそのまま見えてしまう問題への対応
+     （教員の指示、2026-08-29〜）。①同じ画像をぼかして背景に敷く方式→グラデーションとして
+     目立つと指摘、②枠の背景色（var(--card)、白寄り）に合わせてmask-imageで縁をフェード
+     する方式→「まだ白い」と指摘、を経て③に変更。卵イラスト自体の余白は、どの系統でも
+     ほぼ同じ「古紙」のような色（実際に埋め込み画像の四隅をサンプリングした平均値が#efe6da
+     付近で共通していた）なので、枠の背景色をvar(--card)からその古紙色そのもの（#efe6da、
+     グラデーションではなく単色）に差し替えた。そのうえで本体画像の縁だけmask-imageで
+     フェードさせ、画像の余白と枠の背景が地続きに見えるようにする（教員の指示：「ふちの
+     部分をグラデーション処理すると、より自然」）。進化演出・必殺技の肖像は暗い背景の上に
+     半透明の白パネルとして使っているため対象外のまま（不透明な古紙色を敷くとかえって浮く）。 */
+  .kotonoha-icon.kotonoha-icon-img{
+    -webkit-mask-image: radial-gradient(ellipse 85% 85% at 50% 50%, #000 78%, transparent 100%);
+    mask-image: radial-gradient(ellipse 85% 85% at 50% 50%, #000 78%, transparent 100%);
+  }
   .kotonoha-evolve-img,
   .finisher-line-portrait{
     -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, #000 65%, transparent 100%);
@@ -3177,7 +3183,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.57</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.58</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
