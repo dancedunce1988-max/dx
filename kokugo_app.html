@@ -3150,7 +3150,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.49</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.50</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -19696,6 +19696,8 @@ for(const key of Object.keys(YD_KANA2)){
     }
   }
 }
+function ydKataToHira(s){ return s.replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60)); }
+function ydFullwidthAlphaToHalf(s){ return s.replace(/[Ａ-Ｚａ-ｚ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).toLowerCase(); }
 function ydTokenize(kana){
   const tokens = [];
   let i = 0;
@@ -19740,13 +19742,15 @@ function ydRomajiCandidatesFor(kana){ return ydExpandCandidates(ydTokenize(kana)
    =================================================================== */
 const YD_KANA_ONLY_RE = /^[ぁ-んー]+$/;
 const YD_WORD_BY_LV = {}; for(let l=1;l<=10;l++) YD_WORD_BY_LV[l] = [];
-/* 「文章打ちモード」は、以前は前後の地の文にも漢字を含まない問題だけに絞った専用プール
-   （YD_SENT_BY_LV、単語打ち用よりずっと小さいサブセット）を使っていたが、地の文の漢字の
-   読み方データを持たない（このアプリが持つ読みデータは、鉤括弧内の対象漢字ぶんだけ）ため、
-   多くの問題が対象外になっていた（5,488問中406問のみ）。2026-08-29〜、教員の指示で、文章打ち
-   モードでも入力対象は鉤括弧内の読みだけ（単語打ちモードと同じ）に変更し、専用プールを廃止。
-   これにより文章打ちモードも単語打ちモードと同じYD_WORD_BY_LV/YD_WORD_BY_BANDをそのまま使い、
-   全5,488問が対象になる（ydNextProblem参照。表示は今までどおり文全体をハイライトする）。 */
+/* 「文章打ちモード」（前後の地の文もまるごとかな入力する、より難しいモード）は、地の文に
+   漢字が含まれると読み方データが無いため入力対象を組み立てられない（このアプリが持つ読みは
+   鉤括弧内の対象漢字ぶんだけ）。そのため地の文に漢字を含まない問題だけに絞った専用プール
+   （YD_SENT_BY_LV）が必要で、単語打ち用（YD_WORD_BY_LV）よりずっと小さい（全10段階合計406問）。
+   2026-08-29〜、教員の指示で「8問単語打ち→8問文章打ち→それ以後は全ての問題から（単語打ちで）」
+   という進行に変更（ydModeForCorrect参照）。文章打ちフェーズは8問だけなので、小さいプールでも
+   実用上は繰り返しが気になりにくい。このフェーズ分けは上級だけに適用する（教員の指示：
+   「上級の話」。初級・中級は今までどおり、8問目以降はずっと文章打ち＝表示だけ変わり続ける）。 */
+const YD_SENT_BY_LV = {}; for(let l=1;l<=10;l++) YD_SENT_BY_LV[l] = [];
 (function ydBuildPools(){
   const items = (CATS.kanji_yomi && CATS.kanji_yomi.items) || [];
   for(const it of items){
@@ -19756,6 +19760,9 @@ const YD_WORD_BY_LV = {}; for(let l=1;l<=10;l++) YD_WORD_BY_LV[l] = [];
     const before = m[1], word = m[2], after = m[3];
     const lv = Math.min(10, Math.max(1, it.lv||1));
     YD_WORD_BY_LV[lv].push({before, word, yomiList: it.ans, after, lv, origItem: it});
+    if(!/[一-龯]/.test(before + after)){
+      YD_SENT_BY_LV[lv].push({before, word, yomiList: it.ans, after, lv, origItem: it});
+    }
   }
 })();
 /* 上級（hard）のlvsは意図的にmid（4〜6）も含めた広い範囲にしてある（2026-08-29〜、教員の指示：
@@ -19774,6 +19781,9 @@ for(const bandKey of Object.keys(YD_BANDS)){
   const lvs = YD_BANDS[bandKey].lvs;
   YD_WORD_BY_BAND[bandKey] = lvs.flatMap(l => YD_WORD_BY_LV[l]);
 }
+/* 上級の「8問文章打ち」フェーズだけが使う、地の文も漢字なしの真の文章打ち用プール
+   （上級の出題範囲＝lv4〜10ぶんのYD_SENT_BY_LVを合流、約300問）。 */
+const YD_SENT_HARD_POOL = YD_BANDS.hard.lvs.flatMap(l => YD_SENT_BY_LV[l]);
 
 const YD_RANK_BASIC_COUNT = 5;
 function ydMakeRankSet(scale){
@@ -20030,15 +20040,17 @@ function ydRenderRanksScreen(bandKey){
 /* ===================================================================
    出題・進行ロジック（storyRun.ydを状態として使う）
    =================================================================== */
-/* プールは単語打ち・文章打ちの両モードで共通（YD_WORD_BY_BAND、2026-08-29〜）。以前はモードごとに
-   別々の既出管理（used）を持っていたため、8問正解して文章打ちモードに切り替わった直後、
-   直前に単語打ちで見たばかりの問題がまた出てしまうことがあった。プールが共通になったのに
-   合わせ、既出管理もG.band.keyだけをキーにする1本にまとめ、モードをまたいでも「見た問題」の
-   記憶が引き継がれるようにした。 */
+/* 上級だけ、文章打ちフェーズ（8問目〜15問目、ydModeForCorrect参照）の間は地の文も漢字なしの
+   専用プール（YD_SENT_HARD_POOL）を使う。それ以外（単語打ちフェーズ、初級・中級の文章打ち）は
+   通常のYD_WORD_BY_BANDを使う。既出管理（used）は「上級の文章打ちフェーズ」だけ別キーにする
+   ＝配列の中身・添字がプールごとに違うため、使い回すと既出判定がずれてしまうことへの対応。
+   それ以外のフェーズは引き続きG.band.keyだけの1本にまとめ、単語打ち⇔文章打ち（初級・中級）や
+   上級の単語打ちフェーズ同士（8問目より前／16問目以降）をまたいでも重複を避けられるようにする。 */
 function ydPickNext(){
   const G = storyRun.yd;
-  const arr = YD_WORD_BY_BAND[G.band.key];
-  const key = G.band.key;
+  const useSentPool = (G.band.key === 'hard' && G.mode === 'sentence');
+  const arr = useSentPool ? YD_SENT_HARD_POOL : YD_WORD_BY_BAND[G.band.key];
+  const key = useSentPool ? 'hard_sentence' : G.band.key;
   if(!G.used[key]) G.used[key] = new Set();
   let avail = arr.map((_,i)=>i).filter(i => !G.used[key].has(i));
   if(avail.length === 0){ G.used[key] = new Set(); avail = arr.map((_,i)=>i); }
@@ -20054,17 +20066,20 @@ function ydNextProblem(){
   G.currentLv = lv;
   ydUpdateHud();
   const afterDisplay = after.replace(/。$/, '');
-  /* 入力対象（kanaTargets）はモードによらず常に鉤括弧内の読みだけ（yomiList）。以前は文章打ち
-     モードだけ前後の地の文まるごとの読みを入力させていたが、地の文の漢字の読みデータを
-     持たないため多くの問題が対象外になっていた（教員の指示、2026-08-29〜：全問を文章打ち
-     モードの対象にするため、表示だけ文全体をハイライトし、入力は単語打ちと同じにする）。 */
+  /* 入力対象（kanaTargets）は、上級の文章打ちフェーズだけ地の文もまるごと含めたかな入力に
+     なる（ydKataToHira等で変換）。それ以外（単語打ちフェーズ、初級・中級の文章打ち＝表示だけ
+     文全体をハイライトする見た目のモード）は、鉤括弧内の読みだけを入力対象にする
+     （教員の指示、2026-08-29〜：「8問単語、8問文章、それ以後は全ての問題から」）。 */
+  const realSentenceTyping = (G.band.key === 'hard' && G.mode === 'sentence');
   if(G.mode === 'sentence'){
     displayHTML = '【<span style="color:var(--yd-gold-bright)">' + esc(before) + esc(word) + esc(afterDisplay) + '</span>】';
   } else {
     const goldWord = '<span style="color:var(--yd-gold-bright)">' + esc(word) + '</span>';
     displayHTML = esc(before) + '【' + goldWord + '】' + esc(afterDisplay);
   }
-  const kanaTargets = yomiList;
+  const kanaTargets = realSentenceTyping
+    ? yomiList.map(y => ydFullwidthAlphaToHalf(ydKataToHira(before + y + after)).replace(/[^ぁ-んーa-z]/g, ''))
+    : yomiList;
   let candidates = [];
   for(const kt of kanaTargets) candidates.push(...ydRomajiCandidatesFor(kt));
   candidates = Array.from(new Set(candidates));
@@ -20141,6 +20156,21 @@ function ydUpdateHud(){
   const hc = ydEl('ydHitCount');
   if(hc) hc.textContent = G.stats.correct;
 }
+/* 今の正解数から「今どのモードにいるべきか」を計算する純粋関数（2026-08-29〜、教員の指示：
+   「8問単語、8問文章、それ以後は全ての問題から」＝上級だけ）。correctは単調に増え続ける
+   カウンタなので、しきい値を範囲で区切ることで一方向フラグに頼らず何度でも正しく判定できる。
+   初級・中級は今までどおり、8問目以降はずっと文章打ち（表示だけ変わる。入力対象はydNextProblem
+   側で常に鉤括弧内の読みだけに統一済み）。上級は8問目で文章打ち（真の文章まるごと入力、
+   YD_SENT_HARD_POOL）に入り、16問目でまた単語打ちに戻って以後はずっとそのまま＝上級の
+   全問（YD_WORD_BY_BAND.hard、4,107問）から出題され続ける。 */
+function ydModeForCorrect(bandKey, correct){
+  if(bandKey === 'hard'){
+    if(correct < 8) return 'word';
+    if(correct < 16) return 'sentence';
+    return 'word';
+  }
+  return correct >= 8 ? 'sentence' : 'word';
+}
 function ydOnCorrect(){
   const G = storyRun.yd;
   const c = G.current;
@@ -20167,9 +20197,19 @@ function ydOnCorrect(){
 
   const feedbackQueue = [];
   if(label) feedbackQueue.push(label);
-  if(G.mode === 'word' && G.stats.correct >= 8){
-    G.mode = 'sentence';
-    feedbackQueue.push('文章打ちモード!');
+  /* モードは「今の正解数」から毎回そのまま計算し直す（ydModeForCorrect）。以前は
+     「word→sentenceに一度だけ切り替える」フラグ式だったが、上級だけ「8問単語→8問文章→
+     それ以後は全ての問題から（単語打ちに戻る）」という3段階の進行に変更したため
+     （教員の指示、2026-08-29〜）、フラグの一方向切り替えでは表現できなくなった。前回計算した
+     モードと比べて変わっていたら、そのときだけ切り替えメッセージを出す。 */
+  const prevMode = G.mode;
+  G.mode = ydModeForCorrect(G.band.key, G.stats.correct);
+  if(G.mode !== prevMode){
+    feedbackQueue.push(
+      G.mode === 'sentence' ? '文章打ちモード!'
+      : prevMode === 'sentence' ? '全ての問題から出題！' // 上級：文章打ちフェーズを終えて単語打ちに戻るとき
+      : '単語打ちモード!'
+    );
   }
 
   /* 「漢字を読む」本体のレベルを、級ごとの条件で上げる（教員の指示、2026-08-28〜）。
