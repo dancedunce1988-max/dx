@@ -308,6 +308,25 @@
      文字にかかっているので」）。卵イラストの縁ぎりぎりまで絵柄が入っているため、枠線が
      絵の一部（文字・模様）に重なって見えていた。背景・角丸はそのまま残し、線だけ消す。 */
   .kotonoha-icon.kotonoha-icon-noframe{ border-width:0; }
+  /* 画像枠の中に、object-fit:containで生じる余白（枠の背景色）がそのまま見えてしまう問題への
+     対応（教員の指示、2026-08-29〜：「言の葉を囲う枠の中に、白い部分が見える」。卵などの画像が
+     正方形ぴったりではないため、枠の中に余白が生じ、そこに枠の背景色＝白っぽい色がくっきり
+     見えてしまっていた）。同じ画像をぼかして拡大したものを.kotonoha-blur-bgとして背景に敷き、
+     その上に鮮明な本体画像を重ねることで、余白部分にも画像自身の色味がにじむようにする
+     （アルバムジャケット表示などでよく使われる手法）。本体画像側のbackgroundをtransparentに
+     しないと、この背景ぼかしが透けて見えないので、対象となる3種類（アイコン枠・進化演出・
+     必殺技の肖像）それぞれに上書きルールを用意している（kotonohaBlurredImgHtml参照）。 */
+  .kotonoha-blur-wrap{ position:relative; display:inline-block; overflow:hidden; }
+  .kotonoha-blur-wrap .kotonoha-blur-bg{
+    position:absolute; inset:-8%; background-size:cover; background-position:center;
+    filter:blur(14px) saturate(1.2); z-index:0;
+  }
+  .kotonoha-blur-wrap-icon{ border-radius:10px; }
+  .kotonoha-blur-wrap-evolve{ border-radius:14px; }
+  .kotonoha-blur-wrap-portrait{ border-radius:12px; }
+  .kotonoha-blur-wrap .kotonoha-icon.kotonoha-icon-img{ position:relative; z-index:1; background:transparent; }
+  .kotonoha-blur-wrap .kotonoha-evolve-img{ position:relative; z-index:1; background:transparent; }
+  .kotonoha-blur-wrap .finisher-line-portrait{ position:relative; z-index:1; background:transparent; }
   .kotonoha-icon-wrap{display:flex; flex-direction:column; align-items:center; flex-shrink:0;}
   .kotonoha-evo-next{font-size:.62rem; color:var(--sub); text-align:center; margin-top:4px; max-width:94px; line-height:1.35;}
   .kotonoha-rebirth-note{background:var(--bg); border:1px dashed var(--line); border-radius:8px; padding:8px 10px; margin-top:10px;}
@@ -3164,7 +3183,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.55</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.56</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -4839,6 +4858,21 @@ function kotonohaImageSrcForStage(line, idx){
   const key = `${line}_${KOTONOHA_IMAGE_STAGE_KEYS[idx]}`;
   return (typeof KOTONOHA_EVOLUTION_IMAGES !== "undefined" && KOTONOHA_EVOLUTION_IMAGES[key]) || null;
 }
+/* 画像枠の中に、object-fit:containの余白（枠の背景色）がそのまま見えてしまう問題への対応
+   （教員の指示、2026-08-29〜。CSS側の.kotonoha-blur-wrap等とセットで使う。詳細はそちらの
+   コメント参照）。同じ画像をぼかして背景に敷いた<span>で<img>を包む共通ヘルパー。
+   variantは"icon"（ホーム画面・転生選択・管理者ツール）/"evolve"（進化演出）/
+   "portrait"（必殺技の肖像）のいずれか、CSS側で用意した対応する枠のサイズ・角丸を選ぶ。
+   srcが無い（画像未実装等）ときは、ぼかし背景なしの素のimgタグだけを返す＝呼び出し元の
+   既存の分岐（src ? ... : ""）と同じ見た目のフォールバックを保つ。 */
+function kotonohaBlurredImgHtml(src, variant, imgClass, imgAttrs){
+  imgAttrs = imgAttrs || "";
+  if(!src) return `<img class="${imgClass}" ${imgAttrs}>`;
+  return `<span class="kotonoha-blur-wrap kotonoha-blur-wrap-${variant}">`
+    + `<span class="kotonoha-blur-bg" style="background-image:url('${src}')"></span>`
+    + `<img class="${imgClass}" src="${src}" ${imgAttrs}>`
+    + `</span>`;
+}
 /* ホーム画面に戻るたび（showHome）にチェックし、転生後の見た目段階が前回見せた段階
    （st.kotonohaRebirth.seenStage）より進んでいれば、演出つきの進化お知らせを挟む
    （教員の指示：ポケモンの進化演出のような、①「あれ………？」②「ことのはの様子がおかしい…」
@@ -4884,14 +4918,14 @@ function showKotonohaEvolveCutscene(st, onDone){
   const el = kotonohaEvolveOverlayEl();
   el.className = "kotonoha-evolve-overlay";
   el.innerHTML = `
-    <img class="kotonoha-evolve-img" src="${fromSrc}">
+    ${kotonohaBlurredImgHtml(fromSrc, "evolve", "kotonoha-evolve-img")}
     <p class="kotonoha-evolve-text">あれ………？</p>`;
   setTimeout(() => kotonohaEvolveStep2(st, fromSrc, toStage), KOTONOHA_EVOLVE_STEP_MS);
 }
 function kotonohaEvolveStep2(st, fromSrc, toStage){
   const el = kotonohaEvolveOverlayEl();
   el.innerHTML = `
-    <img class="kotonoha-evolve-img kotonoha-evolve-fret" src="${fromSrc}">
+    ${kotonohaBlurredImgHtml(fromSrc, "evolve", "kotonoha-evolve-img kotonoha-evolve-fret")}
     <p class="kotonoha-evolve-text">ことのはの様子が、おかしい…</p>`;
   setTimeout(() => kotonohaEvolveStep3(st, toStage), KOTONOHA_EVOLVE_STEP_MS);
 }
@@ -4951,7 +4985,7 @@ function kotonohaEvolveStep5(st, toStage){
   const el = kotonohaEvolveOverlayEl();
   el.className = "kotonoha-evolve-overlay kotonoha-evolve-clickable";
   el.innerHTML = `
-    <img class="kotonoha-evolve-img kotonoha-evolve-reveal" src="${toSrc}">
+    ${kotonohaBlurredImgHtml(toSrc, "evolve", "kotonoha-evolve-img kotonoha-evolve-reveal")}
     <p class="kotonoha-evolve-text kotonoha-evolve-congrats">おめでとう！<br>ことのはが、${esc(label)}に進化した！</p>
     ${moveMsg}
     ${unlockMsg}
@@ -5019,7 +5053,7 @@ function kotonohaRebirthFxSequence(st, fromSrc, fromIcon, onDone){
   el.innerHTML = `
     <div class="kotonoha-rebirth-ring"></div>
     ${fromSrc
-      ? `<img class="kotonoha-evolve-img kotonoha-rebirth-charge-img" src="${fromSrc}">`
+      ? kotonohaBlurredImgHtml(fromSrc, "evolve", "kotonoha-evolve-img kotonoha-rebirth-charge-img")
       : `<div class="kotonoha-evolve-icon-old kotonoha-rebirth-charge-img">${esc(fromIcon||"🥚")}</div>`}
     <p class="kotonoha-evolve-text kotonoha-rebirth-charge-text">ことのはが、まばゆい光につつまれていく……</p>`;
   setTimeout(() => kotonohaRebirthFxStep2(), KOTONOHA_REBIRTH_FX_CHARGE_MS);
@@ -5045,7 +5079,7 @@ function kotonohaRebirthFxStep4(){
   el.className = "kotonoha-evolve-overlay kotonoha-rebirth-fx kotonoha-evolve-clickable";
   el.innerHTML = `
     ${kotonohaRebirthSparkleHtml()}
-    <img class="kotonoha-evolve-img kotonoha-evolve-reveal kotonoha-rebirth-reveal-img" src="${toSrc}">
+    ${kotonohaBlurredImgHtml(toSrc, "evolve", "kotonoha-evolve-img kotonoha-evolve-reveal kotonoha-rebirth-reveal-img")}
     <p class="kotonoha-evolve-text kotonoha-evolve-congrats">転生した！<br>「${esc(label)}」として、卵から生まれ変わった！</p>
     <button class="btn" onclick="hideKotonohaEvolveOverlay(); kotonohaRebirthFxDone();">つづける</button>`;
 }
@@ -5318,7 +5352,7 @@ function kotonohaCardHtml(st){
       : `<div class="kotonoha-evo-next">次の進化まで<br>あと${nextXP - gainedNow}</div>`;
   }
   const iconHtml = rebirthActive
-    ? `<div class="kotonoha-icon-wrap"><img class="kotonoha-icon kotonoha-icon-img" src="${kotonohaRebirthImageSrc(st)}" onclick="showKotonohaFormPicker()" alt="${esc(KOTONOHA_IMAGE_LINE_LABEL[st.kotonohaRebirth.line])}">${rebirthEvoHtml}</div>`
+    ? `<div class="kotonoha-icon-wrap">${kotonohaBlurredImgHtml(kotonohaRebirthImageSrc(st), "icon", "kotonoha-icon kotonoha-icon-img", `onclick="showKotonohaFormPicker()" alt="${esc(KOTONOHA_IMAGE_LINE_LABEL[st.kotonohaRebirth.line])}"`)}${rebirthEvoHtml}</div>`
     : `<div class="kotonoha-icon ${typeClass}${override ? ' kotonoha-overridden' : ''}" onclick="showKotonohaFormPicker()">${disp.icon}</div>`;
   /* 「ことのはの称号」バッジ（旧「すがた」）。既存の分野レベルごとの「称号」（TITLES/titleOf、
      同じホーム画面内のshogo-badge）と混同しないよう、必ず「ことのはの称号」と明示する。 */
@@ -5513,7 +5547,7 @@ function showKotonohaRebirthConfirm(){
     <p class="note kotonoha-rebirth-note">🥚 転生先を自分で選ぶこともできます：</p>
     ${seenLines.map(line => `
       <div class="card menu-card" onclick="kotonohaRebirthConfirmed('${line}')">
-        <div class="menu-icon"><img class="kotonoha-icon kotonoha-icon-img kotonoha-icon-noframe" src="${kotonohaImageSrcForStage(line,0)}" alt="${esc(KOTONOHA_IMAGE_LINE_LABEL[line])}"></div>
+        <div class="menu-icon">${kotonohaBlurredImgHtml(kotonohaImageSrcForStage(line,0), "icon", "kotonoha-icon kotonoha-icon-img kotonoha-icon-noframe", `alt="${esc(KOTONOHA_IMAGE_LINE_LABEL[line])}"`)}</div>
         <div><h2>${esc(KOTONOHA_IMAGE_LINE_LABEL[line])}に転生する</h2></div>
       </div>`).join("")}
     <div class="btn-row"><button class="btn secondary" onclick="showHome()">やめる</button></div>` : ""}`;
@@ -9165,7 +9199,7 @@ function bossAnnounceFinisherName(){
   const comboTier = fx === "engoku" ? Math.min(4, Math.floor((b.kotonohaBurnPct||0) / 0.05)) : 0;
   const fxClass = [fx ? "fx-" + fx : null, comboTier > 0 ? "fx-engoku-c" + comboTier : null].filter(Boolean).join(" ") || null;
   const portraitSrc = fx ? kotonohaRebirthImageSrc(st) : null;
-  const portraitHtml = portraitSrc ? `<img class="finisher-line-portrait" src="${portraitSrc}" alt="">` : "";
+  const portraitHtml = portraitSrc ? kotonohaBlurredImgHtml(portraitSrc, "portrait", "finisher-line-portrait", `alt=""`) : "";
   showFinisherOverlay(`${portraitHtml}⚡${esc(finisherMoveName(st))}！`, "finisher-name-big", fxClass);
   setTimeout(() => { if(bossBattle === b && b._resolving) bossResolveFinisher(); }, FINISHER_NAME_MS);
 }
@@ -10623,7 +10657,7 @@ function kotonohaDevShowPreview(line, stageIdx){
         <h3 class="section">プレビュー</h3>
         <div class="kotonoha-row">
           <div class="kotonoha-icon-wrap">
-            <img class="kotonoha-icon kotonoha-icon-img" src="${src || ""}" alt="${esc(lineLabel)}">
+            ${kotonohaBlurredImgHtml(src, "icon", "kotonoha-icon kotonoha-icon-img", `alt="${esc(lineLabel)}"`)}
             ${isFinal ? `<div class="kotonoha-evo-next">最終進化系です</div>` : ""}
           </div>
           <div class="kotonoha-info">
