@@ -3018,6 +3018,16 @@
 }
 #ydComboPop{ position:absolute; top:-4px; right:2px; z-index:1; font-family:"Yu Mincho","YuMincho",serif; color:var(--yd-gold-bright); font-size:13px; opacity:0; transform:translateY(6px); transition:opacity .2s, transform .2s; }
 #ydComboPop.yd-show{ opacity:1; transform:translateY(0); }
+/* 「次の問題」の先読みプレビュー（上級だけ、教員の指示、2026-08-29〜：「次の問題は今の問題の
+   上に、小さめに表示」）。他の級ではydNextProblem側でdisplay:noneにして空のまま隠す。 */
+#ydNextPreview{
+  position:relative; z-index:1; font-family:"Yu Mincho","YuMincho","Hiragino Mincho ProN","MS PMincho",serif;
+  font-size:14px; line-height:1.4; color:var(--yd-paper); opacity:.55;
+  padding:0 10px; max-width:92%; word-break:break-all;
+}
+#ydNextPreview .yd-next-label{
+  font-size:10px; color:var(--yd-gold-bright); letter-spacing:2px; margin-right:4px; opacity:.85;
+}
 #ydProblemText{ position:relative; z-index:1; font-family:"Yu Mincho","YuMincho","Hiragino Mincho ProN","MS PMincho",serif; font-size:35px; line-height:1.4; color:var(--yd-paper); text-shadow:0 2px 4px rgba(0,0,0,0.9), 0 4px 16px rgba(0,0,0,0.7); padding:0 6px; white-space:nowrap; max-width:100%; }
 .yd-countdown-num{
   display:inline-block; font-size:clamp(52px, 16vw, 88px); font-weight:900;
@@ -3150,7 +3160,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.50</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.51</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -19781,9 +19791,16 @@ for(const bandKey of Object.keys(YD_BANDS)){
   const lvs = YD_BANDS[bandKey].lvs;
   YD_WORD_BY_BAND[bandKey] = lvs.flatMap(l => YD_WORD_BY_LV[l]);
 }
-/* 上級の「8問文章打ち」フェーズだけが使う、地の文も漢字なしの真の文章打ち用プール
-   （上級の出題範囲＝lv4〜10ぶんのYD_SENT_BY_LVを合流、約300問）。 */
-const YD_SENT_HARD_POOL = YD_BANDS.hard.lvs.flatMap(l => YD_SENT_BY_LV[l]);
+/* 「8問単語打ち→8問文章打ち→それ以後は全ての問題から（単語打ち）」の3段階進行にする級
+   （2026-08-29〜、教員の指示：最初は上級だけだったが、中級にも同じ進行を追加）。それ以外
+   （初級）は今までどおり、8問目以降はずっと文章打ち（表示だけ変わる、入力は単語読みのまま）。 */
+const YD_THREE_PHASE_BANDS = new Set(['mid', 'hard']);
+/* 3段階進行の級それぞれの「8問文章打ち」フェーズだけが使う、地の文も漢字なしの真の文章打ち用
+   プール（各級の出題範囲ぶんのYD_SENT_BY_LVを合流）。中級：約120問、上級：約300問。 */
+const YD_SENT_POOL_BY_BAND = {};
+for(const bandKey of YD_THREE_PHASE_BANDS){
+  YD_SENT_POOL_BY_BAND[bandKey] = YD_BANDS[bandKey].lvs.flatMap(l => YD_SENT_BY_LV[l]);
+}
 
 const YD_RANK_BASIC_COUNT = 5;
 function ydMakeRankSet(scale){
@@ -19915,6 +19932,7 @@ function ydRenderGameScreen(){
             <div id="ydLevelUpFloat"></div>
             <div class="yd-problem-area" id="ydProblemArea">
               <div id="ydComboPop">3連打!</div>
+              <div id="ydNextPreview"></div>
               <div id="ydProblemText"></div>
               <div id="ydRomajiLine"><span class="yd-typed"></span><span class="yd-rest"></span></div>
               <div id="ydFeedbackFloat"></div>
@@ -20040,17 +20058,19 @@ function ydRenderRanksScreen(bandKey){
 /* ===================================================================
    出題・進行ロジック（storyRun.ydを状態として使う）
    =================================================================== */
-/* 上級だけ、文章打ちフェーズ（8問目〜15問目、ydModeForCorrect参照）の間は地の文も漢字なしの
-   専用プール（YD_SENT_HARD_POOL）を使う。それ以外（単語打ちフェーズ、初級・中級の文章打ち）は
-   通常のYD_WORD_BY_BANDを使う。既出管理（used）は「上級の文章打ちフェーズ」だけ別キーにする
-   ＝配列の中身・添字がプールごとに違うため、使い回すと既出判定がずれてしまうことへの対応。
-   それ以外のフェーズは引き続きG.band.keyだけの1本にまとめ、単語打ち⇔文章打ち（初級・中級）や
-   上級の単語打ちフェーズ同士（8問目より前／16問目以降）をまたいでも重複を避けられるようにする。 */
-function ydPickNext(){
+/* 中級・上級だけ、文章打ちフェーズ（8問目〜15問目、ydModeForCorrect参照）の間は地の文も
+   漢字なしの専用プール（YD_SENT_POOL_BY_BAND）を使う。それ以外（単語打ちフェーズ、初級の
+   文章打ち）は通常のYD_WORD_BY_BANDを使う。既出管理（used）は「文章打ちフェーズ」だけ別キーに
+   する＝配列の中身・添字がプールごとに違うため、使い回すと既出判定がずれてしまうことへの対応。
+   それ以外のフェーズは引き続きG.band.keyだけの1本にまとめ、単語打ち⇔文章打ち（初級）や
+   3段階進行の級の単語打ちフェーズ同士（8問目より前／16問目以降）をまたいでも重複を避けられる
+   ようにする。bandKey・modeを引数で受け取る形にしてあるのは、ydNextProblem側で「次の問題」を
+   先読みするときに、実際に切り替わる先のモードを指定して1問引けるようにするため。 */
+function ydDrawFor(bandKey, mode){
   const G = storyRun.yd;
-  const useSentPool = (G.band.key === 'hard' && G.mode === 'sentence');
-  const arr = useSentPool ? YD_SENT_HARD_POOL : YD_WORD_BY_BAND[G.band.key];
-  const key = useSentPool ? 'hard_sentence' : G.band.key;
+  const useSentPool = YD_THREE_PHASE_BANDS.has(bandKey) && mode === 'sentence';
+  const arr = useSentPool ? YD_SENT_POOL_BY_BAND[bandKey] : YD_WORD_BY_BAND[bandKey];
+  const key = useSentPool ? (bandKey + '_sentence') : bandKey;
   if(!G.used[key]) G.used[key] = new Set();
   let avail = arr.map((_,i)=>i).filter(i => !G.used[key].has(i));
   if(avail.length === 0){ G.used[key] = new Set(); avail = arr.map((_,i)=>i); }
@@ -20058,28 +20078,58 @@ function ydPickNext(){
   G.used[key].add(idx);
   return arr[idx];
 }
-function ydNextProblem(){
-  const G = storyRun.yd;
-  const raw = ydPickNext();
-  let displayHTML;
-  const {before, word, yomiList, after, lv, origItem} = raw;
-  G.currentLv = lv;
-  ydUpdateHud();
+/* 出題1問ぶんの表示HTML・入力対象(かな)をrawとmodeから組み立てる、ydNextProblemと
+   ydRenderNextPreview共通のヘルパー（2026-08-29〜、先読みプレビュー追加にあわせて切り出した）。 */
+function ydBuildProblemDisplay(raw, bandKey, mode){
+  const {before, word, yomiList, after} = raw;
   const afterDisplay = after.replace(/。$/, '');
-  /* 入力対象（kanaTargets）は、上級の文章打ちフェーズだけ地の文もまるごと含めたかな入力に
-     なる（ydKataToHira等で変換）。それ以外（単語打ちフェーズ、初級・中級の文章打ち＝表示だけ
-     文全体をハイライトする見た目のモード）は、鉤括弧内の読みだけを入力対象にする
-     （教員の指示、2026-08-29〜：「8問単語、8問文章、それ以後は全ての問題から」）。 */
-  const realSentenceTyping = (G.band.key === 'hard' && G.mode === 'sentence');
-  if(G.mode === 'sentence'){
+  let displayHTML;
+  if(mode === 'sentence'){
     displayHTML = '【<span style="color:var(--yd-gold-bright)">' + esc(before) + esc(word) + esc(afterDisplay) + '</span>】';
   } else {
     const goldWord = '<span style="color:var(--yd-gold-bright)">' + esc(word) + '</span>';
     displayHTML = esc(before) + '【' + goldWord + '】' + esc(afterDisplay);
   }
+  /* 入力対象（kanaTargets）は、3段階進行の級の文章打ちフェーズだけ地の文もまるごと含めたかな
+     入力になる（ydKataToHira等で変換）。それ以外（単語打ちフェーズ、初級の文章打ち＝表示だけ
+     文全体をハイライトする見た目のモード）は、鉤括弧内の読みだけを入力対象にする
+     （教員の指示、2026-08-29〜：「8問単語、8問文章、それ以後は全ての問題から」）。 */
+  const realSentenceTyping = YD_THREE_PHASE_BANDS.has(bandKey) && mode === 'sentence';
   const kanaTargets = realSentenceTyping
     ? yomiList.map(y => ydFullwidthAlphaToHalf(ydKataToHira(before + y + after)).replace(/[^ぁ-んーa-z]/g, ''))
     : yomiList;
+  return {displayHTML, kanaTargets};
+}
+/* 上級だけ、今の問題の上に次の問題を小さく先読み表示する（教員の指示、2026-08-29〜）。
+   先読みした問題（G.nextRaw）は、次にydNextProblemが呼ばれたときにそのまま「今の問題」として
+   使い回す＝表示したとおりの問題が本当に次に出る。プレビューの文言は簡略に、鉤括弧の中の単語
+   だけ強調する（本番の出題と違って、モードごとの文章丸ごとハイライトはしない）。 */
+function ydRenderNextPreview(){
+  const G = storyRun.yd;
+  const el = ydEl('ydNextPreview');
+  if(!el) return;
+  if(G.band.key !== 'hard' || !G.nextRaw){
+    // display:noneで完全に取り除く（visibility:hiddenだと空欄の高さぶんが残り、初級・中級で
+    // 問題文の縦位置がずれてしまうため）。
+    el.innerHTML = '';
+    el.style.display = 'none';
+    return;
+  }
+  const {before, word, after} = G.nextRaw;
+  const afterDisplay = after.replace(/。$/, '');
+  el.innerHTML = '<span class="yd-next-label">つぎ</span>' + esc(before) + '【' + esc(word) + '】' + esc(afterDisplay);
+  el.style.display = '';
+}
+function ydNextProblem(){
+  const G = storyRun.yd;
+  /* 先読みしてあれば（G.nextRaw、直前の呼び出しでydRenderNextPreview用に引いておいたもの）
+     それをそのまま「今の問題」として使う。無ければ（初回など）その場で1問引く。 */
+  const raw = G.nextRaw || ydDrawFor(G.band.key, G.mode);
+  G.nextRaw = null;
+  const {lv, origItem} = raw;
+  G.currentLv = lv;
+  ydUpdateHud();
+  const {displayHTML, kanaTargets} = ydBuildProblemDisplay(raw, G.band.key, G.mode);
   let candidates = [];
   for(const kt of kanaTargets) candidates.push(...ydRomajiCandidatesFor(kt));
   candidates = Array.from(new Set(candidates));
@@ -20087,6 +20137,14 @@ function ydNextProblem(){
   ydEl('ydProblemText').innerHTML = displayHTML;
   ydFitProblemText();
   ydRenderRomaji();
+  /* 上級だけ、次の1問を先読みしておく。「次の問題が正解になる時点」の正解数
+     （今のG.stats.correct+1）から、そのときのモードを計算して引く＝表示中のプレビューと
+     実際に次に出る問題・モードが必ず一致する。 */
+  if(G.band.key === 'hard'){
+    const nextMode = ydModeForCorrect(G.band.key, G.stats.correct + 1);
+    G.nextRaw = ydDrawFor(G.band.key, nextMode);
+  }
+  ydRenderNextPreview();
 }
 /* 問題文が2行に折り返すと読みにくいので、実際の描画幅を見ながら1行に収まるまで
    フォントサイズを少しずつ縮める（教員の指示、2026-08-28〜）。 */
@@ -20157,14 +20215,14 @@ function ydUpdateHud(){
   if(hc) hc.textContent = G.stats.correct;
 }
 /* 今の正解数から「今どのモードにいるべきか」を計算する純粋関数（2026-08-29〜、教員の指示：
-   「8問単語、8問文章、それ以後は全ての問題から」＝上級だけ）。correctは単調に増え続ける
-   カウンタなので、しきい値を範囲で区切ることで一方向フラグに頼らず何度でも正しく判定できる。
-   初級・中級は今までどおり、8問目以降はずっと文章打ち（表示だけ変わる。入力対象はydNextProblem
-   側で常に鉤括弧内の読みだけに統一済み）。上級は8問目で文章打ち（真の文章まるごと入力、
-   YD_SENT_HARD_POOL）に入り、16問目でまた単語打ちに戻って以後はずっとそのまま＝上級の
-   全問（YD_WORD_BY_BAND.hard、4,107問）から出題され続ける。 */
+   「8問単語、8問文章、それ以後は全ての問題から」＝中級・上級。YD_THREE_PHASE_BANDS）。
+   correctは単調に増え続けるカウンタなので、しきい値を範囲で区切ることで一方向フラグに
+   頼らず何度でも正しく判定できる。初級は今までどおり、8問目以降はずっと文章打ち（表示だけ
+   変わる。入力対象はydNextProblem側で常に鉤括弧内の読みだけに統一済み）。中級・上級は
+   8問目で文章打ち（真の文章まるごと入力、YD_SENT_POOL_BY_BAND）に入り、16問目でまた
+   単語打ちに戻って以後はずっとそのまま＝その級の全問から出題され続ける。 */
 function ydModeForCorrect(bandKey, correct){
-  if(bandKey === 'hard'){
+  if(YD_THREE_PHASE_BANDS.has(bandKey)){
     if(correct < 8) return 'word';
     if(correct < 16) return 'sentence';
     return 'word';
@@ -20285,6 +20343,7 @@ function ydSelectBand(bandKey){
   const G = storyRun.yd;
   G.band = YD_BANDS[bandKey];
   G.awaitingStart = true;
+  G.nextRaw = null; // 前回プレイの先読みが残っていても持ち越さない
   ydEl('ydScreenTitle').classList.add('yd-hidden');
   ydEl('ydScreenResult').classList.add('yd-hidden');
   ydEl('ydTimerFill').style.width = '100%';
@@ -20298,6 +20357,7 @@ function ydSelectBand(bandKey){
   ydEl('ydRomajiLine').innerHTML = '<span class="yd-rest">' +
     esc('制限時間　' + (G.band.time/1000) + '秒') +
     '</span>';
+  ydRenderNextPreview(); // 準備画面では先読み前なので非表示にする
 }
 /* スペース/Enter・タップで即開始せず、「3・2・1」と数えてから始める
    （教員の指示、2026-08-28〜）。#ydProblemTextを一時的にカウントダウン表示に使う。
@@ -20334,6 +20394,7 @@ function ydBeginRound(){
   G.mode = 'word';
   G.cleanStreak = 0;
   G.used = {};
+  G.nextRaw = null;
   G.levelUpCounter = 0;
   G.stats = {correct:0, missKeys:0, correctKeys:0};
   ydPlayTaikoHit();
