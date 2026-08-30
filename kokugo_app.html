@@ -3219,7 +3219,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.69</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.70</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3564,6 +3564,23 @@ function detectSaveTampering(st){
   const ITEM_SAFETY_MARGIN = 300;
   if(totalItems > totalCorrect + ITEM_SAFETY_MARGIN){
     reasons.push(`所持アイテムの総数(${totalItems}個)が、これまでの正解数(${totalCorrect}問)に対して明らかに多すぎます`);
+  }
+
+  /* ③totalLevelUps自体が直接水増しされていないか（2026-08-31〜、実際に確認された改ざん事例への対応）。
+     ①は「レベルの割にtotalLevelUpsが少なすぎる」向きしか見ておらず、「st.lvには触れず
+     totalLevelUpsだけを直接大きくする」（st.bossTickets「10回ごとに1枚」・st.bonusExpの
+     理論上限＝loadStats()内の切り詰めが、どちらもtotalLevelUpsを基準に計算されているため、
+     これを底上げすれば両方の上限を一緒に引き上げられてしまう）という逆向きの改ざんを素通りしていた。
+     totalLevelUpsを増やす経路は①のコメントにある4つ＋hyaRecord（百人一首）の合計5関数だけで、
+     百人一首だけはst.lv[cat]ではなくst.hyakunin.totalOk（正解1問＝1レベル、上限なし）を
+     同時に1ずつ進める。よって正当なプレイでは常に
+     totalLevelUps ＝ sumLevelUps（st.lv由来）＋st.hyakunin.totalOk（百人一首由来）
+     が厳密に成り立つはずで、①と同じ安全マージンの考え方で、これを明らかに超える場合だけを見る。 */
+  const hyakuninOk = (st.hyakunin && st.hyakunin.totalOk) || 0;
+  const TOTAL_LEVEL_UPS_SAFETY_MARGIN = 50;
+  const maxPlausibleTotalLevelUps = sumLevelUps + hyakuninOk + TOTAL_LEVEL_UPS_SAFETY_MARGIN;
+  if((st.totalLevelUps || 0) > maxPlausibleTotalLevelUps){
+    reasons.push(`記録されたレベルアップ回数(${st.totalLevelUps||0})が、実際のレベル・百人一首正解数から求まる上限(${maxPlausibleTotalLevelUps})を明らかに超えています`);
   }
 
   return {tampered: reasons.length > 0, reasons};
