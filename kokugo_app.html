@@ -3219,7 +3219,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.66</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.67</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3531,29 +3531,36 @@ function unspentStatPoints(st){
 function detectSaveTampering(st){
   const reasons = [];
 
-  // ①ジャンルごとのレベルは、そのジャンルの正解数を超えられない
-  //  （record()は同じ呼び出しの中でしかst.lv[cat]++しない＝正解1回につきレベルは最大1しか
-  //   上がらない）。上回っていたら、そのジャンルの直接編集以外にありえない。
-  Object.keys(st.lv || {}).forEach(cat => {
-    const correct = (st.cats[cat] && st.cats[cat].c) || 0;
-    const levelUps = (st.lv[cat] || 1) - 1;
-    if(levelUps > correct){
-      reasons.push(`「${cat}」のレベル(Lv.${st.lv[cat]})が、そのジャンルの正解数(${correct}問)に対して多すぎます`);
-    }
-  });
-
-  // ②全ジャンル合計のレベルアップ数は、totalLevelUps（レベルアップした回数の通し番号）を
-  //  超えられない（①と同じ理由の、独立した裏付けチェック）。
+  /* ①全ジャンル合計のレベルアップ数は、totalLevelUps（レベルアップした回数の通し番号）を
+     超えられない。
+     「ジャンルごとのレベルは、そのジャンルの正解数(st.cats[cat].c)を超えられない」という
+     チェックは、当初これだけで十分だと考えていたが誤り：文節斬り（bgLevelUpShikibetsu、
+     識別＝shikibetsu）・言の葉つなぎ（ps genre-lv、品詞＝hinshi）・返り点をつける
+     （ktAddExtraLevelUps、kanbun_kt）はいずれも、通常の4択問題（record()／st.cats[cat].c）を
+     一切経由せずに、そのミニゲーム内の成績に応じてst.lv[cat]を直接（時には1問につき複数）
+     上げる。つまり「レベルはそのジャンルの4択正解数を超えない」は不正のいない生徒でも
+     普通に破られる。
+     一方、record()・ktAddExtraLevelUps・bgLevelUpShikibetsu・hyaRecord（百人一首）・
+     言の葉つなぎのレベルアップ処理は、実装がどれだけ違ってもst.lv[cat]++と同じ回数だけ
+     必ずst.totalLevelUpsも一緒に進める（st.bossTickets「10回ごとに1枚」の土台でもあるため、
+     ここだけは全実装で一貫して守られている）。よって「全ジャンルのレベルアップ合計 ≦
+     totalLevelUps」は、どのミニゲーム経由のレベルアップであっても成り立つ、より安全な
+     裏付けチェックとして、これ1本に絞った。 */
   const sumLevelUps = Object.keys(st.lv || {}).reduce((s,cat) => s + ((st.lv[cat]||1)-1), 0);
   if(sumLevelUps > (st.totalLevelUps || 0)){
     reasons.push(`全ジャンルのレベルアップ合計(${sumLevelUps})が、記録されたレベルアップ回数(${st.totalLevelUps||0})を超えています`);
   }
 
-  // ③所持アイテムの総数は、ボス撃破でしか手に入らない（入手率は正解数の数%程度）。
-  //  正解した問題数にどれだけ余裕を見ても届かないほどの所持数は、直接編集を強く疑ってよい
-  //  （ストーリー報酬など正解数と連動しない入手経路もあるため、ITEM_SAFETY_MARGINぶん余裕を見る）。
+  /* ②所持アイテムの総数は、ボス撃破でしか手に入らない（入手率は正解数の数%程度）。ボス戦の
+     抽選（rollBossEncounter）は通常の4択クイズ（nextQuestion）と百人一首（hyaNextQuestion）の
+     2箇所からしか呼ばれないため、正解数の基準にはtotalCorrectCount（20分野＋読解＋返り点系）に
+     百人一首の正解数（st.hyakunin.totalOk）も加える。文節斬り・言の葉つなぎ・野球で勝負！・
+     ボキャブラ・シューティング・YOMUの打はボス戦を抽選しないため、これらの正解数は基準に
+     含めない（含めても安全側だが、実態と合わないため）。
+     正解した問題数にどれだけ余裕を見ても届かないほどの所持数は、直接編集を強く疑ってよい
+     （ストーリー報酬など正解数と連動しない入手経路もあるため、ITEM_SAFETY_MARGINぶん余裕を見る）。 */
   const totalItems = Object.values(st.items || {}).reduce((s,n) => s + (n||0), 0);
-  const totalCorrect = totalCorrectCount(st);
+  const totalCorrect = totalCorrectCount(st) + ((st.hyakunin && st.hyakunin.totalOk) || 0);
   const ITEM_SAFETY_MARGIN = 300;
   if(totalItems > totalCorrect + ITEM_SAFETY_MARGIN){
     reasons.push(`所持アイテムの総数(${totalItems}個)が、これまでの正解数(${totalCorrect}問)に対して明らかに多すぎます`);
@@ -10750,6 +10757,29 @@ function kotonohaDevShowPreview(line, stageIdx){
 /* 起動時ガード：保存されている記録が、今開いているコードより新しいverで作られていたら、
    通常の起動（showPrologue/showHomeなど）を一切行わない。ここでアプリの初期化を止めることで、
    その後どこからもsaveStats()が呼ばれず、新しい記録が古い形式で上書きされる事故を防ぐ。 */
+/* 教員（管理者）による不正検出のバイパス（2026-〜、教員の指示：「自分（管理者）は基準から
+   逸脱することがある。その場合どう回避すればいいか」への対応）。
+   既存の「?devtool=kotonoha」（教員向け見た目確認ツール、下のbootApp参照）と同じ合言葉を
+   流用する。一度でもこのパラメータ付きでページを開けば、以後はこの端末で（パラメータなしで
+   開いても）不正セーブデータ検出のブロックを受けなくなる。教員自身が検証・デモ用にわざと
+   通常ではありえない数値のセーブデータを作った場合でも、この端末では遊べるようにするため。
+   注意：github版は誰でも閲覧できる公開リポジトリなので、このURLパラメータも devtool と同じく
+   「隠しているだけで、ソースを読めば分かる」程度の位置づけであり、暗号的な意味での秘密では
+   ない。不正検出そのものも「深く考えずに改ざんした生徒」をはじく目的（教員の指示どおり）で
+   あり、ソースコードを読み解けるレベルの生徒まで止める設計ではない――という前提を踏まえた
+   割り切り。教員側でこのバイパスを解除して検出画面を確認したい場合は、devtoolsのコンソールで
+   localStorage.removeItem("kokugoDrillDXAdminBypass_v1") を実行するか、プライベートウィンドウ
+   で開けばよい。 */
+const ADMIN_BYPASS_KEY = "kokugoDrillDXAdminBypass_v1";
+function isAdminMode(){
+  try{
+    if(new URLSearchParams(location.search).get('devtool') === 'kotonoha'){
+      localStorage.setItem(ADMIN_BYPASS_KEY, "1");
+      return true;
+    }
+    return localStorage.getItem(ADMIN_BYPASS_KEY) === "1";
+  }catch(e){ return false; }
+}
 function bootApp(){
   let savedTooNew = false;
   try{
@@ -10769,10 +10799,11 @@ function bootApp(){
   }
   /* 不正なセーブデータの検出（2026-〜、教員の指示）。detectSaveTampering参照。ここではloadStats()
      の戻り値を読み取るだけで、saveStats()は一切呼ばない（tamperedの場合にlocalStorageへ何も
-     書き戻さず、そのまま固定化してしまわないようにするため）。 */
+     書き戻さず、そのまま固定化してしまわないようにするため）。管理者（isAdminMode）はこの
+     ブロックの対象外にする。 */
   let tamperCheck = {tampered:false, reasons:[]};
   try{ tamperCheck = detectSaveTampering(loadStats()); }catch(e){}
-  if(tamperCheck.tampered){
+  if(tamperCheck.tampered && !isAdminMode()){
     const reasonsHtml = tamperCheck.reasons.map(r => `<li>${r}</li>`).join("");
     document.body.innerHTML = `
       <div style="max-width:480px;margin:60px auto;padding:24px;text-align:center;font-family:inherit;">
