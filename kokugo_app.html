@@ -3219,7 +3219,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.70</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.71</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3464,15 +3464,42 @@ function catExpPoints(lv){
    イベントIDをキーに、そのイベントで獲得した経験値を st.eventBonusEarned に積み上げる。
    rawKotonohaExp / kotonohaTotalXP の両方に totalEventBonusExp(st) として加算される。
    新しい期間限定イベントを追加するときは、EVENTS オブジェクトにエントリを追加し、
-   対象のゲームの「正解ハンドラ」で eventBonusAdd(st, eventId, amount) を呼ぶだけでよい。 */
+   対象のゲームの「正解ハンドラ」で eventBonusAdd(st, eventId, amount) を呼ぶだけでよい。
+   start（省略可）を指定すると、その日時になるまでeventActiveがfalseを返す＝バナー非表示・
+   経験値も入らない状態のまま、事前にコードだけ配布しておける（2026-08-31〜、教員の指示で
+   9月に3つのイベントを予約投入する必要が生じたため追加。それまではendしか無く「配信した
+   瞬間から有効」前提だったが、複数イベントを間を空けず順番に予約する運用には対応できなかった）。 */
 const EVENTS = {
   "2026_09_bunsetsu": {
     label: "言の刃 正解数イベント",
     end: new Date('2026-09-10T23:59:59'),
     desc: "言の刃（文節斬り）1問正解ごとに経験値が入る！\n文節切り＋1 ／ 単語切り＋1.5 ／ 二刀斬り＋2",
   },
+  "2026_09_vocabshooter": {
+    label: "ボキャブラ・シューティング 正解数イベント",
+    start: new Date('2026-09-11T00:00:00'),
+    end: new Date('2026-09-13T23:59:59'),
+    desc: "ボキャブラ・シューティング、1問正解ごとに経験値が入る！\n正解＋1",
+  },
+  "2026_09_yomunoda": {
+    label: "YOMUの打 正解数イベント",
+    start: new Date('2026-09-14T00:00:00'),
+    end: new Date('2026-09-20T23:59:59'),
+    desc: "YOMUの打、1問正解ごとに経験値が入る！\n初級＋0.5 ／ 中級＋1 ／ 上級＋2",
+  },
+  "2026_09_yojikoshien": {
+    label: "熱闘！四字熟語甲子園！ イベント",
+    start: new Date('2026-09-21T00:00:00'),
+    end: new Date('2026-09-27T23:59:59'),
+    desc: "熱闘！四字熟語甲子園！、ヒットを打つごとに経験値が入る！\nヒット＋1 ／ 勝利したとき＋5",
+  },
 };
-function eventActive(id){ return new Date() <= EVENTS[id].end; }
+function eventActive(id){
+  const ev = EVENTS[id];
+  const now = new Date();
+  if(ev.start && now < ev.start) return false;
+  return now <= ev.end;
+}
 function anyEventActive(){ return Object.keys(EVENTS).some(id => eventActive(id)); }
 function totalEventBonusExp(st){
   return Object.values(st.eventBonusEarned||{}).reduce((s,v) => s+(v||0), 0);
@@ -13214,7 +13241,15 @@ function storyBaseballAnswer(idx){
   if(correct){
     const hit = pickBaseballHitType();
     const { newBases, runsScored } = baseballAdvanceRunners(bb.bases, hit.bases);
-    bb.feedback = { ok:true, msg:`${hit.msg}${runsScored > 0 ? `　${runsScored}点入る！` : ""}`, lvup:r.lvup };
+    /* 期間限定イベント「2026_09_yojikoshien」（9/21〜9/27）：ミニゲーム版（beat.free）限定で、
+       ヒットを打つ（正解する）たびにイベント経験値＋1（教員の指示）。ストーリー本編の同じ
+       戦闘（beat.freeがfalse）では加算しない。 */
+    let eventMsg = "";
+    if(storyRun.curBeat.free && eventActive("2026_09_yojikoshien")){
+      const _st=loadStats(); eventBonusAdd(_st,"2026_09_yojikoshien",1); saveStats(_st);
+      eventMsg = "　🎉 イベント経験値+1";
+    }
+    bb.feedback = { ok:true, msg:`${hit.msg}${runsScored > 0 ? `　${runsScored}点入る！` : ""}${eventMsg}`, lvup:r.lvup };
     bb.bases = newBases;
     if(runsScored > 0){
       bb.totalRuns += runsScored;
@@ -13341,6 +13376,14 @@ function storyBaseballResolveFree(){
       xpTierReached = newTier * 5;
     }
   }
+  /* 期間限定イベント「2026_09_yojikoshien」（9/21〜9/27）：この試合に勝利した時点で
+     イベント経験値＋5（教員の指示）。storyBaseballResolveFreeはミニゲーム版（beat.free）が
+     勝利したときだけ呼ばれる関数なので、追加の条件分岐は不要。 */
+  let eventXpGained = 0;
+  if(eventActive("2026_09_yojikoshien")){
+    eventXpGained = 5;
+    eventBonusAdd(st, "2026_09_yojikoshien", eventXpGained);
+  }
   saveStats(st);
   const yojiLvStart = bb.yojiLvStart || 1;
   const yojiLvEnd = st.lv.yoji || 1;
@@ -13349,6 +13392,7 @@ function storyBaseballResolveFree(){
     : "";
   const recordHtml = isNewRecord ? `<p class="lvup-chip">🏅 自己ベスト更新！（${bb.totalRuns}点）</p>` : "";
   const xpHtml = xpGained > 0 ? `<p class="lvup-chip">🎉 自己ベスト${xpTierReached}点突破！　経験値＋${xpGained}</p>` : "";
+  const eventXpHtml = eventXpGained > 0 ? `<p class="lvup-chip">🎉 イベント経験値＋${eventXpGained}（勝利ボーナス）</p>` : "";
   screen.innerHTML = `
     <div class="card story-scene bb-victory">
       <div class="bb-victory-burst">🎉⚾✨🏆✨⚾🎉</div>
@@ -13357,6 +13401,7 @@ function storyBaseballResolveFree(){
       ${yojiLvUpHtml}
       ${recordHtml}
       ${xpHtml}
+      ${eventXpHtml}
       <div class="btn-row" style="justify-content:center">
         <button class="btn story-advance-btn" onclick="storyAdvance()">つづける</button>
       </div>
@@ -14039,6 +14084,12 @@ function vsHitOrb(o){
     vsSpawnPopup(o.x,o.y, `+${gain}` + (shoot.combo>1?`  ${shoot.combo}COMBO`:``), '#ffe66d');
     if(r.lvup) vsSpawnPopup(o.x,o.y-24, `語彙 Lv.${r.lv} UP!`, '#8ff0d6');
     if(r.evolved) vsSpawnPopup(o.x,o.y-48, `${r.evolved.icon} ${r.evolved.name}に進化！`, '#ffd24f');
+    /* 期間限定イベント「2026_09_vocabshooter」（9/11〜9/13）：正解（オーブ撃破）1回につき
+       イベント経験値＋1（文節斬りの2026_09_bunsetsuと同じ実装パターン）。 */
+    if(eventActive("2026_09_vocabshooter")){
+      const _st=loadStats(); eventBonusAdd(_st,"2026_09_vocabshooter",1); saveStats(_st);
+      vsSpawnPopup(o.x,o.y-70, `🎉 +1 イベント経験値`, '#ffd24f');
+    }
     vsBeep(1200,0.12,'sine',0.15);
     shoot.orbs.forEach(other=>{ if(!other.hit){ other.hit=true; other.gone=true; } });
     shoot.bullets = [];
@@ -20624,6 +20675,13 @@ function ydOnCorrect(){
      直近正答率には混ぜない（野球ミニゲーム等と同じ方針）。correct=trueのときしか
      呼ばないので、diffLvを不用意に下げることもない。 */
   const bandKey = G.band.key;
+  /* 期間限定イベント「2026_09_yomunoda」（9/14〜9/20）：正解1回につき、級ごとに
+     イベント経験値が入る（初級＋0.5／中級＋1／上級＋2、教員の指示）。 */
+  if(eventActive("2026_09_yomunoda")){
+    const ydEventAmt = {easy:0.5, mid:1, hard:2}[bandKey] || 0;
+    const _st=loadStats(); eventBonusAdd(_st,"2026_09_yomunoda",ydEventAmt); saveStats(_st);
+    feedbackQueue.push(`🎉 +${ydEventAmt} イベント経験値`);
+  }
   const levelUpEvery = YD_LEVEL_UP_EVERY[bandKey] || 1;
   G.levelUpCounter = (G.levelUpCounter||0) + 1;
   let shouldLevelUp = false;
