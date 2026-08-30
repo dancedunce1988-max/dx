@@ -3219,7 +3219,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.65</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.66</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3513,6 +3513,53 @@ function totalEarnedStatPoints(st){
 }
 function unspentStatPoints(st){
   return Math.max(0, totalEarnedStatPoints(st) - spentStatPoints(st));
+}
+/* ================= 不正セーブデータの検出（2026-〜、教員の指示）=================
+   「ジャンルレベルに対して経験値やアイテムが明らかに多すぎる」状態を検出し、該当する場合は
+   起動そのものをブロックする（bootApp参照）。
+   既存のst.bossTickets・st.bonusExp・配分ずみステータスポイントの理論上限切り詰め
+   （loadStats()内、2026-08-24〜／2026-08-27〜）は「毎回の読み込み時に静かに補正するだけで、
+   そのまま遊べてしまう」方式。今回はそれとは別に、record()の仕組み上ぜったいに起こりえない
+   はずの数値（正解した覚えのないレベルアップ・正解数をはるかに超えるアイテム所持）を検出した
+   場合に、プレイそのものを止める仕組みを追加する。
+   「明らかに不正な人だけをはじく」方針（教員の指示）のため、しきい値には十分な安全マージンを
+   持たせ、正当なプレイでは絶対に踏まないラインだけを見る（誤検知よりも見逃しを優先する）。
+   チェック対象をst.lv・st.cats・st.itemsだけに絞っているのは、st.bossTickets・st.bonusExp・
+   配分ずみステータスポイントはloadStats()が呼ばれるたびに理論上限へ揃えてしまうため、
+   ここで改めてブロック判定してもまず発火せず対象に含める意味が薄いため（loadStats()より後で
+   このチェックを呼ぶ設計とセットで、あえて対象外にしている）。 */
+function detectSaveTampering(st){
+  const reasons = [];
+
+  // ①ジャンルごとのレベルは、そのジャンルの正解数を超えられない
+  //  （record()は同じ呼び出しの中でしかst.lv[cat]++しない＝正解1回につきレベルは最大1しか
+  //   上がらない）。上回っていたら、そのジャンルの直接編集以外にありえない。
+  Object.keys(st.lv || {}).forEach(cat => {
+    const correct = (st.cats[cat] && st.cats[cat].c) || 0;
+    const levelUps = (st.lv[cat] || 1) - 1;
+    if(levelUps > correct){
+      reasons.push(`「${cat}」のレベル(Lv.${st.lv[cat]})が、そのジャンルの正解数(${correct}問)に対して多すぎます`);
+    }
+  });
+
+  // ②全ジャンル合計のレベルアップ数は、totalLevelUps（レベルアップした回数の通し番号）を
+  //  超えられない（①と同じ理由の、独立した裏付けチェック）。
+  const sumLevelUps = Object.keys(st.lv || {}).reduce((s,cat) => s + ((st.lv[cat]||1)-1), 0);
+  if(sumLevelUps > (st.totalLevelUps || 0)){
+    reasons.push(`全ジャンルのレベルアップ合計(${sumLevelUps})が、記録されたレベルアップ回数(${st.totalLevelUps||0})を超えています`);
+  }
+
+  // ③所持アイテムの総数は、ボス撃破でしか手に入らない（入手率は正解数の数%程度）。
+  //  正解した問題数にどれだけ余裕を見ても届かないほどの所持数は、直接編集を強く疑ってよい
+  //  （ストーリー報酬など正解数と連動しない入手経路もあるため、ITEM_SAFETY_MARGINぶん余裕を見る）。
+  const totalItems = Object.values(st.items || {}).reduce((s,n) => s + (n||0), 0);
+  const totalCorrect = totalCorrectCount(st);
+  const ITEM_SAFETY_MARGIN = 300;
+  if(totalItems > totalCorrect + ITEM_SAFETY_MARGIN){
+    reasons.push(`所持アイテムの総数(${totalItems}個)が、これまでの正解数(${totalCorrect}問)に対して明らかに多すぎます`);
+  }
+
+  return {tampered: reasons.length > 0, reasons};
 }
 function loadStats(){
   try{
@@ -10717,6 +10764,31 @@ function bootApp(){
         <p style="line-height:1.7;">保存されている記録は、これより新しいバージョンの「知識ドリルDX」で作られたものです。<br>
         このままだと記録が正しく読み込めないため、起動を停止しました。<br><br>
         最新版のページを開き直してください。</p>
+      </div>`;
+    return;
+  }
+  /* 不正なセーブデータの検出（2026-〜、教員の指示）。detectSaveTampering参照。ここではloadStats()
+     の戻り値を読み取るだけで、saveStats()は一切呼ばない（tamperedの場合にlocalStorageへ何も
+     書き戻さず、そのまま固定化してしまわないようにするため）。 */
+  let tamperCheck = {tampered:false, reasons:[]};
+  try{ tamperCheck = detectSaveTampering(loadStats()); }catch(e){}
+  if(tamperCheck.tampered){
+    const reasonsHtml = tamperCheck.reasons.map(r => `<li>${r}</li>`).join("");
+    document.body.innerHTML = `
+      <div style="max-width:480px;margin:60px auto;padding:24px;text-align:center;font-family:inherit;">
+        <div style="font-size:2.4rem;margin-bottom:12px;">🚫</div>
+        <h2 style="margin-bottom:14px;">記録に不正な数値が見つかりました</h2>
+        <p style="line-height:1.7;">この端末に保存されている記録には、通常のプレイでは起こりえない数値が含まれているため、起動を停止しました。<br><br>
+        心当たりがない場合や、直し方がわからない場合は、先生に相談してください。<br>
+        記録をリセットすれば、また最初から遊べるようになります。</p>
+        <details style="text-align:left;margin-top:16px;font-size:0.85em;color:#666;">
+          <summary style="cursor:pointer;">検出内容（先生への相談用）</summary>
+          <ul style="line-height:1.7;">${reasonsHtml}</ul>
+        </details>
+        <button onclick="if(confirm('この端末の記録をすべて削除して、最初からやり直します。よろしいですか？')){ localStorage.removeItem('${STORE_KEY}'); localStorage.removeItem('${BATTLE_STORE_KEY}'); localStorage.removeItem('${BOSS_BATTLE_STORE_KEY}'); location.reload(); }"
+          style="margin-top:18px;padding:10px 20px;font-size:1em;border:none;border-radius:8px;background:#b5651d;color:#fff;cursor:pointer;">
+          この端末の記録をリセットする
+        </button>
       </div>`;
     return;
   }
