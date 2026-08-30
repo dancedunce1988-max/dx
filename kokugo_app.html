@@ -2131,6 +2131,36 @@
     position:absolute; top:0; left:0; width:100%; height:100%;
     pointer-events:none; z-index:8;
   }
+  #psApp #psBombBanner{
+    position:absolute;
+    left:50%; top:14px;
+    transform:translateX(-50%) scale(0.6);
+    max-width:92%;
+    background:linear-gradient(135deg,#ff6b3d,#d92b2b);
+    color:#fff;
+    font-weight:900;
+    font-size:0.95em;
+    line-height:1.4;
+    text-align:center;
+    white-space:pre-line;
+    padding:10px 16px;
+    border-radius:14px;
+    box-shadow:0 8px 20px rgba(0,0,0,0.35), inset 0 0 0 2px rgba(255,255,255,0.55);
+    text-shadow:0 1px 2px rgba(0,0,0,0.4);
+    z-index:20;
+    opacity:0;
+    pointer-events:none;
+  }
+  #psApp #psBombBanner.show{
+    animation: psBombBannerPop 2.2s ease-out forwards;
+  }
+  @keyframes psBombBannerPop{
+    0%{ opacity:0; transform:translateX(-50%) scale(0.6); }
+    12%{ opacity:1; transform:translateX(-50%) scale(1.06); }
+    22%{ opacity:1; transform:translateX(-50%) scale(1); }
+    85%{ opacity:1; transform:translateX(-50%) scale(1); }
+    100%{ opacity:0; transform:translateX(-50%) scale(0.92); }
+  }
   #psApp .psFloatScore{
     position:absolute;
     font-weight:bold;
@@ -2462,6 +2492,7 @@
     #psApp .psBombAlert{ min-height:1.3em; font-size:0.68em; writing-mode:horizontal-tb; }
     #psApp #psBombIcon{ width:44px; height:44px; font-size:1.1em; }
     #psApp #psBombGaugeWrap{ width:10px; height:44px; }
+    #psApp #psBombBanner{ font-size:0.72em; padding:7px 10px; top:6px; }
     #psApp #psLegend{ margin-top:6px; }
     #psApp .psLegendItem{ font-size:0.7em; padding:3px 9px; }
     #psApp #psRuleText{ font-size:0.68em; }
@@ -3188,7 +3219,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.59</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.60</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -11641,7 +11672,7 @@ const STORY_SIDEQUESTS = {
     icon: "🍃",
     beats: [
       {type:"line", speaker:"ことのは", text:"今度は「言の葉つなぎ」だよ。同じ品詞の言葉を3つ以上つなげて消していく、スコアアタックのゲームなんだ。"},
-      {type:"line", speaker:"ことのは", text:"色のヒントはないから、言葉の意味や形をよく見て判断してね。7つ以上つなげるとボムタイムに突入したり、特別な葉が出てきたりするよ！"},
+      {type:"line", speaker:"ことのは", text:"色のヒントはないから、言葉の意味や形をよく見て判断してね。7つ以上つなげるとボムが起動したり、特別な葉が出てきたりするよ！"},
       {type:"partsOfSpeech"},
     ],
     epilogue: "「おつかれさま！ また挑戦して、自己ベストをのばしてね。」",
@@ -16589,7 +16620,7 @@ function storyRenderBunsetsu(beat, idx){
 /* ================= サブクエスト「言の葉つなぎ」（parts-of-speech beat、2026-〜） =================
    独立版（言の葉つなぎ/index.html）を、文節斬り（bg/BG_接頭辞）と同じ方針でほぼそのまま移植。
    識別子はすべてps/PS_接頭辞を付けて衝突を避けている。内部ロジック（品詞判定・アイテム・
-   ボムタイム・転成名詞ボーナス等）は独立版と一字一句同じ。DOM要素は骨格HTMLをstoryRender
+   ボムの起動/爆発・転成名詞ボーナス等）は独立版と一字一句同じ。DOM要素は骨格HTMLをstoryRender
    PartsOfSpeechで一度だけ描いたあと、ps$(id)で毎回document.getElementByIdする（文節斬りの
    bg$と同じ考え方）。以下の3点だけ独立版から手を入れている。
    1) 独立版はページ全体がゲームそのものだったため、盤面サイズをwindow.innerWidth/Height
@@ -16740,7 +16771,6 @@ function psScoreMult(){ return PS_LEVEL_SCORE_MULT[psCurrentLevel] || 1; }
 const PS_GENRE_LV_THRESHOLD = { 1:1000, 2:1000, 3:900, 4:900, 5:800, 6:800, 7:500 };
 const PS_GENRE_LV_CAP = 20;
 
-const PS_BOMB_TIME_MS = 20000;
 const PS_DOUBLE_SCORE_MS = 10000;
 const PS_ITEM_CHANCE = 0.06;
 /* アイテムの葉（⏰・🔻）の出現率は、そのラウンドの得点が経験値上限
@@ -16775,7 +16805,8 @@ let psWordPools = [];
 let psBoard = [];
 let psScore = 0, psBestCombo = 0, psTimeLeft = 60, psTimerId = null;
 let psPlaying = false, psDragging = false, psChain = [];
-let psBombModeActive = false, psBombEndTime = 0, psBombGaugeRAF = null;
+let psBombArmed = false;
+let psBombAttemptsLeft = 0;
 let psDoubleScoreActive = false, psDoubleScoreTimer = null;
 let psBonusActive = false, psBonusTimerId = null, psBonusCorrectName = null;
 let psBonusRewardActive = false, psBonusRewardTimer = null;
@@ -16786,7 +16817,7 @@ let psHandlers = null;
 let psAppEl=null, psBoardWrapEl=null, psSvgEl=null, psPopupLayerEl=null,
     psScoreValEl=null, psTimeValEl=null, psComboValEl=null, psLevelValEl=null,
     psOverlayEl=null, psOverlayCardEl=null, psLegendEl=null,
-    psBombIconEl=null, psBombAlertEl=null, psBombGaugeWrapEl=null, psBombGaugeFillEl=null, psBombGaugeLabelEl=null,
+    psBombIconEl=null, psBombAlertEl=null, psBombBannerEl=null, psBombGaugeWrapEl=null, psBombGaugeFillEl=null, psBombGaugeLabelEl=null,
     psPlayAreaEl=null, psBombPanelEl=null,
     psBonusOverlayEl=null, psBonusWordEl=null, psBonusTimerFillEl=null, psBonusChoicesEl=null, psBonusResultEl=null;
 
@@ -16806,6 +16837,7 @@ function psCacheDom(){
   psLegendEl = ps$("psLegend");
   psBombIconEl = ps$("psBombIcon");
   psBombAlertEl = ps$("psBombAlert");
+  psBombBannerEl = ps$("psBombBanner");
   psBombGaugeWrapEl = ps$("psBombGaugeWrap");
   psBombGaugeFillEl = ps$("psBombGaugeFill");
   psBombGaugeLabelEl = ps$("psBombGaugeLabel");
@@ -16827,7 +16859,6 @@ function psClearIntroTimers(){
    確実に止める。bgStopLoopと同じ役割。 */
 function psStopLoop(){
   if(psTimerId){ clearInterval(psTimerId); psTimerId = null; }
-  if(psBombGaugeRAF){ cancelAnimationFrame(psBombGaugeRAF); psBombGaugeRAF = null; }
   if(psDoubleScoreTimer){ clearTimeout(psDoubleScoreTimer); psDoubleScoreTimer = null; }
   if(psBonusTimerId){ clearTimeout(psBonusTimerId); psBonusTimerId = null; }
   if(psBonusRewardTimer){ clearTimeout(psBonusRewardTimer); psBonusRewardTimer = null; }
@@ -16841,7 +16872,8 @@ function psStopLoop(){
   }
   psPlaying = false;
   psDragging = false;
-  psBombModeActive = false;
+  psBombArmed = false;
+  psBombAttemptsLeft = 0;
   psDoubleScoreActive = false;
   psBonusActive = false;
   psBonusRewardActive = false;
@@ -17333,28 +17365,18 @@ function psTriggerBombEffect(chainCells){
 }
 
 function psUpdateBombUI(){
-  psBombIconEl.classList.toggle("active", psBombModeActive);
-  psBombGaugeWrapEl.classList.toggle("visible", psBombModeActive);
-  if(!psBombModeActive) psBombGaugeLabelEl.textContent = "";
+  psBombIconEl.classList.toggle("active", psBombArmed);
 }
 
-function psStopBombMode(){
-  psBombModeActive = false;
-  if(psBombGaugeRAF){ cancelAnimationFrame(psBombGaugeRAF); psBombGaugeRAF = null; }
+// サブクエストを離れる／終了するときにボムの起動状態をリセットする
+function psResetBombState(){
+  psBombArmed = false;
+  psBombAttemptsLeft = 0;
   psUpdateBombUI();
-}
-
-function psBombGaugeTick(now){
-  if(!psBombModeActive) return;
-  const remain = Math.max(0, psBombEndTime - now);
-  const frac = Math.min(1, remain / PS_BOMB_TIME_MS);
-  psBombGaugeFillEl.style.height = (frac*100) + "%";
-  psBombGaugeLabelEl.textContent = Math.ceil(remain/1000) + "秒";
-  if(remain <= 0){
-    psStopBombMode();
-    return;
-  }
-  psBombGaugeRAF = requestAnimationFrame(psBombGaugeTick);
+  psBombAlertEl.classList.remove("show");
+  psBombAlertEl.textContent = "";
+  psBombBannerEl.classList.remove("show");
+  psBombBannerEl.textContent = "";
 }
 
 function psShowBombAlert(text){
@@ -17364,24 +17386,41 @@ function psShowBombAlert(text){
   psBombAlertEl.classList.add("show");
 }
 
-function psStartBombMode(){
-  psBombModeActive = true;
-  psBombEndTime = performance.now() + PS_BOMB_TIME_MS;
-  if(psBombGaugeRAF){ cancelAnimationFrame(psBombGaugeRAF); psBombGaugeRAF = null; }
-  psUpdateBombUI();
-  psBombGaugeRAF = requestAnimationFrame(psBombGaugeTick);
-  psShowBombAlert("ボムが起動！");
+// 盤面中央に大きく表示する、見やすいボム告知バナー
+function psShowBombBanner(text){
+  psBombBannerEl.textContent = text;
+  psBombBannerEl.classList.remove("show");
+  void psBombBannerEl.offsetWidth;
+  psBombBannerEl.classList.add("show");
 }
 
-function psExtendBombMode(extraMs){
-  if(!psBombModeActive) return;
-  psBombEndTime += extraMs;
+// 7チェーン以上つなげた瞬間に呼ばれる：ボムを起動し、残り時間を止める。2回以内に猶予がある。
+function psArmBomb(){
+  psBombArmed = true;
+  psBombAttemptsLeft = 2;
+  psUpdateBombUI();
+  psShowBombBanner("爆弾が発動し、制限時間が一時ストップ。\n2回以内に、7チェーン以上つなごう！");
+}
+
+// 起動中に本物のボムを爆発させたときに呼ばれる：起動状態を解除し、残り時間を再び動かす
+function psDisarmBomb(){
+  psBombArmed = false;
+  psBombAttemptsLeft = 0;
+  psUpdateBombUI();
+}
+
+// 起動中に2回以内に7チェーン以上つなげられなかったときに呼ばれる：ボムを解除し、残り時間を再び動かす
+function psFailBomb(){
+  psBombArmed = false;
+  psBombAttemptsLeft = 0;
+  psUpdateBombUI();
+  psShowBombAlert("ボム解除…時間再開！");
 }
 
 function psPopChain(){
   const n = psChain.length;
   const sevenPlus = n >= 7;
-  const isBomb = sevenPlus && psBombModeActive;
+  const isBomb = sevenPlus && psBombArmed;
 
   const gotTenseiMeishi = psChain.some(c=> !c.isItem && c.word && PS_TENSEI_MEISHI.has(c.word));
   if(gotTenseiMeishi) psActivateDoubleScore();
@@ -17429,11 +17468,16 @@ function psPopChain(){
   }
 
   if(isBomb){
-    psExtendBombMode(10000);
-    psShowItemPopup(psChain, "ボムタイム+10秒！", "psItemPopupBomb");
+    psDisarmBomb();
   } else if(sevenPlus){
-    psStartBombMode();
-    psShowItemPopup(psChain, "💣ボムタイム突入！", "psItemPopupBomb");
+    psArmBomb();
+  } else if(psBombArmed){
+    psBombAttemptsLeft--;
+    if(psBombAttemptsLeft <= 0){
+      psFailBomb();
+    } else {
+      psShowBombAlert(`ボム継続中…あと${psBombAttemptsLeft}回`);
+    }
   }
 
   const bombCells = isBomb ? psCollectBombCells(psChain) : [];
@@ -17501,6 +17545,7 @@ function psCollapseAndRefill(){
 }
 
 function psTick(){
+  if(psBombArmed) return; // ボム起動中は残り時間を止める
   psTimeLeft--;
   psTimeValEl.textContent = psTimeLeft;
   if(psTimeLeft <= 10){ psTimeValEl.classList.add("warn"); }
@@ -17535,9 +17580,7 @@ function psStartGame(level){
   psLevelValEl.textContent = String(level);
   psPlaying = false;
   psChain = []; psDragging = false;
-  psStopBombMode();
-  psBombAlertEl.classList.remove("show");
-  psBombAlertEl.textContent = "";
+  psResetBombState();
   psStopDoubleScore();
   psStopBonusReward();
   psBonusActive = false;
@@ -17635,7 +17678,7 @@ function psShowLevelSelect(){
   }).join("");
   psOverlayCardEl.innerHTML = `
     <h2>言の葉つなぎ</h2>
-    <p class="psLevelDesc">⏰は+5秒、🔻は画面上の品詞を1種類消す特別な葉。7チェーン以上つなげると20秒間のボムタイムに突入するよ！</p>
+    <p class="psLevelDesc">⏰は+5秒、🔻は画面上の品詞を1種類消す特別な葉。7チェーン以上つなげるとボムが起動して時間ストップ！2回以内にもう一度7チェーン以上つなげると爆発するよ！</p>
     <div class="psBtnCol">${buttonsHtml}</div>
   `;
   psOverlayEl.classList.remove("hidden");
@@ -17659,7 +17702,7 @@ function psEndGame(){
   psClearHighlight();
   psChain = [];
   psUpdateLine();
-  psStopBombMode();
+  psResetBombState();
   psStopDoubleScore();
   psStopBonusReward();
 
@@ -17755,6 +17798,7 @@ function psSkeletonHtml(){
       <div id="psBoardWrap">
         <svg id="psLineSvg"></svg>
         <div id="psPopupLayer"></div>
+        <div id="psBombBanner"></div>
       </div>
 
       <div id="psBombPanel">
@@ -17766,7 +17810,7 @@ function psSkeletonHtml(){
     </div>
 
     <div id="psLegend"></div>
-    <p id="psRuleText">同じ品詞の葉を3つ以上つなげると消えるよ！ ⏰(+5秒)・🔻(画面上の品詞を1種類消す)は、どの品詞ともつなげられる特別な葉。7つ以上つなげると、その瞬間から20秒間「ボムタイム」に突入！ボムタイム中にもう一度7チェーン以上つなげると本物のボムが爆発して周りも巻き込むよ！</p>
+    <p id="psRuleText">同じ品詞の葉を3つ以上つなげると消えるよ！ ⏰(+5秒)・🔻(画面上の品詞を1種類消す)は、どの品詞ともつなげられる特別な葉。7つ以上つなげるとボムが起動して残り時間がストップ！2回以内にもう一度7チェーン以上つなげると本物のボムが爆発して周りも巻き込むよ！2回以内につなげられないとボムは解除されて時間が再び動き出すよ！</p>
 
     <div id="psOverlay">
       <div id="psOverlayCard"></div>
