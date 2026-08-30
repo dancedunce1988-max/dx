@@ -3219,7 +3219,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.64</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.65</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -18951,6 +18951,10 @@ const KT_PROBLEMS = [
    解禁進捗が既に使っているキーなので、混ざらないよう別名にした。百人一首のst.groupUnlock.hyakunin
    と同じ「CAT_KEYではない専用キー」パターン）。 */
 function ktQ(idx){ return "返点:" + KT_PROBLEMS[idx].white; }
+/* この問題で置くべき返り点の数（教員の指示、2026-〜：「返り点をつける」は他ジャンルより
+   時間がかかるので、全問正解なら通常の+1ではなくこの数ぶんレベルを上げる。ktJudge参照）。
+   「一レ」のような合体マークも、1文字につき1回返り点を置いた（＝1個）と数える。 */
+function ktMarkCount(idx){ return KT_PROBLEMS[idx].chars.filter(c => c.mark).length; }
 
 let _ktGroupsCache = null;
 function ktGroups(){
@@ -19446,6 +19450,25 @@ function ktChipPointerDown(e){
   document.addEventListener("pointerup", up);
 }
 
+/* record()は1回の呼び出しで必ず+1レベルなので、「置いた返り点の数ぶんレベルを上げる」ためには
+   record()自体を複数回呼ぶのではなく（そうすると正誤記録・直近正答率・まとまり解禁の集計まで
+   問題1問なのに複数回分カウントされてしまう）、record()内部のレベルアップ処理だけをここで
+   指定回数分だけ追加実行する。呼び出し側でrecord()を1回呼んで得たst2に対してその場で
+   追加分を適用し、まとめて1回だけsaveStatsする想定（ktJudge参照）。 */
+function ktAddExtraLevelUps(st, cat, count){
+  let evolved = null;
+  for(let i=0; i<count; i++){
+    if(st.lv[cat] >= MAX_CAT_LV) break;
+    const before = titleOf(st.lv[cat]);
+    st.lv[cat]++;
+    st.totalLevelUps = (st.totalLevelUps||0) + 1;
+    if(st.totalLevelUps % 10 === 0) st.bossTickets = (st.bossTickets||0) + 1;
+    const after = titleOf(st.lv[cat]);
+    if(after !== before) evolved = after;
+  }
+  return {evolved, lv: st.lv[cat]};
+}
+
 function ktJudge(){
   const p = KT_PROBLEMS[KT.qi];
   const gen = KT.renderGen;
@@ -19515,12 +19538,23 @@ function ktJudge(){
       const r = record("kanbun_kt", {q: ktQ(KT.qi)}, true, elapsedMs, {skipRecentAcc:true});
       const st2 = loadStats();
       const groupUnlocked = ktCheckGroupUnlock(st2, KT.qi, true);
+      /* 全問正解（ミスなし）なら、通常の+1ではなく「この問題で置いた返り点の数」ぶんレベルを
+         上げる（教員の指示）。record()自身がすでに+1ぶん上げているので、残り(markCount-1)ぶんを
+         ktAddExtraLevelUpsで追加する。 */
+      const markCount = ktMarkCount(KT.qi);
+      let finalLv = r.lv, finalEvolved = r.evolved;
+      if(r.lvup && markCount > 1){
+        const extraLv = ktAddExtraLevelUps(st2, "kanbun_kt", markCount - 1);
+        finalLv = extraLv.lv;
+        if(extraLv.evolved) finalEvolved = extraLv.evolved;
+      }
       saveStats(st2);
       if(r.lvup){
         const extra = document.createElement("div");
         extra.className = "kt-msg good";
         extra.style.marginTop = "4px";
-        extra.textContent = r.evolved ? `返り点をつける Lv.${r.lv} UP！${r.evolved.icon} ${r.evolved.name}になりました` : `返り点をつける Lv.${r.lv} UP！`;
+        const gainLabel = markCount > 1 ? `（返り点${markCount}個ぶん）` : "";
+        extra.textContent = finalEvolved ? `返り点をつける Lv.${finalLv} UP！${gainLabel}${finalEvolved.icon} ${finalEvolved.name}になりました` : `返り点をつける Lv.${finalLv} UP！${gainLabel}`;
         msg.after(extra);
       }
       if(groupUnlocked){
