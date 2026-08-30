@@ -3219,7 +3219,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.68</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.69</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -5232,14 +5232,13 @@ const SEIKI_ATK_MULT = [1.5, 1.5, 2, 2.5, 3];
    「一度HPがなくなり切っても復活。回復率は伝説級で100%になるが、それまでなだらかに徐々に
    強くなる」）。他の系統の階段状カーブ（ENGOKU_BURN_PCT・SEIKI_ATK_MULT）と同じ配列直接指定。 */
 const KODAI_REVIVE_PCT = [0.25, 0.4, 0.6, 0.8, 1.0];
-/* 古代龍「輪廻転生」の復活1回あたりの攻撃力加算値（少年体〜伝説級の5段階、教員の指示：
-   「復活したタイミングで、自分の攻撃力をそのボス戦のみプラスする（かけざんではない）。
-   2回目以降も加算していき、だんだん強くなる」）。聖輝atkMultPerUse（掛け算・永続）とは違い、
-   こちらは加点方式（buffPerStack系と同じ加算）。既存のatkBuffアイテム（15〜70）と同じ
-   スケール感で、復活のたびに積み上がっていく想定のため控えめな値から始める。
-   kotonohaKodaiRevive側でb.kotonohaKodaiAtkBuffAmountに毎回この段階の値を足し込み続ける
-   （そのボス戦の間だけ有効、上限なし）。 */
-const KODAI_REVIVE_ATK_BUFF = [20, 30, 45, 60, 80];
+/* 古代龍「輪廻転生」の復活1回あたりの攻撃力加算量は、固定の段階表ではなく「復活した瞬間の
+   自分の攻撃力ステータスそのもの」を使う（教員の指示、2026-08-31〜：「自分の攻撃力
+   （ステータス）を加算するように。1回目で攻撃力は2倍になる計算」）。1回目の復活で
+   b.kotonohaKodaiAtkBuffAmountに現在の攻撃力ぶんが足されるので、合計は元の攻撃力の
+   ちょうど2倍になる。2回目以降も、その時点の攻撃力ぶんをそのつど加算していくだけで
+   （かけ算はしない）、直前までの上乗せぶんが次の加算量に複利で効くこともない。
+   詳細はkotonohaKodaiRevive参照。 */
 /* 未来龍「超進化」の1発動あたり全ステータス倍率（少年体〜伝説級の5段階、2026-08-29〜、教員の指示：
    「必殺を打つと全ステータスを倍率で高める。上昇率は伝説級で3倍になるが、それまでなだらかに
    徐々に強くなる」）。聖輝のatkMultPerUseと同じ「発動のたびに複利で掛かる永続バフ」方式を踏襲し、
@@ -5315,10 +5314,9 @@ const KOTONOHA_LINE_MOVES = {
      再度発動すればもう一度だけ復活できる）。ダメージ自体は他系統と同じ共通カーブ（3〜5倍）。 */
   kodai: {
     names:["太古の目覚め","古代の咆哮","悠久の顕現","太古龍の覇道","古代龍絶技・輪廻転生"],
-    desc:"発動しておくと、そのボス戦中にHPが0になっても一度だけ「古代龍」が復活を果たしてHPが回復する（回復率は少年体でひかえめ、伝説級で100%）。復活するたびに自分の攻撃力がそのボス戦の間だけ上がり（かけ算ではなく加算、2回目以降も積み上がる）、まちがえても2回連続までなら必殺技ゲージは崩れない",
+    desc:"発動しておくと、そのボス戦中にHPが0になっても一度だけ「古代龍」が復活を果たしてHPが回復する（回復率は少年体でひかえめ、伝説級で100%）。復活するたびに、そのときの自分の攻撃力ぶんがそのボス戦の間だけ上乗せされ（かけ算ではなく加算、初回で攻撃力がちょうど2倍になる計算。2回目以降もそのつど積み上がる）、まちがえても2回連続までなら必殺技ゲージは崩れない",
     powerMult: kotonohaLinePower,
     revivePct: t => KODAI_REVIVE_PCT[Math.round(t*4)],
-    atkBuffPerRevive: t => KODAI_REVIVE_ATK_BUFF[Math.round(t*4)],
   },
   /* 未来龍「超進化」（2026-08-29〜、教員の指示）：発動のたびに自分の全ステータス（HP・攻撃力・
      防御力・素早さ・運）を掛け算で倍化する（重ねがけ・永続、上限なし、聖輝と同じ複利方式）。
@@ -9033,7 +9031,7 @@ function startBossBattle(boss, allGenre, hyakuninMode){
     kotonohaShigenMoveLine:null, kotonohaFinisherUseLine:false,
     kotonohaBurnPct:0, kotonohaMeienUseCount:0, kotonohaGraceMissStreak:0,
     kotonohaKodaiReviveReady:false, kotonohaKodaiRevivePct:0, kotonohaMiraiStatMultStack:1,
-    kotonohaKodaiAtkBuffPerRevive:0, kotonohaKodaiAtkBuffAmount:0,
+    kotonohaKodaiAtkBuffAmount:0,
   };
   if(boss.preemptiveHalfHp){
     // 丸刈りのさるちゃん専用：戦闘開始と同時に、プレイヤーのHPを半分にする先制攻撃を受ける
@@ -9396,8 +9394,6 @@ function bossResolveFinisher(){
   if(lm && lm.def.revivePct){
     b.kotonohaKodaiReviveReady = true;
     b.kotonohaKodaiRevivePct = lm.def.revivePct(lm.t);
-    // 復活したとき（kotonohaKodaiRevive）に加算する攻撃力を、ここで段階ぶんだけ確定しておく
-    if(lm.def.atkBuffPerRevive) b.kotonohaKodaiAtkBuffPerRevive = lm.def.atkBuffPerRevive(lm.t);
     reviveMsg = `<div class="boss-turn">🏛️古代龍の力が目覚めた……この戦い、力尽きても一度だけ復活できる！</div>`;
   }
   /* 未来龍「超進化」：発動のたびに自分の全ステータスを掛け算で倍化する（重ねがけ・永続、上限なし、
@@ -9734,7 +9730,9 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
           b.bossHp = Math.max(0, b.bossHp - dealt);
         }
       }else{
-        dealt = randInt(BOSS_PLAYER_DMG[0], BOSS_PLAYER_DMG[1]) + ps.atk * STAT_ATK_PER_POINT + (b.atkBuffTurns > 0 ? b.atkBuffAmount : 0) + (b.kotonohaKodaiAtkBuffAmount||0);
+        // 古代龍「輪廻転生」：復活のたびに積み上がる攻撃力ステータスの上乗せぶん（kotonohaKodaiRevive
+        // 参照）。攻撃力そのものへの加算なので、STAT_ATK_PER_POINTの掛け算より内側（ps.atkと同格）で足す。
+        dealt = randInt(BOSS_PLAYER_DMG[0], BOSS_PLAYER_DMG[1]) + (ps.atk + (b.kotonohaKodaiAtkBuffAmount||0)) * STAT_ATK_PER_POINT + (b.atkBuffTurns > 0 ? b.atkBuffAmount : 0);
         // さびついたノコギリ等の「次のターンだけ攻撃力n倍」効果（攻撃力依存の倍率、既存の加算式atkBuffとは別枠）
         if(b.atkMultTurns > 0) dealt = Math.round(dealt * b.atkMultAmount);
         // 聖輝「光の高揚」：発動ずみぶんの永続倍率（複利、上限なし）。通常攻撃にも乗る
@@ -10172,10 +10170,14 @@ function kotonohaKodaiRevive(){
   b.kotonohaKodaiReviveReady = false;
   const pct = b.kotonohaKodaiRevivePct || KODAI_REVIVE_PCT[0];
   b.playerHp = Math.max(1, Math.round(b.playerMaxHp * pct));
-  /* 復活するたびに攻撃力を加算する（かけ算ではない、教員の指示）。そのボス戦の間だけ有効な
-     b.kotonohaKodaiAtkBuffAmountに毎回積み上げていくので、2回目以降の復活でもリセットされず
-     だんだん強くなる（bossGrade側の通常攻撃ダメージ計算で加算される）。 */
-  const atkGain = b.kotonohaKodaiAtkBuffPerRevive || KODAI_REVIVE_ATK_BUFF[0];
+  /* 復活するたびに、そのときの自分の攻撃力ステータスぶんを加算する（かけ算ではない、教員の
+     指示：「自分の攻撃力（ステータス）を加算するように。1回目で攻撃力は2倍になる計算」）。
+     bossEffStats()はkotonohaKodaiAtkBuffAmountを一切参照しないため、ここで加算するのは
+     常に「このボーナスを含まない、その時点の攻撃力」＝毎回ベースの攻撃力ぶんだけを単純に
+     積み増す。そのボス戦の間だけ有効なb.kotonohaKodaiAtkBuffAmountに毎回足し込んでいくので、
+     2回目以降の復活でもリセットされず、直前までの上乗せぶんが次の加算量に複利で効くことも
+     ない（bossGrade側の通常攻撃ダメージ計算で加算される）。 */
+  const atkGain = bossEffStats(loadStats()).atk;
   b.kotonohaKodaiAtkBuffAmount = (b.kotonohaKodaiAtkBuffAmount||0) + atkGain;
   b._resolving = true;
   refreshBossHpBars();
