@@ -280,14 +280,19 @@
   .kws-panelCol{ flex:1 1 300px; max-width:460px; }
   .kws-sentencePrompt{ font-size:1rem; text-align:center; max-width:420px; line-height:1.6; padding:8px 12px; background:var(--card); border:1px solid var(--line); border-radius:8px; }
   .kws-sentencePrompt .kws-blank{ font-weight:bold; text-decoration:underline; text-underline-offset:3px; }
-  .kws-stageRow{ display:flex; align-items:flex-end; justify-content:center; gap:8px; width:100%; }
+  .kws-stageRow{ display:flex; align-items:center; justify-content:center; width:100%; padding:0 44px 44px; }
   .kws-stage{ position:relative; touch-action:none; margin:0 auto; }
   .kws-stage canvas{ width:100%; height:100%; display:block; background:#fff; border:2px solid var(--ink); border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.08); touch-action:none; }
-  .kws-sideBtn{
-    flex:none; width:74px; font-size:.7rem; padding:10px 4px; border-radius:8px; border:1px solid var(--line);
-    background:var(--card); cursor:pointer; font-family:inherit; line-height:1.3; margin-bottom:0;
+  .kws-cornerBtn{
+    position:absolute; writing-mode:vertical-rl; text-orientation:upright; white-space:nowrap;
+    font-size:.72rem; padding:10px 6px; border-radius:8px; border:1px solid var(--line);
+    background:var(--card); cursor:pointer; font-family:inherit; line-height:1.5; letter-spacing:.04em; z-index:2;
   }
-  .kws-sideBtn.primary{ background:var(--ok); color:#fff; border-color:var(--ok); font-weight:bold; }
+  .kws-cornerBtn.primary{ background:var(--ok); color:#fff; border-color:var(--ok); font-weight:bold; }
+  .kws-cornerBtn--undo{ right:100%; top:0; }
+  .kws-cornerBtn--reset{ right:100%; }
+  .kws-cornerBtn--next{ left:100%; transform:translateY(-50%); }
+  .kws-cornerBtn--judge{ top:100%; right:0; }
   .kws-status{ font-size:.95rem; min-height:22px; font-weight:bold; text-align:center; }
   .kws-status.ok{ color:var(--ok); }
   .kws-status.ng{ color:var(--ng); }
@@ -3293,7 +3298,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.77</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.78</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -7150,6 +7155,16 @@ function kwsRenderSentencePrompt(id){
   document.getElementById('kwsSentencePrompt').innerHTML = html || '（例文なし）';
 }
 
+function kwsUpdateCornerButtonPositions(charCount){
+  const resetBtn = document.getElementById('kwsBtnReset');
+  const nextBtn = document.getElementById('kwsBtnRandom');
+  // 「全部消す」は1文字目の下端（1文字なら枠の下端）に付ける
+  resetBtn.style.top = '';
+  resetBtn.style.bottom = `${100 - 100 / charCount}%`;
+  // 「次の問題を出す」は最後の文字（2文字なら2文字目）の縦中央に付ける
+  nextBtn.style.top = `${100 - 50 / charCount}%`;
+}
+
 function kwsLoadKanji(id){
   kwsCurrentId = id;
   const kdata = kwsData[id];
@@ -7158,6 +7173,7 @@ function kwsLoadKanji(id){
   kwsCanvas.height = KWS_CHAR_CELL_PX * kdata.charCount;
   kwsStageEl.style.width = `min(90vw, ${KWS_STAGE_MAX_WIDTH_PX}px)`;
   kwsStageEl.style.aspectRatio = `1 / ${kdata.charCount}`;
+  kwsUpdateCornerButtonPositions(kdata.charCount);
 
   kwsShowFirstStroke = false;
   kwsUpdateFirstStrokeButtonLabel();
@@ -7227,11 +7243,13 @@ function kwsScreenHtml(){
       <div class="kws-mainCol">
         <div class="kws-sentencePrompt" id="kwsSentencePrompt"></div>
         <div class="kws-stageRow">
-          <button id="kwsBtnJudge" class="kws-sideBtn primary">これで判定する</button>
           <div class="kws-stage" id="kwsStage">
             <canvas id="kwsCanvas" width="520" height="520"></canvas>
+            <button id="kwsBtnUndo" class="kws-cornerBtn kws-cornerBtn--undo">一画戻す</button>
+            <button id="kwsBtnReset" class="kws-cornerBtn kws-cornerBtn--reset">全部消す</button>
+            <button id="kwsBtnRandom" class="kws-cornerBtn kws-cornerBtn--next">次の問題を出す</button>
+            <button id="kwsBtnJudge" class="kws-cornerBtn kws-cornerBtn--judge primary">自動採点する</button>
           </div>
-          <button id="kwsBtnRandom" class="kws-sideBtn">次の問題を出す</button>
         </div>
         <div class="kws-status" id="kwsStatus">書いてみよう</div>
         <div class="kws-charBreakdown" id="kwsCharBreakdown"></div>
@@ -7242,8 +7260,6 @@ function kwsScreenHtml(){
           <span><i style="background:#b9c2cc"></i>正解の形（判定後に表示）</span>
         </div>
         <div class="kws-controls">
-          <button id="kwsBtnReset">消してやり直す</button>
-          <button id="kwsBtnUndo">一画戻す</button>
           <button id="kwsBtnFirstStroke">1画目を表示</button>
         </div>
         <p class="kws-credit">
