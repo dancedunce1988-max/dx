@@ -246,8 +246,10 @@
   .kws-layout{ display:flex; gap:20px; align-items:flex-start; flex-wrap:wrap; justify-content:center; width:100%; }
   .kws-mainCol{ display:flex; flex-direction:column; align-items:center; gap:12px; flex:1 1 300px; }
   .kws-panelCol{ flex:1 1 300px; max-width:460px; }
+  .kws-promptRow{ display:flex; align-items:center; justify-content:center; gap:8px; }
   .kws-sentencePrompt{ font-size:1rem; text-align:center; max-width:420px; line-height:1.6; padding:8px 12px; background:var(--card); border:1px solid var(--line); border-radius:8px; }
   .kws-sentencePrompt .kws-blank{ font-weight:bold; text-decoration:underline; text-underline-offset:3px; }
+  .kws-gradeBadge{ font-size:.7rem; color:var(--sub); white-space:nowrap; flex-shrink:0; }
   .kws-stageRow{ display:flex; align-items:center; justify-content:center; width:100%; padding:0 44px 44px; }
   .kws-stage{ position:relative; touch-action:none; margin:0 auto; }
   .kws-stage canvas{ width:100%; height:100%; display:block; background:#fff; border:2px solid var(--ink); border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.08); touch-action:none; }
@@ -3261,7 +3263,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.83</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.84</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -7211,6 +7213,16 @@ function kwsRenderSentencePrompt(id){
   document.getElementById('kwsSentencePrompt').innerHTML = html || '（例文なし）';
 }
 
+// 今の問題の学年めやす。elemモードは配当学年（小学n年生）、examモードは高校入試向けの
+// 頻出漢字なので固定で「中学校」と表示する（examの元データにgrade自体が無い）。
+function kwsGradeLabelFor(id){
+  if(kwsMode === 'elem') return `小学${kwsData[id].grade}年生`;
+  return '中学校';
+}
+function kwsRenderGradeBadge(id){
+  document.getElementById('kwsGradeBadge').textContent = kwsGradeLabelFor(id);
+}
+
 // 文字ごとに「一画戻す」（マスの左上）と「全部消す」（マスの左下）を1組ずつ並べる
 function kwsRenderPerCharButtons(charCount){
   const wrap = document.getElementById('kwsPerCharBtns');
@@ -7247,6 +7259,7 @@ function kwsLoadKanji(id){
   kwsShowFirstStroke = false;
   kwsUpdateFirstStrokeButtonLabel();
   kwsRenderSentencePrompt(id);
+  kwsRenderGradeBadge(id);
   kwsResetInk();
   document.querySelectorAll('.kws-kanjiSelect button').forEach(b => {
     b.classList.toggle('active', b.dataset.id === id);
@@ -7321,7 +7334,10 @@ function kwsScreenHtml(){
   return `
     <div class="kws-layout">
       <div class="kws-mainCol">
-        <div class="kws-sentencePrompt" id="kwsSentencePrompt"></div>
+        <div class="kws-promptRow">
+          <div class="kws-sentencePrompt" id="kwsSentencePrompt"></div>
+          <span class="kws-gradeBadge" id="kwsGradeBadge"></span>
+        </div>
         <div class="kws-stageRow">
           <div class="kws-stage" id="kwsStage">
             <canvas id="kwsCanvas" width="520" height="520"></canvas>
