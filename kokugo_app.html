@@ -3288,7 +3288,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.74</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.75</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -7325,13 +7325,28 @@ function kwsWireScreen(){
     });
 }
 
-/* ---- 画面：練習画面（レベル選択は廃止し、ホームから直接ここへ入る） ---- */
+/* ---- 画面：練習画面（レベル選択は廃止し、ホームから直接ここへ入る） ----
+   途中で何が起きても「ホームへ」ボタンだけは必ず出す（try/catchで囲み、失敗時は
+   エラー内容を画面にそのまま表示する。これが無いと、初期化の途中で例外が起きた場合に
+   ボタンが表示されないまま止まり、ホームに戻れなくなる恐れがあるため）。 */
 function startKanjiWriteStroke(){
-  kwsEnsureData();
-  screen.innerHTML = kwsScreenHtml();
-  kwsWireScreen();
-  kwsLoadKanji(Object.keys(kwsData).sort((a, b) => kwsData[a].rank - kwsData[b].rank)[0]);
-  kwsUpdateResultLogDisplay();
+  try {
+    kwsEnsureData();
+    screen.innerHTML = kwsScreenHtml();
+    kwsWireScreen();
+    const firstId = Object.keys(kwsData).sort((a, b) => kwsData[a].rank - kwsData[b].rank)[0];
+    if(!firstId) throw new Error('KANJI_WRITE_STROKE_DATAが読み込まれていません（kanji_write_stroke_data.jsの読み込みに失敗した可能性があります）');
+    kwsLoadKanji(firstId);
+    kwsUpdateResultLogDisplay();
+  } catch(err){
+    console.error('漢字の書き学習（手書き判定版）の読み込みに失敗しました', err);
+    screen.innerHTML = `
+      <h3 class="section">✍️ 漢字の書き取り学習</h3>
+      <p class="note">読み込み中にエラーが発生しました。ページを再読み込みしてからもう一度お試しください。</p>
+      <p class="note" style="color:var(--ng)">${esc(String((err && err.message) || err))}</p>
+      <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>
+    `;
+  }
 }
 
 function showKanjiWriteElemMenu(){
