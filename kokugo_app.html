@@ -261,7 +261,8 @@
      色は新しい:rootを増やさず、アプリ本体の--ok/--ng/--card/--line/--sub/--inkをそのまま使う
      （.feedback.okのような複合セレクタの流儀に倣い、ok/ng/active/primary/correct/incorrect
      などの状態クラスは必ず.kws-*と組み合わせてのみ効かせているので、既存CSSと衝突しない）。 */
-  .kws-note{ font-size:.8rem; color:var(--sub); text-align:center; line-height:1.7; margin-bottom:14px; }
+  .kws-note{ font-size:.8rem; color:var(--sub); line-height:1.7; margin-bottom:14px; }
+  .kws-note ul{ list-style:disc; padding-left:1.4em; }
   .kws-listControls{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-bottom:10px; }
   .kws-listControls button{ font-size:.85rem; padding:8px 16px; border-radius:8px; border:1px solid var(--line); background:var(--card); cursor:pointer; font-family:inherit; }
   .kws-listControls button.active{ border-color:var(--ok); color:var(--ok); font-weight:bold; }
@@ -289,20 +290,14 @@
     background:var(--card); cursor:pointer; font-family:inherit; line-height:1.5; letter-spacing:.04em; z-index:2;
   }
   .kws-cornerBtn.primary{ background:var(--ok); color:#fff; border-color:var(--ok); font-weight:bold; }
-  .kws-cornerBtn--undo{ right:100%; top:0; }
-  .kws-cornerBtn--reset{ right:100%; }
   .kws-cornerBtn--next{ left:100%; transform:translateY(-50%); }
   .kws-cornerBtn--judge{ top:100%; right:0; writing-mode:horizontal-tb; padding:8px 14px; }
   .kws-status{ font-size:.95rem; min-height:22px; font-weight:bold; text-align:center; }
   .kws-status.ok{ color:var(--ok); }
   .kws-status.ng{ color:var(--ng); }
-  .kws-strokeInfo{ font-size:.8rem; color:var(--sub); }
   .kws-charBreakdown{ font-size:.8rem; text-align:center; }
   .kws-charBreakdown .ok{ color:var(--ok); font-weight:bold; }
   .kws-charBreakdown .ng{ color:var(--ng); font-weight:bold; }
-  .kws-legend{ display:flex; gap:16px; font-size:.75rem; color:var(--sub); flex-wrap:wrap; justify-content:center; }
-  .kws-legend span{ display:inline-flex; align-items:center; gap:5px; }
-  .kws-legend i{ width:14px; height:14px; border-radius:50%; display:inline-block; }
   .kws-controls{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
   .kws-controls button{ font-size:.85rem; padding:9px 16px; border-radius:8px; border:1px solid var(--line); background:var(--card); cursor:pointer; font-family:inherit; }
   .kws-controls button.primary{ background:var(--ok); color:#fff; border-color:var(--ok); font-weight:bold; }
@@ -3298,7 +3293,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.79</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.80</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6840,10 +6835,6 @@ function kwsSetStatus(text, cls){
   el.className = 'kws-status' + (cls ? (' ' + cls) : '');
 }
 
-function kwsUpdateStrokeInfo(){
-  const kdata = kwsData[kwsCurrentId];
-  document.getElementById('kwsStrokeInfo').textContent = `「${kdata.kanji}」／画数：${kdata.strokes.length}画`;
-}
 
 // targetStrokes（対象の画の配列）に対して、drawnGroups（描いた線を1本ずつの点列にした配列）が
 // どれだけ合っているかを見る、汎用の判定コア。単語全体にも、1文字分だけにも同じロジックを使う。
@@ -7109,8 +7100,16 @@ function kwsWireCustomControls(){
   });
 }
 
-function kwsResetInk(){
-  kwsCompletedStrokes = [];
+// charIndex省略時は全体（両方の文字）を消す。charIndexを指定すると、その文字の画だけを消す。
+function kwsResetInk(charIndex){
+  if(typeof charIndex === 'number'){
+    const kdata = kwsData[kwsCurrentId];
+    kwsCompletedStrokes = kwsCompletedStrokes.filter(
+      strokePts => kwsCharIndexForStroke(strokePts, kdata.charCount) !== charIndex
+    );
+  } else {
+    kwsCompletedStrokes = [];
+  }
   kwsCurrentPath = [];
   kwsDrawing = false;
   kwsJudged = false;
@@ -7122,9 +7121,10 @@ function kwsResetInk(){
   kwsRender();
 }
 
-// 直前に描いた1画（ペンを上げ下げした1本）だけを取り消す。判定後に押した場合は、
+// 直前に描いた1画（ペンを上げ下げした1本）だけを取り消す。charIndexを指定すると、
+// その文字の中で最後に描かれた1画だけを取り消す。判定後に押した場合は、
 // 判定結果の表示（○×スタンプ・正解の形の表示など）だけ解除し、それ以外の書いた線は残す。
-function kwsUndoStroke(){
+function kwsUndoStroke(charIndex){
   if(kwsDrawing) return;
   if(kwsCompletedStrokes.length === 0) return;
   if(kwsJudged){
@@ -7135,7 +7135,17 @@ function kwsUndoStroke(){
     document.getElementById('kwsCharBreakdown').innerHTML = '';
     kwsSetStatus('書いてみよう');
   }
-  kwsCompletedStrokes.pop();
+  if(typeof charIndex === 'number'){
+    const kdata = kwsData[kwsCurrentId];
+    for(let i = kwsCompletedStrokes.length - 1; i >= 0; i--){
+      if(kwsCharIndexForStroke(kwsCompletedStrokes[i], kdata.charCount) === charIndex){
+        kwsCompletedStrokes.splice(i, 1);
+        break;
+      }
+    }
+  } else {
+    kwsCompletedStrokes.pop();
+  }
   kwsRender();
 }
 
@@ -7156,13 +7166,32 @@ function kwsRenderSentencePrompt(id){
 }
 
 function kwsUpdateCornerButtonPositions(charCount){
-  const resetBtn = document.getElementById('kwsBtnReset');
   const nextBtn = document.getElementById('kwsBtnRandom');
-  // 「全部消す」は1文字目の下端（1文字なら枠の下端）に付ける
-  resetBtn.style.top = '';
-  resetBtn.style.bottom = `${100 - 100 / charCount}%`;
   // 「次の問題を出す」は最後の文字（2文字なら2文字目）の縦中央に付ける
   nextBtn.style.top = `${100 - 50 / charCount}%`;
+}
+
+// 文字ごとに「一画戻す」（マスの左上）と「全部消す」（マスの左下）を1組ずつ並べる
+function kwsRenderPerCharButtons(charCount){
+  const wrap = document.getElementById('kwsPerCharBtns');
+  wrap.innerHTML = '';
+  for(let c = 0; c < charCount; c++){
+    const undoBtn = document.createElement('button');
+    undoBtn.className = 'kws-cornerBtn';
+    undoBtn.textContent = '一画戻す';
+    undoBtn.style.right = '100%';
+    undoBtn.style.top = `${(c / charCount) * 100}%`;
+    undoBtn.addEventListener('click', () => kwsUndoStroke(c));
+    wrap.appendChild(undoBtn);
+
+    const resetBtn = document.createElement('button');
+    resetBtn.className = 'kws-cornerBtn';
+    resetBtn.textContent = '全部消す';
+    resetBtn.style.right = '100%';
+    resetBtn.style.bottom = `${100 - ((c + 1) / charCount) * 100}%`;
+    resetBtn.addEventListener('click', () => kwsResetInk(c));
+    wrap.appendChild(resetBtn);
+  }
 }
 
 function kwsLoadKanji(id){
@@ -7175,9 +7204,9 @@ function kwsLoadKanji(id){
   kwsStageEl.style.aspectRatio = `1 / ${kdata.charCount}`;
   kwsUpdateCornerButtonPositions(kdata.charCount);
 
+  kwsRenderPerCharButtons(kdata.charCount);
   kwsShowFirstStroke = false;
   kwsUpdateFirstStrokeButtonLabel();
-  kwsUpdateStrokeInfo();
   kwsRenderSentencePrompt(id);
   kwsResetInk();
   document.querySelectorAll('.kws-kanjiSelect button').forEach(b => {
@@ -7231,10 +7260,13 @@ function kwsUpdateResultLogDisplay(){
 function kwsScreenHtml(){
   return `
     <h3 class="section">✍️ 漢字の書き取り学習</h3>
-    <p class="note kws-note">
-      高校入試で頻出の漢字（全200問）を、実際に手書きして自動判定で学習します。経験値には影響しません。<br>
-      2文字の言葉は縦にマスが並び、文字ごとに判定します。全部の文字が○のときだけ、全体も○になります。
-    </p>
+    <div class="note kws-note">
+      <ul>
+        <li>大きく、丁寧に書いてください。</li>
+        <li>画数が間違っているものは、×となります。画と画をつなげて書かないこと。</li>
+        <li>自動採点は、間違うこともあります。字の形をきちんと確認しましょう。</li>
+      </ul>
+    </div>
     <div class="kws-listControls">
       <button id="kwsBtnShowList">一覧表示</button>
     </div>
@@ -7245,20 +7277,13 @@ function kwsScreenHtml(){
         <div class="kws-stageRow">
           <div class="kws-stage" id="kwsStage">
             <canvas id="kwsCanvas" width="520" height="520"></canvas>
-            <button id="kwsBtnUndo" class="kws-cornerBtn kws-cornerBtn--undo">一画戻す</button>
-            <button id="kwsBtnReset" class="kws-cornerBtn kws-cornerBtn--reset">全部消す</button>
+            <div id="kwsPerCharBtns"></div>
             <button id="kwsBtnRandom" class="kws-cornerBtn kws-cornerBtn--next">次の問題を出す</button>
             <button id="kwsBtnJudge" class="kws-cornerBtn kws-cornerBtn--judge primary">自動採点する</button>
           </div>
         </div>
         <div class="kws-status" id="kwsStatus">書いてみよう</div>
         <div class="kws-charBreakdown" id="kwsCharBreakdown"></div>
-        <div class="kws-strokeInfo" id="kwsStrokeInfo"></div>
-        <div class="kws-legend">
-          <span><i style="background:#3b6fd1"></i>書いている線（判定前）</span>
-          <span><i style="background:#5fb3a3"></i>1画目の始筆（ヒント）</span>
-          <span><i style="background:#b9c2cc"></i>正解の形（判定後に表示）</span>
-        </div>
         <div class="kws-controls">
           <button id="kwsBtnFirstStroke">1画目を表示</button>
         </div>
@@ -7332,8 +7357,6 @@ function kwsWireScreen(){
   });
 
   document.getElementById('kwsBtnJudge').addEventListener('click', kwsJudgeWhole);
-  document.getElementById('kwsBtnReset').addEventListener('click', kwsResetInk);
-  document.getElementById('kwsBtnUndo').addEventListener('click', kwsUndoStroke);
   document.getElementById('kwsBtnFirstStroke').addEventListener('click', kwsToggleFirstStroke);
   document.getElementById('kwsBtnShowList').addEventListener('click', kwsToggleKanjiList);
   document.getElementById('kwsBtnRandom').addEventListener('click', kwsLoadRandomKanji);
