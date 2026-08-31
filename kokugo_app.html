@@ -254,6 +254,75 @@
   .kw-lv-badge{
     text-align:center; font-weight:bold; color:var(--accent2); margin-bottom:14px; font-size:1.05rem;
   }
+  /* ================= 漢字の書き取り学習（手書き判定版、2026-08〜） =================
+     kanjiWrite（上のkw-*、自己採点式）を置き換えた新機能。手書きしたストロークを実在の
+     字形データ（KanjiVG）と突き合わせて自動判定する。screen.innerHTMLで毎回作り直される
+     ため、bodyやcanvasへの汎用セレクタは使わず、すべて.kws-*配下に閉じ込めてある。
+     色は新しい:rootを増やさず、アプリ本体の--ok/--ng/--card/--line/--sub/--inkをそのまま使う
+     （.feedback.okのような複合セレクタの流儀に倣い、ok/ng/active/primary/correct/incorrect
+     などの状態クラスは必ず.kws-*と組み合わせてのみ効かせているので、既存CSSと衝突しない）。 */
+  .kws-note{ font-size:.8rem; color:var(--sub); text-align:center; line-height:1.7; margin-bottom:14px; }
+  .kws-listControls{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-bottom:10px; }
+  .kws-listControls button{ font-size:.85rem; padding:8px 16px; border-radius:8px; border:1px solid var(--line); background:var(--card); cursor:pointer; font-family:inherit; }
+  .kws-listControls button.active{ border-color:var(--ok); color:var(--ok); font-weight:bold; }
+  .kws-kanjiSelect{ display:flex; gap:6px; flex-wrap:wrap; justify-content:center; margin-bottom:10px; }
+  .kws-kanjiSelect button{
+    font-size:1.1rem; padding:5px 12px; border-radius:10px; border:2px solid var(--line);
+    background:var(--card); cursor:pointer; font-family:"UD デジタル 教科書体 NP","UD デジタル 教科書体 NP-R",
+      "UD デジタル 教科書体 N-R","HGS教科書体","HG教科書体","Yu Mincho",serif;
+    display:flex; flex-direction:column; align-items:center; line-height:1.2;
+  }
+  .kws-kanjiSelect button .rank{ font-size:.6rem; color:var(--sub); font-family:inherit; }
+  .kws-kanjiSelect button.active{ border-color:var(--ok); color:var(--ok); font-weight:bold; }
+  .kws-kanjiSelect button.active .rank{ color:var(--ok); }
+  .kws-layout{ display:flex; gap:20px; align-items:flex-start; flex-wrap:wrap; justify-content:center; width:100%; }
+  .kws-mainCol{ display:flex; flex-direction:column; align-items:center; gap:12px; flex:1 1 300px; }
+  .kws-panelCol{ flex:1 1 300px; max-width:460px; }
+  .kws-sentencePrompt{ font-size:1rem; text-align:center; max-width:420px; line-height:1.6; padding:8px 12px; background:var(--card); border:1px solid var(--line); border-radius:8px; }
+  .kws-sentencePrompt .kws-blank{ font-weight:bold; text-decoration:underline; text-underline-offset:3px; }
+  .kws-stage{ position:relative; touch-action:none; margin:0 auto; }
+  .kws-stage canvas{ width:100%; height:100%; display:block; background:#fff; border:2px solid var(--ink); border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.08); touch-action:none; }
+  .kws-status{ font-size:.95rem; min-height:22px; font-weight:bold; text-align:center; }
+  .kws-status.ok{ color:var(--ok); }
+  .kws-status.ng{ color:var(--ng); }
+  .kws-strokeInfo{ font-size:.8rem; color:var(--sub); }
+  .kws-charBreakdown{ font-size:.8rem; text-align:center; }
+  .kws-charBreakdown .ok{ color:var(--ok); font-weight:bold; }
+  .kws-charBreakdown .ng{ color:var(--ng); font-weight:bold; }
+  .kws-legend{ display:flex; gap:16px; font-size:.75rem; color:var(--sub); flex-wrap:wrap; justify-content:center; }
+  .kws-legend span{ display:inline-flex; align-items:center; gap:5px; }
+  .kws-legend i{ width:14px; height:14px; border-radius:50%; display:inline-block; }
+  .kws-controls{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+  .kws-controls button{ font-size:.85rem; padding:9px 16px; border-radius:8px; border:1px solid var(--line); background:var(--card); cursor:pointer; font-family:inherit; }
+  .kws-controls button.primary{ background:var(--ok); color:#fff; border-color:var(--ok); font-weight:bold; }
+  .kws-credit{ font-size:.68rem; color:var(--sub); text-align:center; }
+  .kws-credit a{ color:var(--sub); }
+  .kws-panelCol h2{ font-size:.85rem; margin:0 0 8px; }
+  .kws-panelNote{ font-size:.68rem; color:var(--sub); margin:0 0 10px; line-height:1.6; }
+  .kws-extraToggle{ display:flex; align-items:center; gap:6px; font-size:.75rem; margin:0 0 10px; background:var(--card); border:1px solid var(--line); border-radius:8px; padding:8px 10px; }
+  .kws-criteriaPanel{ background:var(--card); border:1px solid var(--line); border-radius:8px; padding:12px 14px; margin:0 0 10px; }
+  .kws-customRow{ display:flex; align-items:center; gap:8px; font-size:.8rem; margin-bottom:8px; }
+  .kws-customRow:last-child{ margin-bottom:0; }
+  .kws-customRow label{ width:120px; flex:none; color:var(--ink); }
+  .kws-customRow input[type=range]{ flex:1; min-width:60px; }
+  .kws-customRow .valTxt{ width:52px; flex:none; text-align:right; color:var(--ink); font-variant-numeric:tabular-nums; }
+  .kws-measuredPanel{ background:var(--card); border:1px solid var(--line); border-radius:8px; padding:10px 14px; font-size:.8rem; line-height:1.8; }
+  .kws-measuredPanel .ngPart{ color:var(--ng); font-weight:bold; }
+  .kws-measuredPanel .okPart{ color:var(--ok); }
+  .kws-resultsStock{ display:flex; gap:16px; flex-wrap:wrap; justify-content:center; width:100%; margin-top:6px; }
+  .kws-resultsCol{ flex:1 1 220px; background:var(--card); border:1px solid var(--line); border-radius:8px; padding:12px 14px; }
+  .kws-resultsCol h3{ font-size:.8rem; margin:0 0 8px; color:var(--ink); }
+  .kws-resultsList{ display:flex; flex-wrap:wrap; gap:8px; min-height:28px; }
+  .kws-resultBadge{
+    display:flex; flex-direction:column; align-items:center; gap:2px;
+    padding:4px; border-radius:6px; cursor:pointer; background:#fff; border:2px solid var(--line);
+  }
+  .kws-resultBadge img{ width:52px; height:auto; max-height:76px; object-fit:contain; border:1px solid var(--line); border-radius:4px; background:#fff; display:block; }
+  .kws-resultBadge .badgeLabel{ font-size:.68rem; font-family:"UD デジタル 教科書体 NP","UD デジタル 教科書体 NP-R","UD デジタル 教科書体 N-R","HGS教科書体","HG教科書体","Yu Mincho",serif; }
+  .kws-resultBadge.correct{ border-color:var(--ok); }
+  .kws-resultBadge.incorrect{ border-color:var(--ng); }
+  .kws-resultBadge.correct .badgeLabel{ color:var(--ok); }
+  .kws-resultBadge.incorrect .badgeLabel{ color:var(--ng); }
   /* 百人一首・一覧モードのカード（かるた風に、番号＋歌をひとまとまりで見せる） */
   .hyakunin-card{padding:14px 16px;}
   .hyakunin-head{display:flex; align-items:center; gap:12px; cursor:pointer;}
@@ -3219,7 +3288,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.73</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.74</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3230,6 +3299,7 @@
 
 <script src="kokugo_data.js"></script>
 <script src="kanji_write_data.js"></script>
+<script src="kanji_write_stroke_data.js"></script>
 <script src="kanji_write_elem_data.js"></script>
 <script src="hyakunin_isshu_data.js"></script>
 <script src="kotonoha_evolution_images.js"></script>
@@ -5844,10 +5914,9 @@ function showHome(){
       <div><h2>読解トレーニング <span class="tag">${DOKKAI.length}題</span></h2><p>説明文・小説・随筆を読んで設問に答える</p></div>
       <div class="right"><span class="shogo-badge">${dt.icon} ${esc(dt.name)} Lv.${st.lv.dokkai}</span></div>
     </div>
-    <div class="card menu-card" onclick="showKanjiWriteMenu()">
+    <div class="card menu-card" onclick="startKanjiWriteStroke()">
       <div class="menu-icon">✍️</div>
-      <div><h2>漢字の書き学習</h2><p>高校入試頻出の漢字を、書き取り形式で自己採点しながら学習（経験値には影響しません）</p></div>
-      <div class="right"><span class="shogo-badge">✍️ Lv.${kwLv(st)}</span></div>
+      <div><h2>漢字の書き学習</h2><p>高校入試頻出の漢字を、実際に手書きして自動判定しながら学習（経験値には影響しません）</p></div>
     </div>
     <div class="card menu-card" onclick="showKanjiWriteElemMenu()">
       <div class="menu-icon">✏️</div>
@@ -6501,246 +6570,770 @@ function diagEntryHtml(st){
   </p>`;
 }
 
-/* ================= 漢字の書き取り学習 =================
-   高校入試頻出ランキング（上位から）をもとに、レベル別に出題する専用モード。
-   「書けた！／書けなかった」の自己評価制なので、経験値・分野レベル・「ことのは」の進化には
-   一切影響させない（record()・saveStatsの通常経路は使うが、cats/lv/diffLvは触らない）。
-   代わりに、このモード専用の「書けたね数（＝独自の漢字レベル）」と、レベルごとの直近100回の
-   自己評価正答率だけを、st.kanjiWrite に記録する。
-   間違えた（＝書けなかった）漢字ほど出やすく、書けた漢字ほど出にくくなる重みづけは、
-   通常モードのhistoryWeightと同じ考え方を、このモード専用データ(itemHist)に対して行う。 */
-const KANJI_WRITE_LEVELS = [
-  {key:"1",    label:"レベル１", topN:20,  desc:"入試頻出トップ20から出題"},
-  {key:"2",    label:"レベル２", topN:50,  desc:"入試頻出トップ50から出題"},
-  {key:"3",    label:"レベル３", topN:100, desc:"入試頻出トップ100から出題"},
-  {key:"4",    label:"レベル４", topN:150, desc:"入試頻出トップ150から出題"},
-  {key:"5",    label:"レベル５", topN:200, desc:"入試頻出トップ200から出題"},
-  {key:"goku", label:"極",       topN:200, desc:"50%は上位ランキングから、50%はその他の漢字から出題", isGoku:true},
-];
-function kwData(){ return (window.KANJI_WRITE_DATA) || {ranked:[], other:[]}; }
-/* そのレベルが今のデータ量で実際に遊べるかどうか（トップ200分・「その他」データが
-   まだ揃っていないうちは、対応するレベルを「準備中」として選べなくする） */
-function kwLevelReady(levelDef){
-  const d = kwData();
-  if(levelDef.isGoku) return d.ranked.length >= levelDef.topN && d.other.length > 0;
-  return d.ranked.length >= levelDef.topN;
-}
-function kwHistoryWeight(st, it){
-  const h = st.kanjiWrite.itemHist[it.id];
-  if(!h || h.t === 0) return 1.2;
-  const wrong = h.t - h.c;
-  const w = Math.pow(0.75, h.c) * Math.pow(1.5, wrong);
-  return Math.max(0.05, Math.min(8, w));
-}
-function kwPoolForLevel(levelKey){
-  const d = kwData();
-  if(levelKey === "goku"){
-    return (Math.random() < 0.5 && d.other.length > 0) ? d.other : d.ranked;
-  }
-  const def = KANJI_WRITE_LEVELS.find(l => l.key === levelKey);
-  return d.ranked.slice(0, Math.min(def.topN, d.ranked.length));
-}
-function kwSelectOne(levelKey, lastId){
-  const st = loadStats();
-  let pool = kwPoolForLevel(levelKey);
-  if(pool.length > 1 && lastId) pool = pool.filter(it => it.id !== lastId);
-  const weights = pool.map(it => kwHistoryWeight(st, it));
-  return pickOne(pool, weights);
-}
-function kwLevelAccuracy(st, levelKey){
-  const recent = (st.kanjiWrite.levelRecent[levelKey]) || [];
-  if(recent.length === 0) return null;
-  return Math.round(100 * recent.reduce((a,b)=>a+b, 0) / recent.length);
-}
-function kwLv(st){ return 1 + (st.kanjiWrite.totalOk || 0); }
-/* 自己評価を記録するだけの専用関数。record()は一切呼ばず、
-   st.cats・st.lv・st.diffLv（＝経験値やことのはの進化に関わる値）にはnoneも触れない。 */
-function kwRecord(levelKey, it, canWrite){
-  const st = loadStats();
-  maybeGrantDailyLogin(st);
-  const h = st.kanjiWrite.itemHist[it.id] || {t:0, c:0};
-  h.t++; if(canWrite) h.c++;
-  st.kanjiWrite.itemHist[it.id] = h;
-  if(canWrite) st.kanjiWrite.totalOk = (st.kanjiWrite.totalOk||0) + 1;
-  const recent = (st.kanjiWrite.levelRecent[levelKey] || []).slice();
-  recent.push(canWrite ? 1 : 0);
-  while(recent.length > 100) recent.shift();
-  st.kanjiWrite.levelRecent[levelKey] = recent;
-  saveStats(st);
-  return {lv: kwLv(st), acc: kwLevelAccuracy(st, levelKey)};
-}
+/* ================= 漢字の書き取り学習（手書き判定版、2026-08〜） =================
+   実際に手書きしたストロークを、実在の字形データ（KanjiVG）と突き合わせて自動判定する。
+   旧kanjiWrite（自己採点式）を置き換えた機能で、経験値・分野レベル・「ことのは」の進化には
+   一切影響させない（st.kanjiWriteのような専用状態は持たない。正解／間違いストックは
+   このモジュール内のkwsResultLogにだけ保持し、セーブデータには含めない＝ページを閉じると消える）。
+   例文は既存のkanji_write_data.js（KANJI_WRITE_DATA.ranked）をidで引いて使う。
+   字形データ（KanjiVGパスの処理）はやや重いため、この機能に最初に入ったときだけ構築する
+   （kwsEnsureData）。全員の初期ロードを遅くしないための遅延初期化。 */
 
-/* ---- 画面：レベル選択 ---- */
-function showKanjiWriteMenu(){
-  const st = loadStats();
-  let html = `<h3 class="section">✍️ 漢字の書き取り学習</h3>
-    <p class="note">高校入試で頻出の漢字を、書き取り形式で学習します。「書けた！」「書けなかった」の自己評価制で、経験値や「ことのは」の成長には影響しません。</p>
-    <div class="kw-lv-badge">✍️ 書き取りレベル Lv.${kwLv(st)}　（これまで「書けた！」${st.kanjiWrite.totalOk||0}回）</div>`;
-  KANJI_WRITE_LEVELS.forEach(l=>{
-    const ready = kwLevelReady(l);
-    const acc = kwLevelAccuracy(st, l.key);
-    const accHtml = acc === null ? "（まだ記録なし）" : `直近100回の正答率　${acc}%`;
-    html += `
-    <div class="card menu-card kw-level-card ${ready?"":"disabled"}" ${ready?`onclick="startKanjiWrite('${l.key}')"`:""}>
-      <div class="menu-icon">✍️</div>
-      <div><h2><span class="kw-level-tag">${esc(l.label)}</span>${esc(l.desc)}</h2>
-      <p>${ready ? esc(accHtml) : "準備中（問題を追加中です）"}</p></div>
-    </div>`;
+// ---- 判定基準（教員がスライダーで確定させた値。右側パネルでいつでも調整できる） ----
+const kwsProfile = {
+  tol: 20.5, hitMin: 0.78, assignMin: 0.56, covMin: 0.61,
+  perStrokeMin: 0.42, lenMin: 0.60, lenMax: 3.30, strokeDiffMax: 0,
+  checkpointTol: 6.5, checkpointThreshold: 0.40
+};
+
+const KWS_VB = 109;             // KanjiVGの元のviewBoxサイズ（1文字あたり）
+const KWS_CHAR_CELL_PX = 520;   // 1文字あたりの内部解像度（px）
+const KWS_SCALE = KWS_CHAR_CELL_PX / KWS_VB;
+const KWS_REVEAL_WIDTH_PX = 15;
+const KWS_INK_WIDTH_PX = 13;
+const KWS_FIRST_STROKE_HINT_RADIUS_PX = 10;
+const KWS_SAMPLE_COUNT = 30;    // 1画あたりの長さ方向サンプル点数
+const KWS_STAGE_MAX_WIDTH_PX = 308; // 440pxの70%。2文字の言葉が縦に並んでも一度に見えるように
+const KWS_NS = 'http://www.w3.org/2000/svg';
+
+let kwsData = null;         // kwsEnsureData()で遅延構築
+let kwsHiddenSvgEl = null;  // getTotalLength/getPointAtLength専用の非表示SVG（初回のみ生成）
+
+let kwsCanvas = null, kwsCtx = null, kwsStageEl = null; // 画面を作り直すたびに再取得する
+let kwsCurrentId = null;
+let kwsCompletedStrokes = []; // 確定した画ごとの点列
+let kwsCurrentPath = [];
+let kwsDrawing = false;
+let kwsJudged = false;
+let kwsJudgedPass = false;
+let kwsShowFirstStroke = false;
+let kwsLastResult = null;      // 直前の判定結果（{ aggregate, chars }）
+let kwsExtraCheckEnabled = false;
+let kwsLastCharResults = null;
+const kwsResultLog = {};    // id -> { pass, thumb }。画面を出入りしても保持するが、保存データには含めない
+
+function kwsScalePathD(d, scale){
+  return d.replace(/-?\d*\.?\d+(?:e[+-]?\d+)?/gi, m => {
+    const v = parseFloat(m) * scale;
+    return (Math.round(v * 1000) / 1000).toString();
   });
-  html += `<div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
-  screen.innerHTML = html;
 }
-let kw = null;
-function startKanjiWrite(levelKey){
-  kw = {level:levelKey, n:0, okCount:0, lastId:null, item:null, revealed:false};
-  kwNextQuestion();
+
+function kwsBuildKanjiData(raw){
+  const out = {};
+  Object.keys(raw).forEach(id => {
+    const entry = raw[id];
+    const charCount = entry.chars.length;
+    const strokes = [];
+    const firstStrokeIndices = [];
+
+    entry.chars.forEach((ds, charIndex) => {
+      const offsetY = charIndex * KWS_CHAR_CELL_PX;
+      firstStrokeIndices.push(strokes.length);
+      ds.forEach(d => {
+        const scaledD = kwsScalePathD(d, KWS_SCALE);
+        const basePath = new Path2D(scaledD);
+        const path2D = new Path2D();
+        path2D.addPath(basePath, new DOMMatrix().translate(0, offsetY));
+
+        const pathEl = document.createElementNS(KWS_NS, 'path');
+        pathEl.setAttribute('d', scaledD);
+        kwsHiddenSvgEl.appendChild(pathEl);
+        const totalLength = pathEl.getTotalLength();
+
+        const samples = [];
+        for(let i = 0; i < KWS_SAMPLE_COUNT; i++){
+          const pt = pathEl.getPointAtLength(totalLength * i / (KWS_SAMPLE_COUNT - 1));
+          samples.push({ x: pt.x, y: pt.y + offsetY });
+        }
+        strokes.push({ path2D, totalLength, samples, start: samples[0] });
+      });
+    });
+
+    const totalLen = strokes.reduce((sum, s) => sum + s.totalLength, 0);
+
+    // 「注意ポイント」：間違えやすい漢字だけに手動で登録する、特定の画・点に絞ったチェック。
+    // mustHave＝この短い区間には必ず線が通っていないといけない（出るべき線が出ていない、を検出）
+    // mustNot＝この短い区間には線が通ってはいけない（出ないはずの線・点が出ている、を検出）
+    const checkpoints = (entry.checkpoints || []).map(cp => {
+      const offsetY = cp.charIndex * KWS_CHAR_CELL_PX;
+      const scaledD = kwsScalePathD(cp.d, KWS_SCALE);
+      const basePath = new Path2D(scaledD);
+      const path2D = new Path2D();
+      path2D.addPath(basePath, new DOMMatrix().translate(0, offsetY));
+
+      const pathEl = document.createElementNS(KWS_NS, 'path');
+      pathEl.setAttribute('d', scaledD);
+      kwsHiddenSvgEl.appendChild(pathEl);
+      const totalLength = pathEl.getTotalLength();
+
+      const n = 16; // 注意ポイントは短い区間なので、通常の画より少ないサンプル数で十分
+      const samples = [];
+      for(let i = 0; i < n; i++){
+        const pt = pathEl.getPointAtLength(totalLength * i / (n - 1));
+        samples.push({ x: pt.x, y: pt.y + offsetY });
+      }
+      return { charIndex: cp.charIndex, type: cp.type, path2D, samples, note: cp.note };
+    });
+
+    out[id] = { kanji: entry.kanji, rank: entry.rank, charCount, strokes, totalLen, firstStrokeIndices, checkpoints };
+  });
+  return out;
 }
-function kwNextQuestion(){
-  kw.item = kwSelectOne(kw.level, kw.lastId);
-  kw.lastId = kw.item.id;
-  kw.revealed = false;
-  kwRenderQuestion();
-}
-function kwRenderQuestion(){
-  const it = kw.item;
-  const levelDef = KANJI_WRITE_LEVELS.find(l => l.key === kw.level);
-  let answerArea;
-  if(!kw.revealed){
-    answerArea = `<div class="btn-row"><button class="btn" onclick="kwReveal()">✅ 答えを見る</button></div>`;
-  }else{
-    const infoBlocks = it.chars.map(c => `
-      <div class="kw-char-block">
-        <h4>「${esc(c.ch)}」について</h4>
-        ${c.onyomi ? `<div>音読み：${esc(c.onyomi)}</div>` : ""}
-        ${c.kunyomi ? `<div>訓読み：${esc(c.kunyomi)}</div>` : ""}
-        ${c.origin ? `<div>成り立ち：${esc(c.origin)}</div>` : ""}
-        ${c.meaning ? `<div>漢字の意味：${esc(c.meaning)}</div>` : ""}
-      </div>`).join("");
-    answerArea = `
-      <div class="kw-answer-box"><div class="kw-answer-kanji">${esc(it.kanji)}</div></div>
-      <div class="kw-info-card">
-        <h4>この言葉の意味</h4>
-        <div style="margin-bottom:10px">${esc(it.wordMeaning)}</div>
-        ${infoBlocks}
-      </div>
-      <div class="kw-selfjudge-row">
-        <button class="kw-ok-btn" onclick="kwGrade(true)">⭕ 書けた！</button>
-        <button class="kw-ng-btn" onclick="kwGrade(false)">❌ 書けなかった</button>
-      </div>
-      <div class="feedback" id="kwFb"></div>
-      <div class="btn-row" id="kwNextRow" style="display:none">
-        <button class="btn tap-advance-btn" id="kwNextBtn" onclick="kwNextQuestion()">次へ</button>
-        <button class="btn secondary" onclick="kwEndSession()">今日はここまで</button>
-      </div>`;
+
+function kwsEnsureData(){
+  if(kwsData) return;
+  if(!kwsHiddenSvgEl){
+    kwsHiddenSvgEl = document.createElementNS(KWS_NS, 'svg');
+    kwsHiddenSvgEl.setAttribute('width', '0');
+    kwsHiddenSvgEl.setAttribute('height', '0');
+    kwsHiddenSvgEl.style.position = 'absolute';
+    kwsHiddenSvgEl.style.visibility = 'hidden';
+    document.body.appendChild(kwsHiddenSvgEl);
   }
-  screen.innerHTML = `
-    <div class="session-bar">
-      <span>${kw.n+1}問目　｜　今回「書けた！」${kw.okCount}問</span>
-      <span class="catstat">✍️ ${esc(levelDef.label)}</span>
+  kwsData = kwsBuildKanjiData(window.KANJI_WRITE_STROKE_DATA || {});
+}
+
+// 例文（読み付き）は既存のkanji_write_data.js（KANJI_WRITE_DATA.ranked）をidで引いて使う
+function kwsSentenceFor(id){
+  const ranked = (window.KANJI_WRITE_DATA && window.KANJI_WRITE_DATA.ranked) || [];
+  const found = ranked.find(it => it.id === id);
+  return found ? found.sentence : '';
+}
+
+function kwsToPixel(clientX, clientY){
+  const rect = kwsCanvas.getBoundingClientRect();
+  return {
+    x: (clientX - rect.left) * (kwsCanvas.width / rect.width),
+    y: (clientY - rect.top) * (kwsCanvas.height / rect.height)
+  };
+}
+function kwsDist(a, b){ return Math.hypot(a.x - b.x, a.y - b.y); }
+function kwsPathLength(path){
+  let len = 0;
+  for(let i = 1; i < path.length; i++) len += kwsDist(path[i-1], path[i]);
+  return len;
+}
+
+function kwsDrawGuideGrid(charCount){
+  kwsCtx.save();
+  kwsCtx.strokeStyle = '#cfcfcf';
+  kwsCtx.lineWidth = 1;
+  kwsCtx.setLineDash([5,5]);
+  for(let i = 0; i < charCount; i++){
+    const y0 = i * KWS_CHAR_CELL_PX;
+    kwsCtx.strokeRect(1, y0 + 1, KWS_CHAR_CELL_PX - 2, KWS_CHAR_CELL_PX - 2);
+    kwsCtx.beginPath();
+    kwsCtx.moveTo(KWS_CHAR_CELL_PX/2, y0); kwsCtx.lineTo(KWS_CHAR_CELL_PX/2, y0 + KWS_CHAR_CELL_PX);
+    kwsCtx.moveTo(0, y0 + KWS_CHAR_CELL_PX/2); kwsCtx.lineTo(KWS_CHAR_CELL_PX, y0 + KWS_CHAR_CELL_PX/2);
+    kwsCtx.moveTo(0, y0); kwsCtx.lineTo(KWS_CHAR_CELL_PX, y0 + KWS_CHAR_CELL_PX);
+    kwsCtx.moveTo(KWS_CHAR_CELL_PX, y0); kwsCtx.lineTo(0, y0 + KWS_CHAR_CELL_PX);
+    kwsCtx.stroke();
+  }
+  kwsCtx.restore();
+}
+
+function kwsDrawFirstStrokeHint(){
+  const kdata = kwsData[kwsCurrentId];
+  kwsCtx.save();
+  kwsCtx.fillStyle = '#5fb3a3';
+  kdata.firstStrokeIndices.forEach(idx => {
+    const p = kdata.strokes[idx].start;
+    kwsCtx.beginPath();
+    kwsCtx.arc(p.x, p.y, KWS_FIRST_STROKE_HINT_RADIUS_PX, 0, Math.PI * 2);
+    kwsCtx.fill();
+  });
+  kwsCtx.restore();
+}
+
+function kwsDrawTargetReveal(){
+  const kdata = kwsData[kwsCurrentId];
+  kwsCtx.save();
+  kwsCtx.strokeStyle = '#b9c2cc';
+  kwsCtx.lineWidth = KWS_REVEAL_WIDTH_PX;
+  kwsCtx.lineCap = 'round';
+  kwsCtx.lineJoin = 'round';
+  kdata.strokes.forEach(s => kwsCtx.stroke(s.path2D));
+  kwsCtx.restore();
+}
+
+function kwsDrawCompletedInk(){
+  const kdata = kwsData[kwsCurrentId];
+  kwsCtx.save();
+  kwsCtx.lineWidth = KWS_INK_WIDTH_PX;
+  kwsCtx.lineCap = 'round';
+  kwsCtx.lineJoin = 'round';
+  kwsCompletedStrokes.forEach(path => {
+    if(path.length < 2) return;
+    let color = '#3b6fd1';
+    if(kwsJudged && kwsLastCharResults){
+      const ci = kwsCharIndexForStroke(path, kdata.charCount);
+      const r = kwsLastCharResults[ci];
+      const pass = r.passCore && (kwsExtraCheckEnabled ? r.extraStrokeCount === 0 : true);
+      color = pass ? '#2e7d32' : '#c0392b';
+    }
+    kwsCtx.strokeStyle = color;
+    kwsCtx.beginPath();
+    kwsCtx.moveTo(path[0].x, path[0].y);
+    for(let i = 1; i < path.length; i++) kwsCtx.lineTo(path[i].x, path[i].y);
+    kwsCtx.stroke();
+  });
+  kwsCtx.restore();
+}
+
+function kwsDrawLiveInk(){
+  kwsCtx.save();
+  kwsCtx.strokeStyle = '#3b6fd1';
+  kwsCtx.lineWidth = KWS_INK_WIDTH_PX;
+  kwsCtx.lineCap = 'round';
+  kwsCtx.lineJoin = 'round';
+  kwsCtx.beginPath();
+  kwsCtx.moveTo(kwsCurrentPath[0].x, kwsCurrentPath[0].y);
+  for(let i = 1; i < kwsCurrentPath.length; i++) kwsCtx.lineTo(kwsCurrentPath[i].x, kwsCurrentPath[i].y);
+  kwsCtx.stroke();
+  kwsCtx.restore();
+}
+
+function kwsDrawJudgeStamp(){
+  if(!kwsLastCharResults) return;
+  kwsCtx.save();
+  kwsCtx.globalAlpha = 0.32;
+  kwsCtx.textAlign = 'center';
+  kwsCtx.textBaseline = 'middle';
+  kwsCtx.font = `${Math.floor(KWS_CHAR_CELL_PX * 0.55)}px sans-serif`;
+  kwsLastCharResults.forEach((r, i) => {
+    const pass = r.passCore && (kwsExtraCheckEnabled ? r.extraStrokeCount === 0 : true);
+    kwsCtx.fillStyle = pass ? '#2e7d32' : '#c0392b';
+    const cy = i * KWS_CHAR_CELL_PX + KWS_CHAR_CELL_PX / 2;
+    kwsCtx.fillText(pass ? '○' : '×', kwsCanvas.width / 2, cy);
+  });
+  kwsCtx.restore();
+}
+
+function kwsRender(){
+  const kdata = kwsData[kwsCurrentId];
+  kwsCtx.setTransform(1,0,0,1,0,0);
+  kwsCtx.clearRect(0, 0, kwsCanvas.width, kwsCanvas.height);
+  kwsDrawGuideGrid(kdata.charCount);
+  if(kwsJudged){
+    kwsDrawTargetReveal();
+  } else if(kwsShowFirstStroke){
+    kwsDrawFirstStrokeHint();
+  }
+  kwsDrawCompletedInk();
+  if(kwsDrawing && kwsCurrentPath.length >= 2) kwsDrawLiveInk();
+  if(kwsJudged) kwsDrawJudgeStamp();
+}
+
+function kwsSetStatus(text, cls){
+  const el = document.getElementById('kwsStatus');
+  el.textContent = text;
+  el.className = 'kws-status' + (cls ? (' ' + cls) : '');
+}
+
+function kwsUpdateStrokeInfo(){
+  const kdata = kwsData[kwsCurrentId];
+  document.getElementById('kwsStrokeInfo').textContent = `「${kdata.kanji}」／画数：${kdata.strokes.length}画`;
+}
+
+// targetStrokes（対象の画の配列）に対して、drawnGroups（描いた線を1本ずつの点列にした配列）が
+// どれだけ合っているかを見る、汎用の判定コア。単語全体にも、1文字分だけにも同じロジックを使う。
+function kwsEvaluateAgainstStrokes(targetStrokes, totalTargetLen, drawnGroups, profile){
+  const TOL = profile.tol * KWS_SCALE;
+
+  kwsCtx.save();
+  kwsCtx.setTransform(1,0,0,1,0,0);
+  kwsCtx.lineWidth = TOL;
+  kwsCtx.lineCap = 'round';
+  kwsCtx.lineJoin = 'round';
+
+  const allPoints = drawnGroups.flat();
+  const hitCount = allPoints.length ? allPoints.filter(p => targetStrokes.some(s => kwsCtx.isPointInStroke(s.path2D, p.x, p.y))).length : 0;
+  const hitRatio = allPoints.length ? hitCount / allPoints.length : 0;
+
+  const assignment = drawnGroups.map(strokePts => {
+    let bestIdx = -1, bestRatio = 0;
+    targetStrokes.forEach((t, ti) => {
+      const hit = strokePts.filter(p => kwsCtx.isPointInStroke(t.path2D, p.x, p.y)).length;
+      const ratio = hit / strokePts.length;
+      if(ratio > bestRatio){ bestRatio = ratio; bestIdx = ti; }
+    });
+    return bestRatio >= profile.assignMin ? bestIdx : -1;
+  });
+  const extraStrokeCount = assignment.filter(a => a === -1).length;
+
+  const strokeCoverages = targetStrokes.map((t, ti) => {
+    const assignedPoints = [];
+    assignment.forEach((a, di) => { if(a === ti) assignedPoints.push(...drawnGroups[di]); });
+    if(assignedPoints.length === 0) return 0;
+    const covered = t.samples.filter(sp => assignedPoints.some(p => kwsDist(p, sp) <= TOL)).length;
+    return covered / t.samples.length;
+  });
+  kwsCtx.restore();
+
+  const coverage = strokeCoverages.length ? strokeCoverages.reduce((a, b) => a + b, 0) / strokeCoverages.length : 0;
+  const missingStrokeCount = strokeCoverages.filter(c => c < profile.perStrokeMin).length;
+  const totalDrawnLen = drawnGroups.reduce((sum, p) => sum + kwsPathLength(p), 0);
+  const lenRatio = totalTargetLen > 0 ? totalDrawnLen / totalTargetLen : 0;
+  const lengthOk = lenRatio >= profile.lenMin && (profile.lenMax == null || lenRatio <= profile.lenMax);
+  const strokeCountDiff = Math.abs(drawnGroups.length - targetStrokes.length);
+  const strokeCountOk = strokeCountDiff <= profile.strokeDiffMax;
+
+  const passCore = hitRatio >= profile.hitMin && coverage >= profile.covMin && lengthOk && strokeCountOk;
+  return {
+    passCore, hitRatio, coverage, lenRatio, strokeCountDiff, missingStrokeCount, extraStrokeCount,
+    drawnCount: drawnGroups.length, targetCount: targetStrokes.length
+  };
+}
+
+// 単語全体をひとまとめにした集計（判定基準パネルの「今回の実測」表示用）
+function kwsEvaluateProfile(kdata, completedStrokes, profile){
+  return kwsEvaluateAgainstStrokes(kdata.strokes, kdata.totalLen, completedStrokes, profile);
+}
+
+// 描いた1本の線が、縦に並んだどの文字のマスに属するかを、その線のY座標の平均から決める
+function kwsCharIndexForStroke(strokePts, charCount){
+  const avgY = strokePts.reduce((s, p) => s + p.y, 0) / strokePts.length;
+  let ci = Math.floor(avgY / KWS_CHAR_CELL_PX);
+  if(ci < 0) ci = 0;
+  if(ci > charCount - 1) ci = charCount - 1;
+  return ci;
+}
+
+// 2文字の言葉を、文字ごとに分けて判定する（○×表示・一言診断・全体合否のAND判定に使う）
+function kwsEvaluateCharacters(kdata, completedStrokes, profile){
+  const charCount = kdata.charCount;
+  const buckets = Array.from({ length: charCount }, () => []);
+  completedStrokes.forEach(strokePts => {
+    buckets[kwsCharIndexForStroke(strokePts, charCount)].push(strokePts);
+  });
+
+  const CP_TOL = profile.checkpointTol * KWS_SCALE;
+  const results = [];
+  for(let c = 0; c < charCount; c++){
+    const start = kdata.firstStrokeIndices[c];
+    const end = c + 1 < charCount ? kdata.firstStrokeIndices[c + 1] : kdata.strokes.length;
+    const targetStrokes = kdata.strokes.slice(start, end);
+    const totalTargetLen = targetStrokes.reduce((s, t) => s + t.totalLength, 0);
+    const r = kwsEvaluateAgainstStrokes(targetStrokes, totalTargetLen, buckets[c], profile);
+
+    // 注意ポイント（間違えやすい画・点を個別指定したもの）のチェック。
+    // 通常の合否とは別枠で、1つでも引っかかればその文字は問答無用で×にする。
+    const charPoints = buckets[c].flat();
+    const checkpointFailures = [];
+    kdata.checkpoints.filter(cp => cp.charIndex === c).forEach(cp => {
+      const coveredCount = cp.samples.filter(sp => charPoints.some(p => kwsDist(p, sp) <= CP_TOL)).length;
+      const coverage = cp.samples.length ? coveredCount / cp.samples.length : 0;
+      const hit = coverage >= profile.checkpointThreshold;
+      if(cp.type === 'mustHave' && !hit) checkpointFailures.push(cp.note);
+      if(cp.type === 'mustNot' && hit) checkpointFailures.push(cp.note);
+    });
+    r.checkpointFailures = checkpointFailures;
+    if(checkpointFailures.length) r.passCore = false;
+
+    results.push(r);
+  }
+  return results;
+}
+
+// その文字が×だったときの一言診断（注意ポイント→画数の過不足→その他、の優先順位で伝える）
+function kwsDiagnoseChar(r, profile){
+  if(r.checkpointFailures && r.checkpointFailures.length){
+    return r.checkpointFailures.join(' / ');
+  }
+  if(r.strokeCountDiff > profile.strokeDiffMax){
+    return r.drawnCount > r.targetCount
+      ? `画数が${r.drawnCount - r.targetCount}本多い`
+      : `画数が${r.targetCount - r.drawnCount}本少ない`;
+  }
+  if(r.coverage < profile.covMin) return 'なぞれていない部分がある';
+  if(r.hitRatio < profile.hitMin) return '形が対象からずれている';
+  if(r.lenRatio < profile.lenMin) return '線が短い（描き足りない）';
+  if(profile.lenMax != null && r.lenRatio > profile.lenMax) return '線が長すぎる';
+  if(kwsExtraCheckEnabled && r.extraStrokeCount > 0) return `対応しない線が${r.extraStrokeCount}本ある`;
+  return '';
+}
+
+// 全体の合否＝すべての文字が合格しているか（1文字でも×なら全体も×）
+function kwsComputePass(entry){
+  return entry.chars.every(r => r.passCore && (kwsExtraCheckEnabled ? r.extraStrokeCount === 0 : true));
+}
+
+function kwsFmtMeasured(r, profile){
+  const hitOk = r.hitRatio >= profile.hitMin;
+  const covOk = r.coverage >= profile.covMin;
+  const lenOk = r.lenRatio >= profile.lenMin && (profile.lenMax == null || r.lenRatio <= profile.lenMax);
+  const diffOk = r.strokeCountDiff <= profile.strokeDiffMax;
+  const extraOk = r.extraStrokeCount === 0;
+
+  const span = (ok, text) => `<span class="${ok ? 'okPart' : 'ngPart'}">${ok ? '○' : '×'}${text}</span>`;
+
+  const parts = [
+    span(hitOk, `一致度${Math.round(r.hitRatio*100)}%`),
+    span(covOk, `書けている範囲${Math.round(r.coverage*100)}%`),
+    span(lenOk, `線の長さ${Math.round(r.lenRatio*100)}%`),
+    span(diffOk, `画数のズレ${r.strokeCountDiff}`),
+    `抜け${r.missingStrokeCount}画（参考）`,
+    kwsExtraCheckEnabled ? span(extraOk, `余分${r.extraStrokeCount}画`) : `余分${r.extraStrokeCount}画（未使用）`
+  ];
+  return parts.join('／');
+}
+
+function kwsRenderCharBreakdown(charResults, profile){
+  const el = document.getElementById('kwsCharBreakdown');
+  const kdata = kwsData[kwsCurrentId];
+  if(kdata.charCount === 1){
+    const r = charResults[0];
+    const pass = r.passCore && (kwsExtraCheckEnabled ? r.extraStrokeCount === 0 : true);
+    el.innerHTML = pass ? `<span class="ok">○</span>` : `<span class="ng">×（${kwsDiagnoseChar(r, profile)}）</span>`;
+    return;
+  }
+  el.innerHTML = charResults.map((r, i) => {
+    const pass = r.passCore && (kwsExtraCheckEnabled ? r.extraStrokeCount === 0 : true);
+    return pass
+      ? `${i + 1}文字目：<span class="ok">○</span>`
+      : `${i + 1}文字目：<span class="ng">×（${kwsDiagnoseChar(r, profile)}）</span>`;
+  }).join('　');
+}
+
+function kwsRenderResult(){
+  if(!kwsLastResult) return;
+  const kdata = kwsData[kwsCurrentId];
+  kwsJudgedPass = kwsComputePass(kwsLastResult);
+  kwsJudged = true;
+  kwsLastCharResults = kwsLastResult.chars;
+  kwsRenderCharBreakdown(kwsLastResult.chars, kwsProfile);
+  document.getElementById('kwsMeasuredPanel').innerHTML = kwsFmtMeasured(kwsLastResult.aggregate, kwsProfile);
+  kwsSetStatus(
+    kwsJudgedPass ? `○ 「${kdata.kanji}」に近い形です` : '× もう一度書いてみましょう',
+    kwsJudgedPass ? 'ok' : 'ng'
+  );
+  kwsRender();
+}
+
+function kwsJudgeWhole(){
+  if(kwsDrawing) return;
+  const kdata = kwsData[kwsCurrentId];
+
+  if(kwsCompletedStrokes.length === 0){
+    kwsSetStatus('まず何か書いてから判定してください', 'ng');
+    return;
+  }
+
+  kwsLastResult = {
+    aggregate: kwsEvaluateProfile(kdata, kwsCompletedStrokes, kwsProfile),
+    chars: kwsEvaluateCharacters(kdata, kwsCompletedStrokes, kwsProfile)
+  };
+  kwsRenderResult();
+
+  // 「これで判定する」を押した時だけ、正解／間違いのストックに記録する
+  // （スライダー調整による再判定はストックに影響させない）。render()済みなのでcanvasには
+  // 書いた線と○×スタンプが乗った状態になっており、そのままスクリーンショットとして保存する。
+  kwsResultLog[kwsCurrentId] = { pass: kwsJudgedPass, thumb: kwsCanvas.toDataURL('image/png') };
+  kwsUpdateResultLogDisplay();
+}
+
+function kwsSyncCustomInputsToState(){
+  document.getElementById('kwsCTol').value = kwsProfile.tol;
+  document.getElementById('kwsCHit').value = Math.round(kwsProfile.hitMin * 100);
+  document.getElementById('kwsCAssign').value = Math.round(kwsProfile.assignMin * 100);
+  document.getElementById('kwsCCov').value = Math.round(kwsProfile.covMin * 100);
+  document.getElementById('kwsCPer').value = Math.round(kwsProfile.perStrokeMin * 100);
+  document.getElementById('kwsCLenMin').value = Math.round(kwsProfile.lenMin * 100);
+  document.getElementById('kwsCLenMaxOn').checked = kwsProfile.lenMax != null;
+  document.getElementById('kwsCLenMax').value = kwsProfile.lenMax != null ? Math.round(kwsProfile.lenMax * 100) : 250;
+  document.getElementById('kwsCLenMax').disabled = kwsProfile.lenMax == null;
+  document.getElementById('kwsCDiff').value = kwsProfile.strokeDiffMax;
+  document.getElementById('kwsCCpTol').value = kwsProfile.checkpointTol;
+  document.getElementById('kwsCCpThreshold').value = Math.round(kwsProfile.checkpointThreshold * 100);
+  document.getElementById('kwsChkExtraCheck').checked = kwsExtraCheckEnabled;
+  kwsUpdateCustomLabels();
+}
+
+function kwsUpdateCustomLabels(){
+  document.getElementById('kwsCTolVal').textContent = kwsProfile.tol;
+  document.getElementById('kwsCHitVal').textContent = Math.round(kwsProfile.hitMin * 100) + '%';
+  document.getElementById('kwsCAssignVal').textContent = Math.round(kwsProfile.assignMin * 100) + '%';
+  document.getElementById('kwsCCovVal').textContent = Math.round(kwsProfile.covMin * 100) + '%';
+  document.getElementById('kwsCPerVal').textContent = Math.round(kwsProfile.perStrokeMin * 100) + '%';
+  document.getElementById('kwsCLenMinVal').textContent = Math.round(kwsProfile.lenMin * 100) + '%';
+  document.getElementById('kwsCLenMaxVal').textContent = kwsProfile.lenMax == null ? '上限なし' : Math.round(kwsProfile.lenMax * 100) + '%';
+  document.getElementById('kwsCDiffVal').textContent = kwsProfile.strokeDiffMax;
+  document.getElementById('kwsCCpTolVal').textContent = kwsProfile.checkpointTol;
+  document.getElementById('kwsCCpThresholdVal').textContent = Math.round(kwsProfile.checkpointThreshold * 100) + '%';
+}
+
+function kwsReadCustomFromInputs(){
+  kwsProfile.tol = parseFloat(document.getElementById('kwsCTol').value);
+  kwsProfile.hitMin = parseInt(document.getElementById('kwsCHit').value, 10) / 100;
+  kwsProfile.assignMin = parseInt(document.getElementById('kwsCAssign').value, 10) / 100;
+  kwsProfile.covMin = parseInt(document.getElementById('kwsCCov').value, 10) / 100;
+  kwsProfile.perStrokeMin = parseInt(document.getElementById('kwsCPer').value, 10) / 100;
+  kwsProfile.lenMin = parseInt(document.getElementById('kwsCLenMin').value, 10) / 100;
+  const lenMaxOn = document.getElementById('kwsCLenMaxOn').checked;
+  document.getElementById('kwsCLenMax').disabled = !lenMaxOn;
+  kwsProfile.lenMax = lenMaxOn ? parseInt(document.getElementById('kwsCLenMax').value, 10) / 100 : null;
+  kwsProfile.strokeDiffMax = parseInt(document.getElementById('kwsCDiff').value, 10);
+  kwsProfile.checkpointTol = parseFloat(document.getElementById('kwsCCpTol').value);
+  kwsProfile.checkpointThreshold = parseInt(document.getElementById('kwsCCpThreshold').value, 10) / 100;
+}
+
+function kwsRecomputeResult(){
+  if(!kwsLastResult) return;
+  const kdata = kwsData[kwsCurrentId];
+  kwsLastResult = {
+    aggregate: kwsEvaluateProfile(kdata, kwsCompletedStrokes, kwsProfile),
+    chars: kwsEvaluateCharacters(kdata, kwsCompletedStrokes, kwsProfile)
+  };
+  kwsRenderResult();
+}
+
+function kwsWireCustomControls(){
+  ['kwsCTol','kwsCHit','kwsCAssign','kwsCCov','kwsCPer','kwsCLenMin','kwsCLenMax','kwsCDiff','kwsCCpTol','kwsCCpThreshold'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+      kwsReadCustomFromInputs();
+      kwsUpdateCustomLabels();
+      kwsRecomputeResult();
+    });
+  });
+  document.getElementById('kwsCLenMaxOn').addEventListener('change', () => {
+    kwsReadCustomFromInputs();
+    kwsUpdateCustomLabels();
+    kwsRecomputeResult();
+  });
+}
+
+function kwsResetInk(){
+  kwsCompletedStrokes = [];
+  kwsCurrentPath = [];
+  kwsDrawing = false;
+  kwsJudged = false;
+  kwsLastResult = null;
+  kwsLastCharResults = null;
+  document.getElementById('kwsMeasuredPanel').textContent = 'まだ何も判定していません';
+  document.getElementById('kwsCharBreakdown').innerHTML = '';
+  kwsSetStatus('書いてみよう');
+  kwsRender();
+}
+
+function kwsUpdateFirstStrokeButtonLabel(){
+  document.getElementById('kwsBtnFirstStroke').textContent = kwsShowFirstStroke ? '1画目を隠す' : '1画目を表示';
+}
+
+function kwsToggleFirstStroke(){
+  kwsShowFirstStroke = !kwsShowFirstStroke;
+  kwsUpdateFirstStrokeButtonLabel();
+  kwsRender();
+}
+
+function kwsRenderSentencePrompt(id){
+  const sentence = kwsSentenceFor(id);
+  const html = sentence.replace(/《([^》]*)》/g, '<span class="kws-blank">$1</span>');
+  document.getElementById('kwsSentencePrompt').innerHTML = html || '（例文なし）';
+}
+
+function kwsLoadKanji(id){
+  kwsCurrentId = id;
+  const kdata = kwsData[id];
+
+  kwsCanvas.width = KWS_CHAR_CELL_PX;
+  kwsCanvas.height = KWS_CHAR_CELL_PX * kdata.charCount;
+  kwsStageEl.style.width = `min(90vw, ${KWS_STAGE_MAX_WIDTH_PX}px)`;
+  kwsStageEl.style.aspectRatio = `1 / ${kdata.charCount}`;
+
+  kwsShowFirstStroke = false;
+  kwsUpdateFirstStrokeButtonLabel();
+  kwsUpdateStrokeInfo();
+  kwsRenderSentencePrompt(id);
+  kwsResetInk();
+  document.querySelectorAll('.kws-kanjiSelect button').forEach(b => {
+    b.classList.toggle('active', b.dataset.id === id);
+  });
+}
+
+function kwsToggleKanjiList(){
+  const listEl = document.getElementById('kwsKanjiSelect');
+  const showing = listEl.style.display !== 'none';
+  listEl.style.display = showing ? 'none' : 'flex';
+  document.getElementById('kwsBtnShowList').textContent = showing ? '一覧表示' : '一覧を隠す';
+  document.getElementById('kwsBtnShowList').classList.toggle('active', !showing);
+}
+
+function kwsLoadRandomKanji(){
+  const ids = Object.keys(kwsData);
+  const id = ids[Math.floor(Math.random() * ids.length)];
+  kwsLoadKanji(id);
+}
+
+function kwsBuildResultBadge(id, cls){
+  const kdata = kwsData[id];
+  const entry = kwsResultLog[id];
+  const b = document.createElement('button');
+  b.className = 'kws-resultBadge ' + cls;
+  b.title = `${kdata.rank}. ${kdata.kanji}（クリックでこの問題に戻る）`;
+  b.innerHTML = `<img src="${entry.thumb}" alt="${kdata.kanji}">`
+              + `<span class="badgeLabel">${kdata.rank}. ${kdata.kanji}</span>`;
+  b.addEventListener('click', () => kwsLoadKanji(id));
+  return b;
+}
+
+function kwsUpdateResultLogDisplay(){
+  const ids = Object.keys(kwsData).sort((a, b) => kwsData[a].rank - kwsData[b].rank);
+  const correctIds = ids.filter(id => kwsResultLog[id] && kwsResultLog[id].pass === true);
+  const incorrectIds = ids.filter(id => kwsResultLog[id] && kwsResultLog[id].pass === false);
+
+  document.getElementById('kwsCorrectCount').textContent = correctIds.length;
+  document.getElementById('kwsIncorrectCount').textContent = incorrectIds.length;
+
+  const correctList = document.getElementById('kwsCorrectList');
+  correctList.innerHTML = '';
+  correctIds.forEach(id => correctList.appendChild(kwsBuildResultBadge(id, 'correct')));
+
+  const incorrectList = document.getElementById('kwsIncorrectList');
+  incorrectList.innerHTML = '';
+  incorrectIds.forEach(id => incorrectList.appendChild(kwsBuildResultBadge(id, 'incorrect')));
+}
+
+function kwsScreenHtml(){
+  return `
+    <h3 class="section">✍️ 漢字の書き取り学習</h3>
+    <p class="note kws-note">
+      高校入試で頻出の漢字（全200問）を、実際に手書きして自動判定で学習します。経験値には影響しません。<br>
+      2文字の言葉は縦にマスが並び、文字ごとに判定します。全部の文字が○のときだけ、全体も○になります。
+    </p>
+    <div class="kws-listControls">
+      <button id="kwsBtnShowList">一覧表示</button>
+      <button id="kwsBtnRandom">ランダム表示</button>
     </div>
-    <div class="card">
-      <div class="q-category"><span>漢字の書き取り</span></div>
-      <div class="kw-sentence">${markQuestionHtml(it.sentence)}</div>
-      ${answerArea}
-    </div>`;
-}
-function kwReveal(){
-  kw.revealed = true;
-  kwRenderQuestion();
-}
-function kwGrade(canWrite){
-  kw.n++;
-  if(canWrite) kw.okCount++;
-  const r = kwRecord(kw.level, kw.item, canWrite);
-  document.querySelectorAll(".kw-ok-btn, .kw-ng-btn").forEach(b => b.disabled = true);
-  const fb = document.getElementById("kwFb");
-  fb.className = "feedback show " + (canWrite?"ok":"ng");
-  fb.innerHTML = `<div class="verdict">${canWrite?"⭕ 書けた！":"❌ また挑戦しよう"}</div>
-    書き取りレベル Lv.${r.lv}　｜　このレベルの直近100回正答率　${r.acc===null?"ー":r.acc+"%"}`;
-  document.getElementById("kwNextRow").style.display = "flex";
-  document.getElementById("kwNextBtn").focus();
-}
-function kwEndSession(){
-  const k = kw;
-  window._retry = () => startKanjiWrite(k.level);
-  screen.innerHTML = `
-    <div class="card">
-      <h3 class="section">今回の記録</h3>
-      <div class="result-score">${k.okCount} <span style="font-size:1.2rem;color:var(--sub)">/ ${k.n}問 書けた！</span></div>
-      <p class="result-msg">漢字の書き取り学習おつかれさま！</p>
-      <div class="btn-row">
-        <button class="btn" onclick="window._retry()">つづける</button>
-        <button class="btn secondary" onclick="showKanjiWriteMenu()">レベルを選びなおす</button>
-        <button class="btn secondary" onclick="showHome()">ホームへ</button>
+    <div class="kws-kanjiSelect" id="kwsKanjiSelect" style="display:none;"></div>
+    <div class="kws-layout">
+      <div class="kws-mainCol">
+        <div class="kws-sentencePrompt" id="kwsSentencePrompt"></div>
+        <div class="kws-stage" id="kwsStage">
+          <canvas id="kwsCanvas" width="520" height="520"></canvas>
+        </div>
+        <div class="kws-status" id="kwsStatus">書いてみよう</div>
+        <div class="kws-charBreakdown" id="kwsCharBreakdown"></div>
+        <div class="kws-strokeInfo" id="kwsStrokeInfo"></div>
+        <div class="kws-legend">
+          <span><i style="background:#3b6fd1"></i>書いている線（判定前）</span>
+          <span><i style="background:#5fb3a3"></i>1画目の始筆（ヒント）</span>
+          <span><i style="background:#b9c2cc"></i>正解の形（判定後に表示）</span>
+        </div>
+        <div class="kws-controls">
+          <button id="kwsBtnJudge" class="primary">これで判定する</button>
+          <button id="kwsBtnReset">消してやり直す</button>
+          <button id="kwsBtnFirstStroke">1画目を表示</button>
+        </div>
+        <p class="kws-credit">
+          画の形データ：<a href="https://kanjivg.tagaini.net" target="_blank" rel="noopener">KanjiVG</a>
+          （© Ulrich Apel, CC BY-SA 3.0）を使用
+        </p>
       </div>
-    </div>`;
+      <div class="kws-panelCol">
+        <h2>判定の基準</h2>
+        <label class="kws-extraToggle">
+          <input type="checkbox" id="kwsChkExtraCheck">
+          余分な線（どの画にも対応しない線）があれば不合格にする
+        </label>
+        <div class="kws-criteriaPanel">
+          <div class="kws-customRow"><label>線のズレ許容</label><input type="range" id="kwsCTol" min="3" max="30" step="0.5"><span class="valTxt" id="kwsCTolVal"></span></div>
+          <div class="kws-customRow"><label>線の一致度</label><input type="range" id="kwsCHit" min="0" max="100" step="1"><span class="valTxt" id="kwsCHitVal"></span></div>
+          <div class="kws-customRow"><label>1画と認める基準</label><input type="range" id="kwsCAssign" min="0" max="100" step="1"><span class="valTxt" id="kwsCAssignVal"></span></div>
+          <div class="kws-customRow"><label>書けている範囲</label><input type="range" id="kwsCCov" min="0" max="100" step="1"><span class="valTxt" id="kwsCCovVal"></span></div>
+          <div class="kws-customRow"><label>1画ごとの完成度(参考)</label><input type="range" id="kwsCPer" min="0" max="100" step="1"><span class="valTxt" id="kwsCPerVal"></span></div>
+          <div class="kws-customRow"><label>線の長さ 下限</label><input type="range" id="kwsCLenMin" min="0" max="100" step="1"><span class="valTxt" id="kwsCLenMinVal"></span></div>
+          <div class="kws-customRow"><label>線の長さ 上限</label><input type="checkbox" id="kwsCLenMaxOn"><input type="range" id="kwsCLenMax" min="100" max="500" step="5"><span class="valTxt" id="kwsCLenMaxVal"></span></div>
+          <div class="kws-customRow"><label>画数のズレ許容</label><input type="range" id="kwsCDiff" min="0" max="10" step="1"><span class="valTxt" id="kwsCDiffVal"></span></div>
+          <div class="kws-customRow"><label>注意ポイントの幅</label><input type="range" id="kwsCCpTol" min="1" max="20" step="0.5"><span class="valTxt" id="kwsCCpTolVal"></span></div>
+          <div class="kws-customRow"><label>注意ポイントの判定線</label><input type="range" id="kwsCCpThreshold" min="0" max="100" step="5"><span class="valTxt" id="kwsCCpThresholdVal"></span></div>
+        </div>
+        <p class="kws-panelNote">
+          スライダーを動かすと、直前に書いたものに対する判定結果がその場で更新されます。
+        </p>
+        <div class="kws-measuredPanel" id="kwsMeasuredPanel">まだ何も判定していません</div>
+      </div>
+    </div>
+    <div class="kws-resultsStock">
+      <div class="kws-resultsCol">
+        <h3>正解した問題（<span id="kwsCorrectCount">0</span>）</h3>
+        <div class="kws-resultsList" id="kwsCorrectList"></div>
+      </div>
+      <div class="kws-resultsCol">
+        <h3>間違った問題（<span id="kwsIncorrectCount">0</span>）</h3>
+        <div class="kws-resultsList" id="kwsIncorrectList"></div>
+      </div>
+    </div>
+    <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>
+  `;
 }
 
-/* ================= 小学生の漢字を復習する =================
-   小学校で習う漢字（学年別漢字配当表、1026字）を全学年まとめた1つのプールから出題する。
-   知識クイズの「適応的難度調整」（diffLv・difficultyWeight・CONFIRM_CHECK_RATE、selectOne参照）と
-   まったく同じ仕組みを、分野レベルの代わりに漢字の「配当学年」(grade、1〜6)を難度の軸にして流用している
-   （書けた！→目標レベルが少し上がる＝より上の学年の字が出やすくなる、書けなかった→少し下がる、
-   CONFIRM_CHECK_RATEの確率でときどき全学年から均等にチェック出題する）。
-   「漢字の書き学習」モードと同じく自己評価制（書けた！／書けなかった）で、経験値・「ことのは」の
-   進化には一切影響させない（st.cats・st.lv・st.diffLv・kotonohaには一切触れない）。
-   このモードのデータ（kanji_write_elem_data.js）には chars（音訓・成り立ち等の解説）を用意していない。
-   教員の指示により、解説データがない問題は「答えを見る」画面で答えの漢字だけを大きく表示し、
-   解説は付けない。 */
-function kweData(){ return (window.KANJI_WRITE_ELEM_DATA) || []; }
-const KWE_MAX_LV = 6;
-function kweHistoryWeight(st, it){
-  const h = st.kanjiWriteElem.itemHist[it.id];
-  if(!h || h.t === 0) return 1.2;
-  const wrong = h.t - h.c;
-  const w = Math.pow(0.75, h.c) * Math.pow(1.5, wrong);
-  return Math.max(0.05, Math.min(8, w));
-}
-function kweDifficultyWeight(it, diffLv){
-  return Math.exp(-1.2 * Math.abs(it.grade - diffLv));
-}
-function kweSelectOne(lastId){
-  const st = loadStats();
-  let pool = kweData();
-  if(pool.length > 1 && lastId) pool = pool.filter(it => it.id !== lastId);
-  const isConfirmCheck = Math.random() < CONFIRM_CHECK_RATE;
-  const diffLv = typeof st.kanjiWriteElem.targetLv === "number" ? st.kanjiWriteElem.targetLv : 1;
-  const weights = pool.map(it => kweHistoryWeight(st, it) * (isConfirmCheck ? 1 : kweDifficultyWeight(it, diffLv)));
-  return pickOne(pool, weights);
-}
-function kweAccuracy(st){
-  const recent = st.kanjiWriteElem.recent || [];
-  if(recent.length === 0) return null;
-  return Math.round(100 * recent.reduce((a,b)=>a+b, 0) / recent.length);
-}
-function kweLv(st){ return 1 + (st.kanjiWriteElem.totalOk || 0); }
-function kweGradeLabel(diffLv){
-  const g = Math.round(Math.max(1, Math.min(KWE_MAX_LV, diffLv)));
-  return "小学" + g + "年生くらい";
-}
-/* 自己評価を記録するだけの専用関数。record()は一切呼ばず、
-   st.cats・st.lv・st.diffLv（＝経験値やことのはの進化に関わる値）には一切触れない。 */
-function kweRecord(it, canWrite){
-  const st = loadStats();
-  maybeGrantDailyLogin(st);
-  const h = st.kanjiWriteElem.itemHist[it.id] || {t:0, c:0};
-  h.t++; if(canWrite) h.c++;
-  st.kanjiWriteElem.itemHist[it.id] = h;
-  if(canWrite) st.kanjiWriteElem.totalOk = (st.kanjiWriteElem.totalOk||0) + 1;
-  const curDiff = typeof st.kanjiWriteElem.targetLv === "number" ? st.kanjiWriteElem.targetLv : 1;
-  st.kanjiWriteElem.targetLv = canWrite
-    ? Math.min(KWE_MAX_LV, curDiff + DIFF_LV_STEP)
-    : Math.max(1, curDiff - DIFF_LV_STEP);
-  ReviewSystem.onAnswer(st.kanjiWriteElem.itemHist, it.id, canWrite, it.grade, curDiff);
-  const recent = (st.kanjiWriteElem.recent || []).slice();
-  recent.push(canWrite ? 1 : 0);
-  while(recent.length > 100) recent.shift();
-  st.kanjiWriteElem.recent = recent;
-  saveStats(st);
-  return {lv: kweLv(st), acc: kweAccuracy(st), gradeLabel: kweGradeLabel(st.kanjiWriteElem.targetLv)};
+function kwsWireScreen(){
+  kwsCanvas = document.getElementById('kwsCanvas');
+  kwsCtx = kwsCanvas.getContext('2d');
+  kwsStageEl = document.getElementById('kwsStage');
+
+  kwsCanvas.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    if(kwsJudged) kwsResetInk();
+    kwsCanvas.setPointerCapture(e.pointerId);
+    kwsDrawing = true;
+    kwsCurrentPath = [kwsToPixel(e.clientX, e.clientY)];
+  });
+  kwsCanvas.addEventListener('pointermove', e => {
+    if(!kwsDrawing) return;
+    kwsCurrentPath.push(kwsToPixel(e.clientX, e.clientY));
+    kwsRender();
+  });
+  kwsCanvas.addEventListener('pointerup', () => {
+    if(!kwsDrawing) return;
+    kwsDrawing = false;
+    if(kwsCurrentPath.length >= 2) kwsCompletedStrokes.push(kwsCurrentPath);
+    kwsCurrentPath = [];
+    kwsRender();
+  });
+  kwsCanvas.addEventListener('pointercancel', () => {
+    kwsDrawing = false;
+    kwsCurrentPath = [];
+    kwsRender();
+  });
+
+  document.getElementById('kwsBtnJudge').addEventListener('click', kwsJudgeWhole);
+  document.getElementById('kwsBtnReset').addEventListener('click', kwsResetInk);
+  document.getElementById('kwsBtnFirstStroke').addEventListener('click', kwsToggleFirstStroke);
+  document.getElementById('kwsBtnShowList').addEventListener('click', kwsToggleKanjiList);
+  document.getElementById('kwsBtnRandom').addEventListener('click', kwsLoadRandomKanji);
+  document.getElementById('kwsChkExtraCheck').addEventListener('change', e => {
+    kwsExtraCheckEnabled = e.target.checked;
+    if(kwsLastResult) kwsRenderResult();
+  });
+
+  kwsSyncCustomInputsToState();
+  kwsWireCustomControls();
+
+  const sel = document.getElementById('kwsKanjiSelect');
+  sel.innerHTML = '';
+  Object.keys(kwsData)
+    .sort((a, b) => kwsData[a].rank - kwsData[b].rank)
+    .forEach(id => {
+      const b = document.createElement('button');
+      const kdata = kwsData[id];
+      b.innerHTML = `<span class="rank">${kdata.rank}位</span>${kdata.kanji}`;
+      b.dataset.id = id;
+      b.addEventListener('click', () => kwsLoadKanji(id));
+      sel.appendChild(b);
+    });
 }
 
-/* ---- 画面：メニュー（学年別のレベル分けはせず、全学年ミックスの単一モード） ---- */
+/* ---- 画面：練習画面（レベル選択は廃止し、ホームから直接ここへ入る） ---- */
+function startKanjiWriteStroke(){
+  kwsEnsureData();
+  screen.innerHTML = kwsScreenHtml();
+  kwsWireScreen();
+  kwsLoadKanji(Object.keys(kwsData).sort((a, b) => kwsData[a].rank - kwsData[b].rank)[0]);
+  kwsUpdateResultLogDisplay();
+}
+
 function showKanjiWriteElemMenu(){
   const st = loadStats();
   const diffLv = typeof st.kanjiWriteElem.targetLv === "number" ? st.kanjiWriteElem.targetLv : 1;

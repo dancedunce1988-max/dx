@@ -1904,19 +1904,11 @@ window.KANJI_WRITE_DATA = {
   {
    "id": "kw090",
    "rank": 90,
-   "kanji": "老眼鏡",
-   "sentence": "《ロウガンキョウ》をはずす。",
-   "wordMeaning": "年をとって近くが見えにくくなった人が使うめがね。",
+   "kanji": "眼鏡",
+   "sentence": "本を読むときは《メガネ》をかける。",
+   "wordMeaning": "目でよく見るために使う道具。",
    "pref": null,
    "chars": [
-    {
-     "ch": "老",
-     "onyomi": "ロウ",
-     "kunyomi": "お.いる／ふ.ける",
-     "radical": "老",
-     "origin": "腰を曲げて杖をつき、髪を長くのばした人の形にかたどった象形文字。",
-     "meaning": "年をとること。また、年をとった人。"
-    },
     {
      "ch": "眼",
      "onyomi": "ガン",
