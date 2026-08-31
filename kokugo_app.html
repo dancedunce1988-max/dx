@@ -3294,7 +3294,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.81</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.82</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -7010,7 +7010,23 @@ function kwsRenderResult(){
     kwsJudgedPass ? `○ 「${kdata.kanji}」として認められました！` : '× もう一度書いてみましょう',
     kwsJudgedPass ? 'ok' : 'ng'
   );
+  kwsUpdateJudgeButtonState();
   kwsRender();
+}
+
+// 採点完了状態のときだけ「採点する」ボタンを「次の問題へ」に切り替え、
+// 押したときの動作も次の問題を出す方に切り替える
+function kwsUpdateJudgeButtonState(){
+  const btn = document.getElementById('kwsBtnJudge');
+  btn.textContent = kwsJudged ? '次の問題へ' : '採点する';
+}
+
+function kwsHandleJudgeButtonClick(){
+  if(kwsJudged){
+    kwsLoadRandomKanji();
+  } else {
+    kwsJudgeWhole();
+  }
 }
 
 function kwsJudgeWhole(){
@@ -7122,7 +7138,8 @@ function kwsResetInk(charIndex){
   kwsLastCharResults = null;
   document.getElementById('kwsMeasuredPanel').textContent = 'まだ何も判定していません';
   document.getElementById('kwsCharBreakdown').innerHTML = '';
-  kwsSetStatus('書いてみよう');
+  kwsSetStatus('');
+  kwsUpdateJudgeButtonState();
   kwsRender();
 }
 
@@ -7138,7 +7155,8 @@ function kwsUndoStroke(charIndex){
     kwsLastCharResults = null;
     document.getElementById('kwsMeasuredPanel').textContent = 'まだ何も判定していません';
     document.getElementById('kwsCharBreakdown').innerHTML = '';
-    kwsSetStatus('書いてみよう');
+    kwsSetStatus('');
+    kwsUpdateJudgeButtonState();
   }
   if(typeof charIndex === 'number'){
     const kdata = kwsData[kwsCurrentId];
@@ -7257,18 +7275,6 @@ function kwsUpdateResultLogDisplay(){
 
 function kwsScreenHtml(){
   return `
-    <h3 class="section">✍️ 漢字の書き取り学習</h3>
-    <div class="note kws-note">
-      <ul>
-        <li>大きく、丁寧に書いてください。</li>
-        <li>画数が間違っているものは、×となります。画と画をつなげて書かないこと。</li>
-        <li>自動採点は、間違うこともあります。字の形をきちんと確認しましょう。</li>
-      </ul>
-    </div>
-    <div class="kws-listControls">
-      <button id="kwsBtnShowList">一覧表示</button>
-    </div>
-    <div class="kws-kanjiSelect" id="kwsKanjiSelect" style="display:none;"></div>
     <div class="kws-layout">
       <div class="kws-mainCol">
         <div class="kws-sentencePrompt" id="kwsSentencePrompt"></div>
@@ -7280,7 +7286,15 @@ function kwsScreenHtml(){
             <button id="kwsBtnJudge" class="kws-cornerBtn kws-cornerBtn--judge primary">採点する</button>
           </div>
         </div>
-        <div class="kws-status" id="kwsStatus">書いてみよう</div>
+        <h3 class="section">✍️ 漢字の書き取り学習</h3>
+        <div class="note kws-note">
+          <ul>
+            <li>大きく、丁寧に書いてください。</li>
+            <li>画数が間違っているものは、×となります。画と画をつなげて書かないこと。</li>
+            <li>自動採点は、間違うこともあります。字の形をきちんと確認しましょう。</li>
+          </ul>
+        </div>
+        <div class="kws-status" id="kwsStatus"></div>
         <div class="kws-charBreakdown" id="kwsCharBreakdown"></div>
         <div class="kws-controls">
           <button id="kwsBtnFirstStroke">1画目を表示</button>
@@ -7320,6 +7334,10 @@ function kwsScreenHtml(){
         <div class="kws-resultsList" id="kwsIncorrectList"></div>
       </div>
     </div>
+    <div class="kws-listControls">
+      <button id="kwsBtnShowList">一覧表示</button>
+    </div>
+    <div class="kws-kanjiSelect" id="kwsKanjiSelect" style="display:none;"></div>
     <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>
   `;
 }
@@ -7354,7 +7372,7 @@ function kwsWireScreen(){
     kwsRender();
   });
 
-  document.getElementById('kwsBtnJudge').addEventListener('click', kwsJudgeWhole);
+  document.getElementById('kwsBtnJudge').addEventListener('click', kwsHandleJudgeButtonClick);
   document.getElementById('kwsBtnFirstStroke').addEventListener('click', kwsToggleFirstStroke);
   document.getElementById('kwsBtnShowList').addEventListener('click', kwsToggleKanjiList);
   document.getElementById('kwsBtnRandom').addEventListener('click', kwsLoadRandomKanji);
