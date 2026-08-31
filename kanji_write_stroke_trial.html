@@ -35,8 +35,14 @@
 
   .sentencePrompt{ font-size:16px; text-align:center; max-width:440px; line-height:1.6; padding:8px 12px; background:#fff; border:1px solid #ddd; border-radius:8px; }
   .sentencePrompt .blank{ font-weight:bold; text-decoration:underline; text-underline-offset:3px; }
+  .stageRow{ display:flex; align-items:flex-end; justify-content:center; gap:8px; width:100%; }
   .stage{ position:relative; touch-action:none; }
   canvas{ width:100%; height:100%; display:block; background:#fff; border:2px solid #333; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.08); touch-action:none; }
+  .sideBtn{
+    flex:none; width:74px; font-size:12px; padding:10px 4px; border-radius:8px; border:1px solid #999;
+    background:#fff; cursor:pointer; line-height:1.3; margin-bottom:0;
+  }
+  .sideBtn.primary{ background:var(--ok); color:#fff; border-color:var(--ok); font-weight:bold; }
   .status{ font-size:15px; min-height:22px; font-weight:bold; text-align:center; }
   .status.ok{ color:var(--ok); }
   .status.ng{ color:var(--hint); }
@@ -57,7 +63,6 @@
 
   .panelCol h2{ font-size:14px; margin:0 0 8px; }
   .panelCol .panelNote{ font-size:11px; color:#777; margin:0 0 10px; line-height:1.6; }
-  .extraToggle{ display:flex; align-items:center; gap:6px; font-size:12px; margin:0 0 10px; background:#fff; border:1px solid #ddd; border-radius:8px; padding:8px 10px; }
   .criteriaPanel{ background:#fff; border:1px solid #ddd; border-radius:8px; padding:12px 14px; margin:0 0 10px; }
   .customRow{ display:flex; align-items:center; gap:8px; font-size:13px; margin-bottom:8px; }
   .customRow:last-child{ margin-bottom:0; }
@@ -96,15 +101,18 @@
 
   <div class="listControls">
     <button id="btnShowList">一覧表示</button>
-    <button id="btnRandom">ランダム表示</button>
   </div>
   <div class="kanjiSelect" id="kanjiSelect" style="display:none;"></div>
 
   <div class="layout">
     <div class="mainCol">
       <div class="sentencePrompt" id="sentencePrompt"></div>
-      <div class="stage" id="stage">
-        <canvas id="cv" width="520" height="520"></canvas>
+      <div class="stageRow">
+        <button id="btnJudge" class="sideBtn primary">これで判定する</button>
+        <div class="stage" id="stage">
+          <canvas id="cv" width="520" height="520"></canvas>
+        </div>
+        <button id="btnRandom" class="sideBtn">次の問題を出す</button>
       </div>
 
       <div class="status" id="status">書いてみよう</div>
@@ -118,8 +126,8 @@
       </div>
 
       <div class="controls">
-        <button id="btnJudge" class="primary">これで判定する</button>
         <button id="btnReset">消してやり直す</button>
+        <button id="btnUndo">一画戻す</button>
         <button id="btnFirstStroke">1画目を表示</button>
       </div>
 
@@ -131,10 +139,6 @@
 
     <div class="panelCol">
       <h2>判定の基準</h2>
-      <label class="extraToggle">
-        <input type="checkbox" id="chkExtraCheck">
-        余分な線（どの画にも対応しない線）があれば不合格にする
-      </label>
       <p class="panelNote">
         スライダーを動かすと、直前に書いたものに対する判定結果がその場で更新されます。
       </p>
@@ -5268,9 +5272,9 @@ const RAW_KANJI_DATA = {
    「余分な画」チェックが個々の線に厳しくなりすぎないようにしている。 */
 // 判定基準はこの1本だけ（右側パネルのスライダーで調整する）。
 const customProfile = {
-  tol: 20.5, hitMin: 0.43, assignMin: 0.56, covMin: 0.41,
-  perStrokeMin: 0.42, lenMin: 0.80, lenMax: 3.30, strokeDiffMax: 0,
-  checkpointTol: 6, checkpointThreshold: 0.40
+  tol: 20.5, hitMin: 0.78, assignMin: 0.56, covMin: 0.61,
+  perStrokeMin: 0.42, lenMin: 0.60, lenMax: 3.30, strokeDiffMax: 0,
+  checkpointTol: 6.5, checkpointThreshold: 0.40
 };
 
 
@@ -5584,7 +5588,6 @@ let judged = false;
 let judgedPass = false;
 let showFirstStroke = false;
 let lastResult = null; // 直前の判定結果（{ aggregate, chars }）
-let extraCheckEnabled = false;
 let lastCharResults = null; // 文字ごとの判定結果（○×表示・インク色分け用）
 const resultLog = {}; // id -> { pass, thumb }。「これで判定する」を押すたびに、判定時点のcanvasの
                        // スクリーンショット（PNGのdata URL）と合否を記録する
@@ -5657,7 +5660,7 @@ function drawCompletedInk(){
     if(judged && lastCharResults){
       const ci = charIndexForStroke(path, kdata.charCount);
       const r = lastCharResults[ci];
-      const pass = r.passCore && (extraCheckEnabled ? r.extraStrokeCount === 0 : true);
+      const pass = r.passCore;
       color = pass ? '#2e7d32' : '#c0392b';
     }
     ctx.strokeStyle = color;
@@ -5690,7 +5693,7 @@ function drawJudgeStamp(){
   ctx.textBaseline = 'middle';
   ctx.font = `${Math.floor(CHAR_CELL_PX * 0.55)}px sans-serif`;
   lastCharResults.forEach((r, i) => {
-    const pass = r.passCore && (extraCheckEnabled ? r.extraStrokeCount === 0 : true);
+    const pass = r.passCore;
     ctx.fillStyle = pass ? '#2e7d32' : '#c0392b';
     const cy = i * CHAR_CELL_PX + CHAR_CELL_PX / 2;
     ctx.fillText(pass ? '○' : '×', canvas.width / 2, cy);
@@ -5851,13 +5854,12 @@ function diagnoseChar(r, profile){
   if(r.hitRatio < profile.hitMin) return '形が対象からずれている';
   if(r.lenRatio < profile.lenMin) return '線が短い（描き足りない）';
   if(profile.lenMax != null && r.lenRatio > profile.lenMax) return '線が長すぎる';
-  if(extraCheckEnabled && r.extraStrokeCount > 0) return `対応しない線が${r.extraStrokeCount}本ある`;
   return '';
 }
 
 // 全体の合否＝すべての文字が合格しているか（1文字でも×なら全体も×）
 function computePass(entry){
-  return entry.chars.every(r => r.passCore && (extraCheckEnabled ? r.extraStrokeCount === 0 : true));
+  return entry.chars.every(r => r.passCore);
 }
 
 function fmtMeasured(r, profile){
@@ -5865,7 +5867,6 @@ function fmtMeasured(r, profile){
   const covOk = r.coverage >= profile.covMin;
   const lenOk = r.lenRatio >= profile.lenMin && (profile.lenMax == null || r.lenRatio <= profile.lenMax);
   const diffOk = r.strokeCountDiff <= profile.strokeDiffMax;
-  const extraOk = r.extraStrokeCount === 0;
 
   const span = (ok, text) => `<span class="${ok ? 'okPart' : 'ngPart'}">${ok ? '○' : '×'}${text}</span>`;
 
@@ -5875,7 +5876,7 @@ function fmtMeasured(r, profile){
     span(lenOk, `線の長さ${Math.round(r.lenRatio*100)}%`),
     span(diffOk, `画数のズレ${r.strokeCountDiff}`),
     `抜け${r.missingStrokeCount}画（参考）`,
-    extraCheckEnabled ? span(extraOk, `余分${r.extraStrokeCount}画`) : `余分${r.extraStrokeCount}画（未使用）`
+    `余分${r.extraStrokeCount}画（参考）`
   ];
   return parts.join('／');
 }
@@ -5890,12 +5891,12 @@ function renderCharBreakdown(charResults, profile){
   const kdata = DATA[currentId];
   if(kdata.charCount === 1){
     const r = charResults[0];
-    const pass = r.passCore && (extraCheckEnabled ? r.extraStrokeCount === 0 : true);
+    const pass = r.passCore;
     el.innerHTML = pass ? `<span class="ok">○</span>` : `<span class="ng">×（${diagnoseChar(r, profile)}）</span>`;
     return;
   }
   el.innerHTML = charResults.map((r, i) => {
-    const pass = r.passCore && (extraCheckEnabled ? r.extraStrokeCount === 0 : true);
+    const pass = r.passCore;
     return pass
       ? `${i + 1}文字目：<span class="ok">○</span>`
       : `${i + 1}文字目：<span class="ng">×（${diagnoseChar(r, profile)}）</span>`;
@@ -5911,7 +5912,7 @@ function renderResult(){
   renderCharBreakdown(lastResult.chars, customProfile);
   document.getElementById('measuredPanel').innerHTML = fmtMeasured(lastResult.aggregate, customProfile);
   setStatus(
-    judgedPass ? `○ 「${kdata.kanji}」に近い形です` : '× もう一度書いてみましょう',
+    judgedPass ? `○ 「${kdata.kanji}」として認められました！` : '× もう一度書いてみましょう',
     judgedPass ? 'ok' : 'ng'
   );
   render();
@@ -6018,6 +6019,23 @@ function resetInk(){
   document.getElementById('measuredPanel').textContent = 'まだ何も判定していません';
   document.getElementById('charBreakdown').innerHTML = '';
   setStatus('書いてみよう');
+  render();
+}
+
+// 直前に描いた1画（ペンを上げ下げした1本）だけを取り消す。判定後に押した場合は、
+// 判定結果の表示（○×スタンプ・正解の形の表示など）だけ解除し、それ以外の書いた線は残す。
+function undoStroke(){
+  if(drawing) return;
+  if(completedStrokes.length === 0) return;
+  if(judged){
+    judged = false;
+    lastResult = null;
+    lastCharResults = null;
+    document.getElementById('measuredPanel').textContent = 'まだ何も判定していません';
+    document.getElementById('charBreakdown').innerHTML = '';
+    setStatus('書いてみよう');
+  }
+  completedStrokes.pop();
   render();
 }
 
@@ -6128,13 +6146,10 @@ canvas.addEventListener('pointercancel', () => {
 
 document.getElementById('btnJudge').addEventListener('click', judgeWhole);
 document.getElementById('btnReset').addEventListener('click', resetInk);
+document.getElementById('btnUndo').addEventListener('click', undoStroke);
 document.getElementById('btnFirstStroke').addEventListener('click', toggleFirstStroke);
 document.getElementById('btnShowList').addEventListener('click', toggleKanjiList);
 document.getElementById('btnRandom').addEventListener('click', loadRandomKanji);
-document.getElementById('chkExtraCheck').addEventListener('change', e => {
-  extraCheckEnabled = e.target.checked;
-  if(lastResult) renderResult();
-});
 
 initCriteriaPanel();
 

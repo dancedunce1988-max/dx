@@ -280,8 +280,14 @@
   .kws-panelCol{ flex:1 1 300px; max-width:460px; }
   .kws-sentencePrompt{ font-size:1rem; text-align:center; max-width:420px; line-height:1.6; padding:8px 12px; background:var(--card); border:1px solid var(--line); border-radius:8px; }
   .kws-sentencePrompt .kws-blank{ font-weight:bold; text-decoration:underline; text-underline-offset:3px; }
+  .kws-stageRow{ display:flex; align-items:flex-end; justify-content:center; gap:8px; width:100%; }
   .kws-stage{ position:relative; touch-action:none; margin:0 auto; }
   .kws-stage canvas{ width:100%; height:100%; display:block; background:#fff; border:2px solid var(--ink); border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.08); touch-action:none; }
+  .kws-sideBtn{
+    flex:none; width:74px; font-size:.7rem; padding:10px 4px; border-radius:8px; border:1px solid var(--line);
+    background:var(--card); cursor:pointer; font-family:inherit; line-height:1.3; margin-bottom:0;
+  }
+  .kws-sideBtn.primary{ background:var(--ok); color:#fff; border-color:var(--ok); font-weight:bold; }
   .kws-status{ font-size:.95rem; min-height:22px; font-weight:bold; text-align:center; }
   .kws-status.ok{ color:var(--ok); }
   .kws-status.ng{ color:var(--ng); }
@@ -299,7 +305,6 @@
   .kws-credit a{ color:var(--sub); }
   .kws-panelCol h2{ font-size:.85rem; margin:0 0 8px; }
   .kws-panelNote{ font-size:.68rem; color:var(--sub); margin:0 0 10px; line-height:1.6; }
-  .kws-extraToggle{ display:flex; align-items:center; gap:6px; font-size:.75rem; margin:0 0 10px; background:var(--card); border:1px solid var(--line); border-radius:8px; padding:8px 10px; }
   .kws-criteriaPanel{ background:var(--card); border:1px solid var(--line); border-radius:8px; padding:12px 14px; margin:0 0 10px; }
   .kws-customRow{ display:flex; align-items:center; gap:8px; font-size:.8rem; margin-bottom:8px; }
   .kws-customRow:last-child{ margin-bottom:0; }
@@ -3288,7 +3293,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.76</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.77</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6608,7 +6613,6 @@ let kwsJudged = false;
 let kwsJudgedPass = false;
 let kwsShowFirstStroke = false;
 let kwsLastResult = null;      // 直前の判定結果（{ aggregate, chars }）
-let kwsExtraCheckEnabled = false;
 let kwsLastCharResults = null;
 const kwsResultLog = {};    // id -> { pass, thumb }。画面を出入りしても保持するが、保存データには含めない
 
@@ -6769,7 +6773,7 @@ function kwsDrawCompletedInk(){
     if(kwsJudged && kwsLastCharResults){
       const ci = kwsCharIndexForStroke(path, kdata.charCount);
       const r = kwsLastCharResults[ci];
-      const pass = r.passCore && (kwsExtraCheckEnabled ? r.extraStrokeCount === 0 : true);
+      const pass = r.passCore;
       color = pass ? '#2e7d32' : '#c0392b';
     }
     kwsCtx.strokeStyle = color;
@@ -6802,7 +6806,7 @@ function kwsDrawJudgeStamp(){
   kwsCtx.textBaseline = 'middle';
   kwsCtx.font = `${Math.floor(KWS_CHAR_CELL_PX * 0.55)}px sans-serif`;
   kwsLastCharResults.forEach((r, i) => {
-    const pass = r.passCore && (kwsExtraCheckEnabled ? r.extraStrokeCount === 0 : true);
+    const pass = r.passCore;
     kwsCtx.fillStyle = pass ? '#2e7d32' : '#c0392b';
     const cy = i * KWS_CHAR_CELL_PX + KWS_CHAR_CELL_PX / 2;
     kwsCtx.fillText(pass ? '○' : '×', kwsCanvas.width / 2, cy);
@@ -6950,13 +6954,12 @@ function kwsDiagnoseChar(r, profile){
   if(r.hitRatio < profile.hitMin) return '形が対象からずれている';
   if(r.lenRatio < profile.lenMin) return '線が短い（描き足りない）';
   if(profile.lenMax != null && r.lenRatio > profile.lenMax) return '線が長すぎる';
-  if(kwsExtraCheckEnabled && r.extraStrokeCount > 0) return `対応しない線が${r.extraStrokeCount}本ある`;
   return '';
 }
 
 // 全体の合否＝すべての文字が合格しているか（1文字でも×なら全体も×）
 function kwsComputePass(entry){
-  return entry.chars.every(r => r.passCore && (kwsExtraCheckEnabled ? r.extraStrokeCount === 0 : true));
+  return entry.chars.every(r => r.passCore);
 }
 
 function kwsFmtMeasured(r, profile){
@@ -6964,7 +6967,6 @@ function kwsFmtMeasured(r, profile){
   const covOk = r.coverage >= profile.covMin;
   const lenOk = r.lenRatio >= profile.lenMin && (profile.lenMax == null || r.lenRatio <= profile.lenMax);
   const diffOk = r.strokeCountDiff <= profile.strokeDiffMax;
-  const extraOk = r.extraStrokeCount === 0;
 
   const span = (ok, text) => `<span class="${ok ? 'okPart' : 'ngPart'}">${ok ? '○' : '×'}${text}</span>`;
 
@@ -6974,7 +6976,7 @@ function kwsFmtMeasured(r, profile){
     span(lenOk, `線の長さ${Math.round(r.lenRatio*100)}%`),
     span(diffOk, `画数のズレ${r.strokeCountDiff}`),
     `抜け${r.missingStrokeCount}画（参考）`,
-    kwsExtraCheckEnabled ? span(extraOk, `余分${r.extraStrokeCount}画`) : `余分${r.extraStrokeCount}画（未使用）`
+    `余分${r.extraStrokeCount}画（参考）`
   ];
   return parts.join('／');
 }
@@ -6984,12 +6986,12 @@ function kwsRenderCharBreakdown(charResults, profile){
   const kdata = kwsData[kwsCurrentId];
   if(kdata.charCount === 1){
     const r = charResults[0];
-    const pass = r.passCore && (kwsExtraCheckEnabled ? r.extraStrokeCount === 0 : true);
+    const pass = r.passCore;
     el.innerHTML = pass ? `<span class="ok">○</span>` : `<span class="ng">×（${kwsDiagnoseChar(r, profile)}）</span>`;
     return;
   }
   el.innerHTML = charResults.map((r, i) => {
-    const pass = r.passCore && (kwsExtraCheckEnabled ? r.extraStrokeCount === 0 : true);
+    const pass = r.passCore;
     return pass
       ? `${i + 1}文字目：<span class="ok">○</span>`
       : `${i + 1}文字目：<span class="ng">×（${kwsDiagnoseChar(r, profile)}）</span>`;
@@ -7005,7 +7007,7 @@ function kwsRenderResult(){
   kwsRenderCharBreakdown(kwsLastResult.chars, kwsProfile);
   document.getElementById('kwsMeasuredPanel').innerHTML = kwsFmtMeasured(kwsLastResult.aggregate, kwsProfile);
   kwsSetStatus(
-    kwsJudgedPass ? `○ 「${kdata.kanji}」に近い形です` : '× もう一度書いてみましょう',
+    kwsJudgedPass ? `○ 「${kdata.kanji}」として認められました！` : '× もう一度書いてみましょう',
     kwsJudgedPass ? 'ok' : 'ng'
   );
   kwsRender();
@@ -7046,7 +7048,6 @@ function kwsSyncCustomInputsToState(){
   document.getElementById('kwsCDiff').value = kwsProfile.strokeDiffMax;
   document.getElementById('kwsCCpTol').value = kwsProfile.checkpointTol;
   document.getElementById('kwsCCpThreshold').value = Math.round(kwsProfile.checkpointThreshold * 100);
-  document.getElementById('kwsChkExtraCheck').checked = kwsExtraCheckEnabled;
   kwsUpdateCustomLabels();
 }
 
@@ -7113,6 +7114,23 @@ function kwsResetInk(){
   document.getElementById('kwsMeasuredPanel').textContent = 'まだ何も判定していません';
   document.getElementById('kwsCharBreakdown').innerHTML = '';
   kwsSetStatus('書いてみよう');
+  kwsRender();
+}
+
+// 直前に描いた1画（ペンを上げ下げした1本）だけを取り消す。判定後に押した場合は、
+// 判定結果の表示（○×スタンプ・正解の形の表示など）だけ解除し、それ以外の書いた線は残す。
+function kwsUndoStroke(){
+  if(kwsDrawing) return;
+  if(kwsCompletedStrokes.length === 0) return;
+  if(kwsJudged){
+    kwsJudged = false;
+    kwsLastResult = null;
+    kwsLastCharResults = null;
+    document.getElementById('kwsMeasuredPanel').textContent = 'まだ何も判定していません';
+    document.getElementById('kwsCharBreakdown').innerHTML = '';
+    kwsSetStatus('書いてみよう');
+  }
+  kwsCompletedStrokes.pop();
   kwsRender();
 }
 
@@ -7203,14 +7221,17 @@ function kwsScreenHtml(){
     </p>
     <div class="kws-listControls">
       <button id="kwsBtnShowList">一覧表示</button>
-      <button id="kwsBtnRandom">ランダム表示</button>
     </div>
     <div class="kws-kanjiSelect" id="kwsKanjiSelect" style="display:none;"></div>
     <div class="kws-layout">
       <div class="kws-mainCol">
         <div class="kws-sentencePrompt" id="kwsSentencePrompt"></div>
-        <div class="kws-stage" id="kwsStage">
-          <canvas id="kwsCanvas" width="520" height="520"></canvas>
+        <div class="kws-stageRow">
+          <button id="kwsBtnJudge" class="kws-sideBtn primary">これで判定する</button>
+          <div class="kws-stage" id="kwsStage">
+            <canvas id="kwsCanvas" width="520" height="520"></canvas>
+          </div>
+          <button id="kwsBtnRandom" class="kws-sideBtn">次の問題を出す</button>
         </div>
         <div class="kws-status" id="kwsStatus">書いてみよう</div>
         <div class="kws-charBreakdown" id="kwsCharBreakdown"></div>
@@ -7221,8 +7242,8 @@ function kwsScreenHtml(){
           <span><i style="background:#b9c2cc"></i>正解の形（判定後に表示）</span>
         </div>
         <div class="kws-controls">
-          <button id="kwsBtnJudge" class="primary">これで判定する</button>
           <button id="kwsBtnReset">消してやり直す</button>
+          <button id="kwsBtnUndo">一画戻す</button>
           <button id="kwsBtnFirstStroke">1画目を表示</button>
         </div>
         <p class="kws-credit">
@@ -7232,10 +7253,6 @@ function kwsScreenHtml(){
       </div>
       <div class="kws-panelCol">
         <h2>判定の基準</h2>
-        <label class="kws-extraToggle">
-          <input type="checkbox" id="kwsChkExtraCheck">
-          余分な線（どの画にも対応しない線）があれば不合格にする
-        </label>
         <div class="kws-criteriaPanel">
           <div class="kws-customRow"><label>線のズレ許容</label><input type="range" id="kwsCTol" min="3" max="30" step="0.5"><span class="valTxt" id="kwsCTolVal"></span></div>
           <div class="kws-customRow"><label>線の一致度</label><input type="range" id="kwsCHit" min="0" max="100" step="1"><span class="valTxt" id="kwsCHitVal"></span></div>
@@ -7300,13 +7317,10 @@ function kwsWireScreen(){
 
   document.getElementById('kwsBtnJudge').addEventListener('click', kwsJudgeWhole);
   document.getElementById('kwsBtnReset').addEventListener('click', kwsResetInk);
+  document.getElementById('kwsBtnUndo').addEventListener('click', kwsUndoStroke);
   document.getElementById('kwsBtnFirstStroke').addEventListener('click', kwsToggleFirstStroke);
   document.getElementById('kwsBtnShowList').addEventListener('click', kwsToggleKanjiList);
   document.getElementById('kwsBtnRandom').addEventListener('click', kwsLoadRandomKanji);
-  document.getElementById('kwsChkExtraCheck').addEventListener('change', e => {
-    kwsExtraCheckEnabled = e.target.checked;
-    if(kwsLastResult) kwsRenderResult();
-  });
 
   kwsSyncCustomInputsToState();
   kwsWireCustomControls();
