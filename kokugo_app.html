@@ -268,6 +268,26 @@
   .kws-charBreakdown{ font-size:.8rem; text-align:center; }
   .kws-charBreakdown .ok{ color:var(--ok); font-weight:bold; }
   .kws-charBreakdown .ng{ color:var(--ng); font-weight:bold; }
+  .kws-radicalQuiz{
+    position:absolute; inset:0; z-index:4; border-radius:8px;
+    background:rgba(255,253,247,.97); display:flex; align-items:center; justify-content:center; padding:12px;
+  }
+  .kws-radicalQuizBox{ text-align:center; max-width:90%; }
+  .kws-radicalQuizQ{ font-weight:bold; margin-bottom:14px; font-size:1rem; }
+  .kws-radicalQuizBtns{ display:flex; gap:14px; justify-content:center; }
+  .kws-radicalBtn{
+    display:flex; flex-direction:column; align-items:center; gap:4px; font-family:inherit;
+    background:var(--card); border:2px solid var(--line); border-radius:10px; padding:14px 18px; cursor:pointer;
+  }
+  .kws-radicalBtn:hover:not(:disabled){ border-color:var(--accent2); }
+  .kws-radicalBtn:disabled{ cursor:default; }
+  .kws-radicalBtn.ok{ border-color:var(--ok); background:var(--okbg); }
+  .kws-radicalBtn.ng{ border-color:var(--ng); background:var(--ngbg); }
+  .kws-radicalChar{ font-size:2.2rem; font-weight:bold; line-height:1; }
+  .kws-radicalName{ font-size:.8rem; color:var(--sub); }
+  .kws-radicalQuizResult{ margin-top:12px; font-weight:bold; min-height:1.2em; }
+  .kws-radicalQuizResult.ok{ color:var(--ok); }
+  .kws-radicalQuizResult.ng{ color:var(--ng); }
   .kws-controls{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
   .kws-controls button{ font-size:.85rem; padding:9px 16px; border-radius:8px; border:1px solid var(--line); background:var(--card); cursor:pointer; font-family:inherit; }
   .kws-controls button.primary{ background:var(--ok); color:#fff; border-color:var(--ok); font-weight:bold; }
@@ -3263,7 +3283,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.88</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.89</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6586,6 +6606,12 @@ const KWS_SAMPLE_COUNT = 30;    // 1画あたりの長さ方向サンプル点�
 const KWS_STAGE_MAX_WIDTH_PX = 308; // 440pxの70%。2文字の言葉が縦に並んでも一度に見えるように
 const KWS_NS = 'http://www.w3.org/2000/svg';
 
+// 「いとへん」と「こめへん」を書き間違える生徒が多いため、書き取り問題が○だった直後にだけ
+// 対象の字がどちらの部首かを選ばせる確認クイズを挟む（examのradicalフィールドとelemのch一覧を
+// 突き合わせて実在を確認した字だけを収録。2026-09-01時点でこの2部首が両方入った熟語は無い）。
+const KWS_ITOHEN_CHARS = new Set(['糸','絵','紙','線','級','終','緑','練','給','縄','続','約','紀','経','織','績','絶','統','綿','絹','紅','縦','純','納','編','縮','細']);
+const KWS_KOMEHEN_CHARS = new Set(['米','精','粉','糖']);
+
 let kwsMode = 'exam';       // 'exam'（漢字の書き学習）| 'elem'（小学生の漢字を復習する）
 let kwsElemGrade = null;    // elemモードの出題学年フィルタ。null=全学年ミックス、1〜6=その学年のみ
 const kwsDataCache = { exam: null, elem: null }; // kwsEnsureData()でモードごとに1回だけ構築してキャッシュ
@@ -6599,6 +6625,7 @@ let kwsCurrentPath = [];
 let kwsDrawing = false;
 let kwsJudged = false;
 let kwsJudgedPass = false;
+let kwsRadicalQuiz = null;  // 表示中のいとへん／こめへんクイズの状態（{type, answered}）。非表示ならnull
 let kwsShowFirstStroke = false;
 let kwsLastResult = null;      // 直前の判定結果（{ aggregate, chars }）
 let kwsLastCharResults = null;
@@ -7101,6 +7128,71 @@ function kwsJudgeWhole(){
   kwsResultLog[kwsCurrentId] = { pass: kwsJudgedPass, thumb: kwsCanvas.toDataURL('image/png') };
   if(!kwsJudgedPass) kwsWrongLog[kwsCurrentId] = kwsResultLog[kwsCurrentId];
   kwsUpdateResultLogDisplay();
+
+  if(kwsJudgedPass) kwsMaybeShowRadicalQuiz(kdata);
+}
+
+// kanji文字列の中に「いとへん」「こめへん」の字が含まれていれば、その種別を返す（無ければnull）。
+// 2字とも該当するケースはデータ上まだ無いが、その場合は先に見つかった方を優先する。
+function kwsRadicalTypeFor(kanji){
+  for(const ch of kanji){
+    if(KWS_ITOHEN_CHARS.has(ch)) return 'ito';
+    if(KWS_KOMEHEN_CHARS.has(ch)) return 'kome';
+  }
+  return null;
+}
+
+// ○と判定された直後だけ呼ばれる。対象の字がいとへん／こめへんの字を含む場合のみ、
+// キャンバスの上に「どっちが正しい？」の2択オーバーレイを重ねて出す。
+function kwsMaybeShowRadicalQuiz(kdata){
+  const type = kwsRadicalTypeFor(kdata.kanji);
+  if(!type) return;
+
+  kwsRadicalQuiz = { type, answered: false };
+  const label = { ito: '糸', kome: '米' };
+  const name = { ito: 'いとへん', kome: 'こめへん' };
+  const options = Math.random() < 0.5 ? ['ito', 'kome'] : ['kome', 'ito']; // 左右をランダム化し、位置で覚えられないようにする
+
+  const overlay = document.createElement('div');
+  overlay.className = 'kws-radicalQuiz';
+  overlay.id = 'kwsRadicalQuiz';
+  overlay.innerHTML = `
+    <div class="kws-radicalQuizBox">
+      <p class="kws-radicalQuizQ">「${kdata.kanji}」で正しいのはどっち？</p>
+      <div class="kws-radicalQuizBtns">
+        ${options.map(t => `<button class="kws-radicalBtn" data-type="${t}"><span class="kws-radicalChar">${label[t]}</span><span class="kws-radicalName">${name[t]}</span></button>`).join('')}
+      </div>
+      <p class="kws-radicalQuizResult" id="kwsRadicalQuizResult"></p>
+    </div>
+  `;
+  overlay.querySelectorAll('.kws-radicalBtn').forEach(btn => {
+    btn.addEventListener('click', () => kwsAnswerRadicalQuiz(btn.dataset.type));
+  });
+  kwsStageEl.appendChild(overlay);
+}
+
+function kwsAnswerRadicalQuiz(chosen){
+  if(!kwsRadicalQuiz || kwsRadicalQuiz.answered) return;
+  kwsRadicalQuiz.answered = true;
+  const correct = kwsRadicalQuiz.type;
+  const name = { ito: 'いとへん', kome: 'こめへん' };
+
+  const overlay = document.getElementById('kwsRadicalQuiz');
+  if(!overlay) return;
+  overlay.querySelectorAll('.kws-radicalBtn').forEach(btn => {
+    btn.disabled = true;
+    if(btn.dataset.type === correct) btn.classList.add('ok');
+    else if(btn.dataset.type === chosen) btn.classList.add('ng');
+  });
+  const resultEl = document.getElementById('kwsRadicalQuizResult');
+  resultEl.textContent = chosen === correct ? `正解！「${name[correct]}」です。` : `おしい、正解は「${name[correct]}」でした。`;
+  resultEl.className = 'kws-radicalQuizResult ' + (chosen === correct ? 'ok' : 'ng');
+}
+
+function kwsCloseRadicalQuiz(){
+  kwsRadicalQuiz = null;
+  const overlay = document.getElementById('kwsRadicalQuiz');
+  if(overlay) overlay.remove();
 }
 
 function kwsSyncCustomInputsToState(){
@@ -7181,6 +7273,7 @@ function kwsResetInk(charIndex){
     );
   } else {
     kwsCompletedStrokes = [];
+    kwsCloseRadicalQuiz();
   }
   kwsCurrentPath = [];
   kwsDrawing = false;
