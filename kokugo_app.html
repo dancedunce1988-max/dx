@@ -247,7 +247,7 @@
   .kws-kanjiSelect button.active .rank{ color:var(--ok); }
   .kws-layout{ display:flex; gap:20px; align-items:flex-start; flex-wrap:wrap; justify-content:center; width:100%; }
   .kws-mainCol{ display:flex; flex-direction:column; align-items:center; gap:12px; flex:1 1 300px; }
-  .kws-panelCol{ flex:1 1 300px; max-width:460px; }
+  .kws-panelCol{ display:none; flex:1 1 300px; max-width:460px; } /* 判定の基準スライダーは生徒には非表示（教員の指示、2026-09-01）。DOM自体は残し、既存の入力配線はそのまま動かす */
   .kws-promptRow{ display:flex; align-items:center; justify-content:center; gap:8px; }
   .kws-sentencePrompt{ font-size:1rem; text-align:center; max-width:420px; line-height:1.6; padding:8px 12px; background:var(--card); border:1px solid var(--line); border-radius:8px; }
   .kws-sentencePrompt .kws-blank{ font-weight:bold; text-decoration:underline; text-underline-offset:3px; }
@@ -302,9 +302,6 @@
     80%{opacity:1;}
     100%{opacity:0; transform:translate(-50%,-10px);}
   }
-  .kws-controls{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
-  .kws-controls button{ font-size:.85rem; padding:9px 16px; border-radius:8px; border:1px solid var(--line); background:var(--card); cursor:pointer; font-family:inherit; }
-  .kws-controls button.primary{ background:var(--ok); color:#fff; border-color:var(--ok); font-weight:bold; }
   .kws-credit{ font-size:.68rem; color:var(--sub); text-align:center; }
   .kws-credit a{ color:var(--sub); }
   .kws-panelCol h2{ font-size:.85rem; margin:0 0 8px; }
@@ -3302,7 +3299,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.99</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.00</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6697,7 +6694,6 @@ let kwsStageRevealHidden = false;
 // これが無いと、判定後にキャンバスをタップして全部消し、同じ問題を何度でも解き直して
 // 経験値を稼げてしまう（従来のkwsFirstAttemptEligibleと同じ目的）。
 let kwsXpSettled = false;
-let kwsShowFirstStroke = false;
 let kwsLastResult = null;      // 直前の判定結果（{ aggregate, chars }）
 let kwsLastCharResults = null;
 // id -> { pass, thumb }。直近の判定結果（画面を出入りしても保持するが、保存データには含めない）。
@@ -6858,8 +6854,26 @@ function kwsElemGroups(){
   _kwsElemGroupsCache = groups;
   return groups;
 }
+// まだ一度も解禁が進んでいない生徒の初期状態（教員の指示、2026-09-01：「初めの段階でも、
+// 小学校3年生までは全部解放している状態からスタート」）。全グループがすべて学年3以下の
+// 問題だけで構成されている先頭部分を数える（1026問中、学年1〜3で440問＝ちょうど55グループ
+// ぶんで学年4の問題と混ざらずに区切れる）。データが変わって端数が出た場合も、学年4以上の
+// 問題を含むグループの手前までしか含めないので安全（毎回計算するがGROUP_SIZE分程度なので軽い）。
+let _kwsElemDefaultUnlockedGroupCount = null;
+function kwsElemDefaultUnlockedGroupCount(){
+  if(_kwsElemDefaultUnlockedGroupCount !== null) return _kwsElemDefaultUnlockedGroupCount;
+  const groups = kwsElemGroups();
+  const data = kwsDataCache.elem || {};
+  let n = 0;
+  for(let i = 0; i < groups.length; i++){
+    if(!groups[i].ids.every(id => (data[id].grade || 0) <= 3)) break;
+    n = i + 1;
+  }
+  _kwsElemDefaultUnlockedGroupCount = Math.max(n, 1);
+  return _kwsElemDefaultUnlockedGroupCount;
+}
 function kwsElemUnlockedGroupCount(st){
-  return (st.groupUnlock && st.groupUnlock.kws_elem) || 1;
+  return (st.groupUnlock && st.groupUnlock.kws_elem) || kwsElemDefaultUnlockedGroupCount();
 }
 function kwsElemUnlockedQuestionPct(st){
   const groups = kwsElemGroups();
@@ -6961,19 +6975,6 @@ function kwsDrawGuideGrid(charCount){
   kwsCtx.restore();
 }
 
-function kwsDrawFirstStrokeHint(){
-  const kdata = kwsData[kwsCurrentId];
-  kwsCtx.save();
-  kwsCtx.fillStyle = '#5fb3a3';
-  kdata.firstStrokeIndices.forEach(idx => {
-    const p = kdata.strokes[idx].start;
-    kwsCtx.beginPath();
-    kwsCtx.arc(p.x, p.y, KWS_FIRST_STROKE_HINT_RADIUS_PX, 0, Math.PI * 2);
-    kwsCtx.fill();
-  });
-  kwsCtx.restore();
-}
-
 function kwsDrawTargetReveal(){
   const kdata = kwsData[kwsCurrentId];
   kwsCtx.save();
@@ -6985,8 +6986,8 @@ function kwsDrawTargetReveal(){
   kwsCtx.restore();
 }
 
-// kwsDrawFirstStrokeHint／kwsDrawTargetRevealの、文字を絞り込める版。
-// 段階制の書き直し（kwsStage）で、間違えた文字だけにヒント・答えを出すために使う。
+// kwsDrawTargetRevealの始筆ヒント版。段階制の書き直し（kwsStage）で、
+// 間違えた文字だけにヒント・答えを出すために使う。
 function kwsDrawFirstStrokeHintFor(charIndices){
   const kdata = kwsData[kwsCurrentId];
   kwsCtx.save();
@@ -7094,8 +7095,6 @@ function kwsRender(){
   } else if(kwsStage === 1 && kwsStagePendingChars){
     // ヒント表示ステージ：間違えた文字だけ始筆の点を見せる。
     kwsDrawFirstStrokeHintFor(kwsStagePendingChars);
-  } else if(kwsShowFirstStroke){
-    kwsDrawFirstStrokeHint();
   }
   kwsDrawCompletedInk();
   if(kwsDrawing && kwsCurrentPath.length >= 2) kwsDrawLiveInk();
@@ -7662,16 +7661,6 @@ function kwsUndoStroke(charIndex){
   kwsRender();
 }
 
-function kwsUpdateFirstStrokeButtonLabel(){
-  document.getElementById('kwsBtnFirstStroke').textContent = kwsShowFirstStroke ? '1画目を隠す' : '1画目を表示';
-}
-
-function kwsToggleFirstStroke(){
-  kwsShowFirstStroke = !kwsShowFirstStroke;
-  kwsUpdateFirstStrokeButtonLabel();
-  kwsRender();
-}
-
 function kwsRenderSentencePrompt(id){
   const sentence = kwsSentenceFor(id);
   const html = sentence.replace(/《([^》]*)》/g, '<span class="kws-blank">$1</span>');
@@ -7722,8 +7711,6 @@ function kwsLoadKanji(id){
   kwsStageEl.style.aspectRatio = `1 / ${kdata.charCount}`;
 
   kwsRenderPerCharButtons(kdata.charCount);
-  kwsShowFirstStroke = false;
-  kwsUpdateFirstStrokeButtonLabel();
   kwsRenderSentencePrompt(id);
   kwsRenderGradeBadge(id);
   kwsResetInk();
@@ -7821,9 +7808,6 @@ function kwsScreenHtml(){
         </div>
         <div class="kws-status" id="kwsStatus"></div>
         <div class="kws-charBreakdown" id="kwsCharBreakdown"></div>
-        <div class="kws-controls">
-          <button id="kwsBtnFirstStroke">1画目を表示</button>
-        </div>
         <p class="kws-credit">
           画の形データ：<a href="https://kanjivg.tagaini.net" target="_blank" rel="noopener">KanjiVG</a>
           （© Ulrich Apel, CC BY-SA 3.0）を使用
@@ -7903,7 +7887,6 @@ function kwsWireScreen(){
   });
 
   document.getElementById('kwsBtnJudge').addEventListener('click', kwsHandleJudgeButtonClick);
-  document.getElementById('kwsBtnFirstStroke').addEventListener('click', kwsToggleFirstStroke);
   document.getElementById('kwsBtnShowList').addEventListener('click', kwsToggleKanjiList);
   document.getElementById('kwsBtnRandom').addEventListener('click', kwsLoadRandomKanji);
 
@@ -7957,7 +7940,8 @@ function startKanjiWriteStroke(mode){
     screen.innerHTML = kwsScreenHtml();
     window.scrollTo(0, 0);
     kwsWireScreen();
-    const firstId = kwsSortIds(kwsPoolIds())[0];
+    const pool = kwsPoolIds();
+    const firstId = pool.length ? pool[Math.floor(Math.random() * pool.length)] : null; // 1問目もランダムに（教員の指示、2026-09-01：毎回同じ字で始まっていた）
     if(!firstId) throw new Error(mode === 'elem'
       ? 'KANJI_WRITE_ELEM_STROKE_DATAが読み込まれていません（kanji_write_elem_stroke_data.jsの読み込みに失敗した可能性があります）'
       : 'KANJI_WRITE_STROKE_DATAが読み込まれていません（kanji_write_stroke_data.jsの読み込みに失敗した可能性があります）');
