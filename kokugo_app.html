@@ -308,6 +308,19 @@
     80%{opacity:1;}
     100%{opacity:0; transform:translate(-50%,-10px);}
   }
+  /* 新しい問題が解禁された瞬間、画面中央に明確に表示する（教員の指示、2026-09-02）。 */
+  .kws-unlockOverlay{
+    position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:60; pointer-events:none;
+    background:linear-gradient(135deg,#43a047,#2e7d32); color:#fff; font-weight:bold; font-size:1.15rem;
+    padding:22px 32px; border-radius:16px; box-shadow:0 8px 28px rgba(0,0,0,.3); text-align:center;
+    animation:kwsUnlockOverlayPop 1.8s ease forwards;
+  }
+  @keyframes kwsUnlockOverlayPop{
+    0%{opacity:0; transform:translate(-50%,-50%) scale(.85);}
+    12%{opacity:1; transform:translate(-50%,-50%) scale(1);}
+    78%{opacity:1;}
+    100%{opacity:0; transform:translate(-50%,-50%) scale(1);}
+  }
   .kws-credit{ font-size:.68rem; color:var(--sub); text-align:center; }
   .kws-credit a{ color:var(--sub); }
   .kws-panelCol h2{ font-size:.85rem; margin:0 0 8px; }
@@ -3305,7 +3318,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.10</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.11</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6906,30 +6919,30 @@ function kwsEnsureStateStore(st, mode){
       for(let i = 0; i < frontier; i++) items[ids[i]] = { box: 'new', streak: 0, c: 0, w: 0 };
     } else {
       // 小学3年生まで（okCount問）は最初から「正解済み」扱いで導入する（見た目・出題頻度は
-      // 即座に有効）。教員の指示、2026-09-02：「440問、全問正解し、解放を続けてきた状態から
-      // スタートするイメージ」＝この440問を1問ずつ実際に確認したのと同じだけ、さらに
-      // その先（小学4年生〜）をokCount問ぶん、最初から「新しい問題」として追加解禁しておく
-      // （とにかくスタート時点から解放がどんどん進むように、という指示を汲んだ設計）。
-      // 各'ok'問題にはpending:trueを立てておき、生徒が実際にその問題へ初めて正解した瞬間にも
-      // （この一括ぶんとは別に）通常の「新しい問題」と同じく1問だけ追加で新規解放する
-      // （kwsRecordAnswer参照。復習が進むほどさらに解禁が伸びていく、というおまけの効果）。
+      // 即座に有効）。そのすぐ次の1問（小学4年生の最初の1問）だけを追加で「新しい問題」に
+      // しておき、examと同じ「1問ずつ順番に解放していく」チェーンのきっかけにする
+      // （教員の指示、2026-09-02：「4年生が終わっていないのに5年生の問題がぽんと出る」の
+      // 再発防止。以前は440問まとめて新規解放していたため、学年をまたいで一気にばらけて
+      // 出てしまっていた。1問ずつにして、下のkwsIntroduceNextItemのforcedNextで
+      // 「解放した直後は必ずその1問を次に出す」ようにすることで、学年をまたいだ
+      // 飛び出しを防ぐ）。各'ok'問題にはpending:trueを立てておき、生徒が実際にその問題へ
+      // 初めて正解した瞬間にも（この1問とは別に）通常の「新しい問題」と同じく1問だけ
+      // 追加で新規解放する（kwsRecordAnswer参照。復習が進むほどさらに解禁が伸びていく、
+      // というおまけの効果）。
       const okCount = kwsElemDefaultFrontier();
-      frontier = Math.min(okCount * 2, ids.length);
+      frontier = Math.min(okCount + 1, ids.length);
       for(let i = 0; i < okCount; i++) items[ids[i]] = { box: 'ok', streak: 0, c: 0, w: 0, pending: true };
       for(let i = okCount; i < frontier; i++) items[ids[i]] = { box: 'new', streak: 0, c: 0, w: 0 };
     }
     st[key] = { frontier, items, bonusApplied: true };
   } else if(mode === 'elem' && !st[key].bonusApplied){
-    // ver10.08以前（またはver10.09投入前）に一度でもelemを触った既存セーブは、
+    // ver10.08以前（またはこの拡張の投入前）に一度でもelemを触った既存セーブは、
     // st.kwsElemStateが既に存在するため上のif(!st[key])を通らず、旧初期状態
-    // （440問=正解済みのみ、frontier=440）のまま止まっていた。ver10.09で追加した
-    // 「さらに440問ぶん新規解放しておく」拡張を後から一度だけ適用する（教員の報告、
-    // 2026-09-02：「10問以上やっても小学校4年生の問題が一度も出ない」＝ver10.09より
-    // 前に作られたセーブデータがこの拡張の対象外だった）。bonusAppliedで二重適用を防ぐ。
+    // （440問=正解済みのみ、frontier=440）のまま止まっていた。小学4年生の最初の1問だけを
+    // 後から一度だけ追加解禁する（bonusAppliedで二重適用を防ぐ）。
     const store = st[key];
     const ids = kwsElemOrderedIds();
-    const okCount = kwsElemDefaultFrontier();
-    const newFrontier = Math.min(store.frontier + okCount, ids.length);
+    const newFrontier = Math.min(store.frontier + 1, ids.length);
     for(let i = store.frontier; i < newFrontier; i++){
       if(!store.items[ids[i]]) store.items[ids[i]] = { box: 'new', streak: 0, c: 0, w: 0 };
     }
@@ -6954,8 +6967,25 @@ function kwsCurrentPhase(st, mode){
 // 導入済みの中から次の1問を選ぶ（箱ごとの重みで箱を選び、箱の中は一様ランダム。pickOneは
 // 20分野のselectOne等と共通の重み付き抽選ユーティリティをそのまま流用）。
 // avoidIdは直前の問題（連続で同じ問題を避ける。教員の指示、2026-09-01）。
+// 20分野のhistoryWeight()と同じ考え方・同じ係数：正解を重ねるほど出にくく（0.75^正解数）、
+// 不正解を重ねるほど出やすく（1.5^不正解数）なる、0.05〜8倍の重み。箱の中で一様ランダムに
+// 選ぶだけだと、その箱に問題がまだ少ない序盤（例：正解済み箱にまだ1〜2問しか無いとき）に
+// 同じ問題ばかり繰り返し出てしまう（教員の報告、2026-09-02：「『届』などやたら同じ問題が
+// 出てくる」）。箱を選んだ「あと」に、この重みで箱の中からさらに絞り込むことで防ぐ。
+function kwsHistoryWeight(entry){
+  const w = Math.pow(0.75, entry.c) * Math.pow(1.5, entry.w);
+  return Math.max(0.05, Math.min(8, w));
+}
 function kwsPickNextId(st, mode, avoidId){
   const store = kwsEnsureStateStore(st, mode);
+  // 直前の正解／解禁で「次はこれを出す」と予約されている問題があれば最優先で出す
+  // （教員の指示、2026-09-02：「解放した場合は、次の一字を必ず出す」。新しく解放した
+  // 直後にランダムで他の問題に流れてしまうと、学年をまたいで飛び飛びに見えてしまうため）。
+  if(store.forcedNext && store.items[store.forcedNext]){
+    const id = store.forcedNext;
+    store.forcedNext = null;
+    return id;
+  }
   const buckets = { new: [], wrong: [], ok: [] };
   Object.keys(store.items).forEach(id => buckets[store.items[id].box].push(id));
   const weights = KWS_PHASE_WEIGHTS[kwsCurrentPhase(st, mode)];
@@ -6964,15 +6994,19 @@ function kwsPickNextId(st, mode, avoidId){
   // まだ空、など）は導入済み全体から選ぶ。
   const pool = cats.length ? buckets[pickOne(cats, cats.map(c => weights[c]))] : Object.keys(store.items);
   const candidates = (pool.length > 1 && avoidId) ? pool.filter(id => id !== avoidId) : pool;
-  return candidates.length ? candidates[Math.floor(Math.random() * candidates.length)] : null;
+  if(!candidates.length) return null;
+  return pickOne(candidates, candidates.map(id => kwsHistoryWeight(store.items[id])));
 }
 // 次に導入する1問を「新しい問題」箱に追加する（教員の指示：「正解したら、1問ずつ
-// 「新しい問題」を解放」）。戻り値は実際に導入できたか（もう全問導入済みならfalse）。
+// 「新しい問題」を解放」）。導入した問題は、次の出題で必ず優先されるようforcedNextに
+// 予約しておく（教員の指示：「解放した場合は、次の一字を必ず出す」）。戻り値は
+// 実際に導入できたか（もう全問導入済みならfalse）。
 function kwsIntroduceNextItem(store, orderedIds){
   if(store.frontier >= orderedIds.length) return false;
   const nextId = orderedIds[store.frontier];
   store.items[nextId] = { box: 'new', streak: 0, c: 0, w: 0 };
   store.frontier++;
+  store.forcedNext = nextId;
   return true;
 }
 // 今の問題(id)の最終判定（correct）を受けて、箱の移動・連続正解数・正解／不正解回数・
@@ -7220,14 +7254,15 @@ function kwsSetStatus(text, cls){
 // 新しい問題が1問解禁された合図を、kwsStatusとは別の専用要素に出す（他ジャンルの「本体の
 // メッセージに続けて解禁メッセージを別要素で足す」流儀に合わせる。教員の指示、2026-09-01：
 // 「解放したときのお知らせメッセージは、他のジャンル同様採用すること」／2026-09-02：
-// 「新しい問題を解放した！」とだけ、一言見やすく表示してください）。
+// 「新しい問題を解放した！」とだけ、一言見やすく表示してください／さらに2026-09-02：
+// 「画面中央に、明確に表示してください」）。kwsShowEventXpFxと同じ「動的に要素を作って
+// 一定時間後に消す」流儀で、画面中央に大きく出す（.kws-unlockOverlay）。
 function kwsShowUnlockMsg(){
-  const el = document.getElementById('kwsUnlockMsg');
-  if(el) el.textContent = '🎉 新しい問題を解放した！';
-}
-function kwsClearUnlockMsg(){
-  const el = document.getElementById('kwsUnlockMsg');
-  if(el) el.textContent = '';
+  const el = document.createElement('div');
+  el.className = 'kws-unlockOverlay';
+  el.textContent = '🎉 新しい問題が解放されました';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1800);
 }
 
 
@@ -7793,7 +7828,6 @@ function kwsResetInk(charIndex){
   document.getElementById('kwsMeasuredPanel').textContent = 'まだ何も判定していません';
   document.getElementById('kwsCharBreakdown').innerHTML = '';
   kwsSetStatus('');
-  kwsClearUnlockMsg();
   kwsUpdateJudgeButtonState();
   kwsRender();
 }
@@ -7983,7 +8017,6 @@ function kwsScreenHtml(){
           <ul>${notes}</ul>
         </div>
         <div class="kws-status" id="kwsStatus"></div>
-        <div class="kws-status ok" id="kwsUnlockMsg"></div>
         <div class="kws-charBreakdown" id="kwsCharBreakdown"></div>
         <p class="kws-credit">
           画の形データ：<a href="https://kanjivg.tagaini.net" target="_blank" rel="noopener">KanjiVG</a>
