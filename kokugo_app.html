@@ -3318,7 +3318,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.11</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.12</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6671,7 +6671,8 @@ const KWS_KOMEHEN_CHARS = new Set(['米','精','粉','糖','粋']); // 粋は単
 // 部首名をボタンに添えるが、土／工、牛／午は形が似ているだけの単独の字なので名前は付けない
 // （教員の指示、2026-09-01）。
 const KWS_CONFUSION_PAIRS = [
-  { a: { chars: KWS_ITOHEN_CHARS, display: '糸', name: 'いとへん' }, b: { chars: KWS_KOMEHEN_CHARS, display: '米', name: 'こめへん' } },
+  // いとへん／こめへんも、他の組と同じくひらがなの部首名は付けない（教員の指示、2026-09-02）。
+  { a: { chars: KWS_ITOHEN_CHARS, display: '糸', name: null }, b: { chars: KWS_KOMEHEN_CHARS, display: '米', name: null } },
   { a: { chars: new Set(['土']), display: '土', name: null }, b: { chars: new Set(['工']), display: '工', name: null } },
   { a: { chars: new Set(['牛']), display: '牛', name: null }, b: { chars: new Set(['午']), display: '午', name: null } },
   { a: { chars: new Set(['矢']), display: '矢', name: null }, b: { chars: new Set(['失']), display: '失', name: null } },
@@ -6976,26 +6977,52 @@ function kwsHistoryWeight(entry){
   const w = Math.pow(0.75, entry.c) * Math.pow(1.5, entry.w);
   return Math.max(0.05, Math.min(8, w));
 }
+// 直近に出した問題を、最低でもこの問数ぶんは他の問題を挟むまで再び出さない（教員の指示、
+// 2026-09-02：「間違った問題が1問しか無いから、正解しても何度も同じ問題が出た」への対応。
+// 「10問中何問」という出題頻度の指定は分散学習（他の問題を挟んで記憶の定着を図る）が
+// 狙いであり、該当する箱の問題数が少ない（極端には1問だけ）ときに限って同じ問題が
+// 連続・頻発してしまうのは意図に反する。箱の中の候補を絞る前に、直近に出た問題を
+// 除外することで、他の問題が必ず間に挟まるようにする）。
+const KWS_RECENT_SHOWN_WINDOW = 3;
 function kwsPickNextId(st, mode, avoidId){
   const store = kwsEnsureStateStore(st, mode);
+  const recent = new Set(store.recentShown || []);
+  if(avoidId) recent.add(avoidId);
+
   // 直前の正解／解禁で「次はこれを出す」と予約されている問題があれば最優先で出す
   // （教員の指示、2026-09-02：「解放した場合は、次の一字を必ず出す」。新しく解放した
   // 直後にランダムで他の問題に流れてしまうと、学年をまたいで飛び飛びに見えてしまうため）。
   if(store.forcedNext && store.items[store.forcedNext]){
     const id = store.forcedNext;
     store.forcedNext = null;
+    kwsRememberShown(store, id);
     return id;
   }
+
   const buckets = { new: [], wrong: [], ok: [] };
   Object.keys(store.items).forEach(id => buckets[store.items[id].box].push(id));
   const weights = KWS_PHASE_WEIGHTS[kwsCurrentPhase(st, mode)];
   const cats = ['new', 'wrong', 'ok'].filter(c => buckets[c].length > 0 && weights[c] > 0);
-  // 保険：該当する箱が1つも無い場合（つまずき期に入った直後で間違った問題も正解済みも
-  // まだ空、など）は導入済み全体から選ぶ。
-  const pool = cats.length ? buckets[pickOne(cats, cats.map(c => weights[c]))] : Object.keys(store.items);
-  const candidates = (pool.length > 1 && avoidId) ? pool.filter(id => id !== avoidId) : pool;
+  const chosenPool = cats.length ? buckets[pickOne(cats, cats.map(c => weights[c]))] : Object.keys(store.items);
+
+  // まず「選んだ箱の中で、直近に出していない問題」を候補にする。それが無ければ
+  // （箱の問題数が少なく、直近ですべて出尽くしている場合）、箱にこだわらず導入済み
+  // 全体から「直近に出していない問題」を探す。それも無ければ（導入数がまだ極端に
+  // 少ない序盤）直前の1問だけは避ける、最終手段としてどれでも出す。
+  let candidates = chosenPool.filter(id => !recent.has(id));
+  if(!candidates.length) candidates = Object.keys(store.items).filter(id => !recent.has(id));
+  if(!candidates.length && avoidId) candidates = Object.keys(store.items).filter(id => id !== avoidId);
+  if(!candidates.length) candidates = Object.keys(store.items);
   if(!candidates.length) return null;
-  return pickOne(candidates, candidates.map(id => kwsHistoryWeight(store.items[id])));
+
+  const id = pickOne(candidates, candidates.map(cid => kwsHistoryWeight(store.items[cid])));
+  kwsRememberShown(store, id);
+  return id;
+}
+function kwsRememberShown(store, id){
+  if(!Array.isArray(store.recentShown)) store.recentShown = [];
+  store.recentShown.push(id);
+  while(store.recentShown.length > KWS_RECENT_SHOWN_WINDOW) store.recentShown.shift();
 }
 // 次に導入する1問を「新しい問題」箱に追加する（教員の指示：「正解したら、1問ずつ
 // 「新しい問題」を解放」）。導入した問題は、次の出題で必ず優先されるようforcedNextに
@@ -7265,6 +7292,26 @@ function kwsShowUnlockMsg(){
   setTimeout(() => el.remove(), 1800);
 }
 
+// 進捗バー（解放率）のHTML。examは常に表示、elemは「全学年」選択時だけ表示する。
+function kwsUnlockFooterInner(){
+  if(kwsMode === 'exam'){
+    return unlockFooterHtml('漢字の書き学習', Math.round(kwsIntroducedCount(loadStats(), 'exam') / kwsTotalCount('exam') * 100));
+  }
+  if(kwsMode === 'elem' && !kwsElemGrade){
+    return unlockFooterHtml('小学生の漢字を復習する', Math.round(kwsIntroducedCount(loadStats(), 'elem') / kwsTotalCount('elem') * 100));
+  }
+  return '';
+}
+// kwsScreenHtml()は問題を解くたびに丸ごと作り直すわけではない（キャンバスの状態を保つため、
+// kwsLoadKanji等は必要な箇所だけをピンポイントで更新する設計）。そのため進捗バーを
+// 初回描画のときの数値のまま放置すると、実際には解放が進んでいても％が動かなくなる
+// （教員の報告、2026-09-02：「『解放されました！』と表示されているのに、下のゲージが
+// まったく％が進まない」）。正解／不正解の最終判定のたびにこの関数を呼び、値を更新する。
+function kwsUpdateUnlockFooter(){
+  const el = document.getElementById('kwsUnlockFooter');
+  if(el) el.innerHTML = kwsUnlockFooterInner();
+}
+
 
 // targetStrokes（対象の画の配列）に対して、drawnGroups（描いた線を1本ずつの点列にした配列）が
 // どれだけ合っているかを見る、汎用の判定コア。単語全体にも、1文字分だけにも同じロジックを使う。
@@ -7493,6 +7540,7 @@ function kwsHandleRecallGiveUp(){
     const st = loadStats();
     kwsRecordAnswer(st, kwsMode, kwsCurrentId, false);
     saveStats(st);
+    kwsUpdateUnlockFooter();
   }
   document.getElementById('kwsMeasuredPanel').textContent = 'まだ何も判定していません';
   document.getElementById('kwsCharBreakdown').innerHTML = '';
@@ -7526,6 +7574,7 @@ function kwsHandleJudgeResult(kdata){
       const st = loadStats();
       kwsRecordAnswer(st, kwsMode, kwsCurrentId, false);
       saveStats(st);
+      kwsUpdateUnlockFooter();
     }
     kwsSetStatus(
       wrongChars.length === 0
@@ -7548,6 +7597,7 @@ function kwsHandleJudgeResult(kdata){
       const st = loadStats();
       const introduced = kwsRecordAnswer(st, kwsMode, kwsCurrentId, true);
       saveStats(st);
+      kwsUpdateUnlockFooter();
       if(introduced) kwsShowUnlockMsg();
     }
     kwsMaybeShowRadicalQuiz(kdata);
@@ -8053,8 +8103,7 @@ function kwsScreenHtml(){
         <div class="kws-resultsList" id="kwsIncorrectList"></div>
       </div>
     </div>
-    ${kwsMode === 'exam' ? unlockFooterHtml('漢字の書き学習', Math.round(kwsIntroducedCount(loadStats(), 'exam') / kwsTotalCount('exam') * 100)) : ''}
-    ${kwsMode === 'elem' && !kwsElemGrade ? unlockFooterHtml('小学生の漢字を復習する', Math.round(kwsIntroducedCount(loadStats(), 'elem') / kwsTotalCount('elem') * 100)) : ''}
+    <div id="kwsUnlockFooter">${kwsUnlockFooterInner()}</div>
     ${kwsGradeSwitchHtml()}
     <div class="kws-listControls">
       <button id="kwsBtnShowList">一覧表示</button>
@@ -8120,6 +8169,7 @@ function kwsSwitchElemGrade(grade){
   if(listEl && listEl.style.display !== 'none'){
     kwsWireKanjiSelectList();
   }
+  kwsUpdateUnlockFooter(); // 学年フィルタで進捗バーの表示・非表示が変わるため
   kwsLoadRandomKanji();
 }
 
