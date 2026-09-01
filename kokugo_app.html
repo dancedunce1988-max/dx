@@ -288,6 +288,18 @@
   .kws-radicalQuizResult{ margin-top:12px; font-weight:bold; min-height:1.2em; }
   .kws-radicalQuizResult.ok{ color:var(--ok); }
   .kws-radicalQuizResult.ng{ color:var(--ng); }
+  .kws-eventXpFx{
+    position:fixed; top:14px; left:50%; transform:translateX(-50%); z-index:50; pointer-events:none;
+    background:linear-gradient(135deg,#ffb703,#fb8500); color:#fff; font-weight:bold; font-size:.95rem;
+    padding:10px 20px; border-radius:99px; box-shadow:0 4px 14px rgba(0,0,0,.2);
+    animation:kwsEventXpPop 1.4s ease forwards;
+  }
+  @keyframes kwsEventXpPop{
+    0%{opacity:0; transform:translate(-50%,-10px);}
+    15%{opacity:1; transform:translate(-50%,0);}
+    80%{opacity:1;}
+    100%{opacity:0; transform:translate(-50%,-10px);}
+  }
   .kws-controls{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
   .kws-controls button{ font-size:.85rem; padding:9px 16px; border-radius:8px; border:1px solid var(--line); background:var(--card); cursor:pointer; font-family:inherit; }
   .kws-controls button.primary{ background:var(--ok); color:#fff; border-color:var(--ok); font-weight:bold; }
@@ -3283,7 +3295,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.91</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.92</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3558,6 +3570,11 @@ const EVENTS = {
     start: new Date('2026-09-21T00:00:00'),
     end: new Date('2026-09-27T23:59:59'),
     desc: "熱闘！四字熟語甲子園！、ヒットを打つごとに経験値が入る！\nヒット＋1 ／ 勝利したとき＋5",
+  },
+  "2026_09_kanjiwrite_beta": {
+    label: "漢字の書き取り βテストイベント",
+    end: new Date('2026-09-04T23:59:59'),
+    desc: "「漢字の書き学習（200問）」または「小学生の漢字を復習する（全学年ミックス）」で、\n1問を一発で正解して次の問題に進むごとに経験値＋3！",
   },
 };
 function eventActive(id){
@@ -6636,7 +6653,12 @@ let kwsCurrentPath = [];
 let kwsDrawing = false;
 let kwsJudged = false;
 let kwsJudgedPass = false;
-let kwsRadicalQuiz = null;  // 表示中のいとへん／こめへんクイズの状態（{type, answered}）。非表示ならnull
+let kwsRadicalQuiz = null;  // 表示中の確認クイズの状態（{correctDisplay, correctLabel, answered}）。非表示ならnull
+// 今の問題の「最初の採点」時点で、一発正解 かつ βイベント対象条件（モード/学年）を
+// 満たしていたか（null=まだ未採点）。やり直しても書き換わらない。βイベント「一発正解でXP」の
+// 判定に使う（kwsLoadKanji()の先頭でだけリセットする）。モード/学年は判定「時点」のものを使う
+// （＝「全学年ミックス」で正解した直後に学年ボタンを押して離れても、そのぶんはeligibleのまま）。
+let kwsFirstAttemptEligible = null;
 let kwsShowFirstStroke = false;
 let kwsLastResult = null;      // 直前の判定結果（{ aggregate, chars }）
 let kwsLastCharResults = null;
@@ -7133,6 +7155,10 @@ function kwsJudgeWhole(){
   };
   kwsRenderResult();
 
+  // 「この問題の最初の採点」の結果だけを記憶する（やり直して再採点しても書き換わらない）。
+  // βイベント「一発正解でXP」（kwsMaybeAwardEventXp）が、この値だけを見て判定する。
+  if(kwsFirstAttemptEligible === null) kwsFirstAttemptEligible = kwsJudgedPass && kwsEventXpEligibleNow();
+
   // 「これで判定する」を押した時だけ、正解／間違いのストックに記録する
   // （スライダー調整による再判定はストックに影響させない）。render()済みなのでcanvasには
   // 書いた線と○×スタンプが乗った状態になっており、そのままスクリーンショットとして保存する。
@@ -7141,6 +7167,38 @@ function kwsJudgeWhole(){
   kwsUpdateResultLogDisplay();
 
   if(kwsJudgedPass) kwsMaybeShowRadicalQuiz(kdata);
+}
+
+const KWS_XP_EVENT_ID = '2026_09_kanjiwrite_beta';
+const KWS_XP_PER_CORRECT = 3;
+
+// 「小学生の漢字を復習する」は学年を絞っていない「全学年ミックス」のときだけ、
+// 「漢字の書き学習」は常に対象（教員の指示、2026-09-01〜04のβテスト）。
+function kwsEventXpEligibleNow(){
+  if(kwsMode === 'exam') return true;
+  if(kwsMode === 'elem') return kwsElemGrade === null;
+  return false;
+}
+
+// 1つ前の問題を「一発正解」（やり直し無しで最初の採点が○、かつ採点時点でβイベント対象の
+// モード/学年だった）のまま離れた（次の問題へ進んだ・一覧から別の字へ飛んだ）ときだけ、
+// イベント経験値を加算する。kwsLoadKanji()の先頭からだけ呼ぶ（次の問題へ進む経路はボタンでも
+// 一覧でも必ずここを通るため、一箇所で判定できる）。
+function kwsMaybeAwardEventXp(){
+  if(kwsFirstAttemptEligible !== true) return;
+  if(!eventActive(KWS_XP_EVENT_ID)) return;
+  const st = loadStats();
+  eventBonusAdd(st, KWS_XP_EVENT_ID, KWS_XP_PER_CORRECT);
+  saveStats(st);
+  kwsShowEventXpFx(KWS_XP_PER_CORRECT);
+}
+
+function kwsShowEventXpFx(amount){
+  const el = document.createElement('div');
+  el.className = 'kws-eventXpFx';
+  el.textContent = `🎉 イベント経験値＋${amount}`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1400);
 }
 
 // kanji文字列が、KWS_CONFUSION_PAIRSのどれか片方だけに一致すれば{pair, correct}を返す（無ければnull）。
@@ -7402,7 +7460,9 @@ function kwsRenderPerCharButtons(charCount){
 }
 
 function kwsLoadKanji(id){
+  kwsMaybeAwardEventXp(); // 前の問題を「一発正解」で離れるところなので、次の問題を読み込む前に判定する
   kwsCurrentId = id;
+  kwsFirstAttemptEligible = null; // 新しい問題として仕切り直す
   const kdata = kwsData[id];
 
   kwsCanvas.width = KWS_CHAR_CELL_PX;
@@ -7634,6 +7694,10 @@ function kwsWireKanjiSelectList(){
 function startKanjiWriteStroke(mode){
   mode = mode || 'exam';
   if(mode === 'elem') kwsElemGrade = null;
+  // 画面を開き直すたびにリセットする。無いと、前回この画面を「次の問題」を経由せずに離れた
+  // 場合（ホームへ等）の古いkwsFirstAttemptEligibleが残ったまま、開き直した瞬間の最初の
+  // kwsLoadKanji()内でkwsMaybeAwardEventXp()が誤って発火してしまう。
+  kwsFirstAttemptEligible = null;
   try {
     kwsEnsureData(mode);
     screen.innerHTML = kwsScreenHtml();
