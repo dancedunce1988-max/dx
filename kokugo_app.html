@@ -3302,7 +3302,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.95</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.96</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -11272,7 +11272,7 @@ function showTicketConfirm(){
   const st = loadStats();
   if((st.bossTickets||0) <= 0){ showHome(); return; }
   const xp = kotonohaTotalXP(st);
-  const candidates = ticketEligibleBosses(xp);
+  const candidates = ticketEligibleBosses(xp, ticketShowRetiredBosses);
   const names = candidates.map(b => b.name.match(/【(.+)】/)?.[1] || b.name).join("・");
   const n = st.bossTickets||0;
   const chooseBtnHtml = n >= TICKET_CHOOSE_COST
@@ -11284,6 +11284,10 @@ function showTicketConfirm(){
       <p class="boss-enc-text">挑戦チケットを1枚使って、ランダムなボスに挑戦しますか？<br><b>挑戦すると、チケットを1枚消費します。</b></p>
       <p class="note boss-enc-hint">🌐 挑戦チケットを使った対戦は、全ジャンルからランダムに出題されます（ふだんのランダム遭遇では、そのとき解いていたジャンルのまま出題されます）。</p>
       <p class="note boss-enc-hint">🎯 出現するボスの候補は、ランダム遭遇と同じ条件で絞り込まれます。今回の候補：${esc(names)}</p>
+      <label class="boss-choose-weakToggle">
+        <input type="checkbox" ${ticketShowRetiredBosses ? "checked" : ""} onchange="ticketToggleShowRetired(this.checked)">
+        弱い敵を表示する
+      </label>
       <div class="boss-enc-choices">
         <button class="boss-enc-btn" onclick="showHome()">やめる</button>
         <button class="boss-enc-btn selected" onclick="useTicketAndFight()">チケットを1枚使って挑戦する</button>
@@ -11293,12 +11297,17 @@ function showTicketConfirm(){
       </div>
     </div>`;
 }
-/* 挑戦チケットの抽選対象は、ランダム遭遇（randomEncounterBoss）と完全に同じ条件にする
-   （2026-07-19〜、教員の指示・確認済み）。minXpRatioを持つボスは「ことのはの経験値」が
-   recPts×minXpRatio未満のうちは対象外、かつisBossRetired（経験値が伸びると低い適正経験値の
-   ボスが「卒業」して対象外になる仕組み。neverRetires:trueのサノー・シゲっちは対象外）も
-   同様に適用する。以前の「今の経験値（すでに使った分もふくむ）以下のボスだけ」という
-   独自の上限ルールは廃止し、ランダム遭遇に出てくるボスの候補と完全に一致させる。 */
+/* 挑戦チケットの抽選対象は、既定（「弱い敵を表示する」オフ）ではランダム遭遇
+   （randomEncounterBoss）と完全に同じ条件にする（2026-07-19〜、教員の指示・確認済み）。
+   minXpRatioを持つボスは「ことのはの経験値」がrecPts×minXpRatio未満のうちは対象外、かつ
+   isBossRetired（経験値が伸びると低い適正経験値のボスが「卒業」して対象外になる仕組み。
+   neverRetires:trueのサノー・シゲっちは対象外）も同様に適用する。以前の「今の経験値
+   （すでに使った分もふくむ）以下のボスだけ」という独自の上限ルールは廃止し、ランダム遭遇に
+   出てくるボスの候補と完全に一致させる。
+   ver9.96〜：チケット画面だけの「弱い敵を表示する」チェック（ticketShowRetiredBosses）を
+   オンにすると、isBossRetiredによる卒業ボスの除外だけを外す（第2引数includeRetired）。
+   ランダム遭遇（randomEncounterBoss）はこのフラグを見ない独立実装なので、チケット以外の
+   通常プレイ中の遭遇には一切影響しない。 */
 // includeRetired:trueを渡すと、経験値が伸びて「卒業」済み（isBossRetired）の弱いボスも
 // 対象に含める（「弱い敵を表示する」トグル用）。minXpRatioによる「まだ出現しない強いボス」の
 // 絞り込みは、includeRetiredの値に関わらず常に適用する（弱い敵を見せる機能であって、
@@ -11325,21 +11334,19 @@ function showTicketChooseBoss(){
       <div class="boss-enc-icon">🎟️🎟️🎟️</div>
       <p class="boss-enc-text">チケットを${TICKET_CHOOSE_COST}枚使って、挑戦したいボスを選んでください。</p>
       <p class="note boss-enc-hint">（今の手持ち：${st.bossTickets||0}枚）</p>
-      <label class="boss-choose-weakToggle">
-        <input type="checkbox" ${ticketShowRetiredBosses ? "checked" : ""} onchange="ticketToggleShowRetired(this.checked)">
-        弱い敵を表示する
-      </label>
       <div class="boss-choose-list">${listHtml}</div>
       <div class="boss-enc-choices">
         <button class="boss-enc-btn" onclick="showTicketConfirm()">もどる</button>
       </div>
     </div>`;
 }
-// 「弱い敵を表示する」トグルの切り替え。画面をまるごと作り直すshowTicketChooseBoss()の
-// 設計上、フラグを更新して同じ関数を呼び直すだけで一覧に反映できる。
+// 「弱い敵を表示する」トグルの切り替え（教員の指示、2026-09-01：チェックボックス自体は
+// チケット1枚消費画面＝showTicketConfirmに置く）。フラグはticketEligibleBossesを呼ぶ
+// showTicketConfirm・useTicketAndFight・showTicketChooseBossすべてで共有されるので、
+// ここで更新するだけで、この後どちらの画面に進んでも一貫して反映される。
 function ticketToggleShowRetired(checked){
   ticketShowRetiredBosses = checked;
-  showTicketChooseBoss();
+  showTicketConfirm();
 }
 function useTicketAndFightChosen(bossId){
   const st = loadStats();
@@ -11365,7 +11372,7 @@ function useTicketAndFight(){
   if((st.bossTickets||0) <= 0){ showHome(); return; }
   st.bossTickets -= 1;
   saveStats(st);
-  const candidates = ticketEligibleBosses(kotonohaTotalXP(st));
+  const candidates = ticketEligibleBosses(kotonohaTotalXP(st), ticketShowRetiredBosses);
   const boss = candidates[Math.floor(Math.random() * candidates.length)];
   // どのボスが出たかを見せてから、あらためて「勝負する」を選んでもらう（renderBossPromptを共用）
   pendingBoss = boss;
