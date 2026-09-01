@@ -3299,7 +3299,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.05</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.06</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6915,30 +6915,27 @@ function kwsElemUnlockedIds(st){
   return out;
 }
 // 今の問題(id)を「一度でも正解した」ものとしてst.kwsElemSolvedに記録し、グループ1から順に
-// 「そのグループの8問すべてが解けているか」を確認できるところまで進める。
-// **rawの値（kwsElemRawUnlockedGroupCount、下限のかさ上げ無し）を使う**のがポイント：
-// アクセス可能な範囲（kwsElemUnlockedGroupCount、小学3年生まで＝55グループが下限）を使うと、
-// 「55番目のグループ（学年3の最後の8問）が埋まるまで一切進まない」ことになってしまい、
-// グループ1〜54を実際に埋めていっても進捗（と解禁のお知らせ）に一切反映されない
-// （教員の報告、2026-09-01：「かなり正解しているのに解放されない」の原因）。
-// rawを使えば、最初から解禁されている範囲の中でも1グループ8問終えるごとにきちんと
-// カウントが進み、お知らせも出る。複数グループぶん一気に条件を満たすこともあるため、
-// 満たさなくなるまでループで先へ進める。戻り値は「今回グループが1つ以上進んだか」。
+// 「そのグループの8問すべてが解けているか」を確認できるところまでの数を、毎回ゼロから
+// 数え直す（st.groupUnlock.kws_elemに積み上がっている値を信用して「その続きから」チェック
+// するのではなく、st.kwsElemSolved＝実際に解いたかどうかの記録だけを根拠にする）。
+// これが重要な理由：以前は「保存済みのst.groupUnlock.kws_elemの値」を検査の起点にしていたが、
+// この値と実際の解答状況（st.kwsElemSolved）がどこかで食い違うと（例：8問チャンク解放の
+// 実装が育つ過程で判定条件が変わった影響で、古いテストプレイ時の値が実態とズレて残って
+// いた場合など）、以後ずっと「本当は先のグループまで解けているのに、ズレた古い位置だけを
+// 見て足踏みし続ける」状態になり、二度と解禁が進まなくなってしまう（教員の報告、
+// 2026-09-01：「10問以上連続正解しているのに解放される気配がない」で発覚。exam/elem両方に
+// 同型の不具合があった）。毎回グループ1から数え直せば、過去のズレがあっても次の判定で
+// 自動的に補正され、二度と起こらない。戻り値は「今回グループが1つ以上進んだか」。
 function kwsElemMarkSolvedAndCheckUnlock(st, id){
   if(!Array.isArray(st.kwsElemSolved)) st.kwsElemSolved = [];
   if(!st.kwsElemSolved.includes(id)) st.kwsElemSolved.push(id);
   const groups = kwsElemGroups();
-  let unlockedMore = false;
-  while(true){
-    const n = kwsElemRawUnlockedGroupCount(st);
-    if(n >= groups.length) break; // 全グループ確認済み
-    const cur = groups[n]; // 0-indexed：次に確認するグループ（n番目まで確認済み）
-    if(!cur.ids.every(gid => st.kwsElemSolved.includes(gid))) break;
-    if(!st.groupUnlock) st.groupUnlock = {};
-    st.groupUnlock.kws_elem = n + 1;
-    unlockedMore = true;
-  }
-  return unlockedMore;
+  const before = kwsElemRawUnlockedGroupCount(st);
+  let n = 0;
+  while(n < groups.length && groups[n].ids.every(gid => st.kwsElemSolved.includes(gid))) n++;
+  if(!st.groupUnlock) st.groupUnlock = {};
+  st.groupUnlock.kws_elem = n; // 実際の進捗で常に上書き（ズレがあってもここで補正される）
+  return n > before;
 }
 
 // ---- 「漢字の書き学習」（exam、200問）も同じ8問チャンク解放にする（教員の指示、2026-09-01）----
@@ -6987,21 +6984,22 @@ function kwsExamUnlockedIds(st){
   for(let i = 0; i < n; i++) out.push(...groups[i].ids);
   return out;
 }
+// elem版（kwsElemMarkSolvedAndCheckUnlock）と同じ理由で、保存済みカウンタを起点に検査するの
+// ではなく、st.kwsExamSolvedを根拠に毎回グループ1から数え直す（自己補正式）。
 function kwsExamMarkSolvedAndCheckUnlock(st, id){
   if(!Array.isArray(st.kwsExamSolved)) st.kwsExamSolved = [];
   if(!st.kwsExamSolved.includes(id)) st.kwsExamSolved.push(id);
   const groups = kwsExamGroups();
-  let unlockedMore = false;
-  while(true){
-    const n = kwsExamUnlockedGroupCount(st);
-    if(n >= groups.length) break; // 既に全解禁済み
-    const cur = groups[n - 1];
-    if(!cur.ids.every(gid => st.kwsExamSolved.includes(gid))) break;
-    if(!st.groupUnlock) st.groupUnlock = {};
-    st.groupUnlock.kws_exam = n + 1;
-    unlockedMore = true;
-  }
-  return unlockedMore;
+  const before = kwsExamUnlockedGroupCount(st); // 上書き前の「アクセス可能数」（比較用に読むだけ）
+  let complete = 0; // グループ1から順に、実際に8問とも解けている個数
+  while(complete < groups.length && groups[complete].ids.every(gid => st.kwsExamSolved.includes(gid))) complete++;
+  // st.groupUnlock.kws_examは「アクセス可能なグループ数」（確定済みの次の1グループぶんまで
+  // 挑戦できる、デフォルト1＝グループ1は0完了でもアクセス可）なので、確定数(complete)そのもの
+  // ではなく+1した値を書く（kwsElemの生カウンタとは意味が異なる点に注意）。
+  const accessible = Math.min(complete + 1, groups.length);
+  if(!st.groupUnlock) st.groupUnlock = {};
+  st.groupUnlock.kws_exam = accessible; // 実際の進捗で常に上書き（ズレがあってもここで補正される）
+  return accessible > before;
 }
 
 // 出題プール（一覧表示・解禁率算出の対象。解禁済み全体）。examは常に解禁済みグループの
