@@ -360,18 +360,13 @@
   /* 画像枠の中に、object-fit:containで生じる余白がそのまま見えてしまう問題への対応
      （教員の指示、2026-08-29〜）。①同じ画像をぼかして背景に敷く方式→グラデーションとして
      目立つと指摘、②枠の背景色（var(--card)、白寄り）に合わせてmask-imageで縁をフェード
-     する方式→「まだ白い」と指摘、を経て③に変更。卵イラスト自体の余白は、どの系統でも
-     ほぼ同じ「古紙」のような色（実際に埋め込み画像の四隅をサンプリングした平均値が#efe6da
-     付近で共通していた）なので、枠の背景色をvar(--card)からその古紙色そのもの（#efe6da、
-     グラデーションではなく単色）に差し替えた。そのうえで本体画像の縁だけmask-imageで
-     フェードさせ、画像の余白と枠の背景が地続きに見えるようにする（教員の指示：「ふちの
-     部分をグラデーション処理すると、より自然」）。進化演出・必殺技の肖像は暗い背景の上に
-     半透明の白パネルとして使っているため対象外のまま（不透明な古紙色を敷くとかえって浮く）。 */
-  .kotonoha-icon.kotonoha-icon-img{
-    -webkit-mask-image: radial-gradient(ellipse 85% 85% at 50% 50%, #000 78%, transparent 100%);
-    mask-image: radial-gradient(ellipse 85% 85% at 50% 50%, #000 78%, transparent 100%);
-  }
-  .kotonoha-evolve-img,
+     する方式→「まだ白い」と指摘、を経て③枠の背景色を古紙色（#efe6da、単色）に差し替え。
+     卵イラスト自体の余白がどの系統でもほぼ同じ「古紙」色（埋め込み画像の四隅の平均が
+     #efe6da付近で共通）だったため③の単色背景だけで十分になり、2026-09-01〜、縁を
+     mask-imageで透明にフェードさせる処理は撤去した（教員の指示：「背景の透明化は無し」。
+     絵が縁ぎりぎりまで入っている系統でフェードのせいで絵の一部まで薄くなるのが気になる、
+     とのこと）。必殺技の肖像（.finisher-line-portrait）は暗い背景の上に使うため、
+     縁を透明フェードさせる意味が引き続きあり、そちらのmask-imageだけは残してある。 */
   .finisher-line-portrait{
     -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, #000 65%, transparent 100%);
     mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, #000 65%, transparent 100%);
@@ -3268,7 +3263,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.87</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.88</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
