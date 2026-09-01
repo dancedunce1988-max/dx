@@ -3299,7 +3299,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.02</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.03</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6872,14 +6872,19 @@ function kwsElemDefaultUnlockedGroupCount(){
   _kwsElemDefaultUnlockedGroupCount = Math.max(n, 1);
   return _kwsElemDefaultUnlockedGroupCount;
 }
+// st.groupUnlock.kws_elemに実際に積み上がった「グループ1から順に、正解が確認できた
+// グループ数」そのもの（下限のかさ上げをしない生の値）。0＝まだ1つも確認できていない
+// （小学3年生までの初期解放とは無関係の、素の進捗）。
+function kwsElemRawUnlockedGroupCount(st){
+  return (st.groupUnlock && st.groupUnlock.kws_elem) || 0;
+}
+// 出題プール・進捗バーが対象にする「アクセス可能なグループ数」。上のrawの値と、
+// 「小学3年生まではデフォルトで解放済み」の下限（Math.max）の大きい方を返す。
+// Math.maxにしているのは、rawが55未満の小さい値でも常に55以上を保証するため
+// （stored||defaultだと保存値がtruthyな小さい数のときにデフォルトが効かなくなる。
+// 教員の指摘、2026-09-01：「今は1年生の問題しか出ていない」で発覚）。
 function kwsElemUnlockedGroupCount(st){
-  // 「小学3年生まではデフォルトで解放済み」を、単なるフォールバック値ではなく下限として扱う
-  // （Math.max）。st.groupUnlock.kws_elemに小さい値（例：1）が既に保存されていても、
-  // 常に55以上を保証する。stored||defaultだと、保存済みの値がtruthyな小さい数のときに
-  // デフォルトが効かず、意図せず1年生ぶんしか解放されない状態になってしまうため
-  // （教員の指摘、2026-09-01：「今は1年生の問題しか出ていない」で発覚）。
-  const stored = (st.groupUnlock && st.groupUnlock.kws_elem) || 0;
-  return Math.max(stored, kwsElemDefaultUnlockedGroupCount());
+  return Math.max(kwsElemRawUnlockedGroupCount(st), kwsElemDefaultUnlockedGroupCount());
 }
 function kwsElemUnlockedQuestionPct(st){
   const groups = kwsElemGroups();
@@ -6899,19 +6904,25 @@ function kwsElemUnlockedIds(st){
   for(let i = 0; i < n; i++) out.push(...groups[i].ids);
   return out;
 }
-// 今の問題(id)を「一度でも正解した」ものとしてst.kwsElemSolvedに記録し、その問題が属する
-// グループの8問すべてが解けていれば次のグループを解禁する。学年ボタンで先の学年を
-// 予習していた場合など、複数グループぶん一気に条件を満たすこともあるため、満たさなく
-// なるまでループで先へ進める。戻り値は「今回新しくグループが解禁されたか」。
+// 今の問題(id)を「一度でも正解した」ものとしてst.kwsElemSolvedに記録し、グループ1から順に
+// 「そのグループの8問すべてが解けているか」を確認できるところまで進める。
+// **rawの値（kwsElemRawUnlockedGroupCount、下限のかさ上げ無し）を使う**のがポイント：
+// アクセス可能な範囲（kwsElemUnlockedGroupCount、小学3年生まで＝55グループが下限）を使うと、
+// 「55番目のグループ（学年3の最後の8問）が埋まるまで一切進まない」ことになってしまい、
+// グループ1〜54を実際に埋めていっても進捗（と解禁のお知らせ）に一切反映されない
+// （教員の報告、2026-09-01：「かなり正解しているのに解放されない」の原因）。
+// rawを使えば、最初から解禁されている範囲の中でも1グループ8問終えるごとにきちんと
+// カウントが進み、お知らせも出る。複数グループぶん一気に条件を満たすこともあるため、
+// 満たさなくなるまでループで先へ進める。戻り値は「今回グループが1つ以上進んだか」。
 function kwsElemMarkSolvedAndCheckUnlock(st, id){
   if(!Array.isArray(st.kwsElemSolved)) st.kwsElemSolved = [];
   if(!st.kwsElemSolved.includes(id)) st.kwsElemSolved.push(id);
   const groups = kwsElemGroups();
   let unlockedMore = false;
   while(true){
-    const n = kwsElemUnlockedGroupCount(st);
-    if(n >= groups.length) break; // 既に全解禁済み
-    const cur = groups[n - 1];
+    const n = kwsElemRawUnlockedGroupCount(st);
+    if(n >= groups.length) break; // 全グループ確認済み
+    const cur = groups[n]; // 0-indexed：次に確認するグループ（n番目まで確認済み）
     if(!cur.ids.every(gid => st.kwsElemSolved.includes(gid))) break;
     if(!st.groupUnlock) st.groupUnlock = {};
     st.groupUnlock.kws_elem = n + 1;
@@ -6974,9 +6985,9 @@ function kwsExamMarkSolvedAndCheckUnlock(st, id){
   return unlockedMore;
 }
 
-// 出題プール（ランダム出題・一覧表示の対象）。examは常に解禁済みグループの範囲に絞る。
-// elemモードでkwsElemGradeが指定されていれば、その学年の字だけに絞る（解禁とは無関係、
-// 従来通り全問題）。「全学年ミックス」時は解禁済みグループの範囲に絞る。
+// 出題プール（一覧表示・解禁率算出の対象。解禁済み全体）。examは常に解禁済みグループの
+// 範囲に絞る。elemモードでkwsElemGradeが指定されていれば、その学年の字だけに絞る（解禁とは
+// 無関係、従来通り全問題）。「全学年ミックス」時は解禁済みグループの範囲に絞る。
 function kwsPoolIds(){
   let ids = Object.keys(kwsData);
   if(kwsMode === 'exam'){
@@ -6989,6 +7000,46 @@ function kwsPoolIds(){
       const unlocked = new Set(kwsElemUnlockedIds(loadStats()));
       ids = ids.filter(id => unlocked.has(id));
     }
+  }
+  return ids;
+}
+
+// 解禁済みグループのうち、まだ8問すべてを正解し終えていない最初のグループ（無ければnull＝
+// 解禁済み範囲は全部解き終えている）。
+function kwsEarliestIncompleteGroup(groups, unlockedCount, solvedIds){
+  const solved = new Set(solvedIds || []);
+  const n = Math.min(unlockedCount, groups.length);
+  for(let i = 0; i < n; i++){
+    if(!groups[i].ids.every(id => solved.has(id))) return groups[i];
+  }
+  return null;
+}
+// 「次の問題」でランダムに引く候補を、解禁済み全体（ids）ではなく、まだ解き終えていない
+// 最初のグループの残り（8問以下）に絞る。理由：解禁済みプールは一度に何百問にもなり得る
+// （examで25グループ・elemは初期状態だけで55グループ＝440問）。プール全体から一様ランダムに
+// 引き続けると、「そのグループの8問全部を一度は正解する」という解禁条件を、特定の数問だけが
+// 埋まらないまま満たせない確率がどんどん高くなり、実質いつまで経っても次が解禁されない
+// （教員の報告、2026-09-01：「かなり正解しているのに解放されない」）。既に解禁済み範囲を
+// 全部解き終えている（真に自由に復習したい）ときだけ、この絞り込みをやめてidsをそのまま返す。
+function kwsFocusIds(ids, groups, unlockedCount, solvedIds){
+  const g = kwsEarliestIncompleteGroup(groups, unlockedCount, solvedIds);
+  if(!g) return ids;
+  const solved = new Set(solvedIds || []);
+  const remaining = g.ids.filter(id => !solved.has(id));
+  return remaining.length ? remaining : ids; // 保険（通常ここには来ないはず）
+}
+// 「次の問題」（ランダム出題）専用の出題候補。examは常にkwsFocusIdsで絞る。elemは
+// 「全学年ミックス」時だけ絞る（特定学年選択時はkwsPoolIds同様、解禁と無関係に全問候補）。
+// 一覧表示（kwsPoolIdsそのまま）は絞らない＝解禁済み全体をいつでも自由に選べる。
+function kwsRandomDrawIds(){
+  const ids = kwsPoolIds();
+  if(kwsMode === 'exam'){
+    const st = loadStats();
+    return kwsFocusIds(ids, kwsExamGroups(), kwsExamUnlockedGroupCount(st), st.kwsExamSolved);
+  }
+  if(kwsMode === 'elem' && !kwsElemGrade){
+    const st = loadStats();
+    return kwsFocusIds(ids, kwsElemGroups(), kwsElemUnlockedGroupCount(st), st.kwsElemSolved);
   }
   return ids;
 }
@@ -7805,7 +7856,7 @@ function kwsToggleKanjiList(){
 }
 
 function kwsLoadRandomKanji(){
-  const ids = kwsPoolIds();
+  const ids = kwsRandomDrawIds();
   // 直前と同じ問題が連続で出ないようにする（教員の指示、2026-09-01）。プールが1問しかない
   // ときは除外すると空になるので、そのときだけ従来通り同じ問題も候補に含める。
   const candidates = ids.length > 1 ? ids.filter(id => id !== kwsCurrentId) : ids;
@@ -8023,7 +8074,7 @@ function startKanjiWriteStroke(mode){
     screen.innerHTML = kwsScreenHtml();
     window.scrollTo(0, 0);
     kwsWireScreen();
-    const pool = kwsPoolIds();
+    const pool = kwsRandomDrawIds();
     const firstId = pool.length ? pool[Math.floor(Math.random() * pool.length)] : null; // 1問目もランダムに（教員の指示、2026-09-01：毎回同じ字で始まっていた）
     if(!firstId) throw new Error(mode === 'elem'
       ? 'KANJI_WRITE_ELEM_STROKE_DATAが読み込まれていません（kanji_write_elem_stroke_data.jsの読み込みに失敗した可能性があります）'
