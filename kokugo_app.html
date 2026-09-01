@@ -3318,7 +3318,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.14</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.15</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -7611,22 +7611,54 @@ function kwsHandleJudgeResult(kdata){
     kwsStage = 0;
     kwsStagePendingChars = null;
     kwsStageRevealHidden = false;
-    kwsResultLog[kwsCurrentId] = { pass: true, thumb: kwsCanvas.toDataURL('image/png') };
-    kwsUpdateResultLogDisplay();
-    kwsAwardStageXp(stage);
-    if(kwsMode === 'exam' || kwsMode === 'elem'){
-      const st = loadStats();
-      const introduced = kwsRecordAnswer(st, kwsMode, kwsCurrentId, true);
-      saveStats(st);
-      kwsUpdateUnlockFooter();
-      if(introduced) kwsShowUnlockMsg();
+    // 書き間違えやすいペア（糸/米等）の確認クイズが出る字は、そのクイズに正解するまで
+    // 「正解」として確定しない（教員の指示、2026-09-02）。kwsMaybeShowRadicalQuizが
+    // クイズを出したときはtrueを返すので、その場合はここで確定処理をせずに保留する。
+    if(kwsMaybeShowRadicalQuiz(kdata, stage)){
+      // kwsRenderResult()が先に「○ …として認められました！」を出しているが、確認クイズに
+      // 正解するまではまだ確定していないので上書きする（同じ理由：早合点させないため）。
+      kwsSetStatus('○ 字の形は合っています。下のクイズにも答えてください', 'ok');
+      kwsRender();
+      return;
     }
-    kwsMaybeShowRadicalQuiz(kdata);
+    kwsFinalizeCorrectAnswer(kdata, stage);
     kwsRender();
     return;
   }
 
   kwsAdvanceStage(wrongChars, stage);
+}
+
+// 書き取り自体が正解だったときの最終確定処理（結果ストック・経験値・3箱への記録・解禁）。
+// 確認クイズが出ない字はkwsHandleJudgeResultから直接、出た字はkwsAnswerRadicalQuizで
+// クイズに正解した瞬間に呼ばれる。
+function kwsFinalizeCorrectAnswer(kdata, stage){
+  kwsResultLog[kwsCurrentId] = { pass: true, thumb: kwsCanvas.toDataURL('image/png') };
+  kwsUpdateResultLogDisplay();
+  kwsAwardStageXp(stage);
+  if(kwsMode === 'exam' || kwsMode === 'elem'){
+    const st = loadStats();
+    const introduced = kwsRecordAnswer(st, kwsMode, kwsCurrentId, true);
+    saveStats(st);
+    kwsUpdateUnlockFooter();
+    if(introduced) kwsShowUnlockMsg();
+  }
+}
+// 書き取り自体は正解だったが、確認クイズの方に間違えたときの最終確定処理。書き取りの
+// できとは関係なく、この問題全体としては不正解として記録する（教員の指示、2026-09-02：
+// 「二択問題を正解したらはじめて正解として認められる」＝間違えたら正解にはならない）。
+function kwsFinalizeIncorrectFromRadicalQuiz(){
+  kwsResultLog[kwsCurrentId] = { pass: false, thumb: kwsCanvas.toDataURL('image/png') };
+  kwsWrongLog[kwsCurrentId] = kwsResultLog[kwsCurrentId];
+  kwsUpdateResultLogDisplay();
+  kwsXpSettled = true;
+  if(kwsMode === 'exam' || kwsMode === 'elem'){
+    const st = loadStats();
+    kwsRecordAnswer(st, kwsMode, kwsCurrentId, false);
+    saveStats(st);
+    kwsUpdateUnlockFooter();
+  }
+  kwsSetStatus('× 部首の確認に間違えたため、正解にはなりません', 'ng');
 }
 
 // 間違えた文字だけ一瞬赤く光らせたあと、次の段階（1=ヒント、2=答え表示）に切り替える。
@@ -7753,16 +7785,23 @@ function kwsReadingFor(kdata){
 }
 
 // ○と判定された直後だけ呼ばれる。対象の字が書き間違えやすいペアの片方だけを含む場合のみ、
-// キャンバスの上に「どっちが正しい？」の2択オーバーレイを重ねて出す。
-function kwsMaybeShowRadicalQuiz(kdata){
+// キャンバスの上に「どっちが正しい？」の2択オーバーレイを重ねて出す。**この確認クイズに
+// 正解するまでは、書き取り自体が合っていても「正解」として確定しない**（教員の指示、
+// 2026-09-02：「二択問題を正解したらはじめて正解として認められる。問題が出る瞬間に
+// 『解放されました』と出るのは間違い。出るとすれば二択問題を正解した直後」）。
+// 確定処理（結果ストック・経験値・3箱への記録・解禁）はkwsAnswerRadicalQuizまで持ち越す。
+// 戻り値はクイズを実際に表示したか（trueなら、呼び出し側は正解の確定を保留する）。
+function kwsMaybeShowRadicalQuiz(kdata, stage){
   const match = kwsFindConfusionMatch(kdata.kanji);
-  if(!match) return;
+  if(!match) return false;
   const { pair, correct } = match;
   const correctSide = pair[correct];
   const otherSide = pair[correct === 'a' ? 'b' : 'a'];
   const reading = kwsReadingFor(kdata);
 
-  kwsRadicalQuiz = { correctDisplay: correctSide.display, correctLabel: correctSide.name || correctSide.display, answered: false };
+  // stageはこの問題の最終判定が確定した段階（0=最初の採点／1=ヒント後）。クイズに正解した
+  // 瞬間にkwsAwardStageXpへそのまま渡すために持たせておく。
+  kwsRadicalQuiz = { correctDisplay: correctSide.display, correctLabel: correctSide.name || correctSide.display, answered: false, stage };
   const sides = Math.random() < 0.5 ? [correctSide, otherSide] : [otherSide, correctSide]; // 左右をランダム化し、位置で覚えられないようにする
 
   const overlay = document.createElement('div');
@@ -7781,24 +7820,31 @@ function kwsMaybeShowRadicalQuiz(kdata){
     btn.addEventListener('click', () => kwsAnswerRadicalQuiz(btn.dataset.display));
   });
   kwsStageEl.appendChild(overlay);
+  return true;
 }
 
 function kwsAnswerRadicalQuiz(chosenDisplay){
   if(!kwsRadicalQuiz || kwsRadicalQuiz.answered) return;
   kwsRadicalQuiz.answered = true;
-  const { correctDisplay, correctLabel } = kwsRadicalQuiz;
+  const { correctDisplay, correctLabel, stage } = kwsRadicalQuiz;
   const isCorrect = chosenDisplay === correctDisplay;
 
   const overlay = document.getElementById('kwsRadicalQuiz');
-  if(!overlay) return;
-  overlay.querySelectorAll('.kws-radicalBtn').forEach(btn => {
-    btn.disabled = true;
-    if(btn.dataset.display === correctDisplay) btn.classList.add('ok');
-    else if(btn.dataset.display === chosenDisplay) btn.classList.add('ng');
-  });
-  const resultEl = document.getElementById('kwsRadicalQuizResult');
-  resultEl.textContent = isCorrect ? `正解！「${correctLabel}」です。` : `おしい、正解は「${correctLabel}」でした。`;
-  resultEl.className = 'kws-radicalQuizResult ' + (isCorrect ? 'ok' : 'ng');
+  if(overlay){
+    overlay.querySelectorAll('.kws-radicalBtn').forEach(btn => {
+      btn.disabled = true;
+      if(btn.dataset.display === correctDisplay) btn.classList.add('ok');
+      else if(btn.dataset.display === chosenDisplay) btn.classList.add('ng');
+    });
+    const resultEl = document.getElementById('kwsRadicalQuizResult');
+    resultEl.textContent = isCorrect ? `正解！「${correctLabel}」です。` : `おしい、正解は「${correctLabel}」でした。`;
+    resultEl.className = 'kws-radicalQuizResult ' + (isCorrect ? 'ok' : 'ng');
+  }
+
+  // ここで初めて、書き取り本体の正解／不正解を確定する（教員の指示、2026-09-02）。
+  const kdata = kwsData[kwsCurrentId];
+  if(isCorrect) kwsFinalizeCorrectAnswer(kdata, stage);
+  else kwsFinalizeIncorrectFromRadicalQuiz();
 }
 
 function kwsCloseRadicalQuiz(){
