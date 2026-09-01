@@ -3297,7 +3297,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.93</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.94</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6653,6 +6653,8 @@ const KWS_CONFUSION_PAIRS = [
   { a: { chars: KWS_ITOHEN_CHARS, display: '糸', name: 'いとへん' }, b: { chars: KWS_KOMEHEN_CHARS, display: '米', name: 'こめへん' } },
   { a: { chars: new Set(['土']), display: '土', name: null }, b: { chars: new Set(['工']), display: '工', name: null } },
   { a: { chars: new Set(['牛']), display: '牛', name: null }, b: { chars: new Set(['午']), display: '午', name: null } },
+  { a: { chars: new Set(['矢']), display: '矢', name: null }, b: { chars: new Set(['失']), display: '失', name: null } },
+  { a: { chars: new Set(['土']), display: '土', name: null }, b: { chars: new Set(['士']), display: '士', name: null } },
 ];
 
 let kwsMode = 'exam';       // 'exam'（漢字の書き学習）| 'elem'（小学生の漢字を復習する）
@@ -7216,10 +7218,14 @@ function kwsShowEventXpFx(amount){
   setTimeout(() => el.remove(), 1400);
 }
 
-// kanji文字列が、KWS_CONFUSION_PAIRSのどれか片方だけに一致すれば{pair, correct}を返す（無ければnull）。
+// kanji文字列が、KWS_CONFUSION_PAIRSのどれか片方だけに一致するものを全て集め、その中から
+// ランダムに1つ選んで{pair, correct}を返す（無ければnull）。「土」のように複数のペア
+// （土/工・土/士）に登場する字があるため、最初に見つかった1件だけで決め打ちしない
+// （それだと常に配列の先頭側のペアしか出題されなくなってしまう）。
 // 両方に一致する語（「純粋」＝純(いとへん)＋粋(こめへん)）は、どちらか一方だけを問うと
-// かえって紛らわしいため対象外にする（教員の指示、2026-09-01）。
+// かえって紛らわしいため、そのペアだけ対象外にする（教員の指示、2026-09-01）。
 function kwsFindConfusionMatch(kanji){
+  const candidates = [];
   for(const pair of KWS_CONFUSION_PAIRS){
     let hasA = false, hasB = false;
     for(const ch of kanji){
@@ -7227,10 +7233,11 @@ function kwsFindConfusionMatch(kanji){
       if(pair.b.chars.has(ch)) hasB = true;
     }
     if(hasA && hasB) continue;
-    if(hasA) return { pair, correct: 'a' };
-    if(hasB) return { pair, correct: 'b' };
+    if(hasA) candidates.push({ pair, correct: 'a' });
+    else if(hasB) candidates.push({ pair, correct: 'b' });
   }
-  return null;
+  if(candidates.length === 0) return null;
+  return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
 // カタカナ→ひらがな変換（Unicode上でカタカナとひらがなは同じ並び順で0x60ずれているだけ）
