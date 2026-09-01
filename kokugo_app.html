@@ -3268,7 +3268,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.86</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.87</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6621,45 +6621,21 @@ function kwsScalePathD(d, scale){
   });
 }
 
-function kwsBuildKanjiData(raw){
-  const out = {};
-  Object.keys(raw).forEach(id => {
-    const entry = raw[id];
-    const charCount = entry.chars.length;
-    const strokes = [];
-    const firstStrokeIndices = [];
+// 1字分の字形データ（Path2D生成・getTotalLength/getPointAtLength）を実際に組み立てる。
+// getTotalLength/getPointAtLengthはブラウザに同期レイアウトを強制するため、1字あたりでも
+// 決して軽くはない。かつてはkwsBuildKanjiData側で全字ぶん一度に呼んでいたため、
+// elemモード（1026字）で画面に入った瞬間フリーズすることがあった（教員の指摘、2026-09-01）。
+// 今は下のkwsBuildKanjiDataが、この関数を字ごとの遅延ゲッターとして仕込むだけにし、
+// 実際に呼ばれる（＝その字を練習しに来た）タイミングまで先送りする。
+function kwsBuildStrokeGeometry(entry){
+  const strokes = [];
+  const firstStrokeIndices = [];
 
-    entry.chars.forEach((ds, charIndex) => {
-      const offsetY = charIndex * KWS_CHAR_CELL_PX;
-      firstStrokeIndices.push(strokes.length);
-      ds.forEach(d => {
-        const scaledD = kwsScalePathD(d, KWS_SCALE);
-        const basePath = new Path2D(scaledD);
-        const path2D = new Path2D();
-        path2D.addPath(basePath, new DOMMatrix().translate(0, offsetY));
-
-        const pathEl = document.createElementNS(KWS_NS, 'path');
-        pathEl.setAttribute('d', scaledD);
-        kwsHiddenSvgEl.appendChild(pathEl);
-        const totalLength = pathEl.getTotalLength();
-
-        const samples = [];
-        for(let i = 0; i < KWS_SAMPLE_COUNT; i++){
-          const pt = pathEl.getPointAtLength(totalLength * i / (KWS_SAMPLE_COUNT - 1));
-          samples.push({ x: pt.x, y: pt.y + offsetY });
-        }
-        strokes.push({ path2D, totalLength, samples, start: samples[0] });
-      });
-    });
-
-    const totalLen = strokes.reduce((sum, s) => sum + s.totalLength, 0);
-
-    // 「注意ポイント」：間違えやすい漢字だけに手動で登録する、特定の画・点に絞ったチェック。
-    // mustHave＝この短い区間には必ず線が通っていないといけない（出るべき線が出ていない、を検出）
-    // mustNot＝この短い区間には線が通ってはいけない（出ないはずの線・点が出ている、を検出）
-    const checkpoints = (entry.checkpoints || []).map(cp => {
-      const offsetY = cp.charIndex * KWS_CHAR_CELL_PX;
-      const scaledD = kwsScalePathD(cp.d, KWS_SCALE);
+  entry.chars.forEach((ds, charIndex) => {
+    const offsetY = charIndex * KWS_CHAR_CELL_PX;
+    firstStrokeIndices.push(strokes.length);
+    ds.forEach(d => {
+      const scaledD = kwsScalePathD(d, KWS_SCALE);
       const basePath = new Path2D(scaledD);
       const path2D = new Path2D();
       path2D.addPath(basePath, new DOMMatrix().translate(0, offsetY));
@@ -6669,18 +6645,68 @@ function kwsBuildKanjiData(raw){
       kwsHiddenSvgEl.appendChild(pathEl);
       const totalLength = pathEl.getTotalLength();
 
-      const n = 16; // 注意ポイントは短い区間なので、通常の画より少ないサンプル数で十分
       const samples = [];
-      for(let i = 0; i < n; i++){
-        const pt = pathEl.getPointAtLength(totalLength * i / (n - 1));
+      for(let i = 0; i < KWS_SAMPLE_COUNT; i++){
+        const pt = pathEl.getPointAtLength(totalLength * i / (KWS_SAMPLE_COUNT - 1));
         samples.push({ x: pt.x, y: pt.y + offsetY });
       }
-      return { charIndex: cp.charIndex, type: cp.type, path2D, samples, note: cp.note };
+      strokes.push({ path2D, totalLength, samples, start: samples[0] });
     });
+  });
 
-    // rank（examモード、頻出順位）とgrade（elemモード、配当学年）は互いに排他で、
-    // 元データに無い方はundefinedのまま渡す（kwsPoolIds/kwsSortIds/kwsLabelForで出し分ける）。
-    out[id] = { kanji: entry.kanji, rank: entry.rank, grade: entry.grade, charCount, strokes, totalLen, firstStrokeIndices, checkpoints };
+  const totalLen = strokes.reduce((sum, s) => sum + s.totalLength, 0);
+
+  // 「注意ポイント」：間違えやすい漢字だけに手動で登録する、特定の画・点に絞ったチェック。
+  // mustHave＝この短い区間には必ず線が通っていないといけない（出るべき線が出ていない、を検出）
+  // mustNot＝この短い区間には線が通ってはいけない（出ないはずの線・点が出ている、を検出）
+  const checkpoints = (entry.checkpoints || []).map(cp => {
+    const offsetY = cp.charIndex * KWS_CHAR_CELL_PX;
+    const scaledD = kwsScalePathD(cp.d, KWS_SCALE);
+    const basePath = new Path2D(scaledD);
+    const path2D = new Path2D();
+    path2D.addPath(basePath, new DOMMatrix().translate(0, offsetY));
+
+    const pathEl = document.createElementNS(KWS_NS, 'path');
+    pathEl.setAttribute('d', scaledD);
+    kwsHiddenSvgEl.appendChild(pathEl);
+    const totalLength = pathEl.getTotalLength();
+
+    const n = 16; // 注意ポイントは短い区間なので、通常の画より少ないサンプル数で十分
+    const samples = [];
+    for(let i = 0; i < n; i++){
+      const pt = pathEl.getPointAtLength(totalLength * i / (n - 1));
+      samples.push({ x: pt.x, y: pt.y + offsetY });
+    }
+    return { charIndex: cp.charIndex, type: cp.type, path2D, samples, note: cp.note };
+  });
+
+  return { strokes, totalLen, firstStrokeIndices, checkpoints };
+}
+
+// rank（examモード、頻出順位）・grade（elemモード、配当学年）・kanji・charCountは
+// 一覧表示や並べ替えに必要な軽いメタデータなので、ここで全字ぶん即座に用意する
+// （このループ自体はDOM操作を伴わないため、1000字あっても一瞬で終わる）。
+// strokes/totalLen/firstStrokeIndices/checkpointsは重いので、実際にその字を練習する
+// ためにアクセスされた瞬間だけkwsBuildStrokeGeometryを呼んで組み立て、結果をキャッシュする
+// （2回目以降のアクセスは再計算しない）。既存の呼び出し側はkwsData[id].strokes等を
+// そのまま参照するだけでよく、遅延読み込みを意識する必要はない。
+function kwsBuildKanjiData(raw){
+  const out = {};
+  Object.keys(raw).forEach(id => {
+    const entry = raw[id];
+    const lite = { kanji: entry.kanji, rank: entry.rank, grade: entry.grade, charCount: entry.chars.length };
+    let heavy = null;
+    const heavyKeys = ["strokes", "totalLen", "firstStrokeIndices", "checkpoints"];
+    heavyKeys.forEach(key => {
+      Object.defineProperty(lite, key, {
+        enumerable: true,
+        get(){
+          if(!heavy) heavy = kwsBuildStrokeGeometry(entry);
+          return heavy[key];
+        }
+      });
+    });
+    out[id] = lite;
   });
   return out;
 }
