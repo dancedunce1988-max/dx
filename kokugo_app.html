@@ -267,6 +267,9 @@
   .kws-cornerBtn--yellow{ background:#f5c518; border-color:#d4a70a; color:#3a2e00; font-weight:bold; }
   .kws-cornerBtn--next{ left:100%; top:0; }
   .kws-cornerBtn--judge{ left:100%; bottom:0; }
+  /* 右辺の縦中央（2文字の問題なら1文字目と2文字目のちょうど境目＝全体の50%と一致する）。
+     教員の指示、2026-09-02。 */
+  .kws-cornerBtn--recall{ left:100%; top:50%; transform:translateY(-50%); background:var(--ng); border-color:var(--ng); color:#fff; font-weight:bold; }
   .kws-status{ font-size:.95rem; min-height:22px; font-weight:bold; text-align:center; }
   .kws-status.ok{ color:var(--ok); }
   .kws-status.ng{ color:var(--ng); }
@@ -3302,7 +3305,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.07</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.08</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3581,7 +3584,7 @@ const EVENTS = {
   "2026_09_kanjiwrite_beta": {
     label: "漢字の書き取り βテストイベント",
     end: new Date('2026-09-04T23:59:59'),
-    desc: "「漢字の書き学習（200問）」または「小学生の漢字を復習する（全学年ミックス）」で、\n1問正解するごとに経験値！最初の採点で正解＋3／ヒントを見て正解＋2！（答えを見たあとは正解になりません）",
+    desc: "「漢字の書き学習（200問）」または「小学生の漢字を復習する（全学年）」で、\n1問正解するごとに経験値！最初の採点で正解＋3／ヒントを見て正解＋2！（答えを見たあとは正解になりません）",
   },
 };
 function eventActive(id){
@@ -6120,7 +6123,7 @@ function showHelp(){
     <div class="card">
       <ul class="help-list">
         <li>「とっくん・読解・記録」の中の「小学生の漢字を復習する」では、<b>小学校で習う漢字1026字（学年別漢字配当表・小学1〜6年ぶん）</b>を、「漢字の書き学習」と同じ手書き自動採点で復習できます。</li>
-        <li>画面下の<b>「小1」〜「小6」「全学年ミックス」ボタン</b>で、出題する学年をいつでも切り替えられます。特定の学年だけを集中して練習することも、全学年まぜて出題することもできます。</li>
+        <li>画面下の<b>「小1」〜「小6」「全学年」ボタン</b>で、出題する学年をいつでも切り替えられます。特定の学年だけを集中して練習することも、全学年まぜて出題することもできます。</li>
         <li>使い方・採点のしくみ・経験値に影響しない点は「漢字の書き学習」とまったく同じです。</li>
       </ul>
     </div>
@@ -6903,7 +6906,13 @@ function kwsEnsureStateStore(st, mode){
       for(let i = 0; i < frontier; i++) items[ids[i]] = { box: 'new', streak: 0, c: 0, w: 0 };
     } else {
       frontier = kwsElemDefaultFrontier();
-      for(let i = 0; i < frontier; i++) items[ids[i]] = { box: 'ok', streak: 0, c: 0, w: 0 };
+      // 一括導入した440問は最初から「正解済み」扱い（見た目・出題頻度は即座に有効）だが、
+      // pending:trueを立てておく。生徒が実際にその問題へ初めて正解した瞬間に、通常の
+      // 「新しい問題」と同じく1問だけ新規解放する（kwsRecordAnswer参照。教員の指摘、
+      // 2026-09-02：「一個正解したら必ず一問解放するのが正しいはず」。これが無いと、
+      // 一括導入した問題はどれだけ正解してもkwsIntroduceNextItemの対象（box:'new'）に
+      // 一度もならないため、小学4年生以降が永久に解禁されない不具合になっていた）。
+      for(let i = 0; i < frontier; i++) items[ids[i]] = { box: 'ok', streak: 0, c: 0, w: 0, pending: true };
     }
     st[key] = { frontier, items };
   }
@@ -6958,6 +6967,12 @@ function kwsRecordAnswer(st, mode, id, correct){
   if(correct) entry.c++; else entry.w++;
 
   let introduced = false;
+  // elemの一括導入ぶん（pending:true）は、初めて正解した瞬間に1問だけ解放する
+  // （box自体は既に'ok'のままで構わない。box分岐とは独立した一回限りの処理）。
+  if(entry.pending && correct){
+    entry.pending = false;
+    introduced = kwsIntroduceNextItem(store, orderedIds);
+  }
   if(entry.box === 'new'){
     if(correct){ entry.box = 'ok'; entry.streak = 0; introduced = kwsIntroduceNextItem(store, orderedIds); }
     else{ entry.box = 'wrong'; entry.streak = 0; }
@@ -6988,16 +7003,18 @@ function kwsTotalCount(mode){
 
 // 出題プール（一覧表示・進捗算出の対象＝導入済みの問題）。elemモードでkwsElemGradeが
 // 指定されていれば、その学年の字だけに絞る（解禁とは無関係、従来通り全問題）。
+// 一覧表示（kwsWireKanjiSelectList）の対象。examは導入済みの問題だけ（まだ出会っていない
+// 問題まで一覧に出すと、順番立てて解放していく意味が薄れるため）。elemは、特定の学年を
+// 選んでいるときはその学年の全問題、「全学年」を選んでいるときは学年を問わず全1026問を
+// 表示する（教員の指示、2026-09-02：「全学年の漢字について表示、その中でも正解済みの
+// ものは緑表示」。3箱の仕組みによる出題の絞り込みはkwsPickNextId側だけで行い、一覧は
+// 常に自由に選べる）。
 function kwsPoolIds(){
   let ids = Object.keys(kwsData);
   if(kwsMode === 'exam'){
     ids = Object.keys(kwsEnsureStateStore(loadStats(), 'exam').items);
-  } else if(kwsMode === 'elem'){
-    if(kwsElemGrade){
-      ids = ids.filter(id => kwsData[id].grade === kwsElemGrade);
-    } else {
-      ids = Object.keys(kwsEnsureStateStore(loadStats(), 'elem').items);
-    }
+  } else if(kwsMode === 'elem' && kwsElemGrade){
+    ids = ids.filter(id => kwsData[id].grade === kwsElemGrade);
   }
   return ids;
 }
@@ -7399,6 +7416,34 @@ function kwsJudgeWhole(){
   };
   kwsRenderResult();
   kwsHandleJudgeResult(kdata);
+}
+
+// 「思い出せない」ボタン（教員の指示、2026-09-02）：ヒント・答え表示の段階を一切経ずに、
+// その場で最終×として確定する（自分から「わからない」と申告した扱い）。採点前でも
+// ヒント／答え表示の途中でも、まだ最終判定されていなければいつでも押せる。
+function kwsHandleRecallGiveUp(){
+  if(kwsStageBusy || kwsJudged) return;
+  kwsJudgedPass = false;
+  kwsJudged = true;
+  kwsStage = 0;
+  kwsStagePendingChars = null;
+  kwsStageRevealHidden = false;
+  kwsLastResult = null;
+  kwsLastCharResults = null;
+  kwsResultLog[kwsCurrentId] = { pass: false, thumb: kwsCanvas.toDataURL('image/png') };
+  kwsWrongLog[kwsCurrentId] = kwsResultLog[kwsCurrentId];
+  kwsUpdateResultLogDisplay();
+  kwsXpSettled = true; // 経験値の対象外（不正解と同じ扱い）
+  if(kwsMode === 'exam' || kwsMode === 'elem'){
+    const st = loadStats();
+    kwsRecordAnswer(st, kwsMode, kwsCurrentId, false);
+    saveStats(st);
+  }
+  document.getElementById('kwsMeasuredPanel').textContent = 'まだ何も判定していません';
+  document.getElementById('kwsCharBreakdown').innerHTML = '';
+  kwsSetStatus('× 「思い出せない」を選びました（間違った問題として記録されました）', 'ng');
+  kwsUpdateJudgeButtonState();
+  kwsRender();
 }
 
 // kwsJudgeWholeの結果を受けて、段階制の書き直し（kwsStage）を進める。
@@ -7881,7 +7926,7 @@ function kwsGradeSwitchHtml(){
     return `<button class="${active.trim()}" onclick="kwsSwitchElemGrade(${val === null ? 'null' : val})">${label}</button>`;
   };
   const grades = [1,2,3,4,5,6].map(g => btn(g, `小${g}`)).join('');
-  return `<div class="kws-gradeSwitch" id="kwsGradeSwitch">${grades}${btn(null, '全学年ミックス')}</div>`;
+  return `<div class="kws-gradeSwitch" id="kwsGradeSwitch">${grades}${btn(null, '全学年')}</div>`;
 }
 
 function kwsScreenHtml(){
@@ -7891,7 +7936,7 @@ function kwsScreenHtml(){
        <li>画数が間違っているものは、×となります。画と画をつなげて書かないこと。</li>
        <li>自動採点は、間違うこともあります。字の形をきちんと確認しましょう。</li>
        <li>間違えた字は、ヒント（始筆の点）→答え表示の順に、もう2回だけ書き直せます。ただし答えを表示したあとは、字が合っていても正解にはなりません。</li>
-       <li>「全学年ミックス」では、小学1年生の問題から順に、正解すると新しい問題が1問ずつ解放されます。間違えた問題は「間違った問題」として、3回連続で正解するまで復習に出てきます。</li>`
+       <li>「全学年」では、小学1年生の問題から順に、正解すると新しい問題が1問ずつ解放されます。間違えた問題は「間違った問題」として、3回連続で正解するまで復習に出てきます。一覧表示には全学年の漢字が出て、正解済みの字は緑色になります。</li>`
     : `<li>大きく、丁寧に書いてください。</li>
        <li>画数が間違っているものは、×となります。画と画をつなげて書かないこと。</li>
        <li>自動採点は、間違うこともあります。字の形をきちんと確認しましょう。</li>
@@ -7910,6 +7955,7 @@ function kwsScreenHtml(){
             <div id="kwsPerCharBtns"></div>
             <button id="kwsBtnRandom" class="kws-cornerBtn kws-cornerBtn--next">次の問題</button>
             <button id="kwsBtnJudge" class="kws-cornerBtn kws-cornerBtn--judge primary">採点する</button>
+            <button id="kwsBtnRecall" class="kws-cornerBtn kws-cornerBtn--recall">思い出せない</button>
           </div>
         </div>
         <h3 class="section">${title}</h3>
@@ -8001,6 +8047,7 @@ function kwsWireScreen(){
   document.getElementById('kwsBtnJudge').addEventListener('click', kwsHandleJudgeButtonClick);
   document.getElementById('kwsBtnShowList').addEventListener('click', kwsToggleKanjiList);
   document.getElementById('kwsBtnRandom').addEventListener('click', kwsLoadRandomKanji);
+  document.getElementById('kwsBtnRecall').addEventListener('click', kwsHandleRecallGiveUp);
 
   kwsSyncCustomInputsToState();
   kwsWireCustomControls();
