@@ -3299,7 +3299,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.03</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.04</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3578,7 +3578,7 @@ const EVENTS = {
   "2026_09_kanjiwrite_beta": {
     label: "漢字の書き取り βテストイベント",
     end: new Date('2026-09-04T23:59:59'),
-    desc: "「漢字の書き学習（200問）」または「小学生の漢字を復習する（全学年ミックス）」で、\n1問正解するごとに経験値！最初の採点で正解＋3／ヒントを見て正解＋2／答えを見て正解＋1！",
+    desc: "「漢字の書き学習（200問）」または「小学生の漢字を復習する（全学年ミックス）」で、\n1問正解するごとに経験値！最初の採点で正解＋3／ヒントを見て正解＋2！（答えを見たあとは正解になりません）",
   },
 };
 function eventActive(id){
@@ -7452,6 +7452,28 @@ function kwsHandleJudgeResult(kdata){
   kwsLastResult.chars.forEach((r, i) => { if(!r.passCore) wrongChars.push(i); });
   const stage = kwsStage;
 
+  // 答え表示（stage2）のあとの書き直しは、たとえ字が合っていても正解として扱わない
+  // （教員の指示、2026-09-01：「正解を表示後は、正解扱いにしない（不正解とする）」）。
+  // 答えを見て書き写せば形は合って当然なので、判定結果に関わらず無条件で最終×にする。
+  if(stage >= 2){
+    kwsJudgedPass = false; // kwsRenderResult()が字の形だけで○と出していた場合の上書き
+    kwsStage = 0;
+    kwsStagePendingChars = null;
+    kwsStageRevealHidden = false;
+    kwsResultLog[kwsCurrentId] = { pass: false, thumb: kwsCanvas.toDataURL('image/png') };
+    kwsWrongLog[kwsCurrentId] = kwsResultLog[kwsCurrentId];
+    kwsUpdateResultLogDisplay();
+    kwsXpSettled = true; // 最終×になった問題も、これ以上やり直しても経験値は入らない
+    kwsSetStatus(
+      wrongChars.length === 0
+        ? '× 答えを見て書いたので、正解にはなりません（次の問題に挑戦しましょう）'
+        : '× もう一度書いてみましょう',
+      'ng'
+    );
+    kwsRender();
+    return;
+  }
+
   if(wrongChars.length === 0){
     kwsStage = 0;
     kwsStagePendingChars = null;
@@ -7468,19 +7490,6 @@ function kwsHandleJudgeResult(kdata){
       if(unlockedMore) kwsShowUnlockMsg();
     }
     kwsMaybeShowRadicalQuiz(kdata);
-    kwsRender();
-    return;
-  }
-
-  if(stage >= 2){
-    // 答え表示のあとの書き直しでもなお間違いが残っている＝最終判定として×を確定する
-    kwsStage = 0;
-    kwsStagePendingChars = null;
-    kwsStageRevealHidden = false;
-    kwsResultLog[kwsCurrentId] = { pass: false, thumb: kwsCanvas.toDataURL('image/png') };
-    kwsWrongLog[kwsCurrentId] = kwsResultLog[kwsCurrentId];
-    kwsUpdateResultLogDisplay();
-    kwsXpSettled = true; // 最終×になった問題も、これ以上やり直しても経験値は入らない
     kwsRender();
     return;
   }
@@ -7536,7 +7545,10 @@ function kwsSetStageBusy(busy){
 }
 
 const KWS_XP_EVENT_ID = '2026_09_kanjiwrite_beta';
-const KWS_STAGE_XP = [3, 2, 1]; // 段階0（最初の採点）＝3、1（ヒント後）＝2、2（答え表示後）＝1
+// 段階0（最初の採点）＝3、1（ヒント後）＝2。段階2（答え表示後）は常に最終×扱いになり
+// kwsAwardStageXpまで到達しないため、対応するXPは無い（教員の指示、2026-09-01：
+// 「答えを表示後は正解扱いにしない」。kwsHandleJudgeResult参照）。
+const KWS_STAGE_XP = [3, 2];
 
 // 「小学生の漢字を復習する」は学年を絞っていない「全学年ミックス」のときだけ、
 // 「漢字の書き学習」は常に対象（教員の指示、2026-09-01〜04のβテスト）。
@@ -7912,12 +7924,12 @@ function kwsScreenHtml(){
     ? `<li>例文の中の<b>カタカナ・太字・下線</b>の部分を、大きく丁寧に書いてください。</li>
        <li>画数が間違っているものは、×となります。画と画をつなげて書かないこと。</li>
        <li>自動採点は、間違うこともあります。字の形をきちんと確認しましょう。</li>
-       <li>間違えた字は、ヒント（始筆の点）→答え表示の順に、もう2回だけ書き直せます。</li>
+       <li>間違えた字は、ヒント（始筆の点）→答え表示の順に、もう2回だけ書き直せます。ただし答えを表示したあとは、字が合っていても正解にはなりません。</li>
        <li>「全学年ミックス」では、小学1年生の問題から8問ずつ解放されます。8問全部を正解すると次の8問が解放されます。</li>`
     : `<li>大きく、丁寧に書いてください。</li>
        <li>画数が間違っているものは、×となります。画と画をつなげて書かないこと。</li>
        <li>自動採点は、間違うこともあります。字の形をきちんと確認しましょう。</li>
-       <li>間違えた字は、ヒント（始筆の点）→答え表示の順に、もう2回だけ書き直せます。</li>
+       <li>間違えた字は、ヒント（始筆の点）→答え表示の順に、もう2回だけ書き直せます。ただし答えを表示したあとは、字が合っていても正解にはなりません。</li>
        <li>出題頻度の高い問題から8問ずつ解放されます。8問全部を正解すると次の8問が解放されます。</li>`;
   return `
     <div class="kws-layout">
