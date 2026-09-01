@@ -3318,7 +3318,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.15</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.16</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3478,7 +3478,7 @@ const DOKKAI = DATA.dokkai || [];
    「実際に4択問題を出せるジャンル」として扱われるが、この2つは専用ミニゲームで出題形式が
    全く違うため、そこに混ぜると出題ロジックが壊れる。そのためrawKotonohaExp・
    totalCorrectCount・emptyStats・loadStatsの各所にだけ、CAT_KEYSとは別枠で個別に加算する。 */
-const EXTRA_LEVEL_CATS = ["kanbun_kt", "kanbun_yj"];
+const EXTRA_LEVEL_CATS = ["kanbun_kt", "kanbun_yj", "kws_exam", "kws_elem"];
 /* 今までに正解した問題の総数（2026-07-19〜、「ことのは」カードでの表示用）。record()で
    正誤を記録している全分野（20の知識クイズ分野＋読解＋返り点をつける・読む順タップ）を合計する。
    漢字の書き取り学習系（kw/kwe）は自己採点でrecord()を呼ばず経験値にも影響しない別枠のため、
@@ -3512,7 +3512,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 46;
+const SAVE_FORMAT_VERSION = 47;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -3875,6 +3875,16 @@ function loadStats(){
           delete st.kwsExamRecent;
           delete st.kwsElemRecent;
           st.kwsPoolVersion = KWS_POOL_VERSION;
+        }
+        /* ジャンルレベル専用リセット（KWS_LEVEL_POOL_VERSION参照）。3箱の出題進捗
+           （kwsExamState等、上のKWS_POOL_VERSIONブロック）には一切触れず、
+           st.lv.kws_exam／st.lv.kws_elemとその正誤数だけを1・{t:0,c:0}に戻す。 */
+        if(st.kwsLevelPoolVersion !== KWS_LEVEL_POOL_VERSION){
+          st.lv.kws_exam = 1;
+          st.lv.kws_elem = 1;
+          st.cats.kws_exam = {t:0, c:0};
+          st.cats.kws_elem = {t:0, c:0};
+          st.kwsLevelPoolVersion = KWS_LEVEL_POOL_VERSION;
         }
         /* 解放お祝い経験値の「積み上げ方式」導入（2026-08-23〜、教員の指示）：それまでは
            毎回その場でcatUnlockedQuestionPct/hyaUnlockedQuestionPctから計算していたが、
@@ -5969,6 +5979,8 @@ function showHome(){
   });
   const weak = weakItems();
   const dt = titleOf(st.lv.dokkai);
+  const kwsExamT = titleOf(st.lv.kws_exam);
+  const kwsElemT = titleOf(st.lv.kws_elem);
   html += `<h3 class="section">とっくん・読解・記録</h3>
     <div class="card menu-card review" onclick="startReview()">
       <div class="menu-icon">🔥</div>
@@ -5982,11 +5994,13 @@ function showHome(){
     </div>
     <div class="card menu-card" onclick="startKanjiWriteStroke()">
       <div class="menu-icon">✍️</div>
-      <div><h2>漢字の書き学習</h2><p>高校入試頻出の漢字を、実際に手書きして自動判定しながら学習（経験値には影響しません）</p></div>
+      <div><h2>漢字の書き学習</h2><p>高校入試頻出の漢字を、実際に手書きして自動判定しながら学習</p></div>
+      <div class="right"><span class="shogo-badge ${kwsExamT.hidden?"top":""}">${kwsExamT.icon} ${esc(kwsExamT.name)} Lv.${st.lv.kws_exam}</span></div>
     </div>
     <div class="card menu-card" onclick="startKanjiWriteStroke('elem')">
       <div class="menu-icon">✏️</div>
-      <div><h2>小学生の漢字を復習する</h2><p>小学校で習う漢字1026字を、実際に手書きして自動判定しながら学年別に復習（経験値には影響しません）</p></div>
+      <div><h2>小学生の漢字を復習する</h2><p>小学校で習う漢字1026字を、実際に手書きして自動判定しながら学年別に復習</p></div>
+      <div class="right"><span class="shogo-badge ${kwsElemT.hidden?"top":""}">${kwsElemT.icon} ${esc(kwsElemT.name)} Lv.${st.lv.kws_elem}</span></div>
     </div>
     <div class="card menu-card" onclick="showHyakuninMenu()">
       <div class="menu-icon">🎴</div>
@@ -6142,7 +6156,7 @@ function showHelp(){
       <ul class="help-list">
         <li>「とっくん・読解・記録」の中の「漢字の書き学習」では、<b>高校入試で頻出の漢字</b>を、画面に実際に指やペンで手書きして学習できます。</li>
         <li>例文の中の<b>カタカナ・太字・下線の部分</b>をマス目に書いて「採点する」を押すと、書いたストロークを本物の字形データと突き合わせて自動で○×判定します。○の画・×の画がその場で色分け表示されます。</li>
-        <li><b>自動採点なので、このモードの結果は経験値や「ことのは」の成長には影響しません。</b>正解・間違いは「正解した問題／間違った問題」の一覧にその回のあいだだけ記録され（ページを閉じると消えます）、間違った問題は書き直して○になっても一覧に残ります。</li>
+        <li>自動採点で正誤を判定し、正解するたびに「漢字の書き学習」専用のジャンルレベル・経験値が伸びます（他の分野と同じしくみ）。正解・間違いは「正解した問題／間違った問題」の一覧にその回のあいだだけ記録され（ページを閉じると消えます）、間違った問題は書き直して○になっても一覧に残ります。</li>
         <li>「1画目を表示」で最初の画の書き始めの位置だけヒントを見たり、「一覧表示」で好きな漢字を選んで練習したりもできます。</li>
       </ul>
     </div>
@@ -6152,7 +6166,7 @@ function showHelp(){
       <ul class="help-list">
         <li>「とっくん・読解・記録」の中の「小学生の漢字を復習する」では、<b>小学校で習う漢字1026字（学年別漢字配当表・小学1〜6年ぶん）</b>を、「漢字の書き学習」と同じ手書き自動採点で復習できます。</li>
         <li>画面下の<b>「小1」〜「小6」「全学年」ボタン</b>で、出題する学年をいつでも切り替えられます。特定の学年だけを集中して練習することも、全学年まぜて出題することもできます。</li>
-        <li>使い方・採点のしくみ・経験値に影響しない点は「漢字の書き学習」とまったく同じです。</li>
+        <li>使い方・採点のしくみ・専用のジャンルレベルが伸びる点は「漢字の書き学習」とまったく同じです（レベルは学年を絞っていても伸びます）。</li>
       </ul>
     </div>
 
@@ -6875,9 +6889,11 @@ function kwsSentenceFor(id){
 // ---- 「漢字の書き学習」「小学生の漢字を復習する」：3箱式の間隔反復（教員の指示、2026-09-02）----
 // 8問チャンク単位の段階的解放（ver9.99〜10.06）は、「まだ8問揃っていない特定の1〜2問だけが
 // 出続けて不快」という報告を受けて、この3箱式の間隔反復（Leitner方式に近い）に置き換えた。
-// 専用ジャンル（st.cats/st.lv）はまだ作らない方針は変わらない（教員の指示：ジャンルの新設は
-// 後回しにして、イベント経験値のみの運用とする）。1問ごとに次の3つの箱のどれかに入っており、
-// 出題は箱ごとの出やすさ（フェーズで変わる）で重み付き抽選する。
+// 専用ジャンル（st.cats/st.lv）は当初は作らずイベント経験値のみの運用だったが、2026-09-02に
+// 教員の指示で方針転換し、st.lv.kws_exam／st.lv.kws_elem（EXTRA_LEVEL_CATS参照）を新設した
+// （record()呼び出しはkwsFinalizeCorrectAnswer等、kwsRecordAnswerの4呼び出し箇所を参照）。
+// 3箱の出題ロジック自体（下記）はこの方針転換の影響を受けない。1問ごとに次の3つの箱の
+// どれかに入っており、出題は箱ごとの出やすさ（フェーズで変わる）で重み付き抽選する。
 //   新しい問題　　：まだ出会っていない問題。正解すると「正解済み」に移り、次の1問が新たに
 //                   解禁される。不正解（答え表示後の強制×含む）なら「間違った問題」に落ちる。
 //   間違った問題　：正解が3回連続で続くと「正解済み」に昇格する（連続が途切れたら0からやり直し）。
@@ -6892,6 +6908,12 @@ function kwsSentenceFor(id){
 // 3箱式の設計を変えて、教員の指示で全員の解放状態をリセットするたびに1つ上げる
 // （CAT_POOL_VERSION／HYAKUNIN_POOL_VERSIONと同じ考え方、loadStats()参照）。
 const KWS_POOL_VERSION = 1;
+/* ジャンルレベル（st.lv.kws_exam／st.lv.kws_elem、EXTRA_LEVEL_CATS参照、2026-09-02〜）専用の
+   リセット用バージョン。KWS_POOL_VERSION（3箱の出題進捗）とはあえて別のフラグにしてある
+   （教員の指示：「正式リリース後、全員一度リセットします」。正式リリース時にこちらだけを
+   1つ上げれば、3箱の解禁進捗・正解済み記録はそのままに、ベータテスト中に伸びたジャンル
+   レベル・経験値だけを0からやり直せる。loadStats()参照）。 */
+const KWS_LEVEL_POOL_VERSION = 1;
 const KWS_RECENT_WINDOW = 10;
 const KWS_PROMOTE_STREAK = 3; // 「間違った問題」→「正解済み」に上げるのに必要な連続正解数
 const KWS_PHASE_ACC_THRESHOLD = 0.7;
@@ -7562,6 +7584,7 @@ function kwsHandleRecallGiveUp(){
     kwsRecordAnswer(st, kwsMode, kwsCurrentId, false);
     saveStats(st);
     kwsUpdateUnlockFooter();
+    record(kwsMode === 'exam' ? 'kws_exam' : 'kws_elem', {q: kwsCurrentId}, false, undefined, {skipRecentAcc:true});
   }
   document.getElementById('kwsMeasuredPanel').textContent = 'まだ何も判定していません';
   document.getElementById('kwsCharBreakdown').innerHTML = '';
@@ -7596,6 +7619,7 @@ function kwsHandleJudgeResult(kdata){
       kwsRecordAnswer(st, kwsMode, kwsCurrentId, false);
       saveStats(st);
       kwsUpdateUnlockFooter();
+      record(kwsMode === 'exam' ? 'kws_exam' : 'kws_elem', {q: kwsCurrentId}, false, undefined, {skipRecentAcc:true});
     }
     kwsSetStatus(
       wrongChars.length === 0
@@ -7642,6 +7666,16 @@ function kwsFinalizeCorrectAnswer(kdata, stage){
     saveStats(st);
     kwsUpdateUnlockFooter();
     if(introduced) kwsShowUnlockMsg();
+    // ジャンルレベル（st.lv.kws_exam／st.lv.kws_elem、2026-09-02〜）。3箱への記録とは別に、
+    // record()を通していつもの20分野・kanbun_kt/yjと同じレベル・経験値の仕組みに乗せる
+    // （教員の指示：「ジャンルレベルを搭載してください」）。学年を絞っていても常に加算する。
+    const kwsCat = kwsMode === 'exam' ? 'kws_exam' : 'kws_elem';
+    const r = record(kwsCat, {q: kwsCurrentId}, true, undefined, {skipRecentAcc:true});
+    if(r.lvup){
+      kwsShowLevelUpFx(r.evolved
+        ? `🎉 Lv.${r.lv} UP！ ${r.evolved.icon} ${r.evolved.name}になりました`
+        : `🎉 Lv.${r.lv} UP！`);
+    }
   }
 }
 // 書き取り自体は正解だったが、確認クイズの方に間違えたときの最終確定処理。書き取りの
@@ -7657,6 +7691,7 @@ function kwsFinalizeIncorrectFromRadicalQuiz(){
     kwsRecordAnswer(st, kwsMode, kwsCurrentId, false);
     saveStats(st);
     kwsUpdateUnlockFooter();
+    record(kwsMode === 'exam' ? 'kws_exam' : 'kws_elem', {q: kwsCurrentId}, false, undefined, {skipRecentAcc:true});
   }
   kwsSetStatus('× 部首の確認に間違えたため、正解にはなりません', 'ng');
 }
@@ -7742,6 +7777,16 @@ function kwsShowEventXpFx(amount){
   const el = document.createElement('div');
   el.className = 'kws-eventXpFx';
   el.textContent = `🎉 イベント経験値＋${amount}`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1400);
+}
+
+// ジャンルレベル（st.lv.kws_exam／st.lv.kws_elem）のレベルアップ演出。既存の
+// kwsShowEventXpFxと同じ見た目（.kws-eventXpFx）を流用する。
+function kwsShowLevelUpFx(text){
+  const el = document.createElement('div');
+  el.className = 'kws-eventXpFx';
+  el.textContent = text;
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 1400);
 }
@@ -10216,8 +10261,9 @@ function randInt(min, max){ return min + Math.floor(Math.random() * (max - min +
 /* ================= デイリーログイン報酬（7日サイクル、2026-08-01〜） =================
    「その日初めて問題を1問解答した」時点で成立する（アプリを起動しただけでは成立しない）。
    record()・hyaRecord()（＝セーブデータに正誤を記録する2つの入口）の冒頭、
-   （漢字の書き学習・小学生の漢字を復習するは、どちらも手書き自動採点のkws*に統一されており、
-   セーブデータへの記録自体を行わない＝デイリーログインの対象にも含まれない）
+   （漢字の書き学習・小学生の漢字を復習するも、2026-09-02のジャンルレベル新設以降はkws側の
+   正誤確定のたびにrecord("kws_exam"/"kws_elem", ...)を呼ぶため、他の分野と同じく
+   デイリーログイン成立の対象になる）
    loadStats()の直後から呼ぶ。保存は呼び出し元の既存saveStats()に任せるだけの、
    引数のstを直接書き換える関数（ReviewSystem.onAnswerと同じ設計）。
    サイクルは「7日連続」を要求しない（教員の指示：連続でなくても構わず、通算ログイン日数で
