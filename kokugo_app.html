@@ -3283,7 +3283,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.89</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.90</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6610,7 +6610,8 @@ const KWS_NS = 'http://www.w3.org/2000/svg';
 // 対象の字がどちらの部首かを選ばせる確認クイズを挟む（examのradicalフィールドとelemのch一覧を
 // 突き合わせて実在を確認した字だけを収録。2026-09-01時点でこの2部首が両方入った熟語は無い）。
 const KWS_ITOHEN_CHARS = new Set(['糸','絵','紙','線','級','終','緑','練','給','縄','続','約','紀','経','織','績','絶','統','綿','絹','紅','縦','純','納','編','縮','細']);
-const KWS_KOMEHEN_CHARS = new Set(['米','精','粉','糖']);
+const KWS_KOMEHEN_CHARS = new Set(['米','精','粉','糖','粋']); // 粋は単独のkws対象字ではないが、
+// 「純粋」（純＝いとへん）の中でこめへんとして出てくるため、両部首混在の判定に必要で追加
 
 let kwsMode = 'exam';       // 'exam'（漢字の書き学習）| 'elem'（小学生の漢字を復習する）
 let kwsElemGrade = null;    // elemモードの出題学年フィルタ。null=全学年ミックス、1〜6=その学年のみ
@@ -7133,7 +7134,8 @@ function kwsJudgeWhole(){
 }
 
 // kanji文字列の中に「いとへん」「こめへん」の字が含まれていれば、その種別を返す（無ければnull）。
-// 2字とも該当するケースはデータ上まだ無いが、その場合は先に見つかった方を優先する。
+// 両方とも該当する語（「純粋」＝純(いとへん)＋粋(こめへん)）は、どちらか一方だけを問うと
+// かえって紛らわしいため、この関数を呼ぶ前にkwsHasBothRadicals()で除外する。
 function kwsRadicalTypeFor(kanji){
   for(const ch of kanji){
     if(KWS_ITOHEN_CHARS.has(ch)) return 'ito';
@@ -7142,9 +7144,21 @@ function kwsRadicalTypeFor(kanji){
   return null;
 }
 
-// ○と判定された直後だけ呼ばれる。対象の字がいとへん／こめへんの字を含む場合のみ、
-// キャンバスの上に「どっちが正しい？」の2択オーバーレイを重ねて出す。
+// いとへん・こめへんの字が1つの語の中に両方含まれているか（例：「純粋」）
+function kwsHasBothRadicals(kanji){
+  let hasIto = false, hasKome = false;
+  for(const ch of kanji){
+    if(KWS_ITOHEN_CHARS.has(ch)) hasIto = true;
+    if(KWS_KOMEHEN_CHARS.has(ch)) hasKome = true;
+  }
+  return hasIto && hasKome;
+}
+
+// ○と判定された直後だけ呼ばれる。対象の字がいとへん／こめへんの字を片方だけ含む場合のみ、
+// キャンバスの上に「どっちが正しい？」の2択オーバーレイを重ねて出す
+// （両方含む語は聞かない方針で統一。教員の指示、2026-09-01）。
 function kwsMaybeShowRadicalQuiz(kdata){
+  if(kwsHasBothRadicals(kdata.kanji)) return;
   const type = kwsRadicalTypeFor(kdata.kanji);
   if(!type) return;
 
