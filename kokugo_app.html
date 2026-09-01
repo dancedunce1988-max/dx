@@ -3299,7 +3299,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.04</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.05</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6854,6 +6854,16 @@ function kwsElemGroups(){
   _kwsElemGroupsCache = groups;
   return groups;
 }
+// id→そのidが属するグループ番号（1始まり）の逆引き。適応的難度調整
+// （kwsDifficultyWeight）の「レベル」として使う。
+let _kwsElemLevelMap = null;
+function kwsElemLevelOf(id){
+  if(!_kwsElemLevelMap){
+    _kwsElemLevelMap = new Map();
+    kwsElemGroups().forEach(g => g.ids.forEach(gid => _kwsElemLevelMap.set(gid, g.level)));
+  }
+  return _kwsElemLevelMap.get(id) || 1;
+}
 // まだ一度も解禁が進んでいない生徒の初期状態（教員の指示、2026-09-01：「初めの段階でも、
 // 小学校3年生までは全部解放している状態からスタート」）。全グループがすべて学年3以下の
 // 問題だけで構成されている先頭部分を数える（1026問中、学年1〜3で440問＝ちょうど55グループ
@@ -6949,6 +6959,15 @@ function kwsExamGroups(){
   _kwsExamGroupsCache = groups;
   return groups;
 }
+// id→そのidが属するグループ番号（1始まり）の逆引き。kwsElemLevelOfと同じ役割。
+let _kwsExamLevelMap = null;
+function kwsExamLevelOf(id){
+  if(!_kwsExamLevelMap){
+    _kwsExamLevelMap = new Map();
+    kwsExamGroups().forEach(g => g.ids.forEach(gid => _kwsExamLevelMap.set(gid, g.level)));
+  }
+  return _kwsExamLevelMap.get(id) || 1;
+}
 function kwsExamUnlockedGroupCount(st){
   return (st.groupUnlock && st.groupUnlock.kws_exam) || 1;
 }
@@ -7042,6 +7061,52 @@ function kwsRandomDrawIds(){
     return kwsFocusIds(ids, kwsElemGroups(), kwsElemUnlockedGroupCount(st), st.kwsElemSolved);
   }
   return ids;
+}
+
+// ---- 出題の難度調整（教員の指示、2026-09-01：「解放の中ではレベルが高いものを多めに出す」
+// ＋「大まかに正答率が80%程度になるように」）----
+// 20分野・百人一首の適応的難度調整（st.diffLv[cat]、difficultyWeight、DIFF_LV_STEP）と
+// 同じ考え方をkwsにも導入する。「レベル」は問題ごとのrank/gradeではなく、8問グループの番号
+// （kwsExamLevelOf/kwsElemLevelOf、グループが進むほど高レベル）を使う
+// （教員に確認して決定：examのrank(1〜200)やelemのgrade(1〜6、粒度が粗すぎる)ではなく、
+// 既に8問ずつ順序立てて並んでいるグループ番号を使う）。
+// 20分野は正解+0.5／不正解-0.5の対称ステップ（自然な収束点は正答率50%）だが、kwsは
+// 「大まかに正答率80%程度」を狙うため非対称ステップにする。期待変化量が0になる均衡点は
+// p*Δup = (1-p)*Δdown → Δup/Δdown = (1-p)/p。p=0.8のときΔup/Δdown=0.25。
+const KWS_DIFF_UP_STEP = 0.2;   // 正解のたびに出題目標レベルが上がる量
+const KWS_DIFF_DOWN_STEP = 0.8; // 不正解のたびに出題目標レベルが下がる量（比率0.25で正答率80%に収束）
+function kwsDifficultyWeight(level, diffLv){
+  return Math.exp(-1.2 * Math.abs(level - diffLv)); // difficultyWeight()と同じ減衰係数
+}
+// 今の出題目標レベル（st.kwsDiffLv[mode]）。未設定（まだ一度もこの調整が動いていない）ときは、
+// いきなりグループ1相当から始めるのではなく、そのモードの解禁進捗から始める
+// （ある程度進んでいる生徒が、この機能の追加だけで急に易しい問題ばかりになるのを防ぐ）。
+function kwsCurrentDiffLv(st, mode){
+  if(st.kwsDiffLv && typeof st.kwsDiffLv[mode] === 'number') return st.kwsDiffLv[mode];
+  return mode === 'exam' ? kwsExamUnlockedGroupCount(st) : kwsElemRawUnlockedGroupCount(st) || 1;
+}
+// 今の問題(id)の最終判定（correct）を受けて、出題目標レベルを非対称ステップで更新する。
+// kwsHandleJudgeResultの「最終判定が確定する」2箇所（正解確定／答え表示後の強制×）からだけ
+// 呼ぶ（ヒント表示への遷移など、まだ最終結果ではない段階では呼ばない）。
+function kwsUpdateDiffLv(st, mode, level, correct){
+  if(!st.kwsDiffLv) st.kwsDiffLv = {};
+  const maxLv = (mode === 'exam' ? kwsExamGroups() : kwsElemGroups()).length;
+  const cur = kwsCurrentDiffLv(st, mode);
+  st.kwsDiffLv[mode] = correct
+    ? Math.min(maxLv, cur + KWS_DIFF_UP_STEP)
+    : Math.max(1, cur - KWS_DIFF_DOWN_STEP);
+}
+// idsの中から、出題目標レベルに近いグループ番号の問題ほど出やすいよう重み付き抽選する
+// （pickOneは20分野のselectOne等と共通の汎用ユーティリティをそのまま流用）。
+// なお、kwsRandomDrawIdsが「まだ8問揃っていない最初のグループの残り」（全問同じグループ番号）
+// に絞っているときは、重みが全項目で同じになるため実質無効化される＝進行中は今まで通り
+// その8問から出る。重みが実際に効くのは、解禁済み範囲を解き終えてkwsFocusIdsが全体プールに
+// フォールバックしている「自由復習」フェーズ（意図した挙動）。
+function kwsWeightedPick(ids, mode, st){
+  const levelOf = mode === 'exam' ? kwsExamLevelOf : kwsElemLevelOf;
+  const diffLv = kwsCurrentDiffLv(st, mode);
+  const weights = ids.map(id => kwsDifficultyWeight(levelOf(id), diffLv));
+  return pickOne(ids, weights);
 }
 
 // 一覧表示・「最初の1問目」用の並び順。examは頻出順位（rank）順、elemは元データの並び
@@ -7464,6 +7529,11 @@ function kwsHandleJudgeResult(kdata){
     kwsWrongLog[kwsCurrentId] = kwsResultLog[kwsCurrentId];
     kwsUpdateResultLogDisplay();
     kwsXpSettled = true; // 最終×になった問題も、これ以上やり直しても経験値は入らない
+    if(kwsMode === 'exam' || kwsMode === 'elem'){
+      const st = loadStats();
+      kwsUpdateDiffLv(st, kwsMode, (kwsMode === 'exam' ? kwsExamLevelOf : kwsElemLevelOf)(kwsCurrentId), false);
+      saveStats(st);
+    }
     kwsSetStatus(
       wrongChars.length === 0
         ? '× 答えを見て書いたので、正解にはなりません（次の問題に挑戦しましょう）'
@@ -7486,6 +7556,7 @@ function kwsHandleJudgeResult(kdata){
       const unlockedMore = kwsMode === 'exam'
         ? kwsExamMarkSolvedAndCheckUnlock(st, kwsCurrentId)
         : kwsElemMarkSolvedAndCheckUnlock(st, kwsCurrentId);
+      kwsUpdateDiffLv(st, kwsMode, (kwsMode === 'exam' ? kwsExamLevelOf : kwsElemLevelOf)(kwsCurrentId), true);
       saveStats(st);
       if(unlockedMore) kwsShowUnlockMsg();
     }
@@ -7872,7 +7943,9 @@ function kwsLoadRandomKanji(){
   // 直前と同じ問題が連続で出ないようにする（教員の指示、2026-09-01）。プールが1問しかない
   // ときは除外すると空になるので、そのときだけ従来通り同じ問題も候補に含める。
   const candidates = ids.length > 1 ? ids.filter(id => id !== kwsCurrentId) : ids;
-  const id = candidates[Math.floor(Math.random() * candidates.length)];
+  const id = (kwsMode === 'exam' || kwsMode === 'elem')
+    ? kwsWeightedPick(candidates, kwsMode, loadStats()) // レベルが高いものほど出やすい重み付き抽選
+    : candidates[Math.floor(Math.random() * candidates.length)];
   kwsLoadKanji(id);
 }
 
@@ -8087,7 +8160,9 @@ function startKanjiWriteStroke(mode){
     window.scrollTo(0, 0);
     kwsWireScreen();
     const pool = kwsRandomDrawIds();
-    const firstId = pool.length ? pool[Math.floor(Math.random() * pool.length)] : null; // 1問目もランダムに（教員の指示、2026-09-01：毎回同じ字で始まっていた）
+    // 1問目もランダムに（教員の指示、2026-09-01：毎回同じ字で始まっていた）。
+    // レベルが高いものほど出やすい重み付き抽選を、1問目にも同じくかける。
+    const firstId = pool.length ? kwsWeightedPick(pool, mode, loadStats()) : null;
     if(!firstId) throw new Error(mode === 'elem'
       ? 'KANJI_WRITE_ELEM_STROKE_DATAが読み込まれていません（kanji_write_elem_stroke_data.jsの読み込みに失敗した可能性があります）'
       : 'KANJI_WRITE_STROKE_DATAが読み込まれていません（kanji_write_stroke_data.jsの読み込みに失敗した可能性があります）');
