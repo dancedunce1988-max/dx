@@ -245,6 +245,9 @@
   .kws-kanjiSelect button .rank{ font-size:.6rem; color:var(--sub); font-family:inherit; }
   .kws-kanjiSelect button.active{ border-color:var(--ok); color:var(--ok); font-weight:bold; }
   .kws-kanjiSelect button.active .rank{ color:var(--ok); }
+  .kws-kanjiSelect button .kws-listCounts{ font-size:.55rem; color:var(--sub); font-family:inherit; margin-top:1px; }
+  .kws-kanjiSelect button.kws-listOk{ background:#e8f5e9; border-color:#43a047; }
+  .kws-kanjiSelect button.kws-listOk .rank{ color:#2e7d32; }
   .kws-layout{ display:flex; gap:20px; align-items:flex-start; flex-wrap:wrap; justify-content:center; width:100%; }
   .kws-mainCol{ display:flex; flex-direction:column; align-items:center; gap:12px; flex:1 1 300px; }
   .kws-panelCol{ display:none; flex:1 1 300px; max-width:460px; } /* 判定の基準スライダーは生徒には非表示（教員の指示、2026-09-01）。DOM自体は残し、既存の入力配線はそのまま動かす */
@@ -3299,7 +3302,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.06</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.07</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6831,280 +6834,172 @@ function kwsSentenceFor(id){
   return found ? found.sentence : '';
 }
 
-// ---- 「小学生の漢字を復習する」：8問ずつの段階的解放（教員の指示、2026-09-01）----
-// 「他のジャンルと同様」に8問グループ化するが、専用ジャンル（st.cats/st.lv）はまだ作らず、
-// 解禁の進捗だけをst.groupUnlock.kws_elem／st.kwsElemSolvedに持たせる、「返り点をつける」
-// （kanbun_kt）と同じ簡易パターンを踏襲する：正答率・連続正解ではなく「そのグループの8問を
-// 一度でも正解したか」だけで次を解禁する。報酬は既存のβイベント経験値のみで、レベルや
-// ことのはの進化には結びつけない（教員の指示：「ジャンルの新設は後回しにして、イベント
-// 経験値のみの運用とする」）。正式運用の際は、教員の指示によりst.groupUnlock.kws_elem／
-// st.kwsElemSolvedをリセットし、全員グループ1からやり直しにする。
-// グループの並びは常にkanji_write_elem_stroke_data.jsのキー順（＝学年昇順ですでに整列済み、
-// [[project-kokugo-drill-dx-kws-engine]]参照）で固定する。画面下の学年切り替えボタンで
-// 特定の学年を選んでいるときは、教員の指示によりこの解禁と無関係にその学年の全問題を
-// 従来通り出題する（「全学年ミックス」を選んでいるときだけ、解禁済みグループの範囲に絞る）。
-let _kwsElemGroupsCache = null;
-function kwsElemGroups(){
-  if(_kwsElemGroupsCache) return _kwsElemGroupsCache;
-  const ids = Object.keys(kwsDataCache.elem || {});
-  const groups = [];
-  for(let i = 0; i < ids.length; i += GROUP_SIZE){
-    groups.push({ level: groups.length + 1, ids: ids.slice(i, i + GROUP_SIZE) });
-  }
-  _kwsElemGroupsCache = groups;
-  return groups;
+// ---- 「漢字の書き学習」「小学生の漢字を復習する」：3箱式の間隔反復（教員の指示、2026-09-02）----
+// 8問チャンク単位の段階的解放（ver9.99〜10.06）は、「まだ8問揃っていない特定の1〜2問だけが
+// 出続けて不快」という報告を受けて、この3箱式の間隔反復（Leitner方式に近い）に置き換えた。
+// 専用ジャンル（st.cats/st.lv）はまだ作らない方針は変わらない（教員の指示：ジャンルの新設は
+// 後回しにして、イベント経験値のみの運用とする）。1問ごとに次の3つの箱のどれかに入っており、
+// 出題は箱ごとの出やすさ（フェーズで変わる）で重み付き抽選する。
+//   新しい問題　　：まだ出会っていない問題。正解すると「正解済み」に移り、次の1問が新たに
+//                   解禁される。不正解（答え表示後の強制×含む）なら「間違った問題」に落ちる。
+//   間違った問題　：正解が3回連続で続くと「正解済み」に昇格する（連続が途切れたら0からやり直し）。
+//   正解済みの問題：復習として出題する。1回でも間違えると即座に「間違った問題」に落ちる。
+// 出題頻度（10問あたり、教員の指定値そのまま）：
+//   《解放期》直近10問の正答率が70%以上（初期状態のデフォルト）：新5／間違い2／正解済み3
+//   《つまずき期》直近10問の正答率が70%未満：新0／間違い5／正解済み5（新問題の解禁を止めて
+//   復習に回す）
+// examは常にこの仕組みで出題する。elemは「全学年ミックス」のときだけこの仕組みで出題し、
+// 学年ボタンで特定の学年を選んでいるときは、これまで通り解禁と無関係にその学年の全問題を
+// 出題する（教員に確認済みの既存方針を踏襲）。
+const KWS_RECENT_WINDOW = 10;
+const KWS_PROMOTE_STREAK = 3; // 「間違った問題」→「正解済み」に上げるのに必要な連続正解数
+const KWS_PHASE_ACC_THRESHOLD = 0.7;
+const KWS_PHASE_WEIGHTS = {
+  growth:     { new: 5, wrong: 2, ok: 3 }, // 解放期
+  struggling: { new: 0, wrong: 5, ok: 5 }, // つまずき期
+};
+
+// examは元データのキー順（rank昇順ですでに整列済み）、elemは元データのキー順（学年昇順で
+// 整列済み）を、そのまま「導入する順番」として使う。
+let _kwsExamOrderedIdsCache = null;
+function kwsExamOrderedIds(){
+  if(!_kwsExamOrderedIdsCache) _kwsExamOrderedIdsCache = Object.keys(kwsDataCache.exam || {});
+  return _kwsExamOrderedIdsCache;
 }
-// id→そのidが属するグループ番号（1始まり）の逆引き。適応的難度調整
-// （kwsDifficultyWeight）の「レベル」として使う。
-let _kwsElemLevelMap = null;
-function kwsElemLevelOf(id){
-  if(!_kwsElemLevelMap){
-    _kwsElemLevelMap = new Map();
-    kwsElemGroups().forEach(g => g.ids.forEach(gid => _kwsElemLevelMap.set(gid, g.level)));
-  }
-  return _kwsElemLevelMap.get(id) || 1;
+let _kwsElemOrderedIdsCache = null;
+function kwsElemOrderedIds(){
+  if(!_kwsElemOrderedIdsCache) _kwsElemOrderedIdsCache = Object.keys(kwsDataCache.elem || {});
+  return _kwsElemOrderedIdsCache;
 }
-// まだ一度も解禁が進んでいない生徒の初期状態（教員の指示、2026-09-01：「初めの段階でも、
-// 小学校3年生までは全部解放している状態からスタート」）。全グループがすべて学年3以下の
-// 問題だけで構成されている先頭部分を数える（1026問中、学年1〜3で440問＝ちょうど55グループ
-// ぶんで学年4の問題と混ざらずに区切れる）。データが変わって端数が出た場合も、学年4以上の
-// 問題を含むグループの手前までしか含めないので安全（毎回計算するがGROUP_SIZE分程度なので軽い）。
-let _kwsElemDefaultUnlockedGroupCount = null;
-function kwsElemDefaultUnlockedGroupCount(){
-  if(_kwsElemDefaultUnlockedGroupCount !== null) return _kwsElemDefaultUnlockedGroupCount;
-  const groups = kwsElemGroups();
+// 小学3年生までの問題数（教員の指示、2026-09-01：「初めの段階でも、小学校3年生までは
+// 全部解放している状態からスタート」）。学年4以上が混ざる手前までで区切るので、
+// データが変わって学年ごとの問題数が変わっても安全。
+let _kwsElemDefaultFrontier = null;
+function kwsElemDefaultFrontier(){
+  if(_kwsElemDefaultFrontier !== null) return _kwsElemDefaultFrontier;
+  const ids = kwsElemOrderedIds();
   const data = kwsDataCache.elem || {};
   let n = 0;
-  for(let i = 0; i < groups.length; i++){
-    if(!groups[i].ids.every(id => (data[id].grade || 0) <= 3)) break;
-    n = i + 1;
-  }
-  _kwsElemDefaultUnlockedGroupCount = Math.max(n, 1);
-  return _kwsElemDefaultUnlockedGroupCount;
-}
-// st.groupUnlock.kws_elemに実際に積み上がった「グループ1から順に、正解が確認できた
-// グループ数」そのもの（下限のかさ上げをしない生の値）。0＝まだ1つも確認できていない
-// （小学3年生までの初期解放とは無関係の、素の進捗）。
-function kwsElemRawUnlockedGroupCount(st){
-  return (st.groupUnlock && st.groupUnlock.kws_elem) || 0;
-}
-// 出題プール・進捗バーが対象にする「アクセス可能なグループ数」。上のrawの値と、
-// 「小学3年生まではデフォルトで解放済み」の下限（Math.max）の大きい方を返す。
-// Math.maxにしているのは、rawが55未満の小さい値でも常に55以上を保証するため
-// （stored||defaultだと保存値がtruthyな小さい数のときにデフォルトが効かなくなる。
-// 教員の指摘、2026-09-01：「今は1年生の問題しか出ていない」で発覚）。
-function kwsElemUnlockedGroupCount(st){
-  return Math.max(kwsElemRawUnlockedGroupCount(st), kwsElemDefaultUnlockedGroupCount());
-}
-function kwsElemUnlockedQuestionPct(st){
-  const groups = kwsElemGroups();
-  const total = groups.reduce((s, g) => s + g.ids.length, 0);
-  if(total === 0) return null;
-  const n = Math.min(kwsElemUnlockedGroupCount(st), groups.length);
-  let unlocked = 0;
-  for(let i = 0; i < n; i++) unlocked += groups[i].ids.length;
-  return Math.round(unlocked / total * 100);
-}
-// 「全学年ミックス」時の出題プールを、解禁済みグループの範囲だけに絞る（累積的・不可逆：
-// 一度解禁したグループは以後もプールに残る。20分野のgroupUnlockedPoolと同じ方針）。
-function kwsElemUnlockedIds(st){
-  const groups = kwsElemGroups();
-  const n = Math.min(kwsElemUnlockedGroupCount(st), groups.length);
-  const out = [];
-  for(let i = 0; i < n; i++) out.push(...groups[i].ids);
-  return out;
-}
-// 今の問題(id)を「一度でも正解した」ものとしてst.kwsElemSolvedに記録し、グループ1から順に
-// 「そのグループの8問すべてが解けているか」を確認できるところまでの数を、毎回ゼロから
-// 数え直す（st.groupUnlock.kws_elemに積み上がっている値を信用して「その続きから」チェック
-// するのではなく、st.kwsElemSolved＝実際に解いたかどうかの記録だけを根拠にする）。
-// これが重要な理由：以前は「保存済みのst.groupUnlock.kws_elemの値」を検査の起点にしていたが、
-// この値と実際の解答状況（st.kwsElemSolved）がどこかで食い違うと（例：8問チャンク解放の
-// 実装が育つ過程で判定条件が変わった影響で、古いテストプレイ時の値が実態とズレて残って
-// いた場合など）、以後ずっと「本当は先のグループまで解けているのに、ズレた古い位置だけを
-// 見て足踏みし続ける」状態になり、二度と解禁が進まなくなってしまう（教員の報告、
-// 2026-09-01：「10問以上連続正解しているのに解放される気配がない」で発覚。exam/elem両方に
-// 同型の不具合があった）。毎回グループ1から数え直せば、過去のズレがあっても次の判定で
-// 自動的に補正され、二度と起こらない。戻り値は「今回グループが1つ以上進んだか」。
-function kwsElemMarkSolvedAndCheckUnlock(st, id){
-  if(!Array.isArray(st.kwsElemSolved)) st.kwsElemSolved = [];
-  if(!st.kwsElemSolved.includes(id)) st.kwsElemSolved.push(id);
-  const groups = kwsElemGroups();
-  const before = kwsElemRawUnlockedGroupCount(st);
-  let n = 0;
-  while(n < groups.length && groups[n].ids.every(gid => st.kwsElemSolved.includes(gid))) n++;
-  if(!st.groupUnlock) st.groupUnlock = {};
-  st.groupUnlock.kws_elem = n; // 実際の進捗で常に上書き（ズレがあってもここで補正される）
-  return n > before;
+  while(n < ids.length && (data[ids[n]].grade || 0) <= 3) n++;
+  _kwsElemDefaultFrontier = n;
+  return _kwsElemDefaultFrontier;
 }
 
-// ---- 「漢字の書き学習」（exam、200問）も同じ8問チャンク解放にする（教員の指示、2026-09-01）----
-// elem側と全く同じ簡易パターン（kanbun_kt方式）。examにはelemの学年ボタンのような
-// 「解禁と無関係に全問出題できる」抜け道が無いため、常に解禁済みグループの範囲だけが
-// 出題プールになる（examに head-start の指示は無いため、デフォルトは他ジャンルと同じ
-// グループ1のみ。elemのような「小3まで初期解放」に相当する優遇は付けていない）。
-let _kwsExamGroupsCache = null;
-function kwsExamGroups(){
-  if(_kwsExamGroupsCache) return _kwsExamGroupsCache;
-  // kanji_write_stroke_data.jsのキー順はrank昇順ですでに整列済み（kw001=1位…）なので、
-  // elem同様にそのままGROUP_SIZEずつ切るだけでよい。
-  const ids = Object.keys(kwsDataCache.exam || {});
-  const groups = [];
-  for(let i = 0; i < ids.length; i += GROUP_SIZE){
-    groups.push({ level: groups.length + 1, ids: ids.slice(i, i + GROUP_SIZE) });
+// st.kwsExamState / st.kwsElemState = { frontier, items: { [id]: {box, streak, c, w} } }
+// frontier＝これまでに導入した問題数（idsの先頭からfrontier問ぶん）。導入済みの問題だけが
+// box（'new'|'wrong'|'ok'）を持つ。未初期化時に一度だけ組み立てる：examは1問目だけを
+// 「新しい問題」として導入する。elemは小学3年生までの440問を、最初から「正解済み」として
+// 一括で導入する（教員に確認して決定：1問ずつ解禁すると440問を消化しきるのに何百問もかかり、
+// 初期解放の意味がなくなるため。実際に知らない字があっても、復習で間違えれば「間違った問題」に
+// 落ちて自然に拾われる）。
+function kwsEnsureStateStore(st, mode){
+  const key = mode === 'exam' ? 'kwsExamState' : 'kwsElemState';
+  if(!st[key]){
+    const ids = mode === 'exam' ? kwsExamOrderedIds() : kwsElemOrderedIds();
+    const items = {};
+    let frontier;
+    if(mode === 'exam'){
+      frontier = Math.min(1, ids.length);
+      for(let i = 0; i < frontier; i++) items[ids[i]] = { box: 'new', streak: 0, c: 0, w: 0 };
+    } else {
+      frontier = kwsElemDefaultFrontier();
+      for(let i = 0; i < frontier; i++) items[ids[i]] = { box: 'ok', streak: 0, c: 0, w: 0 };
+    }
+    st[key] = { frontier, items };
   }
-  _kwsExamGroupsCache = groups;
-  return groups;
+  return st[key];
 }
-// id→そのidが属するグループ番号（1始まり）の逆引き。kwsElemLevelOfと同じ役割。
-let _kwsExamLevelMap = null;
-function kwsExamLevelOf(id){
-  if(!_kwsExamLevelMap){
-    _kwsExamLevelMap = new Map();
-    kwsExamGroups().forEach(g => g.ids.forEach(gid => _kwsExamLevelMap.set(gid, g.level)));
+function kwsRecentWindowFor(st, mode){
+  const key = mode === 'exam' ? 'kwsExamRecent' : 'kwsElemRecent';
+  if(!Array.isArray(st[key])) st[key] = [];
+  return st[key];
+}
+// 直近KWS_RECENT_WINDOW問の正答率で、解放期／つまずき期を判定する。データがまだ無いとき
+// （導入直後）は解放期からスタートする（教員の指示：「はじめは、デフォルトで、解放モード」）。
+function kwsCurrentPhase(st, mode){
+  const recent = kwsRecentWindowFor(st, mode);
+  if(recent.length === 0) return 'growth';
+  const acc = recent.reduce((a, b) => a + b, 0) / recent.length;
+  return acc >= KWS_PHASE_ACC_THRESHOLD ? 'growth' : 'struggling';
+}
+// 導入済みの中から次の1問を選ぶ（箱ごとの重みで箱を選び、箱の中は一様ランダム。pickOneは
+// 20分野のselectOne等と共通の重み付き抽選ユーティリティをそのまま流用）。
+// avoidIdは直前の問題（連続で同じ問題を避ける。教員の指示、2026-09-01）。
+function kwsPickNextId(st, mode, avoidId){
+  const store = kwsEnsureStateStore(st, mode);
+  const buckets = { new: [], wrong: [], ok: [] };
+  Object.keys(store.items).forEach(id => buckets[store.items[id].box].push(id));
+  const weights = KWS_PHASE_WEIGHTS[kwsCurrentPhase(st, mode)];
+  const cats = ['new', 'wrong', 'ok'].filter(c => buckets[c].length > 0 && weights[c] > 0);
+  // 保険：該当する箱が1つも無い場合（つまずき期に入った直後で間違った問題も正解済みも
+  // まだ空、など）は導入済み全体から選ぶ。
+  const pool = cats.length ? buckets[pickOne(cats, cats.map(c => weights[c]))] : Object.keys(store.items);
+  const candidates = (pool.length > 1 && avoidId) ? pool.filter(id => id !== avoidId) : pool;
+  return candidates.length ? candidates[Math.floor(Math.random() * candidates.length)] : null;
+}
+// 次に導入する1問を「新しい問題」箱に追加する（教員の指示：「正解したら、1問ずつ
+// 「新しい問題」を解放」）。戻り値は実際に導入できたか（もう全問導入済みならfalse）。
+function kwsIntroduceNextItem(store, orderedIds){
+  if(store.frontier >= orderedIds.length) return false;
+  const nextId = orderedIds[store.frontier];
+  store.items[nextId] = { box: 'new', streak: 0, c: 0, w: 0 };
+  store.frontier++;
+  return true;
+}
+// 今の問題(id)の最終判定（correct）を受けて、箱の移動・連続正解数・正解／不正解回数・
+// 直近成績を更新する。呼び出しはkwsHandleJudgeResultの「最終判定が確定する」2箇所だけ
+// （正解確定分岐／答え表示後の強制×分岐）。戻り値は「新しい問題を1問解放したか」
+// （解放お知らせの表示に使う）。
+function kwsRecordAnswer(st, mode, id, correct){
+  const store = kwsEnsureStateStore(st, mode);
+  const orderedIds = mode === 'exam' ? kwsExamOrderedIds() : kwsElemOrderedIds();
+  let entry = store.items[id];
+  if(!entry) entry = store.items[id] = { box: 'new', streak: 0, c: 0, w: 0 }; // 保険（通常は導入済みのはず）
+  if(correct) entry.c++; else entry.w++;
+
+  let introduced = false;
+  if(entry.box === 'new'){
+    if(correct){ entry.box = 'ok'; entry.streak = 0; introduced = kwsIntroduceNextItem(store, orderedIds); }
+    else{ entry.box = 'wrong'; entry.streak = 0; }
+  } else if(entry.box === 'wrong'){
+    if(correct){
+      entry.streak++;
+      if(entry.streak >= KWS_PROMOTE_STREAK){ entry.box = 'ok'; entry.streak = 0; }
+    } else {
+      entry.streak = 0;
+    }
+  } else { // 'ok'
+    if(!correct){ entry.box = 'wrong'; entry.streak = 0; }
   }
-  return _kwsExamLevelMap.get(id) || 1;
+
+  const recent = kwsRecentWindowFor(st, mode);
+  recent.push(correct ? 1 : 0);
+  while(recent.length > KWS_RECENT_WINDOW) recent.shift();
+
+  return introduced;
 }
-function kwsExamUnlockedGroupCount(st){
-  return (st.groupUnlock && st.groupUnlock.kws_exam) || 1;
+// 導入済みの問題数（一覧表示・進捗バーの分母に使う）。
+function kwsIntroducedCount(st, mode){
+  return kwsEnsureStateStore(st, mode).frontier;
 }
-function kwsExamUnlockedQuestionPct(st){
-  const groups = kwsExamGroups();
-  const total = groups.reduce((s, g) => s + g.ids.length, 0);
-  if(total === 0) return null;
-  const n = Math.min(kwsExamUnlockedGroupCount(st), groups.length);
-  let unlocked = 0;
-  for(let i = 0; i < n; i++) unlocked += groups[i].ids.length;
-  return Math.round(unlocked / total * 100);
-}
-function kwsExamUnlockedIds(st){
-  const groups = kwsExamGroups();
-  const n = Math.min(kwsExamUnlockedGroupCount(st), groups.length);
-  const out = [];
-  for(let i = 0; i < n; i++) out.push(...groups[i].ids);
-  return out;
-}
-// elem版（kwsElemMarkSolvedAndCheckUnlock）と同じ理由で、保存済みカウンタを起点に検査するの
-// ではなく、st.kwsExamSolvedを根拠に毎回グループ1から数え直す（自己補正式）。
-function kwsExamMarkSolvedAndCheckUnlock(st, id){
-  if(!Array.isArray(st.kwsExamSolved)) st.kwsExamSolved = [];
-  if(!st.kwsExamSolved.includes(id)) st.kwsExamSolved.push(id);
-  const groups = kwsExamGroups();
-  const before = kwsExamUnlockedGroupCount(st); // 上書き前の「アクセス可能数」（比較用に読むだけ）
-  let complete = 0; // グループ1から順に、実際に8問とも解けている個数
-  while(complete < groups.length && groups[complete].ids.every(gid => st.kwsExamSolved.includes(gid))) complete++;
-  // st.groupUnlock.kws_examは「アクセス可能なグループ数」（確定済みの次の1グループぶんまで
-  // 挑戦できる、デフォルト1＝グループ1は0完了でもアクセス可）なので、確定数(complete)そのもの
-  // ではなく+1した値を書く（kwsElemの生カウンタとは意味が異なる点に注意）。
-  const accessible = Math.min(complete + 1, groups.length);
-  if(!st.groupUnlock) st.groupUnlock = {};
-  st.groupUnlock.kws_exam = accessible; // 実際の進捗で常に上書き（ズレがあってもここで補正される）
-  return accessible > before;
+function kwsTotalCount(mode){
+  return (mode === 'exam' ? kwsExamOrderedIds() : kwsElemOrderedIds()).length;
 }
 
-// 出題プール（一覧表示・解禁率算出の対象。解禁済み全体）。examは常に解禁済みグループの
-// 範囲に絞る。elemモードでkwsElemGradeが指定されていれば、その学年の字だけに絞る（解禁とは
-// 無関係、従来通り全問題）。「全学年ミックス」時は解禁済みグループの範囲に絞る。
+// 出題プール（一覧表示・進捗算出の対象＝導入済みの問題）。elemモードでkwsElemGradeが
+// 指定されていれば、その学年の字だけに絞る（解禁とは無関係、従来通り全問題）。
 function kwsPoolIds(){
   let ids = Object.keys(kwsData);
   if(kwsMode === 'exam'){
-    const unlocked = new Set(kwsExamUnlockedIds(loadStats()));
-    ids = ids.filter(id => unlocked.has(id));
+    ids = Object.keys(kwsEnsureStateStore(loadStats(), 'exam').items);
   } else if(kwsMode === 'elem'){
     if(kwsElemGrade){
       ids = ids.filter(id => kwsData[id].grade === kwsElemGrade);
     } else {
-      const unlocked = new Set(kwsElemUnlockedIds(loadStats()));
-      ids = ids.filter(id => unlocked.has(id));
+      ids = Object.keys(kwsEnsureStateStore(loadStats(), 'elem').items);
     }
   }
   return ids;
-}
-
-// 解禁済みグループのうち、まだ8問すべてを正解し終えていない最初のグループ（無ければnull＝
-// 解禁済み範囲は全部解き終えている）。
-function kwsEarliestIncompleteGroup(groups, unlockedCount, solvedIds){
-  const solved = new Set(solvedIds || []);
-  const n = Math.min(unlockedCount, groups.length);
-  for(let i = 0; i < n; i++){
-    if(!groups[i].ids.every(id => solved.has(id))) return groups[i];
-  }
-  return null;
-}
-// 「次の問題」でランダムに引く候補を、解禁済み全体（ids）ではなく、まだ解き終えていない
-// 最初のグループの残り（8問以下）に絞る。理由：解禁済みプールは一度に何百問にもなり得る
-// （examで25グループ・elemは初期状態だけで55グループ＝440問）。プール全体から一様ランダムに
-// 引き続けると、「そのグループの8問全部を一度は正解する」という解禁条件を、特定の数問だけが
-// 埋まらないまま満たせない確率がどんどん高くなり、実質いつまで経っても次が解禁されない
-// （教員の報告、2026-09-01：「かなり正解しているのに解放されない」）。既に解禁済み範囲を
-// 全部解き終えている（真に自由に復習したい）ときだけ、この絞り込みをやめてidsをそのまま返す。
-function kwsFocusIds(ids, groups, unlockedCount, solvedIds){
-  const g = kwsEarliestIncompleteGroup(groups, unlockedCount, solvedIds);
-  if(!g) return ids;
-  const solved = new Set(solvedIds || []);
-  const remaining = g.ids.filter(id => !solved.has(id));
-  return remaining.length ? remaining : ids; // 保険（通常ここには来ないはず）
-}
-// 「次の問題」（ランダム出題）専用の出題候補。examは常にkwsFocusIdsで絞る。elemは
-// 「全学年ミックス」時だけ絞る（特定学年選択時はkwsPoolIds同様、解禁と無関係に全問候補）。
-// 一覧表示（kwsPoolIdsそのまま）は絞らない＝解禁済み全体をいつでも自由に選べる。
-function kwsRandomDrawIds(){
-  const ids = kwsPoolIds();
-  if(kwsMode === 'exam'){
-    const st = loadStats();
-    return kwsFocusIds(ids, kwsExamGroups(), kwsExamUnlockedGroupCount(st), st.kwsExamSolved);
-  }
-  if(kwsMode === 'elem' && !kwsElemGrade){
-    const st = loadStats();
-    return kwsFocusIds(ids, kwsElemGroups(), kwsElemUnlockedGroupCount(st), st.kwsElemSolved);
-  }
-  return ids;
-}
-
-// ---- 出題の難度調整（教員の指示、2026-09-01：「解放の中ではレベルが高いものを多めに出す」
-// ＋「大まかに正答率が80%程度になるように」）----
-// 20分野・百人一首の適応的難度調整（st.diffLv[cat]、difficultyWeight、DIFF_LV_STEP）と
-// 同じ考え方をkwsにも導入する。「レベル」は問題ごとのrank/gradeではなく、8問グループの番号
-// （kwsExamLevelOf/kwsElemLevelOf、グループが進むほど高レベル）を使う
-// （教員に確認して決定：examのrank(1〜200)やelemのgrade(1〜6、粒度が粗すぎる)ではなく、
-// 既に8問ずつ順序立てて並んでいるグループ番号を使う）。
-// 20分野は正解+0.5／不正解-0.5の対称ステップ（自然な収束点は正答率50%）だが、kwsは
-// 「大まかに正答率80%程度」を狙うため非対称ステップにする。期待変化量が0になる均衡点は
-// p*Δup = (1-p)*Δdown → Δup/Δdown = (1-p)/p。p=0.8のときΔup/Δdown=0.25。
-const KWS_DIFF_UP_STEP = 0.2;   // 正解のたびに出題目標レベルが上がる量
-const KWS_DIFF_DOWN_STEP = 0.8; // 不正解のたびに出題目標レベルが下がる量（比率0.25で正答率80%に収束）
-function kwsDifficultyWeight(level, diffLv){
-  return Math.exp(-1.2 * Math.abs(level - diffLv)); // difficultyWeight()と同じ減衰係数
-}
-// 今の出題目標レベル（st.kwsDiffLv[mode]）。未設定（まだ一度もこの調整が動いていない）ときは、
-// いきなりグループ1相当から始めるのではなく、そのモードの解禁進捗から始める
-// （ある程度進んでいる生徒が、この機能の追加だけで急に易しい問題ばかりになるのを防ぐ）。
-function kwsCurrentDiffLv(st, mode){
-  if(st.kwsDiffLv && typeof st.kwsDiffLv[mode] === 'number') return st.kwsDiffLv[mode];
-  return mode === 'exam' ? kwsExamUnlockedGroupCount(st) : kwsElemRawUnlockedGroupCount(st) || 1;
-}
-// 今の問題(id)の最終判定（correct）を受けて、出題目標レベルを非対称ステップで更新する。
-// kwsHandleJudgeResultの「最終判定が確定する」2箇所（正解確定／答え表示後の強制×）からだけ
-// 呼ぶ（ヒント表示への遷移など、まだ最終結果ではない段階では呼ばない）。
-function kwsUpdateDiffLv(st, mode, level, correct){
-  if(!st.kwsDiffLv) st.kwsDiffLv = {};
-  const maxLv = (mode === 'exam' ? kwsExamGroups() : kwsElemGroups()).length;
-  const cur = kwsCurrentDiffLv(st, mode);
-  st.kwsDiffLv[mode] = correct
-    ? Math.min(maxLv, cur + KWS_DIFF_UP_STEP)
-    : Math.max(1, cur - KWS_DIFF_DOWN_STEP);
-}
-// idsの中から、出題目標レベルに近いグループ番号の問題ほど出やすいよう重み付き抽選する
-// （pickOneは20分野のselectOne等と共通の汎用ユーティリティをそのまま流用）。
-// なお、kwsRandomDrawIdsが「まだ8問揃っていない最初のグループの残り」（全問同じグループ番号）
-// に絞っているときは、重みが全項目で同じになるため実質無効化される＝進行中は今まで通り
-// その8問から出る。重みが実際に効くのは、解禁済み範囲を解き終えてkwsFocusIdsが全体プールに
-// フォールバックしている「自由復習」フェーズ（意図した挙動）。
-function kwsWeightedPick(ids, mode, st){
-  const levelOf = mode === 'exam' ? kwsExamLevelOf : kwsElemLevelOf;
-  const diffLv = kwsCurrentDiffLv(st, mode);
-  const weights = ids.map(id => kwsDifficultyWeight(levelOf(id), diffLv));
-  return pickOne(ids, weights);
 }
 
 // 一覧表示・「最初の1問目」用の並び順。examは頻出順位（rank）順、elemは元データの並び
@@ -7285,13 +7180,13 @@ function kwsSetStatus(text, cls){
   el.className = 'kws-status' + (cls ? (' ' + cls) : '');
 }
 
-// 8問チャンクが新しく解禁された合図。返り点をつける（kanbun_kt）・読む順タップ（kanbun_yj）と
-// 同じ文言「🎉 次の8問が解禁されました！」を、kwsStatusとは別の専用要素に出す
-// （他ジャンルの「本体のメッセージに続けて解禁メッセージを別要素で足す」流儀に合わせる。
-// 教員の指示、2026-09-01：「解放したときのお知らせメッセージは、他のジャンル同様採用すること」）。
+// 新しい問題が1問解禁された合図を、kwsStatusとは別の専用要素に出す（他ジャンルの「本体の
+// メッセージに続けて解禁メッセージを別要素で足す」流儀に合わせる。教員の指示、2026-09-01：
+// 「解放したときのお知らせメッセージは、他のジャンル同様採用すること」／2026-09-02：
+// 「新しい問題を解放した！」とだけ、一言見やすく表示してください）。
 function kwsShowUnlockMsg(){
   const el = document.getElementById('kwsUnlockMsg');
-  if(el) el.textContent = '🎉 次の8問が解禁されました！';
+  if(el) el.textContent = '🎉 新しい問題を解放した！';
 }
 function kwsClearUnlockMsg(){
   const el = document.getElementById('kwsUnlockMsg');
@@ -7529,7 +7424,7 @@ function kwsHandleJudgeResult(kdata){
     kwsXpSettled = true; // 最終×になった問題も、これ以上やり直しても経験値は入らない
     if(kwsMode === 'exam' || kwsMode === 'elem'){
       const st = loadStats();
-      kwsUpdateDiffLv(st, kwsMode, (kwsMode === 'exam' ? kwsExamLevelOf : kwsElemLevelOf)(kwsCurrentId), false);
+      kwsRecordAnswer(st, kwsMode, kwsCurrentId, false);
       saveStats(st);
     }
     kwsSetStatus(
@@ -7551,12 +7446,9 @@ function kwsHandleJudgeResult(kdata){
     kwsAwardStageXp(stage);
     if(kwsMode === 'exam' || kwsMode === 'elem'){
       const st = loadStats();
-      const unlockedMore = kwsMode === 'exam'
-        ? kwsExamMarkSolvedAndCheckUnlock(st, kwsCurrentId)
-        : kwsElemMarkSolvedAndCheckUnlock(st, kwsCurrentId);
-      kwsUpdateDiffLv(st, kwsMode, (kwsMode === 'exam' ? kwsExamLevelOf : kwsElemLevelOf)(kwsCurrentId), true);
+      const introduced = kwsRecordAnswer(st, kwsMode, kwsCurrentId, true);
       saveStats(st);
-      if(unlockedMore) kwsShowUnlockMsg();
+      if(introduced) kwsShowUnlockMsg();
     }
     kwsMaybeShowRadicalQuiz(kdata);
     kwsRender();
@@ -7937,14 +7829,17 @@ function kwsToggleKanjiList(){
 }
 
 function kwsLoadRandomKanji(){
-  const ids = kwsRandomDrawIds();
-  // 直前と同じ問題が連続で出ないようにする（教員の指示、2026-09-01）。プールが1問しかない
-  // ときは除外すると空になるので、そのときだけ従来通り同じ問題も候補に含める。
-  const candidates = ids.length > 1 ? ids.filter(id => id !== kwsCurrentId) : ids;
-  const id = (kwsMode === 'exam' || kwsMode === 'elem')
-    ? kwsWeightedPick(candidates, kwsMode, loadStats()) // レベルが高いものほど出やすい重み付き抽選
-    : candidates[Math.floor(Math.random() * candidates.length)];
-  kwsLoadKanji(id);
+  // elemで特定の学年を選んでいるときは、解禁・3箱の仕組みと無関係にその学年の全問題から
+  // 一様ランダムに出す（従来通りの方針）。それ以外（exam常時／elemの全学年ミックス時）は
+  // 3箱式の間隔反復（kwsPickNextId）で選ぶ。直前と同じ問題を避けるのはkwsPickNextId内で
+  // 行う（教員の指示、2026-09-01）。
+  if(kwsMode === 'elem' && kwsElemGrade){
+    const ids = kwsPoolIds();
+    const candidates = ids.length > 1 ? ids.filter(id => id !== kwsCurrentId) : ids;
+    kwsLoadKanji(candidates[Math.floor(Math.random() * candidates.length)]);
+    return;
+  }
+  kwsLoadKanji(kwsPickNextId(loadStats(), kwsMode, kwsCurrentId));
 }
 
 function kwsBuildResultBadge(id, cls, entry){
@@ -7996,12 +7891,12 @@ function kwsScreenHtml(){
        <li>画数が間違っているものは、×となります。画と画をつなげて書かないこと。</li>
        <li>自動採点は、間違うこともあります。字の形をきちんと確認しましょう。</li>
        <li>間違えた字は、ヒント（始筆の点）→答え表示の順に、もう2回だけ書き直せます。ただし答えを表示したあとは、字が合っていても正解にはなりません。</li>
-       <li>「全学年ミックス」では、小学1年生の問題から8問ずつ解放されます。8問全部を正解すると次の8問が解放されます。</li>`
+       <li>「全学年ミックス」では、小学1年生の問題から順に、正解すると新しい問題が1問ずつ解放されます。間違えた問題は「間違った問題」として、3回連続で正解するまで復習に出てきます。</li>`
     : `<li>大きく、丁寧に書いてください。</li>
        <li>画数が間違っているものは、×となります。画と画をつなげて書かないこと。</li>
        <li>自動採点は、間違うこともあります。字の形をきちんと確認しましょう。</li>
        <li>間違えた字は、ヒント（始筆の点）→答え表示の順に、もう2回だけ書き直せます。ただし答えを表示したあとは、字が合っていても正解にはなりません。</li>
-       <li>出題頻度の高い問題から8問ずつ解放されます。8問全部を正解すると次の8問が解放されます。</li>`;
+       <li>出題頻度の高い問題から順に、正解すると新しい問題が1問ずつ解放されます。間違えた問題は「間違った問題」として、3回連続で正解するまで復習に出てきます。</li>`;
   return `
     <div class="kws-layout">
       <div class="kws-mainCol">
@@ -8059,8 +7954,8 @@ function kwsScreenHtml(){
         <div class="kws-resultsList" id="kwsIncorrectList"></div>
       </div>
     </div>
-    ${kwsMode === 'exam' ? unlockFooterHtml('漢字の書き学習', kwsExamUnlockedQuestionPct(loadStats())) : ''}
-    ${kwsMode === 'elem' && !kwsElemGrade ? unlockFooterHtml('小学生の漢字を復習する', kwsElemUnlockedQuestionPct(loadStats())) : ''}
+    ${kwsMode === 'exam' ? unlockFooterHtml('漢字の書き学習', Math.round(kwsIntroducedCount(loadStats(), 'exam') / kwsTotalCount('exam') * 100)) : ''}
+    ${kwsMode === 'elem' && !kwsElemGrade ? unlockFooterHtml('小学生の漢字を復習する', Math.round(kwsIntroducedCount(loadStats(), 'elem') / kwsTotalCount('elem') * 100)) : ''}
     ${kwsGradeSwitchHtml()}
     <div class="kws-listControls">
       <button id="kwsBtnShowList">一覧表示</button>
@@ -8129,16 +8024,24 @@ function kwsSwitchElemGrade(grade){
 }
 
 // 一覧パネルだけを学年フィルタに合わせて作り直す（kwsWireScreen内の一覧構築ロジックを共有）
+// 各漢字の正解数／不正解数を表示し、「正解済み」の箱に入っている字は緑色にする
+// （教員の指示、2026-09-02）。elemで特定の学年を選んでいるときは、その学年の全問題を
+// 表示するが、3箱の仕組みの対象外（解禁と無関係）の字も混じるため、記録が無ければ
+// 色・件数なしの従来通りの見た目になる。
 function kwsWireKanjiSelectList(){
   const sel = document.getElementById('kwsKanjiSelect');
   sel.innerHTML = '';
+  const store = kwsEnsureStateStore(loadStats(), kwsMode);
   kwsSortIds(kwsPoolIds()).forEach(id => {
     const b = document.createElement('button');
     const kdata = kwsData[id];
-    b.innerHTML = `<span class="rank">${kwsLabelFor(id)}</span>${kdata.kanji}`;
+    const entry = store.items[id];
+    const countsHtml = entry && (entry.c || entry.w) ? `<span class="kws-listCounts">○${entry.c}／×${entry.w}</span>` : '';
+    b.innerHTML = `<span class="rank">${kwsLabelFor(id)}</span>${kdata.kanji}${countsHtml}`;
     b.dataset.id = id;
     b.addEventListener('click', () => kwsLoadKanji(id));
     b.classList.toggle('active', id === kwsCurrentId);
+    b.classList.toggle('kws-listOk', !!(entry && entry.box === 'ok'));
     sel.appendChild(b);
   });
 }
@@ -8157,10 +8060,9 @@ function startKanjiWriteStroke(mode){
     screen.innerHTML = kwsScreenHtml();
     window.scrollTo(0, 0);
     kwsWireScreen();
-    const pool = kwsRandomDrawIds();
-    // 1問目もランダムに（教員の指示、2026-09-01：毎回同じ字で始まっていた）。
-    // レベルが高いものほど出やすい重み付き抽選を、1問目にも同じくかける。
-    const firstId = pool.length ? kwsWeightedPick(pool, mode, loadStats()) : null;
+    // 1問目もランダムに（教員の指示、2026-09-01：毎回同じ字で始まっていた）。elemはこの時点で
+    // 必ずkwsElemGrade=nullなので、3箱式（kwsPickNextId）でそのまま選べる。
+    const firstId = kwsPickNextId(loadStats(), mode, null);
     if(!firstId) throw new Error(mode === 'elem'
       ? 'KANJI_WRITE_ELEM_STROKE_DATAが読み込まれていません（kanji_write_elem_stroke_data.jsの読み込みに失敗した可能性があります）'
       : 'KANJI_WRITE_STROKE_DATAが読み込まれていません（kanji_write_stroke_data.jsの読み込みに失敗した可能性があります）');
