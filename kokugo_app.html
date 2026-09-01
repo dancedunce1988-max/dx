@@ -3318,7 +3318,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.13</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.14</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -7107,18 +7107,15 @@ function kwsTotalCount(mode){
 }
 
 // 出題プール（一覧表示・進捗算出の対象＝導入済みの問題）。elemモードでkwsElemGradeが
-// 指定されていれば、その学年の字だけに絞る（解禁とは無関係、従来通り全問題）。
-// 一覧表示（kwsWireKanjiSelectList）の対象。examは導入済みの問題だけ（まだ出会っていない
-// 問題まで一覧に出すと、順番立てて解放していく意味が薄れるため）。elemは、特定の学年を
-// 選んでいるときはその学年の全問題、「全学年」を選んでいるときは学年を問わず全1026問を
-// 表示する（教員の指示、2026-09-02：「全学年の漢字について表示、その中でも正解済みの
-// ものは緑表示」。3箱の仕組みによる出題の絞り込みはkwsPickNextId側だけで行い、一覧は
-// 常に自由に選べる）。
+// 一覧表示（kwsWireKanjiSelectList）の対象。examは全200問、elemは特定の学年を選んでいれば
+// その学年の全問題、「全学年」を選んでいれば全1026問を、それぞれ常に表示する（教員の指示、
+// 2026-09-02：examも「一覧をすべて表示、正解済みは緑、正誤の数も記録」。まだ出会っていない
+// 問題も一覧には出るが、`kwsWireKanjiSelectList`が導入済み・正解済みの色分けと正誤数を
+// 別途表示するので区別できる。3箱の仕組みによる出題そのものの絞り込みはkwsPickNextId側
+// だけで行い、一覧は常に自由に選べる）。
 function kwsPoolIds(){
   let ids = Object.keys(kwsData);
-  if(kwsMode === 'exam'){
-    ids = Object.keys(kwsEnsureStateStore(loadStats(), 'exam').items);
-  } else if(kwsMode === 'elem' && kwsElemGrade){
+  if(kwsMode === 'elem' && kwsElemGrade){
     ids = ids.filter(id => kwsData[id].grade === kwsElemGrade);
   }
   return ids;
