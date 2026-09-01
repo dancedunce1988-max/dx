@@ -3305,7 +3305,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.08</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.09</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6905,14 +6905,18 @@ function kwsEnsureStateStore(st, mode){
       frontier = Math.min(1, ids.length);
       for(let i = 0; i < frontier; i++) items[ids[i]] = { box: 'new', streak: 0, c: 0, w: 0 };
     } else {
-      frontier = kwsElemDefaultFrontier();
-      // 一括導入した440問は最初から「正解済み」扱い（見た目・出題頻度は即座に有効）だが、
-      // pending:trueを立てておく。生徒が実際にその問題へ初めて正解した瞬間に、通常の
-      // 「新しい問題」と同じく1問だけ新規解放する（kwsRecordAnswer参照。教員の指摘、
-      // 2026-09-02：「一個正解したら必ず一問解放するのが正しいはず」。これが無いと、
-      // 一括導入した問題はどれだけ正解してもkwsIntroduceNextItemの対象（box:'new'）に
-      // 一度もならないため、小学4年生以降が永久に解禁されない不具合になっていた）。
-      for(let i = 0; i < frontier; i++) items[ids[i]] = { box: 'ok', streak: 0, c: 0, w: 0, pending: true };
+      // 小学3年生まで（okCount問）は最初から「正解済み」扱いで導入する（見た目・出題頻度は
+      // 即座に有効）。教員の指示、2026-09-02：「440問、全問正解し、解放を続けてきた状態から
+      // スタートするイメージ」＝この440問を1問ずつ実際に確認したのと同じだけ、さらに
+      // その先（小学4年生〜）をokCount問ぶん、最初から「新しい問題」として追加解禁しておく
+      // （とにかくスタート時点から解放がどんどん進むように、という指示を汲んだ設計）。
+      // 各'ok'問題にはpending:trueを立てておき、生徒が実際にその問題へ初めて正解した瞬間にも
+      // （この一括ぶんとは別に）通常の「新しい問題」と同じく1問だけ追加で新規解放する
+      // （kwsRecordAnswer参照。復習が進むほどさらに解禁が伸びていく、というおまけの効果）。
+      const okCount = kwsElemDefaultFrontier();
+      frontier = Math.min(okCount * 2, ids.length);
+      for(let i = 0; i < okCount; i++) items[ids[i]] = { box: 'ok', streak: 0, c: 0, w: 0, pending: true };
+      for(let i = okCount; i < frontier; i++) items[ids[i]] = { box: 'new', streak: 0, c: 0, w: 0 };
     }
     st[key] = { frontier, items };
   }
