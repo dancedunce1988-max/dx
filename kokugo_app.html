@@ -3318,7 +3318,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.16</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.17</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -7336,12 +7336,24 @@ function kwsShowUnlockMsg(){
 }
 
 // 進捗バー（解放率）のHTML。examは常に表示、elemは「全学年」選択時だけ表示する。
+// elemは小学3年生までの440問（kwsElemDefaultFrontier）を最初から「正解済み」として
+// 一括導入しているため、解放率をそのまま「導入数／全体」で出すと初期状態でいきなり
+// 43%前後になってしまう（教員の指摘、2026-09-02：「初めから表示上0%から始まるように」）。
+// この440問ぶんを分子・分母の両方から差し引き、「小4以降をどれだけ解放したか」だけを
+// 解放率として表示する（実際の導入・出題ロジック自体は変更しない、表示だけの調整）。
+function kwsElemUnlockedPct(st){
+  const base = kwsElemDefaultFrontier();
+  const total = kwsTotalCount('elem') - base;
+  if(total <= 0) return 100;
+  const introduced = Math.max(0, kwsIntroducedCount(st, 'elem') - base);
+  return Math.round(introduced / total * 100);
+}
 function kwsUnlockFooterInner(){
   if(kwsMode === 'exam'){
     return unlockFooterHtml('漢字の書き学習', Math.round(kwsIntroducedCount(loadStats(), 'exam') / kwsTotalCount('exam') * 100));
   }
   if(kwsMode === 'elem' && !kwsElemGrade){
-    return unlockFooterHtml('小学生の漢字を復習する', Math.round(kwsIntroducedCount(loadStats(), 'elem') / kwsTotalCount('elem') * 100));
+    return unlockFooterHtml('小学生の漢字を復習する', kwsElemUnlockedPct(loadStats()));
   }
   return '';
 }
