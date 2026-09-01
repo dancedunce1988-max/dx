@@ -3302,7 +3302,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.97</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.98</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6688,6 +6688,10 @@ let kwsStage = 0;
 let kwsStagePendingChars = null;
 let kwsStageFlashChars = [];
 let kwsStageBusy = false;
+// 答え表示ステージ（kwsStage===2）で、プレイヤーが一度でも書き始めたらtrueにする。
+// これがないと、1画書いてペンを離すたび（pointerup→kwsDrawing=false）に答えが
+// また出てきてしまう。書き始めたら、そのステージが終わるまでずっと答えを隠したままにする。
+let kwsStageRevealHidden = false;
 // 今の問題で、このカスケード（最初の採点〜答え表示までの書き直し）ぶんのイベント経験値を
 // 既に確定させたか（kwsLoadKanji()の先頭でだけfalseに戻す）。
 // これが無いと、判定後にキャンバスをタップして全部消し、同じ問題を何度でも解き直して
@@ -7008,10 +7012,13 @@ function kwsRender(){
   kwsCtx.setTransform(1,0,0,1,0,0);
   kwsCtx.clearRect(0, 0, kwsCanvas.width, kwsCanvas.height);
   kwsDrawGuideGrid(kdata.charCount);
-  if(kwsStage === 2 && kwsStagePendingChars && !kwsDrawing){
-    // 答え表示ステージ：間違えた文字だけ答えを見せる。書き始めたら（kwsDrawing）消す。
+  if(kwsStage === 2 && kwsStagePendingChars && !kwsStageRevealHidden){
+    // 答え表示ステージ：間違えた文字だけ答えを見せる。一度書き始めたら
+    // （kwsStageRevealHidden）、そのステージが終わるまでずっと隠す。
     kwsDrawTargetRevealFor(kwsStagePendingChars);
-  } else if(kwsJudged){
+  } else if(kwsJudged && !kwsStageBusy){
+    // kwsStageBusy中（間違えた字が赤く光っている演出の最中）は、次の段階へ
+    // 進む前に答えが一瞬見えてしまわないよう、判定直後の全体プレビューを出さない。
     kwsDrawTargetReveal();
   } else if(kwsStage === 1 && kwsStagePendingChars){
     // ヒント表示ステージ：間違えた文字だけ始筆の点を見せる。
@@ -7251,6 +7258,7 @@ function kwsHandleJudgeResult(kdata){
   if(wrongChars.length === 0){
     kwsStage = 0;
     kwsStagePendingChars = null;
+    kwsStageRevealHidden = false;
     kwsResultLog[kwsCurrentId] = { pass: true, thumb: kwsCanvas.toDataURL('image/png') };
     kwsUpdateResultLogDisplay();
     kwsAwardStageXp(stage);
@@ -7263,6 +7271,7 @@ function kwsHandleJudgeResult(kdata){
     // 答え表示のあとの書き直しでもなお間違いが残っている＝最終判定として×を確定する
     kwsStage = 0;
     kwsStagePendingChars = null;
+    kwsStageRevealHidden = false;
     kwsResultLog[kwsCurrentId] = { pass: false, thumb: kwsCanvas.toDataURL('image/png') };
     kwsWrongLog[kwsCurrentId] = kwsResultLog[kwsCurrentId];
     kwsUpdateResultLogDisplay();
@@ -7291,6 +7300,7 @@ function kwsAdvanceStage(wrongChars, stage){
   setTimeout(() => {
     kwsStageFlashChars = [];
     kwsStage = stage + 1;
+    kwsStageRevealHidden = false; // 新しい段階に入るので、答え表示ステージなら改めて答えを見せる
     wrongChars.forEach(c => kwsClearCharInk(c));
     kwsJudged = false;
     kwsLastResult = null;
@@ -7530,6 +7540,7 @@ function kwsResetInk(charIndex){
     kwsStage = 0;
     kwsStagePendingChars = null;
     kwsStageFlashChars = [];
+    kwsStageRevealHidden = false;
   }
   kwsCurrentPath = [];
   kwsDrawing = false;
@@ -7786,6 +7797,7 @@ function kwsWireScreen(){
     e.preventDefault();
     if(kwsStageBusy) return; // 赤く光らせてからヒント/答えに切り替わる演出中は書き出させない
     if(kwsJudged) kwsResetInk();
+    if(kwsStage === 2) kwsStageRevealHidden = true; // 答え表示ステージで書き始めたら、以後ずっと答えを隠す
     kwsCanvas.setPointerCapture(e.pointerId);
     kwsDrawing = true;
     kwsCurrentPath = [kwsToPixel(e.clientX, e.clientY)];
