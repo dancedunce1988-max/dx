@@ -3305,7 +3305,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.09</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.10</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6918,7 +6918,23 @@ function kwsEnsureStateStore(st, mode){
       for(let i = 0; i < okCount; i++) items[ids[i]] = { box: 'ok', streak: 0, c: 0, w: 0, pending: true };
       for(let i = okCount; i < frontier; i++) items[ids[i]] = { box: 'new', streak: 0, c: 0, w: 0 };
     }
-    st[key] = { frontier, items };
+    st[key] = { frontier, items, bonusApplied: true };
+  } else if(mode === 'elem' && !st[key].bonusApplied){
+    // ver10.08以前（またはver10.09投入前）に一度でもelemを触った既存セーブは、
+    // st.kwsElemStateが既に存在するため上のif(!st[key])を通らず、旧初期状態
+    // （440問=正解済みのみ、frontier=440）のまま止まっていた。ver10.09で追加した
+    // 「さらに440問ぶん新規解放しておく」拡張を後から一度だけ適用する（教員の報告、
+    // 2026-09-02：「10問以上やっても小学校4年生の問題が一度も出ない」＝ver10.09より
+    // 前に作られたセーブデータがこの拡張の対象外だった）。bonusAppliedで二重適用を防ぐ。
+    const store = st[key];
+    const ids = kwsElemOrderedIds();
+    const okCount = kwsElemDefaultFrontier();
+    const newFrontier = Math.min(store.frontier + okCount, ids.length);
+    for(let i = store.frontier; i < newFrontier; i++){
+      if(!store.items[ids[i]]) store.items[ids[i]] = { box: 'new', streak: 0, c: 0, w: 0 };
+    }
+    store.frontier = newFrontier;
+    store.bonusApplied = true;
   }
   return st[key];
 }
