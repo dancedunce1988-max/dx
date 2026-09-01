@@ -3299,7 +3299,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.01</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.02</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6873,7 +6873,13 @@ function kwsElemDefaultUnlockedGroupCount(){
   return _kwsElemDefaultUnlockedGroupCount;
 }
 function kwsElemUnlockedGroupCount(st){
-  return (st.groupUnlock && st.groupUnlock.kws_elem) || kwsElemDefaultUnlockedGroupCount();
+  // 「小学3年生まではデフォルトで解放済み」を、単なるフォールバック値ではなく下限として扱う
+  // （Math.max）。st.groupUnlock.kws_elemに小さい値（例：1）が既に保存されていても、
+  // 常に55以上を保証する。stored||defaultだと、保存済みの値がtruthyな小さい数のときに
+  // デフォルトが効かず、意図せず1年生ぶんしか解放されない状態になってしまうため
+  // （教員の指摘、2026-09-01：「今は1年生の問題しか出ていない」で発覚）。
+  const stored = (st.groupUnlock && st.groupUnlock.kws_elem) || 0;
+  return Math.max(stored, kwsElemDefaultUnlockedGroupCount());
 }
 function kwsElemUnlockedQuestionPct(st){
   const groups = kwsElemGroups();
@@ -7165,6 +7171,19 @@ function kwsSetStatus(text, cls){
   el.className = 'kws-status' + (cls ? (' ' + cls) : '');
 }
 
+// 8問チャンクが新しく解禁された合図。返り点をつける（kanbun_kt）・読む順タップ（kanbun_yj）と
+// 同じ文言「🎉 次の8問が解禁されました！」を、kwsStatusとは別の専用要素に出す
+// （他ジャンルの「本体のメッセージに続けて解禁メッセージを別要素で足す」流儀に合わせる。
+// 教員の指示、2026-09-01：「解放したときのお知らせメッセージは、他のジャンル同様採用すること」）。
+function kwsShowUnlockMsg(){
+  const el = document.getElementById('kwsUnlockMsg');
+  if(el) el.textContent = '🎉 次の8問が解禁されました！';
+}
+function kwsClearUnlockMsg(){
+  const el = document.getElementById('kwsUnlockMsg');
+  if(el) el.textContent = '';
+}
+
 
 // targetStrokes（対象の画の配列）に対して、drawnGroups（描いた線を1本ずつの点列にした配列）が
 // どれだけ合っているかを見る、汎用の判定コア。単語全体にも、1文字分だけにも同じロジックを使う。
@@ -7395,9 +7414,7 @@ function kwsHandleJudgeResult(kdata){
         ? kwsExamMarkSolvedAndCheckUnlock(st, kwsCurrentId)
         : kwsElemMarkSolvedAndCheckUnlock(st, kwsCurrentId);
       saveStats(st);
-      if(unlockedMore){
-        kwsSetStatus(document.getElementById('kwsStatus').textContent + '　🔓 次の8問が解放されました！', 'ok');
-      }
+      if(unlockedMore) kwsShowUnlockMsg();
     }
     kwsMaybeShowRadicalQuiz(kdata);
     kwsRender();
@@ -7687,6 +7704,7 @@ function kwsResetInk(charIndex){
   document.getElementById('kwsMeasuredPanel').textContent = 'まだ何も判定していません';
   document.getElementById('kwsCharBreakdown').innerHTML = '';
   kwsSetStatus('');
+  kwsClearUnlockMsg();
   kwsUpdateJudgeButtonState();
   kwsRender();
 }
@@ -7788,7 +7806,10 @@ function kwsToggleKanjiList(){
 
 function kwsLoadRandomKanji(){
   const ids = kwsPoolIds();
-  const id = ids[Math.floor(Math.random() * ids.length)];
+  // 直前と同じ問題が連続で出ないようにする（教員の指示、2026-09-01）。プールが1問しかない
+  // ときは除外すると空になるので、そのときだけ従来通り同じ問題も候補に含める。
+  const candidates = ids.length > 1 ? ids.filter(id => id !== kwsCurrentId) : ids;
+  const id = candidates[Math.floor(Math.random() * candidates.length)];
   kwsLoadKanji(id);
 }
 
@@ -7867,6 +7888,7 @@ function kwsScreenHtml(){
           <ul>${notes}</ul>
         </div>
         <div class="kws-status" id="kwsStatus"></div>
+        <div class="kws-status ok" id="kwsUnlockMsg"></div>
         <div class="kws-charBreakdown" id="kwsCharBreakdown"></div>
         <p class="kws-credit">
           画の形データ：<a href="https://kanjivg.tagaini.net" target="_blank" rel="noopener">KanjiVG</a>
