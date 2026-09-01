@@ -57,6 +57,8 @@
   .event-banner-head{font-size:1.05rem; font-weight:bold; color:#b87000; margin-bottom:4px;}
   .event-banner-body{font-size:.88rem; line-height:1.7; color:#333;}
   .event-banner-pts{font-size:1.1rem; font-weight:bold; color:#c05000; margin-top:4px;}
+  .event-banner-total{border-color:#c05000; background:linear-gradient(135deg,#fff3c0,#ffdd8a); text-align:center;}
+  .event-banner-total .event-banner-pts{font-size:1.5rem; margin-top:2px;}
   /* 言の刃ゲーム内イベント表示 */
   .bg-event-hud{position:absolute; top:6px; right:8px; font-size:.72rem; background:rgba(255,200,0,.18); border:1px solid #e8a000; border-radius:6px; padding:2px 8px; color:#8a5000; font-weight:bold; pointer-events:none;}
   .menu-card.locked:hover{transform:none; box-shadow:none;}
@@ -3295,7 +3297,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.92</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.93</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -5843,9 +5845,22 @@ function balancedTrainingBtnHtml(){
       <div><h2>バランスよく鍛える</h2><p>レベルが低いジャンルほど出やすくなるよう調整しながら出題（読解・漢字の書き学習・苦手復習は含みません）</p></div>
     </div>`;
 }
+/* 全イベント合算の累計表示（2026-09-01〜、教員の指示：「イベント経験値は1つのプールのはずが
+   別々に表示されている」→ 合算した数字も見せてほしい、かつ今後もそこに積み上がっていく）。
+   個別イベントのカード（下のforEach）は、いつまでにあと何ptで…という進捗の目安として引き続き
+   残すが、この合計カードは「今どのイベントが開催中か」に関係なく、稼いだ実績として
+   累計>0なら常に出す（＝開催期間の間（イベントが1つも動いていない期間）も消えない）。 */
 function eventBannerHtml(st){
-  if(!anyEventActive()) return "";
+  const total = totalEventBonusExp(st);
   let html = "";
+  if(total > 0){
+    html += `
+    <div class="card event-banner event-banner-total">
+      <div class="event-banner-head">🎉 累計イベント経験値</div>
+      <div class="event-banner-pts">${total} pt</div>
+    </div>`;
+  }
+  if(!anyEventActive()) return html;
   Object.entries(EVENTS).forEach(([id, ev]) => {
     if(!eventActive(id)) return;
     const earned = (st.eventBonusEarned && st.eventBonusEarned[id]) || 0;
