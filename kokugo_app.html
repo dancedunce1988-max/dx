@@ -3302,7 +3302,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.98</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.99</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6835,12 +6835,83 @@ function kwsSentenceFor(id){
   return found ? found.sentence : '';
 }
 
+// ---- 「小学生の漢字を復習する」：8問ずつの段階的解放（教員の指示、2026-09-01）----
+// 「他のジャンルと同様」に8問グループ化するが、専用ジャンル（st.cats/st.lv）はまだ作らず、
+// 解禁の進捗だけをst.groupUnlock.kws_elem／st.kwsElemSolvedに持たせる、「返り点をつける」
+// （kanbun_kt）と同じ簡易パターンを踏襲する：正答率・連続正解ではなく「そのグループの8問を
+// 一度でも正解したか」だけで次を解禁する。報酬は既存のβイベント経験値のみで、レベルや
+// ことのはの進化には結びつけない（教員の指示：「ジャンルの新設は後回しにして、イベント
+// 経験値のみの運用とする」）。正式運用の際は、教員の指示によりst.groupUnlock.kws_elem／
+// st.kwsElemSolvedをリセットし、全員グループ1からやり直しにする。
+// グループの並びは常にkanji_write_elem_stroke_data.jsのキー順（＝学年昇順ですでに整列済み、
+// [[project-kokugo-drill-dx-kws-engine]]参照）で固定する。画面下の学年切り替えボタンで
+// 特定の学年を選んでいるときは、教員の指示によりこの解禁と無関係にその学年の全問題を
+// 従来通り出題する（「全学年ミックス」を選んでいるときだけ、解禁済みグループの範囲に絞る）。
+let _kwsElemGroupsCache = null;
+function kwsElemGroups(){
+  if(_kwsElemGroupsCache) return _kwsElemGroupsCache;
+  const ids = Object.keys(kwsDataCache.elem || {});
+  const groups = [];
+  for(let i = 0; i < ids.length; i += GROUP_SIZE){
+    groups.push({ level: groups.length + 1, ids: ids.slice(i, i + GROUP_SIZE) });
+  }
+  _kwsElemGroupsCache = groups;
+  return groups;
+}
+function kwsElemUnlockedGroupCount(st){
+  return (st.groupUnlock && st.groupUnlock.kws_elem) || 1;
+}
+function kwsElemUnlockedQuestionPct(st){
+  const groups = kwsElemGroups();
+  const total = groups.reduce((s, g) => s + g.ids.length, 0);
+  if(total === 0) return null;
+  const n = Math.min(kwsElemUnlockedGroupCount(st), groups.length);
+  let unlocked = 0;
+  for(let i = 0; i < n; i++) unlocked += groups[i].ids.length;
+  return Math.round(unlocked / total * 100);
+}
+// 「全学年ミックス」時の出題プールを、解禁済みグループの範囲だけに絞る（累積的・不可逆：
+// 一度解禁したグループは以後もプールに残る。20分野のgroupUnlockedPoolと同じ方針）。
+function kwsElemUnlockedIds(st){
+  const groups = kwsElemGroups();
+  const n = Math.min(kwsElemUnlockedGroupCount(st), groups.length);
+  const out = [];
+  for(let i = 0; i < n; i++) out.push(...groups[i].ids);
+  return out;
+}
+// 今の問題(id)を「一度でも正解した」ものとしてst.kwsElemSolvedに記録し、その問題が属する
+// グループの8問すべてが解けていれば次のグループを解禁する。学年ボタンで先の学年を
+// 予習していた場合など、複数グループぶん一気に条件を満たすこともあるため、満たさなく
+// なるまでループで先へ進める。戻り値は「今回新しくグループが解禁されたか」。
+function kwsElemMarkSolvedAndCheckUnlock(st, id){
+  if(!Array.isArray(st.kwsElemSolved)) st.kwsElemSolved = [];
+  if(!st.kwsElemSolved.includes(id)) st.kwsElemSolved.push(id);
+  const groups = kwsElemGroups();
+  let unlockedMore = false;
+  while(true){
+    const n = kwsElemUnlockedGroupCount(st);
+    if(n >= groups.length) break; // 既に全解禁済み
+    const cur = groups[n - 1];
+    if(!cur.ids.every(gid => st.kwsElemSolved.includes(gid))) break;
+    if(!st.groupUnlock) st.groupUnlock = {};
+    st.groupUnlock.kws_elem = n + 1;
+    unlockedMore = true;
+  }
+  return unlockedMore;
+}
+
 // 出題プール（ランダム出題・一覧表示の対象）。elemモードでkwsElemGradeが指定されていれば、
-// その学年の字だけに絞る。examモード、またはelemの「全学年ミックス」時はkwsData全体。
+// その学年の字だけに絞る（解禁とは無関係、従来通り全問題）。「全学年ミックス」時は
+// 解禁済みグループの範囲に絞る。examモードはkwsData全体（従来通り）。
 function kwsPoolIds(){
   let ids = Object.keys(kwsData);
-  if(kwsMode === 'elem' && kwsElemGrade){
-    ids = ids.filter(id => kwsData[id].grade === kwsElemGrade);
+  if(kwsMode === 'elem'){
+    if(kwsElemGrade){
+      ids = ids.filter(id => kwsData[id].grade === kwsElemGrade);
+    } else {
+      const unlocked = new Set(kwsElemUnlockedIds(loadStats()));
+      ids = ids.filter(id => unlocked.has(id));
+    }
   }
   return ids;
 }
@@ -7262,6 +7333,14 @@ function kwsHandleJudgeResult(kdata){
     kwsResultLog[kwsCurrentId] = { pass: true, thumb: kwsCanvas.toDataURL('image/png') };
     kwsUpdateResultLogDisplay();
     kwsAwardStageXp(stage);
+    if(kwsMode === 'elem'){
+      const st = loadStats();
+      const unlockedMore = kwsElemMarkSolvedAndCheckUnlock(st, kwsCurrentId);
+      saveStats(st);
+      if(unlockedMore){
+        kwsSetStatus(document.getElementById('kwsStatus').textContent + '　🔓 次の8問が解放されました！', 'ok');
+      }
+    }
     kwsMaybeShowRadicalQuiz(kdata);
     kwsRender();
     return;
@@ -7715,7 +7794,8 @@ function kwsScreenHtml(){
     ? `<li>例文の中の<b>カタカナ・太字・下線</b>の部分を、大きく丁寧に書いてください。</li>
        <li>画数が間違っているものは、×となります。画と画をつなげて書かないこと。</li>
        <li>自動採点は、間違うこともあります。字の形をきちんと確認しましょう。</li>
-       <li>間違えた字は、ヒント（始筆の点）→答え表示の順に、もう2回だけ書き直せます。</li>`
+       <li>間違えた字は、ヒント（始筆の点）→答え表示の順に、もう2回だけ書き直せます。</li>
+       <li>「全学年ミックス」では、小学1年生の問題から8問ずつ解放されます。8問全部を正解すると次の8問が解放されます。</li>`
     : `<li>大きく、丁寧に書いてください。</li>
        <li>画数が間違っているものは、×となります。画と画をつなげて書かないこと。</li>
        <li>自動採点は、間違うこともあります。字の形をきちんと確認しましょう。</li>
@@ -7779,6 +7859,7 @@ function kwsScreenHtml(){
         <div class="kws-resultsList" id="kwsIncorrectList"></div>
       </div>
     </div>
+    ${kwsMode === 'elem' && !kwsElemGrade ? unlockFooterHtml('小学生の漢字を復習する', kwsElemUnlockedQuestionPct(loadStats())) : ''}
     ${kwsGradeSwitchHtml()}
     <div class="kws-listControls">
       <button id="kwsBtnShowList">一覧表示</button>
