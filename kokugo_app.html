@@ -579,6 +579,11 @@
   .boss-choose-btn .icon{ font-size:1.4rem; }
   .boss-choose-btn .name{ flex:1; }
   .boss-choose-btn .recpts{ color:#9a8ec2; font-size:.82rem; white-space:nowrap; }
+  .boss-choose-weakToggle{
+    display:flex; align-items:center; gap:8px; color:#d8c2ff; font-size:.9rem;
+    margin-top:14px; cursor:pointer; user-select:none;
+  }
+  .boss-choose-weakToggle input{ width:17px; height:17px; accent-color:#a888ff; cursor:pointer; }
   .boss-battle-screen{
     background:linear-gradient(160deg,#0d0d16,#1a1030 55%,#0d0d16); color:#f0e6ff;
     border-radius:14px; padding:22px 18px; margin-bottom:14px;
@@ -3297,7 +3302,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.94</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.95</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -9794,6 +9799,10 @@ TREASURE_NAMES.add(KOKUGO_KAMI_BOSS.treasure);
 let pendingBoss = null;
 let pendingBossAllGenre = false; // 挑戦チケットからの遭遇のときtrue（全ジャンル出題・文言が変わる）
 let pendingBossHyakunin = false; // 百人一首クイズ中の遭遇のときtrue（百人一首の問題を出題する。教員の指示、2026-08-02）
+// チケットで「相手を選ぶ」画面（showTicketChooseBoss）だけで使う一時的なUI状態。
+// オンにすると、経験値が伸びて「卒業」済み（isBossRetired）の弱いボスも一覧に表示する
+// （教員の指示、2026-09-01）。kwsElemGradeと同じく、セーブデータには保存しない画面内フィルタ。
+let ticketShowRetiredBosses = false;
 let bossPromptSelection = "no";
 let bossPromptResumeFn = null;
 let bossPromptActive = false;
@@ -11290,8 +11299,12 @@ function showTicketConfirm(){
    ボスが「卒業」して対象外になる仕組み。neverRetires:trueのサノー・シゲっちは対象外）も
    同様に適用する。以前の「今の経験値（すでに使った分もふくむ）以下のボスだけ」という
    独自の上限ルールは廃止し、ランダム遭遇に出てくるボスの候補と完全に一致させる。 */
-function ticketEligibleBosses(xp){
-  return BOSSES.filter(b => (!b.minXpRatio || xp >= b.recPts * b.minXpRatio) && !isBossRetired(b, xp));
+// includeRetired:trueを渡すと、経験値が伸びて「卒業」済み（isBossRetired）の弱いボスも
+// 対象に含める（「弱い敵を表示する」トグル用）。minXpRatioによる「まだ出現しない強いボス」の
+// 絞り込みは、includeRetiredの値に関わらず常に適用する（弱い敵を見せる機能であって、
+// 未解禁の強いボスを先取りさせる機能ではないため）。
+function ticketEligibleBosses(xp, includeRetired){
+  return BOSSES.filter(b => (!b.minXpRatio || xp >= b.recPts * b.minXpRatio) && (includeRetired || !isBossRetired(b, xp)));
 }
 /* チケット3枚を使って、ticketEligibleBossesの候補の中から任意の1体を選んで挑戦する
    （2026-08-23〜、教員の指示）。抽選（ランダム）ではなく確定選択なので、useTicketAndFightとは
@@ -11300,7 +11313,7 @@ function showTicketChooseBoss(){
   const st = loadStats();
   if((st.bossTickets||0) < TICKET_CHOOSE_COST){ showTicketConfirm(); return; }
   const xp = kotonohaTotalXP(st);
-  const candidates = ticketEligibleBosses(xp);
+  const candidates = ticketEligibleBosses(xp, ticketShowRetiredBosses);
   const listHtml = candidates.map(b => `
     <button class="boss-choose-btn" onclick="useTicketAndFightChosen('${b.id}')">
       <span class="icon">${b.icon}</span>
@@ -11312,17 +11325,30 @@ function showTicketChooseBoss(){
       <div class="boss-enc-icon">🎟️🎟️🎟️</div>
       <p class="boss-enc-text">チケットを${TICKET_CHOOSE_COST}枚使って、挑戦したいボスを選んでください。</p>
       <p class="note boss-enc-hint">（今の手持ち：${st.bossTickets||0}枚）</p>
+      <label class="boss-choose-weakToggle">
+        <input type="checkbox" ${ticketShowRetiredBosses ? "checked" : ""} onchange="ticketToggleShowRetired(this.checked)">
+        弱い敵を表示する
+      </label>
       <div class="boss-choose-list">${listHtml}</div>
       <div class="boss-enc-choices">
         <button class="boss-enc-btn" onclick="showTicketConfirm()">もどる</button>
       </div>
     </div>`;
 }
+// 「弱い敵を表示する」トグルの切り替え。画面をまるごと作り直すshowTicketChooseBoss()の
+// 設計上、フラグを更新して同じ関数を呼び直すだけで一覧に反映できる。
+function ticketToggleShowRetired(checked){
+  ticketShowRetiredBosses = checked;
+  showTicketChooseBoss();
+}
 function useTicketAndFightChosen(bossId){
   const st = loadStats();
   if((st.bossTickets||0) < TICKET_CHOOSE_COST){ showHome(); return; }
   const xp = kotonohaTotalXP(st);
-  const boss = ticketEligibleBosses(xp).find(b => b.id === bossId);
+  // ここはincludeRetired:trueで検索する（「弱い敵を表示する」で出てきたボスを選んだ場合でも
+  // 見つかるようにするため）。まだ解禁されていない強いボス（minXpRatio未達）だけは、
+  // トグルの状態に関わらずticketEligibleBosses内で常に除外される。
+  const boss = ticketEligibleBosses(xp, true).find(b => b.id === bossId);
   if(!boss){ showTicketConfirm(); return; } // 候補から外れていたら（経験値変動等）安全に戻す
   st.bossTickets -= TICKET_CHOOSE_COST;
   saveStats(st);
