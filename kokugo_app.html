@@ -3283,7 +3283,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.90</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.91</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6606,12 +6606,22 @@ const KWS_SAMPLE_COUNT = 30;    // 1画あたりの長さ方向サンプル点�
 const KWS_STAGE_MAX_WIDTH_PX = 308; // 440pxの70%。2文字の言葉が縦に並んでも一度に見えるように
 const KWS_NS = 'http://www.w3.org/2000/svg';
 
-// 「いとへん」と「こめへん」を書き間違える生徒が多いため、書き取り問題が○だった直後にだけ
-// 対象の字がどちらの部首かを選ばせる確認クイズを挟む（examのradicalフィールドとelemのch一覧を
-// 突き合わせて実在を確認した字だけを収録。2026-09-01時点でこの2部首が両方入った熟語は無い）。
+// 形や部首が似ていて書き間違える生徒が多い字のペアのため、書き取り問題が○だった直後にだけ
+// どちらが正しいか選ばせる確認クイズを挟む（examのradicalフィールドとelemのch一覧を
+// 突き合わせて実在を確認した字だけを収録。2026-09-01時点で「純粋」以外にこの2部首が
+// 両方入った熟語は無い）。
 const KWS_ITOHEN_CHARS = new Set(['糸','絵','紙','線','級','終','緑','練','給','縄','続','約','紀','経','織','績','絶','統','綿','絹','紅','縦','純','納','編','縮','細']);
 const KWS_KOMEHEN_CHARS = new Set(['米','精','粉','糖','粋']); // 粋は単独のkws対象字ではないが、
 // 「純粋」（純＝いとへん）の中でこめへんとして出てくるため、両部首混在の判定に必要で追加
+
+// 書き間違えやすい字のペア一覧。いとへん／こめへんは複数の字を含む部首ファミリーなので
+// 部首名をボタンに添えるが、土／工、牛／午は形が似ているだけの単独の字なので名前は付けない
+// （教員の指示、2026-09-01）。
+const KWS_CONFUSION_PAIRS = [
+  { a: { chars: KWS_ITOHEN_CHARS, display: '糸', name: 'いとへん' }, b: { chars: KWS_KOMEHEN_CHARS, display: '米', name: 'こめへん' } },
+  { a: { chars: new Set(['土']), display: '土', name: null }, b: { chars: new Set(['工']), display: '工', name: null } },
+  { a: { chars: new Set(['牛']), display: '牛', name: null }, b: { chars: new Set(['午']), display: '午', name: null } },
+];
 
 let kwsMode = 'exam';       // 'exam'（漢字の書き学習）| 'elem'（小学生の漢字を復習する）
 let kwsElemGrade = null;    // elemモードの出題学年フィルタ。null=全学年ミックス、1〜6=その学年のみ
@@ -7133,74 +7143,86 @@ function kwsJudgeWhole(){
   if(kwsJudgedPass) kwsMaybeShowRadicalQuiz(kdata);
 }
 
-// kanji文字列の中に「いとへん」「こめへん」の字が含まれていれば、その種別を返す（無ければnull）。
-// 両方とも該当する語（「純粋」＝純(いとへん)＋粋(こめへん)）は、どちらか一方だけを問うと
-// かえって紛らわしいため、この関数を呼ぶ前にkwsHasBothRadicals()で除外する。
-function kwsRadicalTypeFor(kanji){
-  for(const ch of kanji){
-    if(KWS_ITOHEN_CHARS.has(ch)) return 'ito';
-    if(KWS_KOMEHEN_CHARS.has(ch)) return 'kome';
+// kanji文字列が、KWS_CONFUSION_PAIRSのどれか片方だけに一致すれば{pair, correct}を返す（無ければnull）。
+// 両方に一致する語（「純粋」＝純(いとへん)＋粋(こめへん)）は、どちらか一方だけを問うと
+// かえって紛らわしいため対象外にする（教員の指示、2026-09-01）。
+function kwsFindConfusionMatch(kanji){
+  for(const pair of KWS_CONFUSION_PAIRS){
+    let hasA = false, hasB = false;
+    for(const ch of kanji){
+      if(pair.a.chars.has(ch)) hasA = true;
+      if(pair.b.chars.has(ch)) hasB = true;
+    }
+    if(hasA && hasB) continue;
+    if(hasA) return { pair, correct: 'a' };
+    if(hasB) return { pair, correct: 'b' };
   }
   return null;
 }
 
-// いとへん・こめへんの字が1つの語の中に両方含まれているか（例：「純粋」）
-function kwsHasBothRadicals(kanji){
-  let hasIto = false, hasKome = false;
-  for(const ch of kanji){
-    if(KWS_ITOHEN_CHARS.has(ch)) hasIto = true;
-    if(KWS_KOMEHEN_CHARS.has(ch)) hasKome = true;
-  }
-  return hasIto && hasKome;
+// カタカナ→ひらがな変換（Unicode上でカタカナとひらがなは同じ並び順で0x60ずれているだけ）
+function kwsToHiragana(str){
+  return str.replace(/[ァ-ヶ]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60));
 }
 
-// ○と判定された直後だけ呼ばれる。対象の字がいとへん／こめへんの字を片方だけ含む場合のみ、
-// キャンバスの上に「どっちが正しい？」の2択オーバーレイを重ねて出す
-// （両方含む語は聞かない方針で統一。教員の指示、2026-09-01）。
-function kwsMaybeShowRadicalQuiz(kdata){
-  if(kwsHasBothRadicals(kdata.kanji)) return;
-  const type = kwsRadicalTypeFor(kdata.kanji);
-  if(!type) return;
+// クイズの問題文に使う読みをひらがなで取り出す。kdata.kanji（書かせた字そのもの）をそのまま
+// 出すと、部首や字形の答えが見えてしまうため、sentenceの《カタカナ》部分をひらがなに変換し、
+// kanjiの末尾についている送り仮名（「終わる」の「わる」など、カタカナの外にある部分）を
+// そのままつなげて読みを復元する。
+function kwsReadingFor(kdata){
+  const sentence = kwsSentenceFor(kwsCurrentId);
+  const m = sentence.match(/《([^》]*)》/);
+  const okurigana = kdata.kanji.replace(/^[一-鿿]+/, '');
+  return m ? kwsToHiragana(m[1]) + okurigana : kdata.kanji;
+}
 
-  kwsRadicalQuiz = { type, answered: false };
-  const label = { ito: '糸', kome: '米' };
-  const name = { ito: 'いとへん', kome: 'こめへん' };
-  const options = Math.random() < 0.5 ? ['ito', 'kome'] : ['kome', 'ito']; // 左右をランダム化し、位置で覚えられないようにする
+// ○と判定された直後だけ呼ばれる。対象の字が書き間違えやすいペアの片方だけを含む場合のみ、
+// キャンバスの上に「どっちが正しい？」の2択オーバーレイを重ねて出す。
+function kwsMaybeShowRadicalQuiz(kdata){
+  const match = kwsFindConfusionMatch(kdata.kanji);
+  if(!match) return;
+  const { pair, correct } = match;
+  const correctSide = pair[correct];
+  const otherSide = pair[correct === 'a' ? 'b' : 'a'];
+  const reading = kwsReadingFor(kdata);
+
+  kwsRadicalQuiz = { correctDisplay: correctSide.display, correctLabel: correctSide.name || correctSide.display, answered: false };
+  const sides = Math.random() < 0.5 ? [correctSide, otherSide] : [otherSide, correctSide]; // 左右をランダム化し、位置で覚えられないようにする
 
   const overlay = document.createElement('div');
   overlay.className = 'kws-radicalQuiz';
   overlay.id = 'kwsRadicalQuiz';
   overlay.innerHTML = `
     <div class="kws-radicalQuizBox">
-      <p class="kws-radicalQuizQ">「${kdata.kanji}」で正しいのはどっち？</p>
+      <p class="kws-radicalQuizQ">「${reading}」で正しいのはどっち？</p>
       <div class="kws-radicalQuizBtns">
-        ${options.map(t => `<button class="kws-radicalBtn" data-type="${t}"><span class="kws-radicalChar">${label[t]}</span><span class="kws-radicalName">${name[t]}</span></button>`).join('')}
+        ${sides.map(s => `<button class="kws-radicalBtn" data-display="${s.display}"><span class="kws-radicalChar">${s.display}</span>${s.name ? `<span class="kws-radicalName">${s.name}</span>` : ''}</button>`).join('')}
       </div>
       <p class="kws-radicalQuizResult" id="kwsRadicalQuizResult"></p>
     </div>
   `;
   overlay.querySelectorAll('.kws-radicalBtn').forEach(btn => {
-    btn.addEventListener('click', () => kwsAnswerRadicalQuiz(btn.dataset.type));
+    btn.addEventListener('click', () => kwsAnswerRadicalQuiz(btn.dataset.display));
   });
   kwsStageEl.appendChild(overlay);
 }
 
-function kwsAnswerRadicalQuiz(chosen){
+function kwsAnswerRadicalQuiz(chosenDisplay){
   if(!kwsRadicalQuiz || kwsRadicalQuiz.answered) return;
   kwsRadicalQuiz.answered = true;
-  const correct = kwsRadicalQuiz.type;
-  const name = { ito: 'いとへん', kome: 'こめへん' };
+  const { correctDisplay, correctLabel } = kwsRadicalQuiz;
+  const isCorrect = chosenDisplay === correctDisplay;
 
   const overlay = document.getElementById('kwsRadicalQuiz');
   if(!overlay) return;
   overlay.querySelectorAll('.kws-radicalBtn').forEach(btn => {
     btn.disabled = true;
-    if(btn.dataset.type === correct) btn.classList.add('ok');
-    else if(btn.dataset.type === chosen) btn.classList.add('ng');
+    if(btn.dataset.display === correctDisplay) btn.classList.add('ok');
+    else if(btn.dataset.display === chosenDisplay) btn.classList.add('ng');
   });
   const resultEl = document.getElementById('kwsRadicalQuizResult');
-  resultEl.textContent = chosen === correct ? `正解！「${name[correct]}」です。` : `おしい、正解は「${name[correct]}」でした。`;
-  resultEl.className = 'kws-radicalQuizResult ' + (chosen === correct ? 'ok' : 'ng');
+  resultEl.textContent = isCorrect ? `正解！「${correctLabel}」です。` : `おしい、正解は「${correctLabel}」でした。`;
+  resultEl.className = 'kws-radicalQuizResult ' + (isCorrect ? 'ok' : 'ng');
 }
 
 function kwsCloseRadicalQuiz(){
