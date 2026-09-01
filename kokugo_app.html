@@ -3302,7 +3302,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.96</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver9.97</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3581,7 +3581,7 @@ const EVENTS = {
   "2026_09_kanjiwrite_beta": {
     label: "漢字の書き取り βテストイベント",
     end: new Date('2026-09-04T23:59:59'),
-    desc: "「漢字の書き学習（200問）」または「小学生の漢字を復習する（全学年ミックス）」で、\n1問を一発で正解して次の問題に進むごとに経験値＋3！",
+    desc: "「漢字の書き学習（200問）」または「小学生の漢字を復習する（全学年ミックス）」で、\n1問正解するごとに経験値！最初の採点で正解＋3／ヒントを見て正解＋2／答えを見て正解＋1！",
   },
 };
 function eventActive(id){
@@ -6676,11 +6676,23 @@ let kwsDrawing = false;
 let kwsJudged = false;
 let kwsJudgedPass = false;
 let kwsRadicalQuiz = null;  // 表示中の確認クイズの状態（{correctDisplay, correctLabel, answered}）。非表示ならnull
-// 今の問題の「最初の採点」時点で、一発正解 かつ βイベント対象条件（モード/学年）を
-// 満たしていたか（null=まだ未採点）。やり直しても書き換わらない。βイベント「一発正解でXP」の
-// 判定に使う（kwsLoadKanji()の先頭でだけリセットする）。モード/学年は判定「時点」のものを使う
-// （＝「全学年ミックス」で正解した直後に学年ボタンを押して離れても、そのぶんはeligibleのまま）。
-let kwsFirstAttemptEligible = null;
+
+// 2026-09〜、採点で間違えた字があるときに1回だけ判定を打ち切らず、
+// 「ヒント（始筆）→答え表示」の順に2回まで書き直しのチャンスを与える段階制に変更。
+// kwsStage: 0=最初の採点前後／1=ヒント表示中（1回目の書き直し待ち）／2=答え表示中（2回目＝最後の書き直し待ち）。
+// kwsStagePendingChars: そのステージで間違っていた文字indexの配列（それ以外の文字は既に合格しているので触れない）。
+// kwsStageFlashChars: 「間違えた」ことを示す赤い点滅演出を出している最中の文字indexの配列（演出が終われば空にする）。
+// kwsStageBusy: 演出中（赤く光らせてからヒント/答えに切り替わるまでの一瞬）は採点ボタン・次の問題ボタン・
+// 新しい書き出しを無効化し、演出の途中で状態が壊れないようにする。
+let kwsStage = 0;
+let kwsStagePendingChars = null;
+let kwsStageFlashChars = [];
+let kwsStageBusy = false;
+// 今の問題で、このカスケード（最初の採点〜答え表示までの書き直し）ぶんのイベント経験値を
+// 既に確定させたか（kwsLoadKanji()の先頭でだけfalseに戻す）。
+// これが無いと、判定後にキャンバスをタップして全部消し、同じ問題を何度でも解き直して
+// 経験値を稼げてしまう（従来のkwsFirstAttemptEligibleと同じ目的）。
+let kwsXpSettled = false;
 let kwsShowFirstStroke = false;
 let kwsLastResult = null;      // 直前の判定結果（{ aggregate, chars }）
 let kwsLastCharResults = null;
@@ -6898,6 +6910,46 @@ function kwsDrawTargetReveal(){
   kwsCtx.restore();
 }
 
+// kwsDrawFirstStrokeHint／kwsDrawTargetRevealの、文字を絞り込める版。
+// 段階制の書き直し（kwsStage）で、間違えた文字だけにヒント・答えを出すために使う。
+function kwsDrawFirstStrokeHintFor(charIndices){
+  const kdata = kwsData[kwsCurrentId];
+  kwsCtx.save();
+  kwsCtx.fillStyle = '#5fb3a3';
+  charIndices.forEach(c => {
+    const p = kdata.strokes[kdata.firstStrokeIndices[c]].start;
+    kwsCtx.beginPath();
+    kwsCtx.arc(p.x, p.y, KWS_FIRST_STROKE_HINT_RADIUS_PX, 0, Math.PI * 2);
+    kwsCtx.fill();
+  });
+  kwsCtx.restore();
+}
+
+function kwsDrawTargetRevealFor(charIndices){
+  const kdata = kwsData[kwsCurrentId];
+  kwsCtx.save();
+  kwsCtx.strokeStyle = '#b9c2cc';
+  kwsCtx.lineWidth = KWS_REVEAL_WIDTH_PX;
+  kwsCtx.lineCap = 'round';
+  kwsCtx.lineJoin = 'round';
+  charIndices.forEach(c => {
+    const start = kdata.firstStrokeIndices[c];
+    const end = c + 1 < kdata.charCount ? kdata.firstStrokeIndices[c + 1] : kdata.strokes.length;
+    for(let i = start; i < end; i++) kwsCtx.stroke(kdata.strokes[i].path2D);
+  });
+  kwsCtx.restore();
+}
+
+// 間違えたと判定した直後、その文字のマスだけを一瞬赤く光らせる演出。
+function kwsDrawStageFlash(charIndices){
+  kwsCtx.save();
+  kwsCtx.fillStyle = 'rgba(214,48,49,0.38)';
+  charIndices.forEach(c => {
+    kwsCtx.fillRect(0, c * KWS_CHAR_CELL_PX, KWS_CHAR_CELL_PX, KWS_CHAR_CELL_PX);
+  });
+  kwsCtx.restore();
+}
+
 function kwsDrawCompletedInk(){
   const kdata = kwsData[kwsCurrentId];
   kwsCtx.save();
@@ -6956,14 +7008,21 @@ function kwsRender(){
   kwsCtx.setTransform(1,0,0,1,0,0);
   kwsCtx.clearRect(0, 0, kwsCanvas.width, kwsCanvas.height);
   kwsDrawGuideGrid(kdata.charCount);
-  if(kwsJudged){
+  if(kwsStage === 2 && kwsStagePendingChars && !kwsDrawing){
+    // 答え表示ステージ：間違えた文字だけ答えを見せる。書き始めたら（kwsDrawing）消す。
+    kwsDrawTargetRevealFor(kwsStagePendingChars);
+  } else if(kwsJudged){
     kwsDrawTargetReveal();
+  } else if(kwsStage === 1 && kwsStagePendingChars){
+    // ヒント表示ステージ：間違えた文字だけ始筆の点を見せる。
+    kwsDrawFirstStrokeHintFor(kwsStagePendingChars);
   } else if(kwsShowFirstStroke){
     kwsDrawFirstStrokeHint();
   }
   kwsDrawCompletedInk();
   if(kwsDrawing && kwsCurrentPath.length >= 2) kwsDrawLiveInk();
   if(kwsJudged) kwsDrawJudgeStamp();
+  if(kwsStageFlashChars.length) kwsDrawStageFlash(kwsStageFlashChars);
 }
 
 function kwsSetStatus(text, cls){
@@ -7155,6 +7214,7 @@ function kwsUpdateJudgeButtonState(){
 }
 
 function kwsHandleJudgeButtonClick(){
+  if(kwsStageBusy) return;
   if(kwsJudged){
     kwsLoadRandomKanji();
   } else {
@@ -7163,7 +7223,7 @@ function kwsHandleJudgeButtonClick(){
 }
 
 function kwsJudgeWhole(){
-  if(kwsDrawing) return;
+  if(kwsDrawing || kwsStageBusy) return;
   const kdata = kwsData[kwsCurrentId];
 
   if(kwsCompletedStrokes.length === 0){
@@ -7176,23 +7236,92 @@ function kwsJudgeWhole(){
     chars: kwsEvaluateCharacters(kdata, kwsCompletedStrokes, kwsProfile)
   };
   kwsRenderResult();
+  kwsHandleJudgeResult(kdata);
+}
 
-  // 「この問題の最初の採点」の結果だけを記憶する（やり直して再採点しても書き換わらない）。
-  // βイベント「一発正解でXP」（kwsMaybeAwardEventXp）が、この値だけを見て判定する。
-  if(kwsFirstAttemptEligible === null) kwsFirstAttemptEligible = kwsJudgedPass && kwsEventXpEligibleNow();
+// kwsJudgeWholeの結果を受けて、段階制の書き直し（kwsStage）を進める。
+// 全文字○なら（何段階目でも）そこで確定・記録。1文字でも×が残っていて、まだ
+// ヒント／答え表示のどちらかを試していなければ、間違えた文字だけ赤く光らせてから
+// 次の段階（ヒント→答え表示）に進める。答え表示まで試してもなお×なら、そこで最終×。
+function kwsHandleJudgeResult(kdata){
+  const wrongChars = [];
+  kwsLastResult.chars.forEach((r, i) => { if(!r.passCore) wrongChars.push(i); });
+  const stage = kwsStage;
 
-  // 「これで判定する」を押した時だけ、正解／間違いのストックに記録する
-  // （スライダー調整による再判定はストックに影響させない）。render()済みなのでcanvasには
-  // 書いた線と○×スタンプが乗った状態になっており、そのままスクリーンショットとして保存する。
-  kwsResultLog[kwsCurrentId] = { pass: kwsJudgedPass, thumb: kwsCanvas.toDataURL('image/png') };
-  if(!kwsJudgedPass) kwsWrongLog[kwsCurrentId] = kwsResultLog[kwsCurrentId];
-  kwsUpdateResultLogDisplay();
+  if(wrongChars.length === 0){
+    kwsStage = 0;
+    kwsStagePendingChars = null;
+    kwsResultLog[kwsCurrentId] = { pass: true, thumb: kwsCanvas.toDataURL('image/png') };
+    kwsUpdateResultLogDisplay();
+    kwsAwardStageXp(stage);
+    kwsMaybeShowRadicalQuiz(kdata);
+    kwsRender();
+    return;
+  }
 
-  if(kwsJudgedPass) kwsMaybeShowRadicalQuiz(kdata);
+  if(stage >= 2){
+    // 答え表示のあとの書き直しでもなお間違いが残っている＝最終判定として×を確定する
+    kwsStage = 0;
+    kwsStagePendingChars = null;
+    kwsResultLog[kwsCurrentId] = { pass: false, thumb: kwsCanvas.toDataURL('image/png') };
+    kwsWrongLog[kwsCurrentId] = kwsResultLog[kwsCurrentId];
+    kwsUpdateResultLogDisplay();
+    kwsXpSettled = true; // 最終×になった問題も、これ以上やり直しても経験値は入らない
+    kwsRender();
+    return;
+  }
+
+  kwsAdvanceStage(wrongChars, stage);
+}
+
+// 間違えた文字だけ一瞬赤く光らせたあと、次の段階（1=ヒント、2=答え表示）に切り替える。
+// 演出の間（kwsStageBusy）は採点・次の問題ボタンとキャンバスへの書き出しを止め、
+// 途中で状態が壊れないようにする。
+const KWS_STAGE_FLASH_MS = 650;
+function kwsAdvanceStage(wrongChars, stage){
+  kwsStagePendingChars = wrongChars;
+  kwsStageFlashChars = wrongChars.slice();
+  kwsSetStageBusy(true);
+  kwsSetStatus(
+    stage === 0 ? '× 間違えた字があります。ヒント（始筆の点）を見てもう一度書いてみましょう'
+                : '× もう一度だけ、答えを見て書いてみましょう',
+    'ng'
+  );
+  kwsRender();
+  setTimeout(() => {
+    kwsStageFlashChars = [];
+    kwsStage = stage + 1;
+    wrongChars.forEach(c => kwsClearCharInk(c));
+    kwsJudged = false;
+    kwsLastResult = null;
+    kwsLastCharResults = null;
+    document.getElementById('kwsMeasuredPanel').textContent = 'まだ何も判定していません';
+    document.getElementById('kwsCharBreakdown').innerHTML = '';
+    kwsUpdateJudgeButtonState();
+    kwsSetStageBusy(false);
+    kwsRender();
+  }, KWS_STAGE_FLASH_MS);
+}
+
+// charIndexの画だけを取り消す（kwsResetInk(charIndex)の書いた線を消す部分だけを流用）。
+// 段階を進める側で状態のリセットを別途行うため、ここでは線の消去だけに絞っている。
+function kwsClearCharInk(charIndex){
+  const kdata = kwsData[kwsCurrentId];
+  kwsCompletedStrokes = kwsCompletedStrokes.filter(
+    strokePts => kwsCharIndexForStroke(strokePts, kdata.charCount) !== charIndex
+  );
+}
+
+function kwsSetStageBusy(busy){
+  kwsStageBusy = busy;
+  const judgeBtn = document.getElementById('kwsBtnJudge');
+  const randomBtn = document.getElementById('kwsBtnRandom');
+  if(judgeBtn) judgeBtn.disabled = busy;
+  if(randomBtn) randomBtn.disabled = busy;
 }
 
 const KWS_XP_EVENT_ID = '2026_09_kanjiwrite_beta';
-const KWS_XP_PER_CORRECT = 3;
+const KWS_STAGE_XP = [3, 2, 1]; // 段階0（最初の採点）＝3、1（ヒント後）＝2、2（答え表示後）＝1
 
 // 「小学生の漢字を復習する」は学年を絞っていない「全学年ミックス」のときだけ、
 // 「漢字の書き学習」は常に対象（教員の指示、2026-09-01〜04のβテスト）。
@@ -7202,17 +7331,20 @@ function kwsEventXpEligibleNow(){
   return false;
 }
 
-// 1つ前の問題を「一発正解」（やり直し無しで最初の採点が○、かつ採点時点でβイベント対象の
-// モード/学年だった）のまま離れた（次の問題へ進んだ・一覧から別の字へ飛んだ）ときだけ、
-// イベント経験値を加算する。kwsLoadKanji()の先頭からだけ呼ぶ（次の問題へ進む経路はボタンでも
-// 一覧でも必ずここを通るため、一箇所で判定できる）。
-function kwsMaybeAwardEventXp(){
-  if(kwsFirstAttemptEligible !== true) return;
+// この問題（の今回の訪問）でまだ経験値を確定させていなければ、合格した段階に応じた
+// 経験値（3／2／1）を加算する。合否に関わらず一度呼ばれたら以後はkwsXpSettledで
+// 打ち止めにする（判定後にキャンバスをタップして全部消し、同じ問題を何度も
+// 解き直して稼ぐことを防ぐ。kwsLoadKanji()で次の問題に進んだときだけ解除する）。
+function kwsAwardStageXp(stage){
+  if(kwsXpSettled) return;
+  kwsXpSettled = true;
+  if(!kwsEventXpEligibleNow()) return;
   if(!eventActive(KWS_XP_EVENT_ID)) return;
+  const amount = KWS_STAGE_XP[stage] != null ? KWS_STAGE_XP[stage] : 1;
   const st = loadStats();
-  eventBonusAdd(st, KWS_XP_EVENT_ID, KWS_XP_PER_CORRECT);
+  eventBonusAdd(st, KWS_XP_EVENT_ID, amount);
   saveStats(st);
-  kwsShowEventXpFx(KWS_XP_PER_CORRECT);
+  kwsShowEventXpFx(amount);
 }
 
 function kwsShowEventXpFx(amount){
@@ -7395,6 +7527,9 @@ function kwsResetInk(charIndex){
   } else {
     kwsCompletedStrokes = [];
     kwsCloseRadicalQuiz();
+    kwsStage = 0;
+    kwsStagePendingChars = null;
+    kwsStageFlashChars = [];
   }
   kwsCurrentPath = [];
   kwsDrawing = false;
@@ -7487,9 +7622,8 @@ function kwsRenderPerCharButtons(charCount){
 }
 
 function kwsLoadKanji(id){
-  kwsMaybeAwardEventXp(); // 前の問題を「一発正解」で離れるところなので、次の問題を読み込む前に判定する
   kwsCurrentId = id;
-  kwsFirstAttemptEligible = null; // 新しい問題として仕切り直す
+  kwsXpSettled = false; // 新しい問題として仕切り直す
   const kdata = kwsData[id];
 
   kwsCanvas.width = KWS_CHAR_CELL_PX;
@@ -7569,10 +7703,12 @@ function kwsScreenHtml(){
   const notes = kwsMode === 'elem'
     ? `<li>例文の中の<b>カタカナ・太字・下線</b>の部分を、大きく丁寧に書いてください。</li>
        <li>画数が間違っているものは、×となります。画と画をつなげて書かないこと。</li>
-       <li>自動採点は、間違うこともあります。字の形をきちんと確認しましょう。</li>`
+       <li>自動採点は、間違うこともあります。字の形をきちんと確認しましょう。</li>
+       <li>間違えた字は、ヒント（始筆の点）→答え表示の順に、もう2回だけ書き直せます。</li>`
     : `<li>大きく、丁寧に書いてください。</li>
        <li>画数が間違っているものは、×となります。画と画をつなげて書かないこと。</li>
-       <li>自動採点は、間違うこともあります。字の形をきちんと確認しましょう。</li>`;
+       <li>自動採点は、間違うこともあります。字の形をきちんと確認しましょう。</li>
+       <li>間違えた字は、ヒント（始筆の点）→答え表示の順に、もう2回だけ書き直せます。</li>`;
   return `
     <div class="kws-layout">
       <div class="kws-mainCol">
@@ -7648,10 +7784,12 @@ function kwsWireScreen(){
 
   kwsCanvas.addEventListener('pointerdown', e => {
     e.preventDefault();
+    if(kwsStageBusy) return; // 赤く光らせてからヒント/答えに切り替わる演出中は書き出させない
     if(kwsJudged) kwsResetInk();
     kwsCanvas.setPointerCapture(e.pointerId);
     kwsDrawing = true;
     kwsCurrentPath = [kwsToPixel(e.clientX, e.clientY)];
+    kwsRender(); // 答え表示ステージ中なら、書き始めた瞬間に答えを消す
   });
   kwsCanvas.addEventListener('pointermove', e => {
     if(!kwsDrawing) return;
@@ -7721,10 +7859,6 @@ function kwsWireKanjiSelectList(){
 function startKanjiWriteStroke(mode){
   mode = mode || 'exam';
   if(mode === 'elem') kwsElemGrade = null;
-  // 画面を開き直すたびにリセットする。無いと、前回この画面を「次の問題」を経由せずに離れた
-  // 場合（ホームへ等）の古いkwsFirstAttemptEligibleが残ったまま、開き直した瞬間の最初の
-  // kwsLoadKanji()内でkwsMaybeAwardEventXp()が誤って発火してしまう。
-  kwsFirstAttemptEligible = null;
   try {
     kwsEnsureData(mode);
     screen.innerHTML = kwsScreenHtml();
