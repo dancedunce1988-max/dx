@@ -320,6 +320,18 @@
     background:#fff; border:2px solid var(--ink); border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.08);
   }
   .kws-strokeOrderTitle{ font-weight:bold; font-size:1rem; text-align:center; }
+  /* 部首（教員の指示、2026-09-02：「書くスペースの左側に、その漢字の部首も表示する」）。
+     canvasと横並びにし、文字ごとのマスの高さに合わせて上下に均等配置する。examのみ
+     データがあり（kwsRadicalsFor参照）、無いとき（elem）はこの列自体を出さない。 */
+  .kws-strokeOrderBody{ display:flex; align-items:stretch; gap:8px; }
+  .kws-strokeOrderRadicals{
+    display:flex; flex-direction:column; justify-content:space-around;
+    min-width:64px; text-align:right;
+  }
+  .kws-radicalRow{
+    flex:1; display:flex; align-items:center; justify-content:flex-end;
+    font-size:.78rem; color:var(--sub); line-height:1.3;
+  }
   .kws-strokeOrderBtns{ display:flex; gap:10px; }
   .kws-strokeOrderBtns button{
     font-family:inherit; padding:8px 16px; border-radius:8px; border:1px solid var(--line);
@@ -3348,7 +3360,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.28</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.29</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6955,6 +6967,18 @@ function kwsSentenceFor(id){
   const found = list.find(it => it.id === id);
   return found ? found.sentence : '';
 }
+// 「書き順をチェックする」オーバーレイの左側に出す部首（教員の指示、2026-09-02）。
+// examデータ（kanji_write_data.js）はchars[].radicalに「力（ちから）」のような文字列を
+// 持つが、elemデータ（kanji_write_elem_data.js）には部首情報が無いため、elemでは
+// 常に空配列を返す（一覧のマスを空欄のまま、列自体を出さない扱いにする。
+// kwsShowStrokeOrderOverlay参照）。charCount文字ぶん、書く順と同じ並びで返す。
+function kwsRadicalsFor(id){
+  if(kwsMode !== 'exam') return [];
+  const list = (window.KANJI_WRITE_DATA && window.KANJI_WRITE_DATA.ranked) || [];
+  const found = list.find(it => it.id === id);
+  if(!found || !Array.isArray(found.chars)) return [];
+  return found.chars.map(c => c.radical || '');
+}
 
 // ---- 「漢字の書き学習」「小学生の漢字を復習する」：3箱式の間隔反復（教員の指示、2026-09-02）----
 // 8問チャンク単位の段階的解放（ver9.99〜10.06）は、「まだ8問揃っていない特定の1〜2問だけが
@@ -8052,13 +8076,27 @@ function kwsShowStrokeOrderOverlay(){
   kwsCloseStrokeOrderOverlay(); // 念のため、開きっぱなしの前回ぶんが無いか先に片付ける
   const kdata = kwsData[kwsCurrentId];
 
+  // 部首（教員の指示、2026-09-02：「書くスペースの左側に、その漢字の部首も表示する」）。
+  // examだけ実データがあり、文字ごとに書く順と同じ並びで表示する。elemはデータが無いため
+  // 列自体を出さない（kwsRadicalsFor参照）。
+  const radicals = kwsRadicalsFor(kwsCurrentId);
+  const hasRadicals = radicals.some(r => r);
+  const radicalsHtml = hasRadicals
+    ? `<div class="kws-strokeOrderRadicals">${
+        Array.from({length: kdata.charCount}, (_, i) => `<div class="kws-radicalRow">${radicals[i] ? esc(radicals[i]) : ''}</div>`).join('')
+      }</div>`
+    : '';
+
   const overlay = document.createElement('div');
   overlay.className = 'kws-strokeOrderOverlay';
   overlay.id = 'kwsStrokeOrderOverlay';
   overlay.innerHTML = `
     <p class="kws-strokeOrderTitle">✏️ 正しい書き順</p>
-    <canvas id="kwsStrokeOrderCanvas" width="${KWS_CHAR_CELL_PX}" height="${KWS_CHAR_CELL_PX * kdata.charCount}"
-      style="--kws-so-charcount:${kdata.charCount};"></canvas>
+    <div class="kws-strokeOrderBody">
+      ${radicalsHtml}
+      <canvas id="kwsStrokeOrderCanvas" width="${KWS_CHAR_CELL_PX}" height="${KWS_CHAR_CELL_PX * kdata.charCount}"
+        style="--kws-so-charcount:${kdata.charCount};"></canvas>
+    </div>
     <div class="kws-strokeOrderBtns">
       <button id="kwsStrokeOrderReplay">もう一度見る</button>
       <button id="kwsStrokeOrderClose" class="primary">閉じる</button>
