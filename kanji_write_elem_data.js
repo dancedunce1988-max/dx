@@ -503,7 +503,7 @@ window.KANJI_WRITE_ELEM_DATA = [
   {"id":"kwe0485","ch":"共","kanji":"共に","sentence":"友達と《トモ》に遊ぶ。","grade":4},
   {"id":"kwe0486","ch":"協","kanji":"協力","sentence":"クラスで《キョウリョク》して掃除する。","grade":4},
   {"id":"kwe0487","ch":"鏡","kanji":"鏡","sentence":"《カガミ》で自分の顔を見る。","grade":4},
-  {"id":"kwe0488","ch":"競","kanji":"競争","sentence":"徒競走で《キョウソウ》する。","grade":4},
+  {"id":"kwe0488","ch":"競","kanji":"競争","sentence":"友人と成績を《キョウソウ》する。","grade":4},
   {"id":"kwe0489","ch":"極","kanji":"北極","sentence":"《ホッキョク》には氷がたくさんある。","grade":4},
   {"id":"kwe0490","ch":"熊","kanji":"熊本","sentence":"《クマモト》には有名なお城がある。","grade":4},
   {"id":"kwe0491","ch":"訓","kanji":"訓読み","sentence":"漢字には音読みと《クンヨミ》がある。","grade":4},
