@@ -500,7 +500,7 @@ window.KANJI_WRITE_ELEM_DATA = [
   {"id":"kwe0482","ch":"給","kanji":"給食","sentence":"《キュウショク》の時間が楽しみだ。","grade":4},
   {"id":"kwe0483","ch":"挙","kanji":"挙げる","sentence":"手を《ア》げて質問する。","grade":4},
   {"id":"kwe0484","ch":"漁","kanji":"漁師","sentence":"父は《リョウシ》として働いている。","grade":4},
-  {"id":"kwe0485","ch":"共","kanji":"共同","sentence":"みんなで《キョウドウ》で作業をする。","grade":4},
+  {"id":"kwe0485","ch":"共","kanji":"共に","sentence":"友達と《トモ》に遊ぶ。","grade":4},
   {"id":"kwe0486","ch":"協","kanji":"協力","sentence":"クラスで《キョウリョク》して掃除する。","grade":4},
   {"id":"kwe0487","ch":"鏡","kanji":"鏡","sentence":"《カガミ》で自分の顔を見る。","grade":4},
   {"id":"kwe0488","ch":"競","kanji":"競争","sentence":"徒競走で《キョウソウ》する。","grade":4},
