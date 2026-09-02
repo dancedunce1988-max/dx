@@ -296,6 +296,36 @@
   .kws-radicalQuizResult{ margin-top:12px; font-weight:bold; min-height:1.2em; }
   .kws-radicalQuizResult.ok{ color:var(--ok); }
   .kws-radicalQuizResult.ng{ color:var(--ng); }
+  /* 「思い出せない」を押した／正解した直後だけ現れる「書き順をチェックする」ボタン
+     （教員の指示、2026-09-02：「答えが出る場面に、目立つように表示してください」）。
+     普段は非表示（.showが付いたときだけ現れる）で、目立つよう金色のグラデーションと
+     ポップインアニメーションにした。 */
+  .kws-strokeOrderTrigger{
+    display:none; width:100%; margin-top:10px; padding:12px; border-radius:10px; border:none;
+    cursor:pointer; background:linear-gradient(135deg,#ffd54a,#f5c518); color:#3a2e00;
+    font-weight:bold; font-size:.95rem; font-family:inherit; box-shadow:0 3px 10px rgba(0,0,0,.18);
+  }
+  .kws-strokeOrderTrigger.show{ display:block; animation:kwsStrokeOrderPop .4s ease; }
+  @keyframes kwsStrokeOrderPop{
+    0%{ transform:scale(.92); opacity:0; }
+    100%{ transform:scale(1); opacity:1; }
+  }
+  .kws-strokeOrderOverlay{
+    position:absolute; inset:0; z-index:6; border-radius:8px;
+    background:rgba(255,253,247,.98); display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:10px; padding:12px;
+  }
+  .kws-strokeOrderOverlay canvas{
+    width:min(80%, 260px); aspect-ratio:1/var(--kws-so-charcount,1); display:block;
+    background:#fff; border:2px solid var(--ink); border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.08);
+  }
+  .kws-strokeOrderTitle{ font-weight:bold; font-size:1rem; text-align:center; }
+  .kws-strokeOrderBtns{ display:flex; gap:10px; }
+  .kws-strokeOrderBtns button{
+    font-family:inherit; padding:8px 16px; border-radius:8px; border:1px solid var(--line);
+    background:var(--card); cursor:pointer; font-size:.85rem;
+  }
+  .kws-strokeOrderBtns button.primary{ background:var(--accent2); color:#fff; border-color:var(--accent2); font-weight:bold; }
   .kws-eventXpFx{
     position:fixed; top:14px; left:50%; transform:translateX(-50%); z-index:50; pointer-events:none;
     background:linear-gradient(135deg,#ffb703,#fb8500); color:#fff; font-weight:bold; font-size:.95rem;
@@ -3318,7 +3348,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.21</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.22</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6783,6 +6813,7 @@ let kwsXpSettled = false;
 // 「思い出せない」または答え表示後の強制×でtrueになったら、以後この問題をどう書き直しても
 // 正解として記録されない（kwsHandleJudgeResultの先頭で最優先チェックする）。
 let kwsFinalLocked = false;
+let kwsStrokeOrderTimers = []; // 書き順アニメーションのsetTimeout ID（オーバーレイを閉じるとき／次の問題に進むときに必ずclearTimeoutする）
 let kwsLastResult = null;      // 直前の判定結果（{ aggregate, chars }）
 let kwsLastCharResults = null;
 // id -> { pass, thumb }。直近の判定結果（画面を出入りしても保持するが、保存データには含めない）。
@@ -7640,6 +7671,7 @@ function kwsHandleRecallGiveUp(){
   document.getElementById('kwsCharBreakdown').innerHTML = '';
   kwsSetStatus('× 「思い出せない」を選びました（間違った問題として記録されました）', 'ng');
   kwsUpdateJudgeButtonState();
+  kwsShowStrokeOrderTrigger();
   kwsRender();
 }
 
@@ -7725,6 +7757,7 @@ function kwsFinalizeCorrectAnswer(kdata, stage){
   kwsResultLog[kwsCurrentId] = { pass: true, thumb: kwsCanvas.toDataURL('image/png') };
   kwsUpdateResultLogDisplay();
   kwsAwardStageXp(stage);
+  kwsShowStrokeOrderTrigger();
   // 正解として確定したあとにキャンバスを消して同じ問題をもう一度解いても、3箱・ジャンル
   // レベルへの記録は1問につき1回だけにする（kwsFinalLocked。教員の指摘、2026-09-02の
   // 「思い出せない」の件と同じ理由で、正解後の解き直しでも二重加算にならないようにする）。
@@ -7859,6 +7892,125 @@ function kwsShowLevelUpFx(text){
   el.textContent = text;
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 1400);
+}
+
+/* ================= 書き順チェック（教員の指示、2026-09-02） =================
+   「思い出せない」を押した、または正解した直後だけ、「書き順をチェックする」ボタンを
+   目立つように表示する（kwsShowStrokeOrderTrigger、kwsFinalizeCorrectAnswer／
+   kwsHandleRecallGiveUpから呼ぶ）。押すと、KanjiVG由来のkdata.strokes（画ごとのPath2D、
+   -sN由来で正しい画順に並んでいる。[[reference_kanjivg_stroke_fetch]]参照）を使って、
+   画を1本ずつ時間差で表示するアニメーション＋各画の書き始めに番号を振ったオーバーレイを出す。
+   自動採点（kwsEvaluateAgainstStrokes）は画順を一切見ていない（形が一致する画に割り当てる
+   だけ）ため、これは採点とは独立した「正しい書き順を確認したいときだけ見る」参考表示。
+   Path2Dはどのcanvasの2Dコンテキストからでもstroke()できるため、書くためのkwsCanvasとは
+   別の専用canvasを使い、書きかけのインクや判定結果を一切壊さない。 */
+const KWS_STROKE_ORDER_STEP_MS = 550;
+
+function kwsShowStrokeOrderTrigger(){
+  const btn = document.getElementById('kwsBtnStrokeOrder');
+  if(btn) btn.classList.add('show');
+}
+function kwsHideStrokeOrderTrigger(){
+  const btn = document.getElementById('kwsBtnStrokeOrder');
+  if(btn) btn.classList.remove('show');
+}
+
+function kwsDrawStrokeOrderGrid(ctx, charCount){
+  ctx.save();
+  ctx.strokeStyle = '#cfcfcf';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([5,5]);
+  for(let i = 0; i < charCount; i++){
+    const y0 = i * KWS_CHAR_CELL_PX;
+    ctx.strokeRect(1, y0 + 1, KWS_CHAR_CELL_PX - 2, KWS_CHAR_CELL_PX - 2);
+  }
+  ctx.restore();
+}
+
+// kdata.strokes（全文字通しの配列）と同じ長さで、文字ごとに1から振り直した画番号を返す
+// （2文字目も1から始まる＝実際の筆順表と同じ見せ方）。
+function kwsStrokeOrderNumbers(kdata){
+  const numbers = new Array(kdata.strokes.length);
+  for(let c = 0; c < kdata.charCount; c++){
+    const start = kdata.firstStrokeIndices[c];
+    const end = c + 1 < kdata.charCount ? kdata.firstStrokeIndices[c + 1] : kdata.strokes.length;
+    for(let i = start; i < end; i++) numbers[i] = i - start + 1;
+  }
+  return numbers;
+}
+
+// uptoIndex画目までを描画する（アニメーションの1コマぶん）。最後のコマがそのまま
+// 「全画＋全番号」の静止状態として残るので、見終わったあとも一覧的に確認できる。
+function kwsDrawStrokeOrderFrame(ctx, kdata, numbers, uptoIndex){
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  kwsDrawStrokeOrderGrid(ctx, kdata.charCount);
+  ctx.save();
+  ctx.strokeStyle = '#2c6e63';
+  ctx.lineWidth = KWS_REVEAL_WIDTH_PX;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for(let i = 0; i <= uptoIndex; i++) ctx.stroke(kdata.strokes[i].path2D);
+  ctx.restore();
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = `bold ${Math.floor(KWS_CHAR_CELL_PX * 0.09)}px sans-serif`;
+  const r = KWS_CHAR_CELL_PX * 0.055;
+  for(let i = 0; i <= uptoIndex; i++){
+    const p = kdata.strokes[i].start;
+    ctx.beginPath();
+    ctx.fillStyle = '#c0392b';
+    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.fillText(String(numbers[i]), p.x, p.y);
+  }
+  ctx.restore();
+}
+
+// 画を1本ずつ時間差で見せるアニメーション本体。呼び直すたびに前回ぶんのタイマーを
+// 必ず止める（連打・再生ボタン・閉じるボタンのどれでも二重再生にならないように）。
+function kwsPlayStrokeOrderAnimation(ctx, kdata){
+  kwsStrokeOrderTimers.forEach(t => clearTimeout(t));
+  kwsStrokeOrderTimers = [];
+  const numbers = kwsStrokeOrderNumbers(kdata);
+  kdata.strokes.forEach((s, i) => {
+    kwsStrokeOrderTimers.push(setTimeout(() => kwsDrawStrokeOrderFrame(ctx, kdata, numbers, i), i * KWS_STROKE_ORDER_STEP_MS));
+  });
+}
+
+function kwsCloseStrokeOrderOverlay(){
+  kwsStrokeOrderTimers.forEach(t => clearTimeout(t));
+  kwsStrokeOrderTimers = [];
+  const el = document.getElementById('kwsStrokeOrderOverlay');
+  if(el) el.remove();
+}
+
+function kwsShowStrokeOrderOverlay(){
+  if(kwsStageBusy) return;
+  kwsCloseStrokeOrderOverlay(); // 念のため、開きっぱなしの前回ぶんが無いか先に片付ける
+  const kdata = kwsData[kwsCurrentId];
+
+  const overlay = document.createElement('div');
+  overlay.className = 'kws-strokeOrderOverlay';
+  overlay.id = 'kwsStrokeOrderOverlay';
+  overlay.innerHTML = `
+    <p class="kws-strokeOrderTitle">✏️ 正しい書き順</p>
+    <canvas id="kwsStrokeOrderCanvas" width="${KWS_CHAR_CELL_PX}" height="${KWS_CHAR_CELL_PX * kdata.charCount}"
+      style="--kws-so-charcount:${kdata.charCount};"></canvas>
+    <div class="kws-strokeOrderBtns">
+      <button id="kwsStrokeOrderReplay">もう一度見る</button>
+      <button id="kwsStrokeOrderClose" class="primary">閉じる</button>
+    </div>
+  `;
+  kwsStageEl.appendChild(overlay);
+
+  const canvas = document.getElementById('kwsStrokeOrderCanvas');
+  const ctx = canvas.getContext('2d');
+  kwsPlayStrokeOrderAnimation(ctx, kdata);
+
+  document.getElementById('kwsStrokeOrderReplay').addEventListener('click', () => kwsPlayStrokeOrderAnimation(ctx, kdata));
+  document.getElementById('kwsStrokeOrderClose').addEventListener('click', kwsCloseStrokeOrderOverlay);
 }
 
 // kanji文字列が、KWS_CONFUSION_PAIRSのどれか片方だけに一致するものを全て集め、その中から
@@ -8142,6 +8294,8 @@ function kwsLoadKanji(id){
   kwsCurrentId = id;
   kwsXpSettled = false; // 新しい問題として仕切り直す
   kwsFinalLocked = false;
+  kwsHideStrokeOrderTrigger();
+  kwsCloseStrokeOrderOverlay();
   const kdata = kwsData[id];
 
   kwsCanvas.width = KWS_CHAR_CELL_PX;
@@ -8259,6 +8413,10 @@ function kwsScreenHtml(){
             <button id="kwsBtnRecall" class="kws-cornerBtn kws-cornerBtn--recall">思い出せない</button>
           </div>
         </div>
+        <!-- 「思い出せない」を押した／正解した直後だけ現れる（教員の指示、2026-09-02）。
+             普段はkws-strokeOrderTriggerのdisplay:noneで隠れており、kwsShowStrokeOrderTrigger()が
+             .showクラスを付けたときだけ表示される。 -->
+        <button id="kwsBtnStrokeOrder" class="kws-strokeOrderTrigger" onclick="kwsShowStrokeOrderOverlay()">✏️ 書き順をチェックする</button>
         <!-- 「問題文・書くスペース・解放率がスクロールなしで一度に見える」ことを優先し、
              進捗バーと学年切り替えを、注意書き等より先（キャンバスのすぐ下）に置く
              （教員の指示、2026-09-02）。 -->
