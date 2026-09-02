@@ -78,6 +78,16 @@
   .menu-card.balanced-btn .menu-icon{background:rgba(255,255,255,.22); font-size:1.7rem; width:54px; height:54px;}
   .menu-card.balanced-btn h2{color:#fff; font-size:1.15rem;}
   .menu-card.balanced-btn p{color:rgba(255,255,255,.9);}
+  .menu-card.today-kanji-btn{
+    background:linear-gradient(135deg, #ff9a3d, #ff5e62);
+    border:none; padding:20px 16px; margin-bottom:18px;
+    box-shadow:0 6px 16px rgba(0,0,0,.18);
+  }
+  .menu-card.today-kanji-btn:hover{transform:translateY(-3px); box-shadow:0 8px 20px rgba(0,0,0,.22);}
+  .menu-card.today-kanji-btn .menu-icon{background:rgba(255,255,255,.22); font-size:1.7rem; width:54px; height:54px;}
+  .menu-card.today-kanji-btn h2{color:#fff; font-size:1.15rem;}
+  .menu-card.today-kanji-btn p{color:rgba(255,255,255,.9);}
+  .menu-card.today-kanji-btn .count{color:#fff; font-weight:bold; font-size:.85rem;}
   .count{font-size:.7rem; color:var(--sub); display:block;}
   .shogo-badge{
     display:inline-block; font-size:.78rem; font-weight:bold; padding:2px 10px;
@@ -3360,7 +3370,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.30</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.31</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3574,6 +3584,14 @@ function emptyStats(){
     ktSolved:[],
     dailyLogin:{lastDate:null, cycleDay:0, totalLoginDays:0}, pendingDailyLoginStamp:null,
     notLearnedCats:{},
+    stockXp:0, stockXpConvertedExp:0,
+    /* dateをnullのままにすると、真の新規セーブ（loadStats()がlocalStorageに何も無く
+       emptyStats()をそのまま返すケース。下のloadStats()内の日付正規化を一切経由しない）で
+       「今日の漢字」を1問解いた直後にshownCount>0・date=nullのまま保存されてしまい、次に
+       loadStats()したときに「日付が変わった」と誤判定してカウンターが即0に巻き戻る不具合が
+       あった（2026-09-02、実機テストで発覚）。emptyStats()の時点で今日の日付を入れておけば、
+       この早期リターン経路でも常に「今日の分」として正しく扱われる。 */
+    todayKanji:{date: todayLocalDateStr(), shownCount:0, correctCount:0, done:false},
     story:{chapter:"ch1", beatIdx:0, flags:{}, completedChapters:[], judgedRunCorrect:0, judgedRunTotal:0, judgedBest:{}, comboBest:{}}};
 }
 /* ステータスポイントは保存された数値ではなく、常にその場で計算する：
@@ -3665,11 +3683,14 @@ function eventBonusAdd(st, id, amount){
    見て判定するため、これらの加算は分岐判定に一切影響しない）。
    「返り点をつける」「読む順タップ」（EXTRA_LEVEL_CATS、2026-08-24〜）はfromExtraLevelsとして
    CAT_KEYSと同じcatExpPoints()の逓減カーブでレベル→経験値換算するが、CAT_KEYS本体には含めない
-   （kotonohaBaseCategoryのst.lv分布判定・診断モード等に混ざらないようにするため）。 */
+   （kotonohaBaseCategoryのst.lv分布判定・診断モード等に混ざらないようにするため）。
+   「今日の漢字」のストック経験値を変換した分（st.stockXpConvertedExp、2026-09-02〜）も、
+   上記の各ボーナスと同じく全額そのまま加算する（st.stockXp自体は「まだ変換していない」
+   残高であり、convertStockXpで変換した分だけここに移ってくる）。 */
 function rawKotonohaExp(st){
   const fromLevels = CAT_KEYS.reduce((sum,k) => sum + catExpPoints(st.lv[k]||1), 0);
   const fromExtraLevels = EXTRA_LEVEL_CATS.reduce((sum,k) => sum + catExpPoints(st.lv[k]||1), 0);
-  return fromLevels + fromExtraLevels + effectiveBonusExp(st) + (st.hyakuninBonusExp||0) + (st.bunsetsuGiriBonusExp||0) + (st.vocabShooterBonusExp||0) + (st.baseballBonusExp||0) + (st.partsOfSpeechBonusExp||0) + (st.ydBonusExp||0) + totalUnlockCelebrationExp(st) + totalEventBonusExp(st);
+  return fromLevels + fromExtraLevels + effectiveBonusExp(st) + (st.hyakuninBonusExp||0) + (st.bunsetsuGiriBonusExp||0) + (st.vocabShooterBonusExp||0) + (st.baseballBonusExp||0) + (st.partsOfSpeechBonusExp||0) + (st.ydBonusExp||0) + totalUnlockCelebrationExp(st) + totalEventBonusExp(st) + (st.stockXpConvertedExp||0);
 }
 function spentStatPoints(st){
   return Object.values(st.stats||{}).reduce((sum,v) => sum + (v||0), 0);
@@ -3991,6 +4012,19 @@ function loadStats(){
         if(st.pendingDailyLoginStamp === undefined) st.pendingDailyLoginStamp = null;
         if(!st.notLearnedCats) st.notLearnedCats = {};
         if(!st.eventBonusEarned) st.eventBonusEarned = {};
+        /* ストック経験値（2026-09-02〜、「今日の漢字」で貯める）。いつでも好きなタイミングで
+           経験値に変換できるよう、貯まった分と変換済み分を別々に持つ（変換済み分＝
+           stockXpConvertedExpは他のボーナス経験値プールと同じくrawKotonohaExpに毎回そのまま
+           加算するだけの累積値。stockXp参照）。 */
+        if(typeof st.stockXp !== "number") st.stockXp = 0;
+        if(typeof st.stockXpConvertedExp !== "number") st.stockXpConvertedExp = 0;
+        /* 「今日の漢字」の日付が変わったら、その場でカウンターをリセットする（保存された
+           値ではなく毎回todayLocalDateStrと比較する点は、デイリーログインのlastDate判定と同じ
+           発想）。 */
+        if(!st.todayKanji) st.todayKanji = {date:null, shownCount:0, correctCount:0, done:false};
+        if(st.todayKanji.date !== todayLocalDateStr()){
+          st.todayKanji = {date: todayLocalDateStr(), shownCount:0, correctCount:0, done:false};
+        }
         if(!st.story) st.story = {chapter:"ch1", beatIdx:0, flags:{}, completedChapters:[], judgedRunCorrect:0, judgedRunTotal:0, judgedBest:{}, comboBest:{}};
         if(!st.story.flags) st.story.flags = {};
         if(!Array.isArray(st.story.completedChapters)) st.story.completedChapters = [];
@@ -5901,6 +5935,22 @@ function dailyLoginProgressHtml(st){
     📅 デイリーログイン ${cycleDay}日目 / ${DAILY_LOGIN_CYCLE}日目${cycleDay < DAILY_LOGIN_CYCLE ? `（あと${DAILY_LOGIN_CYCLE - cycleDay}日で🌱転生の種）` : "（🌱転生の種を獲得済み）"}
   </p>`;
 }
+/* 「今日の漢字」入口（2026-09-02〜）：ステータスカードの直後、他のコンテンツより先に置く
+   目立つボタン。中は漢字の書き取り（既存のkws手書き判定エンジンを流用、kwsMode='today'）で、
+   正解するたびにストック経験値がたまる（kwsFinalizeCorrectAnswer参照）。1日10問正解したら
+   その日はおしまい＝ボタンごと消し、代わりに完了メモだけを表示する（todayKanji.done）。 */
+function todayKanjiEntryHtml(st){
+  const tk = st.todayKanji || {correctCount:0, done:false};
+  if(tk.done){
+    return `<p class="note" style="text-align:center; margin:-6px 2px 14px;">🈶 今日の漢字：本日ぶんはクリア済みです（また明日挑戦できます）</p>`;
+  }
+  return `
+    <div class="card menu-card today-kanji-btn" onclick="startTodayKanji()">
+      <div class="menu-icon">🈶</div>
+      <div><h2>今日の漢字</h2><p>漢字の書き取りに挑戦してストック経験値をためよう！（1日10問正解でボーナスあり）</p></div>
+      <div class="right"><span class="count">正解 ${tk.correctCount||0} / 10</span></div>
+    </div>`;
+}
 /* 挑戦チケット：どの分野でも、レベルアップ10回ごとに1枚たまる。使うとランダムなボスとすぐに対戦できる。 */
 function bossTicketHtml(st){
   const n = st.bossTickets || 0;
@@ -5978,6 +6028,7 @@ function showHome(){
   let html = "";
   html += eventBannerHtml(st);
   html += kotonohaCardHtml(st);
+  html += todayKanjiEntryHtml(st);
   html += storyEntryHtml(st);
   html += miniGameEntryHtml(st);
   html += balancedTrainingBtnHtml();
@@ -6093,6 +6144,11 @@ function showStatusAllocation(){
       <p style="text-align:center; font-size:1.15rem; font-weight:bold; margin-top:10px">
         のこりポイント：<span style="color:var(--accent)">${pts}</span>
       </p>
+      <p style="text-align:center; font-size:1.05rem; margin-top:6px">
+        🈶 ストック経験値：<span style="color:var(--accent)">${st.stockXp||0}</span>
+        ${(st.stockXp||0) > 0 ? `<button class="btn inline secondary" style="margin-left:8px" onclick="showStockXpConvert()">経験値に変える</button>` : ""}
+      </p>
+      <p class="note" style="text-align:center">「今日の漢字」で貯まります。使った分だけ、ステータスポイント・ことのはの経験値の両方に反映されます。</p>
     </div>`;
   rows.forEach(r=>{
     html += `
@@ -6132,6 +6188,66 @@ function allocateStat(key, delta){
     st.stats[key] -= remove;
   }
   saveStats(st);
+  showStatusAllocation();
+}
+/* ================= ストック経験値の変換（2026-09-02〜） =================
+   「今日の漢字」で貯めたストック経験値（st.stockXp）を、好きなタイミングで好きな量だけ
+   「ことのは」の経験値（st.stockXpConvertedExp、rawKotonohaExpにそのまま加算される）に
+   変換できる画面。変換した瞬間からステータスポイント（totalEarnedStatPoints）・
+   ことのはの経験値（kotonohaTotalXP、進化の判定にも使う）の両方に効いてくる
+   （教員の指示：「ステータス含め、進化への経験値を含めて使えるように」）。
+   stockXpConvertAmount は、この画面を開いている間だけ使う一時的な選択量（保存しない）。 */
+let stockXpConvertAmount = 0;
+function showStockXpConvert(){
+  const st = loadStats();
+  const bank = st.stockXp||0;
+  if(bank <= 0){ showStatusAllocation(); return; }
+  if(stockXpConvertAmount > bank) stockXpConvertAmount = bank;
+  if(stockXpConvertAmount < 0) stockXpConvertAmount = 0;
+  const amt = stockXpConvertAmount;
+  const step = (delta, label) => `<button class="btn inline secondary stat-step-btn" ${(amt+delta<0||amt+delta>bank)?'disabled':''} onclick="stockXpConvertStep(${delta})">${label}</button>`;
+  const html = `
+    <div class="card">
+      <h3 class="section">🈶 ストック経験値を変える</h3>
+      <p class="note">ストック経験値のこり：<b>${bank}</b></p>
+      <div class="status-row-ctrl" style="justify-content:center; margin-top:10px">
+        ${step(-100, "－100")}
+        ${step(-10, "－10")}
+        ${step(-1, "－1")}
+        <span class="status-row-val">${amt}</span>
+        ${step(1, "＋1")}
+        ${step(10, "＋10")}
+        ${step(100, "＋100")}
+      </div>
+      <div class="btn-row">
+        <button class="btn inline secondary" onclick="stockXpConvertSetMax()">全部使う</button>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn" ${amt<=0?'disabled':''} onclick="stockXpConvertConfirm()">この量を経験値に変える</button>
+      <button class="btn secondary" onclick="showStatusAllocation()">やめる</button>
+    </div>`;
+  screen.innerHTML = html;
+}
+function stockXpConvertStep(delta){
+  const st = loadStats();
+  const bank = st.stockXp||0;
+  stockXpConvertAmount = Math.max(0, Math.min(bank, stockXpConvertAmount + delta));
+  showStockXpConvert();
+}
+function stockXpConvertSetMax(){
+  const st = loadStats();
+  stockXpConvertAmount = st.stockXp||0;
+  showStockXpConvert();
+}
+function stockXpConvertConfirm(){
+  const st = loadStats();
+  const amount = Math.max(0, Math.min(st.stockXp||0, stockXpConvertAmount));
+  if(amount <= 0) return;
+  st.stockXp -= amount;
+  st.stockXpConvertedExp = (st.stockXpConvertedExp||0) + amount;
+  saveStats(st);
+  stockXpConvertAmount = 0;
   showStatusAllocation();
 }
 /* のこりポイントを、HP・攻撃力・防御力・素早さ・運の5つに、あまりなく均等に振り分ける
@@ -6788,7 +6904,7 @@ const KWS_CONFUSION_READING_HINTS = {
   kwe1016: 'おさな', // 「幼い」（力/刀の確認クイズ対象）
 };
 
-let kwsMode = 'exam';       // 'exam'（漢字の書き学習）| 'elem'（小学生の漢字を復習する）
+let kwsMode = 'exam';       // 'exam'（漢字の書き学習）| 'elem'（小学生の漢字を復習する）| 'today'（今日の漢字）
 let kwsElemGrade = null;    // elemモードの出題学年フィルタ。null=全学年ミックス、1〜6=その学年のみ
 const kwsDataCache = { exam: null, elem: null }; // kwsEnsureData()でモードごとに1回だけ構築してキャッシュ
 let kwsData = null;         // 現在のモードのkwsDataCache[kwsMode]を指す
@@ -6835,8 +6951,8 @@ let kwsLastResult = null;      // 直前の判定結果（{ aggregate, chars }�
 let kwsLastCharResults = null;
 // id -> { pass, thumb }。直近の判定結果（画面を出入りしても保持するが、保存データには含めない）。
 // examモードとelemモードで別々に集計する（同じ画面内に混ざって表示されると紛らわしいため）。
-const kwsResultLogs = { exam: {}, elem: {} };
-const kwsWrongLogs = { exam: {}, elem: {} };   // id -> { pass:false, thumb }。一度でも×になったら、その後○になっても上書きしない
+const kwsResultLogs = { exam: {}, elem: {}, today: {} };
+const kwsWrongLogs = { exam: {}, elem: {}, today: {} };   // id -> { pass:false, thumb }。一度でも×になったら、その後○になっても上書きしない
 let kwsResultLog = kwsResultLogs.exam;
 let kwsWrongLog = kwsWrongLogs.exam;
 
@@ -6960,8 +7076,11 @@ function kwsEnsureData(mode){
 
 // 例文（読み付き）は、examならkanji_write_data.js（KANJI_WRITE_DATA.ranked）、
 // elemならkanji_write_elem_data.js（KANJI_WRITE_ELEM_DATA）をidで引いて使う
+// 「今日の漢字」（kwsMode==='today'、2026-09-02〜）はexam・elem両方のidが混在するため、
+// kwsModeではなくid自身の接頭辞（elemは"kwe"始まり）で判定する。examモード・elemモードでは
+// idの接頭辞とkwsModeが常に一致するので、この判定に変えても既存の挙動は変わらない。
 function kwsSentenceFor(id){
-  const list = kwsMode === 'elem'
+  const list = id.indexOf('kwe') === 0
     ? (window.KANJI_WRITE_ELEM_DATA || [])
     : ((window.KANJI_WRITE_DATA && window.KANJI_WRITE_DATA.ranked) || []);
   const found = list.find(it => it.id === id);
@@ -6973,7 +7092,7 @@ function kwsSentenceFor(id){
 // 常に空配列を返す（一覧のマスを空欄のまま、列自体を出さない扱いにする。
 // kwsShowStrokeOrderOverlay参照）。charCount文字ぶん、書く順と同じ並びで返す。
 function kwsRadicalsFor(id){
-  if(kwsMode !== 'exam') return [];
+  if(id.indexOf('kwe') === 0) return []; // elem由来のidには部首情報が無い（kwsSentenceForと同じid判定）
   const list = (window.KANJI_WRITE_DATA && window.KANJI_WRITE_DATA.ranked) || [];
   const found = list.find(it => it.id === id);
   if(!found || !Array.isArray(found.chars)) return [];
@@ -7476,7 +7595,20 @@ function kwsElemUnlockedPct(st){
   const introduced = Math.max(0, kwsIntroducedCount(st, 'elem') - base);
   return Math.round(introduced / total * 100);
 }
+// 「今日の漢字」用の進捗バー（解放率ではなく「本日の正解数／10」を割合として表示する）。
+function kwsTodayProgressHtml(){
+  const st = loadStats();
+  const c = Math.min(10, (st.todayKanji && st.todayKanji.correctCount) || 0);
+  return `<div class="unlock-footer">
+    <span>今日の漢字：本日の正解数</span>
+    <span class="unlock-footer-pct">${c} / 10</span>
+    <div class="bar"><div style="width:${c/10*100}%"></div></div>
+  </div><div class="unlock-footer-spacer"></div>`;
+}
 function kwsUnlockFooterInner(){
+  if(kwsMode === 'today'){
+    return kwsTodayProgressHtml();
+  }
   if(kwsMode === 'exam'){
     return unlockFooterHtml('高校入試頻出漢字200', Math.round(kwsIntroducedCount(loadStats(), 'exam') / kwsTotalCount('exam') * 100));
   }
@@ -7727,13 +7859,18 @@ function kwsHandleRecallGiveUp(){
   kwsWrongLog[kwsCurrentId] = kwsResultLog[kwsCurrentId];
   kwsUpdateResultLogDisplay();
   kwsXpSettled = true; // 経験値の対象外（不正解と同じ扱い）
-  if(!kwsFinalLocked && (kwsMode === 'exam' || kwsMode === 'elem')){
+  // 'today'（今日の漢字）も、この問題をこの回もう確定させたという意味でロックする対象に含める
+  // （そうしないと、答えを見たあとに書き写して正解扱いにする抜け道ができてしまう）。ただし
+  // 3箱・ジャンルレベルへの記録（kwsRecordAnswer/record）は既存どおりexam/elem限定のまま。
+  if(!kwsFinalLocked && (kwsMode === 'exam' || kwsMode === 'elem' || kwsMode === 'today')){
     kwsFinalLocked = true;
-    const st = loadStats();
-    kwsRecordAnswer(st, kwsMode, kwsCurrentId, false);
-    saveStats(st);
-    kwsUpdateUnlockFooter();
-    if(kwsGenreLevelEligibleNow()) record(kwsMode === 'exam' ? 'kws_exam' : 'kws_elem', {q: kwsCurrentId}, false, undefined, {skipRecentAcc:true});
+    if(kwsMode !== 'today'){
+      const st = loadStats();
+      kwsRecordAnswer(st, kwsMode, kwsCurrentId, false);
+      saveStats(st);
+      kwsUpdateUnlockFooter();
+      if(kwsGenreLevelEligibleNow()) record(kwsMode === 'exam' ? 'kws_exam' : 'kws_elem', {q: kwsCurrentId}, false, undefined, {skipRecentAcc:true});
+    }
   }
   document.getElementById('kwsMeasuredPanel').textContent = 'まだ何も判定していません';
   document.getElementById('kwsCharBreakdown').innerHTML = '';
@@ -7778,13 +7915,15 @@ function kwsHandleJudgeResult(kdata){
     kwsWrongLog[kwsCurrentId] = kwsResultLog[kwsCurrentId];
     kwsUpdateResultLogDisplay();
     kwsXpSettled = true; // 最終×になった問題も、これ以上やり直しても経験値は入らない
-    if(!kwsFinalLocked && (kwsMode === 'exam' || kwsMode === 'elem')){
+    if(!kwsFinalLocked && (kwsMode === 'exam' || kwsMode === 'elem' || kwsMode === 'today')){
       kwsFinalLocked = true;
-      const st = loadStats();
-      kwsRecordAnswer(st, kwsMode, kwsCurrentId, false);
-      saveStats(st);
-      kwsUpdateUnlockFooter();
-      if(kwsGenreLevelEligibleNow()) record(kwsMode === 'exam' ? 'kws_exam' : 'kws_elem', {q: kwsCurrentId}, false, undefined, {skipRecentAcc:true});
+      if(kwsMode !== 'today'){
+        const st = loadStats();
+        kwsRecordAnswer(st, kwsMode, kwsCurrentId, false);
+        saveStats(st);
+        kwsUpdateUnlockFooter();
+        if(kwsGenreLevelEligibleNow()) record(kwsMode === 'exam' ? 'kws_exam' : 'kws_elem', {q: kwsCurrentId}, false, undefined, {skipRecentAcc:true});
+      }
     }
     kwsSetStatus(
       wrongChars.length === 0
@@ -7851,6 +7990,28 @@ function kwsFinalizeCorrectAnswer(kdata, stage){
       }
     }
   }
+  // 「今日の漢字」（kwsMode==='today'、2026-09-02〜）：3箱・ジャンルレベルには一切触れず、
+  // 独自のストック経験値だけを加算する（教員の指示：「既存の習熟度・レベルとは完全に
+  // 独立した腕試しにする」）。1日10問正解したら達成ボーナスを乗せてその日は打ち止めにする。
+  if(!kwsFinalLocked && kwsMode === 'today'){
+    kwsFinalLocked = true;
+    const st = loadStats();
+    st.stockXp = (st.stockXp||0) + 2;
+    st.todayKanji.correctCount = (st.todayKanji.correctCount||0) + 1;
+    const justCompleted = st.todayKanji.correctCount >= 10 && !st.todayKanji.done;
+    if(justCompleted){
+      st.todayKanji.done = true;
+      st.stockXp += 10;
+    }
+    saveStats(st);
+    kwsUpdateUnlockFooter();
+    kwsShowStockXpFx(justCompleted ? 12 : 2);
+    if(justCompleted){
+      kwsSetStatus('🎉「今日の漢字」10問正解達成！ また明日挑戦できます。ホームへ戻ります…', 'ok');
+      kwsSetStageBusy(true);
+      setTimeout(() => { showHome(); }, 2200);
+    }
+  }
 }
 // 書き取り自体は正解だったが、確認クイズの方に間違えたときの最終確定処理。書き取りの
 // できとは関係なく、この問題全体としては不正解として記録する（教員の指示、2026-09-02：
@@ -7860,13 +8021,15 @@ function kwsFinalizeIncorrectFromRadicalQuiz(){
   kwsWrongLog[kwsCurrentId] = kwsResultLog[kwsCurrentId];
   kwsUpdateResultLogDisplay();
   kwsXpSettled = true;
-  if(!kwsFinalLocked && (kwsMode === 'exam' || kwsMode === 'elem')){
+  if(!kwsFinalLocked && (kwsMode === 'exam' || kwsMode === 'elem' || kwsMode === 'today')){
     kwsFinalLocked = true;
-    const st = loadStats();
-    kwsRecordAnswer(st, kwsMode, kwsCurrentId, false);
-    saveStats(st);
-    kwsUpdateUnlockFooter();
-    if(kwsGenreLevelEligibleNow()) record(kwsMode === 'exam' ? 'kws_exam' : 'kws_elem', {q: kwsCurrentId}, false, undefined, {skipRecentAcc:true});
+    if(kwsMode !== 'today'){
+      const st = loadStats();
+      kwsRecordAnswer(st, kwsMode, kwsCurrentId, false);
+      saveStats(st);
+      kwsUpdateUnlockFooter();
+      if(kwsGenreLevelEligibleNow()) record(kwsMode === 'exam' ? 'kws_exam' : 'kws_elem', {q: kwsCurrentId}, false, undefined, {skipRecentAcc:true});
+    }
   }
   kwsSetStatus('× 部首の確認に間違えたため、正解にはなりません', 'ng');
 }
@@ -7975,6 +8138,14 @@ function kwsShowLevelUpFx(text){
   const el = document.createElement('div');
   el.className = 'kws-eventXpFx';
   el.textContent = text;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1400);
+}
+// 「今日の漢字」の正解演出。既存のkwsShowEventXpFxと同じ見た目（.kws-eventXpFx）を流用する。
+function kwsShowStockXpFx(amount){
+  const el = document.createElement('div');
+  el.className = 'kws-eventXpFx';
+  el.textContent = `🈶 ストック経験値＋${amount}`;
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 1400);
 }
@@ -8359,7 +8530,7 @@ function kwsRenderSentencePrompt(id){
 // 今の問題の学年めやす。elemモードは配当学年（小学n年生）、examモードは高校入試向けの
 // 頻出漢字なので固定で「中学校」と表示する（examの元データにgrade自体が無い）。
 function kwsGradeLabelFor(id){
-  if(kwsMode === 'elem') return `小学${kwsData[id].grade}年生`;
+  if(id.indexOf('kwe') === 0) return `小学${kwsData[id].grade}年生`; // kwsSentenceForと同じid判定
   return '中学校';
 }
 function kwsRenderGradeBadge(id){
@@ -8420,6 +8591,10 @@ function kwsToggleKanjiList(){
 }
 
 function kwsLoadRandomKanji(){
+  // 「今日の漢字」は3箱式の間隔反復（kwsPickNextId）を一切使わない専用の出題ロジック
+  // （kwsTodayLoadNext）を持つ。kwsPickNextIdはkwsMode==='exam'以外を一律elem扱いして
+  // st.kwsElemStateを触ってしまうため、ここで必ず分岐して抜ける。
+  if(kwsMode === 'today'){ kwsTodayLoadNext(); return; }
   // elemで特定の学年を選んでいるときは、解禁・3箱の仕組みと無関係にその学年の全問題から
   // 一様ランダムに出す（従来通りの方針）。それ以外（exam常時／elemの全学年ミックス時）は
   // 3箱式の間隔反復（kwsPickNextId）で選ぶ。直前と同じ問題を避けるのはkwsPickNextId内で
@@ -8454,6 +8629,9 @@ function kwsBuildResultBadge(id, cls, entry){
 }
 
 function kwsUpdateResultLogDisplay(){
+  // 「今日の漢字」は正解・不正解の一覧パネル自体を出さない（kwsScreenHtml参照）ため、
+  // ここで触るDOM要素（kwsCorrectCount等）が存在しない。何もせず抜ける。
+  if(kwsMode === 'today') return;
   const ids = kwsSortIds(Object.keys(kwsData));
   const correctIds = ids.filter(id => kwsResultLog[id] && kwsResultLog[id].pass === true);
   // 一度でも×になった問題は、その後○になっても引き続きここに残す（×の記録として）
@@ -8484,8 +8662,16 @@ function kwsGradeSwitchHtml(){
 }
 
 function kwsScreenHtml(){
-  const title = kwsMode === 'elem' ? '✏️ 小学生の漢字の書き取り練習' : '✍️ 高校入試頻出漢字200';
-  const notes = kwsMode === 'elem'
+  const title = kwsMode === 'today' ? '🈶 今日の漢字' : (kwsMode === 'elem' ? '✏️ 小学生の漢字の書き取り練習' : '✍️ 高校入試頻出漢字200');
+  const notes = kwsMode === 'today'
+    ? `<li>大きく、丁寧に書いてください。</li>
+       <li>画数が間違っているものは、×となります。画と画をつなげて書かないこと。</li>
+       <li>自動採点は、間違うこともあります。字の形をきちんと確認しましょう。</li>
+       <li>間違えた字は、ヒント（始筆の点）→答え表示の順に、もう2回だけ書き直せます。ただし答えを表示したあとは、字が合っていても正解にはなりません。</li>
+       <li>間違えても減点はなく、次の問題がランダムに出ます。正解するたびにストック経験値＋2、1日10問正解すると達成ボーナスでさらに＋10（10問正解したら、その日は終了です）。</li>
+       <li>最初の4問は小学校（3〜6年生）の漢字、5問目からは高校入試頻出漢字から出題されます。</li>
+       <li>ここでの結果は「漢字の書き学習」「小学生の漢字を復習する」のレベル・解放状況には影響しません。</li>`
+    : kwsMode === 'elem'
     ? `<li>例文の中の<b>カタカナ・太字・下線</b>の部分を、大きく丁寧に書いてください。</li>
        <li>画数が間違っているものは、×となります。画と画をつなげて書かないこと。</li>
        <li>自動採点は、間違うこともあります。字の形をきちんと確認しましょう。</li>
@@ -8552,6 +8738,7 @@ function kwsScreenHtml(){
         <div class="kws-measuredPanel" id="kwsMeasuredPanel">まだ何も判定していません</div>
       </div>
     </div>
+    ${kwsMode === 'today' ? '' : `
     <div class="kws-resultsStock">
       <div class="kws-resultsCol">
         <h3>正解した問題（<span id="kwsCorrectCount">0</span>）</h3>
@@ -8565,7 +8752,7 @@ function kwsScreenHtml(){
     <div class="kws-listControls">
       <button id="kwsBtnShowList">一覧表示</button>
     </div>
-    <div class="kws-kanjiSelect" id="kwsKanjiSelect" style="display:none;"></div>
+    <div class="kws-kanjiSelect" id="kwsKanjiSelect" style="display:none;"></div>`}
     <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>
   `;
 }
@@ -8604,7 +8791,9 @@ function kwsWireScreen(){
   });
 
   document.getElementById('kwsBtnJudge').addEventListener('click', kwsHandleJudgeButtonClick);
-  document.getElementById('kwsBtnShowList').addEventListener('click', kwsToggleKanjiList);
+  // 「今日の漢字」（kwsMode==='today'）には一覧表示ボタン自体が無い（kwsScreenHtml参照）
+  const kwsShowListBtn = document.getElementById('kwsBtnShowList');
+  if(kwsShowListBtn) kwsShowListBtn.addEventListener('click', kwsToggleKanjiList);
   document.getElementById('kwsBtnRandom').addEventListener('click', kwsLoadRandomKanji);
   document.getElementById('kwsBtnRecall').addEventListener('click', kwsHandleRecallGiveUp);
 
@@ -8636,6 +8825,11 @@ function kwsSwitchElemGrade(grade){
 // 表示するが、3箱の仕組みの対象外（解禁と無関係）の字も混じるため、記録が無ければ
 // 色・件数なしの従来通りの見た目になる。
 function kwsWireKanjiSelectList(){
+  // 「今日の漢字」は3箱の状態（st.kwsExamState/kwsElemState）を持たず、一覧表示機能自体を
+  // 出さない（kwsScreenHtml参照）。ここでkwsEnsureStateStore(st,'today')を呼んでしまうと、
+  // 非exam/elemモードを一律elem扱いする内部実装のせいでst.kwsElemStateを壊してしまうため、
+  // 必ずここで抜ける。
+  if(kwsMode === 'today') return;
   const sel = document.getElementById('kwsKanjiSelect');
   sel.innerHTML = '';
   const store = kwsEnsureStateStore(loadStats(), kwsMode);
@@ -8683,6 +8877,69 @@ function startKanjiWriteStroke(mode){
     console.error('漢字の書き学習（手書き判定版）の読み込みに失敗しました', err);
     screen.innerHTML = `
       <h3 class="section">${mode === 'elem' ? '✏️ 小学生の漢字の書き取り練習' : '✍️ 高校入試頻出漢字200'}</h3>
+      <p class="note">読み込み中にエラーが発生しました。ページを再読み込みしてからもう一度お試しください。</p>
+      <p class="note" style="color:var(--ng)">${esc(String((err && err.message) || err))}</p>
+      <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>
+    `;
+  }
+}
+
+/* ================= 今日の漢字（2026-09-02〜） =================
+   既存の「漢字の書き学習」（kws手書き判定エンジン）をkwsMode='today'として流用しつつ、
+   3箱式の間隔反復（kwsPickNextId／st.kwsExamState・kwsElemState）や
+   st.lv.kws_exam／kws_elemのジャンルレベルには一切触れない、完全に独立した腕試し
+   （教員の指示）。出題は毎回ランダム抽選：その日の1〜4問目は小学校3〜6年生の漢字
+   （kanji_write_elem、全学年ではなく3〜6年生のみ）、5問目以降は高校入試頻出漢字200
+   （kanji_write）から出す。正解のたびにストック経験値＋2、1日10問正解でさらに＋10の
+   ボーナス（kwsFinalizeCorrectAnswer参照）。examとelemのid（"kw001"／"kwe0001"）は
+   接頭辞が違うため、ひとつのkwsDataにまとめても衝突しない。 */
+// examとelem両方のストローク・例文データを読み込み、両方のプールを1つのkwsDataにまとめる。
+// kwsEnsureDataはmode引数のとおりkwsMode・kwsResultLog等も書き換えてしまうため、呼び出し後に
+// startTodayKanji側で改めてkwsMode='today'等を上書きする。
+function kwsTodayEnsureData(){
+  kwsEnsureData('exam');
+  kwsEnsureData('elem');
+  kwsData = Object.assign({}, kwsDataCache.elem, kwsDataCache.exam);
+}
+// 「今日の漢字」の出題本体。3箱（kwsPickNextId）は使わず、その日の何問目かでプールを
+// 切り替える単純ランダム抽選（直前と同じ問題は避ける）。1問読み込むたびに
+// st.todayKanji.shownCountを1つ進める（正誤にかかわらず、出題した事実として数える）。
+function kwsTodayLoadNext(){
+  const st = loadStats();
+  if(st.todayKanji.done){ showHome(); return; }
+  const useElem = st.todayKanji.shownCount < 4;
+  const pool = useElem
+    ? Object.keys(kwsDataCache.elem).filter(id => {
+        const g = kwsDataCache.elem[id].grade;
+        return g >= 3 && g <= 6;
+      })
+    : Object.keys(kwsDataCache.exam);
+  const candidates = (kwsCurrentId && pool.length > 1) ? pool.filter(id => id !== kwsCurrentId) : pool;
+  const id = candidates[Math.floor(Math.random() * candidates.length)];
+  st.todayKanji.shownCount += 1;
+  saveStats(st);
+  kwsLoadKanji(id);
+}
+/* ---- 画面：今日の漢字 ----
+   既存のstartKanjiWriteStrokeと同じtry/catch方針（失敗してもホームへは必ず戻れる）。 */
+function startTodayKanji(){
+  try {
+    const st = loadStats();
+    if(st.todayKanji.done){ showHome(); return; }
+    kwsTodayEnsureData();
+    kwsMode = 'today';
+    kwsElemGrade = null;
+    kwsResultLog = kwsResultLogs.today;
+    kwsWrongLog = kwsWrongLogs.today;
+    screen.innerHTML = kwsScreenHtml();
+    window.scrollTo(0, 0);
+    kwsWireScreen();
+    kwsTodayLoadNext();
+    window.scrollTo(0, 0);
+  } catch(err){
+    console.error('今日の漢字の読み込みに失敗しました', err);
+    screen.innerHTML = `
+      <h3 class="section">🈶 今日の漢字</h3>
       <p class="note">読み込み中にエラーが発生しました。ページを再読み込みしてからもう一度お試しください。</p>
       <p class="note" style="color:var(--ng)">${esc(String((err && err.message) || err))}</p>
       <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>
