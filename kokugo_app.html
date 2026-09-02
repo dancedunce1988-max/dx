@@ -3348,7 +3348,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.26</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.27</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -7683,10 +7683,15 @@ function kwsJudgeWhole(){
 // その場で最終×として確定する（自分から「わからない」と申告した扱い）。採点前でも
 // ヒント／答え表示の途中でも、まだ最終判定されていなければいつでも押せる。
 function kwsHandleRecallGiveUp(){
-  if(kwsStageBusy || kwsJudged) return;
-  // この問題は既にこの回の最終結果が確定済み（正解確定後にキャンバスを消して「思い出せない」を
-  // 押した等）。今さら「間違った問題」に上書きすると表示上の記録が食い違うため、何もしない。
-  if(kwsFinalLocked) return;
+  // 教員の指示、2026-09-02：「『思い出せない』を押した時は、いつでも答えが見られるように
+  // してください（ただし正解判定はしないまま）」。以前はkwsJudged/kwsFinalLockedが立って
+  // いると即returnしていたため、答え表示ステージ(stage>=2)まで進んで一度でも最終判定が
+  // 確定した後や、既に一度「思い出せない」を押した後にもう一度押しても、答えが再表示
+  // されなかった（「一回答えを表示してから押すと出なくなる」というご指摘の原因）。
+  // kwsStageBusy（演出中）だけは引き続きガードするが、それ以外は毎回必ず答えを再表示する。
+  // 記録（kwsRecordAnswer/record）が1問につき1回だけになるようにする役目は、下の
+  // 「if(!kwsFinalLocked && ...)」ブロックだけに残す（二重記録の防止はこちらで十分）。
+  if(kwsStageBusy) return;
   kwsJudgedPass = false;
   kwsJudged = true;
   kwsStage = 0;
@@ -7708,7 +7713,7 @@ function kwsHandleRecallGiveUp(){
   }
   document.getElementById('kwsMeasuredPanel').textContent = 'まだ何も判定していません';
   document.getElementById('kwsCharBreakdown').innerHTML = '';
-  kwsSetStatus('× 「思い出せない」を選びました（間違った問題として記録されました）', 'ng');
+  kwsSetStatus('× 「思い出せない」を選びました（間違った問題として記録されています）', 'ng');
   kwsUpdateJudgeButtonState();
   kwsShowStrokeOrderTrigger();
   kwsRender();
