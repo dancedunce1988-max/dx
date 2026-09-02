@@ -3370,7 +3370,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.32</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.33</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -5733,7 +5733,9 @@ function kotonohaCardHtml(st){
         ${rebirthMoveHtml}
         ${statusTable}
         <div class="btn-row" style="margin-top:8px">
-          <button class="btn inline secondary" onclick="showStatusAllocation()">💪 ボス戦ステータス</button>
+          <button class="btn inline secondary" onclick="showStatusAllocation()">💪 ステータス調整</button>
+          <span class="shogo-badge">🈶 ストック経験値：${st.stockXp||0}</span>
+          ${(st.stockXp||0) > 0 ? `<button class="btn inline secondary" onclick="showStockXpConvert()">経験値に変える</button>` : ""}
         </div>
       </div>
     </div>
@@ -5774,7 +5776,7 @@ function kotonohaRebirthSectionHtml(st){
     const cycleDay = (st.dailyLogin && st.dailyLogin.cycleDay) || 0;
     return `<p class="note kotonoha-rebirth-note">🔁 もう一度転生するためには、「${esc(REBIRTH_SEED_ITEM)}」が必要です（所持数：0）。デイリーログイン報酬の7日目で手に入ります（現在${cycleDay}日目）。</p>`;
   }
-  return `<div class="btn-row" style="margin-top:10px"><button class="btn inline secondary" onclick="showKotonohaRebirthConfirm()">🔁 転生の種を使って育て直す（所持：${seedCount}）</button></div>`;
+  return `<div class="btn-row" style="margin-top:10px"><button class="btn inline secondary" onclick="showKotonohaRebirthConfirm()">🔁 転生する（種を一つ消費）</button></div>`;
 }
 /* これまでに到達したことのある「すがた」の中から、表示するすがたを選べる画面。
    経験値や進化そのものには影響しない、見た目だけの変更。 */
@@ -6135,11 +6137,6 @@ function showStatusAllocation(){
       <p style="text-align:center; font-size:1.15rem; font-weight:bold; margin-top:10px">
         のこりポイント：<span style="color:var(--accent)">${pts}</span>
       </p>
-      <p style="text-align:center; font-size:1.05rem; margin-top:6px">
-        🈶 ストック経験値：<span style="color:var(--accent)">${st.stockXp||0}</span>
-        ${(st.stockXp||0) > 0 ? `<button class="btn inline secondary" style="margin-left:8px" onclick="showStockXpConvert()">経験値に変える</button>` : ""}
-      </p>
-      <p class="note" style="text-align:center">「今日の漢字」で貯まります。使った分だけ、ステータスポイント・ことのはの経験値の両方に反映されます。</p>
     </div>`;
   rows.forEach(r=>{
     html += `
@@ -6192,7 +6189,7 @@ let stockXpConvertAmount = 0;
 function showStockXpConvert(){
   const st = loadStats();
   const bank = st.stockXp||0;
-  if(bank <= 0){ showStatusAllocation(); return; }
+  if(bank <= 0){ showHome(); return; }
   if(stockXpConvertAmount > bank) stockXpConvertAmount = bank;
   if(stockXpConvertAmount < 0) stockXpConvertAmount = 0;
   const amt = stockXpConvertAmount;
@@ -6216,7 +6213,7 @@ function showStockXpConvert(){
     </div>
     <div class="btn-row">
       <button class="btn" ${amt<=0?'disabled':''} onclick="stockXpConvertConfirm()">この量を経験値に変える</button>
-      <button class="btn secondary" onclick="showStatusAllocation()">やめる</button>
+      <button class="btn secondary" onclick="showHome()">やめる</button>
     </div>`;
   screen.innerHTML = html;
 }
@@ -6239,7 +6236,7 @@ function stockXpConvertConfirm(){
   st.stockXpConvertedExp = (st.stockXpConvertedExp||0) + amount;
   saveStats(st);
   stockXpConvertAmount = 0;
-  showStatusAllocation();
+  showHome();
 }
 /* のこりポイントを、HP・攻撃力・防御力・素早さ・運の5つに、あまりなく均等に振り分ける
    （すでに割りふった分はそのままに、のこりポイントぶんだけ上乗せする）。 */
@@ -7797,12 +7794,22 @@ function kwsRenderResult(){
 // 押したときの動作も次の問題を出す方に切り替える
 function kwsUpdateJudgeButtonState(){
   const btn = document.getElementById('kwsBtnJudge');
+  // 「今日の漢字」だけ、×が確定したら次の問題へ進めない（教員の指示、2026-09-02：
+  // わからない漢字を次々飛ばせないようにするため。○のときだけ「次の問題へ」を出す。
+  // ×の場合は「次の問題」ボタンも既に無いので、ホームへ戻って選び直すしかない）。
+  if(kwsMode === 'today' && kwsJudged && !kwsJudgedPass){
+    btn.textContent = 'この問題はここまでです';
+    btn.disabled = true;
+    return;
+  }
+  btn.disabled = false;
   btn.textContent = kwsJudged ? '次の問題へ' : '採点する';
 }
 
 function kwsHandleJudgeButtonClick(){
   if(kwsStageBusy) return;
   if(kwsJudged){
+    if(kwsMode === 'today' && !kwsJudgedPass) return; // ボタンはdisabled済みのはずだが念のため
     kwsLoadRandomKanji();
   } else {
     kwsJudgeWhole();
@@ -7922,6 +7929,7 @@ function kwsHandleJudgeResult(kdata){
         : '× もう一度書いてみましょう',
       'ng'
     );
+    kwsUpdateJudgeButtonState();
     kwsRender();
     return;
   }
@@ -7937,6 +7945,14 @@ function kwsHandleJudgeResult(kdata){
       // kwsRenderResult()が先に「○ …として認められました！」を出しているが、確認クイズに
       // 正解するまではまだ確定していないので上書きする（同じ理由：早合点させないため）。
       kwsSetStatus('○ 字の形は合っています。下のクイズにも答えてください', 'ok');
+      // 「今日の漢字」は○のときだけ「次の問題へ」を出す仕様（kwsUpdateJudgeButtonState参照）。
+      // クイズがまだ未回答の間にkwsJudgedPass=trueのまま「次の問題へ」を押せてしまうと、
+      // クイズに答えずに次へ進めてしまうため、回答するまでボタンを封じる。
+      if(kwsMode === 'today'){
+        const btn = document.getElementById('kwsBtnJudge');
+        btn.textContent = 'クイズに答えてください';
+        btn.disabled = true;
+      }
       kwsRender();
       return;
     }
@@ -7956,6 +7972,9 @@ function kwsFinalizeCorrectAnswer(kdata, stage){
   kwsUpdateResultLogDisplay();
   kwsAwardStageXp(stage);
   kwsShowStrokeOrderTrigger();
+  // 確認クイズ待ちの間だけ封じていたボタン（kwsHandleJudgeResult参照）を、正解確定に合わせて
+  // 通常の「次の問題へ」に戻す（今日の漢字以外では常にこの状態のはずなので実質no-op）。
+  kwsUpdateJudgeButtonState();
   // 正解として確定したあとにキャンバスを消して同じ問題をもう一度解いても、3箱・ジャンル
   // レベルへの記録は1問につき1回だけにする（kwsFinalLocked。教員の指摘、2026-09-02の
   // 「思い出せない」の件と同じ理由で、正解後の解き直しでも二重加算にならないようにする）。
@@ -7998,9 +8017,9 @@ function kwsFinalizeCorrectAnswer(kdata, stage){
     kwsUpdateUnlockFooter();
     kwsShowStockXpFx(justCompleted ? 12 : 2);
     if(justCompleted){
-      kwsSetStatus('🎉「今日の漢字」10問正解達成！ また明日挑戦できます。ホームへ戻ります…', 'ok');
+      kwsSetStatus('おめでとう！お祝いとしてストック経験値＋10追加で獲得しました！', 'ok');
       kwsSetStageBusy(true);
-      setTimeout(() => { showHome(); }, 2200);
+      setTimeout(() => { showHome(); }, 2000);
     }
   }
 }
@@ -8008,6 +8027,7 @@ function kwsFinalizeCorrectAnswer(kdata, stage){
 // できとは関係なく、この問題全体としては不正解として記録する（教員の指示、2026-09-02：
 // 「二択問題を正解したらはじめて正解として認められる」＝間違えたら正解にはならない）。
 function kwsFinalizeIncorrectFromRadicalQuiz(){
+  kwsJudgedPass = false; // 書き取り自体は○でも、確認クイズに外れたので最終的には×として扱う
   kwsResultLog[kwsCurrentId] = { pass: false, thumb: kwsCanvas.toDataURL('image/png') };
   kwsWrongLog[kwsCurrentId] = kwsResultLog[kwsCurrentId];
   kwsUpdateResultLogDisplay();
@@ -8023,6 +8043,7 @@ function kwsFinalizeIncorrectFromRadicalQuiz(){
     }
   }
   kwsSetStatus('× 部首の確認に間違えたため、正解にはなりません', 'ng');
+  kwsUpdateJudgeButtonState();
 }
 
 // 間違えた文字だけ一瞬赤く光らせたあと、次の段階（1=ヒント、2=答え表示）に切り替える。
