@@ -3385,7 +3385,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.37</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.38</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3674,7 +3674,7 @@ const EVENTS = {
   "2026_09_kanjiwrite_beta": {
     label: "漢字の書き取り βテストイベント",
     end: new Date('2026-09-04T23:59:59'),
-    desc: "「高校入試頻出漢字200」または「小学生の漢字を復習する（全学年）」で、\n1問正解するごとに経験値！最初の採点で正解＋3／ヒントを見て正解＋2！（答えを見たあとは正解になりません）",
+    desc: "「高校入試頻出漢字200」または「小学校で習う漢字（全学年）」で、\n1問正解するごとに経験値！最初の採点で正解＋3／ヒントを見て正解＋2！（答えを見たあとは正解になりません）",
   },
 };
 function eventActive(id){
@@ -5754,9 +5754,9 @@ function kotonohaCardHtml(st){
           ${(st.stockXp||0) > 0 ? `<button class="btn inline secondary" onclick="showStockXpConvert()">経験値に変える</button>` : ""}
           <span class="shogo-badge" style="background:var(--ok)">🈶 ストック経験値：${st.stockXp||0}</span>
         </div>
+        ${rebirthSection}
       </div>
     </div>
-    ${rebirthSection}
   </div>`;
 }
 /* 第9章クリアで解放される「転生」の導線。カード下部に小さく表示する。
@@ -6073,17 +6073,17 @@ function showHome(){
       html += `
       <div class="card menu-card" onclick="startKanjiWriteStroke()">
         <div class="menu-icon">✍️</div>
-        <div><h2>高校入試頻出漢字200</h2><p>高校入試頻出の漢字を、実際に手書きして自動判定しながら学習</p></div>
+        <div><h2>高校入試頻出漢字200</h2><p>高校入試に出やすい漢字を書く問題</p></div>
         <div class="right"><span class="shogo-badge ${kwsExamT.hidden?"top":""}">${kwsExamT.icon} ${esc(kwsExamT.name)} Lv.${st.lv.kws_exam}</span></div>
       </div>
       <div class="card menu-card" onclick="startKanjiWriteStroke('elem')">
         <div class="menu-icon">✏️</div>
-        <div><h2>小学生の漢字を復習する</h2><p>小学校で習う漢字1026字を、実際に手書きして自動判定しながら学年別に復習</p></div>
+        <div><h2>小学校で習う漢字</h2><p>小学校の漢字を書く問題です</p></div>
         <div class="right"><span class="shogo-badge ${kwsElemT.hidden?"top":""}">${kwsElemT.icon} ${esc(kwsElemT.name)} Lv.${st.lv.kws_elem}</span></div>
       </div>
       <div class="card menu-card" onclick="startKanjiWriteStroke('chugaku')">
         <div class="menu-icon">📝</div>
-        <div><h2>中学校の漢字を書く練習</h2><p>小学校で習わない中学レベルの漢字を、実際に手書きして自動判定しながら重要度別に練習</p></div>
+        <div><h2>中学校で習う漢字</h2><p>中学校の漢字を書く問題です</p></div>
         <div class="right"><span class="shogo-badge ${kwsChugakuT.hidden?"top":""}">${kwsChugakuT.icon} ${esc(kwsChugakuT.name)} Lv.${st.lv.kws_chugaku}</span></div>
       </div>`;
     }
@@ -6337,10 +6337,10 @@ function showHelp(){
       </ul>
     </div>
 
-    <h3 class="section">✏️ 小学生の漢字を復習する</h3>
+    <h3 class="section">✏️ 小学校で習う漢字</h3>
     <div class="card">
       <ul class="help-list">
-        <li>「漢字」の中の「小学生の漢字を復習する」では、<b>小学校で習う漢字1026字（学年別漢字配当表・小学1〜6年ぶん）</b>を、「高校入試頻出漢字200」と同じ手書き自動採点で復習できます。</li>
+        <li>「漢字」の中の「小学校で習う漢字」では、<b>小学校で習う漢字1026字（学年別漢字配当表・小学1〜6年ぶん）</b>を、「高校入試頻出漢字200」と同じ手書き自動採点で復習できます。</li>
         <li>画面下の<b>「小1」〜「小6」「全学年」ボタン</b>で、出題する学年をいつでも切り替えられます。特定の学年だけを集中して練習することも、全学年まぜて出題することもできます。</li>
         <li>使い方・採点のしくみは「高校入試頻出漢字200」と同じですが、専用のジャンルレベルが伸びるのは<b>「全学年」を選んでいるときだけ</b>です。特定の学年（小1〜小6）に絞って練習しているときは、正解・間違いの記録はされますが、ジャンルレベルは上がりません。</li>
       </ul>
@@ -6960,6 +6960,12 @@ let kwsStage = 0;
 let kwsStagePendingChars = null;
 let kwsStageFlashChars = [];
 let kwsStageBusy = false;
+// 「間違った問題」一覧に載せるスクショは、ヒント・答え表示を経たあとの書き直し（＝答えを
+// 見て書き写しただけの絵）ではなく、1回目に自力で書いたものを見せる（教員の指示、
+// 2026-09-03）。kwsJudgeWhole()が最初に呼ばれた瞬間（まだヒント・答え表示に進んでいない
+// kwsStage===0の間）だけ、そのときのキャンバスをここに記録し、以後は上書きしない。
+// kwsLoadKanji()で次の問題に進むたびnullに戻す。
+let kwsFirstAttemptThumb = null;
 // 答え表示ステージ（kwsStage===2）で、プレイヤーが一度でも書き始めたらtrueにする。
 // これがないと、1画書いてペンを離すたび（pointerup→kwsDrawing=false）に答えが
 // また出てきてしまう。書き始めたら、そのステージが終わるまでずっと答えを隠したままにする。
@@ -7687,12 +7693,12 @@ function kwsUnlockFooterInner(){
     return unlockFooterHtml('高校入試頻出漢字200', Math.round(kwsIntroducedCount(loadStats(), 'exam') / kwsTotalCount('exam') * 100));
   }
   if(kwsMode === 'elem' && !kwsElemGrade){
-    return unlockFooterHtml('小学生の漢字を復習する', kwsElemUnlockedPct(loadStats()));
+    return unlockFooterHtml('小学校で習う漢字', kwsElemUnlockedPct(loadStats()));
   }
   if(kwsMode === 'chugaku' && !kwsChugakuLevel){
     // chugakuはelemのようなプリ解禁ベースラインを持たないため、examと同じ単純な
     // 「導入数／全体」計算でよい（決定事項：kwsEnsureStateStoreのコメント参照）。
-    return unlockFooterHtml('中学校の漢字を書く練習', Math.round(kwsIntroducedCount(loadStats(), 'chugaku') / kwsTotalCount('chugaku') * 100));
+    return unlockFooterHtml('中学校で習う漢字', Math.round(kwsIntroducedCount(loadStats(), 'chugaku') / kwsTotalCount('chugaku') * 100));
   }
   return '';
 }
@@ -7901,10 +7907,24 @@ function kwsHandleJudgeButtonClick(){
   if(kwsStageBusy) return;
   if(kwsJudged){
     if(kwsMode === 'today' && !kwsJudgedPass) return; // ボタンはdisabled済みのはずだが念のため
+    // エンカウントボスも他のジャンル（4択クイズのnextQuestion／百人一首）と同じしくみで
+    // 出現させる（教員の指示、2026-09-03）。「今日の漢字」はst.lv/st.catsを一切持たない
+    // 完全に独立した腕試し（教員の指示、2026-09-02）なので対象外のままにする。
+    if(kwsMode !== 'today' && rollBossEncounter(() => kwsResumeAfterBossPrompt())) return;
     kwsLoadRandomKanji();
   } else {
     kwsJudgeWhole();
   }
+}
+// rollBossEncounterはboss.innerHTML置き換えで画面ごと吹き飛ばすため（4択クイズのnextQuestionが
+// 毎回画面を丸ごと作り直すのと同じ理由）、resumeFnとして渡す関数はkws練習画面を作り直してから
+// 次の問題を読み込む必要がある。startKanjiWriteStroke相当の再構築だが、モード（kwsElemGrade／
+// kwsChugakuLevel）や導入済み状態は変えず、そのまま「次の問題」を続けるだけにする。
+function kwsResumeAfterBossPrompt(){
+  screen.innerHTML = kwsScreenHtml();
+  kwsWireScreen();
+  kwsLoadRandomKanji();
+  kwsUpdateResultLogDisplay();
 }
 
 function kwsJudgeWhole(){
@@ -7914,6 +7934,11 @@ function kwsJudgeWhole(){
   if(kwsCompletedStrokes.length === 0){
     kwsSetStatus('まず何か書いてから判定してください', 'ng');
     return;
+  }
+
+  // 「間違った問題」用のスクショは1回目の採点時点のものを使う（kwsFirstAttemptThumb宣言部参照）。
+  if(kwsStage === 0 && kwsFirstAttemptThumb === null){
+    kwsFirstAttemptThumb = kwsCanvas.toDataURL('image/png');
   }
 
   kwsLastResult = {
@@ -7944,7 +7969,9 @@ function kwsHandleRecallGiveUp(){
   kwsStageRevealHidden = false;
   kwsLastResult = null;
   kwsLastCharResults = null;
-  kwsResultLog[kwsCurrentId] = { pass: false, thumb: kwsCanvas.toDataURL('image/png') };
+  // スクショは1回目の採点時点のものがあればそちらを優先する（一度も採点していないまま
+  // 「思い出せない」を押した場合は、今書いている途中のものがそのまま1回目扱いになる）。
+  kwsResultLog[kwsCurrentId] = { pass: false, thumb: kwsFirstAttemptThumb || kwsCanvas.toDataURL('image/png') };
   kwsWrongLog[kwsCurrentId] = kwsResultLog[kwsCurrentId];
   kwsUpdateResultLogDisplay();
   kwsXpSettled = true; // 経験値の対象外（不正解と同じ扱い）
@@ -8000,7 +8027,9 @@ function kwsHandleJudgeResult(kdata){
     kwsStage = 0;
     kwsStagePendingChars = null;
     kwsStageRevealHidden = false;
-    kwsResultLog[kwsCurrentId] = { pass: false, thumb: kwsCanvas.toDataURL('image/png') };
+    // スクショは答えを見て書き写した今の絵ではなく、1回目に自力で書いたものを使う
+    // （教員の指示、2026-09-03：kwsFirstAttemptThumb宣言部参照）。
+    kwsResultLog[kwsCurrentId] = { pass: false, thumb: kwsFirstAttemptThumb || kwsCanvas.toDataURL('image/png') };
     kwsWrongLog[kwsCurrentId] = kwsResultLog[kwsCurrentId];
     kwsUpdateResultLogDisplay();
     kwsXpSettled = true; // 最終×になった問題も、これ以上やり直しても経験値は入らない
@@ -8119,7 +8148,7 @@ function kwsFinalizeCorrectAnswer(kdata, stage){
 // 「二択問題を正解したらはじめて正解として認められる」＝間違えたら正解にはならない）。
 function kwsFinalizeIncorrectFromRadicalQuiz(){
   kwsJudgedPass = false; // 書き取り自体は○でも、確認クイズに外れたので最終的には×として扱う
-  kwsResultLog[kwsCurrentId] = { pass: false, thumb: kwsCanvas.toDataURL('image/png') };
+  kwsResultLog[kwsCurrentId] = { pass: false, thumb: kwsFirstAttemptThumb || kwsCanvas.toDataURL('image/png') };
   kwsWrongLog[kwsCurrentId] = kwsResultLog[kwsCurrentId];
   kwsUpdateResultLogDisplay();
   kwsXpSettled = true;
@@ -8683,6 +8712,7 @@ function kwsLoadKanji(id){
   kwsCurrentId = id;
   kwsXpSettled = false; // 新しい問題として仕切り直す
   kwsFinalLocked = false;
+  kwsFirstAttemptThumb = null; // 新しい問題として、1回目採点スクショの記録もリセットする
   kwsHideStrokeOrderTrigger();
   kwsCloseStrokeOrderOverlay();
   const kdata = kwsData[id];
@@ -8805,8 +8835,8 @@ function kwsGradeSwitchHtml(){
 
 function kwsScreenHtml(){
   const title = kwsMode === 'today' ? '🈶 今日の漢字'
-    : kwsMode === 'elem' ? '✏️ 小学生の漢字の書き取り練習'
-    : kwsMode === 'chugaku' ? '📝 中学校の漢字を書く練習'
+    : kwsMode === 'elem' ? '✏️ 小学校で習う漢字'
+    : kwsMode === 'chugaku' ? '📝 中学校で習う漢字'
     : '✍️ 高校入試頻出漢字200';
   const notes = kwsMode === 'today'
     ? `<li>大きく、丁寧に書いてください。</li>
@@ -8815,7 +8845,7 @@ function kwsScreenHtml(){
        <li>間違えた字は、ヒント（始筆の点）→答え表示の順に、もう2回だけ書き直せます。ただし答えを表示したあとは、字が合っていても正解にはなりません。</li>
        <li>間違えても減点はなく、次の問題がランダムに出ます。正解するたびにストック経験値＋2、1日10問正解すると達成ボーナスでさらに＋10（10問正解したら、その日は終了です）。</li>
        <li>最初の4問は小学校（3〜6年生）の漢字、5問目からは高校入試頻出漢字から出題されます。</li>
-       <li>ここでの結果は「漢字の書き学習」「小学生の漢字を復習する」のレベル・解放状況には影響しません。</li>`
+       <li>ここでの結果は「漢字の書き学習」「小学校で習う漢字」のレベル・解放状況には影響しません。</li>`
     : kwsMode === 'elem'
     ? `<li>例文の中の<b>カタカナ・太字・下線</b>の部分を、大きく丁寧に書いてください。</li>
        <li>画数が間違っているものは、×となります。画と画をつなげて書かないこと。</li>
@@ -9045,8 +9075,8 @@ function startKanjiWriteStroke(mode){
     window.scrollTo(0, 0);
   } catch(err){
     console.error('漢字の書き学習（手書き判定版）の読み込みに失敗しました', err);
-    const errTitle = mode === 'elem' ? '✏️ 小学生の漢字の書き取り練習'
-      : mode === 'chugaku' ? '📝 中学校の漢字を書く練習'
+    const errTitle = mode === 'elem' ? '✏️ 小学校で習う漢字'
+      : mode === 'chugaku' ? '📝 中学校で習う漢字'
       : '✍️ 高校入試頻出漢字200';
     screen.innerHTML = `
       <h3 class="section">${errTitle}</h3>
