@@ -3318,7 +3318,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.20</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.21</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6719,6 +6719,28 @@ const KWS_CONFUSION_PAIRS = [
   { a: { chars: new Set(['土']), display: '土', name: null }, b: { chars: new Set(['士']), display: '士', name: null } },
 ];
 
+// 対象の字が2文字以上の熟語の中に埋もれているとき、確認クイズの問題文を「こうせきで正しいのは？」
+// のような熟語全体の読みだけにすると、熟語のどちらの字を聞かれているのか分かりにくい
+// （教員の指摘、2026-09-02：「『こうせきの「せき」で正しいのは？』に変更してください」）。
+// examの`chars[].onyomi`のような字ごとの読みデータはelem側に無く、熟語の読みを機械的に
+// 分割する一般解も無い（同じ字でも語によって読みが変わる＝縮尺/縮小は「しゅく」、縮むは
+// 「ちぢ」。続く/接続、士の博士/富士/兵士/武士も語ごとに読みが違う）ため、教員の指示どおり
+// 「可能な範囲で」、対象漢字が2字以上の熟語に含まれる問題id（kw*/kwe*）だけを対象に、
+// 該当の字の読みを実際の例文の《...》から目視で確認し手作業で収録した（kwe0596＝博士は
+// 「はかせ」という特殊な熟字訓でどちらの字がどの音かに分解できないため収録していない＝
+// この字は熟語全体の読みのままフォールバックする）。
+const KWS_CONFUSION_READING_HINTS = {
+  kw015: 'めん', kw031: 'せき', kw036: 'やく', kw040: 'ぎゅう', kw057: 'とう',
+  kw068: 'しゅく', kw102: 'ふん', kw106: 'ど', kw160: 'しゅく', kw164: 'きゅう', kw171: 'さい',
+  kwe0122: 'ご', kwe0125: 'こう', kwe0273: 'きゅう', kwe0322: 'お', kwe0438: 'れん',
+  kwe0482: 'きゅう', kwe0532: 'しっ', kwe0567: 'つづ', kwe0576: 'なわ',
+  kwe0604: 'く', kwe0608: 'じ', kwe0610: 'し', kwe0624: 'やく', kwe0671: 'き',
+  kwe0689: 'けい', kwe0723: 'し', kwe0751: 'しき', kwe0757: 'せい', kwe0761: 'せき',
+  kwe0762: 'ぞく', kwe0764: 'ぜっ', kwe0787: 'とう', kwe0815: 'へん', kwe0834: 'ど',
+  kwe0867: 'とう', kwe0885: 'こう', kwe0917: 'ちぢ', kwe0976: 'とう', kwe0979: 'ぎゅう',
+  kwe0981: 'なっ', kwe0993: 'ど',
+};
+
 let kwsMode = 'exam';       // 'exam'（漢字の書き学習）| 'elem'（小学生の漢字を復習する）
 let kwsElemGrade = null;    // elemモードの出題学年フィルタ。null=全学年ミックス、1〜6=その学年のみ
 const kwsDataCache = { exam: null, elem: null }; // kwsEnsureData()でモードごとに1回だけ構築してキャッシュ
@@ -7891,6 +7913,12 @@ function kwsMaybeShowRadicalQuiz(kdata, stage){
   const correctSide = pair[correct];
   const otherSide = pair[correct === 'a' ? 'b' : 'a'];
   const reading = kwsReadingFor(kdata);
+  // 対象の字が2字以上の熟語に埋もれている場合、KWS_CONFUSION_READING_HINTSに手作業で
+  // 収録した「その字だけの読み」があれば「こうせきの『せき』で正しいのは？」のように
+  // 熟語のどの字を聞いているか明示する（教員の指摘、2026-09-02）。収録が無い問題（単独の
+  // 字の問題や、博士のように熟字訓で分解できない語）は従来どおり熟語全体の読みのみで出す。
+  const charReading = KWS_CONFUSION_READING_HINTS[kwsCurrentId];
+  const questionText = charReading ? `「${reading}」の「${charReading}」で正しいのはどっち？` : `「${reading}」で正しいのはどっち？`;
 
   // stageはこの問題の最終判定が確定した段階（0=最初の採点／1=ヒント後）。クイズに正解した
   // 瞬間にkwsAwardStageXpへそのまま渡すために持たせておく。
@@ -7902,7 +7930,7 @@ function kwsMaybeShowRadicalQuiz(kdata, stage){
   overlay.id = 'kwsRadicalQuiz';
   overlay.innerHTML = `
     <div class="kws-radicalQuizBox">
-      <p class="kws-radicalQuizQ">「${reading}」で正しいのはどっち？</p>
+      <p class="kws-radicalQuizQ">${questionText}</p>
       <div class="kws-radicalQuizBtns">
         ${sides.map(s => `<button class="kws-radicalBtn" data-display="${s.display}"><span class="kws-radicalChar">${s.display}</span>${s.name ? `<span class="kws-radicalName">${s.name}</span>` : ''}</button>`).join('')}
       </div>
