@@ -3348,7 +3348,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.23</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.24</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6196,7 +6196,7 @@ function showHelp(){
       <ul class="help-list">
         <li>「とっくん・読解・記録」の中の「小学生の漢字を復習する」では、<b>小学校で習う漢字1026字（学年別漢字配当表・小学1〜6年ぶん）</b>を、「高校入試頻出漢字200」と同じ手書き自動採点で復習できます。</li>
         <li>画面下の<b>「小1」〜「小6」「全学年」ボタン</b>で、出題する学年をいつでも切り替えられます。特定の学年だけを集中して練習することも、全学年まぜて出題することもできます。</li>
-        <li>使い方・採点のしくみ・専用のジャンルレベルが伸びる点は「高校入試頻出漢字200」とまったく同じです（レベルは学年を絞っていても伸びます）。</li>
+        <li>使い方・採点のしくみは「高校入試頻出漢字200」と同じですが、専用のジャンルレベルが伸びるのは<b>「全学年」を選んでいるときだけ</b>です。特定の学年（小1〜小6）に絞って練習しているときは、正解・間違いの記録はされますが、ジャンルレベルは上がりません。</li>
       </ul>
     </div>
 
@@ -7027,8 +7027,9 @@ function kwsElemDefaultFrontier(){
 // 落ちて自然に拾われる）。
 function kwsEnsureStateStore(st, mode){
   const key = mode === 'exam' ? 'kwsExamState' : 'kwsElemState';
+  const orderedIds = mode === 'exam' ? kwsExamOrderedIds() : kwsElemOrderedIds();
   if(!st[key]){
-    const ids = mode === 'exam' ? kwsExamOrderedIds() : kwsElemOrderedIds();
+    const ids = orderedIds;
     const items = {};
     let frontier;
     if(mode === 'exam'){
@@ -7065,6 +7066,23 @@ function kwsEnsureStateStore(st, mode){
     }
     store.frontier = newFrontier;
     store.bonusApplied = true;
+  }
+  // バグ修正の遡及措置（ver10.24〜、教員の報告：「20回くらいやっても解放が進まなくなった」）。
+  // 修正前は「新しい問題」に一発正解した場合しか次の1問を解禁しなかったため、直近に
+  // 導入した問題（frontierの境界）を一度でも間違えたセーブは、その後3回連続正解で
+  // 「正解済み」に昇格していても、次の問題が永久に解禁されないまま止まっていた可能性が
+  // ある。境界の問題が既に「正解済み」なのにentry.introducedNextが立っていなければ、
+  // 読み込みのたびにここで一度だけ追いつかせる（2回目以降はintroducedNextが立つので
+  // 何もしない。導入済み全件を舐め直すわけではなく境界の1問だけを見るので、過去の
+  // 「正解済み」がまとめて大量解禁されることはない）。
+  {
+    const store = st[key];
+    const boundaryId = orderedIds[store.frontier - 1];
+    const boundaryEntry = boundaryId && store.items[boundaryId];
+    if(boundaryEntry && boundaryEntry.box === 'ok' && !boundaryEntry.introducedNext){
+      boundaryEntry.introducedNext = true;
+      kwsIntroduceNextItem(store, orderedIds);
+    }
   }
   return st[key];
 }
@@ -7168,15 +7186,31 @@ function kwsRecordAnswer(st, mode, id, correct){
   // （box自体は既に'ok'のままで構わない。box分岐とは独立した一回限りの処理）。
   if(entry.pending && correct){
     entry.pending = false;
+    entry.introducedNext = true; // 下のwrong→ok昇格時に二重解禁しないための印（保険）
     introduced = kwsIntroduceNextItem(store, orderedIds);
   }
   if(entry.box === 'new'){
-    if(correct){ entry.box = 'ok'; entry.streak = 0; introduced = kwsIntroduceNextItem(store, orderedIds); }
+    if(correct){
+      entry.box = 'ok'; entry.streak = 0;
+      // 「新しい問題」に初回で正解した瞬間だけ次の1問を解放する（entry.introducedNextで
+      // この問題につき1回だけに制限。すぐ下のwrong→ok昇格時にも同じ印を使う）。
+      if(!entry.introducedNext){ entry.introducedNext = true; introduced = kwsIntroduceNextItem(store, orderedIds) || introduced; }
+    }
     else{ entry.box = 'wrong'; entry.streak = 0; }
   } else if(entry.box === 'wrong'){
     if(correct){
       entry.streak++;
-      if(entry.streak >= KWS_PROMOTE_STREAK){ entry.box = 'ok'; entry.streak = 0; }
+      if(entry.streak >= KWS_PROMOTE_STREAK){
+        entry.box = 'ok'; entry.streak = 0;
+        // バグ修正（教員の報告、2026-09-02：「高校入試頻出漢字を20回くらいやっても
+        // 解放が進まなくなった」）。以前は「新しい問題」に初回で正解した場合しか
+        // 次の1問を解放しなかったため、frontier最新の「新しい問題」を一度でも間違えると
+        // （＝'wrong'箱に落ちると）、その後何度正解を重ねても次の問題が二度と解禁され
+        // ない状態で固まっていた（'new'箱に他の候補が存在しないため）。3回連続正解で
+        // 「正解済み」に昇格した時点でも、まだこの問題で解禁したことがなければ
+        // （entry.introducedNextが立っていなければ）次の1問を解禁する。
+        if(!entry.introducedNext){ entry.introducedNext = true; introduced = kwsIntroduceNextItem(store, orderedIds) || introduced; }
+      }
     } else {
       entry.streak = 0;
     }
@@ -7670,7 +7704,7 @@ function kwsHandleRecallGiveUp(){
     kwsRecordAnswer(st, kwsMode, kwsCurrentId, false);
     saveStats(st);
     kwsUpdateUnlockFooter();
-    record(kwsMode === 'exam' ? 'kws_exam' : 'kws_elem', {q: kwsCurrentId}, false, undefined, {skipRecentAcc:true});
+    if(kwsGenreLevelEligibleNow()) record(kwsMode === 'exam' ? 'kws_exam' : 'kws_elem', {q: kwsCurrentId}, false, undefined, {skipRecentAcc:true});
   }
   document.getElementById('kwsMeasuredPanel').textContent = 'まだ何も判定していません';
   document.getElementById('kwsCharBreakdown').innerHTML = '';
@@ -7721,7 +7755,7 @@ function kwsHandleJudgeResult(kdata){
       kwsRecordAnswer(st, kwsMode, kwsCurrentId, false);
       saveStats(st);
       kwsUpdateUnlockFooter();
-      record(kwsMode === 'exam' ? 'kws_exam' : 'kws_elem', {q: kwsCurrentId}, false, undefined, {skipRecentAcc:true});
+      if(kwsGenreLevelEligibleNow()) record(kwsMode === 'exam' ? 'kws_exam' : 'kws_elem', {q: kwsCurrentId}, false, undefined, {skipRecentAcc:true});
     }
     kwsSetStatus(
       wrongChars.length === 0
@@ -7775,13 +7809,17 @@ function kwsFinalizeCorrectAnswer(kdata, stage){
     if(introduced) kwsShowUnlockMsg();
     // ジャンルレベル（st.lv.kws_exam／st.lv.kws_elem、2026-09-02〜）。3箱への記録とは別に、
     // record()を通していつもの20分野・kanbun_kt/yjと同じレベル・経験値の仕組みに乗せる
-    // （教員の指示：「ジャンルレベルを搭載してください」）。学年を絞っていても常に加算する。
-    const kwsCat = kwsMode === 'exam' ? 'kws_exam' : 'kws_elem';
-    const r = record(kwsCat, {q: kwsCurrentId}, true, undefined, {skipRecentAcc:true});
-    if(r.lvup){
-      kwsShowLevelUpFx(r.evolved
-        ? `🎉 Lv.${r.lv} UP！ ${r.evolved.icon} ${r.evolved.name}になりました`
-        : `🎉 Lv.${r.lv} UP！`);
+    // （教員の指示：「ジャンルレベルを搭載してください」）。ただしelemで学年を絞っている
+    // 間はレベルに影響しない（教員の指示、2026-09-02：「小学校の復習について、『全学年』で
+    // やらないと、レベルはアップしないようにしてください」。kwsGenreLevelEligibleNow参照）。
+    if(kwsGenreLevelEligibleNow()){
+      const kwsCat = kwsMode === 'exam' ? 'kws_exam' : 'kws_elem';
+      const r = record(kwsCat, {q: kwsCurrentId}, true, undefined, {skipRecentAcc:true});
+      if(r.lvup){
+        kwsShowLevelUpFx(r.evolved
+          ? `🎉 Lv.${r.lv} UP！ ${r.evolved.icon} ${r.evolved.name}になりました`
+          : `🎉 Lv.${r.lv} UP！`);
+      }
     }
   }
 }
@@ -7799,7 +7837,7 @@ function kwsFinalizeIncorrectFromRadicalQuiz(){
     kwsRecordAnswer(st, kwsMode, kwsCurrentId, false);
     saveStats(st);
     kwsUpdateUnlockFooter();
-    record(kwsMode === 'exam' ? 'kws_exam' : 'kws_elem', {q: kwsCurrentId}, false, undefined, {skipRecentAcc:true});
+    if(kwsGenreLevelEligibleNow()) record(kwsMode === 'exam' ? 'kws_exam' : 'kws_elem', {q: kwsCurrentId}, false, undefined, {skipRecentAcc:true});
   }
   kwsSetStatus('× 部首の確認に間違えたため、正解にはなりません', 'ng');
 }
@@ -7860,6 +7898,19 @@ const KWS_STAGE_XP = [3, 2];
 // 「小学生の漢字を復習する」は学年を絞っていない「全学年ミックス」のときだけ、
 // 「漢字の書き学習」は常に対象（教員の指示、2026-09-01〜04のβテスト）。
 function kwsEventXpEligibleNow(){
+  if(kwsMode === 'exam') return true;
+  if(kwsMode === 'elem') return kwsElemGrade === null;
+  return false;
+}
+// ジャンルレベル（st.lv.kws_exam／st.lv.kws_elem）も、上のkwsEventXpEligibleNowと
+// 同じ条件で対象を絞る（教員の指示、2026-09-02：「小学校の復習について、『全学年』で
+// やらないと、レベルはアップしないようにしてください」）。examは学年フィルタが無いので
+// 常に対象。elemは特定の学年を選んでいる間はレベルに影響しない（record()自体を呼ばない。
+// 3箱への記録＝正解済み／間違った問題の管理＝kwsRecordAnswerは、学年を絞っていても
+// これまで通り行う。ジャンルレベルだけを対象から外す）。判定内容自体はkwsEventXpEligibleNowと
+// たまたま同じだが、意味が別（経験値イベント vs 恒久のジャンルレベル）なので専用の
+// 関数として分けておく。
+function kwsGenreLevelEligibleNow(){
   if(kwsMode === 'exam') return true;
   if(kwsMode === 'elem') return kwsElemGrade === null;
   return false;
