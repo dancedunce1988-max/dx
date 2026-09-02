@@ -3370,7 +3370,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.31</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.32</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -5725,7 +5725,7 @@ function kotonohaCardHtml(st){
       <div class="kotonoha-info">
         <div class="kotonoha-name">${rebirthActive ? rebirthNameHtml : stageTag+esc(disp.name)}</div>
         ${rebirthActive ? "" : typeTag}
-        <div class="kotonoha-xp">経験値　${f.total}（今までの総正解数…${totalCorrectCount(st)}問）</div>
+        <div class="kotonoha-xp">経験値　${f.total}（今までの総正解数…${totalCorrectCount(st)}問）${totalEventBonusExp(st) > 0 ? `<br>※イベント累計経験値：${totalEventBonusExp(st)}pt` : ""}</div>
         <div class="bar"><div style="width:${progress}%"></div></div>
         <p class="note">${esc(progressNote)}</p>
         ${overrideNote}
@@ -5983,21 +5983,12 @@ function balancedTrainingBtnHtml(){
       <div><h2>バランスよく鍛える</h2><p>レベルが低いジャンルほど出やすくなるよう調整しながら出題（読解・高校入試頻出漢字200・苦手復習は含みません）</p></div>
     </div>`;
 }
-/* 全イベント合算の累計表示（2026-09-01〜、教員の指示：「イベント経験値は1つのプールのはずが
-   別々に表示されている」→ 合算した数字も見せてほしい、かつ今後もそこに積み上がっていく）。
-   個別イベントのカード（下のforEach）は、いつまでにあと何ptで…という進捗の目安として引き続き
-   残すが、この合計カードは「今どのイベントが開催中か」に関係なく、稼いだ実績として
-   累計>0なら常に出す（＝開催期間の間（イベントが1つも動いていない期間）も消えない）。 */
+/* 全イベント合算の累計表示は、以前はここにホーム画面いちばん上のバナーとして常に出していた
+   （2026-09-01〜）が、常時表示だと邪魔という教員の指示（2026-09-02）で撤去し、代わりに
+   「きみの相棒【ことのは】」カードの経験値の記述の最後に「※イベント累計経験値」として
+   小さく添えるだけにした（kotonohaCardHtml参照。totalEventBonusExpの値自体は変えていない）。 */
 function eventBannerHtml(st){
-  const total = totalEventBonusExp(st);
   let html = "";
-  if(total > 0){
-    html += `
-    <div class="card event-banner event-banner-total">
-      <div class="event-banner-head">🎉 累計イベント経験値</div>
-      <div class="event-banner-pts">${total} pt</div>
-    </div>`;
-  }
   if(!anyEventActive()) return html;
   Object.entries(EVENTS).forEach(([id, ev]) => {
     if(!eventActive(id)) return;
@@ -8693,7 +8684,7 @@ function kwsScreenHtml(){
           <div class="kws-stage" id="kwsStage">
             <canvas id="kwsCanvas" width="520" height="520"></canvas>
             <div id="kwsPerCharBtns"></div>
-            <button id="kwsBtnRandom" class="kws-cornerBtn kws-cornerBtn--next">次の問題</button>
+            ${kwsMode === 'today' ? '' : '<button id="kwsBtnRandom" class="kws-cornerBtn kws-cornerBtn--next">次の問題</button>'}
             <button id="kwsBtnJudge" class="kws-cornerBtn kws-cornerBtn--judge primary">採点する</button>
             <button id="kwsBtnRecall" class="kws-cornerBtn kws-cornerBtn--recall">思い出せない</button>
           </div>
@@ -8794,7 +8785,11 @@ function kwsWireScreen(){
   // 「今日の漢字」（kwsMode==='today'）には一覧表示ボタン自体が無い（kwsScreenHtml参照）
   const kwsShowListBtn = document.getElementById('kwsBtnShowList');
   if(kwsShowListBtn) kwsShowListBtn.addEventListener('click', kwsToggleKanjiList);
-  document.getElementById('kwsBtnRandom').addEventListener('click', kwsLoadRandomKanji);
+  // 「今日の漢字」には「次の問題」ボタン自体が無い（教員の指示、2026-09-02：わからない漢字を
+  // 試しもせずに次々飛ばせてしまうため）。採点後に「次の問題へ」に変わるkwsBtnJudge側の
+  // 導線（kwsHandleJudgeButtonClick）だけが、今日の漢字での次の問題への進み方になる。
+  const kwsRandomBtn = document.getElementById('kwsBtnRandom');
+  if(kwsRandomBtn) kwsRandomBtn.addEventListener('click', kwsLoadRandomKanji);
   document.getElementById('kwsBtnRecall').addEventListener('click', kwsHandleRecallGiveUp);
 
   kwsSyncCustomInputsToState();
