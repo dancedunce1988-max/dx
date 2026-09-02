@@ -2376,9 +2376,9 @@ window.KANJI_WRITE_DATA = {
   {
    "id": "kw110",
    "rank": 110,
-   "kanji": "旧居",
-   "sentence": "小説家の住んでいた《キュウキョ》を訪れる。",
-   "wordMeaning": "以前住んでいた家。",
+   "kanji": "旧知",
+   "sentence": "あの人とは《キュウチ》の仲だ。",
+   "wordMeaning": "以前からの知り合い。昔からの知人。",
    "pref": null,
    "chars": [
     {
@@ -2390,12 +2390,12 @@ window.KANJI_WRITE_DATA = {
      "meaning": "古い。以前の。もとの。"
     },
     {
-     "ch": "居",
-     "onyomi": "キョ",
-     "kunyomi": "い.る",
-     "radical": "尸（しかばね）",
-     "origin": "「尸」と音を表す「古」からなる形声文字。しゃがむ意を表す。",
-     "meaning": "いる。すわる。住む。また住む所。"
+     "ch": "知",
+     "onyomi": "チ",
+     "kunyomi": "し.る",
+     "radical": "矢（やへん）",
+     "origin": "「矢」と「口」を組み合わせた会意文字。矢のようにすばやく物事の的を射抜いて言い当てる意から、「しる」の意に用いられる。",
+     "meaning": "しる。物事をわかる、理解すること。"
     }
    ]
   },

@@ -280,6 +280,17 @@
   /* 右辺の縦中央（2文字の問題なら1文字目と2文字目のちょうど境目＝全体の50%と一致する）。
      教員の指示、2026-09-02。 */
   .kws-cornerBtn--recall{ left:100%; top:50%; transform:translateY(-50%); background:var(--ng); border-color:var(--ng); color:#fff; font-weight:bold; }
+  /* 部首ラベル＋「一画戻す」「全部消す」をまとめた1文字ぶんの左側カラム（教員の指示、
+     2026-09-02：部首の表示を書くスペースの左に置き、部首の有無・長さでキャンバスの位置が
+     動かないようにする）。カラム自体をcanvasの左（right:100%）に絶対配置し、中はflexで
+     ［部首ラベル｜ボタン2つ］を横並びにする。 */
+  .kws-charSideCol{ position:absolute; right:100%; display:flex; align-items:stretch; gap:4px; }
+  .kws-sideRadical{
+    width:56px; flex-shrink:0; display:flex; align-items:center; justify-content:center; text-align:center;
+    font-size:.72rem; color:var(--sub); line-height:1.25; padding:2px;
+  }
+  .kws-sideBtns{ display:flex; flex-direction:column; justify-content:space-between; }
+  .kws-sideBtns .kws-cornerBtn{ position:static; }
   .kws-status{ font-size:.95rem; min-height:22px; font-weight:bold; text-align:center; }
   .kws-status.ok{ color:var(--ok); }
   .kws-status.ng{ color:var(--ng); }
@@ -3370,7 +3381,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.34</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.35</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6029,6 +6040,8 @@ function showHome(){
   html += bossTicketHtml(st);
   html += itemLinkHtml(st);
   html += dailyLoginProgressHtml(st);
+  const kwsExamT = titleOf(st.lv.kws_exam);
+  const kwsElemT = titleOf(st.lv.kws_elem);
   (DATA.groups || [{name:"分野", keys:CAT_KEYS}]).forEach(g=>{
     html += `<h3 class="section">${esc(g.name)}</h3>`;
     g.keys.forEach(key=>{
@@ -6045,6 +6058,23 @@ function showHome(){
         </div>
       </div>`;
     });
+    // 漢字の書き取り（手書き自動判定）2つは、教員の指示（2026-09-02）で「とっくん・読解・記録」
+    // ではなく「漢字」のくくりの中に置く。データ自体（kokugo_data.jsのDATA.groups）は
+    // 変更せず、ここで「漢字」グループの通常カードの直後に差し込むだけにする
+    // （古典・表現グループへの返り点/読む順タップの差し込みと同じやり方）。
+    if(g.name === "漢字"){
+      html += `
+      <div class="card menu-card" onclick="startKanjiWriteStroke()">
+        <div class="menu-icon">✍️</div>
+        <div><h2>高校入試頻出漢字200</h2><p>高校入試頻出の漢字を、実際に手書きして自動判定しながら学習</p></div>
+        <div class="right"><span class="shogo-badge ${kwsExamT.hidden?"top":""}">${kwsExamT.icon} ${esc(kwsExamT.name)} Lv.${st.lv.kws_exam}</span></div>
+      </div>
+      <div class="card menu-card" onclick="startKanjiWriteStroke('elem')">
+        <div class="menu-icon">✏️</div>
+        <div><h2>小学生の漢字を復習する</h2><p>小学校で習う漢字1026字を、実際に手書きして自動判定しながら学年別に復習</p></div>
+        <div class="right"><span class="shogo-badge ${kwsElemT.hidden?"top":""}">${kwsElemT.icon} ${esc(kwsElemT.name)} Lv.${st.lv.kws_elem}</span></div>
+      </div>`;
+    }
     if(g.name === "古典・表現"){
       const ktT = titleOf(st.lv.kanbun_kt);
       const yjT = titleOf(st.lv.kanbun_yj);
@@ -6065,8 +6095,6 @@ function showHome(){
   });
   const weak = weakItems();
   const dt = titleOf(st.lv.dokkai);
-  const kwsExamT = titleOf(st.lv.kws_exam);
-  const kwsElemT = titleOf(st.lv.kws_elem);
   html += `<h3 class="section">とっくん・読解・記録</h3>
     <div class="card menu-card review" onclick="startReview()">
       <div class="menu-icon">🔥</div>
@@ -6077,16 +6105,6 @@ function showHome(){
       <div class="menu-icon">📚</div>
       <div><h2>読解トレーニング <span class="tag">${DOKKAI.length}題</span></h2><p>説明文・小説・随筆を読んで設問に答える</p></div>
       <div class="right"><span class="shogo-badge">${dt.icon} ${esc(dt.name)} Lv.${st.lv.dokkai}</span></div>
-    </div>
-    <div class="card menu-card" onclick="startKanjiWriteStroke()">
-      <div class="menu-icon">✍️</div>
-      <div><h2>高校入試頻出漢字200</h2><p>高校入試頻出の漢字を、実際に手書きして自動判定しながら学習</p></div>
-      <div class="right"><span class="shogo-badge ${kwsExamT.hidden?"top":""}">${kwsExamT.icon} ${esc(kwsExamT.name)} Lv.${st.lv.kws_exam}</span></div>
-    </div>
-    <div class="card menu-card" onclick="startKanjiWriteStroke('elem')">
-      <div class="menu-icon">✏️</div>
-      <div><h2>小学生の漢字を復習する</h2><p>小学校で習う漢字1026字を、実際に手書きして自動判定しながら学年別に復習</p></div>
-      <div class="right"><span class="shogo-badge ${kwsElemT.hidden?"top":""}">${kwsElemT.icon} ${esc(kwsElemT.name)} Lv.${st.lv.kws_elem}</span></div>
     </div>
     <div class="card menu-card" onclick="showHyakuninMenu()">
       <div class="menu-icon">🎴</div>
@@ -6300,7 +6318,7 @@ function showHelp(){
     <h3 class="section">✍️ 高校入試頻出漢字200</h3>
     <div class="card">
       <ul class="help-list">
-        <li>「とっくん・読解・記録」の中の「高校入試頻出漢字200」では、<b>高校入試で頻出の漢字</b>を、画面に実際に指やペンで手書きして学習できます。</li>
+        <li>「漢字」の中の「高校入試頻出漢字200」では、<b>高校入試で頻出の漢字</b>を、画面に実際に指やペンで手書きして学習できます。</li>
         <li>例文の中の<b>カタカナ・太字・下線の部分</b>をマス目に書いて「採点する」を押すと、書いたストロークを本物の字形データと突き合わせて自動で○×判定します。○の画・×の画がその場で色分け表示されます。</li>
         <li>自動採点で正誤を判定し、正解するたびに「高校入試頻出漢字200」専用のジャンルレベル・経験値が伸びます（他の分野と同じしくみ）。正解・間違いは「正解した問題／間違った問題」の一覧にその回のあいだだけ記録され（ページを閉じると消えます）、間違った問題は書き直して○になっても一覧に残ります。</li>
         <li>「1画目を表示」で最初の画の書き始めの位置だけヒントを見たり、「一覧表示」で好きな漢字を選んで練習したりもできます。</li>
@@ -6310,7 +6328,7 @@ function showHelp(){
     <h3 class="section">✏️ 小学生の漢字を復習する</h3>
     <div class="card">
       <ul class="help-list">
-        <li>「とっくん・読解・記録」の中の「小学生の漢字を復習する」では、<b>小学校で習う漢字1026字（学年別漢字配当表・小学1〜6年ぶん）</b>を、「高校入試頻出漢字200」と同じ手書き自動採点で復習できます。</li>
+        <li>「漢字」の中の「小学生の漢字を復習する」では、<b>小学校で習う漢字1026字（学年別漢字配当表・小学1〜6年ぶん）</b>を、「高校入試頻出漢字200」と同じ手書き自動採点で復習できます。</li>
         <li>画面下の<b>「小1」〜「小6」「全学年」ボタン</b>で、出題する学年をいつでも切り替えられます。特定の学年だけを集中して練習することも、全学年まぜて出題することもできます。</li>
         <li>使い方・採点のしくみは「高校入試頻出漢字200」と同じですが、専用のジャンルレベルが伸びるのは<b>「全学年」を選んでいるときだけ</b>です。特定の学年（小1〜小6）に絞って練習しているときは、正解・間違いの記録はされますが、ジャンルレベルは上がりません。</li>
       </ul>
@@ -7079,8 +7097,18 @@ function kwsSentenceFor(id){
 // 持つが、elemデータ（kanji_write_elem_data.js）には部首情報が無いため、elemでは
 // 常に空配列を返す（一覧のマスを空欄のまま、列自体を出さない扱いにする。
 // kwsShowStrokeOrderOverlay参照）。charCount文字ぶん、書く順と同じ並びで返す。
+// elem由来（kanji_write_elem_data.js）は、examと違い1字ぶんの部首情報（radical文字列）を
+// 直接持たず、chars（音訓・成り立ち等の解説オブジェクト）配列も無いかわりに、
+// idごとに"radicals"（書く文字数ぶんの部首表記の配列、examのchars[].radicalと同じ書式）を
+// 直接持つ（2026-09-02〜、教員の指示：「部首の表示を漢字の書きの問題全てに対応させる」。
+// KanjiVGのkvg:radical注記＋部首名テーブルから機械的に生成。量が多いため、まれに教科書の
+// 部首分類と食い違う可能性がある）。
 function kwsRadicalsFor(id){
-  if(id.indexOf('kwe') === 0) return []; // elem由来のidには部首情報が無い（kwsSentenceForと同じid判定）
+  if(id.indexOf('kwe') === 0){
+    const list = window.KANJI_WRITE_ELEM_DATA || [];
+    const found = list.find(it => it.id === id);
+    return (found && Array.isArray(found.radicals)) ? found.radicals : [];
+  }
   const list = (window.KANJI_WRITE_DATA && window.KANJI_WRITE_DATA.ranked) || [];
   const found = list.find(it => it.id === id);
   if(!found || !Array.isArray(found.chars)) return [];
@@ -8257,16 +8285,8 @@ function kwsShowStrokeOrderOverlay(){
   kwsCloseStrokeOrderOverlay(); // 念のため、開きっぱなしの前回ぶんが無いか先に片付ける
   const kdata = kwsData[kwsCurrentId];
 
-  // 部首（教員の指示、2026-09-02：「書くスペースの左側に、その漢字の部首も表示する」）。
-  // examだけ実データがあり、文字ごとに書く順と同じ並びで表示する。elemはデータが無いため
-  // 列自体を出さない（kwsRadicalsFor参照）。
-  const radicals = kwsRadicalsFor(kwsCurrentId);
-  const hasRadicals = radicals.some(r => r);
-  const radicalsHtml = hasRadicals
-    ? `<div class="kws-strokeOrderRadicals">${
-        Array.from({length: kdata.charCount}, (_, i) => `<div class="kws-radicalRow">${radicals[i] ? esc(radicals[i]) : ''}</div>`).join('')
-      }</div>`
-    : '';
+  // 部首は書くスペースの左（kwsRenderPerCharButtons／.kws-sideRadical）に常時表示するように
+  // なったため（教員の指示、2026-09-02）、このオーバーレイ側では重複表示しない。
 
   const overlay = document.createElement('div');
   overlay.className = 'kws-strokeOrderOverlay';
@@ -8274,7 +8294,6 @@ function kwsShowStrokeOrderOverlay(){
   overlay.innerHTML = `
     <p class="kws-strokeOrderTitle">✏️ 正しい書き順</p>
     <div class="kws-strokeOrderBody">
-      ${radicalsHtml}
       <canvas id="kwsStrokeOrderCanvas" width="${KWS_CHAR_CELL_PX}" height="${KWS_CHAR_CELL_PX * kdata.charCount}"
         style="--kws-so-charcount:${kdata.charCount};"></canvas>
     </div>
@@ -8548,25 +8567,43 @@ function kwsRenderGradeBadge(id){
 }
 
 // 文字ごとに「一画戻す」（マスの左上）と「全部消す」（マスの左下）を1組ずつ並べる
-function kwsRenderPerCharButtons(charCount){
+// 部首は「一画戻す」「全部消す」ボタンのさらに左側に表示する（教員の指示、2026-09-02：
+// 「書くスペースが移動しないで済むように」）。文字ごとに.kws-charSideColという1つの
+// 絶対配置コンテナにまとめ、その中をflexで［部首ラベル｜ボタン2つ］の横並びにすることで、
+// 部首の有無・長さにかかわらずボタン自体の位置は変わらない。部首ラベル欄は固定幅の
+// 通常横書きテキストにし（縦書きだと長い部首名で欄の幅が変わってしまうため）、部首が
+// 無い字でも欄自体は常に確保し、書くスペース（キャンバス）の位置が字によって動かないようにする。
+function kwsRenderPerCharButtons(charCount, radicals){
   const wrap = document.getElementById('kwsPerCharBtns');
   wrap.innerHTML = '';
   for(let c = 0; c < charCount; c++){
+    const col = document.createElement('div');
+    col.className = 'kws-charSideCol';
+    col.style.top = `${(c / charCount) * 100}%`;
+    col.style.height = `${100 / charCount}%`;
+
+    const radicalLabel = document.createElement('div');
+    radicalLabel.className = 'kws-sideRadical';
+    radicalLabel.textContent = (radicals && radicals[c]) ? radicals[c] : '';
+    col.appendChild(radicalLabel);
+
+    const btns = document.createElement('div');
+    btns.className = 'kws-sideBtns';
+
     const undoBtn = document.createElement('button');
     undoBtn.className = 'kws-cornerBtn';
     undoBtn.textContent = '一画戻す';
-    undoBtn.style.right = '100%';
-    undoBtn.style.top = `${(c / charCount) * 100}%`;
     undoBtn.addEventListener('click', () => kwsUndoStroke(c));
-    wrap.appendChild(undoBtn);
+    btns.appendChild(undoBtn);
 
     const resetBtn = document.createElement('button');
     resetBtn.className = 'kws-cornerBtn kws-cornerBtn--yellow';
     resetBtn.textContent = '全部消す';
-    resetBtn.style.right = '100%';
-    resetBtn.style.bottom = `${100 - ((c + 1) / charCount) * 100}%`;
     resetBtn.addEventListener('click', () => kwsResetInk(c));
-    wrap.appendChild(resetBtn);
+    btns.appendChild(resetBtn);
+
+    col.appendChild(btns);
+    wrap.appendChild(col);
   }
 }
 
@@ -8583,7 +8620,7 @@ function kwsLoadKanji(id){
   kwsStageEl.style.width = `min(90vw, ${kwsStageMaxWidthPx(kdata.charCount)}px)`;
   kwsStageEl.style.aspectRatio = `1 / ${kdata.charCount}`;
 
-  kwsRenderPerCharButtons(kdata.charCount);
+  kwsRenderPerCharButtons(kdata.charCount, kwsRadicalsFor(id));
   kwsRenderSentencePrompt(id);
   kwsRenderGradeBadge(id);
   kwsResetInk();
