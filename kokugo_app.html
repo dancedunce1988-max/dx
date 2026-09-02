@@ -3381,7 +3381,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.35</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.36</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3395,6 +3395,8 @@
 <script src="kanji_write_stroke_data.js"></script>
 <script src="kanji_write_elem_data.js"></script>
 <script src="kanji_write_elem_stroke_data.js"></script>
+<script src="kanji_write_chugaku_data.js"></script>
+<script src="kanji_write_chugaku_stroke_data.js"></script>
 <script src="hyakunin_isshu_data.js"></script>
 <script src="kotonoha_evolution_images.js"></script>
 <script>
@@ -3541,7 +3543,7 @@ const DOKKAI = DATA.dokkai || [];
    「実際に4択問題を出せるジャンル」として扱われるが、この2つは専用ミニゲームで出題形式が
    全く違うため、そこに混ぜると出題ロジックが壊れる。そのためrawKotonohaExp・
    totalCorrectCount・emptyStats・loadStatsの各所にだけ、CAT_KEYSとは別枠で個別に加算する。 */
-const EXTRA_LEVEL_CATS = ["kanbun_kt", "kanbun_yj", "kws_exam", "kws_elem"];
+const EXTRA_LEVEL_CATS = ["kanbun_kt", "kanbun_yj", "kws_exam", "kws_elem", "kws_chugaku"];
 /* 今までに正解した問題の総数（2026-07-19〜、「ことのは」カードでの表示用）。record()で
    正誤を記録している全分野（20の知識クイズ分野＋読解＋返り点をつける・読む順タップ）を合計する。
    漢字の書き取り学習系（kw/kwe）は自己採点でrecord()を呼ばず経験値にも影響しない別枠のため、
@@ -3575,7 +3577,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 47;
+const SAVE_FORMAT_VERSION = 48;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -6042,6 +6044,7 @@ function showHome(){
   html += dailyLoginProgressHtml(st);
   const kwsExamT = titleOf(st.lv.kws_exam);
   const kwsElemT = titleOf(st.lv.kws_elem);
+  const kwsChugakuT = titleOf(st.lv.kws_chugaku);
   (DATA.groups || [{name:"分野", keys:CAT_KEYS}]).forEach(g=>{
     html += `<h3 class="section">${esc(g.name)}</h3>`;
     g.keys.forEach(key=>{
@@ -6073,6 +6076,11 @@ function showHome(){
         <div class="menu-icon">✏️</div>
         <div><h2>小学生の漢字を復習する</h2><p>小学校で習う漢字1026字を、実際に手書きして自動判定しながら学年別に復習</p></div>
         <div class="right"><span class="shogo-badge ${kwsElemT.hidden?"top":""}">${kwsElemT.icon} ${esc(kwsElemT.name)} Lv.${st.lv.kws_elem}</span></div>
+      </div>
+      <div class="card menu-card" onclick="startKanjiWriteStroke('chugaku')">
+        <div class="menu-icon">📝</div>
+        <div><h2>中学校の漢字を書く練習</h2><p>小学校で習わない中学レベルの漢字を、実際に手書きして自動判定しながら重要度別に練習</p></div>
+        <div class="right"><span class="shogo-badge ${kwsChugakuT.hidden?"top":""}">${kwsChugakuT.icon} ${esc(kwsChugakuT.name)} Lv.${st.lv.kws_chugaku}</span></div>
       </div>`;
     }
     if(g.name === "古典・表現"){
@@ -6910,10 +6918,22 @@ const KWS_CONFUSION_READING_HINTS = {
   kwe1016: 'おさな', // 「幼い」（力/刀の確認クイズ対象）
 };
 
-let kwsMode = 'exam';       // 'exam'（漢字の書き学習）| 'elem'（小学生の漢字を復習する）| 'today'（今日の漢字）
+let kwsMode = 'exam';       // 'exam'（漢字の書き学習）| 'elem'（小学生の漢字を復習する）
+                             // | 'chugaku'（中学校の漢字を書く練習）| 'today'（今日の漢字）
 let kwsElemGrade = null;    // elemモードの出題学年フィルタ。null=全学年ミックス、1〜6=その学年のみ
-const kwsDataCache = { exam: null, elem: null }; // kwsEnsureData()でモードごとに1回だけ構築してキャッシュ
+let kwsChugakuLevel = null; // chugakuモードの出題レベルフィルタ。null=全レベルミックス、1〜=そのレベルのみ
+const kwsDataCache = { exam: null, elem: null, chugaku: null }; // kwsEnsureData()でモードごとに1回だけ構築してキャッシュ
 let kwsData = null;         // 現在のモードのkwsDataCache[kwsMode]を指す
+// 3箱・ジャンルレベルの記録対象になるモード一覧と、対応するst.cats/st.lvキー
+// （EXTRA_LEVEL_CATS参照）への変換。将来モードが増えたときここと EXTRA_LEVEL_CATS の
+// 2箇所だけ触れば済むようにする（2026-09-02、chugaku追加時に導入）。
+const KWS_RECORDABLE_MODES = ['exam', 'elem', 'chugaku'];
+function kwsStatCatFor(mode){
+  if(mode === 'exam') return 'kws_exam';
+  if(mode === 'elem') return 'kws_elem';
+  if(mode === 'chugaku') return 'kws_chugaku';
+  return null;
+}
 let kwsHiddenSvgEl = null;  // getTotalLength/getPointAtLength専用の非表示SVG（初回のみ生成）
 
 let kwsCanvas = null, kwsCtx = null, kwsStageEl = null; // 画面を作り直すたびに再取得する
@@ -6957,8 +6977,8 @@ let kwsLastResult = null;      // 直前の判定結果（{ aggregate, chars }�
 let kwsLastCharResults = null;
 // id -> { pass, thumb }。直近の判定結果（画面を出入りしても保持するが、保存データには含めない）。
 // examモードとelemモードで別々に集計する（同じ画面内に混ざって表示されると紛らわしいため）。
-const kwsResultLogs = { exam: {}, elem: {}, today: {} };
-const kwsWrongLogs = { exam: {}, elem: {}, today: {} };   // id -> { pass:false, thumb }。一度でも×になったら、その後○になっても上書きしない
+const kwsResultLogs = { exam: {}, elem: {}, chugaku: {}, today: {} };
+const kwsWrongLogs = { exam: {}, elem: {}, chugaku: {}, today: {} };   // id -> { pass:false, thumb }。一度でも×になったら、その後○になっても上書きしない
 let kwsResultLog = kwsResultLogs.exam;
 let kwsWrongLog = kwsWrongLogs.exam;
 
@@ -7075,7 +7095,10 @@ function kwsEnsureData(mode){
     kwsHiddenSvgEl.style.visibility = 'hidden';
     document.body.appendChild(kwsHiddenSvgEl);
   }
-  const raw = mode === 'elem' ? (window.KANJI_WRITE_ELEM_STROKE_DATA || {}) : (window.KANJI_WRITE_STROKE_DATA || {});
+  let raw;
+  if(mode === 'elem') raw = window.KANJI_WRITE_ELEM_STROKE_DATA || {};
+  else if(mode === 'chugaku') raw = window.KANJI_WRITE_CHUGAKU_STROKE_DATA || {};
+  else raw = window.KANJI_WRITE_STROKE_DATA || {};
   kwsDataCache[mode] = kwsBuildKanjiData(raw);
   kwsData = kwsDataCache[mode];
 }
@@ -7086,9 +7109,10 @@ function kwsEnsureData(mode){
 // kwsModeではなくid自身の接頭辞（elemは"kwe"始まり）で判定する。examモード・elemモードでは
 // idの接頭辞とkwsModeが常に一致するので、この判定に変えても既存の挙動は変わらない。
 function kwsSentenceFor(id){
-  const list = id.indexOf('kwe') === 0
-    ? (window.KANJI_WRITE_ELEM_DATA || [])
-    : ((window.KANJI_WRITE_DATA && window.KANJI_WRITE_DATA.ranked) || []);
+  let list;
+  if(id.indexOf('kwe') === 0) list = window.KANJI_WRITE_ELEM_DATA || [];
+  else if(id.indexOf('kwc') === 0) list = window.KANJI_WRITE_CHUGAKU_DATA || [];
+  else list = (window.KANJI_WRITE_DATA && window.KANJI_WRITE_DATA.ranked) || [];
   const found = list.find(it => it.id === id);
   return found ? found.sentence : '';
 }
@@ -7106,6 +7130,13 @@ function kwsSentenceFor(id){
 function kwsRadicalsFor(id){
   if(id.indexOf('kwe') === 0){
     const list = window.KANJI_WRITE_ELEM_DATA || [];
+    const found = list.find(it => it.id === id);
+    return (found && Array.isArray(found.radicals)) ? found.radicals : [];
+  }
+  if(id.indexOf('kwc') === 0){
+    // chugakuデータもelemと同じく部首情報を持たない想定（kanji_write_chugaku_data.jsが
+    // 将来radicalsフィールドを持つ形に拡張されれば、ここも自動的に拾う）。
+    const list = window.KANJI_WRITE_CHUGAKU_DATA || [];
     const found = list.find(it => it.id === id);
     return (found && Array.isArray(found.radicals)) ? found.radicals : [];
   }
@@ -7163,6 +7194,20 @@ function kwsElemOrderedIds(){
   if(!_kwsElemOrderedIdsCache) _kwsElemOrderedIdsCache = Object.keys(kwsDataCache.elem || {});
   return _kwsElemOrderedIdsCache;
 }
+let _kwsChugakuOrderedIdsCache = null;
+function kwsChugakuOrderedIds(){
+  if(!_kwsChugakuOrderedIdsCache) _kwsChugakuOrderedIdsCache = Object.keys(kwsDataCache.chugaku || {});
+  return _kwsChugakuOrderedIdsCache;
+}
+// 3箱系関数（kwsEnsureStateStore/kwsRecordAnswer/kwsTotalCount）が共通して使う
+// 「モード→導入順id配列」変換。ここを直せば呼び出し側は全部そのまま3モードに対応する
+// （2026-09-02、chugaku追加時に導入）。
+function kwsOrderedIdsFor(mode){
+  if(mode === 'exam') return kwsExamOrderedIds();
+  if(mode === 'elem') return kwsElemOrderedIds();
+  if(mode === 'chugaku') return kwsChugakuOrderedIds();
+  return [];
+}
 // 小学3年生までの問題数（教員の指示、2026-09-01：「初めの段階でも、小学校3年生までは
 // 全部解放している状態からスタート」）。学年4以上が混ざる手前までで区切るので、
 // データが変わって学年ごとの問題数が変わっても安全。
@@ -7184,14 +7229,18 @@ function kwsElemDefaultFrontier(){
 // 一括で導入する（教員に確認して決定：1問ずつ解禁すると440問を消化しきるのに何百問もかかり、
 // 初期解放の意味がなくなるため。実際に知らない字があっても、復習で間違えれば「間違った問題」に
 // 落ちて自然に拾われる）。
+const KWS_STATE_KEY_BY_MODE = { exam: 'kwsExamState', elem: 'kwsElemState', chugaku: 'kwsChugakuState' };
 function kwsEnsureStateStore(st, mode){
-  const key = mode === 'exam' ? 'kwsExamState' : 'kwsElemState';
-  const orderedIds = mode === 'exam' ? kwsExamOrderedIds() : kwsElemOrderedIds();
+  const key = KWS_STATE_KEY_BY_MODE[mode];
+  const orderedIds = kwsOrderedIdsFor(mode);
   if(!st[key]){
     const ids = orderedIds;
     const items = {};
     let frontier;
-    if(mode === 'exam'){
+    if(mode === 'exam' || mode === 'chugaku'){
+      // examと同じ「1問目だけ新規解放」からスタートする。chugakuはelemのような
+      // 学年の積み上げ構造を持たず、レベル（重要度ランク）は「既に習得済み」を
+      // 意味しないため、elemのプリ解禁ベースラインは使わない（教員に確認済み）。
       frontier = Math.min(1, ids.length);
       for(let i = 0; i < frontier; i++) items[ids[i]] = { box: 'new', streak: 0, c: 0, w: 0 };
     } else {
@@ -7245,8 +7294,9 @@ function kwsEnsureStateStore(st, mode){
   }
   return st[key];
 }
+const KWS_RECENT_KEY_BY_MODE = { exam: 'kwsExamRecent', elem: 'kwsElemRecent', chugaku: 'kwsChugakuRecent' };
 function kwsRecentWindowFor(st, mode){
-  const key = mode === 'exam' ? 'kwsExamRecent' : 'kwsElemRecent';
+  const key = KWS_RECENT_KEY_BY_MODE[mode];
   if(!Array.isArray(st[key])) st[key] = [];
   return st[key];
 }
@@ -7335,7 +7385,7 @@ function kwsIntroduceNextItem(store, orderedIds){
 // （解放お知らせの表示に使う）。
 function kwsRecordAnswer(st, mode, id, correct){
   const store = kwsEnsureStateStore(st, mode);
-  const orderedIds = mode === 'exam' ? kwsExamOrderedIds() : kwsElemOrderedIds();
+  const orderedIds = kwsOrderedIdsFor(mode);
   let entry = store.items[id];
   if(!entry) entry = store.items[id] = { box: 'new', streak: 0, c: 0, w: 0 }; // 保険（通常は導入済みのはず）
   if(correct) entry.c++; else entry.w++;
@@ -7388,7 +7438,7 @@ function kwsIntroducedCount(st, mode){
   return kwsEnsureStateStore(st, mode).frontier;
 }
 function kwsTotalCount(mode){
-  return (mode === 'exam' ? kwsExamOrderedIds() : kwsElemOrderedIds()).length;
+  return kwsOrderedIdsFor(mode).length;
 }
 
 // 出題プール（一覧表示・進捗算出の対象＝導入済みの問題）。elemモードでkwsElemGradeが
@@ -7402,6 +7452,8 @@ function kwsPoolIds(){
   let ids = Object.keys(kwsData);
   if(kwsMode === 'elem' && kwsElemGrade){
     ids = ids.filter(id => kwsData[id].grade === kwsElemGrade);
+  } else if(kwsMode === 'chugaku' && kwsChugakuLevel){
+    ids = ids.filter(id => kwsData[id].grade === kwsChugakuLevel);
   }
   return ids;
 }
@@ -7413,10 +7465,12 @@ function kwsSortIds(ids){
   return ids;
 }
 
-// 一覧・結果バッジの見出しラベル。examは「n位」、elemは配当学年「小n」。
+// 一覧・結果バッジの見出しラベル。examは「n位」、elemは配当学年「小n」、chugakuはレベル「Lv.n」。
 function kwsLabelFor(id){
   const kdata = kwsData[id];
-  return kwsMode === 'elem' ? `小${kdata.grade}` : `${kdata.rank}位`;
+  if(kwsMode === 'elem') return `小${kdata.grade}`;
+  if(kwsMode === 'chugaku') return `Lv.${kdata.grade}`;
+  return `${kdata.rank}位`;
 }
 
 function kwsToPixel(clientX, clientY){
@@ -7630,6 +7684,11 @@ function kwsUnlockFooterInner(){
   }
   if(kwsMode === 'elem' && !kwsElemGrade){
     return unlockFooterHtml('小学生の漢字を復習する', kwsElemUnlockedPct(loadStats()));
+  }
+  if(kwsMode === 'chugaku' && !kwsChugakuLevel){
+    // chugakuはelemのようなプリ解禁ベースラインを持たないため、examと同じ単純な
+    // 「導入数／全体」計算でよい（決定事項：kwsEnsureStateStoreのコメント参照）。
+    return unlockFooterHtml('中学校の漢字を書く練習', Math.round(kwsIntroducedCount(loadStats(), 'chugaku') / kwsTotalCount('chugaku') * 100));
   }
   return '';
 }
@@ -7887,15 +7946,15 @@ function kwsHandleRecallGiveUp(){
   kwsXpSettled = true; // 経験値の対象外（不正解と同じ扱い）
   // 'today'（今日の漢字）も、この問題をこの回もう確定させたという意味でロックする対象に含める
   // （そうしないと、答えを見たあとに書き写して正解扱いにする抜け道ができてしまう）。ただし
-  // 3箱・ジャンルレベルへの記録（kwsRecordAnswer/record）は既存どおりexam/elem限定のまま。
-  if(!kwsFinalLocked && (kwsMode === 'exam' || kwsMode === 'elem' || kwsMode === 'today')){
+  // 3箱・ジャンルレベルへの記録（kwsRecordAnswer/record）は既存どおりKWS_RECORDABLE_MODES限定のまま。
+  if(!kwsFinalLocked && (KWS_RECORDABLE_MODES.includes(kwsMode) || kwsMode === 'today')){
     kwsFinalLocked = true;
     if(kwsMode !== 'today'){
       const st = loadStats();
       kwsRecordAnswer(st, kwsMode, kwsCurrentId, false);
       saveStats(st);
       kwsUpdateUnlockFooter();
-      if(kwsGenreLevelEligibleNow()) record(kwsMode === 'exam' ? 'kws_exam' : 'kws_elem', {q: kwsCurrentId}, false, undefined, {skipRecentAcc:true});
+      if(kwsGenreLevelEligibleNow()) record(kwsStatCatFor(kwsMode), {q: kwsCurrentId}, false, undefined, {skipRecentAcc:true});
     }
   }
   document.getElementById('kwsMeasuredPanel').textContent = 'まだ何も判定していません';
@@ -7941,14 +8000,14 @@ function kwsHandleJudgeResult(kdata){
     kwsWrongLog[kwsCurrentId] = kwsResultLog[kwsCurrentId];
     kwsUpdateResultLogDisplay();
     kwsXpSettled = true; // 最終×になった問題も、これ以上やり直しても経験値は入らない
-    if(!kwsFinalLocked && (kwsMode === 'exam' || kwsMode === 'elem' || kwsMode === 'today')){
+    if(!kwsFinalLocked && (KWS_RECORDABLE_MODES.includes(kwsMode) || kwsMode === 'today')){
       kwsFinalLocked = true;
       if(kwsMode !== 'today'){
         const st = loadStats();
         kwsRecordAnswer(st, kwsMode, kwsCurrentId, false);
         saveStats(st);
         kwsUpdateUnlockFooter();
-        if(kwsGenreLevelEligibleNow()) record(kwsMode === 'exam' ? 'kws_exam' : 'kws_elem', {q: kwsCurrentId}, false, undefined, {skipRecentAcc:true});
+        if(kwsGenreLevelEligibleNow()) record(kwsStatCatFor(kwsMode), {q: kwsCurrentId}, false, undefined, {skipRecentAcc:true});
       }
     }
     kwsSetStatus(
@@ -8006,20 +8065,20 @@ function kwsFinalizeCorrectAnswer(kdata, stage){
   // 正解として確定したあとにキャンバスを消して同じ問題をもう一度解いても、3箱・ジャンル
   // レベルへの記録は1問につき1回だけにする（kwsFinalLocked。教員の指摘、2026-09-02の
   // 「思い出せない」の件と同じ理由で、正解後の解き直しでも二重加算にならないようにする）。
-  if(!kwsFinalLocked && (kwsMode === 'exam' || kwsMode === 'elem')){
+  if(!kwsFinalLocked && KWS_RECORDABLE_MODES.includes(kwsMode)){
     kwsFinalLocked = true;
     const st = loadStats();
     const introduced = kwsRecordAnswer(st, kwsMode, kwsCurrentId, true);
     saveStats(st);
     kwsUpdateUnlockFooter();
     if(introduced) kwsShowUnlockMsg();
-    // ジャンルレベル（st.lv.kws_exam／st.lv.kws_elem、2026-09-02〜）。3箱への記録とは別に、
-    // record()を通していつもの20分野・kanbun_kt/yjと同じレベル・経験値の仕組みに乗せる
-    // （教員の指示：「ジャンルレベルを搭載してください」）。ただしelemで学年を絞っている
-    // 間はレベルに影響しない（教員の指示、2026-09-02：「小学校の復習について、『全学年』で
-    // やらないと、レベルはアップしないようにしてください」。kwsGenreLevelEligibleNow参照）。
+    // ジャンルレベル（st.lv.kws_exam／st.lv.kws_elem／st.lv.kws_chugaku、2026-09-02〜）。3箱への
+    // 記録とは別に、record()を通していつもの20分野・kanbun_kt/yjと同じレベル・経験値の仕組みに
+    // 乗せる（教員の指示：「ジャンルレベルを搭載してください」）。ただしelem/chugakuで学年・
+    // レベルを絞っている間はレベルに影響しない（教員の指示、2026-09-02：「小学校の復習について、
+    // 『全学年』でやらないと、レベルはアップしないようにしてください」。kwsGenreLevelEligibleNow参照）。
     if(kwsGenreLevelEligibleNow()){
-      const kwsCat = kwsMode === 'exam' ? 'kws_exam' : 'kws_elem';
+      const kwsCat = kwsStatCatFor(kwsMode);
       const r = record(kwsCat, {q: kwsCurrentId}, true, undefined, {skipRecentAcc:true});
       if(r.lvup){
         kwsShowLevelUpFx(r.evolved
@@ -8060,14 +8119,14 @@ function kwsFinalizeIncorrectFromRadicalQuiz(){
   kwsWrongLog[kwsCurrentId] = kwsResultLog[kwsCurrentId];
   kwsUpdateResultLogDisplay();
   kwsXpSettled = true;
-  if(!kwsFinalLocked && (kwsMode === 'exam' || kwsMode === 'elem' || kwsMode === 'today')){
+  if(!kwsFinalLocked && (KWS_RECORDABLE_MODES.includes(kwsMode) || kwsMode === 'today')){
     kwsFinalLocked = true;
     if(kwsMode !== 'today'){
       const st = loadStats();
       kwsRecordAnswer(st, kwsMode, kwsCurrentId, false);
       saveStats(st);
       kwsUpdateUnlockFooter();
-      if(kwsGenreLevelEligibleNow()) record(kwsMode === 'exam' ? 'kws_exam' : 'kws_elem', {q: kwsCurrentId}, false, undefined, {skipRecentAcc:true});
+      if(kwsGenreLevelEligibleNow()) record(kwsStatCatFor(kwsMode), {q: kwsCurrentId}, false, undefined, {skipRecentAcc:true});
     }
   }
   kwsSetStatus('× 部首の確認に間違えたため、正解にはなりません', 'ng');
@@ -8130,6 +8189,7 @@ const KWS_STAGE_XP = [3, 2];
 function kwsEventXpEligibleNow(){
   if(kwsMode === 'exam') return true;
   if(kwsMode === 'elem') return kwsElemGrade === null;
+  if(kwsMode === 'chugaku') return kwsChugakuLevel === null;
   return false;
 }
 // ジャンルレベル（st.lv.kws_exam／st.lv.kws_elem）も、上のkwsEventXpEligibleNowと
@@ -8143,6 +8203,7 @@ function kwsEventXpEligibleNow(){
 function kwsGenreLevelEligibleNow(){
   if(kwsMode === 'exam') return true;
   if(kwsMode === 'elem') return kwsElemGrade === null;
+  if(kwsMode === 'chugaku') return kwsChugakuLevel === null;
   return false;
 }
 
@@ -8560,6 +8621,7 @@ function kwsRenderSentencePrompt(id){
 // 頻出漢字なので固定で「中学校」と表示する（examの元データにgrade自体が無い）。
 function kwsGradeLabelFor(id){
   if(id.indexOf('kwe') === 0) return `小学${kwsData[id].grade}年生`; // kwsSentenceForと同じid判定
+  if(id.indexOf('kwc') === 0) return `中学レベル${kwsData[id].grade}`;
   return '中学校';
 }
 function kwsRenderGradeBadge(id){
@@ -8646,7 +8708,7 @@ function kwsLoadRandomKanji(){
   // 一様ランダムに出す（従来通りの方針）。それ以外（exam常時／elemの全学年ミックス時）は
   // 3箱式の間隔反復（kwsPickNextId）で選ぶ。直前と同じ問題を避けるのはkwsPickNextId内で
   // 行う（教員の指示、2026-09-01）。
-  if(kwsMode === 'elem' && kwsElemGrade){
+  if((kwsMode === 'elem' && kwsElemGrade) || (kwsMode === 'chugaku' && kwsChugakuLevel)){
     const ids = kwsPoolIds();
     const candidates = ids.length > 1 ? ids.filter(id => id !== kwsCurrentId) : ids;
     kwsLoadKanji(candidates[Math.floor(Math.random() * candidates.length)]);
@@ -8697,19 +8759,45 @@ function kwsUpdateResultLogDisplay(){
 }
 
 // elemモード専用：画面下の学年切り替えボタン（1〜6年＋全学年ミックス）。
+// chugakuモード専用：レベル切り替えボタン（Lv.1〜＋全レベルミックス）。
 // examモードでは呼ばれない＝このボタン行自体が出ない。
 function kwsGradeSwitchHtml(){
-  if(kwsMode !== 'elem') return '';
-  const btn = (val, label) => {
-    const active = kwsElemGrade === val ? ' active' : '';
-    return `<button class="${active.trim()}" onclick="kwsSwitchElemGrade(${val === null ? 'null' : val})">${label}</button>`;
-  };
-  const grades = [1,2,3,4,5,6].map(g => btn(g, `小${g}`)).join('');
-  return `<div class="kws-gradeSwitch" id="kwsGradeSwitch">${grades}${btn(null, '全学年')}</div>`;
+  if(kwsMode === 'elem'){
+    const btn = (val, label) => {
+      const active = kwsElemGrade === val ? ' active' : '';
+      return `<button class="${active.trim()}" onclick="kwsSwitchElemGrade(${val === null ? 'null' : val})">${label}</button>`;
+    };
+    const grades = [1,2,3,4,5,6].map(g => btn(g, `小${g}`)).join('');
+    return `<div class="kws-gradeSwitch" id="kwsGradeSwitch">${grades}${btn(null, '全学年')}</div>`;
+  }
+  if(kwsMode === 'chugaku'){
+    // レベルの一覧は必ずkwsData（今読み込んでいるkanji_write_chugaku_stroke_data.jsの
+    // 実データ）から動的に導出する。レベル2・3のデータが後日追加されても、このコードは
+    // 一切変更不要でボタンが自動的に増える（教員の指示：レベル1から少しずつ増やしていく
+    // ため、空/壊れたレベル選択を絶対に露出させないこと）。
+    const levels = [...new Set(Object.values(kwsData).map(d => d.grade))].sort((a, b) => a - b);
+    // レベルが1つしか無い間はボタン自体を出さない（教員の報告、2026-09-02：「正解しても
+    // 解放されない」）。特定のレベルを選ぶと、elemの学年指定と同じく3箱の解放を無視して
+    // そのレベルの全問題に無条件アクセスする仕様（kwsLoadRandomKanji参照）だが、レベルが
+    // 1つしか無い今は「Lv.1」＝「全レベル」で中身が完全に同じになり、「Lv.1」を選んだ
+    // だけで解放の仕組みそのものが丸ごと無効になっているように見えてしまっていた。
+    // レベル2・3が増えて初めて、この絞り込みボタンに意味が生まれる。
+    if(levels.length <= 1) return '';
+    const btn = (val, label) => {
+      const active = kwsChugakuLevel === val ? ' active' : '';
+      return `<button class="${active.trim()}" onclick="kwsSwitchChugakuLevel(${val === null ? 'null' : val})">${label}</button>`;
+    };
+    const btns = levels.map(lv => btn(lv, `Lv.${lv}`)).join('');
+    return `<div class="kws-gradeSwitch" id="kwsGradeSwitch">${btns}${btn(null, '全レベル')}</div>`;
+  }
+  return '';
 }
 
 function kwsScreenHtml(){
-  const title = kwsMode === 'today' ? '🈶 今日の漢字' : (kwsMode === 'elem' ? '✏️ 小学生の漢字の書き取り練習' : '✍️ 高校入試頻出漢字200');
+  const title = kwsMode === 'today' ? '🈶 今日の漢字'
+    : kwsMode === 'elem' ? '✏️ 小学生の漢字の書き取り練習'
+    : kwsMode === 'chugaku' ? '📝 中学校の漢字を書く練習'
+    : '✍️ 高校入試頻出漢字200';
   const notes = kwsMode === 'today'
     ? `<li>大きく、丁寧に書いてください。</li>
        <li>画数が間違っているものは、×となります。画と画をつなげて書かないこと。</li>
@@ -8724,6 +8812,12 @@ function kwsScreenHtml(){
        <li>自動採点は、間違うこともあります。字の形をきちんと確認しましょう。</li>
        <li>間違えた字は、ヒント（始筆の点）→答え表示の順に、もう2回だけ書き直せます。ただし答えを表示したあとは、字が合っていても正解にはなりません。</li>
        <li>「全学年」では、小学1年生の問題から順に、正解すると新しい問題が1問ずつ解放されます。間違えた問題は「間違った問題」として、3回連続で正解するまで復習に出てきます。一覧表示には全学年の漢字が出て、正解済みの字は緑色になります。</li>`
+    : kwsMode === 'chugaku'
+    ? `<li>例文の中の<b>カタカナ・太字・下線</b>の部分を、大きく丁寧に書いてください。</li>
+       <li>画数が間違っているものは、×となります。画と画をつなげて書かないこと。</li>
+       <li>自動採点は、間違うこともあります。字の形をきちんと確認しましょう。</li>
+       <li>間違えた字は、ヒント（始筆の点）→答え表示の順に、もう2回だけ書き直せます。ただし答えを表示したあとは、字が合っていても正解にはなりません。</li>
+       <li>「全レベル」では、レベル1（ぜひ覚えたい漢字）から順に、正解すると新しい問題が1問ずつ解放されます。間違えた問題は「間違った問題」として、3回連続で正解するまで復習に出てきます。一覧表示には出題可能な漢字が出て、正解済みの字は緑色になります。</li>`
     : `<li>大きく、丁寧に書いてください。</li>
        <li>画数が間違っているものは、×となります。画と画をつなげて書かないこと。</li>
        <li>自動採点は、間違うこともあります。字の形をきちんと確認しましょう。</li>
@@ -8864,6 +8958,24 @@ function kwsSwitchElemGrade(grade){
   kwsLoadRandomKanji();
 }
 
+// chugakuモードのレベル切り替えボタン用。kwsSwitchElemGradeと同じ形だが、ボタンの並びを
+// ハードコードせず、kwsGradeSwitchHtmlと同じ導出ロジックでその場で作り直す（レベル数が
+// 将来変わっても、実際にレンダリングされたボタン数・値と食い違わないようにするため）。
+function kwsSwitchChugakuLevel(level){
+  kwsChugakuLevel = level;
+  const levels = [...new Set(Object.values(kwsData).map(d => d.grade))].sort((a, b) => a - b);
+  const vals = levels.concat([null]);
+  document.querySelectorAll('#kwsGradeSwitch button').forEach((b, i) => {
+    b.classList.toggle('active', vals[i] === level);
+  });
+  const listEl = document.getElementById('kwsKanjiSelect');
+  if(listEl && listEl.style.display !== 'none'){
+    kwsWireKanjiSelectList();
+  }
+  kwsUpdateUnlockFooter();
+  kwsLoadRandomKanji();
+}
+
 // 一覧パネルだけを学年フィルタに合わせて作り直す（kwsWireScreen内の一覧構築ロジックを共有）
 // 各漢字の正解数／不正解数を表示し、「正解済み」の箱に入っている字は緑色にする
 // （教員の指示、2026-09-02）。elemで特定の学年を選んでいるときは、その学年の全問題を
@@ -8901,6 +9013,7 @@ function kwsWireKanjiSelectList(){
 function startKanjiWriteStroke(mode){
   mode = mode || 'exam';
   if(mode === 'elem') kwsElemGrade = null;
+  if(mode === 'chugaku') kwsChugakuLevel = null;
   try {
     kwsEnsureData(mode);
     screen.innerHTML = kwsScreenHtml();
@@ -8914,14 +9027,19 @@ function startKanjiWriteStroke(mode){
     saveStats(firstSt);
     if(!firstId) throw new Error(mode === 'elem'
       ? 'KANJI_WRITE_ELEM_STROKE_DATAが読み込まれていません（kanji_write_elem_stroke_data.jsの読み込みに失敗した可能性があります）'
+      : mode === 'chugaku'
+      ? 'KANJI_WRITE_CHUGAKU_STROKE_DATAが読み込まれていません（kanji_write_chugaku_stroke_data.jsの読み込みに失敗した可能性があります）'
       : 'KANJI_WRITE_STROKE_DATAが読み込まれていません（kanji_write_stroke_data.jsの読み込みに失敗した可能性があります）');
     kwsLoadKanji(firstId);
     kwsUpdateResultLogDisplay();
     window.scrollTo(0, 0);
   } catch(err){
     console.error('漢字の書き学習（手書き判定版）の読み込みに失敗しました', err);
+    const errTitle = mode === 'elem' ? '✏️ 小学生の漢字の書き取り練習'
+      : mode === 'chugaku' ? '📝 中学校の漢字を書く練習'
+      : '✍️ 高校入試頻出漢字200';
     screen.innerHTML = `
-      <h3 class="section">${mode === 'elem' ? '✏️ 小学生の漢字の書き取り練習' : '✍️ 高校入試頻出漢字200'}</h3>
+      <h3 class="section">${errTitle}</h3>
       <p class="note">読み込み中にエラーが発生しました。ページを再読み込みしてからもう一度お試しください。</p>
       <p class="note" style="color:var(--ng)">${esc(String((err && err.message) || err))}</p>
       <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>
