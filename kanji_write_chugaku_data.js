@@ -2,7 +2,10 @@
    常用漢字表(2,136字, 文化庁)から小学校配当漢字(1,026字)を除いた1,110字を、教員が
    「中学漢字レベル分けツール.html」で「主要（ぜひ覚える）／できれば覚える／レベルが高い」の
    3段階に手動確認・分類した結果（kanji_chugaku_level_data.js参照）にもとづく全1,110字を収録。
-   grade:1=主要(368字) / grade:2=できれば(369字) / grade:3=レベルが高い(373字)。
+   grade:1=主要(371字) / grade:2=できれば(369字) / grade:3=レベルが高い(370字)。
+   2026-09-02 21:09、教員が32字のレベルを入れ替えた最新版に対応（該当字のgradeのみ更新。
+   id・kanji・sentence・radicalsは変更なし。kanji_write_chugaku_stroke_data.js側のgradeも
+   同時に更新している＝実行時のレベル判定はストロークデータ側のgradeを見るため）。
 
    出典：漢検4級/3級/準2級の級別配当(kanji.jitenon.jp)と高校入試頻出漢字データによる
    AIの初期分類を土台に、2026-09-02に教員が全1,110字を手動で確認・修正して確定
@@ -29,7 +32,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "挨",
   "kanji": "挨拶",
   "sentence": "朝、大きな声で《アイサツ》をする。",
-  "grade": 1,
+  "grade": 2,
   "radicals": [
    "手（てへん）",
    "手（てへん）"
@@ -446,7 +449,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "蓋",
   "kanji": "蓋",
   "sentence": "瓶の《フタ》を開ける。",
-  "grade": 1,
+  "grade": 3,
   "radicals": [
    "艸（くさかんむり）"
   ]
@@ -1408,7 +1411,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "拶",
   "kanji": "挨拶",
   "sentence": "近所の人に元気よく《アイサツ》する。",
-  "grade": 1,
+  "grade": 2,
   "radicals": [
    "手（てへん）",
    "手（てへん）"
@@ -1629,7 +1632,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "襲",
   "kanji": "襲う",
   "sentence": "台風が町を《オソ》った。",
-  "grade": 1,
+  "grade": 2,
   "radicals": [
    "衣（ころも）"
   ]
@@ -2848,7 +2851,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "陶",
   "kanji": "陶器",
   "sentence": "お店で《トウキ》のお皿を買った。",
-  "grade": 1,
+  "grade": 2,
   "radicals": [
    "阜（こざとへん）",
    "口（くちへん）"
@@ -2920,7 +2923,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "弐",
   "kanji": "弐",
   "sentence": "お祝いの袋に「金《ニ》万円」と書く。",
-  "grade": 1,
+  "grade": 2,
   "radicals": [
    "弋"
   ]
@@ -3577,7 +3580,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "網",
   "kanji": "網",
   "sentence": "川で魚を《アミ》ですくった。",
-  "grade": 1,
+  "grade": 2,
   "radicals": [
    "糸（いとへん）"
   ]
@@ -5402,7 +5405,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "遵",
   "kanji": "遵守",
   "sentence": "規則を《ジュンシュ》する。",
-  "grade": 2,
+  "grade": 3,
   "radicals": [
    "辵（しんにょう）",
    "宀（うかんむり）"
@@ -5413,7 +5416,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "徐",
   "kanji": "徐々に",
   "sentence": "《ジョジョ》に慣れてきた。",
-  "grade": 2,
+  "grade": 1,
   "radicals": [
    "彳（ぎょうにんべん）",
    "々"
@@ -5854,7 +5857,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "礎",
   "kanji": "基礎",
   "sentence": "算数の《キソ》を固める。",
-  "grade": 2,
+  "grade": 1,
   "radicals": [
    "土",
    "石（いしへん）"
@@ -5865,7 +5868,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "双",
   "kanji": "双子",
   "sentence": "クラスに《フタゴ》の姉妹がいる。",
-  "grade": 2,
+  "grade": 1,
   "radicals": [
    "又（また）",
    "子"
@@ -6419,7 +6422,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "凍",
   "kanji": "凍る",
   "sentence": "寒い朝、池の水が《コオ》る。",
-  "grade": 2,
+  "grade": 1,
   "radicals": [
    "冫（にすい）"
   ]
@@ -6909,7 +6912,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "癖",
   "kanji": "癖",
   "sentence": "彼には髪を触る《クセ》がある。",
-  "grade": 2,
+  "grade": 3,
   "radicals": [
    "疒（やまいだれ）"
   ]
@@ -7089,7 +7092,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "傍",
   "kanji": "傍観",
   "sentence": "けんかを《ボウカン》するだけだった。",
-  "grade": 2,
+  "grade": 3,
   "radicals": [
    "人（にんべん）",
    "見（みる）"
@@ -7207,7 +7210,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "又",
   "kanji": "又は",
   "sentence": "ペン《マタ》はえんぴつを用意する。",
-  "grade": 2,
+  "grade": 1,
   "radicals": [
    "又（また）"
   ]
@@ -7387,7 +7390,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "融",
   "kanji": "融合",
   "sentence": "和と洋の文化が《ユウゴウ》した料理を食べた。",
-  "grade": 2,
+  "grade": 3,
   "radicals": [
    "虫",
    "口"
@@ -7418,7 +7421,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "擁",
   "kanji": "擁護",
   "sentence": "動物《ヨウゴ》団体の活動に参加した。",
-  "grade": 2,
+  "grade": 3,
   "radicals": [
    "手（てへん）",
    "言（ごんべん）"
@@ -7429,7 +7432,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "謡",
   "kanji": "童謡",
   "sentence": "祖母がなつかしい《ドウヨウ》を歌ってくれた。",
-  "grade": 2,
+  "grade": 3,
   "radicals": [
    "立（にんにょう）",
    "言（ごんべん）"
@@ -7641,7 +7644,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "零",
   "kanji": "零下",
   "sentence": "今朝の気温は《レイカ》まで下がった。",
-  "grade": 2,
+  "grade": 3,
   "radicals": [
    "雨（あめかんむり）",
    "一"
@@ -7652,7 +7655,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "霊",
   "kanji": "精霊",
   "sentence": "祭りで森の《セイレイ》の話を聞いた。",
-  "grade": 2,
+  "grade": 3,
   "radicals": [
    "米（こめへん）",
    "雨（あめかんむり）"
@@ -7870,7 +7873,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "韻",
   "kanji": "韻",
   "sentence": "詩は言葉の最後で同じ音の《イン》を踏むことがある。",
-  "grade": 3,
+  "grade": 2,
   "radicals": [
    "音"
   ]
@@ -7880,7 +7883,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "唄",
   "kanji": "子守唄",
   "sentence": "母が《コモリウタ》を歌ってくれた。",
-  "grade": 3,
+  "grade": 2,
   "radicals": [
    "子",
    "宀（うかんむり）",
@@ -9328,7 +9331,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "汁",
   "kanji": "汁",
   "sentence": "温かい《シル》を一口飲んだ。",
-  "grade": 3,
+  "grade": 1,
   "radicals": [
    "水（さんずい）"
   ]
@@ -9338,7 +9341,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "充",
   "kanji": "充実",
   "sentence": "部活動での経験がとても《ジュウジツ》している。",
-  "grade": 3,
+  "grade": 1,
   "radicals": [
    "儿",
    "宀（うかんむり）"
@@ -9436,7 +9439,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "緒",
   "kanji": "情緒",
   "sentence": "この町には昔ながらの《ジョウチョ》がある。",
-  "grade": 3,
+  "grade": 1,
   "radicals": [
    "心（りっしんべん）",
    "糸（いとへん）"
@@ -9598,7 +9601,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "拭",
   "kanji": "拭く",
   "sentence": "汗をタオルで《フ》いた。",
-  "grade": 3,
+  "grade": 2,
   "radicals": [
    "手（てへん）"
   ]
@@ -10101,7 +10104,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "駄",
   "kanji": "無駄",
   "sentence": "時間を《ムダ》にしないよう計画を立てる。",
-  "grade": 3,
+  "grade": 2,
   "radicals": [
    "火（ひ）",
    "馬（うまへん）"
@@ -10252,7 +10255,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "貼",
   "kanji": "貼る",
   "sentence": "壁にポスターを《ハ》る。",
-  "grade": 3,
+  "grade": 1,
   "radicals": [
    "貝（かいへん）"
   ]
@@ -10563,7 +10566,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "瞳",
   "kanji": "瞳",
   "sentence": "彼女の《ヒトミ》はとても澄んでいる。",
-  "grade": 3,
+  "grade": 2,
   "radicals": [
    "目（めへん）"
   ]
@@ -10680,7 +10683,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "虹",
   "kanji": "虹",
   "sentence": "雨上がりに《ニジ》がかかった。",
-  "grade": 3,
+  "grade": 1,
   "radicals": [
    "虫（むしへん）"
   ]
@@ -10831,7 +10834,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "肌",
   "kanji": "肌",
   "sentence": "冬は《ハダ》が乾燥しやすい。",
-  "grade": 3,
+  "grade": 2,
   "radicals": [
    "肉（にくづき）"
   ]
@@ -11068,7 +11071,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "侮",
   "kanji": "侮辱",
   "sentence": "友達を《ブジョク》してはいけない。",
-  "grade": 3,
+  "grade": 2,
   "radicals": [
    "人（にんべん）",
    "辰"

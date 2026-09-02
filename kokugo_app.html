@@ -50,6 +50,10 @@
   .menu-card p{font-size:.78rem; color:var(--sub);}
   .menu-card .right{margin-left:auto; text-align:right; flex-shrink:0;}
   .menu-card.review{border-left:5px solid var(--accent);}
+  /* 漢字の「書き」問題（高校入試頻出漢字200／小学校で習う漢字／中学校で習う漢字）3枚だけ、
+     一目で「書き取り」だとわかるよう色をつける（教員の指示、2026-09-03）。 */
+  .menu-card.kws-card{border-left:5px solid var(--accent2); background:linear-gradient(135deg,#eaf5f2,var(--card));}
+  .menu-card.kws-card .menu-icon{background:#d9ece7;}
   /* ストーリーモードの章解放システム（2026-07-19〜）で、まだ解放されていない章のカードに使う。 */
   .menu-card.locked{cursor:default; opacity:.55;}
   /* 期間限定イベントバナー */
@@ -3385,7 +3389,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.38</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.39</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6071,19 +6075,19 @@ function showHome(){
     // （古典・表現グループへの返り点/読む順タップの差し込みと同じやり方）。
     if(g.name === "漢字"){
       html += `
-      <div class="card menu-card" onclick="startKanjiWriteStroke()">
+      <div class="card menu-card kws-card" onclick="startKanjiWriteStroke()">
         <div class="menu-icon">✍️</div>
-        <div><h2>高校入試頻出漢字200</h2><p>高校入試に出やすい漢字を書く問題</p></div>
+        <div><h2>（書き）高校入試頻出漢字200</h2><p>高校入試に出やすい漢字を書く問題</p></div>
         <div class="right"><span class="shogo-badge ${kwsExamT.hidden?"top":""}">${kwsExamT.icon} ${esc(kwsExamT.name)} Lv.${st.lv.kws_exam}</span></div>
       </div>
-      <div class="card menu-card" onclick="startKanjiWriteStroke('elem')">
+      <div class="card menu-card kws-card" onclick="startKanjiWriteStroke('elem')">
         <div class="menu-icon">✏️</div>
-        <div><h2>小学校で習う漢字</h2><p>小学校の漢字を書く問題です</p></div>
+        <div><h2>（書き）小学校で習う漢字</h2><p>小学校の漢字を書く問題です</p></div>
         <div class="right"><span class="shogo-badge ${kwsElemT.hidden?"top":""}">${kwsElemT.icon} ${esc(kwsElemT.name)} Lv.${st.lv.kws_elem}</span></div>
       </div>
-      <div class="card menu-card" onclick="startKanjiWriteStroke('chugaku')">
+      <div class="card menu-card kws-card" onclick="startKanjiWriteStroke('chugaku')">
         <div class="menu-icon">📝</div>
-        <div><h2>中学校で習う漢字</h2><p>中学校の漢字を書く問題です</p></div>
+        <div><h2>（書き）中学校で習う漢字</h2><p>中学校の漢字を書く問題です</p></div>
         <div class="right"><span class="shogo-badge ${kwsChugakuT.hidden?"top":""}">${kwsChugakuT.icon} ${esc(kwsChugakuT.name)} Lv.${st.lv.kws_chugaku}</span></div>
       </div>`;
     }
@@ -8685,7 +8689,14 @@ function kwsRenderPerCharButtons(charCount, radicals){
 
     const radicalLabel = document.createElement('div');
     radicalLabel.className = 'kws-sideRadical';
-    radicalLabel.textContent = (radicals && radicals[c]) ? radicals[c] : '';
+    const radicalText = (radicals && radicals[c]) ? radicals[c] : '';
+    // 「手（てへん）」のように読みが付く場合、幅56pxの中で任意の位置に自動折り返しさせると
+    // 「手（て」「へん）」のような変なところで割れて読みにくくなる（教員の指摘、2026-09-03）。
+    // 基準字と（読み）の間には必ず改行を入れ、それぞれのかたまりの中では折り返させない。
+    const parenIdx = radicalText.indexOf('（');
+    radicalLabel.innerHTML = parenIdx === -1
+      ? esc(radicalText)
+      : `<span>${esc(radicalText.slice(0, parenIdx))}</span><br><span>${esc(radicalText.slice(parenIdx))}</span>`;
     col.appendChild(radicalLabel);
 
     const btns = document.createElement('div');
