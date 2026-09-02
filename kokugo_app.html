@@ -288,7 +288,11 @@
   .kws-sideRadical{
     width:56px; flex-shrink:0; display:flex; align-items:center; justify-content:center; text-align:center;
     font-size:.72rem; color:var(--sub); line-height:1.25; padding:2px;
+    visibility:hidden; /* 教員の指示、2026-09-03：「書き順をチェックする」を開いている間だけ見せる。
+      幅(56px)は常に確保したままにして、表示/非表示の切り替えでcanvasの位置が動かないようにする
+      （#kwsPerCharBtns.kws-showRadicalsが付いたときだけvisibleにする）。 */
   }
+  #kwsPerCharBtns.kws-showRadicals .kws-sideRadical{ visibility:visible; }
   .kws-sideBtns{ display:flex; flex-direction:column; justify-content:space-between; }
   .kws-sideBtns .kws-cornerBtn{ position:static; }
   .kws-status{ font-size:.95rem; min-height:22px; font-weight:bold; text-align:center; }
@@ -3381,7 +3385,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.36</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.37</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -8339,6 +8343,8 @@ function kwsCloseStrokeOrderOverlay(){
   kwsStrokeOrderTimers = [];
   const el = document.getElementById('kwsStrokeOrderOverlay');
   if(el) el.remove();
+  const perCharBtns = document.getElementById('kwsPerCharBtns');
+  if(perCharBtns) perCharBtns.classList.remove('kws-showRadicals');
 }
 
 function kwsShowStrokeOrderOverlay(){
@@ -8346,8 +8352,12 @@ function kwsShowStrokeOrderOverlay(){
   kwsCloseStrokeOrderOverlay(); // 念のため、開きっぱなしの前回ぶんが無いか先に片付ける
   const kdata = kwsData[kwsCurrentId];
 
-  // 部首は書くスペースの左（kwsRenderPerCharButtons／.kws-sideRadical）に常時表示するように
-  // なったため（教員の指示、2026-09-02）、このオーバーレイ側では重複表示しない。
+  // 部首は書くスペースの左（kwsRenderPerCharButtons／.kws-sideRadical）に表示するが、
+  // 「書き順をチェックする」を開いている間だけ見せる（教員の指示、2026-09-03：
+  // 「現状はずっと出ている」への対応。以前は常時表示だったが、書き順確認時の
+  // ヒント的な位置づけに変更した）。このオーバーレイ側では重複表示しない。
+  const perCharBtns = document.getElementById('kwsPerCharBtns');
+  if(perCharBtns) perCharBtns.classList.add('kws-showRadicals');
 
   const overlay = document.createElement('div');
   overlay.className = 'kws-strokeOrderOverlay';
