@@ -3318,7 +3318,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.17</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.18</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6749,6 +6749,13 @@ let kwsStageRevealHidden = false;
 // これが無いと、判定後にキャンバスをタップして全部消し、同じ問題を何度でも解き直して
 // 経験値を稼げてしまう（従来のkwsFirstAttemptEligibleと同じ目的）。
 let kwsXpSettled = false;
+// 3箱・ジャンルレベルへの記録（kwsRecordAnswer/record()）も、経験値と同じ理由で
+// 「1問につき1回だけ」にする必要がある専用フラグ（kwsXpSettledとは対象が別。
+// 教員の指摘、2026-09-02：「思い出せないを押して不正解にしたあと、答えを見て正しく
+// 書き直すとレベルが上がってしまう」）。kwsLoadKanji()の先頭でだけfalseに戻す。
+// 「思い出せない」または答え表示後の強制×でtrueになったら、以後この問題をどう書き直しても
+// 正解として記録されない（kwsHandleJudgeResultの先頭で最優先チェックする）。
+let kwsFinalLocked = false;
 let kwsLastResult = null;      // 直前の判定結果（{ aggregate, chars }）
 let kwsLastCharResults = null;
 // id -> { pass, thumb }。直近の判定結果（画面を出入りしても保持するが、保存データには含めない）。
@@ -7580,6 +7587,9 @@ function kwsJudgeWhole(){
 // ヒント／答え表示の途中でも、まだ最終判定されていなければいつでも押せる。
 function kwsHandleRecallGiveUp(){
   if(kwsStageBusy || kwsJudged) return;
+  // この問題は既にこの回の最終結果が確定済み（正解確定後にキャンバスを消して「思い出せない」を
+  // 押した等）。今さら「間違った問題」に上書きすると表示上の記録が食い違うため、何もしない。
+  if(kwsFinalLocked) return;
   kwsJudgedPass = false;
   kwsJudged = true;
   kwsStage = 0;
@@ -7591,7 +7601,8 @@ function kwsHandleRecallGiveUp(){
   kwsWrongLog[kwsCurrentId] = kwsResultLog[kwsCurrentId];
   kwsUpdateResultLogDisplay();
   kwsXpSettled = true; // 経験値の対象外（不正解と同じ扱い）
-  if(kwsMode === 'exam' || kwsMode === 'elem'){
+  if(!kwsFinalLocked && (kwsMode === 'exam' || kwsMode === 'elem')){
+    kwsFinalLocked = true;
     const st = loadStats();
     kwsRecordAnswer(st, kwsMode, kwsCurrentId, false);
     saveStats(st);
@@ -7610,6 +7621,20 @@ function kwsHandleRecallGiveUp(){
 // ヒント／答え表示のどちらかを試していなければ、間違えた文字だけ赤く光らせてから
 // 次の段階（ヒント→答え表示）に進める。答え表示まで試してもなお×なら、そこで最終×。
 function kwsHandleJudgeResult(kdata){
+  // この問題は既にこの回の最終結果（正解／不正解のどちらか）が3箱・ジャンルレベルに
+  // 記録済み（kwsFinalLocked：「思い出せない」／答え表示後の強制×／通常の正解確定、
+  // いずれかで一度セットされる）。それ以降にキャンバスを消して書き直しても、記録は
+  // 二重に増やさない（教員の指摘、2026-09-02：「思い出せないを押して答えを見た後で
+  // 正しい答えを書くと、レベルが上がってしまう」）。字形の評価自体はkwsRenderResult()が
+  // 既に正しく表示済みなので、ここでは記録をしない旨だけ上書きし、○×の見た目は変えない
+  // （stage>=2の強制×はkwsStageを0に戻すため、kwsStageだけで判定すると書き直し後に
+  // すり抜けてしまう。kwsFinalLockedは問題を読み込み直すまで保持される）。
+  if(kwsFinalLocked){
+    kwsSetStatus('この問題はこの回すでに記録済みです（書き直しは練習用で、記録は変わりません）', kwsJudgedPass ? 'ok' : 'ng');
+    kwsRender();
+    return;
+  }
+
   const wrongChars = [];
   kwsLastResult.chars.forEach((r, i) => { if(!r.passCore) wrongChars.push(i); });
   const stage = kwsStage;
@@ -7626,7 +7651,8 @@ function kwsHandleJudgeResult(kdata){
     kwsWrongLog[kwsCurrentId] = kwsResultLog[kwsCurrentId];
     kwsUpdateResultLogDisplay();
     kwsXpSettled = true; // 最終×になった問題も、これ以上やり直しても経験値は入らない
-    if(kwsMode === 'exam' || kwsMode === 'elem'){
+    if(!kwsFinalLocked && (kwsMode === 'exam' || kwsMode === 'elem')){
+      kwsFinalLocked = true;
       const st = loadStats();
       kwsRecordAnswer(st, kwsMode, kwsCurrentId, false);
       saveStats(st);
@@ -7672,7 +7698,11 @@ function kwsFinalizeCorrectAnswer(kdata, stage){
   kwsResultLog[kwsCurrentId] = { pass: true, thumb: kwsCanvas.toDataURL('image/png') };
   kwsUpdateResultLogDisplay();
   kwsAwardStageXp(stage);
-  if(kwsMode === 'exam' || kwsMode === 'elem'){
+  // 正解として確定したあとにキャンバスを消して同じ問題をもう一度解いても、3箱・ジャンル
+  // レベルへの記録は1問につき1回だけにする（kwsFinalLocked。教員の指摘、2026-09-02の
+  // 「思い出せない」の件と同じ理由で、正解後の解き直しでも二重加算にならないようにする）。
+  if(!kwsFinalLocked && (kwsMode === 'exam' || kwsMode === 'elem')){
+    kwsFinalLocked = true;
     const st = loadStats();
     const introduced = kwsRecordAnswer(st, kwsMode, kwsCurrentId, true);
     saveStats(st);
@@ -7698,7 +7728,8 @@ function kwsFinalizeIncorrectFromRadicalQuiz(){
   kwsWrongLog[kwsCurrentId] = kwsResultLog[kwsCurrentId];
   kwsUpdateResultLogDisplay();
   kwsXpSettled = true;
-  if(kwsMode === 'exam' || kwsMode === 'elem'){
+  if(!kwsFinalLocked && (kwsMode === 'exam' || kwsMode === 'elem')){
+    kwsFinalLocked = true;
     const st = loadStats();
     kwsRecordAnswer(st, kwsMode, kwsCurrentId, false);
     saveStats(st);
@@ -8077,6 +8108,7 @@ function kwsRenderPerCharButtons(charCount){
 function kwsLoadKanji(id){
   kwsCurrentId = id;
   kwsXpSettled = false; // 新しい問題として仕切り直す
+  kwsFinalLocked = false;
   const kdata = kwsData[id];
 
   kwsCanvas.width = KWS_CHAR_CELL_PX;
