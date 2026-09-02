@@ -3370,7 +3370,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.33</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.34</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -5732,10 +5732,10 @@ function kotonohaCardHtml(st){
         ${finisherLockedNote}
         ${rebirthMoveHtml}
         ${statusTable}
-        <div class="btn-row" style="margin-top:8px">
+        <div class="btn-row" style="margin-top:8px; align-items:center">
           <button class="btn inline secondary" onclick="showStatusAllocation()">💪 ステータス調整</button>
-          <span class="shogo-badge">🈶 ストック経験値：${st.stockXp||0}</span>
           ${(st.stockXp||0) > 0 ? `<button class="btn inline secondary" onclick="showStockXpConvert()">経験値に変える</button>` : ""}
+          <span class="shogo-badge" style="background:var(--ok)">🈶 ストック経験値：${st.stockXp||0}</span>
         </div>
       </div>
     </div>
@@ -8088,9 +8088,7 @@ function kwsClearCharInk(charIndex){
 function kwsSetStageBusy(busy){
   kwsStageBusy = busy;
   const judgeBtn = document.getElementById('kwsBtnJudge');
-  const randomBtn = document.getElementById('kwsBtnRandom');
   if(judgeBtn) judgeBtn.disabled = busy;
-  if(randomBtn) randomBtn.disabled = busy;
 }
 
 const KWS_XP_EVENT_ID = '2026_09_kanjiwrite_beta';
@@ -8705,7 +8703,6 @@ function kwsScreenHtml(){
           <div class="kws-stage" id="kwsStage">
             <canvas id="kwsCanvas" width="520" height="520"></canvas>
             <div id="kwsPerCharBtns"></div>
-            ${kwsMode === 'today' ? '' : '<button id="kwsBtnRandom" class="kws-cornerBtn kws-cornerBtn--next">次の問題</button>'}
             <button id="kwsBtnJudge" class="kws-cornerBtn kws-cornerBtn--judge primary">採点する</button>
             <button id="kwsBtnRecall" class="kws-cornerBtn kws-cornerBtn--recall">思い出せない</button>
           </div>
@@ -8806,11 +8803,6 @@ function kwsWireScreen(){
   // 「今日の漢字」（kwsMode==='today'）には一覧表示ボタン自体が無い（kwsScreenHtml参照）
   const kwsShowListBtn = document.getElementById('kwsBtnShowList');
   if(kwsShowListBtn) kwsShowListBtn.addEventListener('click', kwsToggleKanjiList);
-  // 「今日の漢字」には「次の問題」ボタン自体が無い（教員の指示、2026-09-02：わからない漢字を
-  // 試しもせずに次々飛ばせてしまうため）。採点後に「次の問題へ」に変わるkwsBtnJudge側の
-  // 導線（kwsHandleJudgeButtonClick）だけが、今日の漢字での次の問題への進み方になる。
-  const kwsRandomBtn = document.getElementById('kwsBtnRandom');
-  if(kwsRandomBtn) kwsRandomBtn.addEventListener('click', kwsLoadRandomKanji);
   document.getElementById('kwsBtnRecall').addEventListener('click', kwsHandleRecallGiveUp);
 
   kwsSyncCustomInputsToState();
