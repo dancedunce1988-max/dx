@@ -3596,12 +3596,51 @@
   text-shadow:0 0 18px rgba(124,255,178,.85), 0 2px 8px rgba(0,0,0,.85);
   animation:kbPunch .5s cubic-bezier(.2,1.6,.4,1) .1s both;
 }
+/* 敵の特殊能力を、発動前から告知しておく（戦闘開始演出・行動選択画面の両方）。教員の指示、
+   2026-09-04：「特殊能力がどう発動しているのか分からない」への対応。 */
+.mb-intro-ability{
+  font-size:.85rem; color:#ffd76a; margin-top:8px; text-align:center; max-width:280px;
+  animation:mbIntroPop .6s cubic-bezier(.2,1.6,.4,1) .38s both;
+}
+.mb-enemy-ability-badge{
+  text-align:center; font-size:.72rem; color:#ffd76a; margin:0 0 8px; line-height:1.4;
+}
+/* 通常攻撃・攻撃魔法が鉄甲兵の防御力で軽減されたときの一言（mbDefenseNote）用の強調色。 */
+.mb-ability-note{ color:#8ab4ff; font-weight:bold; }
+/* mbTriggerImpactのkind別の演出色。hit(金)/hurt(赤)は既存のkb-hit/kb-hurtを流用し、
+   mpdrain(紫＝闇の魔導士のMP吸収)・enemyheal(水色＝敵の自己回復。プレイヤーが被弾した
+   わけではないので赤にしない)・miss(灰＝攻撃を外させた)を新設して見分けられるようにする。 */
+.kb-atk-overlay.mb-ov-mpdrain{ background:radial-gradient(circle at 50% 50%, rgba(170,90,255,.42) 0%, rgba(0,0,0,0) 68%); }
+.kb-atk-title.mb-ov-mpdrain{ color:#c9a3ff; }
+.kb-atk-dmg.mb-ov-mpdrain{ color:#c9a3ff; }
+.kb-atk-overlay.mb-ov-enemyheal{ background:radial-gradient(circle at 50% 50%, rgba(90,230,210,.42) 0%, rgba(0,0,0,0) 68%); }
+.kb-atk-title.mb-ov-enemyheal{ color:#7CFFE0; }
+.kb-atk-overlay.mb-ov-miss{ background:radial-gradient(circle at 50% 50%, rgba(200,200,200,.28) 0%, rgba(0,0,0,0) 68%); }
+.kb-atk-title.mb-ov-miss{ color:#d8d8e0; }
+@keyframes mbPulsePurple{
+  0%{ box-shadow:0 0 30px rgba(140,90,255,.25); }
+  25%{ box-shadow:0 0 90px rgba(170,90,255,1); background-color:rgba(170,90,255,.14); }
+  100%{ box-shadow:0 0 30px rgba(140,90,255,.25); }
+}
+.mb-impact-mpdrain{ animation:mbPulsePurple .6s ease; }
+@keyframes mbPulseTeal{
+  0%{ box-shadow:0 0 30px rgba(140,90,255,.25); }
+  25%{ box-shadow:0 0 90px rgba(90,230,210,1); background-color:rgba(90,230,210,.14); }
+  100%{ box-shadow:0 0 30px rgba(140,90,255,.25); }
+}
+.mb-impact-enemyheal{ animation:mbPulseTeal .6s ease; }
+@keyframes mbPulseGrey{
+  0%{ box-shadow:0 0 30px rgba(140,90,255,.25); }
+  25%{ box-shadow:0 0 60px rgba(200,200,200,.7); background-color:rgba(200,200,200,.1); }
+  100%{ box-shadow:0 0 30px rgba(140,90,255,.25); }
+}
+.mb-impact-miss{ animation:mbPulseGrey .6s ease; }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.52</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.53</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -24349,14 +24388,18 @@ const MB_STATUS = {
 // 敵ごとに戦い方が変わるようにする（教員の指示、17〜18項）。dmgTakenMult＝防御力が高く
 // プレイヤーの攻撃魔法が通りにくい、mpDrain＝攻撃の代わりにMPを吸い取ってくる、
 // selfHeal＝攻撃の代わりに自らを回復することがある。
+// abilityLabel：戦闘開始演出と行動選択画面に常時表示する、特殊能力の事前告知（教員の指示、
+// 2026-09-04：「特殊能力がどう発動しているのか分からない」への対応。発動前から「この敵は
+// こういう能力を持っている」と分かるようにしておくことで、実際に発動した瞬間の演出の意味が
+// 伝わるようにする）。
 const MB_ENEMIES = [
   { id:'me01', name:'炎狼',       icon:'🐺', hp:280, atkMin:16, atkMax:24, taunt:null },
   { id:'me02', name:'鉄甲兵',     icon:'🛡️', hp:450, atkMin:14, atkMax:20, dmgTakenMult:0.7,
-    taunt:'その一撃、我が鎧には効かぬ' },
+    abilityLabel:'🛡️ 装甲が硬く、受けるダメージが常に軽減される', taunt:'その一撃、我が鎧には効かぬ' },
   { id:'me03', name:'闇の魔導士', icon:'🧙', hp:380, atkMin:12, atkMax:18, mpDrain:{chance:0.4, min:10, max:20},
-    taunt:'その力、いただこう' },
+    abilityLabel:'🔮 まれに攻撃の代わりにMPを吸い取ってくる', taunt:'その力、いただこう' },
   { id:'me04', name:'言霊の番人', icon:'👑', hp:650, atkMin:20, atkMax:30, selfHeal:{chance:0.35, min:30, max:60},
-    taunt:'まだまだ終わらぬ' },
+    abilityLabel:'✨ まれに攻撃の代わりに自らのHPを回復する', taunt:'まだまだ終わらぬ' },
 ];
 
 const MB_PLAYER_MAX_HP = 150;
@@ -24485,6 +24528,7 @@ function mbShowBattleIntro(){
       <div class="mb-intro-vs">VS</div>
       <div class="mb-intro-icon">${enemyDef.icon}</div>
       <div class="mb-intro-name">${esc(enemyDef.name)}</div>
+      ${enemyDef.abilityLabel ? `<div class="mb-intro-ability">${esc(enemyDef.abilityLabel)}</div>` : ''}
       <div class="mb-intro-title">戦闘開始！</div>
     </div>`;
   setTimeout(() => {
@@ -24550,6 +24594,7 @@ function mbRenderBattleScreen(opts){
           <div class="kb-side-boss-icon" id="mbEnemyIcon" style="font-size:3.4rem;">${enemyDef.icon}</div>
           <div class="kb-side-boss-name">${esc(enemyDef.name)}</div>
         </div>
+        ${enemyDef.abilityLabel ? `<p class="mb-enemy-ability-badge">${esc(enemyDef.abilityLabel)}</p>` : ''}
         <div id="mbStatusRow">${mbStatusBadgesHtml()}</div>
         <div id="mbTurnMsg" class="boss-turn">${opts.msg || ''}</div>
         ${actionsHtml}
@@ -24939,11 +24984,22 @@ function mbComputeAttackDamage(basePower, isCrit){
   dmg = Math.max(1, dmg + mbRand(-5, 5));
   return dmg;
 }
+// 鉄甲兵のdmgTakenMultは常時有効な受動特性（ランダム発動ではない）ので、攻撃を当てるたびに
+// 「軽減されている」ことが伝わるよう、ダメージ表示に毎回この一言を添える（教員の指示、
+// 2026-09-04：「特殊能力がどう発動しているのか分からない」への対応）。プレーンテキストのみ
+// （HTMLタグを含めない）：mbTriggerImpactのsubTextとしてそのままesc()されても崩れないようにするため。
+function mbDefenseNote(){
+  return mbBattle.enemyDef.dmgTakenMult ? '　🛡️硬い装甲でダメージ軽減！' : '';
+}
+// msgとして表示する側（HTMLとして描画される）だけは、色付きで目立たせる。
+function mbDefenseNoteHtml(){
+  return mbBattle.enemyDef.dmgTakenMult ? '<br><span class="mb-ability-note">🛡️ 硬い装甲でダメージが軽減された！</span>' : '';
+}
 function mbApplySpellEffect(category, spell, critWon){
   if(category === 'attack'){
     const dmg = mbComputeAttackDamage(spell.power, !!critWon);
     mbBattle.enemyHp = Math.max(0, mbBattle.enemyHp - dmg);
-    return `${esc(mbBattle.enemyDef.name)}に${dmg}のダメージ！${critWon ? '（会心の一撃！）' : ''}`;
+    return `${esc(mbBattle.enemyDef.name)}に${dmg}のダメージ！${critWon ? '（会心の一撃！）' : ''}${mbDefenseNote()}`;
   }
   if(category === 'heal'){
     let heal = spell.power;
@@ -24961,24 +25017,35 @@ function mbApplySpellEffect(category, spell, critWon){
   return `${esc(mbBattle.enemyDef.name)}に${esc(MB_STATUS[spell.effect].label)}をかけた！`;
 }
 
+// kind別に色・タイトル色を変え、どの種類の出来事か一目で区別できるようにする（教員の指示、
+// 2026-09-04：「特殊能力がどう発動しているのか分からない」への対応）。hit＝プレイヤーの攻撃命中
+// （金）、hurt＝敵の通常攻撃（赤）、mpdrain＝MP吸収（紫）、enemyheal＝敵の自己回復（水色、
+// プレイヤーがダメージを受けたわけではないので赤にはしない）、miss＝敵の攻撃を外させた（灰）。
+const MB_IMPACT_STYLES = {
+  hit:       { cls:'kb-hit',        pulse:'kb-impact-hit' },
+  hurt:      { cls:'kb-hurt',       pulse:'kb-impact-hurt' },
+  mpdrain:   { cls:'mb-ov-mpdrain', pulse:'mb-impact-mpdrain' },
+  enemyheal: { cls:'mb-ov-enemyheal', pulse:'mb-impact-enemyheal' },
+  miss:      { cls:'mb-ov-miss',    pulse:'mb-impact-miss' },
+};
 // xpGainedを渡すと、獲得したストック経験値も大きく表示する（教員の指示、2026-09-04：
 // 「獲得したときにプレイヤーが気付くように、明確に表示」。「漢字マスターの道」の
 // kbShowAttackOverlayと同じkb-atk-xpスタイルを流用する）。
 function mbTriggerImpact(kind, title, subText, xpGained){
+  const style = MB_IMPACT_STYLES[kind] || MB_IMPACT_STYLES.hurt;
   const screenEl = document.getElementById('mbScreen');
   if(screenEl){
-    screenEl.classList.remove('kb-impact-hit', 'kb-impact-hurt');
+    Object.values(MB_IMPACT_STYLES).forEach(s => screenEl.classList.remove(s.pulse));
     void screenEl.offsetWidth;
-    screenEl.classList.add(kind === 'hit' ? 'kb-impact-hit' : 'kb-impact-hurt');
+    screenEl.classList.add(style.pulse);
   }
   const old = document.getElementById('mbAtkOverlay');
   if(old) old.remove();
-  const cls = kind === 'hit' ? 'kb-hit' : 'kb-hurt';
   const el = document.createElement('div');
   el.id = 'mbAtkOverlay';
-  el.className = 'kb-atk-overlay ' + cls;
+  el.className = 'kb-atk-overlay ' + style.cls;
   el.innerHTML = `
-    <div class="kb-atk-title ${cls}">${esc(title)}</div>
+    <div class="kb-atk-title ${style.cls}">${esc(title)}</div>
     ${subText ? `<div class="kb-atk-sub">${esc(subText)}</div>` : ''}
     ${xpGained ? `<div class="kb-atk-xp">＋${xpGained} ストック経験値</div>` : ''}`;
   document.body.appendChild(el);
@@ -25003,10 +25070,10 @@ function mbChallengeSuccess(){
   saveStats(st);
   const dmg = mbComputeAttackDamage(MB_NORMAL_ATTACK_POWER, false);
   mbBattle.enemyHp = Math.max(0, mbBattle.enemyHp - dmg);
-  const msg = `○ 正解！ 漢字の力が魔力に変わった！ ＋${diff.mp} MP　<span class="kb-xp-inline">＋${xpGained} ストック経験値</span><br>通常攻撃！ ${esc(mbBattle.enemyDef.name)}に${dmg}のダメージ！`;
+  const msg = `○ 正解！ 漢字の力が魔力に変わった！ ＋${diff.mp} MP　<span class="kb-xp-inline">＋${xpGained} ストック経験値</span><br>通常攻撃！ ${esc(mbBattle.enemyDef.name)}に${dmg}のダメージ！${mbDefenseNoteHtml()}`;
   const enemyDefeated = mbBattle.enemyHp <= 0;
   mbRenderBattleScreen({ msg });
-  mbTriggerImpact('hit', '🗡️ 通常攻撃！', `${esc(mbBattle.enemyDef.name)}に${dmg}のダメージ！ ＋${diff.mp} MP`, xpGained);
+  mbTriggerImpact('hit', '🗡️ 通常攻撃！', `${esc(mbBattle.enemyDef.name)}に${dmg}のダメージ！ ＋${diff.mp} MP${mbDefenseNote()}`, xpGained);
 
   if(enemyDefeated){
     setTimeout(() => mbEnemyDefeated(), 900);
@@ -25033,17 +25100,23 @@ function mbChallengeFail(){
 function mbEnemyTurn(){
   if(!mbBattle) return;
   const enemyDef = mbBattle.enemyDef;
-  let msg;
+  let msg, impactKind, impactTitle;
   if(enemyDef.mpDrain && mbRun.playerMp > 0 && Math.random() < enemyDef.mpDrain.chance){
     const drain = Math.min(mbRun.playerMp, mbRand(enemyDef.mpDrain.min, enemyDef.mpDrain.max));
     mbRun.playerMp -= drain;
-    msg = `${esc(enemyDef.name)}があなたのMPを${drain}吸い取った！`;
+    msg = `🔮 特殊能力発動！ ${esc(enemyDef.name)}があなたのMPを${drain}吸い取った！`;
+    impactKind = 'mpdrain';
+    impactTitle = `🔮 MPを${drain}吸われた！`;
   } else if(enemyDef.selfHeal && mbBattle.enemyHp < mbBattle.enemyMaxHp && Math.random() < enemyDef.selfHeal.chance){
     const heal = mbRand(enemyDef.selfHeal.min, enemyDef.selfHeal.max);
     mbBattle.enemyHp = Math.min(mbBattle.enemyMaxHp, mbBattle.enemyHp + heal);
-    msg = `${esc(enemyDef.name)}のHPが${heal}回復した！`;
+    msg = `✨ 特殊能力発動！ ${esc(enemyDef.name)}が自らのHPを${heal}回復した！`;
+    impactKind = 'enemyheal';
+    impactTitle = `✨ ${enemyDef.name}が回復！`;
   } else if(mbBattle.debuffs.enemyBlind > 0 && Math.random() < MB_STATUS.enemyBlind.enemyMissChance){
-    msg = `${esc(enemyDef.name)}の攻撃は外れた！`;
+    msg = `${esc(enemyDef.name)}の攻撃は外れた！（「昏の字」の効果）`;
+    impactKind = 'miss';
+    impactTitle = '😵 攻撃を外させた！';
   } else {
     let dmg = mbRand(enemyDef.atkMin, enemyDef.atkMax);
     if(mbBattle.debuffs.enemySlow > 0) dmg = Math.round(dmg * MB_STATUS.enemySlow.enemyDmgMult);
@@ -25051,13 +25124,15 @@ function mbEnemyTurn(){
     dmg = Math.max(0, dmg);
     mbRun.playerHp = Math.max(0, mbRun.playerHp - dmg);
     msg = `${esc(enemyDef.name)}の攻撃！ あなたに${dmg}のダメージ！`;
+    impactKind = 'hurt';
+    impactTitle = `💥 ${enemyDef.name}の攻撃！`;
   }
   if(enemyDef.taunt && Math.random() < 0.3) msg += `<br>「${esc(enemyDef.taunt)}」`;
   mbDecayStatuses();
 
   const playerDown = mbRun.playerHp <= 0;
   mbRenderBattleScreen({ msg });
-  mbTriggerImpact('hurt', `💥 ${enemyDef.name}のターン`, msg.replace(/<br>.*$/,''));
+  mbTriggerImpact(impactKind, impactTitle, msg.replace(/<br>.*$/,''));
 
   if(playerDown){
     setTimeout(() => mbGameOver(), 900);
