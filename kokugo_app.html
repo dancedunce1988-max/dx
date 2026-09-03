@@ -3388,11 +3388,17 @@
 /* 「漢字マスターの道」（漢字の書きミニゲーム、2026-09-03〜）。既存のボス戦(.boss-battle-screen等)
    と同じ雰囲気のCSSクラスを再利用しつつ、専用パーツ(kb-*)だけ追加する。 */
 .kb-hero-icon{ font-size:4.2rem; text-align:center; margin-bottom:6px; filter:drop-shadow(0 6px 14px rgba(0,0,0,.45)); }
-/* 書くスペースをできるだけ大きく取るため（教員の指示、2026-09-03：「二文字のとき表示が
-   小さくて書きにくい」）、戦闘中の見出しはボス画像を小さくインラインで名前と並べるだけにし、
-   ボスのHPバーは下の「採点する」「書き直す」の横に移してスペースを確保する。 */
-.kb-header-row{ display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:10px; }
-.kb-hero-icon-sm{ font-size:2.1rem; filter:drop-shadow(0 4px 8px rgba(0,0,0,.45)); }
+/* ボス画像は画面上部ではなく、書くスペースの左側に配置し、名前をその下に添える
+   （教員の指示、2026-09-03：「画面の上ではなく、漢字を書くスペースの左側に、ボスの画像を
+   表示する」「ボスの画像の下に、ボスの名前を表示してください」）。 */
+.kb-battle-row{ display:flex; align-items:flex-start; gap:10px; }
+.kb-side-boss{ flex:0 0 auto; width:78px; text-align:center; padding-top:4px; }
+.kb-side-boss-icon{ font-size:2.4rem; filter:drop-shadow(0 4px 8px rgba(0,0,0,.45)); }
+.kb-side-boss-name{ font-size:.68rem; font-weight:bold; margin-top:4px; line-height:1.3; color:#f0e6ff; }
+/* 問題文は書くスペースの列に対して中央ぞろえ（教員の指示：「問題の表示は、漢字を書く
+   スペースに対して中央ぞろえにして」）。 */
+.kb-write-col{ flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; }
+.kb-write-col .boss-q-text{ text-align:center; width:100%; }
 .kb-action-row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:12px; }
 .kb-btns{ display:flex; gap:8px; flex-shrink:0; }
 /* ボスHPバーは問題文の上（kb-hp-top）、制限時間バーはボタンの横（kb-inline-timer）に配置
@@ -3406,9 +3412,6 @@
    括弧全体の色を書いている文字に合わせて切り替える（1文字目＝青、2文字目＝オレンジ）。 */
 .kws-blank.kb-blank-c0{ color:#8ab4ff; text-decoration:underline; text-decoration-color:#8ab4ff; text-underline-offset:3px; }
 .kws-blank.kb-blank-c1{ color:#ffbb86; text-decoration:underline; text-decoration-color:#ffbb86; text-underline-offset:3px; }
-.kb-char-badge{ display:inline-block; font-weight:bold; font-size:.85rem; padding:3px 12px; border-radius:99px; }
-.kb-char-badge.kb-blank-c0{ background:rgba(59,130,246,.18); color:#8ab4ff; }
-.kb-char-badge.kb-blank-c1{ background:rgba(255,138,61,.18); color:#ffbb86; }
 /* 攻撃時に獲得したストック経験値をはっきり見せる（教員の指示、2026-09-03）。 */
 .kb-atk-xp{
   margin-top:2px; font-size:1.15rem; font-weight:900; color:#7CFFB2;
@@ -3484,7 +3487,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.47</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.48</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -23518,8 +23521,8 @@ let kbCompletedStrokes = [];
 let kbCurrentPath = [];
 let kbDrawing = false;
 let kbTimerHandle = null;
+let kbJudged = false; // 今の1文字を採点済みか（採点直後は正しい字形を裏に表示する。kbDrawTargetReveal参照）
 const KB_STAGE_PX = 380; // 常に1文字ずつ、できるだけ大きく表示する（教員の指示、2026-09-03）
-const KB_CIRCLED = ['①', '②', '③', '④', '⑤'];
 
 // ホーム直下ではなく「🎮 ミニゲーム」一覧(showSideQuestMenu)の中に置く（教員の指示、2026-09-03）。
 function kanjiBossSideQuestButtonHtml(){
@@ -23653,25 +23656,28 @@ function kbRefreshHpBars(){
   if(playerEl) playerEl.innerHTML = kbHpBarInnerHtml('あなた', kanjiBoss.playerHp, kanjiBoss.playerMaxHp, 'player-hpbar');
 }
 
-// 書くスペースを最大限確保するため（教員の指示、2026-09-03）、ボス画像は名前の横に小さく
-// 表示するだけにとどめる（ボス画像自体は引き続き必ず表示する）。ボスのHPバーと制限時間バーは
-// 「採点する」「書き直す」の横（kb-action-row）とその上とで位置を入れ替え、ボスHPバーを
-// 問題文の上に、制限時間バーをボタンの横に配置する（教員の指示、2026-09-03）。
+// ボス画像は画面上部ではなく、漢字を書くスペースの左側に表示する（教員の指示、2026-09-03）。
+// 名前は画像の下に添える。問題文は書くスペースの列に対して中央ぞろえ（教員の指示：
+// 「問題の表示は、漢字を書くスペースに対して中央ぞろえにして」）。ボスのHPバーと制限時間
+// バーは、ボスHPバーを問題文の上に、制限時間バーをボタンの横に配置する（先の指示のまま）。
 function kbRenderScreen(){
   const bossDef = kanjiBoss.bossDef;
   screen.innerHTML = `
     <div class="boss-battle-screen" id="kbScreen">
       <p style="text-align:center; color:#9a8ec2; font-size:.8rem; margin:0 0 4px;">${kanjiBoss.bossIndex + 1}体目 / 全${KANJI_BOSS_LIST.length}体</p>
-      <div class="kb-header-row">
-        <div class="kb-hero-icon-sm" id="kbHeroIcon">${bossDef.icon}</div>
-        <div class="boss-name" style="margin-bottom:0;">${esc(bossDef.name)}</div>
-      </div>
       <div class="boss-q-card">
         <div class="boss-hp-row kb-hp-top" id="kbBossHpRow">${kbHpBarInnerHtml(bossDef.name, kanjiBoss.bossHp, kanjiBoss.bossMaxHp, 'boss-hpbar')}</div>
-        <div class="boss-q-text" id="kbSentencePrompt"></div>
-        <div id="kbCharBadge" style="text-align:center; margin-bottom:8px;"></div>
-        <div class="kws-stage" id="kbStage">
-          <canvas id="kbCanvas"></canvas>
+        <div class="kb-battle-row">
+          <div class="kb-side-boss">
+            <div class="kb-side-boss-icon" id="kbHeroIcon">${bossDef.icon}</div>
+            <div class="kb-side-boss-name">${esc(bossDef.name)}</div>
+          </div>
+          <div class="kb-write-col">
+            <div class="boss-q-text" id="kbSentencePrompt"></div>
+            <div class="kws-stage" id="kbStage">
+              <canvas id="kbCanvas"></canvas>
+            </div>
+          </div>
         </div>
         <div class="kb-action-row">
           <div class="kb-btns">
@@ -23699,6 +23705,7 @@ function kbWireScreen(){
   kbCanvas.addEventListener('pointerdown', e => {
     e.preventDefault();
     if(!kanjiBoss || kanjiBoss.turnBusy) return;
+    if(kbJudged) kbResetInk(); // 判定済みのまま書き始めたら、消してから新しく書く（他のkws画面と同じ挙動）
     kbCanvas.setPointerCapture(e.pointerId);
     kbDrawing = true;
     kbCurrentPath = [kbToPixel(e.clientX, e.clientY)];
@@ -23731,6 +23738,27 @@ function kbToPixel(clientX, clientY){
   };
 }
 
+// 採点した直後、正しい字形を薄く裏に表示する（教員の指示、2026-09-03：「○つけのタイミングで、
+// 後ろに正しい文字を表示するのは、他の『漢字の書き』同様採用してください」）。既存のkws画面の
+// kwsDrawTargetRevealと同じ考え方だが、今の1文字だけを対象にする。対象の字形データ
+// (kdata.strokes)は単語全体を縦に積んだ座標系（このマスの文字はy:charIndex*CELL〜(charIndex+1)*CELL）
+// で作られているため、その分だけcontextを上にずらしてから描くと、常に0〜CELLの今のマスに
+// ぴったり収まる。
+function kbDrawTargetReveal(){
+  const kdata = kanjiBoss.data[kanjiBoss.currentId];
+  const ci = kanjiBoss.charIndex;
+  const start = kdata.firstStrokeIndices[ci];
+  const end = ci + 1 < kdata.charCount ? kdata.firstStrokeIndices[ci + 1] : kdata.strokes.length;
+  kbCtx.save();
+  kbCtx.translate(0, -ci * KWS_CHAR_CELL_PX);
+  kbCtx.strokeStyle = '#b9c2cc';
+  kbCtx.lineWidth = KWS_REVEAL_WIDTH_PX;
+  kbCtx.lineCap = 'round';
+  kbCtx.lineJoin = 'round';
+  for(let i = start; i < end; i++) kbCtx.stroke(kdata.strokes[i].path2D);
+  kbCtx.restore();
+}
+
 // 一文字ずつ採点する方式に変更（教員の指示、2026-09-03：「まだ解答の大きさが小さいので、
 // 一文字ずつ採点することにします」）。キャンバスは常に1文字ぶんの正方形1マスだけで、
 // 2文字の問題は1文字目→2文字目の順に、都度キャンバスを書き直す（kbLoadCharStage参照）。
@@ -23748,6 +23776,7 @@ function kbRender(){
   kbCtx.moveTo(0, KWS_CHAR_CELL_PX / 2); kbCtx.lineTo(KWS_CHAR_CELL_PX, KWS_CHAR_CELL_PX / 2);
   kbCtx.stroke();
   kbCtx.restore();
+  if(kbJudged && kanjiBoss) kbDrawTargetReveal();
   kbCtx.save();
   kbCtx.strokeStyle = '#3b6fd1';
   kbCtx.lineWidth = KWS_INK_WIDTH_PX;
@@ -23767,6 +23796,7 @@ function kbResetInk(){
   kbCompletedStrokes = [];
   kbCurrentPath = [];
   kbDrawing = false;
+  kbJudged = false;
   kbSetStatus('');
   kbRender();
 }
@@ -23852,28 +23882,19 @@ function kbRenderSentencePrompt(){
   const el = document.getElementById('kbSentencePrompt');
   if(el) el.innerHTML = html || '（例文なし）';
 }
-function kbRenderCharBadge(){
-  const el = document.getElementById('kbCharBadge');
-  if(!el) return;
-  const kdata = kanjiBoss.data[kanjiBoss.currentId];
-  if(kdata.charCount <= 1){ el.innerHTML = ''; return; }
-  const cls = kanjiBoss.charIndex === 0 ? 'kb-blank-c0' : 'kb-blank-c1';
-  el.innerHTML = `<span class="kb-char-badge ${cls}">${KB_CIRCLED[kanjiBoss.charIndex] || (kanjiBoss.charIndex + 1)} ${kanjiBoss.charIndex + 1}文字目を書きましょう</span>`;
-}
-
-// 一文字ぶんのキャンバスを準備する（問題文・キャンバス・文字バッジを、今の文字index基準で
-// 作り直すだけ。制限時間はkbNextQuestionが単語単位で1回だけ管理するので、ここでは触らない）。
+// 一文字ぶんのキャンバスを準備する（問題文・キャンバスを、今の文字index基準で作り直すだけ。
+// 制限時間はkbNextQuestionが単語単位で1回だけ管理するので、ここでは触らない）。
 function kbLoadCharStage(){
   kbCanvas.width = KWS_CHAR_CELL_PX;
   kbCanvas.height = KWS_CHAR_CELL_PX;
   const stageEl = document.getElementById('kbStage');
-  // vw基準だけだと.boss-battle-screen/.boss-q-cardの左右padding分を考慮できず右にはみ出す
-  // ことがあったため、実際に使える幅（ビューポート幅からpadding分を差し引いたもの）を上限にする。
-  stageEl.style.width = `min(calc(100vw - 76px), ${KB_STAGE_PX}px)`;
+  // vw基準だけだと.boss-battle-screen/.boss-q-cardのpadding、ボス画像の側列(kb-side-boss)の
+  // 分を考慮できず右にはみ出すことがあったため、実際に使える幅（ビューポート幅から
+  // それらを差し引いたもの）を上限にする。
+  stageEl.style.width = `min(calc(100vw - 166px), ${KB_STAGE_PX}px)`;
   stageEl.style.aspectRatio = '1 / 1';
   kbResetInk();
   kbRenderSentencePrompt();
-  kbRenderCharBadge();
 }
 
 function kbNextQuestion(){
@@ -23961,6 +23982,8 @@ function kbSubmitJudge(timedOut){
     const charResults = kwsEvaluateCharacters(kdata, logicalStrokes, kwsProfile);
     ok = charResults[kanjiBoss.charIndex].passCore;
   }
+  kbJudged = true;
+  kbRender(); // 採点した直後、正しい字形を薄く裏に表示する（他のkws画面と同じ、教員の指示）
   kbGradeChar(ok, kdata, timedOut);
 }
 
