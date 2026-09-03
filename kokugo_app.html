@@ -3589,12 +3589,19 @@
 .mb-stage-node.mb-stage-locked{ opacity:.45; }
 .mb-stage-node-name{ font-size:.65rem; color:#d8c2ff; margin-top:4px; text-align:center; }
 .mb-stage-path{ width:28px; height:4px; background:rgba(180,140,255,.35); margin-top:24px; }
+/* ボス撃破時のストック経験値＋5を、見落とさないよう大きく表示する（教員の指示、2026-09-04）。
+   kbPunch（漢字マスターの道のkb-atk-xpと同じ跳ねるアニメーション）を流用する。 */
+.mb-boss-xp-banner{
+  text-align:center; font-size:1.3rem; font-weight:900; color:#7CFFB2; margin:10px 0 4px;
+  text-shadow:0 0 18px rgba(124,255,178,.85), 0 2px 8px rgba(0,0,0,.85);
+  animation:kbPunch .5s cubic-bezier(.2,1.6,.4,1) .1s both;
+}
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.51</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.52</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -24289,7 +24296,9 @@ const MB_DIFFICULTIES = [
     catchphrase:'超強力チャージ！' },
 ];
 // 難易度ごとに正解1問で加算する既存の「ストック経験値」（漢字マスターの道と同じ経済に合流させる）。
-const MB_QUEST_XP = { easy:1, normal:1, hard:2, veryhard:3 };
+const MB_QUEST_XP = { easy:1, normal:2, hard:3, veryhard:3 };
+// ボスを1体倒すごとに獲得する既存の「ストック経験値」（教員の指示、2026-09-04）。
+const MB_BOSS_DEFEAT_XP = 5;
 
 // 仕様書のFF風呪文名（ファイア／ケアル系等）はそのまま使わず、「漢字の力＝魔力」という
 // このゲーム独自の世界観に合わせたオリジナルの名前にする（教員の指示、2026-09-04）。
@@ -24461,7 +24470,7 @@ function mbInitRun(){
 
 function mbStartEnemy(idx){
   const enemyDef = MB_ENEMIES[idx];
-  if(!enemyDef){ mbGauntletComplete(); return; }
+  if(!enemyDef){ mbGauntletComplete(0); return; }
   mbBattle = { enemyIndex: idx, enemyDef, enemyHp: enemyDef.hp, enemyMaxHp: enemyDef.hp, debuffs: {}, turnBusy: false };
   mbShowBattleIntro();
 }
@@ -24952,7 +24961,10 @@ function mbApplySpellEffect(category, spell, critWon){
   return `${esc(mbBattle.enemyDef.name)}に${esc(MB_STATUS[spell.effect].label)}をかけた！`;
 }
 
-function mbTriggerImpact(kind, title, subText){
+// xpGainedを渡すと、獲得したストック経験値も大きく表示する（教員の指示、2026-09-04：
+// 「獲得したときにプレイヤーが気付くように、明確に表示」。「漢字マスターの道」の
+// kbShowAttackOverlayと同じkb-atk-xpスタイルを流用する）。
+function mbTriggerImpact(kind, title, subText, xpGained){
   const screenEl = document.getElementById('mbScreen');
   if(screenEl){
     screenEl.classList.remove('kb-impact-hit', 'kb-impact-hurt');
@@ -24967,13 +24979,15 @@ function mbTriggerImpact(kind, title, subText){
   el.className = 'kb-atk-overlay ' + cls;
   el.innerHTML = `
     <div class="kb-atk-title ${cls}">${esc(title)}</div>
-    ${subText ? `<div class="kb-atk-sub">${esc(subText)}</div>` : ''}`;
+    ${subText ? `<div class="kb-atk-sub">${esc(subText)}</div>` : ''}
+    ${xpGained ? `<div class="kb-atk-xp">＋${xpGained} ストック経験値</div>` : ''}`;
   document.body.appendChild(el);
   setTimeout(() => { if(el.parentNode) el.remove(); }, 900);
 }
 
-// 正解 → （会心チャレンジなら）会心確定／（通常攻撃なら）MP獲得＋固定ダメージ、の一連の流れ
-// （9〜12項・20項、2026-09-04改訂：通常攻撃＝MP獲得＋言弾の半分のダメージ、会心＝ダメージ3倍の権利のみ）。
+// 正解 → （会心チャレンジなら）会心確定／（通常攻撃なら）MP獲得＋固定ダメージ＋ストック経験値、の
+// 一連の流れ（9〜12項・20項、2026-09-04改訂：通常攻撃＝MP獲得＋言弾の半分のダメージ＋ストック経験値
+// （EASY+1／NORMAL+2／HARD・VERYHARD+3）、会心＝ダメージ3倍の権利のみ）。
 function mbChallengeSuccess(){
   const diff = mbChallenge.diff;
   const action = mbPendingAction;
@@ -24983,15 +24997,16 @@ function mbChallengeSuccess(){
     return;
   }
   mbRun.playerMp = Math.min(mbRun.playerMaxMp, mbRun.playerMp + diff.mp);
+  const xpGained = MB_QUEST_XP[diff.id] || 1;
   const st = loadStats();
-  st.stockXp = (st.stockXp || 0) + (MB_QUEST_XP[diff.id] || 1);
+  st.stockXp = (st.stockXp || 0) + xpGained;
   saveStats(st);
   const dmg = mbComputeAttackDamage(MB_NORMAL_ATTACK_POWER, false);
   mbBattle.enemyHp = Math.max(0, mbBattle.enemyHp - dmg);
-  const msg = `○ 正解！ 漢字の力が魔力に変わった！ ＋${diff.mp} MP<br>通常攻撃！ ${esc(mbBattle.enemyDef.name)}に${dmg}のダメージ！`;
+  const msg = `○ 正解！ 漢字の力が魔力に変わった！ ＋${diff.mp} MP　<span class="kb-xp-inline">＋${xpGained} ストック経験値</span><br>通常攻撃！ ${esc(mbBattle.enemyDef.name)}に${dmg}のダメージ！`;
   const enemyDefeated = mbBattle.enemyHp <= 0;
   mbRenderBattleScreen({ msg });
-  mbTriggerImpact('hit', '🗡️ 通常攻撃！', `${esc(mbBattle.enemyDef.name)}に${dmg}のダメージ！ ＋${diff.mp} MP`);
+  mbTriggerImpact('hit', '🗡️ 通常攻撃！', `${esc(mbBattle.enemyDef.name)}に${dmg}のダメージ！ ＋${diff.mp} MP`, xpGained);
 
   if(enemyDefeated){
     setTimeout(() => mbEnemyDefeated(), 900);
@@ -25088,12 +25103,13 @@ function mbStageNodeHtml(i, clearedUpTo){
       <div class="mb-stage-node-name">${nameHtml}</div>
     </div>`;
 }
-function mbShowStageMap(clearedUpTo){
+function mbShowStageMap(clearedUpTo, xpGained){
   const nodesHtml = MB_ENEMIES.map((e, i) => mbStageNodeHtml(i, clearedUpTo)).join('<div class="mb-stage-path"></div>');
   const nextIndex = clearedUpTo + 1;
   screen.innerHTML = `
     <div class="boss-battle-screen">
       <div class="boss-name">🎉 ${esc(MB_ENEMIES[clearedUpTo].name)}を倒した！</div>
+      <p class="mb-boss-xp-banner">＋${xpGained} ストック経験値 獲得！</p>
       <div class="mb-stage-map">${nodesHtml}</div>
       <p style="text-align:center; color:#d8c2ff; margin-top:14px;">HP・MPはそのまま引き継がれます。</p>
       <div class="btn-row" style="justify-content:center;">
@@ -25102,20 +25118,25 @@ function mbShowStageMap(clearedUpTo){
       </div>
     </div>`;
 }
+// ボスを倒すたびに、通常攻撃とは別にストック経験値＋5を獲得する（教員の指示、2026-09-04）。
 function mbEnemyDefeated(){
+  const st = loadStats();
+  st.stockXp = (st.stockXp || 0) + MB_BOSS_DEFEAT_XP;
+  saveStats(st);
   const nextIndex = mbBattle.enemyIndex + 1;
   if(nextIndex < MB_ENEMIES.length){
-    mbShowStageMap(mbBattle.enemyIndex);
+    mbShowStageMap(mbBattle.enemyIndex, MB_BOSS_DEFEAT_XP);
   } else {
-    mbGauntletComplete();
+    mbGauntletComplete(MB_BOSS_DEFEAT_XP);
   }
 }
 
-function mbGauntletComplete(){
+function mbGauntletComplete(xpGained){
   mbClearTimer();
   screen.innerHTML = `
     <div class="boss-battle-screen">
       <div class="boss-name">🏆 すべての敵を倒した！</div>
+      ${xpGained ? `<p class="mb-boss-xp-banner">＋${xpGained} ストック経験値 獲得！</p>` : ''}
       <p style="text-align:center;">お見事！「漢字バトル」を制覇しました。</p>
       <h3 style="text-align:center; margin-top:18px;">間違った問題</h3>
       ${mbWrongListHtml()}
