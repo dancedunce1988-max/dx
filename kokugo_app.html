@@ -3389,7 +3389,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.41</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.42</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3707,11 +3707,13 @@ function eventBonusAdd(st, id, amount){
    （kotonohaBaseCategoryのst.lv分布判定・診断モード等に混ざらないようにするため）。
    「今日の漢字」のストック経験値を変換した分（st.stockXpConvertedExp、2026-09-02〜）も、
    上記の各ボーナスと同じく全額そのまま加算する（st.stockXp自体は「まだ変換していない」
-   残高であり、convertStockXpで変換した分だけここに移ってくる）。 */
+   残高であり、convertStockXpで変換した分だけここに移ってくる）。
+   「小学生の漢字を復習する」の学年別お祝い経験値（st.kwsElemGradeBonusExp、2026-09-03〜、
+   kwsElemCheckGradeCelebration参照）も同じく全額そのまま加算する。 */
 function rawKotonohaExp(st){
   const fromLevels = CAT_KEYS.reduce((sum,k) => sum + catExpPoints(st.lv[k]||1), 0);
   const fromExtraLevels = EXTRA_LEVEL_CATS.reduce((sum,k) => sum + catExpPoints(st.lv[k]||1), 0);
-  return fromLevels + fromExtraLevels + effectiveBonusExp(st) + (st.hyakuninBonusExp||0) + (st.bunsetsuGiriBonusExp||0) + (st.vocabShooterBonusExp||0) + (st.baseballBonusExp||0) + (st.partsOfSpeechBonusExp||0) + (st.ydBonusExp||0) + totalUnlockCelebrationExp(st) + totalEventBonusExp(st) + (st.stockXpConvertedExp||0);
+  return fromLevels + fromExtraLevels + effectiveBonusExp(st) + (st.hyakuninBonusExp||0) + (st.bunsetsuGiriBonusExp||0) + (st.vocabShooterBonusExp||0) + (st.baseballBonusExp||0) + (st.partsOfSpeechBonusExp||0) + (st.ydBonusExp||0) + totalUnlockCelebrationExp(st) + totalEventBonusExp(st) + (st.stockXpConvertedExp||0) + (st.kwsElemGradeBonusExp||0);
 }
 function spentStatPoints(st){
   return Object.values(st.stats||{}).reduce((sum,v) => sum + (v||0), 0);
@@ -7232,16 +7234,17 @@ function kwsOrderedIdsFor(mode){
   if(mode === 'chugaku') return kwsChugakuOrderedIds();
   return [];
 }
-// 小学3年生までの問題数（教員の指示、2026-09-01：「初めの段階でも、小学校3年生までは
-// 全部解放している状態からスタート」）。学年4以上が混ざる手前までで区切るので、
-// データが変わって学年ごとの問題数が変わっても安全。
+// 小学2年生までの問題数（教員の指示、2026-09-03：「小学校2年生の漢字までは習得済み扱いにして、
+// 小学校3年生の問題も、それ以降の問題同様、解放しながら進むように」。以前は小3までを
+// プリ解禁していたが、小3以降は他の学年と同じ「1問ずつ解放」チェーンに含める）。学年3以上が
+// 混ざる手前までで区切るので、データが変わって学年ごとの問題数が変わっても安全。
 let _kwsElemDefaultFrontier = null;
 function kwsElemDefaultFrontier(){
   if(_kwsElemDefaultFrontier !== null) return _kwsElemDefaultFrontier;
   const ids = kwsElemOrderedIds();
   const data = kwsDataCache.elem || {};
   let n = 0;
-  while(n < ids.length && (data[ids[n]].grade || 0) <= 3) n++;
+  while(n < ids.length && (data[ids[n]].grade || 0) <= 2) n++;
   _kwsElemDefaultFrontier = n;
   return _kwsElemDefaultFrontier;
 }
@@ -7249,10 +7252,10 @@ function kwsElemDefaultFrontier(){
 // st.kwsExamState / st.kwsElemState = { frontier, items: { [id]: {box, streak, c, w} } }
 // frontier＝これまでに導入した問題数（idsの先頭からfrontier問ぶん）。導入済みの問題だけが
 // box（'new'|'wrong'|'ok'）を持つ。未初期化時に一度だけ組み立てる：examは1問目だけを
-// 「新しい問題」として導入する。elemは小学3年生までの440問を、最初から「正解済み」として
-// 一括で導入する（教員に確認して決定：1問ずつ解禁すると440問を消化しきるのに何百問もかかり、
+// 「新しい問題」として導入する。elemは小学2年生までを、最初から「正解済み」として
+// 一括で導入する（教員に確認して決定：1問ずつ解禁すると消化しきるのに何百問もかかり、
 // 初期解放の意味がなくなるため。実際に知らない字があっても、復習で間違えれば「間違った問題」に
-// 落ちて自然に拾われる）。
+// 落ちて自然に拾われる。小3以降は他の学年と同じく1問ずつ解放しながら進む、教員の指示、2026-09-03）。
 const KWS_STATE_KEY_BY_MODE = { exam: 'kwsExamState', elem: 'kwsElemState', chugaku: 'kwsChugakuState' };
 function kwsEnsureStateStore(st, mode){
   const key = KWS_STATE_KEY_BY_MODE[mode];
@@ -7268,17 +7271,18 @@ function kwsEnsureStateStore(st, mode){
       frontier = Math.min(1, ids.length);
       for(let i = 0; i < frontier; i++) items[ids[i]] = { box: 'new', streak: 0, c: 0, w: 0 };
     } else {
-      // 小学3年生まで（okCount問）は最初から「正解済み」扱いで導入する（見た目・出題頻度は
-      // 即座に有効）。そのすぐ次の1問（小学4年生の最初の1問）だけを追加で「新しい問題」に
+      // 小学2年生まで（okCount問）は最初から「正解済み」扱いで導入する（見た目・出題頻度は
+      // 即座に有効）。そのすぐ次の1問（小学3年生の最初の1問）だけを追加で「新しい問題」に
       // しておき、examと同じ「1問ずつ順番に解放していく」チェーンのきっかけにする
       // （教員の指示、2026-09-02：「4年生が終わっていないのに5年生の問題がぽんと出る」の
       // 再発防止。以前は440問まとめて新規解放していたため、学年をまたいで一気にばらけて
       // 出てしまっていた。1問ずつにして、下のkwsIntroduceNextItemのforcedNextで
       // 「解放した直後は必ずその1問を次に出す」ようにすることで、学年をまたいだ
-      // 飛び出しを防ぐ）。各'ok'問題にはpending:trueを立てておき、生徒が実際にその問題へ
-      // 初めて正解した瞬間にも（この1問とは別に）通常の「新しい問題」と同じく1問だけ
-      // 追加で新規解放する（kwsRecordAnswer参照。復習が進むほどさらに解禁が伸びていく、
-      // というおまけの効果）。
+      // 飛び出しを防ぐ）。以前は小3までをプリ解禁していたが、教員の指示（2026-09-03）で
+      // 小2までに縮小し、小3以降も他の学年と同じ1問ずつの解放チェーンに含めるようにした。
+      // 各'ok'問題にはpending:trueを立てておき、生徒が実際にその問題へ初めて正解した瞬間にも
+      // （この1問とは別に）通常の「新しい問題」と同じく1問だけ追加で新規解放する
+      // （kwsRecordAnswer参照。復習が進むほどさらに解禁が伸びていく、というおまけの効果）。
       const okCount = kwsElemDefaultFrontier();
       frontier = Math.min(okCount + 1, ids.length);
       for(let i = 0; i < okCount; i++) items[ids[i]] = { box: 'ok', streak: 0, c: 0, w: 0, pending: true };
@@ -7316,7 +7320,35 @@ function kwsEnsureStateStore(st, mode){
       kwsIntroduceNextItem(store, orderedIds);
     }
   }
+  if(mode === 'elem') kwsElemCheckGradeCelebration(st, st[key]);
   return st[key];
+}
+// 学年ごとの「その学年の漢字を全て解放（導入）した」お祝い経験値（教員の指示、2026-09-03）。
+// 小1〜小4は+25、小5・小6は+50。st.kwsElemGradeBonusExpに積み上げ、rawKotonohaExpへ
+// st.hyakuninBonusExp等と同じ「全額そのまま加算」の一枠として合算する（totalUnlockCelebrationExpの
+// ようなカテゴリ別ではなく、学年別の一度きりのボーナスなので専用の累積フィールドにした）。
+// 二重付与防止にst.kwsElemGradeCelebrated（学年→true）を使う。小1・小2は最初から「正解済み」で
+// 一括導入されるため、elemに一度でも触れた時点で即座に達成扱いになる（教員の指示どおり、
+// 「全て解放したら」を文字通り満たしているため）。kwsEnsureStateStore（mode==='elem'）の末尾から
+// 毎回呼ばれる：出題・進捗表示のたびに走る軽い処理（学年ごとに1回集計するだけ）なので、
+// 新しい問題が解禁されて学年を跨いだ直後にも取りこぼさず検出できる。
+const KWS_ELEM_GRADE_CELEBRATION_EXP = {1:25, 2:25, 3:25, 4:25, 5:50, 6:50};
+function kwsElemCheckGradeCelebration(st, store){
+  if(!st.kwsElemGradeCelebrated) st.kwsElemGradeCelebrated = {};
+  const ids = kwsElemOrderedIds();
+  const data = kwsDataCache.elem || {};
+  const byGrade = {};
+  ids.forEach(id => {
+    const g = data[id].grade;
+    (byGrade[g] = byGrade[g] || []).push(id);
+  });
+  Object.keys(byGrade).forEach(gradeKey => {
+    const grade = Number(gradeKey);
+    if(st.kwsElemGradeCelebrated[grade]) return;
+    if(!byGrade[grade].every(id => !!store.items[id])) return;
+    st.kwsElemGradeCelebrated[grade] = true;
+    st.kwsElemGradeBonusExp = (st.kwsElemGradeBonusExp||0) + (KWS_ELEM_GRADE_CELEBRATION_EXP[grade] || 25);
+  });
 }
 const KWS_RECENT_KEY_BY_MODE = { exam: 'kwsExamRecent', elem: 'kwsElemRecent', chugaku: 'kwsChugakuRecent' };
 function kwsRecentWindowFor(st, mode){
@@ -7677,10 +7709,10 @@ function kwsShowUnlockMsg(){
 }
 
 // 進捗バー（解放率）のHTML。examは常に表示、elemは「全学年」選択時だけ表示する。
-// elemは小学3年生までの440問（kwsElemDefaultFrontier）を最初から「正解済み」として
+// elemは小学2年生まで（kwsElemDefaultFrontier問ぶん）を最初から「正解済み」として
 // 一括導入しているため、解放率をそのまま「導入数／全体」で出すと初期状態でいきなり
-// 43%前後になってしまう（教員の指摘、2026-09-02：「初めから表示上0%から始まるように」）。
-// この440問ぶんを分子・分母の両方から差し引き、「小4以降をどれだけ解放したか」だけを
+// 数十%になってしまう（教員の指摘、2026-09-02：「初めから表示上0%から始まるように」）。
+// このぶんを分子・分母の両方から差し引き、「小3以降をどれだけ解放したか」だけを
 // 解放率として表示する（実際の導入・出題ロジック自体は変更しない、表示だけの調整）。
 function kwsElemUnlockedPct(st){
   const base = kwsElemDefaultFrontier();
