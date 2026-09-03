@@ -3596,6 +3596,22 @@
   text-shadow:0 0 18px rgba(124,255,178,.85), 0 2px 8px rgba(0,0,0,.85);
   animation:kbPunch .5s cubic-bezier(.2,1.6,.4,1) .1s both;
 }
+/* 1%の激レアな「仲間になった！」表示。ストック経験値バナーと見分けられるよう金色にする
+   （教員の指示、2026-09-04）。 */
+.mb-recruit-banner{
+  text-align:center; font-size:1.15rem; font-weight:900; color:#ffd76a; margin:6px 0 4px;
+  text-shadow:0 0 20px rgba(255,215,100,.9), 0 2px 8px rgba(0,0,0,.85);
+  animation:kbPunch .5s cubic-bezier(.2,1.6,.4,1) .25s both;
+}
+/* ホーム画面「ことのは」カード右上のパートラーバッジ（ライトテーマ側のUI、教員の指示、
+   2026-09-04）。.kotonoha-cardに position:relative を付けた上での絶対配置。 */
+.mb-partner-badge{
+  position:absolute; top:14px; right:14px; width:52px; height:52px; border-radius:50%;
+  overflow:hidden; border:2px solid var(--gold); background:var(--card); cursor:pointer;
+  box-shadow:0 2px 6px rgba(0,0,0,.25); z-index:2;
+}
+.mb-partner-badge img{ width:100%; height:100%; object-fit:contain; display:block; }
+.mb-partner-pick-icon img{ width:100%; height:100%; object-fit:contain; }
 /* 敵の特殊能力を、発動前から告知しておく（戦闘開始演出・行動選択画面の両方）。教員の指示、
    2026-09-04：「特殊能力がどう発動しているのか分からない」への対応。 */
 .mb-intro-ability{
@@ -3649,7 +3665,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.57</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.58</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -4125,6 +4141,10 @@ function loadStats(){
         delete st.statPoints; // 旧バージョンの保存値。今後は使わず、常に導出する
         if(!st.stats) st.stats = {hp:0, atk:0, def:0, luck:0};
         if(typeof st.stats.spd !== "number") st.stats.spd = 0;
+        // 漢字バトルで倒したボスが1%で仲間になる仕組み（2026-09-04〜）。仲間の中から1体だけ
+        // 「パートナー」に設定でき、kotonohaEffStats経由で通常のボス戦のステータスに反映される。
+        if(!Array.isArray(st.mbCompanions)) st.mbCompanions = [];
+        if(st.mbActivePartner === undefined) st.mbActivePartner = null;
         if(!st.diffLv) st.diffLv = {};
         /* 出題目標レベルが未設定の分野は、これまでの分野レベルから相当する値を初期値にする
            （新しい仕組み導入前からのプレイヤーも、急に極端な難度から始まらないようにするため） */
@@ -5317,11 +5337,76 @@ function kotonohaStatBonusText(stat){
   const parts = STAT_KEYS_ALL.filter(k => stat[k]).map(k => `${STAT_LABEL_SHORT[k]}+${stat[k]}`);
   return parts.join("　");
 }
+// 漢字バトルで仲間にしたボスを「パートナー」に設定すると、通常のボス戦のステータスに
+// ％ボーナスがかかる（教員の指示、2026-09-04）。称号ボーナス（加算）とは別枠の乗算ボーナス
+// にする。idはMB_ENEMIES（下のセクションで定義）のid（me01〜me04）と対応させてある。
+const MB_PARTNER_STAT_BONUS_PCT = {
+  me01: { spd: 1 },         // 炎狼：素早さ+1%
+  me02: { def: 1 },         // 鉄鋼兵：防御力+1%
+  me03: { luck: 1, spd: 1 },// 闇の魔術師：運・素早さ+1%
+  me04: { hp: 1, atk: 1 },  // 言霊の番人：HP・攻撃力+1%
+};
+function mbPartnerStatBonusPct(st){
+  const id = st.mbActivePartner;
+  return (id && MB_PARTNER_STAT_BONUS_PCT[id]) || {};
+}
+// パートナー1体ぶんの効果を短い文で見せる（kotonohaStatBonusTextの％版、ホーム画面のバッジ・
+// パートナー選択画面の両方で使う）。
+function mbPartnerEffectText(id){
+  const pct = MB_PARTNER_STAT_BONUS_PCT[id] || {};
+  return Object.keys(pct).map(k => `${STAT_LABEL_SHORT[k]}+${pct[k]}%`).join("　");
+}
+// ホーム画面の「ことのは」カード右上に、今のパートナーの姿を小さく表示する（教員の指示、
+// 2026-09-04）。仲間が1体もいなければ何も表示しない。MB_ENEMIES/mbEnemySpriteSrcは
+// 下の「漢字バトル」セクションで定義されているが、関数宣言の巻き上げにより問題なく参照できる。
+function mbPartnerBadgeHtml(st){
+  if(!st.mbCompanions || !st.mbCompanions.length) return '';
+  const partner = MB_ENEMIES.find(e => e.id === st.mbActivePartner) || MB_ENEMIES.find(e => e.id === st.mbCompanions[0]);
+  if(!partner) return '';
+  return `
+    <div class="mb-partner-badge" onclick="mbShowPartnerPicker()" title="パートナー：${esc(partner.name)}（タップで変更）">
+      <img src="${mbEnemySpriteSrc(partner, 'pose1')}" alt="${esc(partner.name)}">
+    </div>`;
+}
+// 仲間になった敵の一覧から、パートナーに設定する1体を選ぶ画面（教員の指示、2026-09-04：
+// 「仲間が複数いる場合は…一覧で選べるようにする」）。既存の称号選択画面(showKotonohaFormPicker)
+// と同じ「.card menu-card」の並びに揃える。
+function mbShowPartnerPicker(){
+  const st = loadStats();
+  const companions = st.mbCompanions.map(id => MB_ENEMIES.find(e => e.id === id)).filter(Boolean);
+  let html = `<div class="card">
+      <h3 class="section">🤝 どの仲間をパートナーにしますか？</h3>
+      <p class="note">パートナーに設定した仲間の効果は、通常のボス戦にずっと反映されます。</p>
+    </div>`;
+  companions.forEach(e => {
+    const active = st.mbActivePartner === e.id;
+    const effectText = mbPartnerEffectText(e.id);
+    html += `
+    <div class="card menu-card" onclick="mbSetPartner('${e.id}')">
+      <div class="menu-icon mb-partner-pick-icon"><img src="${mbEnemySpriteSrc(e, 'pose1')}" alt="${esc(e.name)}"></div>
+      <div><h2>${esc(e.name)}${active ? " ✓" : ""}</h2>
+      ${effectText ? `<p class="note kotonoha-picker-stat">${esc(effectText)}</p>` : ""}</div>
+    </div>`;
+  });
+  html += `<button class="btn secondary" onclick="showHome()">ホームへ</button>`;
+  screen.innerHTML = html;
+}
+function mbSetPartner(id){
+  const st = loadStats();
+  st.mbActivePartner = id;
+  saveStats(st);
+  showHome();
+}
 function kotonohaEffStats(st){
   const base = st.stats || {hp:0,atk:0,def:0,spd:0,luck:0};
   const bonus = kotonohaTitleStatBonus(st);
+  const partnerPct = mbPartnerStatBonusPct(st);
   const out = {};
-  STAT_KEYS_ALL.forEach(k => { out[k] = (base[k]||0) + (bonus[k]||0); });
+  STAT_KEYS_ALL.forEach(k => {
+    const sum = (base[k]||0) + (bonus[k]||0);
+    const pct = partnerPct[k] || 0;
+    out[k] = pct ? sum * (1 + pct/100) : sum;
+  });
   return out;
 }
 /* 未来龍「超進化」用：ボス戦中だけkotonohaEffStatsの全ステータスにbossBattle.kotonohaMiraiStatMultStack
@@ -6028,7 +6113,8 @@ function kotonohaCardHtml(st){
   }
   const rebirthSection = kotonohaRebirthSectionHtml(st);
   return `
-  <div class="card kotonoha-card">
+  <div class="card kotonoha-card" style="position:relative;">
+    ${mbPartnerBadgeHtml(st)}
     <h3 class="section">${esc(pronoun || "きみ")}の相棒【ことのは】${kumiBadge}</h3>
     <div class="kotonoha-row">
       ${iconHtml}
@@ -14640,7 +14726,7 @@ function showSideQuestMenu(){
   const st = loadStats();
   let html = `<div class="card"><h3 class="section">🎮 ミニゲーム</h3>
     <p class="note">ストーリーの進み具合とは関係なく、いつでも遊べる番外編です。</p></div>`;
-  html += kanjiBossSideQuestButtonHtml();
+  if(KB_GAUNTLET_VISIBLE) html += kanjiBossSideQuestButtonHtml();
   html += mbSideQuestButtonHtml();
   html += Object.keys(STORY_SIDEQUESTS).map(key => storySideQuestButtonHtml(key, st)).join("");
   html += `<div class="btn-row" style="justify-content:center; margin-top:10px">
@@ -23688,6 +23774,11 @@ let kbTimerHandle = null;
 let kbJudged = false; // 今の1文字を採点済みか（採点直後は正しい字形を裏に表示する。kbDrawTargetReveal参照）
 const KB_STAGE_PX = 380; // 常に1文字ずつ、できるだけ大きく表示する（教員の指示、2026-09-03）
 
+// 「漢字バトル」を追加したことを受け、一旦プレイヤーには見せない（教員の指示、2026-09-04：
+// 「あとで追加する可能性もあるので、削除はしないこと」）。falseにするだけでミニゲーム一覧
+// から非表示になり、コード・セーブデータへの影響は一切ない。trueに戻せばいつでも復活できる。
+const KB_GAUNTLET_VISIBLE = false;
+
 // ホーム直下ではなく「🎮 ミニゲーム」一覧(showSideQuestMenu)の中に置く（教員の指示、2026-09-03）。
 function kanjiBossSideQuestButtonHtml(){
   return `
@@ -24348,6 +24439,9 @@ const MB_DIFFICULTIES = [
 const MB_QUEST_XP = { easy:1, normal:2, hard:3, veryhard:3 };
 // ボスを1体倒すごとに獲得する既存の「ストック経験値」（教員の指示、2026-09-04）。
 const MB_BOSS_DEFEAT_XP = 5;
+// 倒したボスが仲間になる確率（教員の指示、2026-09-04）。仲間になった敵のパートナー効果は
+// MB_PARTNER_STAT_BONUS_PCT（kotonohaEffStats付近）に集約してある。
+const MB_PARTNER_RECRUIT_CHANCE = 0.01;
 
 // 仕様書のFF風呪文名（ファイア／ケアル系等）はそのまま使わず、「漢字の力＝魔力」という
 // このゲーム独自の世界観に合わせたオリジナルの名前にする（教員の指示、2026-09-04）。
@@ -25236,7 +25330,7 @@ function mbStageNodeHtml(i, clearedUpTo){
       <div class="mb-stage-node-name">${nameHtml}</div>
     </div>`;
 }
-function mbShowStageMap(clearedUpTo, xpGained){
+function mbShowStageMap(clearedUpTo, xpGained, recruitedMsg){
   mbStopIdleAnim();
   const nodesHtml = MB_ENEMIES.map((e, i) => mbStageNodeHtml(i, clearedUpTo)).join('<div class="mb-stage-path"></div>');
   const nextIndex = clearedUpTo + 1;
@@ -25246,6 +25340,7 @@ function mbShowStageMap(clearedUpTo, xpGained){
       <div class="boss-name">🎉 ${esc(defeatedEnemy.name)}を倒した！</div>
       <img class="mb-defeat-icon" src="${mbEnemySpriteSrc(defeatedEnemy, 'defeat')}" alt="${esc(defeatedEnemy.name)}">
       <p class="mb-boss-xp-banner">＋${xpGained} ストック経験値 獲得！</p>
+      ${recruitedMsg ? `<p class="mb-recruit-banner">${esc(recruitedMsg)}</p>` : ''}
       <div class="mb-stage-map">${nodesHtml}</div>
       <p style="text-align:center; color:#d8c2ff; margin-top:14px;">HP・MPはそのまま引き継がれます。</p>
       <div class="btn-row" style="justify-content:center;">
@@ -25255,19 +25350,27 @@ function mbShowStageMap(clearedUpTo, xpGained){
     </div>`;
 }
 // ボスを倒すたびに、通常攻撃とは別にストック経験値＋5を獲得する（教員の指示、2026-09-04）。
+// さらに1%の確率でそのボスが仲間になる（同じボスは重複して仲間にならない。教員の指示、2026-09-04）。
 function mbEnemyDefeated(){
+  const enemyDef = mbBattle.enemyDef;
   const st = loadStats();
   st.stockXp = (st.stockXp || 0) + MB_BOSS_DEFEAT_XP;
+  let recruitedMsg = null;
+  if(!st.mbCompanions.includes(enemyDef.id) && Math.random() < MB_PARTNER_RECRUIT_CHANCE){
+    st.mbCompanions.push(enemyDef.id);
+    if(!st.mbActivePartner) st.mbActivePartner = enemyDef.id; // 最初の仲間は自動でパートナーに設定する
+    recruitedMsg = `✨「${enemyDef.name}」が仲間になった！`;
+  }
   saveStats(st);
   const nextIndex = mbBattle.enemyIndex + 1;
   if(nextIndex < MB_ENEMIES.length){
-    mbShowStageMap(mbBattle.enemyIndex, MB_BOSS_DEFEAT_XP);
+    mbShowStageMap(mbBattle.enemyIndex, MB_BOSS_DEFEAT_XP, recruitedMsg);
   } else {
-    mbGauntletComplete(MB_BOSS_DEFEAT_XP);
+    mbGauntletComplete(MB_BOSS_DEFEAT_XP, recruitedMsg);
   }
 }
 
-function mbGauntletComplete(xpGained){
+function mbGauntletComplete(xpGained, recruitedMsg){
   mbClearTimer();
   mbStopIdleAnim();
   const lastEnemy = mbBattle ? mbBattle.enemyDef : MB_ENEMIES[MB_ENEMIES.length - 1];
@@ -25276,6 +25379,7 @@ function mbGauntletComplete(xpGained){
       <div class="boss-name">🏆 すべての敵を倒した！</div>
       <img class="mb-defeat-icon" src="${mbEnemySpriteSrc(lastEnemy, 'defeat')}" alt="${esc(lastEnemy.name)}">
       ${xpGained ? `<p class="mb-boss-xp-banner">＋${xpGained} ストック経験値 獲得！</p>` : ''}
+      ${recruitedMsg ? `<p class="mb-recruit-banner">${esc(recruitedMsg)}</p>` : ''}
       <p style="text-align:center;">お見事！「漢字バトル」を制覇しました。</p>
       <h3 style="text-align:center; margin-top:18px;">間違った問題</h3>
       ${mbWrongListHtml()}
