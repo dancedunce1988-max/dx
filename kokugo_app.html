@@ -3635,12 +3635,17 @@
   100%{ box-shadow:0 0 30px rgba(140,90,255,.25); }
 }
 .mb-impact-miss{ animation:mbPulseGrey .6s ease; }
+/* 敵キャラのスプライト画像（敵キャラ１.pngから切り抜いた5ポーズ、教員の指示、2026-09-04）。
+   絵文字アイコンだった.kb-side-boss-icon/.mb-intro-iconを<img>に差し替えるための追加サイズ指定。 */
+.mb-enemy-sprite{ width:104px; height:auto; display:block; margin:0 auto; }
+.mb-enemy-sprite-lg{ width:190px; height:auto; }
+.mb-defeat-icon{ display:block; width:150px; height:auto; margin:10px auto 0; filter:drop-shadow(0 8px 16px rgba(0,0,0,.5)); }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.53</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.54</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3658,6 +3663,7 @@
 <script src="kanji_write_chugaku_stroke_data.js"></script>
 <script src="hyakunin_isshu_data.js"></script>
 <script src="kotonoha_evolution_images.js"></script>
+<script src="enemy_sprites_data.js"></script>
 <script>
 "use strict";
 
@@ -24407,6 +24413,41 @@ const MB_PLAYER_MAX_MP = 150;
 
 function mbRand(min, max){ return min + Math.floor(Math.random() * (max - min + 1)); }
 
+// ---- 敵のスプライト画像（教員の指示、2026-09-04：敵キャラ１.pngから切り抜いた基本姿勢①②・
+//      攻撃姿勢・防御姿勢・討伐姿勢の5ポーズ×4体、計20枚）。enemy_sprites_data.js に
+//      ENEMY_SPRITES["me01_pose1"]のようなkeyでdata URLとして埋め込まれている
+//      （kotonoha_evolution_images.jsと同じ、画像を別ファイルパスにせずJSに埋め込む方式）。
+//      mbCurrentPoseKeyが「今表示すべきポーズ」の唯一の情報源で、mbRenderBattleScreen等が
+//      画面を作り直すたびにこれを読んで<img>のsrcを決める。 ----
+let mbCurrentPoseKey = 'pose1'; // 'pose1'|'pose2'|'attack'|'defense'|'defeat'
+let mbIdleTimer = null;         // 基本姿勢①②を0.5秒ごとに切り替えるタイマー（行動選択中だけ動かす）
+function mbEnemySpriteSrc(enemyDef, poseKey){
+  const key = enemyDef.id + '_' + poseKey;
+  return (typeof ENEMY_SPRITES !== 'undefined' && ENEMY_SPRITES[key]) || '';
+}
+// 今のmbCurrentPoseKeyを、今表示されている#mbEnemyIcon（あれば）に反映する。
+function mbApplyPose(){
+  const el = document.getElementById('mbEnemyIcon');
+  if(el && mbBattle) el.src = mbEnemySpriteSrc(mbBattle.enemyDef, mbCurrentPoseKey);
+}
+// 行動選択中（プレイヤーの入力待ち）だけ、基本姿勢①→②を0.5秒ずつ繰り返す（教員の指示）。
+// 攻撃・防御・討伐など特定のポーズを見せている間はこのタイマーを止め、ポーズが勝手に
+// 切り替わらないようにする（mbStopIdleAnim参照）。
+function mbStartIdleAnim(){
+  mbStopIdleAnim();
+  mbCurrentPoseKey = 'pose1';
+  mbApplyPose();
+  let toggle = false;
+  mbIdleTimer = setInterval(() => {
+    toggle = !toggle;
+    mbCurrentPoseKey = toggle ? 'pose2' : 'pose1';
+    mbApplyPose();
+  }, 500);
+}
+function mbStopIdleAnim(){
+  if(mbIdleTimer){ clearInterval(mbIdleTimer); mbIdleTimer = null; }
+}
+
 // ホーム直下ではなく「🎮 ミニゲーム」一覧(showSideQuestMenu)の中に、「漢字マスターの道」とは
 // 別のカードとして置く（既存のボス戦システムとは別物として完全に独立させる）。
 function mbSideQuestButtonHtml(){
@@ -24463,6 +24504,7 @@ function mbEnsurePool(diff){
 
 function mbStartGauntlet(){
   mbClearTimer();
+  mbStopIdleAnim();
   mbRun = null; mbBattle = null; mbChallenge = null; mbPendingAction = null;
   const overlay = document.getElementById('mbAtkOverlay');
   if(overlay) overlay.remove();
@@ -24526,11 +24568,12 @@ function mbShowBattleIntro(){
     <div class="boss-battle-screen mb-intro-screen">
       <div class="mb-intro-flash"></div>
       <div class="mb-intro-vs">VS</div>
-      <div class="mb-intro-icon">${enemyDef.icon}</div>
+      <img class="mb-intro-icon mb-enemy-sprite-lg" id="mbEnemyIcon" src="${mbEnemySpriteSrc(enemyDef, 'pose1')}" alt="${esc(enemyDef.name)}">
       <div class="mb-intro-name">${esc(enemyDef.name)}</div>
       ${enemyDef.abilityLabel ? `<div class="mb-intro-ability">${esc(enemyDef.abilityLabel)}</div>` : ''}
       <div class="mb-intro-title">戦闘開始！</div>
     </div>`;
+  mbStartIdleAnim(); // 対峙シーンの間も基本姿勢①②を切り替えておく
   setTimeout(() => {
     if(!mbBattle) return; // 演出中に「やめる」等で離れた場合の安全弁
     mbRenderBattleScreen({ showActions: true, msg: `「${esc(enemyDef.name)}」が現れた！` });
@@ -24568,6 +24611,7 @@ function mbRenderBattleScreen(opts){
   opts = opts || {};
   mbClearTimer();
   mbChallenge = null;
+  mbStopIdleAnim(); // 一旦止める。showActionsのときだけ下で再開する（それ以外は今のポーズで静止させる）
   const enemyDef = mbBattle.enemyDef;
   // 「通常攻撃」は今までの「魔力をためる」の役割（MP獲得）を引き継ぎつつ、言弾の半分の
   // ダメージも同時に与える最重要アクションなので、一番目立つ位置・大きさに置く
@@ -24590,8 +24634,8 @@ function mbRenderBattleScreen(opts){
       <p style="text-align:center; color:#9a8ec2; font-size:.8rem; margin:0 0 4px;">${mbBattle.enemyIndex + 1}体目 / 全${MB_ENEMIES.length}体</p>
       <div class="boss-q-card">
         <div class="boss-hp-row kb-hp-top" id="mbEnemyHpRow">${mbHpBarInnerHtml(enemyDef.name, mbBattle.enemyHp, mbBattle.enemyMaxHp, 'boss-hpbar')}</div>
-        <div class="kb-side-boss" style="margin:0 auto 10px;">
-          <div class="kb-side-boss-icon" id="mbEnemyIcon" style="font-size:3.4rem;">${enemyDef.icon}</div>
+        <div class="kb-side-boss" style="margin:0 auto 10px; width:112px;">
+          <img class="kb-side-boss-icon mb-enemy-sprite" id="mbEnemyIcon" src="${mbEnemySpriteSrc(enemyDef, mbCurrentPoseKey)}" alt="${esc(enemyDef.name)}">
           <div class="kb-side-boss-name">${esc(enemyDef.name)}</div>
         </div>
         ${enemyDef.abilityLabel ? `<p class="mb-enemy-ability-badge">${esc(enemyDef.abilityLabel)}</p>` : ''}
@@ -24604,6 +24648,7 @@ function mbRenderBattleScreen(opts){
         <div class="boss-hp-row" id="mbPlayerMpRow">${mbMpBarInnerHtml()}</div>
       </div>
     </div>`;
+  if(opts.showActions) mbStartIdleAnim(); // 行動選択中だけ基本姿勢①②のアニメーションを回す
 }
 
 // ---- 魔法選択（6〜8項）：現在のMPで発動できる魔法だけを表示し、選んだらMPを消費してその場で
@@ -24660,6 +24705,8 @@ function mbCastSpellInstant(category, spellId, critWon){
   const effectMsg = mbApplySpellEffect(category, spell, !!critWon);
   const overlayTitle = (critWon && category === 'attack') ? `💥 会心の${spell.name}！` : `✨ ${spell.name}！`;
   const enemyDefeated = mbBattle.enemyHp <= 0;
+  // プレイヤーが攻撃したときは防御姿勢、それで倒したときは討伐姿勢を見せる（教員の指示、2026-09-04）。
+  if(category === 'attack') mbCurrentPoseKey = enemyDefeated ? 'defeat' : 'defense';
   mbRenderBattleScreen({ msg: `「${esc(spell.name)}」発動！ ${effectMsg}` });
   mbTriggerImpact('hit', overlayTitle, effectMsg);
   if(enemyDefeated){
@@ -25072,6 +25119,8 @@ function mbChallengeSuccess(){
   mbBattle.enemyHp = Math.max(0, mbBattle.enemyHp - dmg);
   const msg = `○ 正解！ 漢字の力が魔力に変わった！ ＋${diff.mp} MP　<span class="kb-xp-inline">＋${xpGained} ストック経験値</span><br>通常攻撃！ ${esc(mbBattle.enemyDef.name)}に${dmg}のダメージ！${mbDefenseNoteHtml()}`;
   const enemyDefeated = mbBattle.enemyHp <= 0;
+  // プレイヤーが攻撃したときは防御姿勢、それで倒したときは討伐姿勢を見せる（教員の指示、2026-09-04）。
+  mbCurrentPoseKey = enemyDefeated ? 'defeat' : 'defense';
   mbRenderBattleScreen({ msg });
   mbTriggerImpact('hit', '🗡️ 通常攻撃！', `${esc(mbBattle.enemyDef.name)}に${dmg}のダメージ！ ＋${diff.mp} MP${mbDefenseNote()}`, xpGained);
 
@@ -25117,6 +25166,7 @@ function mbEnemyTurn(){
     msg = `${esc(enemyDef.name)}の攻撃は外れた！（「昏の字」の効果）`;
     impactKind = 'miss';
     impactTitle = '😵 攻撃を外させた！';
+    mbCurrentPoseKey = 'attack';
   } else {
     let dmg = mbRand(enemyDef.atkMin, enemyDef.atkMax);
     if(mbBattle.debuffs.enemySlow > 0) dmg = Math.round(dmg * MB_STATUS.enemySlow.enemyDmgMult);
@@ -25126,6 +25176,8 @@ function mbEnemyTurn(){
     msg = `${esc(enemyDef.name)}の攻撃！ あなたに${dmg}のダメージ！`;
     impactKind = 'hurt';
     impactTitle = `💥 ${enemyDef.name}の攻撃！`;
+    // 相手が攻撃するときは攻撃姿勢を見せる（教員の指示、2026-09-04）。
+    mbCurrentPoseKey = 'attack';
   }
   if(enemyDef.taunt && Math.random() < 0.3) msg += `<br>「${esc(enemyDef.taunt)}」`;
   mbDecayStatuses();
@@ -25179,11 +25231,14 @@ function mbStageNodeHtml(i, clearedUpTo){
     </div>`;
 }
 function mbShowStageMap(clearedUpTo, xpGained){
+  mbStopIdleAnim();
   const nodesHtml = MB_ENEMIES.map((e, i) => mbStageNodeHtml(i, clearedUpTo)).join('<div class="mb-stage-path"></div>');
   const nextIndex = clearedUpTo + 1;
+  const defeatedEnemy = MB_ENEMIES[clearedUpTo];
   screen.innerHTML = `
     <div class="boss-battle-screen">
-      <div class="boss-name">🎉 ${esc(MB_ENEMIES[clearedUpTo].name)}を倒した！</div>
+      <div class="boss-name">🎉 ${esc(defeatedEnemy.name)}を倒した！</div>
+      <img class="mb-defeat-icon" src="${mbEnemySpriteSrc(defeatedEnemy, 'defeat')}" alt="${esc(defeatedEnemy.name)}">
       <p class="mb-boss-xp-banner">＋${xpGained} ストック経験値 獲得！</p>
       <div class="mb-stage-map">${nodesHtml}</div>
       <p style="text-align:center; color:#d8c2ff; margin-top:14px;">HP・MPはそのまま引き継がれます。</p>
@@ -25208,9 +25263,12 @@ function mbEnemyDefeated(){
 
 function mbGauntletComplete(xpGained){
   mbClearTimer();
+  mbStopIdleAnim();
+  const lastEnemy = mbBattle ? mbBattle.enemyDef : MB_ENEMIES[MB_ENEMIES.length - 1];
   screen.innerHTML = `
     <div class="boss-battle-screen">
       <div class="boss-name">🏆 すべての敵を倒した！</div>
+      <img class="mb-defeat-icon" src="${mbEnemySpriteSrc(lastEnemy, 'defeat')}" alt="${esc(lastEnemy.name)}">
       ${xpGained ? `<p class="mb-boss-xp-banner">＋${xpGained} ストック経験値 獲得！</p>` : ''}
       <p style="text-align:center;">お見事！「漢字バトル」を制覇しました。</p>
       <h3 style="text-align:center; margin-top:18px;">間違った問題</h3>
@@ -25225,6 +25283,7 @@ function mbGauntletComplete(xpGained){
 
 function mbGameOver(){
   mbClearTimer();
+  mbStopIdleAnim();
   const enemyDef = mbBattle.enemyDef;
   screen.innerHTML = `
     <div class="boss-battle-screen">
@@ -25243,6 +25302,7 @@ function mbGameOver(){
 function mbConfirmQuit(){
   if(confirm('戦いをやめてホームに戻りますか？（この戦いの記録は残りません）')){
     mbClearTimer();
+    mbStopIdleAnim();
     mbRun = null; mbBattle = null; mbChallenge = null;
     showHome();
   }
