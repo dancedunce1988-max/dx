@@ -3389,7 +3389,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.39</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.40</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -8229,18 +8229,20 @@ function kwsEventXpEligibleNow(){
   if(kwsMode === 'chugaku') return kwsChugakuLevel === null;
   return false;
 }
-// ジャンルレベル（st.lv.kws_exam／st.lv.kws_elem）も、上のkwsEventXpEligibleNowと
-// 同じ条件で対象を絞る（教員の指示、2026-09-02：「小学校の復習について、『全学年』で
-// やらないと、レベルはアップしないようにしてください」）。examは学年フィルタが無いので
-// 常に対象。elemは特定の学年を選んでいる間はレベルに影響しない（record()自体を呼ばない。
-// 3箱への記録＝正解済み／間違った問題の管理＝kwsRecordAnswerは、学年を絞っていても
-// これまで通り行う。ジャンルレベルだけを対象から外す）。判定内容自体はkwsEventXpEligibleNowと
-// たまたま同じだが、意味が別（経験値イベント vs 恒久のジャンルレベル）なので専用の
-// 関数として分けておく。
+// ジャンルレベル（st.lv.kws_exam／st.lv.kws_elem／st.lv.kws_chugaku）の対象条件。
+// examは学年フィルタが無いので常に対象。elemは特定の学年を選んでいる間はレベルに
+// 影響しない（教員の指示、2026-09-02：「小学校の復習について、『全学年』でやらないと、
+// レベルはアップしないようにしてください」。record()自体を呼ばない。3箱への記録＝
+// 正解済み／間違った問題の管理＝kwsRecordAnswerは、学年を絞っていてもこれまで通り行う。
+// ジャンルレベルだけを対象から外す）。chugakuはelemと異なり、特定のレベルを選んでいても
+// 1問正解するごとにジャンルレベル・経験値が伸びる（教員の指示、2026-09-03：「中学校の
+// 問題については、『レベル別』を選択した場合でも、一問正解すればジャンルレベルが
+// 1上がるように」）。判定内容がexamと同じ「常にtrue」でも、意味が別（経験値イベント
+// vs 恒久のジャンルレベル）なのでkwsEventXpEligibleNowとは別関数のまま残す。
 function kwsGenreLevelEligibleNow(){
   if(kwsMode === 'exam') return true;
   if(kwsMode === 'elem') return kwsElemGrade === null;
-  if(kwsMode === 'chugaku') return kwsChugakuLevel === null;
+  if(kwsMode === 'chugaku') return true;
   return false;
 }
 
