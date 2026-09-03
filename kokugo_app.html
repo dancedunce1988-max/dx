@@ -3395,7 +3395,27 @@
 .kb-hero-icon-sm{ font-size:2.1rem; filter:drop-shadow(0 4px 8px rgba(0,0,0,.45)); }
 .kb-action-row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:12px; }
 .kb-btns{ display:flex; gap:8px; flex-shrink:0; }
-.kb-inline-hp.boss-hp-row{ flex:1 1 150px; min-width:150px; margin-bottom:0; }
+/* ボスHPバーは問題文の上（kb-hp-top）、制限時間バーはボタンの横（kb-inline-timer）に配置
+   （教員の指示、2026-09-03：「ボスのHPバーと、制限時間のバーの位置を入れ替えてください」）。 */
+.kb-hp-top{ margin-bottom:10px; }
+.kb-inline-timer.boss-timer-row{ flex:1 1 150px; min-width:150px; margin:0; }
+/* 「スタート」ボタンは中央、「やめる」は小さく右端に（教員の指示、2026-09-03）。 */
+.kb-quit-corner{ position:absolute; top:14px; right:14px; padding:4px 12px; font-size:.75rem; }
+/* 一文字ずつ採点する方式（教員の指示、2026-09-03）で、今どちらの文字を書いているか分かる
+   ようにする色分け。例文中の《カタカナ》括弧はデータ上1文字目・2文字目に分かれていないため、
+   括弧全体の色を書いている文字に合わせて切り替える（1文字目＝青、2文字目＝オレンジ）。 */
+.kws-blank.kb-blank-c0{ color:#8ab4ff; text-decoration:underline; text-decoration-color:#8ab4ff; text-underline-offset:3px; }
+.kws-blank.kb-blank-c1{ color:#ffbb86; text-decoration:underline; text-decoration-color:#ffbb86; text-underline-offset:3px; }
+.kb-char-badge{ display:inline-block; font-weight:bold; font-size:.85rem; padding:3px 12px; border-radius:99px; }
+.kb-char-badge.kb-blank-c0{ background:rgba(59,130,246,.18); color:#8ab4ff; }
+.kb-char-badge.kb-blank-c1{ background:rgba(255,138,61,.18); color:#ffbb86; }
+/* 攻撃時に獲得したストック経験値をはっきり見せる（教員の指示、2026-09-03）。 */
+.kb-atk-xp{
+  margin-top:2px; font-size:1.15rem; font-weight:900; color:#7CFFB2;
+  text-shadow:0 0 16px rgba(124,255,178,.85), 0 2px 8px rgba(0,0,0,.85);
+  animation:kbPunch .45s cubic-bezier(.2,1.6,.4,1) .12s both;
+}
+.kb-xp-inline{ color:#7CFFB2; font-weight:900; margin-left:6px; }
 .kb-shake{ animation:kbShake .55s ease; }
 @keyframes kbShake{
   0%{ transform:translate(0,0) scale(1); } 15%{ transform:translate(-14px,7px) scale(1.05); }
@@ -3464,7 +3484,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.46</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.47</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -23470,31 +23490,36 @@ function ydAttachMenuHandlers(){
    戦闘進行は全て専用の変数・関数（kb*接頭辞）で新規に持ち、既存のkwsMode/kwsCanvas等の
    グローバル状態には一切書き込まない（他の漢字の書き学習モードに影響を与えないため）。 */
 
+// qStockXp：1問（1つの単語）を正解しボスに攻撃を当てるたびに獲得するストック経験値
+// （教員の指示、2026-09-03：小4まで+1、小5・小6は+2、入試頻出・中学校は+3）。
+// stockXpは既存の「その日はじめてこのボスを倒したときの1回だけのボーナス」のまま、別物として残す。
 const KANJI_BOSS_LIST = [
   {id:'kb01', name:'小三の見張り',   icon:'🐣', mode:'elem', gradeFilter:3, gradeLabel:'小学校３年生の問題',
-   hp:200, atkMin:8,  atkMax:11, atkDivOnCorrect:3, healMin:0,  healMax:0,   stockXp:5,  taunt:null},
+   hp:200, atkMin:8,  atkMax:11, atkDivOnCorrect:3, healMin:0,  healMax:0,   stockXp:5,  qStockXp:1, taunt:null},
   {id:'kb02', name:'小四の門番',     icon:'🐥', mode:'elem', gradeFilter:4, gradeLabel:'小学校４年生の問題',
-   hp:300, atkMin:10, atkMax:14, atkDivOnCorrect:3, healMin:0,  healMax:0,   stockXp:10, taunt:null},
+   hp:300, atkMin:10, atkMax:14, atkDivOnCorrect:3, healMin:0,  healMax:0,   stockXp:10, qStockXp:1, taunt:null},
   {id:'kb03', name:'小五の守護者',   icon:'🐦', mode:'elem', gradeFilter:5, gradeLabel:'小学校５年生の問題',
-   hp:400, atkMin:15, atkMax:19, atkDivOnCorrect:3, healMin:0,  healMax:0,   stockXp:15, taunt:null},
+   hp:400, atkMin:15, atkMax:19, atkDivOnCorrect:3, healMin:0,  healMax:0,   stockXp:15, qStockXp:2, taunt:null},
   {id:'kb04', name:'小六の番人',     icon:'🦅', mode:'elem', gradeFilter:6, gradeLabel:'小学校６年生の問題',
-   hp:500, atkMin:19, atkMax:25, atkDivOnCorrect:3, healMin:0,  healMax:0,   stockXp:20, taunt:null},
+   hp:500, atkMin:19, atkMax:25, atkDivOnCorrect:3, healMin:0,  healMax:0,   stockXp:20, qStockXp:2, taunt:null},
   {id:'kb05', name:'入試の関門',     icon:'👹', mode:'exam', gradeFilter:null, gradeLabel:'高校入試頻出200の問題',
-   hp:600, atkMin:19, atkMax:25, atkDivOnCorrect:3, healMin:20, healMax:30,  stockXp:25,
+   hp:600, atkMin:19, atkMax:25, atkDivOnCorrect:3, healMin:20, healMax:30,  stockXp:25, qStockXp:3,
    taunt:'ふははは。力がみなぎってきおるわ'},
   {id:'kb06', name:'中学漢字の主・壱', icon:'👺', mode:'chugaku', gradeFilter:1, gradeLabel:'中学校で習う漢字レベル１',
-   hp:700, atkMin:23, atkMax:29, atkDivOnCorrect:4, healMin:30, healMax:70,  stockXp:30, taunt:null},
+   hp:700, atkMin:23, atkMax:29, atkDivOnCorrect:4, healMin:30, healMax:70,  stockXp:30, qStockXp:3, taunt:null},
   {id:'kb07', name:'中学漢字の主・弐', icon:'👹', mode:'chugaku', gradeFilter:2, gradeLabel:'中学校で習う漢字レベル２',
-   hp:800, atkMin:40, atkMax:55, atkDivOnCorrect:4, healMin:50, healMax:100, stockXp:35, taunt:null},
+   hp:800, atkMin:40, atkMax:55, atkDivOnCorrect:4, healMin:50, healMax:100, stockXp:35, qStockXp:3, taunt:null},
 ];
 
-let kanjiBoss = null;           // 戦闘中の状態。null=未戦闘
+let kanjiBoss = null;           // 戦闘中の状態。null=未戦闘（kanjiBoss.charIndexが今書いている文字の位置）
 let kanjiBossDataCache = {};    // mode -> kwsBuildKanjiData()の結果（modeごとに1回だけ構築）
 let kbCanvas = null, kbCtx = null;
 let kbCompletedStrokes = [];
 let kbCurrentPath = [];
 let kbDrawing = false;
 let kbTimerHandle = null;
+const KB_STAGE_PX = 380; // 常に1文字ずつ、できるだけ大きく表示する（教員の指示、2026-09-03）
+const KB_CIRCLED = ['①', '②', '③', '④', '⑤'];
 
 // ホーム直下ではなく「🎮 ミニゲーム」一覧(showSideQuestMenu)の中に置く（教員の指示、2026-09-03）。
 function kanjiBossSideQuestButtonHtml(){
@@ -23540,10 +23565,10 @@ function kbEnsurePool(bossDef){
   return {data, ids};
 }
 
-// 3画以下は5秒、4画以上は1画につき1秒（教員の指示、2026-09-03に「制限時間が長すぎる」との
-// フィードバックを受けて修正。元は2画以内5秒・3画以上は画数×2秒だった）。
+// 3画以下は5秒、4画以上は1画につき1.5秒（教員の指示、2026-09-03：最初は「長すぎる」で
+// 1画=1秒に短縮したが、一文字ずつ採点する方式に変えたことも受けて1画=1.5秒に再調整）。
 function kbTimeLimitMs(strokeCount){
-  return strokeCount <= 3 ? 5000 : strokeCount * 1000;
+  return strokeCount <= 3 ? 5000 : strokeCount * 1500;
 }
 
 // 「それぞれのボスが分かれているのではなく、順番にボスがかわるがわる出現するイメージ」
@@ -23558,15 +23583,16 @@ function startKanjiBossGauntlet(){
   kanjiBoss = null;
   const overlay = document.getElementById('kbAtkOverlay');
   if(overlay) overlay.remove();
+  // 「スタート」は中央に大きく、「やめる」は小さく右端に（教員の指示、2026-09-03）。
   screen.innerHTML = `
-    <div class="boss-battle-screen">
+    <div class="boss-battle-screen" style="position:relative;">
+      <button class="btn secondary kb-quit-corner" onclick="showHome()">やめる</button>
       <div class="boss-name">⚔️ 漢字マスターの道</div>
-      <p style="text-align:center; line-height:1.9; margin:18px 4px;">
+      <p style="text-align:center; line-height:1.9; margin:18px 4px 26px;">
         漢字を書くことで、ボスを倒すゲームです。<br>
         漢字は、「画数」と「全体の形」で判定しています。大きく書くようにしましょう。
       </p>
-      <div class="btn-row"><button class="btn primary" onclick="kbStartCountdown()">スタート</button></div>
-      <div class="btn-row"><button class="btn secondary" onclick="showHome()">やめる</button></div>
+      <div class="btn-row" style="justify-content:center;"><button class="btn primary" onclick="kbStartCountdown()">スタート</button></div>
     </div>`;
 }
 
@@ -23628,9 +23654,9 @@ function kbRefreshHpBars(){
 }
 
 // 書くスペースを最大限確保するため（教員の指示、2026-09-03）、ボス画像は名前の横に小さく
-// 表示するだけにとどめ、ボスのHPバーは「採点する」「書き直す」の横（kb-action-row）に移して
-// 上部の専有スペースを減らす。ボス画像自体は引き続き必ず表示する（教員の指示：「ただし、
-// ボスキャラの画像は表示されるようにすること」）。
+// 表示するだけにとどめる（ボス画像自体は引き続き必ず表示する）。ボスのHPバーと制限時間バーは
+// 「採点する」「書き直す」の横（kb-action-row）とその上とで位置を入れ替え、ボスHPバーを
+// 問題文の上に、制限時間バーをボタンの横に配置する（教員の指示、2026-09-03）。
 function kbRenderScreen(){
   const bossDef = kanjiBoss.bossDef;
   screen.innerHTML = `
@@ -23641,8 +23667,9 @@ function kbRenderScreen(){
         <div class="boss-name" style="margin-bottom:0;">${esc(bossDef.name)}</div>
       </div>
       <div class="boss-q-card">
-        <div class="boss-timer-row"><div class="boss-timer-bar"><div class="boss-timer-fill" id="kbTimerFill" style="width:100%"></div></div></div>
+        <div class="boss-hp-row kb-hp-top" id="kbBossHpRow">${kbHpBarInnerHtml(bossDef.name, kanjiBoss.bossHp, kanjiBoss.bossMaxHp, 'boss-hpbar')}</div>
         <div class="boss-q-text" id="kbSentencePrompt"></div>
+        <div id="kbCharBadge" style="text-align:center; margin-bottom:8px;"></div>
         <div class="kws-stage" id="kbStage">
           <canvas id="kbCanvas"></canvas>
         </div>
@@ -23651,7 +23678,9 @@ function kbRenderScreen(){
             <button class="btn primary" id="kbBtnJudge" onclick="kbHandleJudgeClick()">採点する</button>
             <button class="btn secondary" onclick="kbResetInk()">書き直す</button>
           </div>
-          <div class="boss-hp-row kb-inline-hp" id="kbBossHpRow">${kbHpBarInnerHtml(bossDef.name, kanjiBoss.bossHp, kanjiBoss.bossMaxHp, 'boss-hpbar')}</div>
+          <div class="boss-timer-row kb-inline-timer">
+            <div class="boss-timer-bar"><div class="boss-timer-fill" id="kbTimerFill" style="width:100%"></div></div>
+          </div>
         </div>
         <div class="kb-status" id="kbStatus"></div>
       </div>
@@ -23702,25 +23731,22 @@ function kbToPixel(clientX, clientY){
   };
 }
 
-// 2文字の問題は縦積みではなく左右に並べる（1文字目が左、教員の指示、2026-09-03）。
-// canvas自体をcharCount個ぶん横に広い1行として使い、各マスをx方向にKWS_CHAR_CELL_PXずつ並べる。
+// 一文字ずつ採点する方式に変更（教員の指示、2026-09-03：「まだ解答の大きさが小さいので、
+// 一文字ずつ採点することにします」）。キャンバスは常に1文字ぶんの正方形1マスだけで、
+// 2文字の問題は1文字目→2文字目の順に、都度キャンバスを書き直す（kbLoadCharStage参照）。
 function kbRender(){
   if(!kbCtx) return;
   kbCtx.setTransform(1, 0, 0, 1, 0, 0);
   kbCtx.clearRect(0, 0, kbCanvas.width, kbCanvas.height);
-  const charCount = Math.round(kbCanvas.width / KWS_CHAR_CELL_PX);
   kbCtx.save();
   kbCtx.strokeStyle = '#cfcfcf';
   kbCtx.lineWidth = 1;
   kbCtx.setLineDash([5, 5]);
-  for(let i = 0; i < charCount; i++){
-    const x0 = i * KWS_CHAR_CELL_PX;
-    kbCtx.strokeRect(x0 + 1, 1, KWS_CHAR_CELL_PX - 2, KWS_CHAR_CELL_PX - 2);
-    kbCtx.beginPath();
-    kbCtx.moveTo(x0 + KWS_CHAR_CELL_PX / 2, 0); kbCtx.lineTo(x0 + KWS_CHAR_CELL_PX / 2, KWS_CHAR_CELL_PX);
-    kbCtx.moveTo(x0, KWS_CHAR_CELL_PX / 2); kbCtx.lineTo(x0 + KWS_CHAR_CELL_PX, KWS_CHAR_CELL_PX / 2);
-    kbCtx.stroke();
-  }
+  kbCtx.strokeRect(1, 1, KWS_CHAR_CELL_PX - 2, KWS_CHAR_CELL_PX - 2);
+  kbCtx.beginPath();
+  kbCtx.moveTo(KWS_CHAR_CELL_PX / 2, 0); kbCtx.lineTo(KWS_CHAR_CELL_PX / 2, KWS_CHAR_CELL_PX);
+  kbCtx.moveTo(0, KWS_CHAR_CELL_PX / 2); kbCtx.lineTo(KWS_CHAR_CELL_PX, KWS_CHAR_CELL_PX / 2);
+  kbCtx.stroke();
   kbCtx.restore();
   kbCtx.save();
   kbCtx.strokeStyle = '#3b6fd1';
@@ -23761,7 +23787,10 @@ function kbShowTurnMsg(html){
 // 画面中央にはっきり分かるように大きく表示」）。kind='hit'＝プレイヤーの攻撃がボスに命中
 // （金色）、kind='hurt'＝ボスの攻撃がプレイヤーに命中（赤色）。document.body直下に一時要素を
 // 生成して自分で消す（finisher-overlayと同じ設計だが、専用クラス名で混線を避ける）。
-function kbShowAttackOverlay(kind, dmg, subText){
+// xpGained：プレイヤーの攻撃が命中したとき（kind==='hit'）だけ渡す、この1問で獲得した
+// ストック経験値。攻撃演出のすぐ下にはっきり表示する（教員の指示、2026-09-03：
+// 「ストック経験値がいくつ獲得できたということも、攻撃時に見やすく表示してください」）。
+function kbShowAttackOverlay(kind, dmg, subText, xpGained){
   const old = document.getElementById('kbAtkOverlay');
   if(old) old.remove();
   const cls = kind === 'hit' ? 'kb-hit' : 'kb-hurt';
@@ -23771,7 +23800,8 @@ function kbShowAttackOverlay(kind, dmg, subText){
   el.innerHTML = `
     <div class="kb-atk-title ${cls}">${kind === 'hit' ? '⚔️ こうげき成功！' : '💥 こうげきをうけた！'}</div>
     <div class="kb-atk-dmg ${cls}">${dmg}</div>
-    ${subText ? `<div class="kb-atk-sub">${esc(subText)}</div>` : ''}`;
+    ${subText ? `<div class="kb-atk-sub">${esc(subText)}</div>` : ''}
+    ${xpGained ? `<div class="kb-atk-xp">＋${xpGained} ストック経験値</div>` : ''}`;
   document.body.appendChild(el);
   setTimeout(() => { if(el.parentNode) el.remove(); }, 900);
 }
@@ -23780,7 +23810,7 @@ function kbShowAttackOverlay(kind, dmg, subText){
 // アイコンにも演出を重ねる（教員の指示：「派手にお願いします」）。hit＝ボスのアイコンが
 // シェイクしつつ金色に発光、hurt＝画面全体が赤く発光しながら左右に揺れる
 // （kb-impact-hurtのキーフレーム自体に横揺れを仕込んである）。
-function kbTriggerImpact(kind, dmg, subText){
+function kbTriggerImpact(kind, dmg, subText, xpGained){
   const screenEl = document.getElementById('kbScreen');
   if(screenEl){
     screenEl.classList.remove('kb-impact-hit', 'kb-impact-hurt');
@@ -23795,7 +23825,7 @@ function kbTriggerImpact(kind, dmg, subText){
       heroEl.classList.add('kb-shake');
     }
   }
-  kbShowAttackOverlay(kind, dmg, subText);
+  kbShowAttackOverlay(kind, dmg, subText, xpGained);
 }
 
 function kbSetTurnBusy(busy){
@@ -23810,14 +23840,40 @@ function kbPickNextId(){
   return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
-// 横並びレイアウト用の表示幅。1文字は正方形のまま、2文字以上は左右に並ぶ分だけ横に伸びる
-// （1マスあたりの表示サイズは少し絞って、画面からはみ出さないようにする）。
-// 教員の指示（2026-09-03）：「二文字のとき表示が小さくて書きにくいので、できるだけ書く
-// スペースを大きく取りたい」。上部のボス表示・HPバーを圧縮した分（kbRenderScreen参照）、
-// ここでも1マスあたりの表示サイズを底上げする。
-function kbStageWidthPx(charCount){
-  const perChar = charCount >= 2 ? 210 : 340;
-  return perChar * charCount;
+// 例文の《カタカナ》括弧は、2文字の熟語でも1文字目・2文字目の読みを分けず「まとめて1つの
+// 括弧」で書かれている（データ側の仕様）。個々の文字の読みの境目は判定できないため、今書いて
+// いるのが1文字目か2文字目かは、括弧全体の色を切り替えることで示す（教員の指示、2026-09-03：
+// 「どの字を今書いているか分かるように、問題文も色を付けるなどして工夫してください」）。
+function kbRenderSentencePrompt(){
+  const id = kanjiBoss.currentId;
+  const raw = kwsSentenceFor(id);
+  const cls = kanjiBoss.charIndex === 0 ? 'kb-blank-c0' : 'kb-blank-c1';
+  const html = raw.replace(/《([^》]*)》/g, (m, inner) => `<span class="kws-blank ${cls}">${inner}</span>`);
+  const el = document.getElementById('kbSentencePrompt');
+  if(el) el.innerHTML = html || '（例文なし）';
+}
+function kbRenderCharBadge(){
+  const el = document.getElementById('kbCharBadge');
+  if(!el) return;
+  const kdata = kanjiBoss.data[kanjiBoss.currentId];
+  if(kdata.charCount <= 1){ el.innerHTML = ''; return; }
+  const cls = kanjiBoss.charIndex === 0 ? 'kb-blank-c0' : 'kb-blank-c1';
+  el.innerHTML = `<span class="kb-char-badge ${cls}">${KB_CIRCLED[kanjiBoss.charIndex] || (kanjiBoss.charIndex + 1)} ${kanjiBoss.charIndex + 1}文字目を書きましょう</span>`;
+}
+
+// 一文字ぶんのキャンバスを準備する（問題文・キャンバス・文字バッジを、今の文字index基準で
+// 作り直すだけ。制限時間はkbNextQuestionが単語単位で1回だけ管理するので、ここでは触らない）。
+function kbLoadCharStage(){
+  kbCanvas.width = KWS_CHAR_CELL_PX;
+  kbCanvas.height = KWS_CHAR_CELL_PX;
+  const stageEl = document.getElementById('kbStage');
+  // vw基準だけだと.boss-battle-screen/.boss-q-cardの左右padding分を考慮できず右にはみ出す
+  // ことがあったため、実際に使える幅（ビューポート幅からpadding分を差し引いたもの）を上限にする。
+  stageEl.style.width = `min(calc(100vw - 76px), ${KB_STAGE_PX}px)`;
+  stageEl.style.aspectRatio = '1 / 1';
+  kbResetInk();
+  kbRenderSentencePrompt();
+  kbRenderCharBadge();
 }
 
 function kbNextQuestion(){
@@ -23827,23 +23883,14 @@ function kbNextQuestion(){
   const id = kbPickNextId();
   kanjiBoss.currentId = id;
   kanjiBoss.lastId = id;
+  kanjiBoss.charIndex = 0; // 一文字ずつ採点する方式（教員の指示、2026-09-03）。単語の先頭文字から
   const kdata = kanjiBoss.data[id];
 
-  // 2文字の問題は縦積みではなく左右に並べる（1文字目が左、教員の指示、2026-09-03）。
-  kbCanvas.width = KWS_CHAR_CELL_PX * kdata.charCount;
-  kbCanvas.height = KWS_CHAR_CELL_PX;
-  const stageEl = document.getElementById('kbStage');
-  // vw基準だけだと.boss-battle-screen/.boss-q-cardの左右padding分を考慮できず、
-  // 2文字問題で右にはみ出すことがあったため、実際に使える幅（ビューポート幅からpadding分を
-  // 差し引いたもの）を上限にする。
-  stageEl.style.width = `min(calc(100vw - 76px), ${kbStageWidthPx(kdata.charCount)}px)`;
-  stageEl.style.aspectRatio = `${kdata.charCount} / 1`;
-
-  kbResetInk();
-  const sentence = kwsSentenceFor(id).replace(/《([^》]*)》/g, '<span class="kws-blank">$1</span>');
-  document.getElementById('kbSentencePrompt').innerHTML = sentence || '（例文なし）';
+  kbLoadCharStage();
   kbShowTurnMsg('');
 
+  // 制限時間は単語単位（1文字目〜最後の文字まで）で1回だけ計測する。文字が進んでも
+  // タイマーはリセットしない（kbGradeCharの正解継続分岐参照）。
   kanjiBoss.timeLimitMs = kbTimeLimitMs(kdata.strokes.length);
   kbStartTimer();
 }
@@ -23883,21 +23930,19 @@ function kbHandleJudgeClick(){
     kbSetStatus('まず何か書いてから採点してください', 'ng');
     return;
   }
-  clearKanjiBossTimer();
+  // ここではタイマーを止めない：2文字目が残っている場合、制限時間は単語全体で共有したまま
+  // 続くため（kbGradeChar参照）。タイマーを止めるかどうかの判断はkbGradeChar側に任せる。
   kbSubmitJudge(false);
 }
 
-// 見た目は左右に並べて書かせるが（kbRender参照）、既存のkws採点ロジック（kwsEvaluateCharacters
-// 内のkwsCharIndexForStroke等）は「1文字ずつ縦に積む」座標系（1文字目はy:0〜CELL、2文字目は
-// y:CELL〜2*CELL）を前提に対象の字形データ(kdata.strokes)を組み立てている。見た目の横位置
-// （どのマスに書いたか）を、判定が期待する縦位置に変換してから渡す。1文字の問題は変換不要
-// （x:0〜CELL、y:0〜CELLのままで一致する）。
-function kbStrokeToLogical(strokePts, charCount, cellPx){
-  if(charCount < 2) return strokePts;
-  return strokePts.map(p => {
-    const ci = Math.max(0, Math.min(charCount - 1, Math.floor(p.x / cellPx)));
-    return { x: p.x - ci * cellPx, y: ci * cellPx + p.y };
-  });
+// 一文字ずつ採点する方式（教員の指示、2026-09-03）。キャンバスは常にその文字専用の1マス
+// （x:0〜CELL、y:0〜CELL）で書かせるが、既存のkws採点ロジック（kwsEvaluateCharacters内の
+// kwsCharIndexForStroke等）は「1文字目はy:0〜CELL、2文字目はy:CELL〜2*CELL」という、単語全体を
+// 縦に積んだ座標系を前提に対象の字形データ(kdata.strokes)を組み立てている。今書いている文字の
+// 位置ぶんだけyを下にずらして、判定が期待する座標に変換してから渡す（1文字目は変換不要）。
+function kbStrokeToLogicalForChar(strokePts, charIndex, cellPx){
+  if(charIndex === 0) return strokePts;
+  return strokePts.map(p => ({ x: p.x, y: p.y + charIndex * cellPx }));
 }
 
 // kwsEvaluateAgainstStrokesはisPointInStrokeのジオメトリ判定にグローバルのkwsCtxを使う実装
@@ -23912,31 +23957,56 @@ function kbSubmitJudge(timedOut){
   let ok = false;
   if(!timedOut && kbCompletedStrokes.length > 0){
     kwsCtx = kbCtx;
-    const logicalStrokes = kbCompletedStrokes.map(s => kbStrokeToLogical(s, kdata.charCount, KWS_CHAR_CELL_PX));
+    const logicalStrokes = kbCompletedStrokes.map(s => kbStrokeToLogicalForChar(s, kanjiBoss.charIndex, KWS_CHAR_CELL_PX));
     const charResults = kwsEvaluateCharacters(kdata, logicalStrokes, kwsProfile);
-    ok = kwsComputePass({chars: charResults});
+    ok = charResults[kanjiBoss.charIndex].passCore;
   }
-  kbGrade(ok, kdata, timedOut);
+  kbGradeChar(ok, kdata, timedOut);
 }
 
-function kbGrade(ok, kdata, timedOut){
-  const bossDef = kanjiBoss.bossDef;
-  if(ok){
-    const dmg = 80 + Math.floor(Math.random() * 41); // 80〜120
-    kanjiBoss.bossHp = Math.max(0, kanjiBoss.bossHp - dmg);
-    kbSetStatus(`○ 「${kdata.kanji}」正解！`, 'ok');
-    kbShowTurnMsg(`⚔️ あなたの攻撃！ ${esc(bossDef.name)}に${dmg}のダメージ！`);
-    kbTriggerImpact('hit', dmg, `${bossDef.name}に会心の一撃！`);
-    kbRefreshHpBars();
-    if(kanjiBoss.bossHp <= 0){
-      setTimeout(() => kbWin(), 900);
-      return;
-    }
-    setTimeout(() => kbBossCounter(true), 1000);
-  } else {
+// 1文字ぶんの正解／不正解を受けて、単語全体の決着まで進める。2文字の問題は「1文字目・2文字目
+// 両方正解ではじめて単語として正解」（教員の指示）。どちらか一方でも不正解／時間切れなら、
+// その時点で単語全体を不正解として即座にボスの反撃に進む（残りの文字を書かせる意味が無いため）。
+function kbGradeChar(ok, kdata, timedOut){
+  if(!ok){
+    clearKanjiBossTimer();
     kbSetStatus(timedOut ? '× 時間切れ...' : '× 正解の形と違うようです', 'ng');
     setTimeout(() => kbBossCounter(false), 500);
+    return;
   }
+  const isLastChar = kanjiBoss.charIndex >= kdata.charCount - 1;
+  if(!isLastChar){
+    // まだ次の文字が残っている：制限時間は単語全体で共有したまま止めない。次の文字の
+    // キャンバスに切り替わるまでの間（700ms）はturnBusyを維持し、まだ表示されている
+    // 前の文字のキャンバスに書き込めてしまわないようにする。
+    kbSetStatus(`○ ${kanjiBoss.charIndex + 1}文字目 正解！ 続けて書きましょう`, 'ok');
+    kanjiBoss.charIndex++;
+    setTimeout(() => {
+      if(!kanjiBoss) return;
+      kbLoadCharStage();
+      kbSetTurnBusy(false);
+    }, 700);
+    return;
+  }
+  // 最後の文字も正解＝単語全体が正解。プレイヤーの攻撃＋1問ごとのストック経験値を確定する
+  // （教員の指示、2026-09-03：ボスの難易度帯ごとに+1/+2/+3。既存の「その日はじめてこの
+  // ボスを倒したときのボーナス」stockXpとは別物）。
+  clearKanjiBossTimer();
+  const bossDef = kanjiBoss.bossDef;
+  const dmg = 80 + Math.floor(Math.random() * 41); // 80〜120
+  kanjiBoss.bossHp = Math.max(0, kanjiBoss.bossHp - dmg);
+  const st = loadStats();
+  st.stockXp = (st.stockXp || 0) + bossDef.qStockXp;
+  saveStats(st);
+  kbSetStatus(`○ 「${kdata.kanji}」正解！`, 'ok');
+  kbShowTurnMsg(`⚔️ あなたの攻撃！ ${esc(bossDef.name)}に${dmg}のダメージ！ <span class="kb-xp-inline">＋${bossDef.qStockXp} ストック経験値</span>`);
+  kbTriggerImpact('hit', dmg, `${bossDef.name}に会心の一撃！`, bossDef.qStockXp);
+  kbRefreshHpBars();
+  if(kanjiBoss.bossHp <= 0){
+    setTimeout(() => kbWin(), 900);
+    return;
+  }
+  setTimeout(() => kbBossCounter(true), 1000);
 }
 
 function kbBossCounter(playerCorrect){
