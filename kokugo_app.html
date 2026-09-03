@@ -3389,7 +3389,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.42</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.43</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3950,17 +3950,28 @@ function loadStats(){
         /* kws（漢字の書き取り、exam/elem）の3箱式の間隔反復（[[project-kokugo-drill-dx-kws-elem-chunk-unlock]]）は
            ver10.07〜ver10.12にかけて何度も設計を手直しした（8問チャンクからの全面刷新、
            初期解放数の調整、forcedNext/recentShownの追加等）。CAT_POOL_VERSION／
-           HYAKUNIN_POOL_VERSIONと同じ考え方で、教員の指示（2026-09-02：「修正後は、全員
-           解放状態を0%から再スタートするようにしてください」）により、st.kwsExamState／
-           st.kwsElemState／st.kwsExamRecent／st.kwsElemRecentを丸ごと削除して、次に
+           HYAKUNIN_POOL_VERSIONと同じ考え方で、st.kwsExamState／st.kwsExamRecent
+           （または st.kwsElemState／st.kwsElemRecent）を丸ごと削除して、次に
            kwsEnsureStateStoreが呼ばれたときに現行の初期化ロジックで作り直させる
-           （導入済み問題数0＝新しい問題1問目からやり直し）。 */
-        if(st.kwsPoolVersion !== KWS_POOL_VERSION){
+           （導入済み問題数0＝新しい問題1問目からやり直し）。examとelemは別バージョン番号
+           （KWS_EXAM_POOL_VERSION／KWS_ELEM_POOL_VERSION）で独立に管理しており、片方だけを
+           対象にリセットできる（2026-09-03、教員の指示：「小学校の解放状態は、一度リセットして
+           ほしい。ただし、次から更新するときにはリセットにならないように」に対応するため、
+           以前の共有フィールドst.kwsPoolVersionを2つに分割した）。既存セーブの
+           st.kwsPoolVersion（旧・共有フィールド）は、両方の初期値として一度だけ引き継ぐ
+           （examは実際に値が変わっていないので巻き戻らず、elemだけがKWS_ELEM_POOL_VERSIONの
+           差分ぶんリセットされる）。 */
+        if(typeof st.kwsExamPoolVersion !== "number") st.kwsExamPoolVersion = st.kwsPoolVersion || 0;
+        if(typeof st.kwsElemPoolVersion !== "number") st.kwsElemPoolVersion = st.kwsPoolVersion || 0;
+        if(st.kwsExamPoolVersion !== KWS_EXAM_POOL_VERSION){
           delete st.kwsExamState;
-          delete st.kwsElemState;
           delete st.kwsExamRecent;
+          st.kwsExamPoolVersion = KWS_EXAM_POOL_VERSION;
+        }
+        if(st.kwsElemPoolVersion !== KWS_ELEM_POOL_VERSION){
+          delete st.kwsElemState;
           delete st.kwsElemRecent;
-          st.kwsPoolVersion = KWS_POOL_VERSION;
+          st.kwsElemPoolVersion = KWS_ELEM_POOL_VERSION;
         }
         /* ジャンルレベル専用リセット（KWS_LEVEL_POOL_VERSION参照）。3箱の出題進捗
            （kwsExamState等、上のKWS_POOL_VERSIONブロック）には一切触れず、
@@ -7191,12 +7202,17 @@ function kwsRadicalsFor(id){
 // examは常にこの仕組みで出題する。elemは「全学年ミックス」のときだけこの仕組みで出題し、
 // 学年ボタンで特定の学年を選んでいるときは、これまで通り解禁と無関係にその学年の全問題を
 // 出題する（教員に確認済みの既存方針を踏襲）。
-// 3箱式の設計を変えて、教員の指示で全員の解放状態をリセットするたびに1つ上げる
-// （CAT_POOL_VERSION／HYAKUNIN_POOL_VERSIONと同じ考え方、loadStats()参照）。
-const KWS_POOL_VERSION = 1;
+// 3箱式の設計を変えて、教員の指示で解放状態をリセットするたびに1つ上げる（CAT_POOL_VERSION／
+// HYAKUNIN_POOL_VERSIONと同じ考え方、loadStats()参照）。examとelemは別々にリセットしたい
+// 場面がある（教員の指示、2026-09-03：「小学校の解放状態は、一度リセットしてほしい。ただし、
+// 次から更新するときにはリセットにならないように」＝小学校（elem）だけを対象にしたい）ため、
+// examとelemで別のバージョン番号に分けてある（以前はKWS_POOL_VERSION1つで両方を兼ねていた）。
+const KWS_EXAM_POOL_VERSION = 1;
+const KWS_ELEM_POOL_VERSION = 2; // 2026-09-03、小学校の解放状態のみ一度だけリセット
 /* ジャンルレベル（st.lv.kws_exam／st.lv.kws_elem、EXTRA_LEVEL_CATS参照、2026-09-02〜）専用の
-   リセット用バージョン。KWS_POOL_VERSION（3箱の出題進捗）とはあえて別のフラグにしてある
-   （教員の指示：「正式リリース後、全員一度リセットします」。正式リリース時にこちらだけを
+   リセット用バージョン。KWS_EXAM_POOL_VERSION／KWS_ELEM_POOL_VERSION（3箱の出題進捗）とは
+   あえて別のフラグにしてある（教員の指示：「正式リリース後、全員一度リセットします」。
+   正式リリース時にこちらだけを
    1つ上げれば、3箱の解禁進捗・正解済み記録はそのままに、ベータテスト中に伸びたジャンル
    レベル・経験値だけを0からやり直せる。loadStats()参照）。 */
 const KWS_LEVEL_POOL_VERSION = 1;
