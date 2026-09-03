@@ -3388,6 +3388,14 @@
 /* 「漢字マスターの道」（漢字の書きミニゲーム、2026-09-03〜）。既存のボス戦(.boss-battle-screen等)
    と同じ雰囲気のCSSクラスを再利用しつつ、専用パーツ(kb-*)だけ追加する。 */
 .kb-hero-icon{ font-size:4.2rem; text-align:center; margin-bottom:6px; filter:drop-shadow(0 6px 14px rgba(0,0,0,.45)); }
+/* 書くスペースをできるだけ大きく取るため（教員の指示、2026-09-03：「二文字のとき表示が
+   小さくて書きにくい」）、戦闘中の見出しはボス画像を小さくインラインで名前と並べるだけにし、
+   ボスのHPバーは下の「採点する」「書き直す」の横に移してスペースを確保する。 */
+.kb-header-row{ display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:10px; }
+.kb-hero-icon-sm{ font-size:2.1rem; filter:drop-shadow(0 4px 8px rgba(0,0,0,.45)); }
+.kb-action-row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:12px; }
+.kb-btns{ display:flex; gap:8px; flex-shrink:0; }
+.kb-inline-hp.boss-hp-row{ flex:1 1 150px; min-width:150px; margin-bottom:0; }
 .kb-shake{ animation:kbShake .55s ease; }
 @keyframes kbShake{
   0%{ transform:translate(0,0) scale(1); } 15%{ transform:translate(-14px,7px) scale(1.05); }
@@ -3442,12 +3450,21 @@
   55%{ transform:scale(1.2) rotate(3deg); opacity:1; }
   100%{ transform:scale(1) rotate(0deg); opacity:1; }
 }
+/* 開始前の説明画面のあとに出す「３．２．１」カウントダウン（教員の指示、2026-09-03）。 */
+.kb-countdown{
+  font-size:6rem; font-weight:900; color:#ffd76a; line-height:1;
+  text-shadow:0 0 30px rgba(255,215,100,.85), 0 2px 10px rgba(0,0,0,.85);
+}
+.kb-countdown-pop{ animation:kbCountdownPop .7s cubic-bezier(.2,1.6,.4,1); }
+@keyframes kbCountdownPop{
+  0%{ transform:scale(.3); opacity:0; } 60%{ transform:scale(1.25); opacity:1; } 100%{ transform:scale(1); opacity:1; }
+}
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.45</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.46</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -23533,8 +23550,48 @@ function kbTimeLimitMs(strokeCount){
 // （教員の指示、2026-09-03）。ボスを選ぶ画面は廃止し、KANJI_BOSS_LISTの並び順（弱い順）で
 // 1体ずつ自動的に連戦する「漢字マスターの道」に変更。1体倒すごとにプレイヤーHPは全回復
 // （教員の指示：ボスごとに独立した難易度のまま、演出だけ連戦にする）。
+// 連戦の最初（や「最初から挑む」での再挑戦）だけ、遊び方の説明→カウントダウンを挟む
+// （教員の指示、2026-09-03）。ボスを1体倒して次のボスに進むとき（kbStartBossAtIndex直接呼び出し）
+// は連戦のテンポを止めないよう、この説明は挟まない。
 function startKanjiBossGauntlet(){
-  kbStartBossAtIndex(0);
+  clearKanjiBossTimer();
+  kanjiBoss = null;
+  const overlay = document.getElementById('kbAtkOverlay');
+  if(overlay) overlay.remove();
+  screen.innerHTML = `
+    <div class="boss-battle-screen">
+      <div class="boss-name">⚔️ 漢字マスターの道</div>
+      <p style="text-align:center; line-height:1.9; margin:18px 4px;">
+        漢字を書くことで、ボスを倒すゲームです。<br>
+        漢字は、「画数」と「全体の形」で判定しています。大きく書くようにしましょう。
+      </p>
+      <div class="btn-row"><button class="btn primary" onclick="kbStartCountdown()">スタート</button></div>
+      <div class="btn-row"><button class="btn secondary" onclick="showHome()">やめる</button></div>
+    </div>`;
+}
+
+function kbStartCountdown(){
+  screen.innerHTML = `
+    <div class="boss-battle-screen" style="display:flex; align-items:center; justify-content:center; min-height:52vh;">
+      <div class="kb-countdown kb-countdown-pop" id="kbCountdownNum">3</div>
+    </div>`;
+  const rest = [2, 1];
+  let i = 0;
+  const step = () => {
+    const el = document.getElementById('kbCountdownNum');
+    if(!el) return; // カウントダウン中に離れた場合は何もしない
+    if(i >= rest.length){
+      kbStartBossAtIndex(0);
+      return;
+    }
+    el.textContent = rest[i];
+    el.classList.remove('kb-countdown-pop');
+    void el.offsetWidth; // reflow強制でアニメを再トリガーする
+    el.classList.add('kb-countdown-pop');
+    i++;
+    setTimeout(step, 800);
+  };
+  setTimeout(step, 800);
 }
 
 function kbStartBossAtIndex(idx){
@@ -23570,15 +23627,18 @@ function kbRefreshHpBars(){
   if(playerEl) playerEl.innerHTML = kbHpBarInnerHtml('あなた', kanjiBoss.playerHp, kanjiBoss.playerMaxHp, 'player-hpbar');
 }
 
+// 書くスペースを最大限確保するため（教員の指示、2026-09-03）、ボス画像は名前の横に小さく
+// 表示するだけにとどめ、ボスのHPバーは「採点する」「書き直す」の横（kb-action-row）に移して
+// 上部の専有スペースを減らす。ボス画像自体は引き続き必ず表示する（教員の指示：「ただし、
+// ボスキャラの画像は表示されるようにすること」）。
 function kbRenderScreen(){
   const bossDef = kanjiBoss.bossDef;
   screen.innerHTML = `
     <div class="boss-battle-screen" id="kbScreen">
       <p style="text-align:center; color:#9a8ec2; font-size:.8rem; margin:0 0 4px;">${kanjiBoss.bossIndex + 1}体目 / 全${KANJI_BOSS_LIST.length}体</p>
-      <div class="kb-hero-icon" id="kbHeroIcon">${bossDef.icon}</div>
-      <div class="boss-name">${esc(bossDef.name)}</div>
-      <div class="boss-hpbars">
-        <div class="boss-hp-row" id="kbBossHpRow">${kbHpBarInnerHtml(bossDef.name, kanjiBoss.bossHp, kanjiBoss.bossMaxHp, 'boss-hpbar')}</div>
+      <div class="kb-header-row">
+        <div class="kb-hero-icon-sm" id="kbHeroIcon">${bossDef.icon}</div>
+        <div class="boss-name" style="margin-bottom:0;">${esc(bossDef.name)}</div>
       </div>
       <div class="boss-q-card">
         <div class="boss-timer-row"><div class="boss-timer-bar"><div class="boss-timer-fill" id="kbTimerFill" style="width:100%"></div></div></div>
@@ -23586,9 +23646,12 @@ function kbRenderScreen(){
         <div class="kws-stage" id="kbStage">
           <canvas id="kbCanvas"></canvas>
         </div>
-        <div class="btn-row" style="margin-top:12px;">
-          <button class="btn primary" id="kbBtnJudge" onclick="kbHandleJudgeClick()">採点する</button>
-          <button class="btn secondary" onclick="kbResetInk()">書き直す</button>
+        <div class="kb-action-row">
+          <div class="kb-btns">
+            <button class="btn primary" id="kbBtnJudge" onclick="kbHandleJudgeClick()">採点する</button>
+            <button class="btn secondary" onclick="kbResetInk()">書き直す</button>
+          </div>
+          <div class="boss-hp-row kb-inline-hp" id="kbBossHpRow">${kbHpBarInnerHtml(bossDef.name, kanjiBoss.bossHp, kanjiBoss.bossMaxHp, 'boss-hpbar')}</div>
         </div>
         <div class="kb-status" id="kbStatus"></div>
       </div>
@@ -23749,8 +23812,11 @@ function kbPickNextId(){
 
 // 横並びレイアウト用の表示幅。1文字は正方形のまま、2文字以上は左右に並ぶ分だけ横に伸びる
 // （1マスあたりの表示サイズは少し絞って、画面からはみ出さないようにする）。
+// 教員の指示（2026-09-03）：「二文字のとき表示が小さくて書きにくいので、できるだけ書く
+// スペースを大きく取りたい」。上部のボス表示・HPバーを圧縮した分（kbRenderScreen参照）、
+// ここでも1マスあたりの表示サイズを底上げする。
 function kbStageWidthPx(charCount){
-  const perChar = charCount >= 2 ? 165 : 300;
+  const perChar = charCount >= 2 ? 210 : 340;
   return perChar * charCount;
 }
 
@@ -23767,7 +23833,10 @@ function kbNextQuestion(){
   kbCanvas.width = KWS_CHAR_CELL_PX * kdata.charCount;
   kbCanvas.height = KWS_CHAR_CELL_PX;
   const stageEl = document.getElementById('kbStage');
-  stageEl.style.width = `min(92vw, ${kbStageWidthPx(kdata.charCount)}px)`;
+  // vw基準だけだと.boss-battle-screen/.boss-q-cardの左右padding分を考慮できず、
+  // 2文字問題で右にはみ出すことがあったため、実際に使える幅（ビューポート幅からpadding分を
+  // 差し引いたもの）を上限にする。
+  stageEl.style.width = `min(calc(100vw - 76px), ${kbStageWidthPx(kdata.charCount)}px)`;
   stageEl.style.aspectRatio = `${kdata.charCount} / 1`;
 
   kbResetInk();
