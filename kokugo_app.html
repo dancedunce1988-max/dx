@@ -23565,7 +23565,34 @@ function kbEnsurePool(bossDef){
   let ids = Object.keys(data);
   if(bossDef.mode === 'exam') ids = ids.filter(id => typeof data[id].rank === 'number');
   else ids = ids.filter(id => data[id].grade === bossDef.gradeFilter);
+  // 「世の中」のように、書く対象の漢字と漢字の間に平仮名が挟まる単語は、例文の《カタカナ》が
+  // どこまでどちらの文字の読みか機械的に決められず、一文字ずつ採点する方式と相性が悪いため
+  // 出題対象から除外する（教員の指示、2026-09-03：「ひらがなが混じるものは、そもそも問題から
+  // 除外して」）。
+  ids = ids.filter(id => !kbHasEmbeddedKana(id));
   return {data, ids};
+}
+
+// 対象の単語（sentence側データのkanjiフィールド）の先頭・末尾から送り仮名（活用語尾）を
+// 取り除いたあと、まだ内側に平仮名等が残っていれば「複数の書く漢字の間に平仮名が挟まる」
+// 単語と判定する。「正しい」「休む」のような1文字＋末尾の送り仮名は、末尾を取り除いた時点で
+// 中身が漢字だけになるため対象外（除外されない）。
+const KB_KANJI_CHAR_RANGE = '\\u4E00-\\u9FFF\\u3400-\\u4DBF々〆〤';
+const KB_LEADING_NONKANJI_RE = new RegExp('^[^' + KB_KANJI_CHAR_RANGE + ']+');
+const KB_TRAILING_NONKANJI_RE = new RegExp('[^' + KB_KANJI_CHAR_RANGE + ']+$');
+const KB_PURE_KANJI_RE = new RegExp('^[' + KB_KANJI_CHAR_RANGE + ']*$');
+function kbSentenceEntryFor(id){
+  let list;
+  if(id.indexOf('kwe') === 0) list = window.KANJI_WRITE_ELEM_DATA || [];
+  else if(id.indexOf('kwc') === 0) list = window.KANJI_WRITE_CHUGAKU_DATA || [];
+  else list = (window.KANJI_WRITE_DATA && window.KANJI_WRITE_DATA.ranked.concat(window.KANJI_WRITE_DATA.other)) || [];
+  return list.find(it => it.id === id) || null;
+}
+function kbHasEmbeddedKana(id){
+  const entry = kbSentenceEntryFor(id);
+  if(!entry || !entry.kanji) return false; // データが見つからない場合は除外しない（安全側）
+  const trimmed = entry.kanji.replace(KB_LEADING_NONKANJI_RE, '').replace(KB_TRAILING_NONKANJI_RE, '');
+  return !KB_PURE_KANJI_RE.test(trimmed);
 }
 
 // 3画以下は5秒、4画以上は1画につき1.5秒（教員の指示、2026-09-03：最初は「長すぎる」で
