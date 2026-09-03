@@ -3384,12 +3384,26 @@
 .yd-rank-table td:first-child{ text-align:left; font-family:"Yu Mincho","YuMincho",serif; font-size:13px; color:var(--yd-gold-bright); }
 .yd-rank-table tr.yd-secret-row td:first-child{ color:var(--yd-paper-faint); letter-spacing:1px; }
 .yd-rank-table tr.yd-desc-row td{ text-align:left; font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif; color:var(--yd-paper-faint); font-size:9.5px; padding:0 4px 7px; border-bottom:1px solid var(--yd-line); }
+
+/* 「漢字マスターの道」（漢字の書きミニゲーム、2026-09-03〜）。既存のボス戦(.boss-battle-screen等)
+   と同じ雰囲気のCSSクラスを再利用しつつ、専用パーツ(kb-*)だけ追加する。 */
+.kb-hero-icon{ font-size:4.2rem; text-align:center; margin-bottom:6px; filter:drop-shadow(0 6px 14px rgba(0,0,0,.45)); }
+.kb-shake{ animation:kbShake .5s ease; }
+@keyframes kbShake{
+  0%{ transform:translate(0,0); } 20%{ transform:translate(-7px,4px); } 40%{ transform:translate(6px,-3px); }
+  60%{ transform:translate(-5px,2px); } 80%{ transform:translate(3px,-1px); } 100%{ transform:translate(0,0); }
+}
+.kb-flash{ animation:kbFlash .4s ease; }
+@keyframes kbFlash{ 0%{ box-shadow:0 0 0 rgba(255,60,80,0); } 30%{ box-shadow:0 0 40px rgba(255,60,80,.9); } 100%{ box-shadow:0 0 30px rgba(140,90,255,.25); } }
+.kb-status{ text-align:center; margin-top:8px; font-weight:bold; min-height:1.3em; }
+.kb-status.ok{ color:#7CFFB2; }
+.kb-status.ng{ color:#ffb0c0; }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.44</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.45</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -4058,6 +4072,12 @@ function loadStats(){
         if(!st.todayKanji) st.todayKanji = {date:null, correctCount:0, done:false, round:1};
         if(st.todayKanji.date !== todayLocalDateStr()){
           st.todayKanji = {date: todayLocalDateStr(), correctCount:0, done:false, round:1};
+        }
+        /* 「漢字マスターの道」（ボスごとの初回クリア日次ボーナス、2026-09-03〜）。todayKanjiと
+           同じ発想で、保存された日付が今日と違えばその日ぶんのクリア記録を丸ごと初期化する。 */
+        if(!st.kanjiBossDaily) st.kanjiBossDaily = {date:null, cleared:{}};
+        if(st.kanjiBossDaily.date !== todayLocalDateStr()){
+          st.kanjiBossDaily = {date: todayLocalDateStr(), cleared:{}};
         }
         if(!st.story) st.story = {chapter:"ch1", beatIdx:0, flags:{}, completedChapters:[], judgedRunCorrect:0, judgedRunTotal:0, judgedBest:{}, comboBest:{}};
         if(!st.story.flags) st.story.flags = {};
@@ -6068,6 +6088,8 @@ function showHome(){
   bgStopLoop(); // 文節斬りを中断して離れたときに、動作中のゲームループ・キー入力リスナーを止める
   psStopLoop(); // 言の葉つなぎを中断して離れたときに、動作中のタイマー・イベントリスナーを止める
   ydStopLoop(); // YOMUの打を中断して離れたときに、動作中のゲームループ・キー入力リスナーを止める
+  clearKanjiBossTimer(); // 漢字マスターの道を中断して離れたときに、残った制限時間タイマーを止める
+  kanjiBoss = null;
   const st = loadStats();
   if(st.pendingDailyLoginStamp){ showDailyLoginStampOverlay(st); return; }
   if(kotonohaHasPendingEvolveCutscene(st)){ showKotonohaEvolveCutscene(st); return; }
@@ -6075,6 +6097,7 @@ function showHome(){
   html += eventBannerHtml(st);
   html += kotonohaCardHtml(st);
   html += todayKanjiEntryHtml(st);
+  html += kanjiBossEntryHtml(st);
   html += storyEntryHtml(st);
   html += miniGameEntryHtml(st);
   html += balancedTrainingBtnHtml();
@@ -23377,6 +23400,448 @@ function ydAttachMenuHandlers(){
     ydEl('ydScreenTitle').classList.remove('yd-hidden');
   });
 }
+/* ================= 漢字マスターの道（漢字の書きミニゲーム、2026-09-03〜） =================
+   既存のBOSSES/ことのはボス戦システムとは完全に独立させる（教員の指示：進化状況・ステータスは
+   関係ない）。手書き判定の核（kwsEvaluateCharacters/kwsComputePass/kwsProfile、kwsBuildKanjiData
+   によるストロークデータの読み込み）だけは既存のkws実装を再利用するが、キャンバス・状態管理・
+   戦闘進行は全て専用の変数・関数（kb*接頭辞）で新規に持ち、既存のkwsMode/kwsCanvas等の
+   グローバル状態には一切書き込まない（他の漢字の書き学習モードに影響を与えないため）。 */
+
+const KANJI_BOSS_LIST = [
+  {id:'kb01', name:'小三の見張り',   icon:'🐣', mode:'elem', gradeFilter:3, gradeLabel:'小学校３年生の問題',
+   hp:200, atkMin:8,  atkMax:11, atkDivOnCorrect:3, healMin:0,  healMax:0,   stockXp:5,  taunt:null},
+  {id:'kb02', name:'小四の門番',     icon:'🐥', mode:'elem', gradeFilter:4, gradeLabel:'小学校４年生の問題',
+   hp:300, atkMin:10, atkMax:14, atkDivOnCorrect:3, healMin:0,  healMax:0,   stockXp:10, taunt:null},
+  {id:'kb03', name:'小五の守護者',   icon:'🐦', mode:'elem', gradeFilter:5, gradeLabel:'小学校５年生の問題',
+   hp:400, atkMin:15, atkMax:19, atkDivOnCorrect:3, healMin:0,  healMax:0,   stockXp:15, taunt:null},
+  {id:'kb04', name:'小六の番人',     icon:'🦅', mode:'elem', gradeFilter:6, gradeLabel:'小学校６年生の問題',
+   hp:500, atkMin:19, atkMax:25, atkDivOnCorrect:3, healMin:0,  healMax:0,   stockXp:20, taunt:null},
+  {id:'kb05', name:'入試の関門',     icon:'👹', mode:'exam', gradeFilter:null, gradeLabel:'高校入試頻出200の問題',
+   hp:600, atkMin:19, atkMax:25, atkDivOnCorrect:3, healMin:20, healMax:30,  stockXp:25,
+   taunt:'ふははは。力がみなぎってきおるわ'},
+  {id:'kb06', name:'中学漢字の主・壱', icon:'👺', mode:'chugaku', gradeFilter:1, gradeLabel:'中学校で習う漢字レベル１',
+   hp:700, atkMin:23, atkMax:29, atkDivOnCorrect:4, healMin:30, healMax:70,  stockXp:30, taunt:null},
+  {id:'kb07', name:'中学漢字の主・弐', icon:'👹', mode:'chugaku', gradeFilter:2, gradeLabel:'中学校で習う漢字レベル２',
+   hp:800, atkMin:40, atkMax:55, atkDivOnCorrect:4, healMin:50, healMax:100, stockXp:35, taunt:null},
+];
+
+let kanjiBoss = null;           // 戦闘中の状態。null=未戦闘
+let kanjiBossDataCache = {};    // mode -> kwsBuildKanjiData()の結果（modeごとに1回だけ構築）
+let kbCanvas = null, kbCtx = null;
+let kbCompletedStrokes = [];
+let kbCurrentPath = [];
+let kbDrawing = false;
+let kbTimerHandle = null;
+
+function kanjiBossEntryHtml(st){
+  return `
+    <div class="card menu-card" onclick="showKanjiBossSelect()">
+      <div class="menu-icon">⚔️</div>
+      <div><h2>漢字マスターの道</h2><p>漢字の書きでボスに挑む、タイムアタック形式のミニゲーム</p></div>
+      <div class="right"><span class="count">挑戦する</span></div>
+    </div>`;
+}
+
+function clearKanjiBossTimer(){
+  if(kbTimerHandle){ clearInterval(kbTimerHandle); kbTimerHandle = null; }
+}
+
+// examはranked（頻出200）のみを対象にする。otherは含めない（教員の指示：「高校入試頻出200の問題」）。
+// kwsBuildKanjiDataはrank/gradeをそのまま素通しするので、rankがあるかどうかでranked/otherを判別できる。
+function kbEnsurePool(bossDef){
+  // kdata.strokesは初回アクセス時にkwsBuildStrokeGeometryが遅延構築し、その中でkwsHiddenSvgEl
+  // （Path2Dの長さ計算専用の隠しSVG、kwsEnsureData参照）にappendChildする。既存のkws画面を
+  // 一度も開かずに「漢字マスターの道」だけを遊んだ場合、kwsHiddenSvgElがまだnullなので、
+  // kwsEnsureDataと同じ初期化をここでも行っておく（1つの隠しSVGを共有するだけで、モードや
+  // 状態は持たないため、複数箇所で初期化しても副作用はない）。
+  if(!kwsHiddenSvgEl){
+    kwsHiddenSvgEl = document.createElementNS(KWS_NS, 'svg');
+    kwsHiddenSvgEl.setAttribute('width', '0');
+    kwsHiddenSvgEl.setAttribute('height', '0');
+    kwsHiddenSvgEl.style.position = 'absolute';
+    kwsHiddenSvgEl.style.visibility = 'hidden';
+    document.body.appendChild(kwsHiddenSvgEl);
+  }
+  if(!kanjiBossDataCache[bossDef.mode]){
+    let raw;
+    if(bossDef.mode === 'elem') raw = window.KANJI_WRITE_ELEM_STROKE_DATA || {};
+    else if(bossDef.mode === 'chugaku') raw = window.KANJI_WRITE_CHUGAKU_STROKE_DATA || {};
+    else raw = window.KANJI_WRITE_STROKE_DATA || {};
+    kanjiBossDataCache[bossDef.mode] = kwsBuildKanjiData(raw);
+  }
+  const data = kanjiBossDataCache[bossDef.mode];
+  let ids = Object.keys(data);
+  if(bossDef.mode === 'exam') ids = ids.filter(id => typeof data[id].rank === 'number');
+  else ids = ids.filter(id => data[id].grade === bossDef.gradeFilter);
+  return {data, ids};
+}
+
+// 総画数2画以内は5秒、3画以上は画数×2秒（教員の指示）
+function kbTimeLimitMs(strokeCount){
+  return strokeCount <= 2 ? 5000 : strokeCount * 2000;
+}
+
+function showKanjiBossSelect(){
+  clearKanjiBossTimer();
+  kanjiBoss = null;
+  const st = loadStats();
+  const cleared = (st.kanjiBossDaily && st.kanjiBossDaily.cleared) || {};
+  const rows = KANJI_BOSS_LIST.map(b => `
+    <button class="boss-choose-btn" onclick="startKanjiBossFight('${b.id}')">
+      <span class="icon">${b.icon}</span>
+      <span class="name">${esc(b.name)}<br><span style="font-size:.78rem;color:#9a8ec2;">${esc(b.gradeLabel)}・HP${b.hp}</span></span>
+      <span class="recpts">${cleared[b.id] ? '本日クリア済み' : `＋${b.stockXp}exp`}</span>
+    </button>`).join('');
+  screen.innerHTML = `
+    <div class="boss-battle-screen">
+      <div class="boss-name">⚔️ 漢字マスターの道</div>
+      <p class="boss-enc-hint" style="margin-top:0;">漢字の書きで戦うボス戦です。正解するとボスに攻撃、不正解や時間切れだとボスから攻撃を受けます。挑む相手を選んでください。</p>
+      <div class="boss-choose-list">${rows}</div>
+      <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>
+    </div>`;
+}
+
+function startKanjiBossFight(bossId){
+  const bossDef = KANJI_BOSS_LIST.find(b => b.id === bossId);
+  if(!bossDef) return;
+  const {data, ids} = kbEnsurePool(bossDef);
+  if(!ids.length){
+    screen.innerHTML = `<div class="boss-battle-screen"><div class="boss-name">問題データを読み込めませんでした</div><div class="btn-row"><button class="btn secondary" onclick="showKanjiBossSelect()">戻る</button></div></div>`;
+    return;
+  }
+  kanjiBoss = {
+    bossDef, data, ids,
+    bossHp: bossDef.hp, bossMaxHp: bossDef.hp,
+    playerHp: 100, playerMaxHp: 100,
+    currentId: null, lastId: null,
+    turnBusy: false, timerDeadline: 0, timeLimitMs: 0
+  };
+  kbRenderScreen();
+  kbNextQuestion();
+}
+
+function kbHpBarInnerHtml(label, cur, max, cls){
+  const pct = Math.max(0, Math.min(100, (cur / max) * 100));
+  return `
+      <div class="boss-hp-label">${esc(label)}</div>
+      <div class="hpbar ${cls}"><div style="width:${pct}%"></div></div>
+      <div class="boss-hp-num">${Math.max(0, Math.round(cur))} / ${max}</div>`;
+}
+function kbRefreshHpBars(){
+  const bossEl = document.getElementById('kbBossHpRow');
+  const playerEl = document.getElementById('kbPlayerHpRow');
+  if(bossEl) bossEl.innerHTML = kbHpBarInnerHtml(kanjiBoss.bossDef.name, kanjiBoss.bossHp, kanjiBoss.bossMaxHp, 'boss-hpbar');
+  if(playerEl) playerEl.innerHTML = kbHpBarInnerHtml('あなた', kanjiBoss.playerHp, kanjiBoss.playerMaxHp, 'player-hpbar');
+}
+
+function kbRenderScreen(){
+  const bossDef = kanjiBoss.bossDef;
+  screen.innerHTML = `
+    <div class="boss-battle-screen" id="kbScreen">
+      <div class="kb-hero-icon" id="kbHeroIcon">${bossDef.icon}</div>
+      <div class="boss-name">${esc(bossDef.name)}</div>
+      <div class="boss-hpbars">
+        <div class="boss-hp-row" id="kbBossHpRow">${kbHpBarInnerHtml(bossDef.name, kanjiBoss.bossHp, kanjiBoss.bossMaxHp, 'boss-hpbar')}</div>
+      </div>
+      <div class="boss-q-card">
+        <div class="boss-timer-row"><div class="boss-timer-bar"><div class="boss-timer-fill" id="kbTimerFill" style="width:100%"></div></div></div>
+        <div class="boss-q-text" id="kbSentencePrompt"></div>
+        <div class="kws-stage" id="kbStage">
+          <canvas id="kbCanvas"></canvas>
+        </div>
+        <div class="btn-row" style="margin-top:12px;">
+          <button class="btn primary" id="kbBtnJudge" onclick="kbHandleJudgeClick()">採点する</button>
+          <button class="btn secondary" onclick="kbResetInk()">書き直す</button>
+        </div>
+        <div class="kb-status" id="kbStatus"></div>
+      </div>
+      <div class="boss-turn" id="kbTurnMsg"></div>
+      <div class="boss-hpbars" style="margin-top:14px;">
+        <div class="boss-hp-row" id="kbPlayerHpRow">${kbHpBarInnerHtml('あなた', kanjiBoss.playerHp, kanjiBoss.playerMaxHp, 'player-hpbar')}</div>
+      </div>
+      <div class="btn-row"><button class="btn secondary" onclick="kbConfirmQuit()">やめる</button></div>
+    </div>`;
+  kbWireScreen();
+}
+
+function kbWireScreen(){
+  kbCanvas = document.getElementById('kbCanvas');
+  kbCtx = kbCanvas.getContext('2d');
+  kbCanvas.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    if(!kanjiBoss || kanjiBoss.turnBusy) return;
+    kbCanvas.setPointerCapture(e.pointerId);
+    kbDrawing = true;
+    kbCurrentPath = [kbToPixel(e.clientX, e.clientY)];
+    kbRender();
+  });
+  kbCanvas.addEventListener('pointermove', e => {
+    if(!kbDrawing) return;
+    kbCurrentPath.push(kbToPixel(e.clientX, e.clientY));
+    kbRender();
+  });
+  kbCanvas.addEventListener('pointerup', () => {
+    if(!kbDrawing) return;
+    kbDrawing = false;
+    if(kbCurrentPath.length >= 2) kbCompletedStrokes.push(kbCurrentPath);
+    kbCurrentPath = [];
+    kbRender();
+  });
+  kbCanvas.addEventListener('pointercancel', () => {
+    kbDrawing = false;
+    kbCurrentPath = [];
+    kbRender();
+  });
+}
+
+function kbToPixel(clientX, clientY){
+  const rect = kbCanvas.getBoundingClientRect();
+  return {
+    x: (clientX - rect.left) * (kbCanvas.width / rect.width),
+    y: (clientY - rect.top) * (kbCanvas.height / rect.height)
+  };
+}
+
+function kbRender(){
+  if(!kbCtx) return;
+  kbCtx.setTransform(1, 0, 0, 1, 0, 0);
+  kbCtx.clearRect(0, 0, kbCanvas.width, kbCanvas.height);
+  const charCount = Math.round(kbCanvas.height / KWS_CHAR_CELL_PX);
+  kbCtx.save();
+  kbCtx.strokeStyle = '#cfcfcf';
+  kbCtx.lineWidth = 1;
+  kbCtx.setLineDash([5, 5]);
+  for(let i = 0; i < charCount; i++){
+    const y0 = i * KWS_CHAR_CELL_PX;
+    kbCtx.strokeRect(1, y0 + 1, KWS_CHAR_CELL_PX - 2, KWS_CHAR_CELL_PX - 2);
+    kbCtx.beginPath();
+    kbCtx.moveTo(KWS_CHAR_CELL_PX / 2, y0); kbCtx.lineTo(KWS_CHAR_CELL_PX / 2, y0 + KWS_CHAR_CELL_PX);
+    kbCtx.moveTo(0, y0 + KWS_CHAR_CELL_PX / 2); kbCtx.lineTo(KWS_CHAR_CELL_PX, y0 + KWS_CHAR_CELL_PX / 2);
+    kbCtx.stroke();
+  }
+  kbCtx.restore();
+  kbCtx.save();
+  kbCtx.strokeStyle = '#3b6fd1';
+  kbCtx.lineWidth = KWS_INK_WIDTH_PX;
+  kbCtx.lineCap = 'round';
+  kbCtx.lineJoin = 'round';
+  kbCompletedStrokes.concat([kbCurrentPath]).forEach(path => {
+    if(path.length < 2) return;
+    kbCtx.beginPath();
+    kbCtx.moveTo(path[0].x, path[0].y);
+    for(let i = 1; i < path.length; i++) kbCtx.lineTo(path[i].x, path[i].y);
+    kbCtx.stroke();
+  });
+  kbCtx.restore();
+}
+
+function kbResetInk(){
+  kbCompletedStrokes = [];
+  kbCurrentPath = [];
+  kbDrawing = false;
+  kbSetStatus('');
+  kbRender();
+}
+
+function kbSetStatus(msg, cls){
+  const el = document.getElementById('kbStatus');
+  if(!el) return;
+  el.textContent = msg;
+  el.className = 'kb-status' + (cls ? ' ' + cls : '');
+}
+
+function kbShowTurnMsg(html){
+  const el = document.getElementById('kbTurnMsg');
+  if(el) el.innerHTML = html;
+}
+
+function kbPlayAttackFx(target){
+  const el = document.getElementById(target === 'boss' ? 'kbHeroIcon' : 'kbScreen');
+  if(!el) return;
+  el.classList.remove('kb-shake', 'kb-flash');
+  void el.offsetWidth; // reflow強制でアニメを再トリガーする
+  el.classList.add(target === 'boss' ? 'kb-shake' : 'kb-flash');
+}
+
+function kbSetTurnBusy(busy){
+  kanjiBoss.turnBusy = busy;
+  const btn = document.getElementById('kbBtnJudge');
+  if(btn) btn.disabled = busy;
+}
+
+function kbPickNextId(){
+  const ids = kanjiBoss.ids;
+  const candidates = ids.length > 1 ? ids.filter(id => id !== kanjiBoss.lastId) : ids;
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
+function kbNextQuestion(){
+  if(!kanjiBoss) return; // やめる/勝敗確定後にsetTimeoutが遅れて発火した場合の安全弁
+  clearKanjiBossTimer();
+  kbSetTurnBusy(false);
+  const id = kbPickNextId();
+  kanjiBoss.currentId = id;
+  kanjiBoss.lastId = id;
+  const kdata = kanjiBoss.data[id];
+
+  kbCanvas.width = KWS_CHAR_CELL_PX;
+  kbCanvas.height = KWS_CHAR_CELL_PX * kdata.charCount;
+  const stageEl = document.getElementById('kbStage');
+  stageEl.style.width = `min(90vw, ${kwsStageMaxWidthPx(kdata.charCount)}px)`;
+  stageEl.style.aspectRatio = `1 / ${kdata.charCount}`;
+
+  kbResetInk();
+  const sentence = kwsSentenceFor(id).replace(/《([^》]*)》/g, '<span class="kws-blank">$1</span>');
+  document.getElementById('kbSentencePrompt').innerHTML = sentence || '（例文なし）';
+  kbShowTurnMsg('');
+
+  kanjiBoss.timeLimitMs = kbTimeLimitMs(kdata.strokes.length);
+  kbStartTimer();
+}
+
+function kbStartTimer(){
+  const dur = kanjiBoss.timeLimitMs;
+  kanjiBoss.timerDeadline = Date.now() + dur;
+  const fill = document.getElementById('kbTimerFill');
+  if(fill) fill.style.width = '100%';
+  kbTimerHandle = setInterval(() => {
+    if(!kanjiBoss || kanjiBoss.turnBusy) return;
+    const remain = kanjiBoss.timerDeadline - Date.now();
+    const pct = Math.max(0, Math.min(100, (remain / dur) * 100));
+    const f = document.getElementById('kbTimerFill');
+    if(f) f.style.width = pct + '%';
+    if(remain <= 0){
+      clearKanjiBossTimer();
+      kbSubmitJudge(true);
+    }
+  }, 100);
+}
+
+function kbHandleJudgeClick(){
+  if(!kanjiBoss || kanjiBoss.turnBusy) return;
+  if(kbCompletedStrokes.length === 0){
+    kbSetStatus('まず何か書いてから採点してください', 'ng');
+    return;
+  }
+  clearKanjiBossTimer();
+  kbSubmitJudge(false);
+}
+
+// kwsEvaluateAgainstStrokesはisPointInStrokeのジオメトリ判定にグローバルのkwsCtxを使う実装
+// （どのcanvasのコンテキストでも判定結果は変わらない、座標だけの計算）。生徒がexam/elem/chugaku等の
+// 通常のkws画面を一度も開かずに「漢字マスターの道」だけを遊んだ場合、kwsCtxがnullのままで
+// 例外になるため、判定の直前だけ自分のkbCtxを一時的に割り当てる（既存のkws画面を開けば
+// kwsWireScreenが改めてkwsCtxを自分のキャンバスに上書きするので、他モードには影響しない）。
+function kbSubmitJudge(timedOut){
+  if(!kanjiBoss || kanjiBoss.turnBusy) return;
+  kbSetTurnBusy(true);
+  const kdata = kanjiBoss.data[kanjiBoss.currentId];
+  let ok = false;
+  if(!timedOut && kbCompletedStrokes.length > 0){
+    kwsCtx = kbCtx;
+    const charResults = kwsEvaluateCharacters(kdata, kbCompletedStrokes, kwsProfile);
+    ok = kwsComputePass({chars: charResults});
+  }
+  kbGrade(ok, kdata, timedOut);
+}
+
+function kbGrade(ok, kdata, timedOut){
+  const bossDef = kanjiBoss.bossDef;
+  if(ok){
+    const dmg = 80 + Math.floor(Math.random() * 41); // 80〜120
+    kanjiBoss.bossHp = Math.max(0, kanjiBoss.bossHp - dmg);
+    kbSetStatus(`○ 「${kdata.kanji}」正解！`, 'ok');
+    kbShowTurnMsg(`⚔️ あなたの攻撃！ ${bossDef.name}に${dmg}のダメージ！`);
+    kbPlayAttackFx('boss');
+    kbRefreshHpBars();
+    if(kanjiBoss.bossHp <= 0){
+      setTimeout(() => kbWin(), 900);
+      return;
+    }
+    setTimeout(() => kbBossCounter(true), 1000);
+  } else {
+    kbSetStatus(timedOut ? '× 時間切れ...' : '× 正解の形と違うようです', 'ng');
+    setTimeout(() => kbBossCounter(false), 500);
+  }
+}
+
+function kbBossCounter(playerCorrect){
+  if(!kanjiBoss) return; // 直前の演出待ちの間にやめる/勝敗が決まっていた場合の安全弁
+  const bossDef = kanjiBoss.bossDef;
+  let atkMin = bossDef.atkMin, atkMax = bossDef.atkMax;
+  if(playerCorrect){
+    atkMin = Math.round(atkMin / bossDef.atkDivOnCorrect);
+    atkMax = Math.round(atkMax / bossDef.atkDivOnCorrect);
+    if(atkMax < atkMin) atkMax = atkMin;
+  }
+  const dmg = atkMin + Math.floor(Math.random() * (atkMax - atkMin + 1));
+  kanjiBoss.playerHp = Math.max(0, kanjiBoss.playerHp - dmg);
+
+  let msg = `💥 ${esc(bossDef.name)}の攻撃！ あなたに${dmg}のダメージ！`;
+  if(!playerCorrect && bossDef.healMax > 0){
+    const heal = bossDef.healMin + Math.floor(Math.random() * (bossDef.healMax - bossDef.healMin + 1));
+    kanjiBoss.bossHp = Math.min(kanjiBoss.bossMaxHp, kanjiBoss.bossHp + heal);
+    msg += `<br>${esc(bossDef.name)}のHPが${heal}回復した！`;
+    if(bossDef.taunt) msg += `<br>「${esc(bossDef.taunt)}」`;
+  }
+  kbShowTurnMsg(msg);
+  kbPlayAttackFx('player');
+  kbRefreshHpBars();
+
+  if(kanjiBoss.playerHp <= 0){
+    setTimeout(() => kbLose(), 900);
+    return;
+  }
+  setTimeout(() => kbNextQuestion(), 1200);
+}
+
+function kbWin(){
+  if(!kanjiBoss) return; // やめた後にsetTimeoutが遅れて発火した場合の安全弁
+  clearKanjiBossTimer();
+  const bossDef = kanjiBoss.bossDef;
+  const st = loadStats();
+  const already = !!(st.kanjiBossDaily && st.kanjiBossDaily.cleared[bossDef.id]);
+  if(!already){
+    st.kanjiBossDaily.cleared[bossDef.id] = true;
+    st.stockXp = (st.stockXp || 0) + bossDef.stockXp;
+    saveStats(st);
+  }
+  screen.innerHTML = `
+    <div class="boss-battle-screen">
+      <div class="boss-name">🎉 ${esc(bossDef.name)}に勝利！</div>
+      <p style="text-align:center;">${already ? '本日はすでに報酬を受け取り済みです。' : `ストック経験値 ＋${bossDef.stockXp} を獲得しました！`}</p>
+      <div class="btn-row">
+        <button class="btn" onclick="showKanjiBossSelect()">相手を選ぶ</button>
+        <button class="btn secondary" onclick="showHome()">ホームへ</button>
+      </div>
+    </div>`;
+  kanjiBoss = null;
+}
+
+function kbLose(){
+  if(!kanjiBoss) return; // やめた後にsetTimeoutが遅れて発火した場合の安全弁
+  clearKanjiBossTimer();
+  const bossDef = kanjiBoss.bossDef;
+  screen.innerHTML = `
+    <div class="boss-battle-screen">
+      <div class="boss-name">💥 やられてしまった...</div>
+      <p style="text-align:center;">${esc(bossDef.name)}に敗れました。書き取りの力を鍛えてまた挑もう！</p>
+      <div class="btn-row">
+        <button class="btn" onclick="startKanjiBossFight('${bossDef.id}')">もう一度挑む</button>
+        <button class="btn secondary" onclick="showHome()">ホームへ</button>
+      </div>
+    </div>`;
+  kanjiBoss = null;
+}
+
+function kbConfirmQuit(){
+  if(confirm('戦いをやめてホームに戻りますか？（勝敗は記録されません）')){
+    clearKanjiBossTimer();
+    kanjiBoss = null;
+    showHome();
+  }
+}
+
 bootApp();
 </script>
 </body>
