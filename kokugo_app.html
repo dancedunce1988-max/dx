@@ -3649,7 +3649,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.55</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.56</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -24377,10 +24377,12 @@ const MB_SPELLS = {
 function mbFindSpell(category, spellId){
   return MB_SPELLS[category].list.find(s => s.id === spellId) || null;
 }
-// 通常攻撃の威力は「言弾」の半分に固定する（教員の指示、2026-09-04：通常攻撃はMPを貯めつつ
-// 最弱の攻撃魔法の半分のダメージを与える）。魔法攻撃を選んだときだけ10%の確率で「会心のチャンス」
-// が来る：入試頻出200／中学レベル1からランダムで1問出題し、正解すればその魔法のダメージが3倍になる。
-const MB_NORMAL_ATTACK_POWER = mbFindSpell('attack', 'gendan').power / 2;
+// 通常攻撃の威力は、挑戦する漢字の難易度が上がるほど少しずつ強くする（教員の指示、2026-09-04）。
+// ただしVERYHARDでも、攻撃魔法の中で最も弱い「言弾」（power:30）よりは必ず弱くする
+// （mbComputeAttackDamageの±5の揺れを足しても言弾の最低ダメージを超えないよう、余裕を持たせた値にしてある）。
+const MB_NORMAL_ATTACK_POWER = { easy:10, normal:14, hard:18, veryhard:22 };
+// 魔法攻撃を選んだときだけ10%の確率で「会心のチャンス」が来る：入試頻出200／中学レベル1から
+// ランダムで1問出題し、正解すればその魔法のダメージが3倍になる。
 const MB_CRIT_CHANCE = 0.10;
 const MB_CRIT_MULTIPLIER = 3;
 const MB_CRIT_POOL_IDS = ['hard', 'veryhard'];
@@ -25119,7 +25121,7 @@ function mbChallengeSuccess(){
   const st = loadStats();
   st.stockXp = (st.stockXp || 0) + xpGained;
   saveStats(st);
-  const dmg = mbComputeAttackDamage(MB_NORMAL_ATTACK_POWER, false);
+  const dmg = mbComputeAttackDamage(MB_NORMAL_ATTACK_POWER[diff.id] || MB_NORMAL_ATTACK_POWER.easy, false);
   mbBattle.enemyHp = Math.max(0, mbBattle.enemyHp - dmg);
   const msg = `○ 正解！ 漢字の力が魔力に変わった！ ＋${diff.mp} MP　<span class="kb-xp-inline">＋${xpGained} ストック経験値</span><br>通常攻撃！ ${esc(mbBattle.enemyDef.name)}に${dmg}のダメージ！${mbDefenseNoteHtml()}`;
   const enemyDefeated = mbBattle.enemyHp <= 0;
