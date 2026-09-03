@@ -3389,7 +3389,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.43</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.44</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -5319,12 +5319,21 @@ function kotonohaEvolveStep4(st, toStage){
    showKotonohaEvolveCutsceneと同じ視覚言語を流用、ただし戻り先はshowHome()ではなく
    storyAdvance()）。今の育ち方が転生の条件を満たしていない場合は演出を出さずそのまま
    次のビートへ進み、直後のlineビート（st.story.flags.ch9RebirthDoneをvariantsで参照）が
-   「まだその時ではないようだ」という文面に自動的に切り替わる。 */
+   「まだその時ではないようだ」という文面に自動的に切り替わる。
+   【バグ修正、2026-09-03、教員の報告：「ストーリー第9章をやると、転生の種が無くても転生
+   できてしまう（ストーリーでできる転生は一回だけのはず）」】以前はここでst.kotonohaRebirthの
+   有無を一切確認せず毎回kotonohaDoRebirthを実行していたため、章を選び直して第9章を
+   何度でも読み返すたびに無条件で（種を消費せず）転生し続けられてしまっていた。
+   kotonohaRebirthConfirmed（ホーム画面の「転生する」ボタン）と同じく「初回は無料、
+   既に一度でも転生済みなら種が必要」というルールのはずだが、ストーリー演出はそもそも
+   種を持っていることを前提にしていない一度きりのイベントなので、既に転生済み（st.kotonohaRebirth
+   がセット済み）なら、種の所持に関わらずここでは何も起こさない（success=falseのまま
+   次のビートへ進む＝再読した場合は「まだその時ではないようだ」の文面になる）。 */
 function storyRenderKotonohaRebirthReveal(){
   const st = loadStats();
   const sp = storyProgress(st);
   const fromIcon = kotonohaForm(st).icon;
-  const success = kotonohaDoRebirth(st);
+  const success = st.kotonohaRebirth ? false : kotonohaDoRebirth(st);
   sp.flags.ch9RebirthDone = success ? "yes" : "no";
   saveStats(st);
   if(!success){ storyAdvance(); return; }
@@ -17152,10 +17161,10 @@ function storyChapterEnd(){
     unlockedFace = true;
   }
   /* 第9章クリアで、ことのはの「転生」システムを解放する（教員の指示、2026-07-31〜）。
-     第9章のストーリー本編（ビート・クイズプール）は未実装のため、この分岐は現状は
-     到達不能（＝STORY_CHAPTERSにch9が存在せず、sp.chapterが"ch9"になることがない）だが、
-     specialMoveUnlocked/storyFaceUnlockedと同じ一度きり宣言のパターンで先に用意しておき、
-     第9章を実装する際にそのまま機能する。 */
+     第9章は実装済み（STORY_CHAPTERS.ch9参照、クライマックスでstoryRenderKotonohaRebirthReveal
+     が実際に初回転生を実行する）。specialMoveUnlocked/storyFaceUnlockedと同じ一度きり宣言の
+     パターン（st.kotonohaRebirthUnlockedの真偽で判定）なので、この章を再プレイしても
+     二度目の解放メッセージは出ない。 */
   let unlockedRebirth = false;
   if(sp.chapter === "ch9" && !st.kotonohaRebirthUnlocked){
     st.kotonohaRebirthUnlocked = true;
