@@ -48,8 +48,23 @@
   .menu-icon.menu-icon-egg{width:88px; height:88px;}
   .menu-card h2{font-size:.98rem; margin-bottom:0;}
   /* ミニゲーム一覧のタイトル画像（教員が用意したイラストから切り抜き、menu_title_images.js）。
-     h2の代わりに使う（教員の指示、2026-09-04）。高さだけ揃え、幅は元の縦横比のまま自動計算する。 */
-  .menu-title-img{ display:block; height:34px; width:auto; max-width:100%; }
+     2026-09-04〜、白いカードの中に小さく収めるのではなく、ボタンそのものを画像にする
+     （教員の指示：「攻撃魔法などと同じイメージ」）。自己ベスト等のサブ情報は、画像の邪魔に
+     なりにくい右下に、背景付きのバッジとして重ねて表示する。画像が無いキー（今後の追加分）は
+     従来のテキストカード（.menu-card）にフォールバックする。 */
+  .menu-card-img-btn{
+    position:relative; display:block; width:100%; padding:0; border:none;
+    background:none; border-radius:14px; overflow:hidden; cursor:pointer;
+    margin-bottom:14px; box-shadow:0 1px 3px rgba(0,0,0,.15);
+    transition:transform .1s, box-shadow .1s;
+  }
+  .menu-card-img-btn:hover{ transform:translateY(-2px); box-shadow:0 4px 10px rgba(0,0,0,.2); }
+  .menu-card-img-btn:active{ transform:translateY(1px) scale(.99); }
+  .menu-card-img-btn img{ display:block; width:100%; height:auto; }
+  .menu-card-img-btn .menu-card-overlay{
+    position:absolute; right:10px; bottom:8px; font-size:.7rem; font-weight:700;
+    padding:4px 11px; border-radius:999px; background:rgba(0,0,0,.6); color:#fff;
+  }
   .menu-card p{font-size:.78rem; color:var(--sub);}
   .menu-card .right{margin-left:auto; text-align:right; flex-shrink:0;}
   .menu-card.review{border-left:5px solid var(--accent);}
@@ -3706,7 +3721,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.64</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.65</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -14930,17 +14945,26 @@ function storySideQuestButtonHtml(key, st){
   const best = fn ? fn(st) : 0;
   const labelFn = STORY_SIDEQUEST_BEST_LABEL_FN[key];
   const customLabel = labelFn ? labelFn(st) : null;
+  const overlayText = customLabel || (best > 0 ? `自己ベスト：${best}点` : 'タップして挑戦しよう');
+  // 2026-09-04〜、ミニゲーム一覧は教員が用意した専用イラスト（画像/ゲームタイトル.pngから
+  // 切り抜き、menu_title_images.js）そのものをボタンにする（教員の指示：「攻撃魔法などと
+  // 同じイメージ」）。自己ベスト等は画像に重ねた右下のバッジで見せる（画像と被らないよう、
+  // 背景付き・邪魔になりにくい位置）。画像が無いキー（今後ミニゲームを追加した場合など）は
+  // 従来どおりテキストカードにフォールバックする。
+  const img = window.MB_MENU_TITLE_IMAGES && window.MB_MENU_TITLE_IMAGES[key];
+  if(img){
+    return `
+      <div class="menu-card-img-btn" onclick="startStoryMode('${key}')">
+        <img src="${img}" alt="${esc(q.title)}">
+        <span class="menu-card-overlay">${esc(overlayText)}</span>
+      </div>`;
+  }
   const sub = customLabel ? `<p class="note">${esc(customLabel)}</p>`
     : (best > 0 ? `<p class="note">自己ベスト：${best}点</p>` : `<p>タップして挑戦しよう</p>`);
-  // 2026-09-04〜、ミニゲーム一覧のタイトルは教員が用意した専用イラスト（画像/ゲームタイトル.png
-  // から切り抜き、menu_title_images.js）に差し替え。画像が無いキー（今後ミニゲームを追加した
-  // 場合など）は従来どおりテキストのh2にフォールバックする。
-  const img = window.MB_MENU_TITLE_IMAGES && window.MB_MENU_TITLE_IMAGES[key];
-  const titleHtml = img ? `<img class="menu-title-img" src="${img}" alt="${esc(q.title)}">` : `<h2>${esc(q.title)}</h2>`;
   return `
     <div class="card menu-card" onclick="startStoryMode('${key}')">
       <div class="menu-icon">${esc(q.icon || "🚀")}</div>
-      <div>${titleHtml}${sub}</div>
+      <div><h2>${esc(q.title)}</h2>${sub}</div>
       <div class="right"><span class="shogo-badge">挑戦する</span></div>
     </div>`;
 }
@@ -24695,11 +24719,17 @@ function mbStopIdleAnim(){
 // 別のカードとして置く（既存のボス戦システムとは別物として完全に独立させる）。
 function mbSideQuestButtonHtml(){
   const img = window.MB_MENU_TITLE_IMAGES && window.MB_MENU_TITLE_IMAGES.mb;
-  const titleHtml = img ? `<img class="menu-title-img" src="${img}" alt="漢字Quest">` : `<h2>漢字Quest</h2>`;
+  if(img){
+    return `
+      <div class="menu-card-img-btn" onclick="mbStartGauntlet()">
+        <img src="${img}" alt="漢字Quest">
+        <span class="menu-card-overlay">挑戦する</span>
+      </div>`;
+  }
   return `
     <div class="card menu-card" onclick="mbStartGauntlet()">
       <div class="menu-icon">🪄</div>
-      <div>${titleHtml}<p>漢字の力を魔力に変えて、敵と戦うRPG</p></div>
+      <div><h2>漢字Quest</h2><p>漢字の力を魔力に変えて、敵と戦うRPG</p></div>
       <div class="right"><span class="shogo-badge">挑戦する</span></div>
     </div>`;
 }
