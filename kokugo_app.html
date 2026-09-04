@@ -3721,7 +3721,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.73</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.74</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -5959,13 +5959,12 @@ const SEIKI_ATK_MULT = [1.5, 1.5, 2, 2.5, 3];
    「一度HPがなくなり切っても復活。回復率は伝説級で100%になるが、それまでなだらかに徐々に
    強くなる」）。他の系統の階段状カーブ（ENGOKU_BURN_PCT・SEIKI_ATK_MULT）と同じ配列直接指定。 */
 const KODAI_REVIVE_PCT = [0.25, 0.4, 0.6, 0.8, 1.0];
-/* 古代龍「輪廻転生」の復活1回あたりの攻撃力加算量は、固定の段階表ではなく「復活した瞬間の
-   自分の攻撃力ステータスそのもの」を使う（教員の指示、2026-08-31〜：「自分の攻撃力
-   （ステータス）を加算するように。1回目で攻撃力は2倍になる計算」）。1回目の復活で
-   b.kotonohaKodaiAtkBuffAmountに現在の攻撃力ぶんが足されるので、合計は元の攻撃力の
-   ちょうど2倍になる。2回目以降も、その時点の攻撃力ぶんをそのつど加算していくだけで
-   （かけ算はしない）、直前までの上乗せぶんが次の加算量に複利で効くこともない。
-   詳細はkotonohaKodaiRevive参照。 */
+/* 古代龍「輪廻転生」の復活1回あたりの攻撃力倍率は、復活のたびに単純に2倍を重ねがける
+   （教員の指示、2026-09-05〜：「攻撃力の上乗せは、掛け算に変更します。1回目で2倍、
+   2回目では実質4倍、3回目は8倍になります」。以前は「復活時点の攻撃力ステータスを加算」する
+   方式だったが、聖輝・未来龍と同じ複利の乗算方式に変更した）。b.kotonohaKodaiAtkMultStackに
+   毎回×2するだけで、聖輝の光の高揚とは異なり必殺技のダメージにも乗る（「必殺は、さらに
+   そこに乗るイメージ」）。詳細はkotonohaKodaiRevive／bossResolveFinisher参照。 */
 /* 未来龍「超進化」の1発動あたり全ステータス倍率（少年体〜伝説級の5段階、2026-08-29〜、教員の指示：
    「必殺を打つと全ステータスを倍率で高める。上昇率は伝説級で3倍になるが、それまでなだらかに
    徐々に強くなる」）。聖輝のatkMultPerUseと同じ「発動のたびに複利で掛かる永続バフ」方式を踏襲し、
@@ -6035,13 +6034,15 @@ const KOTONOHA_LINE_MOVES = {
     powerGrowthPerUse: 2.0,
   },
   /* 古代龍「輪廻転生」（2026-08-29〜、教員の指示）：発動しておくと、そのボス戦の間だけ
-     「力尽きても一度だけ復活できる権利」を得る。実際にHPが0になった瞬間（bossAdvance→
-     kotonohaKodaiRevive）に権利を消費し、専用演出とともにHPをrevivePct分だけ回復して
+     「力尽きても復活できる権利」を得る。実際にHPが0になった瞬間（bossAdvance→
+     kotonohaKodaiRevive）に権利を1回ぶん消費し、専用演出とともにHPをrevivePct分だけ回復して
      続行する。何度でも打てるので、打つたびに権利を立て直せる（＝直前に一度使い切っていても
-     再度発動すればもう一度だけ復活できる）。ダメージ自体は他系統と同じ共通カーブ（3〜5倍）。 */
+     再度発動すればもう一度だけ復活できる）。伝説級だけは発動するたびに権利を積み増して最大
+     2回ぶんまでストックできる（教員の指示、2026-09-05）。ダメージ自体は他系統と同じ共通
+     カーブ（3〜5倍）。 */
   kodai: {
     names:["太古の目覚め","古代の咆哮","悠久の顕現","太古龍の覇道","古代龍絶技・輪廻転生"],
-    desc:"発動しておくと、そのボス戦中にHPが0になっても一度だけ「古代龍」が復活を果たしてHPが回復する（回復率は少年体でひかえめ、伝説級で100%）。復活するたびに、そのときの自分の攻撃力ぶんがそのボス戦の間だけ上乗せされ（かけ算ではなく加算、初回で攻撃力がちょうど2倍になる計算。2回目以降もそのつど積み上がる）、まちがえても2回連続までなら必殺技ゲージは崩れない",
+    desc:"発動しておくと、そのボス戦中にHPが0になっても「古代龍」が復活を果たしてHPが回復する（回復率は少年体でひかえめ、伝説級で100%。伝説級だけは2回打つと2回ぶんストックできる）。復活するたびに、攻撃力がそのボス戦の間だけ2倍になり（重ねがけ、1回目で2倍・2回目で4倍・3回目で8倍…）、この倍率は必殺技のダメージにも乗る。まちがえても2回連続までなら必殺技ゲージは崩れない",
     powerMult: kotonohaLinePower,
     revivePct: t => KODAI_REVIVE_PCT[Math.round(t*4)],
   },
@@ -12203,8 +12204,8 @@ function startBossBattle(boss, allGenre, hyakuninMode){
     kotonohaSleepTurnsLeft:0, kotonohaSleepFirstTurnDone:false, kotonohaSleepWakeChance:0,
     kotonohaShigenMoveLine:null, kotonohaFinisherUseLine:false,
     kotonohaBurnPct:0, kotonohaMeienUseCount:0, kotonohaGraceMissStreak:0,
-    kotonohaKodaiReviveReady:false, kotonohaKodaiRevivePct:0, kotonohaMiraiStatMultStack:1,
-    kotonohaKodaiAtkBuffAmount:0,
+    kotonohaKodaiReviveStock:0, kotonohaKodaiRevivePct:0, kotonohaMiraiStatMultStack:1,
+    kotonohaKodaiAtkMultStack:1,
   };
   if(boss.preemptiveHalfHp){
     // 丸刈りのさるちゃん専用：戦闘開始と同時に、プレイヤーのHPを半分にする先制攻撃を受ける
@@ -12509,6 +12510,10 @@ function bossResolveFinisher(){
     b.kotonohaMeienUseCount = (b.kotonohaMeienUseCount||0) + 1;
   }
   dealt = Math.round(dealt * moveMult * finisherExtraMult);
+  // 古代龍「輪廻転生」：復活のたびに積み上がる攻撃力倍率は、聖輝の光の高揚（通常攻撃専用）とは
+  // 異なり必殺技のダメージにも乗せる（教員の指示、2026-09-05：「必殺は、さらにそこに乗る
+  // イメージ」。bossGrade側の通常攻撃ダメージ計算にも同じ乗算がある）。
+  if(b.kotonohaKodaiAtkMultStack && b.kotonohaKodaiAtkMultStack !== 1) dealt = Math.round(dealt * b.kotonohaKodaiAtkMultStack);
   const effLuck = ps.luck + (b.luckBuffTurns > 0 ? b.luckBuffAmount : 0);
   const critChance = luckCritChancePct(effLuck, st);
   let crit = false;
@@ -12560,14 +12565,21 @@ function bossResolveFinisher(){
     b.kotonohaBurnPct = (b.kotonohaBurnPct||0) + lm.def.burnPctPerTurn(lm.t);
     burnMsg = `<div class="boss-turn">🔥${esc(b.boss.name)}に火傷を負わせた！（毎ターン最大HPの${Math.round(b.kotonohaBurnPct*100)}%を追加ダメージ）</div>`;
   }
-  /* 古代龍「輪廻転生」：発動しておくと、このボス戦中にHPが0になっても一度だけ復活できる権利
-     （kotonohaKodaiReviveReady）を得る。実際の復活処理・演出はHPが0になった瞬間
-     （bossAdvance→kotonohaKodaiRevive）が担当し、ここでは権利を立てるだけ（2026-08-29〜）。 */
+  /* 古代龍「輪廻転生」：発動しておくと、このボス戦中にHPが0になっても復活できる権利
+     （kotonohaKodaiReviveStock）を得る。実際の復活処理・演出はHPが0になった瞬間
+     （bossAdvance→kotonohaKodaiRevive）が担当し、ここでは権利を積むだけ（2026-08-29〜）。
+     権利は通常1回ぶんまでだが、伝説級（stageIdx===4）だけは発動するたびに積み増して
+     最大2回ぶんまでストックできる（教員の指示、2026-09-05：「伝説体は、必殺技を2回打った場合、
+     2回まで復活の権利をストックできる」）。 */
   let reviveMsg = "";
   if(lm && lm.def.revivePct){
-    b.kotonohaKodaiReviveReady = true;
+    const kodaiStageIdx = Math.round(lm.t * 4);
+    const kodaiMaxStock = kodaiStageIdx >= 4 ? 2 : 1;
+    b.kotonohaKodaiReviveStock = Math.min(kodaiMaxStock, (b.kotonohaKodaiReviveStock||0) + 1);
     b.kotonohaKodaiRevivePct = lm.def.revivePct(lm.t);
-    reviveMsg = `<div class="boss-turn">🏛️古代龍の力が目覚めた……この戦い、力尽きても一度だけ復活できる！</div>`;
+    reviveMsg = b.kotonohaKodaiReviveStock > 1
+      ? `<div class="boss-turn">🏛️古代龍の力がさらに満ちた……この戦い、力尽きても${b.kotonohaKodaiReviveStock}回まで復活できる！</div>`
+      : `<div class="boss-turn">🏛️古代龍の力が目覚めた……この戦い、力尽きても一度だけ復活できる！</div>`;
   }
   /* 未来龍「超進化」：発動のたびに自分の全ステータスを掛け算で倍化する（重ねがけ・永続、上限なし、
      2026-08-29〜）。b.kotonohaMiraiStatMultStackに毎回この段階の倍率を掛け続け、以降は
@@ -12734,8 +12746,8 @@ function bossItemBarHtml(){
   if(b.missGuard) buffChips.push(`<span class="lvup-chip">✨ミス回避 スタンバイ中</span>`);
   // 古代龍・未来龍の必殺技効果は、通常のターン制バフ（○ターンで切れる）とは違い戦闘終了まで
   // 持続するので、ターン数ではなく状態そのものを表示する（2026-08-29〜）。
-  if(b.kotonohaKodaiReviveReady) buffChips.push(`<span class="lvup-chip">🏛️古代龍の加護：復活スタンバイ中</span>`);
-  if(b.kotonohaKodaiAtkBuffAmount) buffChips.push(`<span class="lvup-chip">🏛️古代龍の力：攻撃力+${b.kotonohaKodaiAtkBuffAmount}</span>`);
+  if(b.kotonohaKodaiReviveStock) buffChips.push(`<span class="lvup-chip">🏛️古代龍の加護：復活スタンバイ中${b.kotonohaKodaiReviveStock > 1 ? `×${b.kotonohaKodaiReviveStock}` : ""}</span>`);
+  if(b.kotonohaKodaiAtkMultStack && b.kotonohaKodaiAtkMultStack !== 1) buffChips.push(`<span class="lvup-chip">🏛️古代龍の力：攻撃力×${b.kotonohaKodaiAtkMultStack}</span>`);
   if(b.kotonohaMiraiStatMultStack && b.kotonohaMiraiStatMultStack !== 1) buffChips.push(`<span class="lvup-chip">🚀未来龍の力：全ステータス×${b.kotonohaMiraiStatMultStack.toFixed(2)}</span>`);
   const buffRow = buffChips.length ? `<p class="note">${buffChips.join(" ")}</p>` : "";
   const useMsg = b.itemUseMsg ? `<p class="note">${esc(b.itemUseMsg)}</p>` : "";
@@ -12904,13 +12916,15 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
           b.bossHp = Math.max(0, b.bossHp - dealt);
         }
       }else{
-        // 古代龍「輪廻転生」：復活のたびに積み上がる攻撃力ステータスの上乗せぶん（kotonohaKodaiRevive
-        // 参照）。攻撃力そのものへの加算なので、STAT_ATK_PER_POINTの掛け算より内側（ps.atkと同格）で足す。
-        dealt = randInt(BOSS_PLAYER_DMG[0], BOSS_PLAYER_DMG[1]) + (ps.atk + (b.kotonohaKodaiAtkBuffAmount||0)) * STAT_ATK_PER_POINT + (b.atkBuffTurns > 0 ? b.atkBuffAmount : 0);
+        dealt = randInt(BOSS_PLAYER_DMG[0], BOSS_PLAYER_DMG[1]) + ps.atk * STAT_ATK_PER_POINT + (b.atkBuffTurns > 0 ? b.atkBuffAmount : 0);
         // さびついたノコギリ等の「次のターンだけ攻撃力n倍」効果（攻撃力依存の倍率、既存の加算式atkBuffとは別枠）
         if(b.atkMultTurns > 0) dealt = Math.round(dealt * b.atkMultAmount);
         // 聖輝「光の高揚」：発動ずみぶんの永続倍率（複利、上限なし）。通常攻撃にも乗る
         if(b.kotonohaAtkMultStack && b.kotonohaAtkMultStack !== 1) dealt = Math.round(dealt * b.kotonohaAtkMultStack);
+        // 古代龍「輪廻転生」：復活のたびに2倍・4倍・8倍…と積み上がる攻撃力倍率（kotonohaKodaiRevive
+        // 参照）。聖輝と違い必殺技のダメージにも乗せる（教員の指示、2026-09-05：「必殺は、さらに
+        // そこに乗るイメージ」。bossResolveFinisher側にも同じ乗算がある）。
+        if(b.kotonohaKodaiAtkMultStack && b.kotonohaKodaiAtkMultStack !== 1) dealt = Math.round(dealt * b.kotonohaKodaiAtkMultStack);
         const effLuck = ps.luck + (b.luckBuffTurns > 0 ? b.luckBuffAmount : 0);
         const critChance = luckCritChancePct(effLuck, st);
         if(Math.random() * 100 < critChance){
@@ -13334,29 +13348,26 @@ function kotonohaBurnTick(){
   return false;
 }
 /* 古代龍「輪廻転生」：HPが0になった瞬間（bossAdvance）に呼ばれる。事前にbossResolveFinisherで
-   権利（kotonohaKodaiReviveReady）を立てていれば、その権利を消費して専用の全画面演出とともに
-   HPをrevivePct分だけ回復し、そのまま戦闘を続ける（bossLose()は呼ばない）。権利が無ければ
-   何もせずfalseを返し、呼び出し元がbossLose()に進む（教員の指示、2026-08-29〜：「必殺技を
-   打っておけば、一度HPがなくなり切っても、復活を果たしてHPを回復」）。 */
+   積んだ権利（kotonohaKodaiReviveStock、通常1回・伝説級は最大2回ぶん）があれば1回ぶん消費して
+   専用の全画面演出とともにHPをrevivePct分だけ回復し、そのまま戦闘を続ける（bossLose()は
+   呼ばない）。権利が無ければ何もせずfalseを返し、呼び出し元がbossLose()に進む（教員の指示、
+   2026-08-29〜：「必殺技を打っておけば、一度HPがなくなり切っても、復活を果たしてHPを回復」）。 */
 function kotonohaKodaiRevive(){
   const b = bossBattle;
-  if(!b || !b.kotonohaKodaiReviveReady) return false;
-  b.kotonohaKodaiReviveReady = false;
+  if(!b || !(b.kotonohaKodaiReviveStock > 0)) return false;
+  b.kotonohaKodaiReviveStock--;
   const pct = b.kotonohaKodaiRevivePct || KODAI_REVIVE_PCT[0];
   b.playerHp = Math.max(1, Math.round(b.playerMaxHp * pct));
-  /* 復活するたびに、そのときの自分の攻撃力ステータスぶんを加算する（かけ算ではない、教員の
-     指示：「自分の攻撃力（ステータス）を加算するように。1回目で攻撃力は2倍になる計算」）。
-     bossEffStats()はkotonohaKodaiAtkBuffAmountを一切参照しないため、ここで加算するのは
-     常に「このボーナスを含まない、その時点の攻撃力」＝毎回ベースの攻撃力ぶんだけを単純に
-     積み増す。そのボス戦の間だけ有効なb.kotonohaKodaiAtkBuffAmountに毎回足し込んでいくので、
-     2回目以降の復活でもリセットされず、直前までの上乗せぶんが次の加算量に複利で効くことも
-     ない（bossGrade側の通常攻撃ダメージ計算で加算される）。 */
-  const atkGain = bossEffStats(loadStats()).atk;
-  b.kotonohaKodaiAtkBuffAmount = (b.kotonohaKodaiAtkBuffAmount||0) + atkGain;
+  /* 復活するたびに攻撃力が2倍になる（教員の指示、2026-09-05：「攻撃力の上乗せは、掛け算に
+     変更します。1回目で2倍、2回目では実質4倍、3回目は8倍になります」）。以前は「復活時点の
+     攻撃力ステータスぶんを加算」する方式だったが、b.kotonohaKodaiAtkMultStackへの単純な
+     ×2の重ねがけ（聖輝・未来龍と同じ複利方式）に変更した。通常攻撃だけでなく必殺技の
+     ダメージにも乗る（bossGrade／bossResolveFinisher両方でこの値を参照）。 */
+  b.kotonohaKodaiAtkMultStack = (b.kotonohaKodaiAtkMultStack||1) * 2;
   b._resolving = true;
   refreshBossHpBars();
   showFinisherOverlay(
-    `🏛️💫<br>古代龍は、復活を果たした！<br><span style="font-size:.55em">HPが${b.playerHp}回復した！攻撃力が+${atkGain}された！（累計+${b.kotonohaKodaiAtkBuffAmount}）</span>`,
+    `🏛️💫<br>古代龍は、復活を果たした！<br><span style="font-size:.55em">HPが${b.playerHp}回復した！攻撃力が2倍になった！（累計×${b.kotonohaKodaiAtkMultStack}）${b.kotonohaKodaiReviveStock > 0 ? `<br>まだ${b.kotonohaKodaiReviveStock}回、復活できる！` : ''}</span>`,
     "finisher-name-big", "fx-kodai"
   );
   setTimeout(() => {
