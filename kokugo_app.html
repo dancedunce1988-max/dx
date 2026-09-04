@@ -3721,7 +3721,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.65</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.66</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -4204,6 +4204,11 @@ function loadStats(){
         // 「パートナー」に設定でき、kotonohaEffStats経由で通常のボス戦のステータスに反映される。
         if(!Array.isArray(st.mbCompanions)) st.mbCompanions = [];
         if(st.mbActivePartner === undefined) st.mbActivePartner = null;
+        // パートナーのレベル（2026-09-04〜、教員の指示）。仲間になった時点でLv.1、その後も
+        // 同じボスで1%を引くたびLv.5まで上がり、効果（MB_PARTNER_STAT_BONUS_PCT）もレベルと
+        // 同じ倍率になる。既存セーブ（このレベル制導入前に仲間がいた場合）はLv.1として補完する。
+        if(!st.mbCompanionLevels || typeof st.mbCompanionLevels !== "object") st.mbCompanionLevels = {};
+        st.mbCompanions.forEach(id => { if(!st.mbCompanionLevels[id]) st.mbCompanionLevels[id] = 1; });
         if(!st.diffLv) st.diffLv = {};
         /* 出題目標レベルが未設定の分野は、これまでの分野レベルから相当する値を初期値にする
            （新しい仕組み導入前からのプレイヤーも、急に極端な難度から始まらないようにするため） */
@@ -5399,21 +5404,34 @@ function kotonohaStatBonusText(stat){
 // 漢字バトルで仲間にしたボスを「パートナー」に設定すると、通常のボス戦のステータスに
 // ％ボーナスがかかる（教員の指示、2026-09-04）。称号ボーナス（加算）とは別枠の乗算ボーナス
 // にする。idはMB_ENEMIES（下のセクションで定義）のid（me01〜me04）と対応させてある。
+// ここに書いた数値はLv.1時点の値（＝1レベルあたりの上がり幅でもある）。実際の効果は
+// レベル倍（mbPartnerStatBonusPct参照）。
 const MB_PARTNER_STAT_BONUS_PCT = {
-  me01: { spd: 1 },         // 炎狼：素早さ+1%
-  me02: { def: 1 },         // 鉄鋼兵：防御力+1%
-  me03: { luck: 1, spd: 1 },// 闇の魔術師：運・素早さ+1%
-  me04: { hp: 1, atk: 1 },  // 言霊の番人：HP・攻撃力+1%
+  me01: { spd: 1 },         // 炎狼：素早さ+1%/Lv
+  me02: { def: 1 },         // 鉄鋼兵：防御力+1%/Lv
+  me03: { luck: 1, spd: 1 },// 闇の魔術師：運・素早さ+1%/Lv
+  me04: { hp: 1, atk: 1 },  // 言霊の番人：HP・攻撃力+1%/Lv
 };
+// パートナーのレベル上限（教員の指示、2026-09-04：「最大レベルは5とします」）。
+const MB_PARTNER_MAX_LEVEL = 5;
+function mbCompanionLevel(st, id){
+  return (st.mbCompanionLevels && st.mbCompanionLevels[id]) || 1;
+}
 function mbPartnerStatBonusPct(st){
   const id = st.mbActivePartner;
-  return (id && MB_PARTNER_STAT_BONUS_PCT[id]) || {};
+  const base = id && MB_PARTNER_STAT_BONUS_PCT[id];
+  if(!base) return {};
+  const lv = mbCompanionLevel(st, id);
+  const out = {};
+  Object.keys(base).forEach(k => { out[k] = base[k] * lv; });
+  return out;
 }
 // パートナー1体ぶんの効果を短い文で見せる（kotonohaStatBonusTextの％版、ホーム画面のバッジ・
-// パートナー選択画面の両方で使う）。
-function mbPartnerEffectText(id){
-  const pct = MB_PARTNER_STAT_BONUS_PCT[id] || {};
-  return Object.keys(pct).map(k => `${STAT_LABEL_SHORT[k]}+${pct[k]}%`).join("　");
+// パートナー選択画面の両方で使う）。レベル倍した実際の数値を表示する。
+function mbPartnerEffectText(st, id){
+  const base = MB_PARTNER_STAT_BONUS_PCT[id] || {};
+  const lv = mbCompanionLevel(st, id);
+  return Object.keys(base).map(k => `${STAT_LABEL_SHORT[k]}+${base[k] * lv}%`).join("　");
 }
 // ホーム画面の「ことのは」カード右上に、今のパートナーの姿を小さく表示する（教員の指示、
 // 2026-09-04）。仲間が1体もいなければ何も表示しない。MB_ENEMIES/mbEnemySpriteSrcは
@@ -5422,8 +5440,9 @@ function mbPartnerBadgeHtml(st){
   if(!st.mbCompanions || !st.mbCompanions.length) return '';
   const partner = MB_ENEMIES.find(e => e.id === st.mbActivePartner) || MB_ENEMIES.find(e => e.id === st.mbCompanions[0]);
   if(!partner) return '';
+  const lv = mbCompanionLevel(st, partner.id);
   return `
-    <div class="mb-partner-badge" onclick="mbShowPartnerPicker()" title="パートナー：${esc(partner.name)}（タップで変更）">
+    <div class="mb-partner-badge" onclick="mbShowPartnerPicker()" title="パートナー：${esc(partner.name)}（Lv.${lv}／タップで変更）">
       <img src="${mbEnemySpriteSrc(partner, 'pose1')}" alt="${esc(partner.name)}">
     </div>`;
 }
@@ -5439,11 +5458,12 @@ function mbShowPartnerPicker(){
     </div>`;
   companions.forEach(e => {
     const active = st.mbActivePartner === e.id;
-    const effectText = mbPartnerEffectText(e.id);
+    const lv = mbCompanionLevel(st, e.id);
+    const effectText = mbPartnerEffectText(st, e.id);
     html += `
     <div class="card menu-card" onclick="mbSetPartner('${e.id}')">
       <div class="menu-icon mb-partner-pick-icon"><img src="${mbEnemySpriteSrc(e, 'pose1')}" alt="${esc(e.name)}"></div>
-      <div><h2>${esc(e.name)}${active ? " ✓" : ""}</h2>
+      <div><h2>${esc(e.name)} Lv.${lv}${active ? " ✓" : ""}</h2>
       ${effectText ? `<p class="note kotonoha-picker-stat">${esc(effectText)}</p>` : ""}</div>
     </div>`;
   });
@@ -24919,12 +24939,12 @@ function mbRenderBattleScreen(opts){
           <button class="btn mb-img-btn" onclick="mbShowSpellMenu('heal')"><img src="${IMG.heal || ''}" alt="回復魔法"></button>
           <button class="btn mb-img-btn" onclick="mbShowSpellMenu('buff')"><img src="${IMG.buff || ''}" alt="支援魔法"></button>
           <button class="btn mb-img-btn" onclick="mbShowSpellMenu('debuff')"><img src="${IMG.debuff || ''}" alt="呪い"></button>
-        </div>
-        <div class="btn-row" style="justify-content:center; margin-top:6px;">
-          <button class="btn secondary" onclick="mbConfirmQuit()">やめる</button>
         </div>` : '';
+  // 「やめる」は目立ちすぎない小さな表示にする（教員の指示、2026-09-04：「右側に小さめの
+  // 表示に」）。他の画面（mbStartGauntlet等）と同じkb-quit-cornerを使い、画面右上に固定する。
   screen.innerHTML = `
-    <div class="boss-battle-screen" id="mbScreen">
+    <div class="boss-battle-screen" id="mbScreen" style="position:relative;">
+      <button class="btn secondary kb-quit-corner" onclick="mbConfirmQuit()">やめる</button>
       <p style="text-align:center; color:#9a8ec2; font-size:.8rem; margin:0 0 4px;">${mbBattle.enemyIndex + 1}体目 / 全${MB_ENEMIES.length}体</p>
       <div class="boss-q-card">
         <div class="boss-hp-row kb-hp-top" id="mbEnemyHpRow">${mbHpBarInnerHtml(enemyDef.name, mbBattle.enemyHp, mbBattle.enemyMaxHp, 'boss-hpbar')}</div>
@@ -25555,7 +25575,9 @@ function mbShowStageMap(clearedUpTo, xpGained, recruitedMsg){
     </div>`;
 }
 // ボスを倒すたびに、通常攻撃とは別にストック経験値＋5を獲得する（教員の指示、2026-09-04）。
-// さらに1%の確率でそのボスが仲間になる（同じボスは重複して仲間にならない。教員の指示、2026-09-04）。
+// さらに1%の確率で判定が発生：まだ仲間でなければ新規に仲間になり（Lv.1）、既に仲間の場合は
+// レベルが1つ上がる（教員の指示、2026-09-04：「もう一度1%の確率を引いたらLV2とします。
+// 最大レベルは5とします」）。既にLv.5のときは、これ以上の意味を持たないので何も起きない。
 // 2026-09-04〜、ボスを1体倒すごとに最大HP・最大MPをそれぞれ＋50する（教員の指示）。現在HP・
 // 現在MPはそのまま（「HP・MPはそのまま引き継がれます」という既存の案内と矛盾しないよう、
 // 増やすのは上限だけにする）。
@@ -25565,10 +25587,19 @@ function mbEnemyDefeated(){
   const st = loadStats();
   st.stockXp = (st.stockXp || 0) + MB_BOSS_DEFEAT_XP;
   let recruitedMsg = null;
-  if(!st.mbCompanions.includes(enemyDef.id) && Math.random() < MB_PARTNER_RECRUIT_CHANCE){
-    st.mbCompanions.push(enemyDef.id);
-    if(!st.mbActivePartner) st.mbActivePartner = enemyDef.id; // 最初の仲間は自動でパートナーに設定する
-    recruitedMsg = `✨「${enemyDef.name}」が仲間になった！`;
+  if(Math.random() < MB_PARTNER_RECRUIT_CHANCE){
+    if(!st.mbCompanions.includes(enemyDef.id)){
+      st.mbCompanions.push(enemyDef.id);
+      st.mbCompanionLevels[enemyDef.id] = 1;
+      if(!st.mbActivePartner) st.mbActivePartner = enemyDef.id; // 最初の仲間は自動でパートナーに設定する
+      recruitedMsg = `✨「${enemyDef.name}」が仲間になった！（Lv.1）`;
+    } else {
+      const curLv = mbCompanionLevel(st, enemyDef.id);
+      if(curLv < MB_PARTNER_MAX_LEVEL){
+        st.mbCompanionLevels[enemyDef.id] = curLv + 1;
+        recruitedMsg = `✨「${enemyDef.name}」との絆が深まった！（Lv.${curLv + 1}）`;
+      }
+    }
   }
   saveStats(st);
   mbRun.playerMaxHp += MB_STATUP_HP;
