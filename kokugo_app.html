@@ -3721,7 +3721,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.72</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.73</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -7411,6 +7411,10 @@ let kwsHiddenSvgEl = null;  // getTotalLength/getPointAtLength専用の非表示
 
 let kwsCanvas = null, kwsCtx = null, kwsStageEl = null; // 画面を作り直すたびに再取得する
 let kwsCurrentId = null;
+// elem/chugakuで特定の学年・レベルを絞り込んでいるとき（解禁・3箱の仕組みを使わない出題、
+// kwsLoadRandomKanji参照）専用の直近出題履歴。セーブデータには保存しない画面内だけの状態
+// （学年・レベルを切り替えても引き継がれて構わないので、切り替え時に個別にクリアはしない）。
+let kwsGradeFilteredRecent = [];
 let kwsCompletedStrokes = []; // 確定した画ごとの点列
 let kwsCurrentPath = [];
 let kwsDrawing = false;
@@ -7879,7 +7883,7 @@ function kwsStudyPoolIds(store){
 // 狙いであり、該当する箱の問題数が少ない（極端には1問だけ）ときに限って同じ問題が
 // 連続・頻発してしまうのは意図に反する。箱の中の候補を絞る前に、直近に出た問題を
 // 除外することで、他の問題が必ず間に挟まるようにする）。
-const KWS_RECENT_SHOWN_WINDOW = 3;
+const KWS_RECENT_SHOWN_WINDOW = 5;
 // 導入済みの中から次の1問を選ぶ。avoidIdは直前の問題（連続で同じ問題を避ける、教員の指示、
 // 2026-09-01）。優先順位は「勉強中プール（復習期日が来た問題／復習モード中の問題）」を
 // 基本としつつ、「正解済み」からも5問に1回程度ランダムに混ぜる（教員の指示、2026-09-04：
@@ -9454,8 +9458,17 @@ function kwsLoadRandomKanji(){
   // 行う（教員の指示、2026-09-01）。
   if((kwsMode === 'elem' && kwsElemGrade) || (kwsMode === 'chugaku' && kwsChugakuLevel)){
     const ids = kwsPoolIds();
-    const candidates = ids.length > 1 ? ids.filter(id => id !== kwsCurrentId) : ids;
-    kwsLoadKanji(candidates[Math.floor(Math.random() * candidates.length)]);
+    // 直前の1問だけでなく、直近KWS_RECENT_SHOWN_WINDOW問ぶんは避ける（kwsPickNextId側の
+    // recentShownと同じ考え方。教員の報告、2026-09-05：「連続で同じ問題が出ることがある」。
+    // このモードは解禁・3箱の仕組みを使わないため専用の履歴（kwsGradeFilteredRecent）で持つ）。
+    const recentSet = new Set(kwsGradeFilteredRecent);
+    if(kwsCurrentId) recentSet.add(kwsCurrentId);
+    let candidates = ids.filter(id => !recentSet.has(id));
+    if(!candidates.length) candidates = ids.length > 1 ? ids.filter(id => id !== kwsCurrentId) : ids;
+    const id = candidates[Math.floor(Math.random() * candidates.length)];
+    kwsGradeFilteredRecent.push(id);
+    while(kwsGradeFilteredRecent.length > KWS_RECENT_SHOWN_WINDOW) kwsGradeFilteredRecent.shift();
+    kwsLoadKanji(id);
     return;
   }
   // kwsPickNextIdはforcedNextの消費・recentShownの更新など、st（＝loadStats()の戻り値）を
