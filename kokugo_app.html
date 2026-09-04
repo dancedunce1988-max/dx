@@ -3721,7 +3721,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.71</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.72</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -7899,6 +7899,18 @@ function kwsPickNextId(st, mode, avoidId){
     store.forcedNext = null;
     kwsRememberShown(store, id);
     return id;
+  }
+  // forcedNextが失われた（一度出題された直後に回答せず離脱した等）box='new'の問題を見失わない
+  // ようにする（教員の報告、2026-09-05：「更新後、解放がストップしている」）。新方式は'new'を
+  // 通常の候補プール（勉強中／正解済み）に含めていないため、これが無いと「解禁待ちの問題が
+  // 二度と出題されない」→kwsMaybeIntroduceNextのhasPendingNewが永久にtrueのまま→それ以降の
+  // 解禁が完全に止まる、という重大なバグになる（forcedNextさえ生きていれば通らない経路だが、
+  // 元々forcedNextはたった1回しか消費されない使い切りの予約であり、離脱等で失われることは
+  // 普通に起こりうる）。
+  const strandedNewId = Object.keys(store.items).find(id => store.items[id].box === 'new');
+  if(strandedNewId){
+    kwsRememberShown(store, strandedNewId);
+    return strandedNewId;
   }
 
   const studyIds = kwsStudyPoolIds(store);
