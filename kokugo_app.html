@@ -47,6 +47,9 @@
      （教員の指示、2026-08-30〜：「卵の画像が大きくて、名前のフォントに被っている」）。 */
   .menu-icon.menu-icon-egg{width:88px; height:88px;}
   .menu-card h2{font-size:.98rem; margin-bottom:0;}
+  /* ミニゲーム一覧のタイトル画像（教員が用意したイラストから切り抜き、menu_title_images.js）。
+     h2の代わりに使う（教員の指示、2026-09-04）。高さだけ揃え、幅は元の縦横比のまま自動計算する。 */
+  .menu-title-img{ display:block; height:34px; width:auto; max-width:100%; }
   .menu-card p{font-size:.78rem; color:var(--sub);}
   .menu-card .right{margin-left:auto; text-align:right; flex-shrink:0;}
   .menu-card.review{border-left:5px solid var(--accent);}
@@ -3703,7 +3706,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.63</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.64</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3724,6 +3727,7 @@
 <script src="enemy_sprites_data.js"></script>
 <script src="kanji_quest_title_data.js"></script>
 <script src="mb_action_button_images.js"></script>
+<script src="menu_title_images.js"></script>
 <script>
 "use strict";
 
@@ -14928,10 +14932,15 @@ function storySideQuestButtonHtml(key, st){
   const customLabel = labelFn ? labelFn(st) : null;
   const sub = customLabel ? `<p class="note">${esc(customLabel)}</p>`
     : (best > 0 ? `<p class="note">自己ベスト：${best}点</p>` : `<p>タップして挑戦しよう</p>`);
+  // 2026-09-04〜、ミニゲーム一覧のタイトルは教員が用意した専用イラスト（画像/ゲームタイトル.png
+  // から切り抜き、menu_title_images.js）に差し替え。画像が無いキー（今後ミニゲームを追加した
+  // 場合など）は従来どおりテキストのh2にフォールバックする。
+  const img = window.MB_MENU_TITLE_IMAGES && window.MB_MENU_TITLE_IMAGES[key];
+  const titleHtml = img ? `<img class="menu-title-img" src="${img}" alt="${esc(q.title)}">` : `<h2>${esc(q.title)}</h2>`;
   return `
     <div class="card menu-card" onclick="startStoryMode('${key}')">
       <div class="menu-icon">${esc(q.icon || "🚀")}</div>
-      <div><h2>${esc(q.title)}</h2>${sub}</div>
+      <div>${titleHtml}${sub}</div>
       <div class="right"><span class="shogo-badge">挑戦する</span></div>
     </div>`;
 }
@@ -24685,10 +24694,12 @@ function mbStopIdleAnim(){
 // ホーム直下ではなく「🎮 ミニゲーム」一覧(showSideQuestMenu)の中に、「漢字マスターの道」とは
 // 別のカードとして置く（既存のボス戦システムとは別物として完全に独立させる）。
 function mbSideQuestButtonHtml(){
+  const img = window.MB_MENU_TITLE_IMAGES && window.MB_MENU_TITLE_IMAGES.mb;
+  const titleHtml = img ? `<img class="menu-title-img" src="${img}" alt="漢字Quest">` : `<h2>漢字Quest</h2>`;
   return `
     <div class="card menu-card" onclick="mbStartGauntlet()">
       <div class="menu-icon">🪄</div>
-      <div><h2>漢字Quest</h2><p>漢字の力を魔力に変えて、敵と戦うRPG</p></div>
+      <div>${titleHtml}<p>漢字の力を魔力に変えて、敵と戦うRPG</p></div>
       <div class="right"><span class="shogo-badge">挑戦する</span></div>
     </div>`;
 }
