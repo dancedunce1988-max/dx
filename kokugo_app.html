@@ -3721,7 +3721,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.70</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.71</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -11921,6 +11921,24 @@ let pendingBossAllGenre = false; // 挑戦チケットからの遭遇のときtr
 let pendingBossHyakunin = false; // 百人一首クイズ中の遭遇のときtrue（百人一首の問題を出題する。教員の指示、2026-08-02）
 let pendingBossIsMb = false; // 漢字の書き取り中のランダム遭遇のときtrue（pendingBossがMB_ENEMIESの1体になる。
                               // 「勝負する」で通常のstartBossBattleではなくstartMbEncounterBattleへ進む。教員の指示、2026-09-05）
+// 漢字Questのエンカウント画面（renderBossPrompt、pendingBossIsMb）専用：戦闘中のmbStartIdleAnimと
+// 同じ「基本姿勢①②を0.5秒ごとに繰り返す」立ち姿アニメーション。mbBattleが存在する前提の
+// mbStartIdleAnim/mbApplyPoseはこの画面（戦闘開始前）では使えないため、別に用意する
+// （教員の指示、2026-09-05）。
+let bossPromptIdleTimer = null;
+function stopBossPromptIdleAnim(){
+  if(bossPromptIdleTimer){ clearInterval(bossPromptIdleTimer); bossPromptIdleTimer = null; }
+}
+function startBossPromptIdleAnim(enemyDef){
+  stopBossPromptIdleAnim();
+  let toggle = false;
+  bossPromptIdleTimer = setInterval(() => {
+    const el = document.getElementById('bossPromptEnemyIcon');
+    if(!el){ stopBossPromptIdleAnim(); return; } // 画面が切り替わった後の取りこぼし防止
+    toggle = !toggle;
+    el.src = mbEnemySpriteSrc(enemyDef, toggle ? 'pose2' : 'pose1');
+  }, 500);
+}
 // チケットで「相手を選ぶ」画面（showTicketChooseBoss）だけで使う一時的なUI状態。
 // オンにすると、経験値が伸びて「卒業」済み（isBossRetired）の弱いボスも一覧に表示する
 // （教員の指示、2026-09-01）。kwsElemGradeと同じく、セーブデータには保存しない画面内フィルタ。
@@ -12083,7 +12101,9 @@ function renderBossPrompt(){
     : `「${esc(b.name)}」<span class="boss-lv-tag">Lv.${b.lv||"?"}</span>が勝負をしかけてきた。`;
   screen.innerHTML = `
     <div class="card boss-encounter">
-      ${b.img ? `<img class="boss-enc-icon-img" src="${b.img}" alt="${esc(b.name)}">` : `<div class="boss-enc-icon">${b.icon}</div>`}
+      ${pendingBossIsMb
+        ? `<img id="bossPromptEnemyIcon" class="boss-enc-icon-img" src="${mbEnemySpriteSrc(b, 'pose1')}" alt="${esc(b.name)}">`
+        : b.img ? `<img class="boss-enc-icon-img" src="${b.img}" alt="${esc(b.name)}">` : `<div class="boss-enc-icon">${b.icon}</div>`}
       <p class="boss-enc-text">${introText}<br>勝負しますか？</p>
       ${b.legendary
         ? `<p class="note boss-enc-hint">⚠️ 一問でも間違えると、その場で敗れます。10問連続で正解すれば討伐成功です（制限時間10秒）。</p>`
@@ -12096,6 +12116,10 @@ function renderBossPrompt(){
       </div>
       <p class="note boss-enc-hint">← → で選び、Enterで決定（そのままEnterで「いいえ」）</p>
     </div>`;
+  // 漢字Questの敵は、戦闘中と同じく基本姿勢①②を0.5秒ごとに繰り返す立ち姿にする
+  // （教員の指示、2026-09-05）。mbBattle開始前のこの画面ではmbStartIdleAnim（mbBattle前提）が
+  // 使えないため、bossPromptEnemyIcon専用の同じ仕組みの小さなタイマーを別に用意する。
+  if(pendingBossIsMb) startBossPromptIdleAnim(b); else stopBossPromptIdleAnim();
 }
 function moveBossPromptSelection(dir){
   if(!bossPromptActive) return;
@@ -12105,6 +12129,7 @@ function moveBossPromptSelection(dir){
 function resolveBossPrompt(choice){
   if(!bossPromptActive) return;
   bossPromptActive = false;
+  stopBossPromptIdleAnim();
   if(choice === "yes"){
     if(pendingBossIsMb){
       const enemy = pendingBoss;
