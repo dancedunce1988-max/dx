@@ -3558,6 +3558,16 @@
   color:#f0e6ff; background:linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.05));
   box-shadow:0 5px 0 rgba(0,0,0,.4), 0 7px 14px rgba(0,0,0,.3);
 }
+/* 画像に差し替えた行動ボタン（mb_action_button_images.js）。装飾は画像側に焼き込まれているので、
+   ボタン自体は透明な当たり判定にする（教員の指示、2026-09-04）。 */
+.mb-img-btn{
+  padding:0; border:none; background:none; box-shadow:none; border-radius:14px;
+  overflow:hidden; cursor:pointer; display:block; width:100%; line-height:0;
+  transition:transform .08s ease, filter .08s ease;
+}
+.mb-img-btn img{ display:block; width:100%; height:auto; }
+.mb-img-btn:active{ transform:translateY(3px) scale(.98); filter:brightness(.82); }
+.mb-img-btn-normal{ margin-top:14px; }
 .mb-spell-next-hint{ text-align:center; color:#ffd76a; font-weight:bold; margin-top:10px; }
 .mb-crit-active-note{
   text-align:center; color:#ffd76a; font-weight:900; margin:6px 0 10px;
@@ -3693,7 +3703,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.62</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.63</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3713,6 +3723,7 @@
 <script src="kotonoha_evolution_images.js"></script>
 <script src="enemy_sprites_data.js"></script>
 <script src="kanji_quest_title_data.js"></script>
+<script src="mb_action_button_images.js"></script>
 <script>
 "use strict";
 
@@ -24580,12 +24591,12 @@ const MB_SPELLS = {
     { id:"iyashi_uta", name:"リカバリー", mp:25, power:150, desc:"HP中回復" },
     { id:"iyashi_yui", name:"ウェルビーイング", mp:50, power:9999, desc:"HP大回復" },
   ]},
-  buff: { label:"⬆ バフ", list:[
+  buff: { label:"⬆ 支援魔法", list:[
     { id:"gou_no_ji", name:"ファクト", mp:20, effect:"defUp", turns:3, desc:"防御力アップ（3ターン）" },
     { id:"mou_no_ji", name:"アジャスト", mp:30, effect:"atkUp", turns:3, desc:"攻撃・回復の力アップ（3ターン）" },
     { id:"jin_no_ji", name:"インサイト", mp:50, effect:"haste", turns:3, desc:"漢字チャレンジの時間が伸びる（3ターン）" },
   ]},
-  debuff: { label:"⬇ デバフ", list:[
+  debuff: { label:"⬇ 呪い", list:[
     { id:"kan_no_ji", name:"メタファー", mp:20, effect:"enemySlow", turns:3, desc:"敵の攻撃が弱まる（3ターン）" },
     { id:"kon_no_ji", name:"ネガティブ", mp:30, effect:"enemyBlind", turns:3, desc:"敵の攻撃が外れやすくなる（3ターン）" },
     { id:"zei_no_ji", name:"リテラシー", mp:40, effect:"enemyWeak", turns:3, desc:"敵の受けるダメージが増える（3ターン）" },
@@ -24853,15 +24864,20 @@ function mbRenderBattleScreen(opts){
   // 「通常攻撃」は今までの「魔力をためる」の役割（MP獲得）を引き継ぎつつ、言弾の半分の
   // ダメージも同時に与える最重要アクションなので、一番目立つ位置・大きさに置く
   // （教員の指示、2026-09-04）。行動選択ボタンは全て立体的（押せる質感）にする。
+  // 2026-09-04〜、行動ボタンは教員が切り抜きツールで用意した画像（mb_action_button_images.js、
+  // ボタン.pngから切り抜き）に差し替え。画像自体に文字・装飾が焼き込まれているため、
+  // 従来のmb-btn-3d/mb-btn-normal/mb-action-btnの背景・立体影は使わず、画像をそのまま
+  // クリック領域にするmb-img-btnを使う（押した感触だけCSSのtransformで残す）。
+  const IMG = window.MB_ACTION_BUTTON_IMAGES || {};
   const actionsHtml = opts.showActions ? `
-        <button class="btn mb-btn-3d mb-btn-normal" onclick="mbChooseAction({type:'normalAttack'})">
-          <span class="mb-btn-icon">🗡️</span>通常攻撃
+        <button class="btn mb-img-btn mb-img-btn-normal" onclick="mbChooseAction({type:'normalAttack'})">
+          <img src="${IMG.normalAttack || ''}" alt="通常攻撃">
         </button>
         <div class="mb-action-grid">
-          <button class="btn mb-btn-3d mb-action-btn" onclick="mbShowSpellMenu('attack')">🔮 魔法攻撃</button>
-          <button class="btn mb-btn-3d mb-action-btn" onclick="mbShowSpellMenu('heal')">💚 回復</button>
-          <button class="btn mb-btn-3d mb-action-btn" onclick="mbShowSpellMenu('buff')">⬆ バフ</button>
-          <button class="btn mb-btn-3d mb-action-btn" onclick="mbShowSpellMenu('debuff')">⬇ デバフ</button>
+          <button class="btn mb-img-btn" onclick="mbShowSpellMenu('attack')"><img src="${IMG.attack || ''}" alt="攻撃魔法"></button>
+          <button class="btn mb-img-btn" onclick="mbShowSpellMenu('heal')"><img src="${IMG.heal || ''}" alt="回復魔法"></button>
+          <button class="btn mb-img-btn" onclick="mbShowSpellMenu('buff')"><img src="${IMG.buff || ''}" alt="支援魔法"></button>
+          <button class="btn mb-img-btn" onclick="mbShowSpellMenu('debuff')"><img src="${IMG.debuff || ''}" alt="呪い"></button>
         </div>
         <div class="btn-row" style="justify-content:center; margin-top:6px;">
           <button class="btn secondary" onclick="mbConfirmQuit()">やめる</button>
