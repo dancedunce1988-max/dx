@@ -3607,6 +3607,13 @@
   text-shadow:0 0 20px rgba(255,215,100,.9), 0 2px 8px rgba(0,0,0,.85);
   animation:kbPunch .5s cubic-bezier(.2,1.6,.4,1) .25s both;
 }
+/* ボスを1体倒すごとの最大HP・最大MP＋50表示（教員の指示、2026-09-04）。毎回必ず出る
+   ので、レア演出の金色（.mb-recruit-banner）とは別の色にして見分けられるようにする。 */
+.mb-statup-banner{
+  text-align:center; font-size:1.1rem; font-weight:900; color:#8ecbff; margin:6px 0 4px;
+  text-shadow:0 0 18px rgba(142,203,255,.85), 0 2px 8px rgba(0,0,0,.85);
+  animation:kbPunch .5s cubic-bezier(.2,1.6,.4,1) .18s both;
+}
 /* ホーム画面「ことのは」カード右上のパートラーバッジ（ライトテーマ側のUI、教員の指示、
    2026-09-04）。.kotonoha-cardに position:relative を付けた上での絶対配置。 */
 .mb-partner-badge{
@@ -3669,7 +3676,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.59</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.60</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -7258,13 +7265,10 @@ const KWS_REVEAL_WIDTH_PX = 15;
 const KWS_INK_WIDTH_PX = 13;
 const KWS_FIRST_STROKE_HINT_RADIUS_PX = 10;
 const KWS_SAMPLE_COUNT = 30;    // 1画あたりの長さ方向サンプル点数
-// 1文字の問題は書きやすさを優先して大きめに、2文字（縦に積んで表示するぶん、高さが
-// そのまま2倍になる）は「問題文・書くスペース・解放率がスクロールなしで一度に見える」
-// ことを優先して小さめにする（教員の指示、2026-09-02：「二文字の問題で、書くスペースが
-// 画面内に収まるように」「問題、書くスペース、解放率が表示され続けることが理想」）。
-function kwsStageMaxWidthPx(charCount){
-  return charCount >= 2 ? 230 : 320;
-}
+// 2026-09-04〜、2文字の問題も一文字ずつ書かせる方式になり、書くマスは常に1文字ぶん
+// だけ（kwsActiveCharIndex参照）なので、文字数によってマスの大きさを変える必要が
+// なくなった。常に書きやすい大きめのサイズで統一する。
+const KWS_STAGE_MAX_WIDTH_PX = 320;
 const KWS_NS = 'http://www.w3.org/2000/svg';
 
 // 形や部首が似ていて書き間違える生徒が多い字のペアのため、書き取り問題が○だった直後にだけ
@@ -7379,6 +7383,19 @@ let kwsXpSettled = false;
 // 「思い出せない」または答え表示後の強制×でtrueになったら、以後この問題をどう書き直しても
 // 正解として記録されない（kwsHandleJudgeResultの先頭で最優先チェックする）。
 let kwsFinalLocked = false;
+// 2026-09-04〜、2文字の問題も「一文字ずつ」書かせる方式に変更（教員の指示：「その方が
+// 書きやすい」）。kwsActiveCharIndexが今書いている文字（0始まり）。1文字目が正解して
+// 初めて2文字目に進み、2文字目のマスに切り替わる（1文字目が答え表示に進んで最終×に
+// なった場合は2文字目には進まず、そこで単語ごと不正解が確定する。逆方向には戻れない）。
+// kwsLoadKanji()の先頭で0に戻す。判定・ヒント演出そのもの（kwsStage等）は今までどおり
+// 使い回すが、常に「今書いている1文字ぶん」にだけ適用する。
+let kwsActiveCharIndex = 0;
+// 各文字が合格した段階（0=ノーヒント／1=ヒント使用）を文字ごとに記録し、単語全体の
+// 経験値付与（kwsAwardStageXp）には一番厳しかった段階（Math.max）を使う（教員の指示：
+// 「正誤の判定・ヒントの出し方は現行どおり」＝2文字とも一発正解ならXP3、どちらか一方でも
+// ヒントを使ったらXP2、という今までの基準を、一文字ずつ進める形でも変えないため）。
+// kwsLoadKanji()の先頭で空配列に戻す。
+let kwsWordRoundStages = [];
 let kwsStrokeOrderTimers = []; // 書き順アニメーションのsetTimeout ID（オーバーレイを閉じるとき／次の問題に進むときに必ずclearTimeoutする）
 let kwsLastResult = null;      // 直前の判定結果（{ aggregate, chars }）
 let kwsLastCharResults = null;
@@ -7943,11 +7960,15 @@ function kwsLabelFor(id){
   return `${kdata.rank}位`;
 }
 
+// kwsData（kdata.strokes等）は熟語全体を縦に積んだ座標系のまま（1文字ぶん＝KWS_CHAR_CELL_PX）。
+// 画面上は常にkwsActiveCharIndex文字目のマスしか見えていないので、その分だけyに下駄を
+// 履かせて、書いた点が元の座標系のうち正しい文字の位置に記録されるようにする
+// （kwsRenderの描画側の平行移動と対になっている）。
 function kwsToPixel(clientX, clientY){
   const rect = kwsCanvas.getBoundingClientRect();
   return {
     x: (clientX - rect.left) * (kwsCanvas.width / rect.width),
-    y: (clientY - rect.top) * (kwsCanvas.height / rect.height)
+    y: (clientY - rect.top) * (kwsCanvas.height / rect.height) + kwsActiveCharIndex * KWS_CHAR_CELL_PX
   };
 }
 function kwsDist(a, b){ return Math.hypot(a.x - b.x, a.y - b.y); }
@@ -8083,6 +8104,12 @@ function kwsRender(){
   const kdata = kwsData[kwsCurrentId];
   kwsCtx.setTransform(1,0,0,1,0,0);
   kwsCtx.clearRect(0, 0, kwsCanvas.width, kwsCanvas.height);
+  // kwsToPixelと対になる平行移動：kdata.strokes等の絶対座標のうち、今書いている
+  // kwsActiveCharIndex文字目のマスだけがキャンバスの可視範囲(0〜KWS_CHAR_CELL_PX)に来るように
+  // ずらす。他の文字目（既に合格して先に進んだ分）の描画はこの平行移動で自動的に画面外に
+  // 出るので、以下の各描画関数（グリッド・お手本・判定スタンプ等）は charCount ぶん全てを
+  // そのまま呼び出してよい（従来どおり、絶対座標のまま描くだけでよい）。
+  kwsCtx.translate(0, -kwsActiveCharIndex * KWS_CHAR_CELL_PX);
   kwsDrawGuideGrid(kdata.charCount);
   if(kwsStage === 2 && kwsStagePendingChars && !kwsStageRevealHidden){
     // 答え表示ステージ：間違えた文字だけ答えを見せる。一度書き始めたら
@@ -8290,11 +8317,6 @@ function kwsDiagnoseChar(r, profile){
   return '';
 }
 
-// 全体の合否＝すべての文字が合格しているか（1文字でも×なら全体も×）
-function kwsComputePass(entry){
-  return entry.chars.every(r => r.passCore);
-}
-
 function kwsFmtMeasured(r, profile){
   const hitOk = r.hitRatio >= profile.hitMin;
   const covOk = r.coverage >= profile.covMin;
@@ -8323,22 +8345,39 @@ function kwsRenderCharBreakdown(charResults, profile){
     el.innerHTML = pass ? `<span class="ok">○</span>` : `<span class="ng">×（${kwsDiagnoseChar(r, profile)}）</span>`;
     return;
   }
-  el.innerHTML = charResults.map((r, i) => {
+  // 2026-09-04〜、一文字ずつ書かせる方式になったため、charResults（kwsCompletedStrokesの
+  // 評価）には今書いている文字（kwsActiveCharIndex）ぶんの画しか実際には無い。それより前の
+  // 文字は既に合格したから次に進めている（kwsHandleJudgeResult参照）ので固定で○を出し、
+  // それより後ろの文字はまだ書いてすらいないので表示しない（無条件で×に見えると紛らわしい）。
+  const rows = [];
+  for(let i = 0; i <= kwsActiveCharIndex; i++){
+    if(i < kwsActiveCharIndex){
+      rows.push(`${i + 1}文字目：<span class="ok">○</span>`);
+      continue;
+    }
+    const r = charResults[i];
     const pass = r.passCore;
-    return pass
+    rows.push(pass
       ? `${i + 1}文字目：<span class="ok">○</span>`
-      : `${i + 1}文字目：<span class="ng">×（${kwsDiagnoseChar(r, profile)}）</span>`;
-  }).join('　');
+      : `${i + 1}文字目：<span class="ng">×（${kwsDiagnoseChar(r, profile)}）</span>`);
+  }
+  el.innerHTML = rows.join('　');
 }
 
 function kwsRenderResult(){
   if(!kwsLastResult) return;
   const kdata = kwsData[kwsCurrentId];
-  kwsJudgedPass = kwsComputePass(kwsLastResult);
+  // 2026-09-04〜、一文字ずつ書かせる方式になったため、「合格」は熟語全体（旧kwsComputePass）
+  // ではなく、今書いている文字（kwsActiveCharIndex）だけで判定する。単語全体としての最終的な
+  // 正解／不正解の確定はkwsHandleJudgeResult側で、全ての文字を書き終えたときに行う。
+  kwsJudgedPass = kwsLastResult.chars[kwsActiveCharIndex].passCore;
   kwsJudged = true;
   kwsLastCharResults = kwsLastResult.chars;
   kwsRenderCharBreakdown(kwsLastResult.chars, kwsProfile);
-  document.getElementById('kwsMeasuredPanel').innerHTML = kwsFmtMeasured(kwsLastResult.aggregate, kwsProfile);
+  // 実測パネルも同じ理由で、熟語全体の集計（aggregate）ではなく今書いている文字だけの
+  // 数値を見せる（そうしないと、2文字目を書いている最中に1文字目ぶんの空白が混ざって
+  // 実際より低い数値になってしまう）。
+  document.getElementById('kwsMeasuredPanel').innerHTML = kwsFmtMeasured(kwsLastResult.chars[kwsActiveCharIndex], kwsProfile);
   kwsSetStatus(
     kwsJudgedPass ? `○ 「${kdata.kanji}」として認められました！` : '× もう一度書いてみましょう',
     kwsJudgedPass ? 'ok' : 'ng'
@@ -8450,10 +8489,14 @@ function kwsHandleRecallGiveUp(){
   kwsRender();
 }
 
-// kwsJudgeWholeの結果を受けて、段階制の書き直し（kwsStage）を進める。
-// 全文字○なら（何段階目でも）そこで確定・記録。1文字でも×が残っていて、まだ
-// ヒント／答え表示のどちらかを試していなければ、間違えた文字だけ赤く光らせてから
-// 次の段階（ヒント→答え表示）に進める。答え表示まで試してもなお×なら、そこで最終×。
+// kwsJudgeWholeの結果を受けて、段階制の書き直し（kwsStage）を進める。2026-09-04〜、
+// 2文字の問題も一文字ずつ書かせる方式になったため、判定は常に「今書いている文字
+// （kwsActiveCharIndex）」だけを見る（他の文字にはそもそも画が無い＝評価対象外）。
+// その文字が○なら（何段階目でも）次の文字へ進むか、最後の文字なら単語ごと確定・記録する。
+// ×で、まだヒント／答え表示のどちらかを試していなければ、赤く光らせてから次の段階
+// （ヒント→答え表示）に進める。答え表示まで試してもなお×なら、そこで単語ごと最終×
+// （教員の指示：「1文字目が正解のときのみ2文字目に進む」＝答えを見た文字がある時点で、
+// その先には進まず単語ごと不正解にする。逆方向に文字を戻ることもしない）。
 function kwsHandleJudgeResult(kdata){
   // この問題は既にこの回の最終結果（正解／不正解のどちらか）が3箱・ジャンルレベルに
   // 記録済み（kwsFinalLocked：「思い出せない」／答え表示後の強制×／通常の正解確定、
@@ -8469,13 +8512,12 @@ function kwsHandleJudgeResult(kdata){
     return;
   }
 
-  const wrongChars = [];
-  kwsLastResult.chars.forEach((r, i) => { if(!r.passCore) wrongChars.push(i); });
+  const activePass = kwsLastResult.chars[kwsActiveCharIndex].passCore;
   const stage = kwsStage;
 
   // 答え表示（stage2）のあとの書き直しは、たとえ字が合っていても正解として扱わない
   // （教員の指示、2026-09-01：「正解を表示後は、正解扱いにしない（不正解とする）」）。
-  // 答えを見て書き写せば形は合って当然なので、判定結果に関わらず無条件で最終×にする。
+  // 答えを見て書き写せば形は合って当然なので、判定結果に関わらず無条件で単語ごと最終×にする。
   if(stage >= 2){
     kwsJudgedPass = false; // kwsRenderResult()が字の形だけで○と出していた場合の上書き
     kwsStage = 0;
@@ -8498,7 +8540,7 @@ function kwsHandleJudgeResult(kdata){
       }
     }
     kwsSetStatus(
-      wrongChars.length === 0
+      activePass
         ? '× 答えを見て書いたので、正解にはなりません（次の問題に挑戦しましょう）'
         : '× もう一度書いてみましょう',
       'ng'
@@ -8508,13 +8550,14 @@ function kwsHandleJudgeResult(kdata){
     return;
   }
 
-  if(wrongChars.length === 0){
+  if(activePass){
     kwsStage = 0;
     kwsStagePendingChars = null;
     kwsStageRevealHidden = false;
     // 書き間違えやすいペア（糸/米等）の確認クイズが出る字は、そのクイズに正解するまで
-    // 「正解」として確定しない（教員の指示、2026-09-02）。kwsMaybeShowRadicalQuizが
-    // クイズを出したときはtrueを返すので、その場合はここで確定処理をせずに保留する。
+    // 「正解」として確定しない（教員の指示、2026-09-02）。今書いている文字だけを対象に
+    // 判定する（kwsMaybeShowRadicalQuiz参照）。kwsMaybeShowRadicalQuizがクイズを出した
+    // ときはtrueを返すので、その場合はここで確定・次の文字への進行をせずに保留する。
     if(kwsMaybeShowRadicalQuiz(kdata, stage)){
       // kwsRenderResult()が先に「○ …として認められました！」を出しているが、確認クイズに
       // 正解するまではまだ確定していないので上書きする（同じ理由：早合点させないため）。
@@ -8530,12 +8573,37 @@ function kwsHandleJudgeResult(kdata){
       kwsRender();
       return;
     }
-    kwsFinalizeCorrectAnswer(kdata, stage);
-    kwsRender();
+    kwsAdvanceCharOrFinalize(kdata, stage);
     return;
   }
 
-  kwsAdvanceStage(wrongChars, stage);
+  kwsAdvanceStage([kwsActiveCharIndex], stage);
+}
+
+// 今書いている文字（kwsActiveCharIndex）が、確認クイズも含めて確定合格したときに呼ぶ
+// （kwsHandleJudgeResultから直接、または確認クイズに正解した瞬間にkwsAnswerRadicalQuizから）。
+// まだ後ろに文字が残っていれば、書くマスをその文字に切り替えるだけで次に進む（記録・経験値は
+// まだ確定しない）。今の文字が単語の最後の文字なら、そこで単語全体の正解を確定する
+// （kwsFinalizeCorrectAnswer。記録・経験値・書き順チェックの解禁は単語につき1回だけ、
+// 最後の文字が終わったこのタイミングでまとめて行う＝「書き順チェックは2文字とも一気に出る」
+// 教員の指示どおり）。経験値は各文字が合格した段階（0=ノーヒント／1=ヒント使用）のうち
+// 一番厳しかったもの（Math.max）を使う（教員の指示：「正誤の判定・ヒントの出し方は現行どおり」＝
+// 2文字とも一発正解ならXP3、どちらか一方でもヒントを使ったらXP2、という基準を変えないため）。
+function kwsAdvanceCharOrFinalize(kdata, stage){
+  kwsWordRoundStages.push(stage);
+  const passedIndex = kwsActiveCharIndex;
+  if(passedIndex < kdata.charCount - 1){
+    kwsActiveCharIndex = passedIndex + 1;
+    kwsFirstAttemptThumb = null; // 次の文字の「1回目の自力の絵」を改めて記録し直す
+    kwsResetInk(); // 画・段階・確認クイズ・実測パネル等を次の文字ぶんにリセットする
+    kwsRenderPerCharButtons(kwsRadicalsFor(kwsCurrentId));
+    kwsRenderSentencePrompt(kwsCurrentId);
+    kwsSetStatus(`○ ${passedIndex + 1}文字目：正解！ 続けて${kwsActiveCharIndex + 1}文字目を書いてください`, 'ok');
+    return;
+  }
+  const wordStage = Math.max(...kwsWordRoundStages);
+  kwsFinalizeCorrectAnswer(kdata, wordStage);
+  kwsRender();
 }
 
 // 書き取り自体が正解だったときの最終確定処理（結果ストック・経験値・3箱への記録・解禁）。
@@ -8911,10 +8979,13 @@ function kwsReadingFor(kdata){
 // 正解するまでは、書き取り自体が合っていても「正解」として確定しない**（教員の指示、
 // 2026-09-02：「二択問題を正解したらはじめて正解として認められる。問題が出る瞬間に
 // 『解放されました』と出るのは間違い。出るとすれば二択問題を正解した直後」）。
-// 確定処理（結果ストック・経験値・3箱への記録・解禁）はkwsAnswerRadicalQuizまで持ち越す。
-// 戻り値はクイズを実際に表示したか（trueなら、呼び出し側は正解の確定を保留する）。
+// 確定処理（結果ストック・経験値・3箱への記録・解禁、または次の文字への進行）は
+// kwsAnswerRadicalQuizまで持ち越す。戻り値はクイズを実際に表示したか（trueなら、
+// 呼び出し側は確定・進行を保留する）。2026-09-04〜、一文字ずつ判定する方式になったため、
+// 対象は熟語全体（kdata.kanji）ではなく今書いている1文字（kdata.kanji[kwsActiveCharIndex]）
+// だけに絞る（他の文字はまだ書いていない、または既に合格して確定済みのため）。
 function kwsMaybeShowRadicalQuiz(kdata, stage){
-  const match = kwsFindConfusionMatch(kdata.kanji);
+  const match = kwsFindConfusionMatch(kdata.kanji[kwsActiveCharIndex]);
   if(!match) return false;
   const { pair, correct } = match;
   const correctSide = pair[correct];
@@ -8969,9 +9040,11 @@ function kwsAnswerRadicalQuiz(chosenDisplay){
     resultEl.className = 'kws-radicalQuizResult ' + (isCorrect ? 'ok' : 'ng');
   }
 
-  // ここで初めて、書き取り本体の正解／不正解を確定する（教員の指示、2026-09-02）。
+  // ここで初めて、今書いている文字の正解／不正解を確定する（教員の指示、2026-09-02）。
+  // 正解なら、次の文字があればそちらへ進み、最後の文字なら単語ごと確定する
+  // （kwsAdvanceCharOrFinalize参照）。
   const kdata = kwsData[kwsCurrentId];
-  if(isCorrect) kwsFinalizeCorrectAnswer(kdata, stage);
+  if(isCorrect) kwsAdvanceCharOrFinalize(kdata, stage);
   else kwsFinalizeIncorrectFromRadicalQuiz();
 }
 
@@ -9106,9 +9179,12 @@ function kwsUndoStroke(charIndex){
   kwsRender();
 }
 
+// 2026-09-04〜、2文字の問題も一文字ずつ書かせる方式になったので、kb（漢字ボス）・mbと同じ
+// kwsColoredSentenceHtmlを使い、今書いている文字（kwsActiveCharIndex）の読みの部分だけを
+// 太字＋色付けする（readingSplitが無い問題は従来どおり括弧全体を色付けする。1文字の問題は
+// kwsActiveCharIndexが常に0なので、これまでと見た目は変わらない）。
 function kwsRenderSentencePrompt(id){
-  const sentence = kwsSentenceFor(id);
-  const html = sentence.replace(/《([^》]*)》/g, '<span class="kws-blank">$1</span>');
+  const html = kwsColoredSentenceHtml(id, kwsActiveCharIndex);
   document.getElementById('kwsSentencePrompt').innerHTML = html || '（例文なし）';
 }
 
@@ -9126,52 +9202,48 @@ function kwsRenderGradeBadge(id){
   document.getElementById('kwsGradeBadge').textContent = kwsGradeLabelFor(id);
 }
 
-// 文字ごとに「一画戻す」（マスの左上）と「全部消す」（マスの左下）を1組ずつ並べる
-// 部首は「一画戻す」「全部消す」ボタンのさらに左側に表示する（教員の指示、2026-09-02：
-// 「書くスペースが移動しないで済むように」）。文字ごとに.kws-charSideColという1つの
-// 絶対配置コンテナにまとめ、その中をflexで［部首ラベル｜ボタン2つ］の横並びにすることで、
-// 部首の有無・長さにかかわらずボタン自体の位置は変わらない。部首ラベル欄は固定幅の
-// 通常横書きテキストにし（縦書きだと長い部首名で欄の幅が変わってしまうため）、部首が
-// 無い字でも欄自体は常に確保し、書くスペース（キャンバス）の位置が字によって動かないようにする。
-function kwsRenderPerCharButtons(charCount, radicals){
+// 「一画戻す」（マスの左上）と「全部消す」（マスの左下）を1組並べる。部首はその
+// さらに左側に表示する（教員の指示、2026-09-02：「書くスペースが移動しないで済むように」）。
+// 2026-09-04〜、2文字の問題も一文字ずつ書かせる方式になり、書くマスは常に1つ（今書いている
+// kwsActiveCharIndex）だけなので、列を文字数ぶん並べる必要はなく、常に1列をマス全体の
+// 高さいっぱいに表示する（部首欄は今書いている文字のものだけ）。
+function kwsRenderPerCharButtons(radicals){
   const wrap = document.getElementById('kwsPerCharBtns');
   wrap.innerHTML = '';
-  for(let c = 0; c < charCount; c++){
-    const col = document.createElement('div');
-    col.className = 'kws-charSideCol';
-    col.style.top = `${(c / charCount) * 100}%`;
-    col.style.height = `${100 / charCount}%`;
+  const col = document.createElement('div');
+  col.className = 'kws-charSideCol';
+  col.style.top = '0%';
+  col.style.height = '100%';
 
-    const radicalLabel = document.createElement('div');
-    radicalLabel.className = 'kws-sideRadical';
-    const radicalText = (radicals && radicals[c]) ? radicals[c] : '';
-    // 「手（てへん）」のように読みが付く場合、幅56pxの中で任意の位置に自動折り返しさせると
-    // 「手（て」「へん）」のような変なところで割れて読みにくくなる（教員の指摘、2026-09-03）。
-    // 基準字と（読み）の間には必ず改行を入れ、それぞれのかたまりの中では折り返させない。
-    const parenIdx = radicalText.indexOf('（');
-    radicalLabel.innerHTML = parenIdx === -1
-      ? esc(radicalText)
-      : `<span>${esc(radicalText.slice(0, parenIdx))}</span><br><span>${esc(radicalText.slice(parenIdx))}</span>`;
-    col.appendChild(radicalLabel);
+  const radicalLabel = document.createElement('div');
+  radicalLabel.className = 'kws-sideRadical';
+  const radicalText = (radicals && radicals[kwsActiveCharIndex]) ? radicals[kwsActiveCharIndex] : '';
+  // 「手（てへん）」のように読みが付く場合、幅56pxの中で任意の位置に自動折り返しさせると
+  // 「手（て」「へん）」のような変なところで割れて読みにくくなる（教員の指摘、2026-09-03）。
+  // 基準字と（読み）の間には必ず改行を入れ、それぞれのかたまりの中では折り返させない。
+  const parenIdx = radicalText.indexOf('（');
+  radicalLabel.innerHTML = parenIdx === -1
+    ? esc(radicalText)
+    : `<span>${esc(radicalText.slice(0, parenIdx))}</span><br><span>${esc(radicalText.slice(parenIdx))}</span>`;
+  col.appendChild(radicalLabel);
 
-    const btns = document.createElement('div');
-    btns.className = 'kws-sideBtns';
+  const btns = document.createElement('div');
+  btns.className = 'kws-sideBtns';
 
-    const undoBtn = document.createElement('button');
-    undoBtn.className = 'kws-cornerBtn';
-    undoBtn.textContent = '一画戻す';
-    undoBtn.addEventListener('click', () => kwsUndoStroke(c));
-    btns.appendChild(undoBtn);
+  const undoBtn = document.createElement('button');
+  undoBtn.className = 'kws-cornerBtn';
+  undoBtn.textContent = '一画戻す';
+  undoBtn.addEventListener('click', () => kwsUndoStroke(kwsActiveCharIndex));
+  btns.appendChild(undoBtn);
 
-    const resetBtn = document.createElement('button');
-    resetBtn.className = 'kws-cornerBtn kws-cornerBtn--yellow';
-    resetBtn.textContent = '全部消す';
-    resetBtn.addEventListener('click', () => kwsResetInk(c));
-    btns.appendChild(resetBtn);
+  const resetBtn = document.createElement('button');
+  resetBtn.className = 'kws-cornerBtn kws-cornerBtn--yellow';
+  resetBtn.textContent = '全部消す';
+  resetBtn.addEventListener('click', () => kwsResetInk(kwsActiveCharIndex));
+  btns.appendChild(resetBtn);
 
-    col.appendChild(btns);
-    wrap.appendChild(col);
-  }
+  col.appendChild(btns);
+  wrap.appendChild(col);
 }
 
 function kwsLoadKanji(id){
@@ -9181,14 +9253,17 @@ function kwsLoadKanji(id){
   kwsFirstAttemptThumb = null; // 新しい問題として、1回目採点スクショの記録もリセットする
   kwsHideStrokeOrderTrigger();
   kwsCloseStrokeOrderOverlay();
-  const kdata = kwsData[id];
+  kwsActiveCharIndex = 0; // 2文字の問題も必ず1文字目から始める
+  kwsWordRoundStages = [];
 
+  // 書くマスは常に1文字ぶんだけ（kwsActiveCharIndex参照）。2文字の問題でも、
+  // 縦に2マス積んで見せるのではなく、1文字目→2文字目の順に同じマスを書き直す。
   kwsCanvas.width = KWS_CHAR_CELL_PX;
-  kwsCanvas.height = KWS_CHAR_CELL_PX * kdata.charCount;
-  kwsStageEl.style.width = `min(90vw, ${kwsStageMaxWidthPx(kdata.charCount)}px)`;
-  kwsStageEl.style.aspectRatio = `1 / ${kdata.charCount}`;
+  kwsCanvas.height = KWS_CHAR_CELL_PX;
+  kwsStageEl.style.width = `min(90vw, ${KWS_STAGE_MAX_WIDTH_PX}px)`;
+  kwsStageEl.style.aspectRatio = '1 / 1';
 
-  kwsRenderPerCharButtons(kdata.charCount, kwsRadicalsFor(id));
+  kwsRenderPerCharButtons(kwsRadicalsFor(id));
   kwsRenderSentencePrompt(id);
   kwsRenderGradeBadge(id);
   kwsResetInk();
@@ -23770,8 +23845,8 @@ function ydAttachMenuHandlers(){
 }
 /* ================= 漢字マスターの道（漢字の書きミニゲーム、2026-09-03〜） =================
    既存のBOSSES/ことのはボス戦システムとは完全に独立させる（教員の指示：進化状況・ステータスは
-   関係ない）。手書き判定の核（kwsEvaluateCharacters/kwsComputePass/kwsProfile、kwsBuildKanjiData
-   によるストロークデータの読み込み）だけは既存のkws実装を再利用するが、キャンバス・状態管理・
+   関係ない）。手書き判定の核（kwsEvaluateCharacters/kwsProfile、kwsBuildKanjiDataによる
+   ストロークデータの読み込み）だけは既存のkws実装を再利用するが、キャンバス・状態管理・
    戦闘進行は全て専用の変数・関数（kb*接頭辞）で新規に持ち、既存のkwsMode/kwsCanvas等の
    グローバル状態には一切書き込まない（他の漢字の書き学習モードに影響を与えないため）。 */
 
@@ -24473,29 +24548,29 @@ const MB_BOSS_DEFEAT_XP = 5;
 // MB_PARTNER_STAT_BONUS_PCT（kotonohaEffStats付近）に集約してある。
 const MB_PARTNER_RECRUIT_CHANCE = 0.01;
 
-// 仕様書のFF風呪文名（ファイア／ケアル系等）はそのまま使わず、「漢字の力＝魔力」という
-// このゲーム独自の世界観に合わせたオリジナルの名前にする（教員の指示、2026-09-04）。
+// 魔法の名前・説明は教員が「魔法の名前・説明変更ツール」で一括編集したもの（2026-09-04）。
+// id・mp・power/effect/turnsはゲームバランスそのものなので変更していない。
 const MB_SPELLS = {
-  attack: { label:'⚔ 攻撃', list:[
-    { id:'gendan',     name:'言弾',   mp:10,  power:30,   desc:'小さな一撃' },
-    { id:'gengeki',    name:'言撃',   mp:25,  power:70,   desc:'鋭い一撃' },
-    { id:'genpou',     name:'言砲',   mp:50,  power:150,  desc:'重い一撃' },
-    { id:'genreibaku', name:'言霊爆', mp:100, power:350,  desc:'渾身の一撃' },
+  attack: { label:"⚔ 攻撃", list:[
+    { id:"gendan", name:"ワード", mp:10, power:30, desc:"小さな一撃" },
+    { id:"gengeki", name:"ボキャブラリー", mp:25, power:70, desc:"鋭い一撃" },
+    { id:"genpou", name:"エビデンス・ファイア", mp:50, power:150, desc:"重い一撃" },
+    { id:"genreibaku", name:"ロジック・エクスプロージョン", mp:100, power:350, desc:"渾身の一撃" },
   ]},
-  heal: { label:'💚 回復', list:[
-    { id:'iyashi_fumi', name:'癒しの文', mp:10, power:60,   desc:'HP小回復' },
-    { id:'iyashi_uta',  name:'癒しの詩', mp:25, power:150,  desc:'HP中回復' },
-    { id:'iyashi_yui',  name:'癒しの結', mp:50, power:9999, desc:'HP大回復' },
+  heal: { label:"💚 回復", list:[
+    { id:"iyashi_fumi", name:"ケア", mp:10, power:60, desc:"HP小回復" },
+    { id:"iyashi_uta", name:"リカバリー", mp:25, power:150, desc:"HP中回復" },
+    { id:"iyashi_yui", name:"ウェルビーイング", mp:50, power:9999, desc:"HP大回復" },
   ]},
-  buff: { label:'⬆ バフ', list:[
-    { id:'gou_no_ji', name:'剛の字', mp:20, effect:'defUp', turns:3, desc:'防御力アップ（3ターン）' },
-    { id:'mou_no_ji', name:'猛の字', mp:30, effect:'atkUp', turns:3, desc:'攻撃・回復の力アップ（3ターン）' },
-    { id:'jin_no_ji', name:'迅の字', mp:50, effect:'haste', turns:3, desc:'漢字チャレンジの時間が伸びる（3ターン）' },
+  buff: { label:"⬆ バフ", list:[
+    { id:"gou_no_ji", name:"ファクト", mp:20, effect:"defUp", turns:3, desc:"防御力アップ（3ターン）" },
+    { id:"mou_no_ji", name:"アジャスト", mp:30, effect:"atkUp", turns:3, desc:"攻撃・回復の力アップ（3ターン）" },
+    { id:"jin_no_ji", name:"インサイト", mp:50, effect:"haste", turns:3, desc:"漢字チャレンジの時間が伸びる（3ターン）" },
   ]},
-  debuff: { label:'⬇ デバフ', list:[
-    { id:'kan_no_ji', name:'緩の字', mp:20, effect:'enemySlow',  turns:3, desc:'敵の攻撃が弱まる（3ターン）' },
-    { id:'kon_no_ji', name:'昏の字', mp:30, effect:'enemyBlind', turns:3, desc:'敵の攻撃が外れやすくなる（3ターン）' },
-    { id:'zei_no_ji', name:'脆の字', mp:40, effect:'enemyWeak',  turns:3, desc:'敵の受けるダメージが増える（3ターン）' },
+  debuff: { label:"⬇ デバフ", list:[
+    { id:"kan_no_ji", name:"メタファー", mp:20, effect:"enemySlow", turns:3, desc:"敵の攻撃が弱まる（3ターン）" },
+    { id:"kon_no_ji", name:"ネガティブ", mp:30, effect:"enemyBlind", turns:3, desc:"敵の攻撃が外れやすくなる（3ターン）" },
+    { id:"zei_no_ji", name:"リテラシー", mp:40, effect:"enemyWeak", turns:3, desc:"敵の受けるダメージが増える（3ターン）" },
   ]},
 };
 function mbFindSpell(category, spellId){
@@ -25368,6 +25443,7 @@ function mbShowStageMap(clearedUpTo, xpGained, recruitedMsg){
       <div class="boss-name">🎉 ${esc(defeatedEnemy.name)}を倒した！</div>
       <img class="mb-defeat-icon" src="${mbEnemySpriteSrc(defeatedEnemy, 'defeat')}" alt="${esc(defeatedEnemy.name)}">
       <p class="mb-boss-xp-banner">＋${xpGained} ストック経験値 獲得！</p>
+      <p class="mb-statup-banner">🔺 最大HPと最大MPが${MB_STATUP_HP}アップした！</p>
       ${recruitedMsg ? `<p class="mb-recruit-banner">${esc(recruitedMsg)}</p>` : ''}
       <div class="mb-stage-map">${nodesHtml}</div>
       <p style="text-align:center; color:#d8c2ff; margin-top:14px;">HP・MPはそのまま引き継がれます。</p>
@@ -25379,6 +25455,10 @@ function mbShowStageMap(clearedUpTo, xpGained, recruitedMsg){
 }
 // ボスを倒すたびに、通常攻撃とは別にストック経験値＋5を獲得する（教員の指示、2026-09-04）。
 // さらに1%の確率でそのボスが仲間になる（同じボスは重複して仲間にならない。教員の指示、2026-09-04）。
+// 2026-09-04〜、ボスを1体倒すごとに最大HP・最大MPをそれぞれ＋50する（教員の指示）。現在HP・
+// 現在MPはそのまま（「HP・MPはそのまま引き継がれます」という既存の案内と矛盾しないよう、
+// 増やすのは上限だけにする）。
+const MB_STATUP_HP = 50, MB_STATUP_MP = 50;
 function mbEnemyDefeated(){
   const enemyDef = mbBattle.enemyDef;
   const st = loadStats();
@@ -25390,6 +25470,8 @@ function mbEnemyDefeated(){
     recruitedMsg = `✨「${enemyDef.name}」が仲間になった！`;
   }
   saveStats(st);
+  mbRun.playerMaxHp += MB_STATUP_HP;
+  mbRun.playerMaxMp += MB_STATUP_MP;
   const nextIndex = mbBattle.enemyIndex + 1;
   if(nextIndex < MB_ENEMIES.length){
     mbShowStageMap(mbBattle.enemyIndex, MB_BOSS_DEFEAT_XP, recruitedMsg);
@@ -25407,6 +25489,7 @@ function mbGauntletComplete(xpGained, recruitedMsg){
       <div class="boss-name">🏆 すべての敵を倒した！</div>
       <img class="mb-defeat-icon" src="${mbEnemySpriteSrc(lastEnemy, 'defeat')}" alt="${esc(lastEnemy.name)}">
       ${xpGained ? `<p class="mb-boss-xp-banner">＋${xpGained} ストック経験値 獲得！</p>` : ''}
+      <p class="mb-statup-banner">🔺 最大HPと最大MPが${MB_STATUP_HP}アップした！</p>
       ${recruitedMsg ? `<p class="mb-recruit-banner">${esc(recruitedMsg)}</p>` : ''}
       <p style="text-align:center;">お見事！「漢字バトル」を制覇しました。</p>
       <h3 style="text-align:center; margin-top:18px;">間違った問題</h3>
