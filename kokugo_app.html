@@ -3676,7 +3676,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.60</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.61</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -24761,7 +24761,10 @@ function mbInitRun(){
 function mbStartEnemy(idx){
   const enemyDef = MB_ENEMIES[idx];
   if(!enemyDef){ mbGauntletComplete(0); return; }
-  mbBattle = { enemyIndex: idx, enemyDef, enemyHp: enemyDef.hp, enemyMaxHp: enemyDef.hp, debuffs: {}, turnBusy: false };
+  // wrongLog：このボス1体との戦いだけで間違えた問題（{kanji, sentence}）。mbRun.wrongLogは
+  // 連戦全体を通した累積なのに対し、こちらはmbStartEnemyのたびに空にする（教員の指示、
+  // 2026-09-04：「討伐画面のときに、今回の戦いで間違った漢字の一覧を出す」＝直前の1戦だけに絞る）。
+  mbBattle = { enemyIndex: idx, enemyDef, enemyHp: enemyDef.hp, enemyMaxHp: enemyDef.hp, debuffs: {}, turnBusy: false, wrongLog: [] };
   mbShowBattleIntro();
 }
 
@@ -25201,7 +25204,10 @@ function mbGradeChar(ok, kdata, timedOut){
     mbClearTimer();
     mbSetStatus(timedOut ? '× 時間切れ...' : '× 正解の形と違うようです', 'ng');
     // 間違った問題は、正しい答えと一緒に戦闘後の一覧に残す（22項：「既存データを利用する」）。
-    mbRun.wrongLog.push({ kanji: kdata.kanji, sentence: kwsSentenceFor(mbChallenge.id) });
+    // 連戦全体の累積（mbRun.wrongLog）と、今のボス1体ぶんだけ（mbBattle.wrongLog）の両方に記録する。
+    const wrongEntry = { kanji: kdata.kanji, sentence: kwsSentenceFor(mbChallenge.id) };
+    mbRun.wrongLog.push(wrongEntry);
+    mbBattle.wrongLog.push(wrongEntry);
     setTimeout(() => mbChallengeFail(), 500);
     return;
   }
@@ -25406,9 +25412,9 @@ function mbDecayStatuses(){
 }
 
 // ---- 勝敗・戦闘終了（22項：間違った問題を、ボス戦の後に答えと一緒に一覧表示する） ----
-function mbWrongListHtml(){
-  if(!mbRun.wrongLog.length) return '<p style="text-align:center; color:#9a8ec2;">今回は間違えた問題がありませんでした！</p>';
-  return `<div class="mb-wrong-list">${mbRun.wrongLog.map(w => `
+function mbWrongListHtml(list){
+  if(!list.length) return '<p style="text-align:center; color:#9a8ec2;">今回は間違えた問題がありませんでした！</p>';
+  return `<div class="mb-wrong-list">${list.map(w => `
     <div class="mb-wrong-item">
       <div class="mb-wrong-sentence">${(w.sentence || '').replace(/《([^》]*)》/g, '<span class="mb-wrong-blank">$1</span>')}</div>
       <div class="mb-wrong-answer">正しい漢字：<b>${esc(w.kanji)}</b></div>
@@ -25438,6 +25444,10 @@ function mbShowStageMap(clearedUpTo, xpGained, recruitedMsg){
   const nodesHtml = MB_ENEMIES.map((e, i) => mbStageNodeHtml(i, clearedUpTo)).join('<div class="mb-stage-path"></div>');
   const nextIndex = clearedUpTo + 1;
   const defeatedEnemy = MB_ENEMIES[clearedUpTo];
+  // 今倒したボス1体との戦いだけで間違えた問題（mbBattle.wrongLog）を出す（教員の指示、
+  // 2026-09-04：「討伐画面のときに、今回の戦いで間違った漢字の一覧を出す」）。連戦全体の
+  // 累積（mbRun.wrongLog）はここでは出さず、最終結果画面（mbGauntletComplete/mbGameOver）のみ。
+  const battleWrongLog = mbBattle ? mbBattle.wrongLog : [];
   screen.innerHTML = `
     <div class="boss-battle-screen">
       <div class="boss-name">🎉 ${esc(defeatedEnemy.name)}を倒した！</div>
@@ -25447,6 +25457,8 @@ function mbShowStageMap(clearedUpTo, xpGained, recruitedMsg){
       ${recruitedMsg ? `<p class="mb-recruit-banner">${esc(recruitedMsg)}</p>` : ''}
       <div class="mb-stage-map">${nodesHtml}</div>
       <p style="text-align:center; color:#d8c2ff; margin-top:14px;">HP・MPはそのまま引き継がれます。</p>
+      <h3 style="text-align:center; margin-top:18px;">今回の戦いで間違った問題</h3>
+      ${mbWrongListHtml(battleWrongLog)}
       <div class="btn-row" style="justify-content:center;">
         <button class="btn primary" onclick="mbStartEnemy(${nextIndex})">すすむ</button>
         <button class="btn secondary" onclick="showHome()">ここでやめる</button>
@@ -25493,7 +25505,7 @@ function mbGauntletComplete(xpGained, recruitedMsg){
       ${recruitedMsg ? `<p class="mb-recruit-banner">${esc(recruitedMsg)}</p>` : ''}
       <p style="text-align:center;">お見事！「漢字バトル」を制覇しました。</p>
       <h3 style="text-align:center; margin-top:18px;">間違った問題</h3>
-      ${mbWrongListHtml()}
+      ${mbWrongListHtml(mbRun.wrongLog)}
       <div class="btn-row" style="margin-top:16px;">
         <button class="btn" onclick="mbStartGauntlet()">最初から挑む</button>
         <button class="btn secondary" onclick="showHome()">ホームへ</button>
@@ -25511,7 +25523,7 @@ function mbGameOver(){
       <div class="boss-name">💥 やられてしまった…</div>
       <p style="text-align:center;">${mbBattle.enemyIndex + 1}体目「${esc(enemyDef.name)}」に敗れました。書き取りの力を鍛えてまた挑もう！</p>
       <h3 style="text-align:center; margin-top:18px;">間違った問題</h3>
-      ${mbWrongListHtml()}
+      ${mbWrongListHtml(mbRun.wrongLog)}
       <div class="btn-row" style="margin-top:16px;">
         <button class="btn" onclick="mbStartGauntlet()">最初から挑む</button>
         <button class="btn secondary" onclick="showHome()">ホームへ</button>
