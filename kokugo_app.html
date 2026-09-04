@@ -3490,6 +3490,23 @@
 /* 「漢字バトル」（漢字の力を魔力に変えて戦うRPG、2026-09-04〜）。既存の.boss-battle-screen等・
    「漢字マスターの道」のkb-*パーツ（HPバー・タイマー・攻撃演出）をそのまま再利用しつつ、
    MP・魔法選択・難易度選択・状態異常バッジ・間違った問題一覧だけ専用パーツ(mb-*)を追加する。 */
+/* タイトル画面（教員の指示、2026-09-04：画像ファイル「漢字Quest」を使ったトップ画面。
+   「冒険に出る」で開始、説明は右下の小さいボタンを押したときだけポップアップで出す）。 */
+.mb-title-screen{ padding-bottom:56px; }
+.mb-title-image{
+  display:block; width:100%; max-width:640px; margin:0 auto 18px; border-radius:12px;
+  box-shadow:0 8px 28px rgba(0,0,0,.4);
+}
+.mb-title-info-btn{
+  position:absolute; bottom:14px; right:14px; padding:5px 14px; font-size:.72rem;
+  border-radius:999px; border:1px solid rgba(180,140,255,.5); background:rgba(40,20,60,.55);
+  color:#d8c2ff; cursor:pointer;
+}
+.mb-title-info-panel{
+  position:absolute; bottom:50px; right:14px; max-width:min(78vw, 300px); padding:12px 14px;
+  background:rgba(15,8,26,.95); border:1px solid rgba(180,140,255,.5); border-radius:12px;
+  font-size:.8rem; color:#e8ddff; text-align:left; box-shadow:0 6px 20px rgba(0,0,0,.45);
+}
 .mb-mpbar>div{ background:linear-gradient(90deg,#8a6fff,#c8b3ff) !important; }
 .mb-action-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px; }
 .mb-action-btn{ padding:14px 8px; font-size:.95rem; }
@@ -3676,7 +3693,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.61</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.62</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3695,6 +3712,7 @@
 <script src="hyakunin_isshu_data.js"></script>
 <script src="kotonoha_evolution_images.js"></script>
 <script src="enemy_sprites_data.js"></script>
+<script src="kanji_quest_title_data.js"></script>
 <script>
 "use strict";
 
@@ -24659,7 +24677,7 @@ function mbSideQuestButtonHtml(){
   return `
     <div class="card menu-card" onclick="mbStartGauntlet()">
       <div class="menu-icon">🪄</div>
-      <div><h2>漢字バトル</h2><p>漢字の力を魔力に変えて、敵と戦うRPG</p></div>
+      <div><h2>漢字Quest</h2><p>漢字の力を魔力に変えて、敵と戦うRPG</p></div>
       <div class="right"><span class="shogo-badge">挑戦する</span></div>
     </div>`;
 }
@@ -24707,6 +24725,10 @@ function mbEnsurePool(diff){
   return { data, ids };
 }
 
+// 「漢字Quest」のタイトル画面（教員の指示、2026-09-04：画像ファイル「漢字Quest」を使った
+// トップ画面に作り直す。「冒険に出る」ボタンでゲーム開始、説明は右下の小さいボタンを押した
+// ときだけ表示する）。画像はkanji_quest_title_data.js（KANJI_QUEST_TITLE_IMG、他の画像素材と
+// 同じdata URI埋め込み方式）。
 function mbStartGauntlet(){
   mbClearTimer();
   mbStopIdleAnim();
@@ -24714,17 +24736,24 @@ function mbStartGauntlet(){
   const overlay = document.getElementById('mbAtkOverlay');
   if(overlay) overlay.remove();
   screen.innerHTML = `
-    <div class="boss-battle-screen" style="position:relative;">
+    <div class="boss-battle-screen mb-title-screen" style="position:relative;">
       <button class="btn secondary kb-quit-corner" onclick="showHome()">やめる</button>
-      <div class="boss-name">🪄 漢字バトル</div>
-      <p style="text-align:center; line-height:1.9; margin:18px 4px 26px;">
-        漢字の力を魔力に変えて戦うRPGです。<br>
-        「🗡️ 通常攻撃」は漢字に挑戦してMPを貯めつつ、その場でも一撃を与えます。<br>
-        MPが貯まったら「🔮 魔法攻撃」「💚 回復」などで、貯めたMPを即座に使えます。<br>
-        HPとMPは、敵を倒すたびそのまま引き継がれます。
-      </p>
-      <div class="btn-row" style="justify-content:center;"><button class="btn primary" onclick="mbStartCountdown()">スタート</button></div>
+      <img class="mb-title-image" src="${window.KANJI_QUEST_TITLE_IMG || ''}" alt="漢字Quest">
+      <div class="btn-row" style="justify-content:center;"><button class="btn primary" onclick="mbStartCountdown()">⚔️ 冒険に出る</button></div>
+      <button class="mb-title-info-btn" onclick="mbToggleTitleInfo()">説明</button>
+      <div class="mb-title-info-panel" id="mbTitleInfoPanel" hidden>
+        <p style="margin:0; line-height:1.8;">
+          漢字の力を魔力に変えて戦うRPGです。<br>
+          「🗡️ 通常攻撃」は漢字に挑戦してMPを貯めつつ、その場でも一撃を与えます。<br>
+          MPが貯まったら「🔮 魔法攻撃」「💚 回復」などで、貯めたMPを即座に使えます。<br>
+          HPとMPは、敵を倒すたびそのまま引き継がれます。
+        </p>
+      </div>
     </div>`;
+}
+function mbToggleTitleInfo(){
+  const panel = document.getElementById('mbTitleInfoPanel');
+  if(panel) panel.hidden = !panel.hidden;
 }
 
 function mbStartCountdown(){
@@ -24860,10 +24889,13 @@ function mbRenderBattleScreen(opts){
 }
 
 // ---- 魔法選択（6〜8項）：現在のMPで発動できる魔法だけを表示し、選んだらMPを消費してその場で
-//      即座に発動する（教員の指示、2026-09-04：漢字チャレンジは挟まない）。 ----
-function mbSpellCardHtml(category, spell){
+//      即座に発動する（教員の指示、2026-09-04：漢字チャレンジは挟まない）。critWon（会心の
+//      チャンスに成功した直後かどうか）をonclickの引数に埋め込み、mbCastSpellInstantまで
+//      正しく伝える（2026-09-04のバグ修正：以前はここで引数が渡っておらず、「会心発動中！」の
+//      表示は出るのに、実際にカードを押して発動したダメージは3倍になっていなかった）。 ----
+function mbSpellCardHtml(category, spell, critWon){
   return `
-    <div class="mb-spell-card" onclick="mbCastSpellInstant('${category}', '${spell.id}')">
+    <div class="mb-spell-card" onclick="mbCastSpellInstant('${category}', '${spell.id}', ${!!critWon})">
       <div class="mb-spell-name">${esc(spell.name)}</div>
       <div class="mb-spell-mp">${spell.mp} MP</div>
       <div class="mb-spell-desc">${esc(spell.desc)}</div>
@@ -24886,7 +24918,7 @@ function mbShowSpellMenuList(category, critWon){
   const affordable = cat.list.filter(s => mbRun.playerMp >= s.mp);
   const nextLocked = cat.list.find(s => mbRun.playerMp < s.mp); // 次に目指す上位魔法
   const cardsHtml = affordable.length
-    ? affordable.map(s => mbSpellCardHtml(category, s)).join('')
+    ? affordable.map(s => mbSpellCardHtml(category, s, critWon)).join('')
     : '<p style="text-align:center; color:#9a8ec2;">今は使える魔法がありません。まず「通常攻撃」でMPを増やそう。</p>';
   // 単に「使えません」ではなく、次の目標だけが分かるようにする（教員の指示：「あと28MPでファイガ！」に相当）。
   const hintHtml = nextLocked
@@ -25503,7 +25535,7 @@ function mbGauntletComplete(xpGained, recruitedMsg){
       ${xpGained ? `<p class="mb-boss-xp-banner">＋${xpGained} ストック経験値 獲得！</p>` : ''}
       <p class="mb-statup-banner">🔺 最大HPと最大MPが${MB_STATUP_HP}アップした！</p>
       ${recruitedMsg ? `<p class="mb-recruit-banner">${esc(recruitedMsg)}</p>` : ''}
-      <p style="text-align:center;">お見事！「漢字バトル」を制覇しました。</p>
+      <p style="text-align:center;">お見事！「漢字Quest」を制覇しました。</p>
       <h3 style="text-align:center; margin-top:18px;">間違った問題</h3>
       ${mbWrongListHtml(mbRun.wrongLog)}
       <div class="btn-row" style="margin-top:16px;">
