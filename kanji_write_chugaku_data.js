@@ -32,6 +32,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "挨",
   "kanji": "挨拶",
   "sentence": "朝、大きな声で《アイサツ》をする。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "手（てへん）",
@@ -73,6 +74,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "依",
   "kanji": "依頼",
   "sentence": "友達に手伝いを《イライ》する。",
+  "readingSplit": 1,
   "grade": 1,
   "radicals": [
    "人（にんべん）",
@@ -84,6 +86,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "威",
   "kanji": "威力",
   "sentence": "台風の《イリョク》はすさまじい。",
+  "readingSplit": 1,
   "grade": 1,
   "radicals": [
    "女",
@@ -95,6 +98,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "為",
   "kanji": "行為",
   "sentence": "それは危険な《コウイ》だ。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "行（ぎょうがまえ）",
@@ -126,6 +130,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "維",
   "kanji": "維持",
   "sentence": "健康を《イジ》するために運動する。",
+  "readingSplit": 1,
   "grade": 1,
   "radicals": [
    "糸（いとへん）",
@@ -137,6 +142,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "緯",
   "kanji": "緯度",
   "sentence": "地図で《イド》を調べる。",
+  "readingSplit": 1,
   "grade": 1,
   "radicals": [
    "糸（いとへん）",
@@ -148,6 +154,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "逸",
   "kanji": "逸話",
   "sentence": "先生から面白い《イツワ》を聞いた。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "辵（しんにょう）",
@@ -209,6 +216,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "援",
   "kanji": "応援",
   "sentence": "大声でチームを《オウエン》する。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "心",
@@ -230,6 +238,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "鉛",
   "kanji": "鉛筆",
   "sentence": "新しい《エンピツ》で字を書く。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "金（かねへん）",
@@ -241,6 +250,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "縁",
   "kanji": "縁側",
   "sentence": "祖父母の家の《エンガワ》で昼寝をする。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "糸（いとへん）",
@@ -282,6 +292,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "憶",
   "kanji": "記憶",
   "sentence": "昔の《キオク》がよみがえる。",
+  "readingSplit": 1,
   "grade": 1,
   "radicals": [
    "言（ごんべん）",
@@ -293,6 +304,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "乙",
   "kanji": "乙女",
   "sentence": "彼女は《オトメ》のような性格だ。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "乙",
@@ -304,6 +316,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "菓",
   "kanji": "菓子",
   "sentence": "おやつに《カシ》を食べる。",
+  "readingSplit": 1,
   "grade": 1,
   "radicals": [
    "艸（くさかんむり）",
@@ -345,6 +358,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "箇",
   "kanji": "箇所",
   "sentence": "間違えた《カショ》を直す。",
+  "readingSplit": 1,
   "grade": 1,
   "radicals": [
    "竹（たけかんむり）",
@@ -376,6 +390,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "雅",
   "kanji": "優雅",
   "sentence": "白鳥が《ユウガ》に泳ぐ。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "人（にんべん）",
@@ -387,6 +402,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "介",
   "kanji": "介護",
   "sentence": "祖父の《カイゴ》をする。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "人",
@@ -398,6 +414,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "戒",
   "kanji": "警戒",
   "sentence": "台風に《ケイカイ》する。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "言",
@@ -459,6 +476,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "概",
   "kanji": "概要",
   "sentence": "レポートの《ガイヨウ》をまとめる。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "木（きへん）",
@@ -480,6 +498,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "較",
   "kanji": "比較",
   "sentence": "二つの案を《ヒカク》する。",
+  "readingSplit": 1,
   "grade": 1,
   "radicals": [
    "比",
@@ -491,6 +510,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "獲",
   "kanji": "獲得",
   "sentence": "大会で優勝を《カクトク》した。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "犬",
@@ -562,6 +582,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "歓",
   "kanji": "歓迎",
   "sentence": "新入生を《カンゲイ》する。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "欠（あくび）",
@@ -573,6 +594,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "監",
   "kanji": "監督",
   "sentence": "野球部の《カントク》に相談する。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "皿（さら）",
@@ -584,6 +606,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "環",
   "kanji": "環境",
   "sentence": "学校の《カンキョウ》を整える。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "玉",
@@ -595,6 +618,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "鑑",
   "kanji": "鑑賞",
   "sentence": "美術館で絵画を《カンショウ》する。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "金（かねへん）",
@@ -616,6 +640,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "頑",
   "kanji": "頑張る",
   "sentence": "試験に向けて《ガンバ》る。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "頁（おおがい）",
@@ -627,6 +652,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "奇",
   "kanji": "奇跡",
   "sentence": "逆転勝利は《キセキ》だった。",
+  "readingSplit": 1,
   "grade": 1,
   "radicals": [
    "大",
@@ -678,6 +704,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "儀",
   "kanji": "儀式",
   "sentence": "卒業式は厳かな《ギシキ》だ。",
+  "readingSplit": 1,
   "grade": 1,
   "radicals": [
    "人（にんべん）",
@@ -699,6 +726,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "却",
   "kanji": "却下",
   "sentence": "提案が《キャッカ》された。",
+  "readingSplit": 3,
   "grade": 1,
   "radicals": [
    "卩（ふしづくり）",
@@ -750,6 +778,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "巨",
   "kanji": "巨大",
   "sentence": "《キョダイ》な岩が道をふさぐ。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "工",
@@ -761,6 +790,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "拠",
   "kanji": "根拠",
   "sentence": "意見には《コンキョ》が必要だ。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "木（きへん）",
@@ -772,6 +802,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "距",
   "kanji": "距離",
   "sentence": "学校までの《キョリ》を測る。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "足（あしへん）",
@@ -783,6 +814,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "御",
   "kanji": "防御",
   "sentence": "バレーボールで《ボウギョ》を固める。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "阜（こざとへん）",
@@ -794,6 +826,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "凶",
   "kanji": "凶作",
   "sentence": "天候不順で米が《キョウサク》になった。",
+  "readingSplit": 3,
   "grade": 1,
   "radicals": [
    "凵",
@@ -815,6 +848,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "狂",
   "kanji": "熱狂",
   "sentence": "観客が試合に《ネッキョウ》する。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "火（ひ）",
@@ -826,6 +860,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "況",
   "kanji": "状況",
   "sentence": "今の《ジョウキョウ》を先生に説明する。",
+  "readingSplit": 3,
   "grade": 1,
   "radicals": [
    "犬",
@@ -897,6 +932,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "遇",
   "kanji": "待遇",
   "sentence": "アルバイトの《タイグウ》を調べる。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "彳（ぎょうにんべん）",
@@ -908,6 +944,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "屈",
   "kanji": "屈伸",
   "sentence": "準備運動で《クッシン》をする。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "尸（しかばね）",
@@ -939,6 +976,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "契",
   "kanji": "契約",
   "sentence": "携帯電話の新しい《ケイヤク》をする。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "大",
@@ -970,6 +1008,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "携",
   "kanji": "携帯",
   "sentence": "《ケイタイ》電話で友達に連絡する。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "手（てへん）",
@@ -1001,6 +1040,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "撃",
   "kanji": "攻撃",
   "sentence": "相手チームの《コウゲキ》を防ぐ。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "攴（ぼくにょう）",
@@ -1032,6 +1072,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "剣",
   "kanji": "剣道",
   "sentence": "週に二回《ケンドウ》を習う。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "刀（りっとう）",
@@ -1053,6 +1094,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "圏",
   "kanji": "圏内",
   "sentence": "電波の《ケンナイ》に入った。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "囗（くにがまえ）",
@@ -1084,6 +1126,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "遣",
   "kanji": "派遣",
   "sentence": "会社から《ハケン》社員が来る。",
+  "readingSplit": 1,
   "grade": 1,
   "radicals": [
    "水（さんずい）",
@@ -1105,6 +1148,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "顕",
   "kanji": "顕著",
   "sentence": "練習の効果が《ケンチョ》に表れた。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "頁（おおがい）",
@@ -1116,6 +1160,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "玄",
   "kanji": "玄関",
   "sentence": "《ゲンカン》で靴をそろえる。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "玄",
@@ -1157,6 +1202,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "鼓",
   "kanji": "太鼓",
   "sentence": "祭りで《タイコ》をたたく。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "大",
@@ -1188,6 +1234,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "巧",
   "kanji": "巧妙",
   "sentence": "犯人の手口は《コウミョウ》だった。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "工",
@@ -1199,6 +1246,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "抗",
   "kanji": "抗議",
   "sentence": "校則の変更に《コウギ》する。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "手（てへん）",
@@ -1210,6 +1258,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "攻",
   "kanji": "攻略",
   "sentence": "ゲームの《コウリャク》法を調べる。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "攴（ぼくにょう）",
@@ -1221,6 +1270,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "更",
   "kanji": "更新",
   "sentence": "ホームページを《コウシン》する。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "曰",
@@ -1232,6 +1282,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "肯",
   "kanji": "肯定",
   "sentence": "友達の意見を《コウテイ》する。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "肉",
@@ -1243,6 +1294,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "恒",
   "kanji": "恒例",
   "sentence": "これは毎年《コウレイ》の行事だ。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "心（りっしんべん）",
@@ -1264,6 +1316,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "郊",
   "kanji": "郊外",
   "sentence": "《コウガイ》に新しい家が建った。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "邑（おおざと）",
@@ -1275,6 +1328,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "項",
   "kanji": "項目",
   "sentence": "契約書の《コウモク》を確認する。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "頁（おおがい）",
@@ -1286,6 +1340,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "稿",
   "kanji": "原稿",
   "sentence": "作文の《ゲンコウ》を書き直す。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "厂（がんだれ）",
@@ -1297,6 +1352,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "豪",
   "kanji": "豪雨",
   "sentence": "《ゴウウ》で川が増水した。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "豕",
@@ -1328,6 +1384,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "婚",
   "kanji": "結婚",
   "sentence": "来年、姉が《ケッコン》する。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "糸（いとへん）",
@@ -1379,6 +1436,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "載",
   "kanji": "掲載",
   "sentence": "作文が新聞に《ケイサイ》された。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "手（てへん）",
@@ -1390,6 +1448,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "剤",
   "kanji": "洗剤",
   "sentence": "食器を《センザイ》で洗う。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "水（さんずい）",
@@ -1411,6 +1470,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "拶",
   "kanji": "挨拶",
   "sentence": "近所の人に元気よく《アイサツ》する。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "手（てへん）",
@@ -1422,6 +1482,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "撮",
   "kanji": "撮影",
   "sentence": "修学旅行で写真を《サツエイ》した。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "手（てへん）",
@@ -1433,6 +1494,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "旨",
   "kanji": "趣旨",
   "sentence": "説明の《シュシ》をまとめる。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "走（そうにょう）",
@@ -1484,6 +1546,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "執",
   "kanji": "執筆",
   "sentence": "作家が小説を《シッピツ》する。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "土",
@@ -1495,6 +1558,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "芝",
   "kanji": "芝生",
   "sentence": "公園の《シバフ》で遊んだ。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "艸（くさかんむり）",
@@ -1536,6 +1600,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "釈",
   "kanji": "解釈",
   "sentence": "詩の意味を自分なりに《カイシャク》する。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "角（つのへん）",
@@ -1557,6 +1622,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "朱",
   "kanji": "朱色",
   "sentence": "夕焼けが《シュイロ》に染まる。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "木",
@@ -1578,6 +1644,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "趣",
   "kanji": "趣味",
   "sentence": "私の《シュミ》は読書だ。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "走（そうにょう）",
@@ -1589,6 +1656,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "需",
   "kanji": "需要",
   "sentence": "この商品は《ジュヨウ》が高い。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "雨（あめかんむり）",
@@ -1600,6 +1668,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "囚",
   "kanji": "囚人",
   "sentence": "昔の物語に《シュウジン》が登場する。",
+  "readingSplit": 3,
   "grade": 1,
   "radicals": [
    "囗（くにがまえ）",
@@ -1621,6 +1690,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "秀",
   "kanji": "優秀",
   "sentence": "兄はクラスで《ユウシュウ》な生徒だ。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "人（にんべん）",
@@ -1642,6 +1712,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "柔",
   "kanji": "柔道",
   "sentence": "兄は《ジュウドウ》部に入っている。",
+  "readingSplit": 3,
   "grade": 1,
   "radicals": [
    "木（き）",
@@ -1663,6 +1734,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "獣",
   "kanji": "怪獣",
   "sentence": "弟は《カイジュウ》の映画が好きだ。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "心（りっしんべん）",
@@ -1674,6 +1746,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "瞬",
   "kanji": "瞬間",
   "sentence": "シャッターを切る《シュンカン》を待つ。",
+  "readingSplit": 3,
   "grade": 1,
   "radicals": [
    "目（めへん）",
@@ -1715,6 +1788,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "循",
   "kanji": "循環",
   "sentence": "血液が体内を《ジュンカン》する。",
+  "readingSplit": 3,
   "grade": 1,
   "radicals": [
    "彳（ぎょうにんべん）",
@@ -1736,6 +1810,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "庶",
   "kanji": "庶民",
   "sentence": "江戸時代の《ショミン》の暮らしを調べた。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "广（まだれ）",
@@ -1747,6 +1822,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "如",
   "kanji": "突如",
   "sentence": "晴れていた空が、《トツジョ》曇り始めた。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "穴（あなかんむり）",
@@ -1758,6 +1834,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "召",
   "kanji": "召集",
   "sentence": "委員会のために全員が《ショウシュウ》された。",
+  "readingSplit": 3,
   "grade": 1,
   "radicals": [
    "口",
@@ -1779,6 +1856,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "尚",
   "kanji": "尚更",
   "sentence": "雨が降り出し、《ナオサラ》寒く感じた。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "小",
@@ -1790,6 +1868,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "昇",
   "kanji": "上昇",
   "sentence": "気温がぐんぐん《ジョウショウ》する。",
+  "readingSplit": 3,
   "grade": 1,
   "radicals": [
    "一",
@@ -1811,6 +1890,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "症",
   "kanji": "症状",
   "sentence": "風邪の《ショウジョウ》が出てきた。",
+  "readingSplit": 3,
   "grade": 1,
   "radicals": [
    "疒（やまいだれ）",
@@ -1822,6 +1902,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "称",
   "kanji": "名称",
   "sentence": "新しい部活動の《メイショウ》を決めた。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "口",
@@ -1833,6 +1914,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "紹",
   "kanji": "紹介",
   "sentence": "クラスの前で自己《ショウカイ》をした。",
+  "readingSplit": 3,
   "grade": 1,
   "radicals": [
    "糸（いとへん）",
@@ -1844,6 +1926,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "詳",
   "kanji": "詳細",
   "sentence": "行事の《ショウサイ》をプリントで確認する。",
+  "readingSplit": 3,
   "grade": 1,
   "radicals": [
    "言（ごんべん）",
@@ -1855,6 +1938,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "丈",
   "kanji": "丈夫",
   "sentence": "このかばんはとても《ジョウブ》だ。",
+  "readingSplit": 3,
   "grade": 1,
   "radicals": [
    "一",
@@ -1866,6 +1950,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "冗",
   "kanji": "冗談",
   "sentence": "友達が《ジョウダン》を言って笑わせた。",
+  "readingSplit": 3,
   "grade": 1,
   "radicals": [
    "冖（わかんむり）",
@@ -1877,6 +1962,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "剰",
   "kanji": "過剰",
   "sentence": "荷物が《カジョウ》にならないよう気をつけた。",
+  "readingSplit": 1,
   "grade": 1,
   "radicals": [
    "辵（しんにょう）",
@@ -1888,6 +1974,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "醸",
   "kanji": "醸造",
   "sentence": "この蔵では日本酒を《ジョウゾウ》している。",
+  "readingSplit": 3,
   "grade": 1,
   "radicals": [
    "酉（とりへん）",
@@ -1899,6 +1986,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "殖",
   "kanji": "繁殖",
   "sentence": "メダカが水槽の中で《ハンショク》した。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "糸",
@@ -1930,6 +2018,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "侵",
   "kanji": "侵入",
   "sentence": "泥棒が家に《シンニュウ》した。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "人（にんべん）",
@@ -1941,6 +2030,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "津",
   "kanji": "津波",
   "sentence": "地震のあと《ツナミ》の警報が出た。",
+  "readingSplit": 1,
   "grade": 1,
   "radicals": [
    "水（さんずい）",
@@ -1972,6 +2062,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "診",
   "kanji": "診察",
   "sentence": "熱があったので病院で《シンサツ》を受けた。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "言（ごんべん）",
@@ -1993,6 +2084,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "慎",
   "kanji": "慎重",
   "sentence": "テストの前に《シンチョウ》に見直す。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "心（りっしんべん）",
@@ -2024,6 +2116,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "迅",
   "kanji": "迅速",
   "sentence": "先生は《ジンソク》に対応した。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "辵（しんにょう）",
@@ -2035,6 +2128,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "陣",
   "kanji": "陣地",
   "sentence": "味方の《ジンチ》を守る。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "阜（こざとへん）",
@@ -2086,6 +2180,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "随",
   "kanji": "随筆",
   "sentence": "国語の授業で《ズイヒツ》を書く。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "阜",
@@ -2107,6 +2202,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "是",
   "kanji": "是非",
   "sentence": "《ゼヒ》一度、文化祭に来てください。",
+  "readingSplit": 1,
   "grade": 1,
   "radicals": [
    "日（ひ）",
@@ -2118,6 +2214,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "姓",
   "kanji": "姓名",
   "sentence": "用紙に《セイメイ》を書く。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "女（おんなへん）",
@@ -2129,6 +2226,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "征",
   "kanji": "征服",
   "sentence": "物語の中で王が国を《セイフク》した。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "彳（ぎょうにんべん）",
@@ -2150,6 +2248,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "析",
   "kanji": "分析",
   "sentence": "アンケートの結果を《ブンセキ》する。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "刀",
@@ -2161,6 +2260,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "跡",
   "kanji": "足跡",
   "sentence": "雪の上に《アシアト》が残る。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "足",
@@ -2172,6 +2272,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "仙",
   "kanji": "仙人",
   "sentence": "山の奥に《センニン》が住むという伝説がある。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "人（にんべん）",
@@ -2203,6 +2304,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "腺",
   "kanji": "汗腺",
   "sentence": "運動すると《カンセン》から汗が出る。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "水（さんずい）",
@@ -2214,6 +2316,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "践",
   "kanji": "実践",
   "sentence": "習った勉強法を《ジッセン》する。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "宀（うかんむり）",
@@ -2235,6 +2338,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "鮮",
   "kanji": "新鮮",
   "sentence": "朝どれの《シンセン》な野菜を食べる。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "斤（おのづくり）",
@@ -2256,6 +2360,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "阻",
   "kanji": "阻止",
   "sentence": "相手のシュートを《ソシ》する。",
+  "readingSplit": 1,
   "grade": 1,
   "radicals": [
    "阜（こざとへん）",
@@ -2267,6 +2372,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "租",
   "kanji": "租税",
   "sentence": "社会の授業で《ソゼイ》について学ぶ。",
+  "readingSplit": 1,
   "grade": 1,
   "radicals": [
    "禾（のぎへん）",
@@ -2298,6 +2404,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "僧",
   "kanji": "僧侶",
   "sentence": "旅行先のお寺で《ソウリョ》に会った。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "人（にんべん）",
@@ -2309,6 +2416,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "遭",
   "kanji": "遭遇",
   "sentence": "山道でシカに《ソウグウ》した。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "辵（しんにょう）",
@@ -2320,6 +2428,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "燥",
   "kanji": "乾燥",
   "sentence": "冬は空気が《カンソウ》する。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "乙",
@@ -2351,6 +2460,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "即",
   "kanji": "即答",
   "sentence": "質問にすぐ《ソクトウ》する。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "卩（ふしづくり）",
@@ -2382,6 +2492,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "俗",
   "kanji": "俗語",
   "sentence": "友達同士で《ゾクゴ》を使う。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "人（にんべん）",
@@ -2393,6 +2504,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "妥",
   "kanji": "妥当",
   "sentence": "この意見は《ダトウ》だと思う。",
+  "readingSplit": 1,
   "grade": 1,
   "radicals": [
    "女（おんな）",
@@ -2424,6 +2536,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "滞",
   "kanji": "渋滞",
   "sentence": "駅前の道路が《ジュウタイ》している。",
+  "readingSplit": 3,
   "grade": 1,
   "radicals": [
    "水（さんずい）",
@@ -2435,6 +2548,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "沢",
   "kanji": "沢山",
   "sentence": "今日は宿題が《タクサン》ある。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "水（さんずい）",
@@ -2446,6 +2560,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "卓",
   "kanji": "卓球",
   "sentence": "放課後に体育館で《タッキュウ》をする。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "十",
@@ -2457,6 +2572,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "拓",
   "kanji": "開拓",
   "sentence": "新しい趣味の分野を《カイタク》する。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "門（もんがまえ）",
@@ -2488,6 +2604,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "丹",
   "kanji": "丹念",
   "sentence": "ノートを《タンネン》にまとめる。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "丶",
@@ -2549,6 +2666,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "致",
   "kanji": "一致",
   "sentence": "クラス全員の意見が《イッチ》した。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "一",
@@ -2580,6 +2698,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "抽",
   "kanji": "抽選",
   "sentence": "イベントの《チュウセン》に当たった。",
+  "readingSplit": 3,
   "grade": 1,
   "radicals": [
    "手（てへん）",
@@ -2591,6 +2710,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "挑",
   "kanji": "挑戦",
   "sentence": "自己ベストの記録に《チョウセン》する。",
+  "readingSplit": 3,
   "grade": 1,
   "radicals": [
    "手（てへん）",
@@ -2622,6 +2742,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "徴",
   "kanji": "特徴",
   "sentence": "この動物の《トクチョウ》を調べる。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "牛（うしへん）",
@@ -2663,6 +2784,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "抵",
   "kanji": "抵抗",
   "sentence": "新しい規則に《テイコウ》を感じる。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "手（てへん）",
@@ -2674,6 +2796,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "堤",
   "kanji": "堤防",
   "sentence": "台風に備えて《テイボウ》を点検する。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "土（つちへん）",
@@ -2715,6 +2838,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "殿",
   "kanji": "殿様",
   "sentence": "昔話に《トノサマ》が登場する。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "殳",
@@ -2736,6 +2860,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "途",
   "kanji": "途中",
   "sentence": "帰り道の《トチュウ》で雨が降った。",
+  "readingSplit": 1,
   "grade": 1,
   "radicals": [
    "辵（しんにょう）",
@@ -2757,6 +2882,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "奴",
   "kanji": "奴隷",
   "sentence": "歴史の授業で《ドレイ》制度を学んだ。",
+  "readingSplit": 1,
   "grade": 1,
   "radicals": [
    "女（おんなへん）",
@@ -2778,6 +2904,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "到",
   "kanji": "到着",
   "sentence": "電車が駅に《トウチャク》する。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "刀（りっとう）",
@@ -2809,6 +2936,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "唐",
   "kanji": "唐突",
   "sentence": "彼の《トウトツ》な発言に驚いた。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "口",
@@ -2830,6 +2958,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "透",
   "kanji": "透明",
   "sentence": "水槽の水はとても《トウメイ》だ。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "辵（しんにょう）",
@@ -2851,6 +2980,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "陶",
   "kanji": "陶器",
   "sentence": "お店で《トウキ》のお皿を買った。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "阜（こざとへん）",
@@ -2902,6 +3032,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "突",
   "kanji": "突然",
   "sentence": "《トツゼン》大声で笑いだした。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "穴（あなかんむり）",
@@ -2953,6 +3084,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "杯",
   "kanji": "乾杯",
   "sentence": "誕生日会で《カンパイ》をした。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "乙",
@@ -2964,6 +3096,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "廃",
   "kanji": "廃止",
   "sentence": "古い校則が《ハイシ》された。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "广（まだれ）",
@@ -2975,6 +3108,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "輩",
   "kanji": "先輩",
   "sentence": "部活の《センパイ》に相談した。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "八",
@@ -2996,6 +3130,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "拍",
   "kanji": "拍手",
   "sentence": "発表のあとに《ハクシュ》が起きた。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "手（てへん）",
@@ -3017,6 +3152,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "迫",
   "kanji": "迫力",
   "sentence": "映画の《ハクリョク》に驚いた。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "辵（しんにょう）",
@@ -3038,6 +3174,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "爆",
   "kanji": "爆発",
   "sentence": "実験中に風船が《バクハツ》した。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "火（ひへん）",
@@ -3069,6 +3206,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "般",
   "kanji": "一般",
   "sentence": "これは《イッパン》的なやり方だ。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "一",
@@ -3080,6 +3218,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "販",
   "kanji": "販売",
   "sentence": "文化祭でジュースを《ハンバイ》する。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "貝（かいへん）",
@@ -3091,6 +3230,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "範",
   "kanji": "範囲",
   "sentence": "テストの《ハンイ》を確認する。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "竹（たけかんむり）",
@@ -3102,6 +3242,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "盤",
   "kanji": "円盤",
   "sentence": "空に《エンバン》のような雲を見た。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "囗（くにがまえ）",
@@ -3133,6 +3274,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "被",
   "kanji": "被害",
   "sentence": "台風で《ヒガイ》が出た。",
+  "readingSplit": 1,
   "grade": 1,
   "radicals": [
    "衣（ころもへん）",
@@ -3164,6 +3306,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "微",
   "kanji": "微妙",
   "sentence": "テストの結果は《ビミョウ》だった。",
+  "readingSplit": 1,
   "grade": 1,
   "radicals": [
    "彳（ぎょうにんべん）",
@@ -3195,6 +3338,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "浜",
   "kanji": "浜辺",
   "sentence": "家族で《ハマベ》を歩いた。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "水（さんずい）",
@@ -3206,6 +3350,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "敏",
   "kanji": "敏感",
   "sentence": "肌が《ビンカン》になる。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "攴（ぼくにょう）",
@@ -3227,6 +3372,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "赴",
   "kanji": "赴任",
   "sentence": "先生が新しい学校に《フニン》した。",
+  "readingSplit": 1,
   "grade": 1,
   "radicals": [
    "走（そうにょう）",
@@ -3248,6 +3394,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "普",
   "kanji": "普通",
   "sentence": "これは《フツウ》サイズだ。",
+  "readingSplit": 1,
   "grade": 1,
   "radicals": [
    "日（ひ）",
@@ -3289,6 +3436,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "噴",
   "kanji": "噴水",
   "sentence": "公園の《フンスイ》で水遊びをした。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "口（くちへん）",
@@ -3360,6 +3508,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "砲",
   "kanji": "大砲",
   "sentence": "博物館で古い《タイホウ》を見た。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "大",
@@ -3391,6 +3540,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "坊",
   "kanji": "寝坊",
   "sentence": "今朝は《ネボウ》して遅刻しそうになった。",
+  "readingSplit": 1,
   "grade": 1,
   "radicals": [
    "宀（うかんむり）",
@@ -3412,6 +3562,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "肪",
   "kanji": "脂肪",
   "sentence": "運動して《シボウ》を減らす。",
+  "readingSplit": 1,
   "grade": 1,
   "radicals": [
    "肉（にくづき）",
@@ -3423,6 +3574,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "冒",
   "kanji": "冒険",
   "sentence": "森の中を《ボウケン》する物語を読んだ。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "冂（くにがまえ）",
@@ -3434,6 +3586,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "帽",
   "kanji": "帽子",
   "sentence": "日差しが強いので《ボウシ》をかぶる。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "巾（はば）",
@@ -3465,6 +3618,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "凡",
   "kanji": "平凡",
   "sentence": "今日は特に何もない《ヘイボン》な一日だった。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "干",
@@ -3496,6 +3650,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "慢",
   "kanji": "我慢",
   "sentence": "眠くても《ガマン》して勉強を続けた。",
+  "readingSplit": 1,
   "grade": 1,
   "radicals": [
    "戈（ほこ）",
@@ -3507,6 +3662,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "漫",
   "kanji": "漫画",
   "sentence": "休み時間に《マンガ》を読んだ。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "水（さんずい）",
@@ -3538,6 +3694,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "矛",
   "kanji": "矛盾",
   "sentence": "彼の話には《ムジュン》がある。",
+  "readingSplit": 1,
   "grade": 1,
   "radicals": [
    "矛",
@@ -3569,6 +3726,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "猛",
   "kanji": "猛暑",
   "sentence": "今年の夏は《モウショ》が続いている。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "犬",
@@ -3620,6 +3778,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "誉",
   "kanji": "名誉",
   "sentence": "クラス代表に選ばれるのは《メイヨ》なことだ。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "口",
@@ -3671,6 +3830,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "羅",
   "kanji": "羅列",
   "sentence": "単語をただ《ラレツ》しただけの文章。",
+  "readingSplit": 1,
   "grade": 1,
   "radicals": [
    "网（あみがしら）",
@@ -3742,6 +3902,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "療",
   "kanji": "治療",
   "sentence": "歯医者で虫歯の《チリョウ》を受けた。",
+  "readingSplit": 1,
   "grade": 1,
   "radicals": [
    "水（さんずい）",
@@ -3793,6 +3954,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "烈",
   "kanji": "強烈",
   "sentence": "真夏の日差しは《キョウレツ》だ。",
+  "readingSplit": 3,
   "grade": 1,
   "radicals": [
    "弓（ゆみへん）",
@@ -3824,6 +3986,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "郎",
   "kanji": "新郎",
   "sentence": "結婚式で《シンロウ》が挨拶をした。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "斤（おのづくり）",
@@ -3845,6 +4008,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "惑",
   "kanji": "惑星",
   "sentence": "太陽系には八つの《ワクセイ》がある。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "心（したごころ）",
@@ -3898,6 +4062,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "宛",
   "kanji": "宛先",
   "sentence": "手紙に《アテサキ》を書く。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "宀（うかんむり）",
@@ -3909,6 +4074,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "椅",
   "kanji": "椅子",
   "sentence": "教室の《イス》に座る。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "木（きへん）",
@@ -3920,6 +4086,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "彙",
   "kanji": "語彙",
   "sentence": "本を読んで《ゴイ》を増やす。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "言（ごんべん）",
@@ -3983,6 +4150,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "疫",
   "kanji": "疫病",
   "sentence": "昔、《エキビョウ》が広がった。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "疒（やまいだれ）",
@@ -4004,6 +4172,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "閲",
   "kanji": "閲覧",
   "sentence": "図書館で新聞を《エツラン》する。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "門（もんがまえ）",
@@ -4025,6 +4194,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "宴",
   "kanji": "宴会",
   "sentence": "卒業の《エンカイ》が開かれた。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "宀（うかんむり）",
@@ -4036,6 +4206,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "旺",
   "kanji": "旺盛",
   "sentence": "彼は食欲が《オウセイ》だ。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "日（ひへん）",
@@ -4047,6 +4218,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "欧",
   "kanji": "欧州",
   "sentence": "夏休みに《オウシュウ》を旅行した。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "欠（あくび）",
@@ -4078,6 +4250,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "卸",
   "kanji": "卸売",
   "sentence": "市場で野菜の《オロシウリ》をする。",
+  "readingSplit": 3,
   "grade": 2,
   "radicals": [
    "卩（ふしづくり）",
@@ -4099,6 +4272,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "佳",
   "kanji": "佳作",
   "sentence": "絵のコンクールで《カサク》に選ばれた。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "人（にんべん）",
@@ -4110,6 +4284,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "架",
   "kanji": "架空",
   "sentence": "これは《カクウ》の物語だ。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "木（き）",
@@ -4141,6 +4316,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "嫁",
   "kanji": "花嫁",
   "sentence": "姉は美しい《ハナヨメ》になった。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "艸（くさかんむり）",
@@ -4172,6 +4348,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "餓",
   "kanji": "飢餓",
   "sentence": "世界には《キガ》に苦しむ人々がいる。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "食（しょくへん）",
@@ -4213,6 +4390,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "楷",
   "kanji": "楷書",
   "sentence": "習字で《カイショ》を練習する。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "木（きへん）",
@@ -4234,6 +4412,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "涯",
   "kanji": "生涯",
   "sentence": "祖父は《ショウガイ》現役で働いた。",
+  "readingSplit": 3,
   "grade": 2,
   "radicals": [
    "生",
@@ -4245,6 +4424,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "慨",
   "kanji": "感慨",
   "sentence": "卒業式で《カンガイ》深い気持ちになった。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "心（したごころ）",
@@ -4256,6 +4436,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "該",
   "kanji": "該当",
   "sentence": "《ガイトウ》する番号に丸をつける。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "言（ごんべん）",
@@ -4267,6 +4448,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "垣",
   "kanji": "垣根",
   "sentence": "庭の《カキネ》を修理した。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "土（つちへん）",
@@ -4288,6 +4470,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "郭",
   "kanji": "輪郭",
   "sentence": "鉛筆で顔の《リンカク》を描いた。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "車（くるまへん）",
@@ -4309,6 +4492,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "穫",
   "kanji": "収穫",
   "sentence": "秋に米を《シュウカク》する。",
+  "readingSplit": 3,
   "grade": 2,
   "radicals": [
    "又（また）",
@@ -4320,6 +4504,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "岳",
   "kanji": "山岳",
   "sentence": "部活で《サンガク》地帯を登った。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "山",
@@ -4361,6 +4546,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "肝",
   "kanji": "肝心",
   "sentence": "そこが《カンジン》な部分だ。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "肉（にくづき）",
@@ -4372,6 +4558,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "冠",
   "kanji": "王冠",
   "sentence": "劇で《オウカン》をかぶる役をした。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "玉",
@@ -4393,6 +4580,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "患",
   "kanji": "患者",
   "sentence": "病院で《カンジャ》さんを見かけた。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "心（したごころ）",
@@ -4414,6 +4602,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "喚",
   "kanji": "喚起",
   "sentence": "先生が注意を《カンキ》した。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "口（くちへん）",
@@ -4425,6 +4614,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "換",
   "kanji": "交換",
   "sentence": "友達とカードを《コウカン》した。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "亠（なべぶた）",
@@ -4456,6 +4646,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "企",
   "kanji": "企業",
   "sentence": "父は大きな《キギョウ》で働いている。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "人",
@@ -4479,6 +4670,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "軌",
   "kanji": "軌道",
   "sentence": "ロケットが《キドウ》に乗った。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "車（くるまへん）",
@@ -4510,6 +4702,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "棋",
   "kanji": "棋士",
   "sentence": "彼は有名な《キシ》になった。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "木（きへん）",
@@ -4521,6 +4714,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "棄",
   "kanji": "棄権",
   "sentence": "けがのため試合を《キケン》した。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "木（き）",
@@ -4532,6 +4726,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "騎",
   "kanji": "騎士",
   "sentence": "物語に《キシ》が登場する。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "馬（うまへん）",
@@ -4553,6 +4748,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "戯",
   "kanji": "遊戯",
   "sentence": "幼稚園で《ユウギ》をして遊ぶ。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "辵（しんにょう）",
@@ -4576,6 +4772,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "犠",
   "kanji": "犠打",
   "sentence": "《ギダ》で走者を先の塁に進める作戦だ。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "牛（うしへん）",
@@ -4597,6 +4794,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "吉",
   "kanji": "大吉",
   "sentence": "おみくじで《ダイキチ》を引いた。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "大",
@@ -4608,6 +4806,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "虐",
   "kanji": "虐待",
   "sentence": "動物《ギャクタイ》は許されない。",
+  "readingSplit": 3,
   "grade": 2,
   "radicals": [
    "虍（とらかんむり）",
@@ -4629,6 +4828,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "虚",
   "kanji": "空虚",
   "sentence": "試合に負けて心が《クウキョ》になった。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "穴（あなかんむり）",
@@ -4640,6 +4840,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "峡",
   "kanji": "海峡",
   "sentence": "船で《カイキョウ》を渡る。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "水（さんずい）",
@@ -4671,6 +4872,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "巾",
   "kanji": "布巾",
   "sentence": "食器を《フキン》で拭く。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "巾（はば）",
@@ -4682,6 +4884,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "斤",
   "kanji": "一斤",
   "sentence": "パンを《イッキン》買った。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "一",
@@ -4693,6 +4896,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "菌",
   "kanji": "細菌",
   "sentence": "手を洗って《サイキン》を防ぐ。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "糸（いとへん）",
@@ -4704,6 +4908,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "緊",
   "kanji": "緊張",
   "sentence": "発表会の前に《キンチョウ》する。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "糸",
@@ -4725,6 +4930,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "偶",
   "kanji": "偶然",
   "sentence": "駅で友達に《グウゼン》会った。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "人（にんべん）",
@@ -4746,6 +4952,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "刑",
   "kanji": "刑罰",
   "sentence": "法律に違反すると《ケイバツ》が科される。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "刀（りっとう）",
@@ -4757,6 +4964,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "啓",
   "kanji": "啓発",
   "sentence": "講演会で《ケイハツ》を受けた。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "口",
@@ -4768,6 +4976,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "掲",
   "kanji": "掲示",
   "sentence": "廊下の《ケイジ》板を見る。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "手（てへん）",
@@ -4789,6 +4998,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "憩",
   "kanji": "休憩",
   "sentence": "十分間の《キュウケイ》を取る。",
+  "readingSplit": 3,
   "grade": 2,
   "radicals": [
    "人（にんべん）",
@@ -4799,7 +5009,8 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "id": "kwc0456",
   "ch": "鶏",
   "kanji": "鶏肉",
-  "sentence": "夕食に《ケイニク》を食べる。",
+  "sentence": "夕食に《トリニク》を食べる。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "鳥",
@@ -4821,6 +5032,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "傑",
   "kanji": "傑作",
   "sentence": "この映画は監督の《ケッサク》だ。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "人（にんべん）",
@@ -4832,6 +5044,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "倹",
   "kanji": "倹約",
   "sentence": "将来のためにお金を《ケンヤク》する。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "人（にんべん）",
@@ -4873,6 +5086,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "孤",
   "kanji": "孤独",
   "sentence": "一人で過ごす《コドク》を感じた。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "子",
@@ -4884,6 +5098,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "弧",
   "kanji": "円弧",
   "sentence": "コンパスで《エンコ》を描く。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "囗（くにがまえ）",
@@ -4905,6 +5120,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "顧",
   "kanji": "顧問",
   "sentence": "部活の《コモン》の先生に相談する。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "頁（おおがい）",
@@ -4916,6 +5132,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "娯",
   "kanji": "娯楽",
   "sentence": "休日は《ゴラク》で過ごす。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "女（おんなへん）",
@@ -4927,6 +5144,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "孔",
   "kanji": "気孔",
   "sentence": "植物の葉には《キコウ》がある。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "气",
@@ -4938,6 +5156,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "甲",
   "kanji": "甲羅",
   "sentence": "亀の《コウラ》を観察する。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "日",
@@ -4949,6 +5168,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "坑",
   "kanji": "炭坑",
   "sentence": "昔この町には《タンコウ》があった。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "火",
@@ -4960,6 +5180,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "拘",
   "kanji": "拘束",
   "sentence": "時間に《コウソク》されるのが苦手だ。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "手（てへん）",
@@ -4971,6 +5192,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "貢",
   "kanji": "貢献",
   "sentence": "チームの勝利に《コウケン》する。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "貝（かい）",
@@ -5020,12 +5242,11 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
  {
   "id": "kwc0477",
   "ch": "綱",
-  "kanji": "綱引き",
+  "kanji": "綱",
   "sentence": "運動会で《ツナ》引きをした。",
   "grade": 2,
   "radicals": [
-   "糸（いとへん）",
-   "弓（ゆみへん）"
+   "糸（いとへん）"
   ]
  },
  {
@@ -5033,6 +5254,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "酵",
   "kanji": "酵素",
   "sentence": "消化を助ける《コウソ》の働きを学ぶ。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "酉（とりへん）",
@@ -5044,6 +5266,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "購",
   "kanji": "購入",
   "sentence": "新しい靴を《コウニュウ》する。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "貝（かいへん）",
@@ -5055,6 +5278,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "克",
   "kanji": "克服",
   "sentence": "苦手な科目を《コクフク》する。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "八",
@@ -5066,6 +5290,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "獄",
   "kanji": "地獄",
   "sentence": "漫画で《ジゴク》の世界が描かれる。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "土（つちへん）",
@@ -5087,6 +5312,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "紺",
   "kanji": "紺色",
   "sentence": "制服は《コンイロ》のブレザーだ。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "糸（いとへん）",
@@ -5108,6 +5334,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "墾",
   "kanji": "開墾",
   "sentence": "荒れ地を《カイコン》して畑にする。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "門（もんがまえ）",
@@ -5119,6 +5346,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "債",
   "kanji": "負債",
   "sentence": "会社が多額の《フサイ》を抱える。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "貝（かい）",
@@ -5160,6 +5388,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "錯",
   "kanji": "錯覚",
   "sentence": "目の《サッカク》で線が曲がって見える。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "金（かねへん）",
@@ -5181,6 +5410,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "惨",
   "kanji": "悲惨",
   "sentence": "事故現場は《ヒサン》な状況だった。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "心（したごころ）",
@@ -5202,6 +5432,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "祉",
   "kanji": "福祉",
   "sentence": "《フクシ》委員会に入る。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "示（しめすへん）",
@@ -5225,6 +5456,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "施",
   "kanji": "施設",
   "sentence": "新しい《シセツ》を利用する。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "方（ほうへん）",
@@ -5266,6 +5498,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "慈",
   "kanji": "慈善",
   "sentence": "《ジゼン》活動に参加する。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "心（したごころ）",
@@ -5287,6 +5520,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "疾",
   "kanji": "疾走",
   "sentence": "全力で《シッソウ》する。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "疒（やまいだれ）",
@@ -5298,6 +5532,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "湿",
   "kanji": "湿度",
   "sentence": "今日は《シツド》が高い。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "水（さんずい）",
@@ -5309,6 +5544,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "赦",
   "kanji": "容赦",
   "sentence": "《ヨウシャ》なく叱られた。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "宀（うかんむり）",
@@ -5320,6 +5556,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "邪",
   "kanji": "邪魔",
   "sentence": "勉強の《ジャマ》をしない。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "邑（おおざと）",
@@ -5331,6 +5568,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "殊",
   "kanji": "特殊",
   "sentence": "《トクシュ》な能力を持つ。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "牛（うしへん）",
@@ -5342,6 +5580,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "珠",
   "kanji": "真珠",
   "sentence": "《シンジュ》のネックレス。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "目",
@@ -5353,6 +5592,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "寿",
   "kanji": "寿命",
   "sentence": "電池の《ジュミョウ》が切れる。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "寸",
@@ -5364,6 +5604,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "呪",
   "kanji": "呪文",
   "sentence": "《ジュモン》を唱える。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "口（くちへん）",
@@ -5405,6 +5646,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "遵",
   "kanji": "遵守",
   "sentence": "規則を《ジュンシュ》する。",
+  "readingSplit": 3,
   "grade": 3,
   "radicals": [
    "辵（しんにょう）",
@@ -5416,6 +5658,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "徐",
   "kanji": "徐々に",
   "sentence": "《ジョジョ》に慣れてきた。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "彳（ぎょうにんべん）",
@@ -5427,6 +5670,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "匠",
   "kanji": "巨匠",
   "sentence": "《キョショウ》の作品を見る。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "工",
@@ -5438,6 +5682,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "訟",
   "kanji": "訴訟",
   "sentence": "《ソショウ》を起こす。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "言（ごんべん）",
@@ -5449,6 +5694,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "掌",
   "kanji": "車掌",
   "sentence": "《シャショウ》さんに切符を見せる。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "車",
@@ -5460,6 +5706,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "晶",
   "kanji": "結晶",
   "sentence": "雪の《ケッショウ》を観察する。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "糸（いとへん）",
@@ -5481,6 +5728,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "奨",
   "kanji": "奨励",
   "sentence": "読書を《ショウレイ》する。",
+  "readingSplit": 3,
   "grade": 2,
   "radicals": [
    "大",
@@ -5502,6 +5750,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "衝",
   "kanji": "衝撃",
   "sentence": "《ショウゲキ》的なニュースを聞く。",
+  "readingSplit": 3,
   "grade": 2,
   "radicals": [
    "行（ぎょうがまえ）",
@@ -5513,6 +5762,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "償",
   "kanji": "弁償",
   "sentence": "壊した物を《ベンショウ》する。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "廾",
@@ -5574,6 +5824,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "嘱",
   "kanji": "嘱託",
   "sentence": "《ショクタク》の先生が来る。",
+  "readingSplit": 3,
   "grade": 2,
   "radicals": [
    "口（くちへん）",
@@ -5585,6 +5836,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "辱",
   "kanji": "屈辱",
   "sentence": "《クツジョク》を味わう。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "尸（しかばね）",
@@ -5636,6 +5888,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "審",
   "kanji": "審判",
   "sentence": "《シンパン》の判定に従う。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "宀（うかんむり）",
@@ -5677,6 +5930,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "粋",
   "kanji": "純粋",
   "sentence": "《ジュンスイ》な気持ち。",
+  "readingSplit": 3,
   "grade": 2,
   "radicals": [
    "糸（いとへん）",
@@ -5698,6 +5952,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "髄",
   "kanji": "骨髄",
   "sentence": "友達が《コツズイ》バンクに登録した。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "骨",
@@ -5719,6 +5974,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "斉",
   "kanji": "一斉",
   "sentence": "《イッセイ》に立ち上がる。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "一",
@@ -5730,6 +5986,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "牲",
   "kanji": "犠牲",
   "sentence": "《ギセイ》になった動物を守る。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "牛（うしへん）",
@@ -5751,6 +6008,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "請",
   "kanji": "請求",
   "sentence": "《セイキュウ》書が届く。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "言（ごんべん）",
@@ -5762,6 +6020,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "斥",
   "kanji": "排斥",
   "sentence": "彼の意見を《ハイセキ》する。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "手（てへん）",
@@ -5773,6 +6032,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "隻",
   "kanji": "一隻",
   "sentence": "港に《イッセキ》の船が着く。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "一",
@@ -5794,6 +6054,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "籍",
   "kanji": "書籍",
   "sentence": "図書館で《ショセキ》を借りる。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "曰",
@@ -5805,6 +6066,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "摂",
   "kanji": "摂取",
   "sentence": "水分を《セッシュ》する。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "手（てへん）",
@@ -5836,6 +6098,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "措",
   "kanji": "措置",
   "sentence": "適切な《ソチ》をとる。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "手（てへん）",
@@ -5857,6 +6120,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "礎",
   "kanji": "基礎",
   "sentence": "算数の《キソ》を固める。",
+  "readingSplit": 1,
   "grade": 1,
   "radicals": [
    "土",
@@ -5868,6 +6132,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "双",
   "kanji": "双子",
   "sentence": "クラスに《フタゴ》の姉妹がいる。",
+  "readingSplit": 2,
   "grade": 1,
   "radicals": [
    "又（また）",
@@ -5879,6 +6144,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "壮",
   "kanji": "壮大",
   "sentence": "《ソウダイ》な景色に感動した。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "士",
@@ -5890,6 +6156,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "荘",
   "kanji": "別荘",
   "sentence": "夏休みに祖父の《ベッソウ》へ行く。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "刀（りっとう）",
@@ -5911,6 +6178,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "掃",
   "kanji": "掃除",
   "sentence": "放課後に教室を《ソウジ》する。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "手（てへん）",
@@ -5934,6 +6202,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "喪",
   "kanji": "喪服",
   "sentence": "祖父の葬式で《モフク》を着た。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "口",
@@ -5945,6 +6214,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "葬",
   "kanji": "葬式",
   "sentence": "近所のお寺で《ソウシキ》が行われた。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "艸（くさかんむり）",
@@ -5976,6 +6246,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "賊",
   "kanji": "海賊",
   "sentence": "映画で《カイゾク》の物語を見た。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "水（さんずい）",
@@ -5997,6 +6268,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "胎",
   "kanji": "胎児",
   "sentence": "母のおなかの中には《タイジ》がいる。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "肉（にくづき）",
@@ -6008,6 +6280,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "泰",
   "kanji": "安泰",
   "sentence": "会社の経営は《アンタイ》だそうだ。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "宀（うかんむり）",
@@ -6029,6 +6302,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "逮",
   "kanji": "逮捕",
   "sentence": "事件の犯人が《タイホ》された。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "辵（しんにょう）",
@@ -6050,6 +6324,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "択",
   "kanji": "選択",
   "sentence": "入りたい部活を《センタク》する。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "辵（しんにょう）",
@@ -6071,6 +6346,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "諾",
   "kanji": "承諾",
   "sentence": "参加のお願いを《ショウダク》した。",
+  "readingSplit": 3,
   "grade": 2,
   "radicals": [
    "手",
@@ -6112,6 +6388,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "旦",
   "kanji": "元旦",
   "sentence": "《ガンタン》に家族で初詣に行く。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "八",
@@ -6123,6 +6400,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "胆",
   "kanji": "大胆",
   "sentence": "彼は《ダイタン》な行動をとった。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "大",
@@ -6144,6 +6422,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "壇",
   "kanji": "花壇",
   "sentence": "校庭の《カダン》に花を植えた。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "艸（くさかんむり）",
@@ -6155,6 +6434,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "稚",
   "kanji": "幼稚",
   "sentence": "その考え方は少し《ヨウチ》だ。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "幺（いとがしら）",
@@ -6166,6 +6446,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "畜",
   "kanji": "家畜",
   "sentence": "牧場で《カチク》を育てている。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "宀（うかんむり）",
@@ -6177,6 +6458,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "逐",
   "kanji": "逐一",
   "sentence": "実験の経過を《チクイチ》記録する。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "辵（しんにょう）",
@@ -6188,6 +6470,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "窒",
   "kanji": "窒息",
   "sentence": "煙で《チッソク》しそうになった。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "穴（あなかんむり）",
@@ -6199,6 +6482,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "鋳",
   "kanji": "鋳造",
   "sentence": "工場で金属を《チュウゾウ》する。",
+  "readingSplit": 3,
   "grade": 2,
   "radicals": [
    "金（かねへん）",
@@ -6210,6 +6494,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "駐",
   "kanji": "駐車",
   "sentence": "車を公園の前に《チュウシャ》する。",
+  "readingSplit": 3,
   "grade": 2,
   "radicals": [
    "馬（うまへん）",
@@ -6221,6 +6506,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "彫",
   "kanji": "彫刻",
   "sentence": "美術の授業で木の《チョウコク》を作った。",
+  "readingSplit": 3,
   "grade": 2,
   "radicals": [
    "彡（さんづくり）",
@@ -6252,6 +6538,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "陳",
   "kanji": "陳列",
   "sentence": "店員が新商品を棚に《チンレツ》する。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "阜（こざとへん）",
@@ -6273,6 +6560,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "墜",
   "kanji": "墜落",
   "sentence": "小型飛行機が山に《ツイラク》した。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "土",
@@ -6314,6 +6602,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "帝",
   "kanji": "皇帝",
   "sentence": "歴史の授業で《コウテイ》について学んだ。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "白",
@@ -6325,6 +6614,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "訂",
   "kanji": "訂正",
   "sentence": "作文の間違いを《テイセイ》する。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "言（ごんべん）",
@@ -6366,6 +6656,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "哲",
   "kanji": "哲学",
   "sentence": "図書室で《テツガク》の本を読んだ。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "口",
@@ -6377,6 +6668,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "徹",
   "kanji": "徹底",
   "sentence": "手洗いを《テッテイ》的に行う。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "彳（ぎょうにんべん）",
@@ -6388,6 +6680,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "撤",
   "kanji": "撤去",
   "sentence": "古くなった看板が《テッキョ》された。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "手（てへん）",
@@ -6474,6 +6767,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "匿",
   "kanji": "匿名",
   "sentence": "アンケートに《トクメイ》で意見を書いた。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "匸",
@@ -6485,6 +6779,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "篤",
   "kanji": "危篤",
   "sentence": "入院中の祖父が《キトク》になったと聞いた。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "卩（ふしづくり）",
@@ -6496,6 +6791,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "豚",
   "kanji": "豚肉",
   "sentence": "夕食に《ブタニク》のしょうが焼きが出た。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "豕",
@@ -6517,6 +6813,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "丼",
   "kanji": "牛丼",
   "sentence": "昼食に《ギュウドン》を食べた。",
+  "readingSplit": 3,
   "grade": 2,
   "radicals": [
    "牛（うし）",
@@ -6560,6 +6857,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "把",
   "kanji": "把握",
   "sentence": "状況を正しく《ハアク》する。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "手（てへん）",
@@ -6571,6 +6869,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "婆",
   "kanji": "老婆",
   "sentence": "昔話に《ロウバ》が登場する。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "老",
@@ -6582,6 +6881,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "排",
   "kanji": "排除",
   "sentence": "ごみを《ハイジョ》する作業を行った。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "手（てへん）",
@@ -6625,6 +6925,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "伐",
   "kanji": "伐採",
   "sentence": "山の木を《バッサイ》する計画がある。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "人（にんべん）",
@@ -6656,6 +6957,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "畔",
   "kanji": "湖畔",
   "sentence": "《コハン》のホテルに泊まった。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "水（さんずい）",
@@ -6667,6 +6969,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "搬",
   "kanji": "運搬",
   "sentence": "トラックで荷物を《ウンパン》する。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "辵（しんにょう）",
@@ -6678,6 +6981,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "繁",
   "kanji": "繁栄",
   "sentence": "この町は昔から《ハンエイ》してきた。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "糸",
@@ -6699,6 +7003,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "蛮",
   "kanji": "野蛮",
   "sentence": "その行動は《ヤバン》だと非難された。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "里",
@@ -6710,6 +7015,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "卑",
   "kanji": "卑怯",
   "sentence": "うそをつくのは《ヒキョウ》だ。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "十",
@@ -6721,6 +7027,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "碑",
   "kanji": "石碑",
   "sentence": "公園に古い《セキヒ》が立っている。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "石",
@@ -6742,6 +7049,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "泌",
   "kanji": "分泌",
   "sentence": "汗が体から《ブンピツ》される。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "刀",
@@ -6783,6 +7091,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "頻",
   "kanji": "頻繁",
   "sentence": "最近、地震が《ヒンパン》に起こる。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "頁（おおがい）",
@@ -6794,6 +7103,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "附",
   "kanji": "附属",
   "sentence": "大学の《フゾク》高校に通う。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "阜（こざとへん）",
@@ -6805,6 +7115,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "符",
   "kanji": "音符",
   "sentence": "楽譜に《オンプ》を書き込む。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "音",
@@ -6836,6 +7147,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "封",
   "kanji": "封筒",
   "sentence": "手紙を《フウトウ》に入れる。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "寸",
@@ -6867,6 +7179,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "紛",
   "kanji": "紛失",
   "sentence": "財布を《フンシツ》してしまった。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "糸（いとへん）",
@@ -6890,6 +7203,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "墳",
   "kanji": "古墳",
   "sentence": "社会科見学で《コフン》を見学した。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "口",
@@ -6901,6 +7215,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "璧",
   "kanji": "完璧",
   "sentence": "テストで《カンペキ》な点数を取った。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "宀（うかんむり）",
@@ -6922,6 +7237,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "遍",
   "kanji": "普遍",
   "sentence": "それは人類に《フヘン》的な考え方だ。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "日（ひ）",
@@ -6933,6 +7249,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "舗",
   "kanji": "舗装",
   "sentence": "この道路は《ホソウ》されている。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "人",
@@ -6944,6 +7261,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "募",
   "kanji": "募集",
   "sentence": "部活動でメンバーを《ボシュウ》する。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "力（ちから）",
@@ -6965,6 +7283,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "簿",
   "kanji": "帳簿",
   "sentence": "店の《チョウボ》をつける。",
+  "readingSplit": 3,
   "grade": 2,
   "radicals": [
    "巾（はば）",
@@ -6976,6 +7295,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "芳",
   "kanji": "芳香",
   "sentence": "部屋に《ホウコウ》剤を置く。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "艸（くさかんむり）",
@@ -6987,6 +7307,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "邦",
   "kanji": "邦楽",
   "sentence": "授業で《ホウガク》を鑑賞した。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "邑（おおざと）",
@@ -6998,6 +7319,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "奉",
   "kanji": "奉仕",
   "sentence": "地域の《ホウシ》活動に参加した。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "大",
@@ -7009,6 +7331,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "胞",
   "kanji": "細胞",
   "sentence": "理科で《サイボウ》について学んだ。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "糸（いとへん）",
@@ -7070,6 +7393,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "房",
   "kanji": "冷房",
   "sentence": "夏は教室の《レイボウ》をつける。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "冫（にすい）",
@@ -7081,6 +7405,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "某",
   "kanji": "某国",
   "sentence": "《ボウコク》で新しい制度が始まった。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "木（き）",
@@ -7092,6 +7417,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "傍",
   "kanji": "傍観",
   "sentence": "けんかを《ボウカン》するだけだった。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "人（にんべん）",
@@ -7113,6 +7439,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "謀",
   "kanji": "陰謀",
   "sentence": "物語の中で《インボウ》が明らかになる。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "阜（こざとへん）",
@@ -7124,6 +7451,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "朴",
   "kanji": "素朴",
   "sentence": "彼は《ソボク》な人柄で好かれている。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "糸",
@@ -7145,6 +7473,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "没",
   "kanji": "没頭",
   "sentence": "読書に《ボットウ》する。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "水（さんずい）",
@@ -7156,6 +7485,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "翻",
   "kanji": "翻訳",
   "sentence": "英語の本を《ホンヤク》する。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "羽",
@@ -7167,6 +7497,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "魔",
   "kanji": "魔法",
   "sentence": "アニメの《マホウ》使いにあこがれる。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "鬼",
@@ -7178,6 +7509,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "昧",
   "kanji": "三昧",
   "sentence": "休日は読書《ザンマイ》で過ごした。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "一",
@@ -7199,6 +7531,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "膜",
   "kanji": "鼓膜",
   "sentence": "大きな音で《コマク》が痛くなった。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "鼓",
@@ -7220,6 +7553,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "魅",
   "kanji": "魅力",
   "sentence": "この本には不思議な《ミリョク》がある。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "鬼",
@@ -7241,6 +7575,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "蜜",
   "kanji": "蜂蜜",
   "sentence": "パンに《ハチミツ》をぬって食べる。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "虫（むしへん）",
@@ -7262,6 +7597,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "免",
   "kanji": "免許",
   "sentence": "兄は先週、車の《メンキョ》を取った。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "八",
@@ -7283,6 +7619,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "紋",
   "kanji": "指紋",
   "sentence": "ガラスに残った《シモン》を調べる。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "手（てへん）",
@@ -7294,6 +7631,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "厄",
   "kanji": "厄年",
   "sentence": "父は今年《ヤクドシ》だと言っていた。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "厂（がんだれ）",
@@ -7305,6 +7643,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "喩",
   "kanji": "比喩",
   "sentence": "詩の中で《ヒユ》表現を見つけた。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "比",
@@ -7326,6 +7665,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "唯",
   "kanji": "唯一",
   "sentence": "これがクラスで《ユイイツ》の正解だった。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "口（くちへん）",
@@ -7337,6 +7677,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "幽",
   "kanji": "幽霊",
   "sentence": "《ユウレイ》が出るとうわさの校舎がある。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "幺",
@@ -7348,6 +7689,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "悠",
   "kanji": "悠々",
   "sentence": "彼は試験に《ユウユウ》と合格した。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "心（したごころ）",
@@ -7359,6 +7701,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "雄",
   "kanji": "雄大",
   "sentence": "北海道の《ユウダイ》な景色に感動した。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "隹（ふるとり）",
@@ -7390,6 +7733,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "融",
   "kanji": "融合",
   "sentence": "和と洋の文化が《ユウゴウ》した料理を食べた。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "虫",
@@ -7421,6 +7765,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "擁",
   "kanji": "擁護",
   "sentence": "動物《ヨウゴ》団体の活動に参加した。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "手（てへん）",
@@ -7432,6 +7777,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "謡",
   "kanji": "童謡",
   "sentence": "祖母がなつかしい《ドウヨウ》を歌ってくれた。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "立（にんにょう）",
@@ -7463,6 +7809,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "濫",
   "kanji": "濫用",
   "sentence": "権力の《ランヨウ》は許されない。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "水（さんずい）",
@@ -7474,6 +7821,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "吏",
   "kanji": "官吏",
   "sentence": "昔の《カンリ》は国のために働いた。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "宀（うかんむり）",
@@ -7495,6 +7843,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "隆",
   "kanji": "隆盛",
   "sentence": "町の商店街はかつて《リュウセイ》を極めた。",
+  "readingSplit": 3,
   "grade": 2,
   "radicals": [
    "阜（こざとへん）",
@@ -7506,6 +7855,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "硫",
   "kanji": "硫黄",
   "sentence": "温泉から《イオウ》のにおいがした。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "石（いしへん）",
@@ -7517,6 +7867,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "慮",
   "kanji": "配慮",
   "sentence": "先生は生徒の気持ちに《ハイリョ》してくれる。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "酉（とりへん）",
@@ -7528,6 +7879,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "了",
   "kanji": "了解",
   "sentence": "その説明でよく《リョウカイ》した。",
+  "readingSplit": 3,
   "grade": 2,
   "radicals": [
    "亅",
@@ -7549,6 +7901,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "猟",
   "kanji": "狩猟",
   "sentence": "山で《シュリョウ》をする人に出会った。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "犬",
@@ -7560,6 +7913,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "陵",
   "kanji": "丘陵",
   "sentence": "なだらかな《キュウリョウ》地帯が広がる。",
+  "readingSplit": 3,
   "grade": 2,
   "radicals": [
    "一",
@@ -7571,6 +7925,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "糧",
   "kanji": "食糧",
   "sentence": "台風に備えて《ショクリョウ》を買っておく。",
+  "readingSplit": 3,
   "grade": 2,
   "radicals": [
    "食",
@@ -7582,6 +7937,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "厘",
   "kanji": "一厘",
   "sentence": "彼の演技には《イチリン》の乱れもなかった。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "一",
@@ -7593,6 +7949,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "倫",
   "kanji": "倫理",
   "sentence": "道徳の授業で《リンリ》について考えた。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "人（にんべん）",
@@ -7644,6 +8001,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "零",
   "kanji": "零下",
   "sentence": "今朝の気温は《レイカ》まで下がった。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "雨（あめかんむり）",
@@ -7655,6 +8013,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "霊",
   "kanji": "精霊",
   "sentence": "祭りで森の《セイレイ》の話を聞いた。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "米（こめへん）",
@@ -7666,6 +8025,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "齢",
   "kanji": "年齢",
   "sentence": "参加者の《ネンレイ》を確認する。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "干",
@@ -7677,6 +8037,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "麗",
   "kanji": "華麗",
   "sentence": "選手の《カレイ》な演技に拍手が起きた。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "艸（くさかんむり）",
@@ -7698,6 +8059,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "廉",
   "kanji": "廉価",
   "sentence": "この店は《レンカ》な商品を多く扱う。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "广（まだれ）",
@@ -7709,6 +8071,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "錬",
   "kanji": "鍛錬",
   "sentence": "毎日の練習で心と体を《タンレン》する。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "金（かねへん）",
@@ -7720,6 +8083,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "呂",
   "kanji": "風呂",
   "sentence": "疲れたので早めに《フロ》に入った。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "風",
@@ -7731,6 +8095,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "炉",
   "kanji": "暖炉",
   "sentence": "冬は《ダンロ》の前で温まる。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "日（ひへん）",
@@ -7742,6 +8107,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "浪",
   "kanji": "浪人",
   "sentence": "兄は一年間《ロウニン》して大学に合格した。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "水（さんずい）",
@@ -7753,6 +8119,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "廊",
   "kanji": "廊下",
   "sentence": "《ロウカ》を走ってはいけません。",
+  "readingSplit": 2,
   "grade": 2,
   "radicals": [
    "广（まだれ）",
@@ -7796,6 +8163,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "曖",
   "kanji": "曖昧",
   "sentence": "質問に《アイマイ》な返事をした。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "日（ひへん）",
@@ -7807,6 +8175,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "畏",
   "kanji": "畏敬",
   "sentence": "先生の生き方に《イケイ》の念を抱いた。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "田",
@@ -7818,6 +8187,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "尉",
   "kanji": "大尉",
   "sentence": "祖父は軍隊で《タイイ》という階級だった。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "大",
@@ -7829,6 +8199,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "萎",
   "kanji": "萎縮",
   "sentence": "叱られて体が《イシュク》した。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "艸（くさかんむり）",
@@ -7840,6 +8211,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "咽",
   "kanji": "咽喉",
   "sentence": "《インコウ》の痛みで病院に行った。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "口（くちへん）",
@@ -7851,6 +8223,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "姻",
   "kanji": "婚姻",
   "sentence": "二人は《コンイン》届を提出した。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "女（おんなへん）",
@@ -7862,6 +8235,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "淫",
   "kanji": "淫雨",
   "sentence": "《インウ》が続き、川の水位が上がった。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "水（さんずい）",
@@ -7895,6 +8269,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "鬱",
   "kanji": "憂鬱",
   "sentence": "テストの結果に《ユウウツ》な気分になった。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "心",
@@ -7916,6 +8291,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "謁",
   "kanji": "謁見",
   "sentence": "使者は王に《エッケン》した。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "言（ごんべん）",
@@ -7927,6 +8303,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "怨",
   "kanji": "怨念",
   "sentence": "物語の主人公は《オンネン》を抱えていた。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "心（したごころ）",
@@ -7958,6 +8335,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "凹",
   "kanji": "凹凸",
   "sentence": "道路の《オウトツ》に気をつけて歩く。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "凵",
@@ -7979,6 +8357,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "臆",
   "kanji": "臆病",
   "sentence": "弟は《オクビョウ》で犬を怖がる。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "肉（にくづき）",
@@ -8000,6 +8379,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "苛",
   "kanji": "苛立つ",
   "sentence": "電車が遅れて《イラダ》った。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "艸（くさかんむり）",
@@ -8011,6 +8391,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "寡",
   "kanji": "寡黙",
   "sentence": "兄は《カモク》な性格だ。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "宀（うかんむり）",
@@ -8022,6 +8403,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "拐",
   "kanji": "誘拐",
   "sentence": "ニュースで《ユウカイ》事件が報じられた。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "言（ごんべん）",
@@ -8033,6 +8415,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "諧",
   "kanji": "俳諧",
   "sentence": "松尾芭蕉は《ハイカイ》の名人だった。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "人（にんべん）",
@@ -8044,6 +8427,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "劾",
   "kanji": "弾劾",
   "sentence": "大統領が《ダンガイ》される可能性が出てきた。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "弓（ゆみへん）",
@@ -8055,6 +8439,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "骸",
   "kanji": "死骸",
   "sentence": "道端で虫の《シガイ》を見つけた。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "歹",
@@ -8076,6 +8461,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "嚇",
   "kanji": "威嚇",
   "sentence": "犬が《イカク》するようにほえた。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "女",
@@ -8097,6 +8483,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "括",
   "kanji": "括弧",
   "sentence": "大事な言葉を《カッコ》でくくる。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "手（てへん）",
@@ -8108,6 +8495,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "喝",
   "kanji": "一喝",
   "sentence": "先生に《イッカツ》されて教室が静かになった。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "一",
@@ -8129,6 +8517,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "葛",
   "kanji": "葛藤",
   "sentence": "友情と正直さの間で《カットウ》した。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "艸（くさかんむり）",
@@ -8140,6 +8529,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "褐",
   "kanji": "褐色",
   "sentence": "日に焼けて肌が《カッショク》になった。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "衣（ころもへん）",
@@ -8151,6 +8541,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "轄",
   "kanji": "管轄",
   "sentence": "この地域は市の《カンカツ》だ。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "竹（たけかんむり）",
@@ -8172,6 +8563,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "缶",
   "kanji": "缶詰",
   "sentence": "非常用に《カンヅメ》を買っておく。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "缶",
@@ -8193,6 +8585,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "堪",
   "kanji": "堪能",
   "sentence": "旅行先で温泉料理を《タンノウ》した。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "土（つちへん）",
@@ -8204,6 +8597,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "棺",
   "kanji": "石棺",
   "sentence": "古墳から《セッカン》が見つかった。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "石",
@@ -8215,6 +8609,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "款",
   "kanji": "定款",
   "sentence": "会社の《テイカン》を確認する。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "宀（うかんむり）",
@@ -8226,6 +8621,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "閑",
   "kanji": "閑静",
   "sentence": "この辺りは《カンセイ》な住宅街だ。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "門（もんがまえ）",
@@ -8237,6 +8633,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "寛",
   "kanji": "寛大",
   "sentence": "先生は失敗にも《カンダイ》だった。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "宀（うかんむり）",
@@ -8248,6 +8645,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "憾",
   "kanji": "遺憾",
   "sentence": "その結果をとても《イカン》に思う。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "辵（しんにょう）",
@@ -8259,6 +8657,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "還",
   "kanji": "帰還",
   "sentence": "宇宙飛行士が無事に《キカン》した。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "巾（はば）",
@@ -8270,6 +8669,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "韓",
   "kanji": "韓国",
   "sentence": "夏休みに《カンコク》へ旅行した。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "韋",
@@ -8281,6 +8681,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "艦",
   "kanji": "軍艦",
   "sentence": "博物館で《グンカン》の模型を見た。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "車",
@@ -8292,6 +8693,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "玩",
   "kanji": "玩具",
   "sentence": "弟は《ガング》で遊ぶのが好きだ。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "玉",
@@ -8325,6 +8727,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "毀",
   "kanji": "毀損",
   "sentence": "運送中の《キソン》に注意する。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "殳",
@@ -8336,6 +8739,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "畿",
   "kanji": "近畿",
   "sentence": "修学旅行で《キンキ》地方を訪れた。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "辵（しんにょう）",
@@ -8347,6 +8751,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "宜",
   "kanji": "適宜",
   "sentence": "《テキギ》休憩を取りながら勉強する。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "辵（しんにょう）",
@@ -8358,6 +8763,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "偽",
   "kanji": "偽物",
   "sentence": "それは《ニセモノ》のブランド品だった。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "人（にんべん）",
@@ -8381,6 +8787,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "臼",
   "kanji": "石臼",
   "sentence": "《イシウス》で豆をひいた。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "石",
@@ -8392,6 +8799,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "糾",
   "kanji": "紛糾",
   "sentence": "会議は意見が分かれて《フンキュウ》した。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "糸（いとへん）",
@@ -8403,6 +8811,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "嗅",
   "kanji": "嗅覚",
   "sentence": "犬は《キュウカク》が優れている。",
+  "readingSplit": 3,
   "grade": 3,
   "radicals": [
    "口（くちへん）",
@@ -8414,6 +8823,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "窮",
   "kanji": "窮屈",
   "sentence": "小さい靴で足が《キュウクツ》だ。",
+  "readingSplit": 3,
   "grade": 3,
   "radicals": [
    "穴（あなかんむり）",
@@ -8425,6 +8835,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "享",
   "kanji": "享受",
   "sentence": "平和な暮らしを《キョウジュ》する。",
+  "readingSplit": 3,
   "grade": 3,
   "radicals": [
    "亠（なべぶた）",
@@ -8456,6 +8867,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "矯",
   "kanji": "矯正",
   "sentence": "歯の《キョウセイ》をしている。",
+  "readingSplit": 3,
   "grade": 3,
   "radicals": [
    "矢（やへん）",
@@ -8527,6 +8939,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "吟",
   "kanji": "吟味",
   "sentence": "資料を《ギンミ》してから発表する。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "口（くちへん）",
@@ -8538,6 +8951,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "惧",
   "kanji": "危惧",
   "sentence": "絶滅が《キグ》される動物がいる。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "卩（ふしづくり）",
@@ -8559,6 +8973,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "窟",
   "kanji": "洞窟",
   "sentence": "探検隊が《ドウクツ》を調べた。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "水（さんずい）",
@@ -8570,6 +8985,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "勲",
   "kanji": "勲章",
   "sentence": "祖父は《クンショウ》をもらった。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "力（ちから）",
@@ -8601,6 +9017,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "渓",
   "kanji": "渓谷",
   "sentence": "夏休みに《ケイコク》へ遊びに行った。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "水（さんずい）",
@@ -8612,6 +9029,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "詣",
   "kanji": "初詣",
   "sentence": "元旦に神社へ《ハツモウデ》に行く。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "刀（りっとう）",
@@ -8623,6 +9041,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "慶",
   "kanji": "慶事",
   "sentence": "結婚は一族の《ケイジ》だ。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "心",
@@ -8634,6 +9053,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "憬",
   "kanji": "憧憬",
   "sentence": "画家に《ドウケイ》の念を抱く。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "心（りっしんべん）",
@@ -8645,6 +9065,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "稽",
   "kanji": "稽古",
   "sentence": "毎朝剣道の《ケイコ》をする。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "禾（のぎへん）",
@@ -8656,6 +9077,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "隙",
   "kanji": "隙間",
   "sentence": "ドアの《スキマ》から風が入る。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "阜（こざとへん）",
@@ -8677,6 +9099,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "献",
   "kanji": "献立",
   "sentence": "給食の《コンダテ》を確認する。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "犬",
@@ -8688,6 +9111,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "謙",
   "kanji": "謙虚",
   "sentence": "彼はいつも《ケンキョ》な態度だ。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "言（ごんべん）",
@@ -8709,6 +9133,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "懸",
   "kanji": "懸命",
   "sentence": "一生《ケンメイ》に走った。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "心（したごころ）",
@@ -8730,6 +9155,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "舷",
   "kanji": "右舷",
   "sentence": "船の《ウゲン》から海を見る。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "口",
@@ -8751,6 +9177,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "錮",
   "kanji": "禁錮",
   "sentence": "罪を犯すと《キンコ》刑になることがある。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "示",
@@ -8762,6 +9189,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "呉",
   "kanji": "呉服",
   "sentence": "祖母は《ゴフク》店で着物を選んだ。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "口",
@@ -8783,6 +9211,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "勾",
   "kanji": "勾配",
   "sentence": "この坂は《コウバイ》が急だ。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "勹（つつみがまえ）",
@@ -8794,6 +9223,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "江",
   "kanji": "江戸",
   "sentence": "《エド》時代の暮らしを学んだ。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "水（さんずい）",
@@ -8805,6 +9235,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "侯",
   "kanji": "侯爵",
   "sentence": "彼の祖先は《コウシャク》だった。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "人（にんべん）",
@@ -8816,6 +9247,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "洪",
   "kanji": "洪水",
   "sentence": "大雨で川が《コウズイ》を起こした。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "水（さんずい）",
@@ -8827,6 +9259,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "梗",
   "kanji": "梗塞",
   "sentence": "祖父は心筋《コウソク》で入院した。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "木（きへん）",
@@ -8858,6 +9291,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "衡",
   "kanji": "均衡",
   "sentence": "予算の《キンコウ》を保つ。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "土（つちへん）",
@@ -8879,6 +9313,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "拷",
   "kanji": "拷問",
   "sentence": "昔の刑罰には《ゴウモン》があった。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "手（てへん）",
@@ -8902,6 +9337,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "傲",
   "kanji": "傲慢",
   "sentence": "彼の《ゴウマン》な態度に驚いた。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "人（にんべん）",
@@ -8913,6 +9349,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "酷",
   "kanji": "残酷",
   "sentence": "その物語は《ザンコク》な結末だった。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "歹",
@@ -8934,6 +9371,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "昆",
   "kanji": "昆虫",
   "sentence": "夏休みに《コンチュウ》採集をした。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "日（ひ）",
@@ -8945,6 +9383,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "痕",
   "kanji": "痕跡",
   "sentence": "事件現場に《コンセキ》が残る。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "疒（やまいだれ）",
@@ -8990,6 +9429,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "詐",
   "kanji": "詐欺",
   "sentence": "高齢者を狙った《サギ》事件が増えている。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "言（ごんべん）",
@@ -9001,6 +9441,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "挫",
   "kanji": "挫折",
   "sentence": "計画は途中で《ザセツ》した。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "手（てへん）",
@@ -9012,6 +9453,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "采",
   "kanji": "采配",
   "sentence": "監督がチームに《サイハイ》を振る。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "爪（つめかんむり）",
@@ -9023,6 +9465,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "宰",
   "kanji": "主宰",
   "sentence": "先生が読書クラブを《シュサイ》している。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "丶",
@@ -9034,6 +9477,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "栽",
   "kanji": "栽培",
   "sentence": "畑でトマトを《サイバイ》する。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "木",
@@ -9045,6 +9489,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "斎",
   "kanji": "書斎",
   "sentence": "父は《ショサイ》で本を読む。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "曰",
@@ -9076,6 +9521,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "索",
   "kanji": "索引",
   "sentence": "辞典の《サクイン》で言葉を調べる。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "糸",
@@ -9097,6 +9543,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "刹",
   "kanji": "古刹",
   "sentence": "京都には歴史ある《コサツ》が多い。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "口",
@@ -9108,6 +9555,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "桟",
   "kanji": "桟橋",
   "sentence": "船が《サンバシ》に着いた。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "木（きへん）",
@@ -9129,6 +9577,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "斬",
   "kanji": "斬新",
   "sentence": "彼のアイデアは《ザンシン》だった。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "斤（おのづくり）",
@@ -9152,6 +9601,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "嗣",
   "kanji": "嗣子",
   "sentence": "彼はこの家の《シシ》として育てられた。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "口",
@@ -9163,6 +9613,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "摯",
   "kanji": "真摯",
   "sentence": "彼は《シンシ》な態度で謝罪した。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "目",
@@ -9194,6 +9645,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "璽",
   "kanji": "御璽",
   "sentence": "天皇の《ギョジ》が押された文書だ。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "彳（ぎょうにんべん）",
@@ -9245,6 +9697,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "酌",
   "kanji": "晩酌",
   "sentence": "父は毎晩《バンシャク》を楽しんでいる。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "日（ひへん）",
@@ -9256,6 +9709,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "爵",
   "kanji": "爵位",
   "sentence": "物語の主人公は《シャクイ》を持つ貴族だ。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "爪（つめかんむり）",
@@ -9277,6 +9731,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "儒",
   "kanji": "儒教",
   "sentence": "《ジュキョウ》は中国から伝わった教えだ。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "人（にんべん）",
@@ -9288,6 +9743,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "羞",
   "kanji": "羞恥",
   "sentence": "失敗して強い《シュウチ》心を感じた。",
+  "readingSplit": 3,
   "grade": 3,
   "radicals": [
    "羊",
@@ -9299,6 +9755,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "愁",
   "kanji": "哀愁",
   "sentence": "夕暮れの町に《アイシュウ》を感じた。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "口",
@@ -9310,6 +9767,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "酬",
   "kanji": "報酬",
   "sentence": "手伝いの《ホウシュウ》としてお菓子をもらった。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "土",
@@ -9341,6 +9799,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "充",
   "kanji": "充実",
   "sentence": "部活動での経験がとても《ジュウジツ》している。",
+  "readingSplit": 3,
   "grade": 1,
   "radicals": [
    "儿",
@@ -9362,6 +9821,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "叔",
   "kanji": "叔父",
   "sentence": "夏休みに《オジ》の家へ遊びに行った。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "又（また）",
@@ -9373,6 +9833,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "淑",
   "kanji": "淑女",
   "sentence": "彼女は《シュクジョ》のように上品にふるまう。",
+  "readingSplit": 3,
   "grade": 3,
   "radicals": [
    "水（さんずい）",
@@ -9384,6 +9845,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "粛",
   "kanji": "厳粛",
   "sentence": "卒業式は《ゲンシュク》な雰囲気で行われた。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "厂（がんだれ）",
@@ -9405,6 +9867,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "俊",
   "kanji": "俊敏",
   "sentence": "彼の《シュンビン》な動きに驚いた。",
+  "readingSplit": 3,
   "grade": 3,
   "radicals": [
    "人（にんべん）",
@@ -9428,6 +9891,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "殉",
   "kanji": "殉職",
   "sentence": "その消防士は火災現場で《ジュンショク》した。",
+  "readingSplit": 3,
   "grade": 3,
   "radicals": [
    "歹",
@@ -9439,6 +9903,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "緒",
   "kanji": "情緒",
   "sentence": "この町には昔ながらの《ジョウチョ》がある。",
+  "readingSplit": 3,
   "grade": 1,
   "radicals": [
    "心（りっしんべん）",
@@ -9450,6 +9915,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "叙",
   "kanji": "叙情",
   "sentence": "この詩には豊かな《ジョジョウ》が表れている。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "又（また）",
@@ -9471,6 +9937,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "抄",
   "kanji": "抄訳",
   "sentence": "この本は原作の《ショウヤク》だ。",
+  "readingSplit": 3,
   "grade": 3,
   "radicals": [
    "手（てへん）",
@@ -9482,6 +9949,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "肖",
   "kanji": "肖像",
   "sentence": "美術館で王の《ショウゾウ》画を見た。",
+  "readingSplit": 3,
   "grade": 3,
   "radicals": [
    "肉",
@@ -9503,6 +9971,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "祥",
   "kanji": "発祥",
   "sentence": "このお祭りは江戸時代に《ハッショウ》した。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "癶（はつがしら）",
@@ -9514,6 +9983,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "渉",
   "kanji": "交渉",
   "sentence": "値段について店員と《コウショウ》した。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "亠（なべぶた）",
@@ -9525,6 +9995,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "硝",
   "kanji": "硝酸",
   "sentence": "理科の実験で《ショウサン》を使った。",
+  "readingSplit": 3,
   "grade": 3,
   "radicals": [
    "石（いしへん）",
@@ -9536,6 +10007,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "粧",
   "kanji": "化粧",
   "sentence": "姉は毎朝ていねいに《ケショウ》をする。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "匕",
@@ -9547,6 +10019,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "詔",
   "kanji": "詔書",
   "sentence": "歴史の授業で昔の《ショウショ》について学んだ。",
+  "readingSplit": 3,
   "grade": 3,
   "radicals": [
    "言（ごんべん）",
@@ -9558,6 +10031,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "彰",
   "kanji": "表彰",
   "sentence": "大会で優勝して《ヒョウショウ》状をもらった。",
+  "readingSplit": 3,
   "grade": 3,
   "radicals": [
    "衣（ころも）",
@@ -9579,6 +10053,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "浄",
   "kanji": "浄化",
   "sentence": "この装置は空気を《ジョウカ》する。",
+  "readingSplit": 3,
   "grade": 3,
   "radicals": [
    "水（さんずい）",
@@ -9590,6 +10065,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "壌",
   "kanji": "土壌",
   "sentence": "野菜作りには良い《ドジョウ》が必要だ。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "土",
@@ -9621,6 +10097,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "娠",
   "kanji": "妊娠",
   "sentence": "姉は《ニンシン》していることが分かった。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "女（おんなへん）",
@@ -9632,6 +10109,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "紳",
   "kanji": "紳士",
   "sentence": "彼は《シンシ》的な態度で接してくれた。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "糸（いとへん）",
@@ -9653,6 +10131,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "甚",
   "kanji": "甚大",
   "sentence": "台風は《ジンダイ》な被害をもたらした。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "甘",
@@ -9664,6 +10143,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "腎",
   "kanji": "腎臓",
   "sentence": "理科の授業で《ジンゾウ》の働きを学んだ。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "肉",
@@ -9675,6 +10155,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "須",
   "kanji": "必須",
   "sentence": "この科目は進級に《ヒッス》の条件だ。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "心",
@@ -9686,6 +10167,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "帥",
   "kanji": "元帥",
   "sentence": "歴史の本に《ゲンスイ》という位が出てきた。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "八",
@@ -9697,6 +10179,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "睡",
   "kanji": "睡眠",
   "sentence": "十分な《スイミン》をとることが大切だ。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "目（めへん）",
@@ -9708,6 +10191,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "枢",
   "kanji": "中枢",
   "sentence": "脳は体の《チュウスウ》神経を担っている。",
+  "readingSplit": 3,
   "grade": 3,
   "radicals": [
    "丨",
@@ -9719,6 +10203,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "崇",
   "kanji": "崇拝",
   "sentence": "彼はその選手を《スウハイ》している。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "山",
@@ -9760,6 +10245,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "逝",
   "kanji": "逝去",
   "sentence": "校長先生の恩師が《セイキョ》されたと聞いた。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "辵（しんにょう）",
@@ -9771,6 +10257,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "醒",
   "kanji": "覚醒",
   "sentence": "強い光を浴びて眠気が《カクセイ》した。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "見",
@@ -9782,6 +10269,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "脊",
   "kanji": "脊椎",
   "sentence": "体育の授業で《セキツイ》の役割を学んだ。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "肉",
@@ -9793,6 +10281,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "戚",
   "kanji": "親戚",
   "sentence": "お正月には《シンセキ》が家に集まる。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "見（みる）",
@@ -9814,6 +10303,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "窃",
   "kanji": "窃盗",
   "sentence": "店で《セットウ》事件が起きたらしい。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "穴（あなかんむり）",
@@ -9835,6 +10325,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "旋",
   "kanji": "旋回",
   "sentence": "飛行機が空港の上空で《センカイ》した。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "方（ほうへん）",
@@ -9846,6 +10337,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "煎",
   "kanji": "煎餅",
   "sentence": "祖母から《センベイ》をもらった。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "火（ひ）",
@@ -9857,6 +10349,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "詮",
   "kanji": "所詮",
   "sentence": "《ショセン》は言い訳にすぎない。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "戸",
@@ -9868,6 +10361,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "箋",
   "kanji": "便箋",
   "sentence": "祖父に《ビンセン》で手紙を書いた。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "人（にんべん）",
@@ -9879,6 +10373,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "遷",
   "kanji": "変遷",
   "sentence": "時代とともに文化は《ヘンセン》してきた。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "夂",
@@ -9890,6 +10385,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "薦",
   "kanji": "推薦",
   "sentence": "先生から《スイセン》をもらって受験する。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "手（てへん）",
@@ -9901,6 +10397,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "繊",
   "kanji": "繊維",
   "sentence": "このシャツは天然《センイ》でできている。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "糸（いとへん）",
@@ -9912,6 +10409,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "禅",
   "kanji": "座禅",
   "sentence": "お寺で《ザゼン》を体験した。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "广（まだれ）",
@@ -9943,6 +10441,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "塑",
   "kanji": "塑像",
   "sentence": "美術の時間に粘土で《ソゾウ》を作った。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "土",
@@ -9974,6 +10473,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "挿",
   "kanji": "挿入",
   "sentence": "新しいページを《ソウニュウ》する。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "手（てへん）",
@@ -9985,6 +10485,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "曹",
   "kanji": "軍曹",
   "sentence": "映画に《グンソウ》という役の兵士が登場した。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "車",
@@ -10016,6 +10517,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "槽",
   "kanji": "水槽",
   "sentence": "教室の《スイソウ》で金魚を飼っている。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "水（さんずい）",
@@ -10027,6 +10529,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "踪",
   "kanji": "失踪",
   "sentence": "飼い犬が《シッソウ》してしまった。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "大",
@@ -10038,6 +10541,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "藻",
   "kanji": "海藻",
   "sentence": "海岸で《カイソウ》を拾い集めた。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "水（さんずい）",
@@ -10049,6 +10553,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "遜",
   "kanji": "謙遜",
   "sentence": "彼はほめられても《ケンソン》する性格だ。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "言（ごんべん）",
@@ -10060,6 +10565,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "汰",
   "kanji": "淘汰",
   "sentence": "自然界では弱い生き物が《トウタ》される。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "水（さんずい）",
@@ -10071,6 +10577,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "唾",
   "kanji": "唾液",
   "sentence": "レモンを見ると《ダエキ》が出てきた。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "口（くちへん）",
@@ -10082,6 +10589,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "堕",
   "kanji": "堕落",
   "sentence": "怠けた生活は《ダラク》につながる。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "土",
@@ -10093,6 +10601,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "惰",
   "kanji": "惰性",
   "sentence": "自転車は《ダセイ》で少し進んだ。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "心（りっしんべん）",
@@ -10104,6 +10613,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "駄",
   "kanji": "無駄",
   "sentence": "時間を《ムダ》にしないよう計画を立てる。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "火（ひ）",
@@ -10115,6 +10625,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "堆",
   "kanji": "堆積",
   "sentence": "川底に砂が《タイセキ》している。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "土（つちへん）",
@@ -10126,6 +10637,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "戴",
   "kanji": "頂戴",
   "sentence": "先生から本を《チョウダイ》した。",
+  "readingSplit": 3,
   "grade": 3,
   "radicals": [
    "頁（おおがい）",
@@ -10137,6 +10649,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "濯",
   "kanji": "洗濯",
   "sentence": "休日に家族の《センタク》を手伝った。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "水（さんずい）",
@@ -10148,6 +10661,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "棚",
   "kanji": "本棚",
   "sentence": "《ホンダナ》に教科書を並べた。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "木",
@@ -10169,6 +10683,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "痴",
   "kanji": "音痴",
   "sentence": "兄は歌が下手で《オンチ》だと言われる。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "音",
@@ -10180,6 +10695,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "緻",
   "kanji": "緻密",
   "sentence": "この機械は《チミツ》な設計でできている。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "糸（いとへん）",
@@ -10191,6 +10707,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "秩",
   "kanji": "秩序",
   "sentence": "みんなが並んで《チツジョ》を守る。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "禾（のぎへん）",
@@ -10202,6 +10719,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "嫡",
   "kanji": "嫡男",
   "sentence": "武将の《チャクナン》が家を継いだ。",
+  "readingSplit": 3,
   "grade": 3,
   "radicals": [
    "女（おんなへん）",
@@ -10213,6 +10731,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "衷",
   "kanji": "折衷",
   "sentence": "この建物は和洋《セッチュウ》の様式だ。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "手（てへん）",
@@ -10224,6 +10743,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "酎",
   "kanji": "焼酎",
   "sentence": "祖父は夕食に《ショウチュウ》を飲む。",
+  "readingSplit": 3,
   "grade": 3,
   "radicals": [
    "火（ひへん）",
@@ -10265,6 +10785,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "嘲",
   "kanji": "嘲笑",
   "sentence": "失敗を《チョウショウ》されて悲しかった。",
+  "readingSplit": 3,
   "grade": 3,
   "radicals": [
    "口（くちへん）",
@@ -10286,6 +10807,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "勅",
   "kanji": "勅令",
   "sentence": "天皇の《チョクレイ》が出された。",
+  "readingSplit": 3,
   "grade": 3,
   "radicals": [
    "力（ちから）",
@@ -10297,6 +10819,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "捗",
   "kanji": "進捗",
   "sentence": "宿題の《シンチョク》を先生に報告する。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "辵（しんにょう）",
@@ -10318,6 +10841,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "椎",
   "kanji": "脊椎",
   "sentence": "理科の授業で人間の《セキツイ》について学んだ。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "肉",
@@ -10349,6 +10873,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "呈",
   "kanji": "贈呈",
   "sentence": "優勝者に賞状が《ゾウテイ》された。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "貝（かいへん）",
@@ -10360,6 +10885,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "廷",
   "kanji": "法廷",
   "sentence": "裁判は《ホウテイ》で行われる。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "水（さんずい）",
@@ -10371,6 +10897,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "邸",
   "kanji": "邸宅",
   "sentence": "郊外に大きな《テイタク》が建っている。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "邑（おおざと）",
@@ -10382,6 +10909,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "亭",
   "kanji": "料亭",
   "sentence": "祖父母と《リョウテイ》で食事をした。",
+  "readingSplit": 3,
   "grade": 3,
   "radicals": [
    "斗",
@@ -10393,6 +10921,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "貞",
   "kanji": "貞節",
   "sentence": "昔の物語には《テイセツ》な人物がよく描かれる。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "貝（かい）",
@@ -10404,6 +10933,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "逓",
   "kanji": "逓減",
   "sentence": "この地域の人口は年々《テイゲン》している。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "辵（しんにょう）",
@@ -10415,6 +10945,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "偵",
   "kanji": "探偵",
   "sentence": "彼は《タンテイ》のように事件を推理した。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "手（てへん）",
@@ -10448,6 +10979,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "迭",
   "kanji": "更迭",
   "sentence": "監督が《コウテツ》されてチームは変わった。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "曰",
@@ -10459,6 +10991,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "塡",
   "kanji": "補塡",
   "sentence": "不足した分を《ホテン》する。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "衣（ころもへん）",
@@ -10490,6 +11023,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "悼",
   "kanji": "追悼",
   "sentence": "亡くなった方の《ツイトウ》式に参加した。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "辵（しんにょう）",
@@ -10501,6 +11035,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "搭",
   "kanji": "搭乗",
   "sentence": "飛行機に《トウジョウ》する。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "手（てへん）",
@@ -10512,6 +11047,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "棟",
   "kanji": "病棟",
   "sentence": "祖父は病院の《ビョウトウ》で治療を受けている。",
+  "readingSplit": 3,
   "grade": 3,
   "radicals": [
    "疒（やまいだれ）",
@@ -10523,6 +11059,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "謄",
   "kanji": "謄本",
   "sentence": "市役所で戸籍《トウホン》をもらう。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "言",
@@ -10544,6 +11081,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "騰",
   "kanji": "高騰",
   "sentence": "野菜の値段が《コウトウ》している。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "高",
@@ -10555,6 +11093,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "洞",
   "kanji": "空洞",
   "sentence": "木の幹に大きな《クウドウ》ができていた。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "穴（あなかんむり）",
@@ -10576,6 +11115,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "督",
   "kanji": "督促",
   "sentence": "税金の《トクソク》状が届いた。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "目",
@@ -10609,6 +11149,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "頓",
   "kanji": "整頓",
   "sentence": "机の上を《セイトン》する。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "攴（ぼくにょう）",
@@ -10620,6 +11161,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "貪",
   "kanji": "貪欲",
   "sentence": "彼は知識に《ドンヨク》だ。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "貝（かい）",
@@ -10631,6 +11173,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "那",
   "kanji": "那覇",
   "sentence": "沖縄県の県庁所在地は《ナハ》市だ。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "邑（おおざと）",
@@ -10662,6 +11205,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "軟",
   "kanji": "柔軟",
   "sentence": "体を《ジュウナン》に保つ。",
+  "readingSplit": 3,
   "grade": 3,
   "radicals": [
    "木（き）",
@@ -10693,6 +11237,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "妊",
   "kanji": "妊婦",
   "sentence": "電車で《ニンプ》に席を譲った。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "女（おんなへん）",
@@ -10704,6 +11249,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "忍",
   "kanji": "忍者",
   "sentence": "彼は《ニンジャ》の映画が好きだ。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "心（したごころ）",
@@ -10715,6 +11261,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "寧",
   "kanji": "丁寧",
   "sentence": "先生は《テイネイ》に説明してくれた。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "一",
@@ -10726,6 +11273,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "捻",
   "kanji": "捻挫",
   "sentence": "走っていて足首を《ネンザ》した。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "手（てへん）",
@@ -10737,6 +11285,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "覇",
   "kanji": "制覇",
   "sentence": "チームは大会で《セイハ》を果たした。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "刀（りっとう）",
@@ -10748,6 +11297,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "罵",
   "kanji": "罵倒",
   "sentence": "人前で《バトウ》するのはよくない。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "网（あみがしら）",
@@ -10759,6 +11309,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "媒",
   "kanji": "媒体",
   "sentence": "新聞は情報の《バイタイ》だ。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "女（おんなへん）",
@@ -10770,6 +11321,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "賠",
   "kanji": "賠償",
   "sentence": "事故の《バイショウ》を求められた。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "貝（かいへん）",
@@ -10781,6 +11333,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "伯",
   "kanji": "伯父",
   "sentence": "夏休みに《オジ》の家へ行った。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "人（にんべん）",
@@ -10802,6 +11355,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "舶",
   "kanji": "船舶",
   "sentence": "この港には大きな《センパク》が並ぶ。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "舟（ふねへん）",
@@ -10813,6 +11367,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "漠",
   "kanji": "砂漠",
   "sentence": "ラクダは《サバク》を歩く動物だ。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "石（いしへん）",
@@ -10856,6 +11411,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "閥",
   "kanji": "派閥",
   "sentence": "政治の世界には《ハバツ》がある。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "水（さんずい）",
@@ -10867,6 +11423,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "氾",
   "kanji": "氾濫",
   "sentence": "大雨で川が《ハンラン》した。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "水（さんずい）",
@@ -10878,6 +11435,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "汎",
   "kanji": "汎用",
   "sentence": "このソフトは《ハンヨウ》性が高い。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "水（さんずい）",
@@ -10889,6 +11447,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "斑",
   "kanji": "斑点",
   "sentence": "犬の背中に白い《ハンテン》がある。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "文",
@@ -10910,6 +11469,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "頒",
   "kanji": "頒布",
   "sentence": "部活動で会報を《ハンプ》した。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "頁（おおがい）",
@@ -10921,6 +11481,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "妃",
   "kanji": "王妃",
   "sentence": "童話に美しい《オウヒ》が登場する。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "玉",
@@ -10932,6 +11493,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "披",
   "kanji": "披露",
   "sentence": "結婚式で歌を《ヒロウ》した。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "手（てへん）",
@@ -10953,6 +11515,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "罷",
   "kanji": "罷免",
   "sentence": "大臣が《ヒメン》された。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "网（あみがしら）",
@@ -10994,6 +11557,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "賓",
   "kanji": "来賓",
   "sentence": "卒業式に《ライヒン》が出席した。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "木",
@@ -11005,6 +11569,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "瓶",
   "kanji": "花瓶",
   "sentence": "教室の《カビン》に花を飾る。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "艸（くさかんむり）",
@@ -11016,6 +11581,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "扶",
   "kanji": "扶養",
   "sentence": "祖母は父の《フヨウ》家族だ。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "手（てへん）",
@@ -11027,6 +11593,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "訃",
   "kanji": "訃報",
   "sentence": "恩師の《フホウ》が届いた。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "言（ごんべん）",
@@ -11038,6 +11605,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "膚",
   "kanji": "皮膚",
   "sentence": "日焼けで《ヒフ》がひりひりする。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "皮",
@@ -11049,6 +11617,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "賦",
   "kanji": "天賦",
   "sentence": "彼女は《テンプ》の才能を持つ。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "大",
@@ -11060,6 +11629,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "譜",
   "kanji": "楽譜",
   "sentence": "音楽の授業で《ガクフ》を読む。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "木（き）",
@@ -11071,6 +11641,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "侮",
   "kanji": "侮辱",
   "sentence": "友達を《ブジョク》してはいけない。",
+  "readingSplit": 1,
   "grade": 2,
   "radicals": [
    "人（にんべん）",
@@ -11082,6 +11653,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "沸",
   "kanji": "沸騰",
   "sentence": "やかんの湯が《フットウ》した。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "水（さんずい）",
@@ -11093,6 +11665,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "憤",
   "kanji": "憤慨",
   "sentence": "不公平な扱いに《フンガイ》した。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "心（りっしんべん）",
@@ -11114,6 +11687,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "併",
   "kanji": "合併",
   "sentence": "二つの町が《ガッペイ》した。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "口",
@@ -11135,6 +11709,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "幣",
   "kanji": "紙幣",
   "sentence": "財布に《シヘイ》を入れる。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "糸（いとへん）",
@@ -11146,6 +11721,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "弊",
   "kanji": "弊害",
   "sentence": "便利さには《ヘイガイ》もある。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "廾",
@@ -11157,6 +11733,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "蔽",
   "kanji": "隠蔽",
   "sentence": "会社が不正を《インペイ》した。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "阜（こざとへん）",
@@ -11178,6 +11755,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "蔑",
   "kanji": "軽蔑",
   "sentence": "うそをつく人を《ケイベツ》する。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "車（くるまへん）",
@@ -11211,6 +11789,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "俸",
   "kanji": "俸給",
   "sentence": "父は毎月《ホウキュウ》をもらう。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "人（にんべん）",
@@ -11232,6 +11811,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "剖",
   "kanji": "解剖",
   "sentence": "理科の授業でカエルを《カイボウ》した。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "角（つのへん）",
@@ -11253,6 +11833,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "貌",
   "kanji": "変貌",
   "sentence": "町の様子が大きく《ヘンボウ》した。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "夂",
@@ -11274,6 +11855,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "睦",
   "kanji": "親睦",
   "sentence": "クラスで《シンボク》を深める会を開く。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "見（みる）",
@@ -11285,6 +11867,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "撲",
   "kanji": "相撲",
   "sentence": "兄は《スモウ》が得意だ。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "目（め）",
@@ -11296,6 +11879,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "勃",
   "kanji": "勃発",
   "sentence": "戦争が突然《ボッパツ》した。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "力（ちから）",
@@ -11307,6 +11891,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "奔",
   "kanji": "奔走",
   "sentence": "兄は準備に《ホンソウ》した。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "大",
@@ -11318,6 +11903,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "麻",
   "kanji": "麻酔",
   "sentence": "手術の前に《マスイ》をかける。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "麻",
@@ -11329,6 +11915,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "摩",
   "kanji": "摩擦",
   "sentence": "二つの布が《マサツ》で熱くなる。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "手",
@@ -11350,6 +11937,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "抹",
   "kanji": "抹茶",
   "sentence": "京都で《マッチャ》を飲んだ。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "手（てへん）",
@@ -11361,6 +11949,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "冥",
   "kanji": "冥福",
   "sentence": "亡くなった人の《メイフク》を祈る。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "冖（わかんむり）",
@@ -11372,6 +11961,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "銘",
   "kanji": "感銘",
   "sentence": "彼の言葉に深く《カンメイ》を受けた。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "心（したごころ）",
@@ -11393,6 +11983,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "妄",
   "kanji": "妄想",
   "sentence": "彼は変な《モウソウ》をしている。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "女（おんな）",
@@ -11404,6 +11995,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "盲",
   "kanji": "盲点",
   "sentence": "そこが計画の《モウテン》だった。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "目",
@@ -11415,6 +12007,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "耗",
   "kanji": "消耗",
   "sentence": "長い練習で体力を《ショウモウ》した。",
+  "readingSplit": 3,
   "grade": 3,
   "radicals": [
    "水（さんずい）",
@@ -11426,6 +12019,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "冶",
   "kanji": "鍛冶",
   "sentence": "祖父は《カジ》屋を営んでいた。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "金（かねへん）",
@@ -11437,6 +12031,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "弥",
   "kanji": "弥生",
   "sentence": "三月は《ヤヨイ》と呼ばれる。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "弓（ゆみへん）",
@@ -11458,6 +12053,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "愉",
   "kanji": "愉快",
   "sentence": "友達との時間はとても《ユカイ》だ。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "心（りっしんべん）",
@@ -11489,6 +12085,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "猶",
   "kanji": "猶予",
   "sentence": "提出期限に《ユウヨ》をもらった。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "犬",
@@ -11500,6 +12097,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "裕",
   "kanji": "余裕",
   "sentence": "時間に《ヨユウ》を持って行動する。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "人",
@@ -11511,6 +12109,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "妖",
   "kanji": "妖怪",
   "sentence": "昔話には《ヨウカイ》がよく出てくる。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "女（おんなへん）",
@@ -11522,6 +12121,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "庸",
   "kanji": "中庸",
   "sentence": "何事も《チュウヨウ》が大切だ。",
+  "readingSplit": 3,
   "grade": 3,
   "radicals": [
    "丨",
@@ -11533,6 +12133,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "瘍",
   "kanji": "潰瘍",
   "sentence": "胃に《カイヨウ》ができて入院した。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "水（さんずい）",
@@ -11554,6 +12155,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "沃",
   "kanji": "肥沃",
   "sentence": "この土地は《ヒヨク》で作物がよく育つ。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "肉（にくづき）",
@@ -11565,6 +12167,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "拉",
   "kanji": "拉致",
   "sentence": "その事件は《ラチ》事件と呼ばれた。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "手（てへん）",
@@ -11576,6 +12179,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "酪",
   "kanji": "酪農",
   "sentence": "北海道は《ラクノウ》が盛んだ。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "酉（とりへん）",
@@ -11587,6 +12191,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "辣",
   "kanji": "辛辣",
   "sentence": "彼は《シンラツ》な意見を言った。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "辛",
@@ -11598,6 +12203,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "藍",
   "kanji": "藍色",
   "sentence": "空が《アイイロ》に染まっている。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "艸（くさかんむり）",
@@ -11609,6 +12215,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "痢",
   "kanji": "下痢",
   "sentence": "お腹を壊して《ゲリ》になった。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "一",
@@ -11630,6 +12237,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "璃",
   "kanji": "瑠璃",
   "sentence": "《ルリ》色の美しい石を見つけた。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "玉",
@@ -11641,6 +12249,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "慄",
   "kanji": "戦慄",
   "sentence": "恐ろしい話に《センリツ》を覚えた。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "戈（ほこ）",
@@ -11662,6 +12271,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "侶",
   "kanji": "伴侶",
   "sentence": "彼は生涯の《ハンリョ》を見つけた。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "人（にんべん）",
@@ -11673,6 +12283,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "虜",
   "kanji": "捕虜",
   "sentence": "兵士が《ホリョ》になった。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "手（てへん）",
@@ -11684,6 +12295,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "僚",
   "kanji": "同僚",
   "sentence": "職場の《ドウリョウ》と協力する。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "口",
@@ -11705,6 +12317,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "瞭",
   "kanji": "明瞭",
   "sentence": "彼の説明はとても《メイリョウ》だった。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "日（ひへん）",
@@ -11728,6 +12341,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "累",
   "kanji": "累計",
   "sentence": "売り上げの《ルイケイ》を集計する。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "糸",
@@ -11739,6 +12353,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "隷",
   "kanji": "隷書",
   "sentence": "書道の授業で《レイショ》という書体を学んだ。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "隶（れいづくり）",
@@ -11750,6 +12365,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "賂",
   "kanji": "賄賂",
   "sentence": "役人が《ワイロ》を受け取った。",
+  "readingSplit": 2,
   "grade": 3,
   "radicals": [
    "貝（かいへん）",
@@ -11761,6 +12377,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "弄",
   "kanji": "愚弄",
   "sentence": "人を《グロウ》するのはよくない。",
+  "readingSplit": 1,
   "grade": 3,
   "radicals": [
    "心（したごころ）",

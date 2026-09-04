@@ -168,6 +168,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 9,
    "kanji": "危険",
    "sentence": "《キケン》な道。",
+   "readingSplit": 1,
    "pref": "岐阜",
    "wordMeaning": "悪いこと・恐ろしいことが起こるおそれがある様子。",
    "chars": [
@@ -230,6 +231,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 12,
    "kanji": "往復",
    "sentence": "沢までの《オウフク》をもういちどやる。",
+   "readingSplit": 2,
    "pref": "岡山",
    "wordMeaning": "行きと帰り、両方の道のりを行くこと。",
    "chars": [
@@ -256,6 +258,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 13,
    "kanji": "専門",
    "sentence": "《センモン》家から教わる。",
+   "readingSplit": 2,
    "pref": "長野",
    "wordMeaning": "一つのことを特に深く研究したり、それを仕事にしたりしていること。",
    "chars": [
@@ -300,6 +303,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 15,
    "kanji": "綿密",
    "sentence": "登山に向けて《メンミツ》な計画を立てる。",
+   "readingSplit": 2,
    "pref": "埼玉",
    "wordMeaning": "細かいところまで、注意深く考えられている様子。",
    "chars": [
@@ -398,6 +402,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 20,
    "kanji": "演奏",
    "sentence": "ピアノの《エンソウ》会に招かれる。",
+   "readingSplit": 2,
    "pref": "大分",
    "wordMeaning": "楽器を使って音楽を鳴らすこと。",
    "chars": [
@@ -460,6 +465,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 23,
    "kanji": "散策",
    "sentence": "公園を《サンサク》する。",
+   "readingSplit": 2,
    "wordMeaning": "特に目的を決めず、のんびり歩いて回ること。",
    "pref": "栃木",
    "chars": [
@@ -540,6 +546,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 27,
    "kanji": "価値",
    "sentence": "《カチ》ある品物を買う。",
+   "readingSplit": 1,
    "wordMeaning": "物事の役に立つ度合い、値打ち。",
    "pref": "三重",
    "chars": [
@@ -620,6 +627,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 31,
    "kanji": "功績",
    "sentence": "長年の《コウセキ》が認められる。",
+   "readingSplit": 2,
    "wordMeaning": "がんばって成し遂げた、値打ちのある仕事や成果。",
    "pref": "宮城",
    "chars": [
@@ -664,6 +672,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 33,
    "kanji": "資源",
    "sentence": "大きい動物は、必要とする《シゲン》の量も膨大だ。",
+   "readingSplit": 1,
    "wordMeaning": "物を作ったり生活したりするために必要な、もとになるもの。",
    "pref": "徳島",
    "chars": [
@@ -708,6 +717,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 35,
    "kanji": "貿易",
    "sentence": "外国との《ボウエキ》で利益を得る。",
+   "readingSplit": 2,
    "wordMeaning": "外国と品物を売ったり買ったりすること。",
    "pref": "神奈川",
    "chars": [
@@ -734,6 +744,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 36,
    "kanji": "約束",
    "sentence": "《ヤクソク》を守る。",
+   "readingSplit": 2,
    "wordMeaning": "相手と、こうすると決めておくこと。",
    "pref": "広島",
    "chars": [
@@ -814,6 +825,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 40,
    "kanji": "牛乳",
    "sentence": "新鮮な《ギュウニュウ》を飲む。",
+   "readingSplit": 3,
    "wordMeaning": "牛のちちを加工した飲み物。",
    "pref": null,
    "chars": [
@@ -1002,6 +1014,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 50,
    "kanji": "宇宙",
    "sentence": "《ウチュウ》から帰還する。",
+   "readingSplit": 2,
    "wordMeaning": "地球の大気の外に広がる、果てしない空間。",
    "pref": null,
    "chars": [
@@ -1028,6 +1041,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 51,
    "kanji": "裁判",
    "sentence": "その事件は《サイバン》で争われた。",
+   "readingSplit": 2,
    "wordMeaning": "法律に基づいて、争いごとの善悪や罪の有無を決めること。",
    "pref": null,
    "chars": [
@@ -1144,6 +1158,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 57,
    "kanji": "伝統",
    "sentence": "百年の《デントウ》がある学校。",
+   "readingSplit": 2,
    "wordMeaning": "昔から受けつがれてきた、しきたりや価値のあるもの。",
    "pref": null,
    "chars": [
@@ -1206,6 +1221,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 60,
    "kanji": "雑誌",
    "sentence": "料理の《ザッシ》を読む。",
+   "readingSplit": 2,
    "wordMeaning": "決まった期間ごとに発行される本。",
    "pref": null,
    "chars": [
@@ -1232,6 +1248,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 61,
    "kanji": "快晴",
    "sentence": "雲一つない《カイセイ》の日。",
+   "readingSplit": 2,
    "wordMeaning": "雲がほとんどなく、よく晴れわたっていること。",
    "pref": null,
    "chars": [
@@ -1258,6 +1275,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 62,
    "kanji": "売買",
    "sentence": "新鮮な野菜が《バイバイ》される。",
+   "readingSplit": 2,
    "wordMeaning": "品物を売ったり買ったりすること。",
    "pref": null,
    "chars": [
@@ -1284,6 +1302,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 63,
    "kanji": "俳句",
    "sentence": "鐘の音を聞きながら《ハイク》を作る。",
+   "readingSplit": 2,
    "wordMeaning": "五・七・五の十七音からなる、日本の伝統的な短い詩。",
    "pref": null,
    "chars": [
@@ -1310,6 +1329,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 64,
    "kanji": "重要",
    "sentence": "《ジュウヨウ》な講義を受ける。",
+   "readingSplit": 3,
    "wordMeaning": "とても大切である様子。",
    "pref": null,
    "chars": [
@@ -1336,6 +1356,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 65,
    "kanji": "吸収",
    "sentence": "知識を《キュウシュウ》する。",
+   "readingSplit": 3,
    "wordMeaning": "外から取り入れて、自分のものにすること。",
    "pref": null,
    "chars": [
@@ -1362,6 +1383,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 66,
    "kanji": "商売",
    "sentence": "《ショウバイ》をする。",
+   "readingSplit": 3,
    "wordMeaning": "品物やサービスを売って利益を得ること。",
    "pref": null,
    "chars": [
@@ -1406,6 +1428,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 68,
    "kanji": "縮尺",
    "sentence": "《シュクシャク》五万分の一の地図を見る。",
+   "readingSplit": 3,
    "wordMeaning": "実際の大きさを、一定の割合で縮めて表すこと。",
    "pref": null,
    "chars": [
@@ -1432,6 +1455,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 69,
    "kanji": "児童",
    "sentence": "《ジドウ》の権利に関する条約。",
+   "readingSplit": 1,
    "wordMeaning": "小学校に通う年齢くらいの子ども。",
    "pref": null,
    "chars": [
@@ -1494,6 +1518,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 72,
    "kanji": "輸送",
    "sentence": "荷物がトラックで《ユソウ》された。",
+   "readingSplit": 1,
    "wordMeaning": "人や物を、乗り物で運ぶこと。",
    "pref": null,
    "chars": [
@@ -1556,6 +1581,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 75,
    "kanji": "車窓",
    "sentence": "バスの《シャソウ》から景色を見る。",
+   "readingSplit": 2,
    "wordMeaning": "電車やバスなどの、乗り物の窓。",
    "pref": null,
    "chars": [
@@ -1582,6 +1608,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 76,
    "kanji": "郵便",
    "sentence": "《ユウビン》番号を調べる。",
+   "readingSplit": 2,
    "wordMeaning": "手紙や荷物を、届け先まで送り届けるしくみ。",
    "pref": null,
    "chars": [
@@ -1626,6 +1653,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 78,
    "kanji": "単刀",
    "sentence": "《タントウ》直入に尋ねる。",
+   "readingSplit": 2,
    "wordMeaning": "前置きをせず、いきなり本題に入ること。",
    "pref": null,
    "chars": [
@@ -1688,6 +1716,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 81,
    "kanji": "看護",
    "sentence": "手厚い《カンゴ》を受ける。",
+   "readingSplit": 2,
    "wordMeaning": "病人やけがをした人の世話をすること。",
    "pref": null,
    "chars": [
@@ -1714,6 +1743,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 82,
    "kanji": "負担",
    "sentence": "費用を《フタン》する。",
+   "readingSplit": 1,
    "wordMeaning": "仕事やお金などを、自分が引き受けること。",
    "pref": null,
    "chars": [
@@ -1740,6 +1770,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 83,
    "kanji": "閉幕",
    "sentence": "盛況のうちに《ヘイマク》した。",
+   "readingSplit": 2,
    "wordMeaning": "催し物や行事が終わること。",
    "pref": null,
    "chars": [
@@ -1766,6 +1797,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 84,
    "kanji": "責務",
    "sentence": "重い《セキム》を果たす。",
+   "readingSplit": 2,
    "wordMeaning": "果たさなければならない、責任のある務め。",
    "pref": null,
    "chars": [
@@ -1792,6 +1824,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 85,
    "kanji": "航海",
    "sentence": "世界一周の《コウカイ》に出る。",
+   "readingSplit": 2,
    "wordMeaning": "船で海を渡って進むこと。",
    "pref": null,
    "chars": [
@@ -1818,6 +1851,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 86,
    "kanji": "登録",
    "sentence": "世界遺産に《トウロク》される。",
+   "readingSplit": 2,
    "wordMeaning": "名簿や台帳に、正式に記録すること。",
    "pref": null,
    "chars": [
@@ -1880,6 +1914,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 89,
    "kanji": "境界",
    "sentence": "隣町との《キョウカイ》を歩く。",
+   "readingSplit": 3,
    "wordMeaning": "土地などの、区切り目。",
    "pref": null,
    "chars": [
@@ -1906,6 +1941,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 90,
    "kanji": "眼鏡",
    "sentence": "本を読むときは《メガネ》をかける。",
+   "readingSplit": 1,
    "wordMeaning": "目でよく見るために使う道具。",
    "pref": null,
    "chars": [
@@ -1932,6 +1968,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 91,
    "kanji": "財布",
    "sentence": "《サイフ》のひもを締める。",
+   "readingSplit": 2,
    "wordMeaning": "お金を入れて持ち歩くための小さな入れ物。",
    "pref": null,
    "chars": [
@@ -1976,6 +2013,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 93,
    "kanji": "厳守",
    "sentence": "時間を《ゲンシュ》する。",
+   "readingSplit": 2,
    "wordMeaning": "決まりや約束を、きびしく守ること。",
    "pref": null,
    "chars": [
@@ -2002,6 +2040,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 94,
    "kanji": "演劇",
    "sentence": "《エンゲキ》の脚本を書く。",
+   "readingSplit": 2,
    "wordMeaning": "役者が舞台の上で演じる劇。",
    "pref": null,
    "chars": [
@@ -2028,6 +2067,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 95,
    "kanji": "展覧",
    "sentence": "書き初めの《テンラン》会。",
+   "readingSplit": 2,
    "wordMeaning": "作品などを並べて、人々に見せること。",
    "pref": null,
    "chars": [
@@ -2090,6 +2130,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 98,
    "kanji": "樹皮",
    "sentence": "桜の《ジュヒ》をはがす。",
+   "readingSplit": 2,
    "wordMeaning": "木の幹の表面をおおっている皮。",
    "pref": null,
    "chars": [
@@ -2116,6 +2157,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 99,
    "kanji": "装置",
    "sentence": "実験《ソウチ》を組み立てる。",
+   "readingSplit": 2,
    "wordMeaning": "ある目的のために作られた仕掛けや機械。",
    "pref": null,
    "chars": [
@@ -2142,6 +2184,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 100,
    "kanji": "昼夜",
    "sentence": "《チュウヤ》の別なく行き交う。",
+   "readingSplit": 3,
    "wordMeaning": "昼と夜。一日中。",
    "pref": null,
    "chars": [
@@ -2168,6 +2211,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 101,
    "kanji": "包装",
    "sentence": "本をきれいに《ホウソウ》する。",
+   "readingSplit": 2,
    "wordMeaning": "物を紙などで包むこと。",
    "pref": null,
    "chars": [
@@ -2194,6 +2238,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 102,
    "kanji": "粉骨",
    "sentence": "《フンコツ》砕身の努力をする。",
+   "readingSplit": 2,
    "wordMeaning": "骨を粉にするほど、力の限り努力すること。",
    "pref": null,
    "chars": [
@@ -2220,6 +2265,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 103,
    "kanji": "推測",
    "sentence": "結果を《スイソク》する。",
+   "readingSplit": 2,
    "wordMeaning": "わかっていることをもとに、たぶんこうだろうと考えること。",
    "pref": null,
    "chars": [
@@ -2246,6 +2292,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 104,
    "kanji": "貯蔵",
    "sentence": "倉庫に米を《チョゾウ》する。",
+   "readingSplit": 2,
    "wordMeaning": "物をたくわえて、しまっておくこと。",
    "pref": null,
    "chars": [
@@ -2290,6 +2337,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 106,
    "kanji": "土俵",
    "sentence": "力士が《ドヒョウ》に上がる。",
+   "readingSplit": 1,
    "wordMeaning": "相撲を取るための、土を盛った円形の場所。",
    "pref": null,
    "chars": [
@@ -2316,6 +2364,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 107,
    "kanji": "救急",
    "sentence": "《キュウキュウ》箱の薬を使う。",
+   "readingSplit": 3,
    "wordMeaning": "急な病気やけがに、その場ですぐ対応すること。",
    "pref": null,
    "chars": [
@@ -2378,6 +2427,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 110,
    "kanji": "旧知",
    "sentence": "あの人とは《キュウチ》の仲だ。",
+   "readingSplit": 3,
    "wordMeaning": "以前からの知り合い。昔からの知人。",
    "pref": null,
    "chars": [
@@ -2422,6 +2472,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 112,
    "kanji": "創刊",
    "sentence": "科学雑誌が《ソウカン》される。",
+   "readingSplit": 2,
    "wordMeaning": "新しい雑誌や新聞を、初めて発行すること。",
    "pref": null,
    "chars": [
@@ -2466,6 +2517,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 114,
    "kanji": "勤勉",
    "sentence": "《キンベン》な仕事ぶりが評価される。",
+   "readingSplit": 2,
    "wordMeaning": "まじめに一生懸命働く様子。",
    "pref": null,
    "chars": [
@@ -2490,9 +2542,9 @@ window.KANJI_WRITE_DATA = {
   {
    "id": "kw115",
    "rank": 115,
-   "kanji": "梅林",
-   "sentence": "うぐいすの鳴く《バイリン》を歩く。",
-   "wordMeaning": "梅の木がたくさん植えられている林。",
+   "kanji": "梅",
+   "sentence": "庭の《ウメ》の木に花が咲いた。",
+   "wordMeaning": "早春に白やピンクの花を咲かせる木。実は梅干しなどに使われる。",
    "pref": null,
    "chars": [
     {
@@ -2502,14 +2554,6 @@ window.KANJI_WRITE_DATA = {
      "radical": "木（きへん）",
      "origin": "「木」と音を表す「毎」からなる形声文字。",
      "meaning": "うめの木。「梅雨」の略としても使う。"
-    },
-    {
-     "ch": "林",
-     "onyomi": "リン",
-     "kunyomi": "はやし",
-     "radical": "木",
-     "origin": "「木」を二つ並べて、木が並び生えている所を表す会意文字。",
-     "meaning": "木や竹が群がり生えている所。"
     }
    ]
   },
@@ -2518,6 +2562,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 116,
    "kanji": "復旧",
    "sentence": "道路は二日で《フッキュウ》した。",
+   "readingSplit": 2,
    "wordMeaning": "壊れたものが、もとの状態に戻ること。",
    "pref": null,
    "chars": [
@@ -2562,6 +2607,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 118,
    "kanji": "複写",
    "sentence": "文献を《フクシャ》する。",
+   "readingSplit": 2,
    "wordMeaning": "元の書類などを、そのまま写し取ること。",
    "pref": null,
    "chars": [
@@ -2588,6 +2634,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 119,
    "kanji": "共鳴",
    "sentence": "多くの若者が《キョウメイ》した。",
+   "readingSplit": 3,
    "wordMeaning": "他人の考えや行動に、心から共感すること。",
    "pref": null,
    "chars": [
@@ -2614,6 +2661,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 120,
    "kanji": "旅券",
    "sentence": "《リョケン》を申請する。",
+   "readingSplit": 2,
    "wordMeaning": "外国へ行くときに必要な、身分を証明する書類(パスポート)。",
    "pref": null,
    "chars": [
@@ -2658,6 +2706,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 122,
    "kanji": "汽笛",
    "sentence": "船の《キテキ》が鳴り響く。",
+   "readingSplit": 1,
    "wordMeaning": "汽車や船が鳴らす、大きな音の笛。",
    "pref": null,
    "chars": [
@@ -2702,6 +2751,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 124,
    "kanji": "保証",
    "sentence": "安全を《ホショウ》する。",
+   "readingSplit": 1,
    "wordMeaning": "間違いないと責任を持って請け合うこと。",
    "pref": null,
    "chars": [
@@ -2764,6 +2814,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 127,
    "kanji": "競争",
    "sentence": "生存《キョウソウ》に生き残る。",
+   "readingSplit": 3,
    "wordMeaning": "他と競い合い、優劣を争うこと。",
    "pref": null,
    "chars": [
@@ -2844,6 +2895,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 131,
    "kanji": "志向",
    "sentence": "弁護士を《シコウ》する。",
+   "readingSplit": 1,
    "wordMeaning": "ある方向・目的を目指そうとする気持ち。",
    "pref": null,
    "chars": [
@@ -2906,6 +2958,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 134,
    "kanji": "鑑賞",
    "sentence": "素晴らしい芸術作品を《カンショウ》する。",
+   "readingSplit": 2,
    "wordMeaning": "芸術作品などを、味わい楽しむこと。",
    "pref": null,
    "chars": [
@@ -2932,6 +2985,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 135,
    "kanji": "開放",
    "sentence": "窓を《カイホウ》して空気を入れ替える。",
+   "readingSplit": 2,
    "wordMeaning": "戸や窓を開けて、出入りできるようにすること。",
    "pref": null,
    "chars": [
@@ -2958,6 +3012,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 136,
    "kanji": "最期",
    "sentence": "飼い犬の《サイゴ》を看取った。",
+   "readingSplit": 2,
    "wordMeaning": "命が終わる、その最後の瞬間。",
    "pref": null,
    "chars": [
@@ -2984,6 +3039,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 137,
    "kanji": "相性",
    "sentence": "あの兄弟は《アイショウ》がよくない。",
+   "readingSplit": 2,
    "wordMeaning": "互いの性格などが合うかどうかの相性。",
    "pref": null,
    "chars": [
@@ -3028,6 +3084,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 139,
    "kanji": "講演",
    "sentence": "有名な小説家の《コウエン》を聞きに行った。",
+   "readingSplit": 2,
    "wordMeaning": "大勢の人の前で、あるテーマについて話をすること。",
    "pref": null,
    "chars": [
@@ -3054,6 +3111,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 140,
    "kanji": "清算",
    "sentence": "過去の罪を《セイサン》して、新たな出発をした。",
+   "readingSplit": 2,
    "wordMeaning": "それまでの関係や借りなどに、きちんとけりをつけること。",
    "pref": null,
    "chars": [
@@ -3296,6 +3354,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 153,
    "kanji": "廃止",
    "sentence": "古い制度を《ハイシ》する。",
+   "readingSplit": 2,
    "wordMeaning": "今まであった制度などを、やめること。",
    "pref": null,
    "chars": [
@@ -3322,6 +3381,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 154,
    "kanji": "簡潔",
    "sentence": "《カンケツ》に説明する。",
+   "readingSplit": 2,
    "wordMeaning": "簡単で、要点がまとまっている様子。",
    "pref": null,
    "chars": [
@@ -3348,6 +3408,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 155,
    "kanji": "迅速",
    "sentence": "《ジンソク》に対応する。",
+   "readingSplit": 2,
    "wordMeaning": "動きがすばやい様子。",
    "pref": null,
    "chars": [
@@ -3374,6 +3435,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 156,
    "kanji": "円滑",
    "sentence": "話し合いが《エンカツ》に進む。",
+   "readingSplit": 2,
    "wordMeaning": "物事が、つかえずすらすら進む様子。",
    "pref": null,
    "chars": [
@@ -3400,6 +3462,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 157,
    "kanji": "融合",
    "sentence": "東西の文化が《ユウゴウ》する。",
+   "readingSplit": 2,
    "wordMeaning": "異なるものが溶け合い、一つになること。",
    "pref": null,
    "chars": [
@@ -3426,6 +3489,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 158,
    "kanji": "抽象",
    "sentence": "《チュウショウ》的な絵画。",
+   "readingSplit": 3,
    "wordMeaning": "具体的な形を持たず、考え方だけを取り出す様子。",
    "pref": null,
    "chars": [
@@ -3452,6 +3516,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 159,
    "kanji": "拡張",
    "sentence": "道路を《カクチョウ》する。",
+   "readingSplit": 2,
    "wordMeaning": "範囲や規模を広げること。",
    "pref": null,
    "chars": [
@@ -3478,6 +3543,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 160,
    "kanji": "縮小",
    "sentence": "事業を《シュクショウ》する。",
+   "readingSplit": 3,
    "wordMeaning": "規模を小さくすること。",
    "pref": null,
    "chars": [
@@ -3504,6 +3570,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 161,
    "kanji": "契機",
    "sentence": "進学を《ケイキ》に一人暮らしを始める。",
+   "readingSplit": 2,
    "wordMeaning": "物事が起こる、きっかけ。",
    "pref": null,
    "chars": [
@@ -3530,6 +3597,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 162,
    "kanji": "模範",
    "sentence": "クラスの《モハン》となる。",
+   "readingSplit": 1,
    "wordMeaning": "見習うべき手本。",
    "pref": null,
    "chars": [
@@ -3556,6 +3624,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 163,
    "kanji": "需要",
    "sentence": "《ジュヨウ》と供給のバランス。",
+   "readingSplit": 2,
    "wordMeaning": "商品などを求める人々の量。",
    "pref": null,
    "chars": [
@@ -3582,6 +3651,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 164,
    "kanji": "供給",
    "sentence": "電力を安定して《キョウキュウ》する。",
+   "readingSplit": 3,
    "wordMeaning": "必要な物を与え、与え続けること。",
    "pref": null,
    "chars": [
@@ -3608,6 +3678,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 165,
    "kanji": "潜在",
    "sentence": "《センザイ》的な能力を引き出す。",
+   "readingSplit": 2,
    "wordMeaning": "表には出ていないが、内部に持っている様子。",
    "pref": null,
    "chars": [
@@ -3634,6 +3705,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 166,
    "kanji": "顕著",
    "sentence": "効果が《ケンチョ》に表れる。",
+   "readingSplit": 2,
    "wordMeaning": "はっきりと目立っている様子。",
    "pref": null,
    "chars": [
@@ -3678,6 +3750,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 168,
    "kanji": "繁栄",
    "sentence": "町の《ハンエイ》を願う。",
+   "readingSplit": 2,
    "wordMeaning": "物事が盛んになり、豊かに栄えること。",
    "pref": null,
    "chars": [
@@ -3704,6 +3777,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 169,
    "kanji": "厳格",
    "sentence": "《ゲンカク》なしつけを受ける。",
+   "readingSplit": 2,
    "wordMeaning": "規則などに、少しの緩みもなく厳しい様子。",
    "pref": null,
    "chars": [
@@ -3730,6 +3804,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 170,
    "kanji": "承知",
    "sentence": "事情を《ショウチ》している。",
+   "readingSplit": 3,
    "wordMeaning": "事情などを知っていて、納得していること。",
    "pref": null,
    "chars": [
@@ -3756,6 +3831,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 171,
    "kanji": "詳細",
    "sentence": "《ショウサイ》を報告する。",
+   "readingSplit": 3,
    "wordMeaning": "細かいところまで、くわしいこと。",
    "pref": null,
    "chars": [
@@ -3782,6 +3858,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 172,
    "kanji": "概要",
    "sentence": "計画の《ガイヨウ》を説明する。",
+   "readingSplit": 2,
    "wordMeaning": "物事の、だいたいの内容。",
    "pref": null,
    "chars": [
@@ -3808,6 +3885,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 173,
    "kanji": "迷惑",
    "sentence": "近所に《メイワク》をかける。",
+   "readingSplit": 2,
    "wordMeaning": "他人にとって、不快で困る思いをさせること。",
    "pref": null,
    "chars": [
@@ -3834,6 +3912,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 174,
    "kanji": "潔白",
    "sentence": "身の《ケッパク》を証明する。",
+   "readingSplit": 2,
    "wordMeaning": "心や行いに、やましいところがないこと。",
    "pref": null,
    "chars": [
@@ -3860,6 +3939,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 175,
    "kanji": "討論",
    "sentence": "クラスで《トウロン》する。",
+   "readingSplit": 2,
    "wordMeaning": "お互いに意見を出し合い、議論すること。",
    "pref": null,
    "chars": [
@@ -3886,6 +3966,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 176,
    "kanji": "批評",
    "sentence": "作品を《ヒヒョウ》する。",
+   "readingSplit": 1,
    "wordMeaning": "物事のよい点・悪い点を評価すること。",
    "pref": null,
    "chars": [
@@ -3912,6 +3993,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 177,
    "kanji": "是正",
    "sentence": "誤りを《ゼセイ》する。",
+   "readingSplit": 1,
    "wordMeaning": "よくない点を直し、正しくすること。",
    "pref": null,
    "chars": [
@@ -3938,6 +4020,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 178,
    "kanji": "妥当",
    "sentence": "《ダトウ》な判断を下す。",
+   "readingSplit": 1,
    "wordMeaning": "実情によく当てはまっている様子。",
    "pref": null,
    "chars": [
@@ -3964,6 +4047,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 179,
    "kanji": "慎重",
    "sentence": "《シンチョウ》に行動する。",
+   "readingSplit": 2,
    "wordMeaning": "注意深く、軽々しく行動しない様子。",
    "pref": null,
    "chars": [
@@ -3990,6 +4074,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 180,
    "kanji": "我慢",
    "sentence": "痛みを《ガマン》する。",
+   "readingSplit": 1,
    "wordMeaning": "つらいことを、耐え忍ぶこと。",
    "pref": null,
    "chars": [
@@ -4016,6 +4101,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 181,
    "kanji": "尊重",
    "sentence": "他人の意見を《ソンチョウ》する。",
+   "readingSplit": 2,
    "wordMeaning": "価値のあるものとして、大切に扱うこと。",
    "pref": null,
    "chars": [
@@ -4042,6 +4128,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 182,
    "kanji": "誠実",
    "sentence": "《セイジツ》な人柄。",
+   "readingSplit": 2,
    "wordMeaning": "まじめで、うそやごまかしのない様子。",
    "pref": null,
    "chars": [
@@ -4068,6 +4155,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 183,
    "kanji": "貴重",
    "sentence": "《キチョウ》な体験をする。",
+   "readingSplit": 1,
    "wordMeaning": "とても値打ちがあり、大切なこと。",
    "pref": null,
    "chars": [
@@ -4094,6 +4182,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 184,
    "kanji": "委任",
    "sentence": "仕事を《イニン》する。",
+   "readingSplit": 1,
    "wordMeaning": "物事を、他の人に任せること。",
    "pref": null,
    "chars": [
@@ -4120,6 +4209,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 185,
    "kanji": "是非",
    "sentence": "《ゼヒ》参加してください。",
+   "readingSplit": 1,
    "wordMeaning": "なんとしても。よいか悪いか。",
    "pref": null,
    "chars": [
@@ -4146,6 +4236,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 186,
    "kanji": "郊外",
    "sentence": "《コウガイ》に引っ越す。",
+   "readingSplit": 2,
    "wordMeaning": "都市の周辺にある、家や田畑の多い地域。",
    "pref": null,
    "chars": [
@@ -4172,6 +4263,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 187,
    "kanji": "沿岸",
    "sentence": "《エンガン》の漁業。",
+   "readingSplit": 2,
    "wordMeaning": "海や川などの、岸に沿った地域。",
    "pref": null,
    "chars": [
@@ -4198,6 +4290,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 188,
    "kanji": "湾曲",
    "sentence": "道が《ワンキョク》している。",
+   "readingSplit": 2,
    "wordMeaning": "弓のように、弧を描いて曲がっていること。",
    "pref": null,
    "chars": [
@@ -4224,6 +4317,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 189,
    "kanji": "頑丈",
    "sentence": "《ガンジョウ》な作り。",
+   "readingSplit": 2,
    "wordMeaning": "こわれにくく、丈夫な様子。",
    "pref": null,
    "chars": [
@@ -4250,6 +4344,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 190,
    "kanji": "素朴",
    "sentence": "《ソボク》な疑問を持つ。",
+   "readingSplit": 1,
    "wordMeaning": "飾り気がなく、ありのままである様子。",
    "pref": null,
    "chars": [
@@ -4276,6 +4371,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 191,
    "kanji": "円熟",
    "sentence": "演技が《エンジュク》の域に達する。",
+   "readingSplit": 2,
    "wordMeaning": "経験を積んで、豊かに深まっていること。",
    "pref": null,
    "chars": [
@@ -4302,6 +4398,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 192,
    "kanji": "弾力",
    "sentence": "ゴムの《ダンリョク》を確かめる。",
+   "readingSplit": 2,
    "wordMeaning": "押しても、もとに戻ろうとする力。",
    "pref": null,
    "chars": [
@@ -4328,6 +4425,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 193,
    "kanji": "循環",
    "sentence": "血液が体内を《ジュンカン》する。",
+   "readingSplit": 3,
    "wordMeaning": "同じ道すじを、ぐるぐると回り続けること。",
    "pref": null,
    "chars": [
@@ -4354,6 +4452,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 194,
    "kanji": "促進",
    "sentence": "交流を《ソクシン》する。",
+   "readingSplit": 2,
    "wordMeaning": "物事が早く進むように、後押しすること。",
    "pref": null,
    "chars": [
@@ -4380,6 +4479,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 195,
    "kanji": "抑制",
    "sentence": "感情を《ヨクセイ》する。",
+   "readingSplit": 2,
    "wordMeaning": "勢いや働きを、おさえて止めること。",
    "pref": null,
    "chars": [
@@ -4406,6 +4506,7 @@ window.KANJI_WRITE_DATA = {
    "rank": 196,
    "kanji": "頻繁",
    "sentence": "《ヒンパン》に連絡を取り合う。",
+   "readingSplit": 2,
    "wordMeaning": "何度も、たびたび起こる様子。",
    "pref": null,
    "chars": [

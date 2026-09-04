@@ -3408,10 +3408,14 @@
 /* 「スタート」ボタンは中央、「やめる」は小さく右端に（教員の指示、2026-09-03）。 */
 .kb-quit-corner{ position:absolute; top:14px; right:14px; padding:4px 12px; font-size:.75rem; }
 /* 一文字ずつ採点する方式（教員の指示、2026-09-03）で、今どちらの文字を書いているか分かる
-   ようにする色分け。例文中の《カタカナ》括弧はデータ上1文字目・2文字目に分かれていないため、
-   括弧全体の色を書いている文字に合わせて切り替える（1文字目＝青、2文字目＝オレンジ）。 */
+   ようにする色分け。2026-09-04〜、2文字の熟語の問題にはreadingSplit（読みの何文字目までが
+   1文字目ぶんか）を持たせたので、括弧全体ではなく今書いている文字の読みの部分だけ太字＋色付け
+   にできる（教員の指示：「一文字目を書くときは、その部分だけ太字、色分け」）。readingSplitが
+   無い問題（1文字の問題、またはデータ未整備）は従来どおり括弧全体を切り替える
+   （kwsColoredSentenceHtml参照）。 */
 .kws-blank.kb-blank-c0{ color:#8ab4ff; text-decoration:underline; text-decoration-color:#8ab4ff; text-underline-offset:3px; }
 .kws-blank.kb-blank-c1{ color:#ffbb86; text-decoration:underline; text-decoration-color:#ffbb86; text-underline-offset:3px; }
+.kws-blank.kws-blank-inactive{ font-weight:normal; color:inherit; text-decoration:underline; text-underline-offset:3px; }
 /* 攻撃時に獲得したストック経験値をはっきり見せる（教員の指示、2026-09-03）。 */
 .kb-atk-xp{
   margin-top:2px; font-size:1.15rem; font-weight:900; color:#7CFFB2;
@@ -3665,7 +3669,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.58</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.59</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -7518,6 +7522,34 @@ function kwsSentenceFor(id){
   else list = (window.KANJI_WRITE_DATA && window.KANJI_WRITE_DATA.ranked) || [];
   const found = list.find(it => it.id === id);
   return found ? found.sentence : '';
+}
+// 2文字の熟語の問題だけが持つ、読み（《カタカナ》括弧の中身）の1文字目・2文字目の境目
+// （先頭から何文字ぶんが1文字目の読みか）。1文字の問題やデータ未整備の問題ではnull。
+function kwsReadingSplitFor(id){
+  let list;
+  if(id.indexOf('kwe') === 0) list = window.KANJI_WRITE_ELEM_DATA || [];
+  else if(id.indexOf('kwc') === 0) list = window.KANJI_WRITE_CHUGAKU_DATA || [];
+  else list = (window.KANJI_WRITE_DATA && window.KANJI_WRITE_DATA.ranked) || [];
+  const found = list.find(it => it.id === id);
+  return (found && typeof found.readingSplit === 'number') ? found.readingSplit : null;
+}
+// kb（漢字ボス）・mb等、1文字ずつ順番に書かせる画面の問題文HTML。readingSplitがあれば、
+// 今書いている文字（charIndex）ぶんの読みだけを太字＋色付けし、もう一方は普通の文字にする。
+// readingSplitが無い問題（1文字の問題を含む）は、従来どおり括弧全体をcharIndexの色にする。
+function kwsColoredSentenceHtml(id, charIndex){
+  const raw = kwsSentenceFor(id);
+  const split = kwsReadingSplitFor(id);
+  const activeCls = charIndex === 0 ? 'kb-blank-c0' : 'kb-blank-c1';
+  return raw.replace(/《([^》]*)》/g, (m, inner) => {
+    if(split == null || split < 1 || split > inner.length - 1){
+      return `<span class="kws-blank ${activeCls}">${inner}</span>`;
+    }
+    const part0 = inner.slice(0, split);
+    const part1 = inner.slice(split);
+    const cls0 = charIndex === 0 ? 'kb-blank-c0' : 'kws-blank-inactive';
+    const cls1 = charIndex === 1 ? 'kb-blank-c1' : 'kws-blank-inactive';
+    return `<span class="kws-blank ${cls0}">${part0}</span><span class="kws-blank ${cls1}">${part1}</span>`;
+  });
 }
 // 「書き順をチェックする」オーバーレイの左側に出す部首（教員の指示、2026-09-02）。
 // examデータ（kanji_write_data.js）はchars[].radicalに「力（ちから）」のような文字列を
@@ -24152,15 +24184,13 @@ function kbPickNextId(){
   return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
-// 例文の《カタカナ》括弧は、2文字の熟語でも1文字目・2文字目の読みを分けず「まとめて1つの
-// 括弧」で書かれている（データ側の仕様）。個々の文字の読みの境目は判定できないため、今書いて
-// いるのが1文字目か2文字目かは、括弧全体の色を切り替えることで示す（教員の指示、2026-09-03：
+// 今書いているのが1文字目か2文字目かを問題文の色で示す（教員の指示、2026-09-03：
 // 「どの字を今書いているか分かるように、問題文も色を付けるなどして工夫してください」）。
+// 2文字の熟語はreadingSplitがあれば今書いている文字の読みの部分だけを太字＋色付けする
+// （教員の指示、2026-09-04）。kwsColoredSentenceHtml参照。
 function kbRenderSentencePrompt(){
   const id = kanjiBoss.currentId;
-  const raw = kwsSentenceFor(id);
-  const cls = kanjiBoss.charIndex === 0 ? 'kb-blank-c0' : 'kb-blank-c1';
-  const html = raw.replace(/《([^》]*)》/g, (m, inner) => `<span class="kws-blank ${cls}">${inner}</span>`);
+  const html = kwsColoredSentenceHtml(id, kanjiBoss.charIndex);
   const el = document.getElementById('kbSentencePrompt');
   if(el) el.innerHTML = html || '（例文なし）';
 }
@@ -25017,9 +25047,7 @@ function mbSetStatus(msg, cls){
 
 function mbRenderSentencePrompt(){
   const id = mbChallenge.id;
-  const raw = kwsSentenceFor(id);
-  const cls = mbChallenge.charIndex === 0 ? 'kb-blank-c0' : 'kb-blank-c1';
-  const html = raw.replace(/《([^》]*)》/g, (m, inner) => `<span class="kws-blank ${cls}">${inner}</span>`);
+  const html = kwsColoredSentenceHtml(id, mbChallenge.charIndex);
   const el = document.getElementById('mbSentencePrompt');
   if(el) el.innerHTML = html || '（例文なし）';
 }
