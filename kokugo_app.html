@@ -3525,6 +3525,21 @@
   background:rgba(15,8,26,.95); border:1px solid rgba(180,140,255,.5); border-radius:12px;
   font-size:.8rem; color:#e8ddff; text-align:left; box-shadow:0 6px 20px rgba(0,0,0,.45);
 }
+/* 「冒険に出る」を押した直後のシナリオ導入（教員の指示、2026-09-06：3-2-1のカウントダウンを
+   このシナリオ表示に置き換え。黒地に金文字、古めかしいRPG風の書体、3秒表示→0.5秒フェード）。 */
+.mb-scenario-screen{
+  background:#000; display:flex; align-items:center; justify-content:center;
+  min-height:62vh; text-align:center; padding:32px 22px; border-color:#4a3a10;
+}
+.mb-scenario-text{
+  font-family:"Yu Mincho","YuMincho","Hiragino Mincho ProN","MS PMincho",serif;
+  color:#ffd76a; font-size:1.3rem; letter-spacing:.05em;
+  text-shadow:0 0 18px rgba(255,215,100,.55), 0 2px 6px rgba(0,0,0,.9);
+  animation:mbScenarioFadeOut .5s ease-in 3s forwards;
+}
+.mb-scenario-text p{ margin:0 0 .9em; }
+.mb-scenario-text p:last-child{ margin-bottom:0; }
+@keyframes mbScenarioFadeOut{ from{ opacity:1; } to{ opacity:0; } }
 /* タイトル画面の「冒険に出る」＋BGM入切（教員の指示、2026-09-06：「冒険に出る」の横に
    BGMの入切ボタンを、剣の絵は無しでRPG風の立体的なデザインに）。既存の.mb-btn-3d
    （行動ボタンの「押し込む」演出）と同じ考え方の箱型シャドウを、金の宝箱風グラデーションに
@@ -3885,7 +3900,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.85</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.86</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -25346,7 +25361,7 @@ function mbStartGauntlet(){
       <button class="btn secondary kb-quit-corner" onclick="showHome()">やめる</button>
       <img class="mb-title-image" src="${window.KANJI_QUEST_TITLE_IMG || ''}" alt="漢字Quest">
       <div class="mb-title-cta-row">
-        <button class="btn mb-adventure-btn" onclick="mbStartCountdown()">冒険に出る</button>
+        <button class="btn mb-adventure-btn" onclick="mbShowScenarioIntro()">冒険に出る</button>
         <button class="btn mb-bgm-toggle-btn${mbBgmEnabled() ? '' : ' mb-bgm-off'}" id="mbBgmToggleBtn" onclick="mbToggleBgmSetting()" title="${mbBgmEnabled() ? 'BGM：ON（押すとOFFにします）' : 'BGM：OFF（押すとONにします）'}">${mbBgmEnabled() ? '🔊' : '🔇'}</button>
       </div>
       <button class="mb-title-info-btn" onclick="mbToggleTitleInfo()">説明</button>
@@ -25365,25 +25380,23 @@ function mbToggleTitleInfo(){
   if(panel) panel.hidden = !panel.hidden;
 }
 
-function mbStartCountdown(){
+// 「冒険に出る」を押した直後の簡単なシナリオ導入（教員の指示、2026-09-06：3-2-1の
+// カウントダウンをこのシナリオ表示に置き換える）。黒地に金文字、3秒間表示したあと
+// 0.5秒でフェードアウトし、そのままmbInitRunへ進む（.mb-scenario-textのCSSアニメーション
+// と、下のsetTimeoutの合計3500msをぴったり合わせてある）。
+const MB_SCENARIO_LINES = [
+  'ここは、剣と魔法の世界。',
+  '強い武器より頼りになるのは「正しい漢字」を書く力。',
+  '漢字を極めた者だけが、魔法を操り、敵を倒せる。',
+  '今こそ、力を試す時。',
+  'さあ、漢字の力を魔力に変えて、冒険を始めよう！',
+];
+function mbShowScenarioIntro(){
   screen.innerHTML = `
-    <div class="boss-battle-screen" style="display:flex; align-items:center; justify-content:center; min-height:52vh;">
-      <div class="kb-countdown kb-countdown-pop" id="mbCountdownNum">3</div>
+    <div class="boss-battle-screen mb-scenario-screen">
+      <div class="mb-scenario-text">${MB_SCENARIO_LINES.map(line => `<p>${esc(line)}</p>`).join('')}</div>
     </div>`;
-  const rest = [2, 1];
-  let i = 0;
-  const step = () => {
-    const el = document.getElementById('mbCountdownNum');
-    if(!el) return;
-    if(i >= rest.length){ mbInitRun(); return; }
-    el.textContent = rest[i];
-    el.classList.remove('kb-countdown-pop');
-    void el.offsetWidth;
-    el.classList.add('kb-countdown-pop');
-    i++;
-    setTimeout(step, 800);
-  };
-  setTimeout(step, 800);
+  setTimeout(() => { mbInitRun(); }, 3500);
 }
 
 function mbInitRun(){
