@@ -3716,12 +3716,92 @@
 .mb-enemy-sprite{ width:104px; height:104px; object-fit:contain; display:block; margin:0 auto; }
 .mb-enemy-sprite-lg{ width:190px; height:190px; object-fit:contain; }
 .mb-defeat-icon{ display:block; width:150px; height:150px; object-fit:contain; margin:10px auto 0; filter:drop-shadow(0 8px 16px rgba(0,0,0,.5)); }
+/* 通常攻撃だけの「ザシュッ」という斬撃演出（教員の指示、2026-09-05）。mbTriggerImpactの
+   金色パルス・オーバーレイと重ねて出すことで「切った瞬間」を分かりやすくする。X字に交差する
+   2本の白い斬撃ラインを、命中の一瞬（0.4秒弱）だけ画面全体に走らせて自分で消す。 */
+.mb-slash-fx{ position:fixed; inset:0; z-index:9600; pointer-events:none; overflow:hidden; }
+.mb-slash-line{
+  position:absolute; top:50%; left:50%; width:150vmax; height:8px;
+  background:linear-gradient(90deg, rgba(255,255,255,0) 0%, #fff 18%, #fff 82%, rgba(255,255,255,0) 100%);
+  box-shadow:0 0 18px 4px rgba(255,255,255,.9); opacity:0;
+}
+.mb-slash-1{ animation:mbSlash1 .38s cubic-bezier(.2,.9,.3,1) forwards; }
+.mb-slash-2{ animation:mbSlash2 .38s cubic-bezier(.2,.9,.3,1) .07s forwards; }
+@keyframes mbSlash1{
+  0%{ transform:translate(-50%,-50%) rotate(-32deg) scaleX(0); opacity:0; }
+  12%{ opacity:1; }
+  55%{ transform:translate(-50%,-50%) rotate(-32deg) scaleX(1); opacity:1; }
+  100%{ transform:translate(-50%,-50%) rotate(-32deg) scaleX(1); opacity:0; }
+}
+@keyframes mbSlash2{
+  0%{ transform:translate(-50%,-50%) rotate(24deg) scaleX(0); opacity:0; }
+  12%{ opacity:1; }
+  55%{ transform:translate(-50%,-50%) rotate(24deg) scaleX(1); opacity:1; }
+  100%{ transform:translate(-50%,-50%) rotate(24deg) scaleX(1); opacity:0; }
+}
+/* 斬撃が当たった瞬間、敵スプライトが白く光って一瞬のけぞる（教員の指示、同上）。 */
+.mb-enemy-hit-flinch{ animation:mbEnemyFlinch .3s ease; }
+@keyframes mbEnemyFlinch{
+  0%{ filter:brightness(1); transform:translateX(0); }
+  20%{ filter:brightness(2.4) saturate(0); transform:translateX(6px); }
+  50%{ filter:brightness(1); transform:translateX(-5px); }
+  100%{ filter:brightness(1); transform:translateX(0); }
+}
+/* 呪い（debuff）を受けたときは白ではなく紫寄りに沈む色調にして、攻撃命中と見分けられるように
+   する（教員の指示、2026-09-05：「他の魔法もアニメーションを」）。 */
+.mb-enemy-debuff-flinch{ animation:mbEnemyDebuffFlinch .4s ease; }
+@keyframes mbEnemyDebuffFlinch{
+  0%{ filter:brightness(1) saturate(1); transform:translateX(0); }
+  30%{ filter:brightness(.6) saturate(.3) hue-rotate(240deg); transform:translateX(-4px); }
+  60%{ transform:translateX(3px); }
+  100%{ filter:brightness(1) saturate(1); transform:translateX(0); }
+}
+/* 攻撃魔法：敵の位置から光の輪が広がって消える「撃ち込んだ」演出。斬撃（直線）とは
+   見た目を変えて、物理攻撃と魔法攻撃が別物だと分かるようにする。 */
+.mb-magic-burst-fx{ position:fixed; z-index:9600; pointer-events:none; width:0; height:0; }
+.mb-magic-ring{
+  position:absolute; top:0; left:0; width:20px; height:20px; margin:-10px 0 0 -10px;
+  border-radius:50%; border:3px solid #ffd76a; box-shadow:0 0 16px 4px rgba(255,215,100,.8);
+  opacity:0; animation:mbMagicRing .5s ease-out forwards;
+}
+.mb-magic-ring-2{ border-color:#fff3c9; animation-delay:.08s; }
+@keyframes mbMagicRing{
+  0%{ transform:scale(.2); opacity:.9; }
+  100%{ transform:scale(6); opacity:0; }
+}
+/* 回復：HPバーが緑に光る＋「+HP」の文字がバーの上にフワッと浮かぶ。 */
+.mb-heal-glow > .hpbar{ animation:mbHealGlow .6s ease; }
+@keyframes mbHealGlow{
+  0%{ box-shadow:none; } 30%{ box-shadow:0 0 14px 4px rgba(124,255,178,.9); } 100%{ box-shadow:none; }
+}
+/* 支援魔法：行動カード全体が金色にふわっと光る＋「⬆」がステータス行の上に浮かぶ。 */
+.mb-buff-glow{ animation:mbBuffGlow .8s ease; }
+@keyframes mbBuffGlow{
+  0%{ box-shadow:0 0 0 rgba(255,215,100,0); } 40%{ box-shadow:0 0 30px 6px rgba(255,215,100,.6); } 100%{ box-shadow:0 0 0 rgba(255,215,100,0); }
+}
+/* 回復／支援／呪いで共通して使う「浮かぶ文字」。upは対象の上へ、downは対象の下へフワッと
+   移動しながら消える（呪いは敵にのしかかるイメージで下向きにしてある）。 */
+.mb-float-glyph{
+  position:fixed; z-index:9600; pointer-events:none; transform:translate(-50%,-30%);
+  font-size:1.4rem; font-weight:900; text-shadow:0 2px 8px rgba(0,0,0,.85);
+  animation:mbFloatUp .9s ease-out forwards;
+}
+.mb-float-glyph.mb-float-down{ animation:mbFloatDown .9s ease-out forwards; }
+@keyframes mbFloatUp{
+  0%{ opacity:0; transform:translate(-50%,-30%); } 15%{ opacity:1; } 100%{ opacity:0; transform:translate(-50%,-140%); }
+}
+@keyframes mbFloatDown{
+  0%{ opacity:0; transform:translate(-50%,-140%); } 15%{ opacity:1; } 100%{ opacity:0; transform:translate(-50%,-30%); }
+}
+.mb-glyph-heal{ color:#7CFFB2; }
+.mb-glyph-buff{ color:#ffe08a; }
+.mb-glyph-debuff{ color:#c9a3ff; }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.74</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.75</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -25099,19 +25179,51 @@ function mbShowBattleIntro(){
   }, 1700);
 }
 
-function mbHpBarInnerHtml(label, cur, max, cls){
+// ids（{fill, num}）を渡すと、そのidを持つ要素として出力する。mbAnimateBarが後から
+// このidを掴んで「前回表示していた値→今の値」へアニメーションさせるための仕込み
+// （教員の指示、2026-09-05：「バーが実際にグッと増えたり減ったりするアニメーション」）。
+function mbHpBarInnerHtml(label, cur, max, cls, ids){
   const pct = Math.max(0, Math.min(100, (cur / max) * 100));
+  const fillAttr = ids ? ` id="${ids.fill}"` : '';
+  const numAttr = ids ? ` id="${ids.num}"` : '';
   return `
       <div class="boss-hp-label">${esc(label)}</div>
-      <div class="hpbar ${cls}"><div style="width:${pct}%"></div></div>
-      <div class="boss-hp-num">${Math.max(0, Math.round(cur))} / ${max}</div>`;
+      <div class="hpbar ${cls}"><div${fillAttr} style="width:${pct}%"></div></div>
+      <div class="boss-hp-num"${numAttr}>${Math.max(0, Math.round(cur))} / ${max}</div>`;
 }
-function mbMpBarInnerHtml(){
-  const pct = Math.max(0, Math.min(100, (mbRun.playerMp / mbRun.playerMaxMp) * 100));
+function mbMpBarInnerHtml(curOverride, ids){
+  const cur = curOverride === undefined ? mbRun.playerMp : curOverride;
+  const pct = Math.max(0, Math.min(100, (cur / mbRun.playerMaxMp) * 100));
+  const fillAttr = ids ? ` id="${ids.fill}"` : '';
+  const numAttr = ids ? ` id="${ids.num}"` : '';
   return `
       <div class="boss-hp-label">MP</div>
-      <div class="hpbar mb-mpbar"><div style="width:${pct}%"></div></div>
-      <div class="boss-hp-num">${mbRun.playerMp} / ${mbRun.playerMaxMp}</div>`;
+      <div class="hpbar mb-mpbar"><div${fillAttr} style="width:${pct}%"></div></div>
+      <div class="boss-hp-num"${numAttr}>${Math.max(0, Math.round(cur))} / ${mbRun.playerMaxMp}</div>`;
+}
+// バーの幅と数値を「from」から「to」へなめらかに変化させる（.hpbar>divの既存transitionは
+// 要素が丸ごと作り直されると効かないため、幅は必ずマウント後に書き換えて発火させる）。
+// 数値もrequestAnimationFrameで同じ長さだけカウントアップ／ダウンさせ、バーと歩調を合わせる。
+function mbAnimateBar(fillId, numId, from, to, max){
+  const fillEl = document.getElementById(fillId);
+  const numEl = document.getElementById(numId);
+  if(!fillEl) return;
+  if(from === to){
+    if(numEl) numEl.textContent = `${Math.max(0, Math.round(to))} / ${max}`;
+    return;
+  }
+  const toPct = Math.max(0, Math.min(100, (to / max) * 100));
+  void fillEl.offsetWidth; // 現在幅（from）でのレイアウトを確定させてから変更し、transitionを発火させる
+  requestAnimationFrame(() => { fillEl.style.width = toPct + '%'; });
+  const duration = 400; // .hpbar>divのtransition:width .4s easeと合わせる
+  const start = performance.now();
+  function step(now){
+    const t = Math.min(1, (now - start) / duration);
+    const val = Math.round(from + (to - from) * t);
+    if(numEl) numEl.textContent = `${Math.max(0, val)} / ${max}`;
+    if(t < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
 }
 function mbStatusBadgesHtml(){
   const buffKeys = Object.keys(mbRun.buffs).filter(k => mbRun.buffs[k] > 0);
@@ -25140,6 +25252,13 @@ function mbRenderBattleScreen(opts){
   // 従来のmb-btn-3d/mb-btn-normal/mb-action-btnの背景・立体影は使わず、画像をそのまま
   // クリック領域にするmb-img-btnを使う（押した感触だけCSSのtransformで残す）。
   const IMG = window.MB_ACTION_BUTTON_IMAGES || {};
+  // バーのアニメーション（教員の指示、2026-09-05）は、前回この画面で表示していた値（_shownHp等、
+  // なければ今の値＝新しい戦闘の初回表示で無用なアニメーションを防ぐ）を起点に、今の値まで
+  // なめらかに動かす。バー自体は必ず「起点の値」でいったんマウントし、mbAnimateBarが
+  // マウント後に幅を書き換えて.hpbar>divの既存transitionを発火させる。
+  const enemyHpFrom = mbBattle._shownHp !== undefined ? mbBattle._shownHp : mbBattle.enemyHp;
+  const playerHpFrom = mbRun._shownHp !== undefined ? mbRun._shownHp : mbRun.playerHp;
+  const playerMpFrom = mbRun._shownMp !== undefined ? mbRun._shownMp : mbRun.playerMp;
   const actionsHtml = opts.showActions ? `
         <button class="btn mb-img-btn mb-img-btn-normal" onclick="mbChooseAction({type:'normalAttack'})">
           <img src="${IMG.normalAttack || ''}" alt="通常攻撃">
@@ -25157,7 +25276,7 @@ function mbRenderBattleScreen(opts){
       <button class="btn secondary kb-quit-corner" onclick="mbConfirmQuit()">やめる</button>
       <p style="text-align:center; color:#9a8ec2; font-size:.8rem; margin:0 0 4px;">${mbBattle.enemyIndex + 1}体目 / 全${MB_ENEMIES.length}体</p>
       <div class="boss-q-card">
-        <div class="boss-hp-row kb-hp-top" id="mbEnemyHpRow">${mbHpBarInnerHtml(enemyDef.name, mbBattle.enemyHp, mbBattle.enemyMaxHp, 'boss-hpbar')}</div>
+        <div class="boss-hp-row kb-hp-top" id="mbEnemyHpRow">${mbHpBarInnerHtml(enemyDef.name, enemyHpFrom, mbBattle.enemyMaxHp, 'boss-hpbar', {fill:'mbEnemyHpFill', num:'mbEnemyHpNum'})}</div>
         <div class="kb-side-boss" style="margin:0 auto 10px; width:112px;">
           <img class="kb-side-boss-icon mb-enemy-sprite" id="mbEnemyIcon" src="${mbEnemySpriteSrc(enemyDef, mbCurrentPoseKey)}" alt="${esc(enemyDef.name)}">
           <div class="kb-side-boss-name">${esc(enemyDef.name)}</div>
@@ -25168,11 +25287,17 @@ function mbRenderBattleScreen(opts){
         ${actionsHtml}
       </div>
       <div class="boss-hpbars" style="margin-top:14px;">
-        <div class="boss-hp-row" id="mbPlayerHpRow">${mbHpBarInnerHtml('あなた', mbRun.playerHp, mbRun.playerMaxHp, 'player-hpbar')}</div>
-        <div class="boss-hp-row" id="mbPlayerMpRow">${mbMpBarInnerHtml()}</div>
+        <div class="boss-hp-row" id="mbPlayerHpRow">${mbHpBarInnerHtml('あなた', playerHpFrom, mbRun.playerMaxHp, 'player-hpbar', {fill:'mbPlayerHpFill', num:'mbPlayerHpNum'})}</div>
+        <div class="boss-hp-row" id="mbPlayerMpRow">${mbMpBarInnerHtml(playerMpFrom, {fill:'mbPlayerMpFill', num:'mbPlayerMpNum'})}</div>
       </div>
     </div>`;
   if(opts.showActions) mbStartIdleAnim(); // 行動選択中だけ基本姿勢①②のアニメーションを回す
+  mbAnimateBar('mbEnemyHpFill', 'mbEnemyHpNum', enemyHpFrom, mbBattle.enemyHp, mbBattle.enemyMaxHp);
+  mbAnimateBar('mbPlayerHpFill', 'mbPlayerHpNum', playerHpFrom, mbRun.playerHp, mbRun.playerMaxHp);
+  mbAnimateBar('mbPlayerMpFill', 'mbPlayerMpNum', playerMpFrom, mbRun.playerMp, mbRun.playerMaxMp);
+  mbBattle._shownHp = mbBattle.enemyHp;
+  mbRun._shownHp = mbRun.playerHp;
+  mbRun._shownMp = mbRun.playerMp;
 }
 
 // ---- 魔法選択（6〜8項）：現在のMPで発動できる魔法だけを表示し、選んだらMPを消費してその場で
@@ -25235,6 +25360,7 @@ function mbCastSpellInstant(category, spellId, critWon){
   // プレイヤーが攻撃したときは防御姿勢、それで倒したときは討伐姿勢を見せる（教員の指示、2026-09-04）。
   if(category === 'attack') mbCurrentPoseKey = enemyDefeated ? 'defeat' : 'defense';
   mbRenderBattleScreen({ msg: `「${esc(spell.name)}」発動！ ${effectMsg}` });
+  mbTriggerActionFx(category);
   mbTriggerImpact('hit', overlayTitle, effectMsg);
   if(enemyDefeated){
     setTimeout(() => mbEnemyDefeated(), 900);
@@ -25629,6 +25755,94 @@ function mbTriggerImpact(kind, title, subText, xpGained){
   setTimeout(() => { if(el.parentNode) el.remove(); }, 900);
 }
 
+// ================= 行動別の追加演出（教員の指示、2026-09-05：「通常攻撃はザシュッと切る感じ」
+// 「他の魔法（攻撃魔法など）ももっとアニメーションを」）。mbTriggerImpact（画面パルス＋中央の
+// 文字）はそのまま活かしつつ、行動の種類ごとに見た目で区別できる一時エフェクトを追加で重ねる。
+// いずれもdocument.body直下に短命な要素を作って自分でタイムアウト削除する、mbTriggerImpactと
+// 同じ使い捨て方式。 =================
+// 通常攻撃だけの「ザシュッ」：画面全体にX字の白い斬撃ラインを走らせ、敵スプライトも白く光って
+// のけぞらせる。魔法（攻撃魔法含む）とは違う「物理で切った」手応えを出すのが狙い。
+function mbTriggerSlashFx(){
+  const old = document.getElementById('mbSlashFx');
+  if(old) old.remove();
+  const el = document.createElement('div');
+  el.id = 'mbSlashFx';
+  el.className = 'mb-slash-fx';
+  el.innerHTML = `<div class="mb-slash-line mb-slash-1"></div><div class="mb-slash-line mb-slash-2"></div>`;
+  document.body.appendChild(el);
+  setTimeout(() => { if(el.parentNode) el.remove(); }, 500);
+  mbFlinchEnemyIcon(false);
+}
+// 敵スプライトを一瞬だけ光らせてのけぞらせる。debuffTint=trueだと紫寄りの「呪いを受けた」
+// 色調にする（mbTriggerActionFxのdebuff枝から使用）。
+function mbFlinchEnemyIcon(debuffTint){
+  const iconEl = document.getElementById('mbEnemyIcon');
+  if(!iconEl) return;
+  const cls = debuffTint ? 'mb-enemy-debuff-flinch' : 'mb-enemy-hit-flinch';
+  iconEl.classList.remove('mb-enemy-hit-flinch', 'mb-enemy-debuff-flinch');
+  void iconEl.offsetWidth;
+  iconEl.classList.add(cls);
+}
+// 敵の位置に光の輪を広げる「魔法を撃ち込んだ」演出（攻撃魔法用）。斬撃の直線とは違い、
+// 円が敵の中心から膨らんで消えることで「魔法っぽさ」を出す。
+function mbTriggerMagicBurstFx(){
+  const iconEl = document.getElementById('mbEnemyIcon');
+  if(!iconEl) return;
+  const rect = iconEl.getBoundingClientRect();
+  const old = document.getElementById('mbMagicBurstFx');
+  if(old) old.remove();
+  const el = document.createElement('div');
+  el.id = 'mbMagicBurstFx';
+  el.className = 'mb-magic-burst-fx';
+  el.style.left = (rect.left + rect.width / 2) + 'px';
+  el.style.top = (rect.top + rect.height / 2) + 'px';
+  el.innerHTML = `<div class="mb-magic-ring"></div><div class="mb-magic-ring mb-magic-ring-2"></div>`;
+  document.body.appendChild(el);
+  setTimeout(() => { if(el.parentNode) el.remove(); }, 650);
+  mbFlinchEnemyIcon(false);
+}
+// anchorElの真上（direction='up'）または真下（'down'）から、短い文字（絵文字含む）を
+// フワッと浮かせて消す。回復＝HPバーの上に「+HP」、支援魔法＝ステータス行の上に「⬆」、
+// 呪い＝敵スプライトの下に「⬇」を出す、というように行動の意味を視覚化する。
+function mbFloatGlyphFx(anchorEl, glyph, colorClass, direction){
+  if(!anchorEl) return;
+  const rect = anchorEl.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = 'mb-float-glyph ' + colorClass + (direction === 'down' ? ' mb-float-down' : '');
+  el.style.left = (rect.left + rect.width / 2) + 'px';
+  el.style.top = (direction === 'down' ? rect.top : rect.bottom) + 'px';
+  el.textContent = glyph;
+  document.body.appendChild(el);
+  setTimeout(() => { if(el.parentNode) el.remove(); }, 900);
+}
+// mbCastSpellInstantから、魔法のカテゴリ（MB_SPELLSのキーそのもの）を渡して呼ぶ。
+// カテゴリごとに「何が起きたか」がひと目で伝わる専用エフェクトを1つずつ割り当てる。
+function mbTriggerActionFx(category){
+  if(category === 'attack'){
+    mbTriggerMagicBurstFx();
+  } else if(category === 'heal'){
+    const row = document.getElementById('mbPlayerHpRow');
+    if(row){
+      row.classList.remove('mb-heal-glow');
+      void row.offsetWidth;
+      row.classList.add('mb-heal-glow');
+    }
+    mbFloatGlyphFx(row, '+HP', 'mb-glyph-heal', 'up');
+  } else if(category === 'buff'){
+    const card = document.querySelector('#mbScreen .boss-q-card');
+    if(card){
+      card.classList.remove('mb-buff-glow');
+      void card.offsetWidth;
+      card.classList.add('mb-buff-glow');
+    }
+    mbFloatGlyphFx(document.getElementById('mbStatusRow') || card, '⬆', 'mb-glyph-buff', 'up');
+  } else if(category === 'debuff'){
+    const iconEl = document.getElementById('mbEnemyIcon');
+    mbFlinchEnemyIcon(true);
+    mbFloatGlyphFx(iconEl, '⬇', 'mb-glyph-debuff', 'down');
+  }
+}
+
 // 正解 → （会心チャレンジなら）会心確定／（通常攻撃なら）MP獲得＋固定ダメージ＋ストック経験値、の
 // 一連の流れ（9〜12項・20項、2026-09-04改訂：通常攻撃＝MP獲得＋言弾の半分のダメージ＋ストック経験値
 // （EASY+1／NORMAL+2／HARD・VERYHARD+3）、会心＝ダメージ3倍の権利のみ）。
@@ -25653,6 +25867,7 @@ function mbChallengeSuccess(){
   // プレイヤーが攻撃したときは防御姿勢、それで倒したときは討伐姿勢を見せる（教員の指示、2026-09-04）。
   mbCurrentPoseKey = enemyDefeated ? 'defeat' : 'defense';
   mbRenderBattleScreen({ msg });
+  mbTriggerSlashFx();
   mbTriggerImpact('hit', '🗡️ 通常攻撃！', `${esc(mbBattle.enemyDef.name)}に${dmg}のダメージ！ ＋${mpGain} MP${mbDefenseNote()}`, xpGained);
 
   if(enemyDefeated){
