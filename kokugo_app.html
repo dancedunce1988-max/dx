@@ -3550,6 +3550,16 @@
 }
 .mb-bgm-toggle-btn:active{ transform:translateY(5px); box-shadow:0 1px 0 rgba(0,0,0,.4), 0 2px 8px rgba(0,0,0,.3); }
 .mb-bgm-toggle-btn.mb-bgm-off{ opacity:.5; }
+/* 戦闘中の画面の左上に置く小さいBGM入切（教員の指示、2026-09-06：「画面の端に小さく」）。
+   「やめる」（.kb-quit-corner、右上）とぶつからないよう反対側の左上に置く。 */
+.mb-bgm-corner-btn{
+  position:absolute; top:14px; left:14px; width:32px; height:32px; padding:0; z-index:20;
+  border-radius:50%; border:1px solid rgba(180,140,255,.5); background:rgba(40,20,60,.6);
+  color:#d8c2ff; font-size:1rem; cursor:pointer; box-shadow:0 3px 8px rgba(0,0,0,.35);
+  transition:opacity .15s ease, transform .08s ease;
+}
+.mb-bgm-corner-btn:active{ transform:scale(.9); }
+.mb-bgm-corner-btn.mb-bgm-off{ opacity:.5; }
 .mb-mpbar>div{ background:linear-gradient(90deg,#8a6fff,#c8b3ff) !important; }
 .mb-action-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px; }
 .mb-action-btn{ padding:14px 8px; font-size:.95rem; }
@@ -3875,7 +3885,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.84</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.85</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -25245,6 +25255,14 @@ function mbUpdateBgmToggleBtn(){
   btn.classList.toggle('mb-bgm-off', !on);
   btn.title = on ? 'BGM：ON（押すとOFFにします）' : 'BGM：OFF（押すとONにします）';
 }
+// 戦闘中の各画面（対峙シーン・行動選択・漢字チャレンジ・難易度/魔法選択）の左上に置く、
+// 小さいBGM入切ボタン（教員の指示、2026-09-06：「BGMはいつでも切れるように、画面の端に
+// 小さく配置」）。タイトル画面の大きいボタンと同じid（mbBgmToggleBtn）を使うため、
+// mbUpdateBgmToggleBtnはどちらの画面が出ていても正しく更新できる。
+function mbBgmCornerBtnHtml(){
+  const on = mbBgmEnabled();
+  return `<button class="mb-bgm-corner-btn${on ? '' : ' mb-bgm-off'}" id="mbBgmToggleBtn" onclick="mbToggleBgmSetting()" title="${on ? 'BGM：ON（押すとOFFにします）' : 'BGM：OFF（押すとONにします）'}">${on ? '🔊' : '🔇'}</button>`;
+}
 
 // ホーム直下ではなく「🎮 ミニゲーム」一覧(showSideQuestMenu)の中に、「漢字マスターの道」とは
 // 別のカードとして置く（既存のボス戦システムとは別物として完全に独立させる）。
@@ -25414,6 +25432,7 @@ function mbShowBattleIntro(){
   mbPlayBgmForEnemy(enemyDef.id);
   screen.innerHTML = `
     <div class="boss-battle-screen mb-intro-screen">
+      ${mbBgmCornerBtnHtml()}
       <div class="mb-intro-flash"></div>
       <div class="mb-intro-vs">VS</div>
       <img class="mb-intro-icon mb-enemy-sprite-lg" id="mbEnemyIcon" src="${mbEnemySpriteSrc(enemyDef, 'pose1')}" alt="${esc(enemyDef.name)}">
@@ -25523,6 +25542,7 @@ function mbRenderBattleScreen(opts){
   screen.innerHTML = `
     <div class="boss-battle-screen" id="mbScreen" style="position:relative;">
       <button class="btn secondary kb-quit-corner" onclick="mbConfirmQuit()">やめる</button>
+      ${mbBgmCornerBtnHtml()}
       <p style="text-align:center; color:#9a8ec2; font-size:.8rem; margin:0 0 4px;">${mbBattle.enemyIndex + 1}体目 / 全${MB_ENEMIES.length}体</p>
       <div class="boss-q-card">
         <div class="boss-hp-row kb-hp-top" id="mbEnemyHpRow">${mbHpBarInnerHtml(enemyDef.name, enemyHpFrom, mbBattle.enemyMaxHp, 'boss-hpbar', {fill:'mbEnemyHpFill', num:'mbEnemyHpNum'})}</div>
@@ -25587,7 +25607,8 @@ function mbShowSpellMenuList(category, critWon){
   const critHtml = critWon
     ? `<p class="mb-crit-active-note">✨ 会心発動中！ 次に選ぶ攻撃魔法のダメージが3倍！</p>` : '';
   screen.innerHTML = `
-    <div class="boss-battle-screen">
+    <div class="boss-battle-screen" style="position:relative;">
+      ${mbBgmCornerBtnHtml()}
       <div class="boss-name">${cat.label}</div>
       <div class="boss-hp-row" style="margin-bottom:14px;">${mbMpBarInnerHtml()}</div>
       ${critHtml}
@@ -25664,7 +25685,8 @@ function mbDifficultyCardHtml(diff){
 }
 function mbShowDifficultySelect(){
   screen.innerHTML = `
-    <div class="boss-battle-screen">
+    <div class="boss-battle-screen" style="position:relative;">
+      ${mbBgmCornerBtnHtml()}
       <div class="boss-name">🗡️ 通常攻撃</div>
       <p style="text-align:center; margin:6px 0 18px;">漢字に挑戦して、通常攻撃を放とう！</p>
       <div class="mb-diff-list">${MB_DIFFICULTIES.map(d => mbDifficultyCardHtml(d)).join('')}</div>
@@ -25700,7 +25722,8 @@ function mbRenderChallengeScreen(){
   const isCrit = mbPendingAction && mbPendingAction.type === 'crit';
   const headerLabel = isCrit ? `💥 会心のチャンス！（${diff.label}）` : `${diff.badge} ${diff.label} チャレンジ`;
   screen.innerHTML = `
-    <div class="boss-battle-screen" id="mbChallengeScreen">
+    <div class="boss-battle-screen" id="mbChallengeScreen" style="position:relative;">
+      ${mbBgmCornerBtnHtml()}
       <div class="boss-name">${headerLabel}</div>
       <div class="boss-q-card">
         <div class="kb-write-col" style="margin:0 auto;">
@@ -26129,6 +26152,65 @@ function mbPlayDebuffSound(){
       osc.connect(gain).connect(kwsSfxCtx.destination);
       osc.start(t); osc.stop(t + 0.36);
     });
+  }catch(e){}
+}
+// 討伐画面（mbShowStageMap／mbGauntletComplete／mbEncounterWin）で鳴らす勝利ファンファーレ
+// 「パンパカパーン」＋クラッカー音（教員の指示、2026-09-06）。ラッパらしい厚みを出すため、
+// 各音は基音とその1オクターブ下のsawtoothを重ねて鳴らす。最後の音（パーン）だけ長く伸ばす。
+function mbPlayVictoryFanfare(){
+  kwsEnsureSfx();
+  if(!kwsSfxCtx) return;
+  try{
+    const t = kwsSfxCtx.currentTime;
+    const notes = [
+      {f:523.25, at:0,    dur:0.14},
+      {f:659.25, at:0.15, dur:0.14},
+      {f:783.99, at:0.30, dur:0.14},
+      {f:1046.5, at:0.46, dur:0.55},
+    ];
+    notes.forEach(n => {
+      [n.f, n.f / 2].forEach((freq, i) => {
+        const osc = kwsSfxCtx.createOscillator();
+        const gain = kwsSfxCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(freq, t + n.at);
+        const peak = i === 0 ? 0.22 : 0.09;
+        gain.gain.setValueAtTime(0.0001, t + n.at);
+        gain.gain.exponentialRampToValueAtTime(peak, t + n.at + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + n.at + n.dur);
+        osc.connect(gain).connect(kwsSfxCtx.destination);
+        osc.start(t + n.at); osc.stop(t + n.at + n.dur + 0.02);
+      });
+    });
+    // クラッカーの「パン」という破裂音。
+    const popBufSize = Math.floor(kwsSfxCtx.sampleRate * 0.05);
+    const popBuf = kwsSfxCtx.createBuffer(1, popBufSize, kwsSfxCtx.sampleRate);
+    const popData = popBuf.getChannelData(0);
+    for(let i = 0; i < popBufSize; i++) popData[i] = (Math.random() * 2 - 1) * (1 - i / popBufSize);
+    const pop = kwsSfxCtx.createBufferSource();
+    pop.buffer = popBuf;
+    const popFilter = kwsSfxCtx.createBiquadFilter();
+    popFilter.type = 'highpass';
+    popFilter.frequency.setValueAtTime(1500, t);
+    const popGain = kwsSfxCtx.createGain();
+    popGain.gain.setValueAtTime(0.5, t);
+    popGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
+    pop.connect(popFilter).connect(popGain).connect(kwsSfxCtx.destination);
+    pop.start(t); pop.stop(t + 0.07);
+    // 紙吹雪が舞うようなきらめき（高めの音を数粒、少しずつ時間差でばらまく）。
+    for(let i = 0; i < 8; i++){
+      const at = 0.03 + Math.random() * 0.5;
+      const f = 1800 + Math.random() * 2200;
+      const osc = kwsSfxCtx.createOscillator();
+      const gain = kwsSfxCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(f, t + at);
+      gain.gain.setValueAtTime(0.0001, t + at);
+      gain.gain.exponentialRampToValueAtTime(0.06, t + at + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + at + 0.12);
+      osc.connect(gain).connect(kwsSfxCtx.destination);
+      osc.start(t + at); osc.stop(t + at + 0.14);
+    }
   }catch(e){}
 }
 
@@ -26569,6 +26651,10 @@ function mbShowStageMap(clearedUpTo, xpGained, recruitedMsg){
       </div>`;
   };
   render();
+  // ファンファーレはボスを倒した瞬間の1回だけ鳴らす。render自体は「復習する」から戻って
+  // きたときにも再実行されるため、renderの中ではなくここ（初回描画の直後）で鳴らす
+  // （教員の指示、2026-09-06：「討伐画面に行く時に、勝利をお祝いする効果音」）。
+  mbPlayVictoryFanfare();
 }
 // ボスを倒すたびに、通常攻撃とは別にストック経験値＋5を獲得する（教員の指示、2026-09-04）。
 // さらに1%の確率で判定が発生：まだ仲間でなければ新規に仲間になり（Lv.1）、既に仲間の場合は
@@ -26641,6 +26727,7 @@ function mbGauntletComplete(xpGained, recruitedMsg){
       </div>`;
   };
   render();
+  mbPlayVictoryFanfare(); // renderの中では鳴らさない（「復習する」から戻ったときの再生を避ける）
   mbRun = null; mbBattle = null; mbChallenge = null;
 }
 
@@ -26694,6 +26781,7 @@ function mbEncounterWin(recruitedMsg){
       </div>`;
   };
   render();
+  mbPlayVictoryFanfare(); // renderの中では鳴らさない（「復習する」から戻ったときの再生を避ける）
   mbRun = null; mbBattle = null; mbChallenge = null;
 }
 function mbEncounterLose(){
