@@ -3850,7 +3850,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.81</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.82</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -7581,6 +7581,12 @@ let kwsFirstAttemptThumb = null;
 // これがないと、1画書いてペンを離すたび（pointerup→kwsDrawing=false）に答えが
 // また出てきてしまう。書き始めたら、そのステージが終わるまでずっと答えを隠したままにする。
 let kwsStageRevealHidden = false;
+// 「思い出せない」で答えを表示中かどうか（教員の指示、2026-09-06：「答えを出しているときは、
+// なぞりはじめても答えは消さずに残しておく（練習できるように）」）。trueの間は、pointerdownで
+// 普段行う「書き始めたら答えを隠す」通常のkwsResetInk()の代わりに、答えのお手本
+// （kwsDrawTargetReveal、kwsJudged中は常時描画される）は残したまま自分のインクだけ
+// 消すkwsResetInkKeepAnswer()を使う。kwsLoadKanji()で次の問題に進むたびfalseに戻す。
+let kwsGaveUp = false;
 // 今の問題で、このカスケード（最初の採点〜答え表示までの書き直し）ぶんのイベント経験値を
 // 既に確定させたか（kwsLoadKanji()の先頭でだけfalseに戻す）。
 // これが無いと、判定後にキャンバスをタップして全部消し、同じ問題を何度でも解き直して
@@ -8656,6 +8662,62 @@ function kwsRenderCharBreakdown(charResults, profile){
   el.innerHTML = rows.join('　');
 }
 
+/* ================= 効果音（教員の指示、2026-09-06：「当たったときには気持ち良くなる
+   ピンポン、間違ったらブ（鈍く早く）」）。外部音源ファイルは使わず、他のミニゲーム
+   （YOMUの打・文節斬り等）と同じくWeb Audio APIでその場合成する（bgm音声とは違い、
+   容量が一切増えない）。漢字の書き判定（kws＝漢字の書き学習・小学生の漢字を復習する・
+   中学校で習う漢字、kb＝漢字マスターの道、mb＝漢字Quest。いずれも同じ判定コアを使う）で
+   共通して使うので、kws*接頭辞のままkwsRenderResult／kbGradeChar／mbGradeCharの
+   3箇所全てから呼ぶ。漢字Quest固有の行動音（mbPlay*、ザシュッ／ドーン等）も、
+   新しいAudioContextを増やさずこの同じkwsSfxCtxを共用する。 ================= */
+let kwsSfxCtx = null;
+function kwsEnsureSfx(){
+  try{
+    if(!kwsSfxCtx) kwsSfxCtx = new (window.AudioContext || window.webkitAudioContext)();
+    else if(kwsSfxCtx.state === 'suspended') kwsSfxCtx.resume();
+  }catch(e){}
+}
+// 正解：明るく気持ちの良い2音の「ピンポン」（上行するチャイム）。
+function kwsPlayCorrectSound(){
+  kwsEnsureSfx();
+  if(!kwsSfxCtx) return;
+  try{
+    const t = kwsSfxCtx.currentTime;
+    [{f:880, at:0}, {f:1318.5, at:0.09}].forEach(n => {
+      const osc = kwsSfxCtx.createOscillator();
+      const gain = kwsSfxCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(n.f, t + n.at);
+      gain.gain.setValueAtTime(0.0001, t + n.at);
+      gain.gain.exponentialRampToValueAtTime(0.22, t + n.at + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + n.at + 0.22);
+      osc.connect(gain).connect(kwsSfxCtx.destination);
+      osc.start(t + n.at); osc.stop(t + n.at + 0.24);
+    });
+  }catch(e){}
+}
+// 不正解：鈍く短い「ブ」。低めのこもった音を一瞬だけ鳴らす（教員の指示：「鈍く早く」）。
+function kwsPlayWrongSound(){
+  kwsEnsureSfx();
+  if(!kwsSfxCtx) return;
+  try{
+    const t = kwsSfxCtx.currentTime;
+    const osc = kwsSfxCtx.createOscillator();
+    const gain = kwsSfxCtx.createGain();
+    const filter = kwsSfxCtx.createBiquadFilter();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(140, t);
+    osc.frequency.exponentialRampToValueAtTime(90, t + 0.09);
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(500, t);
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.28, t + 0.008);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.1);
+    osc.connect(filter).connect(gain).connect(kwsSfxCtx.destination);
+    osc.start(t); osc.stop(t + 0.12);
+  }catch(e){}
+}
+
 function kwsRenderResult(){
   if(!kwsLastResult) return;
   const kdata = kwsData[kwsCurrentId];
@@ -8664,6 +8726,7 @@ function kwsRenderResult(){
   // 正解／不正解の確定はkwsHandleJudgeResult側で、全ての文字を書き終えたときに行う。
   kwsJudgedPass = kwsLastResult.chars[kwsActiveCharIndex].passCore;
   kwsJudged = true;
+  if(kwsJudgedPass) kwsPlayCorrectSound(); else kwsPlayWrongSound();
   kwsLastCharResults = kwsLastResult.chars;
   kwsRenderCharBreakdown(kwsLastResult.chars, kwsProfile);
   // 実測パネルも同じ理由で、熟語全体の集計（aggregate）ではなく今書いている文字だけの
@@ -8753,6 +8816,7 @@ function kwsHandleRecallGiveUp(){
   if(kwsStageBusy) return;
   kwsJudgedPass = false;
   kwsJudged = true;
+  kwsGaveUp = true; // なぞり始めても答えを消さないようにする（教員の指示、2026-09-06）
   kwsStage = 0;
   kwsStagePendingChars = null;
   kwsStageRevealHidden = false;
@@ -9479,6 +9543,22 @@ function kwsResetInk(charIndex){
   kwsRender();
 }
 
+// 「思い出せない」で答えを表示中（kwsGaveUp）に、なぞり始めても答えのお手本を消したく
+// ないときに使う、kwsResetInkの限定版。自分のインク・実測パネルだけをクリアし、
+// kwsJudged／kwsStage等はそのまま保つ＝kwsRender()のkwsDrawTargetReveal表示条件を
+// 崩さない（教員の指示、2026-09-06：「答えを出しているときは、なぞりはじめても答えは
+// 消さずに残しておく（練習できるように）」）。ステータス文言もあえて消さない（「思い出せない」
+// を選んだ旨の案内を、練習中もそのまま見せておく）。
+function kwsResetInkKeepAnswer(){
+  kwsCompletedStrokes = [];
+  kwsCurrentPath = [];
+  kwsDrawing = false;
+  kwsLastResult = null;
+  kwsLastCharResults = null;
+  document.getElementById('kwsMeasuredPanel').textContent = 'まだ何も判定していません';
+  document.getElementById('kwsCharBreakdown').innerHTML = '';
+}
+
 // 直前に描いた1画（ペンを上げ下げした1本）だけを取り消す。charIndexを指定すると、
 // その文字の中で最後に描かれた1画だけを取り消す。判定後に押した場合は、
 // 判定結果の表示（○×スタンプ・正解の形の表示など）だけ解除し、それ以外の書いた線は残す。
@@ -9579,6 +9659,7 @@ function kwsLoadKanji(id){
   kwsCurrentId = id;
   kwsXpSettled = false; // 新しい問題として仕切り直す
   kwsFinalLocked = false;
+  kwsGaveUp = false; // 新しい問題として仕切り直す（前の問題の「思い出せない」を引きずらない）
   kwsFirstAttemptThumb = null; // 新しい問題として、1回目採点スクショの記録もリセットする
   kwsHideStrokeOrderTrigger();
   kwsCloseStrokeOrderOverlay();
@@ -9831,7 +9912,9 @@ function kwsWireScreen(){
   kwsCanvas.addEventListener('pointerdown', e => {
     e.preventDefault();
     if(kwsStageBusy) return; // 赤く光らせてからヒント/答えに切り替わる演出中は書き出させない
-    if(kwsJudged) kwsResetInk();
+    // 「思い出せない」で答えを表示中は、なぞり始めても答えを消さない（教員の指示、2026-09-06）。
+    // 自分のインクだけクリアするkwsResetInkKeepAnswerを使い、通常のkwsResetInk（答えを隠す）は呼ばない。
+    if(kwsJudged){ if(kwsGaveUp) kwsResetInkKeepAnswer(); else kwsResetInk(); }
     if(kwsStage === 2) kwsStageRevealHidden = true; // 答え表示ステージで書き始めたら、以後ずっと答えを隠す
     kwsCanvas.setPointerCapture(e.pointerId);
     kwsDrawing = true;
@@ -24810,6 +24893,7 @@ function kbSubmitJudge(timedOut){
 // 両方正解ではじめて単語として正解」（教員の指示）。どちらか一方でも不正解／時間切れなら、
 // その時点で単語全体を不正解として即座にボスの反撃に進む（残りの文字を書かせる意味が無いため）。
 function kbGradeChar(ok, kdata, timedOut){
+  if(ok) kwsPlayCorrectSound(); else kwsPlayWrongSound();
   if(!ok){
     clearKanjiBossTimer();
     kbSetStatus(timedOut ? '× 時間切れ...' : '× 正解の形と違うようです', 'ng');
@@ -25763,6 +25847,7 @@ function mbSubmitJudge(timedOut){
 
 // 2文字の単語は両方の文字が正解して初めて単語全体が正解（kbGradeCharと同じ方針、20項）。
 function mbGradeChar(ok, kdata, timedOut){
+  if(ok) kwsPlayCorrectSound(); else kwsPlayWrongSound();
   if(!ok){
     mbClearTimer();
     mbSetStatus(timedOut ? '× 時間切れ...' : '× 正解の形と違うようです', 'ng');
@@ -25874,6 +25959,125 @@ function mbTriggerImpact(kind, title, subText, xpGained){
   setTimeout(() => { if(el.parentNode) el.remove(); }, 900);
 }
 
+// ================= 行動別の効果音（教員の指示、2026-09-06：「通常攻撃はザシュッ、魔法攻撃は
+// ドーン（爆発音）、回復魔法はキューン、支援魔法・呪いもイメージに合う音を」）。正解／不正解の
+// 「ピンポン／ブ」と同じくkwsSfxCtxを共用し、新しいAudioContextは増やさない。 =================
+function mbPlaySlashSound(){
+  kwsEnsureSfx();
+  if(!kwsSfxCtx) return;
+  try{
+    const t = kwsSfxCtx.currentTime;
+    const bufSize = Math.floor(kwsSfxCtx.sampleRate * 0.15);
+    const buf = kwsSfxCtx.createBuffer(1, bufSize, kwsSfxCtx.sampleRate);
+    const data = buf.getChannelData(0);
+    for(let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufSize);
+    const noise = kwsSfxCtx.createBufferSource();
+    noise.buffer = buf;
+    const filter = kwsSfxCtx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.Q.value = 0.7;
+    filter.frequency.setValueAtTime(3200, t);
+    filter.frequency.exponentialRampToValueAtTime(700, t + 0.13);
+    const gain = kwsSfxCtx.createGain();
+    gain.gain.setValueAtTime(0.5, t);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.15);
+    noise.connect(filter).connect(gain).connect(kwsSfxCtx.destination);
+    noise.start(t); noise.stop(t + 0.16);
+  }catch(e){}
+}
+// 攻撃魔法「ドーン」：低い音程が急降下するsine（ydPlayTaikoHitと同じ発想）＋破裂ノイズ。
+// tierが上がるほど（エクスプロージョン等）少しだけ音量を大きくする。
+function mbPlayMagicBoomSound(tier){
+  kwsEnsureSfx();
+  if(!kwsSfxCtx) return;
+  try{
+    const t = kwsSfxCtx.currentTime;
+    const vol = Math.min(0.9, 0.55 + (tier || 0) * 0.12);
+    const osc = kwsSfxCtx.createOscillator();
+    const gain = kwsSfxCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(150, t);
+    osc.frequency.exponentialRampToValueAtTime(35, t + 0.35);
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(vol, t + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+    osc.connect(gain).connect(kwsSfxCtx.destination);
+    osc.start(t); osc.stop(t + 0.42);
+    const bufSize = Math.floor(kwsSfxCtx.sampleRate * 0.08);
+    const buf = kwsSfxCtx.createBuffer(1, bufSize, kwsSfxCtx.sampleRate);
+    const data = buf.getChannelData(0);
+    for(let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufSize);
+    const noise = kwsSfxCtx.createBufferSource();
+    noise.buffer = buf;
+    const noiseFilter = kwsSfxCtx.createBiquadFilter();
+    noiseFilter.type = 'lowpass';
+    noiseFilter.frequency.setValueAtTime(1200, t);
+    const noiseGain = kwsSfxCtx.createGain();
+    noiseGain.gain.setValueAtTime(vol * 0.8, t);
+    noiseGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+    noise.connect(noiseFilter).connect(noiseGain).connect(kwsSfxCtx.destination);
+    noise.start(t); noise.stop(t + 0.1);
+  }catch(e){}
+}
+// 回復魔法「キューン」：低→高へ駆け上がる、やわらかいsineの上昇音。
+function mbPlayHealSound(){
+  kwsEnsureSfx();
+  if(!kwsSfxCtx) return;
+  try{
+    const t = kwsSfxCtx.currentTime;
+    const osc = kwsSfxCtx.createOscillator();
+    const gain = kwsSfxCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(320, t);
+    osc.frequency.exponentialRampToValueAtTime(1100, t + 0.28);
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.24, t + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.34);
+    osc.connect(gain).connect(kwsSfxCtx.destination);
+    osc.start(t); osc.stop(t + 0.36);
+  }catch(e){}
+}
+// 支援魔法：明るい3音の上昇アルペジオ（ド・ミ・ソ）で「力を得た」感じを出す。
+function mbPlayBuffSound(){
+  kwsEnsureSfx();
+  if(!kwsSfxCtx) return;
+  try{
+    const t = kwsSfxCtx.currentTime;
+    [523.25, 659.25, 783.99].forEach((f, i) => {
+      const at = i * 0.07;
+      const osc = kwsSfxCtx.createOscillator();
+      const gain = kwsSfxCtx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(f, t + at);
+      gain.gain.setValueAtTime(0.0001, t + at);
+      gain.gain.exponentialRampToValueAtTime(0.2, t + at + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + at + 0.18);
+      osc.connect(gain).connect(kwsSfxCtx.destination);
+      osc.start(t + at); osc.stop(t + at + 0.2);
+    });
+  }catch(e){}
+}
+// 呪い：わずかに音程をずらした2つのsawtoothを一緒に下降させ、不穏なうなりを出す。
+function mbPlayDebuffSound(){
+  kwsEnsureSfx();
+  if(!kwsSfxCtx) return;
+  try{
+    const t = kwsSfxCtx.currentTime;
+    [1, 1.03].forEach(detune => {
+      const osc = kwsSfxCtx.createOscillator();
+      const gain = kwsSfxCtx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(260 * detune, t);
+      osc.frequency.exponentialRampToValueAtTime(90 * detune, t + 0.3);
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.14, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.34);
+      osc.connect(gain).connect(kwsSfxCtx.destination);
+      osc.start(t); osc.stop(t + 0.36);
+    });
+  }catch(e){}
+}
+
 // ================= 行動別の追加演出（教員の指示、2026-09-05：「通常攻撃はザシュッと切る感じ」
 // 「他の魔法（攻撃魔法など）ももっとアニメーションを」）。mbTriggerImpact（画面パルス＋中央の
 // 文字）はそのまま活かしつつ、行動の種類ごとに見た目で区別できる一時エフェクトを追加で重ねる。
@@ -25882,6 +26086,7 @@ function mbTriggerImpact(kind, title, subText, xpGained){
 // 通常攻撃だけの「ザシュッ」：画面全体にX字の白い斬撃ラインを走らせ、敵スプライトも白く光って
 // のけぞらせる。魔法（攻撃魔法含む）とは違う「物理で切った」手応えを出すのが狙い。
 function mbTriggerSlashFx(){
+  mbPlaySlashSound();
   const old = document.getElementById('mbSlashFx');
   if(old) old.remove();
   const el = document.createElement('div');
@@ -25912,6 +26117,7 @@ const MB_ATTACK_FX_TIER = { gendan:0, gengeki:1, genpou:2, genreibaku:3 };
 // 大きさ・色が強まり、上位2段階（genpou以上）では画面フラッシュ・揺れも追加する。
 function mbTriggerMagicBurstFx(spellId){
   const tier = MB_ATTACK_FX_TIER[spellId] ?? 0;
+  mbPlayMagicBoomSound(tier);
   const iconEl = document.getElementById('mbEnemyIcon');
   if(!iconEl) return;
   const rect = iconEl.getBoundingClientRect();
@@ -25990,6 +26196,7 @@ function mbTriggerActionFx(category, spellId){
   if(category === 'attack'){
     mbTriggerMagicBurstFx(spellId);
   } else if(category === 'heal'){
+    mbPlayHealSound();
     const row = document.getElementById('mbPlayerHpRow');
     if(row){
       row.classList.remove('mb-heal-glow');
@@ -25998,6 +26205,7 @@ function mbTriggerActionFx(category, spellId){
     }
     mbFloatGlyphFx(row, '+HP', 'mb-glyph-heal', 'up');
   } else if(category === 'buff'){
+    mbPlayBuffSound();
     const card = document.querySelector('#mbScreen .boss-q-card');
     if(card){
       card.classList.remove('mb-buff-glow');
@@ -26006,6 +26214,7 @@ function mbTriggerActionFx(category, spellId){
     }
     mbFloatGlyphFx(document.getElementById('mbStatusRow') || card, '⬆', 'mb-glyph-buff', 'up');
   } else if(category === 'debuff'){
+    mbPlayDebuffSound();
     const iconEl = document.getElementById('mbEnemyIcon');
     mbFlinchEnemyIcon(true);
     mbFloatGlyphFx(iconEl, '⬇', 'mb-glyph-debuff', 'down');
