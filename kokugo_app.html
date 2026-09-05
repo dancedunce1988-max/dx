@@ -3757,7 +3757,11 @@
   100%{ filter:brightness(1) saturate(1); transform:translateX(0); }
 }
 /* 攻撃魔法：敵の位置から光の輪が広がって消える「撃ち込んだ」演出。斬撃（直線）とは
-   見た目を変えて、物理攻撃と魔法攻撃が別物だと分かるようにする。 */
+   見た目を変えて、物理攻撃と魔法攻撃が別物だと分かるようにする。強さ4段階
+   （ワード＜ボキャブラリー＜エビデンス・ファイア＜ロジック・エクスプロージョン）に応じて
+   輪の数・色・広がり方をmbTriggerMagicBurstFx側で変え、最終的な広がり幅だけ
+   --mb-burst-scaleというCSS変数で渡す（教員の指示、2026-09-05：「強くなるごとに
+   演出の派手さを増して。特にエクスプロージョンはド派手に」）。 */
 .mb-magic-burst-fx{ position:fixed; z-index:9600; pointer-events:none; width:0; height:0; }
 .mb-magic-ring{
   position:absolute; top:0; left:0; width:20px; height:20px; margin:-10px 0 0 -10px;
@@ -3765,9 +3769,44 @@
   opacity:0; animation:mbMagicRing .5s ease-out forwards;
 }
 .mb-magic-ring-2{ border-color:#fff3c9; animation-delay:.08s; }
+/* genpou（重い一撃）は白、genreibaku（エクスプロージョン）は炎色にして、上位ほど
+   ワンランク違う色に見えるようにする。 */
+.mb-magic-ring.mb-ring-white{ border-color:#fff; box-shadow:0 0 20px 5px rgba(255,255,255,.95); }
+.mb-magic-ring.mb-ring-fire{ border-color:#ff6a3c; box-shadow:0 0 24px 7px rgba(255,106,60,1); }
 @keyframes mbMagicRing{
   0%{ transform:scale(.2); opacity:.9; }
-  100%{ transform:scale(6); opacity:0; }
+  100%{ transform:scale(var(--mb-burst-scale, 6)); opacity:0; }
+}
+/* エクスプロージョン・エビデンス・ファイア専用：着弾点から火花が四方に飛び散る粒子。
+   --dx/--dyは1粒ごとにJSが飛び散る方向・距離を計算して渡す。 */
+.mb-magic-spark{
+  position:absolute; top:0; left:0; width:7px; height:7px; margin:-3.5px 0 0 -3.5px; border-radius:50%;
+  background:#ffb057; box-shadow:0 0 10px 3px rgba(255,140,60,.95);
+  opacity:0; animation:mbSparkFly .55s ease-out forwards;
+}
+@keyframes mbSparkFly{
+  0%{ transform:translate(0,0) scale(1); opacity:1; }
+  100%{ transform:translate(var(--dx), var(--dy)) scale(.2); opacity:0; }
+}
+/* エビデンス・ファイア以上だけの全画面フラッシュ。エクスプロージョンは炎色の放射
+   グラデーションにして「爆発」感を強める。 */
+.mb-explosion-flash{
+  position:fixed; inset:0; z-index:9700; pointer-events:none; background:#fff;
+  opacity:0; animation:mbExplosionFlash .4s ease-out forwards;
+}
+.mb-explosion-flash-big{ background:radial-gradient(circle, #fff 0%, #ffb057 45%, rgba(255,106,60,0) 78%); }
+@keyframes mbExplosionFlash{ 0%{ opacity:.85; } 100%{ opacity:0; } }
+/* ボキャブラリー以上だけの画面揺れ。エクスプロージョンはkbShakeと同等の大きな揺れにする。 */
+.mb-explosion-shake{ animation:mbExplosionShakeSm .4s ease; }
+.mb-explosion-shake-big{ animation:mbExplosionShakeLg .55s ease; }
+@keyframes mbExplosionShakeSm{
+  0%{ transform:translate(0,0); } 25%{ transform:translate(-4px,2px); } 50%{ transform:translate(4px,-2px); }
+  75%{ transform:translate(-2px,1px); } 100%{ transform:translate(0,0); }
+}
+@keyframes mbExplosionShakeLg{
+  0%{ transform:translate(0,0) scale(1); } 12%{ transform:translate(-12px,7px) scale(1.02); }
+  28%{ transform:translate(11px,-8px) scale(1.02); } 45%{ transform:translate(-9px,5px); }
+  62%{ transform:translate(7px,-4px); } 80%{ transform:translate(-4px,2px); } 100%{ transform:translate(0,0) scale(1); }
 }
 /* 回復：HPバーが緑に光る＋「+HP」の文字がバーの上にフワッと浮かぶ。 */
 .mb-heal-glow > .hpbar{ animation:mbHealGlow .6s ease; }
@@ -3801,7 +3840,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.75</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.76</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -25360,7 +25399,7 @@ function mbCastSpellInstant(category, spellId, critWon){
   // プレイヤーが攻撃したときは防御姿勢、それで倒したときは討伐姿勢を見せる（教員の指示、2026-09-04）。
   if(category === 'attack') mbCurrentPoseKey = enemyDefeated ? 'defeat' : 'defense';
   mbRenderBattleScreen({ msg: `「${esc(spell.name)}」発動！ ${effectMsg}` });
-  mbTriggerActionFx(category);
+  mbTriggerActionFx(category, spell.id);
   mbTriggerImpact('hit', overlayTitle, effectMsg);
   if(enemyDefeated){
     setTimeout(() => mbEnemyDefeated(), 900);
@@ -25783,9 +25822,16 @@ function mbFlinchEnemyIcon(debuffTint){
   void iconEl.offsetWidth;
   iconEl.classList.add(cls);
 }
+// 攻撃魔法は4段階（ワード＜ボキャブラリー＜エビデンス・ファイア＜ロジック・エクスプロージョン）
+// あるので、強い魔法ほど演出も派手にする（教員の指示、2026-09-05：「強くなるごとに演出の
+// 派手さを増して。特にエクスプロージョンはド派手に」）。MB_SPELLS.attack.listの並び順＝
+// 強さ順そのものをtier(0〜3)として使う。
+const MB_ATTACK_FX_TIER = { gendan:0, gengeki:1, genpou:2, genreibaku:3 };
 // 敵の位置に光の輪を広げる「魔法を撃ち込んだ」演出（攻撃魔法用）。斬撃の直線とは違い、
-// 円が敵の中心から膨らんで消えることで「魔法っぽさ」を出す。
-function mbTriggerMagicBurstFx(){
+// 円が敵の中心から膨らんで消えることで「魔法っぽさ」を出す。tierが上がるごとに輪の数・
+// 大きさ・色が強まり、上位2段階（genpou以上）では画面フラッシュ・揺れも追加する。
+function mbTriggerMagicBurstFx(spellId){
+  const tier = MB_ATTACK_FX_TIER[spellId] ?? 0;
   const iconEl = document.getElementById('mbEnemyIcon');
   if(!iconEl) return;
   const rect = iconEl.getBoundingClientRect();
@@ -25796,10 +25842,52 @@ function mbTriggerMagicBurstFx(){
   el.className = 'mb-magic-burst-fx';
   el.style.left = (rect.left + rect.width / 2) + 'px';
   el.style.top = (rect.top + rect.height / 2) + 'px';
-  el.innerHTML = `<div class="mb-magic-ring"></div><div class="mb-magic-ring mb-magic-ring-2"></div>`;
+
+  const ringCount = [2, 3, 4, 6][tier];
+  const ringScale = [6, 7, 8, 11][tier];
+  const ringColorCls = tier >= 3 ? 'mb-ring-fire' : (tier === 2 ? 'mb-ring-white' : '');
+  let innerHtml = '';
+  for(let i = 0; i < ringCount; i++){
+    innerHtml += `<div class="mb-magic-ring ${ringColorCls}" style="--mb-burst-scale:${ringScale}; animation-delay:${(i * 0.06).toFixed(2)}s;"></div>`;
+  }
+  // エクスプロージョン級（tier3）・重い一撃（tier2）だけ、火花が四方に飛び散る
+  // 「爆発」らしい粒子を足す（弱い魔法にまで付けると煩雑になるので上位2段階限定）。
+  const sparkCount = [0, 0, 6, 14][tier];
+  for(let i = 0; i < sparkCount; i++){
+    const angle = (360 / sparkCount) * i + mbRand(-15, 15);
+    const dist = mbRand(60, 140) + tier * 20;
+    const dx = Math.round(Math.cos(angle * Math.PI / 180) * dist);
+    const dy = Math.round(Math.sin(angle * Math.PI / 180) * dist);
+    innerHtml += `<div class="mb-magic-spark" style="--dx:${dx}px; --dy:${dy}px; animation-delay:${(i * 0.02).toFixed(2)}s;"></div>`;
+  }
+  el.innerHTML = innerHtml;
   document.body.appendChild(el);
-  setTimeout(() => { if(el.parentNode) el.remove(); }, 650);
+  setTimeout(() => { if(el.parentNode) el.remove(); }, 900);
   mbFlinchEnemyIcon(false);
+
+  if(tier >= 2) mbTriggerExplosionFlash(tier);
+  if(tier >= 1) mbShakeScreenForSpell(tier);
+}
+// 上位魔法（genpou以上）だけの全画面フラッシュ。エクスプロージョン（tier3）は炎色の
+// 放射グラデーションにして、単なる白飛びよりも「爆発」感を出す。
+function mbTriggerExplosionFlash(tier){
+  const old = document.getElementById('mbExplosionFlash');
+  if(old) old.remove();
+  const el = document.createElement('div');
+  el.id = 'mbExplosionFlash';
+  el.className = 'mb-explosion-flash' + (tier >= 3 ? ' mb-explosion-flash-big' : '');
+  document.body.appendChild(el);
+  setTimeout(() => { if(el.parentNode) el.remove(); }, 500);
+}
+// 上位魔法（gengeki以上）だけの画面揺れ。エクスプロージョン（tier3）はkbShake同様の
+// 大きな揺れ、それ以外は控えめな揺れにする。
+function mbShakeScreenForSpell(tier){
+  const screenEl = document.getElementById('mbScreen');
+  if(!screenEl) return;
+  const cls = tier >= 3 ? 'mb-explosion-shake-big' : 'mb-explosion-shake';
+  screenEl.classList.remove('mb-explosion-shake', 'mb-explosion-shake-big');
+  void screenEl.offsetWidth;
+  screenEl.classList.add(cls);
 }
 // anchorElの真上（direction='up'）または真下（'down'）から、短い文字（絵文字含む）を
 // フワッと浮かせて消す。回復＝HPバーの上に「+HP」、支援魔法＝ステータス行の上に「⬆」、
@@ -25815,11 +25903,12 @@ function mbFloatGlyphFx(anchorEl, glyph, colorClass, direction){
   document.body.appendChild(el);
   setTimeout(() => { if(el.parentNode) el.remove(); }, 900);
 }
-// mbCastSpellInstantから、魔法のカテゴリ（MB_SPELLSのキーそのもの）を渡して呼ぶ。
+// mbCastSpellInstantから、魔法のカテゴリ（MB_SPELLSのキーそのもの）とspellIdを渡して呼ぶ。
 // カテゴリごとに「何が起きたか」がひと目で伝わる専用エフェクトを1つずつ割り当てる。
-function mbTriggerActionFx(category){
+// spellIdはattackカテゴリのときだけ使う（強さに応じて演出の派手さを変えるため）。
+function mbTriggerActionFx(category, spellId){
   if(category === 'attack'){
-    mbTriggerMagicBurstFx();
+    mbTriggerMagicBurstFx(spellId);
   } else if(category === 'heal'){
     const row = document.getElementById('mbPlayerHpRow');
     if(row){
