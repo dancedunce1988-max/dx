@@ -3525,24 +3525,29 @@
   background:rgba(15,8,26,.95); border:1px solid rgba(180,140,255,.5); border-radius:12px;
   font-size:.8rem; color:#e8ddff; text-align:left; box-shadow:0 6px 20px rgba(0,0,0,.45);
 }
-/* 「冒険に出る」を押した直後のシナリオ導入（教員の指示、2026-09-06：3-2-1のカウントダウンを
-   このシナリオ表示に置き換え。黒地に金文字、古めかしいRPG風の書体。1秒フェードイン→5秒表示→
-   1秒フェードアウトの計7秒、JS側のsetTimeout(7000ms)とタイミングを揃えてある）。 */
+/* 「冒険に出る」を押した直後のシナリオ導入（教員の指示、2026-09-06〜：3-2-1のカウントダウンを
+   教員が用意したプロローグ画像（枠＋文字が1枚に焼き込まれたPNG）の表示に置き換え）。枠を
+   含む画像全体は最初からずっと表示したままにし、文字の内側の領域だけを画像の背景と近い色の
+   板（.mb-scenario-mask）で覆っておく。板はbottomを固定してheightだけを0まで縮めるので、
+   板の上端が下へ動いていく＝「上から徐々に文字が現れる」ように見える。aspect-ratioで
+   コンテナに実寸（1448×1086）ぶんの確定した高さを与えないと、板のleft/right/bottom/height
+   （%指定）が正しく解決されない点に注意。left/right/bottom/heightの数値・背景色（#0d0d0b）は
+   画像を実際にピクセル解析して文字の範囲（横23.8〜76.8%・縦23.9〜75.9%）を割り出し、
+   少し余白を持たせたもの（枠の罫線・角の装飾は5%より内側には掛からないことも確認済み）。 */
 .mb-scenario-screen{
   background:#000; display:flex; align-items:center; justify-content:center;
-  flex-direction:column; min-height:62vh; text-align:center; padding:32px 22px; border-color:#4a3a10;
+  flex-direction:column; min-height:62vh; padding:32px 22px; border-color:#4a3a10;
 }
-.mb-scenario-text{
-  font-family:"Yu Mincho","YuMincho","Hiragino Mincho ProN","MS PMincho",serif;
-  color:#ffd76a; font-size:1.3rem; letter-spacing:.05em; opacity:0;
-  text-shadow:0 0 18px rgba(255,215,100,.55), 0 2px 6px rgba(0,0,0,.9);
-  animation:mbScenarioFade 7s ease-in-out forwards;
+.mb-scenario-frame{
+  position:relative; width:100%; max-width:640px; margin:0 auto; aspect-ratio:1448/1086;
 }
-.mb-scenario-text p{ margin:0 0 .9em; }
-.mb-scenario-text p:last-child{ margin-bottom:0; }
-@keyframes mbScenarioFade{
-  0%{ opacity:0; } 14.29%{ opacity:1; } 85.71%{ opacity:1; } 100%{ opacity:0; }
+.mb-scenario-img{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; display:block; }
+.mb-scenario-mask{
+  position:absolute; left:20%; right:20%; bottom:22%; height:56%;
+  background:#0d0d0b;
+  animation-name:mbScenarioReveal; animation-timing-function:linear; animation-fill-mode:forwards;
 }
+@keyframes mbScenarioReveal{ from{ height:56%; } to{ height:0%; } }
 /* タップでいつでも飛ばせる（教員の指示）：tap-advance-btnクラスにより、画面のどこを
    タップしても機能する（既存のグローバルクリックリスナーを流用）。見た目は控えめに、
    ボタンだと分かる程度の小さな表示に留める。 */
@@ -3910,7 +3915,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.87</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.88</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -25390,26 +25395,29 @@ function mbToggleTitleInfo(){
   if(panel) panel.hidden = !panel.hidden;
 }
 
-// 「冒険に出る」を押した直後の簡単なシナリオ導入（教員の指示、2026-09-06：3-2-1の
-// カウントダウンをこのシナリオ表示に置き換える）。黒地に金文字、1秒かけてフェードイン→
-// 5秒間表示→1秒かけてフェードアウトしてmbInitRunへ進む（.mb-scenario-textのCSSアニメーション
-// と、下のsetTimeoutの合計7000msをぴったり合わせてある）。tap-advance-btn（既存のグローバル
-// クリックリスナー、5021行目付近参照）を使い、画面のどこをタップしてもいつでも飛ばせる。
-const MB_SCENARIO_LINES = [
-  'ここは、剣と魔法の世界。',
-  '強い武器より頼りになるのは「正しい漢字」を書く力。',
-  '漢字を極めた者だけが、魔法を操り、敵を倒せる。',
-  '今こそ、力を試す時。',
-  'さあ、漢字の力を魔力に変えて、冒険を始めよう！',
-];
+// 「冒険に出る」を押した直後の簡単なシナリオ導入（教員の指示、2026-09-06〜：3-2-1の
+// カウントダウンを、教員が用意したプロローグ画像（画像/漢字ゲーム/プロローグ.png、枠＋
+// 文字が1枚に焼き込まれたもの）の表示に置き換える）。枠を含む画像全体は最初から表示した
+// ままにし、文字の書かれている内側の領域だけを画像と同じ色の板（#mbScenarioMask）で覆って
+// おき、その板の高さを下端を固定したまま0まで縮めることで「上から徐々に文字が現れる」
+// 演出にする（bottom固定＋heightアニメーションなので、板の上端だけが下に動いていく）。
+// 領域の割合（left/right/bottom/height）は画像の実寸1448×1086から目視で見積もったもの。
+// 文字が出切るまで（MB_SCENARIO_REVEAL_MSかけて）待ってから、少し読む間（
+// MB_SCENARIO_HOLD_MS）を置いてmbInitRunへ進む。tap-advance-btn（既存のグローバル
+// クリックリスナー、5021行目付近参照）により、画面のどこをタップしてもいつでも飛ばせる。
+const MB_SCENARIO_REVEAL_MS = 6000;
+const MB_SCENARIO_HOLD_MS = 2000;
 let mbScenarioTimer = null;
 function mbShowScenarioIntro(){
   screen.innerHTML = `
     <div class="boss-battle-screen mb-scenario-screen">
-      <div class="mb-scenario-text">${MB_SCENARIO_LINES.map(line => `<p>${esc(line)}</p>`).join('')}</div>
+      <div class="mb-scenario-frame">
+        <img class="mb-scenario-img" src="${window.MB_PROLOGUE_IMG || ''}" alt="ここは、剣と魔法の世界。強い武器より頼りになるのは「正しい漢字」を書く力。漢字を極めた者だけが、魔法を操り、敵を倒せる。今こそ、力を試す時。さあ、漢字の力を魔力に変えて、冒険を始めよう！">
+        <div class="mb-scenario-mask" id="mbScenarioMask" style="animation-duration:${MB_SCENARIO_REVEAL_MS}ms;"></div>
+      </div>
       <button class="tap-advance-btn mb-scenario-skip-btn" onclick="mbSkipScenarioIntro()">▶ タップでスキップ</button>
     </div>`;
-  mbScenarioTimer = setTimeout(() => { mbScenarioTimer = null; mbInitRun(); }, 7000);
+  mbScenarioTimer = setTimeout(() => { mbScenarioTimer = null; mbInitRun(); }, MB_SCENARIO_REVEAL_MS + MB_SCENARIO_HOLD_MS);
 }
 function mbSkipScenarioIntro(){
   if(mbScenarioTimer){ clearTimeout(mbScenarioTimer); mbScenarioTimer = null; }
