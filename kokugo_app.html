@@ -3525,6 +3525,31 @@
   background:rgba(15,8,26,.95); border:1px solid rgba(180,140,255,.5); border-radius:12px;
   font-size:.8rem; color:#e8ddff; text-align:left; box-shadow:0 6px 20px rgba(0,0,0,.45);
 }
+/* タイトル画面の「冒険に出る」＋BGM入切（教員の指示、2026-09-06：「冒険に出る」の横に
+   BGMの入切ボタンを、剣の絵は無しでRPG風の立体的なデザインに）。既存の.mb-btn-3d
+   （行動ボタンの「押し込む」演出）と同じ考え方の箱型シャドウを、金の宝箱風グラデーションに
+   仕立てて使う。 */
+.mb-title-cta-row{ display:flex; align-items:stretch; gap:10px; max-width:360px; margin:14px auto 0; }
+.mb-adventure-btn{
+  flex:1; margin:0; padding:16px 10px; font-size:1.25rem; font-weight:900; letter-spacing:.1em;
+  color:#3a2405; cursor:pointer; border:2px solid #ffeec0; border-radius:16px;
+  background:linear-gradient(180deg,#ffe9a8,#ffc94a 45%,#e6971f);
+  box-shadow:0 6px 0 #8a5a12, 0 10px 22px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.6);
+  text-shadow:0 1px 0 rgba(255,255,255,.4);
+  transition:transform .08s ease, box-shadow .08s ease;
+}
+.mb-adventure-btn:active{
+  transform:translateY(5px);
+  box-shadow:0 1px 0 #8a5a12, 0 3px 10px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.5);
+}
+.mb-bgm-toggle-btn{
+  flex:0 0 auto; width:54px; margin:0; padding:0; font-size:1.35rem; cursor:pointer;
+  border:2px solid rgba(180,140,255,.5); border-radius:16px; background:rgba(40,20,60,.6); color:#d8c2ff;
+  box-shadow:0 6px 0 rgba(0,0,0,.4), 0 10px 18px rgba(0,0,0,.35);
+  transition:transform .08s ease, box-shadow .08s ease, opacity .15s ease;
+}
+.mb-bgm-toggle-btn:active{ transform:translateY(5px); box-shadow:0 1px 0 rgba(0,0,0,.4), 0 2px 8px rgba(0,0,0,.3); }
+.mb-bgm-toggle-btn.mb-bgm-off{ opacity:.5; }
 .mb-mpbar>div{ background:linear-gradient(90deg,#8a6fff,#c8b3ff) !important; }
 .mb-action-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px; }
 .mb-action-btn{ padding:14px 8px; font-size:.95rem; }
@@ -3850,7 +3875,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.83</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.84</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -25179,8 +25204,15 @@ function mbStopIdleAnim(){
 //      MB_BGM（mb_bgm_data.js、キーはMB_ENEMIESのid）にエントリがある敵だけ専用BGMを
 //      ループ再生する。エントリの無い敵は従来通り無音のまま戦う。 ----
 let mbBgmAudio = null;
+// タイトル画面のBGM入切ボタン（教員の指示、2026-09-06）。st.mbBgmOn（未設定＝ONがデフォルト）
+// にloadStats/saveStats経由で保存し、他の設定と同じ仕組みで端末に残す。
+function mbBgmEnabled(){
+  const st = loadStats();
+  return st.mbBgmOn !== false;
+}
 function mbPlayBgmForEnemy(enemyId){
   mbStopBgm();
+  if(!mbBgmEnabled()) return;
   const src = window.MB_BGM && window.MB_BGM[enemyId];
   if(!src) return;
   mbBgmAudio = new Audio(src);
@@ -25194,6 +25226,24 @@ function mbStopBgm(){
     mbBgmAudio.currentTime = 0;
     mbBgmAudio = null;
   }
+}
+// タイトル画面の🔊/🔇ボタンから呼ぶ。今まさに戦闘中でBGMが鳴っている／止まっている場合は
+// 即座に反映する（オフにしたら止める、オンに戻したら今の敵のBGMがあれば鳴らし直す）。
+function mbToggleBgmSetting(){
+  const st = loadStats();
+  st.mbBgmOn = !(st.mbBgmOn !== false);
+  saveStats(st);
+  mbUpdateBgmToggleBtn();
+  if(!mbBgmEnabled()) mbStopBgm();
+  else if(mbBattle && mbBattle.enemyDef) mbPlayBgmForEnemy(mbBattle.enemyDef.id);
+}
+function mbUpdateBgmToggleBtn(){
+  const btn = document.getElementById('mbBgmToggleBtn');
+  if(!btn) return;
+  const on = mbBgmEnabled();
+  btn.textContent = on ? '🔊' : '🔇';
+  btn.classList.toggle('mb-bgm-off', !on);
+  btn.title = on ? 'BGM：ON（押すとOFFにします）' : 'BGM：OFF（押すとONにします）';
 }
 
 // ホーム直下ではなく「🎮 ミニゲーム」一覧(showSideQuestMenu)の中に、「漢字マスターの道」とは
@@ -25277,7 +25327,10 @@ function mbStartGauntlet(){
     <div class="boss-battle-screen mb-title-screen" style="position:relative;">
       <button class="btn secondary kb-quit-corner" onclick="showHome()">やめる</button>
       <img class="mb-title-image" src="${window.KANJI_QUEST_TITLE_IMG || ''}" alt="漢字Quest">
-      <div class="btn-row" style="justify-content:center;"><button class="btn primary" onclick="mbStartCountdown()">⚔️ 冒険に出る</button></div>
+      <div class="mb-title-cta-row">
+        <button class="btn mb-adventure-btn" onclick="mbStartCountdown()">冒険に出る</button>
+        <button class="btn mb-bgm-toggle-btn${mbBgmEnabled() ? '' : ' mb-bgm-off'}" id="mbBgmToggleBtn" onclick="mbToggleBgmSetting()" title="${mbBgmEnabled() ? 'BGM：ON（押すとOFFにします）' : 'BGM：OFF（押すとONにします）'}">${mbBgmEnabled() ? '🔊' : '🔇'}</button>
+      </div>
       <button class="mb-title-info-btn" onclick="mbToggleTitleInfo()">説明</button>
       <div class="mb-title-info-panel" id="mbTitleInfoPanel" hidden>
         <p style="margin:0; line-height:1.8;">
