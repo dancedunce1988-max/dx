@@ -3840,7 +3840,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.77</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.78</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3862,6 +3862,7 @@
 <script src="kanji_quest_title_data.js"></script>
 <script src="mb_action_button_images.js"></script>
 <script src="menu_title_images.js"></script>
+<script src="mb_bgm_data.js"></script>
 <script>
 "use strict";
 
@@ -25041,6 +25042,27 @@ function mbStopIdleAnim(){
   if(mbIdleTimer){ clearInterval(mbIdleTimer); mbIdleTimer = null; }
 }
 
+// ---- 戦闘BGM（教員の指示、2026-09-05：「音楽」フォルダの音源を炎狼戦のBGMに設定）。
+//      MB_BGM（mb_bgm_data.js、キーはMB_ENEMIESのid）にエントリがある敵だけ専用BGMを
+//      ループ再生する。エントリの無い敵は従来通り無音のまま戦う。 ----
+let mbBgmAudio = null;
+function mbPlayBgmForEnemy(enemyId){
+  mbStopBgm();
+  const src = window.MB_BGM && window.MB_BGM[enemyId];
+  if(!src) return;
+  mbBgmAudio = new Audio(src);
+  mbBgmAudio.loop = true;
+  mbBgmAudio.volume = 0.55;
+  mbBgmAudio.play().catch(() => {}); // ブラウザの自動再生ブロック等は無視し、無音のまま戦闘は続行できるようにする
+}
+function mbStopBgm(){
+  if(mbBgmAudio){
+    mbBgmAudio.pause();
+    mbBgmAudio.currentTime = 0;
+    mbBgmAudio = null;
+  }
+}
+
 // ホーム直下ではなく「🎮 ミニゲーム」一覧(showSideQuestMenu)の中に、「漢字マスターの道」とは
 // 別のカードとして置く（既存のボス戦システムとは別物として完全に独立させる）。
 function mbSideQuestButtonHtml(){
@@ -25114,6 +25136,7 @@ function mbEnsurePool(diff){
 function mbStartGauntlet(){
   mbClearTimer();
   mbStopIdleAnim();
+  mbStopBgm();
   mbRun = null; mbBattle = null; mbChallenge = null; mbPendingAction = null;
   const overlay = document.getElementById('mbAtkOverlay');
   if(overlay) overlay.remove();
@@ -25202,6 +25225,7 @@ function startMbEncounterBattle(enemyDef, resumeFn){
 // アイコンがズームイン→「戦闘開始！」を大きく表示してから、通常の行動選択画面に切り替わる。
 function mbShowBattleIntro(){
   const enemyDef = mbBattle.enemyDef;
+  mbPlayBgmForEnemy(enemyDef.id);
   screen.innerHTML = `
     <div class="boss-battle-screen mb-intro-screen">
       <div class="mb-intro-flash"></div>
@@ -26106,6 +26130,7 @@ function mbShowStageMap(clearedUpTo, xpGained, recruitedMsg){
 // 増やすのは上限だけにする）。
 const MB_STATUP_HP = 50, MB_STATUP_MP = 50;
 function mbEnemyDefeated(){
+  mbStopBgm();
   const enemyDef = mbBattle.enemyDef;
   const st = loadStats();
   st.stockXp = (st.stockXp || 0) + MB_BOSS_DEFEAT_XP;
@@ -26166,6 +26191,7 @@ function mbGauntletComplete(xpGained, recruitedMsg){
 function mbGameOver(){
   mbClearTimer();
   mbStopIdleAnim();
+  mbStopBgm();
   // 漢字の書き取り練習中のランダム遭遇（mbRun.isEncounter）は連戦の何体目という数え方が
   // 意味を持たないので、専用の結果画面（mbEncounterLose）で終える（教員の指示、2026-09-05）。
   if(mbRun.isEncounter){
@@ -26239,6 +26265,7 @@ function mbConfirmQuit(){
   if(confirm(msg)){
     mbClearTimer();
     mbStopIdleAnim();
+    mbStopBgm();
     mbRun = null; mbBattle = null; mbChallenge = null;
     if(isEncounter) endMbEncounter(); else showHome();
   }
