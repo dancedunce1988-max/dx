@@ -3850,7 +3850,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.80</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.81</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -26017,6 +26017,7 @@ function mbTriggerActionFx(category, spellId){
 // （EASY+1／NORMAL+2／HARD・VERYHARD+3）、会心＝ダメージ3倍の権利のみ）。
 function mbChallengeSuccess(){
   const diff = mbChallenge.diff;
+  const challengeId = mbChallenge.id;
   const action = mbPendingAction;
   mbChallenge = null;
   if(action.type === 'crit'){
@@ -26029,6 +26030,20 @@ function mbChallengeSuccess(){
   const st = loadStats();
   st.stockXp = (st.stockXp || 0) + xpGained;
   saveStats(st);
+  // 通常攻撃の正解ごとに、その難易度が対応するジャンル（EASY/NORMAL→小学校で習う漢字、
+  // HARD→高校入試頻出200、VERY HARD→中学校で習う漢字）のレベルも1上げ、経験値も伸ばす
+  // （教員の指示、2026-09-05：「復習する」の正解時と同じ仕組みを、通常のバトル中の正解にも
+  // 適用してほしい）。record()がst.lv[cat]++することで、合計経験値にも自動で反映される。
+  // 会心のチャンス（action.type==='crit'）はこの関数の外で処理される＝対象外。
+  const mbCat = kwsStatCatFor(diff.mode);
+  if(mbCat){
+    const r = record(mbCat, {q: challengeId}, true, undefined, {skipRecentAcc:true});
+    if(r.lvup){
+      kwsShowLevelUpFx(r.evolved
+        ? `🎉 Lv.${r.lv} UP！ ${r.evolved.icon} ${r.evolved.name}になりました`
+        : `🎉 Lv.${r.lv} UP！`);
+    }
+  }
   const dmg = mbComputeAttackDamage(MB_NORMAL_ATTACK_POWER[diff.id] || MB_NORMAL_ATTACK_POWER.easy, false);
   mbBattle.enemyHp = Math.max(0, mbBattle.enemyHp - dmg);
   const msg = `○ 正解！ 漢字の力が魔力に変わった！ ＋${mpGain} MP　<span class="kb-xp-inline">＋${xpGained} ストック経験値</span><br>通常攻撃！ ${esc(mbBattle.enemyDef.name)}に${dmg}のダメージ！${mbDefenseNoteHtml()}`;
