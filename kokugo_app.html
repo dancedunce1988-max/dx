@@ -3840,7 +3840,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.76</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.77</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -25403,6 +25403,12 @@ function mbCastSpellInstant(category, spellId, critWon){
   mbTriggerImpact('hit', overlayTitle, effectMsg);
   if(enemyDefeated){
     setTimeout(() => mbEnemyDefeated(), 900);
+    return;
+  }
+  // 支援魔法・呪いはプレイヤーのターンを消費しない（教員の指示、2026-09-05）：MPを払うだけの
+  // 行動として扱い、敵のターンに進まずそのまま行動選択に戻す＝もう一度行動できる。
+  if(category === 'buff' || category === 'debuff'){
+    setTimeout(() => mbRenderBattleScreen({ showActions: true }), 1200);
     return;
   }
   setTimeout(() => mbEnemyTurn(), 1200);

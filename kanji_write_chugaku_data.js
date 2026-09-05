@@ -1363,7 +1363,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "id": "kwc0123",
   "ch": "込",
   "kanji": "込",
-  "sentence": "朝の電車はいつも《コ》んでいる。",
+  "sentence": "彼は電車で来る見《コ》みだ。",
   "grade": 1,
   "radicals": [
    "辵（しんにょう）"
