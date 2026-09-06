@@ -3926,7 +3926,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.92</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.93</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -26464,6 +26464,11 @@ function mbChallengeSuccess(){
   const xpGained = MB_QUEST_XP[diff.id] || 1;
   const st = loadStats();
   st.stockXp = (st.stockXp || 0) + xpGained;
+  // 「漢字Quest実装記念イベント」中は、通常攻撃の正解1問ごとに＋1（教員の指示、2026-09-06）。
+  // 会心のチャンス（action.type==='crit'）はこの関数の外で処理されるため対象外＝ここでの
+  // カウント対象と、上のstockXp・下のrecord()の対象（通常攻撃の正解）は常に一致する。
+  const kwsEventNow = eventActive(KWS_XP_EVENT_ID);
+  if(kwsEventNow) eventBonusAdd(st, KWS_XP_EVENT_ID, 1);
   saveStats(st);
   // 通常攻撃の正解ごとに、その難易度が対応するジャンル（EASY/NORMAL→小学校で習う漢字、
   // HARD→高校入試頻出200、VERY HARD→中学校で習う漢字）のレベルも1上げ、経験値も伸ばす
@@ -26481,13 +26486,15 @@ function mbChallengeSuccess(){
   }
   const dmg = mbComputeAttackDamage(MB_NORMAL_ATTACK_POWER[diff.id] || MB_NORMAL_ATTACK_POWER.easy, false);
   mbBattle.enemyHp = Math.max(0, mbBattle.enemyHp - dmg);
-  const msg = `○ 正解！ 漢字の力が魔力に変わった！ ＋${mpGain} MP　<span class="kb-xp-inline">＋${xpGained} ストック経験値</span><br>通常攻撃！ ${esc(mbBattle.enemyDef.name)}に${dmg}のダメージ！${mbDefenseNoteHtml()}`;
+  const eventXpHtml = kwsEventNow ? `　<span class="kb-xp-inline">＋1 イベント経験値</span>` : '';
+  const msg = `○ 正解！ 漢字の力が魔力に変わった！ ＋${mpGain} MP　<span class="kb-xp-inline">＋${xpGained} ストック経験値</span>${eventXpHtml}<br>通常攻撃！ ${esc(mbBattle.enemyDef.name)}に${dmg}のダメージ！${mbDefenseNoteHtml()}`;
   const enemyDefeated = mbBattle.enemyHp <= 0;
   // プレイヤーが攻撃したときは防御姿勢、それで倒したときは討伐姿勢を見せる（教員の指示、2026-09-04）。
   mbCurrentPoseKey = enemyDefeated ? 'defeat' : 'defense';
   mbRenderBattleScreen({ msg });
   mbTriggerSlashFx();
   mbTriggerImpact('hit', '🗡️ 通常攻撃！', `${esc(mbBattle.enemyDef.name)}に${dmg}のダメージ！ ＋${mpGain} MP${mbDefenseNote()}`, xpGained);
+  if(kwsEventNow) kwsShowEventXpFx(1);
 
   if(enemyDefeated){
     setTimeout(() => mbEnemyDefeated(), 900);
