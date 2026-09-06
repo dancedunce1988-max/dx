@@ -61,6 +61,13 @@
   .menu-card-img-btn:hover{ transform:translateY(-2px); box-shadow:0 4px 10px rgba(0,0,0,.2); }
   .menu-card-img-btn:active{ transform:translateY(1px) scale(.99); }
   .menu-card-img-btn img{ display:block; width:100%; height:auto; }
+  /* ホームの「ミニゲーム」ボタン画像（ミニゲームボタン.png）は、他のメニュー画像より
+     縦横比に対して角の丸みが強い「ピル型」のボタンなので、共通の.menu-card-img-btn（14px角丸）
+     のままだと角に画像の透明部分＝背景色がのぞいて見えてしまう（教員の指摘、2026-09-06）。
+     画像自身の角丸（元画像2111x409で半径約100px）に合わせて、%指定（幅・高さそれぞれに対する
+     割合）でこのボタンだけ角丸を強くする。%指定なら画面幅で表示サイズが変わっても
+     常に画像の実際の角丸と一致する。 */
+  .menu-card-img-btn.home-minigame-btn{ border-radius: 4.7% / 24.4%; }
   .menu-card-img-btn .menu-card-overlay{
     position:absolute; right:10px; bottom:8px; font-size:.7rem; font-weight:700;
     padding:4px 11px; border-radius:999px; background:rgba(0,0,0,.6); color:#fff;
@@ -3916,7 +3923,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.90</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.91</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -15404,8 +15411,20 @@ function storyEntryHtml(st){
 }
 /* ミニゲーム（旧サブクエスト）の入口カード。ストーリーモードのすぐ下、ホーム画面に
    直接置く（教員の指示、2026-08-17〜。以前は「ストーリーモード」→「メインストーリー／
-   サブクエスト」の2段の選択だったが、ミニゲームを独立させて1段で行けるようにした）。 */
+   サブクエスト」の2段の選択だったが、ミニゲームを独立させて1段で行けるようにした）。
+   2026-09-06〜、教員が用意した専用ボタン画像（画像/ミニゲームボタン.png、
+   menu_title_images.jsのhomeMiniGame）に差し替え。ミニゲーム一覧内の個々のボタン
+   （storySideQuestButtonHtml等）と同じ.menu-card-img-btn（幅いっぱい・高さ自動）を
+   使うことで、他の画像ボタンと同じ大きさ・見た目になる。画像が無い場合は従来どおり
+   絵文字＋テキストのカードにフォールバックする。 */
 function miniGameEntryHtml(st){
+  const img = window.MB_MENU_TITLE_IMAGES && window.MB_MENU_TITLE_IMAGES.homeMiniGame;
+  if(img){
+    return `
+      <div class="menu-card-img-btn home-minigame-btn" onclick="showSideQuestMenu()">
+        <img src="${img}" alt="ミニゲーム">
+      </div>`;
+  }
   return `
     <div class="card menu-card minigame-btn" onclick="showSideQuestMenu()">
       <div class="menu-icon">🎮</div>
