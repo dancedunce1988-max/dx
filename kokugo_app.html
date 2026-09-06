@@ -3433,6 +3433,7 @@
    （kwsColoredSentenceHtml参照）。 */
 .kws-blank.kb-blank-c0{ color:#8ab4ff; text-decoration:underline; text-decoration-color:#8ab4ff; text-underline-offset:3px; }
 .kws-blank.kb-blank-c1{ color:#ffbb86; text-decoration:underline; text-decoration-color:#ffbb86; text-underline-offset:3px; }
+.kws-blank.kb-blank-c2{ color:#8fdb8f; text-decoration:underline; text-decoration-color:#8fdb8f; text-underline-offset:3px; }
 .kws-blank.kws-blank-inactive{ font-weight:normal; color:inherit; text-decoration:underline; text-underline-offset:3px; }
 /* 攻撃時に獲得したストック経験値をはっきり見せる（教員の指示、2026-09-03）。 */
 .kb-atk-xp{
@@ -3915,7 +3916,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.89</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.90</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -7837,13 +7838,36 @@ function kwsReadingSplitFor(id){
   const found = list.find(it => it.id === id);
   return (found && typeof found.readingSplit === 'number') ? found.readingSplit : null;
 }
-// kb（漢字ボス）・mb等、1文字ずつ順番に書かせる画面の問題文HTML。readingSplitがあれば、
-// 今書いている文字（charIndex）ぶんの読みだけを太字＋色付けし、もう一方は普通の文字にする。
-// readingSplitが無い問題（1文字の問題を含む）は、従来どおり括弧全体をcharIndexの色にする。
+// 3文字の熟語の問題だけが持つ、読みの1文字目・2文字目・3文字目の境目（[1文字目とのの境目, 2文字目と3文字目の境目]）。
+// 3文字の問題以外やデータ未整備の問題ではnull（「漢字書き取り_読み仮名区切りツール.html」で設定、2026-09-06〜）。
+function kwsReadingSplit3For(id){
+  let list;
+  if(id.indexOf('kwe') === 0) list = window.KANJI_WRITE_ELEM_DATA || [];
+  else if(id.indexOf('kwc') === 0) list = window.KANJI_WRITE_CHUGAKU_DATA || [];
+  else list = (window.KANJI_WRITE_DATA && window.KANJI_WRITE_DATA.ranked) || [];
+  const found = list.find(it => it.id === id);
+  return (found && Array.isArray(found.readingSplit3) && found.readingSplit3.length === 2) ? found.readingSplit3 : null;
+}
+// kb（漢字ボス）・mb等、1文字ずつ順番に書かせる画面の問題文HTML。readingSplit（2文字）／
+// readingSplit3（3文字）があれば、今書いている文字（charIndex）ぶんの読みだけを太字＋色付けし、
+// 残りは普通の文字にする。どちらも無い問題（1文字の問題を含む）は、従来どおり括弧全体を
+// charIndexの色にする。
 function kwsColoredSentenceHtml(id, charIndex){
   const raw = kwsSentenceFor(id);
+  const split3 = kwsReadingSplit3For(id);
+  const activeCls = charIndex === 0 ? 'kb-blank-c0' : (charIndex === 1 ? 'kb-blank-c1' : 'kb-blank-c2');
+  if(split3){
+    const [b1, b2] = split3;
+    return raw.replace(/《([^》]*)》/g, (m, inner) => {
+      if(b1 < 1 || b2 <= b1 || b2 > inner.length - 1){
+        return `<span class="kws-blank ${activeCls}">${inner}</span>`;
+      }
+      const parts = [inner.slice(0, b1), inner.slice(b1, b2), inner.slice(b2)];
+      const classes = [0,1,2].map(i => i === charIndex ? `kb-blank-c${i}` : 'kws-blank-inactive');
+      return parts.map((p,i) => `<span class="kws-blank ${classes[i]}">${p}</span>`).join('');
+    });
+  }
   const split = kwsReadingSplitFor(id);
-  const activeCls = charIndex === 0 ? 'kb-blank-c0' : 'kb-blank-c1';
   return raw.replace(/《([^》]*)》/g, (m, inner) => {
     if(split == null || split < 1 || split > inner.length - 1){
       return `<span class="kws-blank ${activeCls}">${inner}</span>`;

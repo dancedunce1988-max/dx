@@ -4040,6 +4040,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "亜",
   "kanji": "亜熱帯",
   "sentence": "沖縄は《アネッタイ》の気候だ。",
+  "readingSplit3": [1, 3],
   "grade": 2,
   "radicals": [
    "二",
@@ -4108,6 +4109,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "壱",
   "kanji": "壱万円",
   "sentence": "領収書に《イチマンエン》と書く。",
+  "readingSplit3": [2, 4],
   "grade": 2,
   "radicals": [
    "土",
@@ -4658,6 +4660,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "忌",
   "kanji": "一周忌",
   "sentence": "祖父の《イッシュウキ》の法要をした。",
+  "readingSplit3": [2, 5],
   "grade": 2,
   "radicals": [
    "一",
@@ -4760,6 +4763,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "擬",
   "kanji": "擬人法",
   "sentence": "詩に《ギジンホウ》が使われている。",
+  "readingSplit3": [1, 3],
   "grade": 2,
   "radicals": [
    "手（てへん）",
@@ -5444,6 +5448,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "肢",
   "kanji": "選択肢",
   "sentence": "テストの《センタクシ》を選ぶ。",
+  "readingSplit3": [2, 4],
   "grade": 2,
   "radicals": [
    "辵（しんにょう）",
@@ -6190,6 +6195,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "曽",
   "kanji": "曽祖父",
   "sentence": "《ソウソフ》は百歳を超えている。",
+  "readingSplit3": [2, 3],
   "grade": 2,
   "radicals": [
    "日（ひ）",
@@ -6735,6 +6741,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "痘",
   "kanji": "天然痘",
   "sentence": "社会の授業で《テンネントウ》について学んだ。",
+  "readingSplit3": [2, 4],
   "grade": 2,
   "radicals": [
    "大",
@@ -6835,6 +6842,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "尿",
   "kanji": "尿検査",
   "sentence": "健康診断で《ニョウケンサ》をした。",
+  "readingSplit3": [3, 5],
   "grade": 2,
   "radicals": [
    "尸（しかばね）",
@@ -6893,6 +6901,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "陪",
   "kanji": "陪審員",
   "sentence": "アメリカには《バイシンイン》制度がある。",
+  "readingSplit3": [2, 4],
   "grade": 2,
   "radicals": [
    "阜（こざとへん）",
@@ -7191,6 +7200,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "雰",
   "kanji": "雰囲気",
   "sentence": "教室は明るい《フンイキ》だ。",
+  "readingSplit3": [2, 3],
   "grade": 2,
   "radicals": [
    "雨（あめかんむり）",
@@ -8131,6 +8141,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "楼",
   "kanji": "摩天楼",
   "sentence": "都会の《マテンロウ》を見上げた。",
+  "readingSplit3": [1, 3],
   "grade": 2,
   "radicals": [
    "手",
@@ -8257,6 +8268,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "唄",
   "kanji": "子守唄",
   "sentence": "母が《コモリウタ》を歌ってくれた。",
+  "readingSplit3": [1, 3],
   "grade": 2,
   "radicals": [
    "子",
@@ -8705,6 +8717,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "伎",
   "kanji": "歌舞伎",
   "sentence": "家族で《カブキ》を観に行った。",
+  "readingSplit3": [1, 2],
   "grade": 3,
   "radicals": [
    "欠（あくび）",
@@ -8775,6 +8788,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "喫",
   "kanji": "喫茶店",
   "sentence": "駅前の《キッサテン》でお茶を飲んだ。",
+  "readingSplit3": [2, 3],
   "grade": 3,
   "radicals": [
    "口（くちへん）",
@@ -9325,6 +9339,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "剛",
   "kanji": "剛速球",
   "sentence": "投手が《ゴウソッキュウ》を投げた。",
+  "readingSplit3": [2, 4],
   "grade": 3,
   "radicals": [
    "刀（りっとう）",
@@ -9395,6 +9410,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "懇",
   "kanji": "懇親会",
   "sentence": "卒業生の《コンシンカイ》が開かれた。",
+  "readingSplit3": [2, 4],
   "grade": 3,
   "radicals": [
    "心（したごころ）",
@@ -9407,6 +9423,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "沙",
   "kanji": "無沙汰",
   "sentence": "先生に《ブサタ》のお詫びを伝えた。",
+  "readingSplit3": [1, 2],
   "grade": 3,
   "radicals": [
    "火（ひ）",
@@ -9589,6 +9606,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "恣",
   "kanji": "恣意的",
   "sentence": "規則を《シイテキ》に変えてはいけない。",
+  "readingSplit3": [1, 2],
   "grade": 3,
   "radicals": [
    "心（したごころ）",
@@ -9879,6 +9897,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "准",
   "kanji": "准教授",
   "sentence": "大学で《ジュンキョウジュ》の講義を聞いた。",
+  "readingSplit3": [3, 6],
   "grade": 3,
   "radicals": [
    "水（さんずい）",
@@ -10957,6 +10976,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "艇",
   "kanji": "潜水艇",
   "sentence": "深海を《センスイテイ》で探索する。",
+  "readingSplit3": [2, 4],
   "grade": 3,
   "radicals": [
    "水（さんずい）",
@@ -11137,6 +11157,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "屯",
   "kanji": "駐屯地",
   "sentence": "近くに自衛隊の《チュウトンチ》がある。",
+  "readingSplit3": [3, 5],
   "grade": 3,
   "radicals": [
    "馬（うまへん）",
@@ -11399,6 +11420,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "鉢",
   "kanji": "植木鉢",
   "sentence": "ベランダに《ウエキバチ》を置いた。",
+  "readingSplit3": [2, 3],
   "grade": 3,
   "radicals": [
    "木（きへん）",
@@ -11777,6 +11799,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "哺",
   "kanji": "哺乳類",
   "sentence": "クジラは《ホニュウルイ》の仲間だ。",
+  "readingSplit3": [1, 4],
   "grade": 3,
   "radicals": [
    "口（くちへん）",
@@ -12329,6 +12352,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "ch": "瑠",
   "kanji": "浄瑠璃",
   "sentence": "祖母は《ジョウルリ》を習っている。",
+  "readingSplit3": [3, 4],
   "grade": 3,
   "radicals": [
    "水（さんずい）",
