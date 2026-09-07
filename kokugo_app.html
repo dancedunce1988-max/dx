@@ -3942,7 +3942,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.99</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.00</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6663,8 +6663,14 @@ function mbStaminaLampsHtml(n, max){
 function mbHomeQuestEntryHtml(st){
   const stam = mbQuestStaminaSync(st);
   const n = stam.count;
+  const timeOk = mbHomeQuestAvailableNow();
+  const canChallenge = timeOk && n > 0;
   const remainHtml = (n < MB_QUEST_STAMINA_MAX && stam.nextRegenAt)
     ? `<p class="note mb-stamina-remain">⏳ 次の1ゲージ回復まで ${mbFormatDuration(stam.nextRegenAt - Date.now())}</p>`
+    : '';
+  // 時間帯外は、ゲージの有無に関わらずボタンを押せなくする（教員の指示、2026-09-07）。
+  const timeNoteHtml = !timeOk
+    ? `<p class="note" style="color:var(--ng);">🕒 挑戦できるのは5:30〜22:00の間だけです（現在は時間外のため挑戦できません）</p>`
     : '';
   return `
   <div class="card ticket-card">
@@ -6674,10 +6680,11 @@ function mbHomeQuestEntryHtml(st){
         <span class="ticket-label">漢字Quest</span>
         ${mbStaminaLampsHtml(n, MB_QUEST_STAMINA_MAX)}
       </div>
-      <button class="btn inline ${n>0?'':'disabled'}" ${n>0?'':'disabled'} onclick="mbStartHomeQuest()">挑戦する</button>
+      <button class="btn inline ${canChallenge?'':'disabled'}" ${canChallenge?'':'disabled'} onclick="mbStartHomeQuest()">挑戦する</button>
     </div>
-    <p class="note">仲間になる確率が10倍の特別な漢字Quest！ゲージは2時間で1つ回復（最大${MB_QUEST_STAMINA_MAX}）。</p>
+    <p class="note">仲間になる確率が10倍の特別な漢字Quest！ゲージは2時間で1つ回復（最大${MB_QUEST_STAMINA_MAX}）。挑戦できる時間帯は5:30〜22:00です。</p>
     ${remainHtml}
+    ${timeNoteHtml}
   </div>`;
 }
 /* 挑戦チケット：どの分野でも、レベルアップ10回ごとに1枚たまる。使うとランダムなボスとすぐに対戦できる。 */
@@ -25229,6 +25236,16 @@ function mbFormatDuration(ms){
   if(m > 0) return `${m}分${s}秒`;
   return `${s}秒`;
 }
+// 「漢字Quest」（仲間になる確率10倍の特別枠）は5:30〜22:00の間だけ挑戦できる
+// （教員の指示、2026-09-07：「それ以外の時間は、ボタンを選べないようにする」）。
+// ゲージの有無とは独立の制約で、ゲージがあってもこの時間帯外なら挑戦不可にする。
+const MB_QUEST_AVAILABLE_START_MIN = 5 * 60 + 30; // 5:30
+const MB_QUEST_AVAILABLE_END_MIN = 22 * 60;       // 22:00
+function mbHomeQuestAvailableNow(){
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  return nowMin >= MB_QUEST_AVAILABLE_START_MIN && nowMin < MB_QUEST_AVAILABLE_END_MIN;
+}
 
 // 魔法の名前・説明は教員が「魔法の名前・説明変更ツール」で一括編集したもの（2026-09-04）。
 // id・mp・power/effect/turnsはゲームバランスそのものなので変更していない。
@@ -25504,9 +25521,12 @@ function mbStartGauntlet(){
 // ホーム画面「漢字Quest」ボタン（挑戦ゲージ経由、mbHomeQuestEntryHtmlから、2026-09-07〜、
 // 旧「今日の漢字Quest」）。通常のタイトル画面（「冒険に出る」ボタン）は経由せず、直接、
 // 難易度選択（mbShowModeSelect）へ進む。ゲージが無ければ挑戦させない（教員の指示：
-// 「そのゲージがない状態では、挑戦できないようにしてください」）。ゲージの実際の消費は
-// mbInitRun側（mbQuestStaminaConsume）でまとめて行う。
+// 「そのゲージがない状態では、挑戦できないようにしてください」）。5:30〜22:00の時間帯外も
+// 同様に挑戦させない（教員の指示、2026-09-07：「それ以外の時間は、ボタンを選べないように
+// する」。ボタン自体はmbHomeQuestEntryHtml側でdisabledにしているが、念のためここでも
+// 二重にガードする）。ゲージの実際の消費はmbInitRun側（mbQuestStaminaConsume）でまとめて行う。
 function mbStartHomeQuest(){
+  if(!mbHomeQuestAvailableNow()){ showHome(); return; }
   const st = loadStats();
   const stam = mbQuestStaminaSync(st);
   saveStats(st); // 表示前にすでに回復していたぶんを保存しておく
