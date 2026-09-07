@@ -3926,7 +3926,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.96</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.97</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -4622,13 +4622,10 @@ function loadStats(){
         if(st.kanjiBossDaily.date !== todayLocalDateStr()){
           st.kanjiBossDaily = {date: todayLocalDateStr(), cleared:{}};
         }
-        /* 「今日の漢字Quest」（2026-09-07〜）。1日1回だけ挑戦できる特別な漢字Quest（仲間になる
-           確率が通常の10倍になる）。todayKanji・kanjiBossDailyと同じ発想で、保存された日付が
-           今日と違えば「本日ぶんは未挑戦」の状態に戻す。 */
-        if(!st.mbDailyQuest) st.mbDailyQuest = {date:null, done:false};
-        if(st.mbDailyQuest.date !== todayLocalDateStr()){
-          st.mbDailyQuest = {date: todayLocalDateStr(), done:false};
-        }
+        /* ホーム画面「漢字Quest」の挑戦ゲージ（2026-09-07〜、旧「今日の漢字Quest」の1日1回
+           制限をゲージ制に置き換え）。3つを上限に2時間で1つ回復する（mbQuestStaminaSync、
+           MB_*定数はmb漢字バトルのセクションに集約）。仲間になる確率10倍のボーナスは維持。 */
+        mbQuestStaminaSync(st);
         if(!st.story) st.story = {chapter:"ch1", beatIdx:0, flags:{}, completedChapters:[], judgedRunCorrect:0, judgedRunTotal:0, judgedBest:{}, comboBest:{}};
         if(!st.story.flags) st.story.flags = {};
         if(!Array.isArray(st.story.completedChapters)) st.story.completedChapters = [];
@@ -6632,46 +6629,28 @@ function dailyLoginProgressHtml(st){
     📅 デイリーログイン ${cycleDay}日目 / ${DAILY_LOGIN_CYCLE}日目${cycleDay < DAILY_LOGIN_CYCLE ? `（あと${DAILY_LOGIN_CYCLE - cycleDay}日で🌱転生の種）` : "（🌱転生の種を獲得済み）"}
   </p>`;
 }
-/* 「今日の漢字」入口（2026-09-02〜）：ステータスカードの直後、他のコンテンツより先に置く
-   目立つボタン。中は漢字の書き取り（既存のkws手書き判定エンジンを流用、kwsMode='today'）で、
-   正解するたびにストック経験値がたまる（kwsFinalizeCorrectAnswer参照）。1日10問正解したら
-   その日はおしまい＝ボタンごと消し、代わりに完了メモだけを表示する（todayKanji.done）。 */
-function todayKanjiEntryHtml(st){
-  const tk = st.todayKanji || {correctCount:0, done:false, round:1};
-  if(tk.done){
-    // 本日（KWS_TODAY_EXTRA_ROUND_DATE）だけ、1回目クリア後にもう一度だけ挑戦できる
-    // 特別措置（教員の指示、2026-09-03。明日以降は通常どおり1日1回のみ）。
-    if(tk.date === KWS_TODAY_EXTRA_ROUND_DATE && (tk.round||1) < 2){
-      return `
-    <div class="card menu-card today-kanji-btn" onclick="startTodayKanjiExtraRound()">
-      <div class="menu-icon">🈶</div>
-      <div><h2>今日の漢字（2回目）</h2><p>本日は特別に、もう一度挑戦できます！</p></div>
-      <div class="right"><span class="count">挑戦する</span></div>
-    </div>`;
-    }
-    return `<p class="note" style="text-align:center; margin:-6px 2px 14px;">🈶 今日の漢字：本日ぶんはクリア済みです（また明日挑戦できます）</p>`;
-  }
+/* 「漢字Quest」ホーム画面ボタンの挑戦ゲージ入口（2026-09-07〜、旧「今日の漢字Quest」の
+   1日1回制限をゲージ制に置き換え）。中身は通常の「漢字Quest」（mb*）そのものだが、
+   仲間になる確率が10倍になるボーナス付き（MB_SPECIAL_QUEST_RECRUIT_MULT、mbEnemyDefeated
+   参照）。挑戦チケット（bossTicketHtml）と同じ「n/上限＋挑戦する」の見た目にする。 */
+function mbHomeQuestEntryHtml(st){
+  const stam = mbQuestStaminaSync(st);
+  const n = stam.count;
+  const remainNote = (n < MB_QUEST_STAMINA_MAX && stam.nextRegenAt)
+    ? `次の1ゲージ回復まで ${mbFormatDuration(stam.nextRegenAt - Date.now())}`
+    : `ゲージ満タン`;
   return `
-    <div class="card menu-card today-kanji-btn" onclick="startTodayKanji()">
-      <div class="menu-icon">🈶</div>
-      <div><h2>今日の漢字</h2><p>漢字の書き取りに挑戦してストック経験値をためよう！（1日10問正解でボーナスあり）</p></div>
-      <div class="right"><span class="count">正解 ${tk.correctCount||0} / 10</span></div>
-    </div>`;
-}
-/* 「今日の漢字Quest」入口（2026-09-07〜）：todayKanjiEntryHtmlと同じ発想で、ホーム画面の
-   目立つ場所に置く1日1回だけの特別ボタン。中身は通常の「漢字Quest」（mb*）そのものだが、
-   仲間になる確率が10倍になる（MB_DAILY_QUEST_RECRUIT_MULT、mbEnemyDefeated参照）。 */
-function mbDailyQuestEntryHtml(st){
-  const dq = st.mbDailyQuest || {done:false};
-  if(dq.done){
-    return `<p class="note" style="text-align:center; margin:-6px 2px 14px;">✨ 今日の漢字Quest：本日ぶんは実施済みです（また明日挑戦できます）</p>`;
-  }
-  return `
-    <div class="card menu-card today-kanji-btn" onclick="mbStartDailyQuest()">
-      <div class="menu-icon">✨</div>
-      <div><h2>今日の漢字Quest</h2><p>本日限定！仲間になる確率が10倍になる特別な漢字Quest！</p></div>
-      <div class="right"><span class="count">挑戦する</span></div>
-    </div>`;
+  <div class="card ticket-card">
+    <div class="ticket-row">
+      <div class="ticket-info">
+        <span class="ticket-icon">⚡</span>
+        <span class="ticket-label">漢字Quest</span>
+        <span class="ticket-count">${n} / ${MB_QUEST_STAMINA_MAX}</span>
+      </div>
+      <button class="btn inline ${n>0?'':'disabled'}" ${n>0?'':'disabled'} onclick="mbStartHomeQuest()">挑戦する</button>
+    </div>
+    <p class="note">仲間になる確率が10倍の特別な漢字Quest！ゲージは2時間で1つ回復（最大${MB_QUEST_STAMINA_MAX}）。${remainNote}</p>
+  </div>`;
 }
 /* 挑戦チケット：どの分野でも、レベルアップ10回ごとに1枚たまる。使うとランダムなボスとすぐに対戦できる。 */
 function bossTicketHtml(st){
@@ -6752,8 +6731,7 @@ function showHome(){
   let html = "";
   html += eventBannerHtml(st);
   html += kotonohaCardHtml(st);
-  html += todayKanjiEntryHtml(st);
-  html += mbDailyQuestEntryHtml(st);
+  html += mbHomeQuestEntryHtml(st);
   html += storyEntryHtml(st);
   html += miniGameEntryHtml(st);
   html += balancedTrainingBtnHtml();
@@ -10184,7 +10162,14 @@ function startKanjiWriteStroke(mode){
   }
 }
 
-/* ================= 今日の漢字（2026-09-02〜） =================
+/* ================= 今日の漢字（2026-09-02〜、2026-09-07廃止） =================
+   教員の指示でホーム画面のボタンごと廃止（startTodayKanji／startTodayKanjiExtraRound／
+   todayKanjiEntryHtmlは削除済み）。kwsMode='today'に切り替える経路が無くなったため、
+   以下のkwsTodayEnsureData／kwsTodayPoolFor／kwsTodayLoadNextと、他のkws*関数内に残る
+   `kwsMode === 'today'`分岐は、今後二度と実行されない到達不能コードとして残っている
+   （既存セーブのst.todayKanjiフィールドも同じ理由でそのまま残置）。共有エンジン
+   （kwsFinalizeCorrectAnswer等）に散在する同種の分岐まで削ると、exam/elem/chugaku/mbの
+   挙動を壊すリスクの方が大きいため、あえて削除範囲をこの3関数＋入口に留めている。
    既存の「漢字の書き学習」（kws手書き判定エンジン）をkwsMode='today'として流用しつつ、
    3箱式の間隔反復（kwsPickNextId／st.kwsExamState・kwsElemState）や
    st.lv.kws_exam／kws_elem／kws_chugakuのジャンルレベルには一切触れない、完全に独立した
@@ -10226,49 +10211,6 @@ function kwsTodayLoadNext(){
   const id = candidates[Math.floor(Math.random() * candidates.length)];
   kwsLoadKanji(id);
 }
-/* ---- 画面：今日の漢字 ----
-   既存のstartKanjiWriteStrokeと同じtry/catch方針（失敗してもホームへは必ず戻れる）。 */
-function startTodayKanji(){
-  try {
-    const st = loadStats();
-    if(st.todayKanji.done){ showHome(); return; }
-    kwsTodayEnsureData();
-    kwsMode = 'today';
-    kwsElemGrade = null;
-    kwsResultLog = kwsResultLogs.today;
-    kwsWrongLog = kwsWrongLogs.today;
-    screen.innerHTML = kwsScreenHtml();
-    window.scrollTo(0, 0);
-    kwsWireScreen();
-    kwsTodayLoadNext();
-    window.scrollTo(0, 0);
-  } catch(err){
-    console.error('今日の漢字の読み込みに失敗しました', err);
-    screen.innerHTML = `
-      <h3 class="section">🈶 今日の漢字</h3>
-      <p class="note">読み込み中にエラーが発生しました。ページを再読み込みしてからもう一度お試しください。</p>
-      <p class="note" style="color:var(--ng)">${esc(String((err && err.message) || err))}</p>
-      <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>
-    `;
-  }
-}
-// 本日（KWS_TODAY_EXTRA_ROUND_DATE）だけ、1回目の「今日の漢字」を終えたあとにもう一度だけ
-// 挑戦できる特別措置（教員の指示、2026-09-03。明日以降は通常どおり1日1回のみ）。
-// todayKanjiEntryHtmlのボタンからのみ呼ばれる（当日かつround<2でなければ即ホームへ戻す）。
-const KWS_TODAY_EXTRA_ROUND_DATE = "2026-09-03";
-function startTodayKanjiExtraRound(){
-  const st = loadStats();
-  if(st.todayKanji.date !== KWS_TODAY_EXTRA_ROUND_DATE || (st.todayKanji.round||1) >= 2){
-    showHome();
-    return;
-  }
-  st.todayKanji.round = (st.todayKanji.round||1) + 1;
-  st.todayKanji.correctCount = 0;
-  st.todayKanji.done = false;
-  saveStats(st);
-  startTodayKanji();
-}
-
 /* ================= 小学生の漢字を復習する =================
    2026-09-01〜、旧・自己評価制（書けた！／書けなかった、目標学年の適応的難度調整）を廃止し、
    「漢字の書き学習」と同じ手書き自動採点エンジン（kws*、kwsMode='elem'）に一本化した。
@@ -15438,19 +15380,9 @@ function storyEntryHtml(st){
 /* ミニゲーム（旧サブクエスト）の入口カード。ストーリーモードのすぐ下、ホーム画面に
    直接置く（教員の指示、2026-08-17〜。以前は「ストーリーモード」→「メインストーリー／
    サブクエスト」の2段の選択だったが、ミニゲームを独立させて1段で行けるようにした）。
-   2026-09-06〜、教員が用意した専用ボタン画像（画像/ミニゲームボタン.png、
-   menu_title_images.jsのhomeMiniGame）に差し替え。ミニゲーム一覧内の個々のボタン
-   （storySideQuestButtonHtml等）と同じ.menu-card-img-btn（幅いっぱい・高さ自動）を
-   使うことで、他の画像ボタンと同じ大きさ・見た目になる。画像が無い場合は従来どおり
-   絵文字＋テキストのカードにフォールバックする。 */
+   2026-09-06〜、教員が用意した専用ボタン画像に一時差し替えていたが、2026-09-07に
+   教員の指示で元の紫グラデーション＋絵文字のカード（.minigame-btn）に戻した。 */
 function miniGameEntryHtml(st){
-  const img = window.MB_MENU_TITLE_IMAGES && window.MB_MENU_TITLE_IMAGES.homeMiniGame;
-  if(img){
-    return `
-      <div class="menu-card-img-btn home-minigame-btn" onclick="showSideQuestMenu()">
-        <img src="${img}" alt="ミニゲーム">
-      </div>`;
-  }
   return `
     <div class="card menu-card minigame-btn" onclick="showSideQuestMenu()">
       <div class="menu-icon">🎮</div>
@@ -25214,12 +25146,57 @@ const MB_PARTNER_RECRUIT_CHANCE = 0.01;
 const MB_EASY_MP_MULT = 2;       // EASY：MPが2倍たまる
 const MB_EASY_XP_MULT = 0.5;     // EASY：獲得経験値がHARDの半分
 const MB_EASY_RECRUIT_MULT = 0.5;// EASY：仲間になる確率がHARDの半分（0.5%）
-// 「今日の漢字Quest」（1日1回、2026-09-07〜）：mbRun.isDailySpecialが立っている間だけ、
-// 仲間になる確率をさらに10倍にする（HARD1%→10%／EASY0.5%→5%）。
-const MB_DAILY_QUEST_RECRUIT_MULT = 10;
+// ホーム画面「漢字Quest」の挑戦ゲージ経由（旧「今日の漢字Quest」、2026-09-07〜）：
+// mbRun.isSpecialQuestが立っている間だけ、仲間になる確率をさらに10倍にする
+// （HARD1%→10%／EASY0.5%→5%）。ゲージ制への変更後もこのボーナス自体は維持する
+// （教員の指示、2026-09-07：「出会う確率が10倍なのは、そのまま採用」）。
+const MB_SPECIAL_QUEST_RECRUIT_MULT = 10;
 // 制限時間の半分より速く正解＝「強烈な一撃」（漢字Quest全共通、2026-09-07〜）。
 // ダメージ倍率は既存の会心（MB_CRIT_MULTIPLIER）と同じ3倍を流用する。
 const MB_SWIFT_HIT_MP_MULT = 1.5;
+
+// ホーム画面「漢字Quest」ボタンの挑戦ゲージ（2026-09-07〜）。旧「今日の漢字Quest」の
+// 1日1回制限を置き換え、3つを上限に2時間で1つ回復する仕組みにする（教員の指示：
+// 「２時間に１回、１ゲージ回復。３ゲージまで溜まったらそこからは回復しない。
+// ゲージがない状態では挑戦できない」）。st.mbQuestStamina={count, nextRegenAt}を
+// 直接読み書きする。nextRegenAt＝次の1ゲージ回復が起きる時刻（ms epoch）。
+// count===MAXの間はnextRegenAt===null（それ以上は貯まらないので回復タイマー自体を
+// 持たない）。
+const MB_QUEST_STAMINA_MAX = 3;
+const MB_QUEST_STAMINA_REGEN_MS = 2 * 60 * 60 * 1000; // 2時間で1ゲージ回復
+// 呼ぶたびに、保存されたnextRegenAtと現在時刻の差から「本来何回復しているべきか」を
+// 計算して追いつかせる（デイリーログインのlastDate判定と同じ、保存側に時刻だけ持たせて
+// 毎回現在時刻と突き合わせる設計）。アプリを長時間開かなくても、開いた瞬間に正しい
+// ゲージ数へ追いつく。呼び出し側でsaveStats(st)するかは自由（表示だけなら保存不要、
+// 消費時はmbQuestStaminaConsume経由で必ず保存する）。
+function mbQuestStaminaSync(st){
+  if(!st.mbQuestStamina) st.mbQuestStamina = { count: MB_QUEST_STAMINA_MAX, nextRegenAt: null };
+  const s = st.mbQuestStamina;
+  if(typeof s.count !== 'number') s.count = MB_QUEST_STAMINA_MAX;
+  while(s.count < MB_QUEST_STAMINA_MAX && s.nextRegenAt && Date.now() >= s.nextRegenAt){
+    s.count++;
+    s.nextRegenAt += MB_QUEST_STAMINA_REGEN_MS;
+  }
+  if(s.count >= MB_QUEST_STAMINA_MAX) s.nextRegenAt = null;
+  return s;
+}
+// ゲージを1消費する。0のときは何もせずfalseを返す（呼び出し前にmbStartHomeQuest側で
+// 挑戦可否を確認済みの前提だが、念のため二重チェックにしておく）。消費でcountが
+// MAX未満になった瞬間だけ、そこから2時間後を新しい回復予定時刻として書き込む。
+function mbQuestStaminaConsume(st){
+  const s = mbQuestStaminaSync(st);
+  if(s.count <= 0) return false;
+  s.count--;
+  if(s.nextRegenAt === null) s.nextRegenAt = Date.now() + MB_QUEST_STAMINA_REGEN_MS;
+  return true;
+}
+// ホーム画面のゲージ表示用に、残り時間(ms)を「n時間m分」または「m分」に整形する。
+function mbFormatDuration(ms){
+  const totalMin = Math.max(0, Math.ceil(ms / 60000));
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return h > 0 ? `${h}時間${m}分` : `${m}分`;
+}
 
 // 魔法の名前・説明は教員が「魔法の名前・説明変更ツール」で一括編集したもの（2026-09-04）。
 // id・mp・power/effect/turnsはゲームバランスそのものなので変更していない。
@@ -25419,14 +25396,15 @@ let mbJudged = false;
 // 通常の連戦（mbStartGauntlet）とは独立に、戦闘終了後どこへ戻るかだけを覚えておく
 // （教員の指示、2026-09-05）。mbRun.isEncounterが立っている間だけ使う。
 let mbEncounterResumeFn = null;
-// 難易度選択（EASY/HARD、2026-09-07〜）：「冒険に出る」／「今日の漢字Quest」を押した直後に
-// mbShowModeSelectで選ばせ、選んだ値をmbInitRunがmbRun.questModeへ引き継ぐまでの一時置き場。
-// ランダム遭遇（startMbEncounterBattle）はこの選択画面を経由しないため、questModeは常に
-// undefined＝HARD相当のまま（既存のisEncounterボーナスだけが効く）。
+// 難易度選択（EASY/HARD、2026-09-07〜）：「冒険に出る」／ホーム画面「漢字Quest」（挑戦ゲージ
+// 経由）を押した直後にmbShowModeSelectで選ばせ、選んだ値をmbInitRunがmbRun.questModeへ
+// 引き継ぐまでの一時置き場。ランダム遭遇（startMbEncounterBattle）はこの選択画面を
+// 経由しないため、questModeは常にundefined＝HARD相当のまま（既存のisEncounterボーナスだけが
+// 効く）。
 let mbPendingQuestMode = 'hard';
-// 「今日の漢字Quest」（1日1回、仲間になる確率が10倍になる特別な漢字Quest）から来たかどうか。
-// mbInitRunがmbRun.isDailySpecialへ引き継ぐ。
-let mbPendingDailySpecial = false;
+// ホーム画面「漢字Quest」の挑戦ゲージ経由（旧「今日の漢字Quest」）から来たかどうか。
+// mbInitRunがmbRun.isSpecialQuestへ引き継ぐ。
+let mbPendingSpecialQuest = false;
 
 function mbClearTimer(){
   if(mbTimerHandle){ clearInterval(mbTimerHandle); mbTimerHandle = null; }
@@ -25469,7 +25447,7 @@ function mbStartGauntlet(){
   mbStopIdleAnim();
   mbStopBgm();
   mbRun = null; mbBattle = null; mbChallenge = null; mbPendingAction = null;
-  mbPendingDailySpecial = false;
+  mbPendingSpecialQuest = false;
   const overlay = document.getElementById('mbAtkOverlay');
   if(overlay) overlay.remove();
   screen.innerHTML = `
@@ -25491,19 +25469,23 @@ function mbStartGauntlet(){
       </div>
     </div>`;
 }
-// 「今日の漢字Quest」（ホーム画面のmbDailyQuestEntryHtmlから、2026-09-07〜）。通常の
-// タイトル画面（「冒険に出る」ボタン）は経由せず、直接、難易度選択（mbShowModeSelect）へ
-// 進む。1日1回だけの特別枠であることはmbInitRun側でst.mbDailyQuest.doneに記録して消費する。
-function mbStartDailyQuest(){
+// ホーム画面「漢字Quest」ボタン（挑戦ゲージ経由、mbHomeQuestEntryHtmlから、2026-09-07〜、
+// 旧「今日の漢字Quest」）。通常のタイトル画面（「冒険に出る」ボタン）は経由せず、直接、
+// 難易度選択（mbShowModeSelect）へ進む。ゲージが無ければ挑戦させない（教員の指示：
+// 「そのゲージがない状態では、挑戦できないようにしてください」）。ゲージの実際の消費は
+// mbInitRun側（mbQuestStaminaConsume）でまとめて行う。
+function mbStartHomeQuest(){
   const st = loadStats();
-  if(st.mbDailyQuest.done){ showHome(); return; }
+  const stam = mbQuestStaminaSync(st);
+  saveStats(st); // 表示前にすでに回復していたぶんを保存しておく
+  if(stam.count <= 0){ showHome(); return; }
   mbClearTimer();
   mbStopIdleAnim();
   mbStopBgm();
   mbRun = null; mbBattle = null; mbChallenge = null; mbPendingAction = null;
   const overlay = document.getElementById('mbAtkOverlay');
   if(overlay) overlay.remove();
-  mbPendingDailySpecial = true;
+  mbPendingSpecialQuest = true;
   mbShowModeSelect();
 }
 function mbToggleTitleInfo(){
@@ -25511,17 +25493,17 @@ function mbToggleTitleInfo(){
   if(panel) panel.hidden = !panel.hidden;
 }
 
-// 「冒険に出る」（／「今日の漢字Quest」）を押した直後の難易度選択画面（教員の指示、
-// 2026-09-07〜）。ここで選んだEASY／HARDはmbPendingQuestModeに置いておき、mbInitRunが
-// mbRun.questModeへ引き継ぐ。mb-diff-card／mb-diff-list等、既存の漢字チャレンジ難易度選択
-// （mbShowDifficultySelect）と同じ見た目のクラスを流用する。
+// 「冒険に出る」（／ホーム画面「漢字Quest」の挑戦ゲージ経由）を押した直後の難易度選択画面
+// （教員の指示、2026-09-07〜）。ここで選んだEASY／HARDはmbPendingQuestModeに置いておき、
+// mbInitRunがmbRun.questModeへ引き継ぐ。mb-diff-card／mb-diff-list等、既存の漢字チャレンジ
+// 難易度選択（mbShowDifficultySelect）と同じ見た目のクラスを流用する。
 function mbShowModeSelect(){
-  const daily = mbPendingDailySpecial;
+  const special = mbPendingSpecialQuest;
   screen.innerHTML = `
     <div class="boss-battle-screen" style="position:relative;">
       <button class="btn secondary kb-quit-corner" onclick="showHome()">やめる</button>
-      <div class="boss-name">${daily ? '✨ 今日の漢字Quest' : '🪄 漢字Quest'}</div>
-      <p style="text-align:center; margin:6px 0 18px;">難易度を選んで冒険に出よう！${daily ? '<br><strong>本日限定：仲間になる確率が10倍に！（HARD：各ボス10％／EASY：各ボス5％）</strong>' : ''}</p>
+      <div class="boss-name">🪄 漢字Quest</div>
+      <p style="text-align:center; margin:6px 0 18px;">難易度を選んで冒険に出よう！${special ? '<br><strong>ゲージ消費の特別枠：仲間になる確率が10倍に！（HARD：各ボス10％／EASY：各ボス5％）</strong>' : ''}</p>
       <div class="mb-diff-list">
         <div class="mb-diff-card" onclick="mbSelectQuestMode('easy')">
           <div class="mb-diff-badge">🟢 EASYモード</div>
@@ -25569,22 +25551,22 @@ function mbSkipScenarioIntro(){
 }
 
 function mbInitRun(){
-  const isDailySpecial = mbPendingDailySpecial;
+  const isSpecialQuest = mbPendingSpecialQuest;
   mbRun = {
     playerHp: MB_PLAYER_MAX_HP, playerMaxHp: MB_PLAYER_MAX_HP,
     playerMp: 0, playerMaxMp: MB_PLAYER_MAX_MP,
     buffs: {},     // 効果名 -> 残りターン数
     wrongLog: [],  // {kanji, sentence}。この連戦中に間違えた問題（戦闘終了後に一覧表示、22項）
     questMode: mbPendingQuestMode,   // mbShowModeSelectで選んだ'easy'|'hard'（2026-09-07〜）
-    isDailySpecial,                  // 「今日の漢字Quest」から来た冒険かどうか
+    isSpecialQuest,                  // ホーム画面「漢字Quest」の挑戦ゲージ経由（旧「今日の漢字Quest」）かどうか
   };
-  mbPendingDailySpecial = false; // 使い切ったら毎回リセット（次回は通常の「冒険に出る」に戻す）
-  if(isDailySpecial){
-    // 「今日の漢字Quest」は1日1回：選んで冒険が始まった時点で本日ぶんを消費する
-    // （todayKanjiのような「クリアしたら消費」ではなく、既存セーブへの遡及やり直しを防ぐため
-    // ここで確定させる。教員の指示、2026-09-07：「1日一回、〜特別な漢字Questを実施」）。
+  mbPendingSpecialQuest = false; // 使い切ったら毎回リセット（次回は通常の「冒険に出る」に戻す）
+  if(isSpecialQuest){
+    // 挑戦が始まった時点でゲージを1消費する（todayKanjiのような「クリアしたら消費」ではなく、
+    // 既存セーブへの遡及やり直しを防ぐためここで確定させる。mbStartHomeQuest側で
+    // ゲージ0のときは既にここまで来ないので、通常はconsumeは必ず成功する）。
     const st = loadStats();
-    st.mbDailyQuest.done = true;
+    mbQuestStaminaConsume(st);
     saveStats(st);
   }
   mbStartEnemy(0);
@@ -26885,10 +26867,11 @@ function mbEnemyDefeated(){
   const questXpMult = (mbRun.questMode === 'easy') ? MB_EASY_XP_MULT : 1; // EASYモード：獲得経験値は半分
   const bossXpGained = Math.round(MB_BOSS_DEFEAT_XP * questXpMult);
   st.stockXp = (st.stockXp || 0) + bossXpGained;
-  // 仲間になる確率：EASYモードは半分、「今日の漢字Quest」はさらに10倍（両方重なる場合もある）。
+  // 仲間になる確率：EASYモードは半分、ホーム画面「漢字Quest」の挑戦ゲージ経由（旧「今日の
+  // 漢字Quest」）はさらに10倍（両方重なる場合もある）。
   const easyRecruitMult = (mbRun.questMode === 'easy') ? MB_EASY_RECRUIT_MULT : 1;
-  const dailyRecruitMult = mbRun.isDailySpecial ? MB_DAILY_QUEST_RECRUIT_MULT : 1;
-  const recruitChance = MB_PARTNER_RECRUIT_CHANCE * easyRecruitMult * dailyRecruitMult;
+  const specialQuestRecruitMult = mbRun.isSpecialQuest ? MB_SPECIAL_QUEST_RECRUIT_MULT : 1;
+  const recruitChance = MB_PARTNER_RECRUIT_CHANCE * easyRecruitMult * specialQuestRecruitMult;
   let recruitedMsg = null;
   if(Math.random() < recruitChance){
     if(!st.mbCompanions.includes(enemyDef.id)){
