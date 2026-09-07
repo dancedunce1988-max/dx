@@ -3926,7 +3926,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.93</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.94</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -24591,8 +24591,9 @@ function kbHasEmbeddedKana(id){
 
 // 3画以下は5秒、4画以上は1画につき1.5秒（教員の指示、2026-09-03：最初は「長すぎる」で
 // 1画=1秒に短縮したが、一文字ずつ採点する方式に変えたことも受けて1画=1.5秒に再調整）。
+// ただし画数が少ない漢字でも最低15秒は保証する（教員の指示、2026-09-07）。
 function kbTimeLimitMs(strokeCount){
-  return strokeCount <= 3 ? 5000 : strokeCount * 1500;
+  return Math.max(15000, strokeCount <= 3 ? 5000 : strokeCount * 1500);
 }
 
 // 「それぞれのボスが分かれているのではなく、順番にボスがかわるがわる出現するイメージ」
@@ -25237,7 +25238,7 @@ const MB_STATUS = {
 // こういう能力を持っている」と分かるようにしておくことで、実際に発動した瞬間の演出の意味が
 // 伝わるようにする）。
 const MB_ENEMIES = [
-  { id:'me01', name:'炎狼',       icon:'🐺', hp:280, atkMin:16, atkMax:24, taunt:null },
+  { id:'me01', name:'炎狼',       icon:'🐺', hp:280, atkMin:8, atkMax:12, mpGainMult:2, taunt:null },
   { id:'me02', name:'鉄甲兵',     icon:'🛡️', hp:450, atkMin:14, atkMax:20, dmgTakenMult:0.7,
     abilityLabel:'🛡️ 装甲が硬く、受けるダメージが常に軽減される', taunt:'その一撃、我が鎧には効かぬ' },
   { id:'me03', name:'闇の魔導士', icon:'🧙', hp:380, atkMin:12, atkMax:18, mpDrain:{chance:0.4, min:10, max:20},
@@ -25764,7 +25765,8 @@ function mbChooseAction(action){
   mbShowDifficultySelect();
 }
 function mbDifficultyCardHtml(diff){
-  const mp = diff.mp * (mbRun.isEncounter ? MB_ENCOUNTER_MP_MULT : 1); // 遭遇戦ボーナス：カード表示も実際の獲得量に合わせる
+  const enemyMpMult = (mbBattle && mbBattle.enemyDef && mbBattle.enemyDef.mpGainMult) || 1; // 敵ごとのMP倍率（炎狼＝2倍）
+  const mp = diff.mp * (mbRun.isEncounter ? MB_ENCOUNTER_MP_MULT : 1) * enemyMpMult; // 遭遇戦ボーナス：カード表示も実際の獲得量に合わせる
   return `
     <div class="mb-diff-card" onclick="mbBeginChallenge('${diff.id}')">
       <div class="mb-diff-badge">${diff.badge} ${diff.label}</div>
@@ -26459,7 +26461,8 @@ function mbChallengeSuccess(){
     mbShowCritOutcome(true);
     return;
   }
-  const mpGain = diff.mp * (mbRun.isEncounter ? MB_ENCOUNTER_MP_MULT : 1); // 遭遇戦ボーナス：MP獲得量2倍
+  const enemyMpMult = (mbBattle && mbBattle.enemyDef && mbBattle.enemyDef.mpGainMult) || 1; // 敵ごとのMP倍率（炎狼＝2倍）
+  const mpGain = diff.mp * (mbRun.isEncounter ? MB_ENCOUNTER_MP_MULT : 1) * enemyMpMult; // 遭遇戦ボーナス：MP獲得量2倍
   mbRun.playerMp = Math.min(mbRun.playerMaxMp, mbRun.playerMp + mpGain);
   const xpGained = MB_QUEST_XP[diff.id] || 1;
   const st = loadStats();
