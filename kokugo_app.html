@@ -3942,7 +3942,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.98</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.99</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -25218,12 +25218,16 @@ function mbQuestStaminaConsume(st){
   if(s.nextRegenAt === null) s.nextRegenAt = Date.now() + MB_QUEST_STAMINA_REGEN_MS;
   return true;
 }
-// ホーム画面のゲージ表示用に、残り時間(ms)を「n時間m分」または「m分」に整形する。
+// ホーム画面のゲージ表示用に、残り時間(ms)を「n時間m分s秒」のように秒まで整形する
+// （教員の指示、2026-09-07：「秒まで表示してほしい」）。
 function mbFormatDuration(ms){
-  const totalMin = Math.max(0, Math.ceil(ms / 60000));
-  const h = Math.floor(totalMin / 60);
-  const m = totalMin % 60;
-  return h > 0 ? `${h}時間${m}分` : `${m}分`;
+  const totalSec = Math.max(0, Math.ceil(ms / 1000));
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if(h > 0) return `${h}時間${m}分${s}秒`;
+  if(m > 0) return `${m}分${s}秒`;
+  return `${s}秒`;
 }
 
 // 魔法の名前・説明は教員が「魔法の名前・説明変更ツール」で一括編集したもの（2026-09-04）。
