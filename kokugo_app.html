@@ -3926,7 +3926,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.94</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.95</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -4621,6 +4621,13 @@ function loadStats(){
         if(!st.kanjiBossDaily) st.kanjiBossDaily = {date:null, cleared:{}};
         if(st.kanjiBossDaily.date !== todayLocalDateStr()){
           st.kanjiBossDaily = {date: todayLocalDateStr(), cleared:{}};
+        }
+        /* 「今日の漢字Quest」（2026-09-07〜）。1日1回だけ挑戦できる特別な漢字Quest（仲間になる
+           確率が通常の10倍になる）。todayKanji・kanjiBossDailyと同じ発想で、保存された日付が
+           今日と違えば「本日ぶんは未挑戦」の状態に戻す。 */
+        if(!st.mbDailyQuest) st.mbDailyQuest = {date:null, done:false};
+        if(st.mbDailyQuest.date !== todayLocalDateStr()){
+          st.mbDailyQuest = {date: todayLocalDateStr(), done:false};
         }
         if(!st.story) st.story = {chapter:"ch1", beatIdx:0, flags:{}, completedChapters:[], judgedRunCorrect:0, judgedRunTotal:0, judgedBest:{}, comboBest:{}};
         if(!st.story.flags) st.story.flags = {};
@@ -6651,6 +6658,21 @@ function todayKanjiEntryHtml(st){
       <div class="right"><span class="count">正解 ${tk.correctCount||0} / 10</span></div>
     </div>`;
 }
+/* 「今日の漢字Quest」入口（2026-09-07〜）：todayKanjiEntryHtmlと同じ発想で、ホーム画面の
+   目立つ場所に置く1日1回だけの特別ボタン。中身は通常の「漢字Quest」（mb*）そのものだが、
+   仲間になる確率が10倍になる（MB_DAILY_QUEST_RECRUIT_MULT、mbEnemyDefeated参照）。 */
+function mbDailyQuestEntryHtml(st){
+  const dq = st.mbDailyQuest || {done:false};
+  if(dq.done){
+    return `<p class="note" style="text-align:center; margin:-6px 2px 14px;">✨ 今日の漢字Quest：本日ぶんは実施済みです（また明日挑戦できます）</p>`;
+  }
+  return `
+    <div class="card menu-card today-kanji-btn" onclick="mbStartDailyQuest()">
+      <div class="menu-icon">✨</div>
+      <div><h2>今日の漢字Quest</h2><p>本日限定！仲間になる確率が10倍になる特別な漢字Quest！</p></div>
+      <div class="right"><span class="count">挑戦する</span></div>
+    </div>`;
+}
 /* 挑戦チケット：どの分野でも、レベルアップ10回ごとに1枚たまる。使うとランダムなボスとすぐに対戦できる。 */
 function bossTicketHtml(st){
   const n = st.bossTickets || 0;
@@ -6731,6 +6753,7 @@ function showHome(){
   html += eventBannerHtml(st);
   html += kotonohaCardHtml(st);
   html += todayKanjiEntryHtml(st);
+  html += mbDailyQuestEntryHtml(st);
   html += storyEntryHtml(st);
   html += miniGameEntryHtml(st);
   html += balancedTrainingBtnHtml();
@@ -25180,7 +25203,22 @@ const MB_QUEST_XP = { easy:1, normal:2, hard:3, veryhard:3 };
 const MB_BOSS_DEFEAT_XP = 5;
 // 倒したボスが仲間になる確率（教員の指示、2026-09-04）。仲間になった敵のパートナー効果は
 // MB_PARTNER_STAT_BONUS_PCT（kotonohaEffStats付近）に集約してある。
+// この値はHARDモードの基準値のまま（教員の指示、2026-09-07：「HARDモードは現行のまま」）。
 const MB_PARTNER_RECRUIT_CHANCE = 0.01;
+
+// 「冒険に出る」の先で選ぶEASY／HARDモード（mbRun.questMode、2026-09-07〜）。MB_DIFFICULTIES
+// （EASY/NORMAL/HARD/VERYHARD＝挑戦する漢字の難易度）とは別の軸で、ゲーム全体の遊び方を
+// 初心者向け（MP優先）／経験値・仲間集め優先に切り替える。HARDモードは既存の値がそのまま
+// 基準（＝このMB_EASY_*定数はどれも「HARDに対するEASYの倍率」）。
+const MB_EASY_MP_MULT = 2;       // EASY：MPが2倍たまる
+const MB_EASY_XP_MULT = 0.5;     // EASY：獲得経験値がHARDの半分
+const MB_EASY_RECRUIT_MULT = 0.5;// EASY：仲間になる確率がHARDの半分（0.5%）
+// 「今日の漢字Quest」（1日1回、2026-09-07〜）：mbRun.isDailySpecialが立っている間だけ、
+// 仲間になる確率をさらに10倍にする（HARD1%→10%／EASY0.5%→5%）。
+const MB_DAILY_QUEST_RECRUIT_MULT = 10;
+// 制限時間の半分より速く正解＝「強烈な一撃」（漢字Quest全共通、2026-09-07〜）。
+// ダメージ倍率は既存の会心（MB_CRIT_MULTIPLIER）と同じ3倍を流用する。
+const MB_SWIFT_HIT_MP_MULT = 1.5;
 
 // 魔法の名前・説明は教員が「魔法の名前・説明変更ツール」で一括編集したもの（2026-09-04）。
 // id・mp・power/effect/turnsはゲームバランスそのものなので変更していない。
@@ -25380,6 +25418,14 @@ let mbJudged = false;
 // 通常の連戦（mbStartGauntlet）とは独立に、戦闘終了後どこへ戻るかだけを覚えておく
 // （教員の指示、2026-09-05）。mbRun.isEncounterが立っている間だけ使う。
 let mbEncounterResumeFn = null;
+// 難易度選択（EASY/HARD、2026-09-07〜）：「冒険に出る」／「今日の漢字Quest」を押した直後に
+// mbShowModeSelectで選ばせ、選んだ値をmbInitRunがmbRun.questModeへ引き継ぐまでの一時置き場。
+// ランダム遭遇（startMbEncounterBattle）はこの選択画面を経由しないため、questModeは常に
+// undefined＝HARD相当のまま（既存のisEncounterボーナスだけが効く）。
+let mbPendingQuestMode = 'hard';
+// 「今日の漢字Quest」（1日1回、仲間になる確率が10倍になる特別な漢字Quest）から来たかどうか。
+// mbInitRunがmbRun.isDailySpecialへ引き継ぐ。
+let mbPendingDailySpecial = false;
 
 function mbClearTimer(){
   if(mbTimerHandle){ clearInterval(mbTimerHandle); mbTimerHandle = null; }
@@ -25422,6 +25468,7 @@ function mbStartGauntlet(){
   mbStopIdleAnim();
   mbStopBgm();
   mbRun = null; mbBattle = null; mbChallenge = null; mbPendingAction = null;
+  mbPendingDailySpecial = false;
   const overlay = document.getElementById('mbAtkOverlay');
   if(overlay) overlay.remove();
   screen.innerHTML = `
@@ -25429,7 +25476,7 @@ function mbStartGauntlet(){
       <button class="btn secondary kb-quit-corner" onclick="showHome()">やめる</button>
       <img class="mb-title-image" src="${window.KANJI_QUEST_TITLE_IMG || ''}" alt="漢字Quest">
       <div class="mb-title-cta-row">
-        <button class="btn mb-adventure-btn" onclick="mbShowScenarioIntro()">冒険に出る</button>
+        <button class="btn mb-adventure-btn" onclick="mbShowModeSelect()">冒険に出る</button>
         <button class="btn mb-bgm-toggle-btn${mbBgmEnabled() ? '' : ' mb-bgm-off'}" id="mbBgmToggleBtn" onclick="mbToggleBgmSetting()" title="${mbBgmEnabled() ? 'BGM：ON（押すとOFFにします）' : 'BGM：OFF（押すとONにします）'}">${mbBgmEnabled() ? '🔊' : '🔇'}</button>
       </div>
       <button class="mb-title-info-btn" onclick="mbToggleTitleInfo()">説明</button>
@@ -25443,9 +25490,52 @@ function mbStartGauntlet(){
       </div>
     </div>`;
 }
+// 「今日の漢字Quest」（ホーム画面のmbDailyQuestEntryHtmlから、2026-09-07〜）。通常の
+// タイトル画面（「冒険に出る」ボタン）は経由せず、直接、難易度選択（mbShowModeSelect）へ
+// 進む。1日1回だけの特別枠であることはmbInitRun側でst.mbDailyQuest.doneに記録して消費する。
+function mbStartDailyQuest(){
+  const st = loadStats();
+  if(st.mbDailyQuest.done){ showHome(); return; }
+  mbClearTimer();
+  mbStopIdleAnim();
+  mbStopBgm();
+  mbRun = null; mbBattle = null; mbChallenge = null; mbPendingAction = null;
+  const overlay = document.getElementById('mbAtkOverlay');
+  if(overlay) overlay.remove();
+  mbPendingDailySpecial = true;
+  mbShowModeSelect();
+}
 function mbToggleTitleInfo(){
   const panel = document.getElementById('mbTitleInfoPanel');
   if(panel) panel.hidden = !panel.hidden;
+}
+
+// 「冒険に出る」（／「今日の漢字Quest」）を押した直後の難易度選択画面（教員の指示、
+// 2026-09-07〜）。ここで選んだEASY／HARDはmbPendingQuestModeに置いておき、mbInitRunが
+// mbRun.questModeへ引き継ぐ。mb-diff-card／mb-diff-list等、既存の漢字チャレンジ難易度選択
+// （mbShowDifficultySelect）と同じ見た目のクラスを流用する。
+function mbShowModeSelect(){
+  const daily = mbPendingDailySpecial;
+  screen.innerHTML = `
+    <div class="boss-battle-screen" style="position:relative;">
+      <button class="btn secondary kb-quit-corner" onclick="showHome()">やめる</button>
+      <div class="boss-name">${daily ? '✨ 今日の漢字Quest' : '🪄 漢字Quest'}</div>
+      <p style="text-align:center; margin:6px 0 18px;">難易度を選んで冒険に出よう！${daily ? '<br><strong>本日限定：仲間になる確率が10倍に！（HARD：各ボス10％／EASY：各ボス5％）</strong>' : ''}</p>
+      <div class="mb-diff-list">
+        <div class="mb-diff-card" onclick="mbSelectQuestMode('easy')">
+          <div class="mb-diff-badge">🟢 EASYモード</div>
+          <div class="mb-diff-reward">MPが2倍たまる！初心者用モード</div>
+        </div>
+        <div class="mb-diff-card" onclick="mbSelectQuestMode('hard')">
+          <div class="mb-diff-badge">🔴 HARDモード</div>
+          <div class="mb-diff-reward">獲得できる経験値や、仲間になる確率が倍！</div>
+        </div>
+      </div>
+    </div>`;
+}
+function mbSelectQuestMode(mode){
+  mbPendingQuestMode = mode;
+  mbShowScenarioIntro();
 }
 
 // 「冒険に出る」を押した直後の簡単なシナリオ導入（教員の指示、2026-09-06〜：3-2-1の
@@ -25478,12 +25568,24 @@ function mbSkipScenarioIntro(){
 }
 
 function mbInitRun(){
+  const isDailySpecial = mbPendingDailySpecial;
   mbRun = {
     playerHp: MB_PLAYER_MAX_HP, playerMaxHp: MB_PLAYER_MAX_HP,
     playerMp: 0, playerMaxMp: MB_PLAYER_MAX_MP,
     buffs: {},     // 効果名 -> 残りターン数
     wrongLog: [],  // {kanji, sentence}。この連戦中に間違えた問題（戦闘終了後に一覧表示、22項）
+    questMode: mbPendingQuestMode,   // mbShowModeSelectで選んだ'easy'|'hard'（2026-09-07〜）
+    isDailySpecial,                  // 「今日の漢字Quest」から来た冒険かどうか
   };
+  mbPendingDailySpecial = false; // 使い切ったら毎回リセット（次回は通常の「冒険に出る」に戻す）
+  if(isDailySpecial){
+    // 「今日の漢字Quest」は1日1回：選んで冒険が始まった時点で本日ぶんを消費する
+    // （todayKanjiのような「クリアしたら消費」ではなく、既存セーブへの遡及やり直しを防ぐため
+    // ここで確定させる。教員の指示、2026-09-07：「1日一回、〜特別な漢字Questを実施」）。
+    const st = loadStats();
+    st.mbDailyQuest.done = true;
+    saveStats(st);
+  }
   mbStartEnemy(0);
 }
 
@@ -25766,7 +25868,8 @@ function mbChooseAction(action){
 }
 function mbDifficultyCardHtml(diff){
   const enemyMpMult = (mbBattle && mbBattle.enemyDef && mbBattle.enemyDef.mpGainMult) || 1; // 敵ごとのMP倍率（炎狼＝2倍）
-  const mp = diff.mp * (mbRun.isEncounter ? MB_ENCOUNTER_MP_MULT : 1) * enemyMpMult; // 遭遇戦ボーナス：カード表示も実際の獲得量に合わせる
+  const questModeMpMult = (mbRun.questMode === 'easy') ? MB_EASY_MP_MULT : 1; // EASYモード：MP2倍
+  const mp = diff.mp * (mbRun.isEncounter ? MB_ENCOUNTER_MP_MULT : 1) * enemyMpMult * questModeMpMult; // 遭遇戦ボーナス：カード表示も実際の獲得量に合わせる
   return `
     <div class="mb-diff-card" onclick="mbBeginChallenge('${diff.id}')">
       <div class="mb-diff-badge">${diff.badge} ${diff.label}</div>
@@ -26456,15 +26559,22 @@ function mbChallengeSuccess(){
   const diff = mbChallenge.diff;
   const challengeId = mbChallenge.id;
   const action = mbPendingAction;
+  // 「強烈な一撃」（2026-09-07〜）：制限時間の半分より速く正解できたかどうかは、mbChallengeを
+  // nullにする前に判定しておく（timerDeadline／timeLimitMsはmbChallenge側にしかない）。
+  const remainMs = mbChallenge.timerDeadline - Date.now();
+  const isSwiftHit = remainMs >= mbChallenge.timeLimitMs / 2;
   mbChallenge = null;
   if(action.type === 'crit'){
     mbShowCritOutcome(true);
     return;
   }
   const enemyMpMult = (mbBattle && mbBattle.enemyDef && mbBattle.enemyDef.mpGainMult) || 1; // 敵ごとのMP倍率（炎狼＝2倍）
-  const mpGain = diff.mp * (mbRun.isEncounter ? MB_ENCOUNTER_MP_MULT : 1) * enemyMpMult; // 遭遇戦ボーナス：MP獲得量2倍
+  const questModeMpMult = (mbRun.questMode === 'easy') ? MB_EASY_MP_MULT : 1; // EASYモード：MP2倍
+  const swiftHitMpMult = isSwiftHit ? MB_SWIFT_HIT_MP_MULT : 1; // 強烈な一撃：MP1.5倍
+  const mpGain = Math.round(diff.mp * (mbRun.isEncounter ? MB_ENCOUNTER_MP_MULT : 1) * enemyMpMult * questModeMpMult * swiftHitMpMult); // 遭遇戦ボーナス：MP獲得量2倍
   mbRun.playerMp = Math.min(mbRun.playerMaxMp, mbRun.playerMp + mpGain);
-  const xpGained = MB_QUEST_XP[diff.id] || 1;
+  const questXpMult = (mbRun.questMode === 'easy') ? MB_EASY_XP_MULT : 1; // EASYモード：獲得経験値は半分
+  const xpGained = Math.round((MB_QUEST_XP[diff.id] || 1) * questXpMult);
   const st = loadStats();
   st.stockXp = (st.stockXp || 0) + xpGained;
   // 「漢字Quest実装記念イベント」中は、通常攻撃の正解1問ごとに＋1（教員の指示、2026-09-06）。
@@ -26487,16 +26597,19 @@ function mbChallengeSuccess(){
         : `🎉 Lv.${r.lv} UP！`);
     }
   }
-  const dmg = mbComputeAttackDamage(MB_NORMAL_ATTACK_POWER[diff.id] || MB_NORMAL_ATTACK_POWER.easy, false);
+  // 強烈な一撃：通常攻撃のダメージも既存の会心（MB_CRIT_MULTIPLIER）と同じ3倍にする
+  // （mbComputeAttackDamageのisCrit引数をそのまま流用）。
+  const dmg = mbComputeAttackDamage(MB_NORMAL_ATTACK_POWER[diff.id] || MB_NORMAL_ATTACK_POWER.easy, isSwiftHit);
   mbBattle.enemyHp = Math.max(0, mbBattle.enemyHp - dmg);
   const eventXpHtml = kwsEventNow ? `　<span class="kb-xp-inline">＋1 イベント経験値</span>` : '';
-  const msg = `○ 正解！ 漢字の力が魔力に変わった！ ＋${mpGain} MP　<span class="kb-xp-inline">＋${xpGained} ストック経験値</span>${eventXpHtml}<br>通常攻撃！ ${esc(mbBattle.enemyDef.name)}に${dmg}のダメージ！${mbDefenseNoteHtml()}`;
+  const attackLabel = isSwiftHit ? '💥 強烈な一撃！' : '🗡️ 通常攻撃！';
+  const msg = `○ 正解！ 漢字の力が魔力に変わった！ ＋${mpGain} MP　<span class="kb-xp-inline">＋${xpGained} ストック経験値</span>${eventXpHtml}<br>${attackLabel} ${esc(mbBattle.enemyDef.name)}に${dmg}のダメージ！${mbDefenseNoteHtml()}`;
   const enemyDefeated = mbBattle.enemyHp <= 0;
   // プレイヤーが攻撃したときは防御姿勢、それで倒したときは討伐姿勢を見せる（教員の指示、2026-09-04）。
   mbCurrentPoseKey = enemyDefeated ? 'defeat' : 'defense';
   mbRenderBattleScreen({ msg });
   mbTriggerSlashFx();
-  mbTriggerImpact('hit', '🗡️ 通常攻撃！', `${esc(mbBattle.enemyDef.name)}に${dmg}のダメージ！ ＋${mpGain} MP${mbDefenseNote()}`, xpGained);
+  mbTriggerImpact('hit', attackLabel, `${esc(mbBattle.enemyDef.name)}に${dmg}のダメージ！ ＋${mpGain} MP${mbDefenseNote()}`, xpGained);
   if(kwsEventNow) kwsShowEventXpFx(1);
 
   if(enemyDefeated){
@@ -26768,9 +26881,15 @@ function mbEnemyDefeated(){
   mbStopBgm();
   const enemyDef = mbBattle.enemyDef;
   const st = loadStats();
-  st.stockXp = (st.stockXp || 0) + MB_BOSS_DEFEAT_XP;
+  const questXpMult = (mbRun.questMode === 'easy') ? MB_EASY_XP_MULT : 1; // EASYモード：獲得経験値は半分
+  const bossXpGained = Math.round(MB_BOSS_DEFEAT_XP * questXpMult);
+  st.stockXp = (st.stockXp || 0) + bossXpGained;
+  // 仲間になる確率：EASYモードは半分、「今日の漢字Quest」はさらに10倍（両方重なる場合もある）。
+  const easyRecruitMult = (mbRun.questMode === 'easy') ? MB_EASY_RECRUIT_MULT : 1;
+  const dailyRecruitMult = mbRun.isDailySpecial ? MB_DAILY_QUEST_RECRUIT_MULT : 1;
+  const recruitChance = MB_PARTNER_RECRUIT_CHANCE * easyRecruitMult * dailyRecruitMult;
   let recruitedMsg = null;
-  if(Math.random() < MB_PARTNER_RECRUIT_CHANCE){
+  if(Math.random() < recruitChance){
     if(!st.mbCompanions.includes(enemyDef.id)){
       st.mbCompanions.push(enemyDef.id);
       st.mbCompanionLevels[enemyDef.id] = 1;
@@ -26795,9 +26914,9 @@ function mbEnemyDefeated(){
   mbRun.playerMaxMp += MB_STATUP_MP;
   const nextIndex = mbBattle.enemyIndex + 1;
   if(nextIndex < MB_ENEMIES.length){
-    mbShowStageMap(mbBattle.enemyIndex, MB_BOSS_DEFEAT_XP, recruitedMsg);
+    mbShowStageMap(mbBattle.enemyIndex, bossXpGained, recruitedMsg);
   } else {
-    mbGauntletComplete(MB_BOSS_DEFEAT_XP, recruitedMsg);
+    mbGauntletComplete(bossXpGained, recruitedMsg);
   }
 }
 
