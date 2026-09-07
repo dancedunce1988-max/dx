@@ -570,6 +570,22 @@
   .ticket-icon{ font-size:1.4rem; }
   .ticket-label{ font-weight:bold; }
   .ticket-count{ font-size:1.1rem; font-weight:bold; color:var(--gold); }
+  /* 「漢字Quest」ゲージのランプ表示（2026-09-07〜）。教員の指示で数字（n/3）ではなく、
+     電源ランプのような丸を並べて見える化する。lit＝チャージ済み（暖色で発光）、
+     無印＝空（暗いグレーのくぼみ）。 */
+  .mb-stamina-lamps{ display:inline-flex; gap:6px; align-items:center; }
+  .mb-stamina-lamp{
+    width:15px; height:15px; border-radius:50%;
+    background:#4b465c;
+    border:1px solid rgba(0,0,0,.25);
+    box-shadow: inset 0 1px 3px rgba(0,0,0,.4);
+  }
+  .mb-stamina-lamp.lit{
+    background: radial-gradient(circle at 35% 30%, #fff8d6, var(--gold) 55%, #b8860b);
+    box-shadow: 0 0 7px 2px rgba(255,196,0,.75), inset 0 0 2px rgba(255,255,255,.6);
+    border-color: rgba(255,215,0,.6);
+  }
+  .mb-stamina-remain{ color:var(--gold); font-weight:bold; }
   .btn.disabled{ opacity:.4; cursor:default; pointer-events:none; }
   .kanbun-box{
     writing-mode: vertical-rl; text-orientation: upright;
@@ -3926,7 +3942,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.97</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver10.98</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6629,27 +6645,39 @@ function dailyLoginProgressHtml(st){
     📅 デイリーログイン ${cycleDay}日目 / ${DAILY_LOGIN_CYCLE}日目${cycleDay < DAILY_LOGIN_CYCLE ? `（あと${DAILY_LOGIN_CYCLE - cycleDay}日で🌱転生の種）` : "（🌱転生の種を獲得済み）"}
   </p>`;
 }
+/* 「漢字Quest」ゲージを、数字ではなく電源ランプのような丸の並びで見える化する
+   （教員の指示、2026-09-07：「数字ではなくランプみたいな感じで見える化して」）。
+   チャージ済みぶんだけ.lit（暖色で発光）を付け、残りは暗いくぼみのまま並べる。 */
+function mbStaminaLampsHtml(n, max){
+  let dots = '';
+  for(let i = 0; i < max; i++){
+    dots += `<span class="mb-stamina-lamp${i < n ? ' lit' : ''}"></span>`;
+  }
+  return `<span class="mb-stamina-lamps">${dots}</span>`;
+}
 /* 「漢字Quest」ホーム画面ボタンの挑戦ゲージ入口（2026-09-07〜、旧「今日の漢字Quest」の
    1日1回制限をゲージ制に置き換え）。中身は通常の「漢字Quest」（mb*）そのものだが、
    仲間になる確率が10倍になるボーナス付き（MB_SPECIAL_QUEST_RECRUIT_MULT、mbEnemyDefeated
-   参照）。挑戦チケット（bossTicketHtml）と同じ「n/上限＋挑戦する」の見た目にする。 */
+   参照）。ゲージが満タンでない（＝2つ以下の）間は、次の1ゲージ回復までの時間を常時
+   表示する（教員の指示、2026-09-07）。 */
 function mbHomeQuestEntryHtml(st){
   const stam = mbQuestStaminaSync(st);
   const n = stam.count;
-  const remainNote = (n < MB_QUEST_STAMINA_MAX && stam.nextRegenAt)
-    ? `次の1ゲージ回復まで ${mbFormatDuration(stam.nextRegenAt - Date.now())}`
-    : `ゲージ満タン`;
+  const remainHtml = (n < MB_QUEST_STAMINA_MAX && stam.nextRegenAt)
+    ? `<p class="note mb-stamina-remain">⏳ 次の1ゲージ回復まで ${mbFormatDuration(stam.nextRegenAt - Date.now())}</p>`
+    : '';
   return `
   <div class="card ticket-card">
     <div class="ticket-row">
       <div class="ticket-info">
         <span class="ticket-icon">⚡</span>
         <span class="ticket-label">漢字Quest</span>
-        <span class="ticket-count">${n} / ${MB_QUEST_STAMINA_MAX}</span>
+        ${mbStaminaLampsHtml(n, MB_QUEST_STAMINA_MAX)}
       </div>
       <button class="btn inline ${n>0?'':'disabled'}" ${n>0?'':'disabled'} onclick="mbStartHomeQuest()">挑戦する</button>
     </div>
-    <p class="note">仲間になる確率が10倍の特別な漢字Quest！ゲージは2時間で1つ回復（最大${MB_QUEST_STAMINA_MAX}）。${remainNote}</p>
+    <p class="note">仲間になる確率が10倍の特別な漢字Quest！ゲージは2時間で1つ回復（最大${MB_QUEST_STAMINA_MAX}）。</p>
+    ${remainHtml}
   </div>`;
 }
 /* 挑戦チケット：どの分野でも、レベルアップ10回ごとに1枚たまる。使うとランダムなボスとすぐに対戦できる。 */
