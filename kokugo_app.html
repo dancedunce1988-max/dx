@@ -695,9 +695,6 @@
     text-align:center; font-weight:900; color:#3a2e00; background:linear-gradient(90deg,#ffd76a,#ffb347);
     border-radius:8px; padding:6px 10px; margin-bottom:10px; letter-spacing:.05em;
   }
-  /* 「あなたは…」画面の【一般人】の右にだけ置く、見た目に何も無い隠しボタン
-     （教員の指示、2026-09-08）。opacity:0にすることでクリックはできるが見た目には出さない。 */
-  .cm-hidden-btn{ width:26px; height:26px; padding:0; border:none; background:transparent; opacity:0; cursor:default; }
   .cm-score-line{font-size:1.15rem; font-weight:bold; margin:6px 0;}
   /* ボス戦：あえて他の画面と全く違う、黒ベースの特別な雰囲気にする */
   .boss-encounter{
@@ -3969,7 +3966,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.03</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.04</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -11703,8 +11700,8 @@ function cmStartMatch(){
   if(pin.length !== 4) return;
   cm = {
     cats: cmSetup.cats.slice(), pin,
-    round: 0, track: null, prevQuestions: null,
-    totalScore: 0, cheerMode: false, secretArmed: false,
+    round: 0, track: null, pendingTrack: null, prevQuestions: null,
+    totalScore: 0, cheerMode: false,
     questions: [], qIndex: 0, answers: [], answered: false,
     qStartAt: 0, order: null
   };
@@ -11712,27 +11709,51 @@ function cmStartMatch(){
 }
 
 // ---- 10秒カウントダウン ----
+// 一時停止ボタン（⏸→▷に切り替わる、押すたびに一時停止／再開、教員の指示、2026-09-08）付きの
+// 10秒カウントダウン。状態はcmCountdownStateにまとめ、onclickから参照できる専用関数
+// （cmToggleCountdownPause）を経由して操作する。
+let cmCountdownState = null; // {n, paused, handle, onDone}
 function cmShowCountdown(onDone){
-  let n = 10;
+  cmCountdownState = {n:10, paused:false, handle:null, onDone};
+  cmRenderCountdown();
+  cmCountdownState.handle = setInterval(cmCountdownTick, 1000);
+}
+function cmRenderCountdown(){
+  const s = cmCountdownState;
   screen.innerHTML = `
     <div class="card cm-setup-screen">
       ${cmCheerBannerHtml()}
       <div class="cm-setup-title">まもなくスタート！</div>
-      <div class="cm-countdown-num" id="cmCountdownNum">${n}</div>
-      <button class="btn secondary" onclick="cmQuit()">やめる</button>
+      <div class="cm-countdown-num" id="cmCountdownNum">${s.n}</div>
+      <div class="btn-row" style="justify-content:center">
+        <button class="btn secondary" id="cmPauseBtn" onclick="cmToggleCountdownPause()">${s.paused ? '▷' : '⏸'}</button>
+        <button class="btn secondary" onclick="cmQuit()">やめる</button>
+      </div>
     </div>`;
-  const handle = setInterval(() => {
-    const el = document.getElementById('cmCountdownNum');
-    if(!el || !cm){ clearInterval(handle); return; } // 途中で離れた場合の安全弁
-    n--;
-    if(n <= 0){
-      clearInterval(handle);
-      el.textContent = 'スタート！';
-      setTimeout(onDone, 500);
-      return;
-    }
-    el.textContent = n;
-  }, 1000);
+}
+function cmCountdownTick(){
+  const s = cmCountdownState;
+  if(!s){ return; }
+  const el = document.getElementById('cmCountdownNum');
+  if(!el || !cm){ clearInterval(s.handle); cmCountdownState = null; return; } // 途中で離れた場合の安全弁
+  if(s.paused) return;
+  s.n--;
+  if(s.n <= 0){
+    clearInterval(s.handle);
+    el.textContent = 'スタート！';
+    const onDone = s.onDone;
+    cmCountdownState = null;
+    setTimeout(onDone, 500);
+    return;
+  }
+  el.textContent = s.n;
+}
+function cmToggleCountdownPause(){
+  const s = cmCountdownState;
+  if(!s) return;
+  s.paused = !s.paused;
+  const btn = document.getElementById('cmPauseBtn');
+  if(btn) btn.textContent = s.paused ? '▷' : '⏸';
 }
 
 // ---- 出題範囲プールから、暗証番号・ラウンド・トラックを種にした10問を決める。
@@ -11801,6 +11822,7 @@ function cmShowQuestion(){
         ${cm.order.map((oi,pos)=>`<button class="choice" onclick="cmAnswerChoice(${oi})"><span class="choice-num">${pos+1}</span>${it.ckb ? kanbunMiniHtml(it.ckb[oi]) : esc(it.c[oi])}</button>`).join("")}
       </div>`;
   }
+  // 問題を解いている最中は「クラスマッチをやめる」ボタンを置かない（教員の指示、2026-09-08）。
   screen.innerHTML = `
     ${cmCheerBannerHtml()}
     <div class="card">
@@ -11813,7 +11835,6 @@ function cmShowQuestion(){
       <div class="feedback" id="cmFb"></div>
       <div class="btn-row">
         <button class="btn tap-advance-btn" id="cmNextBtn" style="display:none" onclick="cmAdvance()">つぎへ</button>
-        <button class="btn secondary" onclick="cmQuit()">クラスマッチをやめる</button>
       </div>
     </div>`;
   if(isInput){ const el = document.getElementById("cmAnsIn"); if(el) el.focus(); }
@@ -11896,18 +11917,19 @@ function cmAdvance(){
   cmShowQuestion();
 }
 
-// ---- 採点：1問目のラウンドは正答率を重く（1問100点＋速さボーナス最大20点）、2ラウンド目
-//      以降は正誤と速さを同等に（1問50点＋速さボーナス最大50点）計算する（教員の指示、2026-09-08）。 ----
+// ---- 採点：1問正解＝200点（固定）＋速さボーナス（0.1秒はやいごとに1点、上限は制限時間
+//      15秒ぶん＝150点）。ラウンド1でもラウンド2以降でも同じ式にする（教員の指示、2026-09-08）。
+//      不正解は常に0点なので、どれだけ速くても「正解した人」には絶対に届かない
+//      （最速の正解＝200+150=350点、最遅の正解でも200点＝不正解の0点より必ず高い）。 ----
+const CM_PER_CORRECT = 200;
+const CM_SEC_PER_POINT = 0.1; // 0.1秒はやいごとに1点
 function cmComputeRoundScore(){
-  const isFirstRound = cm.round === 1;
-  const perCorrect = isFirstRound ? 100 : 50;
-  const perSpeedMax = isFirstRound ? 20 : 50;
   let score = 0, correctCount = 0;
   cm.answers.forEach(a=>{
     if(!a.ok) return;
     correctCount++;
-    const remainFrac = Math.max(0, Math.min(1, (CM_TIME_LIMIT_MS - a.ms) / CM_TIME_LIMIT_MS));
-    score += perCorrect + Math.round(perSpeedMax * remainFrac);
+    const remainSec = Math.max(0, (CM_TIME_LIMIT_MS - a.ms) / 1000);
+    score += CM_PER_CORRECT + Math.round(remainSec / CM_SEC_PER_POINT);
   });
   return {score, correctCount};
 }
@@ -11936,47 +11958,75 @@ function cmShowResults(roundScore, correctCount, cheered){
     </div>`;
 }
 
-// ---- 「あなたは…」上位入賞／一般人の選択。【一般人】ボタンのすぐ右に、見た目には
-//      何も無い隠しボタンを置く（教員の指示、2026-09-08）。押しても何も起きないが、押した
-//      あとにキーボードで「tokkyuuken」と入力してEnterを押すと「応援モード」に入る。
-//      隠しボタンを押さないまま次に進んだ場合は待ち受けを解除する（cmChooseTrack参照）。 ----
+// ---- 「あなたは…」上位入賞／一般人の選択（縦に並べる、教員の指示、2026-09-08）。この画面を
+//      表示している間（cmTrackChoiceActive）だけ、キーボードで「tokkyuuken」と入力すると
+//      （Enterキー不要、打ち終わった瞬間に）「応援モード」に入る。ボタンなどは一切置かない
+//      見た目に分からない隠しコマンドで、発動すると「応援モードを起動します！」の確認画面が
+//      出る（OKボタンで「あなたは…」に戻る）。 ----
+let cmTrackChoiceActive = false;
 function cmShowTrackChoice(){
+  cmSecretBuffer = '';
+  cmTrackChoiceActive = true;
   screen.innerHTML = `
     ${cmCheerBannerHtml()}
     <div class="card cm-setup-screen">
       <div class="cm-setup-title">あなたは…</div>
-      <div class="btn-row" style="justify-content:center">
-        <button class="btn" onclick="cmChooseTrack('top')">🏆 上位入賞</button>
-        <button class="btn secondary" onclick="cmChooseTrack('general')">🙂 一般人</button>
-        <button class="cm-hidden-btn" onclick="cmArmSecret()" tabindex="-1"></button>
+      <div class="battle-genre-choice">
+        <button class="battle-genre-btn" onclick="cmChooseTrack('top')">
+          <span class="big">🏆 上位入賞</span>
+          <span class="small">前回と被りのない、新しい問題が出題されます</span>
+        </button>
+        <button class="battle-genre-btn" onclick="cmChooseTrack('general')">
+          <span class="big">🙂 一般人</span>
+          <span class="small">半分が今出た問題、半分が新しい問題になります</span>
+        </button>
       </div>
     </div>`;
 }
-function cmArmSecret(){
-  if(cm) cm.secretArmed = true;
-}
 document.addEventListener('keydown', (e) => {
-  if(!cm || !cm.secretArmed || cm.cheerMode) return;
-  if(e.key === 'Enter'){
-    if(cmSecretBuffer === 'tokkyuuken'){
-      cm.cheerMode = true;
-      cm.secretArmed = false;
-      cmSecretBuffer = '';
-      cmShowTrackChoice(); // 発動した瞬間に「応援モード」のバナーを見せる（この時点では必ずこの画面にいる）
-    }else{
-      cmSecretBuffer = '';
-    }
-    return;
+  if(!cm || !cmTrackChoiceActive || cm.cheerMode) return;
+  if(e.key.length !== 1) return; // 印字可能な1文字だけ拾う（Shift単体などの特殊キーは無視）
+  cmSecretBuffer = (cmSecretBuffer + e.key).slice(-20);
+  if(cmSecretBuffer.endsWith('tokkyuuken')){
+    cmSecretBuffer = '';
+    cmActivateCheerMode();
   }
-  if(e.key.length === 1) cmSecretBuffer = (cmSecretBuffer + e.key).slice(-20);
 });
+function cmActivateCheerMode(){
+  cm.cheerMode = true;
+  cmTrackChoiceActive = false;
+  screen.innerHTML = `
+    <div class="card cm-setup-screen">
+      <div class="cm-setup-title">📣 応援モードを起動します！</div>
+      <p class="cm-setup-sub">一般人トラックのスコアが2倍になります（このクラスマッチが終わるまで続きます）。</p>
+      <button class="btn" onclick="cmShowTrackChoice()">OK</button>
+    </div>`;
+}
+// トラックを選んだら、すぐカウントダウンに入らず「スタート」ボタンで確認してから始める
+// （教員の指示、2026-09-08）。
 function cmChooseTrack(track){
-  cm.secretArmed = false; // この画面を離れたら、隠しコマンドの待ち受けも解除する
+  cmTrackChoiceActive = false; // この画面を離れたら、隠しコマンドの待ち受けも解除する
+  cm.pendingTrack = track;
+  cmShowRoundStart();
+}
+function cmShowRoundStart(){
+  const trackLabel = cm.pendingTrack === 'top' ? '🏆 上位入賞' : '🙂 一般人';
+  screen.innerHTML = `
+    ${cmCheerBannerHtml()}
+    <div class="card cm-setup-screen">
+      <div class="cm-setup-title">${trackLabel} で挑戦します</div>
+      <button class="btn" onclick="cmConfirmRoundStart()">スタート</button>
+    </div>`;
+}
+function cmConfirmRoundStart(){
+  const track = cm.pendingTrack;
   cmShowCountdown(() => cmBeginRound(cm.round + 1, track));
 }
 function cmQuit(){
   if(!confirm("クラスマッチをやめますか？ここまでのスコアは消えます。")) return;
   cmClearTimer();
+  if(cmCountdownState){ clearInterval(cmCountdownState.handle); cmCountdownState = null; }
+  cmTrackChoiceActive = false;
   cm = null;
   showHome();
 }
