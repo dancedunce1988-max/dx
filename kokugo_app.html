@@ -674,6 +674,31 @@
   }
   .genre-pick-chip:hover{border-color:var(--accent);}
   .genre-pick-chip.on{background:var(--accent); border-color:var(--accent); color:#fff; font-weight:bold;}
+  /* クラスマッチ（複数人が同じ暗証番号で同じ問題に挑戦する、教員の指示、2026-09-08）：
+     出題範囲・暗証番号・カウントダウン・「あなたは…」画面は、二人対戦の準備画面と同じ
+     構造だが、青緑系の配色にして別モードだと分かるようにする。 */
+  .cm-setup-screen{
+    background:linear-gradient(160deg,#0d1a20,#0f3a40 55%,#0d1a20); color:#e6fbff;
+    border:1px solid rgba(90,220,255,.35); box-shadow:0 0 30px rgba(50,200,255,.2);
+    text-align:center; padding:30px 20px;
+  }
+  .cm-setup-title{font-size:1.25rem; font-weight:bold; margin-bottom:8px; letter-spacing:.06em; text-shadow:0 0 12px rgba(90,220,255,.7);}
+  .cm-setup-sub{font-size:.85rem; color:#a8dde6; margin-bottom:20px; line-height:1.7;}
+  .cm-pin-input{
+    width:200px; font-size:2rem; letter-spacing:.6em; text-align:center; padding:10px 0 10px 14px;
+    border-radius:8px; border:2px solid rgba(90,220,255,.4); background:rgba(255,255,255,.08); color:#fff;
+    font-family:inherit;
+  }
+  .cm-pin-input:focus{outline:none; border-color:#5adcff;}
+  .cm-countdown-num{font-size:4.4rem; font-weight:900; margin:26px 0; text-shadow:0 0 24px rgba(90,220,255,.8);}
+  .cm-cheer-banner{
+    text-align:center; font-weight:900; color:#3a2e00; background:linear-gradient(90deg,#ffd76a,#ffb347);
+    border-radius:8px; padding:6px 10px; margin-bottom:10px; letter-spacing:.05em;
+  }
+  /* 「あなたは…」画面の【一般人】の右にだけ置く、見た目に何も無い隠しボタン
+     （教員の指示、2026-09-08）。opacity:0にすることでクリックはできるが見た目には出さない。 */
+  .cm-hidden-btn{ width:26px; height:26px; padding:0; border:none; background:transparent; opacity:0; cursor:default; }
+  .cm-score-line{font-size:1.15rem; font-weight:bold; margin:6px 0;}
   /* ボス戦：あえて他の画面と全く違う、黒ベースの特別な雰囲気にする */
   .boss-encounter{
     background:linear-gradient(160deg,#0d0d16,#1a1030 60%,#0d0d16); color:#f0e6ff;
@@ -3944,7 +3969,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.02</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.03</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6877,6 +6902,10 @@ function showHome(){
     <div class="card menu-card" onclick="showBattleSetup()">
       <div class="menu-icon">⚔️</div>
       <div><h2>二人対戦</h2><p>同じ端末で交代しながら対戦。正解すると相手のHPが減る</p></div>
+    </div>
+    <div class="card menu-card" onclick="cmShowSetup()">
+      <div class="menu-icon">🏫</div>
+      <div><h2>クラスマッチ</h2><p>同じ暗証番号を入れたクラスメイトと、同じ10問で正答率とスピードを競う</p></div>
     </div>
     <p class="note">※ 1問正解すると、その分野のレベルが1上がります（好きなだけ続けて、いつでもやめられます）。正解が続くと少し難しい問題が、まちがいが続くと少し易しい問題が出やすくなり、あわせて正解した問題はだんだん出にくく、間違えた問題は出やすくなります。</p>
     <p class="signature">Seikichi</p>`;
@@ -11522,6 +11551,434 @@ function endBattle(){
       </div>
     </div>`;
   battle = null;
+}
+
+/* ================= クラスマッチ（複数人が同じ暗証番号で同じ問題に挑戦する） =================
+   同じ端末を使い回す二人対戦と違い、生徒それぞれが自分の端末でこの画面を開く。サーバー通信は
+   一切使わず、「暗証番号＋出題範囲＋ラウンド番号＋トラック（上位入賞／一般人）」を文字列にした
+   ものを種にした疑似乱数（xmur3+mulberry32）で10問を選ぶだけなので、同じ入力なら同じ端末構成
+   （同じkokugo_data.js）である限り必ず同じ問題ならびになる（教員の指示、2026-09-08）。
+   個人の称号・経験値・二人対戦の記録には一切影響しない、独立したミニゲーム。 ----*/
+const CM_TIME_LIMIT_MS = 15000; // 1問あたりの解答制限時間（教員の指示：15秒）
+const CM_ROUND_QUESTIONS = 10;
+let cmSetup = null;      // {cats} 出題範囲決定後、暗証番号入力〜対戦中を通して保持
+let cmSetupPick = null;  // {picked:Set} ジャンル選択中だけ使う一時state
+let cm = null;           // 進行中のクラスマッチ本体
+let cmTimerHandle = null;
+let cmSecretBuffer = '';
+
+// ---- 疑似乱数：同じ文字列の種からは常に同じ数列を返す（xmur3で文字列→32bit種を作り、
+//      mulberry32で本体の数列にする、どちらも広く使われている軽量な実装）。 ----
+function cmXmur3(str){
+  let h = 1779033703 ^ str.length;
+  for(let i = 0; i < str.length; i++){
+    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  return function(){
+    h = Math.imul(h ^ (h >>> 16), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    return (h ^= h >>> 16) >>> 0;
+  };
+}
+function cmMulberry32(seed){
+  let a = seed;
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function cmSeededRand(seedStr){
+  return cmMulberry32(cmXmur3(seedStr)());
+}
+function cmSeededShuffle(arr, seedStr){
+  const rand = cmSeededRand(seedStr);
+  const out = arr.slice();
+  for(let i = out.length - 1; i > 0; i--){
+    const j = Math.floor(rand() * (i + 1));
+    const tmp = out[i]; out[i] = out[j]; out[j] = tmp;
+  }
+  return out;
+}
+function cmKeyOf(entry){ return entry.cat + '::' + entry.item.q; }
+function cmBuildPool(cats){
+  const pool = [];
+  cats.forEach(key=>{
+    const c = CATS[key];
+    if(c) c.items.forEach(item => pool.push({cat:key, item}));
+  });
+  return pool; // kokugo_data.jsの並び順そのまま（全端末共通で安定した順序なので種が同じなら結果も同じになる）
+}
+
+// ---- 出題範囲の設定（二人対戦のジャンル選択画面と同じ操作感にする） ----
+function cmShowSetup(){
+  cmSetupPick = {picked:new Set()};
+  screen.innerHTML = `
+    <div class="card cm-setup-screen">
+      <div class="cm-setup-title">🏫 クラスマッチ</div>
+      <p class="cm-setup-sub">同じ出題範囲・同じ暗証番号を入力したクラスメイトと、同じ10問で勝負します。<br>まずは出題範囲を決めましょう。</p>
+      <div class="battle-genre-choice">
+        <button class="battle-genre-btn" onclick="cmChooseAllGenres()">
+          <span class="big">🌐 全ジャンル</span>
+          <span class="small">すべての分野からランダムに出題されます</span>
+        </button>
+        <button class="battle-genre-btn" onclick="cmShowGenrePicker()">
+          <span class="big">🎯 ジャンルを選択する</span>
+          <span class="small">クラスで話し合って決めた分野だけを選びます（複数選択可）</span>
+        </button>
+      </div>
+      <button class="btn secondary" style="margin-top:18px" onclick="showHome()">ホームへ</button>
+    </div>`;
+}
+function cmChooseAllGenres(){
+  cmSetup = {cats: CAT_KEYS.slice()};
+  cmShowPinEntry();
+}
+function cmShowGenrePicker(){
+  let html = `<div class="card cm-setup-screen">
+      <div class="cm-setup-title">ジャンルを選ぶ</div>
+      <p class="cm-setup-sub">出題してほしい分野をタップして選んでください（複数選択可、合計10問ぶん以上必要です）</p>
+    </div>`;
+  (DATA.groups || [{name:"分野", keys:CAT_KEYS}]).forEach(g=>{
+    html += `<h3 class="section">${esc(g.name)}</h3><div class="genre-pick-grid">`;
+    g.keys.forEach(key=>{
+      if(!CATS[key]) return;
+      const on = cmSetupPick.picked.has(key);
+      html += `<button class="genre-pick-chip ${on?'on':''}" onclick="cmToggleGenre('${key}')">${esc(CATS[key].name)}</button>`;
+    });
+    html += `</div>`;
+  });
+  const cats = Array.from(cmSetupPick.picked);
+  const total = cmBuildPool(cats).length;
+  const enough = cats.length > 0 && total >= CM_ROUND_QUESTIONS;
+  const label = cats.length === 0 ? "1つ以上選んでください"
+    : !enough ? `問題数が足りません（${total}問／10問必要）`
+    : `この${cats.length}ジャンルでクラスマッチ開始`;
+  html += `
+    <div class="btn-row" style="margin-top:10px">
+      <button class="btn ${enough?'':'disabled'}" onclick="cmConfirmGenrePicker()">${label}</button>
+      <button class="btn secondary" onclick="cmShowSetup()">もどる</button>
+    </div>`;
+  screen.innerHTML = html;
+}
+function cmToggleGenre(key){
+  if(cmSetupPick.picked.has(key)) cmSetupPick.picked.delete(key);
+  else cmSetupPick.picked.add(key);
+  cmShowGenrePicker();
+}
+function cmConfirmGenrePicker(){
+  const cats = Array.from(cmSetupPick.picked);
+  if(cats.length === 0 || cmBuildPool(cats).length < CM_ROUND_QUESTIONS) return;
+  cmSetup = {cats};
+  cmShowPinEntry();
+}
+
+// ---- 暗証番号入力：4桁が揃うまでスタートボタンは押せない ----
+function cmShowPinEntry(){
+  screen.innerHTML = `
+    <div class="card cm-setup-screen">
+      <div class="cm-setup-title">🔢 暗証番号を4桁で入力</div>
+      <p class="cm-setup-sub">思いついた数字でOK！　同じ出題範囲で同じ番号を入力した人どうしが、同じ問題で勝負できます。</p>
+      <input type="tel" id="cmPinInput" class="cm-pin-input" maxlength="4" inputmode="numeric" placeholder="0000" oninput="cmOnPinInput()">
+      <div class="btn-row" style="justify-content:center; margin-top:20px">
+        <button class="btn disabled" id="cmStartBtn" onclick="cmStartMatch()">スタート</button>
+        <button class="btn secondary" onclick="cmShowSetup()">もどる</button>
+      </div>
+    </div>`;
+  const el = document.getElementById('cmPinInput');
+  if(el) el.focus();
+}
+function cmOnPinInput(){
+  const el = document.getElementById('cmPinInput');
+  if(!el) return;
+  el.value = el.value.replace(/[^0-9]/g, '').slice(0, 4);
+  const btn = document.getElementById('cmStartBtn');
+  if(btn) btn.classList.toggle('disabled', el.value.length !== 4);
+}
+function cmStartMatch(){
+  const el = document.getElementById('cmPinInput');
+  const pin = el ? el.value : '';
+  if(pin.length !== 4) return;
+  cm = {
+    cats: cmSetup.cats.slice(), pin,
+    round: 0, track: null, prevQuestions: null,
+    totalScore: 0, cheerMode: false, secretArmed: false,
+    questions: [], qIndex: 0, answers: [], answered: false,
+    qStartAt: 0, order: null
+  };
+  cmShowCountdown(() => cmBeginRound(1, null));
+}
+
+// ---- 10秒カウントダウン ----
+function cmShowCountdown(onDone){
+  let n = 10;
+  screen.innerHTML = `
+    <div class="card cm-setup-screen">
+      ${cmCheerBannerHtml()}
+      <div class="cm-setup-title">まもなくスタート！</div>
+      <div class="cm-countdown-num" id="cmCountdownNum">${n}</div>
+      <button class="btn secondary" onclick="cmQuit()">やめる</button>
+    </div>`;
+  const handle = setInterval(() => {
+    const el = document.getElementById('cmCountdownNum');
+    if(!el || !cm){ clearInterval(handle); return; } // 途中で離れた場合の安全弁
+    n--;
+    if(n <= 0){
+      clearInterval(handle);
+      el.textContent = 'スタート！';
+      setTimeout(onDone, 500);
+      return;
+    }
+    el.textContent = n;
+  }, 1000);
+}
+
+// ---- 出題範囲プールから、暗証番号・ラウンド・トラックを種にした10問を決める。
+//      【上位入賞】は前回と被りのない範囲からランダム、【一般人】は奇数問目（1・3・5・7・9
+//      問目）を前回と同じ問題のまま残し、偶数問目だけ新しい問題にする（教員の指示、2026-09-08：
+//      「奇数回の問題」＝問題の並び位置で判定）。暗証番号が種の一部なので、同じトラックを
+//      選んだ人どうしは必ず同じ問題になる。 ----
+function cmPickRoundQuestions(){
+  const pool = cmBuildPool(cm.cats);
+  const seedBase = `${cm.pin}|${cm.cats.join(',')}`;
+  if(cm.round === 1){
+    return cmSeededShuffle(pool, `${seedBase}|r1`).slice(0, CM_ROUND_QUESTIONS);
+  }
+  const seed = `${seedBase}|r${cm.round}|${cm.track}`;
+  if(cm.track === 'top'){
+    const prevKeys = new Set(cm.prevQuestions.map(cmKeyOf));
+    let candidates = pool.filter(e => !prevKeys.has(cmKeyOf(e)));
+    if(candidates.length < CM_ROUND_QUESTIONS) candidates = pool; // 除外すると10問に満たない場合は諦めて全体から選ぶ
+    return cmSeededShuffle(candidates, seed).slice(0, CM_ROUND_QUESTIONS);
+  }
+  const result = new Array(CM_ROUND_QUESTIONS);
+  const usedKeys = new Set();
+  for(let i = 0; i < CM_ROUND_QUESTIONS; i += 2){
+    result[i] = cm.prevQuestions[i];
+    usedKeys.add(cmKeyOf(result[i]));
+  }
+  const shuffled = cmSeededShuffle(pool, seed);
+  let sp = 0;
+  for(let i = 1; i < CM_ROUND_QUESTIONS; i += 2){
+    while(sp < shuffled.length && usedKeys.has(cmKeyOf(shuffled[sp]))) sp++;
+    result[i] = shuffled[sp] || pool[i % pool.length];
+    usedKeys.add(cmKeyOf(result[i]));
+    sp++;
+  }
+  return result;
+}
+function cmBeginRound(roundNum, track){
+  cm.round = roundNum;
+  cm.track = track;
+  cm.questions = cmPickRoundQuestions();
+  cm.qIndex = 0;
+  cm.answers = [];
+  cmShowQuestion();
+}
+function cmCheerBannerHtml(){
+  return (cm && cm.cheerMode) ? `<p class="cm-cheer-banner">📣 応援モード（一般人のスコアが2倍！）</p>` : '';
+}
+function cmShowQuestion(){
+  const entry = cm.questions[cm.qIndex];
+  const it = entry.item, cat = entry.cat;
+  cm.answered = false;
+  const isInput = Array.isArray(it.ans);
+  let answerArea;
+  if(isInput){
+    clearChoiceKeys();
+    answerArea = `
+      <div class="ans-row">
+        <input type="text" id="cmAnsIn" class="ans-input" placeholder="${esc(it.ansPlaceholder || "ひらがなで入力")}" autocomplete="off"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();cmSubmitInput();}">
+        <button class="btn inline" id="cmSubmitBtn" onclick="cmSubmitInput()">こたえる</button>
+      </div>`;
+  }else{
+    cm.order = shuffledOrder(it.c.length);
+    answerArea = `
+      <div class="choices${choicesClass(it)}">
+        ${cm.order.map((oi,pos)=>`<button class="choice" onclick="cmAnswerChoice(${oi})"><span class="choice-num">${pos+1}</span>${it.ckb ? kanbunMiniHtml(it.ckb[oi]) : esc(it.c[oi])}</button>`).join("")}
+      </div>`;
+  }
+  screen.innerHTML = `
+    ${cmCheerBannerHtml()}
+    <div class="card">
+      <div class="q-category"><span>${esc(CATS[cat].name)}</span><span class="battle-turn-tag">問題 ${cm.qIndex+1} / ${CM_ROUND_QUESTIONS}</span></div>
+      <div class="boss-timer-bar" style="margin-bottom:12px;"><div class="boss-timer-fill" id="cmTimerFill" style="width:100%"></div></div>
+      ${subInstructionHtml(cat, it)}
+      ${kanbunBoxHtml(it.kb)}
+      <div class="q-text">${markQuestionHtml(it.q)}</div>
+      ${answerArea}
+      <div class="feedback" id="cmFb"></div>
+      <div class="btn-row">
+        <button class="btn tap-advance-btn" id="cmNextBtn" style="display:none" onclick="cmAdvance()">つぎへ</button>
+        <button class="btn secondary" onclick="cmQuit()">クラスマッチをやめる</button>
+      </div>
+    </div>`;
+  if(isInput){ const el = document.getElementById("cmAnsIn"); if(el) el.focus(); }
+  else{ setupChoiceKeys(pos => cmAnswerChoice(cm.order[pos]), it.c.length); }
+  cmStartQuestionTimer();
+}
+function cmStartQuestionTimer(){
+  cm.qStartAt = Date.now();
+  clearInterval(cmTimerHandle);
+  cmTimerHandle = setInterval(cmCatchUpTimer, 100);
+}
+function cmClearTimer(){ if(cmTimerHandle){ clearInterval(cmTimerHandle); cmTimerHandle = null; } }
+// タブを切り替えてもタイマーが止まったように見えないようにする（kb/mbの制限時間タイマーと同じ設計）。
+function cmCatchUpTimer(){
+  if(!cm || cm.answered) return;
+  const fill = document.getElementById('cmTimerFill');
+  if(!fill){ cmClearTimer(); return; } // 画面を離れていたら止める
+  const remain = cm.qStartAt + CM_TIME_LIMIT_MS - Date.now();
+  fill.style.width = Math.max(0, Math.min(100, remain / CM_TIME_LIMIT_MS * 100)) + '%';
+  if(remain <= 0){
+    cmClearTimer();
+    cmGrade(false, CM_TIME_LIMIT_MS, null, null);
+  }
+}
+document.addEventListener('visibilitychange', () => { if(!document.hidden) cmCatchUpTimer(); });
+window.addEventListener('focus', () => cmCatchUpTimer());
+function cmElapsedMs(){ return Math.min(CM_TIME_LIMIT_MS, Date.now() - cm.qStartAt); }
+function cmAnswerChoice(origIdx){
+  if(cm.answered) return;
+  const it = cm.questions[cm.qIndex].item;
+  cmGrade(origIdx === it.a, cmElapsedMs(), origIdx, null);
+}
+function cmSubmitInput(){
+  if(cm.answered) return;
+  const el = document.getElementById("cmAnsIn");
+  if(!el || el.disabled) return;
+  const val = normalizeAns(el.value);
+  if(!val) return;
+  const it = cm.questions[cm.qIndex].item;
+  const ok = it.ans.map(normalizeAns).includes(val);
+  el.disabled = true;
+  const sb = document.getElementById("cmSubmitBtn");
+  if(sb) sb.disabled = true;
+  cmGrade(ok, cmElapsedMs(), null, el.value);
+}
+function cmGrade(ok, ms, chosenOrig, typed){
+  if(cm.answered) return;
+  cm.answered = true;
+  cmClearTimer();
+  const it = cm.questions[cm.qIndex].item;
+  cm.answers.push({ok, ms});
+  if(!Array.isArray(it.ans)){
+    const btns = screen.querySelectorAll(".choice");
+    btns.forEach((b,pos)=>{
+      const oi = cm.order[pos];
+      b.disabled = true;
+      if(oi===it.a) b.classList.add("correct");
+      else if(oi===chosenOrig) b.classList.add("wrong");
+      else b.classList.add("dim");
+    });
+  }
+  const fb = document.getElementById("cmFb");
+  fb.className = "feedback show " + (ok?"ok":"ng");
+  let expl;
+  if(Array.isArray(it.ans)){
+    const wrongMsg = ok ? "" : `正解は「${esc(it.ans.join("」または「"))}」（こたえ：${esc(typed||"")}）`;
+    expl = [wrongMsg, it.e ? esc(it.e) : ""].filter(Boolean).join("<br>");
+  }else{
+    expl = it.e ? esc(it.e) : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
+  }
+  fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}</div>${expl}`;
+  const nextBtn = document.getElementById("cmNextBtn");
+  nextBtn.style.display = "inline-block";
+  nextBtn.textContent = cm.qIndex >= CM_ROUND_QUESTIONS - 1 ? "けっかを見る" : "つぎへ";
+  nextBtn.focus();
+}
+function cmAdvance(){
+  cm.qIndex++;
+  if(cm.qIndex >= CM_ROUND_QUESTIONS){ cmFinishRound(); return; }
+  cmShowQuestion();
+}
+
+// ---- 採点：1問目のラウンドは正答率を重く（1問100点＋速さボーナス最大20点）、2ラウンド目
+//      以降は正誤と速さを同等に（1問50点＋速さボーナス最大50点）計算する（教員の指示、2026-09-08）。 ----
+function cmComputeRoundScore(){
+  const isFirstRound = cm.round === 1;
+  const perCorrect = isFirstRound ? 100 : 50;
+  const perSpeedMax = isFirstRound ? 20 : 50;
+  let score = 0, correctCount = 0;
+  cm.answers.forEach(a=>{
+    if(!a.ok) return;
+    correctCount++;
+    const remainFrac = Math.max(0, Math.min(1, (CM_TIME_LIMIT_MS - a.ms) / CM_TIME_LIMIT_MS));
+    score += perCorrect + Math.round(perSpeedMax * remainFrac);
+  });
+  return {score, correctCount};
+}
+function cmFinishRound(){
+  const {score, correctCount} = cmComputeRoundScore();
+  // 応援モード：一般人トラックの得点だけ2倍（教員の指示、2026-09-08：隠しコマンドで発動、
+  // クラスマッチが終わるまで効果が続く）。
+  const cheered = cm.cheerMode && cm.track === 'general';
+  const roundScore = cheered ? score * 2 : score;
+  cm.totalScore += roundScore;
+  cm.prevQuestions = cm.questions.slice();
+  cmShowResults(roundScore, correctCount, cheered);
+}
+function cmShowResults(roundScore, correctCount, cheered){
+  screen.innerHTML = `
+    ${cmCheerBannerHtml()}
+    <div class="card">
+      <h3 class="section">けっか発表</h3>
+      <p class="result-msg">${correctCount} / ${CM_ROUND_QUESTIONS}問 正解</p>
+      <div class="cm-score-line">今回のスコア：${roundScore}点${cheered ? '（応援モードで2倍！）' : ''}</div>
+      <div class="cm-score-line">スコア累計：${cm.totalScore}点</div>
+      <div class="btn-row">
+        <button class="btn" onclick="cmShowTrackChoice()">続けて勝負する</button>
+        <button class="btn secondary" onclick="cmQuit()">やめる</button>
+      </div>
+    </div>`;
+}
+
+// ---- 「あなたは…」上位入賞／一般人の選択。【一般人】ボタンのすぐ右に、見た目には
+//      何も無い隠しボタンを置く（教員の指示、2026-09-08）。押しても何も起きないが、押した
+//      あとにキーボードで「tokkyuuken」と入力してEnterを押すと「応援モード」に入る。
+//      隠しボタンを押さないまま次に進んだ場合は待ち受けを解除する（cmChooseTrack参照）。 ----
+function cmShowTrackChoice(){
+  screen.innerHTML = `
+    ${cmCheerBannerHtml()}
+    <div class="card cm-setup-screen">
+      <div class="cm-setup-title">あなたは…</div>
+      <div class="btn-row" style="justify-content:center">
+        <button class="btn" onclick="cmChooseTrack('top')">🏆 上位入賞</button>
+        <button class="btn secondary" onclick="cmChooseTrack('general')">🙂 一般人</button>
+        <button class="cm-hidden-btn" onclick="cmArmSecret()" tabindex="-1"></button>
+      </div>
+    </div>`;
+}
+function cmArmSecret(){
+  if(cm) cm.secretArmed = true;
+}
+document.addEventListener('keydown', (e) => {
+  if(!cm || !cm.secretArmed || cm.cheerMode) return;
+  if(e.key === 'Enter'){
+    if(cmSecretBuffer === 'tokkyuuken'){
+      cm.cheerMode = true;
+      cm.secretArmed = false;
+      cmSecretBuffer = '';
+      cmShowTrackChoice(); // 発動した瞬間に「応援モード」のバナーを見せる（この時点では必ずこの画面にいる）
+    }else{
+      cmSecretBuffer = '';
+    }
+    return;
+  }
+  if(e.key.length === 1) cmSecretBuffer = (cmSecretBuffer + e.key).slice(-20);
+});
+function cmChooseTrack(track){
+  cm.secretArmed = false; // この画面を離れたら、隠しコマンドの待ち受けも解除する
+  cmShowCountdown(() => cmBeginRound(cm.round + 1, track));
+}
+function cmQuit(){
+  if(!confirm("クラスマッチをやめますか？ここまでのスコアは消えます。")) return;
+  cmClearTimer();
+  cm = null;
+  showHome();
 }
 
 /* ================= ボス戦（低確率のランダムイベント） =================
