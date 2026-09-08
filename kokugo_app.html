@@ -3966,7 +3966,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.07</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.08</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -11595,10 +11595,10 @@ function cmMulberry32(seed){
 function cmSeededRand(seedStr){
   return cmMulberry32(cmXmur3(seedStr)());
 }
-// entry.type別に一意なキーを作る（quiz＝問題文、kws＝漢字の書きのid、yj＝KT_PROBLEMSの添字）。
+// entry.type別に一意なキーを作る（quiz＝問題文、kws＝漢字の書きのid、yj・kt＝KT_PROBLEMSの添字）。
 function cmKeyOf(entry){
   if(entry.type === 'kws') return entry.cat + '::' + entry.id;
-  if(entry.type === 'yj') return entry.cat + '::' + entry.idx;
+  if(entry.type === 'yj' || entry.type === 'kt') return entry.cat + '::' + entry.idx;
   return entry.cat + '::' + entry.item.q;
 }
 // 通常のCATS[key]に加えて、「漢字の書き」（pseudo-key "kws:elem:3"等）と「読む順タップ」
@@ -11608,6 +11608,7 @@ const CM_KWS_ELEM_GRADES = [1,2,3,4,5,6];
 const CM_KWS_CHUGAKU_LEVELS = [1,2,3];
 function cmGenreLabel(key){
   if(key === 'kanbun_yj') return '読む順タップ';
+  if(key === 'kanbun_kt') return '返り点をつける';
   if(key.indexOf('kws:') === 0){
     const parts = key.split(':');
     if(parts[1] === 'elem') return `（書き）小学${parts[2]}年`;
@@ -11624,12 +11625,14 @@ function cmGenrePoolFor(key){
     kwsEnsureData(mode);
     const data = kwsDataCache[mode];
     return Object.keys(data)
-      .filter(id => data[id].charCount === 1)
       .filter(id => grade == null || data[id].grade === grade)
       .map(id => ({type:'kws', id, kdata:data[id]}));
   }
   if(key === 'kanbun_yj'){
     return KT_PROBLEMS.map((problem, idx) => ({type:'yj', idx, problem}));
+  }
+  if(key === 'kanbun_kt'){
+    return KT_PROBLEMS.map((problem, idx) => ({type:'kt', idx, problem}));
   }
   const c = CATS[key];
   return c ? c.items.map(item => ({type:'quiz', item})) : [];
@@ -11697,6 +11700,7 @@ function cmShowGenrePicker(){
   html += `</div>`;
   html += `<h3 class="section">漢文</h3><div class="genre-pick-grid">`;
   html += `<button class="genre-pick-chip ${cmSetupPick.picked.has('kanbun_yj')?'on':''}" onclick="cmToggleGenre('kanbun_yj')">${esc(cmGenreLabel('kanbun_yj'))}</button>`;
+  html += `<button class="genre-pick-chip ${cmSetupPick.picked.has('kanbun_kt')?'on':''}" onclick="cmToggleGenre('kanbun_kt')">${esc(cmGenreLabel('kanbun_kt'))}</button>`;
   html += `</div>`;
   const cats = Array.from(cmSetupPick.picked);
   const total = cmBuildPool(cats).length;
@@ -11881,7 +11885,7 @@ function cmCheerBannerHtml(){
 //      種類が混ざっても不公平にならない。 ----
 function cmTimeLimitFor(entry){
   if(entry.type === 'kws') return kbTimeLimitMs(entry.kdata.strokes.length);
-  if(entry.type === 'yj') return Math.max(CM_TIME_LIMIT_MS, entry.problem.chars.length * 4000);
+  if(entry.type === 'yj' || entry.type === 'kt') return Math.max(CM_TIME_LIMIT_MS, entry.problem.chars.length * 4000);
   return CM_TIME_LIMIT_MS;
 }
 function cmShowQuestion(){
@@ -11890,6 +11894,7 @@ function cmShowQuestion(){
   cm.curTimeLimitMs = cmTimeLimitFor(entry);
   if(entry.type === 'kws'){ cmShowKwsQuestion(entry); return; }
   if(entry.type === 'yj'){ cmShowYjQuestion(entry); return; }
+  if(entry.type === 'kt'){ cmShowKtQuestion(entry); return; }
   cmShowQuizQuestion(entry);
 }
 function cmShowQuizQuestion(entry){
@@ -12004,6 +12009,8 @@ function cmGrade(ok, ms, chosenOrig, typed){
     expl = ok ? '' : '薄く表示された字が正解の形です。';
   }else if(entry.type === 'yj'){
     expl = ok ? '' : `正しい書き下し文は「${esc(entry.problem.kudashi || '')}」でした。`;
+  }else if(entry.type === 'kt'){
+    expl = ok ? '' : `正しい書き下し文は「${esc(entry.problem.kudashi || '')}」でした。`;
   }
   const fb = document.getElementById("cmFb");
   fb.className = "feedback show " + (ok?"ok":"ng");
@@ -12019,21 +12026,20 @@ function cmAdvance(){
   cmShowQuestion();
 }
 
-// ---- 「漢字の書き」問題（kws）。1文字だけの問題に絞っているので、既存のkb/mbと同じ
-//      「1マスに書いて採点する」形をそのまま流用できる。判定はkwsEvaluateCharacters
-//      （グローバルのkwsCtxを一時的に自分のcanvasへ差し替えて呼ぶ、kb/mbと同じ設計）。 ----
+// ---- 「漢字の書き」問題（kws）。2文字以上の熟語は、kb/mb（漢字マスターの道／漢字Quest）と
+//      同じく「1マスに1文字ずつ、順番に書いて採点する」形にする（cm.kwsCharIndexで今どの文字か
+//      を管理し、その文字が○になるたびに次の文字へ進む。どれか1文字でも×ならその時点で単語
+//      ごと不正解にする＝正解は全文字○のときだけ）。判定はkwsEvaluateCharacters（グローバルの
+//      kwsCtxを一時的に自分のcanvasへ差し替えて呼ぶ、kb/mbと同じ設計）。 ----
 function cmShowKwsQuestion(entry){
-  cmKwsCompletedStrokes = [];
-  cmKwsCurrentPath = [];
-  cmKwsDrawing = false;
-  cmKwsJudged = false;
+  cm.kwsCharIndex = 0;
   cmKwsTargetKdata = entry.kdata;
   screen.innerHTML = `
     ${cmCheerBannerHtml()}
     <div class="card">
       <div class="q-category"><span>${esc(cmGenreLabel(entry.cat))}</span><span class="battle-turn-tag">問題 ${cm.qIndex+1} / ${CM_ROUND_QUESTIONS}</span></div>
       <div class="boss-timer-bar" style="margin-bottom:12px;"><div class="boss-timer-fill" id="cmTimerFill" style="width:100%"></div></div>
-      <div class="q-text" style="text-align:center;">${kwsColoredSentenceHtml(entry.id, 0) || '（例文なし）'}</div>
+      <div class="q-text" id="cmKwsSentence" style="text-align:center;"></div>
       <div class="kws-stage" id="cmKwsStage" style="margin:12px auto;">
         <canvas id="cmKwsCanvas"></canvas>
       </div>
@@ -12054,8 +12060,13 @@ function cmShowKwsQuestion(entry){
   cmKwsStageEl.style.width = `min(90vw, ${KWS_STAGE_MAX_WIDTH_PX}px)`;
   cmKwsStageEl.style.aspectRatio = '1 / 1'; // 幅しか指定しないとcanvasの高さが0に潰れるため（kws/mbと同じ設計）
   cmKwsWireCanvas();
-  cmKwsRender();
+  cmKwsRenderSentence(entry);
+  cmKwsResetInk();
   cmStartQuestionTimer();
+}
+function cmKwsRenderSentence(entry){
+  const el = document.getElementById('cmKwsSentence');
+  if(el) el.innerHTML = kwsColoredSentenceHtml(entry.id, cm.kwsCharIndex) || '（例文なし）';
 }
 function cmKwsWireCanvas(){
   cmKwsCanvasEl.addEventListener('pointerdown', e => {
@@ -12092,6 +12103,22 @@ function cmKwsToPixel(clientX, clientY){
     y: (clientY - rect.top) * (cmKwsCanvasEl.height / rect.height)
   };
 }
+// 正解の字形（薄い字）は、今書いている文字（cm.kwsCharIndex）ぶんのstrokesだけを、
+// 絶対座標（文字ごとにKWS_CHAR_CELL_PXずつ縦に積んである）から今のマスの座標へ
+// 一時的にtranslateして描く（mbDrawTargetRevealと同じ設計）。
+function cmKwsDrawTargetReveal(){
+  const kdata = cmKwsTargetKdata;
+  const ci = cm.kwsCharIndex;
+  const start = kdata.firstStrokeIndices[ci];
+  const end = ci + 1 < kdata.charCount ? kdata.firstStrokeIndices[ci + 1] : kdata.strokes.length;
+  cmKwsCtx.save();
+  cmKwsCtx.translate(0, -ci * KWS_CHAR_CELL_PX);
+  cmKwsCtx.strokeStyle = '#b9c2cc';
+  cmKwsCtx.lineWidth = KWS_REVEAL_WIDTH_PX;
+  cmKwsCtx.lineCap = 'round'; cmKwsCtx.lineJoin = 'round';
+  for(let i = start; i < end; i++) cmKwsCtx.stroke(kdata.strokes[i].path2D);
+  cmKwsCtx.restore();
+}
 function cmKwsRender(){
   if(!cmKwsCtx) return;
   cmKwsCtx.setTransform(1, 0, 0, 1, 0, 0);
@@ -12106,14 +12133,7 @@ function cmKwsRender(){
   cmKwsCtx.moveTo(0, KWS_CHAR_CELL_PX / 2); cmKwsCtx.lineTo(KWS_CHAR_CELL_PX, KWS_CHAR_CELL_PX / 2);
   cmKwsCtx.stroke();
   cmKwsCtx.restore();
-  if(cmKwsJudged && cmKwsTargetKdata){
-    cmKwsCtx.save();
-    cmKwsCtx.strokeStyle = '#b9c2cc';
-    cmKwsCtx.lineWidth = KWS_REVEAL_WIDTH_PX;
-    cmKwsCtx.lineCap = 'round'; cmKwsCtx.lineJoin = 'round';
-    cmKwsTargetKdata.strokes.forEach(s => cmKwsCtx.stroke(s.path2D));
-    cmKwsCtx.restore();
-  }
+  if(cmKwsJudged && cmKwsTargetKdata) cmKwsDrawTargetReveal();
   cmKwsCtx.save();
   cmKwsCtx.strokeStyle = '#3b6fd1';
   cmKwsCtx.lineWidth = KWS_INK_WIDTH_PX;
@@ -12135,15 +12155,37 @@ function cmKwsResetInk(){
   cmKwsJudged = false;
   cmKwsRender();
 }
+// 今の文字（cm.kwsCharIndex）ぶんの画だけを、単語全体の絶対座標に合わせて
+// Yオフセットしてから判定する（mbStrokeToLogicalForCharと同じ設計）。
+function cmKwsStrokesToLogical(strokes, charIndex){
+  if(charIndex === 0) return strokes;
+  return strokes.map(strokePts => strokePts.map(p => ({x: p.x, y: p.y + charIndex * KWS_CHAR_CELL_PX})));
+}
 function cmKwsSubmitJudge(){
   if(cm.answered) return;
   if(cmKwsCompletedStrokes.length === 0) return; // 何も書いていなければ採点しない
   kwsCtx = cmKwsCtx; // kwsEvaluateCharactersはグローバルのkwsCtxをジオメトリ判定に使う（kb/mbと同じ設計）
-  const charResults = kwsEvaluateCharacters(cmKwsTargetKdata, cmKwsCompletedStrokes, kwsProfile);
-  const ok = charResults[0].passCore;
+  const logicalStrokes = cmKwsStrokesToLogical(cmKwsCompletedStrokes, cm.kwsCharIndex);
+  const charResults = kwsEvaluateCharacters(cmKwsTargetKdata, logicalStrokes, kwsProfile);
+  const ok = charResults[cm.kwsCharIndex].passCore;
   cmKwsJudged = true;
   cmKwsRender();
-  cmGrade(ok, cmElapsedMs(), null, null);
+  if(!ok){
+    cmGrade(false, cmElapsedMs(), null, null);
+    return;
+  }
+  const isLastChar = cm.kwsCharIndex >= cmKwsTargetKdata.charCount - 1;
+  if(!isLastChar){
+    const entry = cm.questions[cm.qIndex];
+    cm.kwsCharIndex++;
+    setTimeout(() => {
+      if(cm.answered) return; // その間にタイムアウトしていたら何もしない
+      cmKwsResetInk();
+      cmKwsRenderSentence(entry);
+    }, 500);
+    return;
+  }
+  cmGrade(true, cmElapsedMs(), null, null);
 }
 
 // ---- 「読む順タップ」問題（yj）。返り点をつける（kt）と同じKT_PROBLEMSを使うが、
@@ -12200,6 +12242,86 @@ function cmYjTap(idx){
   const row = document.getElementById('cmYjRow' + idx);
   if(row) row.classList.add('done');
   if(cm.yjNextPos === p.order.length) cmGrade(true, cmElapsedMs(), null, null);
+}
+
+// ---- 「返り点をつける」問題（kt）。通常のkt画面と同じ「カードをタップして選び、マスを
+//      タップして置く」操作（通常画面の説明文にもある、ドラッグと並ぶ既定の操作方法）を
+//      自前で再現する。ポインタドラッグの演出だけは移植せず、タップ操作のみにする（教員の
+//      指示、2026-09-08：「返り点を付ける」の画面自体は複雑なため、タップで代替）。
+//      判定・記録は通常のktJudge()を呼ばず、クラスマッチ独自に「全マスが正解の返り点と
+//      一致しているか」だけを見る（全問正解なら1回で○、1つでも違えば×）。 ----
+function cmShowKtQuestion(entry){
+  cm.ktPlaced = new Array(entry.problem.chars.length).fill(null);
+  cm.ktSelectedVal = null;
+  cmRenderKtQuestion(entry);
+  cmStartQuestionTimer();
+}
+function cmRenderKtQuestion(entry){
+  const p = entry.problem;
+  const palette = KT_BASELINE_MARKS.concat(p.extra || []);
+  const rowsHtml = p.chars.map((c,idx)=>{
+    const filled = cm.ktPlaced[idx];
+    const comboCls = filled && filled.length===2 ? " combo" : "";
+    const slotHtml = `<span class="kt-slot${filled?" filled":""}${comboCls}" data-idx="${idx}">${filled?ktMarkInner(filled):""}</span>`;
+    const okHtml = c.ok ? `<span class="kt-ok">${esc(c.ok)}</span>` : "";
+    const okuriCls = c.okuri && c.okuri.length>=3 ? " long" : "";
+    const okuriHtml = c.okuri ? `<span class="kt-okuri${okuriCls}">${esc(c.okuri)}</span>` : "";
+    const annoHtml = (okHtml || okuriHtml) ? `<span class="kt-anno">${okHtml}${okuriHtml}</span>` : "";
+    return `<div class="kt-row" data-idx="${idx}"><span class="kt-glyph">${esc(c.ch)}${annoHtml}</span>${slotHtml}</div>`;
+  }).join("");
+  const chipsHtml = palette.map(v=>`<div class="kt-chip${v===cm.ktSelectedVal?" selected":""}" data-val="${esc(v)}">${esc(v)}</div>`).join("");
+  screen.innerHTML = `
+    ${cmCheerBannerHtml()}
+    <div class="card">
+      <div class="q-category"><span>${esc(cmGenreLabel(entry.cat))}</span><span class="battle-turn-tag">問題 ${cm.qIndex+1} / ${CM_ROUND_QUESTIONS}</span></div>
+      <div class="boss-timer-bar" style="margin-bottom:12px;"><div class="boss-timer-fill" id="cmTimerFill" style="width:100%"></div></div>
+      <p class="q-text" style="text-align:center;">白文「<b>${esc(p.white)}</b>」に、正しい返り点を置いてください。（不要なマスは空のままでよい）</p>
+      <div id="ktApp">
+        <div class="kt-stage"><div class="kt-box" id="cmKtBox">${rowsHtml}</div></div>
+        <div class="kt-tray-label">カードをタップして選び、マスをタップして置いてください</div>
+        <div class="kt-tray" id="cmKtTray">${chipsHtml}</div>
+      </div>
+      <div class="btn-row" style="justify-content:center;">
+        <button class="btn primary" onclick="cmKtSubmitJudge()">判定する</button>
+      </div>
+      <div class="feedback" id="cmFb"></div>
+      <div class="btn-row">
+        <button class="btn tap-advance-btn" id="cmNextBtn" style="display:none" onclick="cmAdvance()">つぎへ</button>
+      </div>
+    </div>`;
+  screen.querySelectorAll('#cmKtBox .kt-row').forEach(row=>{
+    row.addEventListener('click', () => cmKtSlotTap(+row.dataset.idx));
+  });
+  screen.querySelectorAll('#cmKtTray .kt-chip').forEach(chip=>{
+    chip.addEventListener('click', () => cmKtChipTap(chip.dataset.val));
+  });
+}
+function cmKtChipTap(val){
+  if(cm.answered) return;
+  cm.ktSelectedVal = (cm.ktSelectedVal === val) ? null : val;
+  cmRenderKtQuestion(cm.questions[cm.qIndex]);
+}
+function cmKtSlotTap(idx){
+  if(cm.answered) return;
+  if(!cm.ktSelectedVal){
+    cm.ktPlaced[idx] = null; // 何も選んでいない状態でマスをタップしたら、そのマスを空に戻す（通常画面と同じ挙動）
+    cmRenderKtQuestion(cm.questions[cm.qIndex]);
+    return;
+  }
+  const cur = cm.ktPlaced[idx];
+  const newVal = cm.ktSelectedVal;
+  if(cur && KT_COMBINABLE_WITH_RE.includes(cur) && newVal === 'レ') cm.ktPlaced[idx] = cur + 'レ';
+  else if(cur === 'レ' && KT_COMBINABLE_WITH_RE.includes(newVal)) cm.ktPlaced[idx] = newVal + 'レ';
+  else cm.ktPlaced[idx] = newVal;
+  cm.ktSelectedVal = null;
+  cmRenderKtQuestion(cm.questions[cm.qIndex]);
+}
+function cmKtSubmitJudge(){
+  if(cm.answered) return;
+  const entry = cm.questions[cm.qIndex];
+  const p = entry.problem;
+  const ok = p.chars.every((c, idx) => (cm.ktPlaced[idx] || null) === (c.mark || null));
+  cmGrade(ok, cmElapsedMs(), null, null);
 }
 
 // ---- 採点：1問正解＝1500点（固定）＋速さボーナス（0.1秒はやいごとに1点、上限はその問題の
