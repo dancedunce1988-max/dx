@@ -3966,7 +3966,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.05</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.06</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -11940,11 +11940,13 @@ function cmComputeRoundScore(){
 function cmFinishRound(){
   const {score, correctCount} = cmComputeRoundScore();
   // 応援モード：一般人トラックの得点だけ2倍（教員の指示、2026-09-08：隠しコマンドで発動、
-  // クラスマッチが終わるまで効果が続く）。
+  // 発動直後の1ラウンドだけ効果が続く）。このラウンドが終わったら必ず解除し、次に
+  // 「あなたは…」画面に来たときはまた隠しコマンドで発動し直せるようにする。
   const cheered = cm.cheerMode && cm.track === 'general';
   const roundScore = cheered ? score * 2 : score;
   cm.totalScore += roundScore;
   cm.prevQuestions = cm.questions.slice();
+  cm.cheerMode = false;
   cmShowResults(roundScore, correctCount, cheered);
 }
 function cmShowResults(roundScore, correctCount, cheered){
@@ -12006,7 +12008,7 @@ function cmActivateCheerMode(){
   screen.innerHTML = `
     <div class="card cm-setup-screen">
       <div class="cm-setup-title">📣 応援モードを起動します！</div>
-      <p class="cm-setup-sub">一般人トラックのスコアが2倍になります（このクラスマッチが終わるまで続きます）。</p>
+      <p class="cm-setup-sub">次の1ラウンドだけ、一般人トラックのスコアが2倍になります。</p>
       <button class="btn" onclick="cmConfirmRoundStart()">応援モード スタート</button>
     </div>`;
 }
@@ -12023,7 +12025,10 @@ function cmShowRoundStart(){
     ${cmCheerBannerHtml()}
     <div class="card cm-setup-screen">
       <div class="cm-setup-title">${trackLabel} で挑戦します</div>
-      <button class="btn" onclick="cmConfirmRoundStart()">スタート</button>
+      <div class="btn-row" style="justify-content:center">
+        <button class="btn" onclick="cmConfirmRoundStart()">スタート</button>
+        <button class="btn secondary" onclick="cmShowTrackChoice()">戻る</button>
+      </div>
     </div>`;
 }
 function cmConfirmRoundStart(){
