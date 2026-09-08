@@ -309,6 +309,9 @@
   .kws-cornerBtn--yellow{ background:#f5c518; border-color:#d4a70a; color:#3a2e00; font-weight:bold; }
   .kws-cornerBtn--next{ left:100%; top:0; }
   .kws-cornerBtn--judge{ left:100%; bottom:0; }
+  /* 漢字Quest（mb*）の「一画戻す」：漢字書き取り(kws)と同じ見た目・同じ位置
+     （書くスペースの左上）に置く（教員の指示、2026-09-08）。 */
+  .kws-cornerBtn--undo{ right:100%; top:0; }
   /* 右辺の縦中央（2文字の問題なら1文字目と2文字目のちょうど境目＝全体の50%と一致する）。
      教員の指示、2026-09-02。 */
   .kws-cornerBtn--recall{ left:100%; top:50%; transform:translateY(-50%); background:var(--ng); border-color:var(--ng); color:#fff; font-weight:bold; }
@@ -3442,6 +3445,9 @@
 /* 問題文は書くスペースの列に対して中央ぞろえ（教員の指示：「問題の表示は、漢字を書く
    スペースに対して中央ぞろえにして」）。 */
 .kb-write-col{ flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; }
+/* 漢字Questの書くスペース(#mbStage)の左上に「一画戻す」を置くための余白
+   （教員の指示、2026-09-08）。kwsの.kws-stageRowと同じく左側に44pxぶん確保する。 */
+.mb-stage-wrap{ display:flex; justify-content:center; width:100%; padding-left:44px; }
 .kb-write-col .boss-q-text{ text-align:center; width:100%; }
 .kb-action-row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:12px; }
 .kb-btns{ display:flex; gap:8px; flex-shrink:0; }
@@ -3679,10 +3685,6 @@
 .mb-img-btn:active{ transform:translateY(3px) scale(.98); filter:brightness(.82); }
 .mb-img-btn-normal{ margin-top:14px; }
 .mb-spell-next-hint{ text-align:center; color:#ffd76a; font-weight:bold; margin-top:10px; }
-.mb-crit-active-note{
-  text-align:center; color:#ffd76a; font-weight:900; margin:6px 0 10px;
-  text-shadow:0 0 12px rgba(255,215,100,.6);
-}
 .mb-crit-flash-screen{ position:relative; overflow:hidden; }
 .mb-crit-banner{
   font-size:2.4rem; font-weight:900; color:#ffd76a; text-align:center;
@@ -3942,7 +3944,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.01</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.02</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6673,7 +6675,7 @@ function mbHomeQuestEntryHtml(st){
     ? `<p class="note" style="color:var(--ng);">🕒 挑戦できるのは5:30〜22:00の間だけです（現在は時間外のため挑戦できません）</p>`
     : '';
   return `
-  <div class="card ticket-card">
+  <div class="card ticket-card" id="mbHomeQuestCard">
     <div class="ticket-row">
       <div class="ticket-info">
         <span class="ticket-icon">⚡</span>
@@ -6686,6 +6688,18 @@ function mbHomeQuestEntryHtml(st){
     ${remainHtml}
     ${timeNoteHtml}
   </div>`;
+}
+// 次の回復までの残り秒数が止まって見えないよう、ホーム画面にいる間は1秒ごとに
+// カード全体を再計算して置き換える（教員の指示、2026-09-08：「秒数などリアルタイムで
+// 動くように」）。カードがDOMから無くなっていたら（ホームを離れたら）自分で止まる。
+let mbHomeQuestTimer = null;
+function clearMbHomeQuestTimer(){
+  if(mbHomeQuestTimer){ clearInterval(mbHomeQuestTimer); mbHomeQuestTimer = null; }
+}
+function mbHomeQuestTick(){
+  const el = document.getElementById('mbHomeQuestCard');
+  if(!el){ clearMbHomeQuestTimer(); return; }
+  el.outerHTML = mbHomeQuestEntryHtml(loadStats());
 }
 /* 挑戦チケット：どの分野でも、レベルアップ10回ごとに1枚たまる。使うとランダムなボスとすぐに対戦できる。 */
 function bossTicketHtml(st){
@@ -6741,6 +6755,7 @@ function eventBannerHtml(st){
   return html;
 }
 function showHome(){
+  clearMbHomeQuestTimer(); // ホーム画面を離れた／作り直したときに、古いタイマーを重複させない
   clearStoryBattleTimer(); // 中ボス戦を中断して離れたときに、残った制限時間タイマーを止める
   clearStoryProofreadTimer(); // 校正ミニゲームを中断して離れたときに、残った制限時間タイマーを止める
   clearStoryComboTimer(); // コンボアタックを中断して離れたときに、残ったカウントダウン/制限時間タイマーを止める
@@ -6867,6 +6882,7 @@ function showHome(){
     <p class="signature">Seikichi</p>`;
   const legendaryBgClass = kotonohaLegendaryBgClass(st);
   screen.innerHTML = legendaryBgClass ? `<div class="${legendaryBgClass}">${html}</div>` : html;
+  mbHomeQuestTimer = setInterval(mbHomeQuestTick, 1000);
 }
 
 /* ================= ボス戦ステータス（分野レベルアップでたまるポイントを割りふる） =================
@@ -25798,54 +25814,56 @@ function mbRenderBattleScreen(opts){
 }
 
 // ---- 魔法選択（6〜8項）：現在のMPで発動できる魔法だけを表示し、選んだらMPを消費してその場で
-//      即座に発動する（教員の指示、2026-09-04：漢字チャレンジは挟まない）。critWon（会心の
-//      チャンスに成功した直後かどうか）をonclickの引数に埋め込み、mbCastSpellInstantまで
-//      正しく伝える（2026-09-04のバグ修正：以前はここで引数が渡っておらず、「会心発動中！」の
-//      表示は出るのに、実際にカードを押して発動したダメージは3倍になっていなかった）。 ----
-function mbSpellCardHtml(category, spell, critWon){
+//      即座に発動する（教員の指示、2026-09-04：漢字チャレンジは挟まない）。攻撃魔法のカードだけは
+//      mbAttackSpellChosenを経由させ、会心のチャンス（10%）の抽選をカードを選んだ瞬間に行う
+//      （教員の指示、2026-09-08：以前は「攻撃魔法」を開いた時点で抽選していたため、外れたときに
+//      「もどる」で何度でも無料で引き直せてしまっていた。カードを選ぶ＝実際に発動する行動なので、
+//      引き直すには毎回本当に魔法を選んで撃つ必要があり、無料の連打では回避できなくなる）。 ----
+function mbSpellCardHtml(category, spell){
+  const onclick = category === 'attack'
+    ? `mbAttackSpellChosen('${spell.id}')`
+    : `mbCastSpellInstant('${category}', '${spell.id}', false)`;
   return `
-    <div class="mb-spell-card" onclick="mbCastSpellInstant('${category}', '${spell.id}', ${!!critWon})">
+    <div class="mb-spell-card" onclick="${onclick}">
       <div class="mb-spell-name">${esc(spell.name)}</div>
       <div class="mb-spell-mp">${spell.mp} MP</div>
       <div class="mb-spell-desc">${esc(spell.desc)}</div>
     </div>`;
 }
-// 「攻撃魔法」を選んだときだけ、10%の確率で「会心のチャンス」に発展する（教員の指示、2026-09-04）。
-// 発動できる攻撃魔法が1つも無いときは、当ててもチャンスを活かせないので抽選自体を行わない。
 function mbShowSpellMenu(category){
-  if(category === 'attack'){
-    const anyAffordable = MB_SPELLS.attack.list.some(s => mbRun.playerMp >= s.mp);
-    if(anyAffordable && Math.random() < MB_CRIT_CHANCE){
-      mbStartCritEvent();
-      return;
-    }
-  }
-  mbShowSpellMenuList(category, false);
+  mbShowSpellMenuList(category);
 }
-function mbShowSpellMenuList(category, critWon){
+function mbShowSpellMenuList(category){
   const cat = MB_SPELLS[category];
   const affordable = cat.list.filter(s => mbRun.playerMp >= s.mp);
   const nextLocked = cat.list.find(s => mbRun.playerMp < s.mp); // 次に目指す上位魔法
   const cardsHtml = affordable.length
-    ? affordable.map(s => mbSpellCardHtml(category, s, critWon)).join('')
+    ? affordable.map(s => mbSpellCardHtml(category, s)).join('')
     : '<p style="text-align:center; color:#9a8ec2;">今は使える魔法がありません。まず「通常攻撃」でMPを増やそう。</p>';
   // 単に「使えません」ではなく、次の目標だけが分かるようにする（教員の指示：「あと28MPでファイガ！」に相当）。
   const hintHtml = nextLocked
     ? `<p class="mb-spell-next-hint">上位魔法まで あと${nextLocked.mp - mbRun.playerMp}MP</p>` : '';
-  const critHtml = critWon
-    ? `<p class="mb-crit-active-note">✨ 会心発動中！ 次に選ぶ攻撃魔法のダメージが3倍！</p>` : '';
   screen.innerHTML = `
     <div class="boss-battle-screen" style="position:relative;">
       ${mbBgmCornerBtnHtml()}
       <div class="boss-name">${cat.label}</div>
       <div class="boss-hp-row" style="margin-bottom:14px;">${mbMpBarInnerHtml()}</div>
-      ${critHtml}
       <div class="mb-spell-list">${cardsHtml}</div>
       ${hintHtml}
       <div class="btn-row" style="justify-content:center; margin-top:14px;">
         <button class="btn secondary" onclick="mbRenderBattleScreen({showActions:true})">もどる</button>
       </div>
     </div>`;
+}
+// 攻撃魔法のカードを選んだ瞬間だけ、10%の確率で「会心のチャンス」に発展する
+// （教員の指示、2026-09-08：「攻撃魔法で何かを選んだあとに出現するように」）。外れたときは
+// そのままその魔法を通常発動する＝カードを選ぶという行動そのものが必ず消費される。
+function mbAttackSpellChosen(spellId){
+  if(Math.random() < MB_CRIT_CHANCE){
+    mbStartCritEvent(spellId);
+    return;
+  }
+  mbCastSpellInstant('attack', spellId, false);
 }
 // 魔法を即時発動する（MP消費→効果適用→ダメージ演出→敵のターン、という流れをその場で完結させる）。
 function mbCastSpellInstant(category, spellId, critWon){
@@ -25875,25 +25893,29 @@ function mbCastSpellInstant(category, spellId, critWon){
 
 // ---- 会心のチャンス（教員の指示、2026-09-04）：攻撃魔法を選んだ10%で発生。「高校入試頻出200」
 //      「中学レベル1」からランダムで1問だけ出題し、正解すればそのあと選ぶ攻撃魔法のダメージが3倍になる。 ----
-function mbStartCritEvent(){
+function mbStartCritEvent(spellId){
   screen.innerHTML = `
     <div class="boss-battle-screen mb-crit-flash-screen" style="display:flex; align-items:center; justify-content:center; min-height:52vh;">
       <div class="mb-crit-banner">💥 会心のチャンス！</div>
     </div>`;
   setTimeout(() => {
     if(!mbBattle) return; // 演出中に離れた場合の安全弁
-    mbPendingAction = { type: 'crit' };
+    mbPendingAction = { type: 'crit', spellId };
     const diffId = MB_CRIT_POOL_IDS[Math.floor(Math.random() * MB_CRIT_POOL_IDS.length)];
     mbBeginChallenge(diffId);
   }, 1300);
 }
-function mbShowCritOutcome(won){
+// 会心の成否が決まったら、選び直させずに最初に選んでいた攻撃魔法をそのまま発動する
+// （教員の指示、2026-09-08：抽選をカード選択の後に動かしたことに合わせて、成功後にもう一度
+// カードを選ばせる旧仕様は廃止。外れても「その魔法は通常通り発動する」だけで、
+// 選び直しによる無料の再抽選は発生しない）。
+function mbShowCritOutcome(won, spellId){
   const msg = won
-    ? '○ 会心の構え、成功！ 次に選ぶ攻撃魔法のダメージが3倍になる！'
-    : '× 会心のチャンスは逃した…（通常通り攻撃魔法を選べます）';
+    ? '○ 会心の構え、成功！ この攻撃魔法のダメージが3倍になる！'
+    : '× 会心のチャンスは逃した…（この攻撃魔法は通常通り発動します）';
   mbRenderBattleScreen({ msg });
   mbTriggerImpact(won ? 'hit' : 'hurt', won ? '💥 会心！' : '……', msg);
-  setTimeout(() => mbShowSpellMenuList('attack', won), 1100);
+  setTimeout(() => mbCastSpellInstant('attack', spellId, won), 1100);
 }
 
 // ---- 通常攻撃の難易度選択（13項）：MPを貯めつつ、その場で固定ダメージも与える ----
@@ -25958,8 +25980,11 @@ function mbRenderChallengeScreen(){
       <div class="boss-q-card">
         <div class="kb-write-col" style="margin:0 auto;">
           <div class="boss-q-text" id="mbSentencePrompt"></div>
-          <div class="kws-stage" id="mbStage">
-            <canvas id="mbCanvas"></canvas>
+          <div class="mb-stage-wrap">
+            <div class="kws-stage" id="mbStage">
+              <canvas id="mbCanvas"></canvas>
+              <button class="kws-cornerBtn kws-cornerBtn--undo" onclick="mbUndoStroke()">一画戻す</button>
+            </div>
           </div>
         </div>
         <div class="kb-action-row">
@@ -26070,6 +26095,14 @@ function mbResetInk(){
   mbRender();
 }
 
+// 直前に描いた1画だけを取り消す（kwsUndoStrokeと同じ挙動、教員の指示、2026-09-08）。
+function mbUndoStroke(){
+  if(mbDrawing || mbBattle.turnBusy) return;
+  if(mbCompletedStrokes.length === 0) return;
+  mbCompletedStrokes.pop();
+  mbRender();
+}
+
 function mbSetStatus(msg, cls){
   const el = document.getElementById('mbStatus');
   if(!el) return;
@@ -26088,7 +26121,8 @@ function mbLoadCharStage(){
   mbCanvas.width = KWS_CHAR_CELL_PX;
   mbCanvas.height = KWS_CHAR_CELL_PX;
   const stageEl = document.getElementById('mbStage');
-  stageEl.style.width = `min(calc(100vw - 60px), ${KB_STAGE_PX}px)`;
+  // 左上の「一画戻す」ぶん（.mb-stage-wrapのpadding-left:44px）を差し引く。
+  stageEl.style.width = `min(calc(100vw - 104px), ${KB_STAGE_PX}px)`;
   stageEl.style.aspectRatio = '1 / 1';
   mbResetInk();
   mbRenderSentencePrompt();
@@ -26600,7 +26634,7 @@ function mbChallengeSuccess(){
   const isSwiftHit = remainMs >= mbChallenge.timeLimitMs / 2;
   mbChallenge = null;
   if(action.type === 'crit'){
-    mbShowCritOutcome(true);
+    mbShowCritOutcome(true, action.spellId);
     return;
   }
   const enemyMpMult = (mbBattle && mbBattle.enemyDef && mbBattle.enemyDef.mpGainMult) || 1; // 敵ごとのMP倍率（炎狼＝2倍）
@@ -26655,12 +26689,13 @@ function mbChallengeSuccess(){
 }
 
 // 不正解時：MPも増えず、ダメージも与えられない。ただし過度に罰しない設計にする（15項）。
-// 会心チャレンジの不正解は「チャンスを逃しただけ」で、そのままターンを消費せず攻撃魔法選択に戻す。
+// 会心チャレンジの不正解は「チャンスを逃しただけ」で、選び直しはさせず、最初に選んでいた
+// 攻撃魔法をそのまま通常発動する（2026-09-08〜、mbShowCritOutcome参照）。
 function mbChallengeFail(){
   const action = mbPendingAction;
   mbChallenge = null;
   if(action.type === 'crit'){
-    mbShowCritOutcome(false);
+    mbShowCritOutcome(false, action.spellId);
     return;
   }
   mbRenderBattleScreen({ msg: '× 通常攻撃は外れた…！ MPも増やせなかった…' });
