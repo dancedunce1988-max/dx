@@ -3966,7 +3966,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.04</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.05</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -11921,7 +11921,11 @@ function cmAdvance(){
 //      15秒ぶん＝150点）。ラウンド1でもラウンド2以降でも同じ式にする（教員の指示、2026-09-08）。
 //      不正解は常に0点なので、どれだけ速くても「正解した人」には絶対に届かない
 //      （最速の正解＝200+150=350点、最遅の正解でも200点＝不正解の0点より必ず高い）。 ----
-const CM_PER_CORRECT = 200;
+// 正解点は1350点より大きくしておくこと（教員の指示、2026-09-08）：速さボーナスの上限は
+// 150点なので、正解点が150×(問題数の差)を上回っていれば、正解数が多い人は必ず、正解数が
+// 少ない人がどれだけ速くても逆転されない（例：10問正解の最遅＝1500×10 ＞ 9問正解の最速＝
+// (1500+150)×9）。
+const CM_PER_CORRECT = 1500;
 const CM_SEC_PER_POINT = 0.1; // 0.1秒はやいごとに1点
 function cmComputeRoundScore(){
   let score = 0, correctCount = 0;
@@ -11961,8 +11965,8 @@ function cmShowResults(roundScore, correctCount, cheered){
 // ---- 「あなたは…」上位入賞／一般人の選択（縦に並べる、教員の指示、2026-09-08）。この画面を
 //      表示している間（cmTrackChoiceActive）だけ、キーボードで「tokkyuuken」と入力すると
 //      （Enterキー不要、打ち終わった瞬間に）「応援モード」に入る。ボタンなどは一切置かない
-//      見た目に分からない隠しコマンドで、発動すると「応援モードを起動します！」の確認画面が
-//      出る（OKボタンで「あなたは…」に戻る）。 ----
+//      見た目に分からない隠しコマンドで、発動すると選択画面には戻さず「応援モードを起動
+//      します！」＋「応援モード スタート」ボタンだけの画面になる（cmActivateCheerMode参照）。 ----
 let cmTrackChoiceActive = false;
 function cmShowTrackChoice(){
   cmSecretBuffer = '';
@@ -11992,14 +11996,18 @@ document.addEventListener('keydown', (e) => {
     cmActivateCheerMode();
   }
 });
+// 応援モードは一般人トラックにしか効果がないので、発動したら「あなたは…」の選択画面には
+// 戻さず、一般人トラックを自動で選んだ状態のまま「スタート」ボタンだけを置く
+// （教員の指示、2026-09-08）。
 function cmActivateCheerMode(){
   cm.cheerMode = true;
   cmTrackChoiceActive = false;
+  cm.pendingTrack = 'general';
   screen.innerHTML = `
     <div class="card cm-setup-screen">
       <div class="cm-setup-title">📣 応援モードを起動します！</div>
       <p class="cm-setup-sub">一般人トラックのスコアが2倍になります（このクラスマッチが終わるまで続きます）。</p>
-      <button class="btn" onclick="cmShowTrackChoice()">OK</button>
+      <button class="btn" onclick="cmConfirmRoundStart()">応援モード スタート</button>
     </div>`;
 }
 // トラックを選んだら、すぐカウントダウンに入らず「スタート」ボタンで確認してから始める
