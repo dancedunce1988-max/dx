@@ -3966,7 +3966,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.06</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.07</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -11562,6 +11562,11 @@ let cmSetup = null;      // {cats} 出題範囲決定後、暗証番号入力〜
 let cmSetupPick = null;  // {picked:Set} ジャンル選択中だけ使う一時state
 let cm = null;           // 進行中のクラスマッチ本体
 let cmTimerHandle = null;
+// 「漢字の書き」問題（cmShowKwsQuestion）専用のcanvas描画state。kws/kb/mbと同じ設計
+// （自前のcanvas＋2Dコンテキストを持ち、判定の直前だけグローバルのkwsCtxに割り当てる）。
+let cmKwsCanvasEl = null, cmKwsCtx = null;
+let cmKwsCompletedStrokes = [], cmKwsCurrentPath = [], cmKwsDrawing = false, cmKwsJudged = false;
+let cmKwsTargetKdata = null;
 let cmSecretBuffer = '';
 
 // ---- 疑似乱数：同じ文字列の種からは常に同じ数列を返す（xmur3で文字列→32bit種を作り、
@@ -11590,23 +11595,51 @@ function cmMulberry32(seed){
 function cmSeededRand(seedStr){
   return cmMulberry32(cmXmur3(seedStr)());
 }
-function cmSeededShuffle(arr, seedStr){
-  const rand = cmSeededRand(seedStr);
-  const out = arr.slice();
-  for(let i = out.length - 1; i > 0; i--){
-    const j = Math.floor(rand() * (i + 1));
-    const tmp = out[i]; out[i] = out[j]; out[j] = tmp;
-  }
-  return out;
+// entry.type別に一意なキーを作る（quiz＝問題文、kws＝漢字の書きのid、yj＝KT_PROBLEMSの添字）。
+function cmKeyOf(entry){
+  if(entry.type === 'kws') return entry.cat + '::' + entry.id;
+  if(entry.type === 'yj') return entry.cat + '::' + entry.idx;
+  return entry.cat + '::' + entry.item.q;
 }
-function cmKeyOf(entry){ return entry.cat + '::' + entry.item.q; }
+// 通常のCATS[key]に加えて、「漢字の書き」（pseudo-key "kws:elem:3"等）と「読む順タップ」
+// （pseudo-key "kanbun_yj"）も出題範囲に選べるようにする（教員の指示、2026-09-08）。
+// kwsは1文字の問題だけを対象にする（2文字の熟語は書く手順が複雑になるため）。
+const CM_KWS_ELEM_GRADES = [1,2,3,4,5,6];
+const CM_KWS_CHUGAKU_LEVELS = [1,2,3];
+function cmGenreLabel(key){
+  if(key === 'kanbun_yj') return '読む順タップ';
+  if(key.indexOf('kws:') === 0){
+    const parts = key.split(':');
+    if(parts[1] === 'elem') return `（書き）小学${parts[2]}年`;
+    if(parts[1] === 'chugaku') return `（書き）中学${KWS_CIRCLED_NUMS[Number(parts[2]) - 1] || parts[2]}`;
+    return '（書き）高校入試頻出200';
+  }
+  return CATS[key] ? CATS[key].name : key;
+}
+function cmGenrePoolFor(key){
+  if(key.indexOf('kws:') === 0){
+    const parts = key.split(':');
+    const mode = parts[1];
+    const grade = parts.length > 2 ? Number(parts[2]) : null;
+    kwsEnsureData(mode);
+    const data = kwsDataCache[mode];
+    return Object.keys(data)
+      .filter(id => data[id].charCount === 1)
+      .filter(id => grade == null || data[id].grade === grade)
+      .map(id => ({type:'kws', id, kdata:data[id]}));
+  }
+  if(key === 'kanbun_yj'){
+    return KT_PROBLEMS.map((problem, idx) => ({type:'yj', idx, problem}));
+  }
+  const c = CATS[key];
+  return c ? c.items.map(item => ({type:'quiz', item})) : [];
+}
 function cmBuildPool(cats){
   const pool = [];
   cats.forEach(key=>{
-    const c = CATS[key];
-    if(c) c.items.forEach(item => pool.push({cat:key, item}));
+    cmGenrePoolFor(key).forEach(raw => pool.push(Object.assign({cat:key}, raw)));
   });
-  return pool; // kokugo_data.jsの並び順そのまま（全端末共通で安定した順序なので種が同じなら結果も同じになる）
+  return pool;
 }
 
 // ---- 出題範囲の設定（二人対戦のジャンル選択画面と同じ操作感にする） ----
@@ -11647,6 +11680,24 @@ function cmShowGenrePicker(){
     });
     html += `</div>`;
   });
+  // 漢字の「書き」は学年・レベルごとに独立したジャンルとして選べるようにする
+  // （教員の指示、2026-09-08：「何年生の問題を出すかも指定できるように」）。
+  html += `<h3 class="section">漢字の書き</h3><div class="genre-pick-grid">`;
+  CM_KWS_ELEM_GRADES.forEach(g=>{
+    const key = `kws:elem:${g}`;
+    const on = cmSetupPick.picked.has(key);
+    html += `<button class="genre-pick-chip ${on?'on':''}" onclick="cmToggleGenre('${key}')">${esc(cmGenreLabel(key))}</button>`;
+  });
+  CM_KWS_CHUGAKU_LEVELS.forEach(lv=>{
+    const key = `kws:chugaku:${lv}`;
+    const on = cmSetupPick.picked.has(key);
+    html += `<button class="genre-pick-chip ${on?'on':''}" onclick="cmToggleGenre('${key}')">${esc(cmGenreLabel(key))}</button>`;
+  });
+  html += `<button class="genre-pick-chip ${cmSetupPick.picked.has('kws:exam')?'on':''}" onclick="cmToggleGenre('kws:exam')">${esc(cmGenreLabel('kws:exam'))}</button>`;
+  html += `</div>`;
+  html += `<h3 class="section">漢文</h3><div class="genre-pick-grid">`;
+  html += `<button class="genre-pick-chip ${cmSetupPick.picked.has('kanbun_yj')?'on':''}" onclick="cmToggleGenre('kanbun_yj')">${esc(cmGenreLabel('kanbun_yj'))}</button>`;
+  html += `</div>`;
   const cats = Array.from(cmSetupPick.picked);
   const total = cmBuildPool(cats).length;
   const enough = cats.length > 0 && total >= CM_ROUND_QUESTIONS;
@@ -11756,23 +11807,47 @@ function cmToggleCountdownPause(){
   if(btn) btn.textContent = s.paused ? '▷' : '⏸';
 }
 
+// ---- ジャンルごとの出題確率を揃えて種seedStrからcount問選ぶ（教員の指摘、2026-09-08：
+//      「全問題をまとめてシャッフルすると、問題数が多いジャンル（漢字の読みなど）ばかり
+//      出やすくなる」）。1回選ぶたびに「まずジャンルを等確率で選び、そのジャンルの中から
+//      1問選ぶ」を繰り返すことで、ジャンルの問題数に関係なく各ジャンルが均等に出るようにする。
+//      excludeKeySetに入っている問題（前回すでに出た問題など）は候補から除く。 ----
+function cmPickQuestionsEqualGenre(cats, seedStr, excludeKeySet, countNeeded){
+  const rand = cmSeededRand(seedStr);
+  const pools = cats.map(key=>{
+    const items = cmGenrePoolFor(key)
+      .map(raw => Object.assign({cat:key}, raw))
+      .filter(entry => !excludeKeySet || !excludeKeySet.has(cmKeyOf(entry)));
+    return {key, items};
+  }).filter(p => p.items.length > 0);
+  const result = [];
+  let guard = 0;
+  while(result.length < countNeeded && pools.some(p => p.items.length > 0) && guard < countNeeded * 200){
+    guard++;
+    const availablePools = pools.filter(p => p.items.length > 0);
+    const p = availablePools[Math.floor(rand() * availablePools.length)];
+    const idx = Math.floor(rand() * p.items.length);
+    const entry = p.items.splice(idx, 1)[0];
+    result.push(entry);
+  }
+  return result;
+}
 // ---- 出題範囲プールから、暗証番号・ラウンド・トラックを種にした10問を決める。
 //      【上位入賞】は前回と被りのない範囲からランダム、【一般人】は奇数問目（1・3・5・7・9
 //      問目）を前回と同じ問題のまま残し、偶数問目だけ新しい問題にする（教員の指示、2026-09-08：
 //      「奇数回の問題」＝問題の並び位置で判定）。暗証番号が種の一部なので、同じトラックを
 //      選んだ人どうしは必ず同じ問題になる。 ----
 function cmPickRoundQuestions(){
-  const pool = cmBuildPool(cm.cats);
   const seedBase = `${cm.pin}|${cm.cats.join(',')}`;
   if(cm.round === 1){
-    return cmSeededShuffle(pool, `${seedBase}|r1`).slice(0, CM_ROUND_QUESTIONS);
+    return cmPickQuestionsEqualGenre(cm.cats, `${seedBase}|r1`, null, CM_ROUND_QUESTIONS);
   }
   const seed = `${seedBase}|r${cm.round}|${cm.track}`;
   if(cm.track === 'top'){
     const prevKeys = new Set(cm.prevQuestions.map(cmKeyOf));
-    let candidates = pool.filter(e => !prevKeys.has(cmKeyOf(e)));
-    if(candidates.length < CM_ROUND_QUESTIONS) candidates = pool; // 除外すると10問に満たない場合は諦めて全体から選ぶ
-    return cmSeededShuffle(candidates, seed).slice(0, CM_ROUND_QUESTIONS);
+    let picked = cmPickQuestionsEqualGenre(cm.cats, seed, prevKeys, CM_ROUND_QUESTIONS);
+    if(picked.length < CM_ROUND_QUESTIONS) picked = cmPickQuestionsEqualGenre(cm.cats, seed, null, CM_ROUND_QUESTIONS); // 除外すると10問に満たない場合は諦めて全体から選ぶ
+    return picked;
   }
   const result = new Array(CM_ROUND_QUESTIONS);
   const usedKeys = new Set();
@@ -11780,13 +11855,11 @@ function cmPickRoundQuestions(){
     result[i] = cm.prevQuestions[i];
     usedKeys.add(cmKeyOf(result[i]));
   }
-  const shuffled = cmSeededShuffle(pool, seed);
-  let sp = 0;
+  const newPicks = cmPickQuestionsEqualGenre(cm.cats, seed, usedKeys, Math.floor(CM_ROUND_QUESTIONS / 2));
+  let np = 0;
   for(let i = 1; i < CM_ROUND_QUESTIONS; i += 2){
-    while(sp < shuffled.length && usedKeys.has(cmKeyOf(shuffled[sp]))) sp++;
-    result[i] = shuffled[sp] || pool[i % pool.length];
-    usedKeys.add(cmKeyOf(result[i]));
-    sp++;
+    result[i] = newPicks[np] || cm.prevQuestions[i]; // 万一足りなければ前回と同じ問題で埋める
+    np++;
   }
   return result;
 }
@@ -11801,10 +11874,26 @@ function cmBeginRound(roundNum, track){
 function cmCheerBannerHtml(){
   return (cm && cm.cheerMode) ? `<p class="cm-cheer-banner">📣 応援モード（一般人のスコアが2倍！）</p>` : '';
 }
+// ---- 出題の種類（quiz＝選択式・記述式、kws＝漢字の書き、yj＝読む順タップ）ごとに専用の
+//      画面を出し分ける（教員の指示、2026-09-08で漢字の書き・読む順タップを追加）。
+//      1問あたりの制限時間も種類によって変える（cmTimeLimitFor）。速さボーナスは
+//      「その問題の制限時間に対してどれだけ余らせたか」で計算するので、制限時間が違う
+//      種類が混ざっても不公平にならない。 ----
+function cmTimeLimitFor(entry){
+  if(entry.type === 'kws') return kbTimeLimitMs(entry.kdata.strokes.length);
+  if(entry.type === 'yj') return Math.max(CM_TIME_LIMIT_MS, entry.problem.chars.length * 4000);
+  return CM_TIME_LIMIT_MS;
+}
 function cmShowQuestion(){
   const entry = cm.questions[cm.qIndex];
-  const it = entry.item, cat = entry.cat;
   cm.answered = false;
+  cm.curTimeLimitMs = cmTimeLimitFor(entry);
+  if(entry.type === 'kws'){ cmShowKwsQuestion(entry); return; }
+  if(entry.type === 'yj'){ cmShowYjQuestion(entry); return; }
+  cmShowQuizQuestion(entry);
+}
+function cmShowQuizQuestion(entry){
+  const it = entry.item, cat = entry.cat;
   const isInput = Array.isArray(it.ans);
   let answerArea;
   if(isInput){
@@ -11826,7 +11915,7 @@ function cmShowQuestion(){
   screen.innerHTML = `
     ${cmCheerBannerHtml()}
     <div class="card">
-      <div class="q-category"><span>${esc(CATS[cat].name)}</span><span class="battle-turn-tag">問題 ${cm.qIndex+1} / ${CM_ROUND_QUESTIONS}</span></div>
+      <div class="q-category"><span>${esc(cmGenreLabel(cat))}</span><span class="battle-turn-tag">問題 ${cm.qIndex+1} / ${CM_ROUND_QUESTIONS}</span></div>
       <div class="boss-timer-bar" style="margin-bottom:12px;"><div class="boss-timer-fill" id="cmTimerFill" style="width:100%"></div></div>
       ${subInstructionHtml(cat, it)}
       ${kanbunBoxHtml(it.kb)}
@@ -11852,16 +11941,16 @@ function cmCatchUpTimer(){
   if(!cm || cm.answered) return;
   const fill = document.getElementById('cmTimerFill');
   if(!fill){ cmClearTimer(); return; } // 画面を離れていたら止める
-  const remain = cm.qStartAt + CM_TIME_LIMIT_MS - Date.now();
-  fill.style.width = Math.max(0, Math.min(100, remain / CM_TIME_LIMIT_MS * 100)) + '%';
+  const remain = cm.qStartAt + cm.curTimeLimitMs - Date.now();
+  fill.style.width = Math.max(0, Math.min(100, remain / cm.curTimeLimitMs * 100)) + '%';
   if(remain <= 0){
     cmClearTimer();
-    cmGrade(false, CM_TIME_LIMIT_MS, null, null);
+    cmGrade(false, cm.curTimeLimitMs, null, null);
   }
 }
 document.addEventListener('visibilitychange', () => { if(!document.hidden) cmCatchUpTimer(); });
 window.addEventListener('focus', () => cmCatchUpTimer());
-function cmElapsedMs(){ return Math.min(CM_TIME_LIMIT_MS, Date.now() - cm.qStartAt); }
+function cmElapsedMs(){ return Math.min(cm.curTimeLimitMs, Date.now() - cm.qStartAt); }
 function cmAnswerChoice(origIdx){
   if(cm.answered) return;
   const it = cm.questions[cm.qIndex].item;
@@ -11880,31 +11969,44 @@ function cmSubmitInput(){
   if(sb) sb.disabled = true;
   cmGrade(ok, cmElapsedMs(), null, el.value);
 }
+// 出題の種類ごとに違う採点結果表示（選択肢のcorrect/wrong表示・説明文）だけ分岐し、
+// 記録・スコア計算・「つぎへ」ボタンの表示は共通処理にする。
 function cmGrade(ok, ms, chosenOrig, typed){
   if(cm.answered) return;
   cm.answered = true;
   cmClearTimer();
-  const it = cm.questions[cm.qIndex].item;
-  cm.answers.push({ok, ms});
-  if(!Array.isArray(it.ans)){
-    const btns = screen.querySelectorAll(".choice");
-    btns.forEach((b,pos)=>{
-      const oi = cm.order[pos];
-      b.disabled = true;
-      if(oi===it.a) b.classList.add("correct");
-      else if(oi===chosenOrig) b.classList.add("wrong");
-      else b.classList.add("dim");
-    });
+  const entry = cm.questions[cm.qIndex];
+  cm.answers.push({ok, ms, timeLimitMs: cm.curTimeLimitMs});
+  let expl = '';
+  if(entry.type === 'quiz'){
+    const it = entry.item;
+    if(!Array.isArray(it.ans)){
+      const btns = screen.querySelectorAll(".choice");
+      btns.forEach((b,pos)=>{
+        const oi = cm.order[pos];
+        b.disabled = true;
+        if(oi===it.a) b.classList.add("correct");
+        else if(oi===chosenOrig) b.classList.add("wrong");
+        else b.classList.add("dim");
+      });
+    }
+    if(Array.isArray(it.ans)){
+      const wrongMsg = ok ? "" : `正解は「${esc(it.ans.join("」または「"))}」（こたえ：${esc(typed||"")}）`;
+      expl = [wrongMsg, it.e ? esc(it.e) : ""].filter(Boolean).join("<br>");
+    }else{
+      expl = it.e ? esc(it.e) : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
+    }
+  }else if(entry.type === 'kws'){
+    // タイムアウトで採点された場合はcmKwsSubmitJudgeを経由していないので、ここで正解の
+    // 字形（薄い字）を表示する状態にしておく。
+    cmKwsJudged = true;
+    cmKwsRender();
+    expl = ok ? '' : '薄く表示された字が正解の形です。';
+  }else if(entry.type === 'yj'){
+    expl = ok ? '' : `正しい書き下し文は「${esc(entry.problem.kudashi || '')}」でした。`;
   }
   const fb = document.getElementById("cmFb");
   fb.className = "feedback show " + (ok?"ok":"ng");
-  let expl;
-  if(Array.isArray(it.ans)){
-    const wrongMsg = ok ? "" : `正解は「${esc(it.ans.join("」または「"))}」（こたえ：${esc(typed||"")}）`;
-    expl = [wrongMsg, it.e ? esc(it.e) : ""].filter(Boolean).join("<br>");
-  }else{
-    expl = it.e ? esc(it.e) : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
-  }
   fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}</div>${expl}`;
   const nextBtn = document.getElementById("cmNextBtn");
   nextBtn.style.display = "inline-block";
@@ -11917,14 +12019,200 @@ function cmAdvance(){
   cmShowQuestion();
 }
 
-// ---- 採点：1問正解＝200点（固定）＋速さボーナス（0.1秒はやいごとに1点、上限は制限時間
-//      15秒ぶん＝150点）。ラウンド1でもラウンド2以降でも同じ式にする（教員の指示、2026-09-08）。
-//      不正解は常に0点なので、どれだけ速くても「正解した人」には絶対に届かない
-//      （最速の正解＝200+150=350点、最遅の正解でも200点＝不正解の0点より必ず高い）。 ----
-// 正解点は1350点より大きくしておくこと（教員の指示、2026-09-08）：速さボーナスの上限は
-// 150点なので、正解点が150×(問題数の差)を上回っていれば、正解数が多い人は必ず、正解数が
-// 少ない人がどれだけ速くても逆転されない（例：10問正解の最遅＝1500×10 ＞ 9問正解の最速＝
-// (1500+150)×9）。
+// ---- 「漢字の書き」問題（kws）。1文字だけの問題に絞っているので、既存のkb/mbと同じ
+//      「1マスに書いて採点する」形をそのまま流用できる。判定はkwsEvaluateCharacters
+//      （グローバルのkwsCtxを一時的に自分のcanvasへ差し替えて呼ぶ、kb/mbと同じ設計）。 ----
+function cmShowKwsQuestion(entry){
+  cmKwsCompletedStrokes = [];
+  cmKwsCurrentPath = [];
+  cmKwsDrawing = false;
+  cmKwsJudged = false;
+  cmKwsTargetKdata = entry.kdata;
+  screen.innerHTML = `
+    ${cmCheerBannerHtml()}
+    <div class="card">
+      <div class="q-category"><span>${esc(cmGenreLabel(entry.cat))}</span><span class="battle-turn-tag">問題 ${cm.qIndex+1} / ${CM_ROUND_QUESTIONS}</span></div>
+      <div class="boss-timer-bar" style="margin-bottom:12px;"><div class="boss-timer-fill" id="cmTimerFill" style="width:100%"></div></div>
+      <div class="q-text" style="text-align:center;">${kwsColoredSentenceHtml(entry.id, 0) || '（例文なし）'}</div>
+      <div class="kws-stage" id="cmKwsStage" style="margin:12px auto;">
+        <canvas id="cmKwsCanvas"></canvas>
+      </div>
+      <div class="btn-row" style="justify-content:center;">
+        <button class="btn primary" onclick="cmKwsSubmitJudge()">採点する</button>
+        <button class="btn secondary" onclick="cmKwsResetInk()">書き直す</button>
+      </div>
+      <div class="feedback" id="cmFb"></div>
+      <div class="btn-row">
+        <button class="btn tap-advance-btn" id="cmNextBtn" style="display:none" onclick="cmAdvance()">つぎへ</button>
+      </div>
+    </div>`;
+  cmKwsCanvasEl = document.getElementById('cmKwsCanvas');
+  cmKwsCtx = cmKwsCanvasEl.getContext('2d');
+  cmKwsCanvasEl.width = KWS_CHAR_CELL_PX;
+  cmKwsCanvasEl.height = KWS_CHAR_CELL_PX;
+  const cmKwsStageEl = document.getElementById('cmKwsStage');
+  cmKwsStageEl.style.width = `min(90vw, ${KWS_STAGE_MAX_WIDTH_PX}px)`;
+  cmKwsStageEl.style.aspectRatio = '1 / 1'; // 幅しか指定しないとcanvasの高さが0に潰れるため（kws/mbと同じ設計）
+  cmKwsWireCanvas();
+  cmKwsRender();
+  cmStartQuestionTimer();
+}
+function cmKwsWireCanvas(){
+  cmKwsCanvasEl.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    if(cm.answered) return;
+    if(cmKwsJudged) cmKwsResetInk();
+    cmKwsCanvasEl.setPointerCapture(e.pointerId);
+    cmKwsDrawing = true;
+    cmKwsCurrentPath = [cmKwsToPixel(e.clientX, e.clientY)];
+    cmKwsRender();
+  });
+  cmKwsCanvasEl.addEventListener('pointermove', e => {
+    if(!cmKwsDrawing) return;
+    cmKwsCurrentPath.push(cmKwsToPixel(e.clientX, e.clientY));
+    cmKwsRender();
+  });
+  cmKwsCanvasEl.addEventListener('pointerup', () => {
+    if(!cmKwsDrawing) return;
+    cmKwsDrawing = false;
+    if(cmKwsCurrentPath.length >= 2) cmKwsCompletedStrokes.push(cmKwsCurrentPath);
+    cmKwsCurrentPath = [];
+    cmKwsRender();
+  });
+  cmKwsCanvasEl.addEventListener('pointercancel', () => {
+    cmKwsDrawing = false;
+    cmKwsCurrentPath = [];
+    cmKwsRender();
+  });
+}
+function cmKwsToPixel(clientX, clientY){
+  const rect = cmKwsCanvasEl.getBoundingClientRect();
+  return {
+    x: (clientX - rect.left) * (cmKwsCanvasEl.width / rect.width),
+    y: (clientY - rect.top) * (cmKwsCanvasEl.height / rect.height)
+  };
+}
+function cmKwsRender(){
+  if(!cmKwsCtx) return;
+  cmKwsCtx.setTransform(1, 0, 0, 1, 0, 0);
+  cmKwsCtx.clearRect(0, 0, cmKwsCanvasEl.width, cmKwsCanvasEl.height);
+  cmKwsCtx.save();
+  cmKwsCtx.strokeStyle = '#cfcfcf';
+  cmKwsCtx.lineWidth = 1;
+  cmKwsCtx.setLineDash([5, 5]);
+  cmKwsCtx.strokeRect(1, 1, KWS_CHAR_CELL_PX - 2, KWS_CHAR_CELL_PX - 2);
+  cmKwsCtx.beginPath();
+  cmKwsCtx.moveTo(KWS_CHAR_CELL_PX / 2, 0); cmKwsCtx.lineTo(KWS_CHAR_CELL_PX / 2, KWS_CHAR_CELL_PX);
+  cmKwsCtx.moveTo(0, KWS_CHAR_CELL_PX / 2); cmKwsCtx.lineTo(KWS_CHAR_CELL_PX, KWS_CHAR_CELL_PX / 2);
+  cmKwsCtx.stroke();
+  cmKwsCtx.restore();
+  if(cmKwsJudged && cmKwsTargetKdata){
+    cmKwsCtx.save();
+    cmKwsCtx.strokeStyle = '#b9c2cc';
+    cmKwsCtx.lineWidth = KWS_REVEAL_WIDTH_PX;
+    cmKwsCtx.lineCap = 'round'; cmKwsCtx.lineJoin = 'round';
+    cmKwsTargetKdata.strokes.forEach(s => cmKwsCtx.stroke(s.path2D));
+    cmKwsCtx.restore();
+  }
+  cmKwsCtx.save();
+  cmKwsCtx.strokeStyle = '#3b6fd1';
+  cmKwsCtx.lineWidth = KWS_INK_WIDTH_PX;
+  cmKwsCtx.lineCap = 'round'; cmKwsCtx.lineJoin = 'round';
+  cmKwsCompletedStrokes.concat([cmKwsCurrentPath]).forEach(path => {
+    if(path.length < 2) return;
+    cmKwsCtx.beginPath();
+    cmKwsCtx.moveTo(path[0].x, path[0].y);
+    for(let i = 1; i < path.length; i++) cmKwsCtx.lineTo(path[i].x, path[i].y);
+    cmKwsCtx.stroke();
+  });
+  cmKwsCtx.restore();
+}
+function cmKwsResetInk(){
+  if(cm.answered) return;
+  cmKwsCompletedStrokes = [];
+  cmKwsCurrentPath = [];
+  cmKwsDrawing = false;
+  cmKwsJudged = false;
+  cmKwsRender();
+}
+function cmKwsSubmitJudge(){
+  if(cm.answered) return;
+  if(cmKwsCompletedStrokes.length === 0) return; // 何も書いていなければ採点しない
+  kwsCtx = cmKwsCtx; // kwsEvaluateCharactersはグローバルのkwsCtxをジオメトリ判定に使う（kb/mbと同じ設計）
+  const charResults = kwsEvaluateCharacters(cmKwsTargetKdata, cmKwsCompletedStrokes, kwsProfile);
+  const ok = charResults[0].passCore;
+  cmKwsJudged = true;
+  cmKwsRender();
+  cmGrade(ok, cmElapsedMs(), null, null);
+}
+
+// ---- 「読む順タップ」問題（yj）。返り点をつける（kt）と同じKT_PROBLEMSを使うが、
+//      クラスマッチでは1回間違えたらその場で不正解にする（他の出題形式と同じ「一発勝負」に
+//      揃えるため、通常のyj画面のような「間違えても続けて挑戦できる」仕様にはしない）。 ----
+function cmShowYjQuestion(entry){
+  cm.yjTapped = {};
+  cm.yjNextPos = 0;
+  const p = entry.problem;
+  const rowsHtml = p.chars.map((c,idx)=>{
+    const markHtml = c.mark
+      ? `<span class="yj-mark${c.mark.length===2?" combo":""}">${ktMarkInner(c.mark)}</span>`
+      : `<span class="yj-mark"></span>`;
+    const okHtml = c.ok ? `<span class="yj-ok">${esc(c.ok)}</span>` : "";
+    const okuriCls = c.okuri && c.okuri.length>=3 ? " long" : "";
+    const okuriHtml = c.okuri ? `<span class="yj-okuri${okuriCls}">${esc(c.okuri)}</span>` : "";
+    const annoHtml = (okHtml || okuriHtml) ? `<span class="yj-anno">${okHtml}${okuriHtml}</span>` : "";
+    return `<div class="yj-row" data-idx="${idx}" id="cmYjRow${idx}">
+      <span class="yj-glyph">${esc(c.ch)}<span class="yj-order-badge" id="cmYjBadge${idx}"></span>${annoHtml}</span>
+      ${markHtml}
+    </div>`;
+  }).join("");
+  screen.innerHTML = `
+    ${cmCheerBannerHtml()}
+    <div class="card">
+      <div class="q-category"><span>${esc(cmGenreLabel(entry.cat))}</span><span class="battle-turn-tag">問題 ${cm.qIndex+1} / ${CM_ROUND_QUESTIONS}</span></div>
+      <div class="boss-timer-bar" style="margin-bottom:12px;"><div class="boss-timer-fill" id="cmTimerFill" style="width:100%"></div></div>
+      <p class="q-text" style="text-align:center;">白文「<b>${esc(p.white)}</b>」を、読む順にタップしてください。</p>
+      <div id="yjApp"><div class="yj-stage"><div class="yj-box">${rowsHtml}</div></div></div>
+      <div class="feedback" id="cmFb"></div>
+      <div class="btn-row">
+        <button class="btn tap-advance-btn" id="cmNextBtn" style="display:none" onclick="cmAdvance()">つぎへ</button>
+      </div>
+    </div>`;
+  screen.querySelectorAll('#yjApp .yj-row').forEach(row=>{
+    row.addEventListener('click', () => cmYjTap(+row.dataset.idx));
+  });
+  cmStartQuestionTimer();
+}
+function cmYjTap(idx){
+  if(cm.answered) return;
+  const entry = cm.questions[cm.qIndex];
+  const p = entry.problem;
+  if(cm.yjTapped[idx]) return; // 二重タップ防止
+  const expectedIdx = p.order[cm.yjNextPos];
+  if(idx !== expectedIdx){
+    cmGrade(false, cmElapsedMs(), null, null); // 一発勝負：間違えたらその場で不正解
+    return;
+  }
+  cm.yjNextPos++;
+  cm.yjTapped[idx] = cm.yjNextPos;
+  const badge = document.getElementById('cmYjBadge' + idx);
+  if(badge){ badge.textContent = cm.yjNextPos; badge.classList.add('show'); }
+  const row = document.getElementById('cmYjRow' + idx);
+  if(row) row.classList.add('done');
+  if(cm.yjNextPos === p.order.length) cmGrade(true, cmElapsedMs(), null, null);
+}
+
+// ---- 採点：1問正解＝1500点（固定）＋速さボーナス（0.1秒はやいごとに1点、上限はその問題の
+//      制限時間ぶん）。ラウンド1でもラウンド2以降でも、出題の種類が違っても同じ式にする
+//      （教員の指示、2026-09-08）。不正解は常に0点なので、どれだけ速くても「正解した人」
+//      には絶対に届かない（最速の正解＝1500+制限時間ぶんの秒数、最遅の正解でも1500点＝
+//      不正解の0点より必ず高い）。 ----
+// 正解点は1350点より大きくしておくこと（教員の指示、2026-09-08）：15秒の問題での速さ
+// ボーナスの上限は150点なので、正解点が150×(問題数の差)を上回っていれば、正解数が多い人は
+// 必ず、正解数が少ない人がどれだけ速くても逆転されない（例：10問正解の最遅＝1500×10 ＞
+// 9問正解の最速＝(1500+150)×9）。漢字の書き・読む順タップは制限時間が15秒より長くなる
+// ことがあるが、速さボーナスの上限もその分だけ大きくなるだけで、この不等式そのものは
+// 崩れない（正解点1500点は変わらないため）。
 const CM_PER_CORRECT = 1500;
 const CM_SEC_PER_POINT = 0.1; // 0.1秒はやいごとに1点
 function cmComputeRoundScore(){
@@ -11932,7 +12220,7 @@ function cmComputeRoundScore(){
   cm.answers.forEach(a=>{
     if(!a.ok) return;
     correctCount++;
-    const remainSec = Math.max(0, (CM_TIME_LIMIT_MS - a.ms) / 1000);
+    const remainSec = Math.max(0, (a.timeLimitMs - a.ms) / 1000);
     score += CM_PER_CORRECT + Math.round(remainSec / CM_SEC_PER_POINT);
   });
   return {score, correctCount};
