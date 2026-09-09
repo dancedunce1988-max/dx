@@ -3342,6 +3342,12 @@
 #ydRomajiLine .yd-typed{ color:var(--yd-shu-bright); text-shadow:0 1px 3px rgba(0,0,0,0.9), 0 0 12px var(--yd-shu-glow); }
 #ydRomajiLine .yd-rest{ color:var(--yd-paper); opacity:0.95; text-shadow:0 1px 3px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.7); transition:opacity .25s; }
 #ydRomajiLine .yd-rest.yd-hidden-hint{ opacity:0; }
+/* 問題の漢字の上に出す読み（ひらがな）のヒント。ローマ字の残りヒントと同じ
+   .yd-hidden-hint（透明化）で出し分け、同じタイミング（ydRenderRomaji参照）で
+   一緒に現れるようにする（教員の指示、2026-09-09：「少し時間が経ったとき、ローマ字
+   だけでなくひらがな（読み）も表示するように」）。 */
+#ydProblemText .yd-word-yomi-hint{ color:var(--yd-paper); opacity:0.9; text-shadow:0 1px 3px rgba(0,0,0,0.9); transition:opacity .25s; }
+#ydProblemText .yd-word-yomi-hint.yd-hidden-hint{ opacity:0; }
 #ydFeedbackFloat{
   position:relative; z-index:1; min-height:26px; margin-top:2px;
   font-family:"Yu Mincho","YuMincho",serif; font-size:18px; color:var(--yd-gold-bright);
@@ -3768,6 +3774,22 @@
   text-shadow:0 0 20px rgba(255,215,100,.9), 0 2px 8px rgba(0,0,0,.85);
   animation:kbPunch .5s cubic-bezier(.2,1.6,.4,1) .25s both;
 }
+/* 仲間になった瞬間の1%（さらにその1%）で当たる「色違い」発見演出（教員の指示、
+   2026-09-09：「派手に大きく」）。.mb-recruit-bannerよりひと回り大きくし、虹色に
+   色が流れるアニメーションを重ねて、超激レアだと一目で分かるようにする。 */
+.mb-shiny-banner{
+  text-align:center; font-size:1.5rem; font-weight:900; margin:8px 0 4px;
+  background:linear-gradient(90deg,#ff5e7e,#ffd76a,#7CFFB2,#7cc7ff,#c78bff,#ff5e7e);
+  background-size:300% 100%; -webkit-background-clip:text; background-clip:text;
+  color:transparent; text-shadow:0 2px 10px rgba(0,0,0,.6);
+  animation:mbShinyFlow 1.6s linear infinite, mbShinyPop .6s cubic-bezier(.2,1.7,.4,1) .35s both;
+}
+@keyframes mbShinyFlow{ from{ background-position:0% 50%; } to{ background-position:300% 50%; } }
+@keyframes mbShinyPop{
+  0%{ transform:scale(0.3) rotate(-8deg); opacity:0; }
+  60%{ transform:scale(1.18) rotate(3deg); opacity:1; }
+  100%{ transform:scale(1) rotate(0deg); opacity:1; }
+}
 /* ボスを1体倒すごとの最大HP・最大MP＋50表示（教員の指示、2026-09-04）。毎回必ず出る
    ので、レア演出の金色（.mb-recruit-banner）とは別の色にして見分けられるようにする。 */
 .mb-statup-banner{
@@ -3784,6 +3806,23 @@
 }
 .mb-partner-badge img{ width:100%; height:100%; object-fit:contain; display:block; }
 .mb-partner-pick-icon img{ width:100%; height:100%; object-fit:contain; }
+/* パートナー選択画面、ボタン右端の「色違い」画像（教員の指示、2026-09-09：発見済みの
+   仲間だけに表示し、タップで色違いの姿に切り替える）。虹色の枠で常時レア感を出し、
+   現在表示中（active）のときはさらに金色に光らせて「今これが選ばれている」と分かるようにする。 */
+.mb-shiny-toggle{
+  flex-shrink:0; width:46px; height:46px; border-radius:50%; overflow:hidden; cursor:pointer;
+  background:var(--bg);
+  border:3px solid transparent;
+  background-image:linear-gradient(var(--bg),var(--bg)), linear-gradient(135deg,#ff5e7e,#ffd76a,#7CFFB2,#7cc7ff,#c78bff);
+  background-origin:border-box; background-clip:padding-box, border-box;
+  transition:transform .12s;
+}
+.mb-shiny-toggle:hover{ transform:scale(1.08); }
+.mb-shiny-toggle.active{
+  border-color:var(--gold); background-image:none;
+  box-shadow:0 0 10px rgba(255,215,100,.85);
+}
+.mb-shiny-toggle img{ width:100%; height:100%; object-fit:contain; display:block; }
 /* 敵の特殊能力を、発動前から告知しておく（戦闘開始演出・行動選択画面の両方）。教員の指示、
    2026-09-04：「特殊能力がどう発動しているのか分からない」への対応。 */
 .mb-intro-ability{
@@ -3966,7 +4005,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.08</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.10</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -3985,6 +4024,7 @@
 <script src="hyakunin_isshu_data.js"></script>
 <script src="kotonoha_evolution_images.js"></script>
 <script src="enemy_sprites_data.js"></script>
+<script src="enemy_sprites_shiny_data.js"></script>
 <script src="kanji_quest_title_data.js"></script>
 <script src="mb_action_button_images.js"></script>
 <script src="menu_title_images.js"></script>
@@ -4461,6 +4501,12 @@ function loadStats(){
         // 同じ倍率になる。既存セーブ（このレベル制導入前に仲間がいた場合）はLv.1として補完する。
         if(!st.mbCompanionLevels || typeof st.mbCompanionLevels !== "object") st.mbCompanionLevels = {};
         st.mbCompanions.forEach(id => { if(!st.mbCompanionLevels[id]) st.mbCompanionLevels[id] = 1; });
+        // 仲間になった瞬間、さらに1%を引くと「色違い」を発見できる仕組み（教員の指示、
+        // 2026-09-09）。mbCompanionShiny＝発見済みかどうか、mbCompanionShinyActive＝
+        // パートナー選択画面で色違い姿を「表示中」に切り替えたかどうか（発見しても自動では
+        // 切り替わらず、画面内の色違い画像をタップして初めて姿が変わる）。
+        if(!st.mbCompanionShiny || typeof st.mbCompanionShiny !== "object") st.mbCompanionShiny = {};
+        if(!st.mbCompanionShinyActive || typeof st.mbCompanionShinyActive !== "object") st.mbCompanionShinyActive = {};
         if(!st.diffLv) st.diffLv = {};
         /* 出題目標レベルが未設定の分野は、これまでの分野レベルから相当する値を初期値にする
            （新しい仕組み導入前からのプレイヤーも、急に極端な難度から始まらないようにするため） */
@@ -5699,7 +5745,7 @@ function mbPartnerBadgeHtml(st){
   const lv = mbCompanionLevel(st, partner.id);
   return `
     <div class="mb-partner-badge" onclick="mbShowPartnerPicker()" title="パートナー：${esc(partner.name)}（Lv.${lv}／タップで変更）">
-      <img src="${mbEnemySpriteSrc(partner, 'pose1')}" alt="${esc(partner.name)}">
+      <img src="${mbCompanionSpriteSrc(st, partner, 'pose1')}" alt="${esc(partner.name)}">
     </div>`;
 }
 // 仲間になった敵の一覧から、パートナーに設定する1体を選ぶ画面（教員の指示、2026-09-04：
@@ -5716,11 +5762,22 @@ function mbShowPartnerPicker(){
     const active = st.mbActivePartner === e.id;
     const lv = mbCompanionLevel(st, e.id);
     const effectText = mbPartnerEffectText(st, e.id);
+    // 色違いを発見済みの仲間だけ、ボタン右端に色違い画像を追加する（教員の指示、2026-09-09：
+    // 「その画像をタップすると、色違い状態で設定される」）。押すたびに表示中/通常を切り替える。
+    const isShinyUnlocked = !!st.mbCompanionShiny[e.id];
+    const isShinyActive = !!st.mbCompanionShinyActive[e.id];
+    const shinyToggleHtml = isShinyUnlocked ? `
+      <div class="mb-shiny-toggle${isShinyActive ? ' active' : ''}"
+           onclick="event.stopPropagation(); mbToggleCompanionShiny('${e.id}')"
+           title="${isShinyActive ? '色違い、表示中（タップでもとの姿にもどす）' : 'タップで色違いの姿にする'}">
+        <img src="${ENEMY_SPRITES_SHINY[e.id + '_pose1']}" alt="${esc(e.name)}の色違い">
+      </div>` : '';
     html += `
     <div class="card menu-card" onclick="mbSetPartner('${e.id}')">
-      <div class="menu-icon mb-partner-pick-icon"><img src="${mbEnemySpriteSrc(e, 'pose1')}" alt="${esc(e.name)}"></div>
-      <div><h2>${esc(e.name)} Lv.${lv}${active ? " ✓" : ""}</h2>
+      <div class="menu-icon mb-partner-pick-icon"><img src="${mbCompanionSpriteSrc(st, e, 'pose1')}" alt="${esc(e.name)}"></div>
+      <div style="flex:1;"><h2>${esc(e.name)} Lv.${lv}${active ? " ✓" : ""}</h2>
       ${effectText ? `<p class="note kotonoha-picker-stat">${esc(effectText)}</p>` : ""}</div>
+      ${shinyToggleHtml}
     </div>`;
   });
   html += `<button class="btn secondary" onclick="showHome()">ホームへ</button>`;
@@ -5731,6 +5788,15 @@ function mbSetPartner(id){
   st.mbActivePartner = id;
   saveStats(st);
   showHome();
+}
+// 色違い発見済みの仲間について、表示を色違い姿⇔通常の姿で切り替える（教員の指示、
+// 2026-09-09）。パートナーに設定するかどうか（mbActivePartner）とは独立した見た目だけの
+// 切り替えなので、mbSetPartnerとは別の状態（mbCompanionShinyActive）に保存する。
+function mbToggleCompanionShiny(id){
+  const st = loadStats();
+  st.mbCompanionShinyActive[id] = !st.mbCompanionShinyActive[id];
+  saveStats(st);
+  mbShowPartnerPicker();
 }
 function kotonohaEffStats(st){
   const base = st.stats || {hp:0,atk:0,def:0,spd:0,luck:0};
@@ -13249,6 +13315,11 @@ let pendingBossAllGenre = false; // 挑戦チケットからの遭遇のときtr
 let pendingBossHyakunin = false; // 百人一首クイズ中の遭遇のときtrue（百人一首の問題を出題する。教員の指示、2026-08-02）
 let pendingBossIsMb = false; // 漢字の書き取り中のランダム遭遇のときtrue（pendingBossがMB_ENEMIESの1体になる。
                               // 「勝負する」で通常のstartBossBattleではなくstartMbEncounterBattleへ進む。教員の指示、2026-09-05）
+// pendingBossIsMbのボスに「出会った瞬間」（rollKwsMbEncounter）だけで判定する「色違いに遭遇」
+// （教員の指示、2026-09-09）。遭遇プロンプト画面の見た目（startBossPromptIdleAnim等）と、
+// 「勝負する」を選んだ後の実戦闘（startMbEncounterBattle→mbBattle.isShinyEncounter）の
+// 両方に同じ結果を反映させるため、判定結果をここに保持しておく。
+let pendingBossMbShiny = false;
 // 漢字Questのエンカウント画面（renderBossPrompt、pendingBossIsMb）専用：戦闘中のmbStartIdleAnimと
 // 同じ「基本姿勢①②を0.5秒ごとに繰り返す」立ち姿アニメーション。mbBattleが存在する前提の
 // mbStartIdleAnim/mbApplyPoseはこの画面（戦闘開始前）では使えないため、別に用意する
@@ -13257,6 +13328,17 @@ let bossPromptIdleTimer = null;
 function stopBossPromptIdleAnim(){
   if(bossPromptIdleTimer){ clearInterval(bossPromptIdleTimer); bossPromptIdleTimer = null; }
 }
+// pendingBossMbShiny（rollKwsMbEncounterで出会った瞬間に判定済み）が立っているときだけ、
+// 遭遇プロンプトの見た目も色違いスプライトにする（教員の指示、2026-09-09：遭遇画面と
+// 実戦闘とで色が食い違わないようにする）。
+function mbPromptSpriteSrc(enemyDef, poseKey){
+  if(pendingBossIsMb && pendingBossMbShiny){
+    const key = enemyDef.id + '_' + poseKey;
+    const shinySrc = typeof ENEMY_SPRITES_SHINY !== 'undefined' && ENEMY_SPRITES_SHINY[key];
+    if(shinySrc) return shinySrc;
+  }
+  return mbEnemySpriteSrc(enemyDef, poseKey);
+}
 function startBossPromptIdleAnim(enemyDef){
   stopBossPromptIdleAnim();
   let toggle = false;
@@ -13264,7 +13346,7 @@ function startBossPromptIdleAnim(enemyDef){
     const el = document.getElementById('bossPromptEnemyIcon');
     if(!el){ stopBossPromptIdleAnim(); return; } // 画面が切り替わった後の取りこぼし防止
     toggle = !toggle;
-    el.src = mbEnemySpriteSrc(enemyDef, toggle ? 'pose2' : 'pose1');
+    el.src = mbPromptSpriteSrc(enemyDef, toggle ? 'pose2' : 'pose1');
   }, 500);
 }
 // チケットで「相手を選ぶ」画面（showTicketChooseBoss）だけで使う一時的なUI状態。
@@ -13375,6 +13457,8 @@ function rollKwsMbEncounter(resumeFn){
   pendingBossAllGenre = false;
   pendingBossHyakunin = false;
   pendingBossIsMb = true;
+  // このボスと「出会った」瞬間＝ここで色違い遭遇を判定する（教員の指示、2026-09-09）。
+  pendingBossMbShiny = Math.random() < MB_SHINY_ENCOUNTER_CHANCE;
   bossPromptResumeFn = resumeFn;
   bossPromptActive = true;
   bossPromptSelection = "no";
@@ -13430,7 +13514,7 @@ function renderBossPrompt(){
   screen.innerHTML = `
     <div class="card boss-encounter">
       ${pendingBossIsMb
-        ? `<img id="bossPromptEnemyIcon" class="boss-enc-icon-img" src="${mbEnemySpriteSrc(b, 'pose1')}" alt="${esc(b.name)}">`
+        ? `<img id="bossPromptEnemyIcon" class="boss-enc-icon-img" src="${mbPromptSpriteSrc(b, 'pose1')}" alt="${esc(b.name)}">`
         : b.img ? `<img class="boss-enc-icon-img" src="${b.img}" alt="${esc(b.name)}">` : `<div class="boss-enc-icon">${b.icon}</div>`}
       <p class="boss-enc-text">${introText}<br>勝負しますか？</p>
       ${b.legendary
@@ -13461,11 +13545,13 @@ function resolveBossPrompt(choice){
   if(choice === "yes"){
     if(pendingBossIsMb){
       const enemy = pendingBoss;
+      const isShiny = pendingBossMbShiny;
       const resumeFn = bossPromptResumeFn;
       bossPromptResumeFn = null;
       pendingBoss = null;
       pendingBossIsMb = false;
-      startMbEncounterBattle(enemy, resumeFn);
+      pendingBossMbShiny = false;
+      startMbEncounterBattle(enemy, resumeFn, isShiny);
     }else{
       startBossBattle(pendingBoss, pendingBossAllGenre, pendingBossHyakunin);
     }
@@ -13476,6 +13562,7 @@ function resolveBossPrompt(choice){
     pendingBossAllGenre = false;
     pendingBossHyakunin = false;
     pendingBossIsMb = false;
+    pendingBossMbShiny = false;
     if(fn) fn();
   }
 }
@@ -15285,6 +15372,146 @@ function kotonohaDevShowPreview(line, stageIdx){
     </div>`;
 }
 
+/* ================= ボスの「色違い」 管理者プレビューツール（2026-09-09〜） =================
+   教員がURLに ?devtool=shiny を付けて開いたときだけ現れる隠しツール（bootApp参照、上の
+   showKotonohaDevToolと同じ仕組み）。「出会った瞬間の遭遇プロンプト」「戦闘中の見た目」
+   「倒した瞬間の色違い発見演出」「パートナー選択画面の色違いボタン」を、実際に0.1%を
+   引かなくても確認できる。
+   【安全設計】shinyDevFakeStはloadStats()の値をJSON経由で複製した使い捨てのコピーで、
+   saveStats()には一度も渡さない＝教員の本当の仲間・パートナー設定には一切触れない。
+   遭遇プロンプト・戦闘画面のプレビューも、実際にmbBattle/pendingBossを書き換えたり
+   バトルを開始したりはせず、同じ見た目のHTMLを手で再現するだけにとどめている。 */
+let shinyDevFakeSt = null;
+function shinyDevBuildFakeSt(){
+  const st = JSON.parse(JSON.stringify(loadStats()));
+  st.mbCompanions = MB_ENEMIES.map(e => e.id);
+  st.mbCompanionLevels = {};
+  st.mbCompanionShiny = {};
+  MB_ENEMIES.forEach(e => { st.mbCompanionLevels[e.id] = 1; st.mbCompanionShiny[e.id] = true; });
+  st.mbCompanionShinyActive = {};
+  st.mbActivePartner = MB_ENEMIES[0].id;
+  return st;
+}
+// プレビュー専用：ENEMY_SPRITES_SHINYがあればそちらを、無ければ通常スプライトを返す
+// （mbBattleEnemySpriteSrcと同じ考え方だが、mbBattleを介さずidから直接引く）。
+function shinyDevSpriteSrc(enemyDef, poseKey){
+  const key = enemyDef.id + '_' + poseKey;
+  return (typeof ENEMY_SPRITES_SHINY !== 'undefined' && ENEMY_SPRITES_SHINY[key]) || mbEnemySpriteSrc(enemyDef, poseKey);
+}
+function showShinyDevTool(){
+  shinyDevFakeSt = shinyDevBuildFakeSt();
+  const rows = MB_ENEMIES.map(e => `
+    <div class="btn-row" style="flex-wrap:wrap; gap:6px; justify-content:flex-start; margin-bottom:6px;">
+      <button class="btn inline small" onclick="shinyDevShowEncounterPreview('${e.id}')">「${esc(e.name)}」の遭遇画面</button>
+      <button class="btn inline small" onclick="shinyDevShowBattlePreview('${e.id}')">「${esc(e.name)}」の戦闘画面</button>
+      <button class="btn inline small" onclick="shinyDevShowRecruitPreview('${e.id}')">「${esc(e.name)}」の発見演出</button>
+    </div>`).join("");
+  screen.innerHTML = `
+    <div class="card">
+      <h3 class="section">🔧 ボスの色違い 管理者プレビューツール</h3>
+      <p class="note">実際のセーブデータは一切変更していません。</p>
+      <button class="btn secondary" onclick="showHome()">ホームへ戻る</button>
+    </div>
+    <div class="card">
+      <h3 class="section">① 出会った瞬間〜倒した瞬間までの一連の演出</h3>
+      <p class="note">本来はボスと出会う瞬間に0.1%でしか起きません。出会ってから倒すまで、ずっと同じ色（色違い）のまま戦います。倒せば必ず仲間になる（またはレベルが上がる）＋「発見した！！」の演出が出ます。</p>
+      ${rows}
+    </div>
+    <div class="card">
+      <h3 class="section">② パートナー選択画面（4体とも色違い発見済みの状態）</h3>
+      <p class="note">ボタン右端の丸い画像をタップすると、色違い表示のON/OFFを確認できます。</p>
+      <button class="btn" onclick="shinyDevShowPartnerPickerPreview()">パートナー選択画面を見る</button>
+    </div>`;
+}
+// ①の「遭遇画面」：renderBossPrompt（pendingBossIsMb版）と同じ見た目を、色違いスプライトで再現する。
+function shinyDevShowEncounterPreview(id){
+  const enemyDef = MB_ENEMIES.find(e => e.id === id);
+  screen.innerHTML = `
+    <div class="card">
+      <p class="note">🔧 管理者プレビュー：実際のセーブデータは一切変更していません。</p>
+      <button class="btn secondary" onclick="showShinyDevTool()">← 一覧に戻る</button>
+    </div>
+    <div class="card boss-encounter">
+      <img class="boss-enc-icon-img" src="${shinyDevSpriteSrc(enemyDef, 'pose1')}" alt="${esc(enemyDef.name)}">
+      <p class="boss-enc-text">「${esc(enemyDef.name)}」が、漢字の力を試しに現れた！<br>勝負しますか？</p>
+      <p class="note boss-enc-hint">✨「漢字Quest」と同じ戦い方（この戦いだけ攻撃力・MP獲得量が2倍！）</p>
+      <div class="boss-enc-choices">
+        <button class="boss-enc-btn" disabled>いいえ</button>
+        <button class="boss-enc-btn selected" disabled>勝負する</button>
+      </div>
+    </div>`;
+}
+// ①の「戦闘画面」：mbShowBattleIntro（対峙演出）と同じ見た目を、色違いスプライトで再現する。
+function shinyDevShowBattlePreview(id){
+  const enemyDef = MB_ENEMIES.find(e => e.id === id);
+  screen.innerHTML = `
+    <div class="card">
+      <p class="note">🔧 管理者プレビュー：実際のセーブデータは一切変更していません。</p>
+      <button class="btn secondary" onclick="showShinyDevTool()">← 一覧に戻る</button>
+    </div>
+    <div class="boss-battle-screen mb-intro-screen">
+      <div class="mb-intro-vs">VS</div>
+      <img class="mb-intro-icon mb-enemy-sprite-lg" src="${shinyDevSpriteSrc(enemyDef, 'pose1')}" alt="${esc(enemyDef.name)}">
+      <div class="mb-intro-name">${esc(enemyDef.name)}</div>
+    </div>`;
+}
+function shinyDevShowRecruitPreview(id){
+  const enemyDef = MB_ENEMIES.find(e => e.id === id);
+  const recruitedMsg = `✨「${enemyDef.name}」が仲間になった！（Lv.1）`;
+  const shinyMsg = `「${enemyDef.name}」の色違いを発見した！！`;
+  screen.innerHTML = `
+    <div class="card">
+      <p class="note">🔧 管理者プレビュー：実際のセーブデータは一切変更していません。</p>
+      <button class="btn secondary" onclick="showShinyDevTool()">← 一覧に戻る</button>
+    </div>
+    <div class="boss-battle-screen">
+      <div class="boss-name">🎉 ${esc(enemyDef.name)}を倒した！</div>
+      <img class="mb-defeat-icon" src="${shinyDevSpriteSrc(enemyDef, 'defeat')}" alt="${esc(enemyDef.name)}">
+      <p class="mb-boss-xp-banner">＋${MB_BOSS_DEFEAT_XP} ストック経験値 獲得！</p>
+      <p class="mb-statup-banner">🔺 最大HPと最大MPが${MB_STATUP_HP}アップした！</p>
+      <p class="mb-recruit-banner">${esc(recruitedMsg)}</p>
+      ${mbShinyBannerHtml(shinyMsg)}
+    </div>`;
+}
+function shinyDevShowPartnerPickerPreview(){
+  const st = shinyDevFakeSt;
+  const companions = st.mbCompanions.map(id => MB_ENEMIES.find(e => e.id === id)).filter(Boolean);
+  let html = `<div class="card">
+      <p class="note">🔧 管理者プレビュー：実際のセーブデータは一切変更していません。</p>
+      <button class="btn secondary" onclick="showShinyDevTool()">← 一覧に戻る</button>
+    </div>
+    <div class="card">
+      <h3 class="section">🤝 どの仲間をパートナーにしますか？（プレビュー）</h3>
+      <p class="note">パートナーに設定した仲間の効果は、通常のボス戦にずっと反映されます。</p>
+    </div>`;
+  companions.forEach(e => {
+    const active = st.mbActivePartner === e.id;
+    const lv = mbCompanionLevel(st, e.id);
+    const effectText = mbPartnerEffectText(st, e.id);
+    const isShinyActive = !!st.mbCompanionShinyActive[e.id];
+    html += `
+    <div class="card menu-card" onclick="shinyDevSetPartnerPreview('${e.id}')">
+      <div class="menu-icon mb-partner-pick-icon"><img src="${mbCompanionSpriteSrc(st, e, 'pose1')}" alt="${esc(e.name)}"></div>
+      <div style="flex:1;"><h2>${esc(e.name)} Lv.${lv}${active ? " ✓" : ""}</h2>
+      ${effectText ? `<p class="note kotonoha-picker-stat">${esc(effectText)}</p>` : ""}</div>
+      <div class="mb-shiny-toggle${isShinyActive ? ' active' : ''}"
+           onclick="event.stopPropagation(); shinyDevToggleShinyPreview('${e.id}')"
+           title="${isShinyActive ? '色違い、表示中（タップでもとの姿にもどす）' : 'タップで色違いの姿にする'}">
+        <img src="${ENEMY_SPRITES_SHINY[e.id + '_pose1']}" alt="${esc(e.name)}の色違い">
+      </div>
+    </div>`;
+  });
+  screen.innerHTML = html;
+}
+function shinyDevSetPartnerPreview(id){
+  shinyDevFakeSt.mbActivePartner = id;
+  shinyDevShowPartnerPickerPreview();
+}
+function shinyDevToggleShinyPreview(id){
+  shinyDevFakeSt.mbCompanionShinyActive[id] = !shinyDevFakeSt.mbCompanionShinyActive[id];
+  shinyDevShowPartnerPickerPreview();
+}
+
 /* 起動時ガード：保存されている記録が、今開いているコードより新しいverで作られていたら、
    通常の起動（showPrologue/showHomeなど）を一切行わない。ここでアプリの初期化を止めることで、
    その後どこからもsaveStats()が呼ばれず、新しい記録が古い形式で上書きされる事故を防ぐ。 */
@@ -15359,6 +15586,9 @@ function bootApp(){
      ことのは転生の系統×段階のあらゆる組み合わせを、実際のセーブデータを一切書き換えずに
      プレビューできる（showKotonohaDevTool参照）。 */
   if(new URLSearchParams(location.search).get('devtool') === 'kotonoha'){ showKotonohaDevTool(); return; }
+  /* ボスの「色違い」管理者プレビュー（URLに ?devtool=shiny を付けたときだけ現れる、
+     通常のプレイでは一切露出しない隠しルート、2026-09-09〜）。showShinyDevTool参照。 */
+  if(new URLSearchParams(location.search).get('devtool') === 'shiny'){ showShinyDevTool(); return; }
   if(resumeBossBattleIfSaved()) return;
   showPrologue(showHome);
 }
@@ -25015,7 +25245,12 @@ function ydDrawFor(bandKey){
 function ydBuildProblemDisplay(raw){
   const {before, word, yomiList, after} = raw;
   const afterDisplay = after.replace(/。$/, '');
-  const goldWord = '<span style="color:var(--yd-gold-bright)">' + esc(word) + '</span>';
+  // 漢字の上の読み（ひらがな）ヒント。ローマ字ヒントと同じ「答えの1つめ」(yomiList[0])を
+  // 使い、初めは.yd-hidden-hintで隠しておいて、ydRenderRomaji側で時間経過にあわせて表示する
+  // （教員の指示、2026-09-09）。
+  const yomiHint = (yomiList && yomiList[0]) || '';
+  const goldWord = '<ruby style="color:var(--yd-gold-bright)">' + esc(word)
+    + '<rt class="yd-word-yomi-hint yd-hidden-hint" id="ydWordYomiHint">' + esc(yomiHint) + '</rt></ruby>';
   const displayHTML = esc(before) + '【' + goldWord + '】' + esc(afterDisplay);
   return {displayHTML, kanaTargets: yomiList};
 }
@@ -25086,6 +25321,9 @@ function ydRenderRomaji(){
   line.innerHTML =
     '<span class="yd-typed">' + esc(typedPart) + '</span>' +
     '<span class="yd-rest' + (hintVisible ? '' : ' yd-hidden-hint') + '">' + esc(restPart) + '</span>';
+  // ローマ字の残りヒントと同時に、漢字の上の読み（ひらがな）ヒントも出す（教員の指示、2026-09-09）。
+  const yomiHintEl = ydEl('ydWordYomiHint');
+  if(yomiHintEl) yomiHintEl.classList.toggle('yd-hidden-hint', !hintVisible);
 }
 function ydPopFeedback(text){
   const f = ydEl('ydFeedbackFloat');
@@ -26119,6 +26357,11 @@ const MB_BOSS_DEFEAT_XP = 5;
 // MB_PARTNER_STAT_BONUS_PCT（kotonohaEffStats付近）に集約してある。
 // この値はHARDモードの基準値のまま（教員の指示、2026-09-07：「HARDモードは現行のまま」）。
 const MB_PARTNER_RECRUIT_CHANCE = 0.01;
+// ボスと出会った瞬間（mbStartEnemy／startMbEncounterBattle）に判定する「色違いに遭遇」の
+// 確率（教員の指示、2026-09-09：「そのボスと出会うとき、0.1%の確率で色違いに遭遇。そして
+// そのボス戦に勝ったときには、必ずそのキャラクターが仲間になる（或いはレベルが上がる）」）。
+// EASY／挑戦ゲージ等、MB_PARTNER_RECRUIT_CHANCE側の倍率とは無関係の、常に一定の確率にする。
+const MB_SHINY_ENCOUNTER_CHANCE = 0.001;
 
 // 「冒険に出る」の先で選ぶEASY／HARDモード（mbRun.questMode、2026-09-07〜）。MB_DIFFICULTIES
 // （EASY/NORMAL/HARD/VERYHARD＝挑戦する漢字の難易度）とは別の軸で、ゲーム全体の遊び方を
@@ -26280,10 +26523,33 @@ function mbEnemySpriteSrc(enemyDef, poseKey){
   const key = enemyDef.id + '_' + poseKey;
   return (typeof ENEMY_SPRITES !== 'undefined' && ENEMY_SPRITES[key]) || '';
 }
+// 仲間の姿を表示する場所（ホーム画面のパートナーバッジ／パートナー選択画面）専用。
+// mbCompanionShinyActiveで「色違いを表示中」にしている仲間だけ、色違いスプライト
+// （ENEMY_SPRITES_SHINY、色違い１.pngから切り抜き）に差し替える（教員の指示、2026-09-09）。
+// 今まさに戦っている最中の敵の見た目（mbBattleEnemySpriteSrc参照）とは別軸の切り替え。
+function mbCompanionSpriteSrc(st, enemyDef, poseKey){
+  if(st.mbCompanionShinyActive && st.mbCompanionShinyActive[enemyDef.id]){
+    const key = enemyDef.id + '_' + poseKey;
+    const shinySrc = typeof ENEMY_SPRITES_SHINY !== 'undefined' && ENEMY_SPRITES_SHINY[key];
+    if(shinySrc) return shinySrc;
+  }
+  return mbEnemySpriteSrc(enemyDef, poseKey);
+}
+// 今まさに戦っている敵の見た目。mbBattle.isShinyEncounter（出会った瞬間に0.1%で判定済み、
+// 教員の指示、2026-09-09）が立っているときだけ色違いスプライトにする。戦闘導入演出・行動
+// 選択画面・討伐直後の結果画面まで、その1戦を通してずっと同じ色で見せる。
+function mbBattleEnemySpriteSrc(enemyDef, poseKey){
+  if(mbBattle && mbBattle.enemyDef === enemyDef && mbBattle.isShinyEncounter){
+    const key = enemyDef.id + '_' + poseKey;
+    const shinySrc = typeof ENEMY_SPRITES_SHINY !== 'undefined' && ENEMY_SPRITES_SHINY[key];
+    if(shinySrc) return shinySrc;
+  }
+  return mbEnemySpriteSrc(enemyDef, poseKey);
+}
 // 今のmbCurrentPoseKeyを、今表示されている#mbEnemyIcon（あれば）に反映する。
 function mbApplyPose(){
   const el = document.getElementById('mbEnemyIcon');
-  if(el && mbBattle) el.src = mbEnemySpriteSrc(mbBattle.enemyDef, mbCurrentPoseKey);
+  if(el && mbBattle) el.src = mbBattleEnemySpriteSrc(mbBattle.enemyDef, mbCurrentPoseKey);
 }
 // 行動選択中（プレイヤーの入力待ち）だけ、基本姿勢①→②を0.5秒ずつ繰り返す（教員の指示）。
 // 攻撃・防御・討伐など特定のポーズを見せている間はこのタイマーを止め、ポーズが勝手に
@@ -26576,7 +26842,13 @@ function mbStartEnemy(idx){
   // wrongLog：このボス1体との戦いだけで間違えた問題（{kanji, sentence}）。mbRun.wrongLogは
   // 連戦全体を通した累積なのに対し、こちらはmbStartEnemyのたびに空にする（教員の指示、
   // 2026-09-04：「討伐画面のときに、今回の戦いで間違った漢字の一覧を出す」＝直前の1戦だけに絞る）。
-  mbBattle = { enemyIndex: idx, enemyDef, enemyHp: enemyDef.hp, enemyMaxHp: enemyDef.hp, debuffs: {}, turnBusy: false, wrongLog: [] };
+  // isShinyEncounter：このボスと出会った瞬間に一度だけ判定する「色違いに遭遇」（教員の指示、
+  // 2026-09-09）。連戦（漢字Quest本編）には事前の「遭遇プロンプト」が無く、このmbShowBattleIntro
+  // がそのまま出会いの場面になるため、ここで直接判定する。
+  mbBattle = {
+    enemyIndex: idx, enemyDef, enemyHp: enemyDef.hp, enemyMaxHp: enemyDef.hp, debuffs: {}, turnBusy: false, wrongLog: [],
+    isShinyEncounter: Math.random() < MB_SHINY_ENCOUNTER_CHANCE,
+  };
   mbShowBattleIntro();
 }
 
@@ -26585,7 +26857,10 @@ function mbStartEnemy(idx){
 // 1体だけと単発で戦う。mbRun.isEncounter＝trueにしておき、攻撃力・MP獲得量の2倍ボーナス
 // （mbComputeAttackDamage／mbChallengeSuccess）と、戦闘終了後にresumeFn（元の画面）へ戻る
 // 分岐（mbEnemyDefeated／mbGameOver／mbConfirmQuit）の両方をこのフラグで切り替える。
-function startMbEncounterBattle(enemyDef, resumeFn){
+// isShinyEncounter：こちらは先にrenderBossPrompt（「〜が現れた！」の遭遇画面）があるため、
+// 出会った瞬間の判定はrollKwsMbEncounter側（pendingBossMbShiny）で済ませてあり、ここでは
+// その結果を受け取るだけにする（遭遇画面と実際の戦闘とで色が食い違わないようにするため）。
+function startMbEncounterBattle(enemyDef, resumeFn, isShinyEncounter){
   mbClearTimer();
   mbStopIdleAnim();
   mbEncounterResumeFn = resumeFn;
@@ -26595,7 +26870,10 @@ function startMbEncounterBattle(enemyDef, resumeFn){
     buffs: {}, wrongLog: [], isEncounter: true,
   };
   const idx = MB_ENEMIES.indexOf(enemyDef);
-  mbBattle = { enemyIndex: idx, enemyDef, enemyHp: enemyDef.hp, enemyMaxHp: enemyDef.hp, debuffs: {}, turnBusy: false, wrongLog: [] };
+  mbBattle = {
+    enemyIndex: idx, enemyDef, enemyHp: enemyDef.hp, enemyMaxHp: enemyDef.hp, debuffs: {}, turnBusy: false, wrongLog: [],
+    isShinyEncounter: !!isShinyEncounter,
+  };
   mbShowBattleIntro();
 }
 
@@ -26609,7 +26887,7 @@ function mbShowBattleIntro(){
       ${mbBgmCornerBtnHtml()}
       <div class="mb-intro-flash"></div>
       <div class="mb-intro-vs">VS</div>
-      <img class="mb-intro-icon mb-enemy-sprite-lg" id="mbEnemyIcon" src="${mbEnemySpriteSrc(enemyDef, 'pose1')}" alt="${esc(enemyDef.name)}">
+      <img class="mb-intro-icon mb-enemy-sprite-lg" id="mbEnemyIcon" src="${mbBattleEnemySpriteSrc(enemyDef, 'pose1')}" alt="${esc(enemyDef.name)}">
       <div class="mb-intro-name">${esc(enemyDef.name)}</div>
       ${enemyDef.abilityLabel ? `<div class="mb-intro-ability">${esc(enemyDef.abilityLabel)}</div>` : ''}
       <div class="mb-intro-title">戦闘開始！</div>
@@ -26721,7 +26999,7 @@ function mbRenderBattleScreen(opts){
       <div class="boss-q-card">
         <div class="boss-hp-row kb-hp-top" id="mbEnemyHpRow">${mbHpBarInnerHtml(enemyDef.name, enemyHpFrom, mbBattle.enemyMaxHp, 'boss-hpbar', {fill:'mbEnemyHpFill', num:'mbEnemyHpNum'})}</div>
         <div class="kb-side-boss" style="margin:0 auto 10px; width:112px;">
-          <img class="kb-side-boss-icon mb-enemy-sprite" id="mbEnemyIcon" src="${mbEnemySpriteSrc(enemyDef, mbCurrentPoseKey)}" alt="${esc(enemyDef.name)}">
+          <img class="kb-side-boss-icon mb-enemy-sprite" id="mbEnemyIcon" src="${mbBattleEnemySpriteSrc(enemyDef, mbCurrentPoseKey)}" alt="${esc(enemyDef.name)}">
           <div class="kb-side-boss-name">${esc(enemyDef.name)}</div>
         </div>
         ${enemyDef.abilityLabel ? `<p class="mb-enemy-ability-badge">${esc(enemyDef.abilityLabel)}</p>` : ''}
@@ -27833,7 +28111,13 @@ function mbStageNodeHtml(i, clearedUpTo){
       <div class="mb-stage-node-name">${nameHtml}</div>
     </div>`;
 }
-function mbShowStageMap(clearedUpTo, xpGained, recruitedMsg){
+// 「仲間になった／絆が深まった」のバナー（mb-recruit-banner）の下に、色違い発見だけを
+// さらに派手に見せる（教員の指示、2026-09-09：「派手に大きく」）。討伐画面3箇所
+// （mbShowStageMap／mbGauntletComplete／mbEncounterWin）で共通して使う。
+function mbShinyBannerHtml(shinyMsg){
+  return shinyMsg ? `<p class="mb-shiny-banner">🌈✨ ${esc(shinyMsg)} ✨🌈</p>` : '';
+}
+function mbShowStageMap(clearedUpTo, xpGained, recruitedMsg, shinyMsg){
   mbStopIdleAnim();
   const nodesHtml = MB_ENEMIES.map((e, i) => mbStageNodeHtml(i, clearedUpTo)).join('<div class="mb-stage-path"></div>');
   const nextIndex = clearedUpTo + 1;
@@ -27848,10 +28132,11 @@ function mbShowStageMap(clearedUpTo, xpGained, recruitedMsg){
     screen.innerHTML = `
       <div class="boss-battle-screen">
         <div class="boss-name">🎉 ${esc(defeatedEnemy.name)}を倒した！</div>
-        <img class="mb-defeat-icon" src="${mbEnemySpriteSrc(defeatedEnemy, 'defeat')}" alt="${esc(defeatedEnemy.name)}">
+        <img class="mb-defeat-icon" src="${mbBattleEnemySpriteSrc(defeatedEnemy, 'defeat')}" alt="${esc(defeatedEnemy.name)}">
         <p class="mb-boss-xp-banner">＋${xpGained} ストック経験値 獲得！</p>
         <p class="mb-statup-banner">🔺 最大HPと最大MPが${MB_STATUP_HP}アップした！</p>
         ${recruitedMsg ? `<p class="mb-recruit-banner">${esc(recruitedMsg)}</p>` : ''}
+        ${mbShinyBannerHtml(shinyMsg)}
         <div class="mb-stage-map">${nodesHtml}</div>
         <p style="text-align:center; color:#d8c2ff; margin-top:14px;">HP・MPはそのまま引き継がれます。</p>
         <h3 style="text-align:center; margin-top:18px;">今回の戦いで間違った問題</h3>
@@ -27880,17 +28165,23 @@ const MB_STATUP_HP = 50, MB_STATUP_MP = 50;
 function mbEnemyDefeated(){
   mbStopBgm();
   const enemyDef = mbBattle.enemyDef;
+  // このボスと出会った瞬間（mbStartEnemy／startMbEncounterBattle）に判定済みの「色違いに
+  // 遭遇」フラグ（教員の指示、2026-09-09：「そのボスと出会うとき、0.1%の確率で色違いに遭遇。
+  // そのボス戦に勝ったときには、必ずそのキャラクターが仲間になる（或いはレベルが上がる）」）。
+  const wasShinyEncounter = !!mbBattle.isShinyEncounter;
   const st = loadStats();
   const questXpMult = (mbRun.questMode === 'easy') ? MB_EASY_XP_MULT : 1; // EASYモード：獲得経験値は半分
   const bossXpGained = Math.round(MB_BOSS_DEFEAT_XP * questXpMult);
   st.stockXp = (st.stockXp || 0) + bossXpGained;
   // 仲間になる確率：EASYモードは半分、ホーム画面「漢字Quest」の挑戦ゲージ経由（旧「今日の
-  // 漢字Quest」）はさらに10倍（両方重なる場合もある）。
+  // 漢字Quest」）はさらに10倍（両方重なる場合もある）。色違いに遭遇した戦いだけは、これらの
+  // 倍率に関係なく無条件で成功扱いにする（wasShinyEncounterがtrueならMath.random()を見ない）。
   const easyRecruitMult = (mbRun.questMode === 'easy') ? MB_EASY_RECRUIT_MULT : 1;
   const specialQuestRecruitMult = mbRun.isSpecialQuest ? MB_SPECIAL_QUEST_RECRUIT_MULT : 1;
   const recruitChance = MB_PARTNER_RECRUIT_CHANCE * easyRecruitMult * specialQuestRecruitMult;
   let recruitedMsg = null;
-  if(Math.random() < recruitChance){
+  let shinyMsg = null;
+  if(wasShinyEncounter || Math.random() < recruitChance){
     if(!st.mbCompanions.includes(enemyDef.id)){
       st.mbCompanions.push(enemyDef.id);
       st.mbCompanionLevels[enemyDef.id] = 1;
@@ -27903,25 +28194,29 @@ function mbEnemyDefeated(){
         recruitedMsg = `✨「${enemyDef.name}」との絆が深まった！（Lv.${curLv + 1}）`;
       }
     }
+    if(wasShinyEncounter){
+      st.mbCompanionShiny[enemyDef.id] = true;
+      shinyMsg = `「${enemyDef.name}」の色違いを発見した！！`;
+    }
   }
   saveStats(st);
   // 漢字の書き取り練習中のランダム遭遇（mbRun.isEncounter）は連戦ではなく単発の戦いなので、
   // 次の敵へは進まず専用の結果画面（mbEncounterWin）で終える（教員の指示、2026-09-05）。
   if(mbRun.isEncounter){
-    mbEncounterWin(recruitedMsg);
+    mbEncounterWin(recruitedMsg, shinyMsg);
     return;
   }
   mbRun.playerMaxHp += MB_STATUP_HP;
   mbRun.playerMaxMp += MB_STATUP_MP;
   const nextIndex = mbBattle.enemyIndex + 1;
   if(nextIndex < MB_ENEMIES.length){
-    mbShowStageMap(mbBattle.enemyIndex, bossXpGained, recruitedMsg);
+    mbShowStageMap(mbBattle.enemyIndex, bossXpGained, recruitedMsg, shinyMsg);
   } else {
-    mbGauntletComplete(bossXpGained, recruitedMsg);
+    mbGauntletComplete(bossXpGained, recruitedMsg, shinyMsg);
   }
 }
 
-function mbGauntletComplete(xpGained, recruitedMsg){
+function mbGauntletComplete(xpGained, recruitedMsg, shinyMsg){
   mbClearTimer();
   mbStopIdleAnim();
   const lastEnemy = mbBattle ? mbBattle.enemyDef : MB_ENEMIES[MB_ENEMIES.length - 1];
@@ -27932,10 +28227,11 @@ function mbGauntletComplete(xpGained, recruitedMsg){
     screen.innerHTML = `
       <div class="boss-battle-screen">
         <div class="boss-name">🏆 すべての敵を倒した！</div>
-        <img class="mb-defeat-icon" src="${mbEnemySpriteSrc(lastEnemy, 'defeat')}" alt="${esc(lastEnemy.name)}">
+        <img class="mb-defeat-icon" src="${mbBattleEnemySpriteSrc(lastEnemy, 'defeat')}" alt="${esc(lastEnemy.name)}">
         ${xpGained ? `<p class="mb-boss-xp-banner">＋${xpGained} ストック経験値 獲得！</p>` : ''}
         <p class="mb-statup-banner">🔺 最大HPと最大MPが${MB_STATUP_HP}アップした！</p>
         ${recruitedMsg ? `<p class="mb-recruit-banner">${esc(recruitedMsg)}</p>` : ''}
+        ${mbShinyBannerHtml(shinyMsg)}
         <p style="text-align:center;">お見事！「漢字Quest」を制覇しました。</p>
         <h3 style="text-align:center; margin-top:18px;">間違った問題</h3>
         ${mbWrongListHtml(wrongLog)}
@@ -27981,16 +28277,17 @@ function mbGameOver(){
 // 「ホームへ」ではなく「つづける」1つだけにして、遭遇前にいた画面（元のkws練習）へ戻す
 // （教員の指示、2026-09-05：エンカウントはあくまで書き取り練習の合間の割り込みであり、
 // 漢字Quest本編の連戦・ホーム遷移とは切り離す）。
-function mbEncounterWin(recruitedMsg){
+function mbEncounterWin(recruitedMsg, shinyMsg){
   const enemyDef = mbBattle.enemyDef;
   const wrongLog = mbRun.wrongLog;
   const render = () => {
     screen.innerHTML = `
       <div class="boss-battle-screen">
         <div class="boss-name">🏆 討伐成功！</div>
-        <img class="mb-defeat-icon" src="${mbEnemySpriteSrc(enemyDef, 'defeat')}" alt="${esc(enemyDef.name)}">
+        <img class="mb-defeat-icon" src="${mbBattleEnemySpriteSrc(enemyDef, 'defeat')}" alt="${esc(enemyDef.name)}">
         <p class="mb-boss-xp-banner">＋${MB_BOSS_DEFEAT_XP} ストック経験値 獲得！</p>
         ${recruitedMsg ? `<p class="mb-recruit-banner">${esc(recruitedMsg)}</p>` : ''}
+        ${mbShinyBannerHtml(shinyMsg)}
         <p style="text-align:center;">「${esc(enemyDef.name)}」を討伐した！</p>
         <h3 style="text-align:center; margin-top:18px;">間違った問題</h3>
         ${mbWrongListHtml(wrongLog)}
