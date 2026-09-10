@@ -4005,7 +4005,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.10</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.21</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -4025,6 +4025,7 @@
 <script src="kotonoha_evolution_images.js"></script>
 <script src="enemy_sprites_data.js"></script>
 <script src="enemy_sprites_shiny_data.js"></script>
+<script src="ura_boss_sprites_data.js"></script>
 <script src="kanji_quest_title_data.js"></script>
 <script src="mb_action_button_images.js"></script>
 <script src="menu_title_images.js"></script>
@@ -5705,19 +5706,32 @@ function kotonohaStatBonusText(stat){
 }
 // 漢字バトルで仲間にしたボスを「パートナー」に設定すると、通常のボス戦のステータスに
 // ％ボーナスがかかる（教員の指示、2026-09-04）。称号ボーナス（加算）とは別枠の乗算ボーナス
-// にする。idはMB_ENEMIES（下のセクションで定義）のid（me01〜me04）と対応させてある。
-// ここに書いた数値はLv.1時点の値（＝1レベルあたりの上がり幅でもある）。実際の効果は
-// レベル倍（mbPartnerStatBonusPct参照）。
+// にする。idはMB_ALL_RECRUITABLE（下のセクションで定義）のid（me01〜me04・ub01〜ub04）と
+// 対応させてある。各stat値は{base, perLevel}：baseはLv.1時点の％、perLevelは1レベル
+// 上がるごとの増加％（教員の指示、2026-09-09：裏ボスは「防御力＋1%＆運＋3%、レベルアップで
+// 1%ずつアップ」のように、初期値と上昇幅が別の数字になるケースがあるため、この2つを分けて
+// 持てるようにした）。実際の値はmbPartnerStatValueAtLv参照＝base + (Lv-1)×perLevel。
+// 既存4体（me01〜me04）はbase=perLevelが同じ数値なので、見た目上は今までどおり「Lv.1で+1%、
+// 1レベルごとに+1%」のまま変わらない。
 const MB_PARTNER_STAT_BONUS_PCT = {
-  me01: { spd: 1 },         // 炎狼：素早さ+1%/Lv
-  me02: { def: 1 },         // 鉄鋼兵：防御力+1%/Lv
-  me03: { luck: 1, spd: 1 },// 闇の魔術師：運・素早さ+1%/Lv
-  me04: { hp: 1, atk: 1 },  // 言霊の番人：HP・攻撃力+1%/Lv
+  me01: { spd: {base:1, perLevel:1} },                                    // 炎狼：素早さ+1%/Lv
+  me02: { def: {base:1, perLevel:1} },                                    // 鉄鋼兵：防御力+1%/Lv
+  me03: { luck: {base:1, perLevel:1}, spd: {base:1, perLevel:1} },        // 闇の魔術師：運・素早さ+1%/Lv
+  me04: { hp: {base:1, perLevel:1}, atk: {base:1, perLevel:1} },          // 言霊の番人：HP・攻撃力+1%/Lv
+  // 裏ボス4体分（教員の指示、2026-09-09〜、URA_BOSS_ENEMIES参照）。
+  ub01: { def: {base:1, perLevel:1}, luck: {base:3, perLevel:1} },        // 猫王：防御力+1%・運+3%（Lv.1）、以後1%ずつ上昇
+  ub02: { atk: {base:1, perLevel:1}, hp: {base:2, perLevel:1} },          // 大熊猫：攻撃力+1%・HP+2%（Lv.1）、以後1%ずつ上昇
+  ub03: { atk: {base:2, perLevel:1} },                                    // 獅子王：攻撃力+2%（Lv.1）、以後1%ずつ上昇
+  ub04: { hp: {base:1, perLevel:1}, spd: {base:3, perLevel:1} },          // 猫鮫王：HP+1%・素早さ+3%（Lv.1）、以後1%ずつ上昇
 };
 // パートナーのレベル上限（教員の指示、2026-09-04：「最大レベルは5とします」）。
 const MB_PARTNER_MAX_LEVEL = 5;
 function mbCompanionLevel(st, id){
   return (st.mbCompanionLevels && st.mbCompanionLevels[id]) || 1;
+}
+// MB_PARTNER_STAT_BONUS_PCTの{base, perLevel}から、そのレベルでの実際の％を計算する。
+function mbPartnerStatValueAtLv(entry, lv){
+  return entry.base + (lv - 1) * entry.perLevel;
 }
 function mbPartnerStatBonusPct(st){
   const id = st.mbActivePartner;
@@ -5725,22 +5739,22 @@ function mbPartnerStatBonusPct(st){
   if(!base) return {};
   const lv = mbCompanionLevel(st, id);
   const out = {};
-  Object.keys(base).forEach(k => { out[k] = base[k] * lv; });
+  Object.keys(base).forEach(k => { out[k] = mbPartnerStatValueAtLv(base[k], lv); });
   return out;
 }
 // パートナー1体ぶんの効果を短い文で見せる（kotonohaStatBonusTextの％版、ホーム画面のバッジ・
-// パートナー選択画面の両方で使う）。レベル倍した実際の数値を表示する。
+// パートナー選択画面の両方で使う）。そのレベルでの実際の数値を表示する。
 function mbPartnerEffectText(st, id){
   const base = MB_PARTNER_STAT_BONUS_PCT[id] || {};
   const lv = mbCompanionLevel(st, id);
-  return Object.keys(base).map(k => `${STAT_LABEL_SHORT[k]}+${base[k] * lv}%`).join("　");
+  return Object.keys(base).map(k => `${STAT_LABEL_SHORT[k]}+${mbPartnerStatValueAtLv(base[k], lv)}%`).join("　");
 }
 // ホーム画面の「ことのは」カード右上に、今のパートナーの姿を小さく表示する（教員の指示、
-// 2026-09-04）。仲間が1体もいなければ何も表示しない。MB_ENEMIES/mbEnemySpriteSrcは
+// 2026-09-04）。仲間が1体もいなければ何も表示しない。MB_ALL_RECRUITABLE/mbEnemySpriteSrcは
 // 下の「漢字バトル」セクションで定義されているが、関数宣言の巻き上げにより問題なく参照できる。
 function mbPartnerBadgeHtml(st){
   if(!st.mbCompanions || !st.mbCompanions.length) return '';
-  const partner = MB_ENEMIES.find(e => e.id === st.mbActivePartner) || MB_ENEMIES.find(e => e.id === st.mbCompanions[0]);
+  const partner = MB_ALL_RECRUITABLE.find(e => e.id === st.mbActivePartner) || MB_ALL_RECRUITABLE.find(e => e.id === st.mbCompanions[0]);
   if(!partner) return '';
   const lv = mbCompanionLevel(st, partner.id);
   return `
@@ -5753,7 +5767,7 @@ function mbPartnerBadgeHtml(st){
 // と同じ「.card menu-card」の並びに揃える。
 function mbShowPartnerPicker(){
   const st = loadStats();
-  const companions = st.mbCompanions.map(id => MB_ENEMIES.find(e => e.id === id)).filter(Boolean);
+  const companions = st.mbCompanions.map(id => MB_ALL_RECRUITABLE.find(e => e.id === id)).filter(Boolean);
   let html = `<div class="card">
       <h3 class="section">🤝 どの仲間をパートナーにしますか？</h3>
       <p class="note">パートナーに設定した仲間の効果は、通常のボス戦にずっと反映されます。</p>
@@ -6861,6 +6875,30 @@ function showHome(){
   mbReviewActive = false;
   mbReviewQueue = null;
   mbReviewReturnFn = null;
+  mbReviewGateMode = false;
+  mbReviewCurrentEntry = null;
+  // 漢字Quest（連戦・エンカウント・裏ボス）の戦いを、ホーム画面に来るなどして中断した場合は
+  // その挑戦を没収として扱う（教員の指示、2026-09-09：「ボスの挑戦を、ホーム画面に行くなど
+  // して中断することがあった場合には、そのバトルは没収として扱ってください」）。「やめる」
+  // ボタン（mbConfirmQuit）を経由しない離脱（画面上部の常設「ホームへ」ボタン等）も含めて、
+  // showHomeを呼ぶ経路はすべてここで一括して後始末する＝褒賞（仲間になる／経験値の確定）は
+  // 一切与えない。mbEnemyDefeatedを実際に通らない限りst側の報酬は元々確定していないため、
+  // ここでの後始末は進行中の状態（タイマー・BGM・演出）を止めるだけで安全に行える。
+  mbClearTimer();
+  mbStopIdleAnim();
+  mbStopBgm();
+  mbRun = null; mbBattle = null; mbChallenge = null; mbPendingAction = null; mbUraCarry = null;
+  // 「〜が現れた！」の遭遇プロンプト（renderBossPrompt、漢字Quest中のランダム遭遇分）も、
+  // 選ばずに離れるとbossPromptActiveが立ったままになり、以後いっさい新しい遭遇が起きなくなる
+  // 不具合があったため、同じ理由でここでリセットする。
+  if(typeof stopBossPromptIdleAnim === 'function') stopBossPromptIdleAnim();
+  bossPromptActive = false;
+  pendingBoss = null;
+  pendingBossIsMb = false;
+  pendingBossMbShiny = false;
+  pendingBossAllGenre = false;
+  pendingBossHyakunin = false;
+  bossPromptResumeFn = null;
   const kbOverlay = document.getElementById('kbAtkOverlay'); // 演出の途中で離れた場合、残った全画面オーバーレイを消す
   if(kbOverlay) kbOverlay.remove();
   const st = loadStats();
@@ -11931,6 +11969,15 @@ function cmPickRoundQuestions(){
     result[i] = newPicks[np] || cm.prevQuestions[i]; // 万一足りなければ前回と同じ問題で埋める
     np++;
   }
+  // 奇数問目・偶数問目という並びのまま次ラウンドへ引き継ぐと、同じ問題が常に同じ位置に
+  // 固定され続けてしまう（教員の指摘、2026-09-10：3回目の実施で全く同じ問題が出る）。
+  // 選んだ後に並び順をシャッフルすることで、次ラウンドで「前回と同じ位置」に残る問題が
+  // 毎回入れ替わるようにする（seed固定なので同じトラックを選んだ人どうしは同じ結果になる）。
+  const shuffleRand = cmSeededRand(`${seed}|shuffle`);
+  for(let i = result.length - 1; i > 0; i--){
+    const j = Math.floor(shuffleRand() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
   return result;
 }
 function cmBeginRound(roundNum, track){
@@ -13458,7 +13505,8 @@ function rollKwsMbEncounter(resumeFn){
   pendingBossHyakunin = false;
   pendingBossIsMb = true;
   // このボスと「出会った」瞬間＝ここで色違い遭遇を判定する（教員の指示、2026-09-09）。
-  pendingBossMbShiny = Math.random() < MB_SHINY_ENCOUNTER_CHANCE;
+  // 色違いスプライトが無いボスでは判定自体を行わない（mbHasShinySprite参照）。
+  pendingBossMbShiny = mbHasShinySprite(pendingBoss) && Math.random() < MB_SHINY_ENCOUNTER_CHANCE;
   bossPromptResumeFn = resumeFn;
   bossPromptActive = true;
   bossPromptSelection = "no";
@@ -15589,6 +15637,11 @@ function bootApp(){
   /* ボスの「色違い」管理者プレビュー（URLに ?devtool=shiny を付けたときだけ現れる、
      通常のプレイでは一切露出しない隠しルート、2026-09-09〜）。showShinyDevTool参照。 */
   if(new URLSearchParams(location.search).get('devtool') === 'shiny'){ showShinyDevTool(); return; }
+  /* 裏ボス（4体制覇後の「次に」の先）を、連戦を4回勝ち抜かなくてもすぐ試せるショートカット
+     （URLに ?devtool=uraboss を付けたときだけ、通常のプレイでは一切出ない隠しルート、
+     2026-09-09〜）。「裏ボスが現れた！」の選択画面から、そのまま実際の戦闘に進める
+     （仲間になる確率・色違い遭遇もすべて本番と同じ本物の戦闘）。 */
+  if(new URLSearchParams(location.search).get('devtool') === 'uraboss'){ mbUraCarry = {questMode:'hard', isSpecialQuest:false}; mbShowUraBossChoice(); return; }
   if(resumeBossBattleIfSaved()) return;
   showPrologue(showHome);
 }
@@ -26362,6 +26415,15 @@ const MB_PARTNER_RECRUIT_CHANCE = 0.01;
 // そのボス戦に勝ったときには、必ずそのキャラクターが仲間になる（或いはレベルが上がる）」）。
 // EASY／挑戦ゲージ等、MB_PARTNER_RECRUIT_CHANCE側の倍率とは無関係の、常に一定の確率にする。
 const MB_SHINY_ENCOUNTER_CHANCE = 0.001;
+// このボスに色違いスプライトが実在するときだけ「色違いに遭遇」判定そのものを有効にする
+// （教員の指示、2026-09-10：「裏ボスは、まだ色違いを設定していないはず」への対応）。
+// 判定せずに素通しすると、色違い画像が無いボス（現状は裏ボス4体）でも「発見した！！」の
+// 演出と仲間の色違いフラグ（st.mbCompanionShiny）だけが立ってしまい、パートナー選択画面の
+// 色違いサムネイルが空表示（壊れた画像）になる不具合につながるため。将来そのボスの色違い
+// スプライトを追加すれば、この判定だけで自動的に有効になる。
+function mbHasShinySprite(enemyDef){
+  return typeof ENEMY_SPRITES_SHINY !== 'undefined' && !!ENEMY_SPRITES_SHINY[enemyDef.id + '_pose1'];
+}
 
 // 「冒険に出る」の先で選ぶEASY／HARDモード（mbRun.questMode、2026-09-07〜）。MB_DIFFICULTIES
 // （EASY/NORMAL/HARD/VERYHARD＝挑戦する漢字の難易度）とは別の軸で、ゲーム全体の遊び方を
@@ -26501,6 +26563,29 @@ const MB_ENEMIES = [
     abilityLabel:'✨ まれに攻撃の代わりに自らのHPを回復する', taunt:'まだまだ終わらぬ' },
 ];
 
+// 「裏ボス」4体（教員の指示、2026-09-09：「漢字Questのボスを4体倒したら（言霊の番人）、
+// 一旦ALL CLEARとし、『次に』ボタンで裏ボスが現れる」）。連戦（MB_ENEMIES、4体固定の進捗
+// ステージ）とは別枠で、挑戦するたびにこの中からランダムで1体だけ選んで単発で戦う
+// （mbStartUraBossChallenge参照）。仲間になる確率・レベル制度・色違い遭遇は通常ボスと
+// 完全に共通の仕組みをそのまま使う。
+// 特殊能力はそれぞれ1種類ずつ（教員の指示）：evadePct＝まれにこちらの攻撃を回避する
+// （mbEvadeCheck）、heavyHit＝まれに強烈な一撃を放つ（mbEnemyTurn）、selfHeal／mpDrainは
+// MB_ENEMIESと同じ仕組みを流用。数値は初期値の目安で、「裏ボス_ステータス調整ツール.html」の
+// バーで調整してから、ここへそのまま貼り直せる。
+const URA_BOSS_ENEMIES = [
+  { id:'ub01', name:'猫王', icon:'🐱', hp:1000, atkMin:35, atkMax:45, evadePct:0.25,
+    abilityLabel:'💨 まれにこちらの攻撃を素早くかわす', taunt:'その爪、届かぬ' },
+  { id:'ub02', name:'大熊猫', icon:'🐼', hp:1200, atkMin:35, atkMax:45, selfHeal:{chance:0.35, min:40, max:250},
+    abilityLabel:'✨ まれに攻撃の代わりに自らのHPを回復する', taunt:'まだまだ竹は尽きぬ' },
+  { id:'ub03', name:'獅子王', icon:'🦁', hp:1100, atkMin:35, atkMax:45, heavyHit:{chance:0.3, mult:2.5},
+    abilityLabel:'💢 まれに強烈な一撃を放ってくる', taunt:'我が牙、受けてみよ' },
+  { id:'ub04', name:'猫鮫王', icon:'🦈', hp:950, atkMin:35, atkMax:40, mpDrain:{chance:0.4, min:15, max:30},
+    abilityLabel:'🔮 まれに攻撃の代わりにMPを吸い取ってくる', taunt:'深海へ引きずり込んでやろう' },
+];
+// パートナー選択画面・ホームバッジなど「仲間」を扱う場所は通常4体＋裏ボス4体の両方をidから
+// 引けるようにこちらを使う（MB_ENEMIESは連戦の進捗ステージ専用のまま変更しない）。
+const MB_ALL_RECRUITABLE = MB_ENEMIES.concat(URA_BOSS_ENEMIES);
+
 const MB_PLAYER_MAX_HP = 150;
 const MB_PLAYER_MAX_MP = 150;
 // 漢字の書き取り練習中のランダム遭遇だけのボーナス（教員の指示、2026-09-05：「エンカウントの
@@ -26521,7 +26606,9 @@ let mbCurrentPoseKey = 'pose1'; // 'pose1'|'pose2'|'attack'|'defense'|'defeat'
 let mbIdleTimer = null;         // 基本姿勢①②を0.5秒ごとに切り替えるタイマー（行動選択中だけ動かす）
 function mbEnemySpriteSrc(enemyDef, poseKey){
   const key = enemyDef.id + '_' + poseKey;
-  return (typeof ENEMY_SPRITES !== 'undefined' && ENEMY_SPRITES[key]) || '';
+  return (typeof ENEMY_SPRITES !== 'undefined' && ENEMY_SPRITES[key])
+      || (typeof URA_BOSS_SPRITES !== 'undefined' && URA_BOSS_SPRITES[key])
+      || '';
 }
 // 仲間の姿を表示する場所（ホーム画面のパートナーバッジ／パートナー選択画面）専用。
 // mbCompanionShinyActiveで「色違いを表示中」にしている仲間だけ、色違いスプライト
@@ -26847,7 +26934,7 @@ function mbStartEnemy(idx){
   // がそのまま出会いの場面になるため、ここで直接判定する。
   mbBattle = {
     enemyIndex: idx, enemyDef, enemyHp: enemyDef.hp, enemyMaxHp: enemyDef.hp, debuffs: {}, turnBusy: false, wrongLog: [],
-    isShinyEncounter: Math.random() < MB_SHINY_ENCOUNTER_CHANCE,
+    isShinyEncounter: mbHasShinySprite(enemyDef) && Math.random() < MB_SHINY_ENCOUNTER_CHANCE,
   };
   mbShowBattleIntro();
 }
@@ -26995,7 +27082,7 @@ function mbRenderBattleScreen(opts){
     <div class="boss-battle-screen" id="mbScreen" style="position:relative;">
       <button class="btn secondary kb-quit-corner" onclick="mbConfirmQuit()">やめる</button>
       ${mbBgmCornerBtnHtml()}
-      <p style="text-align:center; color:#9a8ec2; font-size:.8rem; margin:0 0 4px;">${mbBattle.enemyIndex + 1}体目 / 全${MB_ENEMIES.length}体</p>
+      <p style="text-align:center; color:#9a8ec2; font-size:.8rem; margin:0 0 4px;">${mbBattle.isUraBoss ? '裏ボス' : `${mbBattle.enemyIndex + 1}体目 / 全${MB_ENEMIES.length}体`}</p>
       <div class="boss-q-card">
         <div class="boss-hp-row kb-hp-top" id="mbEnemyHpRow">${mbHpBarInnerHtml(enemyDef.name, enemyHpFrom, mbBattle.enemyMaxHp, 'boss-hpbar', {fill:'mbEnemyHpFill', num:'mbEnemyHpNum'})}</div>
         <div class="kb-side-boss" style="margin:0 auto 10px; width:112px;">
@@ -27451,8 +27538,17 @@ function mbDefenseNote(){
 function mbDefenseNoteHtml(){
   return mbBattle.enemyDef.dmgTakenMult ? '<br><span class="mb-ability-note">🛡️ 硬い装甲でダメージが軽減された！</span>' : '';
 }
+// 猫王のevadePct（教員の指示、2026-09-09：「プレイヤーの攻撃を回避」）。プレイヤーが攻撃を
+// 当てる直前に判定し、成功していればダメージを一切与えない（MP・経験値・レベルアップ判定
+// 自体は「正解した」ことに対する報酬なので、通常どおり獲得できる＝ここでは攻撃の命中だけを扱う）。
+function mbEvadeCheck(){
+  return !!(mbBattle.enemyDef.evadePct && Math.random() < mbBattle.enemyDef.evadePct);
+}
 function mbApplySpellEffect(category, spell, critWon){
   if(category === 'attack'){
+    if(mbEvadeCheck()){
+      return `${esc(mbBattle.enemyDef.name)}に素早くかわされた！ ダメージを与えられなかった…`;
+    }
     const dmg = mbComputeAttackDamage(spell.power, !!critWon);
     mbBattle.enemyHp = Math.max(0, mbBattle.enemyHp - dmg);
     return `${esc(mbBattle.enemyDef.name)}に${dmg}のダメージ！${critWon ? '（会心の一撃！）' : ''}${mbDefenseNote()}`;
@@ -27483,6 +27579,9 @@ const MB_IMPACT_STYLES = {
   mpdrain:   { cls:'mb-ov-mpdrain', pulse:'mb-impact-mpdrain' },
   enemyheal: { cls:'mb-ov-enemyheal', pulse:'mb-impact-enemyheal' },
   miss:      { cls:'mb-ov-miss',    pulse:'mb-impact-miss' },
+  // evade＝猫王のevadePct発動時（プレイヤーの攻撃が回避された）。「外れた」という結果は
+  // missと同じ灰色でよいため、既存のCSSクラスをそのまま流用する（教員の指示、2026-09-09）。
+  evade:     { cls:'mb-ov-miss',    pulse:'mb-impact-miss' },
 };
 // xpGainedを渡すと、獲得したストック経験値も大きく表示する（教員の指示、2026-09-04：
 // 「獲得したときにプレイヤーが気付くように、明確に表示」。「漢字マスターの道」の
@@ -27875,18 +27974,26 @@ function mbChallengeSuccess(){
     }
   }
   // 強烈な一撃：通常攻撃のダメージも既存の会心（MB_CRIT_MULTIPLIER）と同じ3倍にする
-  // （mbComputeAttackDamageのisCrit引数をそのまま流用）。
-  const dmg = mbComputeAttackDamage(MB_NORMAL_ATTACK_POWER[diff.id] || MB_NORMAL_ATTACK_POWER.easy, isSwiftHit);
-  mbBattle.enemyHp = Math.max(0, mbBattle.enemyHp - dmg);
+  // （mbComputeAttackDamageのisCrit引数をそのまま流用）。猫王のevadePct（教員の指示、
+  // 2026-09-09）が発動したときは、正解の報酬（MP・経験値・レベル）はそのままに、攻撃だけ
+  // かわされたことにする（mbApplySpellEffectの魔法攻撃と同じ扱い）。
+  const evaded = mbEvadeCheck();
+  const dmg = evaded ? 0 : mbComputeAttackDamage(MB_NORMAL_ATTACK_POWER[diff.id] || MB_NORMAL_ATTACK_POWER.easy, isSwiftHit);
+  if(!evaded) mbBattle.enemyHp = Math.max(0, mbBattle.enemyHp - dmg);
   const eventXpHtml = kwsEventNow ? `　<span class="kb-xp-inline">＋2 イベント経験値</span>` : '';
   const attackLabel = isSwiftHit ? '💥 強烈な一撃！' : '🗡️ 通常攻撃！';
-  const msg = `○ 正解！ 漢字の力が魔力に変わった！ ＋${mpGain} MP　<span class="kb-xp-inline">＋${xpGained} ストック経験値</span>${eventXpHtml}<br>${attackLabel} ${esc(mbBattle.enemyDef.name)}に${dmg}のダメージ！${mbDefenseNoteHtml()}`;
+  const dmgText = evaded
+    ? `${esc(mbBattle.enemyDef.name)}に素早くかわされた！`
+    : `${esc(mbBattle.enemyDef.name)}に${dmg}のダメージ！${mbDefenseNoteHtml()}`;
+  const msg = `○ 正解！ 漢字の力が魔力に変わった！ ＋${mpGain} MP　<span class="kb-xp-inline">＋${xpGained} ストック経験値</span>${eventXpHtml}<br>${attackLabel} ${dmgText}`;
   const enemyDefeated = mbBattle.enemyHp <= 0;
   // プレイヤーが攻撃したときは防御姿勢、それで倒したときは討伐姿勢を見せる（教員の指示、2026-09-04）。
   mbCurrentPoseKey = enemyDefeated ? 'defeat' : 'defense';
   mbRenderBattleScreen({ msg });
   mbTriggerSlashFx();
-  mbTriggerImpact('hit', attackLabel, `${esc(mbBattle.enemyDef.name)}に${dmg}のダメージ！ ＋${mpGain} MP${mbDefenseNote()}`, xpGained);
+  mbTriggerImpact(evaded ? 'evade' : 'hit', attackLabel,
+    evaded ? `${esc(mbBattle.enemyDef.name)}にかわされた！ ＋${mpGain} MP` : `${esc(mbBattle.enemyDef.name)}に${dmg}のダメージ！ ＋${mpGain} MP${mbDefenseNote()}`,
+    xpGained);
   if(kwsEventNow) kwsShowEventXpFx(2);
 
   if(enemyDefeated){
@@ -27937,11 +28044,18 @@ function mbEnemyTurn(){
     let dmg = mbRand(enemyDef.atkMin, enemyDef.atkMax);
     if(mbBattle.debuffs.enemySlow > 0) dmg = Math.round(dmg * MB_STATUS.enemySlow.enemyDmgMult);
     if(mbRun.buffs.defUp > 0) dmg = Math.round(dmg * MB_STATUS.defUp.dmgTakenMult);
+    // 獅子王のheavyHit（教員の指示、2026-09-09：「強力な一撃を放つ」）。通常攻撃の代わりでは
+    // なく、通常攻撃そのものの威力がまれに跳ね上がる特殊能力にする（mpDrain/selfHealは
+    // 「攻撃の代わりに」発動するが、heavyHitだけは毎回の攻撃判定に上乗せする形）。
+    const isHeavyHit = !!(enemyDef.heavyHit && Math.random() < enemyDef.heavyHit.chance);
+    if(isHeavyHit) dmg = Math.round(dmg * enemyDef.heavyHit.mult);
     dmg = Math.max(0, dmg);
     mbRun.playerHp = Math.max(0, mbRun.playerHp - dmg);
-    msg = `${esc(enemyDef.name)}の攻撃！ あなたに${dmg}のダメージ！`;
+    msg = isHeavyHit
+      ? `💢 特殊能力発動！ ${esc(enemyDef.name)}の強烈な一撃！ あなたに${dmg}のダメージ！`
+      : `${esc(enemyDef.name)}の攻撃！ あなたに${dmg}のダメージ！`;
     impactKind = 'hurt';
-    impactTitle = `💥 ${enemyDef.name}の攻撃！`;
+    impactTitle = isHeavyHit ? `💢 ${enemyDef.name}の強烈な一撃！` : `💥 ${enemyDef.name}の攻撃！`;
     // 相手が攻撃するときは攻撃姿勢を見せる（教員の指示、2026-09-04）。
     mbCurrentPoseKey = 'attack';
   }
@@ -27996,6 +28110,14 @@ let mbReviewQueue = null;      // [{id, mode}, ...]（残り。先頭から消�
 let mbReviewIndex = 0;         // 今何問目か（表示用、1始まり）
 let mbReviewTotal = 0;
 let mbReviewReturnFn = null;   // 復習を終える／中断したときに戻る「元の画面」を再描画する関数
+// 「強敵に挑戦」解禁のための復習（教員の指示、2026-09-10）：gateMode中は、書いて○を
+// もらうまで「次の問題へ」で先に進めない＝答えを見ただけ／不正解のまま進むことができない。
+// mbReviewCurrentEntryは今読み込んでいる{id,mode}（不正解時にキューの最後へ積み直すため）。
+// mbUraGateReviewDoneは、gateModeの復習をキューが空になるまで正真正銘やり切ったときだけtrueに
+// なる（mbReviewShowComplete参照）。mbGauntletCompleteの最初で毎回falseにリセットする。
+let mbReviewGateMode = false;
+let mbReviewCurrentEntry = null;
+let mbUraGateReviewDone = false;
 // onclick属性（文字列）にJSのクロージャを直接渡せないため、押された瞬間に使うwrongLog・
 // 戻り先を一時的にここへ置く。mbReviewButtonRowHtmlが描画のたびに必ず上書きするので、
 // 古い値が残って誤作動することはない。
@@ -28015,10 +28137,27 @@ function mbReviewButtonClicked(){
   const log = mbReviewPendingLog, fn = mbReviewPendingReturnFn;
   mbReviewPendingLog = null;
   mbReviewPendingReturnFn = null;
-  mbStartReview(log, fn);
+  mbStartReview(log, fn, false);
+}
+// ALL CLEAR画面専用：「強敵に挑戦」を解禁するための復習ボタン（教員の指示、2026-09-10）。
+// 見た目・仕組みはmbReviewButtonRowHtmlと同じ「復習する」だが、gateMode=trueでmbStartReviewを
+// 呼ぶことで、全問「書いて○」を取り切るまで解禁されない厳格な復習にする。
+function mbUraGateReviewButtonRowHtml(wrongLog, returnFn){
+  if(!wrongLog || !wrongLog.length) return '';
+  mbReviewPendingLog = wrongLog;
+  mbReviewPendingReturnFn = returnFn;
+  return `<div class="btn-row" style="justify-content:center; margin-top:10px;">
+    <button class="btn secondary" onclick="mbUraGateReviewButtonClicked()">📝 復習する（全問正解で強敵に挑戦できます）</button>
+  </div>`;
+}
+function mbUraGateReviewButtonClicked(){
+  const log = mbReviewPendingLog, fn = mbReviewPendingReturnFn;
+  mbReviewPendingLog = null;
+  mbReviewPendingReturnFn = null;
+  mbStartReview(log, fn, true);
 }
 
-function mbStartReview(wrongLog, returnFn){
+function mbStartReview(wrongLog, returnFn, gateMode){
   // 同じ問題を複数回間違えていても、復習では1問1回にまとめる。id・modeを持たない
   // （古い形式の）ログはこの機能追加前のものではあり得ないが、念のため保険として除外する。
   const seen = new Set();
@@ -28030,8 +28169,13 @@ function mbStartReview(wrongLog, returnFn){
     seen.add(key);
     queue.push({ id: entry.id, mode: entry.mode });
   });
-  if(!queue.length){ if(returnFn) returnFn(); return; }
+  if(!queue.length){
+    if(gateMode) mbUraGateReviewDone = true; // 復習すべき問題が無ければ即クリア扱い
+    if(returnFn) returnFn();
+    return;
+  }
   mbReviewActive = true;
+  mbReviewGateMode = !!gateMode;
   mbReviewQueue = queue;
   mbReviewTotal = queue.length;
   mbReviewIndex = 0;
@@ -28040,9 +28184,10 @@ function mbStartReview(wrongLog, returnFn){
 }
 
 function mbReviewTopBarHtml(){
+  const label = mbReviewGateMode ? '🗡️ 強敵への道' : '📝 復習';
   return `
     <div class="mb-review-topbar">
-      <span class="mb-review-progress">📝 復習：${mbReviewIndex} / ${mbReviewTotal}問目</span>
+      <span class="mb-review-progress">${label}：${mbReviewIndex} / ${mbReviewTotal}問目</span>
       <button class="btn secondary mb-review-quit-btn" onclick="mbReviewConfirmQuit()">⚔️ 漢字Questに戻る</button>
     </div>`;
 }
@@ -28052,7 +28197,9 @@ function mbReviewLoadNext(){
     mbReviewShowComplete();
     return;
   }
-  const { id, mode } = mbReviewQueue.shift();
+  const entry = mbReviewQueue.shift();
+  mbReviewCurrentEntry = entry;
+  const { id, mode } = entry;
   mbReviewIndex++;
   kwsEnsureData(mode);
   screen.innerHTML = kwsScreenHtml({
@@ -28065,8 +28212,15 @@ function mbReviewLoadNext(){
   kwsUpdateResultLogDisplay();
 }
 // kwsHandleJudgeButtonClickの「次の問題へ」から呼ばれる（mbReviewActive中はkwsLoadRandomKanji
-// の代わりにこちらを使う）。
+// の代わりにこちらを使う）。gateMode中、書いて○（kwsJudgedPass）を取れていなければ、答えを
+// 見ただけ／不正解のまま先へは進めない＝この問題をキューの最後に積み直し、後でもう一度
+// （読み込み直しで書き直しのチャンスがリセットされた状態で）出す（教員の指示、2026-09-10：
+// 「『書かなくても進む』方法がないように配慮する」）。
 function mbReviewAdvance(){
+  if(mbReviewGateMode && !kwsJudgedPass && mbReviewCurrentEntry){
+    mbReviewQueue.push(mbReviewCurrentEntry);
+    mbReviewTotal++; // 「◯/◯問目」の分母も1問増やし、表示上後退して見えないようにする
+  }
   mbReviewLoadNext();
 }
 
@@ -28075,22 +28229,32 @@ function mbReviewConfirmQuit(){
 }
 function mbReviewEnd(){
   mbReviewActive = false;
+  mbReviewGateMode = false;
+  mbReviewCurrentEntry = null;
   mbReviewQueue = null;
   const fn = mbReviewReturnFn;
   mbReviewReturnFn = null;
   if(fn) fn();
 }
 function mbReviewShowComplete(){
+  // ここへ来るのはmbReviewQueueが本当に空になったとき＝gateMode中なら全問「書いて○」を
+  // 取り切ったということなので、ここで初めて「強敵に挑戦」を解禁する。
+  if(mbReviewGateMode) mbUraGateReviewDone = true;
+  const title = mbReviewGateMode ? '🎉 全問正解！' : '🎉 復習おつかれさま！';
+  const desc = mbReviewGateMode
+    ? '間違えた問題をすべて書いて○にできました。強敵への道が開けたようです。'
+    : `間違えた${mbReviewTotal}問、すべてに挑戦しました。`;
   screen.innerHTML = `
     <div class="boss-battle-screen">
-      <div class="boss-name">🎉 復習おつかれさま！</div>
-      <p style="text-align:center;">間違えた${mbReviewTotal}問、すべてに挑戦しました。</p>
+      <div class="boss-name">${title}</div>
+      <p style="text-align:center;">${desc}</p>
       <div class="btn-row" style="justify-content:center;">
         <button class="btn primary tap-advance-btn" onclick="mbReviewEnd()">⚔️ 漢字Questに戻る</button>
       </div>
     </div>`;
   mbReviewActive = false;
   mbReviewQueue = null;
+  mbReviewCurrentEntry = null;
 }
 
 // 最終ボスまでの道のりを地図のように表示し、プレイヤーが1マスずつ進んでいく様子を見せる
@@ -28200,6 +28364,12 @@ function mbEnemyDefeated(){
     }
   }
   saveStats(st);
+  // 裏ボス（mbBattle.isUraBoss）は連戦ではなく単発の戦いなので、次の敵へは進まず専用の
+  // 結果画面（mbUraBossResult）で終える（教員の指示、2026-09-09）。
+  if(mbBattle.isUraBoss){
+    mbUraBossResult(bossXpGained, recruitedMsg, shinyMsg);
+    return;
+  }
   // 漢字の書き取り練習中のランダム遭遇（mbRun.isEncounter）は連戦ではなく単発の戦いなので、
   // 次の敵へは進まず専用の結果画面（mbEncounterWin）で終える（教員の指示、2026-09-05）。
   if(mbRun.isEncounter){
@@ -28216,6 +28386,13 @@ function mbEnemyDefeated(){
   }
 }
 
+// 4体を制覇したときだけ引き継ぐ「挑戦ゲージ10倍」等のフラグ（教員の指示、2026-09-09：
+// 「裏ボス」に挑むときも仲間になる確率は今までのボスと同じ＝ゲージ経由の10倍ボーナスも
+// 含めて引き継ぐ）。mbGauntletCompleteの最後でmbRunをnullにする前にここへ退避しておき、
+// 全問「書いて○」で解禁される「⚔️ 強敵に挑戦」→「裏ボスが現れた！」（タップで進行）まで、
+// mbRunが無い間も運び続ける（教員の指示、2026-09-10：間違った問題をすべて復習で正解する
+// までは解禁されないようにする）。
+let mbUraCarry = null;
 function mbGauntletComplete(xpGained, recruitedMsg, shinyMsg){
   mbClearTimer();
   mbStopIdleAnim();
@@ -28223,10 +28400,23 @@ function mbGauntletComplete(xpGained, recruitedMsg, shinyMsg){
   // mbRunはこの関数の最後でnullにするため、後で「復習する」の戻り先として再実行できるよう
   // wrongLogをローカル変数に切り出しておく（教員の指示、2026-09-05：「復習する」）。
   const wrongLog = mbRun ? mbRun.wrongLog : [];
+  // playerHp/playerMaxHp/playerMp/playerMaxMpは、この時点でmbEnemyDefeated側の＋50アップ
+  // （MB_STATUP_HP/MP）を含め4体ぶん反映済みの値。裏ボス戦にもそのまま引き継ぐ（教員の指示、
+  // 2026-09-09：「裏ボスと戦うときは、その前までのHPとMPを（上がった分を含め）引き継ぐ」）。
+  mbUraCarry = {
+    questMode: mbRun ? mbRun.questMode : null, isSpecialQuest: !!(mbRun && mbRun.isSpecialQuest),
+    playerHp: mbRun ? mbRun.playerHp : MB_PLAYER_MAX_HP, playerMaxHp: mbRun ? mbRun.playerMaxHp : MB_PLAYER_MAX_HP,
+    playerMp: mbRun ? mbRun.playerMp : 0, playerMaxMp: mbRun ? mbRun.playerMaxMp : MB_PLAYER_MAX_MP,
+  };
+  // 「強敵に挑戦」の解禁条件（教員の指示、2026-09-10：「画像をタップしたら挑戦」は廃止し、
+  // 間違った問題を全問「書いて○」を取るまで解禁しない）。今回の制覇ぶんのフラグを毎回
+  // ここでリセットする（mbUraGateReviewDoneはmbReviewShowComplete側で立てる）。
+  mbUraGateReviewDone = false;
   const render = () => {
+    const gateCleared = !wrongLog.length || mbUraGateReviewDone;
     screen.innerHTML = `
       <div class="boss-battle-screen">
-        <div class="boss-name">🏆 すべての敵を倒した！</div>
+        <div class="boss-name">🏆 漢字Quest ALL CLEAR！</div>
         <img class="mb-defeat-icon" src="${mbBattleEnemySpriteSrc(lastEnemy, 'defeat')}" alt="${esc(lastEnemy.name)}">
         ${xpGained ? `<p class="mb-boss-xp-banner">＋${xpGained} ストック経験値 獲得！</p>` : ''}
         <p class="mb-statup-banner">🔺 最大HPと最大MPが${MB_STATUP_HP}アップした！</p>
@@ -28235,15 +28425,88 @@ function mbGauntletComplete(xpGained, recruitedMsg, shinyMsg){
         <p style="text-align:center;">お見事！「漢字Quest」を制覇しました。</p>
         <h3 style="text-align:center; margin-top:18px;">間違った問題</h3>
         ${mbWrongListHtml(wrongLog)}
-        ${mbReviewButtonRowHtml(wrongLog, render)}
-        <div class="btn-row" style="margin-top:16px;">
-          <button class="btn" onclick="mbStartGauntlet()">最初から挑む</button>
-          <button class="btn secondary" onclick="showHome()">ホームへ</button>
+        ${gateCleared ? '' : mbUraGateReviewButtonRowHtml(wrongLog, render)}
+        <div class="btn-row" style="margin-top:16px; justify-content:center;">
+          <button class="btn secondary" onclick="mbStartGauntlet()">タイトルに戻る</button>
+          ${gateCleared ? `<button class="btn primary" onclick="mbShowUraBossChoice()">⚔️ 強敵に挑戦</button>` : ''}
         </div>
       </div>`;
   };
   render();
   mbPlayVictoryFanfare(); // renderの中では鳴らさない（「復習する」から戻ったときの再生を避ける）
+  mbRun = null; mbBattle = null; mbChallenge = null;
+}
+
+// 4体制覇後、間違った問題を全問「書いて○」で復習し終えた（または最初から間違いが無かった）
+// ときだけ現れる「⚔️ 強敵に挑戦」ボタンから進む、裏ボスの遭遇画面（教員の指示、2026-09-10）。
+// ボタンでの「冒険を終える」選択肢は無くなったため、この画面のままホーム画面などへ
+// 離脱した場合は、showHome側の後始末（mbUraCarry=null等）で挑戦そのものを没収として扱う
+// （教員の指示：「ボスの挑戦を、ホーム画面に行くなどして中断することがあった場合には、
+// そのバトルは没収として扱ってください」）。
+function mbShowUraBossChoice(){
+  screen.innerHTML = `
+    <div class="card boss-encounter" onclick="mbStartUraBossChallenge()" style="cursor:pointer;">
+      <div class="boss-enc-icon">👹</div>
+      <p class="boss-enc-text">裏ボスが現れた！</p>
+      <p class="note boss-enc-hint">「漢字Quest」の4体とは別の、さらに手強い相手です。仲間になる確率はこれまでのボスと同じです。</p>
+      <p class="note" style="text-align:center;">（画面をタップすると戦いがはじまります）</p>
+    </div>`;
+}
+// URA_BOSS_ENEMIESからランダムに1体選び、通常ボスと全く同じ戦闘システム（mbShowBattleIntro
+// 以降）で単発の戦いを行う。仲間になる確率（recruitChance）・色違い遭遇（isShinyEncounter）
+// はどちらも通常ボスと共通の仕組みをそのまま使う（教員の指示：「仲間になる確率は、今までの
+// ボスと同じ」）。questMode／isSpecialQuest（ゲージ経由10倍）に加えて、現在HP・現在MPと
+// 4体制覇ぶん上がった最大HP・最大MPも、制覇時のmbUraCarryからそのまま引き継ぐ（教員の指示、
+// 2026-09-09：「その前までのHPとMPを（上がった分を含め）引き継ぐ」）。
+function mbStartUraBossChallenge(){
+  const enemyDef = URA_BOSS_ENEMIES[Math.floor(Math.random() * URA_BOSS_ENEMIES.length)];
+  const carry = mbUraCarry || {
+    questMode: null, isSpecialQuest: false,
+    playerHp: MB_PLAYER_MAX_HP, playerMaxHp: MB_PLAYER_MAX_HP, playerMp: 0, playerMaxMp: MB_PLAYER_MAX_MP,
+  };
+  mbUraCarry = null;
+  mbClearTimer();
+  mbStopIdleAnim();
+  mbRun = {
+    playerHp: carry.playerHp, playerMaxHp: carry.playerMaxHp,
+    playerMp: carry.playerMp, playerMaxMp: carry.playerMaxMp,
+    buffs: {}, wrongLog: [], questMode: carry.questMode, isSpecialQuest: carry.isSpecialQuest,
+  };
+  mbBattle = {
+    enemyIndex: -1, enemyDef, enemyHp: enemyDef.hp, enemyMaxHp: enemyDef.hp, debuffs: {}, turnBusy: false, wrongLog: [],
+    // 裏ボス4体はまだ色違いスプライトを用意していないため、mbHasShinySpriteがfalseを返し、
+    // 判定自体が発生しない（教員の指示、2026-09-10）。今後スプライトを追加すれば自動的に有効になる。
+    isShinyEncounter: mbHasShinySprite(enemyDef) && Math.random() < MB_SHINY_ENCOUNTER_CHANCE, isUraBoss: true,
+  };
+  mbShowBattleIntro();
+}
+// 裏ボスを倒したときの結果画面。通常の連戦（mbShowStageMap／mbGauntletComplete）とは違い、
+// 単発の戦いなので「すすむ」は無く、ホームへ戻るだけにする。
+function mbUraBossResult(xpGained, recruitedMsg, shinyMsg){
+  mbClearTimer();
+  mbStopIdleAnim();
+  const enemyDef = mbBattle.enemyDef;
+  const wrongLog = mbRun ? mbRun.wrongLog : [];
+  const render = () => {
+    screen.innerHTML = `
+      <div class="boss-battle-screen">
+        <div class="boss-name">🏆 裏ボスを撃破！</div>
+        <img class="mb-defeat-icon" src="${mbBattleEnemySpriteSrc(enemyDef, 'defeat')}" alt="${esc(enemyDef.name)}">
+        <p class="mb-boss-xp-banner">＋${xpGained} ストック経験値 獲得！</p>
+        <p class="mb-statup-banner">🔺 最大HPと最大MPが${MB_STATUP_HP}アップした！</p>
+        ${recruitedMsg ? `<p class="mb-recruit-banner">${esc(recruitedMsg)}</p>` : ''}
+        ${mbShinyBannerHtml(shinyMsg)}
+        <p style="text-align:center;">「${esc(enemyDef.name)}」を打ち破った！</p>
+        <h3 style="text-align:center; margin-top:18px;">間違った問題</h3>
+        ${mbWrongListHtml(wrongLog)}
+        ${mbReviewButtonRowHtml(wrongLog, render)}
+        <div class="btn-row" style="margin-top:16px; justify-content:center;">
+          <button class="btn primary" onclick="showHome()">ホームへ</button>
+        </div>
+      </div>`;
+  };
+  render();
+  mbPlayVictoryFanfare();
   mbRun = null; mbBattle = null; mbChallenge = null;
 }
 
@@ -28255,6 +28518,24 @@ function mbGameOver(){
   // 意味を持たないので、専用の結果画面（mbEncounterLose）で終える（教員の指示、2026-09-05）。
   if(mbRun.isEncounter){
     mbEncounterLose();
+    return;
+  }
+  // 裏ボス（mbBattle.isUraBoss）は連戦の「何体目」という数え方が意味を持たない単発の戦いなので、
+  // 専用の文言にする（教員の指示、2026-09-09）。「最初から挑む」（mbStartGauntlet）は連戦を
+  // 最初からやり直す意味になり、裏ボス敗北時には合わないため出さない。
+  if(mbBattle.isUraBoss){
+    const enemyDef = mbBattle.enemyDef;
+    screen.innerHTML = `
+      <div class="boss-battle-screen">
+        <div class="boss-name">💥 やられてしまった…</div>
+        <p style="text-align:center;">裏ボス「${esc(enemyDef.name)}」に敗れました。書き取りの力を鍛えてまた挑もう！</p>
+        <h3 style="text-align:center; margin-top:18px;">間違った問題</h3>
+        ${mbWrongListHtml(mbRun.wrongLog)}
+        <div class="btn-row" style="margin-top:16px; justify-content:center;">
+          <button class="btn secondary" onclick="showHome()">ホームへ</button>
+        </div>
+      </div>`;
+    mbRun = null; mbBattle = null; mbChallenge = null;
     return;
   }
   const enemyDef = mbBattle.enemyDef;
