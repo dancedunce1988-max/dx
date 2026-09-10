@@ -4005,7 +4005,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.21</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.22</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -11659,12 +11659,19 @@ function endBattle(){
    一切使わず、「暗証番号＋出題範囲＋ラウンド番号＋トラック（上位入賞／一般人）」を文字列にした
    ものを種にした疑似乱数（xmur3+mulberry32）で10問を選ぶだけなので、同じ入力なら同じ端末構成
    （同じkokugo_data.js）である限り必ず同じ問題ならびになる（教員の指示、2026-09-08）。
-   個人の称号・経験値・二人対戦の記録には一切影響しない、独立したミニゲーム。 ----*/
+   正解した問題は、対応する分野のジャンルレベル・経験値にも反映される（教員の指示、2026-09-10：
+   「正解した問題については、ジャンルレベルを１上げること（経験値にも反映）」）。ただし個々の
+   問題の正誤履歴（st.q）・間隔反復レビュー・分野の出題プール解放率・二人対戦の記録には一切
+   影響しない（record()本体は呼ばず、レベルアップ処理だけをcmLevelUpGenre内で再現している）。 ----*/
 const CM_TIME_LIMIT_MS = 15000; // 1問あたりの解答制限時間（教員の指示：15秒）
 const CM_ROUND_QUESTIONS = 10;
 let cmSetup = null;      // {cats} 出題範囲決定後、暗証番号入力〜対戦中を通して保持
 let cmSetupPick = null;  // {picked:Set} ジャンル選択中だけ使う一時state
 let cm = null;           // 進行中のクラスマッチ本体
+// 対戦の途中で「問題ジャンルを変更する」を選んだ間だけtrueにする（教員の指示、2026-09-10）。
+// trueの間はcmChooseAllGenres／cmConfirmGenrePickerが、新しい暗証番号入力からではなく
+// 対戦中のcm.catsをその場で差し替える動きに切り替わる（cmShowChangeGenreSetup参照）。
+let cmGenreChangeMode = false;
 let cmTimerHandle = null;
 // 「漢字の書き」問題（cmShowKwsQuestion）専用のcanvas描画state。kws/kb/mbと同じ設計
 // （自前のcanvas＋2Dコンテキストを持ち、判定の直前だけグローバルのkwsCtxに割り当てる）。
@@ -11751,6 +11758,7 @@ function cmBuildPool(cats){
 
 // ---- 出題範囲の設定（二人対戦のジャンル選択画面と同じ操作感にする） ----
 function cmShowSetup(){
+  cmGenreChangeMode = false; // 新規のクラスマッチ開始時は、途中の「ジャンル変更」フローを必ず解除しておく
   cmSetupPick = {picked:new Set()};
   screen.innerHTML = `
     <div class="card cm-setup-screen">
@@ -11770,6 +11778,12 @@ function cmShowSetup(){
     </div>`;
 }
 function cmChooseAllGenres(){
+  if(cmGenreChangeMode){
+    cmGenreChangeMode = false;
+    cm.cats = CAT_KEYS.slice();
+    cmShowGenreChangeRoundStart();
+    return;
+  }
   cmSetup = {cats: CAT_KEYS.slice()};
   cmShowPinEntry();
 }
@@ -11815,7 +11829,7 @@ function cmShowGenrePicker(){
   html += `
     <div class="btn-row" style="margin-top:10px">
       <button class="btn ${enough?'':'disabled'}" onclick="cmConfirmGenrePicker()">${label}</button>
-      <button class="btn secondary" onclick="cmShowSetup()">もどる</button>
+      <button class="btn secondary" onclick="${cmGenreChangeMode ? 'cmShowChangeGenreSetup()' : 'cmShowSetup()'}">もどる</button>
     </div>`;
   screen.innerHTML = html;
 }
@@ -11827,6 +11841,12 @@ function cmToggleGenre(key){
 function cmConfirmGenrePicker(){
   const cats = Array.from(cmSetupPick.picked);
   if(cats.length === 0 || cmBuildPool(cats).length < CM_ROUND_QUESTIONS) return;
+  if(cmGenreChangeMode){
+    cmGenreChangeMode = false;
+    cm.cats = cats;
+    cmShowGenreChangeRoundStart();
+    return;
+  }
   cmSetup = {cats};
   cmShowPinEntry();
 }
@@ -12087,6 +12107,29 @@ function cmSubmitInput(){
   if(sb) sb.disabled = true;
   cmGrade(ok, cmElapsedMs(), null, el.value);
 }
+// entryが属する分野のst.lvキーを返す（quizはentry.catがそのままCATS/st.lvのキー、
+// kws:elem:3等のpseudo-keyはkwsStatCatFor経由でkws_elem等に、yj・ktはkanbun_yj／kanbun_ktに変換）。
+function cmLevelCatFor(entry){
+  if(entry.type === 'quiz') return entry.cat;
+  if(entry.type === 'yj') return 'kanbun_yj';
+  if(entry.type === 'kt') return 'kanbun_kt';
+  if(entry.type === 'kws') return kwsStatCatFor(entry.cat.split(':')[1]);
+  return null;
+}
+// 正解のたびに分野レベルを1つ上げる（教員の指示、2026-09-10）。bgLevelUpShikibetsu等と同じく、
+// record()本体は呼ばず、レベルアップ処理（st.lv[cat]++・totalLevelUps・10回ごとの挑戦チケット）
+// だけをその場で再現する。record()本体はst.q（問題ごとの正誤履歴）・間隔反復レビュー・分野の
+// 出題プール解放率まで更新してしまい、クラスマッチが守るべき「本物の進捗データ」に触れてしまうため。
+function cmLevelUpGenre(cat){
+  if(!cat) return;
+  const st = loadStats();
+  if(!st.lv[cat]) st.lv[cat] = 1;
+  if(st.lv[cat] >= MAX_CAT_LV) return;
+  st.lv[cat]++;
+  st.totalLevelUps = (st.totalLevelUps||0) + 1;
+  if(st.totalLevelUps % 10 === 0) st.bossTickets = (st.bossTickets||0) + 1;
+  saveStats(st);
+}
 // 出題の種類ごとに違う採点結果表示（選択肢のcorrect/wrong表示・説明文）だけ分岐し、
 // 記録・スコア計算・「つぎへ」ボタンの表示は共通処理にする。
 function cmGrade(ok, ms, chosenOrig, typed){
@@ -12095,6 +12138,7 @@ function cmGrade(ok, ms, chosenOrig, typed){
   cmClearTimer();
   const entry = cm.questions[cm.qIndex];
   cm.answers.push({ok, ms, timeLimitMs: cm.curTimeLimitMs});
+  if(ok) cmLevelUpGenre(cmLevelCatFor(entry));
   let expl = '';
   if(entry.type === 'quiz'){
     const it = entry.item;
@@ -12482,9 +12526,53 @@ function cmShowResults(roundScore, correctCount, cheered){
       <div class="cm-score-line">スコア累計：${cm.totalScore}点</div>
       <div class="btn-row">
         <button class="btn" onclick="cmShowTrackChoice()">続けて勝負する</button>
+        <button class="btn secondary" onclick="cmShowChangeGenreSetup()">問題ジャンルを変更する</button>
         <button class="btn secondary" onclick="cmQuit()">やめる</button>
       </div>
     </div>`;
+}
+
+// ---- 「問題ジャンルを変更する」（教員の指示、2026-09-10：「スコアデータ（累計）を引き継ぎながら、
+//      問題ジャンルを選び直すことができるように」）。暗証番号（cm.pin）とスコア累計（cm.totalScore）は
+//      そのまま、出題範囲（cm.cats）だけを選び直す。ジャンル選択画面自体は最初の出題範囲決定と
+//      同じもの（cmShowGenrePicker等）を、cmGenreChangeModeフラグで挙動だけ切り替えて使い回す。
+//      ジャンルを変えた直後は「前回と被りなし（上位入賞）」「半分は前回と同じ（一般人）」という
+//      トラックの前提が崩れる（前回の問題は別ジャンルのもの）ため、上位入賞／一般人の選択は出さず、
+//      新しい出題範囲で「スタート」ボタンだけを置く（教員の指示）。 ----
+function cmShowChangeGenreSetup(){
+  cmGenreChangeMode = true;
+  cmSetupPick = {picked:new Set()};
+  screen.innerHTML = `
+    <div class="card cm-setup-screen">
+      <div class="cm-setup-title">🎯 問題ジャンルを変更する</div>
+      <p class="cm-setup-sub">スコア累計（${cm.totalScore}点）は引き継いだまま、新しい出題範囲を選び直します。</p>
+      <div class="battle-genre-choice">
+        <button class="battle-genre-btn" onclick="cmChooseAllGenres()">
+          <span class="big">🌐 全ジャンル</span>
+          <span class="small">すべての分野からランダムに出題されます</span>
+        </button>
+        <button class="battle-genre-btn" onclick="cmShowGenrePicker()">
+          <span class="big">🎯 ジャンルを選択する</span>
+          <span class="small">クラスで話し合って決めた分野だけを選びます（複数選択可）</span>
+        </button>
+      </div>
+      <button class="btn secondary" style="margin-top:18px" onclick="cmGenreChangeMode=false;cmShowTrackChoice()">キャンセル</button>
+    </div>`;
+}
+function cmShowGenreChangeRoundStart(){
+  cm.prevQuestions = null; // ジャンルが変わったので「前回と被りなし／半分は前回と同じ」は意味を持たない
+  cm.pendingTrack = null;
+  screen.innerHTML = `
+    <div class="card cm-setup-screen">
+      <div class="cm-setup-title">新しい問題ジャンルで再開します</div>
+      <div class="cm-score-line">スコア累計：${cm.totalScore}点</div>
+      <div class="btn-row" style="justify-content:center; margin-top:12px">
+        <button class="btn" onclick="cmConfirmGenreChangeStart()">スタート</button>
+      </div>
+    </div>`;
+}
+function cmConfirmGenreChangeStart(){
+  cmShowCountdown(() => cmBeginRound(1, null));
 }
 
 // ---- 「あなたは…」上位入賞／一般人の選択（縦に並べる、教員の指示、2026-09-08）。この画面を
@@ -12563,6 +12651,7 @@ function cmQuit(){
   cmClearTimer();
   if(cmCountdownState){ clearInterval(cmCountdownState.handle); cmCountdownState = null; }
   cmTrackChoiceActive = false;
+  cmGenreChangeMode = false;
   cm = null;
   showHome();
 }
