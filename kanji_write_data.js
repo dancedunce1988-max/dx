@@ -2921,7 +2921,7 @@ window.KANJI_WRITE_DATA = {
    "id": "kw132",
    "rank": 132,
    "kanji": "断",
-   "sentence": "飛行機が消息を《タ》った。",
+   "sentence": "お酒を《タ》った。",
    "wordMeaning": "続いていたものを、途中で切ること。",
    "pref": null,
    "chars": [

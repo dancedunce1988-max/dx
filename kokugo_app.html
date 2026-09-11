@@ -4005,7 +4005,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.22</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.23</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -10446,6 +10446,24 @@ const HYAKUNIN_QTYPE_BADGE = {
   kami2shimo:"上の句→下の句", kimariji2shimo:"決まり字→下の句", author:"作者",
   meaning:"歌の意味", source:"出典", technique:"表現技法",
 };
+/* ジャンル選択画面（showHyakuninGenrePicker）専用の表示情報（教員の指示、2026-09-11：
+   「問題ジャンルを細分化してほしい」。出題順・解禁進捗・難易度調整・経験値まわりの
+   既存ロジック（hyaGroups・hyaRecord・hyaLv等）はいずれも変更しない。ジャンルごとの
+   「レベル」（hyaTypeLv）はitemHistから導出するだけの表示用の値で、経験値・進化の分岐・
+   st.lv・st.totalLevelUpsのいずれにも一切影響しない。 */
+const HYAKUNIN_QTYPE_ICON = {
+  kami2shimo:"🎴", kimariji2shimo:"🔑", meaning:"💭", technique:"✨", author:"🖋️", source:"📚",
+};
+const HYAKUNIN_QTYPE_DESC = {
+  kami2shimo:     "上の句を見て、続く下の句を四択で選ぶ",
+  kimariji2shimo: "決まり字（歌かるたの最初の読み）から下の句を選ぶ",
+  meaning:        "歌の現代語訳（意味）を選ぶ",
+  technique:      "歌に使われている表現技法を選ぶ",
+  author:         "歌の作者を選ぶ",
+  source:         "歌がのっている歌集（出典）を選ぶ",
+};
+/* ジャンル選択画面に並べる順（HYAKUNIN_QTYPE_LVの解禁順と揃えてある）。 */
+const HYAKUNIN_QTYPE_ORDER = ["kami2shimo","kimariji2shimo","meaning","technique","author","source"];
 /* 表現技法名の読み方（一覧モードのタグ表示用）。技法名そのもの（p.technique配列の値）は
    クイズの正誤判定にそのまま文字列比較で使われるため、ふりがなを混ぜて表記を変えてはいけない。
    表示のときだけ、このテーブルを見て「掛詞（かけことば）」のように読みを添える。 */
@@ -10899,10 +10917,14 @@ function hyaActiveGroupPool(st){
 /* ReviewSystem.getDueKeyへ渡すhistMap自体を、今アンロックされている首だけに絞り込んだビュー。
    ReviewSystem本体は変更しない：これにより、ロック中の首は（既存のitemHistに間隔反復の記録が
    残っていても）復習にも一切出さない。 */
-function hyaVisibleHist(st){
+function hyaVisibleHist(st, qType){
   const unlockedIds = new Set(hyaUnlockedPool(st).map(it => it.id));
   const out = {};
-  Object.keys(st.hyakunin.itemHist).forEach(k => { if(unlockedIds.has(k)) out[k] = st.hyakunin.itemHist[k]; });
+  Object.keys(st.hyakunin.itemHist).forEach(k => {
+    if(!unlockedIds.has(k)) return;
+    if(qType && !k.endsWith("_" + qType)) return;
+    out[k] = st.hyakunin.itemHist[k];
+  });
   return out;
 }
 /* 20分野側の高速解放モード（FAST_UNLOCK_*、checkGroupUnlock参照）の百人一首版（2026-08-02〜、
@@ -10983,9 +11005,16 @@ function hyaHistoryWeight(st, it){
 function hyaDifficultyWeight(it, diffLv){
   return Math.exp(-1.2 * Math.abs(it.lv - diffLv));
 }
-function hyaSelectOne(lastId){
+function hyaSelectOne(lastId, qType){
   const st = loadStats();
   let pool = hyaFastUnlockEligible(st) ? (hyaActiveGroupPool(st) || hyaUnlockedPool(st)) : hyaUnlockedPool(st);
+  if(qType){
+    // 高速解放モードの「今アンロックの最前線になっている8問」に選んだジャンルの問題が
+    // 1問も含まれないことがある（8問は複数ジャンル混在のため）。その場合は解禁済み全体から
+    // そのジャンルだけを絞り込む（教員の指示、2026-09-11：ジャンル選択機能の追加）。
+    const narrowed = pool.filter(it => it.qType === qType);
+    pool = narrowed.length ? narrowed : hyaUnlockedPool(st).filter(it => it.qType === qType);
+  }
   if(pool.length > 1 && lastId) pool = pool.filter(it => it.id !== lastId);
   const isConfirmCheck = Math.random() < CONFIRM_CHECK_RATE;
   const diffLv = typeof st.hyakunin.targetLv === "number" ? st.hyakunin.targetLv : 1;
@@ -10998,6 +11027,23 @@ function hyaAccuracy(st){
   return Math.round(100 * recent.reduce((a,b)=>a+b, 0) / recent.length);
 }
 function hyaLv(st){ return 1 + (st.hyakunin.totalOk || 0); }
+/* ジャンル別の「レベル」（ジャンル選択画面の表示専用、2026-09-11〜）。そのジャンルの正解の
+   のべ回数（同じ首を何度解いても毎回加算、hyaLv本体と同じ数え方）をitemHistから
+   その場で導出するだけで、新しいセーブ項目は増やさない。経験値・st.totalLevelUps・
+   ボス戦のチケット付与など既存の仕組みには一切関わらない（教員の指示：「経験値には
+   影響しない」）。 */
+function hyaTypeLv(st, qType){
+  let c = 0;
+  const suffix = "_" + qType;
+  Object.keys(st.hyakunin.itemHist).forEach(k => {
+    if(k.endsWith(suffix)) c += (st.hyakunin.itemHist[k].c || 0);
+  });
+  return 1 + c;
+}
+/* そのジャンルの問題が1問でも解禁済みか（ジャンル選択画面での鍵表示に使う）。 */
+function hyaTypeUnlocked(st, qType){
+  return hyaUnlockedPool(st).some(it => it.qType === qType);
+}
 function hyaLvLabel(diffLv){
   const g = Math.round(Math.max(1, Math.min(HYAKUNIN_MAX_LV, diffLv)));
   return ["かるた入門（上の句→下の句）", "決まり字（上の句の決まり字→下の句）", "意味", "表現技法", "作者", "出典"][g-1];
@@ -11065,7 +11111,7 @@ function showHyakuninMenu(){
       <div class="menu-icon">📖</div>
       <div><h2>一覧モード</h2><p>100首すべての歌・現代語訳・表現技法・作者・出典をカードでめくって読める</p></div>
     </div>
-    <div class="card menu-card" onclick="startHyakuninQuiz()">
+    <div class="card menu-card" onclick="showHyakuninGenrePicker()">
       <div class="menu-icon">🎯</div>
       <div><h2>クイズモード</h2><p>上の句→下の句・決まり字→下の句・意味・表現技法・作者・出典を四択で出題</p></div>
       <div class="right"><span class="shogo-badge">🎴 Lv.${hyaLv(st)}</span></div>
@@ -11073,6 +11119,42 @@ function showHyakuninMenu(){
     <p class="note">${esc(accHtml)}</p>
     <p class="note">問題解放率　${unlockPct}%<div class="bar"><div style="width:${unlockPct}%"></div></div></p>
     <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
+  screen.innerHTML = html;
+}
+
+/* ---- 画面：ジャンル選択（クイズモード、2026-09-11〜） =================
+   「おまかせ」（従来どおり全ジャンル混合・解禁順に沿って自動出題）に加えて、6つの出題形式
+   （上の句→下の句／決まり字→下の句／歌の意味／表現技法／作者／出典）を個別に選んで挑戦できる。
+   ジャンルごとの「Lv」はhyaTypeLvが導出する表示専用の値で、経験値・進化の分岐・解禁進捗
+   （hyaGroups・st.groupUnlock.hyakunin）には一切影響しない。解禁進捗そのものは
+   従来どおり全ジャンル共通で、まだそのジャンルの問題が1問も解禁されていなければ鍵付きで表示する
+   （教員の指示：「問題ジャンルを細分化してほしい。ジャンルレベルはそれぞれにするが、経験値には
+   影響しない」）。 */
+function showHyakuninGenrePicker(){
+  const st = loadStats();
+  let html = `
+    <h3 class="section">🎯 百人一首クイズ　ジャンルを選ぶ</h3>
+    <p class="note">「おまかせ」は今までどおり、解禁の進み具合に合わせて全ジャンルから自動で出題します。ジャンルを選ぶと、そのジャンルだけを集中して練習できます。</p>
+    <div class="card menu-card" onclick="startHyakuninQuiz()">
+      <div class="menu-icon">🎲</div>
+      <div><h2>おまかせ（全ジャンル）</h2><p>解禁の進み具合に合わせて、全ジャンルから自動で出題</p></div>
+      <div class="right"><span class="shogo-badge">🎴 Lv.${hyaLv(st)}</span></div>
+    </div>`;
+  HYAKUNIN_QTYPE_ORDER.forEach(qType=>{
+    const unlocked = hyaTypeUnlocked(st, qType);
+    const lv = hyaTypeLv(st, qType);
+    html += unlocked ? `
+    <div class="card menu-card" onclick="startHyakuninQuiz('${qType}')">
+      <div class="menu-icon">${HYAKUNIN_QTYPE_ICON[qType]}</div>
+      <div><h2>${esc(HYAKUNIN_QTYPE_BADGE[qType])}</h2><p>${esc(HYAKUNIN_QTYPE_DESC[qType])}</p></div>
+      <div class="right"><span class="shogo-badge">${HYAKUNIN_QTYPE_ICON[qType]} Lv.${lv}</span></div>
+    </div>` : `
+    <div class="card menu-card locked">
+      <div class="menu-icon">🔒</div>
+      <div><h2>${esc(HYAKUNIN_QTYPE_BADGE[qType])}</h2><p>まだ解禁されていません（おまかせモードで問題を解き進めると解禁されます）</p></div>
+    </div>`;
+  });
+  html += `<div class="btn-row"><button class="btn secondary" onclick="showHyakuninMenu()">百人一首メニューへ</button></div>`;
   screen.innerHTML = html;
 }
 
@@ -11127,7 +11209,9 @@ function toggleHyakuninDetail(no){
 
 /* ---- 画面：クイズモード ---- */
 let hya = null;
-function startHyakuninQuiz(){
+/* qTypeを渡すと、そのジャンルだけに絞って出題する（showHyakuninGenrePicker参照）。省略時は
+   従来どおり「おまかせ」＝全ジャンル混合・解禁順に沿った自動出題。 */
+function startHyakuninQuiz(qType){
   if(hyaPool().length === 0){
     screen.innerHTML = `
       <div class="card">
@@ -11137,20 +11221,29 @@ function startHyakuninQuiz(){
       </div>`;
     return;
   }
-  hya = {n:0, correct:0, lastId:null, item:null, order:null};
+  if(qType && !hyaTypeUnlocked(loadStats(), qType)){
+    screen.innerHTML = `
+      <div class="card">
+        <h3 class="section">🔒 まだ解禁されていません</h3>
+        <p class="note">「${esc(HYAKUNIN_QTYPE_BADGE[qType]||"")}」の問題はまだ解禁されていません。おまかせモードで問題を解き進めると解禁されます。</p>
+        <div class="btn-row"><button class="btn secondary" onclick="showHyakuninGenrePicker()">ジャンル選択へ戻る</button></div>
+      </div>`;
+    return;
+  }
+  hya = {n:0, correct:0, lastId:null, item:null, order:null, qType: qType || null};
   hyaNextQuestion();
 }
 function hyaNextQuestion(){
   if(kotonohaMaybeInterruptForEvolve(() => hyaNextQuestion())) return;
   if(rollBossEncounter(() => hyaNextQuestion(), true)) return;
   const st = loadStats();
-  const dueKey = ReviewSystem.getDueKey(hyaVisibleHist(st), hya.lastId);
+  const dueKey = ReviewSystem.getDueKey(hyaVisibleHist(st, hya.qType), hya.lastId);
   const due = dueKey ? hyaPool().find(it => it.id === dueKey) : null;
   if(due){
     hya.item = due;
     hya.isReviewDue = true;
   }else{
-    hya.item = hyaSelectOne(hya.lastId);
+    hya.item = hyaSelectOne(hya.lastId, hya.qType);
     hya.isReviewDue = false;
   }
   hya.lastId = hya.item.id;
@@ -11204,15 +11297,19 @@ function hyaAnswerChoice(origIdx){
   const unlockMsg = r.groupJustUnlocked ? `<div class="evolve">🔓 百人一首の次のグループが解禁された！</div>` : "";
   const ticketMsg = r.gotTicket ? `<div class="evolve ticket-get">🎟️ ボスへの挑戦チケットを1枚手に入れた！</div>` : "";
   const celebrateMsg = celebrateMilestoneHtml("百人一首", r.celebrateMilestones);
+  const genreLvMsg = hya.qType ? `　｜　${esc(HYAKUNIN_QTYPE_BADGE[hya.qType])} Lv.${hyaTypeLv(loadStats(), hya.qType)}` : "";
   fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}</div>${markQuestionHtml(it.e).replace(/\n/g,"<br>")}
-    <div class="note">百人一首レベル Lv.${r.lv}　｜　今のめやす：${esc(hyaLvLabel(r.diffLv))}</div>${unlockMsg}${ticketMsg}${celebrateMsg}`;
+    <div class="note">百人一首レベル Lv.${r.lv}${genreLvMsg}　｜　今のめやす：${esc(hyaLvLabel(r.diffLv))}</div>${unlockMsg}${ticketMsg}${celebrateMsg}`;
   document.getElementById("hyaNextBtn").style.display = "inline-block";
   document.getElementById("hyaQuitBtn").style.display = "inline-block";
   document.getElementById("hyaNextBtn").focus();
 }
 function hyaEndSession(){
   const h = hya;
-  window._retry = () => startHyakuninQuiz();
+  window._retry = () => startHyakuninQuiz(h.qType);
+  const backBtn = h.qType
+    ? `<button class="btn secondary" onclick="showHyakuninGenrePicker()">ジャンル選択へ</button>`
+    : `<button class="btn secondary" onclick="showHyakuninMenu()">百人一首メニューへ</button>`;
   screen.innerHTML = `
     <div class="card">
       <h3 class="section">今回の記録</h3>
@@ -11220,7 +11317,7 @@ function hyaEndSession(){
       <p class="result-msg">百人一首クイズ、おつかれさま！</p>
       <div class="btn-row">
         <button class="btn" onclick="window._retry()">つづける</button>
-        <button class="btn secondary" onclick="showHyakuninMenu()">百人一首メニューへ</button>
+        ${backBtn}
         <button class="btn secondary" onclick="showHome()">ホームへ</button>
       </div>
     </div>`;
@@ -13717,7 +13814,7 @@ function startBossBattle(boss, allGenre, hyakuninMode){
   const cat = (allGenre || hyakuninMode) ? null : ((quiz && quiz.key && CATS[quiz.key]) ? quiz.key : genrePool[Math.floor(Math.random()*genrePool.length)]);
   const cats = allGenre ? genrePool.slice() : null;
   const ps = kotonohaEffStats(st0);
-  const maxHp = BOSS_PLAYER_HP + ps.hp * STAT_HP_PER_POINT;
+  const maxHp = Math.round(BOSS_PLAYER_HP + ps.hp * STAT_HP_PER_POINT);
   bossBattle = {
     boss, bossHp: boss.hp, bossMaxHp: boss.hp,
     playerHp: maxHp, playerMaxHp: maxHp,
@@ -26504,6 +26601,9 @@ const MB_PARTNER_RECRUIT_CHANCE = 0.01;
 // そのボス戦に勝ったときには、必ずそのキャラクターが仲間になる（或いはレベルが上がる）」）。
 // EASY／挑戦ゲージ等、MB_PARTNER_RECRUIT_CHANCE側の倍率とは無関係の、常に一定の確率にする。
 const MB_SHINY_ENCOUNTER_CHANCE = 0.001;
+// ホーム画面「漢字Quest」の挑戦ゲージ経由（isSpecialQuest、仲間になる確率が10倍になる挑戦）の
+// ときだけ、色違いに遭遇する確率も0.1%→0.5%に引き上げる（教員の指示、2026-09-11）。
+const MB_SPECIAL_QUEST_SHINY_CHANCE = 0.005;
 // このボスに色違いスプライトが実在するときだけ「色違いに遭遇」判定そのものを有効にする
 // （教員の指示、2026-09-10：「裏ボスは、まだ色違いを設定していないはず」への対応）。
 // 判定せずに素通しすると、色違い画像が無いボス（現状は裏ボス4体）でも「発見した！！」の
@@ -27023,7 +27123,7 @@ function mbStartEnemy(idx){
   // がそのまま出会いの場面になるため、ここで直接判定する。
   mbBattle = {
     enemyIndex: idx, enemyDef, enemyHp: enemyDef.hp, enemyMaxHp: enemyDef.hp, debuffs: {}, turnBusy: false, wrongLog: [],
-    isShinyEncounter: mbHasShinySprite(enemyDef) && Math.random() < MB_SHINY_ENCOUNTER_CHANCE,
+    isShinyEncounter: mbHasShinySprite(enemyDef) && Math.random() < (mbRun.isSpecialQuest ? MB_SPECIAL_QUEST_SHINY_CHANCE : MB_SHINY_ENCOUNTER_CHANCE),
   };
   mbShowBattleIntro();
 }
@@ -28565,7 +28665,7 @@ function mbStartUraBossChallenge(){
     enemyIndex: -1, enemyDef, enemyHp: enemyDef.hp, enemyMaxHp: enemyDef.hp, debuffs: {}, turnBusy: false, wrongLog: [],
     // 裏ボス4体はまだ色違いスプライトを用意していないため、mbHasShinySpriteがfalseを返し、
     // 判定自体が発生しない（教員の指示、2026-09-10）。今後スプライトを追加すれば自動的に有効になる。
-    isShinyEncounter: mbHasShinySprite(enemyDef) && Math.random() < MB_SHINY_ENCOUNTER_CHANCE, isUraBoss: true,
+    isShinyEncounter: mbHasShinySprite(enemyDef) && Math.random() < (mbRun.isSpecialQuest ? MB_SPECIAL_QUEST_SHINY_CHANCE : MB_SHINY_ENCOUNTER_CHANCE), isUraBoss: true,
   };
   mbShowBattleIntro();
 }
