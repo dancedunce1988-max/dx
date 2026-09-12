@@ -4108,7 +4108,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.28</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.29</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -16806,14 +16806,19 @@ function isTamperBypassed(){
 // 不正検出ブロック画面を表示した直後に呼ぶ。画面上には何も表示せず、キー入力だけを
 // 静かに監視して末尾が"mitomemasu"と一致した瞬間にバイパスを発行する（入力欄を出さない
 // ＝見た目が通常のブロック画面と完全に同じままになる）。
-function armHiddenTamperBypass(){
+// versionTagは、document.body.innerHTMLでブロック画面に書き換える「前」に読み取った
+// ver-tagの文字列を呼び出し元から渡してもらう（書き換え後はヘッダーごと消えており、
+// この関数の中で改めてdocument.querySelector('.ver-tag')を呼んでも空文字しか取れず、
+// 保存した印と次回のcurrentAppVersionTag()が一致しなくなって毎回バイパスが効かない
+// ＝画面が一瞬リロードされてすぐ同じブロック画面に戻るだけ、という不具合になっていた）。
+function armHiddenTamperBypass(versionTag){
   const phrase = 'mitomemasu';
   let buf = '';
   document.addEventListener('keydown', function(e){
     if(e.key && e.key.length === 1){
       buf = (buf + e.key).slice(-phrase.length);
       if(buf.toLowerCase() === phrase){
-        try{ localStorage.setItem(TAMPER_BYPASS_KEY, currentAppVersionTag()); }catch(err){}
+        try{ localStorage.setItem(TAMPER_BYPASS_KEY, versionTag); }catch(err){}
         location.reload();
       }
     }
@@ -16843,6 +16848,9 @@ function bootApp(){
   let tamperCheck = {tampered:false, reasons:[]};
   try{ tamperCheck = detectSaveTampering(loadStats()); }catch(e){}
   if(tamperCheck.tampered && !isAdminMode() && !isTamperBypassed()){
+    // ver-tagは、この下でdocument.body.innerHTMLをブロック画面に書き換えるとヘッダーごと
+    // DOMから消えてしまう。armHiddenTamperBypassに渡す分は、消える前の今のうちに読み取っておく。
+    const versionTagNow = currentAppVersionTag();
     const reasonsHtml = tamperCheck.reasons.map(r => `<li>${r}</li>`).join("");
     document.body.innerHTML = `
       <div style="max-width:480px;margin:60px auto;padding:24px;text-align:center;font-family:inherit;">
@@ -16860,7 +16868,7 @@ function bootApp(){
           この端末の記録をリセットする
         </button>
       </div>`;
-    armHiddenTamperBypass();
+    armHiddenTamperBypass(versionTagNow);
     return;
   }
   /* 教員向けの見た目確認ツール（URLに ?devtool=kotonoha を付けたときだけ現れる、通常のプレイでは
