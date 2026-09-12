@@ -4108,7 +4108,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.26</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.27</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -4506,10 +4506,16 @@ function detectSaveTampering(st){
      必ずst.totalLevelUpsも一緒に進める（st.bossTickets「10回ごとに1枚」の土台でもあるため、
      ここだけは全実装で一貫して守られている）。よって「全ジャンルのレベルアップ合計 ≦
      totalLevelUps」は、どのミニゲーム経由のレベルアップであっても成り立つ、より安全な
-     裏付けチェックとして、これ1本に絞った。 */
+     裏付けチェックとして、これ1本に絞った。
+     ただし、このチェックを導入する以前（2026-09-18より前）に存在した、今は修正済みの
+     バグ（例：kwsFinalLocked導入前の「答え表示後の書き直しで二重にレベルが上がる」事例）
+     によって、不正なしでもすでにsumLevelUpsがtotalLevelUpsをわずかに超えてしまっている
+     古いセーブデータが残っている可能性がある。③と同じ「誤検知よりも見逃しを優先する」
+     考え方に合わせ、ここにも安全マージンを設ける。 */
   const sumLevelUps = Object.keys(st.lv || {}).reduce((s,cat) => s + ((st.lv[cat]||1)-1), 0);
-  if(sumLevelUps > (st.totalLevelUps || 0)){
-    reasons.push(`全ジャンルのレベルアップ合計(${sumLevelUps})が、記録されたレベルアップ回数(${st.totalLevelUps||0})を超えています`);
+  const SUM_LEVEL_UPS_SAFETY_MARGIN = 50;
+  if(sumLevelUps > (st.totalLevelUps || 0) + SUM_LEVEL_UPS_SAFETY_MARGIN){
+    reasons.push(`全ジャンルのレベルアップ合計(${sumLevelUps})が、記録されたレベルアップ回数(${st.totalLevelUps||0})を明らかに超えています`);
   }
 
   /* ②所持アイテムの総数は、ボス撃破でしか手に入らない（入手率は正解数の数%程度）。ボス戦の
@@ -8362,6 +8368,11 @@ function kwsCustomAddToPool(id){
     return;
   }
   kwsCustomRefreshSearchResults();
+  // 検索して追加した瞬間、下の一覧（kwsKanjiSelect）にもリアルタイムで反映する
+  // （教員の指示、2026-〜：「検索して追加したとき、リアルタイムでその下の一覧にも表示されるように」）。
+  // custom画面を開いていないとき（他3モードの「⭐追加」ボタン経由）はkwsKanjiSelectが
+  // DOMに無いため、kwsWireKanjiSelectList内のnullチェックで安全に無視される。
+  if(kwsMode === 'custom') kwsWireKanjiSelectList();
 }
 function kwsCustomRemoveFromPool(id){
   const st = loadStats();
@@ -9447,14 +9458,15 @@ function kwsHandleJudgeResult(kdata){
       // kwsRenderResult()が先に「○ …として認められました！」を出しているが、確認クイズに
       // 正解するまではまだ確定していないので上書きする（同じ理由：早合点させないため）。
       kwsSetStatus('○ 字の形は合っています。下のクイズにも答えてください', 'ok');
-      // 「今日の漢字」は○のときだけ「次の問題へ」を出す仕様（kwsUpdateJudgeButtonState参照）。
-      // クイズがまだ未回答の間にkwsJudgedPass=trueのまま「次の問題へ」を押せてしまうと、
-      // クイズに答えずに次へ進めてしまうため、回答するまでボタンを封じる。
-      if(kwsMode === 'today'){
-        const btn = document.getElementById('kwsBtnJudge');
-        btn.textContent = 'クイズに答えてください';
-        btn.disabled = true;
-      }
+      // クイズがまだ未回答の間はkwsJudged=trueのまま（kwsRenderResult参照）なので、何もしないと
+      // 「次の問題へ」ボタンが押せる状態になってしまい、クイズに答えずに（しかも複数文字の
+      // 問題なら残りの文字を書かずに）次の問題へ進めてしまう（教員の報告、2026-〜：「一文字目で
+      // 答えを見てから書いて復習・正解すると、次に進むを押すと二文字目に行かずに次の問題に
+      // 移ってしまう」の原因。以前は「今日の漢字」モードだけ対策していたが、exam/elem/chugaku/
+      // custom／漢字Questの「復習する」でも同じ抜け道があったため、モードを問わず塞ぐ）。
+      const btn = document.getElementById('kwsBtnJudge');
+      btn.textContent = 'クイズに答えてください';
+      btn.disabled = true;
       kwsRender();
       return;
     }
@@ -10263,7 +10275,8 @@ function kwsBuildResultBadge(id, cls, entry){
 function kwsUpdateResultLogDisplay(){
   // 「今日の漢字」は正解・不正解の一覧パネル自体を出さない（kwsScreenHtml参照）ため、
   // ここで触るDOM要素（kwsCorrectCount等）が存在しない。何もせず抜ける。
-  if(kwsMode === 'today') return;
+  // 「覚えたい漢字」も同じ理由で出さない（教員の指示、2026-〜：スクショを載せる部分を削除）。
+  if(kwsMode === 'today' || kwsMode === 'custom') return;
   const ids = kwsSortIds(Object.keys(kwsData));
   const correctIds = ids.filter(id => kwsResultLog[id] && kwsResultLog[id].pass === true);
   // 一度でも×になった問題は、その後○になっても引き続きここに残す（×の記録として）
@@ -10418,6 +10431,7 @@ function kwsScreenHtml(opts){
       </div>
     </div>
     ${kwsMode === 'today' ? '' : `
+    ${kwsMode === 'custom' ? '' : `
     <div class="kws-resultsStock">
       <div class="kws-resultsCol">
         <h3>正解した問題（<span id="kwsCorrectCount">0</span>）</h3>
@@ -10427,7 +10441,7 @@ function kwsScreenHtml(opts){
         <h3>間違った問題（<span id="kwsIncorrectCount">0</span>）</h3>
         <div class="kws-resultsList" id="kwsIncorrectList"></div>
       </div>
-    </div>
+    </div>`}
     ${kwsMode === 'custom' ? kwsCustomSearchBoxHtml() : ''}
     <div class="kws-listControls">
       <button id="kwsBtnShowList">一覧表示</button>
@@ -10541,7 +10555,11 @@ function kwsWireKanjiSelectList(){
     b.dataset.id = id;
     // 「覚えたい漢字」の一覧だけは、タップで問題に切り替えるのではなく、プールから削除する
     // （教員の指示、2026-09-12：「一覧の中からタップすることで、覚えたい漢字から削除する」）。
-    if(kwsMode === 'custom') b.addEventListener('click', () => kwsCustomRemoveFromPool(id));
+    // タップ即削除だと誤操作で消してしまうため、削除前に必ず確認する
+    // （教員の指示、2026-〜：「～を、覚えたい字から削除しますか？」と確認してから削除する）。
+    if(kwsMode === 'custom') b.addEventListener('click', () => {
+      if(confirm(`「${kdata.kanji}」を、覚えたい字から削除しますか？`)) kwsCustomRemoveFromPool(id);
+    });
     else b.addEventListener('click', () => kwsLoadKanji(id));
     b.classList.toggle('active', id === kwsCurrentId);
     b.classList.toggle('kws-listOk', !!(entry && entry.box === 'ok'));
@@ -16763,6 +16781,35 @@ function isAdminMode(){
     return localStorage.getItem(ADMIN_BYPASS_KEY) === "1";
   }catch(e){ return false; }
 }
+/* 不正検出ブロック画面からの合言葉バイパス（2026-〜、教員の指示：「"mitomemasu"と入力すれば、
+   次にファイルを更新するまではゲームを続けられるようにしてほしい」）。isAdminMode（?devtool=kotonoha）
+   は一度設定すると永久に（ファイルを更新してもバージョン表示を書き換えない限り）残り続けるが、
+   こちらは意図的に「次の更新まで」の期限付きにする：ヘッダーのver-tag文字列（header h1 .ver-tag、
+   pushごとに+0.01される運用）をそのままバイパス発行時のバージョン印として保存し、現在表示されている
+   ver-tagと一致する間だけ有効にする。ファイルが更新されてver-tagの文字列が変わると、保存した印と
+   一致しなくなり自動的に無効化される（再入力が必要になる）。 */
+const TAMPER_BYPASS_KEY = "kokugoDrillDXTamperBypass_v1";
+function currentAppVersionTag(){
+  const el = document.querySelector('.ver-tag');
+  return el ? el.textContent.trim() : '';
+}
+function isTamperBypassed(){
+  try{
+    const saved = localStorage.getItem(TAMPER_BYPASS_KEY);
+    return !!saved && saved === currentAppVersionTag();
+  }catch(e){ return false; }
+}
+function submitTamperBypass(){
+  const input = document.getElementById('tamperBypassInput');
+  const val = input ? input.value.trim() : '';
+  if(val.toLowerCase() !== 'mitomemasu'){
+    const msg = document.getElementById('tamperBypassMsg');
+    if(msg) msg.textContent = '入力が正しくありません。';
+    return;
+  }
+  try{ localStorage.setItem(TAMPER_BYPASS_KEY, currentAppVersionTag()); }catch(e){}
+  location.reload();
+}
 function bootApp(){
   let savedTooNew = false;
   try{
@@ -16786,7 +16833,7 @@ function bootApp(){
      ブロックの対象外にする。 */
   let tamperCheck = {tampered:false, reasons:[]};
   try{ tamperCheck = detectSaveTampering(loadStats()); }catch(e){}
-  if(tamperCheck.tampered && !isAdminMode()){
+  if(tamperCheck.tampered && !isAdminMode() && !isTamperBypassed()){
     const reasonsHtml = tamperCheck.reasons.map(r => `<li>${r}</li>`).join("");
     document.body.innerHTML = `
       <div style="max-width:480px;margin:60px auto;padding:24px;text-align:center;font-family:inherit;">
@@ -16803,6 +16850,17 @@ function bootApp(){
           style="margin-top:18px;padding:10px 20px;font-size:1em;border:none;border-radius:8px;background:#b5651d;color:#fff;cursor:pointer;">
           この端末の記録をリセットする
         </button>
+        <div style="margin-top:28px;padding-top:18px;border-top:1px solid #ddd;">
+          <p style="font-size:0.85em;color:#666;line-height:1.7;">先生（管理者）が合言葉を知っている場合は、ここに入力すると次にファイルが更新されるまでこのまま続けられます。</p>
+          <input id="tamperBypassInput" type="text" autocomplete="off" placeholder="合言葉"
+            style="padding:8px 10px;font-size:1em;border:1px solid #ccc;border-radius:6px;margin-right:8px;"
+            onkeydown="if(event.key==='Enter') submitTamperBypass();">
+          <button onclick="submitTamperBypass()"
+            style="padding:8px 16px;font-size:1em;border:none;border-radius:8px;background:#555;color:#fff;cursor:pointer;">
+            続ける
+          </button>
+          <p id="tamperBypassMsg" style="color:#c0392b;font-size:0.85em;margin-top:8px;"></p>
+        </div>
       </div>`;
     return;
   }

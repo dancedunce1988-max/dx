@@ -9630,7 +9630,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "id": "kwc0865",
   "ch": "摯",
   "kanji": "真摯",
-  "sentence": "彼は《シンシ》な態度で謝罪した。",
+  "sentence": "問題を《シンシ》に受けとめた。",
   "readingSplit": 2,
   "grade": 3,
   "radicals": [
@@ -10127,7 +10127,7 @@ window.KANJI_WRITE_CHUGAKU_DATA = [
   "id": "kwc0909",
   "ch": "紳",
   "kanji": "紳士",
-  "sentence": "彼は《シンシ》的な態度で接してくれた。",
+  "sentence": "彼は《シンシ》的な対応をした。",
   "readingSplit": 2,
   "grade": 3,
   "radicals": [
