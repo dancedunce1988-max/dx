@@ -4005,7 +4005,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.23</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.24</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -10918,10 +10918,12 @@ function hyaActiveGroupPool(st){
    ReviewSystem本体は変更しない：これにより、ロック中の首は（既存のitemHistに間隔反復の記録が
    残っていても）復習にも一切出さない。 */
 function hyaVisibleHist(st, qType){
-  const unlockedIds = new Set(hyaUnlockedPool(st).map(it => it.id));
+  // ジャンル選択中（qType指定あり）は解禁の仕組みを無視するため、unlockedIdsによる絞り込み自体を
+  // 行わない（hyaSelectOneのジャンル選択時の扱いと合わせる、2026-09-12〜）。
+  const unlockedIds = qType ? null : new Set(hyaUnlockedPool(st).map(it => it.id));
   const out = {};
   Object.keys(st.hyakunin.itemHist).forEach(k => {
-    if(!unlockedIds.has(k)) return;
+    if(unlockedIds && !unlockedIds.has(k)) return;
     if(qType && !k.endsWith("_" + qType)) return;
     out[k] = st.hyakunin.itemHist[k];
   });
@@ -11007,14 +11009,14 @@ function hyaDifficultyWeight(it, diffLv){
 }
 function hyaSelectOne(lastId, qType){
   const st = loadStats();
-  let pool = hyaFastUnlockEligible(st) ? (hyaActiveGroupPool(st) || hyaUnlockedPool(st)) : hyaUnlockedPool(st);
-  if(qType){
-    // 高速解放モードの「今アンロックの最前線になっている8問」に選んだジャンルの問題が
-    // 1問も含まれないことがある（8問は複数ジャンル混在のため）。その場合は解禁済み全体から
-    // そのジャンルだけを絞り込む（教員の指示、2026-09-11：ジャンル選択機能の追加）。
-    const narrowed = pool.filter(it => it.qType === qType);
-    pool = narrowed.length ? narrowed : hyaUnlockedPool(st).filter(it => it.qType === qType);
-  }
+  /* ジャンルを選んで挑戦しているとき（qType指定あり）は、「おまかせ」側の段階的解禁
+     （hyaGroups・hyaUnlockedPool・高速解放モード）を一切無視し、そのジャンルの100首ぶんを
+     最初から全て出題対象にする（教員の指示、2026-09-12：「ジャンル選択はいつでもできるように
+     して、解禁のシステムはなしにしてください」＝ジャンル選択に限り解禁の仕組みそのものを
+     なくす。「おまかせ」自体の解禁進捗は変更しない）。 */
+  let pool = qType
+    ? hyaPool().filter(it => it.qType === qType)
+    : (hyaFastUnlockEligible(st) ? (hyaActiveGroupPool(st) || hyaUnlockedPool(st)) : hyaUnlockedPool(st));
   if(pool.length > 1 && lastId) pool = pool.filter(it => it.id !== lastId);
   const isConfirmCheck = Math.random() < CONFIRM_CHECK_RATE;
   const diffLv = typeof st.hyakunin.targetLv === "number" ? st.hyakunin.targetLv : 1;
@@ -11039,10 +11041,6 @@ function hyaTypeLv(st, qType){
     if(k.endsWith(suffix)) c += (st.hyakunin.itemHist[k].c || 0);
   });
   return 1 + c;
-}
-/* そのジャンルの問題が1問でも解禁済みか（ジャンル選択画面での鍵表示に使う）。 */
-function hyaTypeUnlocked(st, qType){
-  return hyaUnlockedPool(st).some(it => it.qType === qType);
 }
 function hyaLvLabel(diffLv){
   const g = Math.round(Math.max(1, Math.min(HYAKUNIN_MAX_LV, diffLv)));
@@ -11125,33 +11123,27 @@ function showHyakuninMenu(){
 /* ---- 画面：ジャンル選択（クイズモード、2026-09-11〜） =================
    「おまかせ」（従来どおり全ジャンル混合・解禁順に沿って自動出題）に加えて、6つの出題形式
    （上の句→下の句／決まり字→下の句／歌の意味／表現技法／作者／出典）を個別に選んで挑戦できる。
-   ジャンルごとの「Lv」はhyaTypeLvが導出する表示専用の値で、経験値・進化の分岐・解禁進捗
-   （hyaGroups・st.groupUnlock.hyakunin）には一切影響しない。解禁進捗そのものは
-   従来どおり全ジャンル共通で、まだそのジャンルの問題が1問も解禁されていなければ鍵付きで表示する
-   （教員の指示：「問題ジャンルを細分化してほしい。ジャンルレベルはそれぞれにするが、経験値には
-   影響しない」）。 */
+   ジャンルごとの「Lv」はhyaTypeLvが導出する表示専用の値で、経験値・進化の分岐には一切影響しない。
+   2026-09-12〜：ジャンル選択は「おまかせ」の段階的解禁（hyaGroups・st.groupUnlock.hyakunin）とは
+   無関係にいつでもどれでも選べる（教員の指示：「ジャンル選択はいつでもできるようにして、
+   解禁のシステムはなしにしてください」）。「おまかせ」自体の解禁進捗・解放率表示は変更しない。 */
 function showHyakuninGenrePicker(){
   const st = loadStats();
   let html = `
     <h3 class="section">🎯 百人一首クイズ　ジャンルを選ぶ</h3>
-    <p class="note">「おまかせ」は今までどおり、解禁の進み具合に合わせて全ジャンルから自動で出題します。ジャンルを選ぶと、そのジャンルだけを集中して練習できます。</p>
+    <p class="note">「おまかせ」は全ジャンルから自動で出題します。ジャンルを選ぶと、そのジャンルだけを集中して練習できます（どのジャンルもいつでも選べます）。</p>
     <div class="card menu-card" onclick="startHyakuninQuiz()">
       <div class="menu-icon">🎲</div>
-      <div><h2>おまかせ（全ジャンル）</h2><p>解禁の進み具合に合わせて、全ジャンルから自動で出題</p></div>
+      <div><h2>おまかせ（全ジャンル）</h2><p>いろいろなジャンルから自動で出題</p></div>
       <div class="right"><span class="shogo-badge">🎴 Lv.${hyaLv(st)}</span></div>
     </div>`;
   HYAKUNIN_QTYPE_ORDER.forEach(qType=>{
-    const unlocked = hyaTypeUnlocked(st, qType);
     const lv = hyaTypeLv(st, qType);
-    html += unlocked ? `
+    html += `
     <div class="card menu-card" onclick="startHyakuninQuiz('${qType}')">
       <div class="menu-icon">${HYAKUNIN_QTYPE_ICON[qType]}</div>
       <div><h2>${esc(HYAKUNIN_QTYPE_BADGE[qType])}</h2><p>${esc(HYAKUNIN_QTYPE_DESC[qType])}</p></div>
       <div class="right"><span class="shogo-badge">${HYAKUNIN_QTYPE_ICON[qType]} Lv.${lv}</span></div>
-    </div>` : `
-    <div class="card menu-card locked">
-      <div class="menu-icon">🔒</div>
-      <div><h2>${esc(HYAKUNIN_QTYPE_BADGE[qType])}</h2><p>まだ解禁されていません（おまかせモードで問題を解き進めると解禁されます）</p></div>
     </div>`;
   });
   html += `<div class="btn-row"><button class="btn secondary" onclick="showHyakuninMenu()">百人一首メニューへ</button></div>`;
@@ -11218,15 +11210,6 @@ function startHyakuninQuiz(qType){
         <h3 class="section">クイズを準備中です</h3>
         <p class="note">問題データを追加中です。しばらくお待ちください。</p>
         <div class="btn-row"><button class="btn secondary" onclick="showHyakuninMenu()">戻る</button></div>
-      </div>`;
-    return;
-  }
-  if(qType && !hyaTypeUnlocked(loadStats(), qType)){
-    screen.innerHTML = `
-      <div class="card">
-        <h3 class="section">🔒 まだ解禁されていません</h3>
-        <p class="note">「${esc(HYAKUNIN_QTYPE_BADGE[qType]||"")}」の問題はまだ解禁されていません。おまかせモードで問題を解き進めると解禁されます。</p>
-        <div class="btn-row"><button class="btn secondary" onclick="showHyakuninGenrePicker()">ジャンル選択へ戻る</button></div>
       </div>`;
     return;
   }
