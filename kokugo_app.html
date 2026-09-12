@@ -4108,7 +4108,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.27</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.28</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -16782,12 +16782,16 @@ function isAdminMode(){
   }catch(e){ return false; }
 }
 /* 不正検出ブロック画面からの合言葉バイパス（2026-〜、教員の指示：「"mitomemasu"と入力すれば、
-   次にファイルを更新するまではゲームを続けられるようにしてほしい」）。isAdminMode（?devtool=kotonoha）
-   は一度設定すると永久に（ファイルを更新してもバージョン表示を書き換えない限り）残り続けるが、
-   こちらは意図的に「次の更新まで」の期限付きにする：ヘッダーのver-tag文字列（header h1 .ver-tag、
-   pushごとに+0.01される運用）をそのままバイパス発行時のバージョン印として保存し、現在表示されている
-   ver-tagと一致する間だけ有効にする。ファイルが更新されてver-tagの文字列が変わると、保存した印と
-   一致しなくなり自動的に無効化される（再入力が必要になる）。 */
+   次にファイルを更新するまではゲームを続けられるようにしてほしい」。ただし「合言葉の欄」自体は
+   画面に一切出さないこと＝生徒が見て「何かある」と気付かないようにする、という追加指示があった
+   ため、入力欄やボタンは出さず、この画面が表示されている間ただキーボードで"mitomemasu"と
+   そのまま打つ（armHiddenTamperBypass参照）だけで効く、見た目には何も無い仕組みにしてある）。
+   isAdminMode（?devtool=kotonoha）は一度設定すると永久に（ファイルを更新してもバージョン表示を
+   書き換えない限り）残り続けるが、こちらは意図的に「次の更新まで」の期限付きにする：ヘッダーの
+   ver-tag文字列（header h1 .ver-tag、pushごとに+0.01される運用）をそのままバイパス発行時の
+   バージョン印として保存し、現在表示されているver-tagと一致する間だけ有効にする。ファイルが
+   更新されてver-tagの文字列が変わると、保存した印と一致しなくなり自動的に無効化される
+   （再入力が必要になる）。 */
 const TAMPER_BYPASS_KEY = "kokugoDrillDXTamperBypass_v1";
 function currentAppVersionTag(){
   const el = document.querySelector('.ver-tag');
@@ -16799,16 +16803,21 @@ function isTamperBypassed(){
     return !!saved && saved === currentAppVersionTag();
   }catch(e){ return false; }
 }
-function submitTamperBypass(){
-  const input = document.getElementById('tamperBypassInput');
-  const val = input ? input.value.trim() : '';
-  if(val.toLowerCase() !== 'mitomemasu'){
-    const msg = document.getElementById('tamperBypassMsg');
-    if(msg) msg.textContent = '入力が正しくありません。';
-    return;
-  }
-  try{ localStorage.setItem(TAMPER_BYPASS_KEY, currentAppVersionTag()); }catch(e){}
-  location.reload();
+// 不正検出ブロック画面を表示した直後に呼ぶ。画面上には何も表示せず、キー入力だけを
+// 静かに監視して末尾が"mitomemasu"と一致した瞬間にバイパスを発行する（入力欄を出さない
+// ＝見た目が通常のブロック画面と完全に同じままになる）。
+function armHiddenTamperBypass(){
+  const phrase = 'mitomemasu';
+  let buf = '';
+  document.addEventListener('keydown', function(e){
+    if(e.key && e.key.length === 1){
+      buf = (buf + e.key).slice(-phrase.length);
+      if(buf.toLowerCase() === phrase){
+        try{ localStorage.setItem(TAMPER_BYPASS_KEY, currentAppVersionTag()); }catch(err){}
+        location.reload();
+      }
+    }
+  });
 }
 function bootApp(){
   let savedTooNew = false;
@@ -16850,18 +16859,8 @@ function bootApp(){
           style="margin-top:18px;padding:10px 20px;font-size:1em;border:none;border-radius:8px;background:#b5651d;color:#fff;cursor:pointer;">
           この端末の記録をリセットする
         </button>
-        <div style="margin-top:28px;padding-top:18px;border-top:1px solid #ddd;">
-          <p style="font-size:0.85em;color:#666;line-height:1.7;">先生（管理者）が合言葉を知っている場合は、ここに入力すると次にファイルが更新されるまでこのまま続けられます。</p>
-          <input id="tamperBypassInput" type="text" autocomplete="off" placeholder="合言葉"
-            style="padding:8px 10px;font-size:1em;border:1px solid #ccc;border-radius:6px;margin-right:8px;"
-            onkeydown="if(event.key==='Enter') submitTamperBypass();">
-          <button onclick="submitTamperBypass()"
-            style="padding:8px 16px;font-size:1em;border:none;border-radius:8px;background:#555;color:#fff;cursor:pointer;">
-            続ける
-          </button>
-          <p id="tamperBypassMsg" style="color:#c0392b;font-size:0.85em;margin-top:8px;"></p>
-        </div>
       </div>`;
+    armHiddenTamperBypass();
     return;
   }
   /* 教員向けの見た目確認ツール（URLに ?devtool=kotonoha を付けたときだけ現れる、通常のプレイでは
