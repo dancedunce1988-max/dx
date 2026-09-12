@@ -259,6 +259,10 @@
   }
   .unlock-footer .bar{flex:1; margin-top:0;}
   .unlock-footer-pct{font-weight:bold; color:var(--accent2); flex-shrink:0;}
+  .unlock-footer-settings{
+    flex-shrink:0; font-size:.72rem; padding:4px 10px; border-radius:14px; border:1px solid var(--line);
+    background:var(--bg); color:var(--sub); cursor:pointer; font-family:inherit; white-space:nowrap;
+  }
   .unlock-footer-spacer{height:60px;}
   /* ================= 漢字の書き取り学習（手書き判定版、2026-08〜） =================
      旧kanjiWrite（自己採点式。kw-level-card/kw-sentence/kw-answer-kanji/kw-selfjudge-row等の
@@ -277,6 +281,29 @@
   .kws-gradeSwitch{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin:4px 0 14px; }
   .kws-gradeSwitch button{ font-size:.85rem; padding:8px 14px; border-radius:20px; border:1px solid var(--line); background:var(--card); cursor:pointer; font-family:inherit; }
   .kws-gradeSwitch button.active{ border-color:var(--ok); background:var(--ok); color:#fff; font-weight:bold; }
+  /* 「覚えたい漢字」まわり（2026-09-12〜）。既存のexam/elem/chugaku画面には⭐追加ボタンだけ、
+     custom自身の画面には検索窓（kwsCustomSearchBoxHtml）が問題の下・一覧ボタンの上に入る。 */
+  .kws-pinBtn{
+    font-size:.72rem; padding:4px 10px; border-radius:14px; border:1px solid var(--gold);
+    background:var(--card); color:var(--gold); cursor:pointer; font-family:inherit; white-space:nowrap; flex-shrink:0;
+  }
+  .kws-pinBtn:hover{ background:var(--gold); color:#fff; }
+  .kws-customSearchBox{ width:100%; max-width:520px; margin:0 auto 10px; text-align:center; }
+  .kws-customSearchBox h4{ font-size:.85rem; margin:0 0 6px; color:var(--sub); }
+  .kws-customSearchInput{
+    width:100%; box-sizing:border-box; font-size:1rem; padding:10px 12px; border-radius:8px;
+    border:1px solid var(--line); font-family:inherit;
+  }
+  .kws-customSearchResults{ display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-top:8px; }
+  .kws-customSearchItem{
+    display:flex; flex-direction:column; align-items:center; gap:2px; font-size:1rem; padding:6px 10px;
+    border-radius:10px; border:2px solid var(--line); background:var(--card); cursor:pointer; font-family:inherit; line-height:1.2;
+  }
+  .kws-customSearchItem[disabled]{ cursor:default; opacity:.6; }
+  .kws-customSearchItem.kws-added{ background:#e8f5e9; border-color:#43a047; }
+  .kws-customSearchKanji{ font-size:1.3rem; }
+  .kws-customSearchLabel{ font-size:.6rem; color:var(--sub); }
+  .kws-customSearchAdded{ font-size:.6rem; color:#2e7d32; font-weight:bold; }
   .kws-kanjiSelect{ display:flex; gap:6px; flex-wrap:wrap; justify-content:center; margin-bottom:10px; }
   .kws-kanjiSelect button{
     font-size:1.1rem; padding:5px 12px; border-radius:10px; border:2px solid var(--line);
@@ -4000,12 +4027,87 @@
 }
 .mb-review-progress{ font-weight:bold; color:#d8c2ff; font-size:.85rem; }
 .mb-review-quit-btn{ padding:6px 14px; font-size:.8rem; white-space:nowrap; }
+/* ================= 読解Quest試作版（旧称・読解ダンジョン、2026-09-12〜） =================
+   本文から「証拠」をタップで探し、つなげて、推理し、記述するまでの一連の読解技能を
+   ゲーム化した新コーナー。既存の読解トレーニング（4択クイズ、dokkai）とは別の独立した
+   仕組みで、stやCAT_KEYS等の既存セーブ構造には触れない（st.dokkaiDungeonのみ使う）。 */
+.dd-intro-card{
+  background:linear-gradient(150deg,#2c6e63,#1f4f47); color:#fff;
+  border-radius:14px; padding:20px; margin-bottom:16px; text-align:center;
+}
+.dd-intro-card h2{font-size:1.2rem; margin-bottom:6px;}
+.dd-intro-card p{font-size:.85rem; color:rgba(255,255,255,.88); line-height:1.6;}
+.dd-step-bar{
+  display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap;
+}
+.dd-step-chip{
+  flex:1; min-width:56px; text-align:center; font-size:.68rem; padding:6px 4px;
+  border-radius:8px; background:var(--line); color:var(--sub); font-weight:bold;
+}
+.dd-step-chip.active{background:var(--accent2); color:#fff;}
+.dd-step-chip.done{background:#cfe7e1; color:var(--accent2);}
+.dd-evid{
+  cursor:pointer; border-bottom:3px dotted var(--accent2); padding:0 1px;
+  transition:background .15s;
+}
+.dd-evid:hover{background:#eef6f4;}
+.dd-evid.dd-found{
+  border-bottom:3px solid var(--accent2); background:#eaf5f2; font-weight:bold;
+}
+.dd-found-panel{
+  background:var(--card); border:1px solid var(--line); border-radius:10px;
+  padding:12px 14px; margin-bottom:14px;
+}
+.dd-found-panel h4{font-size:.82rem; color:var(--sub); margin-bottom:8px;}
+.dd-evid-card{
+  display:flex; align-items:center; gap:8px; padding:8px 10px; border:2px solid var(--line);
+  border-radius:8px; margin-bottom:6px; font-size:.86rem; cursor:pointer; background:var(--bg);
+  transition:border-color .1s, background .1s;
+}
+.dd-evid-card:hover{border-color:var(--accent2);}
+.dd-evid-card.dd-selected{border-color:var(--accent2); background:#eef6f4;}
+.dd-stars{color:var(--gold); letter-spacing:1px; flex-shrink:0; font-size:.8rem;}
+.dd-evid-text{flex:1;}
+.dd-remove-x{color:var(--sub); font-size:.8rem; flex-shrink:0;}
+.dd-progress-line{font-size:.82rem; color:var(--sub); margin-bottom:10px;}
+.dd-toast{
+  background:#fdf6e3; border:1px solid var(--gold); color:#6b5200; border-radius:8px;
+  padding:8px 12px; font-size:.85rem; font-weight:bold; margin-bottom:10px; animation:pop .3s ease;
+}
+.dd-textarea{
+  width:100%; min-height:110px; font-size:1rem; padding:12px 14px; border:2px solid var(--line);
+  border-radius:10px; font-family:inherit; resize:vertical; line-height:1.7;
+}
+.dd-textarea:focus{outline:none; border-color:var(--accent2);}
+.dd-charcount{font-size:.8rem; color:var(--sub); text-align:right; margin-top:4px;}
+.dd-charcount.over{color:var(--ng); font-weight:bold;}
+.dd-checklist{list-style:none; font-size:.84rem; color:var(--sub); line-height:1.9; margin:10px 0;}
+.dd-checklist li::before{content:"☑ "; color:var(--accent2);}
+.dd-rubric-item{
+  display:flex; justify-content:space-between; gap:10px; padding:8px 10px; border-radius:8px;
+  margin-bottom:6px; font-size:.86rem; background:var(--bg);
+}
+.dd-rubric-item.dd-hit{background:var(--okbg); color:var(--ok);}
+.dd-rubric-item.dd-miss{background:var(--ngbg); color:var(--ng);}
+.dd-score-big{font-size:2.2rem; font-weight:bold; text-align:center; color:var(--accent2); margin:6px 0;}
+.dd-skill-grid{display:flex; flex-direction:column; gap:8px; margin:10px 0;}
+.dd-skill-row{display:flex; align-items:center; gap:10px; font-size:.82rem;}
+.dd-skill-name{width:88px; flex-shrink:0; color:var(--sub);}
+.dd-skill-bar{flex:1; height:8px; background:var(--line); border-radius:99px; overflow:hidden;}
+.dd-skill-bar > div{height:100%; background:var(--accent2);}
+.dd-skill-lv{width:42px; flex-shrink:0; text-align:right; font-weight:bold; color:var(--accent2);}
+.dd-skill-up{color:var(--gold); font-weight:bold; margin-left:4px; animation:pop .35s ease;}
+.dd-sample-box{
+  background:#fffdf7; border:1px dashed var(--line); border-radius:10px; padding:12px 14px;
+  font-size:.88rem; margin-top:10px;
+}
+.dd-sample-box .label{color:var(--sub); font-size:.75rem; margin-bottom:4px; display:block;}
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.24</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.25</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -4030,6 +4132,7 @@
 <script src="mb_action_button_images.js"></script>
 <script src="menu_title_images.js"></script>
 <script src="mb_bgm_data.js"></script>
+<script src="dokkai_dungeon_data.js"></script>
 <script>
 "use strict";
 
@@ -4167,6 +4270,12 @@ const DATA = window.QUESTION_DATA;
 const CATS = DATA.cats;
 const CAT_KEYS = Object.keys(CATS);
 const DOKKAI = DATA.dokkai || [];
+const DOKKAI_DUNGEON = window.DOKKAI_DUNGEON_DATA || [];
+const DD_SKILL_KEYS = ["discovery","evidence","link","causal","inference","emotion","writing","revision"];
+const DD_SKILL_LABEL = {
+  discovery:"情報発見", evidence:"根拠確認", link:"関連付け", causal:"因果推論",
+  inference:"推理", emotion:"心情把握", writing:"記述", revision:"推敲",
+};
 /* 「返り点をつける」「読む順タップ」専用のジャンルレベル・経験値枠（2026-08-24〜、教員の指示：
    「それぞれのジャンルレベル」＝漢文4択（kanbun）とは別に、この2つに独立したレベル・経験値を
    持たせる）。DATA.cats（CAT_KEYS）には含めない：CAT_KEYSは通常クイズの出題プール
@@ -4217,6 +4326,8 @@ function emptyStats(){
   const cats = {dokkai:{t:0,c:0}};
   const lv = {dokkai:1};
   const diffLv = {};
+  const ddSkillXp = {};
+  DD_SKILL_KEYS.forEach(k => { ddSkillXp[k] = 0; });
   CAT_KEYS.forEach(k => { cats[k] = {t:0,c:0}; lv[k] = 1; diffLv[k] = 1; });
   EXTRA_LEVEL_CATS.forEach(k => { cats[k] = {t:0,c:0}; lv[k] = 1; });
   return {cats, q:{}, lv, diffLv, items:{}, usedTreasures:{}, usedStoryRewards:{}, bossPity:{}, bossItemPity:{}, kotonohaOtherRoll:null, bossTickets:0, totalLevelUps:0,
@@ -4236,7 +4347,8 @@ function emptyStats(){
        あった（2026-09-02、実機テストで発覚）。emptyStats()の時点で今日の日付を入れておけば、
        この早期リターン経路でも常に「今日の分」として正しく扱われる。 */
     todayKanji:{date: todayLocalDateStr(), correctCount:0, done:false, round:1},
-    story:{chapter:"ch1", beatIdx:0, flags:{}, completedChapters:[], judgedRunCorrect:0, judgedRunTotal:0, judgedBest:{}, comboBest:{}}};
+    story:{chapter:"ch1", beatIdx:0, flags:{}, completedChapters:[], judgedRunCorrect:0, judgedRunTotal:0, judgedBest:{}, comboBest:{}},
+    dokkaiDungeon:{skillXp:ddSkillXp, cleared:{}}};
 }
 /* ステータスポイントは保存された数値ではなく、常にその場で計算する：
    「分野レベルの合計（＝これまで獲得した経験値の合計）」から「すでに割りふった分」を引いた残り。
@@ -4748,6 +4860,13 @@ function loadStats(){
         }
         if(st.kotonohaOtherRoll === undefined) st.kotonohaOtherRoll = null;
         delete st.kotonohaBranch;
+        /* 読解Quest試作版（2026-09-12〜）。既存のdokkai（4択クイズ）とは別建てのセーブ領域。
+           技能別の経験値(skillXp)とステージごとの挑戦記録(cleared)だけを持つ、完全に独立した
+           仕組みなので、他のカテゴリのレベル計算・ボス出現・ステータスポイント等には一切影響しない。 */
+        if(!st.dokkaiDungeon) st.dokkaiDungeon = {skillXp:{}, cleared:{}};
+        if(!st.dokkaiDungeon.skillXp) st.dokkaiDungeon.skillXp = {};
+        DD_SKILL_KEYS.forEach(k => { if(typeof st.dokkaiDungeon.skillXp[k] !== "number") st.dokkaiDungeon.skillXp[k] = 0; });
+        if(!st.dokkaiDungeon.cleared) st.dokkaiDungeon.cleared = {};
         return st;
       }
     }
@@ -4855,7 +4974,7 @@ function record(cat, item, correct, elapsedMs, opts){
   }
 
   let lvup = false, evolved = null, gotTicket = false;
-  if(correct && !lowAccuracy && !fastGuess && st.lv[cat] < MAX_CAT_LV){
+  if(correct && !lowAccuracy && !fastGuess && st.lv[cat] < MAX_CAT_LV && !isManualUnlock(st, cat)){
     const before = titleOf(st.lv[cat]);
     st.lv[cat]++;
     lvup = true;
@@ -6915,12 +7034,23 @@ function showHome(){
   html += bossTicketHtml(st);
   html += itemLinkHtml(st);
   html += dailyLoginProgressHtml(st);
-  const kwsExamT = titleOf(st.lv.kws_exam);
-  const kwsElemT = titleOf(st.lv.kws_elem);
-  const kwsChugakuT = titleOf(st.lv.kws_chugaku);
   (DATA.groups || [{name:"分野", keys:CAT_KEYS}]).forEach(g=>{
     html += `<h3 class="section">${esc(g.name)}</h3>`;
+    // 漢字の書き取り（手書き自動判定）は、教員の指示（2026-09-02）で「とっくん・読解・記録」
+    // ではなく「漢字」のくくりの中に置く。データ自体（kokugo_data.jsのDATA.groups）は
+    // 変更せず、ここで「漢字」グループの一番上に差し込む（2026-09-12〜：小学校/中学校/
+    // 高校入試200の3ボタンを「漢字を書く」1つに集約し、ジャンル選択画面へつなぐ形に変更。
+    // 「覚えたい漢字」（自分で選んだ漢字だけを練習する専用プール、ジャンルレベルなし）を
+    // その下に新設）。
+    if(g.name === "漢字") html += kanjiWriteMenuCardsHtml(st);
+    // 古典・表現グループは、教員の指示（2026-09-12）で「古文」「漢文」「季語」の3つに集約する。
+    // 古文＝古文の言葉(kobun)＋歴史的仮名遣い(kanazukai)、漢文＝返り点をつける(kanbun_kt)＋
+    // 読む順タップ(kanbun_yj)＋漢文の返り点(kanbun、四択クイズ)を、それぞれ選択画面
+    // （showKobunPicker/showKanbunPicker）にまとめる。季語(kigo)だけは元々1つしか無いので、
+    // 従来どおり通常カードのまま残す（下のg.keys.forEachでkobun/kanazukai/kanbunだけ除外する）。
+    if(g.name === "古典・表現") html += kotenMenuCardsHtml(st);
     g.keys.forEach(key=>{
+      if(g.name === "古典・表現" && (key === "kobun" || key === "kanazukai" || key === "kanbun")) return;
       if(!CATS[key]) return;
       const m = CATS[key];
       const lv = st.lv[key], t = titleOf(lv);
@@ -6934,45 +7064,6 @@ function showHome(){
         </div>
       </div>`;
     });
-    // 漢字の書き取り（手書き自動判定）2つは、教員の指示（2026-09-02）で「とっくん・読解・記録」
-    // ではなく「漢字」のくくりの中に置く。データ自体（kokugo_data.jsのDATA.groups）は
-    // 変更せず、ここで「漢字」グループの通常カードの直後に差し込むだけにする
-    // （古典・表現グループへの返り点/読む順タップの差し込みと同じやり方）。
-    if(g.name === "漢字"){
-      html += `
-      <div class="card menu-card kws-card" onclick="startKanjiWriteStroke()">
-        <div class="menu-icon">✍️</div>
-        <div><h2>（書き）高校入試頻出漢字200</h2><p>高校入試に出やすい漢字を書く問題</p></div>
-        <div class="right"><span class="shogo-badge ${kwsExamT.hidden?"top":""}">${kwsExamT.icon} ${esc(kwsExamT.name)} Lv.${st.lv.kws_exam}</span></div>
-      </div>
-      <div class="card menu-card kws-card" onclick="startKanjiWriteStroke('elem')">
-        <div class="menu-icon">✏️</div>
-        <div><h2>（書き）小学校で習う漢字</h2><p>小学校の漢字を書く問題です</p></div>
-        <div class="right"><span class="shogo-badge ${kwsElemT.hidden?"top":""}">${kwsElemT.icon} ${esc(kwsElemT.name)} Lv.${st.lv.kws_elem}</span></div>
-      </div>
-      <div class="card menu-card kws-card" onclick="startKanjiWriteStroke('chugaku')">
-        <div class="menu-icon">📝</div>
-        <div><h2>（書き）中学校で習う漢字</h2><p>中学校の漢字を書く問題です</p></div>
-        <div class="right"><span class="shogo-badge ${kwsChugakuT.hidden?"top":""}">${kwsChugakuT.icon} ${esc(kwsChugakuT.name)} Lv.${st.lv.kws_chugaku}</span></div>
-      </div>`;
-    }
-    if(g.name === "古典・表現"){
-      const ktT = titleOf(st.lv.kanbun_kt);
-      const yjT = titleOf(st.lv.kanbun_yj);
-      const ktLocked = !!(st.notLearnedCats && st.notLearnedCats.kanbun_kt);
-      const yjLocked = !!(st.notLearnedCats && st.notLearnedCats.kanbun_yj);
-      html += `
-      <div class="card menu-card${ktLocked?" locked":""}" ${ktLocked?"":`onclick="ktStart()"`}>
-        <div class="menu-icon">${ktLocked?"🔒":"🖌️"}</div>
-        <div><h2>返り点をつける</h2><p>${ktLocked?"まだ習っていない":"白文に返り点をドラッグで置く特訓。正解で徐々に解禁"}</p></div>
-        ${ktLocked?"":`<div class="right"><span class="shogo-badge ${ktT.hidden?"top":""}">${ktT.icon} ${esc(ktT.name)} Lv.${st.lv.kanbun_kt}</span></div>`}
-      </div>
-      <div class="card menu-card${yjLocked?" locked":""}" ${yjLocked?"":`onclick="yjStart()"`}>
-        <div class="menu-icon">${yjLocked?"🔒":"👆"}</div>
-        <div><h2>読む順タップ</h2><p>${yjLocked?"まだ習っていない":"返り点付きの白文を見て、読む順に字をタップする特訓"}</p></div>
-        ${yjLocked?"":`<div class="right"><span class="shogo-badge ${yjT.hidden?"top":""}">${yjT.icon} ${esc(yjT.name)} Lv.${st.lv.kanbun_yj}</span></div>`}
-      </div>`;
-    }
   });
   const weak = weakItems();
   const dt = titleOf(st.lv.dokkai);
@@ -6986,6 +7077,10 @@ function showHome(){
       <div class="menu-icon">📚</div>
       <div><h2>読解トレーニング <span class="tag">${DOKKAI.length}題</span></h2><p>説明文・小説・随筆を読んで設問に答える</p></div>
       <div class="right"><span class="shogo-badge">${dt.icon} ${esc(dt.name)} Lv.${st.lv.dokkai}</span></div>
+    </div>
+    <div class="card menu-card" onclick="ddShowList()">
+      <div class="menu-icon">🗺️</div>
+      <div><h2>読解Quest <span class="tag">試作版</span></h2><p>文章から証拠を探し、つなげて、推理して、記述する新しい読解ゲーム</p></div>
     </div>
     <div class="card menu-card" onclick="showHyakuninMenu()">
       <div class="menu-icon">🎴</div>
@@ -7441,7 +7536,7 @@ function renderQuestion(){
         <button class="btn secondary" id="quitBtn" style="display:none" onclick="endSession(false)">今日はここまで</button>
       </div>
     </div>
-    ${unlockFooterHtml(CATS[cat].name, catUnlockedQuestionPct(st, cat))}`;
+    ${unlockFooterHtml(CATS[cat].name, catUnlockedQuestionPct(st, cat), GROUP_UNLOCK_CATS.includes(cat) ? cat : null)}`;
   if(isInput){ const el = document.getElementById("ansIn"); if(el) el.focus(); }
 }
 function answerChoice(origIdx){
@@ -7795,14 +7890,20 @@ const KWS_CONFUSION_READING_HINTS = {
 
 let kwsMode = 'exam';       // 'exam'（漢字の書き学習）| 'elem'（小学生の漢字を復習する）
                              // | 'chugaku'（中学校の漢字を書く練習）| 'today'（今日の漢字）
+                             // | 'custom'（覚えたい漢字、2026-09-12〜）
 let kwsElemGrade = null;    // elemモードの出題学年フィルタ。null=全学年ミックス、1〜6=その学年のみ
 let kwsChugakuLevel = null; // chugakuモードの出題レベルフィルタ。null=全レベルミックス、1〜=そのレベルのみ
-const kwsDataCache = { exam: null, elem: null, chugaku: null }; // kwsEnsureData()でモードごとに1回だけ構築してキャッシュ
+const kwsDataCache = { exam: null, elem: null, chugaku: null, custom: null }; // kwsEnsureData()でモードごとに1回だけ構築してキャッシュ
 let kwsData = null;         // 現在のモードのkwsDataCache[kwsMode]を指す
 // 3箱・ジャンルレベルの記録対象になるモード一覧と、対応するst.cats/st.lvキー
 // （EXTRA_LEVEL_CATS参照）への変換。将来モードが増えたときここと EXTRA_LEVEL_CATS の
 // 2箇所だけ触れば済むようにする（2026-09-02、chugaku追加時に導入）。
-const KWS_RECORDABLE_MODES = ['exam', 'elem', 'chugaku'];
+// 'custom'（覚えたい漢字）も3箱の間隔反復には乗せるが、kwsGenreLevelEligibleNow／
+// kwsEventXpEligibleNowがどちらも未知のモードとしてfalseを返す（末尾のreturn false）ため、
+// ジャンルレベル・経験値には一切乗らない（教員の指示、2026-09-12：「ジャンルレベルは
+// 実装しない」「経験値も一切加算しない」）。kwsStatCatForもcustomを持たずnullを返すが、
+// 上記の理由でそもそも参照されない。
+const KWS_RECORDABLE_MODES = ['exam', 'elem', 'chugaku', 'custom'];
 function kwsStatCatFor(mode){
   if(mode === 'exam') return 'kws_exam';
   if(mode === 'elem') return 'kws_elem';
@@ -7881,8 +7982,8 @@ let kwsLastResult = null;      // 直前の判定結果（{ aggregate, chars }�
 let kwsLastCharResults = null;
 // id -> { pass, thumb }。直近の判定結果（画面を出入りしても保持するが、保存データには含めない）。
 // examモードとelemモードで別々に集計する（同じ画面内に混ざって表示されると紛らわしいため）。
-const kwsResultLogs = { exam: {}, elem: {}, chugaku: {}, today: {} };
-const kwsWrongLogs = { exam: {}, elem: {}, chugaku: {}, today: {} };   // id -> { pass:false, thumb }。一度でも×になったら、その後○になっても上書きしない
+const kwsResultLogs = { exam: {}, elem: {}, chugaku: {}, today: {}, custom: {} };
+const kwsWrongLogs = { exam: {}, elem: {}, chugaku: {}, today: {}, custom: {} };   // id -> { pass:false, thumb }。一度でも×になったら、その後○になっても上書きしない
 let kwsResultLog = kwsResultLogs.exam;
 let kwsWrongLog = kwsWrongLogs.exam;
 
@@ -8002,6 +8103,12 @@ function kwsEnsureData(mode){
   let raw;
   if(mode === 'elem') raw = window.KANJI_WRITE_ELEM_STROKE_DATA || {};
   else if(mode === 'chugaku') raw = window.KANJI_WRITE_CHUGAKU_STROKE_DATA || {};
+  else if(mode === 'custom'){
+    // 「覚えたい漢字」：exam/elem/chugaku全ての字が対象になりうるため、3つのストローク
+    // データを1つにまとめておく（idの接頭辞が違うため衝突しない、kwsTodayEnsureDataと同じ
+    // 考え方）。実際にどの字が出題されるかはstore/orderedIds側（st.kwsCustomPool）で絞る。
+    raw = Object.assign({}, window.KANJI_WRITE_STROKE_DATA || {}, window.KANJI_WRITE_ELEM_STROKE_DATA || {}, window.KANJI_WRITE_CHUGAKU_STROKE_DATA || {});
+  }
   else raw = window.KANJI_WRITE_STROKE_DATA || {};
   kwsDataCache[mode] = kwsBuildKanjiData(raw);
   kwsData = kwsDataCache[mode];
@@ -8164,7 +8271,104 @@ function kwsOrderedIdsFor(mode){
   if(mode === 'exam') return kwsExamOrderedIds();
   if(mode === 'elem') return kwsElemOrderedIds();
   if(mode === 'chugaku') return kwsChugakuOrderedIds();
+  // 'custom'（覚えたい漢字）はexam/elem/chugakuと違い固定データではなく、ユーザーが
+  // 検索して自由に増減させるプール（st.kwsCustomPool）なので、他の3つのように結果を
+  // 永続キャッシュしない（呼ばれるたびに現在のプールをそのまま返す）。
+  if(mode === 'custom') return kwsCustomPoolIds(loadStats());
   return [];
+}
+// ================= 覚えたい漢字（2026-09-12〜） =================
+// st.kwsCustomPool＝ユーザーが検索して追加したid（"kw001"/"kwe0001"/"kwc0001"）の配列。
+// 出題・一覧・3箱への記録は既存のkws*エンジンをそのまま流用し（KWS_RECORDABLE_MODES参照）、
+// このプールに絞り込む部分（kwsOrderedIdsFor/kwsPoolIds/kwsEnsureStateStore）だけを
+// 専用実装にしてある。ジャンルレベル・経験値には一切乗らない（教員の指示）。
+function kwsCustomPoolIds(st){
+  return Array.isArray(st.kwsCustomPool) ? st.kwsCustomPool.slice() : [];
+}
+// 検索用インデックス（exam/elem/chugaku全ストロークデータをidだけ軽量化してマージ、初回のみ
+// 構築してキャッシュ）。kwsBuildKanjiDataは純粋関数（kwsMode等のグローバルに触れない）なので、
+// 現在どのモードで遊んでいてもこの呼び出しで実際の出題セッションを壊す心配がない
+// （kwsEnsureData経由だとkwsMode/kwsDataを書き換えてしまうため、あえて使わない）。
+let _kwsCustomSearchIndexCache = null;
+function kwsCustomSearchIndex(){
+  if(_kwsCustomSearchIndexCache) return _kwsCustomSearchIndexCache;
+  const merged = Object.assign(
+    {},
+    kwsBuildKanjiData(window.KANJI_WRITE_STROKE_DATA || {}),
+    kwsBuildKanjiData(window.KANJI_WRITE_ELEM_STROKE_DATA || {}),
+    kwsBuildKanjiData(window.KANJI_WRITE_CHUGAKU_STROKE_DATA || {})
+  );
+  _kwsCustomSearchIndexCache = Object.keys(merged).map(id => {
+    const sentence = kwsSentenceFor(id).replace(/[《》]/g, '');
+    return { id, kanji: merged[id].kanji, searchText: (merged[id].kanji + ' ' + sentence).toLowerCase() };
+  });
+  return _kwsCustomSearchIndexCache;
+}
+function kwsCustomToast(msg){
+  const el = document.createElement('div');
+  el.className = 'kws-unlockOverlay'; // 「新しい問題が解放されました」と同じ見た目を流用
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1800);
+}
+function kwsCustomRefreshSearchResults(){
+  const input = document.getElementById('kwsCustomSearchInput');
+  if(input) kwsCustomSearchInput_onInput(input.value);
+}
+// 検索窓のHTML。既存の3モード（exam/elem/chugaku）画面の「⭐追加」ボタンからも、
+// custom自身の画面からも同じ関数を使う。
+function kwsCustomSearchBoxHtml(){
+  return `
+    <div class="kws-customSearchBox">
+      <h4>🔍 覚えたい漢字を追加</h4>
+      <input type="text" id="kwsCustomSearchInput" class="kws-customSearchInput" placeholder="漢字や例文で検索" oninput="kwsCustomSearchInput_onInput(this.value)">
+      <div id="kwsCustomSearchResults" class="kws-customSearchResults"></div>
+    </div>`;
+}
+function kwsCustomSearchInput_onInput(val){
+  const box = document.getElementById('kwsCustomSearchResults');
+  if(!box) return;
+  const q = (val || '').trim().toLowerCase();
+  if(!q){ box.innerHTML = ''; return; }
+  const st = loadStats();
+  const pool = new Set(kwsCustomPoolIds(st));
+  const matches = kwsCustomSearchIndex().filter(e => e.searchText.includes(q)).slice(0, 30);
+  if(!matches.length){ box.innerHTML = '<p class="note">見つかりませんでした</p>'; return; }
+  box.innerHTML = matches.map(e => {
+    const added = pool.has(e.id);
+    return `<button class="kws-customSearchItem${added ? ' kws-added' : ''}" data-id="${esc(e.id)}" onclick="kwsCustomAddToPool('${e.id}')" ${added ? 'disabled' : ''}>
+      <span class="kws-customSearchKanji">${esc(e.kanji)}</span>
+      <span class="kws-customSearchLabel">${esc(kwsGradeLabelFor(e.id))}</span>
+      ${added ? '<span class="kws-customSearchAdded">✓登録済み</span>' : ''}
+    </button>`;
+  }).join('');
+}
+// 既存3モードの画面の「⭐追加」ボタン、およびcustom自身の検索結果の両方から呼ばれる。
+function kwsCustomAddToPool(id){
+  if(!id) return;
+  const st = loadStats();
+  if(!Array.isArray(st.kwsCustomPool)) st.kwsCustomPool = [];
+  if(st.kwsCustomPool.includes(id)){
+    kwsCustomToast('すでに登録されています');
+    return;
+  }
+  const wasEmpty = st.kwsCustomPool.length === 0;
+  st.kwsCustomPool.push(id);
+  saveStats(st);
+  kwsCustomToast('🌟 覚えたい漢字に登録されました！');
+  if(kwsMode === 'custom' && wasEmpty){
+    startKanjiWriteCustom(); // プールが空の状態から初めて1問追加された→出題画面へ切り替える
+    return;
+  }
+  kwsCustomRefreshSearchResults();
+}
+function kwsCustomRemoveFromPool(id){
+  const st = loadStats();
+  st.kwsCustomPool = kwsCustomPoolIds(st).filter(x => x !== id);
+  saveStats(st);
+  kwsCustomToast('覚えたい漢字から削除しました');
+  kwsWireKanjiSelectList();
+  kwsCustomRefreshSearchResults();
 }
 // 小学2年生までの問題数（教員の指示、2026-09-03：「小学校2年生の漢字までは習得済み扱いにして、
 // 小学校3年生の問題も、それ以降の問題同様、解放しながら進むように」。以前は小3までを
@@ -8192,10 +8396,26 @@ function kwsElemDefaultFrontier(){
 // しきるのに何百問もかかり、初期解放の意味がなくなるため。実際に知らない字があっても、
 // 復習で間違えれば「勉強中」に落ちて自然に拾われる。小3以降は他の学年と同じく1問ずつ
 // 解放しながら進む、教員の指示、2026-09-03）。
-const KWS_STATE_KEY_BY_MODE = { exam: 'kwsExamState', elem: 'kwsElemState', chugaku: 'kwsChugakuState' };
+const KWS_STATE_KEY_BY_MODE = { exam: 'kwsExamState', elem: 'kwsElemState', chugaku: 'kwsChugakuState', custom: 'kwsCustomState' };
 function kwsEnsureStateStore(st, mode){
   const key = KWS_STATE_KEY_BY_MODE[mode];
   const orderedIds = kwsOrderedIdsFor(mode);
+  if(mode === 'custom'){
+    // 「覚えたい漢字」はユーザーが検索して自由に追加・削除するプールなので、他モードのような
+    // 段階的解放（frontier）は行わず、プールに入っている問題を常に全問「導入済み」として扱う
+    // （教員の指示、2026-09-12：「出題する問題は、『覚えたい漢字』というプールに含まれている
+    // ものだけとする」）。呼ばれるたびに現在のプールと同期し、新しく増えたidはnew箱で即座に
+    // 出題対象へ、プールから外れたidの記録は削除する（再度追加すれば仕切り直しになる）。
+    if(!st[key]) st[key] = { frontier: 0, items: {}, shownCount: 0, forcedNext: null };
+    const store = st[key];
+    const idSet = new Set(orderedIds);
+    orderedIds.forEach(id => { if(!store.items[id]) store.items[id] = { box: 'new', c: 0, w: 0 }; });
+    Object.keys(store.items).forEach(id => { if(!idSet.has(id)) delete store.items[id]; });
+    store.frontier = orderedIds.length;
+    if(typeof store.shownCount !== 'number') store.shownCount = 0;
+    kwsMaybeEnterReinforceMode(store);
+    return store;
+  }
   if(!st[key]){
     const ids = orderedIds;
     const items = {};
@@ -8521,6 +8741,10 @@ function kwsTotalCount(mode){
 // 別途表示するので区別できる。3箱の仕組みによる出題そのものの絞り込みはkwsPickNextId側
 // だけで行い、一覧は常に自由に選べる）。
 function kwsPoolIds(){
+  // customは「覚えたい漢字」プールの中身だけが対象（kwsDataはexam/elem/chugaku全件を
+  // マージした巨大な辞書になっているため、Object.keys(kwsData)を使うと無関係な字まで
+  // 一覧に出てしまう）。
+  if(kwsMode === 'custom') return kwsCustomPoolIds(loadStats());
   let ids = Object.keys(kwsData);
   if(kwsMode === 'elem' && kwsElemGrade){
     ids = ids.filter(id => kwsData[id].grade === kwsElemGrade);
@@ -8538,8 +8762,15 @@ function kwsSortIds(ids){
 }
 
 // 一覧・結果バッジの見出しラベル。examは「n位」、elemは配当学年「小n」、chugakuはレベル「Lv.n」。
+// customはexam/elem/chugakuが混在するため、kwsModeではなくidの接頭辞で判定する
+// （kwsGradeLabelFor/kwsSentenceForと同じ判定方法）。
 function kwsLabelFor(id){
   const kdata = kwsData[id];
+  if(kwsMode === 'custom'){
+    if(id.indexOf('kwe') === 0) return `小${kdata.grade}`;
+    if(id.indexOf('kwc') === 0) return `Lv.${kdata.grade}`;
+    return `${kdata.rank}位`;
+  }
   if(kwsMode === 'elem') return `小${kdata.grade}`;
   if(kwsMode === 'chugaku') return `Lv.${kdata.grade}`;
   return `${kdata.rank}位`;
@@ -9982,6 +10213,10 @@ function kwsLoadRandomKanji(){
   // （kwsTodayLoadNext）を持つ。kwsPickNextIdはkwsMode==='exam'以外を一律elem扱いして
   // st.kwsElemStateを触ってしまうため、ここで必ず分岐して抜ける。
   if(kwsMode === 'today'){ kwsTodayLoadNext(); return; }
+  // 「覚えたい漢字」は、進行中に一覧から全て削除されるとプールが空になりうる（他のモードは
+  // 常に固定データが残っているためこの状況が起きない）。空になった場合は検索窓だけの
+  // 画面に戻す（教員の指示、2026-09-12）。
+  if(kwsMode === 'custom' && kwsCustomPoolIds(loadStats()).length === 0){ startKanjiWriteCustom(); return; }
   // elemで特定の学年を選んでいるときは、解禁・3箱の仕組みと無関係にその学年の全問題から
   // 一様ランダムに出す（従来通りの方針）。それ以外（exam常時／elemの全学年ミックス時）は
   // 3箱式の間隔反復（kwsPickNextId）で選ぶ。直前と同じ問題を避けるのはkwsPickNextId内で
@@ -10088,6 +10323,7 @@ function kwsGradeSwitchHtml(){
 function kwsScreenHtml(opts){
   opts = opts || {};
   const title = kwsMode === 'today' ? '🈶 今日の漢字'
+    : kwsMode === 'custom' ? '🌟 覚えたい漢字'
     : kwsMode === 'elem' ? '✏️ 小学校で習う漢字'
     : kwsMode === 'chugaku' ? '📝 中学校で習う漢字'
     : '✍️ 高校入試頻出漢字200';
@@ -10111,6 +10347,13 @@ function kwsScreenHtml(opts){
        <li>自動採点は、間違うこともあります。字の形をきちんと確認しましょう。</li>
        <li>間違えた字は、ヒント（始筆の点）→答え表示の順に、もう2回だけ書き直せます。ただし答えを表示したあとは、字が合っていても正解にはなりません。</li>
        <li>「全レベル」では、レベル1（ぜひ覚えたい漢字）から順に、正解すると新しい問題が1問ずつ解放されます。間違えた問題は「間違った問題」として、3回連続で正解するまで復習に出てきます。一覧表示には出題可能な漢字が出て、正解済みの字は緑色になります。</li>`
+    : kwsMode === 'custom'
+    ? `<li>例文の中の<b>カタカナ・太字・下線</b>の部分を、大きく丁寧に書いてください。</li>
+       <li>画数が間違っているものは、×となります。画と画をつなげて書かないこと。</li>
+       <li>自動採点は、間違うこともあります。字の形をきちんと確認しましょう。</li>
+       <li>間違えた字は、ヒント（始筆の点）→答え表示の順に、もう2回だけ書き直せます。ただし答えを表示したあとは、字が合っていても正解にはなりません。</li>
+       <li>自分で検索して追加した漢字だけが出題されます。下の検索窓から追加、一覧のタップから削除できます。</li>
+       <li>このモードには専用のジャンルレベルはなく、経験値にも一切影響しません。</li>`
     : `<li>大きく、丁寧に書いてください。</li>
        <li>画数が間違っているものは、×となります。画と画をつなげて書かないこと。</li>
        <li>自動採点は、間違うこともあります。字の形をきちんと確認しましょう。</li>
@@ -10123,6 +10366,7 @@ function kwsScreenHtml(opts){
         <div class="kws-promptRow">
           <div class="kws-sentencePrompt" id="kwsSentencePrompt"></div>
           <span class="kws-gradeBadge" id="kwsGradeBadge"></span>
+          ${(kwsMode === 'exam' || kwsMode === 'elem' || kwsMode === 'chugaku') ? `<button class="kws-pinBtn" onclick="kwsCustomAddToPool(kwsCurrentId)" title="覚えたい漢字に追加">⭐ 追加</button>` : ''}
         </div>
         <div class="kws-stageRow">
           <div class="kws-stage" id="kwsStage">
@@ -10183,6 +10427,7 @@ function kwsScreenHtml(opts){
         <div class="kws-resultsList" id="kwsIncorrectList"></div>
       </div>
     </div>
+    ${kwsMode === 'custom' ? kwsCustomSearchBoxHtml() : ''}
     <div class="kws-listControls">
       <button id="kwsBtnShowList">一覧表示</button>
     </div>
@@ -10293,11 +10538,149 @@ function kwsWireKanjiSelectList(){
     const countsHtml = entry && (entry.c || entry.w) ? `<span class="kws-listCounts">○${entry.c}／×${entry.w}</span>` : '';
     b.innerHTML = `<span class="rank">${kwsLabelFor(id)}</span>${kdata.kanji}${countsHtml}`;
     b.dataset.id = id;
-    b.addEventListener('click', () => kwsLoadKanji(id));
+    // 「覚えたい漢字」の一覧だけは、タップで問題に切り替えるのではなく、プールから削除する
+    // （教員の指示、2026-09-12：「一覧の中からタップすることで、覚えたい漢字から削除する」）。
+    if(kwsMode === 'custom') b.addEventListener('click', () => kwsCustomRemoveFromPool(id));
+    else b.addEventListener('click', () => kwsLoadKanji(id));
     b.classList.toggle('active', id === kwsCurrentId);
     b.classList.toggle('kws-listOk', !!(entry && entry.box === 'ok'));
     sel.appendChild(b);
   });
+}
+
+/* ---- ホーム画面「漢字」グループの一番上に置く2枚のカード（2026-09-12〜） ----
+   ①「漢字を書く」：小学校/中学校/高校入試200の3ボタンをここに集約し、タップすると
+   showKanjiWritePicker()（既存の3つの入口をそのまま並べただけの選択画面）へ進む。
+   ②「覚えたい漢字」：自分で選んだ漢字だけを練習する専用プール（kwsMode==='custom'）。
+   ジャンルレベル・経験値はどちらも実装しない（教員の指示）。 */
+function kanjiWriteMenuCardsHtml(st){
+  const kwsExamT = titleOf(st.lv.kws_exam);
+  const kwsElemT = titleOf(st.lv.kws_elem);
+  const kwsChugakuT = titleOf(st.lv.kws_chugaku);
+  return `
+  <div class="card menu-card kws-card" onclick="showKanjiWritePicker()">
+    <div class="menu-icon">✍️</div>
+    <div><h2>漢字を書く</h2><p>小学校で習う漢字・中学校で習う漢字・高校入試頻出漢字200・覚えたい漢字から選んで練習</p></div>
+    <div class="right">
+      <span class="shogo-badge ${kwsExamT.hidden?"top":""}">✍️ Lv.${st.lv.kws_exam}</span>
+      <span class="shogo-badge ${kwsElemT.hidden?"top":""}">✏️ Lv.${st.lv.kws_elem}</span>
+      <span class="shogo-badge ${kwsChugakuT.hidden?"top":""}">📝 Lv.${st.lv.kws_chugaku}</span>
+    </div>
+  </div>`;
+}
+function showKanjiWritePicker(){
+  const st = loadStats();
+  const kwsExamT = titleOf(st.lv.kws_exam);
+  const kwsElemT = titleOf(st.lv.kws_elem);
+  const kwsChugakuT = titleOf(st.lv.kws_chugaku);
+  const customCount = kwsCustomPoolIds(st).length;
+  screen.innerHTML = `
+    <h3 class="section">✍️ 漢字を書く</h3>
+    <p class="note">手書きで漢字を練習します。書きたい範囲を選んでください。</p>
+    <div class="card menu-card kws-card" onclick="startKanjiWriteStroke('exam')">
+      <div class="menu-icon">✍️</div>
+      <div><h2>高校入試頻出漢字200</h2><p>高校入試に出やすい漢字を書く問題</p></div>
+      <div class="right"><span class="shogo-badge ${kwsExamT.hidden?"top":""}">${kwsExamT.icon} ${esc(kwsExamT.name)} Lv.${st.lv.kws_exam}</span></div>
+    </div>
+    <div class="card menu-card kws-card" onclick="startKanjiWriteStroke('elem')">
+      <div class="menu-icon">✏️</div>
+      <div><h2>小学校で習う漢字</h2><p>小学校の漢字を書く問題です</p></div>
+      <div class="right"><span class="shogo-badge ${kwsElemT.hidden?"top":""}">${kwsElemT.icon} ${esc(kwsElemT.name)} Lv.${st.lv.kws_elem}</span></div>
+    </div>
+    <div class="card menu-card kws-card" onclick="startKanjiWriteStroke('chugaku')">
+      <div class="menu-icon">📝</div>
+      <div><h2>中学校で習う漢字</h2><p>中学校の漢字を書く問題です</p></div>
+      <div class="right"><span class="shogo-badge ${kwsChugakuT.hidden?"top":""}">${kwsChugakuT.icon} ${esc(kwsChugakuT.name)} Lv.${st.lv.kws_chugaku}</span></div>
+    </div>
+    <div class="card menu-card kws-card" onclick="startKanjiWriteCustom()">
+      <div class="menu-icon">🌟</div>
+      <div><h2>覚えたい漢字</h2><p>自分で選んだ漢字だけを練習（現在${customCount}字登録中。ジャンルレベル・経験値はありません）</p></div>
+    </div>
+    <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
+}
+
+/* ---- ホーム画面「古典・表現」欄の「古文」「漢文」カード（2026-09-12〜） ----
+   教員の指示で、古文の言葉・歴史的仮名遣いを「古文」に、返り点をつける・読む順タップ・
+   漢文の返り点（四択クイズ）を「漢文」に、それぞれ集約した。季語(kigo)は元々1つしか
+   無いので、通常カードのまま（showHome側のg.keys.forEachで従来どおり描画）。 */
+function kotenMenuCardsHtml(st){
+  const kobunT = titleOf(st.lv.kobun);
+  const kanazukaiT = titleOf(st.lv.kanazukai);
+  const ktT = titleOf(st.lv.kanbun_kt);
+  const yjT = titleOf(st.lv.kanbun_yj);
+  const kanbunT = titleOf(st.lv.kanbun);
+  return `
+  <div class="card menu-card" onclick="showKobunPicker()">
+    <div class="menu-icon">🎋</div>
+    <div><h2>古文</h2><p>古文の言葉・歴史的仮名遣いから選んで練習</p></div>
+    <div class="right">
+      <span class="shogo-badge ${kobunT.hidden?"top":""}">${kobunT.icon} Lv.${st.lv.kobun}</span>
+      <span class="shogo-badge ${kanazukaiT.hidden?"top":""}">${kanazukaiT.icon} Lv.${st.lv.kanazukai}</span>
+    </div>
+  </div>
+  <div class="card menu-card" onclick="showKanbunPicker()">
+    <div class="menu-icon">🎋</div>
+    <div><h2>漢文</h2><p>返り点をつける・読む順タップ・漢文の返り点から選んで練習</p></div>
+    <div class="right">
+      <span class="shogo-badge ${ktT.hidden?"top":""}">${ktT.icon} Lv.${st.lv.kanbun_kt}</span>
+      <span class="shogo-badge ${yjT.hidden?"top":""}">${yjT.icon} Lv.${st.lv.kanbun_yj}</span>
+      <span class="shogo-badge ${kanbunT.hidden?"top":""}">${kanbunT.icon} Lv.${st.lv.kanbun}</span>
+    </div>
+  </div>`;
+}
+function showKobunPicker(){
+  const st = loadStats();
+  const kobun = CATS['kobun'], kanazukai = CATS['kanazukai'];
+  const kobunT = titleOf(st.lv.kobun), kanazukaiT = titleOf(st.lv.kanazukai);
+  screen.innerHTML = `
+    <h3 class="section">🎋 古文</h3>
+    <div class="card menu-card" onclick="startQuiz('kobun')">
+      <div class="menu-icon">🎋</div>
+      <div><h2>${esc(kobun.name)}</h2><p>${esc(kobun.desc)}</p></div>
+      <div class="right">
+        <span class="shogo-badge ${kobunT.hidden?"top":""}">${kobunT.icon} ${esc(kobunT.name)} Lv.${st.lv.kobun}</span>
+        <span class="count">全${kobun.items.length}問</span>
+      </div>
+    </div>
+    <div class="card menu-card" onclick="startQuiz('kanazukai')">
+      <div class="menu-icon">🎋</div>
+      <div><h2>${esc(kanazukai.name)}</h2><p>${esc(kanazukai.desc)}</p></div>
+      <div class="right">
+        <span class="shogo-badge ${kanazukaiT.hidden?"top":""}">${kanazukaiT.icon} ${esc(kanazukaiT.name)} Lv.${st.lv.kanazukai}</span>
+        <span class="count">全${kanazukai.items.length}問</span>
+      </div>
+    </div>
+    <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
+}
+function showKanbunPicker(){
+  const st = loadStats();
+  const ktT = titleOf(st.lv.kanbun_kt);
+  const yjT = titleOf(st.lv.kanbun_yj);
+  const ktLocked = !!(st.notLearnedCats && st.notLearnedCats.kanbun_kt);
+  const yjLocked = !!(st.notLearnedCats && st.notLearnedCats.kanbun_yj);
+  const kanbun = CATS['kanbun'];
+  const kanbunT = titleOf(st.lv.kanbun);
+  screen.innerHTML = `
+    <h3 class="section">🎋 漢文</h3>
+    <div class="card menu-card${ktLocked?" locked":""}" ${ktLocked?"":`onclick="ktStart()"`}>
+      <div class="menu-icon">${ktLocked?"🔒":"🖌️"}</div>
+      <div><h2>返り点をつける</h2><p>${ktLocked?"まだ習っていない":"白文に返り点をドラッグで置く特訓。正解で徐々に解禁"}</p></div>
+      ${ktLocked?"":`<div class="right"><span class="shogo-badge ${ktT.hidden?"top":""}">${ktT.icon} ${esc(ktT.name)} Lv.${st.lv.kanbun_kt}</span></div>`}
+    </div>
+    <div class="card menu-card${yjLocked?" locked":""}" ${yjLocked?"":`onclick="yjStart()"`}>
+      <div class="menu-icon">${yjLocked?"🔒":"👆"}</div>
+      <div><h2>読む順タップ</h2><p>${yjLocked?"まだ習っていない":"返り点付きの白文を見て、読む順に字をタップする特訓"}</p></div>
+      ${yjLocked?"":`<div class="right"><span class="shogo-badge ${yjT.hidden?"top":""}">${yjT.icon} ${esc(yjT.name)} Lv.${st.lv.kanbun_yj}</span></div>`}
+    </div>
+    <div class="card menu-card" onclick="startQuiz('kanbun')">
+      <div class="menu-icon">🎋</div>
+      <div><h2>${esc(kanbun.name)}</h2><p>${esc(kanbun.desc)}</p></div>
+      <div class="right">
+        <span class="shogo-badge ${kanbunT.hidden?"top":""}">${kanbunT.icon} ${esc(kanbunT.name)} Lv.${st.lv.kanbun}</span>
+        <span class="count">全${kanbun.items.length}問</span>
+      </div>
+    </div>
+    <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
 }
 
 /* ---- 画面：練習画面（レベル選択は廃止し、ホームから直接ここへ入る） ----
@@ -10336,6 +10719,49 @@ function startKanjiWriteStroke(mode){
       : '✍️ 高校入試頻出漢字200';
     screen.innerHTML = `
       <h3 class="section">${errTitle}</h3>
+      <p class="note">読み込み中にエラーが発生しました。ページを再読み込みしてからもう一度お試しください。</p>
+      <p class="note" style="color:var(--ng)">${esc(String((err && err.message) || err))}</p>
+      <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>
+    `;
+  }
+}
+
+/* 「覚えたい漢字」の入口。プールが空のうちは検索窓だけの簡易画面を出し、1字でも
+   登録されたら（kwsCustomAddToPool参照）自動でこちらを呼び直して通常の出題画面に切り替わる。 */
+function kwsCustomEmptyScreenHtml(){
+  return `
+    <h3 class="section">🌟 覚えたい漢字</h3>
+    <p class="note">自分で選んだ漢字だけを練習できるコーナーです。下の検索窓から、覚えたい漢字を追加してください。追加すると自動的に出題が始まります。専用のジャンルレベルはなく、経験値にも影響しません。</p>
+    ${kwsCustomSearchBoxHtml()}
+    <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
+}
+function startKanjiWriteCustom(){
+  const st = loadStats();
+  if(kwsCustomPoolIds(st).length === 0){
+    // 出題する問題は無くてもkwsEnsureDataは呼んでおく（kwsMode='custom'にする副作用に加え、
+    // 検索結果のkwsGradeLabelFor(id)がkwsData[id]を引けるようにするため。exam/elem/chugaku
+    // どのidが検索結果に出てもここで解決できるよう、custom用のマージ済みデータにしておく）。
+    kwsEnsureData('custom');
+    screen.innerHTML = kwsCustomEmptyScreenHtml();
+    window.scrollTo(0, 0);
+    return;
+  }
+  try {
+    kwsEnsureData('custom');
+    screen.innerHTML = kwsScreenHtml();
+    window.scrollTo(0, 0);
+    kwsWireScreen();
+    const firstSt = loadStats();
+    const firstId = kwsPickNextId(firstSt, 'custom', null);
+    saveStats(firstSt);
+    if(!firstId) throw new Error('覚えたい漢字のデータが読み込めませんでした');
+    kwsLoadKanji(firstId);
+    kwsUpdateResultLogDisplay();
+    window.scrollTo(0, 0);
+  } catch(err){
+    console.error('覚えたい漢字の読み込みに失敗しました', err);
+    screen.innerHTML = `
+      <h3 class="section">🌟 覚えたい漢字</h3>
       <p class="note">読み込み中にエラーが発生しました。ページを再読み込みしてからもう一度お試しください。</p>
       <p class="note" style="color:var(--ng)">${esc(String((err && err.message) || err))}</p>
       <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>
@@ -10644,6 +11070,114 @@ function fastUnlockEligible(st, cat){
 /* 段階的アンロックの対象ジャンル。品詞(hinshi)でのパイロット動作確認（vmハーネスでの
    自動テスト、2026-08-01）が完了したため、全20ジャンルへ展開した（百人一首はhyaGroups系で別途対応）。 */
 const GROUP_UNLOCK_CATS = CAT_KEYS;
+
+/* ================= 自動解放モード／手動解放モード（2026-09-12〜） =================
+   教員の指示：「問題に取り組むモードを、自動解放モード（既存、デフォルト）と手動解放モードの
+   2つに増やす。手動解放モードでは自分でチャンク範囲（上限・下限）を指定でき、この間は
+   ジャンルレベル・経験値は増えず、解放のお祝いも発生しない」。対応は20分野（CAT_KEYS）と
+   百人一首のみ（教員に確認済み。漢文の返り点/読む順タップ・漢字の書き取りkwsはそれぞれ
+   別実装の解放システムのため今回は対象外）。
+   st.unlockMode[cat] = 'auto'（省略時の既定）| 'manual'。
+   st.manualUnlockRange[cat] = {min, max}（1始まりのチャンク番号、両端含む）。手動に切り替えた
+   瞬間の自動解放状態をそのまま初期値にする（切り替え直後に見える問題が変わらないように）。
+   catには20分野のキーに加えて'hyakunin'も同じ辞書に入れる（専用フィールドを増やさない）。 */
+function isManualUnlock(st, cat){
+  return !!(st.unlockMode && st.unlockMode[cat] === 'manual');
+}
+function manualRangeFor(st, cat, totalGroups, currentAutoCount){
+  const r = (st.manualUnlockRange && st.manualUnlockRange[cat]) || null;
+  const total = Math.max(1, totalGroups);
+  if(!r) return { min: 1, max: Math.max(1, Math.min(total, currentAutoCount)) };
+  return {
+    min: Math.max(1, Math.min(total, r.min || 1)),
+    max: Math.max(1, Math.min(total, r.max || total)),
+  };
+}
+function manualUnlockRangeFor(st, cat){
+  return manualRangeFor(st, cat, catGroups(cat).length, catUnlockedGroupCount(st, cat));
+}
+function hyaManualRangeFor(st){
+  return manualRangeFor(st, 'hyakunin', hyaGroups().length, hyaUnlockedGroupCount(st));
+}
+/* 手動解放モードの設定画面で「指定範囲に何問あるか」を実数で表示するための集計
+   （教員の指示、2026-09-12：「問題数は％ではなく、問題の『数』で表示」）。 */
+function manualRangeQuestionCount(cat, range){
+  const isHyakunin = cat === 'hyakunin';
+  const groups = isHyakunin ? hyaGroups() : catGroups(cat);
+  const total = isHyakunin ? hyaPool().length : CATS[cat].items.length;
+  let count = 0;
+  for(let i=range.min-1;i<range.max;i++){
+    const g = groups[i];
+    if(g) count += isHyakunin ? g.ids.length : g.indices.length;
+  }
+  return { count, total };
+}
+function setUnlockMode(cat, mode){
+  const st = loadStats();
+  if(!st.unlockMode) st.unlockMode = {};
+  st.unlockMode[cat] = mode;
+  if(mode === 'manual' && !(st.manualUnlockRange && st.manualUnlockRange[cat])){
+    if(!st.manualUnlockRange) st.manualUnlockRange = {};
+    const isHyakunin = cat === 'hyakunin';
+    const total = isHyakunin ? hyaGroups().length : catGroups(cat).length;
+    const autoCount = isHyakunin ? hyaUnlockedGroupCount(st) : catUnlockedGroupCount(st, cat);
+    st.manualUnlockRange[cat] = { min: 1, max: Math.max(1, Math.min(total, autoCount)) };
+  }
+  saveStats(st);
+  showUnlockModeSettings(cat);
+}
+function unlockRangeOnInput(cat){
+  const minEl = document.getElementById('unlockRangeMin');
+  const maxEl = document.getElementById('unlockRangeMax');
+  if(!minEl || !maxEl) return;
+  let min = parseInt(minEl.value, 10), max = parseInt(maxEl.value, 10);
+  if(min > max){
+    if(document.activeElement === maxEl) min = max; else max = min;
+    minEl.value = min; maxEl.value = max;
+  }
+  const st = loadStats();
+  if(!st.manualUnlockRange) st.manualUnlockRange = {};
+  st.manualUnlockRange[cat] = { min, max };
+  saveStats(st);
+  const minLabel = document.getElementById('unlockRangeMinLabel');
+  const maxLabel = document.getElementById('unlockRangeMaxLabel');
+  if(minLabel) minLabel.textContent = min;
+  if(maxLabel) maxLabel.textContent = max;
+  const countLabel = document.getElementById('unlockRangeCountLabel');
+  if(countLabel) countLabel.textContent = manualRangeQuestionCount(cat, { min, max }).count;
+}
+/* 「設定」ボタン（unlockFooterHtml）から入る、自動/手動の切り替え画面。もどるボタンは
+   直前の出題画面（20分野ならrenderQuestion、百人一首ならhyaRenderQuestion）を呼び直すだけで、
+   出題中の問題自体（quiz/hya変数）はそのまま残っているのでやり直しにはならない。 */
+function showUnlockModeSettings(cat){
+  const st = loadStats();
+  const isHyakunin = cat === 'hyakunin';
+  const total = isHyakunin ? hyaGroups().length : catGroups(cat).length;
+  const label = isHyakunin ? '百人一首' : (CATS[cat] ? CATS[cat].name : cat);
+  const mode = (st.unlockMode && st.unlockMode[cat]) || 'auto';
+  const range = isHyakunin ? hyaManualRangeFor(st) : manualUnlockRangeFor(st, cat);
+  const qc = manualRangeQuestionCount(cat, range);
+  screen.innerHTML = `
+    <h3 class="section">⚙️ ${esc(label)}の出題設定</h3>
+    <div class="kws-gradeSwitch">
+      <button class="${mode==='auto'?'active':''}" onclick="setUnlockMode('${cat}','auto')">自動解放モード</button>
+      <button class="${mode==='manual'?'active':''}" onclick="setUnlockMode('${cat}','manual')">手動解放モード</button>
+    </div>
+    <div class="card">
+      ${mode === 'auto'
+        ? `<p class="note">これまでどおり、コンピュータが「できるようになった」と判断すると、自動で問題の範囲が広がっていきます。ジャンルレベル・経験値・解放のお祝いは今までどおり発生します。</p>`
+        : `<p class="note">自分で出題する範囲（チャンク番号）を指定します。この間は、ジャンルレベル・経験値は増えず、解放のお祝いも発生しません。</p>
+           <p class="note">全${total}チャンク中、第<b id="unlockRangeMinLabel">${range.min}</b>〜<b id="unlockRangeMaxLabel">${range.max}</b>チャンクを出題します（問題数：<span id="unlockRangeCountLabel">${qc.count}</span>／${qc.total}問）。</p>
+           <div class="kws-customRow"><label>下限</label><input type="range" id="unlockRangeMin" min="1" max="${total}" step="1" value="${range.min}" oninput="unlockRangeOnInput('${cat}')"></div>
+           <div class="kws-customRow"><label>上限</label><input type="range" id="unlockRangeMax" min="1" max="${total}" step="1" value="${range.max}" oninput="unlockRangeOnInput('${cat}')"></div>`}
+    </div>
+    <div class="btn-row"><button class="btn" onclick="closeUnlockModeSettings('${cat}')">もどる</button></div>`;
+}
+function closeUnlockModeSettings(cat){
+  if(cat === 'hyakunin'){ hyaRenderQuestion(); return; }
+  if(quiz && quiz.cat === cat){ renderQuestion(); return; }
+  showHome();
+}
 /* カテゴリ別の出題プール世代（loadStats()参照）。出題形式の追加・削除・lvの再設計など、
    グループの中身が大きく変わるような更新をしたジャンルだけ、ここに値を書いて1つずつ
    上げていく（値を書かないジャンル＝0のままは、これまで通りリセット対象外）。
@@ -10652,6 +11186,9 @@ const GROUP_UNLOCK_CATS = CAT_KEYS;
    kanbun:3＝「所」の一レ点欠落・送り仮名の重複表記（使/所/如/可/之）・助字の送り仮名を
    ひらがなに変更（不/之）を修正（2026-08-04、教員の指示で問題解放率と解放のお祝いをリセット）。
    kanbun:4＝元資料の誤り「三人行へば」→「三人行けば」を修正（2026-08-04）。
+   kanbun:5＝教員が問題削除ツール（漢文の返り点_問題削除ツール.html）で内容を精査し、
+   242問→78問に大幅に削減（2026-09-12）。8問グループの境界が総入れ替えになるため、
+   問題解放率・解放のお祝いをリセットする。
    shikibetsu:1＝文節分け14問・連文節同士の関係10問・れるられる/ようだ/そうだ/の/ないの
    識別15問（計39問）を追加した上で、lv値をカテゴリ帯（文節分け0/単語分け+10/文節同士の
    関係+20/連文節同士の関係+30/接続詞の種類+40/そのほか+50）にオフセットし直し、8問グループが
@@ -10669,7 +11206,7 @@ const GROUP_UNLOCK_CATS = CAT_KEYS;
    影響した全ジャンルのバージョンを一律1に設定し、問題解放率を強制リセットする
    （教員の指示「問題を挿入した場合には0%から再スタートする設計に」を踏襲）。 */
 const CAT_POOL_VERSION = {
-  kanbun: 4, shikibetsu: 2,
+  kanbun: 5, shikibetsu: 2,
   kanji_yomi: 1, okurigana: 1, busyu: 1, jukugo: 1, taigigo: 1, ruigigo: 1,
   yoji: 1, kotowaza: 1, kanyoku: 1, koji: 1, keigo: 1, hinshi: 1, katsuyo: 1,
   kobun: 1, kanazukai: 1, kigo: 1, hyougen: 1,
@@ -10710,19 +11247,31 @@ function catUnlockedQuestionPct(st, cat){
   const groups = catGroups(cat);
   const totalQ = CATS[cat].items.length;
   if(totalQ === 0) return null;
-  const n = Math.min(catUnlockedGroupCount(st, cat), groups.length);
   let unlockedQ = 0;
-  for(let i=0;i<n;i++) unlockedQ += groups[i].indices.length;
+  if(isManualUnlock(st, cat)){
+    const r = manualUnlockRangeFor(st, cat);
+    for(let i=r.min-1;i<r.max;i++){ if(groups[i]) unlockedQ += groups[i].indices.length; }
+  } else {
+    const n = Math.min(catUnlockedGroupCount(st, cat), groups.length);
+    for(let i=0;i<n;i++) unlockedQ += groups[i].indices.length;
+  }
   return Math.round(unlockedQ / totalQ * 100);
 }
 /* 現在解禁済みのグループだけを含む出題プール（累積的・不可逆：既習グループは出題プールから
-   外さない＝忘却防止）。GROUP_UNLOCK_CATS対象外のジャンルは、これまでどおり全問題がプール。 */
+   外さない＝忘却防止）。GROUP_UNLOCK_CATS対象外のジャンルは、これまでどおり全問題がプール。
+   手動解放モード中は、自動解放の進み具合(catUnlockedGroupCount)ではなく、
+   st.manualUnlockRange[cat]で指定した範囲のチャンクだけをプールにする（2026-09-12〜）。 */
 function groupUnlockedPool(st, cat){
   if(!GROUP_UNLOCK_CATS.includes(cat)) return CATS[cat].items;
   const groups = catGroups(cat);
-  const n = Math.min(catUnlockedGroupCount(st, cat), groups.length);
   const allowedIdx = new Set();
-  for(let i=0;i<n;i++) groups[i].indices.forEach(idx => allowedIdx.add(idx));
+  if(isManualUnlock(st, cat)){
+    const r = manualUnlockRangeFor(st, cat);
+    for(let i=r.min-1;i<r.max;i++){ if(groups[i]) groups[i].indices.forEach(idx => allowedIdx.add(idx)); }
+  } else {
+    const n = Math.min(catUnlockedGroupCount(st, cat), groups.length);
+    for(let i=0;i<n;i++) groups[i].indices.forEach(idx => allowedIdx.add(idx));
+  }
   return CATS[cat].items.filter((it, idx) => allowedIdx.has(idx));
 }
 /* 今まさにアンロックの最前線になっているグループ（8問）だけの出題プール。高速解放モード中は
@@ -10735,6 +11284,10 @@ function groupUnlockedPool(st, cat){
    呼び出し側が通常のgroupUnlockedPoolにフォールバックする。 */
 function activeGroupPool(st, cat){
   if(!GROUP_UNLOCK_CATS.includes(cat)) return null;
+  // 手動解放モードには「これから解放する最前線」という概念自体が無い（自動解放の進行を
+  // 止めて、指定範囲を出題し続けるだけのモードのため）。常にnullを返し、呼び出し側の
+  // groupUnlockedPool（＝手動指定の範囲）にフォールバックさせる。
+  if(isManualUnlock(st, cat)) return null;
   const groups = catGroups(cat);
   const count = catUnlockedGroupCount(st, cat);
   if(count >= groups.length) return null;
@@ -10752,6 +11305,10 @@ function activeGroupPool(st, cat){
    （上のFAST_UNLOCK_*参照）の判定にも使う。 */
 function checkGroupUnlock(st, cat, item, correct, fastGuess){
   if(!GROUP_UNLOCK_CATS.includes(cat)) return false;
+  // 手動解放モードでは自動進行そのものを止める（教員の指示：「このモードでジャンルレベルは
+  // 上がりません...解放によるお祝いも発生しません」。groupJustUnlockedが常にfalseになるため、
+  // record()側のcrossedUnlockMilestones判定も自動的に発生しなくなる）。
+  if(isManualUnlock(st, cat)) return false;
   const groups = catGroups(cat);
   const idx = catUnlockedGroupCount(st, cat) - 1;
   if(idx >= groups.length - 1) return false; // 既に全解禁
@@ -10832,9 +11389,14 @@ function hyaUnlockedQuestionPct(st){
   const groups = hyaGroups();
   const totalQ = hyaPool().length;
   if(totalQ === 0) return null;
-  const n = Math.min(hyaUnlockedGroupCount(st), groups.length);
   let unlockedQ = 0;
-  for(let i=0;i<n;i++) unlockedQ += groups[i].ids.length;
+  if(isManualUnlock(st, 'hyakunin')){
+    const r = hyaManualRangeFor(st);
+    for(let i=r.min-1;i<r.max;i++){ if(groups[i]) unlockedQ += groups[i].ids.length; }
+  } else {
+    const n = Math.min(hyaUnlockedGroupCount(st), groups.length);
+    for(let i=0;i<n;i++) unlockedQ += groups[i].ids.length;
+  }
   return Math.round(unlockedQ / totalQ * 100);
 }
 /* 「問題全開放のお祝い」経験値（2026-08-03〜、教員の指示）。ジャンルごとの問題解放率
@@ -10887,27 +11449,44 @@ function celebrateMilestoneHtml(genreName, milestones){
    （読解など、GROUP_UNLOCK_CATS対象外のジャンルではフッター自体を出さない）。呼び出し側
    （renderQuestion/hyaRenderQuestion）でその直後に.unlock-footer-spacerを添えて、固定表示ぶんの
    高さで下部ボタンが隠れないようにする。 */
-function unlockFooterHtml(label, pct){
+/* settingsCatを渡すと（20分野のキー、または'hyakunin'）、右端に「⚙️ 設定」ボタンを付け、
+   showUnlockModeSettings(settingsCat)へ進めるようにする（教員の指示、2026-09-12：
+   「問題画面の下の端に、『設定』ボタンを追加。自動解放モード／手動解放モードを切り替え」）。
+   対応は20分野＋百人一首のみ（漢文の返り点/読む順タップ・漢字の書き取りkwsは対象外、
+   それぞれ別実装の解放システムのため今回は見送り）。省略時は従来どおりボタン無し。 */
+function unlockFooterHtml(label, pct, settingsCat){
   if(pct === null) return "";
+  const settingsBtn = settingsCat
+    ? `<button class="unlock-footer-settings" onclick="showUnlockModeSettings('${settingsCat}')" title="出題設定">⚙️ 設定</button>`
+    : "";
   return `<div class="unlock-footer">
     <span>${esc(label)}の問題解放率</span>
     <span class="unlock-footer-pct">${pct}%</span>
     <div class="bar"><div style="width:${pct}%"></div></div>
+    ${settingsBtn}
   </div><div class="unlock-footer-spacer"></div>`;
 }
 /* 現在解禁済みのグループだけを含む出題プール。累積的・不可逆：一度解禁したグループは、
    以後正答率が下がっても再ロックされない（20分野のgroupUnlockedPoolと同じ方針）。 */
 function hyaUnlockedPool(st){
   const groups = hyaGroups();
-  const n = Math.min(hyaUnlockedGroupCount(st), groups.length);
   const allowedIds = new Set();
-  for(let i=0;i<n;i++) groups[i].ids.forEach(id => allowedIds.add(id));
+  if(isManualUnlock(st, 'hyakunin')){
+    const r = hyaManualRangeFor(st);
+    for(let i=r.min-1;i<r.max;i++){ if(groups[i]) groups[i].ids.forEach(id => allowedIds.add(id)); }
+  } else {
+    const n = Math.min(hyaUnlockedGroupCount(st), groups.length);
+    for(let i=0;i<n;i++) groups[i].ids.forEach(id => allowedIds.add(id));
+  }
   return hyaPool().filter(it => allowedIds.has(it.id));
 }
 /* 20分野のactiveGroupPoolと同じ考え方の百人一首版（教員の指示、2026-08-04）。高速解放モード中は
    hyaSelectOneがhyaUnlockedPool（解禁済み全問題）の代わりにこちらを使い、常に「今アンロックの
-   最前線になっている8問」からランダムに出題する。既に全解禁済みならnullを返し、制限しない。 */
+   最前線になっている8問」からランダムに出題する。既に全解禁済みならnullを返し、制限しない。
+   手動解放モードには「最前線」という概念が無いため常にnullを返し、hyaUnlockedPool
+   （＝手動指定の範囲）にフォールバックさせる（20分野のactiveGroupPoolと同じ扱い）。 */
 function hyaActiveGroupPool(st){
+  if(isManualUnlock(st, 'hyakunin')) return null;
   const groups = hyaGroups();
   const count = hyaUnlockedGroupCount(st);
   if(count >= groups.length) return null;
@@ -10949,6 +11528,8 @@ function hyaFastUnlockEligible(st){
    という専用のローリング窓を新設した（2026-08-05〜、詳細はcheckGroupUnlockのコメント参照）。
    idは今回答えた首（st.hyaGroupRecentの更新に使う）。correctは、高速解放モードの判定にも使う。 */
 function hyaCheckGroupUnlock(st, id, correct){
+  // 手動解放モードでは自動進行そのものを止める（20分野側のcheckGroupUnlockと同じ扱い）。
+  if(isManualUnlock(st, 'hyakunin')) return false;
   const groups = hyaGroups();
   const idx = hyaUnlockedGroupCount(st) - 1;
   if(idx >= groups.length - 1) return false; // 既に全解禁
@@ -11049,7 +11630,7 @@ function hyaLvLabel(diffLv){
 /* 自動採点だが、record()は呼ばずst.hyakunin専用の記録だけを行う（分野レベルst.lvには一切触れない。
    経験値st.hyakuninBonusExpへの加算とそれ経由のステータスポイント反映はある、上のkotonohaTotalXP
    コメント参照） */
-function hyaRecord(it, correct){
+function hyaRecord(it, correct, qType){
   const st = loadStats();
   maybeGrantDailyLogin(st);
   const h = st.hyakunin.itemHist[it.id] || {t:0, c:0};
@@ -11057,7 +11638,12 @@ function hyaRecord(it, correct){
   h.k = correct ? (h.k||0)+1 : 0; // 連続正解数（8問グループの段階的アンロック判定に使う）
   st.hyakunin.itemHist[it.id] = h;
   let gotTicket = false;
-  if(correct){
+  /* 手動解放モードはあくまで「おまかせ」（qType未指定）の解放進行を止めるための設定なので、
+     ジャンル選択（qType指定あり、そもそも解放の仕組み自体を使わない）には影響させない
+     （教員の指示、2026-09-12。「ジャンル選択はいつでもできるように」との2026-09-12の
+     先の指示と矛盾しないよう、qType指定時は常に通常どおり経験値・レベルが伸びる）。 */
+  const manualNow = !qType && isManualUnlock(st, 'hyakunin');
+  if(correct && !manualNow){
     st.hyakunin.totalOk = (st.hyakunin.totalOk||0) + 1;
     // ことのはの経験値にだけ反映する（進化の分岐＝分野レベルの分布には影響させない、教員の指示、2026-07-31）
     st.hyakuninBonusExp = (st.hyakuninBonusExp||0) + 1;
@@ -11259,14 +11845,14 @@ function hyaRenderQuestion(){
         <button class="btn secondary" id="hyaQuitBtn" style="display:none" onclick="hyaEndSession()">今日はここまで</button>
       </div>
     </div>
-    ${unlockFooterHtml("百人一首", hyaUnlockedQuestionPct(st))}`;
+    ${unlockFooterHtml("百人一首", hyaUnlockedQuestionPct(st), hya.qType ? null : 'hyakunin')}`;
 }
 function hyaAnswerChoice(origIdx){
   const it = hya.item;
   const ok = origIdx === it.a;
   hya.n++;
   if(ok) hya.correct++;
-  const r = hyaRecord(it, ok);
+  const r = hyaRecord(it, ok, hya.qType);
   const btns = screen.querySelectorAll(".choice");
   btns.forEach((b,pos)=>{
     const oi = hya.order[pos];
@@ -11393,6 +11979,353 @@ function nextDokkai(){
         </div>
       </div>`;
   }
+}
+
+/* ================= 読解Quest試作版 =================
+   「答えを覚える」のではなく「証拠を探す→つなげる→推理する→記述する」という読みの
+   思考操作そのものを、別の文章でも繰り返し使わせることを目的にした新コーナー。
+   既存の読解トレーニング（dokkai、4択クイズ）・st.lv・st.cats等には一切触れず、
+   st.dokkaiDungeon（skillXp・cleared）だけを読み書きする完全に独立した仕組みにしてある。
+   問題データ（本文・証拠・設問・採点基準）はdokkai_dungeon_data.js側に外部化してあり、
+   このエンジンはデータを増やすだけで新しいステージに対応できる（DOKKAI_DUNGEON配列）。 */
+const DD_STEP_ORDER = [
+  {key:"read",     label:"探索"},
+  {key:"link",     label:"関連付け"},
+  {key:"infer",    label:"推理"},
+  {key:"revision", label:"推敲"},
+  {key:"write",    label:"記述"},
+  {key:"result",   label:"結果"},
+];
+let dd = null; // 読解Quest試作版の進行中ステート
+function ddSkillLv(xp){ return 1 + Math.floor((xp||0) / 8); }
+function ddSkillLevels(st){
+  const out = {};
+  DD_SKILL_KEYS.forEach(k => { out[k] = ddSkillLv(st.dokkaiDungeon.skillXp[k]); });
+  return out;
+}
+function ddAddSkillXp(st, key, amount){
+  if(!amount) return;
+  st.dokkaiDungeon.skillXp[key] = (st.dokkaiDungeon.skillXp[key] || 0) + amount;
+}
+function ddSkillGridHtml(before, after){
+  return `<div class="dd-skill-grid">` + DD_SKILL_KEYS.map(k => {
+    const lv = after ? after[k] : before[k];
+    const up = after && before && after[k] > before[k];
+    const pct = Math.min(100, ((lv - 1) % 10) * 10 + 5);
+    return `<div class="dd-skill-row">
+      <div class="dd-skill-name">${esc(DD_SKILL_LABEL[k])}</div>
+      <div class="dd-skill-bar"><div style="width:${pct}%"></div></div>
+      <div class="dd-skill-lv">Lv.${lv}</div>
+      ${up ? `<span class="dd-skill-up">▲</span>` : ""}
+    </div>`;
+  }).join("") + `</div>`;
+}
+function ddShowList(){
+  const st = loadStats();
+  const levels = ddSkillLevels(st);
+  let html = `
+    <div class="dd-intro-card">
+      <h2>🗺️ 読解Quest試作版</h2>
+      <p>文章の中から「証拠」を探し、つなげて、推理し、自分の言葉で記述する読解ゲームです。<br>
+      合言葉は「根拠を確認する」。正解そのものより、根拠の質が評価されます。</p>
+    </div>
+    <div class="card">
+      <h3 class="section" style="margin-top:0">技能レベル</h3>
+      ${ddSkillGridHtml(levels, null)}
+      <p class="note">文章が変わっても、ここで使う読みの技能は同じです。いろいろなクエストで繰り返し使って育てましょう。</p>
+    </div>
+    <h3 class="section">クエストを選ぼう</h3>`;
+  if(!DOKKAI_DUNGEON.length){
+    html += `<p class="note">クエストデータがまだありません（dokkai_dungeon_data.js）。</p>`;
+  }
+  DOKKAI_DUNGEON.forEach((stg, i) => {
+    const cl = st.dokkaiDungeon.cleared[stg.id];
+    const bestHtml = cl ? `<span class="tag">ベスト ${Math.round(cl.bestPct)}%・${cl.plays}回挑戦</span>` : `<span class="tag">未挑戦</span>`;
+    html += `
+    <div class="card menu-card" onclick="ddStart(${i})">
+      <div class="menu-icon">${stg.icon || "📖"}</div>
+      <div><h2>QUEST ${String(i+1).padStart(2,"0")}　${esc(stg.title)} ${bestHtml}</h2>
+      <p>${esc(stg.genre)}・難易度${"★".repeat(stg.difficulty||1)}</p></div>
+    </div>`;
+  });
+  html += `<div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
+  screen.innerHTML = html;
+}
+function ddStart(stageIdx){
+  const st = loadStats();
+  const stage = DOKKAI_DUNGEON[stageIdx];
+  if(!stage) return ddShowList();
+  dd = {
+    stageIdx, stage, step:"intro",
+    found:[], linkSelected:[], linkAttempts:0, linkSuccess:false,
+    inferChoice:null, inferCorrect:false,
+    writeText:"", writeScored:null,
+    skillLvBefore: ddSkillLevels(st),
+  };
+  ddRenderIntro();
+}
+function ddRenderIntro(){
+  const stg = dd.stage;
+  screen.innerHTML = `
+    <div class="dd-intro-card">
+      <h2>${stg.icon || "📖"} QUEST　${esc(stg.title)}</h2>
+      <p>${esc(stg.flavor || "")}</p>
+    </div>
+    <div class="card">
+      <p>本文を読んで、重要な証拠を<strong>${stg.requiredEvidence || 3}つ</strong>見つけよう。証拠をつなげて推理し、最後に自分の言葉で記述すると結果がわかります。</p>
+      <div class="btn-row"><button class="btn" onclick="ddGoRead()">たんけんを始める</button>
+      <button class="btn secondary" onclick="ddShowList()">クエスト一覧へ</button></div>
+    </div>`;
+}
+function ddStepBarHtml(currentKey){
+  return `<div class="dd-step-bar">` + DD_STEP_ORDER.map(s => {
+    const ci = DD_STEP_ORDER.findIndex(x=>x.key===currentKey);
+    const si = DD_STEP_ORDER.findIndex(x=>x.key===s.key);
+    const cls = s.key===currentKey ? "active" : (si < ci ? "done" : "");
+    return `<div class="dd-step-chip ${cls}">${esc(s.label)}</div>`;
+  }).join("") + `</div>`;
+}
+function ddParaHtml(para, stage){
+  const evids = stage.evidence.filter(e => e.pid === para.id);
+  if(!evids.length) return `<p>${esc(para.text)}</p>`;
+  const text = para.text;
+  const ranges = evids.map(e => ({idx: text.indexOf(e.snippet), len: e.snippet.length, e}))
+    .filter(r => r.idx >= 0).sort((a,b) => a.idx - b.idx);
+  let pos = 0, html = "";
+  ranges.forEach(r => {
+    if(r.idx > pos) html += esc(text.slice(pos, r.idx));
+    const found = dd.found.includes(r.e.id);
+    html += `<span class="dd-evid${found ? " dd-found" : ""}" onclick="ddTapEvidence('${r.e.id}')">${esc(text.slice(r.idx, r.idx + r.len))}</span>`;
+    pos = r.idx + r.len;
+  });
+  if(pos < text.length) html += esc(text.slice(pos));
+  return `<p>${html}</p>`;
+}
+function ddGoRead(){ dd.step = "read"; ddRenderRead(); }
+function ddRenderRead(){
+  const stg = dd.stage;
+  const required = stg.requiredEvidence || 3;
+  const foundItems = dd.found.map(id => stg.evidence.find(e => e.id === id));
+  screen.innerHTML = `
+    ${ddStepBarHtml("read")}
+    <div class="passage">
+      <p class="passage-title">${esc(stg.title)}</p>
+      ${stg.paragraphs.map(p => ddParaHtml(p, stg)).join("")}
+    </div>
+    <div class="dd-found-panel">
+      <h4>🔍 見つけた証拠（${dd.found.length} / ${required}つ以上・タップすると取り消せます）</h4>
+      ${foundItems.length ? foundItems.map(e => `
+        <div class="dd-evid-card" onclick="ddTapEvidence('${e.id}')">
+          <span class="dd-stars">${"★".repeat(e.stars)}${"☆".repeat(3-e.stars)}</span>
+          <span class="dd-evid-text">${esc(e.snippet)}</span>
+          <span class="dd-remove-x">✕</span>
+        </div>`).join("") : `<p class="note">本文中の点線の引いてある部分をタップすると、証拠として保存できます。</p>`}
+    </div>
+    ${dd.found.length >= required
+      ? `<div class="btn-row"><button class="btn" onclick="ddGoLink()">証拠をつなげる →</button></div>`
+      : `<p class="dd-progress-line">あと${required - dd.found.length}つ、本文から証拠を見つけよう。</p>`}
+    <div class="btn-row"><button class="btn secondary" onclick="ddShowList()">やめる</button></div>`;
+}
+function ddTapEvidence(eid){
+  const i = dd.found.indexOf(eid);
+  if(i >= 0) dd.found.splice(i, 1);
+  else dd.found.push(eid);
+  ddRenderRead();
+}
+function ddGoLink(){ dd.step = "link"; dd.linkSelected = []; ddRenderLink(); }
+function ddRenderLink(){
+  const stg = dd.stage;
+  const foundItems = dd.found.map(id => stg.evidence.find(e => e.id === id));
+  screen.innerHTML = `
+    ${ddStepBarHtml("link")}
+    <div class="card">
+      <h3 class="section" style="margin-top:0">🔗 証拠をつなげる</h3>
+      <p>${esc(stg.linkTask.prompt)}</p>
+      ${foundItems.map(e => `
+        <div class="dd-evid-card ${dd.linkSelected.includes(e.id) ? "dd-selected" : ""}" onclick="ddToggleLinkSelect('${e.id}')">
+          <span class="dd-stars">${"★".repeat(e.stars)}${"☆".repeat(3-e.stars)}</span>
+          <span class="dd-evid-text">${esc(e.snippet)}</span>
+        </div>`).join("")}
+      <div class="btn-row">
+        <button class="btn" ${dd.linkSelected.length===2 ? "" : "disabled"} onclick="ddSubmitLink()">つながった！</button>
+        <button class="btn secondary" onclick="ddGoRead()">証拠を確認する（本文に戻る）</button>
+      </div>
+      <div class="feedback" id="ddLinkFb"></div>
+    </div>`;
+}
+function ddToggleLinkSelect(eid){
+  const i = dd.linkSelected.indexOf(eid);
+  if(i >= 0) dd.linkSelected.splice(i, 1);
+  else {
+    if(dd.linkSelected.length >= 2) dd.linkSelected.shift();
+    dd.linkSelected.push(eid);
+  }
+  ddRenderLink();
+}
+function ddSubmitLink(){
+  const stg = dd.stage;
+  dd.linkAttempts++;
+  const chosen = dd.linkSelected.map(id => stg.evidence.find(e => e.id === id));
+  const success = chosen.length === 2 && chosen.every(e => e && e.correct);
+  dd.linkSuccess = dd.linkSuccess || success;
+  dd.linkAttemptsAtSuccess = success ? dd.linkAttempts : dd.linkAttemptsAtSuccess;
+  const fb = document.getElementById("ddLinkFb");
+  fb.className = "feedback show " + (success ? "ok" : "ng");
+  fb.innerHTML = success
+    ? `<div class="verdict">⚡ つながった！</div>この2つの証拠を組み合わせると、健太の気持ちの変化が見えてきます。<div class="btn-row"><button class="btn" onclick="ddGoInfer()">次へ：推理する →</button></div>`
+    : `<div class="verdict">× まだつながっていないようです</div>もう一度、本文に戻って証拠を確認してみましょう。<div class="btn-row"><button class="btn" onclick="ddGoRead()">本文に戻る</button>${dd.linkAttempts>=2?`<button class="btn secondary" onclick="ddGoInfer()">このまま進む</button>`:""}</div>`;
+}
+function ddGoInfer(){ dd.step = "infer"; ddRenderInfer(); }
+function ddRenderInfer(){
+  const stg = dd.stage, inf = stg.inference;
+  screen.innerHTML = `
+    ${ddStepBarHtml("infer")}
+    <div class="card">
+      <h3 class="section" style="margin-top:0">🧩 推理する</h3>
+      <div class="q-text">${esc(inf.question)}</div>
+      <div class="choices">
+        ${inf.choices.map((c,idx)=>`<button class="choice" onclick="ddAnswerInfer(${idx})"><span class="choice-num">${idx+1}</span>${esc(c)}</button>`).join("")}
+      </div>
+      <div class="feedback" id="ddInferFb"></div>
+    </div>`;
+  setupChoiceKeys(pos => ddAnswerInfer(pos), inf.choices.length);
+}
+function ddAnswerInfer(idx){
+  const stg = dd.stage, inf = stg.inference;
+  dd.inferChoice = idx;
+  dd.inferCorrect = idx === inf.answerIdx;
+  const btns = screen.querySelectorAll(".choice");
+  btns.forEach((b,pos)=>{
+    b.disabled = true;
+    if(pos===inf.answerIdx) b.classList.add("correct");
+    else if(pos===idx) b.classList.add("wrong");
+    else b.classList.add("dim");
+  });
+  const fb = document.getElementById("ddInferFb");
+  fb.className = "feedback show " + (dd.inferCorrect ? "ok" : "ng");
+  fb.innerHTML = `<div class="verdict">${dd.inferCorrect ? "○ その通り！" : "× ちがう着眼点でした"}</div>${esc(inf.explanation)}
+    <div class="btn-row"><button class="btn" onclick="ddGoRevision()">次へ：推敲する →</button></div>`;
+}
+function ddGoRevision(){ dd.step = "revision"; ddRenderRevision(); }
+function ddRenderRevision(){
+  screen.innerHTML = `
+    ${ddStepBarHtml("revision")}
+    <div class="card">
+      <h3 class="section" style="margin-top:0">✏️ 記述の前に：推敲チェック</h3>
+      <p>記述する前に、次のことを頭に入れておきましょう。書いたあとにも、もう一度見直しましょう。</p>
+      <ul class="dd-checklist">
+        <li>問いにまっすぐ答えているか</li>
+        <li>本文の根拠にもとづいているか</li>
+        <li>原因と結果のつながりが書けているか</li>
+        <li>余計な情報が入っていないか</li>
+        <li>字数条件を満たしているか</li>
+      </ul>
+      <div class="btn-row"><button class="btn" onclick="ddGoWrite()">下書きを始める →</button></div>
+    </div>`;
+}
+function ddGoWrite(){ dd.step = "write"; ddRenderWrite(); }
+function ddRenderWrite(){
+  const stg = dd.stage, w = stg.writing;
+  screen.innerHTML = `
+    ${ddStepBarHtml("write")}
+    <div class="card">
+      <h3 class="section" style="margin-top:0">🖋️ 記述する</h3>
+      <div class="q-text">${esc(w.prompt)}</div>
+      <textarea class="dd-textarea" id="ddWriteArea" oninput="ddUpdateWriteText(this.value)" placeholder="ここに書こう">${esc(dd.writeText)}</textarea>
+      <div class="dd-charcount" id="ddCharCount">${dd.writeText.length} / ${w.maxLength}字</div>
+      <div class="btn-row"><button class="btn" onclick="ddSubmitWriting()">採点する</button></div>
+    </div>`;
+}
+function ddUpdateWriteText(val){
+  dd.writeText = val;
+  const w = dd.stage.writing;
+  const cc = document.getElementById("ddCharCount");
+  cc.textContent = `${val.length} / ${w.maxLength}字`;
+  cc.className = "dd-charcount" + (val.length > w.maxLength ? " over" : "");
+}
+function ddScoreWriting(){
+  const stg = dd.stage, w = stg.writing, text = dd.writeText || "";
+  const hits = [];
+  let total = 0, max = 0;
+  w.rubric.forEach((r, idx) => {
+    max += r.points;
+    let hit = false;
+    if(r.type === "keyword"){
+      hit = r.keywords.some(kw => text.includes(kw));
+    }else if(r.type === "causal"){
+      const hasConnector = /て|ので|から|ため|によって/.test(text);
+      hit = hasConnector && r.requiresBoth.every(i => hits[i]);
+    }else if(r.type === "evidenceSelected"){
+      hit = dd.linkSelected.some(eid => {
+        const e = stg.evidence.find(x => x.id === eid);
+        return e && e.correct;
+      });
+    }else if(r.type === "length"){
+      hit = text.length > 0 && text.length <= w.maxLength;
+    }
+    hits[idx] = hit;
+    if(hit) total += r.points;
+  });
+  return {total, max, items: w.rubric.map((r,idx) => ({label:r.label, points:r.points, hit:hits[idx]}))};
+}
+function ddSubmitWriting(){
+  if(!dd.writeText.trim()){ alert("記述を入力してから採点しよう。"); return; }
+  dd.writeScored = ddScoreWriting();
+  const st = loadStats();
+  const stg = dd.stage;
+  const coreTotal = stg.evidence.filter(e => e.correct).length;
+  const coreFound = dd.found.filter(id => {
+    const e = stg.evidence.find(x => x.id === id);
+    return e && e.correct;
+  }).length;
+  // 技能別の経験値付与。このクエストが使っているジャンル（skillsフィールド）だけに絞らず、
+  // 実際の行動結果に応じて各技能へ加点する（どのクエストでも同じロジックで動く汎用設計）。
+  ddAddSkillXp(st, "discovery", Math.min(dd.found.length, coreTotal) * 2);
+  ddAddSkillXp(st, "evidence", coreFound * 3);
+  ddAddSkillXp(st, "link", dd.linkSuccess ? (dd.linkAttemptsAtSuccess === 1 ? 10 : 6) : 2);
+  ddAddSkillXp(st, "causal", dd.linkSuccess ? 8 : 2);
+  ddAddSkillXp(st, "inference", dd.inferCorrect ? 10 : 3);
+  ddAddSkillXp(st, "emotion", dd.inferCorrect ? 8 : 2);
+  ddAddSkillXp(st, "writing", Math.round((dd.writeScored.total / dd.writeScored.max) * 14));
+  ddAddSkillXp(st, "revision", 5);
+  const pct = Math.round((dd.writeScored.total / dd.writeScored.max) * 100);
+  const cl = st.dokkaiDungeon.cleared[stg.id] || {bestPct:0, plays:0};
+  cl.plays++;
+  if(pct > cl.bestPct) cl.bestPct = pct;
+  st.dokkaiDungeon.cleared[stg.id] = cl;
+  dd.skillLvAfter = ddSkillLevels(st);
+  saveStats(st);
+  dd.step = "result";
+  ddRenderResult();
+}
+function ddRenderResult(){
+  const stg = dd.stage, sc = dd.writeScored;
+  const pct = Math.round((sc.total / sc.max) * 100);
+  const tier = pct >= 80 ? "🌟 見事な読解です！" : pct >= 50 ? "👍 もう一歩で完璧！" : "📖 本文の根拠をもう一度見直そう";
+  screen.innerHTML = `
+    ${ddStepBarHtml("result")}
+    <div class="card">
+      <h3 class="section" style="margin-top:0">結果発表</h3>
+      <div class="dd-score-big">${sc.total} <span style="font-size:1.1rem;color:var(--sub)">/ ${sc.max}点（${pct}%）</span></div>
+      <p class="result-msg">${tier}</p>
+      ${sc.items.map(it => `<div class="dd-rubric-item ${it.hit?"dd-hit":"dd-miss"}">${esc(it.label)}<span>${it.hit?"＋":""}${it.points}点</span></div>`).join("")}
+      <div class="dd-sample-box"><span class="label">模範解答の例</span>${esc(stg.writing.sample)}</div>
+    </div>
+    <div class="card">
+      <h4 class="note" style="margin-bottom:8px">この挑戦でのふりかえり</h4>
+      <p class="note">🔍 証拠の質：本文中の重要な証拠 ${stg.evidence.filter(e=>e.correct).length}つ中 ${dd.found.filter(id=>{const e=stg.evidence.find(x=>x.id===id);return e&&e.correct;}).length}つを見つけました。</p>
+      <p class="note">🔗 関連付け：${dd.linkSuccess ? "証拠どうしのつながりを正しく見つけられました。" : "証拠のつながりは、もう少し練習が必要です。"}</p>
+      <p class="note">🧩 推理：${dd.inferCorrect ? "本文の根拠にもとづいた推理ができました。" : "もう一度、本文の根拠から考え直してみましょう。"}</p>
+    </div>
+    <div class="card">
+      <h3 class="section" style="margin-top:0">技能レベル</h3>
+      ${ddSkillGridHtml(dd.skillLvBefore, dd.skillLvAfter)}
+    </div>
+    <div class="btn-row">
+      <button class="btn" onclick="ddStart(${dd.stageIdx})">もう一度挑戦</button>
+      <button class="btn secondary" onclick="ddShowList()">クエスト一覧へ</button>
+      <button class="btn secondary" onclick="showHome()">ホームへ</button>
+    </div>`;
 }
 
 /* ================= 二人対戦（同じ端末で交互に対戦） =================
@@ -26589,10 +27522,10 @@ const MB_SHINY_ENCOUNTER_CHANCE = 0.001;
 const MB_SPECIAL_QUEST_SHINY_CHANCE = 0.005;
 // このボスに色違いスプライトが実在するときだけ「色違いに遭遇」判定そのものを有効にする
 // （教員の指示、2026-09-10：「裏ボスは、まだ色違いを設定していないはず」への対応）。
-// 判定せずに素通しすると、色違い画像が無いボス（現状は裏ボス4体）でも「発見した！！」の
-// 演出と仲間の色違いフラグ（st.mbCompanionShiny）だけが立ってしまい、パートナー選択画面の
-// 色違いサムネイルが空表示（壊れた画像）になる不具合につながるため。将来そのボスの色違い
-// スプライトを追加すれば、この判定だけで自動的に有効になる。
+// 判定せずに素通しすると、色違い画像が無いボスでも「発見した！！」の演出と仲間の色違い
+// フラグ（st.mbCompanionShiny）だけが立ってしまい、パートナー選択画面の色違いサムネイルが
+// 空表示（壊れた画像）になる不具合につながるため。そのボスの色違いスプライトを追加すれば、
+// この判定だけで自動的に有効になる（裏ボス4体ぶんは2026-09-12に追加済み）。
 function mbHasShinySprite(enemyDef){
   return typeof ENEMY_SPRITES_SHINY !== 'undefined' && !!ENEMY_SPRITES_SHINY[enemyDef.id + '_pose1'];
 }
@@ -28646,8 +29579,9 @@ function mbStartUraBossChallenge(){
   };
   mbBattle = {
     enemyIndex: -1, enemyDef, enemyHp: enemyDef.hp, enemyMaxHp: enemyDef.hp, debuffs: {}, turnBusy: false, wrongLog: [],
-    // 裏ボス4体はまだ色違いスプライトを用意していないため、mbHasShinySpriteがfalseを返し、
-    // 判定自体が発生しない（教員の指示、2026-09-10）。今後スプライトを追加すれば自動的に有効になる。
+    // 裏ボス4体ぶんの色違いスプライトも追加済み（enemy_sprites_shiny_data.jsにub01〜04を
+    // 追加、2026-09-12〜）。mbHasShinySpriteはキーの有無だけを見るので、この判定は
+    // 通常ボスと完全に同じ経路で自動的に有効になる（コード変更不要だった）。
     isShinyEncounter: mbHasShinySprite(enemyDef) && Math.random() < (mbRun.isSpecialQuest ? MB_SPECIAL_QUEST_SHINY_CHANCE : MB_SHINY_ENCOUNTER_CHANCE), isUraBoss: true,
   };
   mbShowBattleIntro();
