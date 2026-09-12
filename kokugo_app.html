@@ -4046,13 +4046,15 @@
 }
 .dd-step-chip.active{background:var(--accent2); color:#fff;}
 .dd-step-chip.done{background:#cfe7e1; color:var(--accent2);}
+/* すべての文を同じ見た目でタップ可能にする（本文中のどの一文にも正誤のヒントを
+   出さないため、未選択の状態では下線などの装飾を一切つけない。2026-09-12改修）。 */
 .dd-evid{
-  cursor:pointer; border-bottom:3px dotted var(--accent2); padding:0 1px;
+  cursor:pointer; padding:0 1px; border-radius:3px;
   transition:background .15s;
 }
 .dd-evid:hover{background:#eef6f4;}
 .dd-evid.dd-found{
-  border-bottom:3px solid var(--accent2); background:#eaf5f2; font-weight:bold;
+  background:#eaf5f2; font-weight:bold; box-shadow:inset 0 -3px 0 var(--accent2);
 }
 .dd-found-panel{
   background:var(--card); border:1px solid var(--line); border-radius:10px;
@@ -4066,7 +4068,6 @@
 }
 .dd-evid-card:hover{border-color:var(--accent2);}
 .dd-evid-card.dd-selected{border-color:var(--accent2); background:#eef6f4;}
-.dd-stars{color:var(--gold); letter-spacing:1px; flex-shrink:0; font-size:.8rem;}
 .dd-evid-text{flex:1;}
 .dd-remove-x{color:var(--sub); font-size:.8rem; flex-shrink:0;}
 .dd-progress-line{font-size:.82rem; color:var(--sub); margin-bottom:10px;}
@@ -4107,7 +4108,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.25</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.26</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -11990,6 +11991,7 @@ function nextDokkai(){
    このエンジンはデータを増やすだけで新しいステージに対応できる（DOKKAI_DUNGEON配列）。 */
 const DD_STEP_ORDER = [
   {key:"read",     label:"探索"},
+  {key:"check",    label:"たしかめ"},
   {key:"link",     label:"関連付け"},
   {key:"infer",    label:"推理"},
   {key:"revision", label:"推敲"},
@@ -12057,9 +12059,11 @@ function ddStart(stageIdx){
   if(!stage) return ddShowList();
   dd = {
     stageIdx, stage, step:"intro",
-    found:[], linkSelected:[], linkAttempts:0, linkSuccess:false,
+    found:[], readNote:null,
+    checkpointPick:null, checkpointCorrect:false,
+    linkSelected:[], linkAttempts:0, linkSuccess:false,
     inferChoice:null, inferCorrect:false,
-    writeText:"", writeScored:null,
+    writeText:"", writeScored:null, coreFoundCount:0,
     skillLvBefore: ddSkillLevels(st),
   };
   ddRenderIntro();
@@ -12072,7 +12076,7 @@ function ddRenderIntro(){
       <p>${esc(stg.flavor || "")}</p>
     </div>
     <div class="card">
-      <p>本文を読んで、重要な証拠を<strong>${stg.requiredEvidence || 3}つ</strong>見つけよう。証拠をつなげて推理し、最後に自分の言葉で記述すると結果がわかります。</p>
+      <p>本文を1文ずつよく読んで、重要だと思う証拠をちょうど<strong>${stg.requiredEvidence || 3}つ</strong>選ぼう。どの文でも証拠にできるので、見た目では分からない——自分の頭で考えて選ぶ必要があります。証拠をつなげて推理し、最後に自分の言葉で記述すると結果がわかります。</p>
       <div class="btn-row"><button class="btn" onclick="ddGoRead()">たんけんを始める</button>
       <button class="btn secondary" onclick="ddShowList()">クエスト一覧へ</button></div>
     </div>`;
@@ -12085,27 +12089,45 @@ function ddStepBarHtml(currentKey){
     return `<div class="dd-step-chip ${cls}">${esc(s.label)}</div>`;
   }).join("") + `</div>`;
 }
-function ddParaHtml(para, stage){
-  const evids = stage.evidence.filter(e => e.pid === para.id);
-  if(!evids.length) return `<p>${esc(para.text)}</p>`;
-  const text = para.text;
-  const ranges = evids.map(e => ({idx: text.indexOf(e.snippet), len: e.snippet.length, e}))
-    .filter(r => r.idx >= 0).sort((a,b) => a.idx - b.idx);
-  let pos = 0, html = "";
-  ranges.forEach(r => {
-    if(r.idx > pos) html += esc(text.slice(pos, r.idx));
-    const found = dd.found.includes(r.e.id);
-    html += `<span class="dd-evid${found ? " dd-found" : ""}" onclick="ddTapEvidence('${r.e.id}')">${esc(text.slice(r.idx, r.idx + r.len))}</span>`;
-    pos = r.idx + r.len;
+/* 本文のすべての文を、等しくタップ可能な「証拠候補」として扱う（2026-09-12〜改修）。
+   以前は証拠になる一節だけに点線の下線を引いていたため、生徒が読まずに「下線部を探す」
+   だけで正解候補にたどり着けてしまっていた（教員の指摘）。今は文単位で全文をタップでき、
+   本文中での見た目の差（下線の有無・★の数）からは一切正解・不正解が分からないようにする。 */
+function ddSplitSentences(text){
+  const out = [];
+  let buf = "";
+  for(const ch of text){
+    buf += ch;
+    if(ch === "。"){ out.push(buf); buf = ""; }
+  }
+  if(buf) out.push(buf);
+  return out;
+}
+function ddSentenceUnits(para, stage){
+  return ddSplitSentences(para.text).map((text, idx) => {
+    const evidence = stage.evidence.find(e => e.pid === para.id && text.includes(e.snippet)) || null;
+    return {key: para.id + "_s" + idx, text, evidence};
   });
-  if(pos < text.length) html += esc(text.slice(pos));
+}
+function ddAllSentenceUnits(stage){
+  let out = [];
+  stage.paragraphs.forEach(p => { out = out.concat(ddSentenceUnits(p, stage)); });
+  return out;
+}
+function ddParaHtml(para, stage){
+  const units = ddSentenceUnits(para, stage);
+  const html = units.map(u => {
+    const found = dd.found.includes(u.key);
+    return `<span class="dd-evid${found ? " dd-found" : ""}" onclick="ddTapSentence('${u.key}')">${esc(u.text)}</span>`;
+  }).join("");
   return `<p>${html}</p>`;
 }
 function ddGoRead(){ dd.step = "read"; ddRenderRead(); }
 function ddRenderRead(){
   const stg = dd.stage;
   const required = stg.requiredEvidence || 3;
-  const foundItems = dd.found.map(id => stg.evidence.find(e => e.id === id));
+  const units = ddAllSentenceUnits(stg);
+  const foundUnits = dd.found.map(k => units.find(u => u.key === k)).filter(Boolean);
   screen.innerHTML = `
     ${ddStepBarHtml("read")}
     <div class="passage">
@@ -12113,38 +12135,84 @@ function ddRenderRead(){
       ${stg.paragraphs.map(p => ddParaHtml(p, stg)).join("")}
     </div>
     <div class="dd-found-panel">
-      <h4>🔍 見つけた証拠（${dd.found.length} / ${required}つ以上・タップすると取り消せます）</h4>
-      ${foundItems.length ? foundItems.map(e => `
-        <div class="dd-evid-card" onclick="ddTapEvidence('${e.id}')">
-          <span class="dd-stars">${"★".repeat(e.stars)}${"☆".repeat(3-e.stars)}</span>
-          <span class="dd-evid-text">${esc(e.snippet)}</span>
+      <h4>🔍 選んだ証拠（${dd.found.length} / ${required}・タップすると取り消せます）</h4>
+      ${foundUnits.length ? foundUnits.map(u => `
+        <div class="dd-evid-card" onclick="ddTapSentence('${u.key}')">
+          <span class="dd-evid-text">${esc(u.text)}</span>
           <span class="dd-remove-x">✕</span>
-        </div>`).join("") : `<p class="note">本文中の点線の引いてある部分をタップすると、証拠として保存できます。</p>`}
+        </div>`).join("") : `<p class="note">気になる一文をタップすると、証拠として保存できます（ちょうど${required}つ選ぼう）。どの文でも選べます。</p>`}
     </div>
+    ${dd.readNote ? `<div class="dd-toast">${esc(dd.readNote)}</div>` : ""}
     ${dd.found.length >= required
-      ? `<div class="btn-row"><button class="btn" onclick="ddGoLink()">証拠をつなげる →</button></div>`
+      ? `<div class="btn-row"><button class="btn" onclick="ddGoCheckpoint()">次へ：たしかめる →</button></div>`
       : `<p class="dd-progress-line">あと${required - dd.found.length}つ、本文から証拠を見つけよう。</p>`}
     <div class="btn-row"><button class="btn secondary" onclick="ddShowList()">やめる</button></div>`;
+  dd.readNote = null;
 }
-function ddTapEvidence(eid){
-  const i = dd.found.indexOf(eid);
-  if(i >= 0) dd.found.splice(i, 1);
-  else dd.found.push(eid);
+function ddTapSentence(key){
+  const i = dd.found.indexOf(key);
+  if(i >= 0){ dd.found.splice(i, 1); ddRenderRead(); return; }
+  const cap = dd.stage.requiredEvidence || 3;
+  if(dd.found.length >= cap){
+    dd.readNote = `証拠は${cap}つまでです。入れ替えるには、選んだものをもう一度タップして取り消してください。`;
+    ddRenderRead();
+    return;
+  }
+  dd.found.push(key);
   ddRenderRead();
+}
+/* 「たしかめ」ステップ（根拠確認）。見た目では分からない3つの証拠の中から、生徒自身に
+   「どれが一番重要か」を選ばせ、すぐにフィードバックする。誤答でも進行を止めない
+   （ヒントを出して本文に戻るか、そのまま進めるかを選べる）ことで、分からないまま
+   ずっと詰まってしまう事態を避ける。 */
+function ddGoCheckpoint(){ dd.step = "check"; dd.checkpointPick = null; ddRenderCheckpoint(); }
+function ddRenderCheckpoint(){
+  const stg = dd.stage;
+  const units = ddAllSentenceUnits(stg);
+  const foundUnits = dd.found.map(k => units.find(u => u.key === k)).filter(Boolean);
+  screen.innerHTML = `
+    ${ddStepBarHtml("check")}
+    <div class="card">
+      <h3 class="section" style="margin-top:0">🔎 たしかめる</h3>
+      <p>選んだ${foundUnits.length}つの証拠のうち、問いに答える上で最も役に立つと思うものを1つ選ぼう。</p>
+      <div class="choices">
+        ${foundUnits.map(u => `<button class="choice" onclick="ddAnswerCheckpoint('${u.key}')">${esc(u.text)}</button>`).join("")}
+      </div>
+      <div class="feedback" id="ddCheckFb"></div>
+    </div>`;
+}
+function ddAnswerCheckpoint(key){
+  const stg = dd.stage;
+  const units = ddAllSentenceUnits(stg);
+  const unit = units.find(u => u.key === key);
+  dd.checkpointPick = key;
+  dd.checkpointCorrect = !!(unit && unit.evidence && unit.evidence.correct);
+  const foundUnits = dd.found.map(k => units.find(u => u.key === k)).filter(Boolean);
+  const btns = screen.querySelectorAll(".choice");
+  btns.forEach((b, pos) => {
+    b.disabled = true;
+    if(foundUnits[pos] && foundUnits[pos].key === key) b.classList.add(dd.checkpointCorrect ? "correct" : "wrong");
+    else b.classList.add("dim");
+  });
+  const fb = document.getElementById("ddCheckFb");
+  fb.className = "feedback show " + (dd.checkpointCorrect ? "ok" : "ng");
+  fb.innerHTML = dd.checkpointCorrect
+    ? `<div class="verdict">◎ 良い着眼点です！</div>この証拠を中心に、証拠どうしのつながりを考えてみましょう。<div class="btn-row"><button class="btn" onclick="ddGoLink()">次へ：つなげる →</button></div>`
+    : `<div class="verdict">△ もう一度、本文を確認してみましょう</div>${esc(stg.evidenceHint || "")}<div class="btn-row"><button class="btn" onclick="ddGoRead()">証拠を選び直す</button><button class="btn secondary" onclick="ddGoLink()">このまま進む</button></div>`;
 }
 function ddGoLink(){ dd.step = "link"; dd.linkSelected = []; ddRenderLink(); }
 function ddRenderLink(){
   const stg = dd.stage;
-  const foundItems = dd.found.map(id => stg.evidence.find(e => e.id === id));
+  const units = ddAllSentenceUnits(stg);
+  const foundUnits = dd.found.map(k => units.find(u => u.key === k)).filter(Boolean);
   screen.innerHTML = `
     ${ddStepBarHtml("link")}
     <div class="card">
       <h3 class="section" style="margin-top:0">🔗 証拠をつなげる</h3>
       <p>${esc(stg.linkTask.prompt)}</p>
-      ${foundItems.map(e => `
-        <div class="dd-evid-card ${dd.linkSelected.includes(e.id) ? "dd-selected" : ""}" onclick="ddToggleLinkSelect('${e.id}')">
-          <span class="dd-stars">${"★".repeat(e.stars)}${"☆".repeat(3-e.stars)}</span>
-          <span class="dd-evid-text">${esc(e.snippet)}</span>
+      ${foundUnits.map(u => `
+        <div class="dd-evid-card ${dd.linkSelected.includes(u.key) ? "dd-selected" : ""}" onclick="ddToggleLinkSelect('${u.key}')">
+          <span class="dd-evid-text">${esc(u.text)}</span>
         </div>`).join("")}
       <div class="btn-row">
         <button class="btn" ${dd.linkSelected.length===2 ? "" : "disabled"} onclick="ddSubmitLink()">つながった！</button>
@@ -12153,20 +12221,21 @@ function ddRenderLink(){
       <div class="feedback" id="ddLinkFb"></div>
     </div>`;
 }
-function ddToggleLinkSelect(eid){
-  const i = dd.linkSelected.indexOf(eid);
+function ddToggleLinkSelect(key){
+  const i = dd.linkSelected.indexOf(key);
   if(i >= 0) dd.linkSelected.splice(i, 1);
   else {
     if(dd.linkSelected.length >= 2) dd.linkSelected.shift();
-    dd.linkSelected.push(eid);
+    dd.linkSelected.push(key);
   }
   ddRenderLink();
 }
 function ddSubmitLink(){
   const stg = dd.stage;
+  const units = ddAllSentenceUnits(stg);
   dd.linkAttempts++;
-  const chosen = dd.linkSelected.map(id => stg.evidence.find(e => e.id === id));
-  const success = chosen.length === 2 && chosen.every(e => e && e.correct);
+  const chosen = dd.linkSelected.map(k => units.find(u => u.key === k));
+  const success = chosen.length === 2 && chosen.every(u => u && u.evidence && u.evidence.correct);
   dd.linkSuccess = dd.linkSuccess || success;
   dd.linkAttemptsAtSuccess = success ? dd.linkAttempts : dd.linkAttemptsAtSuccess;
   const fb = document.getElementById("ddLinkFb");
@@ -12256,9 +12325,10 @@ function ddScoreWriting(){
       const hasConnector = /て|ので|から|ため|によって/.test(text);
       hit = hasConnector && r.requiresBoth.every(i => hits[i]);
     }else if(r.type === "evidenceSelected"){
-      hit = dd.linkSelected.some(eid => {
-        const e = stg.evidence.find(x => x.id === eid);
-        return e && e.correct;
+      const units = ddAllSentenceUnits(stg);
+      hit = dd.linkSelected.some(key => {
+        const u = units.find(x => x.key === key);
+        return u && u.evidence && u.evidence.correct;
       });
     }else if(r.type === "length"){
       hit = text.length > 0 && text.length <= w.maxLength;
@@ -12273,15 +12343,19 @@ function ddSubmitWriting(){
   dd.writeScored = ddScoreWriting();
   const st = loadStats();
   const stg = dd.stage;
+  const units = ddAllSentenceUnits(stg);
   const coreTotal = stg.evidence.filter(e => e.correct).length;
-  const coreFound = dd.found.filter(id => {
-    const e = stg.evidence.find(x => x.id === id);
-    return e && e.correct;
-  }).length;
+  const coreFoundIds = new Set();
+  dd.found.forEach(key => {
+    const u = units.find(x => x.key === key);
+    if(u && u.evidence && u.evidence.correct) coreFoundIds.add(u.evidence.id);
+  });
+  const coreFound = coreFoundIds.size;
+  dd.coreFoundCount = coreFound;
   // 技能別の経験値付与。このクエストが使っているジャンル（skillsフィールド）だけに絞らず、
   // 実際の行動結果に応じて各技能へ加点する（どのクエストでも同じロジックで動く汎用設計）。
   ddAddSkillXp(st, "discovery", Math.min(dd.found.length, coreTotal) * 2);
-  ddAddSkillXp(st, "evidence", coreFound * 3);
+  ddAddSkillXp(st, "evidence", coreFound * 3 + (dd.checkpointCorrect ? 3 : 0));
   ddAddSkillXp(st, "link", dd.linkSuccess ? (dd.linkAttemptsAtSuccess === 1 ? 10 : 6) : 2);
   ddAddSkillXp(st, "causal", dd.linkSuccess ? 8 : 2);
   ddAddSkillXp(st, "inference", dd.inferCorrect ? 10 : 3);
@@ -12313,7 +12387,8 @@ function ddRenderResult(){
     </div>
     <div class="card">
       <h4 class="note" style="margin-bottom:8px">この挑戦でのふりかえり</h4>
-      <p class="note">🔍 証拠の質：本文中の重要な証拠 ${stg.evidence.filter(e=>e.correct).length}つ中 ${dd.found.filter(id=>{const e=stg.evidence.find(x=>x.id===id);return e&&e.correct;}).length}つを見つけました。</p>
+      <p class="note">🔍 証拠の質：本文中の重要な証拠 ${stg.evidence.filter(e=>e.correct).length}つ中 ${dd.coreFoundCount}つを見つけました。</p>
+      <p class="note">🔎 たしかめ：${dd.checkpointCorrect ? "3つの中から、最も重要な証拠を正しく見極められました。" : "一番重要な証拠は、まだ見極めが難しかったようです。"}</p>
       <p class="note">🔗 関連付け：${dd.linkSuccess ? "証拠どうしのつながりを正しく見つけられました。" : "証拠のつながりは、もう少し練習が必要です。"}</p>
       <p class="note">🧩 推理：${dd.inferCorrect ? "本文の根拠にもとづいた推理ができました。" : "もう一度、本文の根拠から考え直してみましょう。"}</p>
     </div>
