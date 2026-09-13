@@ -4113,7 +4113,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.31</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.32</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -12135,6 +12135,7 @@ function ddRenderIntro(){
     </div>
     <div class="card">
       <p>本文を1文ずつよく読んで、重要だと思う証拠をちょうど<strong>${stg.requiredEvidence || 3}つ</strong>選ぼう。どの文でも証拠にできるので、見た目では分からない——自分の頭で考えて選ぶ必要があります。証拠をつなげて推理し、最後に自分の言葉で記述すると結果がわかります。</p>
+      <p class="note">💡 良い証拠の見分け方：「何が起きたか」「どんな様子か」を説明しているだけの文は、根拠としては弱いことが多いです。本当に役立つ証拠は、問い（なぜ〜したのか）に対する「だから」を直接つなげられる文——つまり、結果につながる原因や、気持ちの動きがわかる文です。</p>
       <div class="btn-row"><button class="btn" onclick="ddGoRead()">たんけんを始める</button>
       <button class="btn secondary" onclick="ddShowList()">クエスト一覧へ</button></div>
     </div>`;
@@ -12254,9 +12255,14 @@ function ddAnswerCheckpoint(key){
   });
   const fb = document.getElementById("ddCheckFb");
   fb.className = "feedback show " + (dd.checkpointCorrect ? "ok" : "ng");
+  // なぜその一文が役立つ／役立たないのかを、一文ごとの理由（evidence.why、または中立文用の
+  // 汎用説明）で具体的に示す（教員の指摘：「なぜその根拠を選んだらおかしいのか分からない」
+  // への対応。evidenceHint＝どこを読み直すかという「場所」のヒントと、why＝「なぜ」という
+  // 理由の説明を両方見せることで、単なる○×より納得感のあるフィードバックにする）。
+  const whyNote = ddWhyNote(unit);
   fb.innerHTML = dd.checkpointCorrect
-    ? `<div class="verdict">◎ 良い着眼点です！</div>この証拠を中心に、証拠どうしのつながりを考えてみましょう。<div class="btn-row"><button class="btn" onclick="ddGoLink()">次へ：つなげる →</button></div>`
-    : `<div class="verdict">△ もう一度、本文を確認してみましょう</div>${esc(stg.evidenceHint || "")}<div class="btn-row"><button class="btn" onclick="ddGoRead()">証拠を選び直す</button><button class="btn secondary" onclick="ddGoLink()">このまま進む</button></div>`;
+    ? `<div class="verdict">◎ 良い着眼点です！</div>${esc(whyNote)}<div class="btn-row"><button class="btn" onclick="ddGoLink()">次へ：つなげる →</button></div>`
+    : `<div class="verdict">△ もう一度、本文を確認してみましょう</div>${esc(whyNote)}<p class="note">${esc(stg.evidenceHint || "")}</p><div class="btn-row"><button class="btn" onclick="ddGoRead()">証拠を選び直す</button><button class="btn secondary" onclick="ddGoLink()">このまま進む</button></div>`;
 }
 function ddGoLink(){ dd.step = "link"; dd.linkSelected = []; ddRenderLink(); }
 function ddRenderLink(){
@@ -12288,6 +12294,14 @@ function ddToggleLinkSelect(key){
   }
   ddRenderLink();
 }
+/* 証拠になっていない文（evidenceに対応が無い「中立」な一文）を選んだときに見せる、
+   汎用の説明文。ジャンルを問わず使える一般原則として、ステージデータではなくここに置く。 */
+const DD_NEUTRAL_NOTE = "この文は、場面や行動のようすを説明しているだけで、問いの「なぜ」に直接答える内容にはなっていません。";
+function ddWhyNote(unit){
+  if(!unit) return "";
+  if(unit.evidence) return unit.evidence.why || "";
+  return DD_NEUTRAL_NOTE;
+}
 function ddSubmitLink(){
   const stg = dd.stage;
   const units = ddAllSentenceUnits(stg);
@@ -12298,24 +12312,37 @@ function ddSubmitLink(){
   dd.linkAttemptsAtSuccess = success ? dd.linkAttempts : dd.linkAttemptsAtSuccess;
   const fb = document.getElementById("ddLinkFb");
   fb.className = "feedback show " + (success ? "ok" : "ng");
-  fb.innerHTML = success
-    ? `<div class="verdict">⚡ つながった！</div>この2つの証拠を組み合わせると、健太の気持ちの変化が見えてきます。<div class="btn-row"><button class="btn" onclick="ddGoInfer()">次へ：推理する →</button></div>`
-    : `<div class="verdict">× まだつながっていないようです</div>もう一度、本文に戻って証拠を確認してみましょう。<div class="btn-row"><button class="btn" onclick="ddGoRead()">本文に戻る</button>${dd.linkAttempts>=2?`<button class="btn secondary" onclick="ddGoInfer()">このまま進む</button>`:""}</div>`;
+  if(success){
+    fb.innerHTML = `<div class="verdict">⚡ つながった！</div>この2つの証拠を組み合わせると、答えへの手がかりが見えてきます。<div class="btn-row"><button class="btn" onclick="ddGoInfer()">次へ：推理する →</button></div>`;
+  }else{
+    // 選んだ2つのうち、根拠として弱い／無関係な方の理由を具体的に示す（教員の指摘、2026-09-13：
+    // 「なぜその根拠を選んだらおかしいのか分からない」への対応。単に「違う」と言うだけでなく、
+    // その一文が答えにならない理由を説明する）。
+    const weakNotes = chosen
+      .filter(u => !(u && u.evidence && u.evidence.correct))
+      .map(u => ddWhyNote(u))
+      .filter(Boolean);
+    const noteHtml = weakNotes.length ? `<p class="note">${weakNotes.map(n=>esc(n)).join("<br>")}</p>` : "";
+    fb.innerHTML = `<div class="verdict">× まだつながっていないようです</div>もう一度、本文に戻って証拠を確認してみましょう。${noteHtml}<div class="btn-row"><button class="btn" onclick="ddGoRead()">本文に戻る</button>${dd.linkAttempts>=2?`<button class="btn secondary" onclick="ddGoInfer()">このまま進む</button>`:""}</div>`;
+  }
 }
 function ddGoInfer(){ dd.step = "infer"; ddRenderInfer(); }
 function ddRenderInfer(){
   const stg = dd.stage, inf = stg.inference;
+  // 正解が毎回同じ位置に来ないよう、選択肢の表示順を毎回シャッフルする（他の4択問題と同じ
+  // shuffledOrderパターン。位置だけで正解が分かってしまわないようにするため）。
+  dd.inferOrder = shuffledOrder(inf.choices.length);
   screen.innerHTML = `
     ${ddStepBarHtml("infer")}
     <div class="card">
       <h3 class="section" style="margin-top:0">🧩 推理する</h3>
       <div class="q-text">${esc(inf.question)}</div>
       <div class="choices">
-        ${inf.choices.map((c,idx)=>`<button class="choice" onclick="ddAnswerInfer(${idx})"><span class="choice-num">${idx+1}</span>${esc(c)}</button>`).join("")}
+        ${dd.inferOrder.map((oi,pos)=>`<button class="choice" onclick="ddAnswerInfer(${oi})"><span class="choice-num">${pos+1}</span>${esc(inf.choices[oi])}</button>`).join("")}
       </div>
       <div class="feedback" id="ddInferFb"></div>
     </div>`;
-  setupChoiceKeys(pos => ddAnswerInfer(pos), inf.choices.length);
+  setupChoiceKeys(pos => ddAnswerInfer(dd.inferOrder[pos]), inf.choices.length);
 }
 function ddAnswerInfer(idx){
   const stg = dd.stage, inf = stg.inference;
@@ -12323,9 +12350,10 @@ function ddAnswerInfer(idx){
   dd.inferCorrect = idx === inf.answerIdx;
   const btns = screen.querySelectorAll(".choice");
   btns.forEach((b,pos)=>{
+    const oi = dd.inferOrder[pos];
     b.disabled = true;
-    if(pos===inf.answerIdx) b.classList.add("correct");
-    else if(pos===idx) b.classList.add("wrong");
+    if(oi===inf.answerIdx) b.classList.add("correct");
+    else if(oi===idx) b.classList.add("wrong");
     else b.classList.add("dim");
   });
   const fb = document.getElementById("ddInferFb");
@@ -12449,6 +12477,18 @@ function ddRenderResult(){
       <p class="note">🔎 たしかめ：${dd.checkpointCorrect ? "3つの中から、最も重要な証拠を正しく見極められました。" : "一番重要な証拠は、まだ見極めが難しかったようです。"}</p>
       <p class="note">🔗 関連付け：${dd.linkSuccess ? "証拠どうしのつながりを正しく見つけられました。" : "証拠のつながりは、もう少し練習が必要です。"}</p>
       <p class="note">🧩 推理：${dd.inferCorrect ? "本文の根拠にもとづいた推理ができました。" : "もう一度、本文の根拠から考え直してみましょう。"}</p>
+    </div>
+    <div class="card">
+      <h4 class="note" style="margin-bottom:8px">選んだ3つの証拠を見直そう</h4>
+      ${(() => {
+        const units = ddAllSentenceUnits(stg);
+        return dd.found.map(key => {
+          const u = units.find(x => x.key === key);
+          if(!u) return "";
+          const ok = !!(u.evidence && u.evidence.correct);
+          return `<div class="dd-rubric-item ${ok?"dd-hit":"dd-miss"}" style="display:block"><div>${ok?"○":"△"} ${esc(u.text)}</div><div class="note" style="margin-top:4px">${esc(ddWhyNote(u))}</div></div>`;
+        }).join("");
+      })()}
     </div>
     <div class="card">
       <h3 class="section" style="margin-top:0">技能レベル</h3>
