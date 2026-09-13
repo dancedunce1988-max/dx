@@ -228,6 +228,11 @@
     background:#fffdf7; border:1px solid var(--line); border-radius:10px;
     padding:18px; font-size:.95rem; margin-bottom:18px; max-height:320px; overflow-y:auto;
   }
+  /* 読解Quest試作版の本文表示は、通常の読解トレーニング（.passageの320px上限）より
+     縦に長く取り、内側の小さなスクロール枠の中で読ませない（教員の指摘、2026-09-13：
+     スクロールが必要だと読みにくい）。画面の縦サイズに応じて十分な高さを確保しつつ、
+     万一本文が非常に長くなった場合の保険としてoverflow-y:autoだけは残す。 */
+  .passage.dd-passage{ max-height:75vh; }
   .passage p{text-indent:1em; margin-bottom:.4em;}
   .passage-title{font-weight:bold; margin-bottom:8px; text-indent:0 !important;}
   .result-score{font-size:2.6rem; font-weight:bold; text-align:center; color:var(--accent2); margin:8px 0;}
@@ -4108,7 +4113,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.30</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.31</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -12183,7 +12188,7 @@ function ddRenderRead(){
   const foundUnits = dd.found.map(k => units.find(u => u.key === k)).filter(Boolean);
   screen.innerHTML = `
     ${ddStepBarHtml("read")}
-    <div class="passage">
+    <div class="passage dd-passage">
       <p class="passage-title">${esc(stg.title)}</p>
       ${stg.paragraphs.map(p => ddParaHtml(p, stg)).join("")}
     </div>
