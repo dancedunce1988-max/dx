@@ -4033,9 +4033,11 @@
 .mb-review-progress{ font-weight:bold; color:#d8c2ff; font-size:.85rem; }
 .mb-review-quit-btn{ padding:6px 14px; font-size:.8rem; white-space:nowrap; }
 /* ================= 読解Quest試作版（旧称・読解ダンジョン、2026-09-12〜） =================
-   本文から「証拠」をタップで探し、つなげて、推理し、記述するまでの一連の読解技能を
+   本文から「証拠」をタップで探し、たしかめ、推理し、仕上げるまでの一連の読解技能を
    ゲーム化した新コーナー。既存の読解トレーニング（4択クイズ、dokkai）とは別の独立した
-   仕組みで、stやCAT_KEYS等の既存セーブ構造には触れない（st.dokkaiDungeonのみ使う）。 */
+   仕組みで、stやCAT_KEYS等の既存セーブ構造には触れない（st.dokkaiDungeonのみ使う）。
+   2026-09-15：関連付け（「つながった！」ステップ）は、正誤の基準が生徒に分かりにくい
+   （教員の指摘）ため廃止した。 */
 .dd-intro-card{
   background:linear-gradient(150deg,#2c6e63,#1f4f47); color:#fff;
   border-radius:14px; padding:20px; margin-bottom:16px; text-align:center;
@@ -4051,6 +4053,8 @@
 }
 .dd-step-chip.active{background:var(--accent2); color:#fff;}
 .dd-step-chip.done{background:#cfe7e1; color:var(--accent2);}
+.dd-step-chip.dd-step-clickable{cursor:pointer;}
+.dd-step-chip.dd-step-clickable:active{opacity:.8;}
 /* すべての文を同じ見た目でタップ可能にする（本文中のどの一文にも正誤のヒントを
    出さないため、未選択の状態では下線などの装飾を一切つけない。2026-09-12改修）。 */
 .dd-evid{
@@ -4113,7 +4117,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.35</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.36</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -4277,9 +4281,12 @@ const CATS = DATA.cats;
 const CAT_KEYS = Object.keys(CATS);
 const DOKKAI = DATA.dokkai || [];
 const DOKKAI_DUNGEON = window.DOKKAI_DUNGEON_DATA || [];
-const DD_SKILL_KEYS = ["discovery","evidence","link","causal","inference","emotion","writing","revision"];
+/* 2026-09-15：関連付け（「つながった！」ステップ）を廃止したため、それに紐づいていた
+   link・causalの2技能もあわせて削除（教員の指摘：正誤の基準が分かりにくかった）。
+   既存セーブのskillXp.link/skillXp.causalは読み書きされなくなるだけで、エラーにはならない。 */
+const DD_SKILL_KEYS = ["discovery","evidence","inference","emotion","writing","revision"];
 const DD_SKILL_LABEL = {
-  discovery:"情報発見", evidence:"根拠確認", link:"関連付け", causal:"因果推論",
+  discovery:"情報発見", evidence:"根拠確認",
   inference:"推理", emotion:"心情把握", writing:"仕上げ", revision:"推敲",
 };
 /* 読解Questの難易度レベル（2026-09-15〜、教員の指示）。ステージデータ側のlevelフィールドと
@@ -7101,7 +7108,7 @@ function showHome(){
     </div>
     <div class="card menu-card" onclick="ddGateEnter()">
       <div class="menu-icon">🗺️</div>
-      <div><h2>読解Quest <span class="tag">試作版</span></h2><p>文章から証拠を探し、つなげて、推理して、記述する新しい読解ゲーム</p></div>
+      <div><h2>読解Quest <span class="tag">試作版</span></h2><p>文章から証拠を探し、たしかめ、推理して、仕上げる新しい読解ゲーム</p></div>
     </div>
     <div class="card menu-card" onclick="showHyakuninMenu()">
       <div class="menu-icon">🎴</div>
@@ -12015,7 +12022,7 @@ function nextDokkai(){
 }
 
 /* ================= 読解Quest試作版 =================
-   「答えを覚える」のではなく「証拠を探す→つなげる→推理する→記述する」という読みの
+   「答えを覚える」のではなく「証拠を探す→たしかめる→推理する→仕上げる」という読みの
    思考操作そのものを、別の文章でも繰り返し使わせることを目的にした新コーナー。
    既存の読解トレーニング（dokkai、4択クイズ）・st.lv・st.cats等には一切触れず、
    st.dokkaiDungeon（skillXp・cleared）だけを読み書きする完全に独立した仕組みにしてある。
@@ -12024,7 +12031,6 @@ function nextDokkai(){
 const DD_STEP_ORDER = [
   {key:"read",     label:"探索"},
   {key:"check",    label:"たしかめ"},
-  {key:"link",     label:"関連付け"},
   {key:"infer",    label:"推理"},
   {key:"final",    label:"仕上げ"},
   {key:"result",   label:"結果"},
@@ -12093,7 +12099,7 @@ function ddShowLevelSelect(){
   let html = `
     <div class="dd-intro-card">
       <h2>🗺️ 読解Quest試作版</h2>
-      <p>文章の中から「証拠」を探し、つなげて、推理し、最後に書き抜きか選択問題で仕上げる読解ゲームです。<br>
+      <p>文章の中から「証拠」を探し、たしかめて、推理し、最後に書き抜きか選択問題で仕上げる読解ゲームです。<br>
       まずは、挑戦する文章の難しさを選ぼう。あとからいつでも変更できます。</p>
     </div>
     <h3 class="section">レベルを選ぼう</h3>`;
@@ -12153,10 +12159,9 @@ function ddStart(stageIdx){
   const stage = DOKKAI_DUNGEON[stageIdx];
   if(!stage) return ddShowList();
   dd = {
-    stageIdx, stage, step:"intro",
+    stageIdx, stage, step:"intro", maxStepIdx:0,
     found:[], readNote:null,
     checkpointPick:null, checkpointCorrect:false,
-    linkSelected:[], linkAttempts:0, linkSuccess:false,
     inferChoice:null, inferCorrect:false,
     finalAnswerText:"", finalChoiceIdx:null, finalCorrect:false, finalScored:null, coreFoundCount:0,
     skillLvBefore: ddSkillLevels(st),
@@ -12171,19 +12176,40 @@ function ddRenderIntro(){
       <p>${esc(stg.flavor || "")}</p>
     </div>
     <div class="card">
-      <p>本文を1文ずつよく読んで、重要だと思う証拠をちょうど<strong>${stg.requiredEvidence || 3}つ</strong>選ぼう。どの文でも証拠にできるので、見た目では分からない——自分の頭で考えて選ぶ必要があります。証拠をつなげて推理し、最後に書き抜きか選択問題に答えると結果がわかります。</p>
+      <p>本文を1文ずつよく読んで、重要だと思う証拠をちょうど<strong>${stg.requiredEvidence || 3}つ</strong>選ぼう。どの文でも証拠にできるので、見た目では分からない——自分の頭で考えて選ぶ必要があります。見つけた証拠から推理し、最後に書き抜きか選択問題に答えると結果がわかります。上のステップバーからは、進んだ場所ならいつでも行き来できます。</p>
       <p class="note">💡 良い証拠の見分け方：「何が起きたか」「どんな様子か」を説明しているだけの文は、根拠としては弱いことが多いです。本当に役立つ証拠は、問い（なぜ〜したのか）に対する「だから」を直接つなげられる文——つまり、結果につながる原因や、気持ちの動きがわかる文です。</p>
       <div class="btn-row"><button class="btn" onclick="ddGoRead()">たんけんを始める</button>
       <button class="btn secondary" onclick="ddShowList()">クエスト一覧へ</button></div>
     </div>`;
 }
+/* ステップバーは2026-09-15〜、単なる進捗表示ではなくナビゲーションを兼ねる（教員の指示：
+   「上のボタンから、いつでも進んだり戻ったりできるようにしてほしい」）。クリックできるのは
+   dd.maxStepIdx（これまでに到達した最も先のステップ）以下のチップだけで、まだ到達して
+   いない先のステップへは飛べない（例：仕上げ前に「結果」チップを押しても無視される）。 */
 function ddStepBarHtml(currentKey){
+  const ci = DD_STEP_ORDER.findIndex(x=>x.key===currentKey);
   return `<div class="dd-step-bar">` + DD_STEP_ORDER.map(s => {
-    const ci = DD_STEP_ORDER.findIndex(x=>x.key===currentKey);
     const si = DD_STEP_ORDER.findIndex(x=>x.key===s.key);
     const cls = s.key===currentKey ? "active" : (si < ci ? "done" : "");
-    return `<div class="dd-step-chip ${cls}">${esc(s.label)}</div>`;
+    const reachable = si <= dd.maxStepIdx;
+    return `<div class="dd-step-chip ${cls}${reachable ? " dd-step-clickable" : ""}"${reachable ? ` onclick="ddJumpToStep('${s.key}')"` : ""}>${esc(s.label)}</div>`;
   }).join("") + `</div>`;
+}
+function ddMarkStep(key){
+  dd.step = key;
+  const idx = DD_STEP_ORDER.findIndex(s => s.key === key);
+  if(idx > dd.maxStepIdx) dd.maxStepIdx = idx;
+}
+function ddJumpToStep(key){
+  if(!dd) return;
+  const idx = DD_STEP_ORDER.findIndex(s => s.key === key);
+  if(idx < 0 || idx > dd.maxStepIdx) return;
+  dd.step = key;
+  if(key === "read") ddRenderRead();
+  else if(key === "check") ddRenderCheckpoint();
+  else if(key === "infer") ddRenderInfer();
+  else if(key === "final") ddRenderFinal();
+  else if(key === "result") ddRenderResult();
 }
 /* 本文のすべての文を、等しくタップ可能な「証拠候補」として扱う（2026-09-12〜改修）。
    以前は証拠になる一節だけに点線の下線を引いていたため、生徒が読まずに「下線部を探す」
@@ -12218,7 +12244,7 @@ function ddParaHtml(para, stage){
   }).join("");
   return `<p>${html}</p>`;
 }
-function ddGoRead(){ dd.step = "read"; ddRenderRead(); }
+function ddGoRead(){ ddMarkStep("read"); ddRenderRead(); }
 function ddRenderRead(){
   const stg = dd.stage;
   const required = stg.requiredEvidence || 3;
@@ -12261,7 +12287,7 @@ function ddTapSentence(key){
    「どれが一番重要か」を選ばせ、すぐにフィードバックする。誤答でも進行を止めない
    （ヒントを出して本文に戻るか、そのまま進めるかを選べる）ことで、分からないまま
    ずっと詰まってしまう事態を避ける。 */
-function ddGoCheckpoint(){ dd.step = "check"; dd.checkpointPick = null; ddRenderCheckpoint(); }
+function ddGoCheckpoint(){ dd.checkpointPick = null; ddMarkStep("check"); ddRenderCheckpoint(); }
 function ddRenderCheckpoint(){
   const stg = dd.stage;
   const units = ddAllSentenceUnits(stg);
@@ -12298,39 +12324,8 @@ function ddAnswerCheckpoint(key){
   // 理由の説明を両方見せることで、単なる○×より納得感のあるフィードバックにする）。
   const whyNote = ddWhyNote(unit);
   fb.innerHTML = dd.checkpointCorrect
-    ? `<div class="verdict">◎ 良い着眼点です！</div>${esc(whyNote)}<div class="btn-row"><button class="btn" onclick="ddGoLink()">次へ：つなげる →</button></div>`
-    : `<div class="verdict">△ もう一度、本文を確認してみましょう</div>${esc(whyNote)}<p class="note">${esc(stg.evidenceHint || "")}</p><div class="btn-row"><button class="btn" onclick="ddGoRead()">証拠を選び直す</button><button class="btn secondary" onclick="ddGoLink()">このまま進む</button></div>`;
-}
-function ddGoLink(){ dd.step = "link"; dd.linkSelected = []; ddRenderLink(); }
-function ddRenderLink(){
-  const stg = dd.stage;
-  const units = ddAllSentenceUnits(stg);
-  const foundUnits = dd.found.map(k => units.find(u => u.key === k)).filter(Boolean);
-  screen.innerHTML = `
-    ${ddStepBarHtml("link")}
-    <div class="card">
-      <h3 class="section" style="margin-top:0">🔗 証拠をつなげる</h3>
-      <p>${esc(stg.linkTask.prompt)}</p>
-      <p class="note">※ 正しい組み合わせは1つだけではありません。役に立つ証拠どうしなら、どの2つを選んでも「つながった！」になります。</p>
-      ${foundUnits.map(u => `
-        <div class="dd-evid-card ${dd.linkSelected.includes(u.key) ? "dd-selected" : ""}" onclick="ddToggleLinkSelect('${u.key}')">
-          <span class="dd-evid-text">${esc(u.text)}</span>
-        </div>`).join("")}
-      <div class="btn-row">
-        <button class="btn" ${dd.linkSelected.length===2 ? "" : "disabled"} onclick="ddSubmitLink()">つながった！</button>
-        <button class="btn secondary" onclick="ddGoRead()">証拠を確認する（本文に戻る）</button>
-      </div>
-      <div class="feedback" id="ddLinkFb"></div>
-    </div>`;
-}
-function ddToggleLinkSelect(key){
-  const i = dd.linkSelected.indexOf(key);
-  if(i >= 0) dd.linkSelected.splice(i, 1);
-  else {
-    if(dd.linkSelected.length >= 2) dd.linkSelected.shift();
-    dd.linkSelected.push(key);
-  }
-  ddRenderLink();
+    ? `<div class="verdict">◎ 良い着眼点です！</div>${esc(whyNote)}<div class="btn-row"><button class="btn" onclick="ddGoInfer()">次へ：推理する →</button></div>`
+    : `<div class="verdict">△ もう一度、本文を確認してみましょう</div>${esc(whyNote)}<p class="note">${esc(stg.evidenceHint || "")}</p><div class="btn-row"><button class="btn" onclick="ddGoRead()">証拠を選び直す</button><button class="btn secondary" onclick="ddGoInfer()">このまま進む</button></div>`;
 }
 /* 証拠になっていない文（evidenceに対応が無い「中立」な一文）を選んだときに見せる、
    汎用の説明文。ジャンルを問わず使える一般原則として、ステージデータではなくここに置く。 */
@@ -12340,31 +12335,7 @@ function ddWhyNote(unit){
   if(unit.evidence) return unit.evidence.why || "";
   return DD_NEUTRAL_NOTE;
 }
-function ddSubmitLink(){
-  const stg = dd.stage;
-  const units = ddAllSentenceUnits(stg);
-  dd.linkAttempts++;
-  const chosen = dd.linkSelected.map(k => units.find(u => u.key === k));
-  const success = chosen.length === 2 && chosen.every(u => u && u.evidence && u.evidence.correct);
-  dd.linkSuccess = dd.linkSuccess || success;
-  dd.linkAttemptsAtSuccess = success ? dd.linkAttempts : dd.linkAttemptsAtSuccess;
-  const fb = document.getElementById("ddLinkFb");
-  fb.className = "feedback show " + (success ? "ok" : "ng");
-  if(success){
-    fb.innerHTML = `<div class="verdict">⚡ つながった！</div>この2つの証拠を組み合わせると、答えへの手がかりが見えてきます。<div class="btn-row"><button class="btn" onclick="ddGoInfer()">次へ：推理する →</button></div>`;
-  }else{
-    // 選んだ2つのうち、根拠として弱い／無関係な方の理由を具体的に示す（教員の指摘、2026-09-13：
-    // 「なぜその根拠を選んだらおかしいのか分からない」への対応。単に「違う」と言うだけでなく、
-    // その一文が答えにならない理由を説明する）。
-    const weakNotes = chosen
-      .filter(u => !(u && u.evidence && u.evidence.correct))
-      .map(u => ddWhyNote(u))
-      .filter(Boolean);
-    const noteHtml = weakNotes.length ? `<p class="note">${weakNotes.map(n=>esc(n)).join("<br>")}</p>` : "";
-    fb.innerHTML = `<div class="verdict">× まだつながっていないようです</div>もう一度、本文に戻って証拠を確認してみましょう。${noteHtml}<div class="btn-row"><button class="btn" onclick="ddGoRead()">本文に戻る</button>${dd.linkAttempts>=2?`<button class="btn secondary" onclick="ddGoInfer()">このまま進む</button>`:""}</div>`;
-  }
-}
-function ddGoInfer(){ dd.step = "infer"; ddRenderInfer(); }
+function ddGoInfer(){ ddMarkStep("infer"); ddRenderInfer(); }
 function ddRenderInfer(){
   const stg = dd.stage, inf = stg.inference;
   // 正解が毎回同じ位置に来ないよう、選択肢の表示順を毎回シャッフルする（他の4択問題と同じ
@@ -12405,7 +12376,7 @@ function ddAnswerInfer(idx){
    部分点が入ってしまう／逆に本文に忠実な記述でも語彙が違うだけで減点されてしまう、
    といった自由記述の自動採点特有のブレが原理的に起こらない。ステージデータ側の
    final.type（"extraction"｜"choice"）で出題形式を切り替える。 */
-function ddGoFinal(){ dd.step = "final"; ddRenderFinal(); }
+function ddGoFinal(){ ddMarkStep("final"); ddRenderFinal(); }
 function ddRenderFinal(){
   const f = dd.stage.final;
   if(f.type === "choice") ddRenderFinalChoice();
@@ -12415,9 +12386,16 @@ function ddNormalizeForCompare(s){
   return (s || "").replace(/[\s　]/g, "").replace(/。+$/,"");
 }
 function ddRenderFinalExtraction(){
-  const f = dd.stage.final;
+  const f = dd.stage.final, stg = dd.stage;
+  // 書き抜きは本文の一字一句をそのまま書き写す出題形式なので、この画面だけは常に本文全文を
+  // 表示し続ける（教員の指摘：「本文がないと分からないから、問題を出すときには本文を
+  // 全て載せ続けるように」）。探索ステップと違いタップ判定は不要なので、静的な段落表示。
   screen.innerHTML = `
     ${ddStepBarHtml("final")}
+    <div class="passage dd-passage">
+      <p class="passage-title">${esc(stg.title)}</p>
+      ${stg.paragraphs.map(p => `<p>${esc(p.text)}</p>`).join("")}
+    </div>
     <div class="card">
       <h3 class="section" style="margin-top:0">📝 書き抜き</h3>
       <div class="q-text">${esc(f.question)}</div>
@@ -12486,21 +12464,19 @@ function ddFinishQuest(){
   // 実際の行動結果に応じて各技能へ加点する（どのクエストでも同じロジックで動く汎用設計）。
   ddAddSkillXp(st, "discovery", Math.min(dd.found.length, coreTotal) * 2);
   ddAddSkillXp(st, "evidence", coreFound * 3 + (dd.checkpointCorrect ? 3 : 0));
-  ddAddSkillXp(st, "link", dd.linkSuccess ? (dd.linkAttemptsAtSuccess === 1 ? 10 : 6) : 2);
-  ddAddSkillXp(st, "causal", dd.linkSuccess ? 8 : 2);
   ddAddSkillXp(st, "inference", dd.inferCorrect ? 10 : 3);
   ddAddSkillXp(st, "emotion", dd.inferCorrect ? 8 : 2);
   ddAddSkillXp(st, "writing", dd.finalCorrect ? 14 : 4);
   ddAddSkillXp(st, "revision", 5);
-  // 「書き抜き」も「選択」も○×で機械的に判定できるため、記述の自由採点ルーブリックは
-  // 撤廃し、探索〜仕上げの5工程をそれぞれ20点満点で均等に採点する（2026-09-15改修）。
-  const evidencePts = coreTotal > 0 ? Math.round((coreFound / coreTotal) * 20) : 20;
+  // 「書き抜き」も「選択」も○×で機械的に判定できるため、探索〜仕上げの4工程を
+  // それぞれ25点満点で均等に採点する（2026-09-15改修、関連付けステップの廃止にあわせて
+  // 5工程→4工程に組み替え）。
+  const evidencePts = coreTotal > 0 ? Math.round((coreFound / coreTotal) * 25) : 25;
   const items = [
-    {label:"探索：本文中の重要な証拠を見つけられたか", points:20, earned:evidencePts},
-    {label:"たしかめ：最も重要な証拠を選べたか", points:20, earned: dd.checkpointCorrect ? 20 : 0},
-    {label:"関連付け：証拠どうしをつなげられたか", points:20, earned: dd.linkSuccess ? 20 : 0},
-    {label:"推理：本文の根拠から理由を推理できたか", points:20, earned: dd.inferCorrect ? 20 : 0},
-    {label: stg.final.type === "extraction" ? "書き抜き：本文から正しく書き抜けたか" : "選択：正しく選べたか", points:20, earned: dd.finalCorrect ? 20 : 0},
+    {label:"探索：本文中の重要な証拠を見つけられたか", points:25, earned:evidencePts},
+    {label:"たしかめ：最も重要な証拠を選べたか", points:25, earned: dd.checkpointCorrect ? 25 : 0},
+    {label:"推理：本文の根拠から理由を推理できたか", points:25, earned: dd.inferCorrect ? 25 : 0},
+    {label: stg.final.type === "extraction" ? "書き抜き：本文から正しく書き抜けたか" : "選択：正しく選べたか", points:25, earned: dd.finalCorrect ? 25 : 0},
   ];
   const total = items.reduce((s,it)=>s+it.earned, 0);
   dd.finalScored = {total, max:100, items};
@@ -12511,7 +12487,7 @@ function ddFinishQuest(){
   st.dokkaiDungeon.cleared[stg.id] = cl;
   dd.skillLvAfter = ddSkillLevels(st);
   saveStats(st);
-  dd.step = "result";
+  ddMarkStep("result");
   ddRenderResult();
 }
 function ddRenderResult(){
@@ -12530,7 +12506,6 @@ function ddRenderResult(){
       <h4 class="note" style="margin-bottom:8px">この挑戦でのふりかえり</h4>
       <p class="note">🔍 証拠の質：本文中の重要な証拠 ${stg.evidence.filter(e=>e.correct).length}つ中 ${dd.coreFoundCount}つを見つけました。</p>
       <p class="note">🔎 たしかめ：${dd.checkpointCorrect ? "3つの中から、最も重要な証拠を正しく見極められました。" : "一番重要な証拠は、まだ見極めが難しかったようです。"}</p>
-      <p class="note">🔗 関連付け：${dd.linkSuccess ? "証拠どうしのつながりを正しく見つけられました。" : "証拠のつながりは、もう少し練習が必要です。"}</p>
       <p class="note">🧩 推理：${dd.inferCorrect ? "本文の根拠にもとづいた推理ができました。" : "もう一度、本文の根拠から考え直してみましょう。"}</p>
     </div>
     <div class="card">
