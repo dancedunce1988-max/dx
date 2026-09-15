@@ -1,0 +1,213 @@
+/* ============================================================
+   のびる読解 エンジン ― 見た目
+   教材ごとに基調色を変えたいときは、texts/<教材名>.js の meta.theme に
+   ここで定義した --A / --B / --moss などのCSSカスタムプロパティを
+   書けば、エンジン側が起動時に上書きする（style.cssはさわらなくてよい）。
+   ============================================================ */
+:root{
+  --paper:#f1f2ee; --paper2:#e7e9e3;
+  --ink:#22282a; --ink-soft:#5b6461;
+  --stone:#9aa19b; --hair:#d3d6ce;
+  --moss:#4a6b46; --moss-pale:#e4ece1;
+  --rust:#8d4535; --rust-pale:#f2e4e0;
+  --fs:15px; --lh:1.72;
+  --A:#b4652f; --A-bg:#f6e8dc;
+  --B:#2f6b7a; --B-bg:#dfeaed;
+  --dem:#6b4f80; --dem-bg:#f6f1f8;
+}
+*{box-sizing:border-box;}
+html,body{height:100%;margin:0;padding:0;}
+body{
+  background:var(--paper); color:var(--ink);
+  font-family:"Hiragino Mincho ProN","Yu Mincho",YuMincho,"Noto Serif JP","MS PMincho",serif;
+  -webkit-text-size-adjust:100%;
+  display:flex; flex-direction:column; overflow:hidden;
+}
+.ui{font-family:"Hiragino Kaku Gothic ProN","Yu Gothic","Noto Sans JP",sans-serif;}
+
+.top{flex:0 0 auto;padding:9px 16px;border-bottom:1px solid var(--hair);
+  display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;}
+.top h1{font-size:17px;font-weight:600;letter-spacing:.16em;margin:0;}
+.top .sub{font-size:11.5px;color:var(--ink-soft);margin:0;}
+.top .back{margin-left:auto;font-size:11.5px;color:var(--ink-soft);
+  text-decoration:none;border:1px solid var(--hair);border-radius:12px;padding:4px 10px;}
+.top .back:hover{border-color:var(--stone);}
+
+.main{flex:1 1 auto;min-height:0;display:flex;}
+.pane{overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.pane-text{flex:1.25 1 0;border-right:1px solid var(--hair);padding:10px 18px 30px;}
+.pane-q{flex:1 1 0;padding:14px 18px 30px;background:#fafbf8;}
+.inner{max-width:600px;margin:0 auto;}
+@media (max-width:880px){
+  .main{flex-direction:column;}
+  .pane-text{flex:0 0 52%;border-right:0;border-bottom:1px solid var(--hair);padding:8px 14px 16px;}
+  .pane-q{flex:1 1 auto;padding:12px 14px 26px;}
+}
+
+/* ---- 道具だて ---- */
+.tools{display:flex;gap:5px;flex-wrap:wrap;align-items:center;
+  padding-bottom:8px;border-bottom:1px solid var(--hair);margin-bottom:9px;}
+.tools button{
+  font-family:inherit;font-size:12px;padding:5px 9px;cursor:pointer;
+  background:#fff;border:1px solid var(--hair);border-radius:12px;color:var(--ink-soft);
+}
+.tools button:hover{border-color:var(--stone);}
+.tools button.on{background:var(--ink);border-color:var(--ink);color:#f5f6f2;}
+.tools button:focus-visible{outline:2px solid var(--moss);outline-offset:2px;}
+.tools .gap{flex:1 1 auto;}
+.tools .sz{padding:4px 8px;border-radius:3px;font-size:12px;}
+.prog{font-size:10.5px;color:var(--stone);letter-spacing:.08em;margin:0 0 7px;}
+
+.legend{font-size:11.5px;color:var(--ink-soft);line-height:1.8;
+  background:#fff;border:1px solid var(--hair);border-radius:3px;
+  padding:7px 10px;margin-bottom:10px;display:none;}
+.legend.on{display:block;}
+.legend b{font-weight:normal;}
+
+/* ---- 本文 ---- */
+.text-wrap{position:relative;isolation:isolate;}
+.dem-svg{position:absolute;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none;overflow:visible;}
+article{font-size:var(--fs);line-height:var(--lh);}
+.para{margin:0 0 .5em;text-indent:1em;}
+.para.fresh{animation:rise .7s ease both;}
+@keyframes rise{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.para.fresh{animation:none}}
+
+/* 傍線部 */
+.u{border-bottom:1.5px solid var(--ink-soft);padding-bottom:1px;}
+.u::before{
+  content:attr(data-u);font-family:"Hiragino Kaku Gothic ProN",sans-serif;
+  font-size:.6em;vertical-align:.45em;margin-right:2px;letter-spacing:0;
+  border:1px solid var(--ink-soft);border-radius:2px;padding:0 2px;color:var(--ink-soft);
+}
+.u.now{border-bottom:2px solid var(--moss);background:#eaf1e7;}
+.u.now::before{background:var(--moss);border-color:var(--moss);color:#fff;}
+
+/* 語釈 */
+.g{border-bottom:1px dotted var(--stone);cursor:pointer;}
+.g:hover{background:#e2e6dd;}
+.g:focus-visible{outline:2px solid var(--moss);outline-offset:1px;border-radius:2px;}
+
+/* つなぎ言葉 */
+.conn{padding:0 1px;}
+body.v-conn .conn{background:#fff3e2;box-shadow:0 1px 0 var(--A);}
+body.v-conn .conn::before{
+  content:attr(data-c);font-family:"Hiragino Kaku Gothic ProN",sans-serif;
+  font-size:.62em;vertical-align:.4em;margin-right:2px;
+  background:var(--A);color:#fff;border-radius:2px;padding:0 3px;letter-spacing:0;
+}
+body.v-conn .conn[data-c="順"]{background:#e6eef4;box-shadow:0 1px 0 #3d6e8c;}
+body.v-conn .conn[data-c="順"]::before{background:#3d6e8c;}
+body.v-conn .conn[data-c="条"]{background:#e7f0e5;box-shadow:0 1px 0 var(--moss);}
+body.v-conn .conn[data-c="条"]::before{background:var(--moss);}
+body.v-conn .conn[data-c="対"]{background:#efe8f2;box-shadow:0 1px 0 #6b4f80;}
+body.v-conn .conn[data-c="対"]::before{background:#6b4f80;}
+
+/* 指示語 */
+.dem{cursor:pointer;}
+body.v-dem .dem{border:1px dashed var(--dem);border-radius:3px;padding:0 2px;background:var(--dem-bg);}
+body.v-dem .dem::after{content:"指";font-family:"Hiragino Kaku Gothic ProN",sans-serif;
+  font-size:.6em;vertical-align:.45em;background:var(--dem);color:#fff;border-radius:2px;
+  padding:0 2px;margin-left:2px;}
+.dem:focus-visible{outline:2px solid var(--dem);outline-offset:1px;border-radius:3px;}
+.tgt.lit{background:#ece0f2;box-shadow:0 0 0 2px #ece0f2,0 1px 0 var(--dem);border-radius:2px;}
+.demnote{display:none;font-size:12px;color:#553f66;background:var(--dem-bg);
+  border:1px solid #d9c8e2;border-radius:3px;padding:6px 9px;margin:0 0 9px;}
+.demnote.on{display:block;}
+
+/* 指示語の線（SVG、本文の背面に描く） */
+path.dem-line{fill:none;stroke:var(--dem);stroke-opacity:.32;stroke-width:1.4px;}
+path.dem-line.active{stroke-opacity:.92;stroke-width:2.1px;}
+circle.dem-dot{fill:var(--dem);opacity:.5;}
+circle.dem-dot.active{opacity:.95;}
+marker#dem-arrow path{fill:var(--dem);opacity:.55;}
+.dem-line.active + .dem-arrow-active{opacity:1;}
+
+/* 文の役割 */
+body.v-role .s[data-r="見"]{background:#eef1ea;}
+body.v-role .s[data-r="言"]{background:#f6eee2;}
+body.v-role .s[data-r="説"]{background:#e5edf1;}
+body.v-role .s[data-r="考"]{background:#f3e8ee;}
+body.v-role .s::before{
+  content:attr(data-r);font-family:"Hiragino Kaku Gothic ProN",sans-serif;
+  font-size:.62em;vertical-align:.4em;color:#fff;border-radius:2px;
+  padding:0 3px;margin-right:2px;background:var(--stone);
+}
+body.v-role .s[data-r="言"]::before{background:#b4652f;}
+body.v-role .s[data-r="説"]::before{background:#3d6e8c;}
+body.v-role .s[data-r="考"]::before{background:#8a4d72;}
+
+/* 対比 */
+body.v-cont .sp[data-s="A"]{background:var(--A-bg);box-shadow:0 1px 0 var(--A);}
+body.v-cont .sp[data-s="B"]{background:var(--B-bg);box-shadow:0 1px 0 var(--B);}
+
+/* 構造図 */
+#map{display:none;font-size:13px;line-height:1.65;}
+#map.on{display:block;}
+.mapbox{border:1px solid var(--hair);background:#fff;border-radius:3px;
+  padding:8px 11px;}
+.mapbox .mt{font-size:12.5px;letter-spacing:.04em;}
+.mapbox .ms{font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
+.maprel{font-size:11px;color:var(--moss);padding:3px 0 3px 12px;}
+.mapaxis{margin-top:12px;padding:9px 11px;border:1px dashed var(--stone);border-radius:3px;
+  font-size:11.5px;color:var(--ink-soft);}
+.mapaxis .a{color:var(--A);} .mapaxis .b{color:var(--B);}
+
+/* ---- 設問 ---- */
+.q-head{font-size:11.5px;letter-spacing:.12em;color:var(--moss);margin-bottom:5px;}
+.q-text{font-size:15.5px;line-height:1.8;margin:0 0 12px;}
+.choices{display:flex;flex-direction:column;gap:7px;}
+.choices button{
+  width:100%;text-align:left;cursor:pointer;background:#fff;
+  border:1px solid var(--hair);border-radius:3px;padding:9px 12px;
+  font:inherit;font-size:14.5px;line-height:1.7;color:var(--ink);
+  display:flex;gap:9px;align-items:flex-start;transition:border-color .15s,background .15s;
+}
+.choices button:hover:not(:disabled){border-color:var(--stone);}
+.choices button:focus-visible{outline:2px solid var(--moss);outline-offset:2px;}
+.choices button .mk{flex:0 0 auto;color:var(--stone);font-size:12px;line-height:1.85;}
+.choices button.wrong{background:var(--rust-pale);border-color:#d8b7ad;color:#7c4a3d;}
+.choices button.right{background:var(--moss-pale);border-color:#a9c2a2;}
+.choices button:disabled{cursor:default;opacity:.5;}
+.choices button.right:disabled,.choices button.wrong:disabled{opacity:1;}
+.fb{margin-top:12px;font-size:13.5px;padding:10px 12px;border-radius:3px;line-height:1.8;}
+.fb.ng{background:var(--rust-pale);color:#7c4a3d;}
+.fb.ok{background:var(--moss-pale);color:#39532f;}
+.next{margin-top:12px;background:var(--ink);color:#f5f6f2;border:0;border-radius:3px;
+  padding:11px 18px;font-size:14px;letter-spacing:.08em;cursor:pointer;}
+.next:hover{background:#39423f;}
+.next:focus-visible{outline:2px solid var(--moss-pale);outline-offset:2px;}
+
+/* ---- 記録 ---- */
+.foot{flex:0 0 auto;border-top:1px solid var(--hair);background:var(--paper2);
+  padding:6px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.foot .cap{font-size:10.5px;letter-spacing:.12em;color:var(--ink-soft);}
+.marks{display:flex;gap:4px;flex-wrap:wrap;}
+.mark{width:24px;height:24px;border-radius:50%;border:1px solid var(--hair);
+  display:flex;align-items:center;justify-content:center;
+  font-size:11.5px;color:#b4bab3;background:#fbfbf8;}
+.mark.ok{border-color:#a9c2a2;background:var(--moss-pale);color:var(--moss);}
+.mark.ng{border-color:#d8b7ad;background:var(--rust-pale);color:var(--rust);}
+.mark.now{border-color:var(--ink-soft);color:var(--ink-soft);}
+.tally{font-size:11px;color:var(--ink-soft);margin-left:auto;}
+
+/* ---- 語釈カード ---- */
+.gloss{position:fixed;left:0;right:0;bottom:0;z-index:40;background:#fbfbf8;
+  border-top:1px solid var(--stone);box-shadow:0 -6px 24px rgba(34,40,42,.14);
+  transform:translateY(105%);transition:transform .26s ease;padding:14px 18px 18px;}
+.gloss.open{transform:none;}
+.gloss-in{max-width:620px;margin:0 auto;position:relative;}
+.gloss .word{font-size:20px;letter-spacing:.06em;}
+.gloss .yomi{font-size:12px;color:var(--moss);margin-top:2px;letter-spacing:.1em;}
+.gloss .mean{font-size:14px;margin-top:7px;line-height:1.8;}
+.gloss .close{position:absolute;top:-4px;right:0;background:none;border:0;
+  font-size:21px;color:var(--stone);cursor:pointer;line-height:1;padding:4px 6px;}
+.gloss .close:focus-visible{outline:2px solid var(--moss);outline-offset:1px;}
+
+.fin h2{margin:0 0 8px;font-size:17px;letter-spacing:.08em;}
+.fin p{margin:0 0 7px;font-size:13.5px;line-height:1.85;}
+.fin table{border-collapse:collapse;font-size:12.5px;margin:8px 0 12px;}
+.fin td{border-bottom:1px solid var(--hair);padding:4px 12px 4px 0;}
+.again{background:none;border:1px solid var(--stone);border-radius:3px;
+  padding:8px 14px;font:inherit;font-size:13px;color:var(--ink-soft);cursor:pointer;}
+.again:focus-visible{outline:2px solid var(--moss);outline-offset:1px;}

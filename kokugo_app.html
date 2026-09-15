@@ -4117,7 +4117,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.36</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.37</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -7106,7 +7106,7 @@ function showHome(){
       <div><h2>読解トレーニング <span class="tag">${DOKKAI.length}題</span></h2><p>説明文・小説・随筆を読んで設問に答える</p></div>
       <div class="right"><span class="shogo-badge">${dt.icon} ${esc(dt.name)} Lv.${st.lv.dokkai}</span></div>
     </div>
-    <div class="card menu-card" onclick="ddGateEnter()">
+    <div class="card menu-card" onclick="ddShowLevelSelect()">
       <div class="menu-icon">🗺️</div>
       <div><h2>読解Quest <span class="tag">試作版</span></h2><p>文章から証拠を探し、たしかめ、推理して、仕上げる新しい読解ゲーム</p></div>
     </div>
@@ -12036,42 +12036,7 @@ const DD_STEP_ORDER = [
   {key:"result",   label:"結果"},
 ];
 let dd = null; // 読解Quest試作版の進行中ステート
-/* 開発中ゲート（2026-09-13〜、教員の指示）。ホーム画面のボタンからは「開発中のため、
-   利用できません」としか見せず、隠しパスワード「dokkai」を物理キーボードで入力すると
-   先に進める。プレイヤー（生徒）にヒントは一切出さない＝画面上にパスワード入力欄は
-   置かず、キー入力をバックグラウンドで監視するだけにする。解錠状態はこのページを
-   開いている間だけ保持し、保存（localStorage）はしない。 */
-let ddUnlocked = false;
-let ddGateBuf = "";
-let ddGateKeyHandler = null;
 let ddSelectedLevel = null;
-function ddGateEnter(){
-  if(ddUnlocked){ ddShowLevelSelect(); return; }
-  screen.innerHTML = `
-    <div class="card">
-      <h3 class="section" style="margin-top:0">読解Quest 試作版</h3>
-      <p class="note">現在開発中のため、利用できません。</p>
-      <div class="btn-row"><button class="btn secondary" onclick="ddGateLeave()">ホームへ</button></div>
-    </div>`;
-  ddGateListenerAttach();
-}
-function ddGateListenerAttach(){
-  ddGateListenerDetach();
-  ddGateBuf = "";
-  ddGateKeyHandler = function(e){
-    if(e.key && e.key.length === 1) ddGateBuf = (ddGateBuf + e.key.toLowerCase()).slice(-20);
-    if(ddGateBuf.endsWith("dokkai")){
-      ddUnlocked = true;
-      ddGateListenerDetach();
-      ddShowLevelSelect();
-    }
-  };
-  document.addEventListener("keydown", ddGateKeyHandler);
-}
-function ddGateListenerDetach(){
-  if(ddGateKeyHandler){ document.removeEventListener("keydown", ddGateKeyHandler); ddGateKeyHandler = null; }
-}
-function ddGateLeave(){ ddGateListenerDetach(); showHome(); }
 function ddSkillLv(xp){ return 1 + Math.floor((xp||0) / 8); }
 function ddSkillLevels(st){
   const out = {};
@@ -12095,6 +12060,17 @@ function ddSkillGridHtml(before, after){
     </div>`;
   }).join("") + `</div>`;
 }
+/* 「伸びる読解」（2026-09-15〜）。読解Quest試作版（証拠→たしかめ→推理→仕上げ）とは別の
+   読み方にしぼった教材で、段落ごとの開示・語釈・つなぎ言葉・指示語の線・文の役割・対比・構造図の
+   可視化ボタンで「文と文のつながり」を見せることに特化している。エンジンは別ファイル
+   （nobiru/engine.js・nobiru/style.css・nobiru/texts/*.js）に分離してあり、新しいタブで開く
+   完全に独立したページ。読解Quest側のst.dokkaiDungeonには一切触れない。 */
+const NOBIRU_TEXTS = [
+  { key:"ishigaki", title:"石垣", desc:"筆者は、ふぞろいな石垣を「無造作で頼りない」と見ていた。けれども――" },
+];
+function ddOpenNobiru(key){
+  window.open(`nobiru/${key}.html`, "_blank");
+}
 function ddShowLevelSelect(){
   let html = `
     <div class="dd-intro-card">
@@ -12102,7 +12078,16 @@ function ddShowLevelSelect(){
       <p>文章の中から「証拠」を探し、たしかめて、推理し、最後に書き抜きか選択問題で仕上げる読解ゲームです。<br>
       まずは、挑戦する文章の難しさを選ぼう。あとからいつでも変更できます。</p>
     </div>
-    <h3 class="section">レベルを選ぼう</h3>`;
+    <h3 class="section">伸びる読解</h3>
+    <p class="note">段落ごとに本文がのびていく読解教材。「指示語」「つなぎ」などのボタンで、文と文のつながりを目で確かめながら読みます。</p>`;
+  NOBIRU_TEXTS.forEach(t => {
+    html += `
+    <div class="card menu-card" onclick="ddOpenNobiru('${t.key}')">
+      <div class="menu-icon">🌱</div>
+      <div><h2>伸びる読解「${esc(t.title)}」</h2><p>${esc(t.desc)}</p></div>
+    </div>`;
+  });
+  html += `<h3 class="section">レベルを選ぼう</h3>`;
   DD_LEVELS.forEach(lv => {
     const count = DOKKAI_DUNGEON.filter(s => s.level === lv.key).length;
     html += `
