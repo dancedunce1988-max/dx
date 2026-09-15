@@ -4113,7 +4113,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.34</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.35</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -4282,6 +4282,15 @@ const DD_SKILL_LABEL = {
   discovery:"情報発見", evidence:"根拠確認", link:"関連付け", causal:"因果推論",
   inference:"推理", emotion:"心情把握", writing:"仕上げ", revision:"推敲",
 };
+/* 読解Questの難易度レベル（2026-09-15〜、教員の指示）。ステージデータ側のlevelフィールドと
+   キーで対応させる。技能レベル（DD_SKILL_KEYS）とは別物：技能は文章をまたいで共通に育つが、
+   このレベルは「どの文章に挑戦するか」を絞り込むだけの、文章の難しさのカテゴリ。 */
+const DD_LEVELS = [
+  {key:"elem_mid",   label:"初級", sub:"小学校中学年くらい", icon:"🌱"},
+  {key:"elem_upper", label:"中級", sub:"小学校高学年くらい", icon:"🌿"},
+  {key:"jhs1",       label:"上級", sub:"中学校前半くらい",   icon:"🌳"},
+  {key:"jhs2_hs",    label:"超級", sub:"中学校後半〜高校くらい", icon:"🏔️"},
+];
 /* 「返り点をつける」「読む順タップ」専用のジャンルレベル・経験値枠（2026-08-24〜、教員の指示：
    「それぞれのジャンルレベル」＝漢文4択（kanbun）とは別に、この2つに独立したレベル・経験値を
    持たせる）。DATA.cats（CAT_KEYS）には含めない：CAT_KEYSは通常クイズの出題プール
@@ -12029,8 +12038,9 @@ let dd = null; // 読解Quest試作版の進行中ステート
 let ddUnlocked = false;
 let ddGateBuf = "";
 let ddGateKeyHandler = null;
+let ddSelectedLevel = null;
 function ddGateEnter(){
-  if(ddUnlocked){ ddShowList(); return; }
+  if(ddUnlocked){ ddShowLevelSelect(); return; }
   screen.innerHTML = `
     <div class="card">
       <h3 class="section" style="margin-top:0">読解Quest 試作版</h3>
@@ -12047,7 +12057,7 @@ function ddGateListenerAttach(){
     if(ddGateBuf.endsWith("dokkai")){
       ddUnlocked = true;
       ddGateListenerDetach();
-      ddShowList();
+      ddShowLevelSelect();
     }
   };
   document.addEventListener("keydown", ddGateKeyHandler);
@@ -12079,35 +12089,63 @@ function ddSkillGridHtml(before, after){
     </div>`;
   }).join("") + `</div>`;
 }
-function ddShowList(){
-  const st = loadStats();
-  const levels = ddSkillLevels(st);
+function ddShowLevelSelect(){
   let html = `
     <div class="dd-intro-card">
       <h2>🗺️ 読解Quest試作版</h2>
       <p>文章の中から「証拠」を探し、つなげて、推理し、最後に書き抜きか選択問題で仕上げる読解ゲームです。<br>
-      合言葉は「根拠を確認する」。正解そのものより、根拠の質が評価されます。</p>
+      まずは、挑戦する文章の難しさを選ぼう。あとからいつでも変更できます。</p>
+    </div>
+    <h3 class="section">レベルを選ぼう</h3>`;
+  DD_LEVELS.forEach(lv => {
+    const count = DOKKAI_DUNGEON.filter(s => s.level === lv.key).length;
+    html += `
+    <div class="card menu-card" onclick="ddSelectLevel('${lv.key}')">
+      <div class="menu-icon">${lv.icon}</div>
+      <div><h2>${esc(lv.label)}</h2>
+      <p>${esc(lv.sub)}・${count ? `全${count}クエスト` : "準備中"}</p></div>
+    </div>`;
+  });
+  html += `<div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
+  screen.innerHTML = html;
+}
+function ddSelectLevel(key){
+  ddSelectedLevel = key;
+  ddShowList();
+}
+function ddShowList(){
+  if(!ddSelectedLevel){ ddShowLevelSelect(); return; }
+  const st = loadStats();
+  const levels = ddSkillLevels(st);
+  const lvInfo = DD_LEVELS.find(l => l.key === ddSelectedLevel);
+  const stages = DOKKAI_DUNGEON
+    .map((stg, i) => ({stg, i}))
+    .filter(x => x.stg.level === ddSelectedLevel);
+  let html = `
+    <div class="dd-intro-card">
+      <h2>🗺️ 読解Quest試作版</h2>
+      <p>合言葉は「根拠を確認する」。正解そのものより、根拠の質が評価されます。</p>
     </div>
     <div class="card">
       <h3 class="section" style="margin-top:0">技能レベル</h3>
       ${ddSkillGridHtml(levels, null)}
       <p class="note">文章が変わっても、ここで使う読みの技能は同じです。いろいろなクエストで繰り返し使って育てましょう。</p>
     </div>
-    <h3 class="section">クエストを選ぼう</h3>`;
-  if(!DOKKAI_DUNGEON.length){
-    html += `<p class="note">クエストデータがまだありません（dokkai_dungeon_data.js）。</p>`;
+    <h3 class="section">${lvInfo ? esc(lvInfo.icon + " " + lvInfo.label + "（" + lvInfo.sub + "）") : ""}のクエストを選ぼう</h3>`;
+  if(!stages.length){
+    html += `<p class="note">このレベルのクエストは、まだ準備中です。ほかのレベルを選んでみよう。</p>`;
   }
-  DOKKAI_DUNGEON.forEach((stg, i) => {
+  stages.forEach(({stg, i}, pos) => {
     const cl = st.dokkaiDungeon.cleared[stg.id];
     const bestHtml = cl ? `<span class="tag">ベスト ${Math.round(cl.bestPct)}%・${cl.plays}回挑戦</span>` : `<span class="tag">未挑戦</span>`;
     html += `
     <div class="card menu-card" onclick="ddStart(${i})">
       <div class="menu-icon">${stg.icon || "📖"}</div>
-      <div><h2>QUEST ${String(i+1).padStart(2,"0")}　${esc(stg.title)} ${bestHtml}</h2>
+      <div><h2>QUEST ${String(pos+1).padStart(2,"0")}　${esc(stg.title)} ${bestHtml}</h2>
       <p>${esc(stg.genre)}・難易度${"★".repeat(stg.difficulty||1)}</p></div>
     </div>`;
   });
-  html += `<div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
+  html += `<div class="btn-row"><button class="btn secondary" onclick="ddShowLevelSelect()">← レベルを変更する</button><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
   screen.innerHTML = html;
 }
 function ddStart(stageIdx){
