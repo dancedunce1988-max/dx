@@ -90,6 +90,10 @@ function parseInto(str, parent){
         if(k === "t"){ sp.classList.add("tgt"); sp.id = v; }
         if(k === "s"){ sp.dataset.s = v; }
         if(k === "u"){ sp.classList.add("u"); sp.dataset.u = v; sp.id = "u-" + v; }
+        if(k === "p"){
+          sp.classList.add("p");
+          makeInteractive(sp, () => openPhrase(sp.textContent, v));
+        }
       });
       parseInto(parts[0], sp);
       parent.appendChild(sp);
@@ -262,6 +266,15 @@ function openGloss(w, y, m){
   recordWordCheck(w, y, m);
 }
 $("glossClose").onclick = () => $("gloss").classList.remove("open");
+
+/* ---- 文節ごとの現代語訳（g:と同じカードを使うが、語句として記録はしない） ---- */
+function openPhrase(text, tr){
+  $("gWord").textContent = text;
+  $("gYomi").textContent = "現代語訳";
+  $("gMean").textContent = tr;
+  $("wordsSheet").classList.remove("open");
+  $("gloss").classList.add("open");
+}
 
 /* ---- 確認した語句（あとから振り返れるように記録する） ---- */
 function recordWordCheck(w, y, m){
