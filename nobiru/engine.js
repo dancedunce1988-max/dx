@@ -60,7 +60,8 @@ function splitTop(s){
   }
   out.push(cur); return out;
 }
-function parseInto(str, parent){
+function parseInto(str, parent, insideU){
+  insideU = !!insideU;
   let i = 0, buf = "";
   const flush = () => { if(buf){ parent.appendChild(document.createTextNode(buf)); buf = ""; } };
   while(i < str.length){
@@ -71,32 +72,41 @@ function parseInto(str, parent){
       const parts = splitTop(str.slice(i + 1, j));
       const sp = document.createElement("span");
       sp.className = "sp";
+      let gAttr = null, dAttr = null, pAttr = null, hasU = false;
       parts.slice(1).forEach(at => {
         const k = at[0], v = at.slice(2);
-        if(k === "g"){
-          const [y, m, flag] = v.split("/");
-          const important = flag === "重要";
-          sp.classList.add("g");
-          makeInteractive(sp, () => openGloss(sp.textContent, y, m, important));
-        }
+        if(k === "g") gAttr = v;
         if(k === "c"){ sp.classList.add("conn"); sp.dataset.c = v; }
-        if(k === "d"){
-          const [tg, note] = v.split("/");
-          sp.classList.add("dem");
-          sp.dataset.tgt = tg;
-          sp.dataset.note = note;
-          sp.dataset.lineId = "dl" + (demLineSeq++);
-          makeInteractive(sp, () => showDem(sp));
-        }
+        if(k === "d") dAttr = v;
         if(k === "t"){ sp.classList.add("tgt"); sp.id = v; }
         if(k === "s"){ sp.dataset.s = v; }
-        if(k === "u"){ sp.classList.add("u"); sp.dataset.u = v; sp.id = "u-" + v; }
-        if(k === "p"){
-          sp.classList.add("p");
-          makeInteractive(sp, () => openPhrase(sp.textContent, v));
-        }
+        if(k === "u"){ hasU = true; sp.classList.add("u"); sp.dataset.u = v; sp.id = "u-" + v; }
+        if(k === "p") pAttr = v;
       });
-      parseInto(parts[0], sp);
+      /* クリック動作の優先順位：語釈(g) > 指示語(d) > 文節訳(p、ただし傍線部(u)の中には付けない)
+         > 傍線部(u)自身は「タップしても何も起きない」ようにする。
+         傍線部として下線が引かれている範囲（内側の入れ子ぶんも含めて）は設問の対象そのものなので、
+         文節訳タップでヒントが漏れないよう、insideUを子の解析にも引き継いで判定する。 */
+      const blockP = hasU || insideU;
+      if(gAttr !== null){
+        const [y, m, flag] = gAttr.split("/");
+        const important = flag === "重要";
+        sp.classList.add("g");
+        makeInteractive(sp, () => openGloss(sp.textContent, y, m, important));
+      } else if(dAttr !== null){
+        const [tg, note] = dAttr.split("/");
+        sp.classList.add("dem");
+        sp.dataset.tgt = tg;
+        sp.dataset.note = note;
+        sp.dataset.lineId = "dl" + (demLineSeq++);
+        makeInteractive(sp, () => showDem(sp));
+      } else if(pAttr !== null && !blockP){
+        sp.classList.add("p");
+        makeInteractive(sp, () => openPhrase(sp.textContent, pAttr));
+      } else if(hasU){
+        sp.onclick = e => e.stopPropagation();
+      }
+      parseInto(parts[0], sp, blockP);
       parent.appendChild(sp);
       i = j + 1;
     } else { buf += str[i++]; }
@@ -133,7 +143,10 @@ function renderFullTr(){
     const trs = PARAS[i].s.filter(sent => sent.tr);
     if(!trs.length) continue;
     html += `<div class="fulltr-para"><div class="fulltr-para-title ui">第${kanjiNum(i + 1)}段落</div>`
-      + trs.map(sent => `<p class="fulltr-sent">${escHtml(sent.tr)}</p>`).join("")
+      + trs.map(sent => /\|u:/.test(sent.t)
+          ? `<p class="fulltr-sent fulltr-blank ui">（傍線部をふくむ文なので、ここでは伏せます。設問で確かめよう）</p>`
+          : `<p class="fulltr-sent">${escHtml(sent.tr)}</p>`
+        ).join("")
       + `</div>`;
   }
   list.innerHTML = html || `<p class="words-empty ui">まだ表示できる訳がありません。</p>`;

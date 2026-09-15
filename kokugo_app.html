@@ -4117,7 +4117,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.42</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.43</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -12063,15 +12063,22 @@ function ddSkillGridHtml(before, after){
 /* 「伸びる読解」（2026-09-15〜）。読解Quest試作版（証拠→たしかめ→推理→仕上げ）とは別の
    読み方にしぼった教材で、段落ごとの開示・語釈・つなぎ言葉・指示語の線・文の役割・対比・構造図の
    可視化ボタンで「文と文のつながり」を見せることに特化している。エンジンは別ファイル
-   （nobiru/engine.js・nobiru/style.css・nobiru/texts/*.js）に分離してあり、新しいタブで開く
-   完全に独立したページ。読解Quest側のst.dokkaiDungeonには一切触れない。 */
+   （nobiru/engine.js・nobiru/style.css・nobiru/texts/*.js）に分離してあるが、2026-09-16〜
+   教員の指示で新しいタブは開かず、iframeで知識ドリルDXの画面内に埋め込んで表示する
+   （将来、経験値等をこのアプリのセーブデータに反映させる可能性があるため）。
+   読解Quest側のst.dokkaiDungeonには今のところ一切触れない。 */
 const NOBIRU_TEXTS = [
   { key:"ishigaki", title:"石垣", desc:"筆者は、ふぞろいな石垣を「無造作で頼りない」と見ていた。けれども――" },
   { key:"hougen", title:"方言", desc:"方言を笑われて、もう使わないと決めた「私」。けれども、祖母の家に帰った夏、気づいたことがあった。" },
   { key:"seisuisho", title:"都のならひ【古文】", desc:"醒睡笑（安楽庵策伝）より。藤五郎がでっち上げた「京の習ひ」を信じ込んだ専十郎に、何が起きるか。" },
 ];
 function ddOpenNobiru(key){
-  window.open(`nobiru/${key}.html`, "_blank");
+  const t = NOBIRU_TEXTS.find(x => x.key === key);
+  screen.innerHTML = `
+    <div class="btn-row"><button class="btn secondary" onclick="ddShowLevelSelect()">← 読解Questへ戻る</button></div>
+    <iframe src="nobiru/${key}.html" title="${esc(t ? "伸びる読解「" + t.title + "」" : "伸びる読解")}"
+      style="width:100%;height:78vh;min-height:520px;border:1px solid var(--line);border-radius:10px;background:#fff;display:block;"></iframe>
+  `;
 }
 function ddShowLevelSelect(){
   let html = `
