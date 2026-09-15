@@ -74,9 +74,10 @@ function parseInto(str, parent){
       parts.slice(1).forEach(at => {
         const k = at[0], v = at.slice(2);
         if(k === "g"){
-          const [y, m] = v.split("/");
+          const [y, m, flag] = v.split("/");
+          const important = flag === "重要";
           sp.classList.add("g");
-          makeInteractive(sp, () => openGloss(sp.textContent, y, m));
+          makeInteractive(sp, () => openGloss(sp.textContent, y, m, important));
         }
         if(k === "c"){ sp.classList.add("conn"); sp.dataset.c = v; }
         if(k === "d"){
@@ -113,27 +114,29 @@ function revealPara(i){
     if(sent.r) sp.dataset.r = sent.r;
     parseInto(sent.t, sp);
     p.appendChild(sp);
-    /* sent.tr（現代語訳）があるときだけ、文全体をタップ可能にする。
-       g/dem等の内側の語は各自の onclick で stopPropagation 済みなので、
-       語をタップしたときはそちらが優先され、文の地の部分をタップしたときだけここが働く。 */
-    if(sent.tr){
-      sp.classList.add("tr-src");
-      const trBlock = document.createElement("span");
-      trBlock.className = "tr-block ui";
-      trBlock.textContent = "訳：" + sent.tr;
-      trBlock.hidden = true;
-      makeInteractive(sp, () => {
-        trBlock.hidden = !trBlock.hidden;
-        scheduleDemRedraw();
-      });
-      p.appendChild(trBlock);
-    }
   });
   $("text").appendChild(p);
   $("prog").textContent = `第${kanjiNum(i + 1)}段落まで／全${kanjiNum(PARAS.length)}段落`;
   buildMap();
+  renderFullTr();
   p.scrollIntoView({ behavior: "smooth", block: "nearest" });
   scheduleDemRedraw();
+}
+
+/* ---- 全文訳（sent.trがある教材だけ、下の方のボタンから一括で見られるようにする） ---- */
+const hasTranslations = PARAS.some(para => para.s.some(sent => sent.tr));
+function renderFullTr(){
+  if(!hasTranslations) return;
+  const list = $("fullTrList");
+  let html = "";
+  for(let i = 0; i <= stage && i < PARAS.length; i++){
+    const trs = PARAS[i].s.filter(sent => sent.tr);
+    if(!trs.length) continue;
+    html += `<div class="fulltr-para"><div class="fulltr-para-title ui">第${kanjiNum(i + 1)}段落</div>`
+      + trs.map(sent => `<p class="fulltr-sent">${escHtml(sent.tr)}</p>`).join("")
+      + `</div>`;
+  }
+  list.innerHTML = html || `<p class="words-empty ui">まだ表示できる訳がありません。</p>`;
 }
 
 /* ---- 構造図 ---- */
@@ -257,13 +260,15 @@ function showDem(el){
   scheduleDemRedraw();
 }
 
-function openGloss(w, y, m){
+function openGloss(w, y, m, important){
   $("gWord").textContent = w;
   $("gYomi").textContent = (y && y !== "―") ? y : "";
   $("gMean").textContent = m;
+  $("gBadge").hidden = !important;
   $("wordsSheet").classList.remove("open");
+  $("fullTrSheet").classList.remove("open");
   $("gloss").classList.add("open");
-  recordWordCheck(w, y, m);
+  recordWordCheck(w, y, m, important);
 }
 $("glossClose").onclick = () => $("gloss").classList.remove("open");
 
@@ -272,15 +277,17 @@ function openPhrase(text, tr){
   $("gWord").textContent = text;
   $("gYomi").textContent = "現代語訳";
   $("gMean").textContent = tr;
+  $("gBadge").hidden = true;
   $("wordsSheet").classList.remove("open");
+  $("fullTrSheet").classList.remove("open");
   $("gloss").classList.add("open");
 }
 
 /* ---- 確認した語句（あとから振り返れるように記録する） ---- */
-function recordWordCheck(w, y, m){
+function recordWordCheck(w, y, m, important){
   if(checkedWordSet.has(w)) return;
   checkedWordSet.add(w);
-  checkedWords.push({ w, y: (y && y !== "―") ? y : "", m });
+  checkedWords.push({ w, y: (y && y !== "―") ? y : "", m, important: !!important });
   renderWordsList();
 }
 function renderWordsList(){
@@ -292,15 +299,22 @@ function renderWordsList(){
   }
   list.innerHTML = checkedWords.map(it => `
     <div class="word-item">
-      <span class="w">${escHtml(it.w)}</span>${it.y ? `<span class="y ui">${escHtml(it.y)}</span>` : ""}
+      <span class="w">${escHtml(it.w)}</span>${it.y ? `<span class="y ui">${escHtml(it.y)}</span>` : ""}${it.important ? `<span class="badge ui">重要語句</span>` : ""}
       <div class="m ui">${escHtml(it.m)}</div>
     </div>`).join("");
 }
 $("b-words").onclick = () => {
   $("gloss").classList.remove("open");
+  $("fullTrSheet").classList.remove("open");
   $("wordsSheet").classList.toggle("open");
 };
 $("wordsClose").onclick = () => $("wordsSheet").classList.remove("open");
+$("b-fulltr").onclick = () => {
+  $("gloss").classList.remove("open");
+  $("wordsSheet").classList.remove("open");
+  $("fullTrSheet").classList.toggle("open");
+};
+$("fullTrClose").onclick = () => $("fullTrSheet").classList.remove("open");
 
 /* ---- 記録 ---- */
 function paintMarks(){
@@ -398,6 +412,7 @@ function boot(){
   const theme = TEXT.meta.theme;
   if(theme) Object.keys(theme).forEach(k => document.documentElement.style.setProperty(k, theme[k]));
   window.addEventListener("resize", scheduleDemRedraw);
+  $("b-fulltr").hidden = !hasTranslations;
   paintMarks();
   renderWordsList();
   step();
