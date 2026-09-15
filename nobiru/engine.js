@@ -17,6 +17,8 @@ const record = [];
 let demLineSeq = 0;
 let activeLineId = null;
 let demRAF = null;
+const checkedWords = [];
+const checkedWordSet = new Set();
 
 /* ---- 漢数字（段落数・記録の丸に使う。1〜99程度を想定） ---- */
 const KJ = ["","一","二","三","四","五","六","七","八","九"];
@@ -107,6 +109,21 @@ function revealPara(i){
     if(sent.r) sp.dataset.r = sent.r;
     parseInto(sent.t, sp);
     p.appendChild(sp);
+    /* sent.tr（現代語訳）があるときだけ、文全体をタップ可能にする。
+       g/dem等の内側の語は各自の onclick で stopPropagation 済みなので、
+       語をタップしたときはそちらが優先され、文の地の部分をタップしたときだけここが働く。 */
+    if(sent.tr){
+      sp.classList.add("tr-src");
+      const trBlock = document.createElement("span");
+      trBlock.className = "tr-block ui";
+      trBlock.textContent = "訳：" + sent.tr;
+      trBlock.hidden = true;
+      makeInteractive(sp, () => {
+        trBlock.hidden = !trBlock.hidden;
+        scheduleDemRedraw();
+      });
+      p.appendChild(trBlock);
+    }
   });
   $("text").appendChild(p);
   $("prog").textContent = `第${kanjiNum(i + 1)}段落まで／全${kanjiNum(PARAS.length)}段落`;
@@ -240,9 +257,37 @@ function openGloss(w, y, m){
   $("gWord").textContent = w;
   $("gYomi").textContent = (y && y !== "―") ? y : "";
   $("gMean").textContent = m;
+  $("wordsSheet").classList.remove("open");
   $("gloss").classList.add("open");
+  recordWordCheck(w, y, m);
 }
 $("glossClose").onclick = () => $("gloss").classList.remove("open");
+
+/* ---- 確認した語句（あとから振り返れるように記録する） ---- */
+function recordWordCheck(w, y, m){
+  if(checkedWordSet.has(w)) return;
+  checkedWordSet.add(w);
+  checkedWords.push({ w, y: (y && y !== "―") ? y : "", m });
+  renderWordsList();
+}
+function renderWordsList(){
+  $("wordsCount").textContent = checkedWords.length;
+  const list = $("wordsList");
+  if(!checkedWords.length){
+    list.innerHTML = `<p class="words-empty ui">まだ確認した語句はありません。点線の語をタップすると、ここに記録されます。</p>`;
+    return;
+  }
+  list.innerHTML = checkedWords.map(it => `
+    <div class="word-item">
+      <span class="w">${escHtml(it.w)}</span>${it.y ? `<span class="y ui">${escHtml(it.y)}</span>` : ""}
+      <div class="m ui">${escHtml(it.m)}</div>
+    </div>`).join("");
+}
+$("b-words").onclick = () => {
+  $("gloss").classList.remove("open");
+  $("wordsSheet").classList.toggle("open");
+};
+$("wordsClose").onclick = () => $("wordsSheet").classList.remove("open");
 
 /* ---- 記録 ---- */
 function paintMarks(){
@@ -341,6 +386,7 @@ function boot(){
   if(theme) Object.keys(theme).forEach(k => document.documentElement.style.setProperty(k, theme[k]));
   window.addEventListener("resize", scheduleDemRedraw);
   paintMarks();
+  renderWordsList();
   step();
 }
 document.addEventListener("DOMContentLoaded", boot);
