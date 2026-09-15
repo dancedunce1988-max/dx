@@ -4113,7 +4113,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.33</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.34</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -4280,7 +4280,7 @@ const DOKKAI_DUNGEON = window.DOKKAI_DUNGEON_DATA || [];
 const DD_SKILL_KEYS = ["discovery","evidence","link","causal","inference","emotion","writing","revision"];
 const DD_SKILL_LABEL = {
   discovery:"情報発見", evidence:"根拠確認", link:"関連付け", causal:"因果推論",
-  inference:"推理", emotion:"心情把握", writing:"記述", revision:"推敲",
+  inference:"推理", emotion:"心情把握", writing:"仕上げ", revision:"推敲",
 };
 /* 「返り点をつける」「読む順タップ」専用のジャンルレベル・経験値枠（2026-08-24〜、教員の指示：
    「それぞれのジャンルレベル」＝漢文4択（kanbun）とは別に、この2つに独立したレベル・経験値を
@@ -12017,8 +12017,7 @@ const DD_STEP_ORDER = [
   {key:"check",    label:"たしかめ"},
   {key:"link",     label:"関連付け"},
   {key:"infer",    label:"推理"},
-  {key:"revision", label:"推敲"},
-  {key:"write",    label:"記述"},
+  {key:"final",    label:"仕上げ"},
   {key:"result",   label:"結果"},
 ];
 let dd = null; // 読解Quest試作版の進行中ステート
@@ -12086,7 +12085,7 @@ function ddShowList(){
   let html = `
     <div class="dd-intro-card">
       <h2>🗺️ 読解Quest試作版</h2>
-      <p>文章の中から「証拠」を探し、つなげて、推理し、自分の言葉で記述する読解ゲームです。<br>
+      <p>文章の中から「証拠」を探し、つなげて、推理し、最後に書き抜きか選択問題で仕上げる読解ゲームです。<br>
       合言葉は「根拠を確認する」。正解そのものより、根拠の質が評価されます。</p>
     </div>
     <div class="card">
@@ -12121,7 +12120,7 @@ function ddStart(stageIdx){
     checkpointPick:null, checkpointCorrect:false,
     linkSelected:[], linkAttempts:0, linkSuccess:false,
     inferChoice:null, inferCorrect:false,
-    writeText:"", writeScored:null, coreFoundCount:0,
+    finalAnswerText:"", finalChoiceIdx:null, finalCorrect:false, finalScored:null, coreFoundCount:0,
     skillLvBefore: ddSkillLevels(st),
   };
   ddRenderIntro();
@@ -12134,7 +12133,7 @@ function ddRenderIntro(){
       <p>${esc(stg.flavor || "")}</p>
     </div>
     <div class="card">
-      <p>本文を1文ずつよく読んで、重要だと思う証拠をちょうど<strong>${stg.requiredEvidence || 3}つ</strong>選ぼう。どの文でも証拠にできるので、見た目では分からない——自分の頭で考えて選ぶ必要があります。証拠をつなげて推理し、最後に自分の言葉で記述すると結果がわかります。</p>
+      <p>本文を1文ずつよく読んで、重要だと思う証拠をちょうど<strong>${stg.requiredEvidence || 3}つ</strong>選ぼう。どの文でも証拠にできるので、見た目では分からない——自分の頭で考えて選ぶ必要があります。証拠をつなげて推理し、最後に書き抜きか選択問題に答えると結果がわかります。</p>
       <p class="note">💡 良い証拠の見分け方：「何が起きたか」「どんな様子か」を説明しているだけの文は、根拠としては弱いことが多いです。本当に役立つ証拠は、問い（なぜ〜したのか）に対する「だから」を直接つなげられる文——つまり、結果につながる原因や、気持ちの動きがわかる文です。</p>
       <div class="btn-row"><button class="btn" onclick="ddGoRead()">たんけんを始める</button>
       <button class="btn secondary" onclick="ddShowList()">クエスト一覧へ</button></div>
@@ -12360,74 +12359,80 @@ function ddAnswerInfer(idx){
   const fb = document.getElementById("ddInferFb");
   fb.className = "feedback show " + (dd.inferCorrect ? "ok" : "ng");
   fb.innerHTML = `<div class="verdict">${dd.inferCorrect ? "○ その通り！" : "× ちがう着眼点でした"}</div>${esc(inf.explanation)}
-    <div class="btn-row"><button class="btn" onclick="ddGoRevision()">次へ：推敲する →</button></div>`;
+    <div class="btn-row"><button class="btn" onclick="ddGoFinal()">次へ：仕上げる →</button></div>`;
 }
-function ddGoRevision(){ dd.step = "revision"; ddRenderRevision(); }
-function ddRenderRevision(){
+/* 「仕上げ」ステップ（2026-09-15改修：教員の指示で自由記述＋キーワード採点をやめ、
+   「書き抜き」（本文中の一文をそのまま書き写す）か「選択問題」（4択）のどちらかだけに
+   限定した。どちらも機械的に完全一致で正誤判定できるため、キーワードが本文に無くても
+   部分点が入ってしまう／逆に本文に忠実な記述でも語彙が違うだけで減点されてしまう、
+   といった自由記述の自動採点特有のブレが原理的に起こらない。ステージデータ側の
+   final.type（"extraction"｜"choice"）で出題形式を切り替える。 */
+function ddGoFinal(){ dd.step = "final"; ddRenderFinal(); }
+function ddRenderFinal(){
+  const f = dd.stage.final;
+  if(f.type === "choice") ddRenderFinalChoice();
+  else ddRenderFinalExtraction();
+}
+function ddNormalizeForCompare(s){
+  return (s || "").replace(/[\s　]/g, "").replace(/。+$/,"");
+}
+function ddRenderFinalExtraction(){
+  const f = dd.stage.final;
   screen.innerHTML = `
-    ${ddStepBarHtml("revision")}
+    ${ddStepBarHtml("final")}
     <div class="card">
-      <h3 class="section" style="margin-top:0">✏️ 記述の前に：推敲チェック</h3>
-      <p>記述する前に、次のことを頭に入れておきましょう。書いたあとにも、もう一度見直しましょう。</p>
-      <ul class="dd-checklist">
-        <li>問いにまっすぐ答えているか</li>
-        <li>本文の根拠にもとづいているか</li>
-        <li>原因と結果のつながりが書けているか</li>
-        <li>余計な情報が入っていないか</li>
-        <li>字数条件を満たしているか</li>
-      </ul>
-      <div class="btn-row"><button class="btn" onclick="ddGoWrite()">下書きを始める →</button></div>
+      <h3 class="section" style="margin-top:0">📝 書き抜き</h3>
+      <div class="q-text">${esc(f.question)}</div>
+      <textarea class="dd-textarea" id="ddFinalArea" oninput="dd.finalAnswerText=this.value" placeholder="本文中の一文をそのまま書き写そう">${esc(dd.finalAnswerText)}</textarea>
+      <div class="btn-row"><button class="btn" onclick="ddSubmitFinalExtraction()">こたえる</button></div>
+      <div class="feedback" id="ddFinalFb"></div>
     </div>`;
 }
-function ddGoWrite(){ dd.step = "write"; ddRenderWrite(); }
-function ddRenderWrite(){
-  const stg = dd.stage, w = stg.writing;
+function ddSubmitFinalExtraction(){
+  const f = dd.stage.final;
+  if(!dd.finalAnswerText.trim()){ alert("本文から一文を書き抜いてから、こたえるを押そう。"); return; }
+  dd.finalCorrect = ddNormalizeForCompare(dd.finalAnswerText) === ddNormalizeForCompare(f.answer);
+  document.getElementById("ddFinalArea").disabled = true;
+  screen.querySelector(".btn-row").innerHTML = `<button class="btn" onclick="ddFinishQuest()">結果を見る →</button>`;
+  const fb = document.getElementById("ddFinalFb");
+  fb.className = "feedback show " + (dd.finalCorrect ? "ok" : "ng");
+  fb.innerHTML = `<div class="verdict">${dd.finalCorrect ? "○ 正しく書き抜けました！" : "× 本文と一致しませんでした"}</div>
+    ${dd.finalCorrect ? "" : `<div class="dd-sample-box"><span class="label">正しい書き抜き</span>${esc(f.answer)}</div>`}
+    <p class="note">${esc(f.explanation)}</p>`;
+}
+function ddRenderFinalChoice(){
+  const f = dd.stage.final;
+  dd.finalOrder = shuffledOrder(f.choices.length);
   screen.innerHTML = `
-    ${ddStepBarHtml("write")}
+    ${ddStepBarHtml("final")}
     <div class="card">
-      <h3 class="section" style="margin-top:0">🖋️ 記述する</h3>
-      <div class="q-text">${esc(w.prompt)}</div>
-      <textarea class="dd-textarea" id="ddWriteArea" oninput="ddUpdateWriteText(this.value)" placeholder="ここに書こう">${esc(dd.writeText)}</textarea>
-      <div class="dd-charcount" id="ddCharCount">${dd.writeText.length} / ${w.maxLength}字</div>
-      <div class="btn-row"><button class="btn" onclick="ddSubmitWriting()">採点する</button></div>
+      <h3 class="section" style="margin-top:0">📝 選択問題</h3>
+      <div class="q-text">${esc(f.question)}</div>
+      <div class="choices">
+        ${dd.finalOrder.map((oi,pos)=>`<button class="choice" onclick="ddAnswerFinalChoice(${oi})"><span class="choice-num">${pos+1}</span>${esc(f.choices[oi])}</button>`).join("")}
+      </div>
+      <div class="feedback" id="ddFinalFb"></div>
     </div>`;
+  setupChoiceKeys(pos => ddAnswerFinalChoice(dd.finalOrder[pos]), f.choices.length);
 }
-function ddUpdateWriteText(val){
-  dd.writeText = val;
-  const w = dd.stage.writing;
-  const cc = document.getElementById("ddCharCount");
-  cc.textContent = `${val.length} / ${w.maxLength}字`;
-  cc.className = "dd-charcount" + (val.length > w.maxLength ? " over" : "");
-}
-function ddScoreWriting(){
-  const stg = dd.stage, w = stg.writing, text = dd.writeText || "";
-  const hits = [];
-  let total = 0, max = 0;
-  w.rubric.forEach((r, idx) => {
-    max += r.points;
-    let hit = false;
-    if(r.type === "keyword"){
-      hit = r.keywords.some(kw => text.includes(kw));
-    }else if(r.type === "causal"){
-      const hasConnector = /て|ので|から|ため|によって/.test(text);
-      hit = hasConnector && r.requiresBoth.every(i => hits[i]);
-    }else if(r.type === "evidenceSelected"){
-      const units = ddAllSentenceUnits(stg);
-      hit = dd.linkSelected.some(key => {
-        const u = units.find(x => x.key === key);
-        return u && u.evidence && u.evidence.correct;
-      });
-    }else if(r.type === "length"){
-      hit = text.length > 0 && text.length <= w.maxLength;
-    }
-    hits[idx] = hit;
-    if(hit) total += r.points;
+function ddAnswerFinalChoice(idx){
+  const f = dd.stage.final;
+  dd.finalChoiceIdx = idx;
+  dd.finalCorrect = idx === f.answerIdx;
+  const btns = screen.querySelectorAll(".choice");
+  btns.forEach((b,pos)=>{
+    const oi = dd.finalOrder[pos];
+    b.disabled = true;
+    if(oi===f.answerIdx) b.classList.add("correct");
+    else if(oi===idx) b.classList.add("wrong");
+    else b.classList.add("dim");
   });
-  return {total, max, items: w.rubric.map((r,idx) => ({label:r.label, points:r.points, hit:hits[idx]}))};
+  const fb = document.getElementById("ddFinalFb");
+  fb.className = "feedback show " + (dd.finalCorrect ? "ok" : "ng");
+  fb.innerHTML = `<div class="verdict">${dd.finalCorrect ? "○ その通り！" : "× ちがう着眼点でした"}</div>${esc(f.explanation)}
+    <div class="btn-row"><button class="btn" onclick="ddFinishQuest()">結果を見る →</button></div>`;
 }
-function ddSubmitWriting(){
-  if(!dd.writeText.trim()){ alert("記述を入力してから採点しよう。"); return; }
-  dd.writeScored = ddScoreWriting();
+function ddFinishQuest(){
   const st = loadStats();
   const stg = dd.stage;
   const units = ddAllSentenceUnits(stg);
@@ -12447,9 +12452,21 @@ function ddSubmitWriting(){
   ddAddSkillXp(st, "causal", dd.linkSuccess ? 8 : 2);
   ddAddSkillXp(st, "inference", dd.inferCorrect ? 10 : 3);
   ddAddSkillXp(st, "emotion", dd.inferCorrect ? 8 : 2);
-  ddAddSkillXp(st, "writing", Math.round((dd.writeScored.total / dd.writeScored.max) * 14));
+  ddAddSkillXp(st, "writing", dd.finalCorrect ? 14 : 4);
   ddAddSkillXp(st, "revision", 5);
-  const pct = Math.round((dd.writeScored.total / dd.writeScored.max) * 100);
+  // 「書き抜き」も「選択」も○×で機械的に判定できるため、記述の自由採点ルーブリックは
+  // 撤廃し、探索〜仕上げの5工程をそれぞれ20点満点で均等に採点する（2026-09-15改修）。
+  const evidencePts = coreTotal > 0 ? Math.round((coreFound / coreTotal) * 20) : 20;
+  const items = [
+    {label:"探索：本文中の重要な証拠を見つけられたか", points:20, earned:evidencePts},
+    {label:"たしかめ：最も重要な証拠を選べたか", points:20, earned: dd.checkpointCorrect ? 20 : 0},
+    {label:"関連付け：証拠どうしをつなげられたか", points:20, earned: dd.linkSuccess ? 20 : 0},
+    {label:"推理：本文の根拠から理由を推理できたか", points:20, earned: dd.inferCorrect ? 20 : 0},
+    {label: stg.final.type === "extraction" ? "書き抜き：本文から正しく書き抜けたか" : "選択：正しく選べたか", points:20, earned: dd.finalCorrect ? 20 : 0},
+  ];
+  const total = items.reduce((s,it)=>s+it.earned, 0);
+  dd.finalScored = {total, max:100, items};
+  const pct = total;
   const cl = st.dokkaiDungeon.cleared[stg.id] || {bestPct:0, plays:0};
   cl.plays++;
   if(pct > cl.bestPct) cl.bestPct = pct;
@@ -12460,8 +12477,8 @@ function ddSubmitWriting(){
   ddRenderResult();
 }
 function ddRenderResult(){
-  const stg = dd.stage, sc = dd.writeScored;
-  const pct = Math.round((sc.total / sc.max) * 100);
+  const stg = dd.stage, sc = dd.finalScored;
+  const pct = sc.total;
   const tier = pct >= 80 ? "🌟 見事な読解です！" : pct >= 50 ? "👍 もう一歩で完璧！" : "📖 本文の根拠をもう一度見直そう";
   screen.innerHTML = `
     ${ddStepBarHtml("result")}
@@ -12469,8 +12486,7 @@ function ddRenderResult(){
       <h3 class="section" style="margin-top:0">結果発表</h3>
       <div class="dd-score-big">${sc.total} <span style="font-size:1.1rem;color:var(--sub)">/ ${sc.max}点（${pct}%）</span></div>
       <p class="result-msg">${tier}</p>
-      ${sc.items.map(it => `<div class="dd-rubric-item ${it.hit?"dd-hit":"dd-miss"}">${esc(it.label)}<span>${it.hit?"＋":""}${it.points}点</span></div>`).join("")}
-      <div class="dd-sample-box"><span class="label">模範解答の例</span>${esc(stg.writing.sample)}</div>
+      ${sc.items.map(it => `<div class="dd-rubric-item ${it.earned>0?"dd-hit":"dd-miss"}">${esc(it.label)}<span>${it.earned>0?"＋":""}${it.earned}点</span></div>`).join("")}
     </div>
     <div class="card">
       <h4 class="note" style="margin-bottom:8px">この挑戦でのふりかえり</h4>
