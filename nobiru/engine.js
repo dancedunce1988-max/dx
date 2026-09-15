@@ -292,9 +292,9 @@ function showQuestion(q, onClear){
         rec.miss++; paintMarks();
         b.classList.add("wrong"); b.disabled = true;
         fb.className = "fb ng";
-        fb.textContent = rec.miss === 1
-          ? "ちがいます。本文のその文を、もう一度前後ごと読んでみよう。"
-          : "まだちがいます。ヒント：" + q.tip;
+        const why = (q.why && q.why[i]) ? q.why[i] : "本文のその文を、もう一度前後ごと読んでみよう。";
+        fb.textContent = (rec.miss === 1 ? "ちがいます。" : "まだちがいます。") + why
+          + (rec.miss >= 2 ? "　ヒント：" + q.tip : "");
       }
     };
     ul.appendChild(b);
