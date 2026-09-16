@@ -4117,7 +4117,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.70</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.71</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -12167,6 +12167,10 @@ const NOBIRU_CATS = [
   { key:"説明", label:"説明的文章", icon:"🧭" },
   { key:"古典", label:"古典（古文・漢文）", icon:"🏯" },
 ];
+/* 伸びる読解の先行公開対象（2026-09-17〜、教員の指示）。ここに含まれないキーは
+   ddShowLevelSelectでロック表示（.menu-card.locked、STORY_CHAPTERS未解放カードと同じ見た目）
+   になり、タップしても何も起きない。公開を広げるときはこの配列にキーを足すだけでよい。 */
+const NOBIRU_ACTIVE_KEYS = ["ishigaki", "wakariyasusa"];
 function ddOpenNobiru(key){
   location.href = "nobiru/" + key + ".html";
 }
@@ -12196,6 +12200,15 @@ function ddShowLevelSelect(){
     if(!items.length) return;
     html += `<h3 class="section" style="margin-top:14px">${cat.icon} ${esc(cat.label)}</h3>`;
     items.forEach(t => {
+      if(!NOBIRU_ACTIVE_KEYS.includes(t.key)){
+        html += `
+        <div class="card menu-card locked">
+          <div class="menu-icon">🔒</div>
+          <div><h2>伸びる読解「${esc(t.title)}」</h2><p>公開に向けて準備中です。もうしばらくお待ちください。</p></div>
+          <div class="right"><span class="shogo-badge">未解放</span></div>
+        </div>`;
+        return;
+      }
       html += `
       <div class="card menu-card" onclick="ddOpenNobiru('${t.key}')">
         <div class="menu-icon">🌱</div>
