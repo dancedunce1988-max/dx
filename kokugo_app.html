@@ -4117,7 +4117,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.67</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.68</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -7106,7 +7106,7 @@ function showHome(){
       <div><h2>読解トレーニング <span class="tag">${DOKKAI.length}題</span></h2><p>説明文・小説・随筆を読んで設問に答える</p></div>
       <div class="right"><span class="shogo-badge">${dt.icon} ${esc(dt.name)} Lv.${st.lv.dokkai}</span></div>
     </div>
-    <div class="card menu-card" onclick="ddShowLevelSelect()">
+    <div class="card menu-card" onclick="ddShowPrep()">
       <div class="menu-icon">🗺️</div>
       <div><h2>読解Quest <span class="tag">試作版</span></h2><p>文章から証拠を探し、たしかめ、推理して、仕上げる新しい読解ゲーム</p></div>
     </div>
@@ -12103,6 +12103,19 @@ function ddOpenNobiru(key){
     <iframe src="nobiru/${key}.html" title="${esc(t ? "伸びる読解「" + t.title + "」" : "伸びる読解")}"
       style="width:100%;height:78vh;min-height:520px;border:1px solid var(--line);border-radius:10px;background:#fff;display:block;"></iframe>
   `;
+}
+/* 読解Questの入口（2026-09-16〜、教員の指示）。ホーム画面のボタンからはいったん
+   「準備中です」という案内だけを見せ、その「準備」という文字をタップすると、
+   その場で本来の読解Quest試作版の画面（ddShowLevelSelect）に進める。
+   生徒向けには準備中に見えるが、教員自身はワンタップで中身を確認できるようにする
+   簡易な導線で、パスワード等は設けない。 */
+function ddShowPrep(){
+  screen.innerHTML = `
+    <div class="card">
+      <h3 class="section" style="margin-top:0">読解Quest 試作版</h3>
+      <p class="note"><span onclick="ddShowLevelSelect()" style="cursor:pointer;">準備</span>中です。もうしばらくお待ちください。</p>
+      <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>
+    </div>`;
 }
 function ddShowLevelSelect(){
   let html = `
