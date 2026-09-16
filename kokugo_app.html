@@ -4117,7 +4117,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.69</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.70</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6016,6 +6016,11 @@ const KOTONOHA_IMAGE_LINE_LABEL = {
   tensho:"天翔（風）", engoku:"焔獄（火）", soukai:"蒼海（水）",
   meien:"冥淵（闇）", seiki:"聖輝（光）", suishin:"翠森（土）",
   shigen:"始原龍", kodai:"古代龍", mirai:"未来龍",
+  /* 古代龍・未来龍のさらに次に構想中の系統（2026-09-16〜、教員の指示）。ラベルと必殺技定義
+     （KOTONOHA_LINE_MOVES）だけ先に用意しておき、転生の解禁条件はまだ決めていないため
+     kotonohaEligibleRebirthLines／KOTONOHA_ASCEND_LINESには意図的に追加しない＝現時点では
+     どのプレイヤーも絶対にこの4系統には転生できない（画像も未実装でkotonohaImagesReadyもfalse）。 */
+  rai:"雷龍", kiri:"霧龍", oto:"音龍", hyou:"氷龍",
 };
 const KOTONOHA_IMAGE_STAGE_KEYS = ["1_tamago","2_youtai","3_shounentai","4_seinentai","5_seijintai","6_seijukutai","7_densetsu"];
 const KOTONOHA_IMAGE_STAGE_LABEL = ["卵","幼体","少年体","青年体","成人体","成熟体","伝説級"];
@@ -6414,7 +6419,11 @@ const KOTONOHA_MEIEN_GAUGE_GRACE_STAGE = 4; // 成人体
 /* 必殺技ゲージの「猶予」チップ表示（🌑必殺技ゲージは崩れなかった！）の絵文字を、系統ごとに
    変えるための対応表（2026-08-29〜、古代龍・未来龍の追加に合わせて）。未定義の系統は
    呼び出し側で🌑にフォールバックする。 */
-const KOTONOHA_GRACE_EMOJI = {meien:"🌑", kodai:"🏛️", mirai:"🚀"};
+const KOTONOHA_GRACE_EMOJI = {meien:"🌑", kodai:"🏛️", mirai:"🚀", rai:"⚡", hyou:"❄️", kiri:"🌫️", oto:"🎵"};
+/* 古代龍・未来龍と同格の「2回連続ミスまで必殺技ゲージが崩れない」猶予を持つ系統一覧
+   （教員の指示、2026-09-16〜：「２回間違っても必殺が打てるのは、この４龍も採用します」）。
+   bossGrade側のgraceMissLimit判定（dragonGraceActive）で参照する。 */
+const KOTONOHA_ASCEND2_GRACE_LINES = ["rai", "kiri", "oto", "hyou"];
 function kotonohaLineMoveT(stageIdx){
   return Math.max(0, Math.min(1, (stageIdx - KOTONOHA_LINE_MOVE_MIN_STAGE) / 4));
 }
@@ -6453,6 +6462,30 @@ const KODAI_REVIVE_PCT = [0.25, 0.4, 0.6, 0.8, 1.0];
    徐々に強くなる」）。聖輝のatkMultPerUseと同じ「発動のたびに複利で掛かる永続バフ」方式を踏襲し、
    対象をatkだけでなく全ステータスに広げたもの。 */
 const MIRAI_STAT_MULT = [1.4, 1.7, 2.1, 2.5, 3.0];
+/* 雷龍・氷龍・霧龍・音龍（古代龍・未来龍のさらに次に構想中の4系統、2026-09-16〜、教員の指示：
+   「古代龍と未来龍と、同等の強さが良い」）。まだ転生の解禁条件は未確定のため、下のKOTONOHA_LINE_MOVES
+   定義・戦闘ロジック（bossResolveFinisher／bossGrade／bossCounterAttack）は先に用意しておくが、
+   kotonohaEligibleRebirthLines等には一切登場させず、現時点ではどのプレイヤーも転生できない
+   （KOTONOHA_IMAGE_LINE_LABELのコメント参照）。威力倍率自体は他の全系統と同じ共通カーブ
+   （kotonohaLinePower、3〜5倍）を使い、古代龍・未来龍と同格の「発動するたびに効果が伸びていく・
+   上限なし」の特殊効果で強さを合わせている。 */
+/* 雷龍「感電」：発動するたびに①相手を痺れさせる確率でボスの次の行動を1ターン封じ、②聖輝と
+   同じ仕組み（atkMultPerUse、b.kotonohaAtkMultStackを流用）で自分の通常攻撃力を複利で倍化する。
+   ATK倍率は未来龍の全ステータス倍率（MIRAI_STAT_MULT）と同じ値をそのまま使い、ATKだけとはいえ
+   同格の伸び方にしている。 */
+const RAI_PARALYZE_CHANCE = [0.35, 0.40, 0.50, 0.60, 0.75];
+const RAI_ATK_MULT = MIRAI_STAT_MULT;
+/* 氷龍「凍結」：命中させるたびにボスの防御力（defPct）を掛け算で縮めていく（重ねがけ・永続、
+   下限0%）。焔獄の火傷（HPを直接削る）と対になる、「後続の攻撃を通しやすくする」弱体化タイプ。 */
+const HYOU_DEF_SHRED_PCT = [0.12, 0.16, 0.20, 0.25, 0.30];
+/* 霧龍「幻惑」：発動するたびに自分たちの回避率（ボスの攻撃をまるごと透かす確率）に加点する
+   （重ねがけ・永続、既存の回避率アイテムと同じ「pt加算」方式。全体の上限90%は既存のevasionPct
+   計算式をそのまま使うため、氷龍だけを際限なく無敵にはしない）。 */
+const KIRI_EVADE_PCT_PER_USE = [12, 15, 18, 22, 28];
+/* 音龍「共鳴」：必殺技ゲージに必要な問題数そのものを短くする（天翔と同じgaugeMaxの仕組みだが、
+   天翔よりさらに攻撃的に伝説級で1問まで短縮）。「使うほど強くなる」特殊効果を持たない代わり、
+   必殺技を極端に連発できる「頻度」で古代龍・未来龍と同格の強さにしている。 */
+const OTO_GAUGE_STAGE = [3, 2, 2, 1, 1];
 const KOTONOHA_LINE_MOVES = {
   tensho: {
     names:["疾風の一閃","旋風の斬撃","暴風の剛刃","神速の破空","天翔絶刃"],
@@ -6540,7 +6573,37 @@ const KOTONOHA_LINE_MOVES = {
     powerMult: kotonohaLinePower,
     statMultPerUse: t => MIRAI_STAT_MULT[Math.round(t*4)],
   },
+  rai: {
+    names:["感電の一撃","雷光の一撃","迅雷の連鎖","紫電の裁き","雷龍絶技・感電"],
+    desc:"発動するたびに、確率でボスの次の行動を1ターン封じる（少年体35%〜伝説級75%）。さらに発動のたびに自分の通常攻撃力が倍化する（重ねがけ・永続、上限なし）。まちがえても2回連続までなら必殺技ゲージは崩れない",
+    powerMult: kotonohaLinePower,
+    paralyzeChance: t => RAI_PARALYZE_CHANCE[Math.round(t*4)],
+    atkMultPerUse: t => RAI_ATK_MULT[Math.round(t*4)],
+  },
+  hyou: {
+    names:["凍結の一撃","氷結の一撃","氷牙の一閃","絶対零度","氷龍絶技・凍結"],
+    desc:"命中させるたびにボスの防御力を縮めていく（重ねがけ・永続、上限なし）。まちがえても2回連続までなら必殺技ゲージは崩れない",
+    powerMult: kotonohaLinePower,
+    defShredPct: t => HYOU_DEF_SHRED_PCT[Math.round(t*4)],
+  },
+  kiri: {
+    names:["幻惑の霧","深霧の帳","幻夢の霧衣","千里霧中","霧龍絶技・幻惑"],
+    desc:"発動するたびに、ボスの攻撃を見切って回避しやすくなる（重ねがけ・永続、上限なし）。まちがえても2回連続までなら必殺技ゲージは崩れない",
+    powerMult: kotonohaLinePower,
+    evadeBonusPerUse: t => KIRI_EVADE_PCT_PER_USE[Math.round(t*4)],
+  },
+  oto: {
+    names:["共鳴の音色","共鳴の旋律","共鳴の協奏","共鳴の交響","音龍絶技・共鳴"],
+    desc:"必殺技ゲージに必要な問題数が短い（伝説級では1問）。まちがえても2回連続までなら必殺技ゲージは崩れない",
+    powerMult: kotonohaLinePower,
+    gaugeMax: t => OTO_GAUGE_STAGE[Math.round(t*4)],
+  },
 };
+/* 始原龍がbossUseFinisherで技を借りる抽選プール（2026-09-16〜）。Object.keys(KOTONOHA_LINE_MOVES)を
+   そのまま使うと、上に追加した雷龍・氷龍・霧龍・音龍（まだ転生では絶対に到達できない実装途中の
+   系統）まで始原龍が抽選で借りてしまう事故になるため、既存8系統だけの固定リストを別に持つ。
+   新しい4系統の解禁条件が決まったら、ここに追加するかどうかも合わせて教員と相談する。 */
+const KOTONOHA_SHIGEN_BORROW_LINES = ["tensho", "soukai", "engoku", "suishin", "seiki", "meien", "kodai", "mirai"];
 /* 系統別必殺技が使える段階まで育っているか（転生済み＆少年体以上）。ボタンを出すかどうかの
    判定だけに使う、抽選や選択の状態を見ない純粋な可否チェック。 */
 function kotonohaLineMoveStageOk(st){
@@ -12063,9 +12126,12 @@ function ddSkillGridHtml(before, after){
 /* 「伸びる読解」（2026-09-15〜）。読解Quest試作版（証拠→たしかめ→推理→仕上げ）とは別の
    読み方にしぼった教材で、段落ごとの開示・語釈・つなぎ言葉・指示語の線・文の役割・対比・構造図の
    可視化ボタンで「文と文のつながり」を見せることに特化している。エンジンは別ファイル
-   （nobiru/engine.js・nobiru/style.css・nobiru/texts/*.js）に分離してあるが、2026-09-16〜
-   教員の指示で新しいタブは開かず、iframeで知識ドリルDXの画面内に埋め込んで表示する
-   （将来、経験値等をこのアプリのセーブデータに反映させる可能性があるため）。
+   （nobiru/engine.js・nobiru/style.css・nobiru/texts/*.js）に分離してある。
+   読解は集中力を要する活動のため、2026-09-17〜教員の指示でiframe埋め込みをやめ、
+   新しいタブも開かずに同じタブのまま画面全体をnobiru/<key>.htmlへ遷移させる
+   （知識ドリルDXから完全に切り離された専用画面として読ませる）。
+   各nobiru/*.html側の「ホームに戻る」リンクで../kokugo_app.htmlへ戻れば、
+   知識ドリルDXのホーム画面に戻る。
    読解Quest側のst.dokkaiDungeonには今のところ一切触れない。 */
 const NOBIRU_TEXTS = [
   { key:"ishigaki", title:"石垣", desc:"筆者は、ふぞろいな石垣を「無造作で頼りない」と見ていた。けれども――", cat:"文学" },
@@ -12102,12 +12168,7 @@ const NOBIRU_CATS = [
   { key:"古典", label:"古典（古文・漢文）", icon:"🏯" },
 ];
 function ddOpenNobiru(key){
-  const t = NOBIRU_TEXTS.find(x => x.key === key);
-  screen.innerHTML = `
-    <div class="btn-row"><button class="btn secondary" onclick="ddShowLevelSelect()">← 読解Questへ戻る</button></div>
-    <iframe src="nobiru/${key}.html" title="${esc(t ? "伸びる読解「" + t.title + "」" : "伸びる読解")}"
-      style="width:100%;height:78vh;min-height:520px;border:1px solid var(--line);border-radius:10px;background:#fff;display:block;"></iframe>
-  `;
+  location.href = "nobiru/" + key + ".html";
 }
 /* 読解Questの入口（2026-09-16〜、教員の指示）。ホーム画面のボタンからはいったん
    「準備中です」という案内だけを見せ、その「準備」という文字をタップすると、
@@ -14992,6 +15053,7 @@ function startBossBattle(boss, allGenre, hyakuninMode){
     kotonohaBurnPct:0, kotonohaMeienUseCount:0, kotonohaGraceMissStreak:0,
     kotonohaKodaiReviveStock:0, kotonohaKodaiRevivePct:0, kotonohaMiraiStatMultStack:1,
     kotonohaKodaiAtkMultStack:1,
+    kotonohaParalyzeTurnsLeft:0, kotonohaHyouDefMult:1, kotonohaKiriEvadeBonus:0,
   };
   if(boss.preemptiveHalfHp){
     // 丸刈りのさるちゃん専用：戦闘開始と同時に、プレイヤーのHPを半分にする先制攻撃を受ける
@@ -15216,8 +15278,7 @@ function bossUseFinisher(useLine){
      発表・ダメージ計算の一連の間は同じ抽選結果を使い続けるよう、発動を決めたこの時点で
      1回だけ抽選する（教員の指示：「技は毎回ランダムで決まる」＝1回の発動ごとに1回抽選）。 */
   if(lineOk && st.kotonohaRebirth.line === "shigen"){
-    const keys = Object.keys(KOTONOHA_LINE_MOVES);
-    b.kotonohaShigenMoveLine = keys[Math.floor(Math.random() * keys.length)];
+    b.kotonohaShigenMoveLine = KOTONOHA_SHIGEN_BORROW_LINES[Math.floor(Math.random() * KOTONOHA_SHIGEN_BORROW_LINES.length)];
   }
   /* 演出の色・画面の揺れ方を系統ごとに変えるためのキー（教員の指示、2026-08-01〜）。
      系統別必殺技を使ったときだけ設定し、言霊一閃／大きないびきのときはnull＝既存の見た目のまま。
@@ -15307,7 +15368,8 @@ function bossResolveFinisher(){
     crit = true;
     dealt = Math.round(dealt * STAT_CRIT_MULT);
   }
-  dealt = Math.max(1, Math.round(dealt * (1 - (b.boss.defPct||0) / 100)));
+  // 氷龍「凍結」：これまでの発動で縮めた防御力（b.kotonohaHyouDefMult、下限0%に漸近）をここでも適用する
+  dealt = Math.max(1, Math.round(dealt * (1 - (b.boss.defPct||0) * (b.kotonohaHyouDefMult!=null ? b.kotonohaHyouDefMult : 1) / 100)));
   // 経験値ゲート・ルール①は必殺技にも適用する（必中の必殺技であっても、とどめだけは必ずかわされる）
   let dodged = false;
   if(bossXpGateActive(b.boss, st) && b.bossHp - dealt <= 0){
@@ -15376,6 +15438,32 @@ function bossResolveFinisher(){
     b.kotonohaMiraiStatMultStack = (b.kotonohaMiraiStatMultStack||1) * mult;
     futureMsg = `<div class="boss-turn">🚀自分の全ステータスが${mult}倍になった！（現在×${b.kotonohaMiraiStatMultStack.toFixed(2)}）</div>`;
   }
+  /* 雷龍「感電」：発動するたびに確率でボスの次の行動を1ターン封じる（実際のスキップ処理は
+     bossCounterAttack側のkotonohaParalyzeTurnsLeftチェックが担当）。攻撃力の複利バフ側は
+     聖輝と同じatkMultPerUseの仕組み（上のbuffMsgブロック）をそのまま流用するため、ここでは
+     麻痺の付与だけを扱う（2026-09-16〜）。 */
+  let paralyzeMsg = "";
+  if(lm && lm.def.paralyzeChance && Math.random() < lm.def.paralyzeChance(lm.t)){
+    b.kotonohaParalyzeTurnsLeft = 1;
+    paralyzeMsg = `<div class="boss-turn">⚡${esc(b.boss.name)}を痺れさせた！次の行動を封じた！</div>`;
+  }
+  /* 氷龍「凍結」：発動するたびにボスの防御力（defPct）を掛け算で縮めていく（重ねがけ・永続、
+     上限なし＝0%に漸近）。上のdealt計算にはまだ反映しない（他系統の永続バフと同じく、効果が
+     乗るのは次の攻撃から、2026-09-16〜）。 */
+  let hyouMsg = "";
+  if(lm && lm.def.defShredPct){
+    const shred = lm.def.defShredPct(lm.t);
+    b.kotonohaHyouDefMult = (b.kotonohaHyouDefMult!=null ? b.kotonohaHyouDefMult : 1) * (1 - shred);
+    hyouMsg = `<div class="boss-turn">❄️${esc(b.boss.name)}の防御力を凍りつかせた！（防御力が${Math.round((1-b.kotonohaHyouDefMult)*100)}%下がった）</div>`;
+  }
+  /* 霧龍「幻惑」：発動するたびに自分たちの回避率にpt加算する（重ねがけ・永続、上限なし。実際の
+     上限90%はbossCounterAttack側のevasionPct計算式が担当、2026-09-16〜）。 */
+  let kiriMsg = "";
+  if(lm && lm.def.evadeBonusPerUse){
+    const add = lm.def.evadeBonusPerUse(lm.t);
+    b.kotonohaKiriEvadeBonus = (b.kotonohaKiriEvadeBonus||0) + add;
+    kiriMsg = `<div class="boss-turn">🌫️霧に紛れて、ボスの攻撃を見切りやすくなった！（回避率+${b.kotonohaKiriEvadeBonus}pt）</div>`;
+  }
   refreshBossHpBars();
   refreshBossFinisherBar();
   const fb = document.getElementById("fb");
@@ -15384,7 +15472,7 @@ function bossResolveFinisher(){
   fb.innerHTML = (dodged
     ? `<span class="finisher-dmg">💨 ${esc(b.boss.name)}に、すんでのところでかわされた！</span>`
     : `<span class="finisher-dmg">${crit ? "💥会心の一撃！ " : ""}${esc(b.boss.name)}に ${dealt} ダメージ！</span>`)
-    + healMsg + buffMsg + sleepMsg + growthMsg + burnMsg + reviveMsg + futureMsg;
+    + healMsg + buffMsg + sleepMsg + growthMsg + burnMsg + reviveMsg + futureMsg + paralyzeMsg + hyouMsg + kiriMsg;
   if(!dodged) triggerFinisherShake(b.kotonohaFinisherFxLine);
   if(b.bossHp <= 0){
     setTimeout(() => { if(bossBattle && bossBattle._resolving) bossWin(); }, 1300);
@@ -15535,6 +15623,8 @@ function bossItemBarHtml(){
   if(b.kotonohaKodaiReviveStock) buffChips.push(`<span class="lvup-chip">🏛️古代龍の加護：復活スタンバイ中${b.kotonohaKodaiReviveStock > 1 ? `×${b.kotonohaKodaiReviveStock}` : ""}</span>`);
   if(b.kotonohaKodaiAtkMultStack && b.kotonohaKodaiAtkMultStack !== 1) buffChips.push(`<span class="lvup-chip">🏛️古代龍の力：攻撃力×${b.kotonohaKodaiAtkMultStack}</span>`);
   if(b.kotonohaMiraiStatMultStack && b.kotonohaMiraiStatMultStack !== 1) buffChips.push(`<span class="lvup-chip">🚀未来龍の力：全ステータス×${b.kotonohaMiraiStatMultStack.toFixed(2)}</span>`);
+  if(b.kotonohaHyouDefMult && b.kotonohaHyouDefMult !== 1) buffChips.push(`<span class="lvup-chip">❄️氷龍の力：相手の防御力${Math.round((1-b.kotonohaHyouDefMult)*100)}%ダウン</span>`);
+  if(b.kotonohaKiriEvadeBonus) buffChips.push(`<span class="lvup-chip">🌫️霧龍の力：回避率+${b.kotonohaKiriEvadeBonus}pt</span>`);
   const buffRow = buffChips.length ? `<p class="note">${buffChips.join(" ")}</p>` : "";
   const useMsg = b.itemUseMsg ? `<p class="note">${esc(b.itemUseMsg)}</p>` : "";
   const usable = usableBossItems();
@@ -15729,9 +15819,9 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
            跳ね上がった防御力の影響を受けない（教員の指示どおり）。通常攻撃だけでは実質的に
            勝てなくなる（Node.jsシミュレータで8割正解ペース・必殺技なしは勝率3.6%）ほど厳しい
            設計になるが、「必殺技を覚えてこそ倒せるボス」という位置づけとして教員が了承済み。 */
-        const effBossDefPct = b.boss.defTripleOnMiss
+        const effBossDefPct = (b.boss.defTripleOnMiss
           ? (b.boss.defPct||0) * Math.pow(3, b.bossDefMissStreak||0)
-          : (b.boss.defPct||0);
+          : (b.boss.defPct||0)) * (b.kotonohaHyouDefMult!=null ? b.kotonohaHyouDefMult : 1); // 氷龍「凍結」ぶんを反映
         dealt = Math.max(1, Math.round(dealt * (1 - effBossDefPct / 100)));
         /* 極端な攻撃力特化ビルド対策（2026-08-03〜、教員の指示）。適正経験値5000以上のボス限定で、
            通常攻撃1発あたりの上限をボス最大HPの33%に固定する。必殺技（bossResolveFinisher、
@@ -15765,12 +15855,14 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
     // ゲージが解除されない（2回連続でミスして初めてリセットされる、教員の指示、2026-08-08〜）。
     // 古代龍・未来龍は、少年体以上ならいつでも2回連続のミスまで許容する（3回連続で初めて
     // リセットされる、教員の指示、2026-08-29〜：「どちらも、２回間違っても、必殺技を打てる」）。
-    // どちらも同時に成立することはない（1人が持てる転生ラインは常に1つ）ので、カウンタ
+    // 雷龍・氷龍・霧龍・音龍（KOTONOHA_ASCEND2_GRACE_LINES）も同格として同じ猶予を持つ
+    // （教員の指示、2026-09-16〜：「２回間違っても必殺が打てるのは、この４龍も採用します」）。
+    // 複数が同時に成立することはない（1人が持てる転生ラインは常に1つ）ので、カウンタ
     // 自体は共通のkotonohaGraceMissStreakを使い回し、しきい値だけラインごとに変える。
     b.correctStreak = 0;
     const line = st.kotonohaRebirth && st.kotonohaRebirth.line;
     const meienGraceActive = line === "meien" && kotonohaRebirthStageIndex(st) >= KOTONOHA_MEIEN_GAUGE_GRACE_STAGE;
-    const dragonGraceActive = (line === "kodai" || line === "mirai") && kotonohaLineMoveStageOk(st);
+    const dragonGraceActive = (line === "kodai" || line === "mirai" || KOTONOHA_ASCEND2_GRACE_LINES.includes(line)) && kotonohaLineMoveStageOk(st);
     const graceMissLimit = meienGraceActive ? 2 : dragonGraceActive ? 3 : 0; // この回数連続でミスするとリセット
     if(graceMissLimit > 0){
       b.kotonohaGraceMissStreak = (b.kotonohaGraceMissStreak||0) + 1;
@@ -15944,6 +16036,21 @@ function bossCounterAttackDoubleHit(b, hitChance, range, atkGrowthTurn, st, ps){
 }
 function bossCounterAttack(playerWasCorrect){
   const b = bossBattle;
+  /* 雷龍「感電」：麻痺している間はボスの反撃ターンを1ターンだけ丸ごとスキップする（翠森の眠りより
+     先に判定する必要はない＝両ラインが同時に成立することはないので順序はどちらが先でもよいが、
+     慣例に合わせてここに置く）。翠森の眠りと違い、目覚め判定はなく必ず1ターンで解除される
+     （2026-09-16〜）。 */
+  if((b.kotonohaParalyzeTurnsLeft||0) > 0){
+    b.kotonohaParalyzeTurnsLeft = 0;
+    refreshBossHpBars();
+    const fb = document.getElementById("fb");
+    fb.innerHTML += `<div class="boss-turn">⚡${esc(b.boss.name)}は、痺れて動けない！</div>`;
+    const nextBtn = document.getElementById("nextBtn");
+    nextBtn.style.display = "inline-block";
+    nextBtn.textContent = "つぎへ";
+    nextBtn.focus();
+    return;
+  }
   /* 翠森「眠りの胞子」：眠っている間はボスの反撃ターンそのものを丸ごとスキップする
      （経験値ゲート・statIgnoreなど、他のどの反撃分岐よりも先に判定する）。1ターン目は必ず
      眠ったまま、2ターン目以降は毎ターンkotonohaSleepWakeChanceの確率で目覚める。目覚めた
@@ -16064,7 +16171,8 @@ function bossCounterAttack(playerWasCorrect){
   /* 回避率アップ系アイテム（掃除機等）：素早さによる回避率（上限35%）とは別枠でamount(pt)を上乗せ。
      アイテム込みでも際限なく100%に近づかないよう、合計は90%で頭打ちにする（2026-08-09〜、教員の指示）。 */
   const baseEvasionPct = STAT_SPD_EVASION_MAX_PCT * ps.spd / (ps.spd + evasionHalfPoint);
-  const evasionPct = Math.min(90, baseEvasionPct + (b.evadeBuffTurns > 0 ? b.evadeBuffAmount : 0));
+  // 霧龍「幻惑」：発動するたびに積み上がる回避率ボーナス（重ねがけ・永続）も、アイテムと同じ枠に加算する
+  const evasionPct = Math.min(90, baseEvasionPct + (b.evadeBuffTurns > 0 ? b.evadeBuffAmount : 0) + (b.kotonohaKiriEvadeBonus||0));
   const hitChance = 1 - evasionPct / 100;
   let taken = 0, bossCrit = false, playerEvaded = false, guarded = false;
   /* ロボットに乗ったくらちゃん専用：命中/回避に関わらず「反撃のターンそのもの」を数えて、
