@@ -4117,7 +4117,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.71</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.73</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6016,10 +6016,8 @@ const KOTONOHA_IMAGE_LINE_LABEL = {
   tensho:"天翔（風）", engoku:"焔獄（火）", soukai:"蒼海（水）",
   meien:"冥淵（闇）", seiki:"聖輝（光）", suishin:"翠森（土）",
   shigen:"始原龍", kodai:"古代龍", mirai:"未来龍",
-  /* 古代龍・未来龍のさらに次に構想中の系統（2026-09-16〜、教員の指示）。ラベルと必殺技定義
-     （KOTONOHA_LINE_MOVES）だけ先に用意しておき、転生の解禁条件はまだ決めていないため
-     kotonohaEligibleRebirthLines／KOTONOHA_ASCEND_LINESには意図的に追加しない＝現時点では
-     どのプレイヤーも絶対にこの4系統には転生できない（画像も未実装でkotonohaImagesReadyもfalse）。 */
+  /* 古代龍・未来龍のさらに次の系統（2026-09-17〜、教員の指示で解禁条件が確定。
+     KOTONOHA_ASCEND2_LINES／kotonohaAscend2LineUnlocked参照）。 */
   rai:"雷龍", kiri:"霧龍", oto:"音龍", hyou:"氷龍",
 };
 const KOTONOHA_IMAGE_STAGE_KEYS = ["1_tamago","2_youtai","3_shounentai","4_seinentai","5_seijintai","6_seijukutai","7_densetsu"];
@@ -6072,6 +6070,32 @@ function kotonohaAscendLinesUnlocked(st){
   return sawLightOrDark && atLegendary;
 }
 const KOTONOHA_ASCEND_LINES = ["kodai", "mirai"];
+/* 雷龍・霧龍・音龍・氷龍（古代龍・未来龍のさらに次の「二段階目の昇華ライン」）専用の
+   解禁条件（2026-09-17〜、教員の指示で確定）：
+   ①これまでに古代龍または未来龍のいずれかを経験したことがある
+     （st.kotonohaRebirthLinesSeenに記録済み＝一度でもその系統で転生していればよい。
+     古代龍・未来龍のkotonohaAscendLinesUnlockedと違い、②は「今まさに伝説級にいる」ことを
+     求めない＝ジャンルレベルというその場限りでない持続的な指標を条件にしているため）。
+   ②系統ごとに個別のジャンルレベル条件（st.lv参照、いずれも1000以上）：
+     音龍＝「小学校で習う漢字」(kws_elem)、雷龍＝「高校入試頻出漢字200」(kws_exam)、
+     霧龍＝「漢字を書く」3ジャンル(kws_exam+kws_elem+kws_chugaku)の合計、
+     氷龍＝表現技法・ことわざ・慣用句・四字熟語(hyougen+kotowaza+kanyoku+yoji)の合計。
+   古代龍・未来龍と同じく特別な重み付け（KOTONOHA_RARE_LINES）は持たず、条件を満たした
+   系統だけが、なったことがない他の系統と同列・均等な確率でランダムの選択肢に加わる。 */
+function kotonohaAscend2LineUnlocked(st, line){
+  const seen = st.kotonohaRebirthLinesSeen || [];
+  if(!(seen.includes("kodai") || seen.includes("mirai"))) return false;
+  const lv = st.lv || {};
+  const g = k => lv[k] || 1;
+  switch(line){
+    case "oto":  return g("kws_elem") >= 1000;
+    case "rai":  return g("kws_exam") >= 1000;
+    case "kiri": return g("kws_exam") + g("kws_elem") + g("kws_chugaku") >= 1000;
+    case "hyou": return g("hyougen") + g("kotowaza") + g("kanyoku") + g("yoji") >= 1000;
+    default: return false;
+  }
+}
+const KOTONOHA_ASCEND2_LINES = ["rai", "kiri", "oto", "hyou"];
 function kotonohaEligibleRebirthLines(st){
   const cat = kotonohaBaseCategory(st);
   const currentLine = st.kotonohaRebirth ? st.kotonohaRebirth.line : null;
@@ -6080,6 +6104,7 @@ function kotonohaEligibleRebirthLines(st){
   if(kotonohaAscendLinesUnlocked(st)){
     lines = lines.concat(KOTONOHA_ASCEND_LINES.filter(kotonohaImagesReady));
   }
+  lines = lines.concat(KOTONOHA_ASCEND2_LINES.filter(l => kotonohaImagesReady(l) && kotonohaAscend2LineUnlocked(st, l)));
   return lines.filter(l => l !== currentLine);
 }
 /* 今選べる候補のうち、まだ一度もなったことがない系統だけ（教員の指示、2026-08-03〜：
@@ -6599,11 +6624,12 @@ const KOTONOHA_LINE_MOVES = {
     gaugeMax: t => OTO_GAUGE_STAGE[Math.round(t*4)],
   },
 };
-/* 始原龍がbossUseFinisherで技を借りる抽選プール（2026-09-16〜）。Object.keys(KOTONOHA_LINE_MOVES)を
-   そのまま使うと、上に追加した雷龍・氷龍・霧龍・音龍（まだ転生では絶対に到達できない実装途中の
-   系統）まで始原龍が抽選で借りてしまう事故になるため、既存8系統だけの固定リストを別に持つ。
-   新しい4系統の解禁条件が決まったら、ここに追加するかどうかも合わせて教員と相談する。 */
-const KOTONOHA_SHIGEN_BORROW_LINES = ["tensho", "soukai", "engoku", "suishin", "seiki", "meien", "kodai", "mirai"];
+/* 始原龍がbossUseFinisherで技を借りる抽選プール。雷龍・霧龍・音龍・氷龍の解禁条件が
+   確定した（KOTONOHA_ASCEND2_LINES、2026-09-17〜、教員の指示）ため、この4系統の必殺技も
+   抽選対象に追加した。Object.keys(KOTONOHA_LINE_MOVES)をそのまま使わず固定リストにしているのは、
+   将来また「ラベルだけ先に用意した実装途中の系統」を追加したときに、その系統をここへ
+   意図的に含めるまで始原龍が誤って借りてしまわないようにするため。 */
+const KOTONOHA_SHIGEN_BORROW_LINES = ["tensho", "soukai", "engoku", "suishin", "seiki", "meien", "kodai", "mirai", "rai", "kiri", "oto", "hyou"];
 /* 系統別必殺技が使える段階まで育っているか（転生済み＆少年体以上）。ボタンを出すかどうかの
    判定だけに使う、抽選や選択の状態を見ない純粋な可否チェック。 */
 function kotonohaLineMoveStageOk(st){
