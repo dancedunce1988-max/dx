@@ -12,6 +12,29 @@ const PARAS = TEXT.paras;
 const $ = id => document.getElementById(id);
 const svgNS = "http://www.w3.org/2000/svg";
 
+/* 「← アプリへ戻る」リンク対策（2026-09-16〜、iframe埋め込み化にともなう修正）。
+   このページは知識ドリルDXの画面内にiframeで埋め込まれて表示される。
+   リンクの既定動作（../kokugo_app.htmlへの遷移）のままだと、iframeの中で
+   知識ドリルDXそのものが丸ごと再読み込みされ、ゲーム画面の中にもう一つ
+   ホーム画面が現れてしまう。親ウィンドウが同一オリジンでddShowLevelSelectを
+   持っていれば、リンクの遷移を止めて親側の画面切り替えを直接呼ぶ
+   （nobiru/*.htmlを単独で開いた場合は親を持たないので、そのまま通常の
+   リンクとして「../kokugo_app.html」へ遷移する）。 */
+(function(){
+  const back = document.querySelector("a.back");
+  if(!back) return;
+  if(window.parent && window.parent !== window){
+    try{
+      if(typeof window.parent.ddShowLevelSelect === "function"){
+        back.addEventListener("click", e => {
+          e.preventDefault();
+          window.parent.ddShowLevelSelect();
+        });
+      }
+    }catch(e){ /* 別オリジン等で参照できない場合は、通常のリンクのまま動かす */ }
+  }
+})();
+
 let stage = 0, finalIdx = 0;
 const record = [];
 let demLineSeq = 0;
