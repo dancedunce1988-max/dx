@@ -367,7 +367,7 @@ function paintMarks(){
 /* ---- 設問 ---- */
 /* 誤答が連続したときの一時停止（教員の指示、2026-09-17〜）。教材をまたいで数える
    セッション全体の連続誤答数で、正解するたびに0に戻る。10回連続で誤答すると
-   1分間、画面全体を操作不能にする（「ホームに戻る」等も含めて何も押せなくする）。 */
+   30秒間、画面全体を操作不能にする（「ホームに戻る」等も含めて何も押せなくする）。 */
 let consecutiveWrong = 0;
 let frozen = false;
 /* オーバーレイのz-indexによる見た目のブロックだけでなく、キーボード操作（フォーカス済みの
@@ -379,7 +379,7 @@ document.addEventListener("click", e => {
 function freezeScreen(){
   if(frozen) return;
   frozen = true;
-  let remain = 60;
+  let remain = 30;
   const ov = document.createElement("div");
   ov.className = "freeze-overlay ui";
   ov.innerHTML = `<div class="freeze-box">
@@ -435,7 +435,19 @@ function showQuestion(q, onClear){
           [...ul.children].forEach(x => x.disabled = true);
           rec.done = true; paintMarks();
           consecutiveWrong = 0;
-          fb.className = "fb ok"; fb.textContent = "正解。" + q.exp;
+          fb.className = "fb ok"; fb.innerHTML = "";
+          /* ストック経験値の予告表示（教員の指示、2026-09-17〜）。1回目で正解＝10、
+             以後誤答1回につき2ずつ減る（実際の経験値・セーブデータには一切触れない、
+             見た目だけの予告。「調整中」の断り書きを必ず添える）。1秒だけ出して消す。 */
+          const xp = Math.max(0, 10 - rec.miss * 2);
+          const xpEl = document.createElement("div");
+          xpEl.className = "xp-toast";
+          xpEl.textContent = `ストック経験値${xp}獲得！（ごめんなさい、現在は調整中のため反映されません）`;
+          fb.appendChild(xpEl);
+          setTimeout(() => xpEl.remove(), 1000);
+          const expText = document.createElement("div");
+          expText.textContent = "正解。" + q.exp;
+          fb.appendChild(expText);
           const nx = document.createElement("button");
           nx.className = "next ui";
           nx.textContent = q.last ? "結果を見る" : "本文を先へ進める";
