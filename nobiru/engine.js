@@ -258,6 +258,14 @@ function bump(d){
   document.documentElement.style.setProperty("--fs", Math.min(20, Math.max(11.5, cur + d)) + "px");
   scheduleDemRedraw();
 }
+/* 設問側だけの文字サイズ（--qfs）。本文側の「小」「大」（--fs）とは独立に効く
+   （教員の指示、2026-09-17〜。設問文・選択肢・フィードバック文がこの値を参照する）。 */
+$("q-small").onclick = () => bumpQ(-0.8);
+$("q-large").onclick = () => bumpQ(0.8);
+function bumpQ(d){
+  const cur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--qfs"));
+  document.documentElement.style.setProperty("--qfs", Math.min(20, Math.max(11.5, cur + d)) + "px");
+}
 
 function showDem(el){
   document.querySelectorAll(".tgt.lit").forEach(e => e.classList.remove("lit"));
@@ -348,6 +356,41 @@ function paintMarks(){
 }
 
 /* ---- 設問 ---- */
+/* 誤答が連続したときの一時停止（教員の指示、2026-09-17〜）。教材をまたいで数える
+   セッション全体の連続誤答数で、正解するたびに0に戻る。10回連続で誤答すると
+   1分間、画面全体を操作不能にする（「ホームに戻る」等も含めて何も押せなくする）。 */
+let consecutiveWrong = 0;
+let frozen = false;
+/* オーバーレイのz-indexによる見た目のブロックだけでなく、キーボード操作（フォーカス済みの
+   リンク／ボタンをEnterで押す）でも一切反応しないよう、クリックそのものを最上流（capture）で
+   止める。「ホームに戻る」等のリンクにも個別の対策を入れずに済む、汎用的な安全策。 */
+document.addEventListener("click", e => {
+  if(frozen){ e.preventDefault(); e.stopPropagation(); }
+}, true);
+function freezeScreen(){
+  if(frozen) return;
+  frozen = true;
+  let remain = 60;
+  const ov = document.createElement("div");
+  ov.className = "freeze-overlay ui";
+  ov.innerHTML = `<div class="freeze-box">
+    <p class="freeze-msg">間違いが多いため、一旦画面を停止しています。<br>よく考えて答えてみてください。</p>
+    <p class="freeze-timer">あと<span id="freezeSec">${remain}</span>秒</p>
+  </div>`;
+  document.body.appendChild(ov);
+  const timer = setInterval(() => {
+    remain--;
+    const s = $("freezeSec");
+    if(s) s.textContent = remain;
+    if(remain <= 0){
+      clearInterval(timer);
+      ov.remove();
+      frozen = false;
+      consecutiveWrong = 0;
+    }
+  }, 1000);
+}
+
 function showQuestion(q, onClear){
   const z = $("qzone"); z.innerHTML = "";
   const rec = { miss: 0, done: false }; record.push(rec); paintMarks();
@@ -358,32 +401,55 @@ function showQuestion(q, onClear){
   const ul = document.createElement("div"); ul.className = "choices";
   const fb = document.createElement("div");
   const marks = "アイウエオカ";
-  q.ch.forEach((c, i) => {
-    const b = document.createElement("button");
-    b.innerHTML = `<span class="mk ui">${marks[i] || i + 1}</span><span>${escHtml(c)}</span>`;
-    b.onclick = () => {
-      if(i === q.a){
-        b.classList.add("right");
-        [...ul.children].forEach(x => x.disabled = true);
-        rec.done = true; paintMarks();
-        fb.className = "fb ok"; fb.textContent = "正解。" + q.exp;
-        const nx = document.createElement("button");
-        nx.className = "next ui";
-        nx.textContent = q.last ? "結果を見る" : "本文を先へ進める";
-        nx.onclick = onClear;
-        fb.appendChild(document.createElement("br"));
-        fb.appendChild(nx);
-      } else {
-        rec.miss++; paintMarks();
-        b.classList.add("wrong"); b.disabled = true;
-        fb.className = "fb ng";
-        const why = (q.why && q.why[i]) ? q.why[i] : "本文のその文を、もう一度前後ごと読んでみよう。";
-        fb.textContent = (rec.miss === 1 ? "ちがいます。" : "まだちがいます。") + why
-          + (rec.miss >= 2 ? "　ヒント：" + q.tip : "");
-      }
-    };
-    ul.appendChild(b);
-  });
+
+  /* 選択肢の並び順（教員の指示、2026-09-17〜：誤答するたびにシャッフルし直し、
+     同じ位置を連打すれば進めてしまう抜け道をふさぐ）。誤答済みの選択肢は、シャッフル後も
+     disabled・wrongの見た目を保つ＝もう一度同じ誤りを選ばせて時間を無駄にはさせない。 */
+  let order = q.ch.map((c, i) => ({ idx: i, wrong: false }));
+  function shuffleOrder(){
+    for(let i = order.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+  }
+  function renderChoices(){
+    ul.innerHTML = "";
+    order.forEach((item, pos) => {
+      const i = item.idx;
+      const b = document.createElement("button");
+      b.innerHTML = `<span class="mk ui">${marks[pos] || pos + 1}</span><span>${escHtml(q.ch[i])}</span>`;
+      if(item.wrong){ b.classList.add("wrong"); b.disabled = true; }
+      b.onclick = () => {
+        if(frozen || rec.done) return;
+        if(i === q.a){
+          b.classList.add("right");
+          [...ul.children].forEach(x => x.disabled = true);
+          rec.done = true; paintMarks();
+          consecutiveWrong = 0;
+          fb.className = "fb ok"; fb.textContent = "正解。" + q.exp;
+          const nx = document.createElement("button");
+          nx.className = "next ui";
+          nx.textContent = q.last ? "結果を見る" : "本文を先へ進める";
+          nx.onclick = onClear;
+          fb.appendChild(document.createElement("br"));
+          fb.appendChild(nx);
+        } else {
+          rec.miss++; paintMarks();
+          item.wrong = true;
+          consecutiveWrong++;
+          fb.className = "fb ng";
+          const why = (q.why && q.why[i]) ? q.why[i] : "本文のその文を、もう一度前後ごと読んでみよう。";
+          fb.textContent = (rec.miss === 1 ? "ちがいます。" : "まだちがいます。") + why
+            + (rec.miss >= 2 ? "　ヒント：" + q.tip : "");
+          shuffleOrder();
+          renderChoices();
+          if(consecutiveWrong >= 10) freezeScreen();
+        }
+      };
+      ul.appendChild(b);
+    });
+  }
+  renderChoices();
   z.append(h, p, ul, fb);
   $("paneQ").scrollTo({ top: 0, behavior: "smooth" });
 }
