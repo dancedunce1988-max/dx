@@ -4112,24 +4112,27 @@
   font-size:.88rem; margin-top:10px;
 }
 .dd-sample-box .label{color:var(--sub); font-size:.75rem; margin-bottom:4px; display:block;}
-/* 対義語・類義語スピードマッチ（神経衰弱、2026-09-18〜、試作）。「準備中」カードを
+/* ことばマッチ（類義語マッチ・対義語マッチ、2026-09-18〜、試作）。「準備中」カードを
    5回タップすると遊べる隠しモード（speedMatchComingSoonTap参照）。タップの手応えとして
-   カード全体を軽くパルスさせるだけで、あと何回で遊べるかは表示しない（隠し要素なので）。 */
+   カード全体を軽くパルスさせるだけで、あと何回で遊べるかは表示しない（隠し要素なので）。
+   神経衰弱（カードを裏向きで記憶して当てる形式）だと難しすぎるという教員の指摘を受けて、
+   単語は最初から全部オープンにしておき、その中から素早く正しいペアを選ぶ形式に作り替えた
+   （2026-09-18、speedMatchPick参照）。そのためカードをめくる演出（3D flip）は廃止し、
+   タップして選ぶ→正解ならmatched、不正解なら一瞬wrongで赤く光らせて選び直す、という
+   シンプルな見た目にしている。 */
 .speed-match-teaser.tap-pulse{ animation:speedMatchTapPulse .18s ease; }
 @keyframes speedMatchTapPulse{ 0%{transform:scale(1);} 45%{transform:scale(.96);} 100%{transform:scale(1);} }
 .speed-match-status{ display:flex; gap:14px; flex-wrap:wrap; font-size:.85rem; color:var(--sub); margin-top:8px; }
 .speed-match-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-bottom:14px; }
-.speed-match-card{ aspect-ratio:1; perspective:600px; cursor:pointer; }
-.speed-match-card.matched{ cursor:default; }
-.smc-inner{ position:relative; width:100%; height:100%; transition:transform .35s; transform-style:preserve-3d; }
-.speed-match-card.flipped .smc-inner{ transform:rotateY(180deg); }
-.smc-face{
-  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-  border-radius:10px; backface-visibility:hidden; font-weight:bold; text-align:center; padding:4px;
+.speed-match-card{
+  aspect-ratio:1; display:flex; align-items:center; justify-content:center; text-align:center;
+  border-radius:10px; padding:4px; cursor:pointer; font-weight:bold; font-size:.82rem; word-break:break-all;
+  background:var(--card); border:2px solid var(--accent2); color:var(--ink);
+  transition:transform .12s ease, background .12s ease, border-color .12s ease;
 }
-.smc-back{ background:var(--accent2); color:#fff; font-size:1.4rem; }
-.smc-front{ background:var(--card); border:2px solid var(--accent2); color:var(--ink); transform:rotateY(180deg); font-size:.82rem; word-break:break-all; }
-.speed-match-card.matched .smc-front{ background:var(--okbg); border-color:var(--ok); color:var(--ok); }
+.speed-match-card.selected{ background:var(--accent2); color:#fff; transform:scale(.94); }
+.speed-match-card.wrong{ background:var(--ngbg); border-color:var(--ng); color:var(--ng); }
+.speed-match-card.matched{ background:var(--okbg); border-color:var(--ok); color:var(--ok); opacity:.55; cursor:default; }
 </style>
 </head>
 <body>
@@ -18235,8 +18238,7 @@ function showSideQuestMenu(){
   if(KB_GAUNTLET_VISIBLE) html += kanjiBossSideQuestButtonHtml();
   html += mbSideQuestButtonHtml();
   html += Object.keys(STORY_SIDEQUESTS).map(key => storySideQuestButtonHtml(key, st)).join("");
-  html += speedMatchComingSoonHtml('taigigo');
-  html += speedMatchComingSoonHtml('ruigigo');
+  html += speedMatchComingSoonHtml();
   html += `<div class="btn-row" style="justify-content:center; margin-top:10px">
     <button class="btn secondary" onclick="showHome()">戻る</button>
   </div>`;
@@ -18321,44 +18323,68 @@ function storySideQuestButtonHtml(key, st){
       <div class="right"><span class="shogo-badge">挑戦する</span></div>
     </div>`;
 }
-/* 対義語・類義語 スピードマッチ（神経衰弱、2026-09-18〜、教員の指示で試作）。対義語編・類義語編を
-   別ゲームとして分け、taigigo/ruigigoの4択データからq（問題語）とc[a]（正解の対になる語）を
-   ペアとして流用する。まだ試作段階のため、ミニゲーム一覧には「準備中」カードとして置くだけで、
-   カードを5回タップすると裏で遊べるようにする（speedMatchComingSoonTap）。record()は一切呼ばず、
-   st.lv/st.exp等の分野レベル・経験値には触れない（教員の指示：「まだ経験値等には反映させないこと」）。 */
+/* マッチ（類義語マッチ・対義語マッチ、2026-09-18〜、教員の指示で試作）。ミニゲームとしては
+   「マッチ」というひとつの入口にまとめ、その中に類義語マッチ・対義語マッチの2モードを置く
+   （以前は対義語・類義語を別々のミニゲームとして並べていたが、教員の指示でひとつにまとめた）。
+   taigigo/ruigigoの4択データからq（問題語）とc[a]（正解の対になる語）をペアとして流用する。
+   まだ試作段階のため、ミニゲーム一覧には「準備中」カードとして置くだけで、カードを5回タップ
+   すると裏でモード選択画面に進めるようにする（speedMatchComingSoonTap）。record()は一切呼ばず、
+   st.lv/st.exp等の分野レベル・経験値には触れない（教員の指示：「まだ経験値等には反映させないこと」）。
+   当初は神経衰弱（カードを裏向きにして記憶で当てる）形式だったが、「難しすぎる」という教員の
+   指摘を受けて作り替えた。今はカードの単語を最初から全部オープンにしておき、その中から
+   正しいペアをできるだけ早くタップして見つけていく、というスピード重視の形式にしている
+   （speedMatchPick参照。記憶力ではなく、単語の意味を素早く判断する力を試すのが狙い）。 */
 const SPEED_MATCH_DEFS = {
-  taigigo: {title:"対義語スピードマッチ", icon:"↔️", cat:"taigigo", label:"対義語"},
-  ruigigo: {title:"類義語スピードマッチ", icon:"🔗", cat:"ruigigo", label:"類義語"},
+  ruigigo: {title:"類義語マッチ", icon:"🔗", cat:"ruigigo", label:"類義語"},
+  taigigo: {title:"対義語マッチ", icon:"↔️", cat:"taigigo", label:"対義語"},
 };
 const SPEED_MATCH_PAIR_COUNT = 6; // 6ペア＝カード12枚（試作なので固定）
-let speedMatchTapCount = {taigigo:0, ruigigo:0}; // 「準備中」カードの隠しタップ数。保存しない＝ページ再読み込みでリセットされてよい。
+let speedMatchTapCount = 0; // 「準備中」カードの隠しタップ数。保存しない＝ページ再読み込みでリセットされてよい。
 let speedMatch = null; // 実行中のゲーム状態。保存しない一時状態。
 let speedMatchTimerHandle = null;
 
 function clearSpeedMatchTimer(){
   if(speedMatchTimerHandle){ clearInterval(speedMatchTimerHandle); speedMatchTimerHandle = null; }
 }
-function speedMatchComingSoonHtml(key){
-  const def = SPEED_MATCH_DEFS[key];
+function speedMatchComingSoonHtml(){
   return `
-    <div class="card menu-card locked speed-match-teaser" onclick="speedMatchComingSoonTap(this,'${key}')">
-      <div class="menu-icon">${def.icon}</div>
-      <div><h2>${esc(def.title)}</h2><p>${esc(def.label)}のペアをさがす神経衰弱ゲーム</p></div>
+    <div class="card menu-card locked speed-match-teaser" onclick="speedMatchComingSoonTap(this)">
+      <div class="menu-icon">🔗</div>
+      <div><h2>マッチ</h2><p>類義語・対義語のペアをすばやく見つけるゲーム</p></div>
       <div class="right"><span class="shogo-badge">準備中</span></div>
     </div>`;
 }
-// カードをタップするたびに数え、5回目でこっそり遊べるようにする（隠し要素なので、あと何回かは表示しない）。
-function speedMatchComingSoonTap(el, key){
-  speedMatchTapCount[key] = (speedMatchTapCount[key] || 0) + 1;
-  if(speedMatchTapCount[key] >= 5){ startSpeedMatchGame(key); return; }
+// カードをタップするたびに数え、5回目でこっそりモード選択画面に進めるようにする（隠し要素なので、あと何回かは表示しない）。
+function speedMatchComingSoonTap(el){
+  speedMatchTapCount++;
+  if(speedMatchTapCount >= 5){ showSpeedMatchModeSelect(); return; }
   if(el){
     el.classList.remove('tap-pulse');
     void el.offsetWidth; // タップのたびにアニメーションをやり直すための強制リフロー
     el.classList.add('tap-pulse');
   }
 }
+function showSpeedMatchModeSelect(){
+  const modesHtml = Object.keys(SPEED_MATCH_DEFS).map(key => {
+    const def = SPEED_MATCH_DEFS[key];
+    return `
+      <div class="card menu-card speed-match-mode-card" onclick="startSpeedMatchGame('${key}')">
+        <div class="menu-icon">${def.icon}</div>
+        <div><h2>${esc(def.title)}</h2><p>${esc(def.label)}のペアをすばやく見つけよう</p></div>
+        <div class="right"><span class="shogo-badge">挑戦する</span></div>
+      </div>`;
+  }).join('');
+  screen.innerHTML = `
+    <div class="card"><h3 class="section">🔗 マッチ（試作版）</h3>
+      <p class="note">類義語マッチ・対義語マッチ、どちらで遊ぶか選んでください。まだ試作段階なので、成績や経験値には反映されません。</p>
+    </div>
+    ${modesHtml}
+    <div class="btn-row" style="justify-content:center; margin-top:10px">
+      <button class="btn secondary" onclick="showSideQuestMenu()">ミニゲーム一覧へ戻る</button>
+    </div>`;
+}
 // taigigo/ruigigoの4択データ（q＝出題語、c[a]＝正解の対になる語）から、盤面に同じ単語が
-// 重複しないようにペアを抜き出す（qやc[a]が別の項目と被ると神経衰弱として成立しないため）。
+// 重複しないようにペアを抜き出す（qやc[a]が別の項目と被るとマッチとして成立しないため）。
 function speedMatchBuildPairs(catKey, count){
   const items = CATS[catKey].items;
   const shuffled = items.slice().sort(() => Math.random() - 0.5);
@@ -18385,7 +18411,7 @@ function startSpeedMatchGame(key){
   cards = cards.sort(() => Math.random() - 0.5);
   speedMatch = {
     key, pairCount: pairs.length, cards,
-    flipped: [], matchedCount: 0, mistakes: 0, busy: false, startedAt: Date.now(),
+    selected: [], wrongFlash: [], matchedCount: 0, mistakes: 0, busy: false, startedAt: Date.now(),
   };
   speedMatchTimerHandle = setInterval(() => {
     if(!speedMatch) return;
@@ -18398,24 +18424,21 @@ function speedMatchFormatTime(ms){
   const s = Math.floor(ms / 1000);
   return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
 }
+// カードは常にオープン（単語が最初から全部見えている）。選んだ状態（selected）・
+// 正解済み（matched）・不正解の一瞬の演出（wrongFlash）だけを見た目で切りかえる。
 function renderSpeedMatchGame(){
   if(!speedMatch) return;
   const def = SPEED_MATCH_DEFS[speedMatch.key];
   const cardsHtml = speedMatch.cards.map((c, idx) => {
-    const isUp = c.matched || speedMatch.flipped.includes(idx);
     const cls = ['speed-match-card'];
-    if(isUp) cls.push('flipped');
     if(c.matched) cls.push('matched');
-    return `<div class="${cls.join(' ')}" onclick="speedMatchFlip(${idx})">
-      <div class="smc-inner">
-        <div class="smc-face smc-back">？</div>
-        <div class="smc-face smc-front">${esc(c.word)}</div>
-      </div>
-    </div>`;
+    else if(speedMatch.wrongFlash.includes(idx)) cls.push('wrong');
+    else if(speedMatch.selected.includes(idx)) cls.push('selected');
+    return `<div class="${cls.join(' ')}" onclick="speedMatchPick(${idx})">${esc(c.word)}</div>`;
   }).join('');
   screen.innerHTML = `
     <div class="card"><h3 class="section">${def.icon} ${esc(def.title)}（試作版）</h3>
-      <p class="note">${esc(def.label)}のペアを見つけよう。まだ試作段階なので、成績や経験値には反映されません。</p>
+      <p class="note">${esc(def.label)}のペアになる2枚を選んでね。単語は最初から全部見えています。まだ試作段階なので、成績や経験値には反映されません。</p>
       <div class="speed-match-status">
         <span>見つけたペア：${speedMatch.matchedCount}/${speedMatch.pairCount}</span>
         <span>ミス：${speedMatch.mistakes}回</span>
@@ -18424,34 +18447,36 @@ function renderSpeedMatchGame(){
     </div>
     <div class="speed-match-grid">${cardsHtml}</div>
     <div class="btn-row" style="justify-content:center; margin-top:14px">
-      <button class="btn secondary" onclick="clearSpeedMatchTimer(); speedMatch=null; showSideQuestMenu();">やめて戻る</button>
+      <button class="btn secondary" onclick="clearSpeedMatchTimer(); speedMatch=null; showSpeedMatchModeSelect();">やめて戻る</button>
     </div>`;
 }
-function speedMatchFlip(idx){
+function speedMatchPick(idx){
   if(!speedMatch || speedMatch.busy) return;
   const card = speedMatch.cards[idx];
-  if(!card || card.matched || speedMatch.flipped.includes(idx)) return;
-  if(speedMatch.flipped.length >= 2) return;
-  speedMatch.flipped.push(idx);
-  if(speedMatch.flipped.length < 2){ renderSpeedMatchGame(); return; }
-  const [i1, i2] = speedMatch.flipped;
+  if(!card || card.matched || speedMatch.selected.includes(idx)) return;
+  if(speedMatch.selected.length >= 2) return;
+  speedMatch.selected.push(idx);
+  if(speedMatch.selected.length < 2){ renderSpeedMatchGame(); return; }
+  const [i1, i2] = speedMatch.selected;
   const c1 = speedMatch.cards[i1], c2 = speedMatch.cards[i2];
   if(c1.pairIdx === c2.pairIdx){
     c1.matched = c2.matched = true;
     speedMatch.matchedCount++;
-    speedMatch.flipped = [];
+    speedMatch.selected = [];
     renderSpeedMatchGame();
     if(speedMatch.matchedCount >= speedMatch.pairCount) finishSpeedMatchGame();
   } else {
     speedMatch.mistakes++;
     speedMatch.busy = true;
+    speedMatch.wrongFlash = [i1, i2];
     renderSpeedMatchGame();
     setTimeout(() => {
       if(!speedMatch) return;
-      speedMatch.flipped = [];
+      speedMatch.selected = [];
+      speedMatch.wrongFlash = [];
       speedMatch.busy = false;
       renderSpeedMatchGame();
-    }, 700);
+    }, 500);
   }
 }
 function finishSpeedMatchGame(){
@@ -18467,6 +18492,7 @@ function finishSpeedMatchGame(){
       <p class="note">ミス：${mistakes}回　※まだ試作段階のため、成績や経験値には反映されません。</p>
       <div class="btn-row" style="justify-content:center; margin-top:14px">
         <button class="btn" onclick="startSpeedMatchGame('${key}')">もう一度あそぶ</button>
+        <button class="btn secondary" onclick="speedMatch=null; showSpeedMatchModeSelect();">別のマッチに挑戦</button>
         <button class="btn secondary" onclick="speedMatch=null; showSideQuestMenu();">ミニゲーム一覧へ戻る</button>
       </div>
     </div>`;
