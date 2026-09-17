@@ -14,6 +14,15 @@ const svgNS = "http://www.w3.org/2000/svg";
 
 let stage = 0, finalIdx = 0;
 const record = [];
+/* 設問の総数（教員の指示、2026-09-17〜：進み具合ゲージ用）。各段落のq、
+   最終段落のqsの配列長を足し合わせるだけで、教材データには一切手を加えなくてよい。 */
+const TOTAL_Q = PARAS.reduce((n, para) => n + (para.q ? 1 : 0) + (para.qs ? para.qs.length : 0), 0);
+function updateQGauge(current){
+  const label = $("qprogLabel"), fill = $("qprogFill");
+  if(!label || !fill) return;
+  label.textContent = `問題 ${current}／${TOTAL_Q}`;
+  fill.style.width = Math.min(100, Math.round(current / TOTAL_Q * 100)) + "%";
+}
 let demLineSeq = 0;
 let activeLineId = null;
 let demRAF = null;
@@ -394,6 +403,7 @@ function freezeScreen(){
 function showQuestion(q, onClear){
   const z = $("qzone"); z.innerHTML = "";
   const rec = { miss: 0, done: false }; record.push(rec); paintMarks();
+  updateQGauge(record.length);
   document.querySelectorAll(".u.now").forEach(e => e.classList.remove("now"));
   (q.u || []).forEach(k => { const e = document.getElementById("u-" + k); if(e) e.classList.add("now"); });
   const h = document.createElement("div"); h.className = "q-head ui"; h.textContent = q.head;
@@ -403,9 +413,10 @@ function showQuestion(q, onClear){
   const marks = "アイウエオカ";
 
   /* 選択肢の並び順（教員の指示、2026-09-17〜：誤答するたびにシャッフルし直し、
-     同じ位置を連打すれば進めてしまう抜け道をふさぐ）。誤答済みの選択肢は、シャッフル後も
-     disabled・wrongの見た目を保つ＝もう一度同じ誤りを選ばせて時間を無駄にはさせない。 */
-  let order = q.ch.map((c, i) => ({ idx: i, wrong: false }));
+     同じ位置を連打すれば進めてしまう抜け道をふさぐ）。誤答した選択肢も、シャッフル後は
+     他と同じようにまた選べるようにする（教員の指示：分かっていなければ同じ間違いを
+     もう一度させることで、消去法ではなく理解して選ばせるため。permanent disabledはしない）。 */
+  let order = q.ch.map((c, i) => i);
   function shuffleOrder(){
     for(let i = order.length - 1; i > 0; i--){
       const j = Math.floor(Math.random() * (i + 1));
@@ -414,14 +425,9 @@ function showQuestion(q, onClear){
   }
   function renderChoices(){
     ul.innerHTML = "";
-    order.forEach((item, pos) => {
-      const i = item.idx;
+    order.forEach((i, pos) => {
       const b = document.createElement("button");
       b.innerHTML = `<span class="mk ui">${marks[pos] || pos + 1}</span><span>${escHtml(q.ch[i])}</span>`;
-      /* 一度誤答した選択肢も、色（wrongクラス）はつけない（教員の指示、2026-09-17〜：
-         色が「もう試した場所」の目印として記憶に残ってしまうため）。disabledのみにして、
-         見た目はほかの未選択の選択肢と同じ淡さで沈める。 */
-      if(item.wrong){ b.disabled = true; }
       b.onclick = () => {
         if(frozen || rec.done) return;
         if(i === q.a){
@@ -438,7 +444,6 @@ function showQuestion(q, onClear){
           fb.appendChild(nx);
         } else {
           rec.miss++; paintMarks();
-          item.wrong = true;
           consecutiveWrong++;
           fb.className = "fb ng";
           const why = (q.why && q.why[i]) ? q.why[i] : "本文のその文を、もう一度前後ごと読んでみよう。";
@@ -495,6 +500,7 @@ function step(){
 }
 
 function finish(){
+  updateQGauge(TOTAL_Q);
   const clean = record.filter(r => r.miss === 0).length;
   const miss = record.reduce((n, r) => n + r.miss, 0);
   const rows = record.map((r, i) => `<tr><td>設問${kanjiNum(i + 1)}</td><td>${r.miss === 0 ? "○" : "誤答" + r.miss + "回"}</td></tr>`).join("");
