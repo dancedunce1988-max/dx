@@ -7104,6 +7104,18 @@ function showHome(){
   ydStopLoop(); // YOMUの打を中断して離れたときに、動作中のゲームループ・キー入力リスナーを止める
   clearKanjiBossTimer(); // 漢字マスターの道を中断して離れたときに、残った制限時間タイマーを止める
   kanjiBoss = null;
+  // ⚔️のボス戦（ランダム遭遇／挑戦チケット、bossBattle）は、対戦中に専用の「やめる」ボタンが
+  // 存在せず、画面上部の常設「ホームへ」から離れる以外に抜ける手段がない。にもかかわらず、
+  // これまでshowHomeはbossBattleを片付けていなかったため、①制限時間タイマー（clearBossTimer）が
+  // 動いたまま残る、②必殺技演出の全画面オーバーレイ（#screenの外＝document.bodyに直接
+  // 追加されるため、screen.innerHTMLの差し替えでは消えない）が残る、③bossBattleが
+  // localStorageに保存されたままになり、次回起動時（resumeBossBattleIfSaved）にホームへ
+  // 戻ったはずの古い戦闘が復元されてしまう、という不具合があった。mbBattle等と同じく、
+  // ヘッダー経由の離脱も戦いの没収として扱い、ここで一括して後始末する。
+  clearBossTimer();
+  hideFinisherOverlay();
+  bossBattle = null;
+  clearBossBattleState();
   // 漢字Questの「復習する」（mbReviewActive）を中断して離れた場合の安全弁（教員の指示、
   // 2026-09-05）。復習画面自体の「漢字Questに戻る」ボタンで既にfalseに戻しているはずだが、
   // 万一フラグが立ったままここに来た場合、普通の「漢字の書き学習」に戻ったときまで
@@ -13199,7 +13211,11 @@ function cmToggleGenre(key){
   cmShowGenrePicker();
 }
 function cmConfirmGenrePicker(){
-  const cats = Array.from(cmSetupPick.picked);
+  // Set(cmSetupPick.picked)の反復順は「タップした順」になるため、そのままcatsに使うと
+  // 同じジャンルの組み合わせでもタップ順が違うだけでseedStr（cmPickRoundQuestions）が
+  // 変わってしまい、同じ出題範囲・同じ暗証番号でも別の10問になってしまう不具合があった。
+  // ここでソートしてタップ順の影響を消し、ジャンルの「組み合わせ」だけで決まるようにする。
+  const cats = Array.from(cmSetupPick.picked).sort();
   if(cats.length === 0 || cmBuildPool(cats).length < CM_ROUND_QUESTIONS) return;
   if(cmGenreChangeMode){
     cmGenreChangeMode = false;
@@ -13841,17 +13857,23 @@ function cmKtSubmitJudge(){
   cmGrade(ok, cmElapsedMs(), null, null);
 }
 
-// ---- 採点：1問正解＝1500点（固定）＋速さボーナス（0.1秒はやいごとに1点、上限はその問題の
-//      制限時間ぶん）。ラウンド1でもラウンド2以降でも、出題の種類が違っても同じ式にする
+// ---- 採点：1問正解＝1500点（固定）＋速さボーナス（0.1秒はやいごとに1点、上限は常に15秒ぶん
+//      ＝150点。問題自身の制限時間がそれより長くても、速さボーナスの基準は変えない）。
+//      ラウンド1でもラウンド2以降でも、出題の種類が違っても同じ式にする
 //      （教員の指示、2026-09-08）。不正解は常に0点なので、どれだけ速くても「正解した人」
 //      には絶対に届かない（最速の正解＝1500+制限時間ぶんの秒数、最遅の正解でも1500点＝
 //      不正解の0点より必ず高い）。 ----
 // 正解点は1350点より大きくしておくこと（教員の指示、2026-09-08）：15秒の問題での速さ
 // ボーナスの上限は150点なので、正解点が150×(問題数の差)を上回っていれば、正解数が多い人は
 // 必ず、正解数が少ない人がどれだけ速くても逆転されない（例：10問正解の最遅＝1500×10 ＞
-// 9問正解の最速＝(1500+150)×9）。漢字の書き・読む順タップは制限時間が15秒より長くなる
-// ことがあるが、速さボーナスの上限もその分だけ大きくなるだけで、この不等式そのものは
-// 崩れない（正解点1500点は変わらないため）。
+// 9問正解の最速＝(1500+150)×9）。漢字の書き・読む順タップ・返り点をつけるは、問題によって
+// 制限時間（cmTimeLimitFor）が15秒より大幅に長くなることがある。速さボーナスをその実際の
+// 制限時間に対する割合で計算すると、ボーナス上限もその分だけ大きくなってしまい上の不等式が
+// 崩れる（例：60秒の問題を一瞬で正解＝1500+600点、これが9問なら18900点＞10問全問不正解込みの
+// 遅答＝15000点で逆転できてしまう）。これを防ぐため、速さボーナスの計算だけは実際の制限時間で
+// はなく常にCM_TIME_LIMIT_MS（15秒）を基準にする＝ボーナス上限は常に150点のまま
+// （15秒を超える種類の問題は、15秒より後に正解してもボーナスは0点になるだけで、正解自体は
+// 従来どおりその問題自身の制限時間いっぱい認める）。
 const CM_PER_CORRECT = 1500;
 const CM_SEC_PER_POINT = 0.1; // 0.1秒はやいごとに1点
 function cmComputeRoundScore(){
@@ -13859,7 +13881,8 @@ function cmComputeRoundScore(){
   cm.answers.forEach(a=>{
     if(!a.ok) return;
     correctCount++;
-    const remainSec = Math.max(0, (a.timeLimitMs - a.ms) / 1000);
+    const bonusLimitMs = Math.min(a.timeLimitMs, CM_TIME_LIMIT_MS);
+    const remainSec = Math.max(0, (bonusLimitMs - a.ms) / 1000);
     score += CM_PER_CORRECT + Math.round(remainSec / CM_SEC_PER_POINT);
   });
   return {score, correctCount};
