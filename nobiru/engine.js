@@ -438,13 +438,13 @@ function showQuestion(q, onClear){
           fb.className = "fb ok"; fb.innerHTML = "";
           /* ストック経験値の予告表示（教員の指示、2026-09-17〜）。1回目で正解＝10、
              以後誤答1回につき2ずつ減る（実際の経験値・セーブデータには一切触れない、
-             見た目だけの予告。「調整中」の断り書きを必ず添える）。1秒だけ出して消す。 */
+             見た目だけの予告。「調整中」の断り書きを必ず添える）。当初1秒で消していたが、
+             教員の指示（2026-09-17〜）でずっと表示したままにするよう変更。 */
           const xp = Math.max(0, 10 - rec.miss * 2);
           const xpEl = document.createElement("div");
           xpEl.className = "xp-toast";
           xpEl.textContent = `ストック経験値${xp}獲得！（ごめんなさい、現在は調整中のため反映されません）`;
           fb.appendChild(xpEl);
-          setTimeout(() => xpEl.remove(), 1000);
           const expText = document.createElement("div");
           expText.textContent = "正解。" + q.exp;
           fb.appendChild(expText);
