@@ -4138,7 +4138,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.80</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver11.81</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -14881,7 +14881,15 @@ let bossBattle = null;
    （bossLoseにペナルティが無い）ため、劣勢になった瞬間にリロードすれば実質ノーリスクで
    何度でもやり直せてしまい、ボスごとに「意図的に見込んでいる10〜15%の負け」がほぼ無効化
    されてしまう問題があった。renderBossBattle()の冒頭で毎回保存し、endBossBattle()
-   （勝ち・負け・逃走のいずれからも最終的にここを通る）で消す、という単純な仕組みにする。 */
+   （勝ち・負け・逃走のいずれからも最終的にここを通る）で消す、という単純な仕組みにする。
+   保存時のver-tag（header .ver-tag、pushごとに+0.01される運用）も一緒に持たせておき、
+   resumeBossBattleIfSaved側で今のver-tagと一致するときだけ再開する（2026-09-18、
+   バグ修正）。以前はver-tagを見ておらず、ページを更新してアプリが新しくなった後の
+   最初の読み込みでも、以前どこかで（例えば練習中のランダム遭遇に応じて）中断したまま
+   忘れられていた古い戦闘をそのまま再開してしまい、「アプリを更新したら、なぜかボス戦から
+   始まる」という状態になっていた。ver-tagが変われば「アプリが更新された」とみなして
+   古い戦闘は諦めて通常起動（ホーム）に戻す。同じバージョン内でのリロードでは今までどおり
+   再開する＝上記の「劣勢での逃げリロード」対策はそのまま有効。 */
 const BOSS_BATTLE_STORE_KEY = "kokugoBossBattleState_v1";
 function findBossById(id){
   if(SHIRAN_BOSS.id === id) return SHIRAN_BOSS;
@@ -14892,7 +14900,7 @@ function saveBossBattleState(){
   if(!bossBattle) return;
   try{
     const {timerId, ...rest} = bossBattle;
-    localStorage.setItem(BOSS_BATTLE_STORE_KEY, JSON.stringify(rest));
+    localStorage.setItem(BOSS_BATTLE_STORE_KEY, JSON.stringify({...rest, _verTag: currentAppVersionTag()}));
   }catch(e){}
 }
 function clearBossBattleState(){
@@ -14901,8 +14909,9 @@ function clearBossBattleState(){
 /* 保存されていた戦闘があれば復元してtrueを返す（呼び出し元はプロローグ等を出さず、
    そのまま戦闘画面へ直行する）。boss本体は保存データではなく、そのときのBOSSES等の
    定義から改めて引き直す（開発側でボスの数値を更新した場合に、古い保存データの数値を
-   引きずらないようにするため）。見つからない場合（該当ボスが削除された等）は保存データを
-   諦めて破棄し、通常起動に戻す。 */
+   引きずらないようにするため）。見つからない場合（該当ボスが削除された等）や、保存時と
+   今でver-tagが違う場合（＝アプリが更新された場合）は保存データを諦めて破棄し、
+   通常起動に戻す。 */
 function resumeBossBattleIfSaved(){
   let saved = null;
   try{
@@ -14910,6 +14919,7 @@ function resumeBossBattleIfSaved(){
     saved = raw ? JSON.parse(raw) : null;
   }catch(e){ saved = null; }
   if(!saved || !saved.boss || !saved.boss.id) return false;
+  if(saved._verTag !== currentAppVersionTag()){ clearBossBattleState(); return false; }
   const liveBoss = findBossById(saved.boss.id);
   if(!liveBoss){ clearBossBattleState(); return false; }
   saved.boss = liveBoss;
