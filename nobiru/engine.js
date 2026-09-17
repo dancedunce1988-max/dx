@@ -418,7 +418,10 @@ function showQuestion(q, onClear){
       const i = item.idx;
       const b = document.createElement("button");
       b.innerHTML = `<span class="mk ui">${marks[pos] || pos + 1}</span><span>${escHtml(q.ch[i])}</span>`;
-      if(item.wrong){ b.classList.add("wrong"); b.disabled = true; }
+      /* 一度誤答した選択肢も、色（wrongクラス）はつけない（教員の指示、2026-09-17〜：
+         色が「もう試した場所」の目印として記憶に残ってしまうため）。disabledのみにして、
+         見た目はほかの未選択の選択肢と同じ淡さで沈める。 */
+      if(item.wrong){ b.disabled = true; }
       b.onclick = () => {
         if(frozen || rec.done) return;
         if(i === q.a){
@@ -436,7 +439,6 @@ function showQuestion(q, onClear){
         } else {
           rec.miss++; paintMarks();
           item.wrong = true;
-          b.classList.add("wrong");
           consecutiveWrong++;
           fb.className = "fb ng";
           const why = (q.why && q.why[i]) ? q.why[i] : "本文のその文を、もう一度前後ごと読んでみよう。";
@@ -444,7 +446,11 @@ function showQuestion(q, onClear){
             + (rec.miss >= 2 ? "　ヒント：" + q.tip : "");
           /* シャッフルはすぐには行わず、「もう一度答える」を押させてから行う
              （教員の指示、2026-09-17〜）。選択肢はいったんすべて操作不能にし、
-             ボタンを押すと「選択肢を配置し直します」を1秒表示したあとシャッフルする。 */
+             ボタンを押すと選択肢そのものを完全に隠して（位置を覚えられないようにする
+             ため、教員の指示で単なる操作不能表示から変更）「選択肢を配置し直します」を
+             1秒表示したあとシャッフルして再表示する。
+             ul.style.displayで直接消す（.choicesクラス側のdisplay:flexが優先されて
+             しまうため、hidden属性だけでは消えない＝以前ハマった落とし穴と同じ対策）。 */
           [...ul.children].forEach(x => x.disabled = true);
           const retry = document.createElement("button");
           retry.className = "next ui";
@@ -452,11 +458,13 @@ function showQuestion(q, onClear){
           retry.onclick = () => {
             if(frozen) return;
             retry.disabled = true;
+            ul.style.display = "none";
             fb.className = "fb wait"; fb.textContent = "選択肢を配置し直します…";
             setTimeout(() => {
               fb.className = ""; fb.textContent = "";
               shuffleOrder();
               renderChoices();
+              ul.style.display = "";
             }, 1000);
           };
           fb.appendChild(document.createElement("br"));
