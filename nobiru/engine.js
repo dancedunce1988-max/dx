@@ -436,13 +436,31 @@ function showQuestion(q, onClear){
         } else {
           rec.miss++; paintMarks();
           item.wrong = true;
+          b.classList.add("wrong");
           consecutiveWrong++;
           fb.className = "fb ng";
           const why = (q.why && q.why[i]) ? q.why[i] : "本文のその文を、もう一度前後ごと読んでみよう。";
           fb.textContent = (rec.miss === 1 ? "ちがいます。" : "まだちがいます。") + why
             + (rec.miss >= 2 ? "　ヒント：" + q.tip : "");
-          shuffleOrder();
-          renderChoices();
+          /* シャッフルはすぐには行わず、「もう一度答える」を押させてから行う
+             （教員の指示、2026-09-17〜）。選択肢はいったんすべて操作不能にし、
+             ボタンを押すと「選択肢を配置し直します」を1秒表示したあとシャッフルする。 */
+          [...ul.children].forEach(x => x.disabled = true);
+          const retry = document.createElement("button");
+          retry.className = "next ui";
+          retry.textContent = "もう一度答える";
+          retry.onclick = () => {
+            if(frozen) return;
+            retry.disabled = true;
+            fb.className = "fb wait"; fb.textContent = "選択肢を配置し直します…";
+            setTimeout(() => {
+              fb.className = ""; fb.textContent = "";
+              shuffleOrder();
+              renderChoices();
+            }, 1000);
+          };
+          fb.appendChild(document.createElement("br"));
+          fb.appendChild(retry);
           if(consecutiveWrong >= 10) freezeScreen();
         }
       };
