@@ -232,9 +232,11 @@ function setStepUI(key){
    文末チェック（教員の指摘、2026-09-19〜：「〜から。」で終えるべきか「〜こと。」で
    終えるべきかが生徒に厳密に伝わっておらず、答え方に迷う場面があった。また、文は
    「。」で終えるのが基本なので、今後の採点基準にもそれを反映すること、との指示）。
-   設問オブジェクトの endForm（"から"｜"こと"｜省略）で、その設問が要求する文末の
-   形を明示する。省略時は特定の形を要求しない（「どのように」型の設問など）が、
-   「。」で終えることはendFormの有無にかかわらず必ずチェックする。 */
+   設問オブジェクトの endForm（"から"｜"こと"｜"体言"｜省略）で、その設問が要求する
+   文末の形を明示する。"体言"（「〜は何ですか」型）は正規表現で厳密な判定ができない
+   ため、採点では句点チェックのみ行い、答え方の説明はヒント（endFormHintText）だけで
+   示す。省略時は特定の形を要求しない（「どのように」型の設問など）が、「。」で
+   終えることはendFormの有無にかかわらず必ずチェックする。 */
 function checkEndForm(text, q){
   const maruOk = /。$/.test(text);
   let formOk = true, formLabel = null;
@@ -285,16 +287,21 @@ function lenSpecHtml(q){
   const spec = (q.minLen && q.maxLen) ? `${q.minLen}〜${q.maxLen}字程度` : "字数の指定なし（自由な長さでよい）";
   return `<div class="lenspec ui">📏 字数の目安：<b>${escHtml(spec)}</b></div>`;
 }
-/* 文末の形の案内（常時表示。教員の指摘、2026-09-19〜：「〜から。」で終えるのか
-   「〜こと。」で終えるのか、答える前に厳密に分かるようにしてほしいとの指示）。 */
-function endFormSpecHtml(q){
-  const spec = q.endForm === "から" ? "「〜から。」（または「〜ため。」）で書きましょう。"
-    : q.endForm === "こと" ? "「〜こと。」で書きましょう。"
-    : "文の終わりには必ず「。」をつけましょう。";
-  return `<div class="lenspec ui">✒️ 答えの終わり方：<b>${escHtml(spec)}</b></div>`;
+/* 文末の形の案内（2026-09-20〜、ヒントの中に移動。教員の指摘：「〜から。」で
+   終えるのか「〜こと。」で終えるのかを答える前から常時表示してしまうと、設問文を
+   読んで自分で答え方を判断する練習にならない。ヒントボタンを押したときだけ、
+   「設問がこう聞いているから、こう答える」という理由つきで見せることにした。
+   endForm："から"｜"こと"｜"体言"（「〜は何ですか」型。名詞で言い切る＝体言止め。
+   正規表現での厳密な判定はできないため、採点では句点チェックのみ行い、
+   ヒントの文だけで答え方を示す）｜省略（特定の形を要求しない）。 */
+function endFormHintText(q){
+  if(q.endForm === "から") return "この設問は「理由」をたずねているので、答えは「〜から。」（または「〜ため。」）の形で書きましょう。";
+  if(q.endForm === "こと") return "この設問は「どのようなことか」をたずねているので、答えは「〜こと。」の形で書きましょう。";
+  if(q.endForm === "体言") return "この設問は「〜は何ですか」と名前をたずねているので、名詞で言い切る形（体言止め）で書きましょう。「〜こと。」にする必要はありません。";
+  return "文の終わりには、必ず「。」をつけましょう。";
 }
 /* 採点基準の説明（どの記述問題でも同じ文言にして、基準をそろえる）。 */
-const GRADE_POLICY_HTML = `<div class="gradepolicy ui">採点について：①下の3つのポイントをどれだけふくんでいるか、②指定の字数の目安に収まっているか、③指定された文の終わり方・「。」で終えているか、の3つで得点が決まります。★のポイントが無いと、点数は半分以下になります。ヒントを見ると、その設問の得点がやや下がります（0にはなりません）。</div>`;
+const GRADE_POLICY_HTML = `<div class="gradepolicy ui">採点について：①下の3つのポイントをどれだけふくんでいるか、②指定の字数の目安に収まっているか、③文の終わり方・「。」で終えているか、の3つで得点が決まります。★のポイントが無いと、点数は半分以下になります。ヒントを見ると、その設問の得点がやや下がります（0にはなりません）。</div>`;
 
 /* ---- 傍線部のハイライト（設問が指す記号だけ.nowを付け、見える位置までスクロール） ---- */
 function highlightU(letters){
@@ -325,7 +332,7 @@ function renderFreeQuestion(q, onNext){
 
   const h = document.createElement("div"); h.className = "q-head ui"; h.textContent = q.head;
   const p = document.createElement("p"); p.className = "q-text"; p.textContent = q.text;
-  z.append(h, p, htmlToNode(lenSpecHtml(q)), htmlToNode(endFormSpecHtml(q)));
+  z.append(h, p, htmlToNode(lenSpecHtml(q)));
 
   const wrap = document.createElement("div"); wrap.className = "freeq";
   const ta = document.createElement("textarea");
@@ -352,7 +359,7 @@ function renderFreeQuestion(q, onNext){
   const hintBox = document.createElement("div"); hintBox.className = "hint-box"; hintBox.hidden = true;
   hintBtn.onclick = () => {
     hintUsed = true;
-    hintBox.textContent = "ヒント：" + q.hint;
+    hintBox.innerHTML = `ヒント：${escHtml(q.hint)}<br>${escHtml(endFormHintText(q))}`;
     hintBox.hidden = false;
     hintBtn.disabled = true;
   };
