@@ -216,7 +216,7 @@ function setStepUI(key){
   }).join("");
 }
 
-/* ---- 記述式の採点基準（2026-09-19〜、標準化）----
+/* ---- 記述式の採点基準（2026-09-19〜、標準化。2026-09-19追記で文末チェックを追加）----
    すべての記述問題は、必ず3つの採点ポイント（keywords配列、必ず3項目）で
    できている：①必須ポイント(required:true・配点2)②重要ポイント(配点2)
    ③補助ポイント(配点1)の合計5点満点。同じ配点ルールをどの設問にも
@@ -227,7 +227,26 @@ function setStepUI(key){
    0.5（5点満点中2.5点相当）に抑える。字数の下限・上限から外れているぶんも
    減点する（内容が合っていても、指定字数を意識させるため）。
    結果オブジェクトの evidenceRef は、将来「本文のどの部分を根拠にしたか」を
-   採点に組み込みたくなったときのための予約フィールド（今回は採点に使わない）。 */
+   採点に組み込みたくなったときのための予約フィールド（今回は採点に使わない）。
+
+   文末チェック（教員の指摘、2026-09-19〜：「〜から。」で終えるべきか「〜こと。」で
+   終えるべきかが生徒に厳密に伝わっておらず、答え方に迷う場面があった。また、文は
+   「。」で終えるのが基本なので、今後の採点基準にもそれを反映すること、との指示）。
+   設問オブジェクトの endForm（"から"｜"こと"｜省略）で、その設問が要求する文末の
+   形を明示する。省略時は特定の形を要求しない（「どのように」型の設問など）が、
+   「。」で終えることはendFormの有無にかかわらず必ずチェックする。 */
+function checkEndForm(text, q){
+  const maruOk = /。$/.test(text);
+  let formOk = true, formLabel = null;
+  if(q.endForm === "から"){
+    formLabel = "文末が「〜から。」（または「〜ため。」）の形になっているか";
+    formOk = /(から|ため)。$/.test(text);
+  } else if(q.endForm === "こと"){
+    formLabel = "文末が「〜こと。」の形になっているか";
+    formOk = /こと。$/.test(text);
+  }
+  return { maruOk, formOk, formLabel };
+}
 function scoreFreeText(raw, q){
   const text = String(raw || "").replace(/\s+/g, "");
   const len = text.length;
@@ -236,7 +255,8 @@ function scoreFreeText(raw, q){
     const hit = !!text && alts.some(a => a && text.includes(a));
     return { label: kw.label || kw.text, weight: kw.weight || 1, required: !!kw.required, hit };
   });
-  if(!text) return { score: 0, coverage: 0, lenFactor: 0, len, details, evidenceRef: q.evidenceRef || null };
+  const endCheck = checkEndForm(text, q);
+  if(!text) return { score: 0, coverage: 0, lenFactor: 0, punctFactor: 0, len, details, endCheck, evidenceRef: q.evidenceRef || null };
   let earned = 0, total = 0, missingRequired = false;
   details.forEach(d => {
     total += d.weight;
@@ -252,7 +272,11 @@ function scoreFreeText(raw, q){
       lenFactor = Math.max(0.55, 1 - over / q.maxLen);
     }
   }
-  return { score: Math.max(0, Math.min(1, coverage * lenFactor)), coverage, lenFactor, len, details, evidenceRef: q.evidenceRef || null };
+  let punctFactor = 1;
+  if(!endCheck.maruOk) punctFactor -= 0.15;
+  if(endCheck.formLabel && !endCheck.formOk) punctFactor -= 0.15;
+  punctFactor = Math.max(0.6, punctFactor);
+  return { score: Math.max(0, Math.min(1, coverage * lenFactor * punctFactor)), coverage, lenFactor, punctFactor, len, details, endCheck, evidenceRef: q.evidenceRef || null };
 }
 
 /* 字数の目安バッジ（常時表示。設問の直後、解答欄より前に出す＝
@@ -261,8 +285,16 @@ function lenSpecHtml(q){
   const spec = (q.minLen && q.maxLen) ? `${q.minLen}〜${q.maxLen}字程度` : "字数の指定なし（自由な長さでよい）";
   return `<div class="lenspec ui">📏 字数の目安：<b>${escHtml(spec)}</b></div>`;
 }
+/* 文末の形の案内（常時表示。教員の指摘、2026-09-19〜：「〜から。」で終えるのか
+   「〜こと。」で終えるのか、答える前に厳密に分かるようにしてほしいとの指示）。 */
+function endFormSpecHtml(q){
+  const spec = q.endForm === "から" ? "「〜から。」（または「〜ため。」）で書きましょう。"
+    : q.endForm === "こと" ? "「〜こと。」で書きましょう。"
+    : "文の終わりには必ず「。」をつけましょう。";
+  return `<div class="lenspec ui">✒️ 答えの終わり方：<b>${escHtml(spec)}</b></div>`;
+}
 /* 採点基準の説明（どの記述問題でも同じ文言にして、基準をそろえる）。 */
-const GRADE_POLICY_HTML = `<div class="gradepolicy ui">採点について：①下の3つのポイントをどれだけふくんでいるか、②指定の字数の目安に収まっているか、の2つで得点が決まります。★のポイントが無いと、点数は半分以下になります。ヒントを見ると、その設問の得点がやや下がります（0にはなりません）。</div>`;
+const GRADE_POLICY_HTML = `<div class="gradepolicy ui">採点について：①下の3つのポイントをどれだけふくんでいるか、②指定の字数の目安に収まっているか、③指定された文の終わり方・「。」で終えているか、の3つで得点が決まります。★のポイントが無いと、点数は半分以下になります。ヒントを見ると、その設問の得点がやや下がります（0にはなりません）。</div>`;
 
 /* ---- 傍線部のハイライト（設問が指す記号だけ.nowを付け、見える位置までスクロール） ---- */
 function highlightU(letters){
@@ -293,7 +325,7 @@ function renderFreeQuestion(q, onNext){
 
   const h = document.createElement("div"); h.className = "q-head ui"; h.textContent = q.head;
   const p = document.createElement("p"); p.className = "q-text"; p.textContent = q.text;
-  z.append(h, p, htmlToNode(lenSpecHtml(q)));
+  z.append(h, p, htmlToNode(lenSpecHtml(q)), htmlToNode(endFormSpecHtml(q)));
 
   const wrap = document.createElement("div"); wrap.className = "freeq";
   const ta = document.createElement("textarea");
@@ -350,9 +382,17 @@ function renderFreeQuestion(q, onNext){
         <span class="rubric-mark">${d.hit ? "✓" : "✗"}</span>
         <span>${d.required ? "★ " : ""}${escHtml(d.label)}</span>
       </div>`).join("");
+    const endItems = [];
+    if(graded.endCheck.formLabel) endItems.push({ ok: graded.endCheck.formOk, label: graded.endCheck.formLabel });
+    endItems.push({ ok: graded.endCheck.maruOk, label: "文の終わりが「。」になっているか" });
+    const endChecklist = endItems.map(d => `
+      <div class="rubric-item ${d.ok ? "hit" : "miss"}">
+        <span class="rubric-mark">${d.ok ? "✓" : "✗"}</span>
+        <span>${escHtml(d.label)}</span>
+      </div>`).join("");
     gradeBox.className = "grade-box " + band;
     gradeBox.innerHTML = `${msg}${lenNote}　（${hitCount}／${total}ポイント）
-      <div class="rubric-list">${checklist}</div>
+      <div class="rubric-list">${checklist}${endChecklist}</div>
       <div class="grade-model"><b>模範解答例</b>：${escHtml(q.model)}</div>`;
     gradeBtn.textContent = "採点し直す";
     if(!row.querySelector(".freeq-next")){
