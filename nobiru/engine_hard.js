@@ -5,8 +5,10 @@
    設問は記述式中心、という別の進行にする。
    教材データのうち、ハードモード用の設問は TEXT.hard = { splitAt, front, back }
    に持たせる（形式は texts/_template.js の末尾を参照）。front／backは
-   それぞれ設問オブジェクトの配列で、type:"choice"（選択式）か
-   type:"written"（記述式）かは設問ごとに自由に決めてよい。出題順は
+   それぞれ設問オブジェクトの配列で、type:"choice"（選択式）・
+   type:"written"（記述式）・type:"guided"（選択式で段階的に内容を確定
+   させてから一文に組み立てさせる、2026-09-21〜）のいずれかを設問ごとに
+   自由に決めてよい。出題順は
    front→back の配列の並び順そのまま（例：1問目=選択、2問目=短い記述、
    3問目=記述、4問目=長い記述、5問目=全体を読んで答える選択、という
    構成にしたいときは、hard.frontに前半2問、hard.backに後半3問を
@@ -498,6 +500,192 @@ function renderChoiceQuestion(q, isLast, onNext){
   $("paneQ").scrollTo({ top: 0, behavior: "smooth" });
 }
 
+/* ---- 段階選択→組み立て型の記述設問（type:"guided"、2026-09-21〜試作。教員の発案）----
+   自由記述をいきなり書かせるのではなく、内容を選択式で段階的に確定させてから
+   （steps配列、各要素は選択式の設問と同じ形：text/ch/a/why/hint）、最後にその
+   内容をつなげて一つの文章に組み立てさせる（writeText・minLen・maxLen・
+   endForm・keywords・model・writeHint、書式はtype:"written"と同じ）。
+   選択の時点で内容の正誤が一意に決まるため、keywordsは「①・②で確認した
+   内容がそれぞれ含まれているか」だけを見る2項目・両方required:trueにそろえ、
+   scoreFreeTextをそのまま流用する（内容面の判定基準を増やす必要がない）。
+   主語・述語のねじれ（呼応の乱れ）は、AIを使わない静的なJSでは確実に判定
+   できないため自動採点の対象にしない。採点結果に「声に出して読み返そう」と
+   いう自己チェックの一文を必ず添えるにとどめる（教員との相談の結論）。 */
+const GUIDED_POLICY_HTML = `<div class="gradepolicy ui">採点について：①・②で確認した内容が、それぞれ文章にふくまれているか、字数の目安に収まっているか、文の終わり方・「。」で終えているか、で得点が決まります。主語と述語がねじれていないかは自動では判定されないので、書き終えたら声に出して読み返しましょう。</div>`;
+const CIRCLED = ["①","②","③","④","⑤"];
+function renderGuidedQuestion(q, isLast, onNext){
+  qNum++; updateQGauge();
+  highlightU(q.u);
+  let totalMiss = 0, hintUsed = false;
+  const confirmed = [];
+  const marks = "アイウエオ";
+
+  function runStep(idx){
+    if(idx >= q.steps.length){ runWrite(); return; }
+    const step = q.steps[idx];
+    const z = $("qzone"); z.innerHTML = "";
+    const h = document.createElement("div"); h.className = "q-head ui";
+    h.textContent = `${q.head}　（${idx + 1}／${q.steps.length + 1}）`;
+    const p = document.createElement("p"); p.className = "q-text"; p.textContent = step.text;
+    const ul = document.createElement("div"); ul.className = "choices";
+    const fb = document.createElement("div");
+    const row = document.createElement("div"); row.className = "freeq-row";
+    const hintBtn = document.createElement("button");
+    hintBtn.className = "hintBtn ui"; hintBtn.type = "button"; hintBtn.textContent = "ヒントを見る";
+    const hintBox = document.createElement("div"); hintBox.className = "hint-box"; hintBox.hidden = true;
+    hintBtn.onclick = () => {
+      hintUsed = true;
+      hintBox.textContent = "ヒント：" + step.hint;
+      hintBox.hidden = false;
+      hintBtn.disabled = true;
+    };
+    row.appendChild(hintBtn);
+
+    let order = step.ch.map((c, i) => i);
+    function shuffleOrder(){
+      for(let i = order.length - 1; i > 0; i--){
+        const j = Math.floor(Math.random() * (i + 1));
+        [order[i], order[j]] = [order[j], order[i]];
+      }
+    }
+    function renderChoices(){
+      ul.innerHTML = "";
+      order.forEach((i, pos) => {
+        const b = document.createElement("button");
+        b.innerHTML = `<span class="mk ui">${marks[pos] || pos + 1}</span><span>${escHtml(step.ch[i])}</span>`;
+        b.onclick = () => {
+          if(i === step.a){
+            b.classList.add("right");
+            [...ul.children].forEach(x => x.disabled = true);
+            confirmed.push(step.ch[step.a]);
+            fb.className = "fb ok"; fb.textContent = "正解。";
+            const nx = document.createElement("button");
+            nx.className = "next ui"; nx.type = "button"; nx.textContent = "次へ";
+            nx.onclick = () => runStep(idx + 1);
+            fb.appendChild(document.createElement("br")); fb.appendChild(nx);
+          } else {
+            totalMiss++;
+            fb.className = "fb ng";
+            fb.textContent = (step.why && step.why[i]) ? step.why[i] : "ちがいます。本文を読み直してみましょう。";
+            [...ul.children].forEach(x => x.disabled = true);
+            const retry = document.createElement("button");
+            retry.className = "next ui"; retry.type = "button"; retry.textContent = "もう一度答える";
+            retry.onclick = () => {
+              retry.disabled = true;
+              ul.style.display = "none";
+              fb.className = "fb wait"; fb.textContent = "選択肢を配置し直します…";
+              setTimeout(() => {
+                fb.className = ""; fb.textContent = "";
+                shuffleOrder(); renderChoices();
+                ul.style.display = "";
+              }, 1000);
+            };
+            fb.appendChild(document.createElement("br")); fb.appendChild(retry);
+          }
+        };
+        ul.appendChild(b);
+      });
+    }
+    renderChoices();
+    z.append(h, p, ul, fb, row, hintBox);
+    $("paneQ").scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function runWrite(){
+    const z = $("qzone"); z.innerHTML = "";
+    let graded = null, writeHintUsed = false;
+    const h = document.createElement("div"); h.className = "q-head ui";
+    h.textContent = `${q.head}　（${q.steps.length + 1}／${q.steps.length + 1}）`;
+    const p = document.createElement("p"); p.className = "q-text"; p.textContent = q.writeText;
+    const chips = document.createElement("div"); chips.className = "guided-chips ui";
+    chips.innerHTML = confirmed.map((c, i) => `<span class="guided-chip">${CIRCLED[i] || (i + 1)} ${escHtml(c)}</span>`).join("");
+    z.append(h, p, chips, htmlToNode(lenSpecHtml(q)));
+
+    const wrap = document.createElement("div"); wrap.className = "freeq";
+    const ta = document.createElement("textarea");
+    ta.placeholder = "①・②の内容をつなげて、一つの文章に書きましょう。";
+    wrap.appendChild(ta);
+    const meta = document.createElement("div"); meta.className = "freeq-meta";
+    const specText = (q.minLen && q.maxLen) ? `（目安${q.minLen}〜${q.maxLen}字）` : "";
+    meta.innerHTML = `<span class="freeq-len">0字${escHtml(specText)}</span><span></span>`;
+    wrap.appendChild(meta);
+    ta.addEventListener("input", () => {
+      const len = ta.value.replace(/\s+/g, "").length;
+      meta.querySelector(".freeq-len").textContent = `${len}字${specText}`;
+      const outOfRange = q.minLen && q.maxLen && (len < q.minLen || len > q.maxLen) && len > 0;
+      meta.classList.toggle("over", !!outOfRange);
+    });
+    z.appendChild(wrap);
+    z.appendChild(htmlToNode(GUIDED_POLICY_HTML));
+
+    const row = document.createElement("div"); row.className = "freeq-row";
+    const hintBtn = document.createElement("button");
+    hintBtn.className = "hintBtn ui"; hintBtn.type = "button"; hintBtn.textContent = "ヒントを見る";
+    const hintBox = document.createElement("div"); hintBox.className = "hint-box"; hintBox.hidden = true;
+    hintBtn.onclick = () => {
+      writeHintUsed = true;
+      hintBox.innerHTML = `ヒント：${escHtml(q.writeHint || "①→②の順にそのままつなげてみよう。")}<br>${escHtml(endFormHintText(q))}`;
+      hintBox.hidden = false;
+      hintBtn.disabled = true;
+    };
+    const gradeBtn = document.createElement("button");
+    gradeBtn.className = "next ui"; gradeBtn.type = "button"; gradeBtn.textContent = "採点する";
+    row.append(hintBtn, gradeBtn);
+    z.append(row, hintBox);
+
+    const gradeBox = document.createElement("div");
+    z.appendChild(gradeBox);
+
+    gradeBtn.onclick = () => {
+      graded = scoreFreeText(ta.value, q);
+      const hitCount = graded.details.filter(d => d.hit).length;
+      const total = graded.details.length;
+      let band = "g-low", msg = "①・②の内容をもう一度読み返してみましょう。";
+      if(graded.score >= 0.75){ band = "g-good"; msg = "よくつなげられています。"; }
+      else if(graded.score >= 0.4){ band = "g-mid"; msg = "方向性は合っています。①・②の内容が両方入っているか確かめましょう。"; }
+      let lenNote = "";
+      if(q.minLen && q.maxLen && graded.lenFactor < 1){
+        lenNote = graded.len < q.minLen
+          ? `　指定の字数（${q.minLen}〜${q.maxLen}字）に対して短めです。`
+          : `　指定の字数（${q.minLen}〜${q.maxLen}字）に対して長めです。`;
+      }
+      const checklist = graded.details.map(d => `
+        <div class="rubric-item ${d.hit ? "hit" : "miss"}">
+          <span class="rubric-mark">${d.hit ? "✓" : "✗"}</span>
+          <span>${escHtml(d.label)}</span>
+        </div>`).join("");
+      const endItems = [];
+      if(graded.endCheck.formLabel) endItems.push({ ok: graded.endCheck.formOk, label: graded.endCheck.formLabel });
+      endItems.push({ ok: graded.endCheck.maruOk, label: "文の終わりが「。」になっているか" });
+      const endChecklist = endItems.map(d => `
+        <div class="rubric-item ${d.ok ? "hit" : "miss"}">
+          <span class="rubric-mark">${d.ok ? "✓" : "✗"}</span>
+          <span>${escHtml(d.label)}</span>
+        </div>`).join("");
+      gradeBox.className = "grade-box " + band;
+      gradeBox.innerHTML = `${msg}${lenNote}　（${hitCount}／${total}ポイント）
+        <div class="rubric-list">${checklist}${endChecklist}</div>
+        <div class="grade-note ui">✏️ 主語と述語がねじれていないかは自動採点していません。声に出して読み返して確かめましょう。</div>
+        <div class="grade-model"><b>文章の例</b>：${escHtml(q.model)}</div>`;
+      gradeBtn.textContent = "採点し直す";
+      if(!row.querySelector(".freeq-next")){
+        const nextBtn = document.createElement("button");
+        nextBtn.className = "next ui freeq-next"; nextBtn.type = "button";
+        nextBtn.textContent = isLast ? "結果を見る" : "次へ";
+        nextBtn.onclick = () => {
+          const base = XP_MAX * ((hintUsed || writeHintUsed) ? HINT_FACTOR : 1);
+          addXp(Math.max(0, base * (graded ? graded.score : 0) - totalMiss * MISS_STEP));
+          onNext();
+        };
+        row.appendChild(nextBtn);
+      }
+    };
+    $("paneQ").scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  runStep(0);
+}
+
 /* ---- 進行（前半の設問群→後半＝全文開示後の設問群、の2段階だけ。
    設問の種類（記述／選択）は各設問オブジェクトのtypeで指定し、この関数は
    タイプに応じて出し分けるだけにする＝設問の並び順（例：1問目は選択、
@@ -511,6 +699,7 @@ function runQueue(list, onAllDone){
     const isLast = (list === HARD.back) && (i === list.length - 1);
     const advance = () => { i++; next(); };
     if(q.type === "choice") renderChoiceQuestion(q, isLast, advance);
+    else if(q.type === "guided") renderGuidedQuestion(q, isLast, advance);
     else renderFreeQuestion(q, advance);
   }
   next();
