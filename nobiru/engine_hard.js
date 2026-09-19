@@ -2,10 +2,16 @@
    のびる読解　ハードモード エンジン（engine_hard.js、2026-09-19〜）
    イージーモード（engine.js）と同じ教材データ（texts/<教材名>.js の
    window.NOBIRU_TEXT）を読むが、本文の開示は「前半」「後半」の2段階だけ、
-   設問は記述式中心＋最後に全体についての選択問題、という別の進行にする。
-   教材データのうち、ハードモード用の設問は TEXT.hard に持たせる
-   （形式は texts/_template.js の末尾を参照）。TEXT.hard が無い教材では、
-   このファイルは何もしない（イージーモードのみで遊べる）。
+   設問は記述式中心、という別の進行にする。
+   教材データのうち、ハードモード用の設問は TEXT.hard = { splitAt, front, back }
+   に持たせる（形式は texts/_template.js の末尾を参照）。front／backは
+   それぞれ設問オブジェクトの配列で、type:"choice"（選択式）か
+   type:"written"（記述式）かは設問ごとに自由に決めてよい。出題順は
+   front→back の配列の並び順そのまま（例：1問目=選択、2問目=短い記述、
+   3問目=記述、4問目=長い記述、5問目=全体を読んで答える選択、という
+   構成にしたいときは、hard.frontに前半2問、hard.backに後半3問を
+   その順で並べればよい）。TEXT.hard が無い教材では、このファイルは
+   何もしない（イージーモードのみで遊べる）。
    本文そのもの（PARAS）はイージーモードと完全に共通で、一切変更しない。
    ============================================================ */
 (function(){
@@ -40,6 +46,11 @@ document.body.classList.add("hardmode");
 
 function escHtml(s){
   return String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+}
+function htmlToNode(html){
+  const t = document.createElement("template");
+  t.innerHTML = html.trim();
+  return t.content.firstChild;
 }
 
 /* ---- 入れ子つき記法の解析（engine.jsと同じ記法を読めるようにする。
@@ -194,8 +205,7 @@ function revealRange(from, to){
 
 const STEPS = [
   { key:"front", label:"前半" },
-  { key:"back", label:"後半（全文）" },
-  { key:"whole", label:"まとめ" }
+  { key:"back", label:"後半（全文）" }
 ];
 function setStepUI(key){
   const bar = $("hprog");
@@ -206,28 +216,34 @@ function setStepUI(key){
   }).join("");
 }
 
-/* ---- 記述式の部分点採点（キーワード充足度 × 字数の適切さ）----
+/* ---- 記述式の採点基準（2026-09-19〜、標準化）----
+   すべての記述問題は、必ず3つの採点ポイント（keywords配列、必ず3項目）で
+   できている：①必須ポイント(required:true・配点2)②重要ポイント(配点2)
+   ③補助ポイント(配点1)の合計5点満点。同じ配点ルールをどの設問にも
+   例外なく適用することで、「なぜその点数になったか」を毎回同じ形で
+   説明できるようにしてある（教材ごとに基準がぶれない）。
    完全一致ではなく、模範解答に含まれるキーワード（同義の言い換えはaltsに）が
-   どれだけ含まれているかで部分点にする。必須キーワード(required)を落とすと
-   得点の上限を0.5に抑える。字数の下限・上限から外れているぶんも減点する
-   （内容が合っていても、指定字数を意識させるため）。
+   含まれているかで部分点にする。必須ポイントを落とすと、得点の上限を
+   0.5（5点満点中2.5点相当）に抑える。字数の下限・上限から外れているぶんも
+   減点する（内容が合っていても、指定字数を意識させるため）。
    結果オブジェクトの evidenceRef は、将来「本文のどの部分を根拠にしたか」を
    採点に組み込みたくなったときのための予約フィールド（今回は採点に使わない）。 */
 function scoreFreeText(raw, q){
   const text = String(raw || "").replace(/\s+/g, "");
   const len = text.length;
-  if(!text) return { score: 0, coverage: 0, lenFactor: 0, len, evidenceRef: q.evidenceRef || null };
-  let earned = 0, total = 0, missingRequired = false;
-  const matched = [];
-  (q.keywords || []).forEach(kw => {
-    const w = kw.weight || 1;
-    total += w;
+  const details = (q.keywords || []).map(kw => {
     const alts = (kw.alts || []).concat(kw.text);
-    const hit = alts.some(a => a && text.includes(a));
-    if(hit){ earned += w; matched.push(kw.text); }
-    else if(kw.required) missingRequired = true;
+    const hit = !!text && alts.some(a => a && text.includes(a));
+    return { label: kw.label || kw.text, weight: kw.weight || 1, required: !!kw.required, hit };
   });
-  let coverage = total ? earned / total : (len ? 0.5 : 0);
+  if(!text) return { score: 0, coverage: 0, lenFactor: 0, len, details, evidenceRef: q.evidenceRef || null };
+  let earned = 0, total = 0, missingRequired = false;
+  details.forEach(d => {
+    total += d.weight;
+    if(d.hit) earned += d.weight;
+    else if(d.required) missingRequired = true;
+  });
+  let coverage = total ? earned / total : 0;
   if(missingRequired) coverage = Math.min(coverage, 0.5);
   let lenFactor = 1;
   if(q.minLen && q.maxLen){
@@ -236,8 +252,17 @@ function scoreFreeText(raw, q){
       lenFactor = Math.max(0.55, 1 - over / q.maxLen);
     }
   }
-  return { score: Math.max(0, Math.min(1, coverage * lenFactor)), coverage, lenFactor, len, matched, evidenceRef: q.evidenceRef || null };
+  return { score: Math.max(0, Math.min(1, coverage * lenFactor)), coverage, lenFactor, len, details, evidenceRef: q.evidenceRef || null };
 }
+
+/* 字数の目安バッジ（常時表示。設問の直後、解答欄より前に出す＝
+   「まず字数の制限をはっきり書いてほしい」という指示への対応）。 */
+function lenSpecHtml(q){
+  const spec = (q.minLen && q.maxLen) ? `${q.minLen}〜${q.maxLen}字程度` : "字数の指定なし（自由な長さでよい）";
+  return `<div class="lenspec ui">📏 字数の目安：<b>${escHtml(spec)}</b></div>`;
+}
+/* 採点基準の説明（どの記述問題でも同じ文言にして、基準をそろえる）。 */
+const GRADE_POLICY_HTML = `<div class="gradepolicy ui">採点について：①下の3つのポイントをどれだけふくんでいるか、②指定の字数の目安に収まっているか、の2つで得点が決まります。★のポイントが無いと、点数は半分以下になります。ヒントを見ると、その設問の得点がやや下がります（0にはなりません）。</div>`;
 
 /* ---- 傍線部のハイライト（設問が指す記号だけ.nowを付け、見える位置までスクロール） ---- */
 function highlightU(letters){
@@ -251,7 +276,7 @@ function highlightU(letters){
 }
 
 let qNum = 0;
-const TOTAL_Q = HARD.front.length + HARD.back.length + HARD.whole.length;
+const TOTAL_Q = HARD.front.length + HARD.back.length;
 function updateQGauge(){
   const label = $("qprogLabel"), fill = $("qprogFill");
   if(!label || !fill) return;
@@ -267,25 +292,27 @@ function renderFreeQuestion(q, onNext){
   let hintUsed = false, graded = null;
 
   const h = document.createElement("div"); h.className = "q-head ui"; h.textContent = q.head;
-  const p = document.createElement("p"); p.className = "q-text";
-  p.textContent = q.text + (q.minLen && q.maxLen ? `（${q.minLen}〜${q.maxLen}字程度）` : "");
-  z.append(h, p);
+  const p = document.createElement("p"); p.className = "q-text"; p.textContent = q.text;
+  z.append(h, p, htmlToNode(lenSpecHtml(q)));
 
   const wrap = document.createElement("div"); wrap.className = "freeq";
   const ta = document.createElement("textarea");
   ta.placeholder = "ここに書き込みましょう。";
   wrap.appendChild(ta);
   const meta = document.createElement("div"); meta.className = "freeq-meta";
-  meta.innerHTML = `<span class="freeq-len">0字</span><span></span>`;
+  const specText = (q.minLen && q.maxLen) ? `（目安${q.minLen}〜${q.maxLen}字）` : "";
+  meta.innerHTML = `<span class="freeq-len">0字${escHtml(specText)}</span><span></span>`;
   wrap.appendChild(meta);
   ta.addEventListener("input", () => {
     const len = ta.value.replace(/\s+/g, "").length;
     const lenEl = meta.querySelector(".freeq-len");
-    lenEl.textContent = `${len}字`;
+    lenEl.textContent = `${len}字${specText}`;
     const outOfRange = q.minLen && q.maxLen && (len < q.minLen || len > q.maxLen) && len > 0;
     meta.classList.toggle("over", !!outOfRange);
   });
   z.appendChild(wrap);
+
+  z.appendChild(htmlToNode(GRADE_POLICY_HTML));
 
   const row = document.createElement("div"); row.className = "freeq-row";
   const hintBtn = document.createElement("button");
@@ -307,6 +334,8 @@ function renderFreeQuestion(q, onNext){
 
   gradeBtn.onclick = () => {
     graded = scoreFreeText(ta.value, q);
+    const hitCount = graded.details.filter(d => d.hit).length;
+    const total = graded.details.length;
     let band = "g-low", msg = "本文をもう一度読み直してみましょう。";
     if(graded.score >= 0.75){ band = "g-good"; msg = "よく書けています。"; }
     else if(graded.score >= 0.4){ band = "g-mid"; msg = "方向性は合っています。もう少しくわしく書けるとさらによくなります。"; }
@@ -316,8 +345,14 @@ function renderFreeQuestion(q, onNext){
         ? `　指定の字数（${q.minLen}〜${q.maxLen}字）に対して短めです。`
         : `　指定の字数（${q.minLen}〜${q.maxLen}字）に対して長めです。`;
     }
+    const checklist = graded.details.map(d => `
+      <div class="rubric-item ${d.hit ? "hit" : "miss"}">
+        <span class="rubric-mark">${d.hit ? "✓" : "✗"}</span>
+        <span>${d.required ? "★ " : ""}${escHtml(d.label)}</span>
+      </div>`).join("");
     gradeBox.className = "grade-box " + band;
-    gradeBox.innerHTML = `${msg}${lenNote}
+    gradeBox.innerHTML = `${msg}${lenNote}　（${hitCount}／${total}ポイント）
+      <div class="rubric-list">${checklist}</div>
       <div class="grade-model"><b>模範解答例</b>：${escHtml(q.model)}</div>`;
     gradeBtn.textContent = "採点し直す";
     if(!row.querySelector(".freeq-next")){
@@ -334,8 +369,8 @@ function renderFreeQuestion(q, onNext){
   $("paneQ").scrollTo({ top: 0, behavior: "smooth" });
 }
 
-/* ---- 全体についての選択問題（全文開示後） ---- */
-function renderChoiceQuestion(q, onNext){
+/* ---- 選択式の設問（前半直後の1問目、全文を読んだあとの最後の1問、両方に使う） ---- */
+function renderChoiceQuestion(q, isLast, onNext){
   qNum++; updateQGauge();
   highlightU(q.u);
   const z = $("qzone"); z.innerHTML = "";
@@ -379,7 +414,7 @@ function renderChoiceQuestion(q, onNext){
           fb.className = "fb ok";
           fb.textContent = "正解。" + q.exp;
           const nx = document.createElement("button");
-          nx.className = "next ui"; nx.type = "button"; nx.textContent = q.last ? "結果を見る" : "次へ";
+          nx.className = "next ui"; nx.type = "button"; nx.textContent = isLast ? "結果を見る" : "次へ";
           nx.onclick = () => {
             const base = XP_MAX * (hintUsed ? HINT_FACTOR : 1);
             addXp(Math.max(0, base - miss * MISS_STEP));
@@ -416,32 +451,22 @@ function renderChoiceQuestion(q, onNext){
   $("paneQ").scrollTo({ top: 0, behavior: "smooth" });
 }
 
-/* ---- 進行 ---- */
-let idx = 0;
-function askFront(){
-  if(idx < HARD.front.length){ renderFreeQuestion(HARD.front[idx], () => { idx++; askFront(); }); }
-  else { idx = 0; startBack(); }
-}
-function startBack(){
-  setStepUI("back");
-  $("prog").textContent = "後半を表示中（本文はこれで全文そろいました）";
-  revealRange(HARD.splitAt, PARAS.length);
-  askBack();
-}
-function askBack(){
-  if(idx < HARD.back.length){ renderFreeQuestion(HARD.back[idx], () => { idx++; askBack(); }); }
-  else { idx = 0; startWhole(); }
-}
-function startWhole(){
-  setStepUI("whole");
-  askWhole();
-}
-function askWhole(){
-  if(idx < HARD.whole.length){
-    const q = HARD.whole[idx];
-    q.last = (idx === HARD.whole.length - 1);
-    renderChoiceQuestion(q, () => { idx++; askWhole(); });
-  } else { finish(); }
+/* ---- 進行（前半の設問群→後半＝全文開示後の設問群、の2段階だけ。
+   設問の種類（記述／選択）は各設問オブジェクトのtypeで指定し、この関数は
+   タイプに応じて出し分けるだけにする＝設問の並び順（例：1問目は選択、
+   2問目は短い記述…）はtexts/<教材名>.jsのhard.front／hard.backの並び順
+   がそのまま出題順になる。） ---- */
+function runQueue(list, onAllDone){
+  let i = 0;
+  function next(){
+    if(i >= list.length){ onAllDone(); return; }
+    const q = list[i];
+    const isLast = (list === HARD.back) && (i === list.length - 1);
+    const advance = () => { i++; next(); };
+    if(q.type === "choice") renderChoiceQuestion(q, isLast, advance);
+    else renderFreeQuestion(q, advance);
+  }
+  next();
 }
 
 function finish(){
@@ -479,7 +504,12 @@ function boot(){
   setStepUI("front");
   $("prog").textContent = "前半を表示中";
   revealRange(0, HARD.splitAt);
-  askFront();
+  runQueue(HARD.front, () => {
+    setStepUI("back");
+    $("prog").textContent = "後半を表示中（本文はこれで全文そろいました）";
+    revealRange(HARD.splitAt, PARAS.length);
+    runQueue(HARD.back, finish);
+  });
 }
 if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
 else boot();
