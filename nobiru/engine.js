@@ -9,10 +9,21 @@
 
 const TEXT = window.NOBIRU_TEXT;
 const PARAS = TEXT.paras;
+const TEXT_KEY = TEXT.meta.key || TEXT.meta.title || document.title;
 const $ = id => document.getElementById(id);
 const svgNS = "http://www.w3.org/2000/svg";
 
 let stage = 0, finalIdx = 0;
+/* 累計経験値（イージーモード）。設問ごとの内訳は画面に出さず、この合計だけを
+   フッターに出し続ける（2026-09-19〜、ハードモード新設にあわせて経験値設計を見直し）。
+   NobiruRecordsが読み込まれている（records.js経由）教材だけ、自己ベストとの比較を
+   localStorageに保存する。読み込まれていない教材は、これまでどおり保存はしない。 */
+let totalXp = 0;
+function addXp(n){
+  totalXp += n;
+  const el = $("xpTotal");
+  if(el) el.innerHTML = `累計経験値　<b>${totalXp}</b>`;
+}
 const record = [];
 /* 設問の総数（教員の指示、2026-09-17〜：進み具合ゲージ用）。各段落のq、
    最終段落のqsの配列長を足し合わせるだけで、教材データには一切手を加えなくてよい。 */
@@ -436,15 +447,11 @@ function showQuestion(q, onClear){
           rec.done = true; paintMarks();
           consecutiveWrong = 0;
           fb.className = "fb ok"; fb.innerHTML = "";
-          /* ストック経験値の予告表示（教員の指示、2026-09-17〜）。1回目で正解＝10、
-             以後誤答1回につき2ずつ減る（実際の経験値・セーブデータには一切触れない、
-             見た目だけの予告。「調整中」の断り書きを必ず添える）。当初1秒で消していたが、
-             教員の指示（2026-09-17〜）でずっと表示したままにするよう変更。 */
+          /* 経験値（2026-09-19〜）。1回目で正解＝10、以後誤答1回につき2ずつ減る。
+             設問ごとの内訳（この10点）はここでは表示せず、addXp()でフッターの
+             累計だけを更新する（イージー・ハード共通の方針：内訳を見せない）。 */
           const xp = Math.max(0, 10 - rec.miss * 2);
-          const xpEl = document.createElement("div");
-          xpEl.className = "xp-toast";
-          xpEl.textContent = `ストック経験値${xp}獲得！（ごめんなさい、現在は調整中のため反映されません）`;
-          fb.appendChild(xpEl);
+          addXp(xp);
           const expText = document.createElement("div");
           expText.textContent = "正解。" + q.exp;
           fb.appendChild(expText);
@@ -516,10 +523,22 @@ function finish(){
   const clean = record.filter(r => r.miss === 0).length;
   const miss = record.reduce((n, r) => n + r.miss, 0);
   const rows = record.map((r, i) => `<tr><td>設問${kanjiNum(i + 1)}</td><td>${r.miss === 0 ? "○" : "誤答" + r.miss + "回"}</td></tr>`).join("");
+  /* 自己ベストとの比較（他者比較・順位は出さない。前回の自分の記録とだけ比べる）。
+     NobiruRecordsが読み込まれていない教材（records.jsを included していない教材HTML）
+     では、比較を出さず今回の合計だけを表示する。 */
+  let compareHtml = "";
+  if(window.NobiruRecords){
+    const { prev } = NobiruRecords.finish(TEXT_KEY, "easy", totalXp);
+    compareHtml = prev
+      ? `<p class="xp-compare">前回の累計経験値は${prev.lastXp}でした（自己ベスト${prev.bestXp}）。順位や他の人との比較はありません。自分の記録とだけ比べてみましょう。</p>`
+      : `<p class="xp-compare">これが今回の記録です。次に読むときは、この累計経験値と比べてみましょう。</p>`;
+  }
   $("qzone").innerHTML = `
     <div class="fin">
       <h2>読み終わりました</h2>
       <p>全${record.length}問のうち、一回目で正解できたのは${clean}問。誤答はのべ${miss}回でした。</p>
+      <p>累計経験値　<b>${totalXp}</b></p>
+      ${compareHtml}
       <table>${rows}</table>
       <p>本文はすべて出そろっています。「構造図」で全体のつながりを見てから、もう一度通して読んでみてください。</p>
       <button class="again ui" onclick="location.reload()">はじめからやり直す</button>
@@ -536,9 +555,15 @@ function boot(){
   if(theme) Object.keys(theme).forEach(k => document.documentElement.style.setProperty(k, theme[k]));
   window.addEventListener("resize", scheduleDemRedraw);
   $("b-fulltr").hidden = !hasTranslations;
+  /* モードバッジ・モード切りかえリンク（この2つの要素を持つ教材HTMLだけに出る。
+     イージー／ハードを毎回選び直せることを示す）。 */
+  if($("modeBadge")) $("modeBadge").textContent = "イージーモード";
+  if($("modeSwitch")) $("modeSwitch").href = location.pathname;
+  addXp(0);
   paintMarks();
   renderWordsList();
   step();
 }
-document.addEventListener("DOMContentLoaded", boot);
+if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+else boot();
 })();
