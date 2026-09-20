@@ -500,19 +500,35 @@ function renderChoiceQuestion(q, isLast, onNext){
   $("paneQ").scrollTo({ top: 0, behavior: "smooth" });
 }
 
-/* ---- 段階選択→組み立て型の記述設問（type:"guided"、2026-09-21〜試作。教員の発案）----
-   自由記述をいきなり書かせるのではなく、内容を選択式で段階的に確定させてから
-   （steps配列、各要素は選択式の設問と同じ形：text/ch/a/why/hint）、最後にその
-   内容をつなげて一つの文章に組み立てさせる（writeText・minLen・maxLen・
-   endForm・keywords・model・writeHint、書式はtype:"written"と同じ）。
-   選択の時点で内容の正誤が一意に決まるため、keywordsは「①・②で確認した
-   内容がそれぞれ含まれているか」だけを見る2項目・両方required:trueにそろえ、
-   scoreFreeTextをそのまま流用する（内容面の判定基準を増やす必要がない）。
-   主語・述語のねじれ（呼応の乱れ）は、AIを使わない静的なJSでは確実に判定
-   できないため自動採点の対象にしない。採点結果に「声に出して読み返そう」と
-   いう自己チェックの一文を必ず添えるにとどめる（教員との相談の結論）。 */
+/* ---- 段階選択→組み立て型の記述設問（type:"guided"、2026-09-21〜）----
+   自由記述をいきなり書かせるのではなく、内容を選択式で段階的に確定させる
+   （steps配列、各要素は選択式の設問と同じ形：text/ch/a/why/hint）。
+
+   最後の組み立て方は2通りある。
+   ① template方式（2026-09-21改訂、教員の指示：「選択問題を繰り返すことで、
+      記述の回答が自然と組みあがる仕組みにしてほしい。今のキーワード採点は
+      納得できない人が多くなりそう」）。templateは"{0}が、{1}。"のような
+      文字列で、{0}{1}…にsteps[0]〜のconfirmed（選んだ選択肢の文言そのもの）
+      をそのまま差し込んで文章を自動生成する。生成される文章はauthorが
+      templateと選択肢の文言をあらかじめ組み合わせて自然な日本語になる
+      よう書いてあるので、内容判定はsteps時点の選択式だけで完了しており、
+      自由記述としての採点は一切発生しない＝キーワード漏れ・言い換え
+      判定・文法（主語述語のねじれ）判定、いずれの問題も原理的に起きない。
+      画面には「書き写し欄」（自由参加・採点なし）を添え、実際に手で書く
+      練習の機会だけは残す。
+   ② written方式（旧・現在は未使用）。writeText・minLen・maxLen・endForm・
+      keywords・model・writeHintをtype:"written"と同じ書式で持たせ、
+      自由記述＋キーワード採点で仕上げる。templateが無いときはこちらに
+      フォールバックする（自由記述で仕上げさせたい設問を将来作る場合の
+      ための後方互換）。keywordsは「①・②で確認した内容がそれぞれ含まれて
+      いるか」の2項目・両方required:trueにそろえ、scoreFreeTextを流用する。
+      主語・述語のねじれは、AIを使わない静的なJSでは確実に判定できない
+      ため自動採点の対象にせず、「声に出して読み返そう」を添えるのみ。 */
 const GUIDED_POLICY_HTML = `<div class="gradepolicy ui">採点について：①・②で確認した内容が、それぞれ文章にふくまれているか、字数の目安に収まっているか、文の終わり方・「。」で終えているか、で得点が決まります。主語と述語がねじれていないかは自動では判定されないので、書き終えたら声に出して読み返しましょう。</div>`;
 const CIRCLED = ["①","②","③","④","⑤"];
+function assembleSentence(template, pieces){
+  return escHtml(template).replace(/\{(\d+)\}/g, (m, i) => `<span class="asm-piece">${escHtml(pieces[+i] || "")}</span>`);
+}
 function renderGuidedQuestion(q, isLast, onNext){
   qNum++; updateQGauge();
   highlightU(q.u);
@@ -521,7 +537,7 @@ function renderGuidedQuestion(q, isLast, onNext){
   const marks = "アイウエオ";
 
   function runStep(idx){
-    if(idx >= q.steps.length){ runWrite(); return; }
+    if(idx >= q.steps.length){ if(q.template) runAssemble(); else runWrite(); return; }
     const step = q.steps[idx];
     const z = $("qzone"); z.innerHTML = "";
     const h = document.createElement("div"); h.className = "q-head ui";
@@ -588,6 +604,44 @@ function renderGuidedQuestion(q, isLast, onNext){
     }
     renderChoices();
     z.append(h, p, ul, fb, row, hintBox);
+    $("paneQ").scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  /* template方式の組み立て画面。①・②の選択がここまでで正解している以上、
+     組み立てられる文章は必ずauthorが書いた自然な日本語になる（templateと
+     選択肢の文言はセットで作者が用意する）ため、自由記述の採点は発生しない。
+     「書き写し欄」は自由参加・採点なしの練習で、正誤判定は一切しない。 */
+  function runAssemble(){
+    const z = $("qzone"); z.innerHTML = "";
+    const h = document.createElement("div"); h.className = "q-head ui";
+    h.textContent = `${q.head}　（${q.steps.length + 1}／${q.steps.length + 1}）`;
+    const p = document.createElement("p"); p.className = "q-text";
+    p.textContent = "①・②で確認した内容から、文章が自動で組み立てられました。";
+    const asmBox = document.createElement("div"); asmBox.className = "asm-box";
+    asmBox.innerHTML = assembleSentence(q.template, confirmed);
+    const note = document.createElement("p"); note.className = "gradepolicy ui";
+    note.textContent = "声に出して読んで、意味がつながっているか確かめましょう。";
+    z.append(h, p, asmBox, note);
+
+    const wrap = document.createElement("div"); wrap.className = "freeq";
+    const label = document.createElement("p"); label.className = "note ui";
+    label.textContent = "↓ 上の文章を、そのまま書き写してみましょう（自由参加・採点はありません）。";
+    const ta = document.createElement("textarea");
+    ta.placeholder = "ここに書き写してみましょう。";
+    wrap.append(label, ta);
+    z.appendChild(wrap);
+
+    const row = document.createElement("div"); row.className = "freeq-row";
+    const nextBtn = document.createElement("button");
+    nextBtn.className = "next ui"; nextBtn.type = "button";
+    nextBtn.textContent = isLast ? "結果を見る" : "次へ";
+    nextBtn.onclick = () => {
+      const base = XP_MAX * (hintUsed ? HINT_FACTOR : 1);
+      addXp(Math.max(0, base - totalMiss * MISS_STEP));
+      onNext();
+    };
+    row.appendChild(nextBtn);
+    z.appendChild(row);
     $("paneQ").scrollTo({ top: 0, behavior: "smooth" });
   }
 
