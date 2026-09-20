@@ -461,7 +461,7 @@ function renderChoiceQuestion(q, isLast, onNext){
           [...ul.children].forEach(x => x.disabled = true);
           done = true;
           fb.className = "fb ok";
-          fb.textContent = "正解。" + q.exp;
+          fb.textContent = "正解。" + (q.exp || "");
           const nx = document.createElement("button");
           nx.className = "next ui"; nx.type = "button"; nx.textContent = isLast ? "結果を見る" : "次へ";
           nx.onclick = () => {
