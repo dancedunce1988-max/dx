@@ -24,8 +24,18 @@ function escHtml(s){
 if(mode){
   modeRoot.hidden = true;
   readerRoot.hidden = false;
+  /* engine.js／engine_hard.jsは動的にscriptタグを作って読み込むため、
+     HTML側の<script src="...?v=...">のようなキャッシュ対策が効かず、
+     修正を配信してもブラウザに古い版がキャッシュされたまま反映されない
+     ことがあった（教員の報告、2026-09-23〜：更新したはずの表示が
+     実際には出ていなかった）。modeselect.js自身のsrcに付いている
+     ?v=をそのまま引き継ぐことで、HTML側のバージョンを上げるたびに
+     engine.js／engine_hard.jsも一緒にキャッシュが更新されるようにする。 */
+  const selfSrc = (document.currentScript && document.currentScript.src) || "";
+  const verMatch = selfSrc.match(/[?&]v=([^&]+)/);
+  const verQuery = verMatch ? ("?v=" + verMatch[1]) : "";
   const s = document.createElement("script");
-  s.src = mode === "hard" ? "engine_hard.js" : "engine.js";
+  s.src = (mode === "hard" ? "engine_hard.js" : "engine.js") + verQuery;
   document.body.appendChild(s);
 } else {
   readerRoot.hidden = true;
