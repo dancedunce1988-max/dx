@@ -26,6 +26,22 @@ body{
 }
 .ui{font-family:"Hiragino Kaku Gothic ProN","Yu Gothic","Noto Sans JP",sans-serif;}
 
+/* #readerRoot（モード選択画面の追加、2026-09-19〜でbodyの直接の子だった
+   .top/.main/.footを1つのdivでラップした際の見落とし、2026-09-22〜で修正）。
+   .main{flex:1 1 auto}は「親がflexコンテナであること」が前提だが、
+   #readerRootが素のdiv（display:block）のままだったため、.mainは画面の
+   残り高さを埋められず、内容の高さぶんだけ伸びてしまっていた。bodyには
+   overflow:hiddenがあるので、伸びた分（.foot＝進み具合や累計経験値など）が
+   画面の下にはみ出て、スクロールしても永久に届かなくなっていた（PCでは
+   本文と設問が横並びで済むぶん目立ちにくいが、モバイルでは上下に積む
+   レイアウトのため、後半の設問やフッターが事実上ずっと隠れたままになる、
+   という重い不具合だった）。#readerRootをbody本来の役割（flexコンテナ・
+   画面いっぱいの高さ）に戻すことで、.top/.main/.footが正しく画面内に
+   収まり、.main配下の.pane-text/.pane-qがそれぞれ独立にスクロールする
+   本来の設計どおりに動くようにする。 */
+#readerRoot{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;}
+#readerRoot[hidden]{display:none;}
+
 .top{flex:0 0 auto;padding:9px 16px;border-bottom:1px solid var(--hair);
   display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;}
 .top h1{font-size:17px;font-weight:600;letter-spacing:.16em;margin:0;}
@@ -35,14 +51,28 @@ body{
 .top .back:hover{border-color:var(--stone);}
 
 .main{flex:1 1 auto;min-height:0;display:flex;}
-.pane{overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.pane{overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:0;}
 .pane-text{flex:1.25 1 0;border-right:1px solid var(--hair);padding:10px 18px 30px;}
 .pane-q{flex:1 1 0;padding:14px 18px 30px;background:#fafbf8;}
 .inner{max-width:600px;margin:0 auto;}
 @media (max-width:880px){
+  /* 教員の指摘、2026-09-22〜：モバイルでは本文と設問が上下に分割され、それぞれ
+     独立にスクロールする作りのため、「今どちらを見ているか」「境目がどこか」が
+     分かりにくかった。各ペインの先頭に、スクロールしても常に見えるラベル
+     （position:sticky）を付け、色も変えて一目で区別できるようにする。
+     PC版（880px超）はこのメディアクエリの外なので一切変わらない。 */
   .main{flex-direction:column;}
-  .pane-text{flex:0 0 52%;border-right:0;border-bottom:1px solid var(--hair);padding:8px 14px 16px;}
-  .pane-q{flex:1 1 auto;padding:12px 14px 26px;}
+  .pane-text{flex:0 0 52%;border-right:0;border-bottom:0;padding:0 14px 16px;
+    box-shadow:0 6px 10px -8px rgba(34,40,42,.35);position:relative;z-index:1;}
+  .pane-q{flex:1 1 auto;padding:0 14px 26px;background:#eef1ec;}
+  .pane-text::before, .pane-q::before{
+    display:block;position:sticky;top:0;z-index:5;
+    margin:0 -14px 9px;padding:6px 14px;
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic","Noto Sans JP",sans-serif;
+    font-size:11px;letter-spacing:.12em;color:#fff;
+  }
+  .pane-text::before{content:"📖 本文（読むところ）";background:var(--ink-soft);}
+  .pane-q::before{content:"✏️ 設問（答えるところ）";background:var(--moss);}
 }
 
 /* ---- 道具だて ---- */
