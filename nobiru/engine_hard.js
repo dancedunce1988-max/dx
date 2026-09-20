@@ -283,6 +283,17 @@ function scoreFreeText(raw, q){
   return { score: Math.max(0, Math.min(1, coverage * lenFactor * punctFactor)), coverage, lenFactor, punctFactor, len, details, endCheck, evidenceRef: q.evidenceRef || null };
 }
 
+/* 元の設問文を常時表示するための共通ノード（教員の指摘、2026-09-23〜：
+   guided型（段階選択→組み立て）は、steps各段の選択式ミニ設問（step.text）
+   だけが画面に出て、そもそも何を問われているかという「もとの設問」
+   （q.text）が組み立て画面などで見えなくなっていた。①・②のどの段階でも、
+   常にこの元の設問を表示し続ける。 */
+function mainQuestionNode(q){
+  const p = document.createElement("p");
+  p.className = "q-maintext";
+  p.textContent = q.text || "";
+  return p;
+}
 /* 字数の目安バッジ（常時表示。設問の直後、解答欄より前に出す＝
    「まず字数の制限をはっきり書いてほしい」という指示への対応）。 */
 function lenSpecHtml(q){
@@ -545,6 +556,7 @@ function renderGuidedQuestion(q, isLast, onNext){
     const z = $("qzone"); z.innerHTML = "";
     const h = document.createElement("div"); h.className = "q-head ui";
     h.textContent = `${q.head}　（${idx + 1}／${q.steps.length + 1}）`;
+    z.append(h, mainQuestionNode(q));
     const p = document.createElement("p"); p.className = "q-text"; p.textContent = step.text;
     const ul = document.createElement("div"); ul.className = "choices";
     const fb = document.createElement("div");
@@ -606,7 +618,7 @@ function renderGuidedQuestion(q, isLast, onNext){
       });
     }
     renderChoices();
-    z.append(h, p, ul, fb, row, hintBox);
+    z.append(p, ul, fb, row, hintBox);
     $("paneQ").scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -627,12 +639,22 @@ function renderGuidedQuestion(q, isLast, onNext){
     p.textContent = "①・②で確認した内容をつなげて、自分の言葉で一つの文章に書いてみましょう。";
     const chips = document.createElement("div"); chips.className = "guided-chips ui";
     chips.innerHTML = confirmed.map((c, i) => `<span class="guided-chip">${CIRCLED[i] || (i + 1)} ${escHtml(c)}</span>`).join("");
-    z.append(h, p, chips);
+    z.append(h, mainQuestionNode(q), p, chips, htmlToNode(lenSpecHtml(q)));
 
     const wrap = document.createElement("div"); wrap.className = "freeq";
     const ta = document.createElement("textarea");
     ta.placeholder = "①・②をつなげて、一つの文章に書いてみましょう。";
     wrap.appendChild(ta);
+    const meta = document.createElement("div"); meta.className = "freeq-meta";
+    const specText = (q.minLen && q.maxLen) ? `（目安${q.minLen}〜${q.maxLen}字）` : "";
+    meta.innerHTML = `<span class="freeq-len">0字${escHtml(specText)}</span><span></span>`;
+    wrap.appendChild(meta);
+    ta.addEventListener("input", () => {
+      const len = ta.value.replace(/\s+/g, "").length;
+      meta.querySelector(".freeq-len").textContent = `${len}字${specText}`;
+      const outOfRange = q.minLen && q.maxLen && (len < q.minLen || len > q.maxLen) && len > 0;
+      meta.classList.toggle("over", !!outOfRange);
+    });
     z.appendChild(wrap);
 
     const row = document.createElement("div"); row.className = "freeq-row";
@@ -676,7 +698,7 @@ function renderGuidedQuestion(q, isLast, onNext){
     const p = document.createElement("p"); p.className = "q-text"; p.textContent = q.writeText;
     const chips = document.createElement("div"); chips.className = "guided-chips ui";
     chips.innerHTML = confirmed.map((c, i) => `<span class="guided-chip">${CIRCLED[i] || (i + 1)} ${escHtml(c)}</span>`).join("");
-    z.append(h, p, chips, htmlToNode(lenSpecHtml(q)));
+    z.append(h, mainQuestionNode(q), p, chips, htmlToNode(lenSpecHtml(q)));
 
     const wrap = document.createElement("div"); wrap.className = "freeq";
     const ta = document.createElement("textarea");
