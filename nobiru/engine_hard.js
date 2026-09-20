@@ -507,15 +507,18 @@ function renderChoiceQuestion(q, isLast, onNext){
    最後の組み立て方は2通りある。
    ① template方式（2026-09-21改訂、教員の指示：「選択問題を繰り返すことで、
       記述の回答が自然と組みあがる仕組みにしてほしい。今のキーワード採点は
-      納得できない人が多くなりそう」）。templateは"{0}が、{1}。"のような
-      文字列で、{0}{1}…にsteps[0]〜のconfirmed（選んだ選択肢の文言そのもの）
-      をそのまま差し込んで文章を自動生成する。生成される文章はauthorが
-      templateと選択肢の文言をあらかじめ組み合わせて自然な日本語になる
-      よう書いてあるので、内容判定はsteps時点の選択式だけで完了しており、
-      自由記述としての採点は一切発生しない＝キーワード漏れ・言い換え
-      判定・文法（主語述語のねじれ）判定、いずれの問題も原理的に起きない。
-      画面には「書き写し欄」（自由参加・採点なし）を添え、実際に手で書く
-      練習の機会だけは残す。
+      納得できない人が多くなりそう」／2026-09-22再改訂：「先に組み立て文を
+      見せて書き写すだけでは勉強の意味が感じられない」）。templateは
+      "{0}が、{1}。"のような文字列で、{0}{1}…にsteps[0]〜のconfirmed
+      （選んだ選択肢の文言そのもの）をそのまま差し込んで文章を自動生成する。
+      画面の流れは「先に生徒自身の言葉で一文を書かせる（runAssembleの
+      textarea）→書けたらauthorのtemplate組み立て文を答え合わせとして
+      見せて見比べさせる」の順（先に見せて書き写すだけの逆順にはしない）。
+      生徒の自由記述そのものは一切採点しない＝内容の正誤はsteps時点の
+      選択式だけで確定済みなので、キーワード漏れ・言い換え判定・文法
+      （主語述語のねじれ）判定、いずれの自動採点も発生させない。それでいて
+      「実際に文章を組み立てる」思考作業そのものは、書く順序を先にする
+      ことで残している。
    ② written方式（旧・現在は未使用）。writeText・minLen・maxLen・endForm・
       keywords・model・writeHintをtype:"written"と同じ書式で持たせ、
       自由記述＋キーワード採点で仕上げる。templateが無いときはこちらに
@@ -607,41 +610,61 @@ function renderGuidedQuestion(q, isLast, onNext){
     $("paneQ").scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  /* template方式の組み立て画面。①・②の選択がここまでで正解している以上、
-     組み立てられる文章は必ずauthorが書いた自然な日本語になる（templateと
-     選択肢の文言はセットで作者が用意する）ため、自由記述の採点は発生しない。
-     「書き写し欄」は自由参加・採点なしの練習で、正誤判定は一切しない。 */
+  /* template方式の組み立て画面（2026-09-22改訂：先に見せて書き写すだけでは
+     「勉強の意味が感じられない」という教員の指摘を受け、順序を逆にした）。
+     ①・②で確認した内容だけを手がかりに、まず生徒自身の言葉で一文を組み立てて
+     もらい（＝実際に文章を作る思考作業はここで発生する）、そのあとで
+     authorが用意したtemplate組み立て文（templateと選択肢の文言はセットで
+     自然な日本語になるよう作者が用意している）を答え合わせとして見せ、
+     見比べさせる。自由記述の内容は一切採点しない＝内容の正誤は選択式の
+     時点で確定済みなので、ここでは「組み立てる力」を自己チェックさせる
+     だけにとどめ、キーワード一致等の判定ミスが起きる余地を残さない。 */
   function runAssemble(){
     const z = $("qzone"); z.innerHTML = "";
     const h = document.createElement("div"); h.className = "q-head ui";
     h.textContent = `${q.head}　（${q.steps.length + 1}／${q.steps.length + 1}）`;
     const p = document.createElement("p"); p.className = "q-text";
-    p.textContent = "①・②で確認した内容から、文章が自動で組み立てられました。";
-    const asmBox = document.createElement("div"); asmBox.className = "asm-box";
-    asmBox.innerHTML = assembleSentence(q.template, confirmed);
-    const note = document.createElement("p"); note.className = "gradepolicy ui";
-    note.textContent = "声に出して読んで、意味がつながっているか確かめましょう。";
-    z.append(h, p, asmBox, note);
+    p.textContent = "①・②で確認した内容をつなげて、自分の言葉で一つの文章に書いてみましょう。";
+    const chips = document.createElement("div"); chips.className = "guided-chips ui";
+    chips.innerHTML = confirmed.map((c, i) => `<span class="guided-chip">${CIRCLED[i] || (i + 1)} ${escHtml(c)}</span>`).join("");
+    z.append(h, p, chips);
 
     const wrap = document.createElement("div"); wrap.className = "freeq";
-    const label = document.createElement("p"); label.className = "note ui";
-    label.textContent = "↓ 上の文章を、そのまま書き写してみましょう（自由参加・採点はありません）。";
     const ta = document.createElement("textarea");
-    ta.placeholder = "ここに書き写してみましょう。";
-    wrap.append(label, ta);
+    ta.placeholder = "①・②をつなげて、一つの文章に書いてみましょう。";
+    wrap.appendChild(ta);
     z.appendChild(wrap);
 
     const row = document.createElement("div"); row.className = "freeq-row";
-    const nextBtn = document.createElement("button");
-    nextBtn.className = "next ui"; nextBtn.type = "button";
-    nextBtn.textContent = isLast ? "結果を見る" : "次へ";
-    nextBtn.onclick = () => {
-      const base = XP_MAX * (hintUsed ? HINT_FACTOR : 1);
-      addXp(Math.max(0, base - totalMiss * MISS_STEP));
-      onNext();
-    };
-    row.appendChild(nextBtn);
+    const compareBtn = document.createElement("button");
+    compareBtn.className = "next ui"; compareBtn.type = "button"; compareBtn.textContent = "書けたら、組み立て文と比べる";
+    row.appendChild(compareBtn);
     z.appendChild(row);
+
+    const resultZone = document.createElement("div");
+    z.appendChild(resultZone);
+
+    compareBtn.onclick = () => {
+      if(!ta.value.trim()){ alert("①・②の内容をつなげて、まず自分の文章を書いてみましょう。"); return; }
+      ta.disabled = true;
+      compareBtn.disabled = true;
+      const asmBox = document.createElement("div"); asmBox.className = "asm-box";
+      asmBox.innerHTML = assembleSentence(q.template, confirmed);
+      const note = document.createElement("p"); note.className = "gradepolicy ui";
+      note.textContent = "①・②の内容をもとに組み立てた文章です。自分の文章と見比べて、同じ内容が伝わるか、声に出して読み、主語と述語がつながっているかも確かめましょう（この文章の採点はありません）。";
+      const nextRow = document.createElement("div"); nextRow.className = "freeq-row";
+      const nextBtn = document.createElement("button");
+      nextBtn.className = "next ui"; nextBtn.type = "button";
+      nextBtn.textContent = isLast ? "結果を見る" : "次へ";
+      nextBtn.onclick = () => {
+        const base = XP_MAX * (hintUsed ? HINT_FACTOR : 1);
+        addXp(Math.max(0, base - totalMiss * MISS_STEP));
+        onNext();
+      };
+      nextRow.appendChild(nextBtn);
+      resultZone.append(asmBox, note, nextRow);
+      resultZone.scrollIntoView({ behavior: "smooth", block: "center" });
+    };
     $("paneQ").scrollTo({ top: 0, behavior: "smooth" });
   }
 
