@@ -550,14 +550,15 @@ function renderGuidedQuestion(q, isLast, onNext){
   const confirmed = [];
   const marks = "アイウエオ";
 
-  function runStep(idx){
-    if(idx >= q.steps.length){ if(q.template) runAssemble(); else runWrite(); return; }
-    const step = q.steps[idx];
+  /* 1つの選択式ミニ設問（根拠選択・内容選択、どちらも同じ形）を描画する共通処理。
+     spec: {text, ch, a, why, hint}。正解を選ぶと onCorrect(選ばれた選択肢の文言)を呼ぶ。
+     headSuffix で画面上部の見出しに「（根拠さがし）」「（内容の確認）」を出し分ける。 */
+  function renderChoicePhase(idx, spec, headSuffix, onCorrect){
     const z = $("qzone"); z.innerHTML = "";
     const h = document.createElement("div"); h.className = "q-head ui";
-    h.textContent = `${q.head}　（${idx + 1}／${q.steps.length + 1}）`;
+    h.textContent = `${q.head}　（${idx + 1}／${q.steps.length + 1}）${headSuffix}`;
     z.append(h, mainQuestionNode(q));
-    const p = document.createElement("p"); p.className = "q-text"; p.textContent = step.text;
+    const p = document.createElement("p"); p.className = "q-text"; p.textContent = spec.text;
     const ul = document.createElement("div"); ul.className = "choices";
     const fb = document.createElement("div");
     const row = document.createElement("div"); row.className = "freeq-row";
@@ -566,13 +567,13 @@ function renderGuidedQuestion(q, isLast, onNext){
     const hintBox = document.createElement("div"); hintBox.className = "hint-box"; hintBox.hidden = true;
     hintBtn.onclick = () => {
       hintUsed = true;
-      hintBox.textContent = "ヒント：" + step.hint;
+      hintBox.textContent = "ヒント：" + spec.hint;
       hintBox.hidden = false;
       hintBtn.disabled = true;
     };
     row.appendChild(hintBtn);
 
-    let order = step.ch.map((c, i) => i);
+    let order = spec.ch.map((c, i) => i);
     function shuffleOrder(){
       for(let i = order.length - 1; i > 0; i--){
         const j = Math.floor(Math.random() * (i + 1));
@@ -583,21 +584,20 @@ function renderGuidedQuestion(q, isLast, onNext){
       ul.innerHTML = "";
       order.forEach((i, pos) => {
         const b = document.createElement("button");
-        b.innerHTML = `<span class="mk ui">${marks[pos] || pos + 1}</span><span>${escHtml(step.ch[i])}</span>`;
+        b.innerHTML = `<span class="mk ui">${marks[pos] || pos + 1}</span><span>${escHtml(spec.ch[i])}</span>`;
         b.onclick = () => {
-          if(i === step.a){
+          if(i === spec.a){
             b.classList.add("right");
             [...ul.children].forEach(x => x.disabled = true);
-            confirmed.push(step.ch[step.a]);
             fb.className = "fb ok"; fb.textContent = "正解。";
             const nx = document.createElement("button");
             nx.className = "next ui"; nx.type = "button"; nx.textContent = "次へ";
-            nx.onclick = () => runStep(idx + 1);
+            nx.onclick = () => onCorrect(spec.ch[spec.a]);
             fb.appendChild(document.createElement("br")); fb.appendChild(nx);
           } else {
             totalMiss++;
             fb.className = "fb ng";
-            fb.textContent = (step.why && step.why[i]) ? step.why[i] : "ちがいます。本文を読み直してみましょう。";
+            fb.textContent = (spec.why && spec.why[i]) ? spec.why[i] : "ちがいます。本文を読み直してみましょう。";
             [...ul.children].forEach(x => x.disabled = true);
             const retry = document.createElement("button");
             retry.className = "next ui"; retry.type = "button"; retry.textContent = "もう一度答える";
@@ -620,6 +620,24 @@ function renderGuidedQuestion(q, isLast, onNext){
     renderChoices();
     z.append(p, ul, fb, row, hintBox);
     $("paneQ").scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  /* 記述問題の「本文のどこが根拠か分からない」という指摘（教員、2026-09-23〜）
+     への対応。各stepに evidence（{text,ch,a,why,hint}、本文中の候補となる文を
+     選択肢にする）があれば、内容そのものを選ぶ前に、まず根拠となる一文を
+     選ばせる。根拠を選べたら、続けて同じstepの内容確認（step.ch）に進む。
+     evidenceが無いstepは、これまでどおり内容確認だけを出す（後方互換）。 */
+  function runStep(idx){
+    if(idx >= q.steps.length){ if(q.template) runAssemble(); else runWrite(); return; }
+    const step = q.steps[idx];
+    const finishStep = () => { confirmed.push(step.ch[step.a]); runStep(idx + 1); };
+    if(step.evidence){
+      renderChoicePhase(idx, step.evidence, "（根拠さがし）", () => {
+        renderChoicePhase(idx, step, "（内容の確認）", finishStep);
+      });
+    } else {
+      renderChoicePhase(idx, step, "", finishStep);
+    }
   }
 
   /* template方式の組み立て画面（2026-09-22改訂：先に見せて書き写すだけでは
