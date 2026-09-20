@@ -216,27 +216,44 @@ function setStepUI(key){
   }).join("");
 }
 
-/* ---- 記述式の採点基準（2026-09-19〜、標準化）----
+/* ---- 記述式の採点基準（2026-09-20〜、自己採点方式に変更）----
+   キーワードの文字列一致だけで自動的に✗にする方式は、「言い換えているだけで
+   内容は合っている」答えまで機械的に不正解にしてしまい、生徒が納得できない
+   （教員のフィードバック、2026-09-20）。そこで、自動判定は「下書き」として
+   だけ使い、最終的にどのポイントを満たしたかは模範解答と見比べて生徒自身が
+   決める「自己採点」に変更する。
    すべての記述問題は、必ず3つの採点ポイント（keywords配列、必ず3項目）で
    できている：①必須ポイント(required:true・配点2)②重要ポイント(配点2)
-   ③補助ポイント(配点1)の合計5点満点。同じ配点ルールをどの設問にも
-   例外なく適用することで、「なぜその点数になったか」を毎回同じ形で
-   説明できるようにしてある（教材ごとに基準がぶれない）。
-   完全一致ではなく、模範解答に含まれるキーワード（同義の言い換えはaltsに）が
-   含まれているかで部分点にする。必須ポイントを落とすと、得点の上限を
-   0.5（5点満点中2.5点相当）に抑える。字数の下限・上限から外れているぶんも
-   減点する（内容が合っていても、指定字数を意識させるため）。
+   ③補助ポイント(配点1)の合計5点満点。この配点ルールはどの設問にも
+   例外なく適用し、「なぜその点数になったか」を毎回同じ形で説明できる
+   ようにしてある（教材ごとに基準がぶれない）。
+   字数の下限・上限から外れているぶんは、内容の自己採点とは別に、
+   このscoreFreeText()の時点で機械的に減点する（字数は誰が見ても明らかな
+   客観的事実なので、ここだけは自動判定のままでよい）。
    結果オブジェクトの evidenceRef は、将来「本文のどの部分を根拠にしたか」を
    採点に組み込みたくなったときのための予約フィールド（今回は採点に使わない）。 */
 function scoreFreeText(raw, q){
   const text = String(raw || "").replace(/\s+/g, "");
   const len = text.length;
+  /* hitはあくまで自動判定の「下書き」。生徒がトグルで上書きできる初期値。 */
   const details = (q.keywords || []).map(kw => {
     const alts = (kw.alts || []).concat(kw.text);
     const hit = !!text && alts.some(a => a && text.includes(a));
     return { label: kw.label || kw.text, weight: kw.weight || 1, required: !!kw.required, hit };
   });
-  if(!text) return { score: 0, coverage: 0, lenFactor: 0, len, details, evidenceRef: q.evidenceRef || null };
+  let lenFactor = 1;
+  if(q.minLen && q.maxLen){
+    if(len < q.minLen || len > q.maxLen){
+      const over = len < q.minLen ? (q.minLen - len) : (len - q.maxLen);
+      lenFactor = Math.max(0.55, 1 - over / q.maxLen);
+    }
+  }
+  return { len, details, lenFactor, evidenceRef: q.evidenceRef || null };
+}
+
+/* 自己採点の結果（生徒がトグルで確定したdetails）と字数係数から、最終得点
+   （0〜1）を計算する。ロジックはscoreFreeTextのコメントと同じ配点ルール。 */
+function finalizeScore(details, lenFactor){
   let earned = 0, total = 0, missingRequired = false;
   details.forEach(d => {
     total += d.weight;
@@ -245,14 +262,7 @@ function scoreFreeText(raw, q){
   });
   let coverage = total ? earned / total : 0;
   if(missingRequired) coverage = Math.min(coverage, 0.5);
-  let lenFactor = 1;
-  if(q.minLen && q.maxLen){
-    if(len < q.minLen || len > q.maxLen){
-      const over = len < q.minLen ? (q.minLen - len) : (len - q.maxLen);
-      lenFactor = Math.max(0.55, 1 - over / q.maxLen);
-    }
-  }
-  return { score: Math.max(0, Math.min(1, coverage * lenFactor)), coverage, lenFactor, len, details, evidenceRef: q.evidenceRef || null };
+  return Math.max(0, Math.min(1, coverage * lenFactor));
 }
 
 /* 字数の目安バッジ（常時表示。設問の直後、解答欄より前に出す＝
@@ -261,8 +271,10 @@ function lenSpecHtml(q){
   const spec = (q.minLen && q.maxLen) ? `${q.minLen}〜${q.maxLen}字程度` : "字数の指定なし（自由な長さでよい）";
   return `<div class="lenspec ui">📏 字数の目安：<b>${escHtml(spec)}</b></div>`;
 }
-/* 採点基準の説明（どの記述問題でも同じ文言にして、基準をそろえる）。 */
-const GRADE_POLICY_HTML = `<div class="gradepolicy ui">採点について：①下の3つのポイントをどれだけふくんでいるか、②指定の字数の目安に収まっているか、の2つで得点が決まります。★のポイントが無いと、点数は半分以下になります。ヒントを見ると、その設問の得点がやや下がります（0にはなりません）。</div>`;
+/* 採点基準の説明（どの記述問題でも同じ文言にして、基準をそろえる）。
+   2026-09-20〜、自己採点方式であることを明記（機械的な文字列一致では
+   ないので、表現が違っていても内容が合っていれば「ふくめた」でよい）。 */
+const GRADE_POLICY_HTML = `<div class="gradepolicy ui">採点について：これは自己採点です。模範解答と見比べて、①〜③の内容を自分の解答がふくんでいたかどうかを、自分で選んでください（一字一句同じである必要はなく、内容の方向性が合っていれば「ふくめた」を選んでよい）。それに加えて、指定の字数の目安に収まっているかどうかも得点に関わります。★のポイントが無いと、点数は半分以下になります。ヒントを見ると、その設問の得点がやや下がります（0にはなりません）。</div>`;
 
 /* ---- 傍線部のハイライト（設問が指す記号だけ.nowを付け、見える位置までスクロール） ---- */
 function highlightU(letters){
@@ -333,38 +345,71 @@ function renderFreeQuestion(q, onNext){
   z.appendChild(gradeBox);
 
   gradeBtn.onclick = () => {
+    ta.disabled = true;
     graded = scoreFreeText(ta.value, q);
-    const hitCount = graded.details.filter(d => d.hit).length;
-    const total = graded.details.length;
-    let band = "g-low", msg = "本文をもう一度読み直してみましょう。";
-    if(graded.score >= 0.75){ band = "g-good"; msg = "よく書けています。"; }
-    else if(graded.score >= 0.4){ band = "g-mid"; msg = "方向性は合っています。もう少しくわしく書けるとさらによくなります。"; }
+    gradeBtn.hidden = true;
+
     let lenNote = "";
     if(q.minLen && q.maxLen && graded.lenFactor < 1){
       lenNote = graded.len < q.minLen
-        ? `　指定の字数（${q.minLen}〜${q.maxLen}字）に対して短めです。`
-        : `　指定の字数（${q.minLen}〜${q.maxLen}字）に対して長めです。`;
+        ? `指定の字数（${q.minLen}〜${q.maxLen}字）に対して短めです。`
+        : `指定の字数（${q.minLen}〜${q.maxLen}字）に対して長めです。`;
     }
-    const checklist = graded.details.map(d => `
-      <div class="rubric-item ${d.hit ? "hit" : "miss"}">
-        <span class="rubric-mark">${d.hit ? "✓" : "✗"}</span>
-        <span>${d.required ? "★ " : ""}${escHtml(d.label)}</span>
-      </div>`).join("");
-    gradeBox.className = "grade-box " + band;
-    gradeBox.innerHTML = `${msg}${lenNote}　（${hitCount}／${total}ポイント）
-      <div class="rubric-list">${checklist}</div>
-      <div class="grade-model"><b>模範解答例</b>：${escHtml(q.model)}</div>`;
-    gradeBtn.textContent = "採点し直す";
-    if(!row.querySelector(".freeq-next")){
-      const nextBtn = document.createElement("button");
-      nextBtn.className = "next ui freeq-next"; nextBtn.type = "button"; nextBtn.textContent = "次へ";
-      nextBtn.onclick = () => {
-        const base = XP_MAX * (hintUsed ? HINT_FACTOR : 1);
-        addXp(base * (graded ? graded.score : 0));
-        onNext();
-      };
-      row.appendChild(nextBtn);
+    /* 自己採点：模範解答と見比べて、生徒自身がポイントごとに「ふくめた／
+       ふくめていない」を選ぶ。初期状態は自動判定（文字列一致）の下書きで、
+       いつでも選び直せる。文字列一致に頼らないことで、言い換えているだけの
+       正しい答えを機械的に✗にしてしまう問題を避ける（教員フィードバック、
+       2026-09-20）。 */
+    gradeBox.className = "grade-box self";
+    gradeBox.innerHTML = `
+      ${lenNote ? `<p class="lennote">${escHtml(lenNote)}</p>` : ""}
+      <div class="grade-model"><b>模範解答例</b>：${escHtml(q.model)}</div>
+      <p class="selfgrade-lead">上の模範解答と見比べて、自分の解答が①〜③をふくんでいたか、自分で選んでください。</p>
+      <div class="rubric-list"></div>
+      <p class="selfgrade-count"></p>`;
+    const list = gradeBox.querySelector(".rubric-list");
+    const countEl = gradeBox.querySelector(".selfgrade-count");
+    function renderCount(){
+      const hitCount = graded.details.filter(d => d.hit).length;
+      countEl.textContent = `${hitCount}／${graded.details.length}ポイントをふくめたと自己採点しました。`;
     }
+    graded.details.forEach((d, di) => {
+      const item = document.createElement("div");
+      item.className = "rubric-item self";
+      const yesBtn = document.createElement("button");
+      yesBtn.type = "button"; yesBtn.className = "rt-btn rt-yes";
+      yesBtn.textContent = "ふくめた";
+      const noBtn = document.createElement("button");
+      noBtn.type = "button"; noBtn.className = "rt-btn rt-no";
+      noBtn.textContent = "ふくめていない";
+      function refresh(){
+        yesBtn.classList.toggle("active", d.hit);
+        noBtn.classList.toggle("active", !d.hit);
+        renderCount();
+      }
+      yesBtn.onclick = () => { d.hit = true; refresh(); };
+      noBtn.onclick = () => { d.hit = false; refresh(); };
+      const label = document.createElement("span");
+      label.className = "rubric-label";
+      label.textContent = (d.required ? "★ " : "") + d.label;
+      const toggles = document.createElement("div");
+      toggles.className = "rubric-toggle";
+      toggles.append(yesBtn, noBtn);
+      item.append(label, toggles);
+      list.appendChild(item);
+      refresh();
+    });
+    renderCount();
+
+    const nextBtn = document.createElement("button");
+    nextBtn.className = "next ui"; nextBtn.type = "button"; nextBtn.textContent = "この内容で決定して次へ";
+    nextBtn.onclick = () => {
+      const score = finalizeScore(graded.details, graded.lenFactor);
+      const base = XP_MAX * (hintUsed ? HINT_FACTOR : 1);
+      addXp(base * score);
+      onNext();
+    };
+    gradeBox.appendChild(nextBtn);
   };
   $("paneQ").scrollTo({ top: 0, behavior: "smooth" });
 }
