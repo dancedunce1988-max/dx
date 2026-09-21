@@ -198,6 +198,7 @@ function revealRange(from, to){
     PARAS[i].s.forEach(sent => {
       const sp = document.createElement("span");
       sp.className = "s";
+      if(sent.n != null) sp.dataset.n = sent.n;
       parseInto(sent.t, sp);
       p.appendChild(sp);
     });
@@ -283,6 +284,17 @@ function scoreFreeText(raw, q){
   return { score: Math.max(0, Math.min(1, coverage * lenFactor * punctFactor)), coverage, lenFactor, punctFactor, len, details, endCheck, evidenceRef: q.evidenceRef || null };
 }
 
+/* 元の設問文を常時表示するための共通ノード（教員の指摘、2026-09-23〜：
+   guided型（段階選択→組み立て）は、steps各段の選択式ミニ設問（step.text）
+   だけが画面に出て、そもそも何を問われているかという「もとの設問」
+   （q.text）が組み立て画面などで見えなくなっていた。①・②のどの段階でも、
+   常にこの元の設問を表示し続ける。 */
+function mainQuestionNode(q){
+  const p = document.createElement("p");
+  p.className = "q-maintext";
+  p.textContent = q.text || "";
+  return p;
+}
 /* 字数の目安バッジ（常時表示。設問の直後、解答欄より前に出す＝
    「まず字数の制限をはっきり書いてほしい」という指示への対応）。 */
 function lenSpecHtml(q){
@@ -316,6 +328,32 @@ function highlightU(letters){
   if(first) first.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
+/* ---- 根拠さがし：本文を直接タップして選ぶ（2026-09-23〜、教員の指摘：
+   4択にすると簡単になりすぎるので、本文中から自分でさがしてタップする形に
+   してほしい）。#text内の.s（文単位のspan。revealRangeでdata-nを付けてある）
+   をキャプチャ段階でクリック監視しておき、evidencePickHandlerが立っている
+   間だけ有効にする。キャプチャ段階で拾うのは、文中の語釈(.g)等がバブル
+   フェーズでstopPropagation()しても、根拠として文そのものを選んだこと自体は
+   拾えるようにするため（語釈カードが開くのは従来どおりで構わない）。 */
+let evidencePickHandler = null;
+document.getElementById("text").addEventListener("click", e => {
+  if(!evidencePickHandler) return;
+  const s = e.target.closest(".s");
+  if(!s || !s.dataset.n) return;
+  evidencePickHandler(s);
+}, true);
+function clearEvidencePicks(){
+  document.querySelectorAll(".s.ev-right, .s.ev-wrong").forEach(e => e.classList.remove("ev-right", "ev-wrong"));
+}
+function enterEvidenceMode(){
+  document.body.classList.add("evidence-picking");
+}
+function exitEvidenceMode(){
+  document.body.classList.remove("evidence-picking");
+  evidencePickHandler = null;
+  clearEvidencePicks();
+}
+
 let qNum = 0;
 const TOTAL_Q = HARD.front.length + HARD.back.length;
 function updateQGauge(){
@@ -329,6 +367,7 @@ function updateQGauge(){
 function renderFreeQuestion(q, onNext){
   qNum++; updateQGauge();
   highlightU(q.u);
+  exitEvidenceMode();
   const z = $("qzone"); z.innerHTML = "";
   let hintUsed = false, graded = null;
 
@@ -422,6 +461,7 @@ function renderFreeQuestion(q, onNext){
 function renderChoiceQuestion(q, isLast, onNext){
   qNum++; updateQGauge();
   highlightU(q.u);
+  exitEvidenceMode();
   const z = $("qzone"); z.innerHTML = "";
   let miss = 0, hintUsed = false, done = false;
   const marks = "アイウエオ";
@@ -461,7 +501,7 @@ function renderChoiceQuestion(q, isLast, onNext){
           [...ul.children].forEach(x => x.disabled = true);
           done = true;
           fb.className = "fb ok";
-          fb.textContent = "正解。" + q.exp;
+          fb.textContent = "正解。" + (q.exp || "");
           const nx = document.createElement("button");
           nx.className = "next ui"; nx.type = "button"; nx.textContent = isLast ? "結果を見る" : "次へ";
           nx.onclick = () => {
@@ -539,13 +579,16 @@ function renderGuidedQuestion(q, isLast, onNext){
   const confirmed = [];
   const marks = "アイウエオ";
 
-  function runStep(idx){
-    if(idx >= q.steps.length){ if(q.template) runAssemble(); else runWrite(); return; }
-    const step = q.steps[idx];
+  /* 1つの選択式ミニ設問（根拠選択・内容選択、どちらも同じ形）を描画する共通処理。
+     spec: {text, ch, a, why, hint}。正解を選ぶと onCorrect(選ばれた選択肢の文言)を呼ぶ。
+     headSuffix で画面上部の見出しに「（根拠さがし）」「（内容の確認）」を出し分ける。 */
+  function renderChoicePhase(idx, spec, headSuffix, onCorrect){
+    exitEvidenceMode();
     const z = $("qzone"); z.innerHTML = "";
     const h = document.createElement("div"); h.className = "q-head ui";
-    h.textContent = `${q.head}　（${idx + 1}／${q.steps.length + 1}）`;
-    const p = document.createElement("p"); p.className = "q-text"; p.textContent = step.text;
+    h.textContent = `${q.head}　（${idx + 1}／${q.steps.length + 1}）${headSuffix}`;
+    z.append(h, mainQuestionNode(q));
+    const p = document.createElement("p"); p.className = "q-text"; p.textContent = spec.text;
     const ul = document.createElement("div"); ul.className = "choices";
     const fb = document.createElement("div");
     const row = document.createElement("div"); row.className = "freeq-row";
@@ -554,13 +597,13 @@ function renderGuidedQuestion(q, isLast, onNext){
     const hintBox = document.createElement("div"); hintBox.className = "hint-box"; hintBox.hidden = true;
     hintBtn.onclick = () => {
       hintUsed = true;
-      hintBox.textContent = "ヒント：" + step.hint;
+      hintBox.textContent = "ヒント：" + spec.hint;
       hintBox.hidden = false;
       hintBtn.disabled = true;
     };
     row.appendChild(hintBtn);
 
-    let order = step.ch.map((c, i) => i);
+    let order = spec.ch.map((c, i) => i);
     function shuffleOrder(){
       for(let i = order.length - 1; i > 0; i--){
         const j = Math.floor(Math.random() * (i + 1));
@@ -571,21 +614,20 @@ function renderGuidedQuestion(q, isLast, onNext){
       ul.innerHTML = "";
       order.forEach((i, pos) => {
         const b = document.createElement("button");
-        b.innerHTML = `<span class="mk ui">${marks[pos] || pos + 1}</span><span>${escHtml(step.ch[i])}</span>`;
+        b.innerHTML = `<span class="mk ui">${marks[pos] || pos + 1}</span><span>${escHtml(spec.ch[i])}</span>`;
         b.onclick = () => {
-          if(i === step.a){
+          if(i === spec.a){
             b.classList.add("right");
             [...ul.children].forEach(x => x.disabled = true);
-            confirmed.push(step.ch[step.a]);
             fb.className = "fb ok"; fb.textContent = "正解。";
             const nx = document.createElement("button");
             nx.className = "next ui"; nx.type = "button"; nx.textContent = "次へ";
-            nx.onclick = () => runStep(idx + 1);
+            nx.onclick = () => onCorrect(spec.ch[spec.a]);
             fb.appendChild(document.createElement("br")); fb.appendChild(nx);
           } else {
             totalMiss++;
             fb.className = "fb ng";
-            fb.textContent = (step.why && step.why[i]) ? step.why[i] : "ちがいます。本文を読み直してみましょう。";
+            fb.textContent = (spec.why && spec.why[i]) ? spec.why[i] : "ちがいます。本文を読み直してみましょう。";
             [...ul.children].forEach(x => x.disabled = true);
             const retry = document.createElement("button");
             retry.className = "next ui"; retry.type = "button"; retry.textContent = "もう一度答える";
@@ -606,8 +648,82 @@ function renderGuidedQuestion(q, isLast, onNext){
       });
     }
     renderChoices();
-    z.append(h, p, ul, fb, row, hintBox);
+    z.append(p, ul, fb, row, hintBox);
     $("paneQ").scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  /* 根拠さがし：本文を直接タップして選ぶ画面（2026-09-23〜改訂。教員の指摘：
+     「本文中のどの一文ですか」を4択の選択問題にすると簡単になりすぎるので、
+     本文をタップして選ぶ形にしてほしい）。evidence仕様は
+     {text, targetN（正解の文のn番号。複数文なら配列）, wrongWhy（外れた文の
+     nをキーにした説明。無いnは汎用メッセージ）, hint}。 */
+  function renderEvidencePhase(idx, ev, onCorrect){
+    const z = $("qzone"); z.innerHTML = "";
+    const h = document.createElement("div"); h.className = "q-head ui";
+    h.textContent = `${q.head}　（${idx + 1}／${q.steps.length + 1}）（根拠さがし）`;
+    z.append(h, mainQuestionNode(q));
+    const p = document.createElement("p"); p.className = "q-text"; p.textContent = ev.text;
+    const note = document.createElement("p"); note.className = "ev-note ui";
+    note.textContent = "👆 左側の本文の中から、根拠になる一文をタップして選びましょう。";
+    const fb = document.createElement("div");
+    const row = document.createElement("div"); row.className = "freeq-row";
+    const hintBtn = document.createElement("button");
+    hintBtn.className = "hintBtn ui"; hintBtn.type = "button"; hintBtn.textContent = "ヒントを見る";
+    const hintBox = document.createElement("div"); hintBox.className = "hint-box"; hintBox.hidden = true;
+    hintBtn.onclick = () => {
+      hintUsed = true;
+      hintBox.textContent = "ヒント：" + ev.hint;
+      hintBox.hidden = false;
+      hintBtn.disabled = true;
+    };
+    row.appendChild(hintBtn);
+    z.append(p, note, fb, row, hintBox);
+
+    clearEvidencePicks();
+    enterEvidenceMode();
+    const targets = (Array.isArray(ev.targetN) ? ev.targetN : [ev.targetN]).map(String);
+    let done = false;
+    evidencePickHandler = sEl => {
+      if(done) return;
+      const n = sEl.dataset.n;
+      if(targets.includes(n)){
+        done = true;
+        document.querySelectorAll(".s.ev-wrong").forEach(e => e.classList.remove("ev-wrong"));
+        sEl.classList.add("ev-right");
+        fb.className = "fb ok"; fb.innerHTML = "";
+        fb.appendChild(document.createTextNode("正解。"));
+        const nx = document.createElement("button");
+        nx.className = "next ui"; nx.type = "button"; nx.textContent = "次へ";
+        nx.onclick = () => { exitEvidenceMode(); onCorrect(); };
+        fb.appendChild(document.createElement("br")); fb.appendChild(nx);
+      } else {
+        totalMiss++;
+        document.querySelectorAll(".s.ev-wrong").forEach(e => e.classList.remove("ev-wrong"));
+        sEl.classList.add("ev-wrong");
+        fb.className = "fb ng";
+        fb.textContent = (ev.wrongWhy && ev.wrongWhy[n]) ? ev.wrongWhy[n] : "ちがいます。もう一度、本文の中からさがしてみましょう。";
+      }
+    };
+    $("paneQ").scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  /* 記述問題の「本文のどこが根拠か分からない」という指摘（教員、2026-09-23〜）
+     への対応。各stepに evidence があれば、内容そのものを選ぶ前に、まず
+     本文をタップして根拠となる一文を選ばせる（renderEvidencePhase）。
+     根拠を選べたら、続けて同じstepの内容確認（step.ch、従来どおりの
+     選択式）に進む。evidenceが無いstepは、これまでどおり内容確認だけを
+     出す（後方互換）。 */
+  function runStep(idx){
+    if(idx >= q.steps.length){ if(q.template) runAssemble(); else runWrite(); return; }
+    const step = q.steps[idx];
+    const finishStep = () => { confirmed.push(step.ch[step.a]); runStep(idx + 1); };
+    if(step.evidence){
+      renderEvidencePhase(idx, step.evidence, () => {
+        renderChoicePhase(idx, step, "（内容の確認）", finishStep);
+      });
+    } else {
+      renderChoicePhase(idx, step, "", finishStep);
+    }
   }
 
   /* template方式の組み立て画面（2026-09-22改訂：先に見せて書き写すだけでは
@@ -620,6 +736,7 @@ function renderGuidedQuestion(q, isLast, onNext){
      時点で確定済みなので、ここでは「組み立てる力」を自己チェックさせる
      だけにとどめ、キーワード一致等の判定ミスが起きる余地を残さない。 */
   function runAssemble(){
+    exitEvidenceMode();
     const z = $("qzone"); z.innerHTML = "";
     const h = document.createElement("div"); h.className = "q-head ui";
     h.textContent = `${q.head}　（${q.steps.length + 1}／${q.steps.length + 1}）`;
@@ -627,12 +744,22 @@ function renderGuidedQuestion(q, isLast, onNext){
     p.textContent = "①・②で確認した内容をつなげて、自分の言葉で一つの文章に書いてみましょう。";
     const chips = document.createElement("div"); chips.className = "guided-chips ui";
     chips.innerHTML = confirmed.map((c, i) => `<span class="guided-chip">${CIRCLED[i] || (i + 1)} ${escHtml(c)}</span>`).join("");
-    z.append(h, p, chips);
+    z.append(h, mainQuestionNode(q), p, chips, htmlToNode(lenSpecHtml(q)));
 
     const wrap = document.createElement("div"); wrap.className = "freeq";
     const ta = document.createElement("textarea");
     ta.placeholder = "①・②をつなげて、一つの文章に書いてみましょう。";
     wrap.appendChild(ta);
+    const meta = document.createElement("div"); meta.className = "freeq-meta";
+    const specText = (q.minLen && q.maxLen) ? `（目安${q.minLen}〜${q.maxLen}字）` : "";
+    meta.innerHTML = `<span class="freeq-len">0字${escHtml(specText)}</span><span></span>`;
+    wrap.appendChild(meta);
+    ta.addEventListener("input", () => {
+      const len = ta.value.replace(/\s+/g, "").length;
+      meta.querySelector(".freeq-len").textContent = `${len}字${specText}`;
+      const outOfRange = q.minLen && q.maxLen && (len < q.minLen || len > q.maxLen) && len > 0;
+      meta.classList.toggle("over", !!outOfRange);
+    });
     z.appendChild(wrap);
 
     const row = document.createElement("div"); row.className = "freeq-row";
@@ -669,6 +796,7 @@ function renderGuidedQuestion(q, isLast, onNext){
   }
 
   function runWrite(){
+    exitEvidenceMode();
     const z = $("qzone"); z.innerHTML = "";
     let graded = null, writeHintUsed = false;
     const h = document.createElement("div"); h.className = "q-head ui";
@@ -676,7 +804,7 @@ function renderGuidedQuestion(q, isLast, onNext){
     const p = document.createElement("p"); p.className = "q-text"; p.textContent = q.writeText;
     const chips = document.createElement("div"); chips.className = "guided-chips ui";
     chips.innerHTML = confirmed.map((c, i) => `<span class="guided-chip">${CIRCLED[i] || (i + 1)} ${escHtml(c)}</span>`).join("");
-    z.append(h, p, chips, htmlToNode(lenSpecHtml(q)));
+    z.append(h, mainQuestionNode(q), p, chips, htmlToNode(lenSpecHtml(q)));
 
     const wrap = document.createElement("div"); wrap.className = "freeq";
     const ta = document.createElement("textarea");
