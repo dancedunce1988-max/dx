@@ -4138,7 +4138,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.00</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.01</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -4428,27 +4428,40 @@ function catExpPoints(lv){
    start（省略可）を指定すると、その日時になるまでeventActiveがfalseを返す＝バナー非表示・
    経験値も入らない状態のまま、事前にコードだけ配布しておける（2026-08-31〜、教員の指示で
    9月に3つのイベントを予約投入する必要が生じたため追加。それまではendしか無く「配信した
-   瞬間から有効」前提だったが、複数イベントを間を空けず順番に予約する運用には対応できなかった）。 */
+   瞬間から有効」前提だったが、複数イベントを間を空けず順番に予約する運用には対応できなかった）。
+   game（省略可）：同じゲームでイベントを何度も開くため（2026-09-23〜、教員の指示で10月分を
+   まとめて予約）、正解ハンドラはイベントIDを直書きせず activeEventIdFor(game) で「いま開催中の
+   そのゲームのイベント」を引く。"kws"＝漢字の書き（kwsAwardStageXp）／"bunsetsu"＝言の刃／
+   "vocabshooter"／"yomunoda"。
+   cats＋amount（省略可）：通常の4択ジャンル（record()経由）の正解1問ごとに amount を加算する
+   「ジャンルイベント」。record()内で、レベルアップと同じ条件（急ぎ答え・直近正答率低下でない）の
+   ときだけ加算する。
+   recruitMult（省略可）：開催中、漢字Questで倒したボスが仲間になる確率に掛ける倍率
+   （mbRecruitEventMult参照）。経験値の入らないイベントなので noXp:true でバナーのpt表示を消す。 */
 const EVENTS = {
   "2026_09_kanjiquest": {
     label: "漢字Quest実装記念イベント",
+    game: "kws",
     start: new Date('2026-09-06T00:00:00'),
     end: new Date('2026-09-10T23:59:59'),
     desc: "「漢字の書き」（小学校で習う漢字・中学校の漢字・高校入試頻出漢字200）で、\n1問正解するごとに経験値！最初の採点で正解＋3／ヒントを見て正解＋2！（答えを見たあとは正解になりません）",
   },
   "2026_09_bunsetsu": {
     label: "言の刃 正解数イベント",
+    game: "bunsetsu",
     end: new Date('2026-09-10T23:59:59'),
     desc: "言の刃（文節斬り）1問正解ごとに経験値が入る！\n文節切り＋1 ／ 単語切り＋1.5 ／ 二刀斬り＋2",
   },
   "2026_09_vocabshooter": {
     label: "ボキャブラ・シューティング 正解数イベント",
+    game: "vocabshooter",
     start: new Date('2026-09-11T00:00:00'),
     end: new Date('2026-09-13T23:59:59'),
     desc: "ボキャブラ・シューティング、1問正解ごとに経験値が入る！\n正解＋1",
   },
   "2026_09_yomunoda": {
     label: "YOMUの打 正解数イベント",
+    game: "yomunoda",
     start: new Date('2026-09-14T00:00:00'),
     end: new Date('2026-09-20T23:59:59'),
     desc: "YOMUの打、1問正解ごとに経験値が入る！\n初級＋0.5 ／ 中級＋1 ／ 上級＋2",
@@ -4458,6 +4471,64 @@ const EVENTS = {
     start: new Date('2026-09-21T00:00:00'),
     end: new Date('2026-09-27T23:59:59'),
     desc: "熱闘！四字熟語甲子園！、ヒットを打つごとに経験値が入る！\nヒット＋1 ／ 勝利したとき＋5",
+  },
+  /* ---- 2026-09-27〜10-30の予約分（教員の指示、2026-09-23）。境目の日（9/27・10/5・10/9・
+     10/13・10/16・10/21・10/26）は前後2つのイベントが両方開催中になる（指示どおりの日付）。 ---- */
+  "2026_09_kanjiwrite2": {
+    label: "漢字の書き イベント",
+    game: "kws",
+    start: new Date('2026-09-27T00:00:00'),
+    end: new Date('2026-09-30T23:59:59'),
+    desc: "「漢字の書き」（小学校で習う漢字・中学校の漢字・高校入試頻出漢字200）で、\n1問正解するごとに経験値！最初の採点で正解＋3／ヒントを見て正解＋2！（答えを見たあとは正解になりません）",
+  },
+  "2026_10_hyougen": {
+    label: "表現技法イベント",
+    cats: ["hyougen"], amount: 2,
+    start: new Date('2026-10-01T00:00:00'),
+    end: new Date('2026-10-05T23:59:59'),
+    desc: "「表現技法」の問題に1問正解するごとに、イベント経験値＋2！",
+  },
+  "2026_10_bunsetsu": {
+    label: "言の刃 正解数イベント",
+    game: "bunsetsu",
+    start: new Date('2026-10-05T00:00:00'),
+    end: new Date('2026-10-09T23:59:59'),
+    desc: "言の刃（文節斬り）1問正解ごとに経験値が入る！\n文節切り＋1 ／ 単語切り＋1.5 ／ 二刀斬り＋2",
+  },
+  "2026_10_vocabshooter": {
+    label: "ボキャブラ・シューティング 正解数イベント",
+    game: "vocabshooter",
+    start: new Date('2026-10-09T00:00:00'),
+    end: new Date('2026-10-13T23:59:59'),
+    desc: "ボキャブラ・シューティング、1問正解ごとに経験値が入る！\n正解＋1",
+  },
+  "2026_10_koji": {
+    label: "故事成語イベント",
+    cats: ["koji"], amount: 2,
+    start: new Date('2026-10-13T00:00:00'),
+    end: new Date('2026-10-16T23:59:59'),
+    desc: "「故事成語」の問題に1問正解するごとに、イベント経験値＋2！",
+  },
+  "2026_10_kanjiquest": {
+    label: "漢字Quest イベント",
+    recruitMult: 3, noXp: true,
+    start: new Date('2026-10-16T00:00:00'),
+    end: new Date('2026-10-21T23:59:59'),
+    desc: "漢字Questで、倒したボスが仲間になる確率が、いつもの3倍！",
+  },
+  "2026_10_yomunoda": {
+    label: "YOMUの打 正解数イベント",
+    game: "yomunoda",
+    start: new Date('2026-10-21T00:00:00'),
+    end: new Date('2026-10-26T23:59:59'),
+    desc: "YOMUの打、1問正解ごとに経験値が入る！\n初級＋0.5 ／ 中級＋1 ／ 上級＋2",
+  },
+  "2026_10_keigo": {
+    label: "敬語イベント",
+    cats: ["keigo"], amount: 2,
+    start: new Date('2026-10-26T00:00:00'),
+    end: new Date('2026-10-30T23:59:59'),
+    desc: "「敬語」の問題に1問正解するごとに、イベント経験値＋2！",
   },
   "2026_09_kanjiwrite_beta": {
     label: "漢字の書き取り βテストイベント",
@@ -4472,6 +4543,25 @@ function eventActive(id){
   return now <= ev.end;
 }
 function anyEventActive(){ return Object.keys(EVENTS).some(id => eventActive(id)); }
+// そのゲーム（EVENTS[id].game）でいま開催中のイベントID。無ければnull。
+function activeEventIdFor(game){
+  return Object.keys(EVENTS).find(id => EVENTS[id].game === game && eventActive(id)) || null;
+}
+// 通常の4択ジャンルcatの正解1問ごとに入るイベント経験値を加算し、合計量を返す（record()から呼ぶ）。
+function eventCatBonusAdd(st, cat){
+  let total = 0;
+  Object.keys(EVENTS).forEach(id => {
+    const ev = EVENTS[id];
+    if(!ev.cats || !ev.cats.includes(cat) || !eventActive(id)) return;
+    eventBonusAdd(st, id, ev.amount);
+    total += ev.amount;
+  });
+  return total;
+}
+// 漢字Questで仲間になる確率に掛けるイベント倍率（開催中のrecruitMultをすべて掛け合わせる）。
+function mbRecruitEventMult(){
+  return Object.keys(EVENTS).reduce((m, id) => (EVENTS[id].recruitMult && eventActive(id)) ? m * EVENTS[id].recruitMult : m, 1);
+}
 function totalEventBonusExp(st){
   return Object.values(st.eventBonusEarned||{}).reduce((s,v) => s+(v||0), 0);
 }
@@ -5035,8 +5125,10 @@ function record(cat, item, correct, elapsedMs, opts){
     const after = titleOf(st.lv[cat]);
     if(after !== before) evolved = after;
   }
+  // ジャンルイベント（EVENTS[id].cats）。当てずっぽう連打で稼げないよう、レベルアップと同じ条件で判定する。
+  const eventXp = (correct && !lowAccuracy && !fastGuess) ? eventCatBonusAdd(st, cat) : 0;
   saveStats(st);
-  return {lvup, evolved, lv:st.lv[cat], gotTicket, lowAccuracy: correct && lowAccuracy, fastGuess: correct && fastGuess, groupJustUnlocked, celebrateMilestones};
+  return {lvup, evolved, lv:st.lv[cat], gotTicket, lowAccuracy: correct && lowAccuracy, fastGuess: correct && fastGuess, groupJustUnlocked, celebrateMilestones, eventXp};
 }
 function qStat(st, cat, item){ return st.q[qKey(cat, item.q)] || null; }
 
@@ -7108,7 +7200,7 @@ function eventBannerHtml(st){
     <div class="card event-banner">
       <div class="event-banner-head">🎉 期間限定イベント開催中！（〜${endStr}）</div>
       <div class="event-banner-body">${esc(ev.label)}<br>${esc(ev.desc).replace(/\n/g,'<br>')}</div>
-      <div class="event-banner-pts">あなたのイベント経験値：${earned} pt</div>
+      ${ev.noXp ? "" : `<div class="event-banner-pts">あなたのイベント経験値：${earned} pt</div>`}
     </div>`;
   });
   return html;
@@ -7719,7 +7811,8 @@ function gradeAnswer(ok, chosenOrig, typed){
   }else{
     expl = it.e ? esc(it.e) : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
   }
-  const lvChip = r.lvup ? `<span class="lvup-chip">${esc(CATS[cat].name)} Lv.${r.lv} にアップ！</span>` : "";
+  const lvChip = (r.lvup ? `<span class="lvup-chip">${esc(CATS[cat].name)} Lv.${r.lv} にアップ！</span>` : "")
+    + (r.eventXp ? `<span class="lvup-chip">🎉 イベント経験値＋${r.eventXp}</span>` : "");
   const evolveMsg = r.evolved
     ? `<div class="evolve">${r.evolved.hidden ? "🔓 かくされた称号が明かされた！<br>" : ""}${r.evolved.icon} 進化！　${esc(CATS[cat].name)}の称号が「${esc(r.evolved.name)}」になった！</div>` : "";
   const ticketMsg = r.gotTicket ? `<div class="evolve ticket-get">🎟️ ボスへの挑戦チケットを1枚手に入れた！</div>` : "";
@@ -9828,10 +9921,11 @@ function kwsAwardStageXp(stage){
   if(kwsXpSettled) return;
   kwsXpSettled = true;
   if(!kwsEventXpEligibleNow()) return;
-  if(!eventActive(KWS_XP_EVENT_ID)) return;
+  const evId = activeEventIdFor('kws');
+  if(!evId) return;
   const amount = KWS_STAGE_XP[stage] != null ? KWS_STAGE_XP[stage] : 1;
   const st = loadStats();
-  eventBonusAdd(st, KWS_XP_EVENT_ID, amount);
+  eventBonusAdd(st, evId, amount);
   saveStats(st);
   kwsShowEventXpFx(amount);
 }
@@ -19047,7 +19141,8 @@ function storyGradeQuiz(ok, chosenOrig, typed){
   }else{
     expl = ok ? "" : `正解は「${esc(it.c[it.a])}」`;
   }
-  const lvChip = r.lvup ? `<span class="lvup-chip">${esc(CATS[cat].name)} Lv.${r.lv} にアップ！</span>` : "";
+  const lvChip = (r.lvup ? `<span class="lvup-chip">${esc(CATS[cat].name)} Lv.${r.lv} にアップ！</span>` : "")
+    + (r.eventXp ? `<span class="lvup-chip">🎉 イベント経験値＋${r.eventXp}</span>` : "");
   const clearMsg = cleared ? `<p class="lvup-chip">✅ 直近${storyRun.gateWindow.length}問中${correctInWindow}問正解！ 次へ進めます</p>` : "";
   fb.className = "feedback show " + (ok?"ok":"ng");
   fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}${lvChip}</div>${expl}${clearMsg}`;
@@ -20613,8 +20708,9 @@ function vsHitOrb(o){
     if(r.evolved) vsSpawnPopup(o.x,o.y-48, `${r.evolved.icon} ${r.evolved.name}に進化！`, '#ffd24f');
     /* 期間限定イベント「2026_09_vocabshooter」（9/11〜9/13）：正解（オーブ撃破）1回につき
        イベント経験値＋1（文節斬りの2026_09_bunsetsuと同じ実装パターン）。 */
-    if(eventActive("2026_09_vocabshooter")){
-      const _st=loadStats(); eventBonusAdd(_st,"2026_09_vocabshooter",1); saveStats(_st);
+    const _vsEv = activeEventIdFor("vocabshooter");
+    if(_vsEv){
+      const _st=loadStats(); eventBonusAdd(_st,_vsEv,1); saveStats(_st);
       vsSpawnPopup(o.x,o.y-70, `🎉 +1 イベント経験値`, '#ffd24f');
     }
     vsBeep(1200,0.12,'sine',0.15);
@@ -21109,7 +21205,8 @@ function storyComboAnswer(origIdx){
     else if(oi === origIdx) b.classList.add("wrong");
     else b.classList.add("dim");
   });
-  const lvChip = r.lvup ? `<span class="lvup-chip">${esc(CATS[c.cat].name)} Lv.${r.lv} にアップ！</span>` : "";
+  const lvChip = (r.lvup ? `<span class="lvup-chip">${esc(CATS[c.cat].name)} Lv.${r.lv} にアップ！</span>` : "")
+    + (r.eventXp ? `<span class="lvup-chip">🎉 イベント経験値＋${r.eventXp}</span>` : "");
   const fb = document.getElementById("fb");
   fb.className = "feedback show " + (ok?"ok":"ng");
   fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}${lvChip}</div>`;
@@ -22328,10 +22425,11 @@ function bgUpdateSentence(){
          節目は、レベル表示を兼ねたより目立つカードにまとめて出す（重ねて出さない）。 */
       if(lvResult.titleUp) bgFxTitleUp(lvResult.lvAfter, lvResult.titleName, lvResult.titleIcon);
       else if(lvResult.leveledUp) bgFxLevelUp(lvResult.lvAfter);
-      if(eventActive("2026_09_bunsetsu")){
+      const _bgEv = activeEventIdFor("bunsetsu");
+      if(_bgEv){
         const _bl=BG.stage.blades;
         const _xp=_bl.length===2?2:_bl.includes("tango")?1.5:1;
-        const _st=loadStats(); eventBonusAdd(_st,"2026_09_bunsetsu",_xp); saveStats(_st);
+        const _st=loadStats(); eventBonusAdd(_st,_bgEv,_xp); saveStats(_st);
         bgFxEventXp(_xp);
       }
     }else if(justCleared){
@@ -27212,9 +27310,10 @@ function ydOnCorrect(){
   const bandKey = G.band.key;
   /* 期間限定イベント「2026_09_yomunoda」（9/14〜9/20）：正解1回につき、級ごとに
      イベント経験値が入る（初級＋0.5／中級＋1／上級＋2、教員の指示）。 */
-  if(eventActive("2026_09_yomunoda")){
+  const ydEv = activeEventIdFor("yomunoda");
+  if(ydEv){
     const ydEventAmt = {easy:0.5, mid:1, hard:2}[bandKey] || 0;
-    const _st=loadStats(); eventBonusAdd(_st,"2026_09_yomunoda",ydEventAmt); saveStats(_st);
+    const _st=loadStats(); eventBonusAdd(_st,ydEv,ydEventAmt); saveStats(_st);
     feedbackQueue.push(`🎉 +${ydEventAmt} イベント経験値`);
   }
   const levelUpEvery = YD_LEVEL_UP_EVERY[bandKey] || 1;
@@ -30104,7 +30203,7 @@ function mbEnemyDefeated(){
   // 倍率に関係なく無条件で成功扱いにする（wasShinyEncounterがtrueならMath.random()を見ない）。
   const easyRecruitMult = (mbRun.questMode === 'easy') ? MB_EASY_RECRUIT_MULT : 1;
   const specialQuestRecruitMult = mbRun.isSpecialQuest ? MB_SPECIAL_QUEST_RECRUIT_MULT : 1;
-  const recruitChance = MB_PARTNER_RECRUIT_CHANCE * easyRecruitMult * specialQuestRecruitMult;
+  const recruitChance = MB_PARTNER_RECRUIT_CHANCE * easyRecruitMult * specialQuestRecruitMult * mbRecruitEventMult();
   let recruitedMsg = null;
   let shinyMsg = null;
   if(wasShinyEncounter || Math.random() < recruitChance){
