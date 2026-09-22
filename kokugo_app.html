@@ -4165,7 +4165,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.04</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.05</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -14538,23 +14538,23 @@ const BOSSES = [
      そのまま再利用）で強打、他4体は新設のbossSelfMove（kind:"heal"＝自己回復／"buff"＝自分の
      攻撃力を一時強化／"drain"＝プレイヤーの必殺ゲージを0にする、bossCounterAttack側）を使う。 ==== */
   {id:"gou_wrestling", name:"重量級レスリング部のゴウ", icon:"🤼", item:"闘魂ベルト", treasure:"金色のレスリングシューズ",
-    hp:780000, atk:3400, defPct:42, accuracy:200, evadePct:20, luck:15, lv:60, recPts:20000, minXpRatio:1, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0,
+    hp:780000, atk:3400, defPct:42, accuracy:200, evadePct:20, luck:15, lv:60, recPts:20000, minXpRatio:1, recPtsLabel:"鬼", dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0,
     partnerFear:{partnerId:"me02", hpFrac:2/3, atkMultScared:0.5, line:"その鎧は、生半可な攻撃じゃ通じない…"},
     lionMimic:{chance:0.2, mult:2.8}},
   {id:"kururu_legend", name:"都市伝説マニアのクルル", icon:"👻", item:"都市伝説のお守り", treasure:"都市伝説ノート",
-    hp:750000, atk:3200, defPct:45, accuracy:200, evadePct:20, luck:15, lv:60, recPts:20000, minXpRatio:1, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0,
+    hp:750000, atk:3200, defPct:45, accuracy:200, evadePct:20, luck:15, lv:60, recPts:20000, minXpRatio:1, recPtsLabel:"鬼", dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0,
     partnerFear:{partnerId:"me04", hpFrac:0.5, atkMultScared:0.5, line:"番人の言葉には、敵わない…"},
     bossSelfMove:{chance:0.2, kind:"heal", healPct:0.25, name:"都市伝説の回復"}},
   {id:"nezumi_captain", name:"チーズ好きのネズミ団長", icon:"🐭", item:"俊足チーズ", treasure:"伝説のチーズ",
-    hp:760000, atk:3600, defPct:40, accuracy:200, evadePct:20, luck:15, lv:60, recPts:20000, minXpRatio:1, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0,
+    hp:760000, atk:3600, defPct:40, accuracy:200, evadePct:20, luck:15, lv:60, recPts:20000, minXpRatio:1, recPtsLabel:"鬼", dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0,
     partnerFear:{partnerId:"ub01", hpFrac:0.75, atkMultScared:0.5, line:"猫には、どうしたって敵わない…"},
     bossSelfMove:{chance:0.2, kind:"buff", atkMult:1.6, turns:3, name:"俊足のダッシュ"}},
   {id:"kakugo_kiritsu", name:"厳格な風紀委員のカクゴ", icon:"🧐", item:"風紀委員の腕章", treasure:"風紀委員長の腕章（金）",
-    hp:800000, atk:3300, defPct:44, accuracy:200, evadePct:20, luck:15, lv:60, recPts:20000, minXpRatio:1, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0,
+    hp:800000, atk:3300, defPct:44, accuracy:200, evadePct:20, luck:15, lv:60, recPts:20000, minXpRatio:1, recPtsLabel:"鬼", dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0,
     partnerFear:{partnerId:"ub02", hpFrac:2/3, atkMultScared:0.5, line:"パンダの可愛さに、戦意を失った…"},
     bossSelfMove:{chance:0.2, kind:"heal", healPct:0.35, name:"気合いの入れ直し"}},
   {id:"yadokari_bucho", name:"浅瀬で遊ぶヤドカリ部長", icon:"🦀", item:"貝殻の盾", treasure:"虹色の貝殻",
-    hp:770000, atk:3500, defPct:41, accuracy:200, evadePct:20, luck:15, lv:60, recPts:20000, minXpRatio:1, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0,
+    hp:770000, atk:3500, defPct:41, accuracy:200, evadePct:20, luck:15, lv:60, recPts:20000, minXpRatio:1, recPtsLabel:"鬼", dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0,
     partnerFear:{partnerId:"ub04", hpFrac:0.5, atkMultScared:0.5, line:"深海の王には、敵わない…"},
     bossSelfMove:{chance:0.2, kind:"drain", name:"尻尾で薙ぎ払う"}},
 ];
@@ -15265,6 +15265,16 @@ function isBossRetired(boss, xp){
   if(boss.neverRetires) return false;
   return BOSS_RETIREMENT_TIERS.some(t => xp > t.xpAbove && boss.recPts <= t.retireAtOrBelowRecPts);
 }
+/* 適正経験値の表示テキスト（勝負しますか？画面・挑戦チケット一覧の両方で使う）。
+   hideRecPts（サノー・シゲっち）は既存どおり「？？？」、recPtsLabel（適正経験値20000の
+   新5体、2026-09-23〜、教員の指示：「表示上は適正経験値『鬼』としてください」）を持つボスは
+   数値のかわりにそのラベルをそのまま表示する。内部の判定（isBossRetired・minXpRatio等）は
+   実際のb.recPtsの数値（20000）をそのまま使い続けるので、この表示上のラベルは一切影響しない。 */
+function bossRecPtsText(b){
+  if(b.hideRecPts) return "？？？";
+  if(b.recPtsLabel) return b.recPtsLabel;
+  return (b.recPts||0)+"pt";
+}
 /* `rareInPoolChance`を持つボス（天才バスケットボーラージュン、2026-07-22〜）は、通常ボスの
    抽選プールの中でだけ、その確率（0.01＝1/100）で単独抽選される特別枠。当たらなければ、
    それ以外の（rareInPoolChanceを持たない）ボスの中から今までどおり均等に1体選ぶ。
@@ -15300,7 +15310,7 @@ function renderBossPrompt(){
         ? `<p class="note boss-enc-hint">⚠️ 一問でも間違えると、その場で敗れます。10問連続で正解すれば討伐成功です（制限時間10秒）。</p>`
         : pendingBossIsMb
         ? `<p class="note boss-enc-hint">✨「漢字Quest」と同じ戦い方（この戦いだけ攻撃力・MP獲得量が2倍！）</p>`
-        : `<p class="note boss-enc-hint">適正経験値の目安：${b.hideRecPts ? "？？？" : (b.recPts||0)+"pt"}（今の経験値：${totalEarnedStatPoints(st)}pt）</p>`}
+        : `<p class="note boss-enc-hint">適正経験値の目安：${bossRecPtsText(b)}（今の経験値：${totalEarnedStatPoints(st)}pt）</p>`}
       <div class="boss-enc-choices">
         <button class="boss-enc-btn ${bossPromptSelection==='no'?'selected':''}" onclick="resolveBossPrompt('no')">いいえ</button>
         <button class="boss-enc-btn ${bossPromptSelection==='yes'?'selected':''}" onclick="resolveBossPrompt('yes')">勝負する</button>
@@ -16912,7 +16922,7 @@ function showTicketChooseBoss(){
     <button class="boss-choose-btn" onclick="useTicketAndFightChosen('${b.id}')">
       <span class="icon">${b.icon}</span>
       <span class="name">${esc(b.name)}　<span class="boss-lv-tag">Lv.${b.lv||"?"}</span></span>
-      <span class="recpts">適正経験値：${b.hideRecPts ? "？？？" : (b.recPts||0)+"pt"}</span>
+      <span class="recpts">適正経験値：${bossRecPtsText(b)}</span>
     </button>`).join("");
   screen.innerHTML = `
     <div class="card boss-encounter">
