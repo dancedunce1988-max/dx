@@ -992,6 +992,24 @@
     40%{ transform:translate(0,-5px); } 60%{ transform:translate(0,4px); }
     80%{ transform:translate(0,-2px); } 100%{ transform:translate(0,0); box-shadow:0 0 30px rgba(184,134,43,.3); }
   }
+  /* パートナー恐怖(partnerFear、BOSSES参照)ボスが戦闘開始時に「怖がる」演出。教員の指示
+     （2026-09-23〜）：バトル画面にさらっと書くだけでは目立たないため、必殺技と同じ画面いっぱいの
+     オーバーレイに乗せて大きく主張する。プレイヤー自身の必殺技（暖色系が多い）とは見た目で
+     区別できるよう、怯えた敵という設定に合わせた赤紫の不穏な配色にする。 */
+  .finisher-overlay.fx-fear{ background:radial-gradient(circle at 50% 50%, rgba(70,10,40,.9) 0%, rgba(6,2,10,.96) 75%); }
+  .finisher-overlay-text.fx-fear{ color:#ffd0e0; text-shadow:0 0 10px rgba(220,40,90,.9); }
+  .finisher-overlay-text.finisher-name-big.fx-fear{
+    background:linear-gradient(90deg,#ff6a9e,#ffb3cf,#fff0f5,#ff6a9e);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 0 26px rgba(255,80,140,.85));
+  }
+  .boss-battle-screen.finisher-shake.fx-fear{ animation:finisherShakeFear .6s ease; }
+  @keyframes finisherShakeFear{
+    0%{ transform:translate(0,0); box-shadow:0 0 30px rgba(255,80,140,.3); }
+    20%{ transform:translate(-6px,4px); box-shadow:0 0 55px rgba(255,80,140,.9); }
+    40%{ transform:translate(5px,-3px); } 60%{ transform:translate(-4px,3px); }
+    80%{ transform:translate(2px,-1px); } 100%{ transform:translate(0,0); box-shadow:0 0 30px rgba(255,80,140,.3); }
+  }
   /* 未来龍（近未来ネオン、全ステータス倍化）：シャープなグリッチ風の点滅 */
   .finisher-overlay.fx-mirai{ background:radial-gradient(circle at 50% 50%, rgba(0,60,80,.88) 0%, rgba(4,4,20,.96) 75%); }
   .finisher-overlay-text.fx-mirai{ color:#d6faff; text-shadow:0 0 10px rgba(0,234,255,.9); }
@@ -4147,7 +4165,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.03</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.04</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -14475,7 +14493,13 @@ const BOSSES = [
      92.9%から大幅低下、意味のあるステータスに）、均等配分自体の勝率は86.75%で従来（84%前後）と
      ほぼ変わらず。素早さ・運は既存ボス同様「頭打ちがあるので盛りすぎると無駄になる」性質を
      維持（今回の指示の対象外）。 */
-  {id:"fleet_1_3",  name:"無敵艦隊１年３組",       icon:"⚓", item:"青いハチマキ",         treasure:"１年３組の「愛」",           hp:462700, atk:120,  defPct:20, accuracy:200, evadePct:20, luck:15, lv:50, recPts:15000, minXpRatio:10000/15000, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, atkHalvedUnlessFinisher:true, counterOkFixedMin:0.16, counterOkFixedMax:0.20},
+  {id:"fleet_1_3",  name:"無敵艦隊１年３組",       icon:"⚓", item:"青いハチマキ",         treasure:"１年３組の「愛」",           hp:462700, atk:800,  defPct:20, accuracy:200, evadePct:20, luck:15, lv:50, recPts:15000, minXpRatio:10000/15000, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, atkHalvedUnlessFinisher:true, counterOkFixedMin:0.16, counterOkFixedMax:0.20},
+  /* 2026-09-23〜、教員の指示でrecPts15000帯の攻撃力の基準を無敵艦隊１年３組=800に引き上げ、
+     他のrecPts15000帯5体もこれに準じて同じ倍率（800/120＝20/3）で引き上げた。無敵艦隊自身は
+     atkHalvedUnlessFinisherに加えてcounterOkFixedMin/Maxの固定%反撃（正解時のみ、atkを一切
+     参照しない別枠の仕組み）を持つため、実際に800がそのまま乗るのは「不正解のときの反撃」だけ
+     （bossComputeHitDamage）である点に注意。他の5体はcounterOkFixedMinを持たないため、
+     正解時・不正解時の反撃どちらもこの表のatk値がそのまま乗る。 */
   /* ==== 2026-09-23〜、教員の指示で追加した新5体。いずれも無敵艦隊１年３組と同格（recPts15000、
      minXpRatio・drop系の数値も同じ）。専用の仕組みは3つの新フラグで実装する：
      ①`evoStageScale`＝ことのはの進化段階（kotonohaEvoStageOverall、0〜13）に応じてhp/atkが
@@ -14490,20 +14514,49 @@ const BOSSES = [
        アイテムバフ・氷龍の防御ダウン等）をすべて解除する。blockerId（言霊の番人=me04）を
        パートナーに設定していれば、セリフとともに発動そのものが防がれる（bossCounterAttack側）。 ==== */
   {id:"sprout_morimori", name:"ふしぎな苗木モリモリ", icon:"🌳", item:"特製肥料", treasure:"黄金の若葉",
-    hp:406000, atk:118, defPct:20, accuracy:200, evadePct:20, luck:15, lv:50, recPts:15000, minXpRatio:10000/15000, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0,
-    evoStageScale:{hpBase:280000, hpPerStage:21000, atkBase:70, atkPerStage:8}},
+    hp:406000, atk:785, defPct:20, accuracy:200, evadePct:20, luck:15, lv:50, recPts:15000, minXpRatio:10000/15000, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0,
+    evoStageScale:{hpBase:280000, hpPerStage:21000, atkBase:467, atkPerStage:53}},
   {id:"occult_misaki", name:"オカルト部長ミサキ", icon:"🔮", item:"護符のブレスレット", treasure:"闇の魔導士の杖のレプリカ",
-    hp:462700, atk:180, defPct:20, accuracy:200, evadePct:20, luck:15, lv:50, recPts:15000, minXpRatio:10000/15000, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0,
+    hp:462700, atk:1200, defPct:20, accuracy:200, evadePct:20, luck:15, lv:50, recPts:15000, minXpRatio:10000/15000, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0,
     partnerFear:{partnerId:"me03", hpFrac:2/3, atkMultScared:0.5, line:"魔術師は怖い！"}},
   {id:"nora_neko_taishou", name:"野良猫大将トラ", icon:"🐈", item:"狼避けの鈴", treasure:"伝説の魚の骨",
-    hp:462700, atk:240, defPct:20, accuracy:200, evadePct:20, luck:15, lv:50, recPts:15000, minXpRatio:10000/15000, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0,
+    hp:462700, atk:1600, defPct:20, accuracy:200, evadePct:20, luck:15, lv:50, recPts:15000, minXpRatio:10000/15000, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0,
     partnerFear:{partnerId:"me01", hpFrac:0.5, atkMultScared:0.5, line:"お…狼は苦手なのだ…"}},
   {id:"zebra_jiro", name:"動物図鑑マニアのジロー", icon:"🦓", item:"動物図鑑の付録レンズ", treasure:"手作りの獅子王フィギュア",
-    hp:462700, atk:180, defPct:20, accuracy:200, evadePct:20, luck:15, lv:50, recPts:15000, minXpRatio:10000/15000, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0,
+    hp:462700, atk:1200, defPct:20, accuracy:200, evadePct:20, luck:15, lv:50, recPts:15000, minXpRatio:10000/15000, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0,
     partnerFear:{partnerId:"ub03", hpFrac:0.75, atkMultScared:0.5, line:"ライオンさん、かっこいい！"}, lionMimic:{chance:0.2, mult:2.5}},
   {id:"suusuu_bucho", name:"潔癖部長のスースー", icon:"🌬️", item:"マイナスイオン発生機", treasure:"特製空気清浄フィルター",
-    hp:600000, atk:120, defPct:20, accuracy:200, evadePct:20, luck:15, lv:50, recPts:15000, minXpRatio:10000/15000, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0,
+    hp:600000, atk:800, defPct:20, accuracy:200, evadePct:20, luck:15, lv:50, recPts:15000, minXpRatio:10000/15000, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0,
     airPurify:{chance:0.2, blockerId:"me04", blockerLine:"私の魔法が防がれている…", blockedNote:"言霊の番人は、相手の空気清浄魔法を防いでいる！", selfLine:"空気清浄魔法発動！"}},
+  /* ==== 適正経験値20000の新5体（2026-09-23〜、教員の指示）。BOSS_RETIREMENT_TIERSに追加した
+     新しい段（xpAbove20000）により、経験値20000超のプレイヤーには適正経験値10000以下のボスは
+     出なくなり、代わりにminXpRatio:1（＝xp>=recPts=20000）でこの5体が出現するようになる。
+     攻撃力・防御力はいずれも野良猫大将トラ（recPts15000、atk1600・defPct20）の2倍以上。
+     今まで「恐怖の対象」にしていなかった5人の仲間（鉄甲兵・言霊の番人・猫王・大熊猫・猫鮫王）
+     をそれぞれpartnerFearで苦手にした（②③④と同じ仕組み、演出はshowBossFearOverlay）。
+     加えて全員、毎ターン20%で「必殺」を使う：ゴウはlionMimic（zebra_jiroと共通の仕組みを
+     そのまま再利用）で強打、他4体は新設のbossSelfMove（kind:"heal"＝自己回復／"buff"＝自分の
+     攻撃力を一時強化／"drain"＝プレイヤーの必殺ゲージを0にする、bossCounterAttack側）を使う。 ==== */
+  {id:"gou_wrestling", name:"重量級レスリング部のゴウ", icon:"🤼", item:"闘魂ベルト", treasure:"金色のレスリングシューズ",
+    hp:780000, atk:3400, defPct:42, accuracy:200, evadePct:20, luck:15, lv:60, recPts:20000, minXpRatio:1, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0,
+    partnerFear:{partnerId:"me02", hpFrac:2/3, atkMultScared:0.5, line:"その鎧は、生半可な攻撃じゃ通じない…"},
+    lionMimic:{chance:0.2, mult:2.8}},
+  {id:"kururu_legend", name:"都市伝説マニアのクルル", icon:"👻", item:"都市伝説のお守り", treasure:"都市伝説ノート",
+    hp:750000, atk:3200, defPct:45, accuracy:200, evadePct:20, luck:15, lv:60, recPts:20000, minXpRatio:1, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0,
+    partnerFear:{partnerId:"me04", hpFrac:0.5, atkMultScared:0.5, line:"番人の言葉には、敵わない…"},
+    bossSelfMove:{chance:0.2, kind:"heal", healPct:0.25, name:"都市伝説の回復"}},
+  {id:"nezumi_captain", name:"チーズ好きのネズミ団長", icon:"🐭", item:"俊足チーズ", treasure:"伝説のチーズ",
+    hp:760000, atk:3600, defPct:40, accuracy:200, evadePct:20, luck:15, lv:60, recPts:20000, minXpRatio:1, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0,
+    partnerFear:{partnerId:"ub01", hpFrac:0.75, atkMultScared:0.5, line:"猫には、どうしたって敵わない…"},
+    bossSelfMove:{chance:0.2, kind:"buff", atkMult:1.6, turns:3, name:"俊足のダッシュ"}},
+  {id:"kakugo_kiritsu", name:"厳格な風紀委員のカクゴ", icon:"🧐", item:"風紀委員の腕章", treasure:"風紀委員長の腕章（金）",
+    hp:800000, atk:3300, defPct:44, accuracy:200, evadePct:20, luck:15, lv:60, recPts:20000, minXpRatio:1, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0,
+    partnerFear:{partnerId:"ub02", hpFrac:2/3, atkMultScared:0.5, line:"パンダの可愛さに、戦意を失った…"},
+    bossSelfMove:{chance:0.2, kind:"heal", healPct:0.35, name:"気合いの入れ直し"}},
+  {id:"yadokari_bucho", name:"浅瀬で遊ぶヤドカリ部長", icon:"🦀", item:"貝殻の盾", treasure:"虹色の貝殻",
+    hp:770000, atk:3500, defPct:41, accuracy:200, evadePct:20, luck:15, lv:60, recPts:20000, minXpRatio:1, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0,
+    partnerFear:{partnerId:"ub04", hpFrac:0.5, atkMultScared:0.5, line:"深海の王には、敵わない…"},
+    bossSelfMove:{chance:0.2, kind:"drain", name:"尻尾で薙ぎ払う"}},
 ];
 /* 2026-07-17、経験値カーブを変更（catExpPoints参照。LV100まで+3/LV500まで+2/LV1000まで+1/以降+0.2の
    段階式に改訂）したことにともない、同じレベル到達ペースで各ボスが解禁されるよう、全ボスのrecPts・
@@ -14864,6 +14917,13 @@ const ITEM_EFFECTS = {
   "狼避けの鈴":     {type:"atkMultBuff", mult:2.1, turns:3,       label:"次の3ターン、攻撃力が2.1倍になる",   icon:"🔔", category:"atk", badge:"2.1倍/3T"},
   "動物図鑑の付録レンズ": {type:"accBuff", amount:35, turns:3,    label:"次の3ターン、ボスに攻撃が当たりやすくなる（命中率+35pt）", icon:"🔍", category:"acc", badge:"命中+35pt/3T"},
   "マイナスイオン発生機": {type:"evadeBuff", amount:35, turns:3,  label:"次の3ターン、ボスの攻撃を回避しやすくなる（回避率+35pt）", icon:"💨", category:"evade", badge:"回避+35pt/3T"},
+  /* recPts20000帯・適正経験値20000の新5体（2026-09-23〜、教員の指示）が落とすアイテム。
+     recPts15000帯の最上位アイテムをさらに一段上回る数値にした。 */
+  "闘魂ベルト":     {type:"atkMultBuff", mult:2.4, turns:3,        label:"次の3ターン、攻撃力が2.4倍になる",   icon:"🥋", category:"atk", badge:"2.4倍/3T"},
+  "都市伝説のお守り": {type:"healPct", amount:0.35,                label:"自分のMAXHPの35%を回復する",        icon:"🎗️", category:"heal", badge:"+35%"},
+  "俊足チーズ":     {type:"evadeBuff", amount:40, turns:3,         label:"次の3ターン、ボスの攻撃を回避しやすくなる（回避率+40pt）", icon:"🧀", category:"evade", badge:"回避+40pt/3T"},
+  "風紀委員の腕章": {type:"defCutBuff", amount:0.40, turns:3,      label:"次の3ターン、受けるダメージが40%減る", icon:"📛", category:"def", badge:"被ダメ-40%/3T"},
+  "貝殻の盾":       {type:"accBuff", amount:40, turns:3,           label:"次の3ターン、ボスに攻撃が当たりやすくなる（命中率+40pt）", icon:"🐚", category:"acc", badge:"命中+40pt/3T"},
 };
 function randInt(min, max){ return min + Math.floor(Math.random() * (max - min + 1)); }
 
@@ -15194,6 +15254,7 @@ function rollKwsMbEncounter(resumeFn){
    xpAbove（この値を超えたら）とretireAtOrBelowRecPts（この適正経験値以下のボスを除外）の
    組の配列で、複数の段階を持たせられる。 */
 const BOSS_RETIREMENT_TIERS = [
+  {xpAbove: 20000, retireAtOrBelowRecPts: 10000}, // 2026-09-23〜、教員の指示：経験値20000超で適正経験値10000以下のボスが卒業（適正経験値20000の新5体を出す代わり、15000帯・20000帯だけが残る）
   {xpAbove: 7000, retireAtOrBelowRecPts: 4999}, // 2026-08-09〜、教員の指示：経験値7000超で適正経験値5000未満のボスが卒業（5000ちょうどのルオー帯11体は対象外）
   {xpAbove: 4000, retireAtOrBelowRecPts: 2000},
   {xpAbove: 3000, retireAtOrBelowRecPts: 1000},
@@ -15349,6 +15410,7 @@ function startBossBattle(boss, allGenre, hyakuninMode){
     kotonohaKodaiReviveStock:0, kotonohaKodaiRevivePct:0, kotonohaMiraiStatMultStack:1,
     kotonohaKodaiAtkMultStack:1,
     kotonohaParalyzeTurnsLeft:0, kotonohaHyouDefMult:1, kotonohaKiriEvadeBonus:0,
+    _bossAtkBuffTurns:0, _bossAtkBuffMult:1, // bossSelfMove(kind:"buff")用（2026-09-23〜）
   };
   if(boss.preemptiveHalfHp){
     // 丸刈りのさるちゃん専用：戦闘開始と同時に、プレイヤーのHPを半分にする先制攻撃を受ける
@@ -15356,15 +15418,52 @@ function startBossBattle(boss, allGenre, hyakuninMode){
     bossBattle.playerHp = Math.max(1, bossBattle.playerHp - dmg);
     bossBattle._preemptiveMsg = `😱 不意をつかれた！ ${boss.name}が戦闘開始と同時に攻撃をしかけてきて、HPが${dmg}減った！`;
   }
+  let fearDmg = 0;
   if(fear){
     // partnerFear発動時：戦闘開始と同時に、ボス自身のHPをhpFracまで減らした状態でスタートする
     // （プレイヤーのHPを減らすpreemptiveHalfHpとは逆に、ボス側のHPを削る）。攻撃力は既に
     // bossResolveEffective側でboss.atkに反映済みなので、ここではHPだけ調整すればよい。
-    const dmg = Math.floor(bossBattle.bossMaxHp * (1 - fear.hpFrac));
-    bossBattle.bossHp = Math.max(1, bossBattle.bossHp - dmg);
-    bossBattle._preemptiveMsg = `😱「${fear.line}」　${boss.name}は怖気づき、HPが${dmg}減った状態で戦闘が始まった！`;
+    // HPは最初の問題を描画する前に確定させておき、HPバーが「最初から欠けた状態」で出るようにする
+    // （表示後にバーが後から動く、という不自然さを避ける）。実際の演出（セリフ・効果の表示）は
+    // 最初の問題が描画された直後にshowBossFearOverlayで出す。
+    fearDmg = Math.floor(bossBattle.bossMaxHp * (1 - fear.hpFrac));
+    bossBattle.bossHp = Math.max(1, bossBattle.bossHp - fearDmg);
   }
   bossNextQuestion();
+  if(fear) showBossFearOverlay(boss, fear, fearDmg);
+}
+/* partnerFear発動時の「怖がる」演出（2026-09-23〜、教員の指示）。ボス戦カード内に小さく
+   書くだけでは目立たないため、必殺技（showFinisherOverlay）と同じ画面いっぱいのオーバーレイに
+   セリフと効果をはっきり大きく表示する。表示中は最初の問題に答えられないよう、必殺技の
+   溜め演出（bossUseFinisher）と同じ方法で選択肢／入力欄を一時的に無効化し、_resolvingも
+   立てておく（アイテム使用・必殺技もこれで自動的にブロックされる）。 */
+function showBossFearOverlay(boss, fear, dmg){
+  const b = bossBattle;
+  if(!b) return;
+  b._resolving = true;
+  const it = b.item;
+  if(!Array.isArray(it.ans)){
+    screen.querySelectorAll(".choice").forEach(btn => { btn.disabled = true; });
+  }else{
+    const el = document.getElementById("ansIn"); if(el) el.disabled = true;
+    const sbtn = document.getElementById("submitBtn"); if(sbtn) sbtn.disabled = true;
+  }
+  triggerFinisherShake("fear");
+  showFinisherOverlay(
+    `😱<br>「${esc(fear.line)}」<br><span style="font-size:.5em">${esc(boss.name)}は怖気づいた！<br>HPが${dmg}減った状態で戦闘開始！攻撃力も半分になっている…</span>`,
+    "finisher-name-big", "fx-fear"
+  );
+  setTimeout(() => {
+    hideFinisherOverlay();
+    if(bossBattle !== b) return; // 待っている間に戦闘が終了・リセットされていたら何もしない
+    b._resolving = false;
+    if(!Array.isArray(it.ans)){
+      screen.querySelectorAll(".choice").forEach(btn => { btn.disabled = false; });
+    }else{
+      const el = document.getElementById("ansIn"); if(el) el.disabled = false;
+      const sbtn = document.getElementById("submitBtn"); if(sbtn) sbtn.disabled = false;
+    }
+  }, 2600);
 }
 /* ボス戦中に通常アイテムを1つ消費して効果を発動する。問題への回答前に使える
    （消費してもターンは進まない）。制限は2つ：1ターンに使えるのは1個まで、かつ同じ種類の
@@ -16282,6 +16381,8 @@ function bossComputeHitDamage(b, st, ps, range, atkGrowthTurn){
     effAtk *= (hpRatio < cfg.hpThreshold ? cfg.lowMult : cfg.normalMult);
   }
   if(b.boss.atkGrowthPerTurn) effAtk *= Math.pow(b.boss.atkGrowthPerTurn, atkGrowthTurn);
+  // 適正経験値20000帯の「必殺」bossSelfMove(kind:"buff")で自分にかけた一時的な攻撃力バフ（2026-09-23〜）
+  if((b._bossAtkBuffTurns||0) > 0) effAtk *= (b._bossAtkBuffMult||1);
   let raw = randInt(range[0], range[1]) * effAtk;
   let crit = false;
   if(Math.random() * 100 < (b.boss.luck||0)){
@@ -16313,6 +16414,7 @@ function bossCounterAttackDoubleHit(b, hitChance, range, atkGrowthTurn, st, ps){
   if(b.defCutBuffTurns > 0) b.defCutBuffTurns--;
   if(b.evadeBuffTurns > 0) b.evadeBuffTurns--;
   if(b.accBuffTurns > 0) b.accBuffTurns--;
+  if((b._bossAtkBuffTurns||0) > 0) b._bossAtkBuffTurns--;
   const fb = document.getElementById("fb");
   const nextBtn = document.getElementById("nextBtn");
   nextBtn.style.display = "none";
@@ -16395,6 +16497,37 @@ function bossCounterAttack(playerWasCorrect){
       b.kotonohaBurnPct = 0; b.kotonohaHyouDefMult = 1; b.kotonohaKiriEvadeBonus = 0; b.kotonohaDefBuffAmount = 0;
       fb.innerHTML += `<div class="boss-turn">🌬️${esc(b.boss.name)}のターン。「${esc(cfg.selfLine)}」<br>場に出ていた特殊効果（バフ・デバフ・火傷など）が、すべて無効化された！</div>`;
     }
+    const nextBtn = document.getElementById("nextBtn");
+    nextBtn.style.display = "inline-block";
+    nextBtn.textContent = "つぎへ";
+    nextBtn.focus();
+    return;
+  }
+  /* 適正経験値20000の新5体（2026-09-23〜、教員の指示）専用「必殺」。毎ターンchanceの確率で、
+     通常の反撃の代わりに繰り出す（airPurify等と同じ「早期return」）。kind別に効果が違う：
+     "heal"＝自分の最大HPのhealPct分を回復、"buff"＝自分の攻撃力をatkMult倍にしてturnsターン
+     持続（bossComputeHitDamageのb._bossAtkBuffTurns/Multを参照、通常のatkGrowthPerTurn等と同じ
+     場所で乗算する）、"drain"＝プレイヤーの必殺ゲージ(finisherGauge)を0にする（漢字Questの
+     MP吸収を模した、必殺封じ）。いずれもこの「必殺」自体はダメージを与えない代わりに命中判定・
+     防御力を一切介さない（強打型はlionMimicの方を使う。gou_wrestling参照）。 */
+  if(b.boss.bossSelfMove && Math.random() < b.boss.bossSelfMove.chance){
+    const cfg = b.boss.bossSelfMove;
+    let effectMsg = "";
+    if(cfg.kind === "heal"){
+      const heal = Math.round(b.bossMaxHp * cfg.healPct);
+      b.bossHp = Math.min(b.bossMaxHp, b.bossHp + heal);
+      effectMsg = `HPが${heal}回復した！`;
+    }else if(cfg.kind === "buff"){
+      b._bossAtkBuffTurns = cfg.turns;
+      b._bossAtkBuffMult = cfg.atkMult;
+      effectMsg = `攻撃力が${cfg.atkMult}倍になった！（あと${cfg.turns}ターン）`;
+    }else if(cfg.kind === "drain"){
+      b.finisherGauge = 0;
+      effectMsg = `あなたの必殺ゲージが0になった！`;
+    }
+    refreshBossHpBars();
+    const fb = document.getElementById("fb");
+    fb.innerHTML += `<div class="boss-turn">💢${esc(b.boss.name)}の必殺「${esc(cfg.name)}」！<br>${esc(effectMsg)}</div>`;
     const nextBtn = document.getElementById("nextBtn");
     nextBtn.style.display = "inline-block";
     nextBtn.textContent = "つぎへ";
@@ -16548,6 +16681,7 @@ function bossCounterAttack(playerWasCorrect){
   if(b.defCutBuffTurns > 0) b.defCutBuffTurns--;
   if(b.evadeBuffTurns > 0) b.evadeBuffTurns--;
   if(b.accBuffTurns > 0) b.accBuffTurns--;
+  if((b._bossAtkBuffTurns||0) > 0) b._bossAtkBuffTurns--;
   refreshBossHpBars();
   const fb = document.getElementById("fb");
   fb.innerHTML += guarded
