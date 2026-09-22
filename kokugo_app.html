@@ -4165,7 +4165,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.05</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.06</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -5039,6 +5039,11 @@ function loadStats(){
         if(!st.dokkaiDungeon.skillXp) st.dokkaiDungeon.skillXp = {};
         DD_SKILL_KEYS.forEach(k => { if(typeof st.dokkaiDungeon.skillXp[k] !== "number") st.dokkaiDungeon.skillXp[k] = 0; });
         if(!st.dokkaiDungeon.cleared) st.dokkaiDungeon.cleared = {};
+        /* 「一日一読」（2026-09-23〜、教員の指示）。ステージごとに「初回正解の経験値をもう
+           支払ったか」だけを持つ、ずっと積み上げるフラグ集合（st.dokkaiDungeon.clearedとは別に
+           持つのは、cleared側は「ベスト成績・挑戦回数」を上書きし続ける記録用で、経験値の
+           支払い済みフラグとは寿命も更新頻度も違うため）。ddFirstClearStockXp参照。 */
+        if(!st.dokkaiRewardGiven || typeof st.dokkaiRewardGiven !== "object") st.dokkaiRewardGiven = {};
         return st;
       }
     }
@@ -7381,6 +7386,11 @@ function showHome(){
     <div class="card menu-card" onclick="ddShowPrep()">
       <div class="menu-icon">🗺️</div>
       <div><h2>読解Quest <span class="tag">試作版</span></h2><p>文章から証拠を探し、たしかめ、推理して、仕上げる新しい読解ゲーム</p></div>
+    </div>
+    <div class="card menu-card" onclick="ddShowDailyList()">
+      <div class="menu-icon">📅</div>
+      <div><h2>一日一読</h2><p>1日1本、読解Questの新しい文章に挑戦（平日のみ公開・文学的文章と説明的文章が交互）</p></div>
+      <div class="right"><span class="shogo-badge">${ddTodayDailyStage() ? "🈶 本日分あり" : "📖 公開日をお楽しみに"}</span></div>
     </div>
     <div class="card menu-card" onclick="showHyakuninMenu()">
       <div class="menu-icon">🎴</div>
@@ -12309,6 +12319,104 @@ const DD_STEP_ORDER = [
   {key:"result",   label:"結果"},
 ];
 let dd = null; // 読解Quest試作版の進行中ステート
+/* ================= 一日一読（2026-09-23〜、教員の指示） =================
+   読解Quest試作版（DOKKAI_DUNGEON）のステージに`ddPublishDate`（"YYYY-MM-DD"）を持たせておくと、
+   その日付ちょうどに「一日一読」の対象として1日1本だけ扱われる。平日のみ・文学的文章
+   （小説／随筆）と説明的文章（説明文／論説文）を交互に、という運用は日付を割り振る側
+   （dokkai_dungeon_data.js）の責務で、エンジン側は日付の一致だけを見る。
+   ddPublishDateを持たないステージ（既存11本）は今までどおりいつでも公開済み扱いになる
+   （後方互換）。まだ日付を割り振っていない新規ステージ（ストック、ロック中）は
+   ddPublishDateフィールド自体を持たせない＝ddIsPublished/ddTodayDailyStage双方の対象外になり、
+   ddShowListの通常一覧にもいっさい出てこない（教員の指示：「ストックは公開しない」）。
+   経験値は「初回正解の1回だけ」（st.dokkaiRewardGiven[stg.id]）：ddFinishQuest側でdd.viaDailyRead
+   （「一日一読」ボタン経由かどうか）を見て、trueならddFirstClearStockXp(cl.plays,false)
+   （1回目10・2回目8・3回目6・4回目4・5回目2・6回目以降0）、falseなら同じ数値の半分
+   （「一日一読」を使わず、あとから読解Quest試作版の一覧で解いた場合、教員の指示）を
+   st.stockXpに加算する。 */
+function ddTodayStr(){
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+}
+function ddIsPublished(stg, todayStr){
+  return !stg.ddPublishDate || stg.ddPublishDate <= (todayStr || ddTodayStr());
+}
+// 今日ちょうど公開されるステージ（無ければnull）。1日1本だけ割り振る運用のため、通常は0〜1件。
+function ddTodayDailyStage(){
+  const todayStr = ddTodayStr();
+  const i = DOKKAI_DUNGEON.findIndex(s => s.ddPublishDate === todayStr);
+  return i >= 0 ? {stage: DOKKAI_DUNGEON[i], i} : null;
+}
+// 公開日を持つステージのうち、公開済み（今日を含む）のものを、公開日の新しい順で返す。
+function ddPublishedDailyStages(){
+  const todayStr = ddTodayStr();
+  return DOKKAI_DUNGEON
+    .map((stg, i) => ({stg, i}))
+    .filter(x => x.stg.ddPublishDate && x.stg.ddPublishDate <= todayStr)
+    .sort((a,b) => b.stg.ddPublishDate.localeCompare(a.stg.ddPublishDate));
+}
+// "2026-09-24" → "9月24日"
+function ddDateLabel(iso){
+  const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(iso||"");
+  return m ? `${parseInt(m[1],10)}月${parseInt(m[2],10)}日` : "";
+}
+// 「一度で正解すればストック経験値10、二度目なら8…」（教員の指示、2026-09-23〜）。
+// playCountはst.dokkaiDungeon.cleared[id].plays（このクリアを含む、そのステージの通算挑戦回数）。
+// halfは「一日一読を使わず、あとから読解Questで解いた場合」の半額版。
+function ddFirstClearStockXp(playCount, half){
+  const base = Math.max(0, 10 - (Math.max(1, playCount) - 1) * 2);
+  return half ? Math.round(base / 2) : base;
+}
+function ddGenreCategory(stg){
+  return (stg.genre === "小説" || stg.genre === "随筆") ? "文学的文章" : "説明的文章";
+}
+// ホーム画面「一日一読」ボタンから。今日公開のステージがあればそれに挑戦、無ければ案内だけ出す。
+function ddPlayTodayDaily(){
+  const today = ddTodayDailyStage();
+  if(!today){
+    screen.innerHTML = `
+      <div class="card">
+        <h3 class="section" style="margin-top:0">📅 一日一読</h3>
+        <p class="note">本日の「一日一読」はまだありません。公開日をお楽しみに。</p>
+        <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>
+      </div>`;
+    return;
+  }
+  ddStart(today.i, true);
+}
+// 「一日一読」で公開済みの文章を、あとから読解Quest試作版の一覧としてまとめて見る画面
+// （教員の指示：「公開済みの問題は、読解Quest試作版の中でも閲覧可能にする」）。
+// ボタンには公開日を明示し、ここから始めた場合はviaDailyRead=falseのまま（＝半額の経験値）で入る。
+function ddShowDailyList(){
+  const st = loadStats();
+  const today = ddTodayDailyStage();
+  const list = ddPublishedDailyStages();
+  let html = `
+    <div class="dd-intro-card">
+      <h2>📅 一日一読</h2>
+      <p>公開された「一日一読」の文章は、ここからいつでも読み返せます。ボタンの日付は、その文章が公開された日です。</p>
+    </div>`;
+  html += `<div class="card menu-card" onclick="ddPlayTodayDaily()">
+      <div class="menu-icon">📅</div>
+      <div><h2>今日の一日一読</h2>
+      <p>${today ? `本日公開：${esc(today.stage.title)}（${ddGenreCategory(today.stage)}）` : "本日はまだ公開されていません"}</p></div>
+    </div>`;
+  html += `<h3 class="section">これまで公開された文章</h3>`;
+  if(!list.length){
+    html += `<p class="note">まだ公開された文章がありません。</p>`;
+  }
+  list.forEach(({stg, i}) => {
+    const cl = st.dokkaiDungeon.cleared[stg.id];
+    const bestHtml = cl ? `<span class="tag">ベスト ${Math.round(cl.bestPct)}%・${cl.plays}回挑戦</span>` : `<span class="tag">未挑戦</span>`;
+    html += `
+    <div class="card menu-card" onclick="ddStart(${i})">
+      <div class="menu-icon">${stg.icon || "📖"}</div>
+      <div><h2>${ddDateLabel(stg.ddPublishDate)}公開　${esc(stg.title)} ${bestHtml}</h2>
+      <p>${esc(ddGenreCategory(stg))}・${esc(stg.genre)}・難易度${"★".repeat(stg.difficulty||1)}</p></div>
+    </div>`;
+  });
+  html += `<div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
+  screen.innerHTML = html;
+}
 let ddSelectedLevel = null;
 function ddSkillLv(xp){ return 1 + Math.floor((xp||0) / 8); }
 function ddSkillLevels(st){
@@ -12491,7 +12599,9 @@ function ddShowList(){
   html += `<div class="btn-row"><button class="btn secondary" onclick="ddShowLevelSelect()">← レベルを変更する</button><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
   screen.innerHTML = html;
 }
-function ddStart(stageIdx){
+// viaDailyRead:true＝ホーム画面「一日一読」ボタン経由（教員の指示、2026-09-23〜）。
+// この戦績だけが、初回正解時の全額ストック経験値（ddFirstClearStockXp、ddFinishQuest参照）の対象。
+function ddStart(stageIdx, viaDailyRead){
   const st = loadStats();
   const stage = DOKKAI_DUNGEON[stageIdx];
   if(!stage) return ddShowList();
@@ -12502,6 +12612,7 @@ function ddStart(stageIdx){
     inferChoice:null, inferCorrect:false,
     finalAnswerText:"", finalChoiceIdx:null, finalCorrect:false, finalScored:null, coreFoundCount:0,
     skillLvBefore: ddSkillLevels(st),
+    viaDailyRead: !!viaDailyRead, stockXpEarned:0,
   };
   ddRenderIntro();
 }
@@ -12822,6 +12933,17 @@ function ddFinishQuest(){
   cl.plays++;
   if(pct > cl.bestPct) cl.bestPct = pct;
   st.dokkaiDungeon.cleared[stg.id] = cl;
+  /* 「一日一読」（2026-09-23〜、教員の指示）：このステージで初めて仕上げ（final）に正解した
+     ときだけ、ストック経験値を1回だけ加算する（st.dokkaiRewardGiven、以後は何度クリアしても
+     加算しない）。金額は通算挑戦回数(cl.plays、このクリアを含む)に応じて減っていく
+     （ddFirstClearStockXp：1回目10・2回目8…6回目以降0）。「一日一読」ボタン経由
+     （dd.viaDailyRead）なら全額、あとから読解Quest試作版の一覧で解いた場合は半額。 */
+  if(dd.finalCorrect && !st.dokkaiRewardGiven[stg.id]){
+    st.dokkaiRewardGiven[stg.id] = true;
+    const gained = ddFirstClearStockXp(cl.plays, !dd.viaDailyRead);
+    if(gained > 0) st.stockXp = (st.stockXp||0) + gained;
+    dd.stockXpEarned = gained;
+  }
   dd.skillLvAfter = ddSkillLevels(st);
   saveStats(st);
   ddMarkStep("result");
@@ -12838,6 +12960,7 @@ function ddRenderResult(){
       <div class="dd-score-big">${sc.total} <span style="font-size:1.1rem;color:var(--sub)">/ ${sc.max}点（${pct}%）</span></div>
       <p class="result-msg">${tier}</p>
       ${sc.items.map(it => `<div class="dd-rubric-item ${it.earned>0?"dd-hit":"dd-miss"}">${esc(it.label)}<span>${it.earned>0?"＋":""}${it.earned}点</span></div>`).join("")}
+      ${dd.stockXpEarned > 0 ? `<p class="note" style="margin-top:10px"><b>🈶 はじめての正解！${dd.viaDailyRead ? "「一日一読」の" : ""}ストック経験値 ＋${dd.stockXpEarned} を獲得しました！</b></p>` : ""}
     </div>
     <div class="card">
       <h4 class="note" style="margin-bottom:8px">この挑戦でのふりかえり</h4>
