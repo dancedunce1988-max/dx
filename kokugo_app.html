@@ -90,6 +90,11 @@
   .event-banner-body{font-size:.88rem; line-height:1.7; color:#333;}
   .event-banner-pts{font-size:1.1rem; font-weight:bold; color:#c05000; margin-top:4px;}
   .event-banner-total{border-color:#c05000; background:linear-gradient(135deg,#fff3c0,#ffdd8a); text-align:center;}
+  /* ホーム画面「一日一読」（2026-09-23〜、教員の指示）：漢字Questのすぐ上に、目立つ色で置く。
+     event-banner（金）・ticket-card（漢字Quest、無地）とは違う色系統にして見分けやすくする。 */
+  .dd-daily-card{border:3px solid #ff7a3d; background:linear-gradient(135deg,#fff1e6,#ffd8b8); padding:14px 16px; box-shadow:0 2px 10px rgba(255,122,61,.3);}
+  .dd-daily-card .menu-icon{background:#ff7a3d; color:#fff;}
+  .dd-daily-card h2{color:#c1501a;}
   .event-banner-total .event-banner-pts{font-size:1.5rem; margin-top:2px;}
   /* 言の刃ゲーム内イベント表示 */
   .bg-event-hud{position:absolute; top:6px; right:8px; font-size:.72rem; background:rgba(255,200,0,.18); border:1px solid #e8a000; border-radius:6px; padding:2px 8px; color:#8a5000; font-weight:bold; pointer-events:none;}
@@ -4165,7 +4170,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.06</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.07</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -7187,6 +7192,22 @@ function mbStaminaLampsHtml(n, max){
    仲間になる確率が10倍になるボーナス付き（MB_SPECIAL_QUEST_RECRUIT_MULT、mbEnemyDefeated
    参照）。ゲージが満タンでない（＝2つ以下の）間は、次の1ゲージ回復までの時間を常時
    表示する（教員の指示、2026-09-07）。 */
+/* ホーム画面「一日一読」カード（2026-09-23〜、教員の指示：「漢字Quest（2時間で回復するやつ）の
+   上に、目立つ色で配置して」）。漢字Questの挑戦ゲージカード（mbHomeQuestEntryHtml）の直前に
+   置く、専用の色（.dd-daily-card、オレンジ系）で目立たせる。今日ぶんの一日一読があるかどうか
+   （ddTodayDailyStage、公開日が来ていない間は「石垣」のお試し版がその代わりを務める）で
+   文言を変える。 */
+function ddHomeEntryHtml(){
+  const today = ddTodayDailyStage();
+  const bodyHtml = today
+    ? `本日の一日一読：<b>${esc(today.stage.title)}</b>（${esc(ddGenreCategory(today.stage))}）`
+    : "本日の一日一読はまだありません。";
+  return `
+  <div class="card menu-card dd-daily-card" onclick="ddShowDailyList()">
+    <div class="menu-icon">📅</div>
+    <div><h2>一日一読</h2><p>${bodyHtml}</p></div>
+  </div>`;
+}
 function mbHomeQuestEntryHtml(st){
   const stam = mbQuestStaminaSync(st);
   const n = stam.count;
@@ -7331,6 +7352,7 @@ function showHome(){
   let html = "";
   html += eventBannerHtml(st);
   html += kotonohaCardHtml(st);
+  html += ddHomeEntryHtml();
   html += mbHomeQuestEntryHtml(st);
   html += storyEntryHtml(st);
   html += miniGameEntryHtml(st);
@@ -7386,11 +7408,6 @@ function showHome(){
     <div class="card menu-card" onclick="ddShowPrep()">
       <div class="menu-icon">🗺️</div>
       <div><h2>読解Quest <span class="tag">試作版</span></h2><p>文章から証拠を探し、たしかめ、推理して、仕上げる新しい読解ゲーム</p></div>
-    </div>
-    <div class="card menu-card" onclick="ddShowDailyList()">
-      <div class="menu-icon">📅</div>
-      <div><h2>一日一読</h2><p>1日1本、読解Questの新しい文章に挑戦（平日のみ公開・文学的文章と説明的文章が交互）</p></div>
-      <div class="right"><span class="shogo-badge">${ddTodayDailyStage() ? "🈶 本日分あり" : "📖 公開日をお楽しみに"}</span></div>
     </div>
     <div class="card menu-card" onclick="showHyakuninMenu()">
       <div class="menu-icon">🎴</div>
@@ -12340,30 +12357,53 @@ function ddTodayStr(){
 function ddIsPublished(stg, todayStr){
   return !stg.ddPublishDate || stg.ddPublishDate <= (todayStr || ddTodayStr());
 }
-// 今日ちょうど公開されるステージ（無ければnull）。1日1本だけ割り振る運用のため、通常は0〜1件。
+/* 「石垣」お試し版（2026-09-23〜、教員の指示：「お試し版として『石垣』は、今からできるように
+   してください」）。ddTrialAlways:trueを持つステージは、日付に関わらず常に「一日一読」から
+   遊べる。本当の公開日（ddPublishDate）が来るまでの「今日ぶん」の代わりを務め、公開済み一覧
+   にも常に先頭で表示する。通常は0〜1件（essay_ishigakiの1件のみを想定）。 */
+function ddTrialStage(){
+  const i = DOKKAI_DUNGEON.findIndex(s => s.ddTrialAlways);
+  if(i < 0) return null;
+  // ddTodayDailyStage側は{stage,i}、ddPublishedDailyStages（既存ddShowListと同じ{stg,i}慣習）
+  // 側は{stg,i}を期待する。両方の呼び出し元から同じ形で使えるよう、両方のキーを持たせる。
+  return {stage: DOKKAI_DUNGEON[i], stg: DOKKAI_DUNGEON[i], i};
+}
+// 今日ぶんの一日一読（無ければnull）。ddPublishDateが今日ちょうどのステージを優先し、
+// まだ本当の公開日が来ていなければお試し版（ddTrialStage）で代わりを務める。
 function ddTodayDailyStage(){
   const todayStr = ddTodayStr();
   const i = DOKKAI_DUNGEON.findIndex(s => s.ddPublishDate === todayStr);
-  return i >= 0 ? {stage: DOKKAI_DUNGEON[i], i} : null;
+  if(i >= 0) return {stage: DOKKAI_DUNGEON[i], i};
+  return ddTrialStage();
 }
 // 公開日を持つステージのうち、公開済み（今日を含む）のものを、公開日の新しい順で返す。
+// お試し版（ddTrialAlways）は日付を持たないが、常に先頭に含める。
 function ddPublishedDailyStages(){
   const todayStr = ddTodayStr();
-  return DOKKAI_DUNGEON
+  const dated = DOKKAI_DUNGEON
     .map((stg, i) => ({stg, i}))
     .filter(x => x.stg.ddPublishDate && x.stg.ddPublishDate <= todayStr)
     .sort((a,b) => b.stg.ddPublishDate.localeCompare(a.stg.ddPublishDate));
+  const trial = ddTrialStage();
+  return trial ? [trial, ...dated] : dated;
 }
 // "2026-09-24" → "9月24日"
 function ddDateLabel(iso){
   const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(iso||"");
   return m ? `${parseInt(m[1],10)}月${parseInt(m[2],10)}日` : "";
 }
+// 一覧・カードに出す「公開日」の文言。お試し版（ddPublishDateを持たない）は日付のかわりに
+// 「お試し版」と表示する。
+function ddPublishLabel(stg){
+  return stg.ddPublishDate ? `${ddDateLabel(stg.ddPublishDate)}公開` : "お試し版";
+}
 // 「一度で正解すればストック経験値10、二度目なら8…」（教員の指示、2026-09-23〜）。
 // playCountはst.dokkaiDungeon.cleared[id].plays（このクリアを含む、そのステージの通算挑戦回数）。
-// halfは「一日一読を使わず、あとから読解Questで解いた場合」の半額版。
-function ddFirstClearStockXp(playCount, half){
-  const base = Math.max(0, 10 - (Math.max(1, playCount) - 1) * 2);
+// halfは「一日一読を使わず、あとから読解Questで解いた場合」の半額版。stg.ddTrialXpScaleを
+// 持つステージ（お試し版の「石垣」、教員の指示：「最大経験値100でできることとする」）は、
+// この基準値をscale倍する（scale:10なら100/80/60/40/20/0、半額なら50/40/30/20/10/0）。
+function ddFirstClearStockXp(playCount, half, scale){
+  const base = Math.max(0, 10 - (Math.max(1, playCount) - 1) * 2) * (scale||1);
   return half ? Math.round(base / 2) : base;
 }
 function ddGenreCategory(stg){
@@ -12398,7 +12438,7 @@ function ddShowDailyList(){
   html += `<div class="card menu-card" onclick="ddPlayTodayDaily()">
       <div class="menu-icon">📅</div>
       <div><h2>今日の一日一読</h2>
-      <p>${today ? `本日公開：${esc(today.stage.title)}（${ddGenreCategory(today.stage)}）` : "本日はまだ公開されていません"}</p></div>
+      <p>${today ? `${esc(ddPublishLabel(today.stage))}：${esc(today.stage.title)}（${ddGenreCategory(today.stage)}）` : "本日はまだ公開されていません"}</p></div>
     </div>`;
   html += `<h3 class="section">これまで公開された文章</h3>`;
   if(!list.length){
@@ -12410,11 +12450,11 @@ function ddShowDailyList(){
     html += `
     <div class="card menu-card" onclick="ddStart(${i})">
       <div class="menu-icon">${stg.icon || "📖"}</div>
-      <div><h2>${ddDateLabel(stg.ddPublishDate)}公開　${esc(stg.title)} ${bestHtml}</h2>
+      <div><h2>${esc(ddPublishLabel(stg))}　${esc(stg.title)} ${bestHtml}</h2>
       <p>${esc(ddGenreCategory(stg))}・${esc(stg.genre)}・難易度${"★".repeat(stg.difficulty||1)}</p></div>
     </div>`;
   });
-  html += `<div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
+  html += `<div class="btn-row"><button class="btn secondary" onclick="ddShowPrep()">読解Questへ</button><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
   screen.innerHTML = html;
 }
 let ddSelectedLevel = null;
@@ -12940,7 +12980,7 @@ function ddFinishQuest(){
      （dd.viaDailyRead）なら全額、あとから読解Quest試作版の一覧で解いた場合は半額。 */
   if(dd.finalCorrect && !st.dokkaiRewardGiven[stg.id]){
     st.dokkaiRewardGiven[stg.id] = true;
-    const gained = ddFirstClearStockXp(cl.plays, !dd.viaDailyRead);
+    const gained = ddFirstClearStockXp(cl.plays, !dd.viaDailyRead, stg.ddTrialXpScale);
     if(gained > 0) st.stockXp = (st.stockXp||0) + gained;
     dd.stockXpEarned = gained;
   }
