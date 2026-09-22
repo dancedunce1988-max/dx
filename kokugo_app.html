@@ -12563,6 +12563,14 @@ function nobiruIsUnlocked(t){
 // URLの?viaDaily=1を読み取り、完了時の経験値連携（DD_PENDING_REWARD_LSKEY）に含める
 // （一日一読経由なら全額、そうでなければ半額。ddCheckNobiruPendingReward参照）。
 function ddOpenNobiru(key, viaDaily){
+  /* file:// ランチャー時:
+     jsDelivr の .html は text/plain のため直接遷移するとソース表示になる。
+     dist/script.js が入れる __DX_OPEN_NOBIRU__（fetch→Blob/srcdoc）を優先。
+     未定義なら相対／CDN URL へフォールバック。viaDaily も渡す。 */
+  if (typeof window.__DX_OPEN_NOBIRU__ === "function") {
+    window.__DX_OPEN_NOBIRU__(key, viaDaily ? { viaDaily: "1" } : {});
+    return;
+  }
   /* file:// ランチャー時は相対 nobiru/ がホスト側に解決されて壊れるため、
      __DX_CDN_BASE__（末尾スラッシュ）があれば CDN 絶対URLへ。未定義なら従来どおり。
      CDN遷移時は dx_home に現在URLを付け、モード選択後も「ホームに戻る」で

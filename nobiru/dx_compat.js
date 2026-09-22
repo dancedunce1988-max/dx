@@ -45,6 +45,10 @@
       global.__DX_GO_HOME__();
       return;
     }
+    if (typeof global.__DX_HOME_URL__ === "string" && global.__DX_HOME_URL__) {
+      location.href = global.__DX_HOME_URL__;
+      return;
+    }
     var home = dxHomeFromQuery();
     if (home) {
       location.href = home;

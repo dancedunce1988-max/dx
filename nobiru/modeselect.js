@@ -35,7 +35,11 @@ function escHtml(s){
   return String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
 }
 
-const params = new URLSearchParams(location.search);
+const params = new URLSearchParams(
+  (typeof window.__DX_BOOT_SEARCH__ === "string" && window.__DX_BOOT_SEARCH__.length)
+    ? window.__DX_BOOT_SEARCH__
+    : location.search
+);
 const raw = params.get("mode");
 const mode = raw === "hard" ? "hard" : raw === "easy" ? "easy" : null;
 window.NOBIRU_MODE = mode;
@@ -99,9 +103,20 @@ if(mode){
   if (window.DxCompat) DxCompat.wireHomeLinks(modeRoot);
   modeRoot.querySelectorAll(".modesel-card[data-mode]").forEach(btn => {
     btn.onclick = () => {
-      /* dx_home を落としてしまうと、読了後の「ホーム」がランチャーに戻れない */
-      const next = new URLSearchParams(location.search);
+      /* dx_home / Blob・srcdoc 再オープン用に既存クエリを維持 */
+      const next = new URLSearchParams(
+        (typeof window.__DX_BOOT_SEARCH__ === "string" && window.__DX_BOOT_SEARCH__.length)
+          ? window.__DX_BOOT_SEARCH__
+          : location.search
+      );
       next.set("mode", btn.dataset.mode);
+      if (typeof window.__DX_OPEN_NOBIRU__ === "function" && window.__DX_CDN_BASE__) {
+        const k = window.__DX_NOBIRU_KEY__ || key;
+        const obj = {};
+        next.forEach((v, name) => { obj[name] = v; });
+        window.__DX_OPEN_NOBIRU__(k, obj);
+        return;
+      }
       location.href = location.pathname + "?" + next.toString();
     };
   });

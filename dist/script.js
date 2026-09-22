@@ -311,7 +311,13 @@
           }
 
           var scripts = collectScripts(doc, commitHash);
-          return injectScriptsInOrder(scripts);
+          return injectScriptsInOrder(scripts).then(function () {
+            installNobiruOpener();
+            /* CDN の旧 kokugo_app は jsDelivr HTML へ遷移して text/plain 表示になるため上書き */
+            window.ddOpenNobiru = function (key) {
+              return window.__DX_OPEN_NOBIRU__(key, {});
+            };
+          });
         });
       })
       .catch(function (err) {
@@ -322,6 +328,151 @@
         showError(msg);
         console.error('[DX] boot failed', err);
       });
+  }
+
+  /**
+   * jsDelivr は .html を text/plain で返すため、直接 location 遷移するとソース表示になる。
+   * Blob URL も file:// 由来だと blob:null/uuid になり、<base> 解決で
+   * /nobiru/null/<uuid> を取りにいって壊れる。
+   * → ランチャー上の iframe srcdoc で text/html として開く。
+   */
+  function closeNobiruFrame() {
+    var f = document.getElementById('dx-nobiru-frame');
+    if (!f) return;
+    try {
+      f.srcdoc = '';
+    } catch (e) {}
+    f.hidden = true;
+  }
+
+  function showNobiruHtml(out) {
+    try {
+      if (window.frameElement && window.frameElement.id === 'dx-nobiru-frame') {
+        window.frameElement.srcdoc = out;
+        return;
+      }
+    } catch (e1) {}
+
+    var f = document.getElementById('dx-nobiru-frame');
+    if (!f) {
+      f = document.createElement('iframe');
+      f.id = 'dx-nobiru-frame';
+      f.title = 'のびる読解';
+      f.setAttribute(
+        'style',
+        'position:fixed;inset:0;border:0;width:100%;height:100%;z-index:99999;background:#fff;'
+      );
+      document.documentElement.appendChild(f);
+    }
+    f.hidden = false;
+    f.srcdoc = out;
+  }
+
+  function openNobiruPage(key, searchObj) {
+    var base = window.__DX_CDN_BASE__;
+    var home = window.__DX_HOME_URL__ || '';
+    try {
+      if (!home && (!window.frameElement || window.frameElement.id !== 'dx-nobiru-frame')) {
+        home = location.href;
+      }
+    } catch (e0) {
+      home = home || location.href;
+    }
+
+    if (!base) {
+      var qsLocal = new URLSearchParams(searchObj || {});
+      var localUrl = 'nobiru/' + key + '.html';
+      if (qsLocal.toString()) localUrl += '?' + qsLocal.toString();
+      location.href = localUrl;
+      return Promise.resolve();
+    }
+
+    var nobiruBase = base + 'nobiru/';
+    var bootParams = new URLSearchParams(searchObj || {});
+    var bootSearch = bootParams.toString() ? '?' + bootParams.toString() : '';
+    var htmlName = String(key || '').replace(/[^A-Za-z0-9_-]/g, '');
+    if (!htmlName) {
+      return Promise.reject(new Error('不正な教材キーです'));
+    }
+
+    return fetch(nobiruBase + htmlName + '.html', { cache: 'no-store' })
+      .then(function (res) {
+        if (!res.ok) {
+          throw new Error('のびる読解の取得に失敗しました (HTTP ' + res.status + ')');
+        }
+        return res.text();
+      })
+      .then(function (html) {
+        var openerSrc =
+          'window.__DX_OPEN_NOBIRU__=(' +
+          openNobiruPage.toString() +
+          ');' +
+          'window.__DX_SHOW_NOBIRU_HTML__=(' +
+          showNobiruHtml.toString() +
+          ');' +
+          'window.__DX_CLOSE_NOBIRU__=function(){try{if(parent!==window&&parent.__DX_CLOSE_NOBIRU__)parent.__DX_CLOSE_NOBIRU__();}catch(e){}};';
+
+        /* about:srcdoc では location.search が空のことがあるため、getter を一時的に被せる */
+        var boot =
+          '<base href="' +
+          nobiruBase.replace(/"/g, '&quot;') +
+          '">' +
+          '<script>(function(){' +
+          'window.__DX_CDN_BASE__=' +
+          JSON.stringify(base) +
+          ';' +
+          'window.__DX_HOME_URL__=' +
+          JSON.stringify(home) +
+          ';' +
+          'window.__DX_NOBIRU_KEY__=' +
+          JSON.stringify(htmlName) +
+          ';' +
+          'window.__DX_BOOT_SEARCH__=' +
+          JSON.stringify(bootSearch) +
+          ';' +
+          'try{var d=Object.getOwnPropertyDescriptor(Location.prototype,"search");' +
+          'if(d&&d.get&&window.__DX_BOOT_SEARCH__){Object.defineProperty(Location.prototype,"search",{' +
+          'configurable:true,enumerable:true,get:function(){' +
+          'if(this===window.location&&window.__DX_BOOT_SEARCH__)return window.__DX_BOOT_SEARCH__;' +
+          'return d.get.call(this);}});}}catch(e){}' +
+          'window.__DX_GO_HOME__=function(){try{if(parent!==window&&parent.__DX_CLOSE_NOBIRU__){parent.__DX_CLOSE_NOBIRU__();return;}}catch(e){}' +
+          'if(window.__DX_HOME_URL__)location.href=window.__DX_HOME_URL__;};' +
+          openerSrc +
+          '})();<\/script>';
+
+        var patch =
+          '<script>(function(){function patch(){' +
+          'document.querySelectorAll(".modesel-card[data-mode]").forEach(function(btn){' +
+          'btn.onclick=function(){if(window.__DX_OPEN_NOBIRU__)window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__,{mode:btn.getAttribute("data-mode")});};' +
+          '});' +
+          'document.querySelectorAll("a.back, a.modesel-back").forEach(function(a){' +
+          'a.addEventListener("click",function(ev){ev.preventDefault();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();});' +
+          '});}' +
+          'if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",function(){setTimeout(patch,0);});' +
+          'else setTimeout(patch,0);})();<\/script>';
+
+        var out = html;
+        if (/<head[^>]*>/i.test(out)) {
+          out = out.replace(/<head[^>]*>/i, function (m) {
+            return m + boot;
+          });
+        } else {
+          out = boot + out;
+        }
+        if (/<\/body>/i.test(out)) {
+          out = out.replace(/<\/body>/i, patch + '</body>');
+        } else {
+          out = out + patch;
+        }
+
+        window.__DX_SHOW_NOBIRU_HTML__(out);
+      });
+  }
+
+  function installNobiruOpener() {
+    window.__DX_OPEN_NOBIRU__ = openNobiruPage;
+    window.__DX_SHOW_NOBIRU_HTML__ = showNobiruHtml;
+    window.__DX_CLOSE_NOBIRU__ = closeNobiruFrame;
   }
 
   if (document.readyState === 'loading') {
