@@ -3831,11 +3831,20 @@
 }
 /* ホーム画面「ことのは」カード右上のパートラーバッジ（ライトテーマ側のUI、教員の指示、
    2026-09-04）。.kotonoha-cardに position:relative を付けた上での絶対配置。 */
-.mb-partner-badge{
-  position:absolute; top:14px; right:14px; width:52px; height:52px; border-radius:50%;
-  overflow:hidden; border:2px solid var(--gold); background:var(--card); cursor:pointer;
-  box-shadow:0 2px 6px rgba(0,0,0,.25); z-index:2;
+.mb-partner-badges{
+  position:absolute; top:14px; right:14px; display:flex; gap:6px; z-index:2;
 }
+.mb-partner-badge{
+  width:52px; height:52px; border-radius:50%; flex-shrink:0;
+  overflow:hidden; border:2px solid var(--gold); background:var(--card); cursor:pointer;
+  box-shadow:0 2px 6px rgba(0,0,0,.25);
+}
+/* 2体目の空き枠（2026-09-23〜）。タップで2体目を選ぶ。 */
+.mb-partner-badge.empty{
+  display:flex; align-items:center; justify-content:center;
+  border-style:dashed; color:var(--sub); font-size:1.5rem; box-shadow:none;
+}
+@media (max-width:420px){ .mb-partner-badge{ width:42px; height:42px; } }
 .mb-partner-badge img{ width:100%; height:100%; object-fit:contain; display:block; }
 .mb-partner-pick-icon img{ width:100%; height:100%; object-fit:contain; }
 /* パートナー選択画面、ボタン右端の「色違い」画像（教員の指示、2026-09-09：発見済みの
@@ -4138,7 +4147,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.01</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.02</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -4436,12 +4445,13 @@ function catExpPoints(lv){
    cats＋amount（省略可）：通常の4択ジャンル（record()経由）の正解1問ごとに amount を加算する
    「ジャンルイベント」。record()内で、レベルアップと同じ条件（急ぎ答え・直近正答率低下でない）の
    ときだけ加算する。
+   mbAttackXp（省略可）：trueなら開催中、漢字Questの通常攻撃の正解1問ごとに＋2（mbChallengeSuccess）。
    recruitMult（省略可）：開催中、漢字Questで倒したボスが仲間になる確率に掛ける倍率
    （mbRecruitEventMult参照）。経験値の入らないイベントなので noXp:true でバナーのpt表示を消す。 */
 const EVENTS = {
   "2026_09_kanjiquest": {
     label: "漢字Quest実装記念イベント",
-    game: "kws",
+    game: "kws", mbAttackXp: true,
     start: new Date('2026-09-06T00:00:00'),
     end: new Date('2026-09-10T23:59:59'),
     desc: "「漢字の書き」（小学校で習う漢字・中学校の漢字・高校入試頻出漢字200）で、\n1問正解するごとに経験値！最初の採点で正解＋3／ヒントを見て正解＋2！（答えを見たあとは正解になりません）",
@@ -4476,10 +4486,10 @@ const EVENTS = {
      10/13・10/16・10/21・10/26）は前後2つのイベントが両方開催中になる（指示どおりの日付）。 ---- */
   "2026_09_kanjiwrite2": {
     label: "漢字の書き イベント",
-    game: "kws",
+    game: "kws", mbAttackXp: true,
     start: new Date('2026-09-27T00:00:00'),
     end: new Date('2026-09-30T23:59:59'),
-    desc: "「漢字の書き」（小学校で習う漢字・中学校の漢字・高校入試頻出漢字200）で、\n1問正解するごとに経験値！最初の採点で正解＋3／ヒントを見て正解＋2！（答えを見たあとは正解になりません）",
+    desc: "「漢字の書き」（小学校で習う漢字・中学校の漢字・高校入試頻出漢字200）で、\n1問正解するごとに経験値！最初の採点で正解＋3／ヒントを見て正解＋2！（答えを見たあとは正解になりません）\n漢字Questでも、通常攻撃で1問正解するごとに＋2！",
   },
   "2026_10_hyougen": {
     label: "表現技法イベント",
@@ -4748,6 +4758,11 @@ function loadStats(){
         // 「パートナー」に設定でき、kotonohaEffStats経由で通常のボス戦のステータスに反映される。
         if(!Array.isArray(st.mbCompanions)) st.mbCompanions = [];
         if(st.mbActivePartner === undefined) st.mbActivePartner = null;
+        // 2体目のパートナー枠（教員の指示、2026-09-23〜）。効果は1体目と足し算（mbPartnerStatBonusPct）。
+        // 初めてこの版で開いたときだけ、すでに2体以上仲間がいれば1体目以外の最初の仲間を自動でセットする。
+        if(st.mbActivePartner2 === undefined){
+          st.mbActivePartner2 = st.mbCompanions.find(id => id !== st.mbActivePartner) || null;
+        }
         // パートナーのレベル（2026-09-04〜、教員の指示）。仲間になった時点でLv.1、その後も
         // 同じボスで1%を引くたびLv.5まで上がり、効果（MB_PARTNER_STAT_BONUS_PCT）もレベルと
         // 同じ倍率になる。既存セーブ（このレベル制導入前に仲間がいた場合）はLv.1として補完する。
@@ -5993,13 +6008,25 @@ function mbCompanionLevel(st, id){
 function mbPartnerStatValueAtLv(entry, lv){
   return entry.base + (lv - 1) * entry.perLevel;
 }
+// パートナー枠は2つ（mbActivePartner＝1体目、mbActivePartner2＝2体目、教員の指示、2026-09-23〜）。
+// 仲間にいない・重複しているidは除いて返す。
+function mbActivePartnerIds(st){
+  const comps = st.mbCompanions || [];
+  const out = [];
+  [st.mbActivePartner, st.mbActivePartner2].forEach(id => {
+    if(id && comps.includes(id) && !out.includes(id)) out.push(id);
+  });
+  return out;
+}
+// 2体ぶんの％を、ステータスごとに足し算する（例：攻撃+2%と攻撃+1%なら攻撃+3%）。
 function mbPartnerStatBonusPct(st){
-  const id = st.mbActivePartner;
-  const base = id && MB_PARTNER_STAT_BONUS_PCT[id];
-  if(!base) return {};
-  const lv = mbCompanionLevel(st, id);
   const out = {};
-  Object.keys(base).forEach(k => { out[k] = mbPartnerStatValueAtLv(base[k], lv); });
+  mbActivePartnerIds(st).forEach(id => {
+    const base = MB_PARTNER_STAT_BONUS_PCT[id];
+    if(!base) return;
+    const lv = mbCompanionLevel(st, id);
+    Object.keys(base).forEach(k => { out[k] = (out[k] || 0) + mbPartnerStatValueAtLv(base[k], lv); });
+  });
   return out;
 }
 // パートナー1体ぶんの効果を短い文で見せる（kotonohaStatBonusTextの％版、ホーム画面のバッジ・
@@ -6012,28 +6039,46 @@ function mbPartnerEffectText(st, id){
 // ホーム画面の「ことのは」カード右上に、今のパートナーの姿を小さく表示する（教員の指示、
 // 2026-09-04）。仲間が1体もいなければ何も表示しない。MB_ALL_RECRUITABLE/mbEnemySpriteSrcは
 // 下の「漢字バトル」セクションで定義されているが、関数宣言の巻き上げにより問題なく参照できる。
+// 2体目の枠（2026-09-23〜）は横に並べ、仲間が2体以上いて枠が空いているときは「＋」の空き枠を出す。
 function mbPartnerBadgeHtml(st){
   if(!st.mbCompanions || !st.mbCompanions.length) return '';
-  const partner = MB_ALL_RECRUITABLE.find(e => e.id === st.mbActivePartner) || MB_ALL_RECRUITABLE.find(e => e.id === st.mbCompanions[0]);
-  if(!partner) return '';
-  const lv = mbCompanionLevel(st, partner.id);
-  return `
-    <div class="mb-partner-badge" onclick="mbShowPartnerPicker()" title="パートナー：${esc(partner.name)}（Lv.${lv}／タップで変更）">
-      <img src="${mbCompanionSpriteSrc(st, partner, 'pose1')}" alt="${esc(partner.name)}">
-    </div>`;
+  const find = id => MB_ALL_RECRUITABLE.find(e => e.id === id);
+  const p1 = find(st.mbActivePartner) || find(st.mbCompanions[0]);
+  if(!p1) return '';
+  const p2 = (st.mbActivePartner2 && st.mbActivePartner2 !== p1.id && st.mbCompanions.includes(st.mbActivePartner2)) ? find(st.mbActivePartner2) : null;
+  const badge = (e, slot) => `
+      <div class="mb-partner-badge" onclick="mbShowPartnerPicker(${slot})" title="パートナー${slot}：${esc(e.name)}（Lv.${mbCompanionLevel(st, e.id)}／タップで変更）">
+        <img src="${mbCompanionSpriteSrc(st, e, 'pose1')}" alt="${esc(e.name)}">
+      </div>`;
+  const slot2 = p2 ? badge(p2, 2)
+    : (st.mbCompanions.length >= 2 ? `<div class="mb-partner-badge empty" onclick="mbShowPartnerPicker(2)" title="2体目のパートナーを設定する">＋</div>` : '');
+  return `<div class="mb-partner-badges">${badge(p1, 1)}${slot2}</div>`;
+}
+// 2体の合計効果（mbPartnerStatBonusPct）を短い文にする。
+function mbPartnerTotalEffectText(st){
+  const pct = mbPartnerStatBonusPct(st);
+  return STAT_KEYS_ALL.filter(k => pct[k]).map(k => `${STAT_LABEL_SHORT[k]}+${pct[k]}%`).join("　");
 }
 // 仲間になった敵の一覧から、パートナーに設定する1体を選ぶ画面（教員の指示、2026-09-04：
 // 「仲間が複数いる場合は…一覧で選べるようにする」）。既存の称号選択画面(showKotonohaFormPicker)
-// と同じ「.card menu-card」の並びに揃える。
-function mbShowPartnerPicker(){
+// と同じ「.card menu-card」の並びに揃える。slot＝どちらの枠を選んでいるか（1/2、2026-09-23〜）。
+function mbShowPartnerPicker(slot){
+  slot = slot === 2 ? 2 : 1;
   const st = loadStats();
   const companions = st.mbCompanions.map(id => MB_ALL_RECRUITABLE.find(e => e.id === id)).filter(Boolean);
+  const other = slot === 1 ? st.mbActivePartner2 : st.mbActivePartner;
+  const totalText = mbPartnerTotalEffectText(st);
+  const tabBtn = n => `<button class="btn${slot === n ? '' : ' secondary'}" onclick="mbShowPartnerPicker(${n})">パートナー${n}</button>`;
   let html = `<div class="card">
-      <h3 class="section">🤝 どの仲間をパートナーにしますか？</h3>
-      <p class="note">パートナーに設定した仲間の効果は、通常のボス戦にずっと反映されます。</p>
+      <h3 class="section">🤝 どの仲間をパートナー${slot}にしますか？</h3>
+      <p class="note">パートナーは2体まで設定できます。2体の効果は足し算され、通常のボス戦にずっと反映されます。</p>
+      ${totalText ? `<p class="note"><b>いまの合計：</b>${esc(totalText)}</p>` : ''}
+      <div class="btn-row">${tabBtn(1)}${tabBtn(2)}</div>
+      ${slot === 2 && st.mbActivePartner2 ? `<button class="btn secondary" onclick="mbSetPartner(null, 2)">パートナー2を外す</button>` : ''}
     </div>`;
   companions.forEach(e => {
-    const active = st.mbActivePartner === e.id;
+    const active = (slot === 1 ? st.mbActivePartner : st.mbActivePartner2) === e.id;
+    const otherMark = other === e.id ? `<span class="note">（パートナー${slot === 1 ? 2 : 1}）</span>` : '';
     const lv = mbCompanionLevel(st, e.id);
     const effectText = mbPartnerEffectText(st, e.id);
     // 色違いを発見済みの仲間だけ、ボタン右端に色違い画像を追加する（教員の指示、2026-09-09：
@@ -6042,14 +6087,14 @@ function mbShowPartnerPicker(){
     const isShinyActive = !!st.mbCompanionShinyActive[e.id];
     const shinyToggleHtml = isShinyUnlocked ? `
       <div class="mb-shiny-toggle${isShinyActive ? ' active' : ''}"
-           onclick="event.stopPropagation(); mbToggleCompanionShiny('${e.id}')"
+           onclick="event.stopPropagation(); mbToggleCompanionShiny('${e.id}', ${slot})"
            title="${isShinyActive ? '色違い、表示中（タップでもとの姿にもどす）' : 'タップで色違いの姿にする'}">
         <img src="${ENEMY_SPRITES_SHINY[e.id + '_pose1']}" alt="${esc(e.name)}の色違い">
       </div>` : '';
     html += `
-    <div class="card menu-card" onclick="mbSetPartner('${e.id}')">
+    <div class="card menu-card" onclick="mbSetPartner('${e.id}', ${slot})">
       <div class="menu-icon mb-partner-pick-icon"><img src="${mbCompanionSpriteSrc(st, e, 'pose1')}" alt="${esc(e.name)}"></div>
-      <div style="flex:1;"><h2>${esc(e.name)} Lv.${lv}${active ? " ✓" : ""}</h2>
+      <div style="flex:1;"><h2>${esc(e.name)} Lv.${lv}${active ? " ✓" : ""}${otherMark}</h2>
       ${effectText ? `<p class="note kotonoha-picker-stat">${esc(effectText)}</p>` : ""}</div>
       ${shinyToggleHtml}
     </div>`;
@@ -6057,20 +6102,26 @@ function mbShowPartnerPicker(){
   html += `<button class="btn secondary" onclick="showHome()">ホームへ</button>`;
   screen.innerHTML = html;
 }
-function mbSetPartner(id){
+// もう片方の枠に入っている仲間を選んだときは、2つの枠を入れ替える（同じ仲間を2枠に置かない）。
+function mbSetPartner(id, slot){
   const st = loadStats();
-  st.mbActivePartner = id;
+  const key = slot === 2 ? 'mbActivePartner2' : 'mbActivePartner';
+  const otherKey = slot === 2 ? 'mbActivePartner' : 'mbActivePartner2';
+  if(id && st[otherKey] === id) st[otherKey] = st[key] || null;
+  st[key] = id;
+  // 1体目が空になることは無いようにする（2体目だけがいる状態になったら1体目へ繰り上げる）
+  if(!st.mbActivePartner && st.mbActivePartner2){ st.mbActivePartner = st.mbActivePartner2; st.mbActivePartner2 = null; }
   saveStats(st);
   showHome();
 }
 // 色違い発見済みの仲間について、表示を色違い姿⇔通常の姿で切り替える（教員の指示、
 // 2026-09-09）。パートナーに設定するかどうか（mbActivePartner）とは独立した見た目だけの
 // 切り替えなので、mbSetPartnerとは別の状態（mbCompanionShinyActive）に保存する。
-function mbToggleCompanionShiny(id){
+function mbToggleCompanionShiny(id, slot){
   const st = loadStats();
   st.mbCompanionShinyActive[id] = !st.mbCompanionShinyActive[id];
   saveStats(st);
-  mbShowPartnerPicker();
+  mbShowPartnerPicker(slot);
 }
 function kotonohaEffStats(st){
   const base = st.stats || {hp:0,atk:0,def:0,spd:0,luck:0};
@@ -9882,7 +9933,6 @@ function kwsSetStageBusy(busy){
   if(judgeBtn) judgeBtn.disabled = busy;
 }
 
-const KWS_XP_EVENT_ID = '2026_09_kanjiquest';
 // 段階0（最初の採点）＝3、1（ヒント後）＝2。段階2（答え表示後）は常に最終×扱いになり
 // kwsAwardStageXpまで到達しないため、対応するXPは無い（教員の指示、2026-09-01：
 // 「答えを表示後は正解扱いにしない」。kwsHandleJudgeResult参照）。
@@ -29817,8 +29867,10 @@ function mbChallengeSuccess(){
   // 「漢字Quest実装記念イベント」中は、通常攻撃の正解1問ごとに＋1（教員の指示、2026-09-06）。
   // 会心のチャンス（action.type==='crit'）はこの関数の外で処理されるため対象外＝ここでの
   // カウント対象と、上のstockXp・下のrecord()の対象（通常攻撃の正解）は常に一致する。
-  const kwsEventNow = eventActive(KWS_XP_EVENT_ID);
-  if(kwsEventNow) eventBonusAdd(st, KWS_XP_EVENT_ID, 2);
+  // 2026-09-23〜、再開催できるよう、開催中のmbAttackXpつきイベント（EVENTS参照）を引く。
+  const mbAtkEvId = Object.keys(EVENTS).find(id => EVENTS[id].mbAttackXp && eventActive(id)) || null;
+  const kwsEventNow = !!mbAtkEvId;
+  if(kwsEventNow) eventBonusAdd(st, mbAtkEvId, 2);
   saveStats(st);
   // 通常攻撃の正解ごとに、その難易度が対応するジャンル（EASY/NORMAL→小学校で習う漢字、
   // HARD→高校入試頻出200、VERY HARD→中学校で習う漢字）のレベルも1上げ、経験値も伸ばす
@@ -30211,6 +30263,7 @@ function mbEnemyDefeated(){
       st.mbCompanions.push(enemyDef.id);
       st.mbCompanionLevels[enemyDef.id] = 1;
       if(!st.mbActivePartner) st.mbActivePartner = enemyDef.id; // 最初の仲間は自動でパートナーに設定する
+      else if(!st.mbActivePartner2) st.mbActivePartner2 = enemyDef.id; // 2体目の枠が空いていればそこへ
       recruitedMsg = `✨「${enemyDef.name}」が仲間になった！（Lv.1）`;
     } else {
       const curLv = mbCompanionLevel(st, enemyDef.id);
