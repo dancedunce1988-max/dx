@@ -4147,7 +4147,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.02</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.03</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -14476,6 +14476,34 @@ const BOSSES = [
      ほぼ変わらず。素早さ・運は既存ボス同様「頭打ちがあるので盛りすぎると無駄になる」性質を
      維持（今回の指示の対象外）。 */
   {id:"fleet_1_3",  name:"無敵艦隊１年３組",       icon:"⚓", item:"青いハチマキ",         treasure:"１年３組の「愛」",           hp:462700, atk:120,  defPct:20, accuracy:200, evadePct:20, luck:15, lv:50, recPts:15000, minXpRatio:10000/15000, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0, atkHalvedUnlessFinisher:true, counterOkFixedMin:0.16, counterOkFixedMax:0.20},
+  /* ==== 2026-09-23〜、教員の指示で追加した新5体。いずれも無敵艦隊１年３組と同格（recPts15000、
+     minXpRatio・drop系の数値も同じ）。専用の仕組みは3つの新フラグで実装する：
+     ①`evoStageScale`＝ことのはの進化段階（kotonohaEvoStageOverall、0〜13）に応じてhp/atkが
+       線形に伸びる。ステージ6（転生前の伝説級）でおおむね無敵艦隊と同格になるよう調整した。
+     ②③④`partnerFear`＝指定した仲間（partnerId、mbActivePartnerIds参照）をパートナーに
+       設定していると、戦闘開始時に「怖がる」セリフを出してhpFracまでHPが減った状態で始まり、
+       攻撃力(atk)もatkMultScared倍（半分）になる。パートナーがいなければ、atkはこの表の
+       素の値（他のボスより高め）のまま。実装はbossResolveEffective・startBossBattle側。
+     ④`lionMimic`＝獅子王(ub03)の必殺「強烈な一撃」を真似た専用行動。毎ターンchanceの確率で
+       通常攻撃の代わりに繰り出し、通常のダメージのmult倍を与える（bossCounterAttack側）。
+     ⑤`airPurify`＝毎ターンchanceの確率で、通常攻撃の代わりに場の特殊効果（プレイヤーの
+       アイテムバフ・氷龍の防御ダウン等）をすべて解除する。blockerId（言霊の番人=me04）を
+       パートナーに設定していれば、セリフとともに発動そのものが防がれる（bossCounterAttack側）。 ==== */
+  {id:"sprout_morimori", name:"ふしぎな苗木モリモリ", icon:"🌳", item:"特製肥料", treasure:"黄金の若葉",
+    hp:406000, atk:118, defPct:20, accuracy:200, evadePct:20, luck:15, lv:50, recPts:15000, minXpRatio:10000/15000, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0,
+    evoStageScale:{hpBase:280000, hpPerStage:21000, atkBase:70, atkPerStage:8}},
+  {id:"occult_misaki", name:"オカルト部長ミサキ", icon:"🔮", item:"護符のブレスレット", treasure:"闇の魔導士の杖のレプリカ",
+    hp:462700, atk:180, defPct:20, accuracy:200, evadePct:20, luck:15, lv:50, recPts:15000, minXpRatio:10000/15000, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0,
+    partnerFear:{partnerId:"me03", hpFrac:2/3, atkMultScared:0.5, line:"魔術師は怖い！"}},
+  {id:"nora_neko_taishou", name:"野良猫大将トラ", icon:"🐈", item:"狼避けの鈴", treasure:"伝説の魚の骨",
+    hp:462700, atk:240, defPct:20, accuracy:200, evadePct:20, luck:15, lv:50, recPts:15000, minXpRatio:10000/15000, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0,
+    partnerFear:{partnerId:"me01", hpFrac:0.5, atkMultScared:0.5, line:"お…狼は苦手なのだ…"}},
+  {id:"zebra_jiro", name:"動物図鑑マニアのジロー", icon:"🦓", item:"動物図鑑の付録レンズ", treasure:"手作りの獅子王フィギュア",
+    hp:462700, atk:180, defPct:20, accuracy:200, evadePct:20, luck:15, lv:50, recPts:15000, minXpRatio:10000/15000, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0,
+    partnerFear:{partnerId:"ub03", hpFrac:0.75, atkMultScared:0.5, line:"ライオンさん、かっこいい！"}, lionMimic:{chance:0.2, mult:2.5}},
+  {id:"suusuu_bucho", name:"潔癖部長のスースー", icon:"🌬️", item:"マイナスイオン発生機", treasure:"特製空気清浄フィルター",
+    hp:600000, atk:120, defPct:20, accuracy:200, evadePct:20, luck:15, lv:50, recPts:15000, minXpRatio:10000/15000, dropAccuracyThreshold:0.8, itemDropFloor:0.4, itemDropCeil:1.0,
+    airPurify:{chance:0.2, blockerId:"me04", blockerLine:"私の魔法が防がれている…", blockedNote:"言霊の番人は、相手の空気清浄魔法を防いでいる！", selfLine:"空気清浄魔法発動！"}},
 ];
 /* 2026-07-17、経験値カーブを変更（catExpPoints参照。LV100まで+3/LV500まで+2/LV1000まで+1/以降+0.2の
    段階式に改訂）したことにともない、同じレベル到達ペースで各ボスが解禁されるよう、全ボスのrecPts・
@@ -14828,6 +14856,14 @@ const ITEM_EFFECTS = {
   "俊足のお守り":   {type:"evadeBuff",  amount:30,   turns:3, label:"次の3ターン、ボスの攻撃を回避しやすくなる（回避率+30pt）", icon:"🏃", category:"evade", badge:"回避+30pt/3T"},
   "グローブ":       {type:"atkMultBuff", mult:1.6, turns:3, label:"次の3ターン、攻撃力が1.6倍になる", icon:"🥊", category:"atk", badge:"1.6倍/3T"},
   "呪いのお札":     {type:"accBuff",    amount:30,   turns:3, label:"次の3ターン、ボスに攻撃が当たりやすくなる（命中率+30pt）", icon:"🪬", category:"acc", badge:"命中+30pt/3T"},
+  /* recPts15000帯・無敵艦隊１年３組と同格の新5体（2026-09-23〜、教員の指示）が落とすアイテム。
+     既存の最上位アイテム（青いハチマキ2.0倍／警備員証30%／俊足のお守り+30pt／呪いのお札+30pt）を
+     それぞれ一段上回る数値にした（メスシリンダーの20%回復も同様に30%へ）。 */
+  "特製肥料":       {type:"healPct", amount:0.30,                label:"自分のMAXHPの30%を回復する",        icon:"🌱", category:"heal", badge:"+30%"},
+  "護符のブレスレット": {type:"defCutBuff", amount:0.35, turns:3, label:"次の3ターン、受けるダメージが35%減る", icon:"🧿", category:"def", badge:"被ダメ-35%/3T"},
+  "狼避けの鈴":     {type:"atkMultBuff", mult:2.1, turns:3,       label:"次の3ターン、攻撃力が2.1倍になる",   icon:"🔔", category:"atk", badge:"2.1倍/3T"},
+  "動物図鑑の付録レンズ": {type:"accBuff", amount:35, turns:3,    label:"次の3ターン、ボスに攻撃が当たりやすくなる（命中率+35pt）", icon:"🔍", category:"acc", badge:"命中+35pt/3T"},
+  "マイナスイオン発生機": {type:"evadeBuff", amount:35, turns:3,  label:"次の3ターン、ボスの攻撃を回避しやすくなる（回避率+35pt）", icon:"💨", category:"evade", badge:"回避+35pt/3T"},
 };
 function randInt(min, max){ return min + Math.floor(Math.random() * (max - min + 1)); }
 
@@ -15256,6 +15292,39 @@ function resolveBossPrompt(choice){
    その分野のままボスと戦う（生徒自身の直接の選択までは妨げない）。
    hyakuninMode: 百人一首クイズ中の遭遇（allGenreとは独立、挑戦チケットでは常にfalse）。trueのときは
    cat/catsを使わず、出題を百人一首のクイズプール（hyaPool()）に固定する（教員の指示、2026-08-02）。 */
+// ことのは自身の「進化段階」を0〜13の1本の尺度にする（sprout_morimoriのevoStageScale用、
+// 2026-09-23〜）。転生前はkotonohaStageIndex（0=たまご〜6=伝説級）そのまま、転生後は
+// 転生前のどの段階よりも強いとみなして7〜13（7=転生直後の卵〜13=転生後の伝説級）に振り直す。
+function kotonohaEvoStageOverall(st){
+  if(st.kotonohaRebirth) return 7 + kotonohaRebirthStageIndex(st);
+  return kotonohaStageIndex(kotonohaTotalXP(st));
+}
+/* evoStageScale・partnerFear（2026-09-23〜、教員の指示で追加した新5体、BOSSES参照）を、
+   共有のboss定義オブジェクト自体を書き換えずに適用する。BOSSES配列の同じ要素は次の戦闘でも
+   再利用されるため、hp/atkを上書きしたコピーをこの戦闘専用に作って返す方式にした
+   （evoStageScale・preemptiveHalfHpなど既存の分岐は、渡されたboss参照をそのまま使うだけで
+   変更不要）。partnerFearが発動した（怖がった）場合は、戦闘開始時のHPカット用にhpFrac/line
+   もあわせて返す（実際のHPカットはstartBossBattle側で行う＝bossMaxHp確定後でないと計算できない）。 */
+function bossResolveEffective(boss, st){
+  let eff = boss;
+  if(boss.evoStageScale){
+    const cfg = boss.evoStageScale;
+    const stage = kotonohaEvoStageOverall(st);
+    eff = Object.assign({}, eff, {
+      hp: Math.round(cfg.hpBase + cfg.hpPerStage * stage),
+      atk: Math.round(cfg.atkBase + cfg.atkPerStage * stage),
+    });
+  }
+  let fear = null;
+  if(boss.partnerFear){
+    const cfg = boss.partnerFear;
+    if(mbActivePartnerIds(st).includes(cfg.partnerId)){
+      eff = Object.assign({}, eff, { atk: Math.max(1, Math.round(eff.atk * cfg.atkMultScared)) });
+      fear = {hpFrac: cfg.hpFrac, line: cfg.line};
+    }
+  }
+  return {eff, fear};
+}
 function startBossBattle(boss, allGenre, hyakuninMode){
   const st0 = loadStats();
   const genrePool = filterNotLearned(CAT_KEYS, st0);
@@ -15263,6 +15332,8 @@ function startBossBattle(boss, allGenre, hyakuninMode){
   const cats = allGenre ? genrePool.slice() : null;
   const ps = kotonohaEffStats(st0);
   const maxHp = Math.round(BOSS_PLAYER_HP + ps.hp * STAT_HP_PER_POINT);
+  const {eff: effBoss, fear} = bossResolveEffective(boss, st0);
+  boss = effBoss; // 以降はこの戦闘専用の実効ステータス（evoStageScale/partnerFear反映後）を使う
   bossBattle = {
     boss, bossHp: boss.hp, bossMaxHp: boss.hp,
     playerHp: maxHp, playerMaxHp: maxHp,
@@ -15284,6 +15355,14 @@ function startBossBattle(boss, allGenre, hyakuninMode){
     const dmg = Math.floor(bossBattle.playerMaxHp / 2);
     bossBattle.playerHp = Math.max(1, bossBattle.playerHp - dmg);
     bossBattle._preemptiveMsg = `😱 不意をつかれた！ ${boss.name}が戦闘開始と同時に攻撃をしかけてきて、HPが${dmg}減った！`;
+  }
+  if(fear){
+    // partnerFear発動時：戦闘開始と同時に、ボス自身のHPをhpFracまで減らした状態でスタートする
+    // （プレイヤーのHPを減らすpreemptiveHalfHpとは逆に、ボス側のHPを削る）。攻撃力は既に
+    // bossResolveEffective側でboss.atkに反映済みなので、ここではHPだけ調整すればよい。
+    const dmg = Math.floor(bossBattle.bossMaxHp * (1 - fear.hpFrac));
+    bossBattle.bossHp = Math.max(1, bossBattle.bossHp - dmg);
+    bossBattle._preemptiveMsg = `😱「${fear.line}」　${boss.name}は怖気づき、HPが${dmg}減った状態で戦闘が始まった！`;
   }
   bossNextQuestion();
 }
@@ -16296,6 +16375,32 @@ function bossCounterAttack(playerWasCorrect){
     nextBtn.focus();
     return;
   }
+  /* 潔癖部長のスースー専用「空気清浄魔法」（airPurify、2026-09-23〜）。毎ターンchanceの確率で、
+     反撃そのものを場の特殊効果ぜんぶの解除に差し替える（命中判定・防御力を一切介さない、
+     isShiran等と同じ「早期return」の一種）。言霊の番人（blockerId）をパートナーに設定していれば、
+     セリフだけ出してそのターンを空振りにする（発動そのものを防いだ扱い＝解除もされない）。
+     消すのは「場に出ている一時的な効果」（アイテムバフ・氷龍の防御ダウン等の状態異常）に限り、
+     聖輝・古代龍・未来龍の永続強化スタック（kotonohaAtkMultStack等）やゲージ・ストック類は
+     対象外にする（一時的な戦況操作を無効化する狩り、育成の積み上げを巻き戻す狙いではないため）。 */
+  if(b.boss.airPurify && Math.random() < b.boss.airPurify.chance){
+    const cfg = b.boss.airPurify;
+    const blocked = cfg.blockerId && mbActivePartnerIds(loadStats()).includes(cfg.blockerId);
+    refreshBossHpBars();
+    const fb = document.getElementById("fb");
+    if(blocked){
+      fb.innerHTML += `<div class="boss-turn">🌬️${esc(b.boss.name)}「${esc(cfg.blockerLine)}」</div><div class="boss-turn">✨${esc(cfg.blockedNote)}</div>`;
+    }else{
+      b.atkBuffTurns = 0; b.defBuffTurns = 0; b.luckBuffTurns = 0; b.atkMultTurns = 0;
+      b.defCutBuffTurns = 0; b.evadeBuffTurns = 0; b.accBuffTurns = 0; b.missGuard = false;
+      b.kotonohaBurnPct = 0; b.kotonohaHyouDefMult = 1; b.kotonohaKiriEvadeBonus = 0; b.kotonohaDefBuffAmount = 0;
+      fb.innerHTML += `<div class="boss-turn">🌬️${esc(b.boss.name)}のターン。「${esc(cfg.selfLine)}」<br>場に出ていた特殊効果（バフ・デバフ・火傷など）が、すべて無効化された！</div>`;
+    }
+    const nextBtn = document.getElementById("nextBtn");
+    nextBtn.style.display = "inline-block";
+    nextBtn.textContent = "つぎへ";
+    nextBtn.focus();
+    return;
+  }
   if(bossXpGateActive(b.boss, loadStats())){
     /* 経験値ゲート・ルール②③：命中判定・防御力・ミス回避アイテムなどを一切介さない反撃。
        「攻撃ミス」（不正解、または正解したが回避された＝とどめ回避も含む）のときはルール③
@@ -16398,7 +16503,7 @@ function bossCounterAttack(playerWasCorrect){
   // 霧龍「幻惑」：発動するたびに積み上がる回避率ボーナス（重ねがけ・永続）も、アイテムと同じ枠に加算する
   const evasionPct = Math.min(90, baseEvasionPct + (b.evadeBuffTurns > 0 ? b.evadeBuffAmount : 0) + (b.kotonohaKiriEvadeBonus||0));
   const hitChance = 1 - evasionPct / 100;
-  let taken = 0, bossCrit = false, playerEvaded = false, guarded = false;
+  let taken = 0, bossCrit = false, playerEvaded = false, guarded = false, lionMimicUsed = false;
   /* ロボットに乗ったくらちゃん専用：命中/回避に関わらず「反撃のターンそのもの」を数えて、
      攻撃力を複利で伸ばす（教員の指示で上限なし）。命中判定より前に消費しておくことで、
      ミス回避・回避で不発だったターンも1ターンとしてきちんとカウントされる。 */
@@ -16420,6 +16525,16 @@ function bossCounterAttack(playerWasCorrect){
        行っており、防御力だけを無視する（回避には関係する）。 */
     taken = randInt(b.boss.fixedDamageRange.min, b.boss.fixedDamageRange.max);
     b.playerHp = Math.max(0, b.playerHp - taken);
+  }else if(b.boss.lionMimic && Math.random() < b.boss.lionMimic.chance){
+    /* 動物図鑑マニアのジロー専用「獅子王の真似事」（lionMimic、2026-09-23〜）。命中はここまでの
+       hitChance判定を既に通っているので、通常反撃と同じ威力(bossComputeHitDamage)にmultを
+       掛けるだけでよい（会心判定もそのまま乗る）。パートナー恐怖(partnerFear)とは無関係の
+       独立した毎ターン抽選＝獅子王をパートナーにしていても、していなくても発動しうる。 */
+    const r = bossComputeHitDamage(b, st, ps, range, atkGrowthTurn);
+    bossCrit = r.crit;
+    taken = Math.round(r.dmg * b.boss.lionMimic.mult);
+    b.playerHp = Math.max(0, b.playerHp - taken);
+    lionMimicUsed = true;
   }else{
     const r = bossComputeHitDamage(b, st, ps, range, atkGrowthTurn);
     bossCrit = r.crit;
@@ -16439,6 +16554,8 @@ function bossCounterAttack(playerWasCorrect){
     ? `<div class="boss-turn">👹 ${esc(b.boss.name)}のターン。✨ミス回避が発動！ダメージを受けなかった！</div>`
     : playerEvaded
     ? `<div class="boss-turn">👹 ${esc(b.boss.name)}のターン。💨あなたはこうげきを回避した！</div>`
+    : lionMimicUsed
+    ? `<div class="boss-turn">🦁 ${esc(b.boss.name)}の必殺「獅子王の真似事」！${bossCrit ? "🔥会心の一撃！ " : ""}あなたは ${taken} ダメージを受けた。</div>`
     : `<div class="boss-turn">👹 ${esc(b.boss.name)}のターン。${bossCrit ? "🔥ボスの会心の一撃！ " : ""}あなたは ${taken} ダメージを受けた。</div>`;
   const nextBtn = document.getElementById("nextBtn");
   nextBtn.style.display = "inline-block";
