@@ -612,9 +612,28 @@ function boot(){
   $("b-fulltr").hidden = !hasTranslations;
   /* モードバッジ・モード切りかえリンク（この2つの要素を持つ教材HTMLだけにある）。
      ハードモード無効化（2026-09-22〜）でモードを選び直す意味自体が無くなっており、
-     教員の指示（2026-09-23〜）で「イージーモード」という文言も含めて非表示にする。 */
+     教員の指示（2026-09-23〜）で「イージーモード」という文言も含めて非表示にする。
+     あわせて srcdoc では location.pathname が "srcdoc" になるため、万一表示されても
+     href に載せない／__DX_OPEN_NOBIRU__ を優先する。 */
   if($("modeBadge")) $("modeBadge").hidden = true;
-  if($("modeSwitch")) $("modeSwitch").hidden = true;
+  if($("modeSwitch")){
+    var modeSw = $("modeSwitch");
+    modeSw.hidden = true;
+    modeSw.setAttribute("href", "#");
+    modeSw.addEventListener("click", function(ev){
+      ev.preventDefault();
+      if(typeof window.__DX_OPEN_NOBIRU__ === "function" && window.__DX_NOBIRU_KEY__){
+        window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__, {});
+        return;
+      }
+      var next = new URLSearchParams(location.search);
+      next.delete("mode");
+      var q = next.toString();
+      var path = location.pathname;
+      if(location.protocol === "about:" || path === "srcdoc" || path === "/srcdoc") return;
+      location.href = path + (q ? "?" + q : "");
+    });
+  }
   // フッターの「累計経験値」表示（教員の指示、2026-09-23〜：「問題を解いている最中、下に
   // 表示されているのは削除してください」）。addXp自体はtotalXpの積算・結果画面・
   // ストック経験値の計算に使い続けるので、ここでは見た目だけを消す。

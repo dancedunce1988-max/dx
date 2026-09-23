@@ -491,11 +491,14 @@
           'catch(e2){}}return el;};})();' +
           'window.__DX_GO_HOME__=function(){try{if(parent!==window&&parent.__DX_CLOSE_NOBIRU__){parent.__DX_CLOSE_NOBIRU__();return;}}catch(e){}' +
           'if(window.__DX_HOME_URL__)location.href=window.__DX_HOME_URL__;};' +
-          /* キャプチャで旧 modeselect の location.pathname 遷移を潰す */
+          /* キャプチャで旧 modeselect / modeSwitch の location.pathname(=srcdoc) 遷移を潰す */
           'document.addEventListener("click",function(ev){' +
           'var btn=ev.target&&ev.target.closest&&ev.target.closest(".modesel-card[data-mode]");' +
           'if(btn&&window.__DX_OPEN_NOBIRU__){ev.preventDefault();ev.stopImmediatePropagation();' +
           'window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__,{mode:btn.getAttribute("data-mode")});return;}' +
+          'var sw=ev.target&&ev.target.closest&&ev.target.closest("a.modeSwitch, #modeSwitch");' +
+          'if(sw&&window.__DX_OPEN_NOBIRU__&&window.__DX_NOBIRU_KEY__){ev.preventDefault();ev.stopImmediatePropagation();' +
+          'window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__,{});return;}' +
           'var a=ev.target&&ev.target.closest&&ev.target.closest("a.back, a.modesel-back");' +
           'if(a){ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();}' +
           '},true);' +
