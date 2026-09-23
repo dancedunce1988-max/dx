@@ -12,6 +12,14 @@ const PARAS = TEXT.paras;
 const TEXT_KEY = TEXT.meta.key || TEXT.meta.title || document.title;
 const $ = id => document.getElementById(id);
 const svgNS = "http://www.w3.org/2000/svg";
+/* 「一日一読」（2026-09-23〜、教員の指示）：知識ドリルDXのホーム画面「一日一読」から
+   ?viaDaily=1付きで開かれたかどうか。読み終わったとき（finish()）に、この文章の累計経験値を
+   kokugo_app.html側へ伝える合図（DD_PENDING_REWARD_LSKEY）に含める。一日一読経由なら
+   その全額、そうでなければ半額をkokugo_app.html側がst.stockXpへ加算する（ddCheckNobiruPendingReward参照）。
+   同一オリジンなのでlocalStorageはkokugo_app.htmlと共有できるが、st（本体のセーブデータ）の
+   複雑な形を直接ここで書き換えるのは危険なので、合図だけを置く簡単な仕組みにしてある。 */
+const VIA_DAILY = new URLSearchParams(location.search).get("viaDaily") === "1";
+const DD_PENDING_REWARD_LSKEY = "dd_daily_pending_reward_v1";
 
 let stage = 0, finalIdx = 0;
 /* 累計経験値（イージーモード）。設問ごとの内訳は画面に出さず、この合計だけを
@@ -520,6 +528,12 @@ function step(){
 
 function finish(){
   updateQGauge(TOTAL_Q);
+  /* 「一日一読」への合図（2026-09-23〜）。kokugo_app.htmlのst（本体セーブ）には触れず、
+     専用のlocalStorageキーに書き置くだけ。ホーム画面（ddCheckNobiruPendingReward）が
+     次に開かれたときに読み取り、初めての合図であればストック経験値に変換する。 */
+  try{
+    localStorage.setItem(DD_PENDING_REWARD_LSKEY, JSON.stringify({ textKey: TEXT_KEY, totalXp, viaDaily: VIA_DAILY, ts: Date.now() }));
+  }catch(e){ /* privateモード等で保存できない場合は、合図なしで続行する */ }
   const clean = record.filter(r => r.miss === 0).length;
   const miss = record.reduce((n, r) => n + r.miss, 0);
   const rows = record.map((r, i) => `<tr><td>設問${kanjiNum(i + 1)}</td><td>${r.miss === 0 ? "○" : "誤答" + r.miss + "回"}</td></tr>`).join("");

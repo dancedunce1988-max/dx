@@ -4170,7 +4170,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.07</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.08</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -5044,11 +5044,12 @@ function loadStats(){
         if(!st.dokkaiDungeon.skillXp) st.dokkaiDungeon.skillXp = {};
         DD_SKILL_KEYS.forEach(k => { if(typeof st.dokkaiDungeon.skillXp[k] !== "number") st.dokkaiDungeon.skillXp[k] = 0; });
         if(!st.dokkaiDungeon.cleared) st.dokkaiDungeon.cleared = {};
-        /* 「一日一読」（2026-09-23〜、教員の指示）。ステージごとに「初回正解の経験値をもう
-           支払ったか」だけを持つ、ずっと積み上げるフラグ集合（st.dokkaiDungeon.clearedとは別に
-           持つのは、cleared側は「ベスト成績・挑戦回数」を上書きし続ける記録用で、経験値の
-           支払い済みフラグとは寿命も更新頻度も違うため）。ddFirstClearStockXp参照。 */
-        if(!st.dokkaiRewardGiven || typeof st.dokkaiRewardGiven !== "object") st.dokkaiRewardGiven = {};
+        /* 「一日一読」（2026-09-23〜、教員の指示）。のびる読解（NOBIRU_TEXTS、nobiru/*.html）の
+           教材キーごとに「初回正解ぶんのストック経験値をもう支払ったか」だけを持つ、ずっと
+           積み上げるフラグ集合。のびる読解はkokugo_app.htmlから完全に切り離された別ページ
+           （nobiru/engine.js）で完結するため、そちら側は`localStorage`の合図（"一日一読
+           待ち受け中の報酬"、ddCheckNobiruPendingReward参照）経由でここに伝える。 */
+        if(!st.nobiruRewardGiven || typeof st.nobiruRewardGiven !== "object") st.nobiruRewardGiven = {};
         return st;
       }
     }
@@ -7195,15 +7196,15 @@ function mbStaminaLampsHtml(n, max){
 /* ホーム画面「一日一読」カード（2026-09-23〜、教員の指示：「漢字Quest（2時間で回復するやつ）の
    上に、目立つ色で配置して」）。漢字Questの挑戦ゲージカード（mbHomeQuestEntryHtml）の直前に
    置く、専用の色（.dd-daily-card、オレンジ系）で目立たせる。今日ぶんの一日一読があるかどうか
-   （ddTodayDailyStage、公開日が来ていない間は「石垣」のお試し版がその代わりを務める）で
-   文言を変える。 */
+   （ddTodayDailyText、公開日が来ていない間は「石垣」のお試し版がその代わりを務める）で
+   文言を変える。タップ先はddShowDailyTitle（タイトルだけを出す画面）。 */
 function ddHomeEntryHtml(){
-  const today = ddTodayDailyStage();
+  const today = ddTodayDailyText();
   const bodyHtml = today
-    ? `本日の一日一読：<b>${esc(today.stage.title)}</b>（${esc(ddGenreCategory(today.stage))}）`
+    ? `本日の一日一読：<b>${esc(today.title)}</b>`
     : "本日の一日一読はまだありません。";
   return `
-  <div class="card menu-card dd-daily-card" onclick="ddShowDailyList()">
+  <div class="card menu-card dd-daily-card" onclick="ddShowDailyTitle()">
     <div class="menu-icon">📅</div>
     <div><h2>一日一読</h2><p>${bodyHtml}</p></div>
   </div>`;
@@ -7348,6 +7349,19 @@ function showHome(){
   if(kbOverlay) kbOverlay.remove();
   const st = loadStats();
   if(st.pendingDailyLoginStamp){ showDailyLoginStampOverlay(st); return; }
+  /* のびる読解（別ページ、nobiru/engine.js）から「一日一読、読み終わりました」の合図が
+     来ていれば、ストック経験値を加算してから一度だけお知らせを見せる（教員の指示、
+     2026-09-23〜）。ddCheckNobiruPendingReward内でst保存済みなので、ここでは表示だけ。 */
+  const nobiruReward = ddCheckNobiruPendingReward(st);
+  if(nobiruReward){
+    screen.innerHTML = `
+      <div class="card">
+        <h3 class="section" style="margin-top:0">📅 一日一読、はじめての正解！</h3>
+        <p class="result-msg">「${esc(nobiruReward.title)}」で、${nobiruReward.gained > 0 ? `ストック経験値 ＋${nobiruReward.gained} を獲得しました！` : "今回はストック経験値の獲得はありませんでした。"}</p>
+        <div class="btn-row"><button class="btn" onclick="showHome()">つづける</button></div>
+      </div>`;
+    return;
+  }
   if(kotonohaHasPendingEvolveCutscene(st)){ showKotonohaEvolveCutscene(st); return; }
   let html = "";
   html += eventBannerHtml(st);
@@ -12337,125 +12351,74 @@ const DD_STEP_ORDER = [
 ];
 let dd = null; // 読解Quest試作版の進行中ステート
 /* ================= 一日一読（2026-09-23〜、教員の指示） =================
-   読解Quest試作版（DOKKAI_DUNGEON）のステージに`ddPublishDate`（"YYYY-MM-DD"）を持たせておくと、
-   その日付ちょうどに「一日一読」の対象として1日1本だけ扱われる。平日のみ・文学的文章
-   （小説／随筆）と説明的文章（説明文／論説文）を交互に、という運用は日付を割り振る側
-   （dokkai_dungeon_data.js）の責務で、エンジン側は日付の一致だけを見る。
-   ddPublishDateを持たないステージ（既存11本）は今までどおりいつでも公開済み扱いになる
-   （後方互換）。まだ日付を割り振っていない新規ステージ（ストック、ロック中）は
-   ddPublishDateフィールド自体を持たせない＝ddIsPublished/ddTodayDailyStage双方の対象外になり、
-   ddShowListの通常一覧にもいっさい出てこない（教員の指示：「ストックは公開しない」）。
-   経験値は「初回正解の1回だけ」（st.dokkaiRewardGiven[stg.id]）：ddFinishQuest側でdd.viaDailyRead
-   （「一日一読」ボタン経由かどうか）を見て、trueならddFirstClearStockXp(cl.plays,false)
-   （1回目10・2回目8・3回目6・4回目4・5回目2・6回目以降0）、falseなら同じ数値の半分
-   （「一日一読」を使わず、あとから読解Quest試作版の一覧で解いた場合、教員の指示）を
+   2026-09-23の教員の指摘で判明：問題そのものは読解Quest試作版（DOKKAI_DUNGEON、証拠を
+   3つ探す形式）ではなく「のびる読解」（NOBIRU_TEXTS、nobiru/<key>.html、段落ごとに開示
+   される選択式の設問＋最後の仕上げ設問、engine.js）を使う。NOBIRU_TEXTSの各エントリに
+   `ddPublishDate`（"YYYY-MM-DD"）を持たせておくと、その日付ちょうどに「一日一読」の対象
+   として1日1本だけ扱われる。持たないエントリはこの仕組みの対象外（＝一日一読には出ない、
+   「のびる読解」本来の一覧＝NOBIRU_ACTIVE_KEYSでの公開/ロックとは完全に独立）。
+   `ddTrialAlways:true`（現在は「石垣」のみ）は、日付に関わらず常に「今日ぶん」の代わりを
+   務める「お試し版」。
+   ボタンを押すと、画面には今日ぶんのタイトルだけを表示し、タップでそのままnobiru/<key>.html
+   へ遷移する（教員の指示：「画面はそれだけでよい」）。
+   経験値の連携：nobiru側はkokugo_app.htmlから完全に切り離された別ページなので、engine.js
+   のfinish()が完了時にlocalStorage（DD_PENDING_REWARD_LSKEY）へ「このキーをtotalXp点で
+   読み終えた（一日一読経由かどうか）」という合図を書き置く。kokugo_app.html側は
+   ddCheckNobiruPendingReward()がshowHome()の入口でこれを読み取り、そのテキストキーで
+   初めての合図であれば（st.nobiruRewardGiven）、一日一読経由なら全額、そうでなければ半額を
    st.stockXpに加算する。 */
+const DD_PENDING_REWARD_LSKEY = "dd_daily_pending_reward_v1";
 function ddTodayStr(){
   const d = new Date();
   return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
 }
-function ddIsPublished(stg, todayStr){
-  return !stg.ddPublishDate || stg.ddPublishDate <= (todayStr || ddTodayStr());
+// `ddTrialAlways:true`のテキスト（現在は「石垣」のみ）。日付に関わらず常に「今日ぶん」の
+// 代わりを務める「お試し版」。
+function ddTrialText(){
+  return NOBIRU_TEXTS.find(t => t.ddTrialAlways) || null;
 }
-/* 「石垣」お試し版（2026-09-23〜、教員の指示：「お試し版として『石垣』は、今からできるように
-   してください」）。ddTrialAlways:trueを持つステージは、日付に関わらず常に「一日一読」から
-   遊べる。本当の公開日（ddPublishDate）が来るまでの「今日ぶん」の代わりを務め、公開済み一覧
-   にも常に先頭で表示する。通常は0〜1件（essay_ishigakiの1件のみを想定）。 */
-function ddTrialStage(){
-  const i = DOKKAI_DUNGEON.findIndex(s => s.ddTrialAlways);
-  if(i < 0) return null;
-  // ddTodayDailyStage側は{stage,i}、ddPublishedDailyStages（既存ddShowListと同じ{stg,i}慣習）
-  // 側は{stg,i}を期待する。両方の呼び出し元から同じ形で使えるよう、両方のキーを持たせる。
-  return {stage: DOKKAI_DUNGEON[i], stg: DOKKAI_DUNGEON[i], i};
-}
-// 今日ぶんの一日一読（無ければnull）。ddPublishDateが今日ちょうどのステージを優先し、
-// まだ本当の公開日が来ていなければお試し版（ddTrialStage）で代わりを務める。
-function ddTodayDailyStage(){
+// 今日ぶんの一日一読（無ければnull）。ddPublishDateが今日ちょうどのテキストを優先し、
+// まだ本当の公開日が来ていなければお試し版（ddTrialText）で代わりを務める。
+function ddTodayDailyText(){
   const todayStr = ddTodayStr();
-  const i = DOKKAI_DUNGEON.findIndex(s => s.ddPublishDate === todayStr);
-  if(i >= 0) return {stage: DOKKAI_DUNGEON[i], i};
-  return ddTrialStage();
+  return NOBIRU_TEXTS.find(t => t.ddPublishDate === todayStr) || ddTrialText();
 }
-// 公開日を持つステージのうち、公開済み（今日を含む）のものを、公開日の新しい順で返す。
-// お試し版（ddTrialAlways）は日付を持たないが、常に先頭に含める。
-function ddPublishedDailyStages(){
-  const todayStr = ddTodayStr();
-  const dated = DOKKAI_DUNGEON
-    .map((stg, i) => ({stg, i}))
-    .filter(x => x.stg.ddPublishDate && x.stg.ddPublishDate <= todayStr)
-    .sort((a,b) => b.stg.ddPublishDate.localeCompare(a.stg.ddPublishDate));
-  const trial = ddTrialStage();
-  return trial ? [trial, ...dated] : dated;
-}
-// "2026-09-24" → "9月24日"
-function ddDateLabel(iso){
-  const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(iso||"");
-  return m ? `${parseInt(m[1],10)}月${parseInt(m[2],10)}日` : "";
-}
-// 一覧・カードに出す「公開日」の文言。お試し版（ddPublishDateを持たない）は日付のかわりに
-// 「お試し版」と表示する。
-function ddPublishLabel(stg){
-  return stg.ddPublishDate ? `${ddDateLabel(stg.ddPublishDate)}公開` : "お試し版";
-}
-// 「一度で正解すればストック経験値10、二度目なら8…」（教員の指示、2026-09-23〜）。
-// playCountはst.dokkaiDungeon.cleared[id].plays（このクリアを含む、そのステージの通算挑戦回数）。
-// halfは「一日一読を使わず、あとから読解Questで解いた場合」の半額版。stg.ddTrialXpScaleを
-// 持つステージ（お試し版の「石垣」、教員の指示：「最大経験値100でできることとする」）は、
-// この基準値をscale倍する（scale:10なら100/80/60/40/20/0、半額なら50/40/30/20/10/0）。
-function ddFirstClearStockXp(playCount, half, scale){
-  const base = Math.max(0, 10 - (Math.max(1, playCount) - 1) * 2) * (scale||1);
-  return half ? Math.round(base / 2) : base;
-}
-function ddGenreCategory(stg){
-  return (stg.genre === "小説" || stg.genre === "随筆") ? "文学的文章" : "説明的文章";
-}
-// ホーム画面「一日一読」ボタンから。今日公開のステージがあればそれに挑戦、無ければ案内だけ出す。
-function ddPlayTodayDaily(){
-  const today = ddTodayDailyStage();
-  if(!today){
-    screen.innerHTML = `
-      <div class="card">
-        <h3 class="section" style="margin-top:0">📅 一日一読</h3>
+// ホーム画面「一日一読」ボタンから。画面には今日ぶんのタイトルだけを表示し（教員の指示：
+// 「画面はそれだけでよい」）、タップするとそのまま問題（nobiru/<key>.html）が始まる。
+function ddShowDailyTitle(){
+  const today = ddTodayDailyText();
+  screen.innerHTML = today
+    ? `<div class="card menu-card dd-daily-card" onclick="ddOpenNobiru('${today.key}', true)">
+        <div class="menu-icon">${today.icon || "📅"}</div>
+        <div><h2>${esc(today.title)}</h2></div>
+      </div>
+      <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`
+    : `<div class="card">
         <p class="note">本日の「一日一読」はまだありません。公開日をお楽しみに。</p>
         <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>
       </div>`;
-    return;
-  }
-  ddStart(today.i, true);
 }
-// 「一日一読」で公開済みの文章を、あとから読解Quest試作版の一覧としてまとめて見る画面
-// （教員の指示：「公開済みの問題は、読解Quest試作版の中でも閲覧可能にする」）。
-// ボタンには公開日を明示し、ここから始めた場合はviaDailyRead=falseのまま（＝半額の経験値）で入る。
-function ddShowDailyList(){
-  const st = loadStats();
-  const today = ddTodayDailyStage();
-  const list = ddPublishedDailyStages();
-  let html = `
-    <div class="dd-intro-card">
-      <h2>📅 一日一読</h2>
-      <p>公開された「一日一読」の文章は、ここからいつでも読み返せます。ボタンの日付は、その文章が公開された日です。</p>
-    </div>`;
-  html += `<div class="card menu-card" onclick="ddPlayTodayDaily()">
-      <div class="menu-icon">📅</div>
-      <div><h2>今日の一日一読</h2>
-      <p>${today ? `${esc(ddPublishLabel(today.stage))}：${esc(today.stage.title)}（${ddGenreCategory(today.stage)}）` : "本日はまだ公開されていません"}</p></div>
-    </div>`;
-  html += `<h3 class="section">これまで公開された文章</h3>`;
-  if(!list.length){
-    html += `<p class="note">まだ公開された文章がありません。</p>`;
-  }
-  list.forEach(({stg, i}) => {
-    const cl = st.dokkaiDungeon.cleared[stg.id];
-    const bestHtml = cl ? `<span class="tag">ベスト ${Math.round(cl.bestPct)}%・${cl.plays}回挑戦</span>` : `<span class="tag">未挑戦</span>`;
-    html += `
-    <div class="card menu-card" onclick="ddStart(${i})">
-      <div class="menu-icon">${stg.icon || "📖"}</div>
-      <div><h2>${esc(ddPublishLabel(stg))}　${esc(stg.title)} ${bestHtml}</h2>
-      <p>${esc(ddGenreCategory(stg))}・${esc(stg.genre)}・難易度${"★".repeat(stg.difficulty||1)}</p></div>
-    </div>`;
-  });
-  html += `<div class="btn-row"><button class="btn secondary" onclick="ddShowPrep()">読解Questへ</button><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
-  screen.innerHTML = html;
+/* showHome()の入口で毎回呼ぶ。nobiru/engine.js（finish()）がlocalStorageに書き置いた
+   「一日一読、読み終わりました」の合図を読み取り、そのテキストキーでまだ経験値を
+   支払っていなければ（st.nobiruRewardGiven）、一日一読経由（viaDaily）なら全額、
+   そうでなければ半額をst.stockXpに加算して返す（呼び出し側はこれを使って一度だけの
+   お知らせ画面を出す）。合図は読んだ時点で必ず消す（二重加算防止）。 */
+function ddCheckNobiruPendingReward(st){
+  let raw;
+  try{ raw = localStorage.getItem(DD_PENDING_REWARD_LSKEY); }catch(e){ raw = null; }
+  if(!raw) return null;
+  try{ localStorage.removeItem(DD_PENDING_REWARD_LSKEY); }catch(e){}
+  let info;
+  try{ info = JSON.parse(raw); }catch(e){ return null; }
+  if(!info || !info.textKey) return null;
+  if(st.nobiruRewardGiven[info.textKey]) return null; // 初回のみ（受け取り済み）
+  st.nobiruRewardGiven[info.textKey] = true;
+  const totalXp = Math.max(0, Math.round(info.totalXp||0));
+  const gained = info.viaDaily ? totalXp : Math.round(totalXp / 2);
+  if(gained > 0) st.stockXp = (st.stockXp||0) + gained;
+  saveStats(st);
+  const t = NOBIRU_TEXTS.find(x => x.key === info.textKey);
+  return {title: t ? t.title : info.textKey, gained, viaDaily: !!info.viaDaily};
 }
 let ddSelectedLevel = null;
 function ddSkillLv(xp){ return 1 + Math.floor((xp||0) / 8); }
@@ -12492,15 +12455,19 @@ function ddSkillGridHtml(before, after){
    知識ドリルDXのホーム画面に戻る。
    読解Quest側のst.dokkaiDungeonには今のところ一切触れない。 */
 const NOBIRU_TEXTS = [
-  { key:"ishigaki", title:"石垣", desc:"筆者は、ふぞろいな石垣を「無造作で頼りない」と見ていた。けれども――", cat:"文学" },
-  { key:"hougen", title:"方言", desc:"方言を笑われて、もう使わないと決めた「私」。けれども、祖母の家に帰った夏、気づいたことがあった。", cat:"文学" },
+  /* ddPublishDate／ddTrialAlways（2026-09-23〜、教員の指示）：「一日一読」用の日付割り振り。
+     NOBIRU_ACTIVE_KEYS（のびる読解本来の一覧の公開/ロック）とは完全に独立しており、ここに
+     日付を付けても「のびる読解」の一覧側は別途ロックのままになる（一日一読の専用導線
+     ddShowDailyTitle→ddOpenNobiruだけがこの日付を見る）。 */
+  { key:"ishigaki", title:"石垣", desc:"筆者は、ふぞろいな石垣を「無造作で頼りない」と見ていた。けれども――", cat:"文学", ddTrialAlways:true },
+  { key:"hougen", title:"方言", desc:"方言を笑われて、もう使わないと決めた「私」。けれども、祖母の家に帰った夏、気づいたことがあった。", cat:"文学", ddPublishDate:"2026-09-25" },
   { key:"seisuisho", title:"都のならひ【古文】", desc:"醒睡笑（安楽庵策伝）より。藤五郎がでっち上げた「京の習ひ」を信じ込んだ専十郎に、何が起きるか。", cat:"古文" },
   { key:"kanpeki", title:"完璧【漢文】", desc:"『十八史略』より。秦の理不尽な要求に、藺相如はどう立ち向かうか。故事成語「完璧」の由来となった話。", cat:"漢文" },
-  { key:"wakariyasusa", title:"「わかりやすさ」の落とし穴【論説文】", desc:"見出しや降水確率など、身近な「要約」を例に、わかりやすさの裏にあるものを論じる。", cat:"説明" },
+  { key:"wakariyasusa", title:"「わかりやすさ」の落とし穴【論説文】", desc:"見出しや降水確率など、身近な「要約」を例に、わかりやすさの裏にあるものを論じる。", cat:"説明", ddPublishDate:"2026-09-24" },
   { key:"benchi", title:"ベンチから【小説】", desc:"先発を外された陸と、その座をつかんだ蒼。悔しさを抱えた陸の心は、大会当日どう動くか。", cat:"文学" },
   { key:"ooeyama", title:"大江山【古文】", desc:"『十訓抄』より。母の代作を疑われた小式部内侍が、とっさの一首で言い返す。掛詞に注目。", cat:"古文" },
   { key:"gashinshoutan", title:"臥薪嘗胆【漢文】", desc:"『十八史略』より。呉王夫差の「薪に臥す」と、越王勾践の「胆を嘗める」。四字熟語の由来となった二つの復讐。", cat:"漢文" },
-  { key:"monosashi", title:"「ふつう」という物差し【論説文】", desc:"食事の量や時代・地域の違いを例に、「ふつう」という感覚の相対性を論じる。", cat:"説明" },
+  { key:"monosashi", title:"「ふつう」という物差し【論説文】", desc:"食事の量や時代・地域の違いを例に、「ふつう」という感覚の相対性を論じる。", cat:"説明", ddPublishDate:"2026-09-28" },
   { key:"madobenoe", title:"窓辺の絵【小説】", desc:"友梨の絵と比べて落ち込む陽菜。コンクール直前、自分の絵を描き直そうとするが。", cat:"文学" },
   { key:"nekomata", title:"猫また【古文】", desc:"『徒然草』より。人を食う「猫また」の噂に怯える法師。夜道で足もとに飛びついてきたものの正体は。", cat:"古文" },
   { key:"kaiyorihajimeyo", title:"隗より始めよ【漢文】", desc:"『十八史略』より。まず自分を厚遇せよと説いた郭隗。「死馬の骨」のたとえ話とともに、天下の賢者が集まる。", cat:"漢文" },
@@ -12538,8 +12505,11 @@ const NOBIRU_CATS = [
    2026-09-23〜：教員の指示で「石垣」以外をいったんすべてロック。全公開に
    戻すときは NOBIRU_TEXTS.map(t => t.key) に書き戻す。 */
 const NOBIRU_ACTIVE_KEYS = ["ishigaki"];
-function ddOpenNobiru(key){
-  location.href = "nobiru/" + key + ".html";
+// viaDaily:true＝ホーム画面「一日一読」経由（教員の指示、2026-09-23〜）。engine.js側が
+// URLの?viaDaily=1を読み取り、完了時の経験値連携（DD_PENDING_REWARD_LSKEY）に含める
+// （一日一読経由なら全額、そうでなければ半額。ddCheckNobiruPendingReward参照）。
+function ddOpenNobiru(key, viaDaily){
+  location.href = "nobiru/" + key + ".html" + (viaDaily ? "?viaDaily=1" : "");
 }
 /* 読解Questの入口（2026-09-16〜、教員の指示）。ホーム画面のボタンからはいったん
    「準備中です」という案内だけを見せ、その「準備」という文字をタップすると、
@@ -12639,9 +12609,7 @@ function ddShowList(){
   html += `<div class="btn-row"><button class="btn secondary" onclick="ddShowLevelSelect()">← レベルを変更する</button><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
   screen.innerHTML = html;
 }
-// viaDailyRead:true＝ホーム画面「一日一読」ボタン経由（教員の指示、2026-09-23〜）。
-// この戦績だけが、初回正解時の全額ストック経験値（ddFirstClearStockXp、ddFinishQuest参照）の対象。
-function ddStart(stageIdx, viaDailyRead){
+function ddStart(stageIdx){
   const st = loadStats();
   const stage = DOKKAI_DUNGEON[stageIdx];
   if(!stage) return ddShowList();
@@ -12652,7 +12620,6 @@ function ddStart(stageIdx, viaDailyRead){
     inferChoice:null, inferCorrect:false,
     finalAnswerText:"", finalChoiceIdx:null, finalCorrect:false, finalScored:null, coreFoundCount:0,
     skillLvBefore: ddSkillLevels(st),
-    viaDailyRead: !!viaDailyRead, stockXpEarned:0,
   };
   ddRenderIntro();
 }
@@ -12973,17 +12940,6 @@ function ddFinishQuest(){
   cl.plays++;
   if(pct > cl.bestPct) cl.bestPct = pct;
   st.dokkaiDungeon.cleared[stg.id] = cl;
-  /* 「一日一読」（2026-09-23〜、教員の指示）：このステージで初めて仕上げ（final）に正解した
-     ときだけ、ストック経験値を1回だけ加算する（st.dokkaiRewardGiven、以後は何度クリアしても
-     加算しない）。金額は通算挑戦回数(cl.plays、このクリアを含む)に応じて減っていく
-     （ddFirstClearStockXp：1回目10・2回目8…6回目以降0）。「一日一読」ボタン経由
-     （dd.viaDailyRead）なら全額、あとから読解Quest試作版の一覧で解いた場合は半額。 */
-  if(dd.finalCorrect && !st.dokkaiRewardGiven[stg.id]){
-    st.dokkaiRewardGiven[stg.id] = true;
-    const gained = ddFirstClearStockXp(cl.plays, !dd.viaDailyRead, stg.ddTrialXpScale);
-    if(gained > 0) st.stockXp = (st.stockXp||0) + gained;
-    dd.stockXpEarned = gained;
-  }
   dd.skillLvAfter = ddSkillLevels(st);
   saveStats(st);
   ddMarkStep("result");
@@ -13000,7 +12956,6 @@ function ddRenderResult(){
       <div class="dd-score-big">${sc.total} <span style="font-size:1.1rem;color:var(--sub)">/ ${sc.max}点（${pct}%）</span></div>
       <p class="result-msg">${tier}</p>
       ${sc.items.map(it => `<div class="dd-rubric-item ${it.earned>0?"dd-hit":"dd-miss"}">${esc(it.label)}<span>${it.earned>0?"＋":""}${it.earned}点</span></div>`).join("")}
-      ${dd.stockXpEarned > 0 ? `<p class="note" style="margin-top:10px"><b>🈶 はじめての正解！${dd.viaDailyRead ? "「一日一読」の" : ""}ストック経験値 ＋${dd.stockXpEarned} を獲得しました！</b></p>` : ""}
     </div>
     <div class="card">
       <h4 class="note" style="margin-bottom:8px">この挑戦でのふりかえり</h4>

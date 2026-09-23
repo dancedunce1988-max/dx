@@ -607,13 +607,6 @@ window.DOKKAI_DUNGEON_DATA = [
     icon: "🪨",
     difficulty: 2,
     requiredEvidence: 3,
-    /* お試し版（2026-09-23〜、教員の指示：「石垣は、今からできるようにしてください」）。
-       ddPublishDateを持たせず、ddTrialAlways:trueで日付に関わらず常に「一日一読」から遊べる
-       ようにする（kokugo_app.html側のddTrialStage/ddTodayDailyStage参照）。ストック経験値は
-       教員の指示どおり「最大経験値100」＝通常の基準値（10/8/6/4/2/0）の10倍
-       （ddTrialXpScale、ddFirstClearStockXp参照。半額パスは50/40/30/20/10/0になる）。 */
-    ddTrialAlways: true,
-    ddTrialXpScale: 10,
     title: "石垣",
     flavor: "無造作にしか見えなかった石垣が、なぜ六十年も崩れないのか。石工の仕事から、その理由を読み解こう。",
     paragraphs: [
@@ -670,7 +663,6 @@ window.DOKKAI_DUNGEON_DATA = [
     icon: "🌇",
     difficulty: 2,
     requiredEvidence: 3,
-    ddPublishDate: "2026-09-24",
     title: "夕焼けは、なぜ赤く見えるのか？",
     flavor: "同じ太陽の光なのに、昼と夕方で色が違って見える。光のふるまいから、そのしくみを読み解こう。",
     paragraphs: [
@@ -720,7 +712,6 @@ window.DOKKAI_DUNGEON_DATA = [
     icon: "🎼",
     difficulty: 2,
     requiredEvidence: 3,
-    ddPublishDate: "2026-09-25",
     title: "指揮台を降りた理由",
     flavor: "合唱コンクールの指揮者に選ばれた陸は、本番の一週間前、その指揮を仲間に譲った。何があったのかを読み解こう。",
     paragraphs: [
@@ -776,7 +767,6 @@ window.DOKKAI_DUNGEON_DATA = [
     icon: "🌈",
     difficulty: 2,
     requiredEvidence: 3,
-    ddPublishDate: "2026-09-28",
     title: "虹は、なぜ雨上がりに見えるのか？",
     flavor: "晴れているだけでは見えない虹が、雨上がりだけ現れるのはなぜだろうか。光と水滴のはたらきから読み解こう。",
     paragraphs: [
