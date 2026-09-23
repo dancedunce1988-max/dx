@@ -614,6 +614,10 @@ function boot(){
      教員の指示（2026-09-23〜）で「イージーモード」という文言も含めて非表示にする。 */
   if($("modeBadge")) $("modeBadge").hidden = true;
   if($("modeSwitch")) $("modeSwitch").hidden = true;
+  // フッターの「累計経験値」表示（教員の指示、2026-09-23〜：「問題を解いている最中、下に
+  // 表示されているのは削除してください」）。addXp自体はtotalXpの積算・結果画面・
+  // ストック経験値の計算に使い続けるので、ここでは見た目だけを消す。
+  if($("xpTotal")) $("xpTotal").hidden = true;
   addXp(0);
   paintMarks();
   renderWordsList();

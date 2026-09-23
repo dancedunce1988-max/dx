@@ -4170,7 +4170,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.10</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.11</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -12547,12 +12547,20 @@ function ddShowLevelSelect(){
     </div>
     <h3 class="section">伸びる読解</h3>
     <p class="note">段落ごとに本文がのびていく読解教材。「指示語」「つなぎ」などのボタンで、文と文のつながりを目で確かめながら読みます。</p>`;
+  /* ロック中の表示は、カテゴリごとに「一番上（最初）のロック中だけ」を🔒表示し、
+     それより後のロック中はいっさい表示しない（教員の指示、2026-09-23〜：「一日一読で
+     公開されたならば、表示するものが一つずつ増えるようなイメージ」）。NOBIRU_TEXTSの
+     並び順＝一日一読で公開していく順なので、公開が進むごとに「一番上のロック中」が
+     1つずつ後ろにずれていき、見える範囲がちょうど1つずつ増えていく。 */
   NOBIRU_CATS.forEach(cat => {
     const items = NOBIRU_TEXTS.filter(t => t.cat === cat.key);
     if(!items.length) return;
     html += `<h3 class="section" style="margin-top:14px">${cat.icon} ${esc(cat.label)}</h3>`;
+    let lockedShown = false;
     items.forEach(t => {
       if(!nobiruIsUnlocked(t)){
+        if(lockedShown) return; // 2つ目以降のロック中はここで表示自体をやめる
+        lockedShown = true;
         html += `
         <div class="card menu-card locked">
           <div class="menu-icon">🔒</div>
