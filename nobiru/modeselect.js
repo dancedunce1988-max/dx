@@ -47,19 +47,19 @@ window.NOBIRU_MODE = mode;
 if(mode){
   modeRoot.hidden = true;
   readerRoot.hidden = false;
-  /* engine.js／engine_hard.jsは動的にscriptタグを作って読み込むため、
-     HTML側の<script src="...?v=...">のようなキャッシュ対策が効かず、
-     修正を配信してもブラウザに古い版がキャッシュされたまま反映されない
-     ことがあった（教員の報告、2026-09-23〜：更新したはずの表示が
-     実際には出ていなかった）。modeselect.js自身のsrcに付いている
-     ?v=をそのまま引き継ぐことで、HTML側のバージョンを上げるたびに
-     engine.js／engine_hard.jsも一緒にキャッシュが更新されるようにする。 */
+  // engine.js／engine_hard.jsは動的にscriptタグを作って読み込むため、
+  // HTML側の<script src="...?v=...">のようなキャッシュ対策が効かず、
+  // 修正を配信してもブラウザに古い版がキャッシュされたまま反映されない
+  // ことがあった（教員の報告、2026-09-23〜：更新したはずの表示が
+  // 実際には出ていなかった）。modeselect.js自身のsrcに付いている
+  // ?v=をそのまま引き継ぐことで、HTML側のバージョンを上げるたびに
+  // engine.js／engine_hard.jsも一緒にキャッシュが更新されるようにする。
   const selfSrc2 = (document.currentScript && document.currentScript.src) || "";
   const verMatch2 = selfSrc2.match(/[?&]v=([^&]+)/);
   const verQuery2 = verMatch2 ? ("?v=" + verMatch2[1]) : "";
   const s2 = document.createElement("script");
-  /* ページ自体が CDN 絶対URLで開かれていれば相対パスで足りる。
-     file:// 直開き時も同じディレクトリ相対で engine を読む。 */
+  // ページ自体が CDN 絶対URLで開かれていれば相対パスで足りる。
+  // file:// 直開き時も同じディレクトリ相対で engine を読む。
   s2.src = (mode === "hard" ? "engine_hard.js" : "engine.js") + verQuery2;
   document.body.appendChild(s2);
 } else {
@@ -103,7 +103,7 @@ if(mode){
   if (window.DxCompat) DxCompat.wireHomeLinks(modeRoot);
   modeRoot.querySelectorAll(".modesel-card[data-mode]").forEach(btn => {
     btn.onclick = () => {
-      /* dx_home / Blob・srcdoc 再オープン用に既存クエリを維持 */
+      // dx_home / Blob・srcdoc 再オープン用に既存クエリを維持
       const next = new URLSearchParams(
         (typeof window.__DX_BOOT_SEARCH__ === "string" && window.__DX_BOOT_SEARCH__.length)
           ? window.__DX_BOOT_SEARCH__
