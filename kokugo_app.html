@@ -4170,7 +4170,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.13</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.14</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -7028,7 +7028,7 @@ function showKotonohaFormPicker(){
   const seen = st.kotonohaSeenForms || [];
   let html = `<div class="card">
       <h3 class="section">🎖️ ことのはの称号を選ぶ</h3>
-      <p class="note">これまでに到達したことのある「すがた」を、称号として選んで表示できます。見た目だけでなく、称号ごとにボス戦のステータスが上乗せされます（経験値やレベル自体には影響しません）。段階が高い称号ほど、上乗せも大きくなります。</p>
+      <p class="note">これまでに到達したことのある「すがた」を、称号として選んで表示できます。<br>見た目だけでなく、称号ごとにボス戦のステータスが上乗せされます（経験値やレベル自体には影響しません）。<br>段階が高い称号ほど、上乗せも大きくなります。</p>
     </div>`;
   const realBonus = kotonohaFormStat(real);
   const realBonusText = kotonohaStatBonusText(realBonus);
@@ -7053,7 +7053,7 @@ function showKotonohaFormPicker(){
     </div>`;
   });
   if(others.length === 0){
-    html += `<div class="card"><p class="note">まだ他のすがたには出会っていません。レベルを上げて経験値をためると、新しいすがたに出会うたびにここへ記録されていきます。</p></div>`;
+    html += `<div class="card"><p class="note">まだ他のすがたには出会っていません。<br>レベルを上げて経験値をためると、新しいすがたに出会うたびにここへ記録されていきます。</p></div>`;
   }
   html += `<button class="btn secondary" onclick="showHome()">ホームへ</button>`;
   screen.innerHTML = html;
@@ -7398,13 +7398,14 @@ function showHome(){
       if(!CATS[key]) return;
       const m = CATS[key];
       const lv = st.lv[key], t = titleOf(lv);
+      const unlockPct = catUnlockedQuestionPct(st, key);
       html += `
       <div class="card menu-card" onclick="startQuiz('${key}')">
         <div class="menu-icon">${GROUP_ICONS[g.name] || "📝"}</div>
         <div><h2>${esc(m.name)}</h2><p>${esc(m.desc)}</p></div>
         <div class="right">
           <span class="shogo-badge ${t.hidden?"top":""}">${t.icon} ${esc(t.name)} Lv.${lv}</span>
-          <span class="count">全${m.items.length}問</span>
+          <span class="count">全${m.items.length}問${unlockPct!=null ? `・解放率${unlockPct}%` : ""}</span>
         </div>
       </div>`;
     });
@@ -7444,7 +7445,7 @@ function showHome(){
       <div class="menu-icon">🏫</div>
       <div><h2>クラスマッチ</h2><p>同じ暗証番号を入れたクラスメイトと、同じ10問で正答率とスピードを競う</p></div>
     </div>
-    <p class="note">※ 1問正解すると、その分野のレベルが1上がります（好きなだけ続けて、いつでもやめられます）。正解が続くと少し難しい問題が、まちがいが続くと少し易しい問題が出やすくなり、あわせて正解した問題はだんだん出にくく、間違えた問題は出やすくなります。</p>
+    <p class="note">※ 1問正解すると、その分野のレベルが1上がります（好きなだけ続けて、いつでもやめられます）。<br>正解が続くと少し難しい問題が、まちがいが続くと少し易しい問題が出やすくなり、あわせて正解した問題はだんだん出にくく、間違えた問題は出やすくなります。</p>
     <p class="signature">Seikichi</p>`;
   const legendaryBgClass = kotonohaLegendaryBgClass(st);
   screen.innerHTML = legendaryBgClass ? `<div class="${legendaryBgClass}">${html}</div>` : html;
@@ -7473,7 +7474,7 @@ function showStatusAllocation(){
   let html = `
     <div class="card">
       <h3 class="section">💪 ボス戦ステータス</h3>
-      <p class="note">分野のレベルが1つ上がるたびに、ポイントを1つもらえます。ここで割りふった効果は、ボスとの戦いのときだけ発揮されます（二人対戦には影響しません）。</p>
+      <p class="note">分野のレベルが1つ上がるたびに、ポイントを1つもらえます。<br>ここで割りふった効果は、ボスとの戦いのときだけ発揮されます（二人対戦には影響しません）。</p>
       <p style="text-align:center; font-size:1.15rem; font-weight:bold; margin-top:10px">
         のこりポイント：<span style="color:var(--accent)">${pts}</span>
       </p>
@@ -7781,7 +7782,7 @@ function notLearnedBtnHtml(st){
 function showNotLearnedSettings(){
   const st = loadStats();
   let html = `<h3 class="section">🚧 まだ習っていない</h3>
-    <p class="note">授業でまだ習っていない分野をONにすると、「バランスよく鍛える」とボス戦（挑戦チケット・ランダム遭遇）で出題されにくくなります。ホーム画面からその分野を直接選んで解くことは、ONのままでも今までどおりできます。</p>
+    <p class="note">授業でまだ習っていない分野をONにすると、「バランスよく鍛える」とボス戦（挑戦チケット・ランダム遭遇）で出題されにくくなります。<br>ホーム画面からその分野を直接選んで解くことは、ONのままでも今までどおりできます。</p>
     <div class="genre-pick-grid">`;
   NOT_LEARNED_ELIGIBLE_CATS.forEach(key=>{
     const label = CATS[key] ? CATS[key].name : NOT_LEARNED_SPECIAL_LABEL[key];
@@ -7928,7 +7929,7 @@ function gradeAnswer(ok, chosenOrig, typed){
   const ticketMsg = r.gotTicket ? `<div class="evolve ticket-get">🎟️ ボスへの挑戦チケットを1枚手に入れた！</div>` : "";
   const groupMsg = r.groupJustUnlocked ? `<div class="evolve">🔓 ${esc(CATS[cat].name)}の次のグループが解禁された！</div>` : "";
   const celebrateMsg = celebrateMilestoneHtml(CATS[cat].name, r.celebrateMilestones);
-  const lowAccMsg = r.lowAccuracy ? `<p class="note">⏸️ 直近の正答率が低いため、レベルアップはお休み中です。落ち着いて問題を読んで答えると、また上がるようになります。</p>` : "";
+  const lowAccMsg = r.lowAccuracy ? `<p class="note">⏸️ 直近の正答率が低いため、レベルアップはお休み中です。<br>落ち着いて問題を読んで答えると、また上がるようになります。</p>` : "";
   const fastMsg = r.fastGuess ? `<p class="note">⏸️ 少し急いで答えているようです。落ち着いて問題を読んで答えると、また上がるようになります。</p>` : "";
   fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}${lvChip}</div>${expl}${evolveMsg}${ticketMsg}${groupMsg}${celebrateMsg}${lowAccMsg}${fastMsg}`;
   document.getElementById("nextBtn").style.display = "inline-block";
@@ -10986,6 +10987,8 @@ function showKobunPicker(){
   const st = loadStats();
   const kobun = CATS['kobun'], kanazukai = CATS['kanazukai'];
   const kobunT = titleOf(st.lv.kobun), kanazukaiT = titleOf(st.lv.kanazukai);
+  const kobunPct = catUnlockedQuestionPct(st, 'kobun');
+  const kanazukaiPct = catUnlockedQuestionPct(st, 'kanazukai');
   screen.innerHTML = `
     <h3 class="section">🎋 古文</h3>
     <div class="card menu-card" onclick="startQuiz('kobun')">
@@ -10993,7 +10996,7 @@ function showKobunPicker(){
       <div><h2>${esc(kobun.name)}</h2><p>${esc(kobun.desc)}</p></div>
       <div class="right">
         <span class="shogo-badge ${kobunT.hidden?"top":""}">${kobunT.icon} ${esc(kobunT.name)} Lv.${st.lv.kobun}</span>
-        <span class="count">全${kobun.items.length}問</span>
+        <span class="count">全${kobun.items.length}問${kobunPct!=null ? `・解放率${kobunPct}%` : ""}</span>
       </div>
     </div>
     <div class="card menu-card" onclick="startQuiz('kanazukai')">
@@ -11001,7 +11004,7 @@ function showKobunPicker(){
       <div><h2>${esc(kanazukai.name)}</h2><p>${esc(kanazukai.desc)}</p></div>
       <div class="right">
         <span class="shogo-badge ${kanazukaiT.hidden?"top":""}">${kanazukaiT.icon} ${esc(kanazukaiT.name)} Lv.${st.lv.kanazukai}</span>
-        <span class="count">全${kanazukai.items.length}問</span>
+        <span class="count">全${kanazukai.items.length}問${kanazukaiPct!=null ? `・解放率${kanazukaiPct}%` : ""}</span>
       </div>
     </div>
     <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
@@ -11014,6 +11017,7 @@ function showKanbunPicker(){
   const yjLocked = !!(st.notLearnedCats && st.notLearnedCats.kanbun_yj);
   const kanbun = CATS['kanbun'];
   const kanbunT = titleOf(st.lv.kanbun);
+  const kanbunPct = catUnlockedQuestionPct(st, 'kanbun');
   screen.innerHTML = `
     <h3 class="section">🎋 漢文</h3>
     <div class="card menu-card${ktLocked?" locked":""}" ${ktLocked?"":`onclick="ktStart()"`}>
@@ -11031,7 +11035,7 @@ function showKanbunPicker(){
       <div><h2>${esc(kanbun.name)}</h2><p>${esc(kanbun.desc)}</p></div>
       <div class="right">
         <span class="shogo-badge ${kanbunT.hidden?"top":""}">${kanbunT.icon} ${esc(kanbunT.name)} Lv.${st.lv.kanbun}</span>
-        <span class="count">全${kanbun.items.length}問</span>
+        <span class="count">全${kanbun.items.length}問${kanbunPct!=null ? `・解放率${kanbunPct}%` : ""}</span>
       </div>
     </div>
     <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
@@ -11085,7 +11089,7 @@ function startKanjiWriteStroke(mode){
 function kwsCustomEmptyScreenHtml(){
   return `
     <h3 class="section">🌟 覚えたい漢字</h3>
-    <p class="note">自分で選んだ漢字だけを練習できるコーナーです。下の検索窓から、覚えたい漢字を追加してください。追加すると自動的に出題が始まります。専用のジャンルレベルはなく、経験値にも影響しません。</p>
+    <p class="note">自分で選んだ漢字だけを練習できるコーナーです。下の検索窓から、覚えたい漢字を追加してください。<br>追加すると自動的に出題が始まります。専用のジャンルレベルはなく、経験値にも影響しません。</p>
     ${kwsCustomSearchBoxHtml()}
     <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
 }
@@ -11519,8 +11523,8 @@ function showUnlockModeSettings(cat){
     </div>
     <div class="card">
       ${mode === 'auto'
-        ? `<p class="note">これまでどおり、コンピュータが「できるようになった」と判断すると、自動で問題の範囲が広がっていきます。ジャンルレベル・経験値・解放のお祝いは今までどおり発生します。</p>`
-        : `<p class="note">自分で出題する範囲（チャンク番号）を指定します。この間は、ジャンルレベル・経験値は増えず、解放のお祝いも発生しません。</p>
+        ? `<p class="note">これまでどおり、コンピュータが「できるようになった」と判断すると、自動で問題の範囲が広がっていきます。<br>ジャンルレベル・経験値・解放のお祝いは今までどおり発生します。</p>`
+        : `<p class="note">自分で出題する範囲（チャンク番号）を指定します。<br>この間は、ジャンルレベル・経験値は増えず、解放のお祝いも発生しません。</p>
            <p class="note">全${total}チャンク中、第<b id="unlockRangeMinLabel">${range.min}</b>〜<b id="unlockRangeMaxLabel">${range.max}</b>チャンクを出題します（問題数：<span id="unlockRangeCountLabel">${qc.count}</span>／${qc.total}問）。</p>
            <div class="kws-customRow"><label>下限</label><input type="range" id="unlockRangeMin" min="1" max="${total}" step="1" value="${range.min}" oninput="unlockRangeOnInput('${cat}')"></div>
            <div class="kws-customRow"><label>上限</label><input type="range" id="unlockRangeMax" min="1" max="${total}" step="1" value="${range.max}" oninput="unlockRangeOnInput('${cat}')"></div>`}
@@ -12044,7 +12048,7 @@ function showHyakuninMenu(){
   const unlockPct = hyaUnlockedQuestionPct(st);
   const html = `
     <h3 class="section">🎴 百人一首</h3>
-    <p class="note">小倉百人一首100首を、意味・表現技法・作者・出典まで楽しく学べるコーナーです。「一覧モード」でじっくり読んで、「クイズモード」で力だめししましょう。進化の分岐には影響しません。</p>
+    <p class="note">小倉百人一首100首を、意味・表現技法・作者・出典まで楽しく学べるコーナーです。<br>「一覧モード」でじっくり読んで、「クイズモード」で力だめししましょう。進化の分岐には影響しません。</p>
     <div class="card menu-card" onclick="showHyakuninList()">
       <div class="menu-icon">📖</div>
       <div><h2>一覧モード</h2><p>100首すべての歌・現代語訳・表現技法・作者・出典をカードでめくって読める</p></div>
@@ -12071,7 +12075,7 @@ function showHyakuninGenrePicker(){
   const st = loadStats();
   let html = `
     <h3 class="section">🎯 百人一首クイズ　ジャンルを選ぶ</h3>
-    <p class="note">「おまかせ」は全ジャンルから自動で出題します。ジャンルを選ぶと、そのジャンルだけを集中して練習できます（どのジャンルもいつでも選べます）。</p>
+    <p class="note">「おまかせ」は全ジャンルから自動で出題します。<br>ジャンルを選ぶと、そのジャンルだけを集中して練習できます（どのジャンルもいつでも選べます）。</p>
     <div class="card menu-card" onclick="startHyakuninQuiz()">
       <div class="menu-icon">🎲</div>
       <div><h2>おまかせ（全ジャンル）</h2><p>いろいろなジャンルから自動で出題</p></div>
@@ -12309,7 +12313,7 @@ function answerDokkai(origIdx){
   const evolveMsg = r.evolved
     ? `<div class="evolve">${r.evolved.hidden ? "🔓 かくされた称号が明かされた！<br>" : ""}${r.evolved.icon} 進化！　読解の称号が「${esc(r.evolved.name)}」になった！</div>` : "";
   const ticketMsg = r.gotTicket ? `<div class="evolve ticket-get">🎟️ ボスへの挑戦チケットを1枚手に入れた！</div>` : "";
-  const lowAccMsg = r.lowAccuracy ? `<p class="note">⏸️ 直近の正答率が低いため、レベルアップはお休み中です。落ち着いて問題を読んで答えると、また上がるようになります。</p>` : "";
+  const lowAccMsg = r.lowAccuracy ? `<p class="note">⏸️ 直近の正答率が低いため、レベルアップはお休み中です。<br>落ち着いて問題を読んで答えると、また上がるようになります。</p>` : "";
   const fastMsg = r.fastGuess ? `<p class="note">⏸️ 少し急いで答えているようです。落ち着いて問題を読んで答えると、また上がるようになります。</p>` : "";
   fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}${lvChip}</div>${it.e?esc(it.e):""}${evolveMsg}${ticketMsg}${lowAccMsg}${fastMsg}`;
   document.getElementById("nextBtnD").style.display = "inline-block";
@@ -12546,7 +12550,7 @@ function ddShowLevelSelect(){
       <p>文章の中から「証拠」を探し、たしかめて、推理し、最後に書き抜きか選択問題で仕上げる読解ゲームです。</p>
     </div>
     <h3 class="section">伸びる読解</h3>
-    <p class="note">段落ごとに本文がのびていく読解教材。「指示語」「つなぎ」などのボタンで、文と文のつながりを目で確かめながら読みます。</p>`;
+    <p class="note">段落ごとに本文がのびていく読解教材。<br>「指示語」「つなぎ」などのボタンで、文と文のつながりを目で確かめながら読みます。</p>`;
   /* ロック中の表示は、カテゴリごとに「一番上（最初）のロック中だけ」を🔒表示し、
      それより後のロック中はいっさい表示しない（教員の指示、2026-09-23〜：「一日一読で
      公開されたならば、表示するものが一つずつ増えるようなイメージ」）。NOBIRU_TEXTSの
@@ -12655,7 +12659,7 @@ function ddRenderIntro(){
     </div>
     <div class="card">
       <p>本文を1文ずつよく読んで、重要だと思う証拠をちょうど<strong>${stg.requiredEvidence || 3}つ</strong>選ぼう。どの文でも証拠にできるので、見た目では分からない——自分の頭で考えて選ぶ必要があります。見つけた証拠から推理し、最後に書き抜きか選択問題に答えると結果がわかります。上のステップバーからは、進んだ場所ならいつでも行き来できます。</p>
-      <p class="note">💡 良い証拠の見分け方：「何が起きたか」「どんな様子か」を説明しているだけの文は、根拠としては弱いことが多いです。本当に役立つ証拠は、問い（なぜ〜したのか）に対する「だから」を直接つなげられる文——つまり、結果につながる原因や、気持ちの動きがわかる文です。</p>
+      <p class="note">💡 良い証拠の見分け方：「何が起きたか」「どんな様子か」を説明しているだけの文は、根拠としては弱いことが多いです。<br>本当に役立つ証拠は、問い（なぜ〜したのか）に対する「だから」を直接つなげられる文——つまり、結果につながる原因や、気持ちの動きがわかる文です。</p>
       <div class="btn-row"><button class="btn" onclick="ddGoRead()">たんけんを始める</button>
       <button class="btn secondary" onclick="ddShowList()">クエスト一覧へ</button></div>
     </div>`;
@@ -15169,7 +15173,7 @@ function rebirthSeedSectionHtml(st){
   if(count <= 0) return "";
   return `<h4 class="item-group-title treasure-title">🌱 転生の種</h4>
     <ul class="item-list treasure-list"><li class="treasure"><span>🌱 ${esc(REBIRTH_SEED_ITEM)}</span><span class="item-count">×${count}</span></li></ul>
-    <p class="note">🌱 ホーム画面の「ことのは」カードから、転生して育て直すときに1つ使います。デイリーログイン報酬の7日目で手に入ります。</p>`;
+    <p class="note">🌱 ホーム画面の「ことのは」カードから、転生して育て直すときに1つ使います。<br>デイリーログイン報酬の7日目で手に入ります。</p>`;
 }
 
 /* ================= 幻のボス「シランちゃん」 =================
@@ -17183,7 +17187,7 @@ function showItemCollection(){
   const usedStoryRewardKeys = Object.keys(usedStoryRewards).filter(name => usedStoryRewards[name] > 0);
   let html = `<div class="card"><h3 class="section">🎒 これまで獲得したアイテム</h3>`;
   if(allKeys.length === 0 && usedTreasureKeys.length === 0 && usedStoryRewardKeys.length === 0){
-    html += `<p class="note">まだ何も手に入れていません。問題に取り組んでいると、ごくまれにボスが勝負をしかけてくることがあります。勝つとアイテムがもらえます。</p>`;
+    html += `<p class="note">まだ何も手に入れていません。<br>問題に取り組んでいると、ごくまれにボスが勝負をしかけてくることがあります。勝つとアイテムがもらえます。</p>`;
   }else{
     html += `<h4 class="item-group-title">📦 通常アイテム</h4>`;
     html += normalKeys.length ? itemListHtml(normalKeys, items) : `<p class="note">まだありません。</p>`;
@@ -17277,7 +17281,7 @@ function showStats(){
   }
   html += `</div>`;
   html += `<div class="card"><h3 class="section">🎓 今の学年の目安</h3>
-    <p class="note">正解・不正解に応じて自動調整される出題の難しさをもとに、今どのくらいの学年の内容にちょうどよく取り組めているかの<b>目安</b>を、分野ごとに表示します。</p>
+    <p class="note">正解・不正解に応じて自動調整される出題の難しさをもとに、<br>今どのくらいの学年の内容にちょうどよく取り組めているかの<b>目安</b>を、分野ごとに表示します。</p>
     <table class="stats"><tr><th>分野</th><th>学年の目安</th></tr>`;
   const gradeEstimates = [];
   CAT_KEYS.forEach(cat=>{
@@ -17300,7 +17304,7 @@ function showStats(){
   const hidden = TITLES.filter(x=>x.hidden);
   const maxReached = Math.max(...Object.values(st.lv));
   const revealed = hidden.filter(x=>maxReached >= x.lv);
-  html += `<p class="note">⚡ Lv.1000から先には、100レベルごとに<b>かくされた称号</b>が待っている（全${hidden.length}個）。到達したとき、はじめて正体が明かされる…！</p>`;
+  html += `<p class="note">⚡ Lv.1000から先には、100レベルごとに<b>かくされた称号</b>が待っている（全${hidden.length}個）。<br>到達したとき、はじめて正体が明かされる…！</p>`;
   if(revealed.length){
     html += `<p class="note">これまでに明かした称号：</p><ul class="titlelist">`;
     revealed.forEach(x=>{ html += `<li>${x.icon} Lv.${x.lv}〜　${esc(x.name)}</li>`; });
@@ -17338,7 +17342,7 @@ function showStats(){
       <button class="btn secondary" onclick="resetStats()">記録をリセット</button>
       <button class="btn" onclick="showHome()">ホームへ</button>
     </div>
-    <p class="note">※ 記録（レベル・称号・正誤）は自動保存です。端末をかえるときは上の「書き出す→読み込む」で引きつぎできます。</p>`;
+    <p class="note">※ 記録（レベル・称号・正誤）は自動保存です。<br>端末をかえるときは上の「書き出す→読み込む」で引きつぎできます。</p>`;
   screen.innerHTML = html;
 }
 function resetStats(){
@@ -17469,7 +17473,7 @@ function showKotonohaDevTool(){
   screen.innerHTML = `
     <div class="card">
       <h3 class="section">🔧 ことのは転生 管理者プレビューツール</h3>
-      <p class="note">系統×段階のボタンを押すと、実際のホーム画面と同じ表示でプレビューできます。実際のセーブデータは一切変更しません。</p>
+      <p class="note">系統×段階のボタンを押すと、実際のホーム画面と同じ表示でプレビューできます。<br>実際のセーブデータは一切変更しません。</p>
       <button class="btn secondary" onclick="showHome()">ホームへ戻る</button>
     </div>
     ${rows}`;
@@ -17545,7 +17549,7 @@ function showShinyDevTool(){
     </div>
     <div class="card">
       <h3 class="section">① 出会った瞬間〜倒した瞬間までの一連の演出</h3>
-      <p class="note">本来はボスと出会う瞬間に0.1%でしか起きません。出会ってから倒すまで、ずっと同じ色（色違い）のまま戦います。倒せば必ず仲間になる（またはレベルが上がる）＋「発見した！！」の演出が出ます。</p>
+      <p class="note">本来はボスと出会う瞬間に0.1%でしか起きません。<br>出会ってから倒すまで、ずっと同じ色（色違い）のまま戦います。<br>倒せば必ず仲間になる（またはレベルが上がる）＋「発見した！！」の演出が出ます。</p>
       ${rows}
     </div>
     <div class="card">
@@ -18789,7 +18793,7 @@ function miniGameEntryHtml(st){
 function showMainStoryMenu(){
   const st = loadStats();
   let html = `<div class="card"><h3 class="section">📖 第一部</h3>
-    <p class="note">ことのはと一緒に、中学校生活を歩む物語です。章を選んで読み進めよう。前の章をクリアすると、次の章が解放されます。</p></div>`;
+    <p class="note">ことのはと一緒に、中学校生活を歩む物語です。<br>章を選んで読み進めよう。前の章をクリアすると、次の章が解放されます。</p></div>`;
   html += Object.keys(STORY_CHAPTERS).map(key => storyChapterButtonHtml(key, st)).join("");
   html += `<div class="btn-row" style="justify-content:center; margin-top:10px">
     <button class="btn secondary" onclick="showHome()">ホームへ</button>
@@ -18941,7 +18945,7 @@ function showSpeedMatchModeSelect(){
   }).join('');
   screen.innerHTML = `
     <div class="card"><h3 class="section">🔗 マッチ（試作版）</h3>
-      <p class="note">類義語マッチ・対義語マッチ、どちらで遊ぶか選んでください。まだ試作段階なので、成績や経験値には反映されません。</p>
+      <p class="note">類義語マッチ・対義語マッチ、どちらで遊ぶか選んでください。<br>まだ試作段階なので、成績や経験値には反映されません。</p>
     </div>
     ${modesHtml}
     <div class="btn-row" style="justify-content:center; margin-top:10px">
@@ -19003,7 +19007,7 @@ function renderSpeedMatchGame(){
   }).join('');
   screen.innerHTML = `
     <div class="card"><h3 class="section">${def.icon} ${esc(def.title)}（試作版）</h3>
-      <p class="note">${esc(def.label)}のペアになる2枚を選んでね。単語は最初から全部見えています。まだ試作段階なので、成績や経験値には反映されません。</p>
+      <p class="note">${esc(def.label)}のペアになる2枚を選んでね。<br>単語は最初から全部見えています。まだ試作段階なので、成績や経験値には反映されません。</p>
       <div class="speed-match-status">
         <span>見つけたペア：${speedMatch.matchedCount}/${speedMatch.pairCount}</span>
         <span>ミス：${speedMatch.mistakes}回</span>
@@ -19860,7 +19864,7 @@ function storyRenderProofread(beat){
   screen.innerHTML = `
     <div class="card story-scene">
       <div class="boss-name">${esc(boss.icon)} ${esc(boss.name)}</div>
-      <p class="note">${STORY_PROOFREAD_TIME_MS/1000}秒以内に、まちがった言葉づかいを${errorCount}つ、すべてタップして見つけよう！（正しい言葉をタップすると、残り時間が${STORY_PROOFREAD_MISS_PENALTY_MS/1000}秒減ってしまいます）</p>
+      <p class="note">${STORY_PROOFREAD_TIME_MS/1000}秒以内に、まちがった言葉づかいを${errorCount}つ、すべてタップして見つけよう！<br>（正しい言葉をタップすると、残り時間が${STORY_PROOFREAD_MISS_PENALTY_MS/1000}秒減ってしまいます）</p>
       <p class="note" id="proofProgress">見つけた数：0／${errorCount}</p>
       <div class="boss-timer-row"><div class="boss-timer-bar"><div id="proofTimerFill" class="boss-timer-fill"></div></div></div>
       <div class="boss-q-card">
@@ -20052,7 +20056,7 @@ function storyRenderWordPick(beat){
   screen.innerHTML = `
     <div class="card story-scene">
       <div class="boss-name">${esc(boss.icon)} ${esc(boss.name)}</div>
-      <p class="note">${STORY_WORDPICK_TIME_MS/1000}秒以内に、名詞を${STORY_WORDPICK_BOARD_NOUNS}個、すべてタップして見つけよう！（名詞でない単語をタップすると、残り時間が${STORY_WORDPICK_MISS_PENALTY_MS/1000}秒減ってしまいます）</p>
+      <p class="note">${STORY_WORDPICK_TIME_MS/1000}秒以内に、名詞を${STORY_WORDPICK_BOARD_NOUNS}個、すべてタップして見つけよう！<br>（名詞でない単語をタップすると、残り時間が${STORY_WORDPICK_MISS_PENALTY_MS/1000}秒減ってしまいます）</p>
       <p class="note" id="wpProgress">見つけた数：0／${STORY_WORDPICK_BOARD_NOUNS}</p>
       <div class="boss-timer-row"><div class="boss-timer-bar"><div id="wpTimerFill" class="boss-timer-fill"></div></div></div>
       <div class="boss-q-card">
@@ -20560,7 +20564,7 @@ function storyRenderBaseballScreen(){
     bodyHtml = `
       <div class="bb-ready-card">
         <p class="story-text">${bb.inning}回 ${bb.batterNumber}人目の打者</p>
-        <p class="note">相手はまっすぐな球だけで勝負してくる剛腕エース。ヒットが続いて追い詰められるほど本気になり、球はどんどん速くなっていく。打ち返せたときの当たりどころは運次第――単打から一発大逆転のホームランまであるかも。</p>
+        <p class="note">相手はまっすぐな球だけで勝負してくる剛腕エース。<br>ヒットが続いて追い詰められるほど本気になり、球はどんどん速くなっていく。<br>打ち返せたときの当たりどころは運次第――単打から一発大逆転のホームランまであるかも。</p>
         <p class="bb-ready-warn">制限時間 ${baseballTimeLimit(bb.batterNumber).toFixed(1)}秒以内に回答！</p>
         <button class="btn story-advance-btn" onclick="storyBaseballStartPitch()">次の球</button>
       </div>`;
@@ -21818,7 +21822,7 @@ function storyChapterEnd(){
   const rebirthNote = unlockedRebirth
     ? (sp.flags.ch9RebirthDone === "yes"
         ? `<p class="note">🔁 ことのはの「転生」が解放された！　これからは、ホーム画面からいつでも卵の姿に立ち返って育て直せる。</p>`
-        : `<p class="note">🔁 ことのはの「転生」を解放した！　分野のバランスが整えば、ホーム画面から卵の姿に戻って育て直せるようになる。</p>`)
+        : `<p class="note">🔁 ことのはの「転生」を解放した！<br>分野のバランスが整えば、ホーム画面から卵の姿に戻って育て直せるようになる。</p>`)
     : "";
   screen.innerHTML = `
     <div class="card story-scene">
@@ -21835,7 +21839,7 @@ function storyChapterEnd(){
         <button class="btn" onclick="showHome()">ホームへ</button>
         <button class="btn secondary" onclick="storyReplayChapter()">もう一度プレイする</button>
       </div>
-      <p class="note">※ボス戦のアイテム・宝具は再プレイではもらえません。選択肢問題の正答率は、今回の記録の方が自己ベストより高い場合だけ更新されます。</p>
+      <p class="note">※ボス戦のアイテム・宝具は再プレイではもらえません。<br>選択肢問題の正答率は、今回の記録の方が自己ベストより高い場合だけ更新されます。</p>
     </div>`;
 }
 /* クリア済みの章を最初からもう一度プレイする。completedChaptersはそのままなので、
@@ -26495,7 +26499,7 @@ function ktShowMenu(){
   const pct = ktUnlockedQuestionPct(st);
   let html = `
     <h3 class="section">🖌️ 返り点をつける</h3>
-    <p class="note">漢文の白文に、返り点をドラッグ（またはタップ）で置く特訓です。8問のまとまりを解き終えるごとに、次のまとまりが解禁されます。正解すると「漢文」のレベルが上がります。</p>
+    <p class="note">漢文の白文に、返り点をドラッグ（またはタップ）で置く特訓です。<br>8問のまとまりを解き終えるごとに、次のまとまりが解禁されます。正解すると「漢文」のレベルが上がります。</p>
     ${unlockFooterHtml("漢文（返り点をつける）", pct)}
   `;
   groups.forEach((g,gi)=>{
