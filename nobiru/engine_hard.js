@@ -535,6 +535,8 @@ function renderChoiceQuestion(q, isLast, onNext){
       ul.appendChild(b);
     });
   }
+  // 出題の直前に必ずシャッフルする（教員の指示、2026-09-23〜。engine.js側と同じ対策）。
+  shuffleOrder();
   renderChoices();
   z.append(h, p, ul, fb, row, hintBox);
   $("paneQ").scrollTo({ top: 0, behavior: "smooth" });
@@ -647,6 +649,8 @@ function renderGuidedQuestion(q, isLast, onNext){
         ul.appendChild(b);
       });
     }
+    // 出題の直前に必ずシャッフルする（教員の指示、2026-09-23〜。engine.js側と同じ対策）。
+    shuffleOrder();
     renderChoices();
     z.append(p, ul, fb, row, hintBox);
     $("paneQ").scrollTo({ top: 0, behavior: "smooth" });

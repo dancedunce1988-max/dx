@@ -4170,7 +4170,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.08</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.09</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -7198,8 +7198,11 @@ function mbStaminaLampsHtml(n, max){
    置く、専用の色（.dd-daily-card、オレンジ系）で目立たせる。今日ぶんの一日一読があるかどうか
    （ddTodayDailyText、公開日が来ていない間は「石垣」のお試し版がその代わりを務める）で
    文言を変える。タップ先はddShowDailyTitle（タイトルだけを出す画面）。 */
-function ddHomeEntryHtml(){
+function ddHomeEntryHtml(st){
   const today = ddTodayDailyText();
+  // 今日ぶんをもうクリア済み（st.nobiruRewardGivenに載っている）なら、教員の指示：
+  // 「一度クリアしたあとは、その日は表示しないようにしてください」。カードごと非表示にする。
+  if(today && st.nobiruRewardGiven[today.key]) return "";
   const bodyHtml = today
     ? `本日の一日一読：<b>${esc(today.title)}</b>`
     : "本日の一日一読はまだありません。";
@@ -7366,7 +7369,7 @@ function showHome(){
   let html = "";
   html += eventBannerHtml(st);
   html += kotonohaCardHtml(st);
-  html += ddHomeEntryHtml();
+  html += ddHomeEntryHtml(st);
   html += mbHomeQuestEntryHtml(st);
   html += storyEntryHtml(st);
   html += miniGameEntryHtml(st);
@@ -12503,8 +12506,18 @@ const NOBIRU_CATS = [
    だけで自動的に公開される。特定の教材だけ一時的に隠したいときは、
    この行を配列リテラルに戻して個別にキーを書けばよい。
    2026-09-23〜：教員の指示で「石垣」以外をいったんすべてロック。全公開に
-   戻すときは NOBIRU_TEXTS.map(t => t.key) に書き戻す。 */
+   戻すときは NOBIRU_TEXTS.map(t => t.key) に書き戻す。
+   2026-09-23〜さらに追記：「一日一読で公開したものが、伸びる読解で解放されるシステムに
+   してほしい」という教員の指示により、NOBIRU_ACTIVE_KEYSに載っていないキーでも、
+   一日一読側の公開条件（ddTrialAlways、またはddPublishDateが今日以前）を満たしていれば
+   のびる読解の一覧でも解放する（nobiruIsUnlocked参照）。 */
 const NOBIRU_ACTIVE_KEYS = ["ishigaki"];
+function nobiruIsUnlocked(t){
+  if(NOBIRU_ACTIVE_KEYS.includes(t.key)) return true;
+  if(t.ddTrialAlways) return true;
+  if(t.ddPublishDate && t.ddPublishDate <= ddTodayStr()) return true;
+  return false;
+}
 // viaDaily:true＝ホーム画面「一日一読」経由（教員の指示、2026-09-23〜）。engine.js側が
 // URLの?viaDaily=1を読み取り、完了時の経験値連携（DD_PENDING_REWARD_LSKEY）に含める
 // （一日一読経由なら全額、そうでなければ半額。ddCheckNobiruPendingReward参照）。
@@ -12537,7 +12550,7 @@ function ddShowLevelSelect(){
     if(!items.length) return;
     html += `<h3 class="section" style="margin-top:14px">${cat.icon} ${esc(cat.label)}</h3>`;
     items.forEach(t => {
-      if(!NOBIRU_ACTIVE_KEYS.includes(t.key)){
+      if(!nobiruIsUnlocked(t)){
         html += `
         <div class="card menu-card locked">
           <div class="menu-icon">🔒</div>

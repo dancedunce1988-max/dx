@@ -246,6 +246,26 @@ body.v-cont .sp[data-s="B"]{background:var(--B-bg);box-shadow:0 1px 0 var(--B);}
   font-weight:bold;padding:8px 10px;border-radius:3px;margin-bottom:8px;
   animation:xpPop .25s ease;}
 @keyframes xpPop{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}
+/* 経験値ポップアップ（2026-09-23〜、教員の指示：正解のたびに3秒ほど、元気づけられるような
+   演出で表示。画面中央上部に固定表示し、弾むように出て最後にふわっと消える。 */
+.xp-gain-popup{
+  position:fixed; top:14%; left:50%; transform:translate(-50%,0);
+  z-index:9000; pointer-events:none;
+  background:linear-gradient(135deg,#ffe08a,#ffb347);
+  color:#5a3a00; font-weight:bold; font-size:1.25rem;
+  padding:14px 26px; border-radius:40px; white-space:nowrap;
+  box-shadow:0 6px 20px rgba(0,0,0,.25);
+  animation:xpGainPop .45s cubic-bezier(.2,1.6,.4,1), xpGainFade .5s ease 2.5s forwards;
+}
+@keyframes xpGainPop{
+  0%{opacity:0; transform:translate(-50%,-14px) scale(.6);}
+  60%{opacity:1; transform:translate(-50%,4px) scale(1.08);}
+  100%{opacity:1; transform:translate(-50%,0) scale(1);}
+}
+@keyframes xpGainFade{
+  from{opacity:1;}
+  to{opacity:0; transform:translate(-50%,-10px) scale(.94);}
+}
 .next{margin-top:12px;background:var(--ink);color:#f5f6f2;border:0;border-radius:3px;
   padding:11px 18px;font-size:14px;letter-spacing:.08em;cursor:pointer;}
 .next:hover{background:#39423f;}
@@ -319,6 +339,10 @@ body.v-cont .sp[data-s="B"]{background:var(--B-bg);box-shadow:0 1px 0 var(--B);}
 .again{background:none;border:1px solid var(--stone);border-radius:3px;
   padding:8px 14px;font:inherit;font-size:13px;color:var(--ink-soft);cursor:pointer;}
 .again:focus-visible{outline:2px solid var(--moss);outline-offset:1px;}
+/* 「一日一読を終える」ボタン（2026-09-23〜、教員の指示）。「はじめからやり直す」（控えめな
+   輪郭ボタン）とは違い、経験値を受け取ってホームに戻る主動作なので塗り色で目立たせる。 */
+.again.daily-end{background:var(--moss);border-color:var(--moss);color:#fff;
+  font-weight:bold;margin-left:8px;}
 
 /* ---- 誤答が10回連続したときの一時停止画面（教員の指示、2026-09-17〜）。
    画面全体を覆うオーバーレイなので、下の「ホームに戻る」等も含めてタップが一切通らなくなる。 */

@@ -32,6 +32,22 @@ function addXp(n){
   const el = $("xpTotal");
   if(el) el.innerHTML = `累計経験値　<b>${totalXp}</b>`;
 }
+/* 経験値ポップアップ（2026-09-23〜、教員の指示：「ポップアップするような感じで、3秒ほど、
+   ストック経験値～獲得！と元気づけられるような演出」）。フッターの.xpTotal（小さく静かに
+   更新するだけ）とは別に、正解した瞬間だけ画面中央上部へ大きく表示する。連続で正解しても
+   前のポップアップを消してから出し直す（重ならないように）。 */
+let xpGainPopupTimer = null;
+function showXpGainPopup(n){
+  const old = $("xpGainPopup");
+  if(old) old.remove();
+  if(xpGainPopupTimer) clearTimeout(xpGainPopupTimer);
+  const el = document.createElement("div");
+  el.id = "xpGainPopup";
+  el.className = "xp-gain-popup";
+  el.textContent = `🎉 ストック経験値＋${n}！`;
+  document.body.appendChild(el);
+  xpGainPopupTimer = setTimeout(() => { el.remove(); xpGainPopupTimer = null; }, 3000);
+}
 const record = [];
 /* 設問の総数（教員の指示、2026-09-17〜：進み具合ゲージ用）。各段落のq、
    最終段落のqsの配列長を足し合わせるだけで、教材データには一切手を加えなくてよい。 */
@@ -457,9 +473,12 @@ function showQuestion(q, onClear){
           fb.className = "fb ok"; fb.innerHTML = "";
           /* 経験値（2026-09-19〜）。1回目で正解＝10、以後誤答1回につき2ずつ減る。
              設問ごとの内訳（この10点）はここでは表示せず、addXp()でフッターの
-             累計だけを更新する（イージー・ハード共通の方針：内訳を見せない）。 */
+             累計だけを更新する（イージー・ハード共通の方針：内訳を見せない）。
+             2026-09-23〜、教員の指示：フッターの小さな表示だけでは分かりにくいため、
+             正解のたびに画面中央上部へ大きくポップアップさせる（showXpGainPopup）。 */
           const xp = Math.max(0, 10 - rec.miss * 2);
           addXp(xp);
+          if(xp > 0) showXpGainPopup(xp);
           const expText = document.createElement("div");
           expText.textContent = "正解。" + q.exp;
           fb.appendChild(expText);
@@ -507,6 +526,10 @@ function showQuestion(q, onClear){
       ul.appendChild(b);
     });
   }
+  // 出題の直前に必ずシャッフルする（教員の指示、2026-09-23〜：「毎回同じ場所であることを
+  // 防ぐため」）。以前は初回表示だけ本文データの並び順そのまま（誤答後の再シャッフルのみ）
+  // だったが、それでは正解の位置が問題ごとに固定されてしまう。
+  shuffleOrder();
   renderChoices();
   z.append(h, p, ul, fb);
   $("paneQ").scrollTo({ top: 0, behavior: "smooth" });
@@ -556,6 +579,7 @@ function finish(){
       <table>${rows}</table>
       <p>本文はすべて出そろっています。「構造図」で全体のつながりを見てから、もう一度通して読んでみてください。</p>
       <button class="again ui" onclick="location.reload()">はじめからやり直す</button>
+      ${VIA_DAILY ? `<button class="again ui daily-end" onclick="location.href='../kokugo_app.html'">一日一読を終える</button>` : ""}
     </div>`;
   $("paneQ").scrollTo({ top: 0, behavior: "smooth" });
 }
