@@ -1,6 +1,6 @@
 /* ============================================================
    のびる読解　ハードモード エンジン（engine_hard.js、2026-09-19〜）
-   イージーモード（engine.js）と同じ教材データ（texts/<教材名>.js の
+   engine.js（現行の唯一のエンジン）と同じ教材データ（texts/<教材名>.js の
    window.NOBIRU_TEXT）を読むが、本文の開示は「前半」「後半」の2段階だけ、
    設問は記述式中心、という別の進行にする。
    教材データのうち、ハードモード用の設問は TEXT.hard = { splitAt, front, back }
@@ -13,8 +13,8 @@
    3問目=記述、4問目=長い記述、5問目=全体を読んで答える選択、という
    構成にしたいときは、hard.frontに前半2問、hard.backに後半3問を
    その順で並べればよい）。TEXT.hard が無い教材では、このファイルは
-   何もしない（イージーモードのみで遊べる）。
-   本文そのもの（PARAS）はイージーモードと完全に共通で、一切変更しない。
+   何もしない（engine.js側のみで遊べる）。
+   本文そのもの（PARAS）はengine.js側と完全に共通で、一切変更しない。
    ============================================================ */
 (function(){
 "use strict";
@@ -28,7 +28,7 @@ const TEXT_KEY = TEXT.meta.key || TEXT.meta.title || document.title;
 const $ = id => document.getElementById(id);
 
 /* ---- 経験値の設計（教員の指示、2026-09-19〜）----
-   ハードモードは全5問。1問満点21点×5問＝105点満点で、イージーモード
+   ハードモードは全5問。1問満点21点×5問＝105点満点で、engine.js側
    （1問10点×教材ごとの設問総数、たいてい100点満点）とほぼ同じ、
    ハードモードの方がわずかに高いだけの合計になるようにしてある。
    ヒントを使った設問は満点に0.7を掛ける（ゼロにはしない）。
@@ -128,7 +128,7 @@ function parseInto(str, parent, insideU){
   flush();
 }
 
-/* ---- 語釈カード（イージーモードと同じ#glossを使う） ---- */
+/* ---- 語釈カード（engine.js側と同じ#glossを使う） ---- */
 const checkedWords = [];
 const checkedWordSet = new Set();
 function openGloss(w, y, m, important){
@@ -176,7 +176,7 @@ function showDem(el){
   n.classList.add("on");
 }
 
-/* ---- 文字サイズ（本文側。イージーモードと同じ--fsを使う） ---- */
+/* ---- 文字サイズ（本文側。engine.js側と同じ--fsを使う） ---- */
 if($("b-small")) $("b-small").onclick = () => bump(-0.8);
 if($("b-large")) $("b-large").onclick = () => bump(0.8);
 function bump(d){

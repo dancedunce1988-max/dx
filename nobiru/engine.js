@@ -20,12 +20,25 @@ const svgNS = "http://www.w3.org/2000/svg";
    複雑な形を直接ここで書き換えるのは危険なので、合図だけを置く簡単な仕組みにしてある。 */
 const VIA_DAILY = new URLSearchParams(location.search).get("viaDaily") === "1";
 const DD_PENDING_REWARD_LSKEY = "dd_daily_pending_reward_v1";
+/* この教材が、以前すでにストック経験値を受け取り済みかどうか（2026-09-23〜、教員の指示：
+   「2回目以降は経験値を獲得できないので、獲得していない経験値についてはポップアップ等で
+   表示しないように」）。kokugo_app.html側がst.nobiruRewardGivenのキー一覧をそのまま
+   ミラーしたものをDD_REWARDED_KEYS_LSKEYに書いている（ddCheckNobiruPendingReward参照）ので、
+   ここではその配列にTEXT_KEYが含まれるかだけを見る。st本体（複雑な形）には一切触れない。 */
+const DD_REWARDED_KEYS_LSKEY = "dd_daily_rewarded_keys_v1";
+let ALREADY_REWARDED = false;
+try{
+  const raw = localStorage.getItem(DD_REWARDED_KEYS_LSKEY);
+  const arr = raw ? JSON.parse(raw) : [];
+  ALREADY_REWARDED = Array.isArray(arr) && arr.includes(TEXT_KEY);
+}catch(e){ /* 読めない場合は「未受け取り」扱いのまま続行する */ }
 
 let stage = 0, finalIdx = 0;
-/* 累計経験値（イージーモード）。設問ごとの内訳は画面に出さず、この合計だけを
-   フッターに出し続ける（2026-09-19〜、ハードモード新設にあわせて経験値設計を見直し）。
-   NobiruRecordsが読み込まれている（records.js経由）教材だけ、自己ベストとの比較を
-   localStorageに保存する。読み込まれていない教材は、これまでどおり保存はしない。 */
+/* 累計経験値。設問ごとの内訳は画面に出さず、この合計だけをフッターに出し続ける
+   （2026-09-19〜、当時はハードモード新設にあわせた経験値設計だったが、2026-09-22〜
+   ハードモードは無効化済み）。NobiruRecordsが読み込まれている（records.js経由）教材だけ、
+   自己ベストとの比較をlocalStorageに保存する。読み込まれていない教材は、これまでどおり
+   保存はしない。 */
 let totalXp = 0;
 function addXp(n){
   totalXp += n;
@@ -473,12 +486,15 @@ function showQuestion(q, onClear){
           fb.className = "fb ok"; fb.innerHTML = "";
           /* 経験値（2026-09-19〜）。1回目で正解＝10、以後誤答1回につき2ずつ減る。
              設問ごとの内訳（この10点）はここでは表示せず、addXp()でフッターの
-             累計だけを更新する（イージー・ハード共通の方針：内訳を見せない）。
+             累計だけを更新する（内訳を見せない方針）。
              2026-09-23〜、教員の指示：フッターの小さな表示だけでは分かりにくいため、
-             正解のたびに画面中央上部へ大きくポップアップさせる（showXpGainPopup）。 */
+             正解のたびに画面中央上部へ大きくポップアップさせる（showXpGainPopup）。
+             ただしこの教材がすでにストック経験値を受け取り済み（ALREADY_REWARDED）なら、
+             今回の正解は実際には加算されないので、ポップアップは出さない
+             （教員の指示：「獲得していない経験値については表示しないように」）。 */
           const xp = Math.max(0, 10 - rec.miss * 2);
           addXp(xp);
-          if(xp > 0) showXpGainPopup(xp);
+          if(xp > 0 && !ALREADY_REWARDED) showXpGainPopup(xp);
           const expText = document.createElement("div");
           expText.textContent = "正解。" + q.exp;
           fb.appendChild(expText);
@@ -593,10 +609,11 @@ function boot(){
   if(theme) Object.keys(theme).forEach(k => document.documentElement.style.setProperty(k, theme[k]));
   window.addEventListener("resize", scheduleDemRedraw);
   $("b-fulltr").hidden = !hasTranslations;
-  /* モードバッジ・モード切りかえリンク（この2つの要素を持つ教材HTMLだけに出る。
-     イージー／ハードを毎回選び直せることを示す）。 */
-  if($("modeBadge")) $("modeBadge").textContent = "イージーモード";
-  if($("modeSwitch")) $("modeSwitch").href = location.pathname;
+  /* モードバッジ・モード切りかえリンク（この2つの要素を持つ教材HTMLだけにある）。
+     ハードモード無効化（2026-09-22〜）でモードを選び直す意味自体が無くなっており、
+     教員の指示（2026-09-23〜）で「イージーモード」という文言も含めて非表示にする。 */
+  if($("modeBadge")) $("modeBadge").hidden = true;
+  if($("modeSwitch")) $("modeSwitch").hidden = true;
   addXp(0);
   paintMarks();
   renderWordsList();

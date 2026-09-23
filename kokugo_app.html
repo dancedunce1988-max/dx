@@ -4170,7 +4170,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.09</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.10</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -7209,7 +7209,7 @@ function ddHomeEntryHtml(st){
   return `
   <div class="card menu-card dd-daily-card" onclick="ddShowDailyTitle()">
     <div class="menu-icon">📅</div>
-    <div><h2>一日一読</h2><p>${bodyHtml}</p></div>
+    <div><h2>一日一読　読解quest</h2><p>${bodyHtml}</p></div>
   </div>`;
 }
 function mbHomeQuestEntryHtml(st){
@@ -7359,7 +7359,7 @@ function showHome(){
   if(nobiruReward){
     screen.innerHTML = `
       <div class="card">
-        <h3 class="section" style="margin-top:0">📅 一日一読、はじめての正解！</h3>
+        <h3 class="section" style="margin-top:0">📅 一日一読　読解quest、はじめての正解！</h3>
         <p class="result-msg">「${esc(nobiruReward.title)}」で、${nobiruReward.gained > 0 ? `ストック経験値 ＋${nobiruReward.gained} を獲得しました！` : "今回はストック経験値の獲得はありませんでした。"}</p>
         <div class="btn-row"><button class="btn" onclick="showHome()">つづける</button></div>
       </div>`;
@@ -7417,14 +7417,11 @@ function showHome(){
       <div><h2>苦手復習 <span class="tag">${weak.length}問たまっています</span></h2>
       <p>これまでに間違えた問題だけを集中的に出題</p></div>
     </div>
-    <div class="card menu-card" onclick="showDokkaiMenu()">
-      <div class="menu-icon">📚</div>
-      <div><h2>読解トレーニング <span class="tag">${DOKKAI.length}題</span></h2><p>説明文・小説・随筆を読んで設問に答える</p></div>
-      <div class="right"><span class="shogo-badge">${dt.icon} ${esc(dt.name)} Lv.${st.lv.dokkai}</span></div>
-    </div>
-    <div class="card menu-card" onclick="ddShowPrep()">
+    <!-- 「読解トレーニング」は教員の指示（2026-09-23〜）でいったん非表示。showDokkaiMenu・DOKKAI・
+         st.lv.dokkai等の中身は変更していないので、このカードを戻すだけで復活できる。 -->
+    <div class="card menu-card" onclick="ddShowLevelSelect()">
       <div class="menu-icon">🗺️</div>
-      <div><h2>読解Quest <span class="tag">試作版</span></h2><p>文章から証拠を探し、たしかめ、推理して、仕上げる新しい読解ゲーム</p></div>
+      <div><h2>読解Quest</h2><p>読むと、伸びる。力がつく。新感覚の読解問題。</p></div>
     </div>
     <div class="card menu-card" onclick="showHyakuninMenu()">
       <div class="menu-icon">🎴</div>
@@ -12371,6 +12368,10 @@ let dd = null; // 読解Quest試作版の進行中ステート
    初めての合図であれば（st.nobiruRewardGiven）、一日一読経由なら全額、そうでなければ半額を
    st.stockXpに加算する。 */
 const DD_PENDING_REWARD_LSKEY = "dd_daily_pending_reward_v1";
+// 「すでに経験値を受け取ったテキストキー」一覧（配列をJSON化して保存、2026-09-23〜）。
+// nobiru/engine.jsがこれを読み、2回目以降のポップアップ演出を出さないようにする
+// （st.nobiruRewardGivenの単純なミラー。ddCheckNobiruPendingReward参照）。
+const DD_REWARDED_KEYS_LSKEY = "dd_daily_rewarded_keys_v1";
 function ddTodayStr(){
   const d = new Date();
   return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
@@ -12409,19 +12410,29 @@ function ddShowDailyTitle(){
 function ddCheckNobiruPendingReward(st){
   let raw;
   try{ raw = localStorage.getItem(DD_PENDING_REWARD_LSKEY); }catch(e){ raw = null; }
-  if(!raw) return null;
-  try{ localStorage.removeItem(DD_PENDING_REWARD_LSKEY); }catch(e){}
-  let info;
-  try{ info = JSON.parse(raw); }catch(e){ return null; }
-  if(!info || !info.textKey) return null;
-  if(st.nobiruRewardGiven[info.textKey]) return null; // 初回のみ（受け取り済み）
-  st.nobiruRewardGiven[info.textKey] = true;
-  const totalXp = Math.max(0, Math.round(info.totalXp||0));
-  const gained = info.viaDaily ? totalXp : Math.round(totalXp / 2);
-  if(gained > 0) st.stockXp = (st.stockXp||0) + gained;
-  saveStats(st);
-  const t = NOBIRU_TEXTS.find(x => x.key === info.textKey);
-  return {title: t ? t.title : info.textKey, gained, viaDaily: !!info.viaDaily};
+  let result = null;
+  if(raw){
+    try{ localStorage.removeItem(DD_PENDING_REWARD_LSKEY); }catch(e){}
+    let info;
+    try{ info = JSON.parse(raw); }catch(e){ info = null; }
+    if(info && info.textKey && !st.nobiruRewardGiven[info.textKey]){ // 初回のみ（受け取り済みなら何もしない）
+      st.nobiruRewardGiven[info.textKey] = true;
+      const totalXp = Math.max(0, Math.round(info.totalXp||0));
+      const gained = info.viaDaily ? totalXp : Math.round(totalXp / 2);
+      if(gained > 0) st.stockXp = (st.stockXp||0) + gained;
+      saveStats(st);
+      const t = NOBIRU_TEXTS.find(x => x.key === info.textKey);
+      result = {title: t ? t.title : info.textKey, gained, viaDaily: !!info.viaDaily};
+    }
+  }
+  /* 「受け取り済みキー一覧」を、呼ぶたびに必ず最新化してnobiru側にも書いておく
+     （2026-09-23〜、教員の指示：「2回目以降は経験値を獲得できないので、獲得していない
+     経験値についてはポップアップ等で表示しないように」）。nobiru/engine.jsはこの単純な
+     配列だけを読み、st本体（複雑な形）には一切触れない。新規に加算した場合だけでなく、
+     早期return（合図なし／既に受け取り済み）のときも必ず同期することで、以前に別の
+     経路で受け取った履歴もここで確実に反映される。 */
+  try{ localStorage.setItem(DD_REWARDED_KEYS_LSKEY, JSON.stringify(Object.keys(st.nobiruRewardGiven))); }catch(e){}
+  return result;
 }
 let ddSelectedLevel = null;
 function ddSkillLv(xp){ return 1 + Math.floor((xp||0) / 8); }
@@ -12524,23 +12535,14 @@ function nobiruIsUnlocked(t){
 function ddOpenNobiru(key, viaDaily){
   location.href = "nobiru/" + key + ".html" + (viaDaily ? "?viaDaily=1" : "");
 }
-/* 読解Questの入口（2026-09-16〜、教員の指示）。ホーム画面のボタンからはいったん
-   「準備中です」という案内だけを見せ、その「準備」という文字をタップすると、
-   その場で本来の読解Quest試作版の画面（ddShowLevelSelect）に進める。
-   生徒向けには準備中に見えるが、教員自身はワンタップで中身を確認できるようにする
-   簡易な導線で、パスワード等は設けない。 */
-function ddShowPrep(){
-  screen.innerHTML = `
-    <div class="card">
-      <h3 class="section" style="margin-top:0">読解Quest 試作版</h3>
-      <p class="note"><span onclick="ddShowLevelSelect()" style="cursor:pointer;">準備</span>中です。もうしばらくお待ちください。</p>
-      <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>
-    </div>`;
-}
+/* 読解Questの入口（2026-09-16〜2026-09-23、教員の指示）。以前はホーム画面のボタンから
+   いったん「準備中です」という案内画面（ddShowPrep）を見せていたが、教員の指示で
+   「試作版」の呼び名も「準備中」画面も廃止し、ホームからワンタップで直接
+   ddShowLevelSelectに入るようにした。 */
 function ddShowLevelSelect(){
   let html = `
     <div class="dd-intro-card">
-      <h2>🗺️ 読解Quest試作版</h2>
+      <h2>🗺️ 読解Quest</h2>
       <p>文章の中から「証拠」を探し、たしかめて、推理し、最後に書き抜きか選択問題で仕上げる読解ゲームです。</p>
     </div>
     <h3 class="section">伸びる読解</h3>
@@ -12597,7 +12599,7 @@ function ddShowList(){
     .filter(x => x.stg.level === ddSelectedLevel);
   let html = `
     <div class="dd-intro-card">
-      <h2>🗺️ 読解Quest試作版</h2>
+      <h2>🗺️ 読解Quest</h2>
       <p>合言葉は「根拠を確認する」。正解そのものより、根拠の質が評価されます。</p>
     </div>
     <div class="card">
