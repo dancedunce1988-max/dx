@@ -332,9 +332,9 @@
 
   /**
    * jsDelivr は .html を text/plain で返すため、直接 location 遷移するとソース表示になる。
-   * Blob URL も file:// 由来だと blob:null/uuid になり、<base> 解決で
-   * /nobiru/null/<uuid> を取りにいって壊れる。
-   * → ランチャー上の iframe srcdoc で text/html として開く。
+   * Blob / <base> 併用は about:srcdoc・blob:null が相対パスになり
+   * /nobiru/srcdoc や /nobiru/null/<uuid> を取りにいって壊れる。
+   * → iframe srcdoc + 相対URLの絶対化（<base> なし）+ キャプチャ段階で遷移を差し替え。
    */
   function closeNobiruFrame() {
     var f = document.getElementById('dx-nobiru-frame');
@@ -366,6 +366,43 @@
     }
     f.hidden = false;
     f.srcdoc = out;
+  }
+
+  function resolveNobiruAsset(url, nobiruBase) {
+    if (!url || typeof url !== 'string') return null;
+    var s = url.trim();
+    if (!s || s.charAt(0) === '#' || s.indexOf('mailto:') === 0 || s.indexOf('javascript:') === 0) {
+      return null;
+    }
+    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(s) || s.indexOf('//') === 0) {
+      return s;
+    }
+    if (s.indexOf('..') !== -1) return null;
+    return nobiruBase + s.replace(/^\.\//, '').replace(/^\/+/, '');
+  }
+
+  function absolutizeNobiruHtml(html, nobiruBase) {
+    /* .toString() で iframe に注入するため、クロージャ名ではなく window 経由で解決する */
+    var resolve = window.__DX_RESOLVE_NOBIRU__;
+    var doc = new DOMParser().parseFromString(html, 'text/html');
+    var nodes = doc.querySelectorAll('[src], link[href], image[href]');
+    for (var i = 0; i < nodes.length; i++) {
+      var el = nodes[i];
+      if (el.hasAttribute('src')) {
+        var absSrc = resolve(el.getAttribute('src'), nobiruBase);
+        if (absSrc) el.setAttribute('src', absSrc);
+      }
+      if (el.hasAttribute('href') && el.tagName.toLowerCase() === 'link') {
+        var absHref = resolve(el.getAttribute('href'), nobiruBase);
+        if (absHref) el.setAttribute('href', absHref);
+      }
+    }
+    /* ホームリンクはクリックで差し替える。相対 href のまま残すと変な遷移の元になる */
+    var homes = doc.querySelectorAll('a.back, a.modesel-back');
+    for (var h = 0; h < homes.length; h++) {
+      homes[h].setAttribute('href', '#');
+    }
+    return '<!DOCTYPE html>\n' + doc.documentElement.outerHTML;
   }
 
   function openNobiruPage(key, searchObj) {
@@ -405,18 +442,20 @@
       .then(function (html) {
         var openerSrc =
           'window.__DX_OPEN_NOBIRU__=(' +
-          openNobiruPage.toString() +
+          window.__DX_OPEN_NOBIRU__.toString() +
           ');' +
           'window.__DX_SHOW_NOBIRU_HTML__=(' +
-          showNobiruHtml.toString() +
+          window.__DX_SHOW_NOBIRU_HTML__.toString() +
           ');' +
-          'window.__DX_CLOSE_NOBIRU__=function(){try{if(parent!==window&&parent.__DX_CLOSE_NOBIRU__)parent.__DX_CLOSE_NOBIRU__();}catch(e){}};';
+          'window.__DX_CLOSE_NOBIRU__=function(){try{if(parent!==window&&parent.__DX_CLOSE_NOBIRU__)parent.__DX_CLOSE_NOBIRU__();}catch(e){}};' +
+          'window.__DX_RESOLVE_NOBIRU__=(' +
+          window.__DX_RESOLVE_NOBIRU__.toString() +
+          ');' +
+          'window.__DX_ABS_NOBIRU__=(' +
+          window.__DX_ABS_NOBIRU__.toString() +
+          ');';
 
-        /* about:srcdoc では location.search が空のことがあるため、getter を一時的に被せる */
         var boot =
-          '<base href="' +
-          nobiruBase.replace(/"/g, '&quot;') +
-          '">' +
           '<script>(function(){' +
           'window.__DX_CDN_BASE__=' +
           JSON.stringify(base) +
@@ -427,6 +466,9 @@
           'window.__DX_NOBIRU_KEY__=' +
           JSON.stringify(htmlName) +
           ';' +
+          'window.__DX_NOBIRU_BASE__=' +
+          JSON.stringify(nobiruBase) +
+          ';' +
           'window.__DX_BOOT_SEARCH__=' +
           JSON.stringify(bootSearch) +
           ';' +
@@ -435,34 +477,40 @@
           'configurable:true,enumerable:true,get:function(){' +
           'if(this===window.location&&window.__DX_BOOT_SEARCH__)return window.__DX_BOOT_SEARCH__;' +
           'return d.get.call(this);}});}}catch(e){}' +
+          /* 動的 script.src = "engine.js" を CDN 絶対URLへ */
+          '(function(){var nb=' +
+          JSON.stringify(nobiruBase) +
+          ';var ce=document.createElement.bind(document);' +
+          'document.createElement=function(tag){var el=ce(tag);' +
+          'if(String(tag).toLowerCase()==="script"){var sa=el.setAttribute.bind(el);' +
+          'el.setAttribute=function(n,v){if(String(n).toLowerCase()==="src"&&v&&!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(v)&&v.indexOf("//")!==0){' +
+          'v=nb+String(v).replace(/^\\.\\//,"").replace(/^\\/+/,"");}return sa(n,v);};' +
+          'try{Object.defineProperty(el,"src",{configurable:true,enumerable:true,' +
+          'get:function(){return el.getAttribute("src");},' +
+          'set:function(v){el.setAttribute("src",v);}});}' +
+          'catch(e2){}}return el;};})();' +
           'window.__DX_GO_HOME__=function(){try{if(parent!==window&&parent.__DX_CLOSE_NOBIRU__){parent.__DX_CLOSE_NOBIRU__();return;}}catch(e){}' +
           'if(window.__DX_HOME_URL__)location.href=window.__DX_HOME_URL__;};' +
+          /* キャプチャで旧 modeselect の location.pathname 遷移を潰す */
+          'document.addEventListener("click",function(ev){' +
+          'var btn=ev.target&&ev.target.closest&&ev.target.closest(".modesel-card[data-mode]");' +
+          'if(btn&&window.__DX_OPEN_NOBIRU__){ev.preventDefault();ev.stopImmediatePropagation();' +
+          'window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__,{mode:btn.getAttribute("data-mode")});return;}' +
+          'var a=ev.target&&ev.target.closest&&ev.target.closest("a.back, a.modesel-back");' +
+          'if(a){ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();}' +
+          '},true);' +
           openerSrc +
           '})();<\/script>';
 
-        var patch =
-          '<script>(function(){function patch(){' +
-          'document.querySelectorAll(".modesel-card[data-mode]").forEach(function(btn){' +
-          'btn.onclick=function(){if(window.__DX_OPEN_NOBIRU__)window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__,{mode:btn.getAttribute("data-mode")});};' +
-          '});' +
-          'document.querySelectorAll("a.back, a.modesel-back").forEach(function(a){' +
-          'a.addEventListener("click",function(ev){ev.preventDefault();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();});' +
-          '});}' +
-          'if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",function(){setTimeout(patch,0);});' +
-          'else setTimeout(patch,0);})();<\/script>';
-
-        var out = html;
+        /* <base> は使わない（about:srcdoc → /nobiru/srcdoc 事故の原因） */
+        var absHtml = window.__DX_ABS_NOBIRU__(html, nobiruBase);
+        var out = absHtml;
         if (/<head[^>]*>/i.test(out)) {
           out = out.replace(/<head[^>]*>/i, function (m) {
             return m + boot;
           });
         } else {
           out = boot + out;
-        }
-        if (/<\/body>/i.test(out)) {
-          out = out.replace(/<\/body>/i, patch + '</body>');
-        } else {
-          out = out + patch;
         }
 
         window.__DX_SHOW_NOBIRU_HTML__(out);
@@ -473,6 +521,9 @@
     window.__DX_OPEN_NOBIRU__ = openNobiruPage;
     window.__DX_SHOW_NOBIRU_HTML__ = showNobiruHtml;
     window.__DX_CLOSE_NOBIRU__ = closeNobiruFrame;
+    /* ABS が RESOLVE を参照するため、RESOLVE を先に載せる */
+    window.__DX_RESOLVE_NOBIRU__ = resolveNobiruAsset;
+    window.__DX_ABS_NOBIRU__ = absolutizeNobiruHtml;
   }
 
   if (document.readyState === 'loading') {
