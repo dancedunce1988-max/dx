@@ -595,6 +595,7 @@ function finish(){
       <table>${rows}</table>
       <p>本文はすべて出そろっています。「構造図」で全体のつながりを見てから、もう一度通して読んでみてください。</p>
       <button class="again ui" onclick="location.reload()">はじめからやり直す</button>
+      <button class="again ui" onclick="location.href='../kokugo_app.html'">ホーム画面に戻る</button>
       ${VIA_DAILY ? `<button class="again ui daily-end" onclick="location.href='../kokugo_app.html'">一日一読を終える</button>` : ""}
     </div>`;
   $("paneQ").scrollTo({ top: 0, behavior: "smooth" });
