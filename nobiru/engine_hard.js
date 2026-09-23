@@ -929,8 +929,25 @@ function finish(){
       <p>累計経験値　<b>${totalXp}</b></p>
       ${compareHtml}
       <p>本文はすべて出そろっています。もう一度通して読んでみてください。</p>
-      <button class="again ui" onclick="location.reload()">はじめからやり直す</button>
+      <button class="again ui" type="button" id="btnRestartNobiru">はじめからやり直す</button>
     </div>`;
+  const btnRestart = $("btnRestartNobiru");
+  if(btnRestart){
+    btnRestart.addEventListener("click", function(){
+      if(typeof window.__DX_OPEN_NOBIRU__ === "function" && window.__DX_NOBIRU_KEY__){
+        const params = new URLSearchParams(
+          (typeof window.__DX_BOOT_SEARCH__ === "string" && window.__DX_BOOT_SEARCH__.length)
+            ? window.__DX_BOOT_SEARCH__
+            : location.search
+        );
+        const obj = {};
+        params.forEach((v, name) => { obj[name] = v; });
+        window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__, obj);
+        return;
+      }
+      location.reload();
+    });
+  }
   $("paneQ").scrollTo({ top: 0, behavior: "smooth" });
 }
 

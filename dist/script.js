@@ -313,9 +313,10 @@
           var scripts = collectScripts(doc, commitHash);
           return injectScriptsInOrder(scripts).then(function () {
             installNobiruOpener();
-            /* CDN の旧 kokugo_app は jsDelivr HTML へ遷移して text/plain 表示になるため上書き */
-            window.ddOpenNobiru = function (key) {
-              return window.__DX_OPEN_NOBIRU__(key, {});
+            /* CDN の旧 kokugo_app は jsDelivr HTML へ遷移して text/plain 表示になるため上書き。
+               viaDaily（一日一読）は落とさず __DX_OPEN_NOBIRU__ へ渡す。 */
+            window.ddOpenNobiru = function (key, viaDaily) {
+              return window.__DX_OPEN_NOBIRU__(key, viaDaily ? { viaDaily: '1' } : {});
             };
           });
         });
@@ -491,7 +492,7 @@
           'catch(e2){}}return el;};})();' +
           'window.__DX_GO_HOME__=function(){try{if(parent!==window&&parent.__DX_CLOSE_NOBIRU__){parent.__DX_CLOSE_NOBIRU__();return;}}catch(e){}' +
           'if(window.__DX_HOME_URL__)location.href=window.__DX_HOME_URL__;};' +
-          /* キャプチャで旧 modeselect / modeSwitch の location.pathname(=srcdoc) 遷移を潰す */
+          /* キャプチャで srcdoc 上の壊れる遷移（pathname=srcdoc / ../kokugo_app / reload）を潰す */
           'document.addEventListener("click",function(ev){' +
           'var btn=ev.target&&ev.target.closest&&ev.target.closest(".modesel-card[data-mode]");' +
           'if(btn&&window.__DX_OPEN_NOBIRU__){ev.preventDefault();ev.stopImmediatePropagation();' +
@@ -500,7 +501,16 @@
           'if(sw&&window.__DX_OPEN_NOBIRU__&&window.__DX_NOBIRU_KEY__){ev.preventDefault();ev.stopImmediatePropagation();' +
           'window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__,{});return;}' +
           'var a=ev.target&&ev.target.closest&&ev.target.closest("a.back, a.modesel-back");' +
-          'if(a){ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();}' +
+          'if(a){ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();return;}' +
+          'var again=ev.target&&ev.target.closest&&ev.target.closest("button.again");' +
+          'if(again){var oc=String(again.getAttribute("onclick")||"");var tx=String(again.textContent||"");' +
+          'if(again.classList.contains("daily-end")||oc.indexOf("kokugo_app")!==-1||tx.indexOf("ホーム")!==-1||tx.indexOf("一日一読を終える")!==-1){' +
+          'ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();return;}' +
+          'if(oc.indexOf("location.reload")!==-1||tx.indexOf("はじめからやり直す")!==-1){' +
+          'ev.preventDefault();ev.stopImmediatePropagation();' +
+          'if(window.__DX_OPEN_NOBIRU__&&window.__DX_NOBIRU_KEY__){var o={};' +
+          'try{new URLSearchParams(window.__DX_BOOT_SEARCH__||"").forEach(function(v,k){o[k]=v;});}catch(e3){}' +
+          'window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__,o);}return;}}' +
           '},true);' +
           openerSrc +
           '})();<\/script>';

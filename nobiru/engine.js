@@ -18,7 +18,33 @@ const svgNS = "http://www.w3.org/2000/svg";
    その全額、そうでなければ半額をkokugo_app.html側がst.stockXpへ加算する（ddCheckNobiruPendingReward参照）。
    同一オリジンなのでlocalStorageはkokugo_app.htmlと共有できるが、st（本体のセーブデータ）の
    複雑な形を直接ここで書き換えるのは危険なので、合図だけを置く簡単な仕組みにしてある。 */
-const VIA_DAILY = new URLSearchParams(location.search).get("viaDaily") === "1";
+/* srcdoc では location.search が空になり得るため、ランチャーが渡す __DX_BOOT_SEARCH__ を優先 */
+const VIA_DAILY = new URLSearchParams(
+  (typeof window.__DX_BOOT_SEARCH__ === "string" && window.__DX_BOOT_SEARCH__.length)
+    ? window.__DX_BOOT_SEARCH__
+    : location.search
+).get("viaDaily") === "1";
+function goHomeFromNobiru(){
+  if(typeof window.__DX_GO_HOME__ === "function"){
+    window.__DX_GO_HOME__();
+    return;
+  }
+  location.href = "../kokugo_app.html";
+}
+function restartNobiru(){
+  if(typeof window.__DX_OPEN_NOBIRU__ === "function" && window.__DX_NOBIRU_KEY__){
+    const params = new URLSearchParams(
+      (typeof window.__DX_BOOT_SEARCH__ === "string" && window.__DX_BOOT_SEARCH__.length)
+        ? window.__DX_BOOT_SEARCH__
+        : location.search
+    );
+    const obj = {};
+    params.forEach((v, name) => { obj[name] = v; });
+    window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__, obj);
+    return;
+  }
+  location.reload();
+}
 const DD_PENDING_REWARD_LSKEY = "dd_daily_pending_reward_v1";
 /* この教材が、以前すでにストック経験値を受け取り済みかどうか（2026-09-23〜、教員の指示：
    「2回目以降は経験値を獲得できないので、獲得していない経験値についてはポップアップ等で
@@ -594,10 +620,16 @@ function finish(){
       ${compareHtml}
       <table>${rows}</table>
       <p>本文はすべて出そろっています。「構造図」で全体のつながりを見てから、もう一度通して読んでみてください。</p>
-      <button class="again ui" onclick="location.reload()">はじめからやり直す</button>
-      <button class="again ui" onclick="location.href='../kokugo_app.html'">ホーム画面に戻る</button>
-      ${VIA_DAILY ? `<button class="again ui daily-end" onclick="location.href='../kokugo_app.html'">一日一読を終える</button>` : ""}
+      <button class="again ui" type="button" id="btnRestartNobiru">はじめからやり直す</button>
+      <button class="again ui" type="button" id="btnGoHomeNobiru">ホーム画面に戻る</button>
+      ${VIA_DAILY ? `<button class="again ui daily-end" type="button" id="btnDailyEndNobiru">一日一読を終える</button>` : ""}
     </div>`;
+  const btnRestart = $("btnRestartNobiru");
+  if(btnRestart) btnRestart.addEventListener("click", restartNobiru);
+  const btnGoHome = $("btnGoHomeNobiru");
+  if(btnGoHome) btnGoHome.addEventListener("click", goHomeFromNobiru);
+  const btnDailyEnd = $("btnDailyEndNobiru");
+  if(btnDailyEnd) btnDailyEnd.addEventListener("click", goHomeFromNobiru);
   $("paneQ").scrollTo({ top: 0, behavior: "smooth" });
 }
 
