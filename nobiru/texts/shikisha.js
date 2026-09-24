@@ -6,6 +6,7 @@
    p（文節訳）・tr（全文訳）は使わない。 */
 window.NOBIRU_TEXT = {
   meta: {
+    key: "shikisha",
     title: "指揮者になった日",
     sub: null,
     theme: null,

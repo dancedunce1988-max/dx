@@ -5,6 +5,7 @@
    意味を論じる。現代文なので p（文節訳）・tr（全文訳）は使わない。 */
 window.NOBIRU_TEXT = {
   meta: {
+    key: "matsu",
     title: "「待つ」ということ",
     sub: null,
     theme: null,

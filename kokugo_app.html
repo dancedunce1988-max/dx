@@ -4200,13 +4200,24 @@
   width:10px; height:10px; border-radius:50%;
   background:radial-gradient(circle at 35% 30%, #ffd873, #ff7a1a 60%, #b3390a);
 }
+/* ミニゲーム一覧「マッチ」ボタンの挿絵（教員の指示、2026-09-25〜：「マッチの絵にしてほしい」）。
+   絵文字（🔗）をやめ、.match-stickと同じ木の軸＋炎の先端のCSS描画を一回り大きくして使う。 */
+.menu-icon-matchstick{
+  width:9px; height:30px; border-radius:4px 4px 2px 2px; position:relative;
+  background:linear-gradient(#d9b68a,#a97c4f);
+}
+.menu-icon-matchstick::before{
+  content:""; position:absolute; top:-8px; left:50%; transform:translateX(-50%);
+  width:14px; height:14px; border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, #ffd873, #ff7a1a 60%, #b3390a);
+}
 @keyframes matchStickPop{ 0%{transform:scale(.2); opacity:0;} 60%{transform:scale(1.2); opacity:1;} 100%{transform:scale(1);} }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.23</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.24</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -19030,7 +19041,7 @@ function speedMatchMenuHtml(){
   const sub = bestParts.length ? `<p>ベストスコア：${bestParts.join('／')}</p>` : `<p>類義語・対義語のペアをすばやく見つけるゲーム</p>`;
   return `
     <div class="card menu-card" onclick="showSpeedMatchModeSelect()">
-      <div class="menu-icon">🔗</div>
+      <div class="menu-icon"><span class="menu-icon-matchstick"></span></div>
       <div><h2>マッチ</h2>${sub}</div>
       <div class="right"><span class="shogo-badge">挑戦する</span></div>
     </div>`;
@@ -19307,7 +19318,14 @@ function renderSpeedMatchGame(){
 function speedMatchPick(idx){
   if(!speedMatch || !speedMatch.running || speedMatch.busy) return;
   const card = speedMatch.cards[idx];
-  if(!card || card.matched || speedMatch.selected.includes(idx)) return;
+  if(!card || card.matched) return;
+  // 選んだカードをもう一度タップしたら選択を解除する（教員の指示、2026-09-25〜：
+  // 「一旦一つ選んだ場合でも、もう一度押せば選択を解除できるように」＝先に違うものを選び直せる）。
+  if(speedMatch.selected.includes(idx)){
+    speedMatch.selected = speedMatch.selected.filter(i => i !== idx);
+    renderSpeedMatchGame();
+    return;
+  }
   if(speedMatch.selected.length >= 2) return;
   speedMatch.selected.push(idx);
   if(speedMatch.selected.length < 2){ renderSpeedMatchGame(); return; }

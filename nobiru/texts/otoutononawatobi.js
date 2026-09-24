@@ -5,6 +5,7 @@
    現代文なので p（文節訳）・tr（全文訳）は使わない。 */
 window.NOBIRU_TEXT = {
   meta: {
+    key: "otoutononawatobi",
     title: "弟の縄跳び",
     sub: null,
     theme: null,

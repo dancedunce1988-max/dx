@@ -6,6 +6,7 @@
    使わない。 */
 window.NOBIRU_TEXT = {
   meta: {
+    key: "tegami",
     title: "送れなかった手紙",
     sub: null,
     theme: null,

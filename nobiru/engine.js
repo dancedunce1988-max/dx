@@ -138,7 +138,12 @@ function parseInto(str, parent, insideU){
         if(k === "d") dAttr = v;
         if(k === "t"){ sp.classList.add("tgt"); sp.id = v; }
         if(k === "s"){ sp.dataset.s = v; }
-        if(k === "u"){ hasU = true; sp.classList.add("u"); sp.dataset.u = v; sp.id = "u-" + v; }
+        /* 傍線部(u)は本来 id="u-"+v を振っていたが、同じspanに指示語の指し先(t:、id=v)も
+           付く語（「その顔」が指す先が、同時に傍線部でもある、等）があり、後から処理される
+           tがidを上書きしてしまい、設問側がdocument.getElementById("u-"+v)で見つけられず
+           下線（.u.now）が表示されないバグがあった（2026-09-25、教員の指摘：「方言」の
+           傍線部Ｂ）。idにはもう頼らず、data-u属性だけで探す（findUnderlineEl参照）。 */
+        if(k === "u"){ hasU = true; sp.classList.add("u"); sp.dataset.u = v; }
         if(k === "p") pAttr = v;
       });
       /* クリック動作の優先順位：語釈(g) > 指示語(d) > 文節訳(p、ただし傍線部(u)の中には付けない)
@@ -454,7 +459,11 @@ function showQuestion(q, onClear){
   const rec = { miss: 0, done: false }; record.push(rec); paintMarks();
   updateQGauge(record.length);
   document.querySelectorAll(".u.now").forEach(e => e.classList.remove("now"));
-  (q.u || []).forEach(k => { const e = document.getElementById("u-" + k); if(e) e.classList.add("now"); });
+  // id="u-"+kには頼らず、data-u属性を直接比べて探す（tgt(t:)とidが衝突するのを避けるため）。
+  (q.u || []).forEach(k => {
+    const e = Array.from(document.querySelectorAll(".sp.u")).find(el => el.dataset.u === k);
+    if(e) e.classList.add("now");
+  });
   const h = document.createElement("div"); h.className = "q-head ui"; h.textContent = q.head;
   const p = document.createElement("p"); p.className = "q-text"; p.textContent = q.text;
   const ul = document.createElement("div"); ul.className = "choices";
