@@ -962,7 +962,7 @@ function boot(){
   if($("modeBadge")){ $("modeBadge").textContent = "ハードモード"; $("modeBadge").classList.add("hard"); }
   /* srcdoc では location.pathname が "srcdoc" になるため、href に載せない。 */
   if($("modeSwitch")){
-    var modeSw = $("modeSwitch");
+    const modeSw = $("modeSwitch");
     modeSw.setAttribute("href", "#");
     modeSw.addEventListener("click", function(ev){
       ev.preventDefault();
@@ -970,10 +970,10 @@ function boot(){
         window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__, {});
         return;
       }
-      var next = new URLSearchParams(location.search);
+      const next = new URLSearchParams(location.search);
       next.delete("mode");
-      var q = next.toString();
-      var path = location.pathname;
+      const q = next.toString();
+      const path = location.pathname;
       if(location.protocol === "about:" || path === "srcdoc" || path === "/srcdoc") return;
       location.href = path + (q ? "?" + q : "");
     });

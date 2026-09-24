@@ -649,7 +649,7 @@ function boot(){
      href に載せない／__DX_OPEN_NOBIRU__ を優先する。 */
   if($("modeBadge")) $("modeBadge").hidden = true;
   if($("modeSwitch")){
-    var modeSw = $("modeSwitch");
+    const modeSw = $("modeSwitch");
     modeSw.hidden = true;
     modeSw.setAttribute("href", "#");
     modeSw.addEventListener("click", function(ev){
@@ -658,10 +658,10 @@ function boot(){
         window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__, {});
         return;
       }
-      var next = new URLSearchParams(location.search);
+      const next = new URLSearchParams(location.search);
       next.delete("mode");
-      var q = next.toString();
-      var path = location.pathname;
+      const q = next.toString();
+      const path = location.pathname;
       if(location.protocol === "about:" || path === "srcdoc" || path === "/srcdoc") return;
       location.href = path + (q ? "?" + q : "");
     });
