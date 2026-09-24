@@ -34,6 +34,7 @@ try{
 }catch(e){ /* 読めない場合は「未受け取り」扱いのまま続行する */ }
 
 let stage = 0, finalIdx = 0;
+let finished = false;
 /* 累計経験値。設問ごとの内訳は画面に出さず、この合計だけをフッターに出し続ける
    （2026-09-19〜、当時はハードモード新設にあわせた経験値設計だったが、2026-09-22〜
    ハードモードは無効化済み）。NobiruRecordsが読み込まれている（records.js経由）教材だけ、
@@ -566,6 +567,7 @@ function step(){
 }
 
 function finish(){
+  finished = true;
   updateQGauge(TOTAL_Q);
   /* 「一日一読」への合図（2026-09-23〜）。kokugo_app.htmlのst（本体セーブ）には触れず、
      専用のlocalStorageキーに書き置くだけ。ホーム画面（ddCheckNobiruPendingReward）が
@@ -600,6 +602,30 @@ function finish(){
     </div>`;
   $("paneQ").scrollTo({ top: 0, behavior: "smooth" });
 }
+
+/* 「一日一読」、途中でホーム画面に戻ろうとしたときの確認（2026-09-24〜、教員の指示：
+   「一日一読は、やり直しができません。本当に戻りますか？」→「はい」ならここまでの累計経験値
+   （totalXp、まだ答えていない設問ぶんは0のまま）で今回の記録を確定させてしまい、まだ
+   経験値をもらっていなければfinish()と同じ合図（DD_PENDING_REWARD_LSKEY）を書いて
+   ホームへ戻る。ddCheckNobiruPendingReward側がこの合図を読んだ時点でst.nobiruRewardGiven
+   に書き込まれるため、あとから読み直しても二度と経験値をもらえなくなる＝「その問題以降は
+   全て不正解になる」を、以後ぶんの経験値を永久に0のまま確定させることで実現する（何度も
+   ホームへ戻ってやり直すことを防ぐ目的）。一日一読(VIA_DAILY)経由でまだ読み終えていない
+   ときだけ確認を出す（通常の読解練習や、読み終えたあとの「ホームに戻る」は今までどおり）。 */
+  function abortDailyReading(){
+    try{
+      localStorage.setItem(DD_PENDING_REWARD_LSKEY, JSON.stringify({ textKey: TEXT_KEY, totalXp, viaDaily: VIA_DAILY, ts: Date.now(), aborted:true }));
+    }catch(e){ /* privateモード等で保存できない場合は、合図なしでそのまま戻る */ }
+    location.href = "../kokugo_app.html";
+  }
+  const backLink = document.querySelector(".back.ui");
+  if(backLink){
+    backLink.addEventListener("click", e => {
+      if(!VIA_DAILY || finished) return;
+      e.preventDefault();
+      if(confirm("一日一読は、やり直しができません。本当に戻りますか？")) abortDailyReading();
+    });
+  }
 
 /* ---- 起動 ---- */
 function boot(){

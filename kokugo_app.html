@@ -4155,22 +4155,63 @@
 .speed-match-teaser.tap-pulse{ animation:speedMatchTapPulse .18s ease; }
 @keyframes speedMatchTapPulse{ 0%{transform:scale(1);} 45%{transform:scale(.96);} 100%{transform:scale(1);} }
 .speed-match-status{ display:flex; gap:14px; flex-wrap:wrap; font-size:.85rem; color:var(--sub); margin-top:8px; }
-.speed-match-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-bottom:14px; }
+/* 残り時間バー（教員の指示、2026-09-24〜：「残り時間は、バーでも表示してください」）。
+   幅をJSから直接書きかえるだけなので、transitionで滑らかに縮む。 */
+.speed-match-time-bar{ width:100%; height:8px; border-radius:99px; background:var(--line); overflow:hidden; margin-top:6px; }
+.speed-match-time-fill{ height:100%; background:var(--accent2); border-radius:99px; transition:width 1s linear; }
+/* カードが大きすぎてPC画面に収まらないという指摘（2026-09-24〜、教員の指示）を受けて、
+   3列(1fr)から4列に増やしたうえでグリッド自体にmax-widthを付け、#appの横幅（720px）まで
+   間延びしないようにした。1画面に収まることを優先し、カード面積は縮小した。 */
+.speed-match-grid{ display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; max-width:420px; margin:0 auto 14px; }
 .speed-match-card{
   aspect-ratio:1; display:flex; align-items:center; justify-content:center; text-align:center;
-  border-radius:10px; padding:4px; cursor:pointer; font-weight:bold; font-size:.82rem; word-break:break-all;
+  border-radius:10px; padding:3px; cursor:pointer; font-weight:bold; font-size:.74rem; word-break:break-all;
   background:var(--card); border:2px solid var(--accent2); color:var(--ink);
   transition:transform .12s ease, background .12s ease, border-color .12s ease;
 }
 .speed-match-card.selected{ background:var(--accent2); color:#fff; transform:scale(.94); }
 .speed-match-card.wrong{ background:var(--ngbg); border-color:var(--ng); color:var(--ng); }
 .speed-match-card.matched{ background:var(--okbg); border-color:var(--ok); color:var(--ok); opacity:.55; cursor:default; }
+/* スタート前の「３・２・１」カウントダウン（2026-09-24〜、教員の指示） */
+.sm-countdown{ font-size:3.4rem; font-weight:bold; color:var(--accent2); padding:50px 0; }
+.sm-countdown.pop{ animation:smCountdownPop .6s ease; }
+@keyframes smCountdownPop{ 0%{transform:scale(.4); opacity:.2;} 60%{transform:scale(1.15); opacity:1;} 100%{transform:scale(1);} }
+/* 正解したときの「正解！」ポップアップ（2026-09-24〜、教員の指示。のびる読解のxp-gain-popupと
+   同じ「document.bodyに直接足して数百msで消す」方式。#screen側の再描画に巻き込まれず確実に出せる） */
+.sm-correct-popup{
+  position:fixed; top:22%; left:50%; transform:translate(-50%,0); z-index:9999;
+  background:var(--ok, #2f9e5b); color:#fff; font-weight:bold; font-size:1.3rem;
+  padding:10px 22px; border-radius:999px; box-shadow:0 6px 18px rgba(0,0,0,.25);
+  animation:smCorrectPopupPop .7s ease forwards; pointer-events:none;
+}
+@keyframes smCorrectPopupPop{
+  0%{ transform:translate(-50%,10px) scale(.7); opacity:0; }
+  20%{ transform:translate(-50%,0) scale(1.1); opacity:1; }
+  35%{ transform:translate(-50%,0) scale(1); opacity:1; }
+  80%{ opacity:1; }
+  100%{ opacity:0; transform:translate(-50%,-6px) scale(1); }
+}
+/* 「マッチ」の本数表示。5本ごとに束にして少し間隔をあける（教員の指示：「５本で、１束のマッチ
+   にします」）。マッチ棒はCSSだけで木の軸＋炎の先端を表現し、画像素材は使わない。 */
+.match-stick-row{ display:flex; flex-wrap:wrap; align-items:flex-end; gap:3px; margin-top:10px; min-height:32px; }
+.match-stick-bundle{ display:flex; gap:3px; padding-right:7px; margin-right:4px; border-right:1px dashed var(--line); }
+.match-stick-bundle:last-child{ border-right:none; margin-right:0; padding-right:0; }
+.match-stick{
+  width:6px; height:24px; border-radius:3px 3px 1px 1px; flex-shrink:0; position:relative;
+  background:linear-gradient(#d9b68a,#a97c4f); animation:matchStickPop .3s ease;
+}
+.match-stick::before{
+  content:""; position:absolute; top:-6px; left:50%; transform:translateX(-50%);
+  width:10px; height:10px; border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, #ffd873, #ff7a1a 60%, #b3390a);
+}
+@keyframes matchStickPop{ 0%{transform:scale(.2); opacity:0;} 60%{transform:scale(1.2); opacity:1;} 100%{transform:scale(1);} }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.18</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.22</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6694,8 +6735,10 @@ const MIRAI_STAT_MULT = [1.4, 1.7, 2.1, 2.5, 3.0];
 const RAI_PARALYZE_CHANCE = [0.35, 0.40, 0.50, 0.60, 0.75];
 const RAI_ATK_MULT = MIRAI_STAT_MULT;
 /* 氷龍「凍結」：命中させるたびにボスの防御力（defPct）を掛け算で縮めていく（重ねがけ・永続、
-   下限0%）。焔獄の火傷（HPを直接削る）と対になる、「後続の攻撃を通しやすくする」弱体化タイプ。 */
-const HYOU_DEF_SHRED_PCT = [0.12, 0.16, 0.20, 0.25, 0.30];
+   下限0%）。焔獄の火傷（HPを直接削る）と対になる、「後続の攻撃を通しやすくする」弱体化タイプ。
+   2026-09-24〜、教員の指示（「氷のドラゴンが弱いとのクレームが入りました」）で、元の値
+   [0.12, 0.16, 0.20, 0.25, 0.30]から一律2倍に強化した。 */
+const HYOU_DEF_SHRED_PCT = [0.24, 0.32, 0.40, 0.50, 0.60];
 /* 霧龍「幻惑」：発動するたびに自分たちの回避率（ボスの攻撃をまるごと透かす確率）に加点する
    （重ねがけ・永続、既存の回避率アイテムと同じ「pt加算」方式。全体の上限90%は既存のevasionPct
    計算式をそのまま使うため、氷龍だけを際限なく無敵にはしない）。 */
@@ -6800,9 +6843,13 @@ const KOTONOHA_LINE_MOVES = {
   },
   hyou: {
     names:["凍結の一撃","氷結の一撃","氷牙の一閃","絶対零度","氷龍絶技・凍結"],
-    desc:"命中させるたびにボスの防御力を縮めていく（重ねがけ・永続、上限なし）。まちがえても2回連続までなら必殺技ゲージは崩れない",
+    desc:"命中させるたびにボスの防御力を縮めていく（重ねがけ・永続、上限なし）。さらに発動するたびに相手を氷漬けにして数ターン行動不能にする（毎ターン一定確率で氷がとける）。まちがえても2回連続までなら必殺技ゲージは崩れない",
     powerMult: kotonohaLinePower,
     defShredPct: t => HYOU_DEF_SHRED_PCT[Math.round(t*4)],
+    /* 「氷漬けになって動けない」効果（2026-09-24〜、教員の指示）。土のドラゴン＝翠森「眠りの胞子」
+       （suishinのsleepMaxTurns/sleepWakeChance）と全く同じターン数・目覚め確率の式をそのまま使う。 */
+    freezeMaxTurns: t => Math.round(2 + 3*t),
+    freezeWakeChance: t => 0.40 - 0.18*t,
   },
   kiri: {
     names:["幻惑の霧","深霧の帳","幻夢の霧衣","千里霧中","霧龍絶技・幻惑"],
@@ -15589,6 +15636,7 @@ function startBossBattle(boss, allGenre, hyakuninMode){
     kotonohaKodaiReviveStock:0, kotonohaKodaiRevivePct:0, kotonohaMiraiStatMultStack:1,
     kotonohaKodaiAtkMultStack:1,
     kotonohaParalyzeTurnsLeft:0, kotonohaHyouDefMult:1, kotonohaKiriEvadeBonus:0,
+    kotonohaHyouFreezeTurnsLeft:0, kotonohaHyouFreezeFirstTurnDone:false, kotonohaHyouFreezeWakeChance:0,
     _bossAtkBuffTurns:0, _bossAtkBuffMult:1, // bossSelfMove(kind:"buff")用（2026-09-23〜）
   };
   if(boss.preemptiveHalfHp){
@@ -16036,6 +16084,16 @@ function bossResolveFinisher(){
     const shred = lm.def.defShredPct(lm.t);
     b.kotonohaHyouDefMult = (b.kotonohaHyouDefMult!=null ? b.kotonohaHyouDefMult : 1) * (1 - shred);
     hyouMsg = `<div class="boss-turn">❄️${esc(b.boss.name)}の防御力を凍りつかせた！（防御力が${Math.round((1-b.kotonohaHyouDefMult)*100)}%下がった）</div>`;
+  }
+  /* 氷龍「絶対零度」：発動すると相手を氷漬けにして数ターン行動不能にする（実際のスキップ処理は
+     bossCounterAttack側のkotonohaHyouFreezeTurnsLeftチェックが担当、翠森の眠りと全く同じ仕組み。
+     教員の指示、2026-09-24〜：「必殺技のあと、土のドラゴンと同様の効果で、氷漬けになって動けない
+     効果を追加」）。 */
+  if(lm && lm.def.freezeMaxTurns){
+    b.kotonohaHyouFreezeTurnsLeft = lm.def.freezeMaxTurns(lm.t);
+    b.kotonohaHyouFreezeWakeChance = lm.def.freezeWakeChance(lm.t);
+    b.kotonohaHyouFreezeFirstTurnDone = false;
+    hyouMsg += `<div class="boss-turn">🧊${esc(b.boss.name)}を氷漬けにした！</div>`;
   }
   /* 霧龍「幻惑」：発動するたびに自分たちの回避率にpt加算する（重ねがけ・永続、上限なし。実際の
      上限90%はbossCounterAttack側のevasionPct計算式が担当、2026-09-16〜）。 */
@@ -16650,6 +16708,24 @@ function bossCounterAttack(playerWasCorrect){
     fb.innerHTML += woke
       ? `<div class="boss-turn">💤${esc(b.boss.name)}は、目を覚ました！</div>`
       : `<div class="boss-turn">💤${esc(b.boss.name)}は、眠っていて動けない。</div>`;
+    const nextBtn = document.getElementById("nextBtn");
+    nextBtn.style.display = "inline-block";
+    nextBtn.textContent = "つぎへ";
+    nextBtn.focus();
+    return;
+  }
+  /* 氷龍「絶対零度」：氷漬けの間はボスの反撃ターンを丸ごとスキップする（翠森「眠りの胞子」と
+     全く同じ仕組み＝1ターン目は必ず凍ったまま、2ターン目以降は毎ターンkotonohaHyouFreezeWakeChance
+     の確率で氷がとける。教員の指示、2026-09-24〜）。 */
+  if((b.kotonohaHyouFreezeTurnsLeft||0) > 0){
+    const woke = b.kotonohaHyouFreezeFirstTurnDone && Math.random() < (b.kotonohaHyouFreezeWakeChance||0);
+    b.kotonohaHyouFreezeFirstTurnDone = true;
+    b.kotonohaHyouFreezeTurnsLeft = woke ? 0 : b.kotonohaHyouFreezeTurnsLeft - 1;
+    refreshBossHpBars();
+    const fb = document.getElementById("fb");
+    fb.innerHTML += woke
+      ? `<div class="boss-turn">🧊${esc(b.boss.name)}は、氷がとけて動けるようになった！</div>`
+      : `<div class="boss-turn">🧊${esc(b.boss.name)}は、氷漬けになって動けない。</div>`;
     const nextBtn = document.getElementById("nextBtn");
     nextBtn.style.display = "inline-block";
     nextBtn.textContent = "つぎへ";
@@ -18932,9 +19008,17 @@ const SPEED_MATCH_DEFS = {
   taigigo: {title:"対義語マッチ", icon:"↔️", cat:"taigigo", label:"対義語"},
 };
 const SPEED_MATCH_PAIR_COUNT = 6; // 6ペア＝カード12枚（試作なので固定）
+/* 2026-09-24〜、教員の指示で「1問ごとのクリアタイムを競う」形式から「制限時間30秒の中で
+   何ペア見つけられるかを競う」形式に作り替えた。盤面をすべて揃えたら間をおかず新しい盤面
+   （speedMatchNewBoard）を出し続け、時間切れ（finishSpeedMatchGame）まで数え続ける。
+   スコアは「マッチ本数」＝正解ペア数から、ミス2回につき1本を差し引いたもの
+   （speedMatchSticks参照）。開始前にスタートボタン→3・2・1カウントダウンを挟む
+   （speedMatchStartCountdown）。 */
+const SPEED_MATCH_TIME_LIMIT = 90; // 秒（教員の指示、2026-09-24〜：30秒→50秒→90秒に延長）
 let speedMatchTapCount = 0; // 「準備中」カードの隠しタップ数。保存しない＝ページ再読み込みでリセットされてよい。
 let speedMatch = null; // 実行中のゲーム状態。保存しない一時状態。
 let speedMatchTimerHandle = null;
+let speedMatchPopupTimer = null;
 
 function clearSpeedMatchTimer(){
   if(speedMatchTimerHandle){ clearInterval(speedMatchTimerHandle); speedMatchTimerHandle = null; }
@@ -18958,18 +19042,23 @@ function speedMatchComingSoonTap(el){
   }
 }
 function showSpeedMatchModeSelect(){
+  // 各モードのカードにベストスコアを表示する（教員の指示、2026-09-24〜：「類義語マッチ、
+  // 対義語マッチのボタンにそれぞれ、ベストスコア（マッチ○本）を表示するようにしてください」）。
+  const st = loadStats();
   const modesHtml = Object.keys(SPEED_MATCH_DEFS).map(key => {
     const def = SPEED_MATCH_DEFS[key];
+    const best = (st.speedMatchBest && st.speedMatchBest[key]) || 0;
+    const bestLine = best > 0 ? `<p>ベストスコア：マッチ${best}本</p>` : `<p>${esc(def.label)}のペアをすばやく見つけよう</p>`;
     return `
       <div class="card menu-card speed-match-mode-card" onclick="startSpeedMatchGame('${key}')">
         <div class="menu-icon">${def.icon}</div>
-        <div><h2>${esc(def.title)}</h2><p>${esc(def.label)}のペアをすばやく見つけよう</p></div>
+        <div><h2>${esc(def.title)}</h2>${bestLine}</div>
         <div class="right"><span class="shogo-badge">挑戦する</span></div>
       </div>`;
   }).join('');
   screen.innerHTML = `
     <div class="card"><h3 class="section">🔗 マッチ（試作版）</h3>
-      <p class="note">類義語マッチ・対義語マッチ、どちらで遊ぶか選んでください。<br>まだ試作段階なので、成績や経験値には反映されません。</p>
+      <p class="note">類義語マッチ・対義語マッチ、どちらで遊ぶか選んでください。<br>見つけたペアの数ぶん、それぞれのジャンルレベルが上がります。</p>
     </div>
     ${modesHtml}
     <div class="btn-row" style="justify-content:center; margin-top:10px">
@@ -18992,36 +19081,212 @@ function speedMatchBuildPairs(catKey, count){
   }
   return pairs;
 }
+// スタート画面（教員の指示、2026-09-24〜：スタートボタン→3・2・1カウントダウンを挟む）。
 function startSpeedMatchGame(key){
   clearSpeedMatchTimer();
+  speedMatch = null;
   const def = SPEED_MATCH_DEFS[key];
+  const st = loadStats();
+  const best = (st.speedMatchBest && st.speedMatchBest[key]) || 0;
+  screen.innerHTML = `
+    <div class="card" style="text-align:center">
+      <h3 class="section">${def.icon} ${esc(def.title)}（試作版）</h3>
+      <p class="note">制限時間${SPEED_MATCH_TIME_LIMIT}秒で、${esc(def.label)}のペアをいくつ見つけられるかに挑戦しよう。全部そろえたら、また新しいカードが出てきます。<br>ペアを見つけるたびに、下に「マッチ」が1本増えます。ミスが2回たまるとマッチが1本減るので注意。<br>見つけたペアの数ぶん、終了後に${esc(def.label)}のジャンルレベルが上がります。</p>
+      ${best > 0 ? `<p class="note">これまでのベストスコア：マッチ${best}本</p>` : ""}
+      <div class="btn-row" style="justify-content:center; margin-top:14px">
+        <button class="btn" onclick="speedMatchStartCountdown('${key}')">スタート</button>
+        <button class="btn secondary" onclick="showSpeedMatchModeSelect()">戻る</button>
+      </div>
+    </div>`;
+}
+// 「3・2・1・スタート！」カウントダウン。数字が変わるたびにポップアニメーションをやり直す。
+function speedMatchStartCountdown(key){
+  let n = 3;
+  screen.innerHTML = `<div class="card" style="text-align:center"><div class="sm-countdown pop" id="smCountdown">${n}</div></div>`;
+  const tick = () => {
+    n--;
+    const el = document.getElementById('smCountdown');
+    if(el){
+      el.textContent = n > 0 ? n : "スタート！";
+      el.classList.remove('pop');
+      void el.offsetWidth;
+      el.classList.add('pop');
+    }
+    if(n > 0) setTimeout(tick, 700);
+    else setTimeout(() => speedMatchBeginRun(key), 500);
+  };
+  setTimeout(tick, 700);
+}
+function speedMatchBeginRun(key){
+  clearSpeedMatchTimer();
+  speedMatch = {
+    key, selected: [], wrongFlash: [], busy: false,
+    matches: 0, mistakes: 0, timeLeft: SPEED_MATCH_TIME_LIMIT, running: true,
+    cards: [], pairCount: 0,
+  };
+  speedMatchNewBoard();
+  renderSpeedMatchGame();
+  speedMatchTimerHandle = setInterval(() => {
+    if(!speedMatch || !speedMatch.running) return;
+    speedMatch.timeLeft--;
+    const el = document.getElementById('speedMatchTimer');
+    if(el) el.textContent = speedMatch.timeLeft;
+    const fill = document.getElementById('speedMatchTimeFill');
+    if(fill) fill.style.width = Math.max(0, speedMatch.timeLeft / SPEED_MATCH_TIME_LIMIT * 100) + "%";
+    if(speedMatch.timeLeft <= 0) finishSpeedMatchGame();
+  }, 1000);
+}
+// 盤面をすべて揃えたときに呼ぶ。進行中のスコア（matches/mistakes/timeLeft）はそのまま、
+// カードだけを新しいペアで作り直す。
+function speedMatchNewBoard(){
+  const def = SPEED_MATCH_DEFS[speedMatch.key];
   const pairs = speedMatchBuildPairs(def.cat, SPEED_MATCH_PAIR_COUNT);
   let cards = [];
   pairs.forEach((p, i) => {
     cards.push({pairIdx: i, word: p.q, matched: false});
     cards.push({pairIdx: i, word: p.a, matched: false});
   });
-  cards = cards.sort(() => Math.random() - 0.5);
-  speedMatch = {
-    key, pairCount: pairs.length, cards,
-    selected: [], wrongFlash: [], matchedCount: 0, mistakes: 0, busy: false, startedAt: Date.now(),
-  };
-  speedMatchTimerHandle = setInterval(() => {
-    if(!speedMatch) return;
-    const el = document.getElementById('speedMatchTimer');
-    if(el) el.textContent = speedMatchFormatTime(Date.now() - speedMatch.startedAt);
-  }, 250);
-  renderSpeedMatchGame();
+  speedMatch.cards = cards.sort(() => Math.random() - 0.5);
+  speedMatch.pairCount = pairs.length;
+  speedMatch.selected = [];
+  speedMatch.wrongFlash = [];
 }
-function speedMatchFormatTime(ms){
-  const s = Math.floor(ms / 1000);
-  return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+// 「マッチ本数」＝正解ペア数から、ミス2回につき1本を差し引いたもの（教員の指示：
+// 「ミス２回につき、１本マッチは減る」）。0本未満にはしない。
+function speedMatchSticks(sm){
+  return Math.max(0, sm.matches - Math.floor(sm.mistakes / 2));
+}
+// マッチ本数ぶんの表示。5本ごとに束にして少し間隔をあける。
+function speedMatchSticksHtml(sticks){
+  if(sticks <= 0) return `<div class="match-stick-row"><span class="note" style="font-size:.8rem">まだマッチはありません</span></div>`;
+  let bundles = "";
+  for(let i = 0; i < sticks; i += 5){
+    const n = Math.min(5, sticks - i);
+    bundles += `<div class="match-stick-bundle">${"<span class=\"match-stick\"></span>".repeat(n)}</div>`;
+  }
+  return `<div class="match-stick-row">${bundles}</div>`;
+}
+/* マッチ本数に応じたコメント（教員の指示、2026-09-24〜：当初は5本おきだったが、「一本ずつ、
+   増えるごとにメッセージを少しずつ変える」よう変更。最初は0〜30本ぶんだけ用意したが、
+   「３０本までのところを、５０本の分まで追加してください」との指示で0〜50本の1本刻みに拡張。
+   51本目以降は50本のメッセージのまま据え置く。 */
+const SPEED_MATCH_STICK_MESSAGES = [
+  "火はまだついていない。",             // 0
+  "消え入るようにはかない火。",           // 1
+  "かすかな火影が揺れている。",           // 2
+  "小さな炎が生まれた。",               // 3
+  "炎が少しずつ育ってきた。",             // 4
+  "火はしっかりと燃えている。",           // 5
+  "炎が安定して燃え続けている。",          // 6
+  "火の勢いが増してきた。",              // 7
+  "炎が力強く揺らめいている。",           // 8
+  "焚き火らしい熱が伝わってくる。",         // 9
+  "たき火の形になってきた。",             // 10
+  "炎が高く伸びはじめた。",              // 11
+  "パチパチと勢いよくはぜている。",         // 12
+  "炎が周囲を照らしはじめた。",           // 13
+  "熱気がはっきりと感じられる。",          // 14
+  "炎が勢いよく踊っている。",             // 15
+  "火柱が力強く立ちのぼる。",             // 16
+  "炎の勢いが止まらない。",              // 17
+  "焚き火が赤々と燃えさかる。",           // 18
+  "炎の熱で顔がほてるほどだ。",           // 19
+  "焚き火が周りを明るく照らす。",          // 20
+  "炎が夜空を焦がすように輝く。",          // 21
+  "燃えさかる炎に圧倒される。",           // 22
+  "炎が渦を巻くように立ちのぼる。",         // 23
+  "熱気が伝わってくるほどの炎。",          // 24
+  "もはや大きなかがり火だ。",             // 25
+  "炎が天を突くように伸びていく。",         // 26
+  "燃え盛る炎が辺りを支配する。",          // 27
+  "炎は誰にも止められない勢いだ。",         // 28
+  "伝説のたき火と呼ぶにふさわしい。",        // 29
+  "巨大な炎が辺り一帯を照らし出す。",        // 30
+  "炎の轟音が響きわたる。",              // 31
+  "まるで松明の行列のような明るさ。",        // 32
+  "炎が渦を巻きながら空へ伸びる。",         // 33
+  "一帯の空気までも熱で揺らめく。",         // 34
+  "炎はもはや制御を超えている。",          // 35
+  "燃えさかる炎が夜を昼に変える。",         // 36
+  "炎の勢いに誰もが息をのむ。",           // 37
+  "かがり火の王とでも呼ぶべき輝き。",        // 38
+  "炎が大地を焦がすほどの熱を放つ。",        // 39
+  "まるで祭りのかがり火のような迫力。",       // 40
+  "炎が天まで届きそうな勢い。",           // 41
+  "燃える炎が伝説の一部となる。",          // 42
+  "炎はもはや自然の力を超えている。",        // 43
+  "燃え盛る炎が空を赤く染め上げる。",        // 44
+  "炎の轟きが大地を揺るがす。",           // 45
+  "これほどの炎、見た者はいない。",         // 46
+  "炎が世界を照らし尽くすほどに。",         // 47
+  "燃えさかる炎が伝説を刻む。",           // 48
+  "炎はもはや神話の域に達した。",          // 49
+  "国語の神も認める、不滅の炎。",          // 50
+];
+function speedMatchStickMessage(sticks){
+  const idx = Math.max(0, Math.min(SPEED_MATCH_STICK_MESSAGES.length - 1, sticks));
+  return SPEED_MATCH_STICK_MESSAGES[idx];
+}
+/* 結果画面の背景色（教員の指示、2026-09-24〜：「マッチが多くなるたびに、画面の色を強い赤色に
+   変化させて」）。マッチ本数0〜30を0〜1に正規化し、彩度・明度を強い赤へ寄せていく
+   （30本以上は完全な赤で頭打ち）。明度が下がる後半はテキストを白にしないと読めなくなるため、
+   speedMatchResultTextColorで背景の明るさに応じて文字色も切りかえる。 */
+// メッセージ表(0〜50本)と歩調を合わせ、50本で完全な赤に達するよう正規化する。
+function speedMatchResultColor(sticks){
+  const t = Math.max(0, Math.min(1, sticks / 50));
+  const sat = 40 + t * 60;
+  const light = 96 - t * 54;
+  return `hsl(0, ${sat.toFixed(0)}%, ${light.toFixed(0)}%)`;
+}
+function speedMatchResultTextColor(sticks){
+  const t = Math.max(0, Math.min(1, sticks / 50));
+  return t > 0.55 ? "#fff" : "";
+}
+// 正解音（外部音源なし、Web Audioでその場生成。他ミニゲームと同じく専用のAudioContextを持つ）。
+let smAudioCtx = null;
+function smGetAudioCtx(){
+  if(!smAudioCtx){
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if(!AC) return null;
+    smAudioCtx = new AC();
+  }
+  if(smAudioCtx.state === 'suspended') smAudioCtx.resume();
+  return smAudioCtx;
+}
+function smBeep(freq, start, dur, vol){
+  const ctx = smGetAudioCtx();
+  if(!ctx) return;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine'; osc.frequency.value = freq;
+  osc.connect(gain); gain.connect(ctx.destination);
+  const t0 = ctx.currentTime + start;
+  gain.gain.setValueAtTime(vol, t0);
+  gain.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+  osc.start(t0); osc.stop(t0 + dur);
+}
+function speedMatchPlayCorrectSound(){
+  try{ smBeep(740, 0, 0.09, 0.14); smBeep(1040, 0.06, 0.14, 0.16); }catch(e){}
+}
+// 「正解！」ポップアップ（のびる読解のxp-gain-popupと同じく、#screenの再描画に巻き込まれない
+// よう document.body に直接足して数百msで消す）。
+function speedMatchShowCorrectPopup(){
+  const old = document.getElementById('smCorrectPopup');
+  if(old) old.remove();
+  if(speedMatchPopupTimer) clearTimeout(speedMatchPopupTimer);
+  const el = document.createElement('div');
+  el.id = 'smCorrectPopup';
+  el.className = 'sm-correct-popup';
+  el.textContent = '🎉 正解！';
+  document.body.appendChild(el);
+  speedMatchPopupTimer = setTimeout(() => { el.remove(); speedMatchPopupTimer = null; }, 700);
 }
 // カードは常にオープン（単語が最初から全部見えている）。選んだ状態（selected）・
 // 正解済み（matched）・不正解の一瞬の演出（wrongFlash）だけを見た目で切りかえる。
 function renderSpeedMatchGame(){
   if(!speedMatch) return;
   const def = SPEED_MATCH_DEFS[speedMatch.key];
+  const sticks = speedMatchSticks(speedMatch);
   const cardsHtml = speedMatch.cards.map((c, idx) => {
     const cls = ['speed-match-card'];
     if(c.matched) cls.push('matched');
@@ -19031,12 +19296,14 @@ function renderSpeedMatchGame(){
   }).join('');
   screen.innerHTML = `
     <div class="card"><h3 class="section">${def.icon} ${esc(def.title)}（試作版）</h3>
-      <p class="note">${esc(def.label)}のペアになる2枚を選んでね。<br>単語は最初から全部見えています。まだ試作段階なので、成績や経験値には反映されません。</p>
+      <p class="note">${esc(def.label)}のペアになる2枚を選んでね。全部そろうと、また新しいカードが出てきます。残り時間でいくつペアを見つけられるかに挑戦！</p>
       <div class="speed-match-status">
-        <span>見つけたペア：${speedMatch.matchedCount}/${speedMatch.pairCount}</span>
+        <span>🔥マッチ：${sticks}本</span>
         <span>ミス：${speedMatch.mistakes}回</span>
-        <span>経過時間：<span id="speedMatchTimer">${speedMatchFormatTime(Date.now()-speedMatch.startedAt)}</span></span>
+        <span>残り時間：<span id="speedMatchTimer">${speedMatch.timeLeft}</span>秒</span>
       </div>
+      <div class="speed-match-time-bar"><div class="speed-match-time-fill" id="speedMatchTimeFill" style="width:${Math.max(0, speedMatch.timeLeft / SPEED_MATCH_TIME_LIMIT * 100)}%"></div></div>
+      ${speedMatchSticksHtml(sticks)}
     </div>
     <div class="speed-match-grid">${cardsHtml}</div>
     <div class="btn-row" style="justify-content:center; margin-top:14px">
@@ -19044,7 +19311,7 @@ function renderSpeedMatchGame(){
     </div>`;
 }
 function speedMatchPick(idx){
-  if(!speedMatch || speedMatch.busy) return;
+  if(!speedMatch || !speedMatch.running || speedMatch.busy) return;
   const card = speedMatch.cards[idx];
   if(!card || card.matched || speedMatch.selected.includes(idx)) return;
   if(speedMatch.selected.length >= 2) return;
@@ -19054,17 +19321,19 @@ function speedMatchPick(idx){
   const c1 = speedMatch.cards[i1], c2 = speedMatch.cards[i2];
   if(c1.pairIdx === c2.pairIdx){
     c1.matched = c2.matched = true;
-    speedMatch.matchedCount++;
+    speedMatch.matches++;
     speedMatch.selected = [];
+    speedMatchPlayCorrectSound();
+    speedMatchShowCorrectPopup();
+    if(speedMatch.cards.every(c => c.matched)) speedMatchNewBoard();
     renderSpeedMatchGame();
-    if(speedMatch.matchedCount >= speedMatch.pairCount) finishSpeedMatchGame();
   } else {
     speedMatch.mistakes++;
     speedMatch.busy = true;
     speedMatch.wrongFlash = [i1, i2];
     renderSpeedMatchGame();
     setTimeout(() => {
-      if(!speedMatch) return;
+      if(!speedMatch || !speedMatch.running) return;
       speedMatch.selected = [];
       speedMatch.wrongFlash = [];
       speedMatch.busy = false;
@@ -19073,16 +19342,52 @@ function speedMatchPick(idx){
   }
 }
 function finishSpeedMatchGame(){
+  if(!speedMatch) return;
+  speedMatch.running = false;
   clearSpeedMatchTimer();
   const def = SPEED_MATCH_DEFS[speedMatch.key];
-  const elapsed = speedMatchFormatTime(Date.now() - speedMatch.startedAt);
   const key = speedMatch.key;
   const mistakes = speedMatch.mistakes;
+  const sticks = speedMatchSticks(speedMatch);
+  const st = loadStats();
+  /* マッチ本数ぶんだけジャンルレベルを上げる（教員の指示、2026-09-24〜：「結果画面で、マッチの
+     本数分、それぞれ類義語・対義語のジャンルレベルを上げるようにしてください。経験値も、それに
+     応じて上がるようにしてください」）。クラスマッチのcmLevelUpGenre()と同じ「record()本体は
+     呼ばずst.lv[cat]++だけを再現する」方式（st.q・間隔反復レビュー・出題プール解放率などの
+     「本物の進捗データ」には触れない）を、sticks回ぶんそのまま繰り返す。合計経験値は
+     catExpPoints(st.lv[cat])の総和から自動算出されるため、レベルが上がればそれだけで
+     連動して増える。 */
+  if(!st.lv[def.cat]) st.lv[def.cat] = 1;
+  for(let i = 0; i < sticks && st.lv[def.cat] < MAX_CAT_LV; i++){
+    st.lv[def.cat]++;
+    st.totalLevelUps = (st.totalLevelUps||0) + 1;
+    if(st.totalLevelUps % 10 === 0) st.bossTickets = (st.bossTickets||0) + 1;
+  }
+  /* ベストスコア（マッチ本数）もst（本体セーブ）へ保存する。上のレベルアップとまとめて
+     最後に一度だけsaveStats()する。 */
+  if(!st.speedMatchBest || typeof st.speedMatchBest !== 'object') st.speedMatchBest = {};
+  const prevBest = st.speedMatchBest[key] || 0;
+  const isNewBest = sticks > prevBest;
+  if(isNewBest) st.speedMatchBest[key] = sticks;
+  saveStats(st);
+  const bestNow = isNewBest ? sticks : prevBest;
+  const msg = speedMatchStickMessage(sticks);
+  /* 結果画面の背景を、マッチ本数が多いほど強い赤色に変化させる（教員の指示、2026-09-24〜）。
+     本文中の.note/.dd-score-bigは元々var(--sub)/var(--accent2)の色を持っているため、背景が
+     暗い赤になったときは文字色も白へ個別に上書きしないと読めなくなる（speedMatchResultTextColor）。 */
+  const bg = speedMatchResultColor(sticks);
+  const fg = speedMatchResultTextColor(sticks);
+  const fgStyle = fg ? `color:${fg};` : "";
   screen.innerHTML = `
-    <div class="card" style="text-align:center">
-      <h3 class="section">${def.icon} クリア！（試作版）</h3>
-      <p class="dd-score-big">${elapsed}</p>
-      <p class="note">ミス：${mistakes}回　※まだ試作段階のため、成績や経験値には反映されません。</p>
+    <div class="card" style="text-align:center; background:${bg}; transition:background .4s ease;">
+      <h3 class="section" style="${fgStyle}">${def.icon} 結果発表（試作版）</h3>
+      <p class="dd-score-big" style="${fgStyle}">マッチ${sticks}本</p>
+      <p class="note" style="font-size:1rem; ${fgStyle}">${esc(msg)}</p>
+      ${isNewBest
+        ? `<p class="note" style="color:${fg || 'var(--gold)'};font-weight:bold">🎉 ベストスコア更新！（前回：マッチ${prevBest}本）</p>`
+        : `<p class="note" style="${fgStyle}">ベストスコア：マッチ${bestNow}本</p>`}
+      <p class="note" style="${fgStyle}">ミス：${mistakes}回</p>
+      ${sticks > 0 ? `<p class="note" style="${fgStyle}">🔗${esc(def.label)}のジャンルレベルが${sticks}上がりました！</p>` : ""}
       <div class="btn-row" style="justify-content:center; margin-top:14px">
         <button class="btn" onclick="startSpeedMatchGame('${key}')">もう一度あそぶ</button>
         <button class="btn secondary" onclick="speedMatch=null; showSpeedMatchModeSelect();">別のマッチに挑戦</button>
