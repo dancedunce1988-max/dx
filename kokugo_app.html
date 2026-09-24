@@ -12469,8 +12469,10 @@ function ddSkillGridHtml(before, after){
    読解は集中力を要する活動のため、2026-09-17〜教員の指示でiframe埋め込みをやめ、
    新しいタブも開かずに同じタブのまま画面全体をnobiru/<key>.htmlへ遷移させる
    （知識ドリルDXから完全に切り離された専用画面として読ませる）。
-   各nobiru/*.html側の「ホームに戻る」リンクで../kokugo_app.htmlへ戻れば、
-   知識ドリルDXのホーム画面に戻る。
+   各nobiru/*.html側の「ホームに戻る」は通常 ../kokugo_app.html。
+   生徒用 file:// ランチャー（window.__DX_CDN_BASE__ あり）から開いた場合は
+   CDN上のnobiruへ遷移し、ホームは nobiru/dx_compat.js 側で history.back()
+   または window.__DX_GO_HOME__ を使う。
    読解Quest側のst.dokkaiDungeonには今のところ一切触れない。 */
 const NOBIRU_TEXTS = [
   /* ddPublishDate／ddTrialAlways（2026-09-23〜、教員の指示）：「一日一読」用の日付割り振り。
@@ -12561,7 +12563,27 @@ function nobiruIsUnlocked(t){
 // URLの?viaDaily=1を読み取り、完了時の経験値連携（DD_PENDING_REWARD_LSKEY）に含める
 // （一日一読経由なら全額、そうでなければ半額。ddCheckNobiruPendingReward参照）。
 function ddOpenNobiru(key, viaDaily){
-  location.href = "nobiru/" + key + ".html" + (viaDaily ? "?viaDaily=1" : "");
+  /* file:// ランチャー時:
+     jsDelivr の .html は text/plain のため直接遷移するとソース表示になる。
+     dist/script.js が入れる __DX_OPEN_NOBIRU__（fetch→Blob/srcdoc）を優先。
+     未定義なら相対／CDN URL へフォールバック。viaDaily も渡す。 */
+  if (typeof window.__DX_OPEN_NOBIRU__ === "function") {
+    window.__DX_OPEN_NOBIRU__(key, viaDaily ? { viaDaily: "1" } : {});
+    return;
+  }
+  /* file:// ランチャー時は相対 nobiru/ がホスト側に解決されて壊れるため、
+     __DX_CDN_BASE__（末尾スラッシュ）があれば CDN 絶対URLへ。未定義なら従来どおり。
+     CDN遷移時は dx_home に現在URLを付け、モード選択後も「ホームに戻る」で
+     ランチャーへ戻れるようにする（history.back 1回では足りない）。 */
+  const base = window.__DX_CDN_BASE__;
+  let url = (base || "") + "nobiru/" + key + ".html";
+  if (viaDaily) {
+    url += (url.indexOf("?") >= 0 ? "&" : "?") + "viaDaily=1";
+  }
+  if (base) {
+    url += (url.indexOf("?") >= 0 ? "&" : "?") + "dx_home=" + encodeURIComponent(location.href);
+  }
+  location.href = url;
 }
 /* 読解Questの入口（2026-09-16〜2026-09-23、教員の指示）。以前はホーム画面のボタンから
    いったん「準備中です」という案内画面（ddShowPrep）を見せていたが、教員の指示で

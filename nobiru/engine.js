@@ -18,7 +18,33 @@ const svgNS = "http://www.w3.org/2000/svg";
    その全額、そうでなければ半額をkokugo_app.html側がst.stockXpへ加算する（ddCheckNobiruPendingReward参照）。
    同一オリジンなのでlocalStorageはkokugo_app.htmlと共有できるが、st（本体のセーブデータ）の
    複雑な形を直接ここで書き換えるのは危険なので、合図だけを置く簡単な仕組みにしてある。 */
-const VIA_DAILY = new URLSearchParams(location.search).get("viaDaily") === "1";
+/* srcdoc では location.search が空になり得るため、ランチャーが渡す __DX_BOOT_SEARCH__ を優先 */
+const VIA_DAILY = new URLSearchParams(
+  (typeof window.__DX_BOOT_SEARCH__ === "string" && window.__DX_BOOT_SEARCH__.length)
+    ? window.__DX_BOOT_SEARCH__
+    : location.search
+).get("viaDaily") === "1";
+function goHomeFromNobiru(){
+  if(typeof window.__DX_GO_HOME__ === "function"){
+    window.__DX_GO_HOME__();
+    return;
+  }
+  location.href = "../kokugo_app.html";
+}
+function restartNobiru(){
+  if(typeof window.__DX_OPEN_NOBIRU__ === "function" && window.__DX_NOBIRU_KEY__){
+    const params = new URLSearchParams(
+      (typeof window.__DX_BOOT_SEARCH__ === "string" && window.__DX_BOOT_SEARCH__.length)
+        ? window.__DX_BOOT_SEARCH__
+        : location.search
+    );
+    const obj = {};
+    params.forEach((v, name) => { obj[name] = v; });
+    window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__, obj);
+    return;
+  }
+  location.reload();
+}
 const DD_PENDING_REWARD_LSKEY = "dd_daily_pending_reward_v1";
 /* この教材が、以前すでにストック経験値を受け取り済みかどうか（2026-09-23〜、教員の指示：
    「2回目以降は経験値を獲得できないので、獲得していない経験値についてはポップアップ等で
@@ -594,10 +620,16 @@ function finish(){
       ${compareHtml}
       <table>${rows}</table>
       <p>本文はすべて出そろっています。「構造図」で全体のつながりを見てから、もう一度通して読んでみてください。</p>
-      <button class="again ui" onclick="location.reload()">はじめからやり直す</button>
-      <button class="again ui" onclick="location.href='../kokugo_app.html'">ホーム画面に戻る</button>
-      ${VIA_DAILY ? `<button class="again ui daily-end" onclick="location.href='../kokugo_app.html'">一日一読を終える</button>` : ""}
+      <button class="again ui" type="button" id="btnRestartNobiru">はじめからやり直す</button>
+      <button class="again ui" type="button" id="btnGoHomeNobiru">ホーム画面に戻る</button>
+      ${VIA_DAILY ? `<button class="again ui daily-end" type="button" id="btnDailyEndNobiru">一日一読を終える</button>` : ""}
     </div>`;
+  const btnRestart = $("btnRestartNobiru");
+  if(btnRestart) btnRestart.addEventListener("click", restartNobiru);
+  const btnGoHome = $("btnGoHomeNobiru");
+  if(btnGoHome) btnGoHome.addEventListener("click", goHomeFromNobiru);
+  const btnDailyEnd = $("btnDailyEndNobiru");
+  if(btnDailyEnd) btnDailyEnd.addEventListener("click", goHomeFromNobiru);
   $("paneQ").scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -612,9 +644,28 @@ function boot(){
   $("b-fulltr").hidden = !hasTranslations;
   /* モードバッジ・モード切りかえリンク（この2つの要素を持つ教材HTMLだけにある）。
      ハードモード無効化（2026-09-22〜）でモードを選び直す意味自体が無くなっており、
-     教員の指示（2026-09-23〜）で「イージーモード」という文言も含めて非表示にする。 */
+     教員の指示（2026-09-23〜）で「イージーモード」という文言も含めて非表示にする。
+     あわせて srcdoc では location.pathname が "srcdoc" になるため、万一表示されても
+     href に載せない／__DX_OPEN_NOBIRU__ を優先する。 */
   if($("modeBadge")) $("modeBadge").hidden = true;
-  if($("modeSwitch")) $("modeSwitch").hidden = true;
+  if($("modeSwitch")){
+    const modeSw = $("modeSwitch");
+    modeSw.hidden = true;
+    modeSw.setAttribute("href", "#");
+    modeSw.addEventListener("click", function(ev){
+      ev.preventDefault();
+      if(typeof window.__DX_OPEN_NOBIRU__ === "function" && window.__DX_NOBIRU_KEY__){
+        window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__, {});
+        return;
+      }
+      const next = new URLSearchParams(location.search);
+      next.delete("mode");
+      const q = next.toString();
+      const path = location.pathname;
+      if(location.protocol === "about:" || path === "srcdoc" || path === "/srcdoc") return;
+      location.href = path + (q ? "?" + q : "");
+    });
+  }
   // フッターの「累計経験値」表示（教員の指示、2026-09-23〜：「問題を解いている最中、下に
   // 表示されているのは削除してください」）。addXp自体はtotalXpの積算・結果画面・
   // ストック経験値の計算に使い続けるので、ここでは見た目だけを消す。

@@ -929,8 +929,25 @@ function finish(){
       <p>累計経験値　<b>${totalXp}</b></p>
       ${compareHtml}
       <p>本文はすべて出そろっています。もう一度通して読んでみてください。</p>
-      <button class="again ui" onclick="location.reload()">はじめからやり直す</button>
+      <button class="again ui" type="button" id="btnRestartNobiru">はじめからやり直す</button>
     </div>`;
+  const btnRestart = $("btnRestartNobiru");
+  if(btnRestart){
+    btnRestart.addEventListener("click", function(){
+      if(typeof window.__DX_OPEN_NOBIRU__ === "function" && window.__DX_NOBIRU_KEY__){
+        const params = new URLSearchParams(
+          (typeof window.__DX_BOOT_SEARCH__ === "string" && window.__DX_BOOT_SEARCH__.length)
+            ? window.__DX_BOOT_SEARCH__
+            : location.search
+        );
+        const obj = {};
+        params.forEach((v, name) => { obj[name] = v; });
+        window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__, obj);
+        return;
+      }
+      location.reload();
+    });
+  }
   $("paneQ").scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -943,7 +960,24 @@ function boot(){
   if(theme) Object.keys(theme).forEach(k => document.documentElement.style.setProperty(k, theme[k]));
   if($("b-fulltr")) $("b-fulltr").hidden = true;
   if($("modeBadge")){ $("modeBadge").textContent = "ハードモード"; $("modeBadge").classList.add("hard"); }
-  if($("modeSwitch")) $("modeSwitch").href = location.pathname;
+  /* srcdoc では location.pathname が "srcdoc" になるため、href に載せない。 */
+  if($("modeSwitch")){
+    const modeSw = $("modeSwitch");
+    modeSw.setAttribute("href", "#");
+    modeSw.addEventListener("click", function(ev){
+      ev.preventDefault();
+      if(typeof window.__DX_OPEN_NOBIRU__ === "function" && window.__DX_NOBIRU_KEY__){
+        window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__, {});
+        return;
+      }
+      const next = new URLSearchParams(location.search);
+      next.delete("mode");
+      const q = next.toString();
+      const path = location.pathname;
+      if(location.protocol === "about:" || path === "srcdoc" || path === "/srcdoc") return;
+      location.href = path + (q ? "?" + q : "");
+    });
+  }
   addXp(0);
   renderWordsList();
   setStepUI("front");

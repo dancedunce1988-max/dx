@@ -1,0 +1,57 @@
+name: Update import-config commitHash
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'kokugo_app.html'
+      - '**/*.js'
+      - 'nobiru/**'
+      - 'dist/script.js'
+      - 'dist/index.html'
+      - '!dist/import-config.json'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-import-hash:
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (
+        !contains(github.event.head_commit.message, '[skip ci]') &&
+        !contains(github.event.head_commit.message, '[skip actions]')
+      )
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Write commitHash into dist/import-config.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          jq -n \
+            --arg commitHash "${{ github.sha }}" \
+            --arg repo "happa0827/dx" \
+            '{commitHash: $commitHash, repo: $repo}' \
+            > dist/import-config.json
+
+      - name: Commit and push if changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet -- dist/import-config.json; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git add dist/import-config.json
+          git commit -m "chore: update import-config commitHash [skip ci]"
+          git push
