@@ -4217,7 +4217,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.24</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.26</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -19038,11 +19038,23 @@ function speedMatchMenuHtml(){
   const bestParts = Object.keys(SPEED_MATCH_DEFS)
     .filter(key => b[key] > 0)
     .map(key => `${SPEED_MATCH_DEFS[key].label}${b[key]}本`);
+  const overlayText = bestParts.length ? bestParts.join('／') : 'タップして挑戦しよう';
+  /* 教員が用意した専用タイトル画像（menu_title_images.js、2026-09-25〜）があれば、他のミニゲーム
+     （storySideQuestButtonHtml参照）と同じ.menu-card-img-btnでそのまま使う。画像が無い場合は
+     従来どおりテキストカードにフォールバックする。 */
+  const img = window.MB_MENU_TITLE_IMAGES && window.MB_MENU_TITLE_IMAGES.speedMatch;
+  if(img){
+    return `
+      <div class="menu-card-img-btn" onclick="showSpeedMatchModeSelect()">
+        <img src="${img}" alt="マッチ＆MATCH">
+        <span class="menu-card-overlay">${esc(overlayText)}</span>
+      </div>`;
+  }
   const sub = bestParts.length ? `<p>ベストスコア：${bestParts.join('／')}</p>` : `<p>類義語・対義語のペアをすばやく見つけるゲーム</p>`;
   return `
     <div class="card menu-card" onclick="showSpeedMatchModeSelect()">
       <div class="menu-icon"><span class="menu-icon-matchstick"></span></div>
-      <div><h2>マッチ</h2>${sub}</div>
+      <div><h2>マッチ＆MATCH</h2>${sub}</div>
       <div class="right"><span class="shogo-badge">挑戦する</span></div>
     </div>`;
 }
@@ -19062,7 +19074,7 @@ function showSpeedMatchModeSelect(){
       </div>`;
   }).join('');
   screen.innerHTML = `
-    <div class="card"><h3 class="section">🔗 マッチ</h3>
+    <div class="card"><h3 class="section">🔗 マッチ＆MATCH</h3>
       <p class="note">類義語マッチ・対義語マッチ、どちらで遊ぶか選んでください。<br>見つけたペアの数ぶん、それぞれのジャンルレベルが上がります。</p>
     </div>
     ${modesHtml}

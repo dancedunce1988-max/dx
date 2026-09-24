@@ -636,8 +636,49 @@ function finish(){
     });
   }
 
+/* ---- 教材データの自己チェック（2026-09-25〜、教員の指示：「今後も問題を増やす際、同じような
+   バグが起きないようにしてほしい」） ----
+   「方言」で見つかった不具合（傍線部(u:)の下線が表示されない）は、実際には2種類の原因が
+   混ざっていた：①同じ語に指示語の指し先(t:)も付けてidが衝突するエンジン側のバグ（これは
+   parseInto側の修正でどの教材でも二度と起きないようにした）、②そもそも設問が指す記号の
+   |u:記号タグを本文に付け忘れる、という教材データ側のケアレスミス。②はエンジンでは防ぎきれない
+   （データの中身の話のため）ので、代わりに起動時にPARAS全体を走査し、各設問のq.uが指す記号が
+   本文中に実在するかをその場で検証し、足りなければconsole.warnで知らせる。教材を追加・編集した
+   直後にブラウザでいちど開いてConsoleを見るだけで、この種のミスにすぐ気づけるようにする狙い。
+   本文の見た目・進行には一切影響しない（警告を出すだけ）。 */
+function validateUnderlineMarkers(){
+  const defined = new Set();
+  const collect = str => {
+    let i = 0;
+    while(i < str.length){
+      if(str[i] === "{"){
+        let d = 0, j = i;
+        for(; j < str.length; j++){ if(str[j] === "{") d++; else if(str[j] === "}"){ d--; if(d === 0) break; } }
+        const parts = splitTop(str.slice(i + 1, j));
+        const uPart = parts.slice(1).find(p => p[0] === "u");
+        if(uPart) defined.add(uPart.slice(2));
+        collect(parts[0]); // 入れ子（傍線部の中にさらに語釈等がある場合）も見る
+        i = j + 1;
+      } else i++;
+    }
+  };
+  PARAS.forEach(para => (para.s || []).forEach(sent => collect(sent.t || "")));
+  const checkQ = (q, where) => {
+    (q.u || []).forEach(marker => {
+      if(!defined.has(marker)){
+        console.warn(`[のびる読解 教材チェック] ${TEXT_KEY}: ${where}「${q.head || ""}」のu:["${marker}"]に対応する |u:${marker} が本文に見つかりません。傍線が表示されません。`);
+      }
+    });
+  };
+  PARAS.forEach((para, i) => {
+    if(para.q) checkQ(para.q, `第${i + 1}段落`);
+    if(para.qs) para.qs.forEach((q, j) => checkQ(q, `最終段落・設問${j + 1}`));
+  });
+}
+
 /* ---- 起動 ---- */
 function boot(){
+  try{ validateUnderlineMarkers(); }catch(e){ /* チェック自体の失敗で本編を止めない */ }
   document.title = (TEXT.meta.title || "のびる読解") + "　―　のびる読解";
   $("mainTitle").textContent = TEXT.meta.title || "";
   $("subTitle").textContent = TEXT.meta.sub || "答えると、本文が一段落のびる。点線の語はタップで意味が出る。";
