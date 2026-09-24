@@ -4217,7 +4217,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.27</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.28</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -6074,6 +6074,12 @@ const MB_PARTNER_STAT_BONUS_PCT = {
   ub02: { atk: {base:1, perLevel:1}, hp: {base:2, perLevel:1} },          // 大熊猫：攻撃力+1%・HP+2%（Lv.1）、以後1%ずつ上昇
   ub03: { atk: {base:2, perLevel:1} },                                    // 獅子王：攻撃力+2%（Lv.1）、以後1%ずつ上昇
   ub04: { hp: {base:1, perLevel:1}, spd: {base:3, perLevel:1} },          // 猫鮫王：HP+1%・素早さ+3%（Lv.1）、以後1%ずつ上昇
+  // 裏ボス２（九尾・天狗・河童・雪女、2026-09-25〜）。妖怪の伝承イメージに合わせた割りふり
+  // （教員の指示になかったため、既存4体と同じ書式・同程度の数値感で提案）。
+  ub05: { luck: {base:3, perLevel:1}, atk: {base:1, perLevel:1} },        // 九尾：運+3%・攻撃力+1%（Lv.1）、以後1%ずつ上昇
+  ub06: { spd: {base:3, perLevel:1} },                                    // 天狗：素早さ+3%（Lv.1）、以後1%ずつ上昇
+  ub07: { atk: {base:2, perLevel:1}, def: {base:1, perLevel:1} },         // 河童：攻撃力+2%・防御力+1%（Lv.1）、以後1%ずつ上昇
+  ub08: { hp: {base:2, perLevel:1}, luck: {base:1, perLevel:1} },         // 雪女：HP+2%・運+1%（Lv.1）、以後1%ずつ上昇
 };
 // パートナーのレベル上限（教員の指示、2026-09-04：「最大レベルは5とします」）。
 const MB_PARTNER_MAX_LEVEL = 5;
@@ -29263,7 +29269,30 @@ const URA_BOSS_ENEMIES = [
     abilityLabel:'💢 まれに強烈な一撃を放ってくる', taunt:'我が牙、受けてみよ' },
   { id:'ub04', name:'猫鮫王', icon:'🦈', hp:950, atkMin:35, atkMax:40, mpDrain:{chance:0.4, min:15, max:30},
     abilityLabel:'🔮 まれに攻撃の代わりにMPを吸い取ってくる', taunt:'深海へ引きずり込んでやろう' },
+  /* 「裏ボス２」新4体（九尾・天狗・河童・雪女、2026-09-25〜、教員の指示）。上の4体（＝
+     「裏ボス１」）とは違い、いきなり出現プールに入るのではなく、裏ボス１のいずれか1体が
+     仲間としてLv.2になっていることが出現条件（uraBoss2Unlocked、mbStartUraBossChallenge参照）。
+     スプライトは「裏ボス２.png」「裏ボス２色違い.png」から切り抜いてura_boss_sprites_data.js／
+     enemy_sprites_shiny_data.jsに追加済み（ub01〜04と全く同じ仕組みで自動的に使われる）。
+     ステータス・特殊効果は「裏ボス２_ステータス調整ツール.html」で調整したものを教員が
+     貼り付けた値。 */
+  { id:'ub05', name:'九尾', icon:'🦊', hp:1500, atkMin:35, atkMax:45, mpDrain:{chance:0.4, min:25, max:35},
+    abilityLabel:'🔮 まれに攻撃の代わりにMPを吸い取ってくる', taunt:'その心、幻惑してくれよう' },
+  { id:'ub06', name:'天狗', icon:'👺', hp:1500, atkMin:35, atkMax:45, evadePct:0.33,
+    abilityLabel:'💨 まれにこちらの攻撃を素早くかわす', taunt:'この一撃、風のごとくかわしてみせよう' },
+  { id:'ub07', name:'河童', icon:'🐢', hp:1500, atkMin:30, atkMax:40, heavyHit:{chance:0.3, mult:3.5},
+    abilityLabel:'💢 まれに強烈な一撃を放ってくる', taunt:'相撲の力、思い知るがいい' },
+  { id:'ub08', name:'雪女', icon:'❄️', hp:1500, atkMin:35, atkMax:45, selfHeal:{chance:0.35, min:100, max:300},
+    abilityLabel:'✨ まれに攻撃の代わりに自らのHPを回復する', taunt:'この冷気、心地よかろう？' },
 ];
+const URA_BOSS2_IDS = ['ub05', 'ub06', 'ub07', 'ub08'];
+// 裏ボス２の出現条件：裏ボス１（ub01〜04）のいずれか1体でも、仲間としてLv.2以上に
+// なっていること（教員の指示、2026-09-25〜：「裏ボス１のどれかが、Lv2になったことを条件に
+// 出現する」）。st.mbCompanionLevelsは仲間ごとのレベル（1〜5）を持つ既存の仕組みをそのまま使う。
+function uraBoss2Unlocked(st){
+  const levels = st.mbCompanionLevels || {};
+  return ['ub01', 'ub02', 'ub03', 'ub04'].some(id => (levels[id] || 0) >= 2);
+}
 // パートナー選択画面・ホームバッジなど「仲間」を扱う場所は通常4体＋裏ボス4体の両方をidから
 // 引けるようにこちらを使う（MB_ENEMIESは連戦の進捗ステージ専用のまま変更しない）。
 const MB_ALL_RECRUITABLE = MB_ENEMIES.concat(URA_BOSS_ENEMIES);
@@ -31144,7 +31173,13 @@ function mbShowUraBossChoice(){
 // 4体制覇ぶん上がった最大HP・最大MPも、制覇時のmbUraCarryからそのまま引き継ぐ（教員の指示、
 // 2026-09-09：「その前までのHPとMPを（上がった分を含め）引き継ぐ」）。
 function mbStartUraBossChallenge(){
-  const enemyDef = URA_BOSS_ENEMIES[Math.floor(Math.random() * URA_BOSS_ENEMIES.length)];
+  // 裏ボス２（ub05〜08）は、裏ボス１のいずれかがLv.2になるまで抽選プールに入れない
+  // （uraBoss2Unlocked参照）。解禁前は今までどおり裏ボス１の4体だけから選ばれる。
+  const st = loadStats();
+  const pool = uraBoss2Unlocked(st)
+    ? URA_BOSS_ENEMIES
+    : URA_BOSS_ENEMIES.filter(b => !URA_BOSS2_IDS.includes(b.id));
+  const enemyDef = pool[Math.floor(Math.random() * pool.length)];
   const carry = mbUraCarry || {
     questMode: null, isSpecialQuest: false,
     playerHp: MB_PLAYER_MAX_HP, playerMaxHp: MB_PLAYER_MAX_HP, playerMp: 0, playerMaxMp: MB_PLAYER_MAX_MP,
