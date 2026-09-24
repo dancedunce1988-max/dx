@@ -4170,7 +4170,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.17</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.18</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -22394,8 +22394,13 @@ function bgExplainMiss(mi){
       : `「${word}」は、前の言葉にくっついてはたらく「付属語」だよ。付属語の前は、単語としては切れ目になる。ここは小刀で切ってほしかったところ。`;
   }
   if(mi.kind==="ooburi"){
-    return (info ? `「${word}」は${info.pos}。${info.note}` : `「${word}」は、前の言葉にくっついてはたらく「付属語」だよ。`)
-      + `付属語は前の自立語とセットで1つの文節を作るから、ここではまだ文節は終わっていないよ。単語としては切れても、文節としてはまだ続いているから、大太刀ではなく小刀の出番だった。`;
+    /* 大太刀しかない三の巻でも起こるので（教員の指摘、2026-09-24）、小刀という
+       選べない選択肢を持ち出さない言い方に分ける。 */
+    const single = BG.stage && BG.stage.blades.length===1;
+    const tail = single
+      ? `付属語は前の自立語とセットで1つの文節を作るから、ここではまだ文節は終わっていないよ。単語としては切れ目があっても、文節としては切れ目じゃないから、ここは斬らずに我慢するところだった。`
+      : `付属語は前の自立語とセットで1つの文節を作るから、ここではまだ文節は終わっていないよ。単語としては切れても、文節としてはまだ続いているから、大太刀ではなく小刀の出番だった。`;
+    return (info ? `「${word}」は${info.pos}。${info.note}` : `「${word}」は、前の言葉にくっついてはたらく「付属語」だよ。`) + tail;
   }
   if(mi.kind==="kogatana"){
     return `「${word}」は${wordPos}だよ。自分1つだけで意味がわかる言葉（「自立語」）だから、ここから新しい文節が始まる。単語の切れ目でもあるけれど、それ以上に文節の切れ目。だから小刀ではなく大太刀の出番だった。`;
@@ -23117,10 +23122,17 @@ function bgSlash(blade){
     bgDrawHud();
     if(perfect) bgBumpCombo(true);
   }else{
+    /* need（このステージで実際に求められる刃）ではなく、raw（その場所が本当に
+       文節／単語の切れ目かどうか）で判定する。三の巻（大太刀のみ）や六の巻
+       （小刀のみ）のような単一の刃のステージでは、raw="tango"（単語の切れ目
+       だが文節の切れ目ではない）でもneedは常にnull／"tango"に丸められてしまい、
+       needだけで見ると「単語の途中（gochu）」と区別がつかなくなる。実際には
+       そこは単語としてはちゃんとした切れ目なので、gochu（本当に単語の途中）
+       と誤解説してしまうバグの原因だった（教員の指摘、2026-09-24）。 */
     let kind;
-    if(!best.need)                                        kind="gochu";
-    else if(blade==="bunsetsu" && best.need==="tango")    kind="ooburi";
-    else                                                  kind="kogatana";
+    if(!best.raw)                                          kind="gochu";
+    else if(blade==="bunsetsu" && best.raw==="tango")       kind="ooburi";
+    else                                                    kind="kogatana";
     best.judged="bad";
     bgAddMark(best.beat,"missed",best.need||blade);
     bgEatHint(best.beat);
