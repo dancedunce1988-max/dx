@@ -4144,16 +4144,11 @@
   font-size:.88rem; margin-top:10px;
 }
 .dd-sample-box .label{color:var(--sub); font-size:.75rem; margin-bottom:4px; display:block;}
-/* ことばマッチ（類義語マッチ・対義語マッチ、2026-09-18〜、試作）。「準備中」カードを
-   5回タップすると遊べる隠しモード（speedMatchComingSoonTap参照）。タップの手応えとして
-   カード全体を軽くパルスさせるだけで、あと何回で遊べるかは表示しない（隠し要素なので）。
-   神経衰弱（カードを裏向きで記憶して当てる形式）だと難しすぎるという教員の指摘を受けて、
-   単語は最初から全部オープンにしておき、その中から素早く正しいペアを選ぶ形式に作り替えた
-   （2026-09-18、speedMatchPick参照）。そのためカードをめくる演出（3D flip）は廃止し、
-   タップして選ぶ→正解ならmatched、不正解なら一瞬wrongで赤く光らせて選び直す、という
-   シンプルな見た目にしている。 */
-.speed-match-teaser.tap-pulse{ animation:speedMatchTapPulse .18s ease; }
-@keyframes speedMatchTapPulse{ 0%{transform:scale(1);} 45%{transform:scale(.96);} 100%{transform:scale(1);} }
+/* ことばマッチ（類義語マッチ・対義語マッチ、2026-09-18〜）。神経衰弱（カードを裏向きで
+   記憶して当てる形式）だと難しすぎるという教員の指摘を受けて、単語は最初から全部オープンに
+   しておき、その中から素早く正しいペアを選ぶ形式に作り替えた（2026-09-18、speedMatchPick
+   参照）。そのためカードをめくる演出（3D flip）は廃止し、タップして選ぶ→正解ならmatched、
+   不正解なら一瞬wrongで赤く光らせて選び直す、というシンプルな見た目にしている。 */
 .speed-match-status{ display:flex; gap:14px; flex-wrap:wrap; font-size:.85rem; color:var(--sub); margin-top:8px; }
 /* 残り時間バー（教員の指示、2026-09-24〜：「残り時間は、バーでも表示してください」）。
    幅をJSから直接書きかえるだけなので、transitionで滑らかに縮む。 */
@@ -4211,7 +4206,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.22</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.23</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -18907,7 +18902,7 @@ function showSideQuestMenu(){
   if(KB_GAUNTLET_VISIBLE) html += kanjiBossSideQuestButtonHtml();
   html += mbSideQuestButtonHtml();
   html += Object.keys(STORY_SIDEQUESTS).map(key => storySideQuestButtonHtml(key, st)).join("");
-  html += speedMatchComingSoonHtml();
+  html += speedMatchMenuHtml();
   html += `<div class="btn-row" style="justify-content:center; margin-top:10px">
     <button class="btn secondary" onclick="showHome()">戻る</button>
   </div>`;
@@ -18992,22 +18987,23 @@ function storySideQuestButtonHtml(key, st){
       <div class="right"><span class="shogo-badge">挑戦する</span></div>
     </div>`;
 }
-/* マッチ（類義語マッチ・対義語マッチ、2026-09-18〜、教員の指示で試作）。ミニゲームとしては
-   「マッチ」というひとつの入口にまとめ、その中に類義語マッチ・対義語マッチの2モードを置く
-   （以前は対義語・類義語を別々のミニゲームとして並べていたが、教員の指示でひとつにまとめた）。
-   taigigo/ruigigoの4択データからq（問題語）とc[a]（正解の対になる語）をペアとして流用する。
-   まだ試作段階のため、ミニゲーム一覧には「準備中」カードとして置くだけで、カードを5回タップ
-   すると裏でモード選択画面に進めるようにする（speedMatchComingSoonTap）。record()は一切呼ばず、
-   st.lv/st.exp等の分野レベル・経験値には触れない（教員の指示：「まだ経験値等には反映させないこと」）。
-   当初は神経衰弱（カードを裏向きにして記憶で当てる）形式だったが、「難しすぎる」という教員の
-   指摘を受けて作り替えた。今はカードの単語を最初から全部オープンにしておき、その中から
-   正しいペアをできるだけ早くタップして見つけていく、というスピード重視の形式にしている
-   （speedMatchPick参照。記憶力ではなく、単語の意味を素早く判断する力を試すのが狙い）。 */
+/* マッチ（類義語マッチ・対義語マッチ、2026-09-18〜）。ミニゲームとしては「マッチ」という
+   ひとつの入口にまとめ、その中に類義語マッチ・対義語マッチの2モードを置く（以前は対義語・
+   類義語を別々のミニゲームとして並べていたが、教員の指示でひとつにまとめた）。taigigo/ruigigoの
+   4択データからq（問題語）とc[a]（正解の対になる語）をペアとして流用する。当初は神経衰弱
+   （カードを裏向きにして記憶で当てる）形式だったが、「難しすぎる」という教員の指摘を受けて
+   作り替えた。今はカードの単語を最初から全部オープンにしておき、その中から正しいペアを
+   できるだけ早くタップして見つけていく、というスピード重視の形式にしている（speedMatchPick
+   参照。記憶力ではなく、単語の意味を素早く判断する力を試すのが狙い）。
+   「準備中」の隠しカード（5回タップで裏解禁）と「試作版」の呼び名は、ミニゲームとして
+   正式に案内してよいとの教員の指示（2026-09-24〜）で廃止し、読解Quest（ddShowLevelSelect）
+   と同じくホームからワンタップで直接遊べるようにした。結果画面でのジャンルレベル・経験値
+   反映（finishSpeedMatchGame参照）ともあわせて、もう試作段階の機能ではない。 */
 const SPEED_MATCH_DEFS = {
   ruigigo: {title:"類義語マッチ", icon:"🔗", cat:"ruigigo", label:"類義語"},
   taigigo: {title:"対義語マッチ", icon:"↔️", cat:"taigigo", label:"対義語"},
 };
-const SPEED_MATCH_PAIR_COUNT = 6; // 6ペア＝カード12枚（試作なので固定）
+const SPEED_MATCH_PAIR_COUNT = 6; // 6ペア＝カード12枚
 /* 2026-09-24〜、教員の指示で「1問ごとのクリアタイムを競う」形式から「制限時間30秒の中で
    何ペア見つけられるかを競う」形式に作り替えた。盤面をすべて揃えたら間をおかず新しい盤面
    （speedMatchNewBoard）を出し続け、時間切れ（finishSpeedMatchGame）まで数え続ける。
@@ -19015,7 +19011,6 @@ const SPEED_MATCH_PAIR_COUNT = 6; // 6ペア＝カード12枚（試作なので�
    （speedMatchSticks参照）。開始前にスタートボタン→3・2・1カウントダウンを挟む
    （speedMatchStartCountdown）。 */
 const SPEED_MATCH_TIME_LIMIT = 90; // 秒（教員の指示、2026-09-24〜：30秒→50秒→90秒に延長）
-let speedMatchTapCount = 0; // 「準備中」カードの隠しタップ数。保存しない＝ページ再読み込みでリセットされてよい。
 let speedMatch = null; // 実行中のゲーム状態。保存しない一時状態。
 let speedMatchTimerHandle = null;
 let speedMatchPopupTimer = null;
@@ -19023,23 +19018,22 @@ let speedMatchPopupTimer = null;
 function clearSpeedMatchTimer(){
   if(speedMatchTimerHandle){ clearInterval(speedMatchTimerHandle); speedMatchTimerHandle = null; }
 }
-function speedMatchComingSoonHtml(){
+// ミニゲーム一覧に置く、通常の（＝「準備中」ではない）入口カード。他のサブクエスト
+// （storySideQuestButtonHtml）と同じ見た目のテキストカードにそろえ、2モードぶんの
+// ベストスコアがあればまとめて表示する。
+function speedMatchMenuHtml(){
+  const st = loadStats();
+  const b = st.speedMatchBest || {};
+  const bestParts = Object.keys(SPEED_MATCH_DEFS)
+    .filter(key => b[key] > 0)
+    .map(key => `${SPEED_MATCH_DEFS[key].label}${b[key]}本`);
+  const sub = bestParts.length ? `<p>ベストスコア：${bestParts.join('／')}</p>` : `<p>類義語・対義語のペアをすばやく見つけるゲーム</p>`;
   return `
-    <div class="card menu-card locked speed-match-teaser" onclick="speedMatchComingSoonTap(this)">
+    <div class="card menu-card" onclick="showSpeedMatchModeSelect()">
       <div class="menu-icon">🔗</div>
-      <div><h2>マッチ</h2><p>類義語・対義語のペアをすばやく見つけるゲーム</p></div>
-      <div class="right"><span class="shogo-badge">準備中</span></div>
+      <div><h2>マッチ</h2>${sub}</div>
+      <div class="right"><span class="shogo-badge">挑戦する</span></div>
     </div>`;
-}
-// カードをタップするたびに数え、5回目でこっそりモード選択画面に進めるようにする（隠し要素なので、あと何回かは表示しない）。
-function speedMatchComingSoonTap(el){
-  speedMatchTapCount++;
-  if(speedMatchTapCount >= 5){ showSpeedMatchModeSelect(); return; }
-  if(el){
-    el.classList.remove('tap-pulse');
-    void el.offsetWidth; // タップのたびにアニメーションをやり直すための強制リフロー
-    el.classList.add('tap-pulse');
-  }
 }
 function showSpeedMatchModeSelect(){
   // 各モードのカードにベストスコアを表示する（教員の指示、2026-09-24〜：「類義語マッチ、
@@ -19057,7 +19051,7 @@ function showSpeedMatchModeSelect(){
       </div>`;
   }).join('');
   screen.innerHTML = `
-    <div class="card"><h3 class="section">🔗 マッチ（試作版）</h3>
+    <div class="card"><h3 class="section">🔗 マッチ</h3>
       <p class="note">類義語マッチ・対義語マッチ、どちらで遊ぶか選んでください。<br>見つけたペアの数ぶん、それぞれのジャンルレベルが上がります。</p>
     </div>
     ${modesHtml}
@@ -19090,7 +19084,7 @@ function startSpeedMatchGame(key){
   const best = (st.speedMatchBest && st.speedMatchBest[key]) || 0;
   screen.innerHTML = `
     <div class="card" style="text-align:center">
-      <h3 class="section">${def.icon} ${esc(def.title)}（試作版）</h3>
+      <h3 class="section">${def.icon} ${esc(def.title)}</h3>
       <p class="note">制限時間${SPEED_MATCH_TIME_LIMIT}秒で、${esc(def.label)}のペアをいくつ見つけられるかに挑戦しよう。全部そろえたら、また新しいカードが出てきます。<br>ペアを見つけるたびに、下に「マッチ」が1本増えます。ミスが2回たまるとマッチが1本減るので注意。<br>見つけたペアの数ぶん、終了後に${esc(def.label)}のジャンルレベルが上がります。</p>
       ${best > 0 ? `<p class="note">これまでのベストスコア：マッチ${best}本</p>` : ""}
       <div class="btn-row" style="justify-content:center; margin-top:14px">
@@ -19295,7 +19289,7 @@ function renderSpeedMatchGame(){
     return `<div class="${cls.join(' ')}" onclick="speedMatchPick(${idx})">${esc(c.word)}</div>`;
   }).join('');
   screen.innerHTML = `
-    <div class="card"><h3 class="section">${def.icon} ${esc(def.title)}（試作版）</h3>
+    <div class="card"><h3 class="section">${def.icon} ${esc(def.title)}</h3>
       <p class="note">${esc(def.label)}のペアになる2枚を選んでね。全部そろうと、また新しいカードが出てきます。残り時間でいくつペアを見つけられるかに挑戦！</p>
       <div class="speed-match-status">
         <span>🔥マッチ：${sticks}本</span>
@@ -19380,7 +19374,7 @@ function finishSpeedMatchGame(){
   const fgStyle = fg ? `color:${fg};` : "";
   screen.innerHTML = `
     <div class="card" style="text-align:center; background:${bg}; transition:background .4s ease;">
-      <h3 class="section" style="${fgStyle}">${def.icon} 結果発表（試作版）</h3>
+      <h3 class="section" style="${fgStyle}">${def.icon} 結果発表</h3>
       <p class="dd-score-big" style="${fgStyle}">マッチ${sticks}本</p>
       <p class="note" style="font-size:1rem; ${fgStyle}">${esc(msg)}</p>
       ${isNewBest
