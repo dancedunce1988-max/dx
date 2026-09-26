@@ -4217,7 +4217,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.31</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.32</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -7256,7 +7256,7 @@ function mbStaminaLampsHtml(n, max){
 /* ホーム画面「一日一読」カード（2026-09-23〜、教員の指示：「漢字Quest（2時間で回復するやつ）の
    上に、目立つ色で配置して」）。漢字Questの挑戦ゲージカード（mbHomeQuestEntryHtml）の直前に
    置く、専用の色（.dd-daily-card、オレンジ系）で目立たせる。今日ぶんの一日一読があるかどうか
-   （ddTodayDailyText、公開日が来ていない間は「石垣」のお試し版がその代わりを務める）で
+   （ddTodayDailyText、公開日が今日と一致する教材が無ければ何も表示しない）で
    文言を変える。タップ先はddShowDailyTitle（タイトルだけを出す画面）。 */
 function ddHomeEntryHtml(st){
   const today = ddTodayDailyText();
@@ -12421,8 +12421,10 @@ let dd = null; // 読解Quest試作版の進行中ステート
    `ddPublishDate`（"YYYY-MM-DD"）を持たせておくと、その日付ちょうどに「一日一読」の対象
    として1日1本だけ扱われる。持たないエントリはこの仕組みの対象外（＝一日一読には出ない、
    「のびる読解」本来の一覧＝NOBIRU_ACTIVE_KEYSでの公開/ロックとは完全に独立）。
-   `ddTrialAlways:true`（現在は「石垣」のみ）は、日付に関わらず常に「今日ぶん」の代わりを
-   務める「お試し版」。
+   「一日一読は平日のみ・1日1問・決まった日にしか出さない」という原則により、
+   ddPublishDateが今日と一致しない日（土日・祝日を含む）は何も表示しない
+   （2026-09-27〜、教員の指摘でお試し版フォールバックを廃止。以前は「石垣」が
+   該当日以外にも代わりに表示されてしまうバグがあった）。
    ボタンを押すと、画面には今日ぶんのタイトルだけを表示し、タップでそのままnobiru/<key>.html
    へ遷移する（教員の指示：「画面はそれだけでよい」）。
    経験値の連携：nobiru側はkokugo_app.htmlから完全に切り離された別ページなので、engine.js
@@ -12440,16 +12442,11 @@ function ddTodayStr(){
   const d = new Date();
   return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
 }
-// `ddTrialAlways:true`のテキスト（現在は「石垣」のみ）。日付に関わらず常に「今日ぶん」の
-// 代わりを務める「お試し版」。
-function ddTrialText(){
-  return NOBIRU_TEXTS.find(t => t.ddTrialAlways) || null;
-}
-// 今日ぶんの一日一読（無ければnull）。ddPublishDateが今日ちょうどのテキストを優先し、
-// まだ本当の公開日が来ていなければお試し版（ddTrialText）で代わりを務める。
+// 今日ぶんの一日一読（無ければnull）。ddPublishDateが今日ちょうどのテキストのみを返す
+// （フォールバックなし＝平日のみ・1日1問・決まった日にしか出さない原則、2026-09-27〜）。
 function ddTodayDailyText(){
   const todayStr = ddTodayStr();
-  return NOBIRU_TEXTS.find(t => t.ddPublishDate === todayStr) || ddTrialText();
+  return NOBIRU_TEXTS.find(t => t.ddPublishDate === todayStr) || null;
 }
 // ホーム画面「一日一読」ボタンから。画面には今日ぶんのタイトルだけを表示し（教員の指示：
 // 「画面はそれだけでよい」）、タップするとそのまま問題（nobiru/<key>.html）が始まる。
@@ -12533,11 +12530,15 @@ function ddSkillGridHtml(before, after){
    知識ドリルDXのホーム画面に戻る。
    読解Quest側のst.dokkaiDungeonには今のところ一切触れない。 */
 const NOBIRU_TEXTS = [
-  /* ddPublishDate／ddTrialAlways（2026-09-23〜、教員の指示）：「一日一読」用の日付割り振り。
+  /* ddPublishDate（2026-09-23〜、教員の指示）：「一日一読」用の日付割り振り。
      NOBIRU_ACTIVE_KEYS（のびる読解本来の一覧の公開/ロック）とは完全に独立しており、ここに
      日付を付けても「のびる読解」の一覧側は別途ロックのままになる（一日一読の専用導線
-     ddShowDailyTitle→ddOpenNobiruだけがこの日付を見る）。 */
-  { key:"ishigaki", title:"石垣", desc:"筆者は、ふぞろいな石垣を「無造作で頼りない」と見ていた。けれども――", cat:"文学", ddTrialAlways:true },
+     ddShowDailyTitle→ddOpenNobiruだけがこの日付を見る）。
+     石垣にはddPublishDateを付けない＝一日一読には含めない（2026-09-27〜、教員の指示。
+     以前はddTrialAlways:trueで「お試し版」として該当日以外にも表示されてしまっており、
+     これがバグとして指摘された）。NOBIRU_ACTIVE_KEYSには引き続き残っているので、
+     「のびる読解」本来の一覧では変わらず公開されている。 */
+  { key:"ishigaki", title:"石垣", desc:"筆者は、ふぞろいな石垣を「無造作で頼りない」と見ていた。けれども――", cat:"文学" },
   { key:"hougen", title:"方言", desc:"方言を笑われて、もう使わないと決めた「私」。けれども、祖母の家に帰った夏、気づいたことがあった。", cat:"文学", ddPublishDate:"2026-09-25" },
   { key:"seisuisho", title:"都のならひ【古文】", desc:"醒睡笑（安楽庵策伝）より。藤五郎がでっち上げた「京の習ひ」を信じ込んだ専十郎に、何が起きるか。", cat:"古文" },
   { key:"kanpeki", title:"完璧【漢文】", desc:"『十八史略』より。秦の理不尽な要求に、藺相如はどう立ち向かうか。故事成語「完璧」の由来となった話。", cat:"漢文" },
@@ -12573,8 +12574,10 @@ const NOBIRU_TEXTS = [
      2026-09-23〜再修正：「一日一読は平日のみ更新、土日・祝日は更新しない」という
      教員の指示を受け、土曜・日曜と、この期間中の祝日（10/12体育の日・11/3文化の日）を
      飛ばして平日だけに日付を振り直した（9/24〜10/29の平日25日ぶん）。土日・祝日は
-     該当するddPublishDateが無いため、これまでどおりddTrialAlways（石垣）が表示される
-     ＝実質「更新なし」の状態になる。ここから先（11月以降）に日付を追加するときも、
+     該当するddPublishDateが無いため、ddTodayDailyTextはnullを返し、ホーム画面には
+     「本日の一日一読はまだありません」と表示される＝実質「更新なし」の状態になる
+     （2026-09-27〜：以前はここでddTrialAlways＝石垣が代わりに表示されてしまうバグが
+     あったため、フォールバックを廃止した）。ここから先（11月以降）に日付を追加するときも、
      必ず土日と内閣府発表の祝日を除いて割り振ること。 */
   { key:"shikisha", title:"指揮者になった日【小説】", desc:"合唱コンクールの指揮者に指名された内気な陽菜。パートリーダー拓海との練習を経て、少しずつ自信を得ていく。", cat:"文学", ddPublishDate:"2026-10-16" },
   { key:"kasanoshita", title:"傘の下で【小説】", desc:"雨の日、傘を忘れた転校生の千夏に声をかけた颯太。相合傘の帰り道から、少しずつ距離が縮まっていく。", cat:"文学", ddPublishDate:"2026-10-20" },
@@ -12608,12 +12611,11 @@ const NOBIRU_CATS = [
    戻すときは NOBIRU_TEXTS.map(t => t.key) に書き戻す。
    2026-09-23〜さらに追記：「一日一読で公開したものが、伸びる読解で解放されるシステムに
    してほしい」という教員の指示により、NOBIRU_ACTIVE_KEYSに載っていないキーでも、
-   一日一読側の公開条件（ddTrialAlways、またはddPublishDateが今日以前）を満たしていれば
+   一日一読側の公開条件（ddPublishDateが今日以前）を満たしていれば
    のびる読解の一覧でも解放する（nobiruIsUnlocked参照）。 */
 const NOBIRU_ACTIVE_KEYS = ["ishigaki"];
 function nobiruIsUnlocked(t){
   if(NOBIRU_ACTIVE_KEYS.includes(t.key)) return true;
-  if(t.ddTrialAlways) return true;
   if(t.ddPublishDate && t.ddPublishDate <= ddTodayStr()) return true;
   return false;
 }
