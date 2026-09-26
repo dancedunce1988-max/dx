@@ -3381,6 +3381,12 @@
 #ydNextPreview .yd-next-label{
   font-size:10px; color:var(--yd-gold-bright); letter-spacing:2px; margin-right:4px; opacity:.85;
 }
+/* 裏モード「古典の仮名遣い」・常設モード「古典的仮名遣い」でだけ出す一言案内
+   （教員の指示、2026-09-27〜）。通常の漢字読みモードでは常にyd-hiddenのまま。 */
+#ydKanaHint{
+  position:relative; z-index:1; font-size:11px; letter-spacing:1px;
+  color:var(--yd-gold-bright); opacity:.8; padding:0 10px;
+}
 #ydProblemText{ position:relative; z-index:1; font-family:"Yu Mincho","YuMincho","Hiragino Mincho ProN","MS PMincho",serif; font-size:35px; line-height:1.4; color:var(--yd-paper); text-shadow:0 2px 4px rgba(0,0,0,0.9), 0 4px 16px rgba(0,0,0,0.7); padding:0 6px; white-space:nowrap; max-width:100%; }
 .yd-countdown-num{
   display:inline-block; font-size:clamp(52px, 16vw, 88px); font-weight:900;
@@ -4217,7 +4223,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.32</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.33</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -7260,12 +7266,11 @@ function mbStaminaLampsHtml(n, max){
    文言を変える。タップ先はddShowDailyTitle（タイトルだけを出す画面）。 */
 function ddHomeEntryHtml(st){
   const today = ddTodayDailyText();
-  // 今日ぶんをもうクリア済み（st.nobiruRewardGivenに載っている）なら、教員の指示：
-  // 「一度クリアしたあとは、その日は表示しないようにしてください」。カードごと非表示にする。
-  if(today && st.nobiruRewardGiven[today.key]) return "";
-  const bodyHtml = today
-    ? `本日の一日一読：<b>${esc(today.title)}</b>`
-    : "本日の一日一読はまだありません。";
+  // 今日ぶんが無ければ「まだありません」とは出さず、カードごと非表示にする（教員の指示、
+  // 2026-09-27〜：「まだ」という文言だと今日中に更新されるように感じてしまうため）。
+  // 今日ぶんをもうクリア済み（st.nobiruRewardGivenに載っている）場合も同様に非表示。
+  if(!today || st.nobiruRewardGiven[today.key]) return "";
+  const bodyHtml = `本日の一日一読：<b>${esc(today.title)}</b>`;
   return `
   <div class="card menu-card dd-daily-card" onclick="ddShowDailyTitle()">
     <div class="menu-icon">📅</div>
@@ -27701,6 +27706,95 @@ for(const bandKey of Object.keys(YD_BANDS)){
   YD_WORD_BY_BAND[bandKey] = lvs.flatMap(l => YD_WORD_BY_LV[l]);
 }
 
+/* ===================================================================
+   YOMUの打・裏モード「古典の仮名遣い」（教員の指示、2026-09-27〜）
+   タイトルロゴを5回タップすると出現する隠しチャレンジ。CATS.kanazukai.items
+   （「歴史的仮名遣い」ジャンル、データは別途持たずここでも本体と共有する）を
+   item.eの自動生成された説明文から実行時に分類し、教員指定の4関門
+   （ハヒフヘホ／ゐゑむぢづ／～う（ふ）／全部）の出題プールを作る。
+   raw形状は既存のYD_WORD_BY_LV（{before,word,yomiList,after,lv,origItem}）と
+   同じにしてあるので、ydDrawFor以降の出題・表示ロジックをそのまま流用できる。
+   打ち込む部分（=現代仮名遣いの答え）が8文字を超えるものは、タイピングに時間が
+   かかりすぎるため全関門・常設モード共通で除外する（教員の指示、2026-09-27〜）。 */
+const YD_KANA_POOL = (function(){
+  const allItems = (CATS.kanazukai && CATS.kanazukai.items) || [];
+  const items = allItems.filter(it => it.ans[0] && it.ans[0].length <= 8);
+  const toRaw = it => ({before:'', word:it.q, yomiList:it.ans, after:'', lv:it.lv||1, origItem:it});
+  const g1=[], g2=[], g3=[];
+  for(const it of items){
+    const e = it.e || '';
+    const hagyo = /ハ行/.test(e);
+    const wi = e.includes('「ゐ」'), we = e.includes('「ゑ」'), wo = e.includes('「を」');
+    const di = e.includes('「ぢ」'), du = e.includes('「づ」'), mu = e.includes('「む」');
+    const chouon = /ア段/.test(e);
+    const kuwa = /くわ|ぐわ/.test(e);
+    const sokuon = /促音/.test(e);
+    const g2sig = wi || we || mu || di || du;
+    if(chouon){ g3.push(toRaw(it)); continue; }
+    if(hagyo && !g2sig && !wo && !kuwa && !sokuon){ g1.push(toRaw(it)); continue; }
+    if(g2sig && !hagyo){ g2.push(toRaw(it)); continue; }
+    /* 「を」単独・くわ/ぐわ・促音・漢字混じりで説明文が定型化できなかったものなどは
+       第1〜3関門には出さず、第4関門「全部」プールにのみ含める。 */
+  }
+  const all = items.map(toRaw);
+  return {hahifuheho:g1, wiwemuchidu:g2, chouon:g3, all};
+})();
+/* 4関門は「第一の関門」〜「第四の関門」として漢数字で呼ぶ（教員の指示）。
+   進捗はst.ydUraGateProgress（0〜4＝クリア済みの関門数）にセーブデータとして
+   永続化し、1関門＝1回のプレイ（60秒1本勝負）で区切る。4に達したら常設モード
+   「古典的仮名遣い」が解放される。 */
+const YD_URA_GATES = [
+  {key:'hahifuheho',  label:'ハヒフヘホ'},
+  {key:'wiwemuchidu', label:'ゐゑむぢづ'},
+  {key:'chouon',      label:'～う（ふ）'},
+  {key:'all',         label:'古典的仮名遣い'},
+];
+const YD_URA_JP_NUM = ['一','二','三','四'];
+const YD_URA_CLEAR_NEED = 10;
+const YD_URA_TIME = 60000;
+// セーブデータ上のクリア済み関門数（0〜4）を取り出す共通ヘルパー。
+function ydUraGateProgress(st){ return Math.min(YD_URA_GATES.length, st.ydUraGateProgress||0); }
+/* st.lv.kanazukaiを直接上げるレベルアップ処理。「かなづかい特訓「光る竹」」の
+   kzApplyLevelUp／文節斬りのbgLevelUpShikibetsu()と同じ方式（record()本体は
+   呼ばない）で、totalLevelUps・10回ごとの挑戦チケットも一緒に再現する。 */
+function ydKanaLevelUp(n){
+  const st = loadStats();
+  const lvBefore = st.lv.kanazukai || 1;
+  let lvAfter = lvBefore, gained = 0, ticketsGained = 0;
+  for(let i=0; i<n; i++){
+    if(lvAfter >= MAX_CAT_LV) break;
+    lvAfter++;
+    st.totalLevelUps = (st.totalLevelUps||0) + 1;
+    if(st.totalLevelUps % 10 === 0){ st.bossTickets = (st.bossTickets||0) + 1; ticketsGained++; }
+    gained++;
+  }
+  st.lv.kanazukai = lvAfter;
+  saveStats(st);
+  const titleBefore = titleOf(lvBefore), titleAfter = titleOf(lvAfter);
+  return {
+    lvBefore, lvAfter, gained, ticketsGained,
+    titleUp: gained>0 && titleBefore.name !== titleAfter.name,
+    titleName: titleAfter.name, titleIcon: titleAfter.icon,
+  };
+}
+function ydCurrentKanaPoolKey(){
+  const G = storyRun.yd;
+  if(G.mode === 'uraKana') return YD_URA_GATES[G.uraGateIdx].key;
+  if(G.mode === 'kanaFull') return 'all';
+  return null;
+}
+function ydDrawKana(poolKey){
+  const G = storyRun.yd;
+  const arr = YD_KANA_POOL[poolKey] || [];
+  const key = 'kana_' + poolKey;
+  if(!G.used[key]) G.used[key] = new Set();
+  let avail = arr.map((_,i)=>i).filter(i => !G.used[key].has(i));
+  if(avail.length === 0){ G.used[key] = new Set(); avail = arr.map((_,i)=>i); }
+  const idx = avail[Math.floor(Math.random()*avail.length)];
+  G.used[key].add(idx);
+  return arr[idx];
+}
+
 const YD_RANK_BASIC_COUNT = 5;
 /* 「見習い」〜「皆伝」（上位5段階、常時表示）は従来どおりscale倍率で算出する。
    「神速」〜「龍伝説」（隠し10段階）は、2026-08-29〜教員の指示で級ごとに「龍伝説」到達点を
@@ -27816,7 +27910,7 @@ function storyRenderYomunoDa(beat, idx){
   clearChoiceKeys();
   if(!storyRun.yd){
     storyRun.yd = {
-      running:false, awaitingStart:false, band:null, currentLv:1,
+      running:false, awaitingStart:false, band:null, currentLv:1, mode:'normal',
       timeLeft:60000, lastTs:0, score:0, cleanStreak:0,
       used:{}, current:null, nextRaw:null, stats:{correct:0, miss:0},
     };
@@ -27840,6 +27934,7 @@ function ydRenderGameScreen(){
             <div id="ydLevelUpFloat"></div>
             <div class="yd-problem-area" id="ydProblemArea">
               <div id="ydComboPop">3連打!</div>
+              <div id="ydKanaHint" class="yd-hidden">現代仮名遣いに直して打とう</div>
               <div id="ydNextPreview"></div>
               <div id="ydProblemText"></div>
               <div id="ydRomajiLine"><span class="yd-typed"></span><span class="yd-rest"></span></div>
@@ -27878,6 +27973,23 @@ function ydRenderGameScreen(){
                 <span class="yd-band-row2">
                   <span class="yd-band-rank-wrap">称号<span class="yd-band-rank" data-yd-rank-band="hard">見習い</span></span>
                   <button type="button" class="yd-band-ranks-btn" data-band="hard">称号を見る</button>
+                </span>
+              </div>
+              <div class="yd-band-btn yd-kana-band-btn yd-hidden" id="ydKanaBandBtn" tabindex="0">
+                <span class="yd-band-row">
+                  <span class="yd-band-top"><span class="yd-band-name">古典的仮名遣い</span><span class="yd-band-meta">60秒</span></span>
+                  <span class="yd-band-best">現在Lv.<b id="ydKanaLvNum">1</b></span>
+                </span>
+                <span class="yd-band-row2">
+                  <span class="yd-band-rank-wrap">歴史的仮名遣いを現代仮名遣いに直す。正解のたびに「かなづかい」のレベルが上がる</span>
+                </span>
+              </div>
+              <div class="yd-band-btn yd-ura-btn yd-hidden" id="ydUraEntryBtn" tabindex="0">
+                <span class="yd-band-row">
+                  <span class="yd-band-top"><span class="yd-band-name" id="ydUraBtnLabel">古典的仮名遣い　第一の関門</span><span class="yd-band-meta">60秒・裏モード</span></span>
+                </span>
+                <span class="yd-band-row2">
+                  <span class="yd-band-rank-wrap" id="ydUraBtnDesc">次は「ハヒフヘホ」に挑戦しよう</span>
                 </span>
               </div>
             </div>
@@ -27938,6 +28050,31 @@ function ydRefreshBandBests(){
     elm.textContent = rank.name;
     elm.className = 'yd-band-rank' + (flair > 0 ? ' yd-rank-flair-' + flair : '');
   });
+  /* 常設モード「古典的仮名遣い」は、裏モード（古典の仮名遣い）の第4関門を1度でも
+     クリアした後にだけ、初級・中級・上級の下に表示する（教員の指示）。 */
+  const progress = ydUraGateProgress(st);
+  const kanaBtn = ydEl('ydKanaBandBtn');
+  if(kanaBtn){
+    kanaBtn.classList.toggle('yd-hidden', progress < YD_URA_GATES.length);
+    const lvEl = ydEl('ydKanaLvNum');
+    if(lvEl) lvEl.textContent = (st.lv && st.lv.kanazukai) || 1;
+  }
+  /* 裏モードの入口ボタンは、タップ5回で見えるようになった後は常に存在するので、
+     ここではラベルの文言だけを進捗（何関門クリア済みか）に合わせて更新する
+     （教員の指示：「ボタンが第◯の関門　となっている」）。表示/非表示の切り替えは
+     ydAttachMenuHandlersのタップ検出側が担当し、ここでは触らない。 */
+  const uraLabelEl = ydEl('ydUraBtnLabel');
+  if(uraLabelEl){
+    uraLabelEl.textContent = (progress >= YD_URA_GATES.length)
+      ? '古典的仮名遣い　腕試し'
+      : ('古典的仮名遣い　第' + YD_URA_JP_NUM[progress] + 'の関門');
+  }
+  const uraDescEl = ydEl('ydUraBtnDesc');
+  if(uraDescEl){
+    uraDescEl.textContent = (progress >= YD_URA_GATES.length)
+      ? '全関門クリア済み。もう一度力試しできる（レベルは上がりません）'
+      : ('次は「' + YD_URA_GATES[progress].label + '」に挑戦しよう');
+  }
 }
 
 const YD_BAND_LABELS = {easy:'初級', mid:'中級', hard:'上級'};
@@ -28014,11 +28151,18 @@ function ydRenderNextPreview(){
   el.innerHTML = '<span class="yd-next-label">つぎ</span>' + esc(before) + '【' + esc(word) + '】' + esc(afterDisplay);
   el.style.display = '';
 }
+/* 通常の「漢字を読む」出題(YD_WORD_BY_BAND)と、裏モード／常設モード「古典的仮名遣い」
+   の出題(YD_KANA_POOL)は、raw形状を{before,word,yomiList,after,lv,origItem}に揃えて
+   あるので、引く元だけをG.modeで切り替えれば以降の表示・入力判定はすべて共用できる。 */
+function ydDrawNext(){
+  const G = storyRun.yd;
+  return (G.mode === 'normal') ? ydDrawFor(G.band.key) : ydDrawKana(ydCurrentKanaPoolKey());
+}
 function ydNextProblem(){
   const G = storyRun.yd;
   /* 先読みしてあれば（G.nextRaw、直前の呼び出しでydRenderNextPreview用に引いておいたもの）
      それをそのまま「今の問題」として使う。無ければ（初回など）その場で1問引く。 */
-  const raw = G.nextRaw || ydDrawFor(G.band.key);
+  const raw = G.nextRaw || ydDrawNext();
   G.nextRaw = null;
   const {lv, origItem} = raw;
   G.currentLv = lv;
@@ -28031,7 +28175,7 @@ function ydNextProblem(){
   ydEl('ydProblemText').innerHTML = displayHTML;
   ydFitProblemText();
   ydRenderRomaji();
-  G.nextRaw = ydDrawFor(G.band.key); // 次の1問を先読みしておく（全級共通）
+  G.nextRaw = ydDrawNext(); // 次の1問を先読みしておく（全級共通）
   ydRenderNextPreview();
 }
 /* 問題文が2行に折り返すと読みにくいので、実際の描画幅を見ながら1行に収まるまで
@@ -28052,7 +28196,11 @@ function ydRenderRomaji(){
   const G = storyRun.yd;
   const c = G.current;
   if(!c) return;
-  const hintVisible = (performance.now() - c.shownAt) >= 3000;
+  /* 「古典の仮名遣い」裏モード・常設モードでは、時間が経っても読み仮名・ローマ字の
+     ヒントを一切出さない（教員の指示、2026-09-27〜）。通常の「漢字を読む」モードは
+     従来どおり3秒経過でヒントを出す。 */
+  const isKanaMode = (G.mode === 'uraKana' || G.mode === 'kanaFull');
+  const hintVisible = !isKanaMode && (performance.now() - c.shownAt) >= 3000;
   const target = c.candidates[0] || '';
   const typedPart = target.slice(0, c.typed.length);
   const restPart = target.slice(c.typed.length);
@@ -28100,8 +28248,17 @@ function ydFlashMiss(){
 function ydUpdateHud(){
   const G = storyRun.yd;
   ydEl('ydScoreNum').textContent = G.score;
-  ydEl('ydTierKata').textContent = G.band ? G.band.label : '―';
-  ydEl('ydModeBadge').textContent = '単語打ち';
+  if(G.mode === 'uraKana'){
+    const gate = YD_URA_GATES[G.uraGateIdx];
+    ydEl('ydTierKata').textContent = gate.label;
+    ydEl('ydModeBadge').textContent = '第' + YD_URA_JP_NUM[G.uraGateIdx] + '関門 ' + (G.uraGateProgress||0) + '/' + YD_URA_CLEAR_NEED;
+  } else if(G.mode === 'kanaFull'){
+    ydEl('ydTierKata').textContent = '古典的仮名遣い';
+    ydEl('ydModeBadge').textContent = 'かなを直す';
+  } else {
+    ydEl('ydTierKata').textContent = G.band ? G.band.label : '―';
+    ydEl('ydModeBadge').textContent = '単語打ち';
+  }
   const hc = ydEl('ydHitCount');
   if(hc) hc.textContent = G.stats.correct;
 }
@@ -28132,36 +28289,79 @@ function ydOnCorrect(){
   const feedbackQueue = [];
   if(label) feedbackQueue.push(label);
 
-  /* 「漢字を読む」本体のレベルを、級ごとの条件で上げる（教員の指示、2026-08-28〜）。
-     初級＝3問正解ごとに1、中級＝2問正解ごとに1、上級＝1問正解するたびに1。
-     record()はskipRecentAcc:trueで呼び、通常のクイズモードで使う適応難度(diffLv)・
-     直近正答率には混ぜない（野球ミニゲーム等と同じ方針）。correct=trueのときしか
-     呼ばないので、diffLvを不用意に下げることもない。 */
-  const bandKey = G.band.key;
-  /* 期間限定イベント「2026_09_yomunoda」（9/14〜9/20）：正解1回につき、級ごとに
-     イベント経験値が入る（初級＋0.5／中級＋1／上級＋2、教員の指示）。 */
-  const ydEv = activeEventIdFor("yomunoda");
-  if(ydEv){
-    const ydEventAmt = {easy:0.5, mid:1, hard:2}[bandKey] || 0;
-    const _st=loadStats(); eventBonusAdd(_st,ydEv,ydEventAmt); saveStats(_st);
-    feedbackQueue.push(`🎉 +${ydEventAmt} イベント経験値`);
-  }
-  const levelUpEvery = YD_LEVEL_UP_EVERY[bandKey] || 1;
-  G.levelUpCounter = (G.levelUpCounter||0) + 1;
-  let shouldLevelUp = false;
-  if(G.levelUpCounter >= levelUpEvery){ shouldLevelUp = true; G.levelUpCounter = 0; }
-  if(shouldLevelUp && c.origItem){
-    const res = record('kanji_yomi', c.origItem, true, elapsed, {skipRecentAcc:true});
-    if(res && res.lvup){
-      ydPopLevelUp('「漢字を読む」Lv.' + res.lv + '！');
+  if(G.mode === 'normal'){
+    /* 「漢字を読む」本体のレベルを、級ごとの条件で上げる（教員の指示、2026-08-28〜）。
+       初級＝3問正解ごとに1、中級＝2問正解ごとに1、上級＝1問正解するたびに1。
+       record()はskipRecentAcc:trueで呼び、通常のクイズモードで使う適応難度(diffLv)・
+       直近正答率には混ぜない（野球ミニゲーム等と同じ方針）。correct=trueのときしか
+       呼ばないので、diffLvを不用意に下げることもない。 */
+    const bandKey = G.band.key;
+    /* 期間限定イベント「2026_09_yomunoda」（9/14〜9/20）：正解1回につき、級ごとに
+       イベント経験値が入る（初級＋0.5／中級＋1／上級＋2、教員の指示）。 */
+    const ydEv = activeEventIdFor("yomunoda");
+    if(ydEv){
+      const ydEventAmt = {easy:0.5, mid:1, hard:2}[bandKey] || 0;
+      const _st=loadStats(); eventBonusAdd(_st,ydEv,ydEventAmt); saveStats(_st);
+      feedbackQueue.push(`🎉 +${ydEventAmt} イベント経験値`);
     }
+    const levelUpEvery = YD_LEVEL_UP_EVERY[bandKey] || 1;
+    G.levelUpCounter = (G.levelUpCounter||0) + 1;
+    let shouldLevelUp = false;
+    if(G.levelUpCounter >= levelUpEvery){ shouldLevelUp = true; G.levelUpCounter = 0; }
+    if(shouldLevelUp && c.origItem){
+      const res = record('kanji_yomi', c.origItem, true, elapsed, {skipRecentAcc:true});
+      if(res && res.lvup){
+        ydPopLevelUp('「漢字を読む」Lv.' + res.lv + '！');
+      }
+    }
+  } else {
+    ydOnKanaCorrect(feedbackQueue);
   }
 
   ydSpawnStrike();
   ydPlayTaikoHit();
   feedbackQueue.forEach((msg,i) => setTimeout(()=>ydPopFeedback(msg), i*1900));
   ydUpdateHud();
+  if(G.uraShouldEnd){ G.uraShouldEnd = false; ydEndGame(); return; }
   ydNextProblem();
+}
+/* 裏モード「古典の仮名遣い」・常設モード「古典的仮名遣い」の正解処理。
+   通常モードの「漢字を読む」record()呼び出しの代わりに、ydKanaLevelUp()で
+   st.lv.kanazukaiを直接上げる（かなづかい特訓「光る竹」と同じ方式）。
+   裏モードは、常設モードが解放される前だけレベルアップが効く（教員の指示：
+   「裏モードで遊んでもジャンルレベルは上がらなくなる」＝解放後は無効化）。 */
+function ydOnKanaCorrect(feedbackQueue){
+  const G = storyRun.yd;
+  if(G.mode === 'kanaFull'){
+    const res = ydKanaLevelUp(1);
+    if(res.gained > 0){
+      G.kanaLvAfter = res.lvAfter;
+      G.kanaLvGained = (G.kanaLvGained||0) + res.gained;
+      ydPopLevelUp('「かなづかい」Lv.' + res.lvAfter + '！');
+    }
+    if(res.titleUp) feedbackQueue.push('称号UP「' + res.titleIcon + res.titleName + '」');
+    return;
+  }
+  if(G.mode === 'uraKana'){
+    /* 1回のプレイ＝1関門固定（教員の指示、2026-09-27〜）。G.uraGateIdxはラウンド開始時
+       （ydSelectUraKana）に決めたきり、ラウンド中は変えない。10問正解した瞬間に
+       G.uraShouldEndを立て、ydOnCorrectがそれを見て即座に強制終了する。 */
+    const alreadyUnlocked = (G.uraStartProgress||0) >= YD_URA_GATES.length;
+    if(!alreadyUnlocked){
+      const res = ydKanaLevelUp(1);
+      if(res.gained > 0) ydPopLevelUp('「かなづかい」Lv.' + res.lvAfter + '！');
+    }
+    G.uraGateProgress = (G.uraGateProgress||0) + 1;
+    if(G.uraGateProgress >= YD_URA_CLEAR_NEED){
+      if(!alreadyUnlocked){
+        const st = loadStats();
+        st.ydUraGateProgress = Math.min(YD_URA_GATES.length, (st.ydUraGateProgress||0) + 1);
+        saveStats(st);
+      }
+      G.uraCleared = true;
+      G.uraShouldEnd = true;
+    }
+  }
 }
 function ydOnKey(e){
   const G = storyRun.yd;
@@ -28211,6 +28411,7 @@ function ydLoop(ts){
 function ydSelectBand(bandKey){
   ydEnsureAudio();
   const G = storyRun.yd;
+  G.mode = 'normal';
   G.band = YD_BANDS[bandKey];
   G.awaitingStart = true;
   G.nextRaw = null; // 前回プレイの先読みが残っていても持ち越さない
@@ -28222,12 +28423,76 @@ function ydSelectBand(bandKey){
   ydEl('ydHitCount').textContent = '0';
   ydEl('ydTierKata').textContent = G.band.label;
   ydEl('ydModeBadge').textContent = '準備';
+  ydEl('ydKanaHint').classList.add('yd-hidden');
+  ydEl('ydRetryBtn').textContent = 'もう一度';
   ydEl('ydProblemText').innerHTML = 'スペースキーか<br>Enterキーで<br>スタート';
   ydEl('ydRomajiLine').classList.remove('yd-long');
   ydEl('ydRomajiLine').innerHTML = '<span class="yd-rest">' +
     esc('制限時間　' + (G.band.time/1000) + '秒') +
     '</span>';
   ydRenderNextPreview(); // 準備画面では先読み前なので非表示にする
+}
+/* 裏モード「古典の仮名遣い」の準備画面。1回のプレイ＝1関門固定（教員の指示、
+   2026-09-27〜：「そのボタンは第一の関門」「クリアしたら第二の関門」）。
+   セーブ済みのst.ydUraGateProgress（0〜4＝クリア済み関門数）を見て、次に
+   挑戦すべき関門を毎回そのまま決める。4（全関門クリア済み）のときは、最後の
+   「全部」プールで何度でも遊べる「腕試し」ラウンドになる（レベルは上がらない）。 */
+function ydSelectUraKana(){
+  ydEnsureAudio();
+  const G = storyRun.yd;
+  const st = loadStats();
+  const progress = ydUraGateProgress(st);
+  const gateIdx = Math.min(YD_URA_GATES.length - 1, progress);
+  G.mode = 'uraKana';
+  G.band = {key:'uraKana', label:YD_URA_GATES[gateIdx].label, time:YD_URA_TIME};
+  G.uraGateIdx = gateIdx;
+  G.uraStartProgress = progress; // このラウンドが進捗にカウントされるか（<4）どうかの判定用
+  G.uraGateProgress = 0;
+  G.uraCleared = false;
+  G.uraShouldEnd = false;
+  G.awaitingStart = true;
+  G.nextRaw = null;
+  ydEl('ydScreenTitle').classList.add('yd-hidden');
+  ydEl('ydScreenResult').classList.add('yd-hidden');
+  ydEl('ydTimerFill').style.width = '100%';
+  ydEl('ydTimerFill').classList.remove('yd-urgent');
+  ydEl('ydScoreNum').textContent = '0';
+  ydEl('ydHitCount').textContent = '0';
+  ydEl('ydTierKata').textContent = G.band.label;
+  ydEl('ydModeBadge').textContent = '第' + YD_URA_JP_NUM[gateIdx] + '関門 0/' + YD_URA_CLEAR_NEED;
+  ydEl('ydKanaHint').classList.remove('yd-hidden');
+  ydEl('ydRetryBtn').textContent = 'もう一度';
+  ydEl('ydProblemText').innerHTML = 'スペースキーか<br>Enterキーで<br>スタート';
+  ydEl('ydRomajiLine').classList.remove('yd-long');
+  ydEl('ydRomajiLine').innerHTML = '<span class="yd-rest">' + esc('制限時間　60秒／10問正解で第' + YD_URA_JP_NUM[gateIdx] + 'の関門クリア') + '</span>';
+  ydRenderNextPreview();
+}
+/* 常設モード「古典的仮名遣い」の準備画面（裏モードの第4関門を初めてクリアした
+   後に解放される）。正解のたびにst.lv.kanazukaiが上がる点だけが裏モードと違い、
+   ゲーム進行そのものは初級・中級・上級と同じ「60秒1本勝負」。 */
+function ydSelectKanaFull(){
+  ydEnsureAudio();
+  const G = storyRun.yd;
+  G.mode = 'kanaFull';
+  G.band = {key:'kanazukai', label:'古典的仮名遣い', time:YD_URA_TIME};
+  G.kanaLvAfter = null;
+  G.kanaLvGained = 0;
+  G.awaitingStart = true;
+  G.nextRaw = null;
+  ydEl('ydScreenTitle').classList.add('yd-hidden');
+  ydEl('ydScreenResult').classList.add('yd-hidden');
+  ydEl('ydTimerFill').style.width = '100%';
+  ydEl('ydTimerFill').classList.remove('yd-urgent');
+  ydEl('ydScoreNum').textContent = '0';
+  ydEl('ydHitCount').textContent = '0';
+  ydEl('ydTierKata').textContent = G.band.label;
+  ydEl('ydModeBadge').textContent = 'かなを直す';
+  ydEl('ydKanaHint').classList.remove('yd-hidden');
+  ydEl('ydRetryBtn').textContent = 'もう一度';
+  ydEl('ydProblemText').innerHTML = 'スペースキーか<br>Enterキーで<br>スタート';
+  ydEl('ydRomajiLine').classList.remove('yd-long');
+  ydEl('ydRomajiLine').innerHTML = '<span class="yd-rest">' + esc('制限時間　60秒') + '</span>';
+  ydRenderNextPreview();
 }
 /* スペース/Enter・タップで即開始せず、「3・2・1」と数えてから始める
    （教員の指示、2026-08-28〜）。#ydProblemTextを一時的にカウントダウン表示に使う。
@@ -28282,6 +28547,8 @@ function ydEndGame(){
   G.current = null;
   ydEl('ydProblemText').innerHTML = '';
   ydEl('ydRomajiLine').innerHTML = '';
+  if(G.mode === 'uraKana'){ ydUraEndGame(); return; }
+  if(G.mode === 'kanaFull'){ ydKanaFullEndGame(); return; }
 
   const st = loadStats();
   if(!st.ydBest) st.ydBest = {};
@@ -28318,6 +28585,64 @@ function ydEndGame(){
   ydEl('ydStatAcc').textContent = acc + '%';
   ydEl('ydScreenResult').classList.remove('yd-hidden');
 }
+/* 裏モード「古典の仮名遣い」の結果画面。称号システムは使わず、ydScreenResultの
+   同じ枠を流用して「どの関門でどこまで進んだか」を表示する。第4関門を10問
+   正解しきった回はG.uraClearedがtrueになり、常設モード解放を知らせる。 */
+function ydUraEndGame(){
+  const G = storyRun.yd;
+  const gateIdx = G.uraGateIdx;
+  const cleared = !!G.uraCleared;
+  const wasAlreadyUnlocked = (G.uraStartProgress||0) >= YD_URA_GATES.length;
+  if(cleared){
+    const st = loadStats();
+    const newlyFullyUnlocked = !wasAlreadyUnlocked && ydUraGateProgress(st) >= YD_URA_GATES.length;
+    ydEl('ydRankKanji').textContent = '突';
+    ydEl('ydRankName').textContent = '第' + YD_URA_JP_NUM[gateIdx] + 'の関門　クリア！！！';
+    if(newlyFullyUnlocked){
+      ydEl('ydRankDesc').textContent = '「古典的仮名遣い」モードが解放されました！　初級・中級・上級と同じ一覧に追加されています。';
+      ydEl('ydRetryBtn').textContent = 'もう一度';
+    } else if(wasAlreadyUnlocked){
+      ydEl('ydRankDesc').textContent = 'お見事！　もう一度力試しできます。';
+      ydEl('ydRetryBtn').textContent = 'もう一度';
+    } else {
+      ydEl('ydRankDesc').textContent = '次は「' + YD_URA_GATES[gateIdx+1].label + '」に挑戦できます。';
+      ydEl('ydRetryBtn').textContent = '次の関門へ';
+    }
+  } else {
+    ydEl('ydRankKanji').textContent = '途';
+    ydEl('ydRankName').textContent = '第' + YD_URA_JP_NUM[gateIdx] + 'の関門　あと少し！';
+    ydEl('ydRankDesc').textContent = (G.uraGateProgress||0) + '/' + YD_URA_CLEAR_NEED + '問正解でした。もう一度挑戦しよう。';
+    ydEl('ydRetryBtn').textContent = 'もう一度';
+  }
+  ydEl('ydResultScore').textContent = G.score;
+  ydEl('ydNewBestTag').style.display = 'none';
+  const totalKeys = G.stats.correctKeys + G.stats.missKeys;
+  const acc = totalKeys > 0 ? Math.round(G.stats.correctKeys/totalKeys*100) : 100;
+  ydEl('ydStatCorrect').textContent = G.stats.correct;
+  ydEl('ydStatMiss').textContent = G.stats.missKeys;
+  ydEl('ydStatAcc').textContent = acc + '%';
+  ydEl('ydScreenResult').classList.remove('yd-hidden');
+}
+/* 常設モード「古典的仮名遣い」の結果画面。称号の代わりに、今回のプレイで
+   「かなづかい」のレベルがいくつ上がったかを表示する。 */
+function ydKanaFullEndGame(){
+  const G = storyRun.yd;
+  const st = loadStats();
+  const lvNow = (st.lv && st.lv.kanazukai) || 1;
+  const gained = G.kanaLvGained || 0;
+  ydEl('ydRankKanji').textContent = '文';
+  ydEl('ydRankName').textContent = '「かなづかい」Lv.' + lvNow;
+  ydEl('ydRankDesc').textContent = gained > 0 ? ('レベルが' + gained + '上がりました！') : '今回はレベルアップなしでした。';
+  ydEl('ydRetryBtn').textContent = 'もう一度';
+  ydEl('ydResultScore').textContent = G.score;
+  ydEl('ydNewBestTag').style.display = 'none';
+  const totalKeys = G.stats.correctKeys + G.stats.missKeys;
+  const acc = totalKeys > 0 ? Math.round(G.stats.correctKeys/totalKeys*100) : 100;
+  ydEl('ydStatCorrect').textContent = G.stats.correct;
+  ydEl('ydStatMiss').textContent = G.stats.missKeys;
+  ydEl('ydStatAcc').textContent = acc + '%';
+  ydEl('ydScreenResult').classList.remove('yd-hidden');
+}
 /* window直付けのkeydownリスナーだけは、他の場面に移ってもDOM要素と一緒には回収されない
    （ボキャブラ・シューティングと同じ理由）ので、showHome()からydStopLoop()を明示的に呼んで外す。 */
 let ydMenuKeyHandler = null;
@@ -28331,18 +28656,46 @@ function ydStopLoop(){
 function ydAttachMenuHandlers(){
   window.addEventListener('keydown', ydOnKey);
 
+  /* 「古典的仮名遣い」「✨古典の仮名遣い」の2ボタンはdata-band属性を持たせず、
+     ここでのdata-band前提の矢印キー選択／クリックからは除外する（別途、専用の
+     クリックハンドラを下で付ける）。 */
   const bandKeys = ['easy','mid','hard'];
   let selectIndex = 0;
   function updateSelection(){
-    document.querySelectorAll('.yd-band-btn').forEach((btn,i) => {
+    document.querySelectorAll('.yd-band-btn[data-band]').forEach((btn,i) => {
       btn.classList.toggle('yd-selected', i === selectIndex);
     });
   }
-  document.querySelectorAll('.yd-band-btn').forEach((btn,i) => {
+  document.querySelectorAll('.yd-band-btn[data-band]').forEach((btn,i) => {
     btn.addEventListener('mouseenter', () => { selectIndex = i; updateSelection(); });
     btn.addEventListener('click', (e) => { e.stopPropagation(); ydSelectBand(btn.dataset.band); });
   });
   updateSelection();
+
+  /* 裏モード入口：タイトルロゴを5回タップすると✨古典の仮名遣いボタンが出現する
+     （教員の指示、2026-09-27〜）。タップ数はこの画面を開いている間だけの一時状態で、
+     画面を出入りするたびに数え直しになる（＝一種の隠しコマンド）。 */
+  let uraTapCount = 0;
+  const logoImg = document.querySelector('.yd-logo-img');
+  const uraBtn = ydEl('ydUraEntryBtn');
+  if(logoImg){
+    logoImg.style.cursor = 'pointer';
+    logoImg.addEventListener('click', (e) => {
+      e.stopPropagation();
+      uraTapCount++;
+      if(uraTapCount >= 5 && uraBtn){
+        uraBtn.classList.remove('yd-hidden');
+        uraTapCount = 0;
+      }
+    });
+  }
+  if(uraBtn){
+    uraBtn.addEventListener('click', (e) => { e.stopPropagation(); ydSelectUraKana(); });
+  }
+  const kanaBandBtn = ydEl('ydKanaBandBtn');
+  if(kanaBandBtn){
+    kanaBandBtn.addEventListener('click', (e) => { e.stopPropagation(); ydSelectKanaFull(); });
+  }
 
   ydMenuKeyHandler = function(e){
     const G = storyRun.yd;
@@ -28383,7 +28736,13 @@ function ydAttachMenuHandlers(){
     ydEl('ydScreenRanks').classList.add('yd-hidden');
     ydEl('ydScreenTitle').classList.remove('yd-hidden');
   });
-  ydEl('ydRetryBtn').addEventListener('click', (e) => { e.stopPropagation(); ydSelectBand(storyRun.yd.band.key); });
+  ydEl('ydRetryBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const G = storyRun.yd;
+    if(G.mode === 'uraKana') ydSelectUraKana();
+    else if(G.mode === 'kanaFull') ydSelectKanaFull();
+    else ydSelectBand(G.band.key);
+  });
   ydEl('ydTitleBtn').addEventListener('click', ()=>{
     ydRefreshBandBests();
     ydEl('ydScreenResult').classList.add('yd-hidden');
