@@ -3494,25 +3494,23 @@
    見た目も薄くする（教員の指示、2026-09-27〜：4関門ボタンを並べて表示）。 */
 .yd-ura-gate-btn.yd-ura-gate-locked{ opacity:0.42; cursor:default; pointer-events:none; }
 /* かなづかいの直し方ガイド（かなづかい特訓「光る竹」のkz-guide-*と同じ説明文を
-   移植、教員の指示、2026-09-27〜）。裏モード専用画面の一番上に置き、いつでも
-   開いて復習できるようにする。紙面調カードは光る竹と同じ配色（リテラル値、
-   #kzApp配下の--kz-*変数はこのDOM位置からは参照できないため）にし、開閉トグルの
-   ボタンだけyd側のgold系トーンに合わせる。 */
-.yd-guide-toggle{
-  display:flex; align-items:center; justify-content:center; gap:6px;
-  margin:0 auto 10px; padding:11px 20px; width:fit-content; border-radius:999px; cursor:pointer; user-select:none;
+   移植、教員の指示、2026-09-27〜）。当初はydScreenUraMenu内の開閉式パネルに
+   していたが、「ボタンを押しても表示されない」との報告を受け、専用の全画面
+   （ydScreenGuide、ydScreenResult/ydScreenRanksと同じ「タイトル→内容→戻る」の
+   実績のある構成）にそのまま切り替える方式に作り直した（教員の指示：「別画面に
+   大きく表示しなおすなどして、確実に表示されるようにして」）。#ydScreenGuideだけ
+   justify-content:flex-startで上詰めにし、.yd-overlay-screen既定の
+   justify-content:centerのまま長い内容を開閉アニメーションさせたときに
+   一部が見えなくなっていた問題（推定原因）を避ける。 */
+#ydScreenGuide{ justify-content:flex-start; }
+.yd-guide-open-btn{
+  display:block; margin:0 auto 4px; padding:11px 20px; border-radius:999px; cursor:pointer;
   background:linear-gradient(135deg, rgba(240,201,74,.22), rgba(212,160,23,.14));
   border:1px solid rgba(240,201,74,.5);
   color:var(--yd-gold-bright); font-size:13px; font-weight:bold; letter-spacing:.5px;
-  font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif; transition:background .25s ease;
+  font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;
 }
-.yd-guide-toggle .yd-guide-arrow{ display:inline-block; transition:transform .3s ease; font-size:10px; }
-.yd-guide-toggle.open .yd-guide-arrow{ transform:rotate(180deg); }
-.yd-guide-panel{
-  max-height:0; overflow:hidden; opacity:0; width:100%;
-  transition:max-height .5s ease, opacity .4s ease, margin .4s ease; margin:0 auto;
-}
-.yd-guide-panel.open{ max-height:2400px; opacity:1; margin-bottom:10px; }
+.yd-guide-open-btn:active{ transform:translateY(1px); }
 .yd-guide-inner{
   background:linear-gradient(180deg,#fbf3df,#f3e6c4);
   color:#4a3a20; border-radius:16px; padding:16px 16px 14px;
@@ -4258,7 +4256,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.35</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.36</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -28038,11 +28036,14 @@ function ydRenderGameScreen(){
           <div class="yd-overlay-screen yd-hidden" id="ydScreenUraMenu">
             <div class="yd-brush-title" style="font-size:clamp(24px,7vw,30px);">古典の仮名遣い</div>
             <div class="yd-tagline" style="margin-top:-4px;">全4関門を順番にクリアしよう（各60秒・10問正解でクリア）</div>
-            <div class="yd-guide-toggle" id="ydGuideToggle" onclick="ydToggleGuide()">
-              <span>📖</span><span id="ydGuideToggleLabel">かなづかいの直し方を見る</span><span class="yd-guide-arrow">▼</span>
-            </div>
-            <div class="yd-guide-panel" id="ydGuidePanel">
-              <div class="yd-guide-inner">
+            <button type="button" class="yd-guide-open-btn" id="ydGuideOpenBtn">📖 かなづかいの直し方を見る</button>
+            <div class="yd-band-list" id="ydUraGateList"></div>
+            <button class="yd-ghost-btn" id="ydUraMenuBackBtn">タイトルへ戻る</button>
+          </div>
+
+          <div class="yd-overlay-screen yd-hidden" id="ydScreenGuide">
+            <div class="yd-brush-title" style="font-size:clamp(22px,6.5vw,28px);">かなづかいの直し方</div>
+            <div class="yd-guide-inner">
                 <p class="yd-guide-lead">昔の書き方（歴史的仮名遣い）を今の書き方（現代仮名遣い）に直すルールは、じつはそんなに多くありません。この6つを知っていれば、たいてい解けるよ。</p>
 
                 <div class="yd-guide-rule">
@@ -28087,10 +28088,8 @@ function ydRenderGameScreen(){
                 </div>
 
                 <p class="yd-guide-foot">むずかしく見えても、ルールはこれだけ。歴史的仮名遣いの言葉が出たら「どのルールに当てはまる？」と考えてから、ローマ字で打ち込もう。ただし、一度でも打ちまちがえると、その問題は最後まで打ち切っても正解にはならないから、落ち着いて挑もう。（豆知識：とても数は少ないけれど、「くわ」→「か」、「ぐわ」→「が」に変わることもあるよ。例：くわじ→かじ）</p>
-              </div>
             </div>
-            <div class="yd-band-list" id="ydUraGateList"></div>
-            <button class="yd-ghost-btn" id="ydUraMenuBackBtn">タイトルへ戻る</button>
+            <button class="yd-ghost-btn" id="ydGuideBackBtn">関門選択へ戻る</button>
           </div>
 
           <div class="yd-overlay-screen yd-hidden" id="ydScreenResult">
@@ -28193,17 +28192,6 @@ function ydRenderUraGateMenu(){
     });
   });
 }
-/* かなづかいの直し方ガイドの開閉（かなづかい特訓「光る竹」のkzToggleGuide()と同じ
-   作法、教員の指示、2026-09-27〜：「裏モードの一番上にボタンを配置し、いつでも
-   直し方を復習できるように」）。 */
-function ydToggleGuide(){
-  const panel = ydEl('ydGuidePanel');
-  const toggle = ydEl('ydGuideToggle');
-  const open = panel.classList.toggle('open');
-  toggle.classList.toggle('open', open);
-  ydEl('ydGuideToggleLabel').textContent = open ? 'かなづかいの直し方をとじる' : 'かなづかいの直し方を見る';
-}
-
 const YD_BAND_LABELS = {easy:'初級', mid:'中級', hard:'上級', kanazukai:'古典的仮名遣い'};
 function ydRenderRanksScreen(bandKey){
   bandKey = bandKey || 'hard';
@@ -28839,6 +28827,24 @@ function ydAttachMenuHandlers(){
       ydRefreshBandBests();
       ydEl('ydScreenUraMenu').classList.add('yd-hidden');
       ydEl('ydScreenTitle').classList.remove('yd-hidden');
+    });
+  }
+  /* かなづかいの直し方ガイドは、専用の全画面（ydScreenGuide）に切り替えて表示する
+     （教員の指示、2026-09-27〜：開閉パネル方式では表示されない不具合があったため、
+     ydScreenResult/ydScreenRanksと同じ「画面まるごと切り替え」方式に変更）。 */
+  const guideOpenBtn = ydEl('ydGuideOpenBtn');
+  if(guideOpenBtn){
+    guideOpenBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      ydEl('ydScreenUraMenu').classList.add('yd-hidden');
+      ydEl('ydScreenGuide').classList.remove('yd-hidden');
+    });
+  }
+  const guideBackBtn = ydEl('ydGuideBackBtn');
+  if(guideBackBtn){
+    guideBackBtn.addEventListener('click', () => {
+      ydEl('ydScreenGuide').classList.add('yd-hidden');
+      ydEl('ydScreenUraMenu').classList.remove('yd-hidden');
     });
   }
   const kanaBandBtn = ydEl('ydKanaBandBtn');
