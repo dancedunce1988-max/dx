@@ -3493,6 +3493,38 @@
 /* 裏モード「古典の仮名遣い」の関門選択画面。ロック中の関門はクリックできず、
    見た目も薄くする（教員の指示、2026-09-27〜：4関門ボタンを並べて表示）。 */
 .yd-ura-gate-btn.yd-ura-gate-locked{ opacity:0.42; cursor:default; pointer-events:none; }
+/* かなづかいの直し方ガイド（かなづかい特訓「光る竹」のkz-guide-*と同じ説明文を
+   移植、教員の指示、2026-09-27〜）。裏モード専用画面の一番上に置き、いつでも
+   開いて復習できるようにする。紙面調カードは光る竹と同じ配色（リテラル値、
+   #kzApp配下の--kz-*変数はこのDOM位置からは参照できないため）にし、開閉トグルの
+   ボタンだけyd側のgold系トーンに合わせる。 */
+.yd-guide-toggle{
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  margin:0 auto 10px; padding:11px 20px; width:fit-content; border-radius:999px; cursor:pointer; user-select:none;
+  background:linear-gradient(135deg, rgba(240,201,74,.22), rgba(212,160,23,.14));
+  border:1px solid rgba(240,201,74,.5);
+  color:var(--yd-gold-bright); font-size:13px; font-weight:bold; letter-spacing:.5px;
+  font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif; transition:background .25s ease;
+}
+.yd-guide-toggle .yd-guide-arrow{ display:inline-block; transition:transform .3s ease; font-size:10px; }
+.yd-guide-toggle.open .yd-guide-arrow{ transform:rotate(180deg); }
+.yd-guide-panel{
+  max-height:0; overflow:hidden; opacity:0; width:100%;
+  transition:max-height .5s ease, opacity .4s ease, margin .4s ease; margin:0 auto;
+}
+.yd-guide-panel.open{ max-height:2400px; opacity:1; margin-bottom:10px; }
+.yd-guide-inner{
+  background:linear-gradient(180deg,#fbf3df,#f3e6c4);
+  color:#4a3a20; border-radius:16px; padding:16px 16px 14px;
+  box-shadow:0 10px 30px rgba(0,0,0,.35); font-size:13px; line-height:1.8; text-align:left;
+}
+.yd-guide-lead{ margin-bottom:12px; }
+.yd-guide-rule{ background:rgba(255,255,255,.5); border-radius:12px; padding:10px 12px; margin-bottom:9px; border-left:4px solid #ffb347; }
+.yd-guide-rule-title{ font-weight:bold; margin-bottom:3px; }
+.yd-guide-example{ color:#6b5636; font-size:12px; }
+.yd-guide-warn{ background:rgba(224,67,42,.12); border-radius:12px; padding:10px 12px; margin-top:4px; border-left:4px solid #e0432a; }
+.yd-guide-warn-title{ font-weight:bold; margin-bottom:3px; color:#a3311f; }
+.yd-guide-foot{ margin-top:10px; font-size:12px; }
 .yd-kbd-hint{ font-size:11.5px; color:var(--yd-paper); letter-spacing:0.5px; text-shadow:0 1px 5px rgba(0,0,0,0.85); }
 .yd-kbd-hint b{ color:var(--yd-gold-bright); }
 .yd-stamp-btn{ margin-top:4px; padding:13px 40px; font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif; font-weight:900; font-size:15px; letter-spacing:3px; color:#fff3ec; background: radial-gradient(circle at 35% 30%, var(--yd-shu-bright), var(--yd-shu) 70%); border:none; cursor:pointer; border-radius:255px 15px 225px 15px / 15px 225px 15px 255px; box-shadow: 0 6px 0 #7a2515, 0 10px 24px rgba(216,72,44,0.4); transform:rotate(-1.5deg); transition: transform .12s, box-shadow .12s; }
@@ -4226,7 +4258,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.34</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.35</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -25938,7 +25970,7 @@ function kzStart(idx){
     </div>
     <div class="kz-guide-panel" id="kzGuidePanel">
       <div class="kz-guide-inner">
-        <p class="kz-guide-lead">昔の書き方（歴史的仮名遣い）を今の書き方（現代仮名遣い）に直すルールは、じつはそんなに多くありません。この5つを知っていれば、たいてい解けるよ。</p>
+        <p class="kz-guide-lead">昔の書き方（歴史的仮名遣い）を今の書き方（現代仮名遣い）に直すルールは、じつはそんなに多くありません。この6つを知っていれば、たいてい解けるよ。</p>
 
         <div class="kz-guide-rule">
           <div class="kz-guide-rule-title">① 言葉の"とちゅう"にある「は・ひ・ふ・へ・ほ」→「わ・い・う・え・お」</div>
@@ -25947,9 +25979,9 @@ function kzStart(idx){
         </div>
 
         <div class="kz-guide-rule">
-          <div class="kz-guide-rule-title">② 「ゐ」「ゑ」→「い」「え」</div>
-          <div>今は使われていない、昔だけの文字。見た目は違っても、読み方が変わるだけと考えよう。</div>
-          <div class="kz-guide-example">例：ゐたり→いたり／こゑ→こえ</div>
+          <div class="kz-guide-rule-title">② 「ゐ」「ゑ」→「い」「え」、言葉の中の「を」→「お」</div>
+          <div>「ゐ」「ゑ」は、今は使われていない昔だけの文字。見た目は違っても、読み方が変わるだけと考えよう。「を」も、言葉の真ん中や終わりの音として使われているときは「お」に変わるよ（文をつなぐ助詞の「を」は変わらないよ→下の注意を見てね）。</div>
+          <div class="kz-guide-example">例：ゐたり→いたり／こゑ→こえ／かをり→かおり／をとこ→おとこ</div>
         </div>
 
         <div class="kz-guide-rule">
@@ -25965,9 +25997,15 @@ function kzStart(idx){
         </div>
 
         <div class="kz-guide-rule">
-          <div class="kz-guide-rule-title">⑤ 「づ」→「ず」（ただし例外に注意）</div>
-          <div>ふつうは「ず」に変わるけれど、「つづく」「つれづれ」のように同じ音がくり返される言葉だけは、今でも「づ」のまま書くよ。</div>
-          <div class="kz-guide-example">例：よろづ→よろず／（例外）つづく・つれづれ はそのまま</div>
+          <div class="kz-guide-rule-title">⑤ 「ぢ」「づ」→「じ」「ず」（ただし例外に注意）</div>
+          <div>「ぢ」は「じ」に、「づ」は「ず」に変わるのがふつう。ただし「ちぢむ」「つづく」「つれづれ」のように同じ音がくり返される言葉だけは、今でも「ぢ」「づ」のまま書くよ。</div>
+          <div class="kz-guide-example">例：あぢ→あじ／よろづ→よろず／（例外）ちぢむ・つづく・つれづれ はそのまま</div>
+        </div>
+
+        <div class="kz-guide-rule">
+          <div class="kz-guide-rule-title">⑥ 拗音（ゃ・ゅ・ょ）や促音（っ）は、小さい字で書く</div>
+          <div>昔の書き方には、小さい「っ」「ゃ」「ゅ」「ょ」の区別がなかったよ。今の書き方に直すときは、音にあわせて小さい字にしよう。</div>
+          <div class="kz-guide-example">例：うつくしう→うつくしゅう（「ゅ」を小さく）／うつすら→うっすら（「っ」を小さく）</div>
         </div>
 
         <div class="kz-guide-warn">
@@ -25975,7 +26013,7 @@ function kzStart(idx){
           <div>「今日<b>は</b>」「花<b>を</b>」「山<b>へ</b>」のように、言葉と言葉をつなぐ役目の「は・を・へ」は、歴史的仮名遣いでも現代仮名遣いでも書き方は同じ。変わるのは、言葉の"中身"にある場合だけだよ。</div>
         </div>
 
-        <p class="kz-guide-foot">むずかしく見えても、ルールはこれだけ。✦をタップしたら「これは言葉の真ん中？　それとも助詞？」と考えてみよう。まちがえても大丈夫、竹の光は減らないよ。</p>
+        <p class="kz-guide-foot">むずかしく見えても、ルールはこれだけ。✦をタップしたら「これは言葉の真ん中？　それとも助詞？」と考えてみよう。まちがえても大丈夫、竹の光は減らないよ。（豆知識：とても数は少ないけれど、「くわ」→「か」、「ぐわ」→「が」に変わることもあるよ。例：くわじ→かじ）</p>
       </div>
     </div>
 
@@ -28000,6 +28038,57 @@ function ydRenderGameScreen(){
           <div class="yd-overlay-screen yd-hidden" id="ydScreenUraMenu">
             <div class="yd-brush-title" style="font-size:clamp(24px,7vw,30px);">古典の仮名遣い</div>
             <div class="yd-tagline" style="margin-top:-4px;">全4関門を順番にクリアしよう（各60秒・10問正解でクリア）</div>
+            <div class="yd-guide-toggle" id="ydGuideToggle" onclick="ydToggleGuide()">
+              <span>📖</span><span id="ydGuideToggleLabel">かなづかいの直し方を見る</span><span class="yd-guide-arrow">▼</span>
+            </div>
+            <div class="yd-guide-panel" id="ydGuidePanel">
+              <div class="yd-guide-inner">
+                <p class="yd-guide-lead">昔の書き方（歴史的仮名遣い）を今の書き方（現代仮名遣い）に直すルールは、じつはそんなに多くありません。この6つを知っていれば、たいてい解けるよ。</p>
+
+                <div class="yd-guide-rule">
+                  <div class="yd-guide-rule-title">① 言葉の"とちゅう"にある「は・ひ・ふ・へ・ほ」→「わ・い・う・え・お」</div>
+                  <div>いちばんよく出てくる、基本のルール。言葉の一番はじめではなく、中や終わりにある場合だけ変わるよ。</div>
+                  <div class="yd-guide-example">例：つかひ→つかい／いふ→いう／おもへ→おもえ</div>
+                </div>
+
+                <div class="yd-guide-rule">
+                  <div class="yd-guide-rule-title">② 「ゐ」「ゑ」→「い」「え」、言葉の中の「を」→「お」</div>
+                  <div>「ゐ」「ゑ」は、今は使われていない昔だけの文字。見た目は違っても、読み方が変わるだけと考えよう。「を」も、言葉の真ん中や終わりの音として使われているときは「お」に変わるよ（文をつなぐ助詞の「を」は変わらないよ→下の注意を見てね）。</div>
+                  <div class="yd-guide-example">例：ゐたり→いたり／こゑ→こえ／かをり→かおり／をとこ→おとこ</div>
+                </div>
+
+                <div class="yd-guide-rule">
+                  <div class="yd-guide-rule-title">③ 音がのびる言葉「やう・まう・〜しう」→「よう・もう・〜しゅう」</div>
+                  <div>声に出して読むと、音がのびて聞こえる言葉。のびた音のとおりに書き直すよ。</div>
+                  <div class="yd-guide-example">例：やうやう→ようよう／まうづ→もうず／うつくしう→うつくしゅう</div>
+                </div>
+
+                <div class="yd-guide-rule">
+                  <div class="yd-guide-rule-title">④ 「む」→「ん」</div>
+                  <div>「〜だろう」という意味を表す「む」は、今の「ん」と同じ。</div>
+                  <div class="yd-guide-example">例：あらむ→あらん</div>
+                </div>
+
+                <div class="yd-guide-rule">
+                  <div class="yd-guide-rule-title">⑤ 「ぢ」「づ」→「じ」「ず」（ただし例外に注意）</div>
+                  <div>「ぢ」は「じ」に、「づ」は「ず」に変わるのがふつう。ただし「ちぢむ」「つづく」「つれづれ」のように同じ音がくり返される言葉だけは、今でも「ぢ」「づ」のまま書くよ。</div>
+                  <div class="yd-guide-example">例：あぢ→あじ／よろづ→よろず／（例外）ちぢむ・つづく・つれづれ はそのまま</div>
+                </div>
+
+                <div class="yd-guide-rule">
+                  <div class="yd-guide-rule-title">⑥ 拗音（ゃ・ゅ・ょ）や促音（っ）は、小さい字で書く</div>
+                  <div>昔の書き方には、小さい「っ」「ゃ」「ゅ」「ょ」の区別がなかったよ。今の書き方に直すときは、音にあわせて小さい字にしよう。</div>
+                  <div class="yd-guide-example">例：うつくしう→うつくしゅう（「ゅ」を小さく）／うつすら→うっすら（「っ」を小さく）</div>
+                </div>
+
+                <div class="yd-guide-warn">
+                  <div class="yd-guide-warn-title">⚠ ひっかけ注意：助詞の「は・を・へ」は変わらない</div>
+                  <div>「今日<b>は</b>」「花<b>を</b>」「山<b>へ</b>」のように、言葉と言葉をつなぐ役目の「は・を・へ」は、歴史的仮名遣いでも現代仮名遣いでも書き方は同じ。変わるのは、言葉の"中身"にある場合だけだよ。</div>
+                </div>
+
+                <p class="yd-guide-foot">むずかしく見えても、ルールはこれだけ。歴史的仮名遣いの言葉が出たら「どのルールに当てはまる？」と考えてから、ローマ字で打ち込もう。ただし、一度でも打ちまちがえると、その問題は最後まで打ち切っても正解にはならないから、落ち着いて挑もう。（豆知識：とても数は少ないけれど、「くわ」→「か」、「ぐわ」→「が」に変わることもあるよ。例：くわじ→かじ）</p>
+              </div>
+            </div>
             <div class="yd-band-list" id="ydUraGateList"></div>
             <button class="yd-ghost-btn" id="ydUraMenuBackBtn">タイトルへ戻る</button>
           </div>
@@ -28103,6 +28192,16 @@ function ydRenderUraGateMenu(){
       ydSelectUraKana(parseInt(btn.dataset.gateIdx, 10));
     });
   });
+}
+/* かなづかいの直し方ガイドの開閉（かなづかい特訓「光る竹」のkzToggleGuide()と同じ
+   作法、教員の指示、2026-09-27〜：「裏モードの一番上にボタンを配置し、いつでも
+   直し方を復習できるように」）。 */
+function ydToggleGuide(){
+  const panel = ydEl('ydGuidePanel');
+  const toggle = ydEl('ydGuideToggle');
+  const open = panel.classList.toggle('open');
+  toggle.classList.toggle('open', open);
+  ydEl('ydGuideToggleLabel').textContent = open ? 'かなづかいの直し方をとじる' : 'かなづかいの直し方を見る';
 }
 
 const YD_BAND_LABELS = {easy:'初級', mid:'中級', hard:'上級', kanazukai:'古典的仮名遣い'};
