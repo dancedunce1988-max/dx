@@ -3403,6 +3403,9 @@
 #ydRomajiLine .yd-typed{ color:var(--yd-shu-bright); text-shadow:0 1px 3px rgba(0,0,0,0.9), 0 0 12px var(--yd-shu-glow); }
 #ydRomajiLine .yd-rest{ color:var(--yd-paper); opacity:0.95; text-shadow:0 1px 3px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.7); transition:opacity .25s; }
 #ydRomajiLine .yd-rest.yd-hidden-hint{ opacity:0; }
+/* フリック入力で濁点等の確定待ちの1文字（教員の指摘、2026-09-27〜）。 */
+#ydRomajiLine .yd-pending{ color:var(--yd-gold-bright); text-decoration:underline dashed; opacity:.9; animation: ydPendingPulse 1s ease-in-out infinite; }
+@keyframes ydPendingPulse{ 50%{ opacity:.45; } }
 /* 「古典的仮名遣い」モード限定のフリック入力UI（教員の指示、2026-09-27〜）。
    目立たないよう隅に小さく置き、押すとフリック用パッドに切り替わる。 */
 #ydFlickUI{ display:contents; }
@@ -4299,7 +4302,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.38</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.39</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -27723,15 +27726,10 @@ for(const key of Object.keys(YD_KANA2)){
    由来)に照合しているが、フリックは直接かなを選ぶ入力なので、ローマ字を経由せず、
    答えのかな文字列そのもの(yomiList=kanaTargetsAll)に1文字ずつ前方一致させる
    （拗音「きゃ」もき→ゃの2打として自然に一致する）。 */
-const YD_FLICK_LSKEY = 'ydFlickInputOn_v1';
-function ydLoadFlickPref(){
-  try{ return localStorage.getItem(YD_FLICK_LSKEY) === '1'; }catch(e){ return false; }
-}
-function ydSaveFlickPref(on){
-  try{ localStorage.setItem(YD_FLICK_LSKEY, on ? '1' : '0'); }catch(e){}
-}
 // 「古典的仮名遣い」モード（G.mode==='kanaFull'）でフリックがONのときだけ有効。
-// 他のモードに切り替わればローマ字入力に戻る（好みの設定自体はlocalStorageに残る）。
+// デフォルトは必ずキー入力（教員の指示、2026-09-27〜）：設定は保存せず、この
+// モードに入るたび（ydSelectKanaFullでG.flickOn=falseにリセット）必ずOFFから始まり、
+// 隅のボタンを押して初めてフリックに切り替わる。
 function ydFlickActive(){
   const G = storyRun.yd;
   return !!(G && G.mode === 'kanaFull' && G.flickOn);
@@ -28063,7 +28061,7 @@ function storyRenderYomunoDa(beat, idx){
       running:false, awaitingStart:false, band:null, currentLv:1, mode:'normal',
       timeLeft:60000, lastTs:0, score:0, cleanStreak:0,
       used:{}, current:null, nextRaw:null, stats:{correct:0, miss:0},
-      flickOn: ydLoadFlickPref(),
+      flickOn: false,
     };
   }
   ydRenderGameScreen();
@@ -28407,7 +28405,7 @@ function ydNextProblem(){
   let candidates = [];
   for(const kt of kanaTargets) candidates.push(...ydRomajiCandidatesFor(kt));
   candidates = Array.from(new Set(candidates));
-  G.current = { displayHTML, candidates, kanaTargetsAll: kanaTargets, typed:'', typedKana:'', miss:0, shownAt: performance.now(), origItem };
+  G.current = { displayHTML, candidates, kanaTargetsAll: kanaTargets, typed:'', typedKana:'', pending:null, miss:0, shownAt: performance.now(), origItem };
   ydEl('ydProblemText').innerHTML = displayHTML;
   ydFitProblemText();
   ydRenderRomaji();
@@ -28443,11 +28441,15 @@ function ydRenderRomaji(){
   const target = flick ? (c.kanaTargetsAll[0] || '') : (c.candidates[0] || '');
   const typedLen = flick ? c.typedKana.length : c.typed.length;
   const typedPart = target.slice(0, typedLen);
-  const restPart = target.slice(typedLen);
+  // フリック入力中、濁点等でまだ直せる可能性がある1文字(c.pending)は、確定した
+  // typedPartとは別に「未確定」の見た目で挟んで表示する（教員の指摘、2026-09-27〜）。
+  const pendingChar = (flick && c.pending) ? c.pending : '';
+  const restPart = target.slice(typedLen + (pendingChar ? 1 : 0));
   const line = ydEl('ydRomajiLine');
   line.classList.toggle('yd-long', target.length > 14);
   line.innerHTML =
     '<span class="yd-typed">' + esc(typedPart) + '</span>' +
+    (pendingChar ? '<span class="yd-pending">' + esc(pendingChar) + '</span>' : '') +
     '<span class="yd-rest' + (hintVisible ? '' : ' yd-hidden-hint') + '">' + esc(restPart) + '</span>';
   // ローマ字の残りヒントと同時に、漢字の上の読み（ひらがな）ヒントも出す（教員の指示、2026-09-09）。
   const yomiHintEl = ydEl('ydWordYomiHint');
@@ -28657,7 +28659,9 @@ function ydOnKanaGiveUp(){
 /* フリック入力共通のコミット処理：かな1文字ぶん進んだtypedKanaが答え候補
    (kanaTargetsAll)の前方一致になっているかを見て、ydOnKey（ローマ字版）と
    同じ判定・演出・加点をそのまま行う。 */
-function ydFlickCommit(testTyped){
+/* かな1文字を確定させ、答え候補(kanaTargetsAll)への前方一致で正誤を判定・加点する
+   （ydOnKey・ローマ字版と同じ演出／スコア処理）。 */
+function ydFlickFinalize(testTyped){
   const G = storyRun.yd;
   const c = G.current;
   const filtered = c.kanaTargetsAll.filter(s => s.startsWith(testTyped));
@@ -28681,29 +28685,63 @@ function ydFlickCommit(testTyped){
     ydRenderRomaji();
   }
 }
+/* まだ確定していない1文字(c.pending)があれば、今の見た目のまま前方一致を判定して
+   確定させる（新しいキーを押した・バックスペースを押した、などの区切りで呼ぶ）。 */
+function ydFlickResolvePending(){
+  const c = storyRun.yd.current;
+  if(!c || !c.pending) return;
+  const pending = c.pending;
+  c.pending = null;
+  ydFlickFinalize((c.typedKana||'') + pending);
+}
+/* かな行キー：直接候補に一致すればそのまま確定するが、濁点・半濁点・小書きに直せば
+   一致する可能性がある文字（「か」→「が」など）は、まだ間違いと決めつけずpendingに
+   置いて次の操作を待つ（教員の指摘、2026-09-27〜：「か」を打った時点で誤答になり、
+   濁点を押す前に入力できなくなっていた不具合の修正）。 */
 function ydOnFlickChar(ch){
   const G = storyRun.yd;
   if(!G || !G.running || !ch) return;
   const c = G.current;
   if(!c) return;
-  ydFlickCommit((c.typedKana||'') + ch);
+  ydFlickResolvePending(); // 前の文字がpendingのまま次に進むなら、その見た目で確定させる
+  const testTyped = (c.typedKana||'') + ch;
+  const filtered = c.kanaTargetsAll.filter(s => s.startsWith(testTyped));
+  if(filtered.length > 0){
+    ydFlickFinalize(testTyped); // このままで一致するなら即確定
+  } else if(ydModCycleNext(ch) !== null){
+    c.pending = ch; // 濁点等で直る見込みがあるので、まだ誤答にしない
+    ydRenderRomaji();
+  } else {
+    ydFlickFinalize(testTyped); // 直しようがないので通常どおり誤答として確定
+  }
 }
-// 濁点・半濁点・小書き変換キー：直前に打ったかな1文字だけを変換候補に差し替える。
-// 変換先がない文字（変化しないかな）を押しても、単なる操作ミスとしてペナルティなしで無視する。
+// 濁点・半濁点・小書き変換キー：pending中の1文字だけを変換候補に差し替える
+// （「つ」→「づ」→「っ」のように複数回押して切り替えることもできる）。
+// pendingが無い、または変換先が無い文字のときは何もしない（ペナルティなし）。
 function ydOnFlickMod(){
   const G = storyRun.yd;
   if(!G || !G.running) return;
   const c = G.current;
-  if(!c || !c.typedKana) return;
-  const converted = ydModCycleNext(c.typedKana.slice(-1));
+  if(!c || !c.pending) return;
+  const converted = ydModCycleNext(c.pending);
   if(!converted) return;
-  ydFlickCommit(c.typedKana.slice(0, -1) + converted);
+  c.pending = converted;
+  const testTyped = (c.typedKana||'') + converted;
+  const filtered = c.kanaTargetsAll.filter(s => s.startsWith(testTyped));
+  if(filtered.length > 0){
+    c.pending = null;
+    ydFlickFinalize(testTyped); // 一致が見えた時点で確定
+  } else {
+    ydRenderRomaji(); // まだ一致しない（例：つ→づの途中）ので、もう一度押せるよう待つ
+  }
 }
 function ydOnFlickBackspace(){
   const G = storyRun.yd;
   if(!G || !G.running) return;
   const c = G.current;
-  if(!c || !c.typedKana) return;
+  if(!c) return;
+  if(c.pending){ c.pending = null; ydRenderRomaji(); return; }
+  if(!c.typedKana) return;
   c.typedKana = c.typedKana.slice(0, -1);
   ydRenderRomaji();
 }
@@ -28860,6 +28898,7 @@ function ydSelectKanaFull(){
   const G = storyRun.yd;
   G.mode = 'kanaFull';
   G.band = {key:'kanazukai', label:'古典的仮名遣い', time:YD_URA_TIME};
+  G.flickOn = false; // 毎回キー入力から開始（教員の指示、2026-09-27〜）
   G.kanaLvAfter = null;
   G.kanaLvGained = 0;
   G.awaitingStart = true;
@@ -29164,7 +29203,6 @@ function ydAttachMenuHandlers(){
       const G = storyRun.yd;
       if(!G) return;
       G.flickOn = true;
-      ydSaveFlickPref(true);
       ydUpdateFlickUI();
       ydRenderRomaji();
     });
@@ -29176,7 +29214,6 @@ function ydAttachMenuHandlers(){
       const G = storyRun.yd;
       if(!G) return;
       G.flickOn = false;
-      ydSaveFlickPref(false);
       ydUpdateFlickUI();
       ydRenderRomaji();
     });
