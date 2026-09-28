@@ -4312,7 +4312,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.41</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.42</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -5164,6 +5164,21 @@ function loadStats(){
           if(st.story.judgedBest[chapterKey].total !== actualTotal) delete st.story.judgedBest[chapterKey];
         });
         if(!Array.isArray(st.kotonohaSeenForms)) st.kotonohaSeenForms = [];
+        /* ことのはの経験値テーブルを43段階(XP20000)から51段階(XP50000)に延長（2026-09-28〜）。
+           すでにXP20000を超えていたプレイヤーは、拡張後いきなり44〜51段階目のどこかに
+           着地してしまい、その間の称号を一度も「見た」ことにならないままスキップされる
+           （＝称号選択画面に並ばない）ため、一度だけ通過ぶんをまとめて既読化しておく
+           （教員の指示：「その過程にある称号は全て獲得できるように」）。 */
+        if(!st.kotonohaExpandedStagesBackfilled){
+          const curStageIdx = kotonohaStageIndex(kotonohaTotalXP(st));
+          for(let i=44;i<=curStageIdx;i++){
+            const t = kotonohaType(st, i);
+            const k = `${t}-${i}`;
+            if(!st.kotonohaSeenForms.includes(k)) st.kotonohaSeenForms.push(k);
+          }
+          st.kotonohaExpandedStagesBackfilled = true;
+          saveStats(st); // kotonohaOtherType側の保存任せにせず、ここで確実に一度保存する
+        }
         if(st.kotonohaDisplayOverride === undefined) st.kotonohaDisplayOverride = null;
         /* 転生の系統選択機能（2026-08-03〜）のための移行。旧セーブには「これまで転生した系統」の
            履歴が無いため、今まさに転生中の系統だけは「出会ったことがある」ものとして遡って
@@ -5617,12 +5632,22 @@ document.addEventListener("click", function(e){
    （37段階目＝経験値10000ちょうどが当時の最終形態）。
    2026-08-08、KOTONOHA_XP_CAP（20000）まで称号を伸ばすため38〜43段階目を追加。間隔は
    1200からさらに1400→1500→1600→1700→1800→2000と広げ続け、43段階目＝経験値20000ちょうど
-   （＝ことのはの経験値の上限そのもの）が新しい最終形態になる。 */
+   （＝当時のことのはの経験値の上限）が最終形態になった。
+   2026-09-28、KOTONOHA_XP_CAP自体はこの時点ですでに50000まで引き上げ済みだったが、
+   段階テーブルが20000までしかなかったため、それ以上稼いでも見た目が43段階目のまま
+   止まっていた（教員の指示：「間隔はそれまでより伸ばして」実装）。間隔を2700からさらに
+   3000→3300→3600→3900→4200→4500→4800と、これまでよりひと回り大きく広げ続け、
+   44〜51段階目を追加。51段階目＝経験値50000ちょうど（＝KOTONOHA_XP_CAPそのもの）が
+   新しい最終形態になる。すでにXP20000を超えていたプレイヤーがいきなり51段階目まで
+   飛び級しても、その間の称号（44〜50段階目）を一度も「見た」ことにならないまま
+   スキップされてしまわないよう、loadStats側の移行処理で通過ぶんを遡ってkotonohaSeenForms
+   に足しておく（教員の指示：「その過程にある称号は全て獲得できるように」）。 */
 const KOTONOHA_STAGE_XP = [0, 10, 30, 60, 100, 150, 210, 280, 360, 450, 550, 660, 780, 900, 1000,
   1200, 1400, 1600, 1800, 2000,
   2300, 2600, 2900, 3200, 3500, 3800, 4100, 4400, 4700, 5000, 5300,
   5650, 6050, 6550, 7150, 7900, 8800, 10000,
-  11400, 12900, 14500, 16200, 18000, 20000];
+  11400, 12900, 14500, 16200, 18000, 20000,
+  22700, 25700, 29000, 32600, 36500, 40700, 45200, 50000];
 const KOTONOHA_LINES = {
   1:[ // 一領域特化型：偏った特訓で息切れ気味の、不健康系ライン
     {name:"しおれつぼみ", icon:"🥀", stat:{atk:10}},
@@ -5668,6 +5693,14 @@ const KOTONOHA_LINES = {
     {name:"何もない、という真実", icon:"🌌", stat:{atk:246,luck:164}},
     {name:"闇の名すら持たぬ者", icon:"🕳️", stat:{atk:227,def:91,luck:136}},
     {name:"混沌の最果て、その向こう側", icon:"🌑", stat:{atk:232,def:93,luck:139}},
+    {name:"闇という概念が、まだなかった頃", icon:"🌌", stat:{atk:264,luck:176}},
+    {name:"生まれる前の闇、その気配", icon:"🕳️", stat:{atk:243,def:97,luck:146}},
+    {name:"問われることのなかった、闇の意味", icon:"⚫", stat:{atk:409}},
+    {name:"闇と呼ばれる前から、そこにあったもの", icon:"🌌", stat:{atk:282,luck:188}},
+    {name:"始まりのそのまた前にある闇", icon:"🕳️", stat:{atk:259,def:104,luck:156}},
+    {name:"終わりも始まりもない、闇そのものの外側", icon:"🌑", stat:{atk:437}},
+    {name:"闇と名づけることさえ、まだ早すぎるもの", icon:"🌀", stat:{atk:300,luck:200}},
+    {name:"すべての闇が生まれる、その手前の静寂", icon:"⚰️", stat:{atk:275,def:110,luck:166}},
   ],
   2:[ // 二領域特化型：1よりは元気な、コンビプレー系ライン
     {name:"げんきなふたば", icon:"🌱", stat:{def:10}},
@@ -5713,6 +5746,14 @@ const KOTONOHA_LINES = {
     {name:"絆という名の法則", icon:"♾️", stat:{hp:164,def:246}},
     {name:"対（つい）にして極（きわみ）", icon:"👑", stat:{hp:136,def:227,spd:91}},
     {name:"すべての絆の、その原点", icon:"💫", stat:{hp:139,def:232,spd:93}},
+    {name:"絆という概念が、まだなかった頃", icon:"🌌", stat:{def:264,hp:176}},
+    {name:"生まれる前の絆、その気配", icon:"💞", stat:{def:243,spd:97,hp:146}},
+    {name:"問われることのなかった、絆の意味", icon:"♾️", stat:{def:409}},
+    {name:"絆と呼ばれる前から、そこにあったもの", icon:"🔗", stat:{def:282,hp:188}},
+    {name:"始まりのそのまた前にある絆", icon:"💫", stat:{def:259,spd:104,hp:156}},
+    {name:"終わりも始まりもない、絆そのものの外側", icon:"🌌", stat:{def:437}},
+    {name:"絆と名づけることさえ、まだ早すぎるもの", icon:"🌗", stat:{def:300,hp:200}},
+    {name:"すべての絆が生まれる、その手前の静寂", icon:"♾️", stat:{def:275,spd:110,hp:166}},
   ],
   3:[ // ３領域以上バランス型・のびのび系：2よりさらに元気なライン（下の5系統とランダムで抽選される）
     {name:"いきいき新芽", icon:"🌿", stat:{spd:10}},
@@ -5758,6 +5799,14 @@ const KOTONOHA_LINES = {
     {name:"光と名付けられぬもの", icon:"🌟", stat:{spd:246,luck:164}},
     {name:"始まりよりも前にある輝き", icon:"☀️", stat:{hp:91,spd:227,luck:136}},
     {name:"光の名を持たぬ、光そのもの", icon:"🌌", stat:{hp:93,spd:232,luck:139}},
+    {name:"光という概念が、まだなかった頃", icon:"🌌", stat:{spd:264,luck:176}},
+    {name:"生まれる前の光、その気配", icon:"🌠", stat:{spd:243,hp:97,luck:146}},
+    {name:"問われることのなかった、光の意味", icon:"✨", stat:{spd:409}},
+    {name:"光と呼ばれる前から、そこにあったもの", icon:"🌟", stat:{spd:282,luck:188}},
+    {name:"始まりのそのまた前にある光", icon:"🌠", stat:{spd:259,hp:104,luck:156}},
+    {name:"終わりも始まりもない、光そのものの外側", icon:"🌌", stat:{spd:437}},
+    {name:"光と名づけることさえ、まだ早すぎるもの", icon:"✨", stat:{spd:300,luck:200}},
+    {name:"すべての光が生まれる、その手前の静寂", icon:"🕊️", stat:{spd:275,hp:110,luck:166}},
   ],
   4:[ // 全領域バランス型：伝説級ライン
     {name:"せいれいの新芽", icon:"🌟", stat:{hp:3,atk:2,def:2,spd:2,luck:2}},
@@ -5803,6 +5852,14 @@ const KOTONOHA_LINES = {
     {name:"ことばになる、その瞬間そのもの", icon:"🌟", stat:{hp:91,atk:90,def:90,spd:90,luck:90}},
     {name:"意味という名の宇宙", icon:"✨", stat:{hp:93,atk:93,def:92,spd:92,luck:92}},
     {name:"ことのは、その名の起源", icon:"🌌", stat:{hp:95,atk:95,def:95,spd:94,luck:94}},
+    {name:"ことのはが生まれる、その前触れ", icon:"🌌", stat:{hp:97,atk:97,def:97,spd:96,luck:96}},
+    {name:"まだ言葉ですらなかった、はじまりの気配", icon:"📖", stat:{hp:99,atk:99,def:99,spd:98,luck:98}},
+    {name:"問われることのなかった、存在の意味", icon:"🌟", stat:{hp:101,atk:101,def:101,spd:100,luck:100}},
+    {name:"ことのはと呼ばれる前から、そこにあったもの", icon:"🔮", stat:{hp:103,atk:103,def:103,spd:102,luck:102}},
+    {name:"始まりのそのまた前にある、ことのは", icon:"⏳", stat:{hp:105,atk:105,def:105,spd:104,luck:104}},
+    {name:"終わりも始まりもない、ことのはそのものの外側", icon:"🌌", stat:{hp:107,atk:107,def:107,spd:106,luck:106}},
+    {name:"ことのはと名づけることさえ、まだ早すぎるもの", icon:"✨", stat:{hp:109,atk:109,def:109,spd:108,luck:108}},
+    {name:"すべてのことのはが生まれる、その手前の静寂", icon:"🌈", stat:{hp:111,atk:111,def:111,spd:110,luck:110}},
   ],
   5:[ // ３領域以上バランス型・ほのお系
     {name:"ちいさな火だね", icon:"🔥", stat:{atk:10}},
@@ -5848,6 +5905,14 @@ const KOTONOHA_LINES = {
     {name:"炎と名付けられぬ熱", icon:"🔆", stat:{atk:246,spd:164}},
     {name:"灯る前からあった、たしかな熱", icon:"💥", stat:{hp:91,atk:227,spd:136}},
     {name:"炎の名を持たぬ、炎そのもの", icon:"☀️", stat:{hp:93,atk:232,spd:139}},
+    {name:"炎という概念が、まだなかった頃", icon:"🌋", stat:{atk:264,spd:176}},
+    {name:"生まれる前の炎、その気配", icon:"🔥", stat:{atk:243,hp:97,spd:146}},
+    {name:"問われることのなかった、炎の意味", icon:"☀️", stat:{atk:409}},
+    {name:"炎と呼ばれる前から、そこにあったもの", icon:"💥", stat:{atk:282,spd:188}},
+    {name:"始まりのそのまた前にある炎", icon:"🔆", stat:{atk:259,hp:104,spd:156}},
+    {name:"終わりも始まりもない、炎そのものの外側", icon:"🌋", stat:{atk:437}},
+    {name:"炎と名づけることさえ、まだ早すぎるもの", icon:"🔥", stat:{atk:300,spd:200}},
+    {name:"すべての炎が生まれる、その手前の静寂", icon:"☀️", stat:{atk:275,hp:110,spd:166}},
   ],
   6:[ // ３領域以上バランス型・うみかぜ系
     {name:"しずくの精", icon:"💧", stat:{hp:10}},
@@ -5893,6 +5958,14 @@ const KOTONOHA_LINES = {
     {name:"海と名付けられぬ流れ", icon:"🌀", stat:{hp:246,def:164}},
     {name:"凪ぐ前からあった、たしかな深さ", icon:"🐋", stat:{hp:227,def:136,luck:91}},
     {name:"海の名を持たぬ、海そのもの", icon:"🌊", stat:{hp:232,def:139,luck:93}},
+    {name:"海という概念が、まだなかった頃", icon:"🌐", stat:{hp:264,def:176}},
+    {name:"生まれる前の海、その気配", icon:"🌊", stat:{hp:243,luck:97,def:146}},
+    {name:"問われることのなかった、海の意味", icon:"💧", stat:{hp:409}},
+    {name:"海と呼ばれる前から、そこにあったもの", icon:"🌀", stat:{hp:282,def:188}},
+    {name:"始まりのそのまた前にある海", icon:"🐋", stat:{hp:259,luck:104,def:156}},
+    {name:"終わりも始まりもない、海そのものの外側", icon:"🌐", stat:{hp:437}},
+    {name:"海と名づけることさえ、まだ早すぎるもの", icon:"🌊", stat:{hp:300,def:200}},
+    {name:"すべての海が生まれる、その手前の静寂", icon:"💧", stat:{hp:275,luck:110,def:166}},
   ],
   7:[ // ３領域以上バランス型・ほしぞら系
     {name:"星のかけら", icon:"⭐", stat:{luck:10}},
@@ -5938,6 +6011,14 @@ const KOTONOHA_LINES = {
     {name:"星と名付けられぬ輝き", icon:"🌠", stat:{spd:164,luck:246}},
     {name:"巡る前からあった、たしかな広さ", icon:"🌃", stat:{hp:91,spd:136,luck:227}},
     {name:"星の名を持たぬ、星そのもの", icon:"🌌", stat:{hp:93,spd:139,luck:232}},
+    {name:"星という概念が、まだなかった頃", icon:"🌌", stat:{luck:264,spd:176}},
+    {name:"生まれる前の星、その気配", icon:"🌠", stat:{luck:243,hp:97,spd:146}},
+    {name:"問われることのなかった、星の意味", icon:"✨", stat:{luck:409}},
+    {name:"星と呼ばれる前から、そこにあったもの", icon:"🪐", stat:{luck:282,spd:188}},
+    {name:"始まりのそのまた前にある星", icon:"🌃", stat:{luck:259,hp:104,spd:156}},
+    {name:"終わりも始まりもない、星そのものの外側", icon:"🌌", stat:{luck:437}},
+    {name:"星と名づけることさえ、まだ早すぎるもの", icon:"🌠", stat:{luck:300,spd:200}},
+    {name:"すべての星が生まれる、その手前の静寂", icon:"🪐", stat:{luck:275,hp:110,spd:166}},
   ],
   8:[ // ３領域以上バランス型・おとの系
     {name:"音符のたね", icon:"🎵", stat:{spd:10}},
@@ -5983,6 +6064,14 @@ const KOTONOHA_LINES = {
     {name:"音と名付けられぬ調べ", icon:"🎶", stat:{atk:164,spd:246}},
     {name:"奏でる前からあった、たしかな響き", icon:"🎹", stat:{atk:136,spd:227,luck:91}},
     {name:"音の名を持たぬ、音そのもの", icon:"🔊", stat:{atk:139,spd:232,luck:93}},
+    {name:"音という概念が、まだなかった頃", icon:"🎼", stat:{spd:264,atk:176}},
+    {name:"生まれる前の音、その気配", icon:"🎶", stat:{spd:243,luck:97,atk:146}},
+    {name:"問われることのなかった、音の意味", icon:"🎵", stat:{spd:409}},
+    {name:"音と呼ばれる前から、そこにあったもの", icon:"🔊", stat:{spd:282,atk:188}},
+    {name:"始まりのそのまた前にある音", icon:"🎹", stat:{spd:259,luck:104,atk:156}},
+    {name:"終わりも始まりもない、音そのものの外側", icon:"🎼", stat:{spd:437}},
+    {name:"音と名づけることさえ、まだ早すぎるもの", icon:"🎶", stat:{spd:300,atk:200}},
+    {name:"すべての音が生まれる、その手前の静寂", icon:"🔊", stat:{spd:275,luck:110,atk:166}},
   ],
   9:[ // ３領域以上バランス型・はなぞの系
     {name:"つぼみの精", icon:"🌷", stat:{hp:10}},
@@ -6028,6 +6117,14 @@ const KOTONOHA_LINES = {
     {name:"花と名付けられぬ彩り", icon:"🌼", stat:{hp:246,def:164}},
     {name:"香る前からあった、たしかな彩り", icon:"🌻", stat:{hp:227,def:136,spd:91}},
     {name:"花の名を持たぬ、花そのもの", icon:"🪷", stat:{hp:232,def:139,spd:93}},
+    {name:"花という概念が、まだなかった頃", icon:"🌺", stat:{hp:264,def:176}},
+    {name:"生まれる前の花、その気配", icon:"🌸", stat:{hp:243,spd:97,def:146}},
+    {name:"問われることのなかった、花の意味", icon:"🌼", stat:{hp:409}},
+    {name:"花と呼ばれる前から、そこにあったもの", icon:"🌹", stat:{hp:282,def:188}},
+    {name:"始まりのそのまた前にある花", icon:"🪷", stat:{hp:259,spd:104,def:156}},
+    {name:"終わりも始まりもない、花そのものの外側", icon:"🌺", stat:{hp:437}},
+    {name:"花と名づけることさえ、まだ早すぎるもの", icon:"🌸", stat:{hp:300,def:200}},
+    {name:"すべての花が生まれる、その手前の静寂", icon:"🌼", stat:{hp:275,spd:110,def:166}},
   ],
 };
 const KOTONOHA_TYPE_LABEL = {
