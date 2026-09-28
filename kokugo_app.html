@@ -131,6 +131,21 @@
     border-radius:99px; background:var(--accent2); color:#fff; white-space:nowrap;
   }
   .shogo-badge.top{background:var(--gold);}
+  /* 「NEW」吹き出し（2026-09-29〜、教員の指示：新設コンテンツの告知を3日間だけ出す）。
+     newBadgeHtml()が期間内だけ差し込む小さな丸ふきだし。position:relativeな見出し文字の
+     すぐ右に、行の流れに乗せてインライン表示する（絶対配置にすると、カードごとにレイアウトが
+     違うため位置がずれやすいのを避けた）。 */
+  .new-bubble{
+    display:inline-block; position:relative; margin-left:6px; margin-top:-2px;
+    font-size:.68rem; font-weight:bold; padding:2px 9px; border-radius:99px;
+    background:#ff5577; color:#fff; white-space:nowrap; vertical-align:middle;
+    animation:newBubblePop 1.6s ease-in-out infinite;
+  }
+  .new-bubble::after{
+    content:""; position:absolute; left:-4px; top:50%; transform:translateY(-50%);
+    border-width:4px 5px 4px 0; border-style:solid; border-color:transparent #ff5577 transparent transparent;
+  }
+  @keyframes newBubblePop{ 0%,100%{transform:scale(1);} 50%{transform:scale(1.12);} }
   /* 第8章「体育祭」の組バッジ（2026-07-22〜、教員の指示で組団カラーに変更）。碧組・紅組・黄組は
      既存のテーマカラー（--accent2/--accent/--gold）が偶然にも近い色味だったのでそのまま流用し、
      蒼組（青系）だけ新しい色を追加した。 */
@@ -4312,7 +4327,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.47</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.48</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -7653,7 +7668,7 @@ function showHome(){
       html += `
       <div class="card menu-card" onclick="startQuiz('${key}')">
         <div class="menu-icon">${GROUP_ICONS[g.name] || "📝"}</div>
-        <div><h2>${esc(m.name)}</h2><p>${esc(m.desc)}</p></div>
+        <div><h2>${esc(m.name)}${key === "bunsetsu_kankei" ? newBadgeHtml() : ""}</h2><p>${esc(m.desc)}</p></div>
         <div class="right">
           <span class="shogo-badge ${t.hidden?"top":""}">${t.icon} ${esc(t.name)} Lv.${lv}</span>
           <span class="count">全${m.items.length}問${unlockPct!=null ? `・解放率${unlockPct}%` : ""}</span>
@@ -19625,11 +19640,26 @@ function storyProgress(st){
   if(!st.story) st.story = {chapter:"ch1", beatIdx:0, flags:{}, completedChapters:[], judgedRunCorrect:0, judgedRunTotal:0, judgedBest:{}, comboBest:{}};
   return st.story;
 }
+/* 「NEW」吹き出し（2026-09-29〜、教員の指示：「今日から3日間つけて、そのあとは自然となくなる
+   ように」）。表示開始日から丸3日（当日をふくむ）だけtrueになる、日付だけの比較（時刻は無視）。
+   対象：ストーリーモードの入口カード・「第二部」タブ・「文の成分・文節相互の関係」の
+   ジャンルカード（storyEntryHtml・showMainStoryMenu・showHomeのジャンル一覧を参照）。 */
+const NEW_BADGE_START = new Date(2026, 8, 29); // 月は0始まりなので8=9月
+const NEW_BADGE_DAYS = 3;
+function isNewBadgeActive(){
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const days = Math.round((today - NEW_BADGE_START) / 86400000);
+  return days >= 0 && days < NEW_BADGE_DAYS;
+}
+function newBadgeHtml(){
+  return isNewBadgeActive() ? `<span class="new-bubble">NEW</span>` : "";
+}
 function storyEntryHtml(st){
   return `
     <div class="card menu-card story-btn" onclick="showMainStoryMenu()">
       <div class="menu-icon">📖</div>
-      <div><h2>ストーリーモード</h2>
+      <div><h2>ストーリーモード${newBadgeHtml()}</h2>
       <p>ことのはと一緒に、中学校生活を歩む物語</p></div>
     </div>`;
 }
@@ -19658,7 +19688,7 @@ function showMainStoryMenu(part){
   const st = loadStats();
   let html = `<div class="btn-row" style="justify-content:center; margin-bottom:10px">
     <button class="btn ${storyMenuPart==='1' ? '' : 'secondary'}" onclick="showMainStoryMenu('1')">📖 第一部</button>
-    <button class="btn ${storyMenuPart==='2' ? '' : 'secondary'}" onclick="showMainStoryMenu('2')">📖 第二部</button>
+    <button class="btn ${storyMenuPart==='2' ? '' : 'secondary'}" onclick="showMainStoryMenu('2')">📖 第二部${newBadgeHtml()}</button>
   </div>`;
   if(storyMenuPart === '2'){
     /* 第二部（2026-09-29〜、教員の指示：「第一部をクリアしなくても、第二部はあけられるように
