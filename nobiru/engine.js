@@ -19,6 +19,14 @@ const svgNS = "http://www.w3.org/2000/svg";
    同一オリジンなのでlocalStorageはkokugo_app.htmlと共有できるが、st（本体のセーブデータ）の
    複雑な形を直接ここで書き換えるのは危険なので、合図だけを置く簡単な仕組みにしてある。 */
 const VIA_DAILY = new URLSearchParams(location.search).get("viaDaily") === "1";
+/* 「問題チェックモード」（2026-09-27〜、教員の指示）：知識ドリルDXの読解Quest入口画面で
+   「dokkaichekku」と入力すると開ける、管理者用の裏メニュー（ddShowNobiruCheckMode）経由。
+   ?viaCheck=1付きで開かれたときは、経験値の合図（DD_PENDING_REWARD_LSKEY）をいっさい書かず、
+   自己ベスト記録（NobiruRecords）への保存も行わず、経験値ポップアップも出さない＝
+   このモードで最後まで解いても、経験値には絶対にならない。画面上にこのモードであることを
+   示す表示は出さない（管理者本人がURLで判別できれば十分。生徒向けの通常表示に手を
+   加えるとヒントになってしまうため）。 */
+const VIA_CHECK = new URLSearchParams(location.search).get("viaCheck") === "1";
 const DD_PENDING_REWARD_LSKEY = "dd_daily_pending_reward_v1";
 /* この教材が、以前すでにストック経験値を受け取り済みかどうか（2026-09-23〜、教員の指示：
    「2回目以降は経験値を獲得できないので、獲得していない経験値についてはポップアップ等で
@@ -196,8 +204,14 @@ function revealPara(i){
   scheduleDemRedraw();
 }
 
-/* ---- 全文訳（sent.trがある教材だけ、下の方のボタンから一括で見られるようにする） ---- */
+/* ---- 全文訳（sent.trがある教材だけ、下の方のボタンから一括で見られるようにする） ----
+   傍線部(u)をふくむ文は、本来は設問の答えに直結するため全文訳では伏せる方針だったが、
+   古文・漢文教材（meta.fullTrShowsU:true）に限っては、教員の指示（2026-09-27〜）により
+   傍線部をふくむ文もそのまま全文訳に載せる。古文・漢文は文節訳(p)だけでは意味を
+   取りにくく、通して読める現代語訳そのものに価値があるための例外扱い。現代文教材
+   （fullTrShowsUを立てていないもの）は、これまでどおり傍線部をふくむ文を伏せる。 */
 const hasTranslations = PARAS.some(para => para.s.some(sent => sent.tr));
+const FULLTR_SHOWS_U = !!TEXT.meta.fullTrShowsU;
 function renderFullTr(){
   if(!hasTranslations) return;
   const list = $("fullTrList");
@@ -206,7 +220,7 @@ function renderFullTr(){
     const trs = PARAS[i].s.filter(sent => sent.tr);
     if(!trs.length) continue;
     html += `<div class="fulltr-para"><div class="fulltr-para-title ui">第${kanjiNum(i + 1)}段落</div>`
-      + trs.map(sent => /\|u:/.test(sent.t)
+      + trs.map(sent => (!FULLTR_SHOWS_U && /\|u:/.test(sent.t))
           ? `<p class="fulltr-sent fulltr-blank ui">（傍線部をふくむ文なので、ここでは伏せます。設問で確かめよう）</p>`
           : `<p class="fulltr-sent">${escHtml(sent.tr)}</p>`
         ).join("")
@@ -504,7 +518,7 @@ function showQuestion(q, onClear){
              （教員の指示：「獲得していない経験値については表示しないように」）。 */
           const xp = Math.max(0, 10 - rec.miss * 2);
           addXp(xp);
-          if(xp > 0 && !ALREADY_REWARDED) showXpGainPopup(xp);
+          if(xp > 0 && !ALREADY_REWARDED && !VIA_CHECK) showXpGainPopup(xp);
           const expText = document.createElement("div");
           expText.textContent = "正解。" + q.exp;
           fb.appendChild(expText);
@@ -580,18 +594,24 @@ function finish(){
   updateQGauge(TOTAL_Q);
   /* 「一日一読」への合図（2026-09-23〜）。kokugo_app.htmlのst（本体セーブ）には触れず、
      専用のlocalStorageキーに書き置くだけ。ホーム画面（ddCheckNobiruPendingReward）が
-     次に開かれたときに読み取り、初めての合図であればストック経験値に変換する。 */
-  try{
-    localStorage.setItem(DD_PENDING_REWARD_LSKEY, JSON.stringify({ textKey: TEXT_KEY, totalXp, viaDaily: VIA_DAILY, ts: Date.now() }));
-  }catch(e){ /* privateモード等で保存できない場合は、合図なしで続行する */ }
+     次に開かれたときに読み取り、初めての合図であればストック経験値に変換する。
+     問題チェックモード（VIA_CHECK）のときは、この合図自体を書かない＝経験値には
+     絶対にならない（ddCheckNobiruPendingRewardに何も伝わらないので、本体セーブは
+     一切変化しない）。 */
+  if(!VIA_CHECK){
+    try{
+      localStorage.setItem(DD_PENDING_REWARD_LSKEY, JSON.stringify({ textKey: TEXT_KEY, totalXp, viaDaily: VIA_DAILY, ts: Date.now() }));
+    }catch(e){ /* privateモード等で保存できない場合は、合図なしで続行する */ }
+  }
   const clean = record.filter(r => r.miss === 0).length;
   const miss = record.reduce((n, r) => n + r.miss, 0);
   const rows = record.map((r, i) => `<tr><td>設問${kanjiNum(i + 1)}</td><td>${r.miss === 0 ? "○" : "誤答" + r.miss + "回"}</td></tr>`).join("");
   /* 自己ベストとの比較（他者比較・順位は出さない。前回の自分の記録とだけ比べる）。
      NobiruRecordsが読み込まれていない教材（records.jsを included していない教材HTML）
-     では、比較を出さず今回の合計だけを表示する。 */
+     では、比較を出さず今回の合計だけを表示する。問題チェックモード（VIA_CHECK）では
+     自己ベストの記録自体を汚したくないので保存・比較表示ともに行わない。 */
   let compareHtml = "";
-  if(window.NobiruRecords){
+  if(window.NobiruRecords && !VIA_CHECK){
     const { prev } = NobiruRecords.finish(TEXT_KEY, "easy", totalXp);
     compareHtml = prev
       ? `<p class="xp-compare">前回の累計経験値は${prev.lastXp}でした（自己ベスト${prev.bestXp}）。順位や他の人との比較はありません。自分の記録とだけ比べてみましょう。</p>`

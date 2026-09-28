@@ -3406,8 +3406,10 @@
 /* フリック入力で濁点等の確定待ちの1文字（教員の指摘、2026-09-27〜）。 */
 #ydRomajiLine .yd-pending{ color:var(--yd-gold-bright); text-decoration:underline dashed; opacity:.9; animation: ydPendingPulse 1s ease-in-out infinite; }
 @keyframes ydPendingPulse{ 50%{ opacity:.45; } }
-/* 「古典的仮名遣い」モード限定のフリック入力UI（教員の指示、2026-09-27〜）。
-   目立たないよう隅に小さく置き、押すとフリック用パッドに切り替わる。 */
+/* 「古典的仮名遣い」「古典の仮名遣い」（各関門）限定のフリック入力UI（教員の指示、2026-09-27〜／
+   2026-09-28〜：各関門でも使えるように拡張し、実際のキー(パッド)はゲーム画面の外に出す独立
+   パネル(#ydFlickFloat)に変更。ゲーム画面内の問題文と被って見えにくいという指摘への対応）。
+   隅の切り替えボタン自体は今まで通り目立たないよう隅に小さく置く。 */
 #ydFlickUI{ display:contents; }
 #ydFlickToggleBtn{
   position:absolute; right:8px; bottom:6px; z-index:3;
@@ -3416,16 +3418,24 @@
   padding:4px 10px; cursor:pointer; opacity:.6; transition:opacity .2s;
 }
 #ydFlickToggleBtn:hover{ opacity:1; }
-#ydScrollInner.yd-flick-pad-open #ydProblemArea{ padding-bottom:190px; }
-#ydFlickPad{
-  position:absolute; left:0; right:0; bottom:0; z-index:3;
-  background:linear-gradient(180deg, rgba(20,9,14,0.94), rgba(12,5,8,0.98));
-  border-top:1px solid var(--yd-line); padding:6px 10px 10px; display:flex; flex-direction:column; gap:6px;
+/* ゲーム画面の外に浮かせる独立パネル。position:fixedなので#ydRoot（overflow:hidden）や
+   #ydScrollInner（overflow-y:auto）にクリップされず、常にビューポート基準で描画される
+   （祖先に transform 等が無い限り、fixed要素は途中の overflow:hidden の影響を受けない）。
+   初期位置はJS側(ydPositionFlickFloat)でゲーム画面の外側に来るよう計算し、ドラッグ操作
+   (ydFlickFloatPointerDown)で自由に動かせるようにする（教員の指示、2026-09-28〜）。 */
+#ydFlickFloat{
+  position:fixed; z-index:500; width:min(88vw, 300px);
+  background:linear-gradient(180deg, rgba(20,9,14,0.97), rgba(12,5,8,0.99));
+  border:1px solid var(--yd-line); border-radius:12px; padding:6px 10px 10px;
+  display:flex; flex-direction:column; gap:6px;
+  box-shadow:0 10px 30px rgba(0,0,0,0.55);
 }
-.yd-flick-pad-head{ display:flex; justify-content:space-between; align-items:center; font-size:10.5px; color:var(--yd-paper-dim); letter-spacing:1px; }
-.yd-flick-pad-head button{
+.yd-flick-float-head{ display:flex; justify-content:space-between; align-items:center; font-size:10.5px; color:var(--yd-paper-dim); letter-spacing:1px; gap:6px; }
+.yd-flick-float-drag{ cursor:grab; touch-action:none; padding:6px 4px; margin:-6px 0 -6px -4px; user-select:none; flex:1; }
+.yd-flick-float-drag:active{ cursor:grabbing; }
+.yd-flick-float-head button{
   font-family:inherit; font-size:10.5px; color:var(--yd-paper-dim); background:none;
-  border:1px solid var(--yd-line-dim); border-radius:10px; padding:2px 8px; cursor:pointer;
+  border:1px solid var(--yd-line-dim); border-radius:10px; padding:2px 8px; cursor:pointer; flex-shrink:0;
 }
 .yd-flick-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
 .yd-flick-key{
@@ -3438,7 +3448,7 @@
 .yd-flick-key:active{ filter:brightness(1.25); }
 .yd-flick-key.yd-flick-util{ font-size:11.5px; color:var(--yd-gold-bright); }
 #ydFlickPreview{
-  position:fixed; z-index:10; transform:translate(-50%,-50%); pointer-events:none;
+  position:fixed; z-index:600; transform:translate(-50%,-50%); pointer-events:none;
   display:grid; grid-template-columns:repeat(3, 32px); grid-template-rows:repeat(3, 32px);
   background:rgba(20,9,14,0.9); border:1px solid var(--yd-line); border-radius:10px;
 }
@@ -4302,7 +4312,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.40</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.41</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -12675,6 +12685,20 @@ const NOBIRU_TEXTS = [
   { key:"hayasa", title:"「速さ」が奪うもの【論説文】", desc:"動画の倍速視聴を入り口に、効率を優先しすぎることで失われる、心を動かされる体験について論じる。", cat:"説明", ddPublishDate:"2026-10-21" },
   { key:"kuraberu", title:"比べることの正体【論説文】", desc:"SNSでの他人との比較で落ち込む経験から、比べることそのものは道具にすぎないという視点を論じる。", cat:"説明", ddPublishDate:"2026-10-23" },
   { key:"shiranai", title:"「知らない」を楽しむ【論説文】", desc:"質問するのが恥ずかしいという気持ちを入り口に、「知らない」を好奇心の入り口としてとらえなおす論説文。", cat:"説明", ddPublishDate:"2026-10-27" },
+  /* ここから2026-09-27追加分（古文・漢文のストック増量、教員の指示）。既存の古文・漢文
+     （都のならひ・大江山・猫また・絵仏師良秀・扇の的・かぐや姫の昇天・東下り・完璧・
+     臥薪嘗胆・隗より始めよ・矛盾・四面楚歌・杞憂）と同じく、ddPublishDateを付けない
+     ＝一日一読のローテーションには含めず、「のびる読解」のロック中ストックとして温存する。 */
+  { key:"haruakebono", title:"春はあけぼの【古文】", desc:"清少納言『枕草子』冒頭段より。春夏秋冬、それぞれの季節でいちばん趣のある時をよむ。", cat:"古文" },
+  { key:"ninnajihoushi", title:"仁和寺にある法師【古文】", desc:"吉田兼好『徒然草』より。石清水八幡宮へ参った法師が、思い込みから本殿を見ずに帰ってしまう。", cat:"古文" },
+  { key:"tabidachi", title:"旅立ち【古文】", desc:"松尾芭蕉『おくのほそ道』冒頭より。旅を栖とする人生観から、みずから旅へ出るまでを描く。", cat:"古文" },
+  { key:"gionshouja", title:"祇園精舎【古文】", desc:"『平家物語』冒頭より。諸行無常・盛者必衰の理を説き、これから語る清盛の物語へとつなぐ。", cat:"古文" },
+  { key:"nayotake", title:"かぐや姫の誕生【古文】", desc:"『竹取物語』冒頭より。光る竹の中に見つけた小さな人が、輝きを放ちながら育っていく。", cat:"古文" },
+  { key:"gakujishuu", title:"学びて時に之を習ふ【漢文】", desc:"『論語』より。学ぶ喜び、友との交わり、人に知られずとも慍みず。孔子が説いたいくつもの教え。", cat:"漢文" },
+  { key:"dasoku", title:"蛇足【漢文】", desc:"『戦国策』より。蛇を描く速さを競った男が、余計な足を描き足したために酒を失ってしまう。", cat:"漢文" },
+  { key:"gojippohyappo", title:"五十歩百歩【漢文】", desc:"『孟子』より。五十歩逃げた者は、百歩逃げた者を笑えるか。梁恵王への鋭い問い返し。", cat:"漢文" },
+  { key:"suikou", title:"推敲【漢文】", desc:"『唐詩紀事』より。「推す」か「敲く」か、一字にこだわり抜いた賈島と、韓愈との出会い。", cat:"漢文" },
+  { key:"chousanboshi", title:"朝三暮四【漢文】", desc:"『列子』より。朝三つ暮れに四つと、朝四つ暮れに三つ。合計は同じなのに、猿の反応は。", cat:"漢文" },
 ];
 const NOBIRU_CATS = [
   { key:"文学", label:"文学的文章", icon:"📖" },
@@ -12706,8 +12730,55 @@ function nobiruIsUnlocked(t){
 // viaDaily:true＝ホーム画面「一日一読」経由（教員の指示、2026-09-23〜）。engine.js側が
 // URLの?viaDaily=1を読み取り、完了時の経験値連携（DD_PENDING_REWARD_LSKEY）に含める
 // （一日一読経由なら全額、そうでなければ半額。ddCheckNobiruPendingReward参照）。
-function ddOpenNobiru(key, viaDaily){
-  location.href = "nobiru/" + key + ".html" + (viaDaily ? "?viaDaily=1" : "");
+// viaCheck:true＝「問題チェックモード」経由（教員の指示、2026-09-27〜。ddShowNobiruCheckMode
+// 参照）。engine.js側が?viaCheck=1を読み取り、経験値の合図（DD_PENDING_REWARD_LSKEY）を
+// いっさい書かない＝このモードで解いても経験値には絶対にならない。
+function ddOpenNobiru(key, viaDaily, viaCheck){
+  location.href = "nobiru/" + key + ".html" + (viaCheck ? "?viaCheck=1" : viaDaily ? "?viaDaily=1" : "");
+}
+/* 「問題チェックモード」（教員の指示、2026-09-27〜）。読解Quest入口画面（ddShowLevelSelect）
+   で「dokkaichekku」と連続入力すると発動する、管理者用の裏メニュー。NOBIRU_TEXTSに
+   実装済みの全教材を、公開/ロック状態を無視してすべて一覧表示し、タップで確認できる。
+   ・生徒向けの通常画面には、このコマンドの存在をうかがわせる表示をいっさい出さない
+     （ボタンや案内文は用意しない。存在を知っている人だけがキーボードで入力する想定）。
+   ・?viaCheck=1付きで開くため、engine.js側が経験値の合図を書かず、記録（自己ベスト）
+     にも残らない（ddOpenNobiru・nobiru/engine.js側のVIA_CHECK参照）。
+   バッファ監視はアプリ全体で常時有効にしておき、対象画面（data-dd-screen="levelselect"
+   が描画されているとき）でだけ一致判定する方式にすることで、画面遷移のたびにリスナーの
+   付け外しを管理する必要をなくしてある。テキスト入力欄にフォーカスがあるときは無視するので、
+   既存の入力機能とは干渉しない。 */
+let ddCheckBuffer = "";
+const DD_CHECK_CODE = "dokkaichekku";
+window.addEventListener("keydown", e => {
+  const tag = (e.target && e.target.tagName) || "";
+  if(tag === "INPUT" || tag === "TEXTAREA") return;
+  if(!/^[a-zA-Z]$/.test(e.key)){ ddCheckBuffer = ""; return; }
+  ddCheckBuffer = (ddCheckBuffer + e.key.toLowerCase()).slice(-DD_CHECK_CODE.length);
+  if(ddCheckBuffer === DD_CHECK_CODE && document.querySelector('[data-dd-screen="levelselect"]')){
+    ddCheckBuffer = "";
+    ddShowNobiruCheckMode();
+  }
+});
+function ddShowNobiruCheckMode(){
+  let html = `
+    <div class="dd-intro-card">
+      <h2>🗺️ 読解Quest</h2>
+    </div>
+    <h3 class="section">伸びる読解</h3>`;
+  NOBIRU_CATS.forEach(cat => {
+    const items = NOBIRU_TEXTS.filter(t => t.cat === cat.key);
+    if(!items.length) return;
+    html += `<h3 class="section" style="margin-top:14px">${cat.icon} ${esc(cat.label)}</h3>`;
+    items.forEach(t => {
+      html += `
+      <div class="card menu-card" onclick="ddOpenNobiru('${t.key}', false, true)">
+        <div class="menu-icon">🌱</div>
+        <div><h2>伸びる読解「${esc(t.title)}」</h2><p>${esc(t.desc)}</p></div>
+      </div>`;
+    });
+  });
+  html += `<div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
+  screen.innerHTML = html;
 }
 /* 読解Questの入口（2026-09-16〜2026-09-23、教員の指示）。以前はホーム画面のボタンから
    いったん「準備中です」という案内画面（ddShowPrep）を見せていたが、教員の指示で
@@ -12715,7 +12786,7 @@ function ddOpenNobiru(key, viaDaily){
    ddShowLevelSelectに入るようにした。 */
 function ddShowLevelSelect(){
   let html = `
-    <div class="dd-intro-card">
+    <div class="dd-intro-card" data-dd-screen="levelselect">
       <h2>🗺️ 読解Quest</h2>
       <p>文章の中から「証拠」を探し、たしかめて、推理し、最後に書き抜きか選択問題で仕上げる読解ゲームです。</p>
     </div>
@@ -27721,18 +27792,19 @@ for(const key of Object.keys(YD_KANA2)){
 }
 /* ===================================================================
    YOMUの打・フリック入力（教員の指示、2026-09-27〜：「古典的仮名遣い」モードだけ
-   物理キーボード（ローマ字）に加えてフリック入力にも対応する）。
+   物理キーボード（ローマ字）に加えてフリック入力にも対応する。2026-09-28〜、裏モード
+   「古典の仮名遣い」の各関門（G.mode==='uraKana'）でも同じくフリック入力に対応するよう拡張）。
    通常の物理キーボード入力(ydOnKey)はローマ字を1文字ずつcandidates(ydRomajiCandidatesFor
    由来)に照合しているが、フリックは直接かなを選ぶ入力なので、ローマ字を経由せず、
    答えのかな文字列そのもの(yomiList=kanaTargetsAll)に1文字ずつ前方一致させる
    （拗音「きゃ」もき→ゃの2打として自然に一致する）。 */
-// 「古典的仮名遣い」モード（G.mode==='kanaFull'）でフリックがONのときだけ有効。
-// デフォルトは必ずキー入力（教員の指示、2026-09-27〜）：設定は保存せず、この
-// モードに入るたび（ydSelectKanaFullでG.flickOn=falseにリセット）必ずOFFから始まり、
-// 隅のボタンを押して初めてフリックに切り替わる。
+// 「古典的仮名遣い」(kanaFull)・「古典の仮名遣い」各関門(uraKana)モードで、フリックが
+// ONのときだけ有効。デフォルトは必ずキー入力（教員の指示、2026-09-27〜）：設定は保存せず、
+// このモードに入るたび（ydSelectKanaFull／ydSelectUraKanaでG.flickOn=falseにリセット）
+// 必ずOFFから始まり、隅のボタンを押して初めてフリックに切り替わる。
 function ydFlickActive(){
   const G = storyRun.yd;
-  return !!(G && G.mode === 'kanaFull' && G.flickOn);
+  return !!(G && (G.mode === 'kanaFull' || G.mode === 'uraKana') && G.flickOn);
 }
 // 各行は[中央(あ段), 上(う段), 右(え段), 下(お段), 左(い段)]の順
 // （実機のフリック入力と同じ配置、教員の指摘で再修正：2026-09-27）。
@@ -27874,7 +27946,11 @@ const YD_KANA_POOL = (function(){
     const kuwa = /くわ|ぐわ/.test(e);
     const sokuon = /促音/.test(e);
     const g2sig = wi || we || mu || di || du;
-    if(chouon){ g3.push(toRaw(it)); continue; }
+    /* 第三の関門「～う（ふ）」は長く難しい問題が多く難易度が高すぎるとの指摘（2026-09-28〜）。
+       打ち込む部分（=現代仮名遣いの答え、it.ans[0]）が4文字を超えるものは除外し、短い問題
+       だけを出す（全関門共通の8文字上限とは別に、この関門だけさらに絞る。当初3文字までに
+       絞ったところプールが7問と少なかったため、教員の指示で4文字まで広げた）。 */
+    if(chouon){ if(it.ans[0].length <= 4) g3.push(toRaw(it)); continue; }
     if(hagyo && !g2sig && !wo && !kuwa && !sokuon){ g1.push(toRaw(it)); continue; }
     if(g2sig && !hagyo){ g2.push(toRaw(it)); continue; }
     /* 「を」単独・くわ/ぐわ・促音・漢字混じりで説明文が定型化できなかったものなどは
@@ -28068,6 +28144,7 @@ function storyRenderYomunoDa(beat, idx){
 }
 
 function ydRenderGameScreen(){
+  ydFlickFloatPos = null; // 画面を作り直すたびフリックパッドの位置をリセット（教員の指示、2026-09-28〜）
   const st = loadStats();
   screen.innerHTML = `
     <div class="card story-scene">
@@ -28091,9 +28168,9 @@ function ydRenderGameScreen(){
             </div>
             <div id="ydFlickUI" class="yd-hidden">
               <button type="button" id="ydFlickToggleBtn" title="かなをタップ／フリックして打つ">フリック入力</button>
-              <div id="ydFlickPad" class="yd-hidden">
-                <div class="yd-flick-pad-head">
-                  <span>フリック入力</span>
+              <div id="ydFlickFloat" class="yd-hidden">
+                <div class="yd-flick-float-head">
+                  <span class="yd-flick-float-drag" id="ydFlickDragHandle">⠿ フリック入力（ドラッグで移動できます）</span>
                   <button type="button" id="ydFlickCloseBtn">✕ キー入力に戻す</button>
                 </div>
                 ${ydFlickPadHtml()}
@@ -28791,21 +28868,91 @@ function ydFlickKeyPointerDown(e){
   document.addEventListener('pointermove', move);
   document.addEventListener('pointerup', up);
 }
-// 現在のG.modeとflickOnにあわせて、隅の切り替えボタン⇄フリックパッドの表示を同期する。
-// 「古典的仮名遣い」(kanaFull)以外のモードでは#ydFlickUIごと隠す。
+// 現在のG.modeとflickOnにあわせて、隅の切り替えボタン⇄フリックパッド(独立パネル)の表示を
+// 同期する。「古典的仮名遣い」(kanaFull)・各関門(uraKana)以外のモードでは#ydFlickUIごと隠す
+// （教員の指示、2026-09-27〜／2026-09-28〜uraKanaにも許可を拡張）。
 function ydUpdateFlickUI(){
   const G = storyRun.yd;
   const wrap = ydEl('ydFlickUI');
   if(!wrap) return;
-  const allowed = !!(G && G.mode === 'kanaFull');
+  const allowed = !!(G && (G.mode === 'kanaFull' || G.mode === 'uraKana'));
   wrap.classList.toggle('yd-hidden', !allowed);
   const active = allowed && !!G.flickOn;
   const toggleBtn = ydEl('ydFlickToggleBtn');
-  const pad = ydEl('ydFlickPad');
-  const scrollInner = ydEl('ydScrollInner');
+  const floatPanel = ydEl('ydFlickFloat');
   if(toggleBtn) toggleBtn.classList.toggle('yd-hidden', active);
-  if(pad) pad.classList.toggle('yd-hidden', !active);
-  if(scrollInner) scrollInner.classList.toggle('yd-flick-pad-open', active);
+  if(floatPanel){
+    floatPanel.classList.toggle('yd-hidden', !active);
+    if(active) ydPositionFlickFloat(floatPanel);
+  }
+}
+/* フリックパッド（#ydFlickFloat）の位置。一度ドラッグで動かした後は、同じプレイ画面に
+   いる間（もう一度遊ぶ・他の関門を選び直す等）は位置を保ち続け、開き直すたびに位置が
+   リセットされて動かし直しになる不便を避ける。ydRenderGameScreenで画面ごと作り直す
+   （＝このYOMUの打シーンに新しく入る）たびにnullへ戻し、次に開いたときにゲーム画面の
+   外側に来る初期位置を計算し直す（教員の指示、2026-09-28〜：「ゲーム画面の外に出し、
+   ドラッグで動かせるように」）。 */
+let ydFlickFloatPos = null;
+function ydPositionFlickFloat(panel){
+  if(ydFlickFloatPos){
+    panel.style.left = ydFlickFloatPos.left + 'px';
+    panel.style.top = ydFlickFloatPos.top + 'px';
+    return;
+  }
+  const root = ydEl('ydRoot');
+  const rootRect = root ? root.getBoundingClientRect() : {left:0, right:window.innerWidth, top:0, bottom:0, width:window.innerWidth};
+  const pw = panel.offsetWidth || 280;
+  const ph = panel.offsetHeight || 220;
+  const gap = 14;
+  let left, top;
+  if(window.innerWidth - rootRect.right >= pw + gap){
+    // PCなど横に余白がある画面では、ゲーム画面の右隣に並べて置く。
+    left = rootRect.right + gap;
+    top = Math.min(Math.max(8, rootRect.top), window.innerHeight - ph - 8);
+  } else if(rootRect.left >= pw + gap){
+    // 右に余白がなければ左隣に置く。
+    left = rootRect.left - pw - gap;
+    top = Math.min(Math.max(8, rootRect.top), window.innerHeight - ph - 8);
+  } else {
+    // 左右どちらにも余白がない縦長画面（スマホ等）では、ゲーム画面のすぐ下に置く。
+    // 下にも収まらないほどビューポートが低いときだけ、被らない範囲でビューポート下端に寄せる。
+    left = rootRect.left + (rootRect.width - pw) / 2;
+    top = rootRect.bottom + gap;
+    if(top + ph > window.innerHeight - 8) top = Math.max(8, window.innerHeight - ph - 8);
+  }
+  left = Math.min(Math.max(8, left), window.innerWidth - pw - 8);
+  ydFlickFloatPos = {left, top};
+  panel.style.left = left + 'px';
+  panel.style.top = top + 'px';
+}
+// ドラッグハンドル（#ydFlickDragHandle）のpointerdownから、離すまでパネルを指に追従させる
+// （ydFlickKeyPointerDownと同じsetPointerCapture方式）。動かした位置はydFlickFloatPosに
+// 覚えておき、閉じて再度開いてもそのままの位置から始まるようにする。
+function ydFlickFloatPointerDown(e){
+  e.preventDefault();
+  const panel = ydEl('ydFlickFloat');
+  if(!panel) return;
+  const startX = e.clientX, startY = e.clientY;
+  const rect = panel.getBoundingClientRect();
+  const startLeft = rect.left, startTop = rect.top;
+  e.currentTarget.setPointerCapture(e.pointerId);
+  const move = (ev)=>{
+    if(ev.pointerId !== e.pointerId) return;
+    let left = startLeft + (ev.clientX - startX);
+    let top = startTop + (ev.clientY - startY);
+    left = Math.min(Math.max(4, left), window.innerWidth - panel.offsetWidth - 4);
+    top = Math.min(Math.max(4, top), window.innerHeight - panel.offsetHeight - 4);
+    panel.style.left = left + 'px';
+    panel.style.top = top + 'px';
+    ydFlickFloatPos = {left, top};
+  };
+  const up = (ev)=>{
+    if(ev.pointerId !== e.pointerId) return;
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', up);
+  };
+  document.addEventListener('pointermove', move);
+  document.addEventListener('pointerup', up);
 }
 let ydRafId = null;
 function ydLoop(ts){
@@ -28865,6 +29012,7 @@ function ydSelectUraKana(gateIdx){
   gateIdx = Math.max(0, Math.min(YD_URA_GATES.length - 1, Math.min(progress, gateIdx)));
   G.mode = 'uraKana';
   G.band = {key:'uraKana', label:YD_URA_GATES[gateIdx].label, time:YD_URA_TIME};
+  G.flickOn = false; // 毎回キー入力から開始（kanaFullと同じ方針、教員の指示、2026-09-28〜）
   G.uraGateIdx = gateIdx;
   G.uraStartProgress = progress; // このラウンドが進捗にカウントされるか（=frontierか）の判定用
   G.uraGateProgress = 0;
@@ -29194,8 +29342,9 @@ function ydAttachMenuHandlers(){
     }
   });
 
-  /* フリック入力UI（「古典的仮名遣い」限定）：隅の切り替えボタン⇄パッドのクリック、
-     パッド内の各キーのフリック操作を、ここでまとめて配線する（教員の指示、2026-09-27〜）。 */
+  /* フリック入力UI（「古典的仮名遣い」・各関門限定）：隅の切り替えボタン⇄独立パネルの
+     クリック、パネル内の各キーのフリック操作、パネルのドラッグ移動を、ここでまとめて
+     配線する（教員の指示、2026-09-27〜／2026-09-28〜ドラッグ配線を追加）。 */
   const flickToggleBtn = ydEl('ydFlickToggleBtn');
   if(flickToggleBtn){
     flickToggleBtn.addEventListener('click', (e)=>{
@@ -29222,9 +29371,11 @@ function ydAttachMenuHandlers(){
   if(flickModBtn) flickModBtn.addEventListener('click', (e)=>{ e.stopPropagation(); ydOnFlickMod(); });
   const flickBackBtn = ydEl('ydFlickBackBtn');
   if(flickBackBtn) flickBackBtn.addEventListener('click', (e)=>{ e.stopPropagation(); ydOnFlickBackspace(); });
-  document.querySelectorAll('#ydFlickPad .yd-flick-key[data-flick-idx]').forEach(btn=>{
+  document.querySelectorAll('#ydFlickFloat .yd-flick-key[data-flick-idx]').forEach(btn=>{
     btn.addEventListener('pointerdown', ydFlickKeyPointerDown);
   });
+  const flickDragHandle = ydEl('ydFlickDragHandle');
+  if(flickDragHandle) flickDragHandle.addEventListener('pointerdown', ydFlickFloatPointerDown);
   ydUpdateFlickUI();
 }
 /* ================= 漢字マスターの道（漢字の書きミニゲーム、2026-09-03〜） =================
