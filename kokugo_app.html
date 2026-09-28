@@ -4312,7 +4312,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.45</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.46</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -19646,17 +19646,30 @@ function miniGameEntryHtml(st){
 }
 /* 章選択画面。STORY_CHAPTERSのキーをそのまま順番にボタン化するので、
    今後2章目以降を追加してもこの関数を変更する必要はない。 */
-function showMainStoryMenu(){
+/* 「第一部」「第二部」タブの選択状態（2026-09-29〜、教員の指示：「常に全部が開いていると
+   冗長で見づらい」）。セーブしない画面内だけの状態で、アプリを開き直すと常に第一部から。
+   showMainStoryMenu()を引数なしで呼ぶ既存の呼び出し元（storyEntryHtml等）は、
+   今の選択タブをそのまま維持して開き直す。 */
+let storyMenuPart = "1";
+function showMainStoryMenu(part){
+  if(part) storyMenuPart = part;
   const st = loadStats();
-  let html = `<div class="card"><h3 class="section">📖 第一部</h3>
-    <p class="note">ことのはと一緒に、中学校生活を歩む物語です。<br>章を選んで読み進めよう。前の章をクリアすると、次の章が解放されます。</p></div>`;
-  html += Object.keys(STORY_CHAPTERS).map(key => storyChapterButtonHtml(key, st)).join("");
-  /* 第二部（2026-09-29〜、教員の指示：「第一部をクリアしなくても、第二部はあけられるように
-     する」）。第一部の進行状況とは無関係に、第二部自身の章キー順だけで解放が進む
-     （storyPart2ChapterUnlocked参照）。 */
-  html += `<div class="card"><h3 class="section">📖 第二部</h3>
-    <p class="note">こちらは第一部とは独立した物語です。第一部をクリアしていなくても遊べます。</p></div>`;
-  html += Object.keys(STORY_PART2_CHAPTERS).map(key => storyPart2ChapterButtonHtml(key, st)).join("");
+  let html = `<div class="btn-row" style="justify-content:center; margin-bottom:10px">
+    <button class="btn ${storyMenuPart==='1' ? '' : 'secondary'}" onclick="showMainStoryMenu('1')">📖 第一部</button>
+    <button class="btn ${storyMenuPart==='2' ? '' : 'secondary'}" onclick="showMainStoryMenu('2')">📖 第二部</button>
+  </div>`;
+  if(storyMenuPart === '2'){
+    /* 第二部（2026-09-29〜、教員の指示：「第一部をクリアしなくても、第二部はあけられるように
+       する」）。第一部の進行状況とは無関係に、第二部自身の章キー順だけで解放が進む
+       （storyPart2ChapterUnlocked参照）。 */
+    html += `<div class="card"><h3 class="section">📖 第二部</h3>
+      <p class="note">こちらは第一部とは独立した物語です。第一部をクリアしていなくても遊べます。</p></div>`;
+    html += Object.keys(STORY_PART2_CHAPTERS).map(key => storyPart2ChapterButtonHtml(key, st)).join("");
+  }else{
+    html += `<div class="card"><h3 class="section">📖 第一部</h3>
+      <p class="note">ことのはと一緒に、中学校生活を歩む物語です。<br>章を選んで読み進めよう。前の章をクリアすると、次の章が解放されます。</p></div>`;
+    html += Object.keys(STORY_CHAPTERS).map(key => storyChapterButtonHtml(key, st)).join("");
+  }
   html += `<div class="btn-row" style="justify-content:center; margin-top:10px">
     <button class="btn secondary" onclick="showHome()">ホームへ</button>
   </div>`;
@@ -23101,6 +23114,7 @@ function storyChapterEnd(){
       <div class="btn-row" style="justify-content:center">
         <button class="btn" onclick="showHome()">ホームへ</button>
         <button class="btn secondary" onclick="storyReplayChapter()">もう一度プレイする</button>
+        <button class="btn secondary" onclick="showMainStoryMenu('${sp.chapter.startsWith("p2") ? "2" : "1"}')">ほかのストーリーを選択</button>
       </div>
       <p class="note">※ボス戦のアイテム・宝具は再プレイではもらえません。<br>選択肢問題の正答率は、今回の記録の方が自己ベストより高い場合だけ更新されます。</p>
     </div>`;
@@ -24148,6 +24162,10 @@ function bgUpdateSentence(){
       if(justCleared){
         BG.clearAnnounced = true;
         bgBanner("クリア達成", BG.stage.storyOnly ? "" : "ここからは腕試し。速さはさらに上がる");
+      }else if(BG.stage.storyOnly){
+        /* ストーリー第二部専用（2026-09-29〜、教員の指示：「一問答えるごとに、『10問でクリア
+           現在○問！』と分かりやすく2秒間表示する」）。通常の「一刀両断」の代わりに出す。 */
+        bgBanner(`${BG.stage.clearCount}問でクリア`, `現在${BG.curSentence+1}問！`, 2000);
       }else{
         bgBanner("一刀両断","＋三〇〇");
       }
@@ -24169,6 +24187,9 @@ function bgUpdateSentence(){
       /* ミスがあった文でクリア問数に到達した場合も、達成そのものは変わらず伝える。 */
       BG.clearAnnounced = true;
       bgBanner("クリア達成", BG.stage.storyOnly ? "" : "ここからは腕試し。速さはさらに上がる");
+    }else if(BG.stage.storyOnly){
+      /* ミスがあった文でも、ストーリー第二部では毎問すすみ具合を表示する。 */
+      bgBanner(`${BG.stage.clearCount}問でクリア`, `現在${BG.curSentence+1}問！`, 2000);
     }
     BG.sentenceClean=true;
     BG.sentenceLifeLost=false;
@@ -24414,14 +24435,17 @@ function bgOnMiss(kind,g){
   bgPushMiss(kind,g);
   bgLoseCombo();
   BG.miss++;
+  /* ストーリー第二部専用ルール（2026-09-29〜、教員の指示：「ライフが減少することがない
+     ようにしてください」）。storyOnlyな巻のあいだはミスをそのまま記録するだけで、
+     ライフを一切減らさない（＝bgFailStageにも到達しない）。 */
   if(!BG.sentenceLifeLost){
     BG.sentenceLifeLost = true;
-    BG.life = Math.max(0, BG.life-1);
+    if(!BG.stage.storyOnly) BG.life = Math.max(0, BG.life-1);
   }
   const fieldEl=bg$("bgField");
   fieldEl.classList.remove("shake"); void fieldEl.offsetWidth; fieldEl.classList.add("shake");
   bgDrawHud();
-  if(BG.life<=0) bgFailStage();
+  if(BG.life<=0 && !BG.stage.storyOnly) bgFailStage();
 }
 
 /* ---------- 演出（独立版のまま） ---------- */
@@ -24494,13 +24518,14 @@ function bgFxComboBreak(before){
   if(ctx){ const t=ctx.currentTime;
     [523.3,415.3,311.1,207.7].forEach((f,i)=>bgTone(ctx,"triangle",f,f,t+i*0.08,0.36,0.12)); }
 }
-function bgBanner(t,s){
+function bgBanner(t,s,durationMs){
+  const dur = durationMs || 1100;
   const m=bgMetrics();
   const d=document.createElement("div");
   d.className="verdict"; d.style.top=(m.H*0.34)+"px"; d.style.color="#9c7c2a";
-  d.style.fontSize="1.6rem"; d.style.animationDuration="1.05s";
+  d.style.fontSize="1.6rem"; d.style.animationDuration=Math.max(dur-100,100)/1000+"s";
   d.innerHTML=t+'<div style="font-size:.58rem;letter-spacing:.3em;margin-top:6px;color:#7b7466">'+s+"</div>";
-  bg$("bgField").appendChild(d); setTimeout(()=>d.remove(),1100);
+  bg$("bgField").appendChild(d); setTimeout(()=>d.remove(),dur);
 }
 
 /* =========================================================================
