@@ -4312,7 +4312,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.46</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.47</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -19080,9 +19080,11 @@ const STORY_CHAPTERS = {
    ・p2ch1「新学期」：中ボス/ボスとも言の刃斬（bunsetsu beat、bgStoryStageIdでBG_STAGESの
      ストーリー専用の巻に直接入り、通常の巻えらび画面は経由しない。10問正解でクリア）。
    ・p2ch2「修学旅行のお土産」：中ボスは敬語の通常battle beat。ボスはボキャブラ・シューティング
-     （shooting beat）にstoryGoalLevelIndexを指定し、無敵＋大学生レベル到達で強制クリアという
-     ストーリー限定ルールを適用する。章クリアで「東京で買ったお守り」を入手し、以後
-     国語の神の出現率が上がる（storyChapterEnd・rollBossEncounter参照）。
+     （shooting beat）にstoryGoalLevelIndexを指定し、無敵＋高校生レベル到達で強制クリアという
+     ストーリー限定ルールを適用する（2026-09-29〜追記：誤答オーブに一度でも命中した問題は、
+     その後正解オーブを撃っても得点・記録にならない、vsHitOrbのshoot.roundMissed参照）。
+     章クリアで「東京で買ったお守り」を入手し、以後国語の神の出現率が上がる
+     （storyChapterEnd・rollBossEncounter参照）。
    ・p2ch3「新人戦」：中ボスは新設ジャンルbunsetsu_kankeiの「文の成分」部分（tag:"bunsei"）に
      filterTagで絞ったbattle beat。ボスはマッチ＆MATCH（新設speedMatch beat）にstoryGoalMatchesを
      指定し、制限時間なし・30マッチ到達で強制終了というストーリー限定ルールを適用する。 */
@@ -19316,16 +19318,16 @@ const STORY_PART2_CHAPTERS = {
       {
         "type": "line",
         "speaker": "花子",
-        "text": "今回は特別ルールがあるみたい。ライフが減ってもゲームオーバーにならないから、大学生レベルに届くまで思いきり撃ちまくって！"
+        "text": "今回は特別ルールがあるみたい。ライフが減ってもゲームオーバーにならないから、高校生レベルに届くまで思いきり撃ちまくって！　あ、でも間違ったものを一度撃つと、その問題はもう点数にならないみたいだから気をつけて。"
       },
       {
         "type": "shooting",
         "cat": "goi",
-        "storyGoalLevelIndex": 7
+        "storyGoalLevelIndex": 6
       },
       {
         "type": "line",
-        "text": "画面いっぱいに「大学生レベル到達！」の文字が輝いた。"
+        "text": "画面いっぱいに「高校生レベル到達！」の文字が輝いた。"
       },
       {
         "type": "line",
@@ -22197,6 +22199,7 @@ function vsPickNextItem(){
   shoot.currentOrder = shuffledOrder(it.c.length);
   shoot.spawnedForItem = false;
   shoot.bullets = [];
+  shoot.roundMissed = false; // ストーリー第二部専用ルール用（vsHitOrb参照）。問題が変わるたびリセットする
   const el = document.getElementById("vsWord");
   if(el) el.innerHTML = vsWordHtml(it.q);
 }
@@ -22395,7 +22398,20 @@ function vsHitOrb(o){
   const shoot = storyRun.shoot;
   o.hit = true; o.gone = true;
   const elapsedMs = Date.now() - (shoot.itemShownAt || Date.now());
+  const isStoryGoal = storyRun.curBeat && storyRun.curBeat.storyGoalLevelIndex != null;
   if(o.correct){
+    /* ストーリー第二部専用ルール（2026-09-29〜、教員の指示：「間違ったものを撃った場合は、
+       その問題で他の選択肢を撃ち直しても、点数にはならない」）。同じ問題（お題の語）で
+       すでに誤答オーブに命中していれば（shoot.roundMissed）、正解オーブを撃っても
+       得点・記録・報酬は一切発生させず、その場を片付けて次の問題へ進むだけにする。 */
+    if(isStoryGoal && shoot.roundMissed){
+      vsSpawnParticles(o.x,o.y,'#8899cc',10);
+      vsSpawnPopup(o.x,o.y, 'ノーカウント', '#8899cc');
+      shoot.orbs.forEach(other=>{ if(!other.hit){ other.hit=true; other.gone=true; } });
+      shoot.bullets = [];
+      vsUpdateHud();
+      return;
+    }
     shoot.combo++;
     const gain = 10 + shoot.combo*2;
     shoot.score += gain;
@@ -22440,6 +22456,7 @@ function vsHitOrb(o){
       vsSpawnPopup(shoot.W/2, shoot.H/2, 'スピードアップ!', '#ff9dc0');
     }
   }else{
+    if(isStoryGoal) shoot.roundMissed = true;
     shoot.combo = 0;
     vsSpawnParticles(o.x,o.y,'#ff5577',14);
     vsSpawnPopup(o.x,o.y,'ちがう!', '#ff5577');
