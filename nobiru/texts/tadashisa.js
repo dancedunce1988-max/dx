@@ -5,6 +5,7 @@
    ことがある、という主題。現代文なので p（文節訳）・tr（全文訳）は使わない。 */
 window.NOBIRU_TEXT = {
   meta: {
+    key: "tadashisa",
     title: "「正しさ」の落とし穴",
     sub: null,
     theme: null,

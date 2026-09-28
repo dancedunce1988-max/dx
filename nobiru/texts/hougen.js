@@ -1,6 +1,7 @@
 /* 「方言」―― のびる読解 教材データ（第2教材。ishigaki.js と同じ記法・同じ形で作成） */
 window.NOBIRU_TEXT = {
   meta: {
+    key: "hougen",
     title: "方　言",
     sub: "答えると、本文が一段落のびる。点線の語はタップで意味が出る。",
     theme: null,

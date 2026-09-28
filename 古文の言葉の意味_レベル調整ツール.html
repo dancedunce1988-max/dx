@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>古文の言葉の意味 レベル調整ツール</title>
+<style>
+  :root{
+    --bg:#f4f2ec; --panel:#fff; --ink:#2a2620; --sub:#8a8374; --line:#ddd6c7;
+    --ng:#c0392b; --ok:#2f8f4e; --accent:#8a5a2b; --new:#2f6f8f;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Yu Gothic","Meiryo",sans-serif;}
+  header{background:#3a3226;color:#f4f2ec;padding:10px 20px;position:sticky;top:0;z-index:10;}
+  header h1{font-size:16px;margin:0 0 8px;}
+  .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .toolbar input[type=text]{font-size:13px;padding:6px 10px;border:1px solid var(--line);border-radius:6px;min-width:220px;}
+  .toolbar select{font-size:13px;padding:6px 10px;border:1px solid var(--line);border-radius:6px;}
+  .toolbar button{font-size:13px;padding:6px 14px;border:1px solid #6b5f4a;background:#4a4133;color:#f4f2ec;border-radius:6px;cursor:pointer;}
+  .toolbar button:hover{background:#5a5040;}
+  .toolbar button.danger{background:var(--ng);border-color:var(--ng);}
+  .toolbar button.danger:hover{background:#a5311f;}
+  .toolbar button.primary{background:var(--accent);border-color:var(--accent);}
+  .toolbar button.primary:hover{background:#75481f;}
+  .stat{font-size:13px;color:#e6e1d3;}
+  .stat b{color:#fff;}
+  .lvStats{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;font-size:12px;color:#e6e1d3;}
+  .lvStats span{background:rgba(255,255,255,.08);border-radius:10px;padding:2px 9px;}
+  .lvStats b{color:#ffd76b;}
+  main{max-width:900px;margin:0 auto;padding:16px 16px 80px;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.05);position:relative;}
+  .card.deleted{background:#faf3f0;border-color:#e6b8ac;opacity:.7;}
+  .card.deleted .qtext{text-decoration:line-through;color:#999;}
+  .card.isNew{border-color:var(--new);box-shadow:0 0 0 2px rgba(47,111,143,.15);}
+  .meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--sub);margin-bottom:8px;}
+  .meta label{display:flex;align-items:center;gap:4px;}
+  .meta input[type=number]{width:52px;font-size:12px;padding:3px 5px;border:1px solid var(--line);border-radius:5px;}
+  .badge{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;background:#eee;color:#666;}
+  .badge.newBadge{background:#2f6f8f;color:#fff;}
+  .qtext{font-size:15px;line-height:1.6;margin-bottom:6px;}
+  .qtext b.tgt{color:var(--accent);}
+  .rowEdit{display:flex;gap:6px;align-items:center;margin-bottom:6px;}
+  .rowEdit label{font-size:11.5px;color:var(--sub);min-width:52px;}
+  .rowEdit input[type=text]{flex:1;font-size:13.5px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;}
+  .choices{list-style:none;margin:0 0 8px;padding:0;font-size:13px;}
+  .choices li{display:flex;align-items:center;gap:6px;padding:3px 0;}
+  .choices li input[type=text]{flex:1;font-size:13px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;}
+  .choices li input[type=text].correct{border-color:var(--ok);background:#f2fbf5;}
+  .choices li input[type=radio]{accent-color:var(--ok);}
+  .exprow{display:flex;gap:6px;margin-bottom:8px;}
+  .exprow label{font-size:11.5px;color:var(--sub);min-width:52px;padding-top:4px;}
+  .expl{flex:1;font-size:12.5px;color:var(--ink);background:#f8f6ef;border:1px solid var(--line);border-radius:6px;padding:8px 10px;min-height:52px;font-family:inherit;resize:vertical;}
+  .btnRow{display:flex;gap:8px;justify-content:flex-end;margin-top:4px;}
+  .btnRow button{font-size:12px;padding:5px 12px;border-radius:14px;cursor:pointer;background:#fff;}
+  .dupBtn{border:1px solid var(--accent);color:var(--accent);}
+  .dupBtn:hover{background:var(--accent);color:#fff;}
+  .delBtn{border:1px solid var(--ng);color:var(--ng);}
+  .delBtn:hover{background:var(--ng);color:#fff;}
+  .restoreBtn{border:1px solid var(--ok);color:var(--ok);}
+  .restoreBtn:hover{background:var(--ok);color:#fff;}
+  h2.sectionTitle{font-size:14px;color:var(--sub);border-bottom:1px solid var(--line);padding-bottom:6px;margin:22px 0 10px;display:flex;justify-content:space-between;align-items:center;}
+  #status{position:fixed;top:10px;right:16px;background:#2f8f4e;color:#fff;padding:6px 14px;border-radius:6px;font-size:13px;opacity:0;transition:opacity .25s;pointer-events:none;z-index:20;}
+  #status.show{opacity:1;}
+  #exportBox{display:none;max-width:900px;margin:0 auto;padding:0 16px 40px;}
+  #exportBox textarea{width:100%;height:260px;font-family:monospace;font-size:12px;padding:10px;border:1px solid var(--line);border-radius:8px;}
+  .note{font-size:12.5px;color:var(--sub);}
+  .hidden{display:none!important;}
+  #addBox{max-width:900px;margin:14px auto 0;padding:0 16px;}
+  #addPanel{display:none;background:#eef5f8;border:2px solid var(--new);border-radius:10px;padding:16px 18px;}
+  #addPanel h3{margin:0 0 10px;font-size:14px;color:var(--new);}
+  #addPanel .rowEdit label, #addPanel .exprow label{color:#3a6a80;}
+  #addPanel .choices li input[type=text]{background:#fff;}
+</style>
+</head>
+<body>
+<header>
+  <h1>古文の言葉の意味　レベル調整ツール</h1>
+  <div class="toolbar">
+    <input type="text" id="filterInput" placeholder="問題文・解説で検索">
+    <select id="lvFilterSelect"><option value="">レベル：すべて</option></select>
+    <button id="addToggleBtn">＋ 新しい問題を追加</button>
+    <button id="exportBtn" class="primary">📤 書き出す</button>
+    <button id="resetAllBtn" class="danger">元データに戻す</button>
+    <span class="stat">全<b id="totalCount">0</b>問中　残す：<b id="keepCount">0</b>問　／　削除：<b id="removedCount">0</b>問</span>
+  </div>
+  <div class="lvStats" id="lvStats"></div>
+</header>
+
+<div id="addBox">
+  <div id="addPanel">
+    <h3>新しい問題を追加</h3>
+    <div class="rowEdit"><label>問題文</label><input type="text" id="newQ" placeholder="例：《いと》うつくしうてゐたり　（《》で囲んだ部分の意味を問う）"></div>
+    <div class="rowEdit"><label>指示文</label><input type="text" id="newS" value="意味を書いてください"></div>
+    <ul class="choices" id="newChoices"></ul>
+    <div class="exprow"><label>解説</label><textarea class="expl" id="newE" placeholder="語の意味・語源・注意点などの解説"></textarea></div>
+    <div class="meta">
+      <label>レベル<input type="number" id="newLv" value="1" min="1" max="10"></label>
+      <label>学年区分<input type="number" id="newGrade" value="3" min="1" max="10"></label>
+    </div>
+    <div class="btnRow">
+      <button id="addCancelBtn">キャンセル</button>
+      <button id="addSubmitBtn" class="dupBtn" style="border-color:var(--new);color:var(--new);">この内容で追加する</button>
+    </div>
+  </div>
+</div>
+
+<main id="main"></main>
+
+<div id="exportBox">
+  <h2 class="sectionTitle">書き出し結果</h2>
+  <p class="note">
+    ダウンロードした .json ファイル、または下のテキストをそのまま使って、<code>kokugo_data.js</code> の
+    <code>cats.kobun.items</code> をこの内容に置き換えてください（手動マージ）。削除した問題はここには含まれません。
+  </p>
+  <textarea id="exportText" readonly onclick="this.select()"></textarea>
+</div>
+
+<div id="status"></div>
+
+<script src="kokugo_data.js"></script>
+<script>
+(function(){
+  "use strict";
+  var STORAGE_KEY = "kobunLevelTool_items_v2";
+  var origItems = (window.QUESTION_DATA && window.QUESTION_DATA.cats && window.QUESTION_DATA.cats.kobun
+    && window.QUESTION_DATA.cats.kobun.items) || [];
+
+  // 作業中データはlocalStorageにまるごと保存し、ブラウザを閉じても続きから編集できるようにする
+  // （このツールに元データを直接書き換える手段はないため、手動マージまでの一時保存として使う）。
+  function cloneFromOriginal(){
+    return origItems.map(function(it){
+      return {q:it.q, s:it.s||"", c:(it.c||["","","",""]).slice(0,4), a:it.a||0, lv:it.lv||1, e:it.e||"", grade:it.grade||3};
+    });
+  }
+  function loadWorking(){
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if(raw) return JSON.parse(raw);
+    }catch(e){}
+    return cloneFromOriginal();
+  }
+  function saveWorking(){
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); }catch(e){}
+  }
+
+  var items = loadWorking();
+  var filterText = "";
+  var lvFilter = "";
+
+  function showStatus(msg){
+    var el = document.getElementById("status");
+    el.textContent = msg;
+    el.classList.add("show");
+    clearTimeout(showStatus._t);
+    showStatus._t = setTimeout(function(){ el.classList.remove("show"); }, 1600);
+  }
+
+  function esc(s){
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+  // 問題文の《...》で囲んだ部分（意味を問う対象）を色つきで強調する。
+  function qHtml(q){
+    return esc(q).replace(/《([^》]*)》/g, '《<b class="tgt">$1</b>》');
+  }
+
+  function refreshLvFilterOptions(){
+    var sel = document.getElementById("lvFilterSelect");
+    var lvs = Array.from(new Set(items.map(function(it){ return it.lv; }))).sort(function(a,b){ return a-b; });
+    var cur = sel.value;
+    sel.innerHTML = '<option value="">レベル：すべて</option>' +
+      lvs.map(function(lv){ return '<option value="' + lv + '">レベル ' + lv + '</option>'; }).join("");
+    sel.value = lvs.indexOf(Number(cur)) >= 0 || cur === "" ? cur : "";
+  }
+
+  function render(){
+    refreshLvFilterOptions();
+    var kept = [], removed = [];
+    items.forEach(function(it, idx){
+      if(it._deleted) removed.push(idx); else kept.push(idx);
+    });
+    document.getElementById("totalCount").textContent = items.length;
+    document.getElementById("keepCount").textContent = kept.length;
+    document.getElementById("removedCount").textContent = removed.length;
+
+    // レベル別の内訳（削除予定は数えない＝実際に使われる問題数の目安にする）。
+    var lvCounts = {};
+    kept.forEach(function(idx){ var lv = items[idx].lv; lvCounts[lv] = (lvCounts[lv]||0)+1; });
+    var lvKeys = Object.keys(lvCounts).map(Number).sort(function(a,b){ return a-b; });
+    document.getElementById("lvStats").innerHTML = lvKeys.map(function(lv){
+      return '<span>Lv.' + lv + '　<b>' + lvCounts[lv] + '</b>問</span>';
+    }).join("");
+
+    var f = filterText.trim();
+    var lvf = lvFilter;
+    function matches(it){
+      if(lvf !== "" && String(it.lv) !== String(lvf)) return false;
+      if(!f) return true;
+      return it.q.indexOf(f) !== -1 || (it.e||"").indexOf(f) !== -1 || (it.c||[]).some(function(c){ return c.indexOf(f) !== -1; });
+    }
+
+    var main = document.getElementById("main");
+    var html = "";
+    var shownKeep = kept.filter(function(idx){ return matches(items[idx]); });
+    html += '<h2 class="sectionTitle"><span>残す問題（' + shownKeep.length + ' / ' + kept.length + '問）</span></h2>';
+    if(!shownKeep.length) html += '<p class="note">該当する問題がありません。</p>';
+    shownKeep.forEach(function(idx){ html += cardHtml(idx); });
+
+    var shownRemoved = removed.filter(function(idx){ return matches(items[idx]); });
+    if(shownRemoved.length){
+      html += '<h2 class="sectionTitle"><span>削除した問題（' + shownRemoved.length + '問、元に戻せます）</span></h2>';
+      shownRemoved.forEach(function(idx){ html += cardHtml(idx); });
+    }
+    main.innerHTML = html;
+    wireCardEvents();
+  }
+
+  function choicesEditHtml(it, idx){
+    return '<ul class="choices">' + it.c.map(function(c, i){
+      return '<li>' +
+        '<input type="radio" name="a_' + idx + '" ' + (i === it.a ? "checked" : "") + ' data-role="a" data-idx="' + idx + '" data-ci="' + i + '">' +
+        '<input type="text" class="' + (i === it.a ? "correct" : "") + '" data-role="c" data-idx="' + idx + '" data-ci="' + i + '" value="' + esc(c) + '">' +
+        '</li>';
+    }).join("") + '</ul>';
+  }
+
+  function cardHtml(idx){
+    var it = items[idx];
+    var isRemoved = !!it._deleted;
+    var isNew = !!it._new;
+    return '<div class="card' + (isRemoved ? " deleted" : "") + (isNew ? " isNew" : "") + '" data-idx="' + idx + '">' +
+      '<div class="meta">' +
+        (isNew ? '<span class="badge newBadge">NEW</span>' : "") +
+        '<label>レベル<input type="number" min="1" max="10" data-role="lv" data-idx="' + idx + '" value="' + esc(it.lv) + '"></label>' +
+        '<label>学年区分<input type="number" min="1" max="10" data-role="grade" data-idx="' + idx + '" value="' + esc(it.grade) + '"></label>' +
+      '</div>' +
+      '<div class="qtext">' + qHtml(it.q) + '</div>' +
+      '<div class="rowEdit"><label>問題文</label><input type="text" data-role="q" data-idx="' + idx + '" value="' + esc(it.q) + '"></div>' +
+      '<div class="rowEdit"><label>指示文</label><input type="text" data-role="s" data-idx="' + idx + '" value="' + esc(it.s) + '"></div>' +
+      choicesEditHtml(it, idx) +
+      '<div class="exprow"><label>解説</label><textarea class="expl" data-role="e" data-idx="' + idx + '">' + esc(it.e) + '</textarea></div>' +
+      '<div class="btnRow">' +
+        '<button class="dupBtn" data-act="dup" data-idx="' + idx + '">📄 複製</button>' +
+        (isRemoved
+          ? '<button class="restoreBtn" data-act="restore" data-idx="' + idx + '">↩ 元に戻す</button>'
+          : '<button class="delBtn" data-act="del" data-idx="' + idx + '">🗑 削除</button>') +
+      '</div>' +
+    '</div>';
+  }
+
+  function wireCardEvents(){
+    var main = document.getElementById("main");
+    main.querySelectorAll('[data-role="lv"]').forEach(function(el){
+      el.addEventListener("change", function(){
+        var idx = Number(el.dataset.idx);
+        items[idx].lv = Math.max(1, Math.round(Number(el.value) || 1));
+        saveWorking(); render(); showStatus("レベルを変更しました");
+      });
+    });
+    main.querySelectorAll('[data-role="grade"]').forEach(function(el){
+      el.addEventListener("change", function(){
+        var idx = Number(el.dataset.idx);
+        items[idx].grade = Math.max(1, Math.round(Number(el.value) || 1));
+        saveWorking(); showStatus("学年区分を変更しました");
+      });
+    });
+    main.querySelectorAll('[data-role="q"]').forEach(function(el){
+      el.addEventListener("change", function(){
+        var idx = Number(el.dataset.idx);
+        items[idx].q = el.value;
+        saveWorking(); render(); showStatus("問題文を変更しました");
+      });
+    });
+    main.querySelectorAll('[data-role="s"]').forEach(function(el){
+      el.addEventListener("change", function(){
+        var idx = Number(el.dataset.idx);
+        items[idx].s = el.value;
+        saveWorking(); showStatus("指示文を変更しました");
+      });
+    });
+    main.querySelectorAll('[data-role="e"]').forEach(function(el){
+      el.addEventListener("change", function(){
+        var idx = Number(el.dataset.idx);
+        items[idx].e = el.value;
+        saveWorking(); showStatus("解説を変更しました");
+      });
+    });
+    main.querySelectorAll('[data-role="c"]').forEach(function(el){
+      el.addEventListener("change", function(){
+        var idx = Number(el.dataset.idx), ci = Number(el.dataset.ci);
+        items[idx].c[ci] = el.value;
+        saveWorking(); showStatus("選択肢を変更しました");
+      });
+    });
+    main.querySelectorAll('[data-role="a"]').forEach(function(el){
+      el.addEventListener("change", function(){
+        var idx = Number(el.dataset.idx), ci = Number(el.dataset.ci);
+        items[idx].a = ci;
+        saveWorking(); render(); showStatus("正解を変更しました");
+      });
+    });
+    main.querySelectorAll('[data-act="del"]').forEach(function(el){
+      el.addEventListener("click", function(){
+        items[Number(el.dataset.idx)]._deleted = true;
+        saveWorking(); render(); showStatus("削除しました（元に戻すこともできます）");
+      });
+    });
+    main.querySelectorAll('[data-act="restore"]').forEach(function(el){
+      el.addEventListener("click", function(){
+        items[Number(el.dataset.idx)]._deleted = false;
+        saveWorking(); render(); showStatus("元に戻しました");
+      });
+    });
+    main.querySelectorAll('[data-act="dup"]').forEach(function(el){
+      el.addEventListener("click", function(){
+        var idx = Number(el.dataset.idx);
+        var copy = JSON.parse(JSON.stringify(items[idx]));
+        copy._new = true; copy._deleted = false;
+        items.splice(idx + 1, 0, copy);
+        saveWorking(); render(); showStatus("複製しました。内容を書きかえてください");
+      });
+    });
+  }
+
+  function buildNewChoicesHtml(){
+    var html = "";
+    for(var i=0;i<4;i++){
+      html += '<li>' +
+        '<input type="radio" name="newA" ' + (i===0?"checked":"") + ' value="' + i + '">' +
+        '<input type="text" id="newC' + i + '" placeholder="選択肢' + (i+1) + '">' +
+        '</li>';
+    }
+    return html;
+  }
+  document.getElementById("newChoices").innerHTML = buildNewChoicesHtml();
+
+  document.getElementById("addToggleBtn").addEventListener("click", function(){
+    var panel = document.getElementById("addPanel");
+    panel.style.display = panel.style.display === "block" ? "none" : "block";
+    if(panel.style.display === "block") document.getElementById("newQ").focus();
+  });
+  document.getElementById("addCancelBtn").addEventListener("click", function(){
+    document.getElementById("addPanel").style.display = "none";
+  });
+  document.getElementById("addSubmitBtn").addEventListener("click", function(){
+    var q = document.getElementById("newQ").value.trim();
+    var s = document.getElementById("newS").value.trim() || "意味を書いてください";
+    var c = [0,1,2,3].map(function(i){ return document.getElementById("newC"+i).value.trim(); });
+    var aRadio = document.querySelector('input[name="newA"]:checked');
+    var a = aRadio ? Number(aRadio.value) : 0;
+    var e = document.getElementById("newE").value.trim();
+    var lv = Math.max(1, Math.round(Number(document.getElementById("newLv").value) || 1));
+    var grade = Math.max(1, Math.round(Number(document.getElementById("newGrade").value) || 3));
+    if(!q || c.some(function(x){ return !x; })){
+      alert("問題文と、選択肢4つはすべて入力してください。");
+      return;
+    }
+    items.push({q:q, s:s, c:c, a:a, lv:lv, e:e, grade:grade, _new:true});
+    saveWorking();
+    document.getElementById("newQ").value = "";
+    document.getElementById("newS").value = "意味を書いてください";
+    for(var i=0;i<4;i++) document.getElementById("newC"+i).value = "";
+    document.getElementById("newE").value = "";
+    document.getElementById("newLv").value = "1";
+    document.getElementById("newGrade").value = "3";
+    document.querySelector('input[name="newA"][value="0"]').checked = true;
+    document.getElementById("addPanel").style.display = "none";
+    render();
+    showStatus("新しい問題を追加しました");
+  });
+
+  document.getElementById("filterInput").addEventListener("input", function(e){
+    filterText = e.target.value;
+    render();
+  });
+  document.getElementById("lvFilterSelect").addEventListener("change", function(e){
+    lvFilter = e.target.value;
+    render();
+  });
+  document.getElementById("resetAllBtn").addEventListener("click", function(){
+    if(!confirm("今の編集内容（レベル変更・追加・削除など）をすべて取り消して、kokugo_data.js の元データ（全" + origItems.length + "問）に戻します。よろしいですか？")) return;
+    items = cloneFromOriginal();
+    saveWorking();
+    render();
+    showStatus("元データに戻しました");
+  });
+  document.getElementById("exportBtn").addEventListener("click", function(){
+    var kept = items.filter(function(it){ return !it._deleted; }).map(function(it){
+      return {q:it.q, s:it.s, c:it.c, a:it.a, lv:it.lv, e:it.e, grade:it.grade};
+    });
+    var json = JSON.stringify(kept, null, 1);
+    document.getElementById("exportText").value = json;
+    document.getElementById("exportBox").style.display = "block";
+    document.getElementById("exportBox").scrollIntoView({behavior:"smooth"});
+
+    var blob = new Blob([json], {type:"application/json"});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    var d = new Date();
+    var stamp = d.getFullYear() + String(d.getMonth()+1).padStart(2,"0") + String(d.getDate()).padStart(2,"0")
+      + "_" + String(d.getHours()).padStart(2,"0") + String(d.getMinutes()).padStart(2,"0");
+    a.href = url;
+    a.download = "kobun_items_" + stamp + ".json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+    showStatus("書き出しました（残り" + kept.length + "問）");
+  });
+
+  if(!origItems.length){
+    document.getElementById("main").innerHTML = '<p class="note" style="padding:20px;">kokugo_data.js から「古文の言葉」（cats.kobun.items）を読み込めませんでした。このファイルと同じフォルダに kokugo_data.js があるか確認してください。</p>';
+  } else {
+    render();
+  }
+})();
+</script>
+</body>
+</html>

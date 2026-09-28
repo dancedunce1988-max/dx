@@ -19,11 +19,20 @@ const svgNS = "http://www.w3.org/2000/svg";
    同一オリジンなのでlocalStorageはkokugo_app.htmlと共有できるが、st（本体のセーブデータ）の
    複雑な形を直接ここで書き換えるのは危険なので、合図だけを置く簡単な仕組みにしてある。 */
 /* srcdoc では location.search が空になり得るため、ランチャーが渡す __DX_BOOT_SEARCH__ を優先 */
-const VIA_DAILY = new URLSearchParams(
-  (typeof window.__DX_BOOT_SEARCH__ === "string" && window.__DX_BOOT_SEARCH__.length)
+function dxBootSearch(){
+  return (typeof window.__DX_BOOT_SEARCH__ === "string" && window.__DX_BOOT_SEARCH__.length)
     ? window.__DX_BOOT_SEARCH__
-    : location.search
-).get("viaDaily") === "1";
+    : location.search;
+}
+const VIA_DAILY = new URLSearchParams(dxBootSearch()).get("viaDaily") === "1";
+/* 「問題チェックモード」（2026-09-27〜、教員の指示）：知識ドリルDXの読解Quest入口画面で
+   「dokkaichekku」と入力すると開ける、管理者用の裏メニュー（ddShowNobiruCheckMode）経由。
+   ?viaCheck=1付きで開かれたときは、経験値の合図（DD_PENDING_REWARD_LSKEY）をいっさい書かず、
+   自己ベスト記録（NobiruRecords）への保存も行わず、経験値ポップアップも出さない＝
+   このモードで最後まで解いても、経験値には絶対にならない。画面上にこのモードであることを
+   示す表示は出さない（管理者本人がURLで判別できれば十分。生徒向けの通常表示に手を
+   加えるとヒントになってしまうため）。srcdoc でも __DX_BOOT_SEARCH__ を見る。 */
+const VIA_CHECK = new URLSearchParams(dxBootSearch()).get("viaCheck") === "1";
 function goHomeFromNobiru(){
   if(typeof window.__DX_GO_HOME__ === "function"){
     window.__DX_GO_HOME__();
@@ -33,11 +42,7 @@ function goHomeFromNobiru(){
 }
 function restartNobiru(){
   if(typeof window.__DX_OPEN_NOBIRU__ === "function" && window.__DX_NOBIRU_KEY__){
-    const params = new URLSearchParams(
-      (typeof window.__DX_BOOT_SEARCH__ === "string" && window.__DX_BOOT_SEARCH__.length)
-        ? window.__DX_BOOT_SEARCH__
-        : location.search
-    );
+    const params = new URLSearchParams(dxBootSearch());
     const obj = {};
     params.forEach((v, name) => { obj[name] = v; });
     window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__, obj);
@@ -60,6 +65,7 @@ try{
 }catch(e){ /* 読めない場合は「未受け取り」扱いのまま続行する */ }
 
 let stage = 0, finalIdx = 0;
+let finished = false;
 /* 累計経験値。設問ごとの内訳は画面に出さず、この合計だけをフッターに出し続ける
    （2026-09-19〜、当時はハードモード新設にあわせた経験値設計だったが、2026-09-22〜
    ハードモードは無効化済み）。NobiruRecordsが読み込まれている（records.js経由）教材だけ、
@@ -163,7 +169,12 @@ function parseInto(str, parent, insideU){
         if(k === "d") dAttr = v;
         if(k === "t"){ sp.classList.add("tgt"); sp.id = v; }
         if(k === "s"){ sp.dataset.s = v; }
-        if(k === "u"){ hasU = true; sp.classList.add("u"); sp.dataset.u = v; sp.id = "u-" + v; }
+        /* 傍線部(u)は本来 id="u-"+v を振っていたが、同じspanに指示語の指し先(t:、id=v)も
+           付く語（「その顔」が指す先が、同時に傍線部でもある、等）があり、後から処理される
+           tがidを上書きしてしまい、設問側がdocument.getElementById("u-"+v)で見つけられず
+           下線（.u.now）が表示されないバグがあった（2026-09-25、教員の指摘：「方言」の
+           傍線部Ｂ）。idにはもう頼らず、data-u属性だけで探す（findUnderlineEl参照）。 */
+        if(k === "u"){ hasU = true; sp.classList.add("u"); sp.dataset.u = v; }
         if(k === "p") pAttr = v;
       });
       /* クリック動作の優先順位：語釈(g) > 指示語(d) > 文節訳(p、ただし傍線部(u)の中には付けない)
@@ -216,8 +227,14 @@ function revealPara(i){
   scheduleDemRedraw();
 }
 
-/* ---- 全文訳（sent.trがある教材だけ、下の方のボタンから一括で見られるようにする） ---- */
+/* ---- 全文訳（sent.trがある教材だけ、下の方のボタンから一括で見られるようにする） ----
+   傍線部(u)をふくむ文は、本来は設問の答えに直結するため全文訳では伏せる方針だったが、
+   古文・漢文教材（meta.fullTrShowsU:true）に限っては、教員の指示（2026-09-27〜）により
+   傍線部をふくむ文もそのまま全文訳に載せる。古文・漢文は文節訳(p)だけでは意味を
+   取りにくく、通して読める現代語訳そのものに価値があるための例外扱い。現代文教材
+   （fullTrShowsUを立てていないもの）は、これまでどおり傍線部をふくむ文を伏せる。 */
 const hasTranslations = PARAS.some(para => para.s.some(sent => sent.tr));
+const FULLTR_SHOWS_U = !!TEXT.meta.fullTrShowsU;
 function renderFullTr(){
   if(!hasTranslations) return;
   const list = $("fullTrList");
@@ -226,7 +243,7 @@ function renderFullTr(){
     const trs = PARAS[i].s.filter(sent => sent.tr);
     if(!trs.length) continue;
     html += `<div class="fulltr-para"><div class="fulltr-para-title ui">第${kanjiNum(i + 1)}段落</div>`
-      + trs.map(sent => /\|u:/.test(sent.t)
+      + trs.map(sent => (!FULLTR_SHOWS_U && /\|u:/.test(sent.t))
           ? `<p class="fulltr-sent fulltr-blank ui">（傍線部をふくむ文なので、ここでは伏せます。設問で確かめよう）</p>`
           : `<p class="fulltr-sent">${escHtml(sent.tr)}</p>`
         ).join("")
@@ -479,7 +496,11 @@ function showQuestion(q, onClear){
   const rec = { miss: 0, done: false }; record.push(rec); paintMarks();
   updateQGauge(record.length);
   document.querySelectorAll(".u.now").forEach(e => e.classList.remove("now"));
-  (q.u || []).forEach(k => { const e = document.getElementById("u-" + k); if(e) e.classList.add("now"); });
+  // id="u-"+kには頼らず、data-u属性を直接比べて探す（tgt(t:)とidが衝突するのを避けるため）。
+  (q.u || []).forEach(k => {
+    const e = Array.from(document.querySelectorAll(".sp.u")).find(el => el.dataset.u === k);
+    if(e) e.classList.add("now");
+  });
   const h = document.createElement("div"); h.className = "q-head ui"; h.textContent = q.head;
   const p = document.createElement("p"); p.className = "q-text"; p.textContent = q.text;
   const ul = document.createElement("div"); ul.className = "choices";
@@ -520,7 +541,7 @@ function showQuestion(q, onClear){
              （教員の指示：「獲得していない経験値については表示しないように」）。 */
           const xp = Math.max(0, 10 - rec.miss * 2);
           addXp(xp);
-          if(xp > 0 && !ALREADY_REWARDED) showXpGainPopup(xp);
+          if(xp > 0 && !ALREADY_REWARDED && !VIA_CHECK) showXpGainPopup(xp);
           const expText = document.createElement("div");
           expText.textContent = "正解。" + q.exp;
           fb.appendChild(expText);
@@ -592,21 +613,29 @@ function step(){
 }
 
 function finish(){
+  finished = true;
+  document.documentElement.setAttribute("data-dx-nobiru-finished", "1");
   updateQGauge(TOTAL_Q);
   /* 「一日一読」への合図（2026-09-23〜）。kokugo_app.htmlのst（本体セーブ）には触れず、
      専用のlocalStorageキーに書き置くだけ。ホーム画面（ddCheckNobiruPendingReward）が
-     次に開かれたときに読み取り、初めての合図であればストック経験値に変換する。 */
-  try{
-    localStorage.setItem(DD_PENDING_REWARD_LSKEY, JSON.stringify({ textKey: TEXT_KEY, totalXp, viaDaily: VIA_DAILY, ts: Date.now() }));
-  }catch(e){ /* privateモード等で保存できない場合は、合図なしで続行する */ }
+     次に開かれたときに読み取り、初めての合図であればストック経験値に変換する。
+     問題チェックモード（VIA_CHECK）のときは、この合図自体を書かない＝経験値には
+     絶対にならない（ddCheckNobiruPendingRewardに何も伝わらないので、本体セーブは
+     一切変化しない）。 */
+  if(!VIA_CHECK){
+    try{
+      localStorage.setItem(DD_PENDING_REWARD_LSKEY, JSON.stringify({ textKey: TEXT_KEY, totalXp, viaDaily: VIA_DAILY, ts: Date.now() }));
+    }catch(e){ /* privateモード等で保存できない場合は、合図なしで続行する */ }
+  }
   const clean = record.filter(r => r.miss === 0).length;
   const miss = record.reduce((n, r) => n + r.miss, 0);
   const rows = record.map((r, i) => `<tr><td>設問${kanjiNum(i + 1)}</td><td>${r.miss === 0 ? "○" : "誤答" + r.miss + "回"}</td></tr>`).join("");
   /* 自己ベストとの比較（他者比較・順位は出さない。前回の自分の記録とだけ比べる）。
      NobiruRecordsが読み込まれていない教材（records.jsを included していない教材HTML）
-     では、比較を出さず今回の合計だけを表示する。 */
+     では、比較を出さず今回の合計だけを表示する。問題チェックモード（VIA_CHECK）では
+     自己ベストの記録自体を汚したくないので保存・比較表示ともに行わない。 */
   let compareHtml = "";
-  if(window.NobiruRecords){
+  if(window.NobiruRecords && !VIA_CHECK){
     const { prev } = NobiruRecords.finish(TEXT_KEY, "easy", totalXp);
     compareHtml = prev
       ? `<p class="xp-compare">前回の累計経験値は${prev.lastXp}でした（自己ベスト${prev.bestXp}）。順位や他の人との比較はありません。自分の記録とだけ比べてみましょう。</p>`
@@ -633,8 +662,73 @@ function finish(){
   $("paneQ").scrollTo({ top: 0, behavior: "smooth" });
 }
 
+/* 「一日一読」、途中でホーム画面に戻ろうとしたときの確認（2026-09-24〜、教員の指示：
+   「一日一読は、やり直しができません。本当に戻りますか？」→「はい」ならここまでの累計経験値
+   （totalXp、まだ答えていない設問ぶんは0のまま）で今回の記録を確定させてしまい、まだ
+   経験値をもらっていなければfinish()と同じ合図（DD_PENDING_REWARD_LSKEY）を書いて
+   ホームへ戻る。ddCheckNobiruPendingReward側がこの合図を読んだ時点でst.nobiruRewardGiven
+   に書き込まれるため、あとから読み直しても二度と経験値をもらえなくなる＝「その問題以降は
+   全て不正解になる」を、以後ぶんの経験値を永久に0のまま確定させることで実現する（何度も
+   ホームへ戻ってやり直すことを防ぐ目的）。一日一読(VIA_DAILY)経由でまだ読み終えていない
+   ときだけ確認を出す（通常の読解練習や、読み終えたあとの「ホームに戻る」は今までどおり）。 */
+  function abortDailyReading(){
+    try{
+      localStorage.setItem(DD_PENDING_REWARD_LSKEY, JSON.stringify({ textKey: TEXT_KEY, totalXp, viaDaily: VIA_DAILY, ts: Date.now(), aborted:true }));
+    }catch(e){ /* privateモード等で保存できない場合は、合図なしでそのまま戻る */ }
+    goHomeFromNobiru();
+  }
+  const backLink = document.querySelector(".back.ui");
+  if(backLink){
+    backLink.addEventListener("click", e => {
+      if(!VIA_DAILY || finished) return;
+      e.preventDefault();
+      if(confirm("一日一読は、やり直しができません。本当に戻りますか？")) abortDailyReading();
+    });
+  }
+
+/* ---- 教材データの自己チェック（2026-09-25〜、教員の指示：「今後も問題を増やす際、同じような
+   バグが起きないようにしてほしい」） ----
+   「方言」で見つかった不具合（傍線部(u:)の下線が表示されない）は、実際には2種類の原因が
+   混ざっていた：①同じ語に指示語の指し先(t:)も付けてidが衝突するエンジン側のバグ（これは
+   parseInto側の修正でどの教材でも二度と起きないようにした）、②そもそも設問が指す記号の
+   |u:記号タグを本文に付け忘れる、という教材データ側のケアレスミス。②はエンジンでは防ぎきれない
+   （データの中身の話のため）ので、代わりに起動時にPARAS全体を走査し、各設問のq.uが指す記号が
+   本文中に実在するかをその場で検証し、足りなければconsole.warnで知らせる。教材を追加・編集した
+   直後にブラウザでいちど開いてConsoleを見るだけで、この種のミスにすぐ気づけるようにする狙い。
+   本文の見た目・進行には一切影響しない（警告を出すだけ）。 */
+function validateUnderlineMarkers(){
+  const defined = new Set();
+  const collect = str => {
+    let i = 0;
+    while(i < str.length){
+      if(str[i] === "{"){
+        let d = 0, j = i;
+        for(; j < str.length; j++){ if(str[j] === "{") d++; else if(str[j] === "}"){ d--; if(d === 0) break; } }
+        const parts = splitTop(str.slice(i + 1, j));
+        const uPart = parts.slice(1).find(p => p[0] === "u");
+        if(uPart) defined.add(uPart.slice(2));
+        collect(parts[0]); // 入れ子（傍線部の中にさらに語釈等がある場合）も見る
+        i = j + 1;
+      } else i++;
+    }
+  };
+  PARAS.forEach(para => (para.s || []).forEach(sent => collect(sent.t || "")));
+  const checkQ = (q, where) => {
+    (q.u || []).forEach(marker => {
+      if(!defined.has(marker)){
+        console.warn(`[のびる読解 教材チェック] ${TEXT_KEY}: ${where}「${q.head || ""}」のu:["${marker}"]に対応する |u:${marker} が本文に見つかりません。傍線が表示されません。`);
+      }
+    });
+  };
+  PARAS.forEach((para, i) => {
+    if(para.q) checkQ(para.q, `第${i + 1}段落`);
+    if(para.qs) para.qs.forEach((q, j) => checkQ(q, `最終段落・設問${j + 1}`));
+  });
+}
+
 /* ---- 起動 ---- */
 function boot(){
+  try{ validateUnderlineMarkers(); }catch(e){ /* チェック自体の失敗で本編を止めない */ }
   document.title = (TEXT.meta.title || "のびる読解") + "　―　のびる読解";
   $("mainTitle").textContent = TEXT.meta.title || "";
   $("subTitle").textContent = TEXT.meta.sub || "答えると、本文が一段落のびる。点線の語はタップで意味が出る。";

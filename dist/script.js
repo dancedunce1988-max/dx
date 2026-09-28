@@ -314,9 +314,12 @@
           return injectScriptsInOrder(scripts).then(function () {
             installNobiruOpener();
             /* CDN の旧 kokugo_app は jsDelivr HTML へ遷移して text/plain 表示になるため上書き。
-               viaDaily（一日一読）は落とさず __DX_OPEN_NOBIRU__ へ渡す。 */
-            window.ddOpenNobiru = function (key, viaDaily) {
-              return window.__DX_OPEN_NOBIRU__(key, viaDaily ? { viaDaily: '1' } : {});
+               viaDaily（一日一読）と viaCheck（問題チェック）は落とさず __DX_OPEN_NOBIRU__ へ渡す。 */
+            window.ddOpenNobiru = function (key, viaDaily, viaCheck) {
+              const params = {};
+              if (viaCheck) params.viaCheck = '1';
+              else if (viaDaily) params.viaDaily = '1';
+              return window.__DX_OPEN_NOBIRU__(key, params);
             };
           });
         });
@@ -501,7 +504,9 @@
           'if(sw&&window.__DX_OPEN_NOBIRU__&&window.__DX_NOBIRU_KEY__){ev.preventDefault();ev.stopImmediatePropagation();' +
           'window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__,{});return;}' +
           'const a=ev.target&&ev.target.closest&&ev.target.closest("a.back, a.modesel-back");' +
-          'if(a){ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();return;}' +
+          'if(a){' +
+          'if(a.classList.contains("back")&&/[?&]viaDaily=1(?:&|$)/.test(String(window.__DX_BOOT_SEARCH__||""))&&document.documentElement.getAttribute("data-dx-nobiru-finished")!=="1"){return;}' +
+          'ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();return;}' +
           'const again=ev.target&&ev.target.closest&&ev.target.closest("button.again");' +
           'if(again){const oc=String(again.getAttribute("onclick")||"");const tx=String(again.textContent||"");' +
           'if(again.classList.contains("daily-end")||oc.indexOf("kokugo_app")!==-1||tx.indexOf("ホーム")!==-1||tx.indexOf("一日一読を終える")!==-1){' +
