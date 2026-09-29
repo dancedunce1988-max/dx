@@ -8,6 +8,10 @@
      九尾の化かし合い(kitsune_bakashiai.html)と同じく同じタブのまま画面ごと遷移してくる別ページ。
      炎狼(me01)が3本の道（上＝尊敬語／中＝謙譲語／下＝丁寧語、2026-09-29 教員の指示で上下を入れかえた）を走り、迫ってくる「炎の関所」に書かれた
      敬語の種類に合う道でくぐり抜ける。正解するほど速くなる（炎狼＝素早さ特化）。
+     2026-09-30〜、「分かっている人にはいつまでも終わらず退屈」との教員の指摘で、関所30個でゴールする形にし、
+     最後の10個を「迷いの区間」（関所ごとに道の並びが入れかわる）にした。評価はゴール時の★（ミスの数）と得点。
+     同日、教員の指示で「見きわめの区間」（敬語の使い方が正しいかを、上＝正しい／下＝正しくない で判断する。
+     炎狼は関所ごとにまん中へ戻り、まん中のままだと時間切れ）を加え、4区間・関所32個にした。
      本体のセーブデータ(st)には一切触れず、このページ専用のlocalStorageキーだけを使う
      （経験値・ジャンルレベルにはまだ反映しない）。炎狼の絵は本番と同じスプライト(enemy_sprites_data.js)を使い、
      読み込めなかったときは🐺の絵文字で代用する。 -->
@@ -82,6 +86,8 @@
   .hud .score{ color:var(--sub); }
   .hud .score b{ color:var(--gold); font-size:20px; }
   .hud .zone{ color:var(--fire2); font-size:12px; }
+  .hud .gates{ font-size:13px; color:var(--sub); }
+  .hud .gates b{ color:var(--text); font-size:17px; }
   .hud .sp{ flex:1; }
   /* 炎ゲージ（2026-09-29、教員の指示で大きくし、HUDの下に1段まるごと使って置く）。8マスの区切り線つき */
   .gauge-row{ display:flex; align-items:center; justify-content:center; gap:10px; padding:2px 12px 6px; }
@@ -131,7 +137,17 @@
   .lane.t .label{ border-color:var(--teinei); } .lane.t .label b{ color:var(--teinei); }
   .lane.k .label{ border-color:var(--kenjo); }  .lane.k .label b{ color:var(--kenjo); }
   .lane.s .label{ border-color:var(--sonkei); } .lane.s .label b{ color:var(--sonkei); }
+  .lane.ok .label{ border-color:var(--ok); } .lane.ok .label b{ color:var(--ok); }
+  .lane.ng .label{ border-color:var(--ng); } .lane.ng .label b{ color:var(--ng); }
+  /* 「✕正しくない」が道のラベル幅で折り返さないよう、見きわめの区間のラベルだけ少し小さくする */
+  .lane.ok .label b, .lane.ng .label b, .lane.mid .label b{ font-size:clamp(12px, 2.8vw, 16px); letter-spacing:0; white-space:nowrap; }
+  .lane.mid .label{ border-color:rgba(255,255,255,.3); } .lane.mid .label b{ color:var(--sub); }
+  .lane.mid .bg{ filter:brightness(.55) saturate(.6); }
   .lane.here .label{ background:rgba(40,28,24,.85); }
+  /* 迷いの区間：道の並びが入れかわったことが分かるように、ラベルをくるっと回して光らせる */
+  .lane.shuffled .label{ animation:labelSpin .45s ease; }
+  @keyframes labelSpin{ 0%{transform:rotateX(90deg); filter:brightness(2)} 100%{transform:rotateX(0); filter:brightness(1)} }
+  body.maze .lane .label{ box-shadow:inset 0 0 0 2px rgba(255,195,107,.35); }
   .lane.answer{ animation:ansGlow .5s ease-in-out 3; }
   @keyframes ansGlow{ 0%,100%{box-shadow:inset 0 0 0 0 rgba(95,208,138,0)} 50%{box-shadow:inset 0 0 0 4px var(--ok)} }
 
@@ -224,6 +240,11 @@
   .end-top .wolf{ height:140px; }
   .end-top h2{ font-size:26px; color:var(--fire2); letter-spacing:3px; }
   .end-rank{ font-size:22px; color:var(--gold); margin:4px 0; }
+  .end-stars{ font-size:40px; letter-spacing:6px; color:var(--gold); text-shadow:0 0 14px rgba(255,215,107,.7); line-height:1.1; }
+  .end-stars .off{ color:rgba(255,255,255,.15); text-shadow:none; }
+  .end-stars .pop{ display:inline-block; animation:starPop .45s ease backwards; }
+  @keyframes starPop{ 0%{transform:scale(0)} 70%{transform:scale(1.3)} 100%{transform:scale(1)} }
+  .star-rule{ font-size:12px; color:var(--sub); }
   .stats{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
   .stat{ background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:8px; text-align:center; font-size:12px; color:var(--sub); }
   .stat b{ display:block; font-size:22px; color:var(--text); }
@@ -233,6 +254,8 @@
   .miss{ background:var(--panel); border-left:4px solid; border-radius:10px; padding:8px 12px; font-size:13px; line-height:1.65; }
   .miss .w{ font-size:15px; font-weight:bold; }
   .miss .w .tg{ color:var(--fire2); }
+  .miss.ok{ border-color:var(--ok); } .miss.ok .ty{ color:var(--ok); }
+  .miss.ng{ border-color:var(--ng); } .miss.ng .ty{ color:var(--ng); }
   .miss.t{ border-color:var(--teinei); } .miss.k{ border-color:var(--kenjo); } .miss.s{ border-color:var(--sonkei); }
   .miss .ty{ font-weight:bold; }
   .miss.t .ty{ color:var(--teinei); } .miss.k .ty{ color:var(--kenjo); } .miss.s .ty{ color:var(--sonkei); }
@@ -265,6 +288,8 @@
         炎狼は<b>三本の道</b>を走っている。前から<b>炎の関所</b>が迫ってくるぞ。<br>
         画面の上に出た言葉が<b>どの種類の敬語か</b>考えて、その道を<b>タップ</b>して移ろう。
         合っている道なら関所を通りぬけられる。まちがえるとぶつかって❤が減る（3回で終わり）。<br>
+        関所は全部で<b>32個</b>。第三区間は<b>見きわめの区間</b>：その敬語の使い方が<b>正しい（上）</b>か<b>正しくない（下）</b>かを選ぶ。
+        まん中にいたままだと時間切れ！　最終区間は<b>迷いの区間</b>で、関所ごとに<b>道の並びが入れかわる</b>ぞ！<br>
         正解すると<b>炎ゲージ</b>がたまり（まちがえると2マス減る）、満タンで<b>火走り</b>（得点2倍・ぶつかっても❤が減らない）！<br>
         ときどき道に<b>🦴骨</b>（炎ゲージ＋3）や<b>🍖肉</b>（❤を1つ回復）が落ちている。その道を走ればひろえるぞ。
         進むほど速くなるよ。
@@ -275,6 +300,7 @@
         <div class="lg t"><span class="pos">下の道</span><b>丁寧語</b><span>「です・ます・ございます」で、聞き手にていねいに言う</span></div>
       </div>
       <div class="best-line" id="bestLine"></div>
+      <div class="star-rule">★ゴール　★★ミス2回まで　★★★ノーミス</div>
       <div class="title-btns">
         <button class="btn" onclick="startGame()">走り出す！</button>
         <button class="btn secondary" onclick="backToApp()">ミニゲーム一覧へ</button>
@@ -288,6 +314,7 @@
 <section id="scGame" class="screen">
   <div class="hud">
     <span class="lives" id="lives"></span>
+    <span class="gates">関所 <b id="gates">0</b> / <span id="gatesMax"></span></span>
     <span class="score">得点 <b id="score">0</b></span>
     <span class="zone" id="zone"></span>
     <span class="sp"></span>
@@ -319,7 +346,8 @@
     <div class="end-top">
       <div class="wolf flip" id="endWolf"></div>
       <div>
-        <h2 class="mincho">ゴール！</h2>
+        <h2 class="mincho" id="endTitle">ゴール！</h2>
+        <div class="end-stars" id="endStars"></div>
         <div class="end-rank mincho" id="endRank"></div>
         <div style="font-size:13px;color:var(--sub)" id="endNote"></div>
       </div>
@@ -416,28 +444,95 @@ const WORDS = [
   ["駅はあちらに[あります]。","T",3,MASU],
   ["弟が本を[読みます]。","T",3,MASU],
 ];
-// 道の並び：上＝尊敬語(0)／中＝謙譲語(1)／下＝丁寧語(2)
-const TYPES = {S:{name:"尊敬語", lane:0, cls:"s"}, K:{name:"謙譲語", lane:1, cls:"k"}, T:{name:"丁寧語", lane:2, cls:"t"}};
-const LANE_TYPE = ["S","K","T"];
+/* 見きわめの区間の問題：[文（［　］が判断する部分）, 正しいか, 解説, 前置き(省略可)]
+   まちがいの種類：身内に尊敬語／相手に謙譲語／謙譲語＋れる・られる／二重敬語／「ご〜できる」。
+   「お召し上がりになる」「うかがわせていただく」「おられる」のように、二重敬語でも慣用として認められていたり、
+   正誤の判断が分かれたりするものは出さない。 */
+const MISUSE = [
+  ["私には父が[いらっしゃいます]。",false,"自分の身内（父）の動作に、尊敬語「いらっしゃる」は使わない。「父がおります」が正しい。","（先生に）"],
+  ["父は今、家に[おります]。",true,"身内（父）のことを外の人に話すときは、謙譲語「おる」でへりくだる。","（先生に）"],
+  ["父がよろしくと[おっしゃっていました]。",false,"身内（父）に尊敬語「おっしゃる」は使わない。「申しておりました」が正しい。","（先生に）"],
+  ["母がよろしくと[申しておりました]。",true,"身内（母）の動作を、謙譲語「申す」でへりくだって伝えている。","（先生に）"],
+  ["校長先生が[おっしゃられました]。",false,"尊敬語「おっしゃる」に、さらに「られる」を重ねた二重敬語。「おっしゃいました」が正しい。"],
+  ["校長先生が[おっしゃいました]。",true,"「言う」の尊敬語「おっしゃる」を、先生の動作に正しく使っている。"],
+  ["先生が私の絵を[拝見しました]。",false,"「拝見する」は謙譲語。先生の動作には、尊敬語「ご覧になりました」を使う。"],
+  ["私が先生の作品を[拝見しました]。",true,"自分の動作を、謙譲語「拝見する」でへりくだっている。"],
+  ["冷めないうちに[いただいてください]。",false,"「いただく」は謙譲語。相手が食べるときは、尊敬語「召し上がってください」。","（先生に）"],
+  ["冷めないうちに[召し上がってください]。",true,"相手が食べることを、尊敬語「召し上がる」で高めている。","（先生に）"],
+  ["わからないことは受付で[うかがってください]。",false,"「うかがう」は謙譲語。相手の動作には「お尋ねください」「お聞きください」を使う。","（お客様に）"],
+  ["先生はいつ[参られますか]。",false,"「参る」は謙譲語。「れる」をつけても尊敬語にはならない。「いらっしゃいますか」が正しい。"],
+  ["先生はいつ[いらっしゃいますか]。",true,"「来る」の尊敬語「いらっしゃる」を正しく使っている。"],
+  ["お客様が応接室で[お待ちしています]。",false,"「お〜する」は謙譲語。お客様の動作には「お待ちになっています」を使う。","（社長に）"],
+  ["お客様、こちらで[お待ちください]。",true,"「お〜ください」は相手の動作を高める言い方で、正しい。"],
+  ["先生が本を[お読みになられた]。",false,"尊敬語「お〜になる」に、さらに「られる」を重ねた二重敬語。「お読みになった」が正しい。"],
+  ["先生が本を[お読みになった]。",true,"「お〜になる」の尊敬語を正しく使っている。"],
+  ["お客様が[お見えになられました]。",false,"「お見えになる」に「られる」を重ねた二重敬語。「お見えになりました」が正しい。"],
+  ["社長が[お越しになりました]。",true,"「来る」の尊敬語「お越しになる」を正しく使っている。"],
+  ["このカードは、どなたでも[ご利用できます]。",false,"「ご利用できる」は、謙譲語「ご〜する」の形。お客様には「ご利用になれます」を使う。"],
+  ["このカードは、どなたでも[ご利用になれます]。",true,"尊敬語「ご〜になる」を「〜できる」の意味の形にしたもので、正しい。"],
+  ["先生が私に本を[差し上げました]。",false,"「差し上げる」は、自分が相手にあげるときの謙譲語。先生がくれたときは「くださいました」。"],
+  ["先生が私に本を[くださいました]。",true,"「くれる」の尊敬語「くださる」を正しく使っている。"],
+  ["私が駅まで[ご案内になります]。",false,"「ご〜になる」は尊敬語なので、自分の動作には使えない。「ご案内します」が正しい。"],
+  ["私が駅まで[ご案内します]。",true,"「ご〜する」の謙譲語で、自分の動作をへりくだっている。"],
+  ["田中部長はただいま外出して[いらっしゃいます]。",false,"会社の外の人に話すときは、自分の会社の人は身内。「（田中は）外出しております」が正しい。","（会社で、お客様に）"],
+  ["田中はただいま外出して[おります]。",true,"外の人に話すときは、自分の会社の人を身内として、謙譲語でへりくだる。","（会社で、お客様に）"],
+  ["先生、この本を[存じていますか]。",false,"「存じる」は謙譲語。相手には、尊敬語「ご存じですか」を使う。"],
+  ["先生、この本を[ご存じですか]。",true,"「知っている」の尊敬語「ご存じだ」を正しく使っている。"],
+  ["先生が実験の説明を[いたされました]。",false,"「いたす」は謙譲語で、「れる」をつけても尊敬語にならない。「なさいました」が正しい。"],
+  ["先生が絵を[ご覧になられました]。",false,"尊敬語「ご覧になる」に「られる」を重ねた二重敬語。「ご覧になりました」が正しい。"],
+  ["明日、先生のお宅に[うかがいます]。",true,"自分が行くことを、謙譲語「うかがう」でへりくだっている。"],
+].map(([sen, ok, e, ctx]) => [sen, ok ? "OK" : "NG", 0, e, ctx]);
+
+/* 道の種類。bgは使う背景（enro_run_bg_data.jsのキー）。
+   OK／MID／NGは見きわめの区間用（上＝正しい／まん中＝考え中／下＝正しくない）。 */
+const TYPES = {
+  S:{name:"尊敬語", cls:"s", sub:"相手を高める", color:"sonkei", bg:"S"},
+  K:{name:"謙譲語", cls:"k", sub:"へりくだる",   color:"kenjo",  bg:"K"},
+  T:{name:"丁寧語", cls:"t", sub:"です・ます",   color:"teinei", bg:"T"},
+  OK:{name:"〇正しい",   cls:"ok",  sub:"この使い方でよい", color:"ok", bg:"S"},
+  MID:{name:"考え中…",    cls:"mid", sub:"ここだと時間切れ", color:"sub", bg:"K"},
+  NG:{name:"✕正しくない", cls:"ng", sub:"まちがった使い方", color:"ng", bg:"T"},
+};
+const TYPE_CLASSES = Object.values(TYPES).map(t => t.cls);
+const MISUSE_LANES = ["OK","MID","NG"];
+// 道の並び（上から0・1・2）。ふだんは上＝尊敬語／中＝謙譲語／下＝丁寧語。迷いの区間では関所ごとに入れかわる
+const DEFAULT_LANES = ["S","K","T"];
+let LANE_TYPE = DEFAULT_LANES.slice();
+const laneOf = type => LANE_TYPE.indexOf(type);
 const BG_PARALLAX = 0.35; // 背景の景色は、走る速さのこの割合で流す（遠くの景色ほどゆっくり動いて見える）
 
-// 道ごとの背景をはる（enro_run_bg_data.js、キーは敬語の種類）
-(function setLaneBackgrounds(){
+// 今のLANE_TYPEの並びに合わせて、道の色・ラベル・背景（enro_run_bg_data.js、キーは敬語の種類）をはり直す
+function applyLanes(animate){
   const bg = window.ENRO_RUN_BG;
-  if(!bg) return;
-  document.querySelectorAll(".lane").forEach(el => {
-    const src = bg[LANE_TYPE[+el.dataset.lane]];
-    if(src) el.querySelector(".bg").style.backgroundImage = `url("${src}")`;
+  document.querySelectorAll(".lane").forEach((el, i) => {
+    const t = TYPES[LANE_TYPE[i]];
+    const changed = !el.classList.contains(t.cls);
+    TYPE_CLASSES.forEach(c => el.classList.toggle(c, c === t.cls));
+    el.querySelector(".label").innerHTML = `<b>${t.name}</b><small>${t.sub}</small>`;
+    if(bg && bg[t.bg]) el.querySelector(".bg").style.backgroundImage = `url("${bg[t.bg]}")`;
+    if(animate && changed){ el.classList.remove("shuffled"); void el.offsetWidth; el.classList.add("shuffled"); }
   });
-  document.body.classList.add("has-bg");
-})();
+  if(bg) document.body.classList.add("has-bg");
+}
+applyLanes(false);
+// 迷いの区間：今と違う並びになるまでまぜる
+function shuffleLanes(){
+  const before = LANE_TYPE.join("");
+  do{ shuffle(LANE_TYPE); }while(LANE_TYPE.join("") === before);
+  applyLanes(true);
+}
 
-/* 区間：正解数で進む。区間が進むと出る言葉の範囲が広がる。 */
+/* 1回のランは関所GOAL_GATES個でゴール。区間は「何個目の関所か」で進み、進むと出る言葉の範囲が広がる。
+   最終区間（maze）は迷いの区間：関所ごとに道の並びが入れかわる。並びを読む時間のぶん、関所が届くまでを少しのばす(extra秒)。 */
+const GOAL_GATES = 32;
 const ZONES = [
   {from:0,  maxLv:1, name:"第一区間", note:"特別な敬語の言葉を見分けよう"},
   {from:8,  maxLv:2, name:"第二区間", note:"「お〜になる」「お〜する」などの形に注目！"},
-  {from:20, maxLv:3, name:"第三区間", note:"文の中の［　］の部分は、だれの動作？"},
+  {from:16, misuse:true, name:"第三区間　見きわめの区間", note:"その敬語の使い方は正しい？　上＝正しい／下＝正しくない", extra:1.2},
+  {from:24, maxLv:3, name:"最終区間　迷いの区間", note:"関所ごとに道の並びが入れかわる！　ラベルをよく見よう", maze:true, extra:0.8},
 ];
+/* ★：ゴールで★1、ミス（火走りで守られたものもふくむ）がSTAR2_MISS回以内で★2、ノーミスで★3 */
+const STAR2_MISS = 2;
 /* 関所が画面の右はしから炎狼に届くまでの秒数。正解するたびに短くなる。 */
 const TRAVEL_START = 5.6, TRAVEL_MIN = 2.2, TRAVEL_STEP = 0.11;
 const LIVES = 3;
@@ -454,8 +549,9 @@ const ITEMS = {
 };
 const BONE_GAUGE = 3;      // 骨でたまる炎ゲージ（火走り中なら、火走りが2問のびる）
 
+// 称号は得点で決まる（関所32個・ノーミス・火走りを重ねると1000点前後になる）
 const RANKS = [
-  [0,"子狼"],[150,"駆け出しの狼"],[350,"若き炎狼"],[650,"炎の狼"],[1000,"敬語の狼王"],[1500,"伝説の炎狼"],
+  [0,"子狼"],[200,"駆け出しの狼"],[400,"若き炎狼"],[600,"炎の狼"],[800,"敬語の狼王"],[1000,"伝説の炎狼"],
 ];
 
 const $ = id => document.getElementById(id);
@@ -475,6 +571,8 @@ function loadSave(){
   if(typeof s.best !== "number") s.best = 0;
   if(typeof s.bestCorrect !== "number") s.bestCorrect = 0;
   if(typeof s.plays !== "number") s.plays = 0;
+  if(typeof s.bestStars !== "number") s.bestStars = 0;   // ゴールしたときの最高★（0＝まだゴールしていない）
+  if(typeof s.clears !== "number") s.clears = 0;
   if(typeof s.muted !== "boolean") s.muted = false;
   return s;
 }
@@ -540,6 +638,8 @@ const SE = {
   go(){ tone(784, .25, {type:"triangle"}); },
   fire(){ [392,523,659,784,1047].forEach((f,i) => tone(f, .18, {type:"sawtooth", vol:.07, delay:i*.06})); },
   item(){ [880,1175,1568,2093].forEach((f,i) => tone(f, .12, {type:"triangle", vol:.13, delay:i*.05})); },
+  shuffle(){ [700,500,900].forEach((f,i) => tone(f, .07, {type:"square", vol:.05, delay:i*.05})); },
+  win(){ [523,659,784,1047,784,1047,1319].forEach((f,i) => tone(f, .25, {type:"triangle", delay:i*.11})); },
   zone(){ [523,659,784].forEach((f,i) => tone(f, .2, {type:"triangle", delay:i*.1})); },
   over(){ [392,330,262,196].forEach((f,i) => tone(f, .3, {type:"triangle", delay:i*.16})); },
 };
@@ -569,9 +669,9 @@ function showTitle(){
   stopLoop(); G = null;
   document.body.classList.remove("hibashiri");
   setWolf($("titleWolf"), "pose1");
-  $("bestLine").innerHTML = SAVE.best > 0
-    ? `自己ベスト <b>${SAVE.best}</b> 点　（最多正解 ${SAVE.bestCorrect} 問）`
-    : `まずは第一区間をかけぬけよう！`;
+  $("bestLine").innerHTML = SAVE.bestStars > 0
+    ? `最高 <b>${starText(SAVE.bestStars)}</b>　自己ベスト <b>${SAVE.best}</b> 点　（ゴール ${SAVE.clears} 回）`
+    : SAVE.best > 0 ? `自己ベスト <b>${SAVE.best}</b> 点　まずはゴールをめざそう！` : `関所${GOAL_GATES}個を走りぬけて、ゴールをめざそう！`;
   show("scTitle");
 }
 
@@ -607,11 +707,22 @@ function placeWolf(){
   document.querySelectorAll(".lane").forEach((el, i) => el.classList.toggle("here", i === G.lane));
 }
 
-function zoneOf(correct){ let z = 0; ZONES.forEach((zz, i) => { if(correct >= zz.from) z = i; }); return z; }
+// gate＝これまでに通った関所の数（0始まり）
+function zoneOf(gate){ let z = 0; ZONES.forEach((zz, i) => { if(gate >= zz.from) z = i; }); return z; }
+function starText(n){ return "★".repeat(n) + "☆".repeat(3 - n); }
 
 // まだ出していない言葉から選ぶ（同じ言葉がすぐにまた出ないよう、使い切るまでくり返さない）
 function nextWord(){
-  const maxLv = ZONES[G.zone].maxLv;
+  const zone = ZONES[G.zone];
+  if(zone.misuse){
+    // 見きわめの区間：誤用問題から、まだ出していないものを選ぶ
+    let pool = MISUSE.filter(w => !G.usedMisuse.has(w[0]));
+    if(!pool.length){ G.usedMisuse.clear(); pool = MISUSE.slice(); }
+    const w = pool[Math.floor(Math.random() * pool.length)];
+    G.usedMisuse.add(w[0]);
+    return w;
+  }
+  const maxLv = zone.maxLv;
   // 新しい区間に入った直後は、その区間の言葉を優先して出す
   let pool = WORDS.filter(w => w[2] <= maxLv && !G.used.has(w[0]));
   if(!pool.length){ G.used.clear(); pool = WORDS.filter(w => w[2] <= maxLv && w[0] !== G.lastWord); }
@@ -622,14 +733,16 @@ function nextWord(){
   return w;
 }
 
-function travelTime(){ return Math.max(TRAVEL_MIN, TRAVEL_START - G.correct * TRAVEL_STEP); }
+function travelTime(){ return Math.max(TRAVEL_MIN, TRAVEL_START - G.correct * TRAVEL_STEP) + (ZONES[G.zone].extra || 0); }
 
 function startGame(){
   stopLoop();
   G = {lane:1, lives:LIVES, score:0, correct:0, total:0, combo:0, maxCombo:0, gauge:0, hib:0,
        zone:0, used:new Set(), lastWord:null, barriers:[], phase:"count", misses:[], spawnWait:0,
-       scroll:0, speed:0, pendingZone:null, items:[], prevGauge:0};
-  document.body.classList.remove("hibashiri");
+       scroll:0, speed:0, pendingZone:null, items:[], prevGauge:0, usedMisuse:new Set()};
+  document.body.classList.remove("hibashiri", "maze");
+  LANE_TYPE = DEFAULT_LANES.slice(); applyLanes(false);
+  $("gatesMax").textContent = GOAL_GATES;
   show("scGame");
   setWolf($("wolfBody"), "pose1");
   $("wolf").className = "run";
@@ -653,6 +766,19 @@ function startGame(){
 }
 
 function spawnBarrier(){
+  // 区間が進んだか（何個目の関所かで決まる）
+  const z = zoneOf(G.total);
+  if(z !== G.zone){
+    G.zone = z; SE.zone();
+    banner(`${ZONES[z].name}<small>${ZONES[z].note}</small>`, 2200);
+    document.body.classList.toggle("maze", !!ZONES[z].maze);
+    LANE_TYPE = (ZONES[z].misuse ? MISUSE_LANES : DEFAULT_LANES).slice();
+    applyLanes(true);
+  }
+  if(ZONES[G.zone].maze){ shuffleLanes(); SE.shuffle(); }
+  // 見きわめの区間：炎狼は関所ごとにまん中（考え中）へ戻る
+  if(ZONES[G.zone].misuse) G.lane = 1;
+  placeWolf();
   const w = nextWord();
   const el = document.createElement("div");
   el.className = "barrier";
@@ -664,7 +790,7 @@ function spawnBarrier(){
   G.barriers.push(b);
   G.speed = (geo.startX - geo.judgeX) / travelTime();
   const isSentence = w[0].includes("[");
-  $("wordCtx").textContent = w[4] || (isSentence ? "［　］の部分は？" : "");
+  $("wordCtx").textContent = w[4] || (ZONES[G.zone].misuse ? "この敬語の使い方は正しい？" : isSentence ? "［　］の部分は？" : "");
   const we = $("word");
   we.className = "word mincho" + (isSentence ? " sentence" : "");
   we.innerHTML = wordHtml(w[0]);
@@ -750,7 +876,8 @@ function loop(ts){
 function judge(b){
   b.judged = true;
   G.total++;
-  const want = TYPES[b.w[1]].lane;
+  const want = laneOf(b.w[1]);
+  const finished = G.total >= GOAL_GATES;
   const gates = b.el.querySelectorAll(".gate");
   if(G.lane === want){
     // 正解：関所を通りぬける
@@ -771,14 +898,9 @@ function judge(b){
       if(G.gauge >= GAUGE_MAX) startHibashiri();
     }
     setTimeout(() => b.el.classList.add("gone"), 150);
-    // 区間が進んだか
-    const z = zoneOf(G.correct);
-    if(z !== G.zone){
-      G.zone = z; SE.zone();
-      banner(`${ZONES[z].name}<small>${ZONES[z].note}</small>`, 1800);
-    }
-    G.spawnWait = 0.3;
     refreshHud();
+    if(finished) goal();
+    else G.spawnWait = 0.3;
   }else{
     // まちがい：ぶつかる。走りを止めて、正しい道と解説を見せる
     gates[G.lane].classList.add("crash");
@@ -793,7 +915,7 @@ function judge(b){
       G.gauge = Math.max(0, G.gauge - WRONG_GAUGE_LOSS);
     }
     G.combo = 0;
-    G.misses.push({w:b.w, chose:G.lane});
+    G.misses.push({w:b.w, chose:LANE_TYPE[G.lane]});
     const w = $("wolf");
     w.classList.remove("run", "hit"); void w.offsetWidth; w.classList.add("hit");
     setWolf($("wolfBody"), "defense");
@@ -804,10 +926,15 @@ function judge(b){
     const t = TYPES[b.w[1]];
     const ex = $("explain");
     ex.className = "explain show" + (protectedByFire ? " hib" : "");
-    ex.innerHTML = `<div class="head">${protectedByFire ? "🔥 火走りで守られた！　" : `<span class="ng">✖ ぶつかった！</span>　`}「${wordHtml(b.w[0])}」は <span style="color:var(--${t.cls === "t" ? "teinei" : t.cls === "k" ? "kenjo" : "sonkei"})">${t.name}</span></div>
+    const timeUp = LANE_TYPE[G.lane] === "MID";
+    const verdict = t.cls === "ok" || t.cls === "ng"
+      ? `この使い方は <span style="color:var(--${t.color})">${t.cls === "ok" ? "正しい" : "正しくない"}</span>`
+      : `「${wordHtml(b.w[0])}」は <span style="color:var(--${t.color})">${t.name}</span>`;
+    ex.innerHTML = `<div class="head">${protectedByFire ? "🔥 火走りで守られた！　" : timeUp ? `<span class="ng">⏰ 時間切れ！</span>　` : `<span class="ng">✖ ぶつかった！</span>　`}${verdict}</div>
+      ${t.cls === "ok" || t.cls === "ng" ? `<div class="mincho" style="font-size:16px">${b.w[4] ? esc(b.w[4]) : ""}${wordHtml(b.w[0])}</div>` : ""}
       <div>${esc(b.w[3])}</div>
       ${protectedByFire ? "" : `<div style="font-size:12px;color:var(--sub)">❤ −1　炎ゲージ −${WRONG_GAUGE_LOSS}</div>`}
-      <div class="next">${G.lives > 0 ? "タップで走りを再開" : ""}</div>`;
+      <div class="next">${G.lives > 0 ? (finished ? "タップでゴールへ" : "タップで走りを再開") : ""}</div>`;
     if(G.lives <= 0){
       setTimeout(gameOver, 1900);
     }else{
@@ -824,6 +951,7 @@ function continueRun(){
   document.querySelectorAll(".lane").forEach(l => l.classList.remove("answer"));
   const b = G.revealBarrier;
   if(b){ b.el.remove(); G.barriers = G.barriers.filter(x => x !== b); G.revealBarrier = null; }
+  if(G.total >= GOAL_GATES){ G.phase = "run"; goal(); return; }
   setWolf($("wolfBody"), G.hib > 0 ? "attack" : "pose1");
   $("wolf").className = "run";
   G.phase = "run";
@@ -848,7 +976,7 @@ function endHibashiri(){ document.body.classList.remove("hibashiri"); }
 // 正解がはっきりわかるように：判・道の光・言葉の色・効果音
 function showCorrect(lane, type){
   const st = $("okStamp");
-  st.innerHTML = `<span class="ring"></span>正解！<small>${TYPES[type].name}</small>`;
+  st.innerHTML = `<span class="ring"></span>正解！<small>${TYPES[type].name.replace(/^[〇✕]/, "")}</small>`;
   // 炎狼に重ならないよう、炎狼の右側の空いた所のまん中に、はみ出さない大きさで出す
   const right = geo.wolfX + geo.wolfW, room = geo.W - right - 16;
   st.style.fontSize = Math.max(22, Math.min(56, room / 6.4)) + "px";
@@ -871,6 +999,7 @@ function popup(text){
 function refreshHud(){
   $("lives").innerHTML = Array.from({length:LIVES}, (_, i) => i < G.lives ? "❤️" : `<span class="off">❤️</span>`).join("");
   $("score").textContent = G.score;
+  $("gates").textContent = Math.min(G.total, GOAL_GATES);
   $("zone").textContent = `${ZONES[G.zone].name}　${G.combo >= 2 ? G.combo + "連続！" : ""}`;
   const g = G.hib > 0 ? G.hib / HIBASHIRI_LEN : G.gauge / GAUGE_MAX;
   $("gauge").style.width = (g * 100) + "%";
@@ -936,32 +1065,57 @@ function gameOver(){
   SE.over();
   setWolf($("wolfBody"), "defeat");
   $("wolf").className = "";
-  setTimeout(showEnd, 900);
+  setTimeout(() => showEnd(false), 900);
 }
 
-function showEnd(){
+// 関所30個を走りきった
+function goal(){
+  if(!G || G.phase === "over") return;
+  G.phase = "over";
+  stopLoop();
+  SE.win();
+  setWolf($("wolfBody"), "attack");
+  banner(`🏁 ゴール！ 🏁<small>関所${GOAL_GATES}個を走りぬけた！</small>`, 1500);
+  setTimeout(() => showEnd(true), 1500);
+}
+
+function showEnd(cleared){
   if(!G) return;
-  document.body.classList.remove("hibashiri");
+  document.body.classList.remove("hibashiri", "maze");
+  const miss = G.misses.length;
+  const stars = !cleared ? 0 : miss === 0 ? 3 : miss <= STAR2_MISS ? 2 : 1;
   const newBest = G.score > SAVE.best;
+  const newStars = stars > SAVE.bestStars;
   SAVE.plays++;
   if(newBest) SAVE.best = G.score;
+  if(newStars) SAVE.bestStars = stars;
+  if(cleared) SAVE.clears++;
   if(G.correct > SAVE.bestCorrect) SAVE.bestCorrect = G.correct;
   writeSave();
   let rank = RANKS[0][1]; RANKS.forEach(([n, r]) => { if(G.score >= n) rank = r; });
-  setWolf($("endWolf"), G.correct >= 20 ? "attack" : "pose2");
+  setWolf($("endWolf"), cleared ? (stars === 3 ? "attack" : "pose2") : "defeat");
+  $("endTitle").textContent = cleared ? "ゴール！" : "リタイア…";
+  $("endStars").innerHTML = cleared
+    ? [0,1,2].map(i => i < stars ? `<span class="pop" style="animation-delay:${.2 + i * .25}s">★</span>` : `<span class="off">★</span>`).join("")
+    : `<span style="font-size:15px;color:var(--sub);letter-spacing:0">${G.total}個目の関所で力つきた…　あと${GOAL_GATES - G.total}個！</span>`;
   $("endRank").textContent = `称号：${rank}`;
-  $("endNote").textContent = newBest ? "🎉 自己ベスト更新！" : `自己ベスト ${SAVE.best} 点`;
-  const acc = G.total ? Math.round(G.correct / G.total * 100) : 0;
+  const notes = [];
+  if(newStars && cleared) notes.push(`🎉 ★${stars}はじめて達成！`);
+  if(newBest) notes.push("🎉 自己ベスト更新！");
+  if(!notes.length) notes.push(`自己ベスト ${SAVE.best} 点`);
+  if(cleared && stars < 3) notes.push(stars === 2 ? "ノーミスで★3！" : `ミス${STAR2_MISS}回以内で★2！`);
+  $("endNote").textContent = notes.join("　");
   $("endStats").innerHTML = `
     <div class="stat ${newBest ? "new" : ""}">得点<b>${G.score}</b></div>
-    <div class="stat">正解<b>${G.correct}問</b></div>
-    <div class="stat">最大連続<b>${G.maxCombo}</b></div>
-    <div class="stat">正答率<b>${acc}%</b></div>`;
-  $("missList").innerHTML = `<h3>ぶつかった言葉をふり返ろう</h3>` + G.misses.map(m => {
+    <div class="stat">正解<b>${G.correct} / ${G.total}</b></div>
+    <div class="stat">ミス<b>${miss}回</b></div>
+    <div class="stat">最大連続<b>${G.maxCombo}</b></div>`;
+  $("missList").innerHTML = !miss ? `<div class="perfect">🔥 ノーミス！ すべての関所を正しい道で走りぬけた！</div>`
+    : `<h3>ぶつかった言葉をふり返ろう</h3>` + G.misses.map(m => {
     const t = TYPES[m.w[1]];
     return `<div class="miss ${t.cls}">
       <div class="w">${m.w[4] ? `<span style="font-size:12px;color:var(--sub)">${esc(m.w[4])}</span>` : ""}${wordHtml(m.w[0])}　→　<span class="ty">${t.name}</span>
-        <span style="font-size:12px;color:var(--sub)">（選んだのは${TYPES[LANE_TYPE[m.chose]].name}）</span></div>
+        <span style="font-size:12px;color:var(--sub)">（${m.chose === "MID" ? "時間切れ" : "選んだのは" + TYPES[m.chose].name}）</span></div>
       <div>${esc(m.w[3])}</div></div>`;
   }).join("");
   show("scEnd");
