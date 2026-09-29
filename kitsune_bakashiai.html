@@ -8,10 +8,14 @@
      ミニゲーム一覧から、のびる読解(nobiru/*.html)と同じく同じタブのまま画面ごと遷移してくる別ページ。
      本体のセーブデータ(st)には一切触れず、このページ専用のlocalStorageキーだけを使う
      （経験値・ジャンルレベルにはまだ反映しない）。
+     2026-09-30、教員の指示で「九本の尾を1本ずつ取る」形をやめ、話ごとに見破り方が変わるストーリー仕立て
+     （一〜六話）＋全部の見破り方がまざって出る90秒の「挑戦の間」（七）に作り替えた
+     （「同じことを何度もやらされる感じで飽きる」「間違いを探す楽しさを複数の視点から」という指摘による）。
      九尾(ub05)の絵は本番と同じスプライトを使う。色違い(enemy_sprites_shiny_data.js、約7MB)は
-     ★27で色違いを選んだときだけ後から読み込む（ensureShinySprites参照）。
+     全話クリア後に色違いを選んだときだけ後から読み込む（ensureShinySprites参照）。
      読み込めなかったときは🦊の絵文字で代用する。 -->
 <script src="ura_boss_sprites_data.js"></script>
+<script src="kitsune_stroke_data.js"></script>
 <style>
   :root{
     --bg1:#0a0714; --bg2:#1a0f24; --bg3:#2d1530;
@@ -45,7 +49,7 @@
     position:fixed; top:10px; right:12px; z-index:50; width:38px; height:38px; border-radius:50%;
     border:1px solid var(--line); background:rgba(0,0,0,.35); color:var(--text); font-size:17px; cursor:pointer;
   }
-  body.in-game #muteBtn, body.in-game #backLink{ display:none; }
+  body.in-game #muteBtn, body.in-game #backLink, body.in-story #backLink{ display:none; }
 
   /* ---- 九尾の絵・セリフ ---- */
   .fox-img{ width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 0 12px rgba(255,154,60,.45)); }
@@ -65,89 +69,110 @@
     color:#3a1408; background:linear-gradient(135deg,var(--fox2),var(--fox)); box-shadow:0 4px 16px rgba(255,154,60,.35); cursor:pointer;
   }
   .btn:hover{ filter:brightness(1.06); }
+  .btn:disabled{ opacity:.45; cursor:default; filter:none; }
   .btn.secondary{ background:rgba(255,255,255,.08); color:var(--text); box-shadow:none; border:1px solid rgba(255,255,255,.2); font-size:15px; }
   .btn.small{ padding:9px; font-size:14px; }
-
-  /* ---- 尾のまる（ゲーム中の進み具合） ---- */
-  .tails{ display:grid; grid-template-columns:repeat(9,1fr); gap:4px; }
-  .tail{
-    position:relative; aspect-ratio:1; border-radius:50%; display:flex; align-items:center; justify-content:center;
-    font-weight:bold; font-size:14px; color:var(--sub); border:1.5px solid rgba(255,255,255,.18); background:rgba(255,255,255,.04);
-  }
-  .tail.now{ color:#3a1408; background:var(--fox2); border-color:var(--fox2); box-shadow:0 0 12px rgba(255,208,138,.8); animation:pulse 1.2s ease-in-out infinite; }
-  .tail.done{ color:#3a1408; background:linear-gradient(135deg,var(--gold),var(--fox)); border-color:var(--gold); }
-  .tail.got{ animation:got .6s ease; }
-  .tail .st{ position:absolute; bottom:-13px; left:50%; transform:translateX(-50%); font-size:8px; letter-spacing:-1px; color:var(--gold); white-space:nowrap; }
-  @keyframes pulse{ 0%,100%{transform:scale(1)} 50%{transform:scale(1.1)} }
-  @keyframes got{ 0%{transform:scale(1)} 40%{transform:scale(1.5)} 100%{transform:scale(1)} }
+  .btn[hidden]{ display:none; }
+  .pill{ border:1px solid var(--line); background:rgba(0,0,0,.3); color:var(--text); border-radius:999px; font-size:12px; padding:2px 10px; cursor:pointer; }
+  @keyframes pulse{ 0%,100%{transform:scale(1)} 50%{transform:scale(1.04)} }
+  @keyframes got{ 0%{transform:scale(1)} 40%{transform:scale(1.4)} 100%{transform:scale(1)} }
+  @keyframes shake{ 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+  @keyframes fadeUp{ from{ transform:translateY(10px); opacity:0; } }
 
   /* =====================================================================
-     地図（タイトル兼、尾の一覧）
+     一覧（タイトル兼、話の一覧）
      ===================================================================== */
   #scMap{ align-items:center; justify-content:center; padding:16px; }
-  .map-wrap{ width:100%; max-width:980px; display:grid; grid-template-columns:260px 1fr; gap:26px; align-items:center; }
+  .map-wrap{ width:100%; max-width:1000px; display:grid; grid-template-columns:250px 1fr; gap:26px; align-items:center; }
   .map-left{ display:flex; flex-direction:column; gap:10px; }
   .map-left .fox{ height:clamp(130px, 30vh, 230px); cursor:pointer; }
   .map-title{ text-align:center; }
   .map-title h1{ font-size:30px; letter-spacing:5px; color:var(--fox2); text-shadow:0 0 18px rgba(255,154,60,.6); }
   .map-title .sub{ font-size:12px; color:var(--sub); letter-spacing:2px; }
   .map-right{ display:flex; flex-direction:column; gap:12px; }
-  .how{ font-size:13px; line-height:1.75; color:var(--sub); }
-  .how b{ color:var(--text); }
-  .tail-map{ display:grid; grid-template-columns:repeat(9,1fr); gap:8px; }
-  .tail-btn{
-    position:relative; border-radius:14px; border:1.5px solid rgba(255,255,255,.18); background:rgba(255,255,255,.05);
-    color:var(--text); padding:10px 0 8px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:4px;
+  .ep-list{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .ep-btn{
+    position:relative; display:grid; grid-template-columns:40px 1fr auto; align-items:center; gap:10px; text-align:left;
+    border-radius:14px; border:1.5px solid rgba(255,255,255,.18); background:rgba(255,255,255,.05);
+    color:var(--text); padding:8px 12px; cursor:pointer;
   }
-  .tail-btn .n{ font-size:22px; font-weight:bold; }
-  .tail-btn .s{ font-size:11px; letter-spacing:-1px; color:var(--gold); min-height:1em; }
-  .tail-btn .s .off{ color:rgba(255,255,255,.2); }
-  .tail-btn.cleared{ background:linear-gradient(160deg,rgba(255,215,107,.25),rgba(255,154,60,.12)); border-color:rgba(255,215,107,.55); }
-  .tail-btn.next{ border-color:var(--fox2); box-shadow:0 0 14px rgba(255,208,138,.6); animation:pulse 1.4s ease-in-out infinite; }
-  .tail-btn.locked{ opacity:.35; cursor:default; }
-  .tail-btn:hover:not(.locked){ filter:brightness(1.15); }
-  .star-total{ display:flex; align-items:center; gap:10px; font-size:13px; }
-  .star-total b{ font-size:22px; color:var(--gold); }
-  .meter{ position:relative; flex:1; height:12px; border-radius:999px; background:rgba(255,255,255,.1); }
-  .meter-fill{ height:100%; border-radius:999px; background:linear-gradient(90deg,var(--fox),var(--gold)); }
-  .meter .mark{ position:absolute; top:50%; transform:translate(-50%,-50%); font-size:15px; filter:grayscale(1) opacity(.5); }
-  .meter .mark.on{ filter:none; }
-  .rewards{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
-  .reward{ border-radius:12px; padding:8px 10px; background:var(--panel); border:1px solid var(--line); font-size:12px; line-height:1.5; cursor:default; text-align:left; color:var(--sub); }
-  .reward b{ display:block; font-size:13px; color:var(--text); }
-  .reward.on{ border-color:rgba(255,215,107,.55); color:var(--text); cursor:pointer; }
-  .reward.on b{ color:var(--gold); }
-  .map-btns{ display:grid; grid-template-columns:2fr 1fr; gap:10px; }
+  .ep-btn .n{ font-size:24px; font-weight:bold; color:var(--fox2); text-align:center; }
+  .ep-btn .t{ font-size:15px; font-weight:bold; }
+  .ep-btn .d{ font-size:11px; color:var(--sub); line-height:1.4; margin-top:1px; }
+  .ep-btn .st{ font-size:11px; font-weight:bold; white-space:nowrap; }
+  .ep-btn .st.clear{ color:var(--gold); }
+  .ep-btn .st.new{ color:#3a1408; background:var(--fox2); border-radius:999px; padding:1px 8px; }
+  .ep-btn.cleared{ background:linear-gradient(160deg,rgba(255,215,107,.18),rgba(255,154,60,.06)); border-color:rgba(255,215,107,.45); }
+  .ep-btn.next{ border-color:var(--fox2); box-shadow:0 0 14px rgba(255,208,138,.55); animation:pulse 1.6s ease-in-out infinite; }
+  .ep-btn.locked{ opacity:.35; cursor:default; }
+  .ep-btn.challenge{ grid-column:1 / -1; background:linear-gradient(135deg,rgba(211,70,47,.28),rgba(255,154,60,.12)); border-color:rgba(255,154,60,.55); }
+  .ep-btn.challenge.locked{ background:rgba(255,255,255,.04); border-color:rgba(255,255,255,.18); }
+  .ep-btn:hover:not(.locked){ filter:brightness(1.15); }
+  .map-btns{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   .back-link{ position:fixed; top:10px; left:12px; z-index:50; }
 
   /* =====================================================================
-     ゲーム画面（パソコン：左に状況、右に札）
+     ストーリー（会話）
+     ===================================================================== */
+  #scStory{ align-items:center; justify-content:center; padding:16px; }
+  .story-wrap{ width:100%; max-width:900px; display:grid; grid-template-columns:260px 1fr; gap:24px; align-items:center; }
+  .story-wrap .fox{ height:clamp(160px, 42vh, 320px); }
+  .story-box{
+    position:relative; cursor:pointer; min-height:220px; display:flex; flex-direction:column; gap:8px;
+    background:linear-gradient(180deg,rgba(40,20,50,.92),rgba(20,10,30,.92)); border:2px solid rgba(255,208,138,.45);
+    border-radius:20px; padding:18px 22px; box-shadow:0 0 30px rgba(255,154,60,.2);
+  }
+  .story-ep{ font-size:12px; color:var(--sub); letter-spacing:2px; }
+  .story-name{ align-self:flex-start; font-size:13px; font-weight:bold; color:#3a1408; background:var(--fox2); border-radius:999px; padding:1px 12px; }
+  .story-name[hidden]{ display:none; }
+  .story-text{ flex:1; font-size:clamp(17px, 2.8vh, 21px); line-height:1.95; animation:fadeUp .35s ease; }
+  .story-text.narr{ color:var(--sub); font-size:clamp(15px, 2.5vh, 18px); }
+  .story-text b{ color:var(--fox2); }
+  .story-foot{ display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--sub); }
+  .story-next{ animation:pulse 1.2s ease-in-out infinite; }
+
+  /* =====================================================================
+     ゲーム画面（パソコン：左に状況、右に問題）
      ===================================================================== */
   #scGame{ position:relative; gap:28px; padding:16px 20px; width:100%; max-width:1180px; margin:0 auto; }
-  .side{ width:290px; flex-shrink:0; display:flex; flex-direction:column; gap:14px; }
-  .side-top{ display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--sub); margin-bottom:5px; }
+  .side{ width:290px; flex-shrink:0; display:flex; flex-direction:column; justify-content:center; gap:14px; }
+  .side-top{ display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:13px; color:var(--sub); }
   .side-top b{ color:var(--fox2); }
-  .side-top .tools{ display:flex; gap:6px; }
-  .pill{ border:1px solid var(--line); background:rgba(0,0,0,.3); color:var(--text); border-radius:999px; font-size:12px; padding:2px 10px; cursor:pointer; }
+  .side-top .tools{ display:flex; gap:6px; flex-shrink:0; }
   .foxbox{ display:flex; flex-direction:column; gap:10px; }
   .foxbox .fox{ height:clamp(110px, 26vh, 210px); }
   .foxbox .bubble{ min-height:5.2em; }
-  .status{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
-  .now-stars{ font-size:24px; letter-spacing:2px; color:var(--gold); }
-  .now-stars .off{ color:rgba(255,255,255,.18); }
-  .now-stars.drop{ animation:shiver .4s ease; }
-  .pips{ display:flex; align-items:center; gap:5px; font-size:12px; color:var(--sub); }
+  .prog-label{ font-size:12px; color:var(--sub); margin-bottom:6px; }
+  .pips{ display:flex; flex-wrap:wrap; align-items:center; gap:7px; }
   .pip{ width:16px; height:16px; transform:rotate(45deg); border:2px solid var(--fox2); border-radius:3px; }
   .pip.on{ background:var(--gold); border-color:var(--gold); box-shadow:0 0 8px var(--gold); }
-  .clock-label{ display:flex; justify-content:space-between; font-size:11px; color:var(--sub); margin-bottom:4px; }
-  .timer{ height:10px; border-radius:999px; background:rgba(255,255,255,.1); overflow:hidden; }
+  .pip.on.got{ animation:got .5s ease; }
+  .ch-box[hidden], .prog-box[hidden]{ display:none; }
+  .scoreline{ display:flex; justify-content:space-between; align-items:baseline; }
+  .scoreline .k{ font-size:12px; color:var(--sub); }
+  .scoreline b{ font-size:32px; color:var(--gold); }
+  .scoreline .plus{ font-size:15px; font-weight:bold; color:var(--gold); margin-left:6px; }
+  .scoreline .plus.pop{ animation:fadeUp .4s ease; }
+  .timer{ height:12px; border-radius:999px; background:rgba(255,255,255,.1); overflow:hidden; margin-top:8px; }
   .timer-fill{ height:100%; width:100%; background:linear-gradient(90deg,var(--fox),var(--gold)); }
-  .timer-fill.over{ background:rgba(255,255,255,.25); }
+  .timer-fill.hurry{ background:linear-gradient(90deg,var(--verm),var(--ng)); }
+  .clock-label{ display:flex; justify-content:space-between; font-size:12px; color:var(--sub); margin-top:4px; }
+  .clock-label b{ color:var(--text); font-size:15px; }
   .combo{ height:22px; text-align:center; font-weight:bold; color:var(--gold); font-size:15px; }
   .combo.pop{ animation:got .35s ease; }
 
-  .board{ flex:1; min-width:0; min-height:0; position:relative; display:flex; align-items:center; justify-content:center; }
-  .grid{ display:grid; gap:12px; width:100%; height:100%; max-width:calc((100dvh - 32px) * var(--cols) / var(--rows) * .8); }
+  .board{ flex:1; min-width:0; min-height:0; position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; }
+  .board-head{ font-size:15px; color:var(--sub); }
+  .board-head b{ color:var(--gold); font-size:20px; }
+  .qnote{ min-height:2.9em; text-align:center; font-size:15px; line-height:1.6; max-width:640px; }
+  .qnote .ng{ color:var(--ng); font-weight:bold; }
+  .qnote .okc{ color:var(--ok); font-weight:bold; }
+  .qnote .mincho{ font-size:1.25em; }
+  .qfoot{ min-height:46px; display:flex; justify-content:center; }
+  .next-btn{ width:auto; padding:10px 40px; animation:fadeUp .3s ease; }
+
+  /* ---- 札あらため（札を並べる） ---- */
+  .grid{ flex:1; min-height:0; display:grid; gap:12px; width:100%; max-width:calc((100dvh - 80px) * var(--cols) / var(--rows) * .8); }
   .card{
     position:relative; border-radius:12px; border:0; cursor:pointer; container-type:size;
     background:linear-gradient(180deg,#fff9ea,var(--ofuda)); color:var(--ofudaInk);
@@ -176,11 +201,89 @@
   .card.hint{ box-shadow:0 4px 0 #b89a62, 0 0 0 4px rgba(255,215,107,.9), 0 0 26px rgba(255,215,107,.9); animation:hintGlow 1s ease-in-out infinite; }
   @keyframes hintGlow{ 50%{ transform:scale(1.03); } }
   @keyframes poof{ 0%{transform:scale(1)} 35%{transform:scale(1.1) rotate(-3deg); filter:blur(1.5px)} 100%{transform:scale(1)} }
-  @keyframes shake{ 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
   .smoke{ position:absolute; font-size:min(30cqw,30cqh); pointer-events:none; animation:smoke .7s ease forwards; }
   @keyframes smoke{ 0%{opacity:1; transform:scale(.6)} 100%{opacity:0; transform:scale(1.8) translateY(-14px)} }
   .dizzy{ pointer-events:none; }
   .dizzy .card{ filter:saturate(.6); }
+
+  /* ---- 問題の上に出す読みと熟語 ---- */
+  .qhead{ display:flex; flex-direction:column; align-items:center; gap:2px; }
+  .qhead .yomi{ font-size:14px; color:var(--sub); letter-spacing:2px; }
+  .qhead .qword{ font-size:clamp(30px, 6vh, 48px); font-weight:bold; letter-spacing:4px; }
+  .qhead .qword em{ font-style:normal; color:var(--fox2); text-decoration:underline wavy rgba(255,208,138,.6); text-underline-offset:6px; }
+
+  /* ---- 一画あらため（大きな字の化けた部分を指さす） ---- */
+  .bwrap, .cwrap, .fwrap, .dwrap{ width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; }
+  .bchar{ height:min(52vh, 86vw); aspect-ratio:1; background:linear-gradient(180deg,#fff9ea,var(--ofuda)); border-radius:18px; box-shadow:0 5px 0 #b89a62, 0 10px 22px rgba(0,0,0,.35); padding:3%; }
+  .bchar svg{ width:100%; height:100%; display:block; cursor:crosshair; touch-action:manipulation; }
+  .bchar .guide{ stroke:rgba(211,70,47,.22); stroke-width:.6; stroke-dasharray:2 2; fill:none; }
+  .bchar .fk path{ fill:none; stroke:#2a1c0c; stroke-width:4.6; stroke-linecap:round; stroke-linejoin:round; transition:stroke .3s, opacity .3s; }
+  .bchar .rl path{ fill:none; stroke:var(--ok); stroke-width:4.6; stroke-linecap:round; stroke-linejoin:round; opacity:0; }
+  .bchar svg.solved .fk path.t{ stroke:var(--verm); animation:blink .5s ease 2; }
+  .bchar svg.solved.fixed .fk path.t{ opacity:.18; }
+  .bchar svg.solved.fixed .rl path{ opacity:1; stroke:#1b9a54; stroke-dasharray:1; stroke-dashoffset:1; animation:draw .6s ease forwards; }
+  @keyframes blink{ 50%{ opacity:.25; } }
+  @keyframes draw{ to{ stroke-dashoffset:0; } }
+  .bmark{ font-size:12px; font-weight:bold; fill:var(--verm); animation:markFade .8s ease forwards; }
+  @keyframes markFade{ 0%{opacity:1} 70%{opacity:1} 100%{opacity:0} }
+  .bhint{ fill:rgba(255,215,107,.28); stroke:rgba(255,190,60,.9); stroke-width:1.2; animation:hintPulse 1s ease-in-out infinite; transform-box:fill-box; transform-origin:center; }
+  @keyframes hintPulse{ 50%{ transform:scale(1.15); } }
+
+  /* ---- 化けの皮はがし（化けた字を正しい字に直す） ---- */
+  .ctiles{ display:flex; gap:12px; }
+  .ctile{
+    width:clamp(74px, 15vh, 128px); aspect-ratio:1; border:0; border-radius:14px; cursor:pointer;
+    font-size:clamp(46px, 10vh, 88px); font-weight:bold; color:var(--ofudaInk);
+    background:linear-gradient(180deg,#fff9ea,var(--ofuda)); box-shadow:0 4px 0 #b89a62, 0 8px 16px rgba(0,0,0,.35);
+  }
+  .ctile:hover:not(:disabled){ transform:translateY(-3px); }
+  .ctile:disabled{ cursor:default; }
+  .ctile.shake{ animation:shake .35s ease; }
+  .ctile.bake{ background:linear-gradient(180deg,#ffe9e4,#ffc9bd); color:var(--verm); box-shadow:0 4px 0 #b3564a, 0 0 0 4px rgba(255,107,107,.5); }
+  .ctile.fixed{ background:linear-gradient(180deg,#eafff0,#c9f2d6); color:#1b7a44; box-shadow:0 4px 0 #6aa37f; animation:poof .45s ease; }
+  .cchoices{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; width:min(520px,100%); }
+  .cchoices[hidden]{ display:none; }
+  .cbtn{
+    font-size:clamp(32px, 6.5vh, 50px); font-weight:bold; padding:8px 0; border-radius:14px; cursor:pointer;
+    background:rgba(255,255,255,.08); color:var(--text); border:1.5px solid rgba(255,255,255,.25); animation:fadeUp .3s ease backwards;
+  }
+  .cbtn:hover:not(:disabled){ background:rgba(255,255,255,.16); }
+  .cbtn:disabled{ cursor:default; }
+  .cbtn.no{ opacity:.25; animation:shake .35s ease; }
+  .cbtn.yes{ background:var(--ok); color:#0c3a1e; border-color:var(--ok); }
+
+  /* ---- 高札（文の中の化け字） ---- */
+  .kousatsu{
+    width:min(780px, 100%); color:#2b1a08; border-radius:8px; padding:14px 22px 16px;
+    background:linear-gradient(180deg,#e6c894,#d4ae72); border:7px solid #6e4520; box-shadow:0 10px 26px rgba(0,0,0,.45);
+  }
+  .ks-title{ text-align:center; font-weight:bold; letter-spacing:.6em; font-size:18px; border-bottom:1.5px solid rgba(110,69,32,.4); padding-bottom:4px; margin-bottom:4px; }
+  .ks-line{ font-size:clamp(19px, 3.4vh, 28px); line-height:2.15; padding:0 4px; border-radius:6px; transition:background .3s; }
+  .ks-line span{ position:relative; border-radius:4px; }   /* inlineのまま（inline-blockにすると行頭禁則が効かず「、」が行頭に来る） */
+  .ks-line span.kj{ cursor:pointer; }
+  .ks-line span.kj:hover{ background:rgba(255,255,255,.35); }
+  .ks-line span.fk.hit{ color:var(--verm); background:rgba(211,70,47,.14); cursor:default; animation:poof .45s ease; }
+  .ks-line span.fk.hit::after{ content:attr(data-fix); position:absolute; left:50%; top:-.78em; transform:translateX(-50%); font-size:.62em; line-height:1; color:#11703c; font-weight:bold; }
+  .ks-line span.nope{ animation:nope .5s ease; }
+  @keyframes nope{ 50%{ background:rgba(60,30,10,.3); } }
+  .ks-line.hint{ background:rgba(255,236,160,.75); }
+  .ks-fixes{ display:flex; flex-wrap:wrap; justify-content:center; gap:8px; }
+  .ks-fix{ background:rgba(255,255,255,.08); border:1px solid var(--line); border-radius:10px; padding:6px 10px; font-size:13px; line-height:1.5; max-width:340px; animation:fadeUp .4s ease backwards; }
+  .ks-fix .f{ color:var(--ng); font-weight:bold; font-size:16px; }
+  .ks-fix .t{ color:var(--ok); font-weight:bold; font-size:16px; }
+
+  /* ---- 茶屋の口車（本物か化け札かを見きわめる） ---- */
+  .fwrap{ max-width:560px; margin:0 auto; }
+  .fclaim{ width:100%; font-size:16px; text-align:center; }
+  .fcard{ width:min(340px, 72vw); height:min(210px, 26vh); cursor:default; }
+  .fcard .word{ font-size:min(30cqw, 50cqh); }
+  .fcard.found .word, .fcard.realok .word{ font-size:min(26cqw, 38cqh); }
+  .fcard.realok{ background:linear-gradient(180deg,#eef6ff,#d6e6fb); }
+  .fbtns{ width:100%; display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .fbtns .btn{ font-size:19px; padding:15px; }
+
+  /* ---- 総仕上げ：化け札を見つけたら、その場で指さし→直す ---- */
+  .deep{ position:absolute; inset:0; z-index:5; display:flex; align-items:center; justify-content:center; padding:8px; border-radius:18px; background:#140a1e; box-shadow:0 0 0 6px #140a1e; animation:fadeUp .25s ease; }
 
   /* ---- 中央の大きな表示 ---- */
   .banner{
@@ -189,73 +292,69 @@
   }
   .banner.show{ display:flex; }
   .banner.clickable{ pointer-events:auto; }
-  .banner .panel{ max-width:min(640px, calc(100vw - 32px)); padding:24px 40px; border-radius:24px; background:radial-gradient(ellipse at 50% 30%, rgba(80,40,70,.95), rgba(20,10,30,.95)); border:2px solid rgba(255,208,138,.45); box-shadow:0 0 40px rgba(255,154,60,.35); }
-  .banner .big{ line-height:1.2; font-size:clamp(40px, 10vh, 84px); font-weight:bold; letter-spacing:6px; color:var(--fox2); text-shadow:0 0 24px rgba(255,154,60,.8); animation:bannerIn .45s cubic-bezier(.2,1.6,.4,1); }
-  .banner .small{ font-size:clamp(15px, 2.6vh, 22px); margin-top:8px; animation:fadeUp .5s ease .15s backwards; }
-  .banner .stars{ font-size:clamp(34px, 8vh, 60px); color:var(--gold); letter-spacing:8px; margin-top:4px; }
-  .banner .stars span{ display:inline-block; animation:starPop .35s cubic-bezier(.2,1.8,.4,1) backwards; }
-  .banner .stars span.off{ color:rgba(255,255,255,.18); }
-  .banner .newrec{ display:inline-block; margin-top:6px; padding:2px 12px; border-radius:999px; background:var(--gold); color:#3a1408; font-weight:bold; font-size:13px; animation:fadeUp .4s ease .8s backwards; }
+  .banner .panel{ max-width:min(660px, calc(100vw - 32px)); max-height:calc(100dvh - 24px); overflow:auto; padding:24px 40px; border-radius:24px; background:radial-gradient(ellipse at 50% 30%, rgba(80,40,70,.95), rgba(20,10,30,.95)); border:2px solid rgba(255,208,138,.45); box-shadow:0 0 40px rgba(255,154,60,.35); }
+  .banner .big{ line-height:1.2; font-size:clamp(38px, 9vh, 76px); font-weight:bold; letter-spacing:6px; color:var(--fox2); text-shadow:0 0 24px rgba(255,154,60,.8); animation:bannerIn .45s cubic-bezier(.2,1.6,.4,1); }
+  .banner .small{ font-size:clamp(15px, 2.6vh, 21px); margin-top:8px; line-height:1.6; animation:fadeUp .5s ease .15s backwards; }
+  .banner .score-big{ font-size:clamp(40px, 9vh, 70px); font-weight:bold; color:var(--gold); animation:bannerIn .5s cubic-bezier(.2,1.6,.4,1) .2s backwards; }
+  .banner .score-big small{ font-size:.4em; margin-left:4px; }
+  .banner .newrec{ display:inline-block; margin-top:6px; padding:2px 12px; border-radius:999px; background:var(--gold); color:#3a1408; font-weight:bold; font-size:13px; animation:fadeUp .4s ease .6s backwards; }
+  .banner .rank{ margin-top:8px; font-size:13px; color:var(--sub); }
+  .banner .rank b{ display:block; font-size:22px; color:var(--gold); }
   .chips{ display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin:14px 0 4px; }
   .chip{ background:rgba(255,255,255,.08); border:1px solid var(--line); border-radius:10px; padding:6px 10px; font-size:13px; animation:fadeUp .4s ease backwards; }
   .chip .f{ color:var(--ng); font-size:17px; font-weight:bold; }
   .chip .t{ color:var(--ok); font-size:17px; font-weight:bold; }
   .chip .new{ font-size:10px; color:#3a1408; background:var(--gold); border-radius:999px; padding:0 6px; margin-left:4px; vertical-align:middle; }
   .banner-btns{ display:grid; grid-template-columns:2fr 1fr; gap:10px; margin-top:14px; }
-  .autobar{ height:4px; border-radius:999px; background:rgba(255,255,255,.12); margin-top:10px; overflow:hidden; }
-  .autobar div{ height:100%; background:var(--fox2); width:0; }
+  .banner-btns.one{ grid-template-columns:1fr; }
   @keyframes bannerIn{ from{ transform:scale(.3); opacity:0; } }
-  @keyframes fadeUp{ from{ transform:translateY(10px); opacity:0; } }
-  @keyframes starPop{ from{ transform:scale(0) rotate(-90deg); opacity:0; } }
 
-  /* =====================================================================
-     九尾 降参（9本目を取ったとき）
-     ===================================================================== */
-  #scEnd{ align-items:center; justify-content:center; padding:16px; }
-  .end-wrap{ width:100%; max-width:760px; display:grid; grid-template-columns:260px 1fr; gap:26px; align-items:center; }
-  .end-wrap .fox{ height:clamp(140px, 32vh, 240px); }
-  .end-wrap h2{ font-size:clamp(30px, 6vh, 44px); letter-spacing:6px; color:var(--fox2); text-shadow:0 0 18px rgba(255,154,60,.6); }
-  .end-right{ display:flex; flex-direction:column; gap:12px; }
-  .end-rank .k{ font-size:12px; color:var(--sub); }
-  .end-rank .v{ font-size:22px; font-weight:bold; color:var(--gold); }
-
-  /* ---- 図鑑・昔話（重ねて表示） ---- */
+  /* ---- 図鑑（重ねて表示） ---- */
   .modal{ position:fixed; inset:0; z-index:40; display:none; align-items:center; justify-content:center; background:rgba(8,5,16,.8); padding:16px; }
   .modal.show{ display:flex; }
-  .modal-box{ width:100%; max-width:760px; max-height:100%; display:flex; flex-direction:column; gap:10px; background:linear-gradient(180deg,#24142e,#150c20); border:1.5px solid rgba(255,208,138,.35); border-radius:18px; padding:16px 18px; }
+  .modal-box{ width:100%; max-width:800px; max-height:100%; display:flex; flex-direction:column; gap:10px; background:linear-gradient(180deg,#24142e,#150c20); border:1.5px solid rgba(255,208,138,.35); border-radius:18px; padding:16px 18px; }
   .modal-box h3{ color:var(--fox2); font-size:17px; }
   .modal-body{ flex:1; min-height:0; overflow:auto; }
-  .zukan{ display:grid; grid-template-columns:repeat(auto-fill, minmax(120px,1fr)); gap:6px; }
-  .zk{ border-radius:8px; padding:6px; text-align:center; background:var(--panel); font-size:12px; color:var(--sub); }
+  .zk-how{ font-size:12px; color:var(--sub); line-height:1.7; }
+  .zk-how i{ font-style:normal; display:inline-block; width:18px; height:18px; line-height:18px; text-align:center; border-radius:50%; background:var(--verm); color:#fff; font-size:11px; margin:0 2px; }
+  .zk-detail{ min-height:2.6em; font-size:13px; line-height:1.6; background:var(--panel); border-radius:10px; padding:6px 10px; margin:6px 0; }
+  .zk-detail b{ font-size:16px; }
+  .zukan{ display:grid; grid-template-columns:repeat(auto-fill, minmax(112px,1fr)); gap:6px; }
+  .zk{ border-radius:8px; padding:6px 4px; text-align:center; background:var(--panel); font-size:12px; color:var(--sub); border:1.5px solid transparent; cursor:pointer; }
   .zk .w{ font-size:17px; font-weight:bold; color:var(--text); }
-  .zk .f{ color:var(--ng); font-size:15px; }
+  .zk .f{ color:var(--ng); font-size:14px; }
+  .zk .stamps{ display:flex; justify-content:center; gap:2px; margin-top:3px; }
+  .zk .stamps i{ font-style:normal; width:17px; height:17px; line-height:15px; border-radius:50%; border:1px solid rgba(255,255,255,.2); color:rgba(255,255,255,.25); font-size:10px; }
+  .zk .stamps i.on{ background:var(--verm); color:#fff; border-color:var(--verm); }
+  .zk.gold{ border-color:var(--gold); background:linear-gradient(160deg,rgba(255,215,107,.24),rgba(255,154,60,.08)); }
+  .zk.unknown{ cursor:default; }
   .zk.unknown .w{ color:rgba(255,255,255,.25); }
   .zk-lv{ font-size:12px; color:var(--sub); margin:10px 0 4px; }
-  .story{ font-size:15px; line-height:2; }
 
-  /* ---- スマホ（縦長）：上に状況、下に札 ---- */
+  /* ---- スマホ（縦長）：上に状況、下に問題 ---- */
   @media (max-aspect-ratio: 1/1), (max-width: 700px){
-    #scGame{ flex-direction:column; gap:10px; padding:10px 12px 12px; }
-    .side{ width:100%; gap:8px; }
+    #scGame{ flex-direction:column; gap:8px; padding:10px 12px 12px; }
+    .side{ width:100%; gap:6px; }
     .foxbox{ flex-direction:row; align-items:center; }
-    .foxbox .fox{ height:76px; width:76px; flex-shrink:0; }
+    .foxbox .fox{ height:70px; width:70px; flex-shrink:0; }
     .foxbox .bubble{ flex:1; min-height:0; font-size:13px; padding:7px 10px; }
     .combo{ display:none; }
-    .clock-label{ display:none; }
-    .tail{ font-size:12px; }
+    .prog-label{ display:none; }
+    .scoreline b{ font-size:24px; }
+    .timer{ margin-top:2px; }
     .grid{ gap:8px; max-width:none; }
-    #scMap, #scEnd{ overflow-y:auto; align-items:flex-start; padding-top:56px; }
-    .map-wrap, .end-wrap{ grid-template-columns:1fr; gap:12px; }
-    .map-left .fox{ height:110px; }
-    .end-wrap .fox{ height:120px; }
+    .qnote{ font-size:14px; }
+    .bchar{ height:min(40vh, 84vw); }
+    #scMap, #scStory{ overflow-y:auto; align-items:flex-start; padding-top:56px; }
+    .map-wrap, .story-wrap{ grid-template-columns:1fr; gap:12px; }
     .map-left{ flex-direction:row; align-items:center; }
-    .map-left .fox{ width:110px; flex-shrink:0; }
+    .map-left .fox{ width:110px; height:110px; flex-shrink:0; }
     .map-title{ text-align:left; }
     .map-title h1{ font-size:24px; letter-spacing:2px; }
-    .tail-map{ grid-template-columns:repeat(5,1fr); }
-    .rewards{ grid-template-columns:1fr; }
+    .ep-list{ grid-template-columns:1fr; }
+    .story-wrap .fox{ height:150px; }
     .banner .panel{ padding:20px 16px; }
-    .banner .big{ font-size:min(11vw, 52px); letter-spacing:2px; }
+    .banner .big{ font-size:min(11vw, 50px); letter-spacing:2px; }
     .banner .small{ font-size:15px; }
   }
 </style>
@@ -265,7 +364,7 @@
 
 <button class="pill back-link" id="backLink" onclick="backToApp()">← ミニゲーム一覧へ</button>
 
-<!-- 地図（タイトル兼、九本の尾の一覧） -->
+<!-- 一覧（タイトル兼、話の一覧） -->
 <section id="scMap" class="screen show">
   <div class="map-wrap">
     <div class="map-left">
@@ -277,16 +376,26 @@
         <h1 class="mincho">九尾の化かし合い</h1>
         <div class="sub">― 化けた漢字を見破れ ―</div>
       </div>
-      <p class="how">
-        札の中に、<b>形の似た別の字</b>に化けた熟語がまざっている（例：<span class="mincho" style="color:var(--ng)">完壁</span> → 正しくは <span class="mincho" style="color:var(--ok)">完璧</span>）。<br>
-        全部見破れば<b>尾を1本</b>もらえる。<b>ミスなし</b>・<b>すばやく</b>見破るほど★が増える。
-      </p>
-      <div class="tail-map" id="tailMap"></div>
-      <div class="star-total">★ <b id="starTotal">0</b><span>/ 27</span><div class="meter" id="meter"></div></div>
-      <div class="rewards" id="rewards"></div>
+      <div class="ep-list" id="epList"></div>
       <div class="map-btns">
-        <button class="btn" id="goBtn" onclick="startTail(nextTailIndex(), true)">はじめる</button>
         <button class="btn secondary" onclick="openZukan()" id="zukanBtn">化け字図鑑</button>
+        <button class="btn secondary" id="shinyBtn" onclick="toggleShiny()" hidden></button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ストーリー（会話） -->
+<section id="scStory" class="screen">
+  <div class="story-wrap">
+    <div class="fox" id="storyFox"></div>
+    <div class="story-box" onclick="storyNext()">
+      <div class="story-ep" id="storyEp"></div>
+      <div class="story-name" id="storyName">九尾</div>
+      <div class="story-text mincho" id="storyText"></div>
+      <div class="story-foot">
+        <button class="pill" onclick="event.stopPropagation(); storySkip()">とばす ≫</button>
+        <span class="story-next">▼ タップで つぎへ</span>
       </div>
     </div>
   </div>
@@ -295,50 +404,29 @@
 <!-- ゲーム -->
 <section id="scGame" class="screen">
   <aside class="side">
-    <div>
-      <div class="side-top">
-        <span>九尾の尾　<b id="tailCount">0</b> / 9 本</span>
-        <span class="tools">
-          <button class="pill mute-inline" onclick="toggleMute()" title="音のオン・オフ">🔊</button>
-          <button class="pill" onclick="restAndMap()">ひと休み</button>
-        </span>
-      </div>
-      <div class="tails" id="tails"></div>
+    <div class="side-top">
+      <span id="epLabel"></span>
+      <span class="tools">
+        <button class="pill mute-inline" onclick="toggleMute()" title="音のオン・オフ">🔊</button>
+        <button class="pill" onclick="restAndMap()">ひと休み</button>
+      </span>
     </div>
     <div class="foxbox">
       <div class="fox" id="gameFox"></div>
       <div class="bubble" id="gameLine"></div>
     </div>
-    <div class="status">
-      <div class="now-stars" id="nowStars"></div>
-      <div class="pips"><span>化け札</span><span id="pips" style="display:flex;gap:6px"></span></div>
+    <div class="prog-box" id="progBox">
+      <div class="prog-label" id="progLabel"></div>
+      <div class="pips" id="pips"></div>
     </div>
-    <div>
-      <div class="clock-label"><span>すばやさ</span><span id="clockNote">なくなると ★ −1</span></div>
+    <div class="ch-box" id="chBox" hidden>
+      <div class="scoreline"><span class="k">得点</span><span><b id="score">0</b><span class="plus" id="plus"></span></span></div>
       <div class="timer"><div class="timer-fill" id="timerFill"></div></div>
+      <div class="clock-label"><span>見破った数 <b id="chCorrect">0</b></span><span>のこり <b id="timeLeft">90</b> 秒</span></div>
     </div>
     <div class="combo" id="combo"></div>
   </aside>
-  <main class="board"><div class="grid" id="grid"></div></main>
-</section>
-
-<!-- 九尾 降参 -->
-<section id="scEnd" class="screen">
-  <div class="end-wrap">
-    <div class="fox" id="endFox"></div>
-    <div class="end-right">
-      <h2 class="mincho">九尾、降参！</h2>
-      <div class="bubble" id="endLine"></div>
-      <div class="tails" id="endTails" style="margin-bottom:12px"></div>
-      <div class="end-rank"><span class="k">★ </span><b id="endStars" style="font-size:24px;color:var(--gold)"></b><span class="k"> / 27　　称号</span>
-        <div class="v mincho" id="endRank"></div></div>
-      <div id="endNote" style="font-size:13px;color:var(--sub);line-height:1.7"></div>
-      <div class="map-btns">
-        <button class="btn" onclick="showMap()">尾の一覧へ</button>
-        <button class="btn secondary" onclick="openZukan()">化け字図鑑</button>
-      </div>
-    </div>
-  </div>
+  <main class="board" id="board"></main>
 </section>
 
 <div class="banner" id="banner"></div>
@@ -458,89 +546,230 @@ const WORDS = [
   ["果汁","かじゅう",1,"汗",3,"「汁」は右が「十」。"],
 ];
 
-/* =====================================================================
-   九本の尾＝九つのステージ。
-   ・負けはない：化け札をすべて見破れば、必ずその尾が手に入る。
-   ・★は3からスタートし、「本物をタップした（1回ごとに−1）」「すばやさの目安(par秒)を過ぎた（−1）」で
-     減る。最低でも★1は必ずもらえる。
-   ・parの2倍の時間がたっても見つからないときは、九尾がヒント（化け札が1枚光る）を出す。
-   ===================================================================== */
-const TAILS = [
-  {cards:6,  fakes:1, lv:[1,1], par:12},
-  {cards:6,  fakes:1, lv:[1,1], par:10},
-  {cards:6,  fakes:2, lv:[1,1], par:15},
-  {cards:9,  fakes:2, lv:[1,2], par:18},
-  {cards:9,  fakes:2, lv:[2,2], par:18},
-  {cards:9,  fakes:3, lv:[2,2], par:22},
-  {cards:9,  fakes:3, lv:[2,3], par:24},
-  {cards:12, fakes:3, lv:[2,3], par:26},
-  {cards:12, fakes:4, lv:[3,3], par:32, boss:true},
-];
-const NUM = ["一","二","三","四","五","六","七","八","九"];
-
-/* ★の合計で開くごほうび */
-const REWARDS = [
-  {need:9,  key:"story1", title:"九尾の昔話　その一", lock:"★9で開く"},
-  {need:18, key:"story2", title:"九尾の昔話　その二", lock:"★18で開く"},
-  {need:27, key:"shiny",  title:"色違いの九尾",       lock:"★27で開く"},
-];
-const STORIES = {
-  story1:"わらわは昔、都の書庫に住んでおった。人間の書く字を毎晩ながめては、一画だけ変えて化けるいたずらをしておったのじゃ。<br>「壁」を「璧」に、「未」を「末」に……。だがな、字をよく知る者には、すぐに見破られてしもうた。<br>字を知ることは、化かされぬ力になる。そなたも、その力を持っておるようじゃな。",
-  story2:"一画ちがえば、意味がまるで変わる。「未来」は<b>まだ来ていない</b>時、「末」は<b>おわり</b>じゃ。<br>わらわが化けるときは、形だけでなく<b>意味のすきま</b>をねらっておる。<br>だから、へんやつくりの意味を知っておる者には、わらわの術は通じぬ。……ふふ、そなたとの化かし合い、なかなか楽しかったぞ。",
+/* 化けの皮はがし（三話）で、正しい字といっしょに並べる「まぎらわしい字」3つ（熟語ごと）。
+   正しい字と部品が共通する字を選び、入れると別の実在する言葉になってしまう字は外している
+   （例：未来に「本」→本来、待機に「時」→時機、署名に「著」→著名 は使わない）。 */
+const CHOICES = {
+  "休日":"伏仏伐","体育":"件伴低","太陽":"大丈天","石炭":"左岩古","左右":"若古台","王様":"主生干",
+  "入学":"八久又","正午":"千干半","牛乳":"半平朱","未来":"木米朱","末期":"木朱来","博士":"工干主",
+  "土地":"工干王","失敗":"夫朱先","矢印":"夫朱知","見聞":"問関閉","時間":"問関閑","専門":"閉開関",
+  "質問":"間開閉","協力":"刃万方","日本刀":"刃万方","幸福":"至李南","兄弟":"弔単兆","第一":"策笛等",
+  "連続":"統緒績","読書":"語説談","輸入":"論愉諭","車輪":"論倫較","完璧":"癖避碧","危険":"験剣倹",
+  "検査":"験剣倹","経験":"険剣倹","積極":"責債漬","成績":"責債漬","構造":"購溝再","講義":"購溝謙",
+  "貨物":"賃貧資","貸し出し":"賃貧資","延長":"建庭誕","法廷":"建庭庁","待機":"持特詩","特技":"待侍牧",
+  "組織":"職繊縦","知識":"職誠議","職業":"織聴耳","裁判":"載哉戴","盆栽":"載哉戴","記載":"栽哉戴",
+  "復習":"腹覆履","複雑":"腹覆補","往復":"注狂柱","住所":"注柱佳","歓迎":"勧権欲","観客":"勧権親",
+  "時刻":"刺劾該","核心":"該劾咳","分析":"祈斥柄","骨折":"祈斥近","招待":"昭沼超","紹介":"沼給紀",
+  "家賃":"貨貧任","探検":"採操架","深海":"染渓沈","抜群":"君詳羊","補欠":"哺浦舗","逮捕":"浦哺舗",
+  "除外":"余叙斜","徐行":"余叙斜","途中":"余徒塗","季節":"李秀香","委員":"妥秀姿","命令":"今合含",
+  "恩人":"因息患","思想":"息患恵","特徴":"徹懲徽","微妙":"徹徽懲","遺産":"遭追遇","派遣":"遭追遇",
+  "応援":"暖授媛","緩和":"綬媛授","気候":"喉修倹","破壊":"壌環嬢","衰退":"衷喪表","墓地":"募慕暮",
+  "開幕":"募慕暮","募集":"墓幕暮","名簿":"博縛箔","薄情":"博縛箔","圧巻":"拳巷春","乗車券":"拳巷春",
+  "自己":"巳乙弓","著者":"署諸箸","署名":"諸置罪","状態":"能罷総","発汗":"汚江汽","果汁":"汚江針",
 };
 
+/* 高札（四話）と挑戦の間で使う文。{ }の中の熟語が、化けた形で文の中に出る（1文に化け字1つ）。 */
+const SENTENCES = {
+  "休日":"明日は{休日}なので、家族で山に登る予定だ。","体育":"{体育}の時間に、クラス全員でリレーをした。",
+  "太陽":"雲のすき間から{太陽}が顔を出した。","石炭":"昔は{石炭}を燃やして汽車を走らせていた。",
+  "左右":"横断歩道では、{左右}をよく確かめてから渡ろう。","王様":"{王様}は、国じゅうの人々を城に招いた。",
+  "入学":"弟の小学校{入学}を祝って、赤飯をたいた。","正午":"{正午}になると、村の鐘が鳴りひびく。",
+  "牛乳":"朝ごはんには、パンと{牛乳}が欠かせない。","未来":"十年後の{未来}の自分に、手紙を書いてみよう。",
+  "末期":"江戸時代の{末期}には、多くの外国船が来航した。","博士":"虫{博士}とよばれる友達は、何でも知っている。",
+  "土地":"この{土地}では、昔から米作りがさかんだ。","失敗":"{失敗}をおそれずに、何度でも挑戦しよう。",
+  "矢印":"案内板の{矢印}にしたがって進んでください。","見聞":"旅に出て、{見聞}を広める。",
+  "時間":"集合{時間}に遅れないように、早めに家を出た。","専門":"兄は大学で、こん虫を{専門}に研究している。",
+  "質問":"分からないことがあれば、遠慮なく{質問}してください。","協力":"みんなで{協力}して、教室をきれいにした。",
+  "日本刀":"博物館で、名人がきたえた{日本刀}を見た。","幸福":"家族の{幸福}を願って、神社にお参りした。",
+  "兄弟":"わたしは三人{兄弟}の真ん中だ。","第一":"大会の{第一}試合は、朝九時から始まる。",
+  "連続":"三日{連続}で雨が降っている。","読書":"秋の夜長は、{読書}にぴったりだ。",
+  "輸入":"この国は、多くの食べ物を{輸入}にたよっている。","車輪":"自転車の{車輪}に空気を入れた。",
+  "完璧":"最後の演技は、{完璧}な出来ばえだった。","危険":"{危険}ですから、川に近づかないでください。",
+  "検査":"来週、学校で歯の{検査}がある。","経験":"初めての{経験}に、胸がどきどきした。",
+  "積極":"授業では、{積極}的に手を挙げよう。","成績":"二学期は、数学の{成績}が上がった。",
+  "構造":"この橋は、地震に強い{構造}になっている。","講義":"大学の先生の{講義}を聞きに行った。",
+  "貨物":"港に大きな{貨物}船が着いた。","貸し出し":"図書館の本の{貸し出し}は、一人五冊までだ。",
+  "延長":"試合は{延長}戦にもつれこんだ。","法廷":"{法廷}で、裁判官が判決を言いわたした。",
+  "待機":"雨がやむまで、体育館で{待機}してください。","特技":"わたしの{特技}は、けん玉だ。",
+  "組織":"学校という{組織}には、たくさんの人がかかわっている。","知識":"本を読んで、新しい{知識}を身につけた。",
+  "職業":"将来どんな{職業}につきたいか、考えてみた。","裁判":"社会科見学で、{裁判}の様子を見た。",
+  "盆栽":"祖父の楽しみは、{盆栽}の手入れだ。","記載":"用紙に、住所と名前を{記載}してください。",
+  "復習":"テストの前に、ノートを見て{復習}した。","複雑":"この問題は、思ったより{複雑}だった。",
+  "往復":"駅までは、{往復}で一時間かかる。","住所":"ふうとうに、{住所}と名前を書いた。",
+  "歓迎":"転校生を、クラス全員で{歓迎}した。","観客":"スタジアムは、たくさんの{観客}でうまった。",
+  "時刻":"バスの発車{時刻}を確かめた。","核心":"先生の質問は、問題の{核心}をついていた。",
+  "分析":"集めたデータを{分析}して、グラフにまとめた。","骨折":"サッカーの試合中に、足を{骨折}してしまった。",
+  "招待":"誕生日会に、友達を{招待}した。","紹介":"新しいクラスで、自己{紹介}をした。",
+  "家賃":"アパートの{家賃}を、毎月はらう。","探検":"夏休みに、近くの洞くつを{探検}した。",
+  "深海":"{深海}には、ふしぎな生き物がすんでいる。","抜群":"かれの歌のうまさは{抜群}だ。",
+  "補欠":"試合には出られなかったが、{補欠}としてベンチから声を出した。","逮捕":"警察が、どろぼうを{逮捕}した。",
+  "除外":"かぜをひいた人は、今回の参加者から{除外}した。","徐行":"雪の日は、車も{徐行}して走る。",
+  "途中":"帰る{途中}で、雨が降ってきた。","季節":"春は、お花見の{季節}だ。",
+  "委員":"わたしは図書{委員}に立候補した。","命令":"隊長の{命令}で、全員が走り出した。",
+  "恩人":"助けてくれたおじさんは、命の{恩人}だ。","思想":"この本には、作者の{思想}がよく表れている。",
+  "特徴":"キリンの{特徴}は、長い首だ。","微妙":"二つの色の{微妙}なちがいに気づいた。",
+  "遺産":"この古い寺は、大切な文化{遺産}だ。","派遣":"災害の起きた町に、救助隊が{派遣}された。",
+  "応援":"大きな声で、選手を{応援}した。","緩和":"校則を少し{緩和}することになった。",
+  "気候":"日本の{気候}は、四季がはっきりしている。","破壊":"台風で、古い小屋が{破壊}された。",
+  "衰退":"人が減って、商店街が{衰退}している。","墓地":"お盆には、家族で{墓地}へお参りに行く。",
+  "開幕":"いよいよ、運動会の{開幕}だ。","募集":"文化祭の手伝いを{募集}します。",
+  "名簿":"クラスの{名簿}に、名前を書き入れた。","薄情":"困っている人を見捨てるなんて、{薄情}だ。",
+  "圧巻":"最後の大逆転は、まさに{圧巻}だった。","乗車券":"駅の窓口で、{乗車券}を買った。",
+  "自己":"{自己}紹介では、好きな食べ物を話した。","著者":"この物語の{著者}は、どんな人だろう。",
+  "署名":"計画に反対する人たちが、{署名}を集めた。","状態":"体の{状態}をととのえて、試合にのぞむ。",
+  "発汗":"運動すると、{発汗}して体温が下がる。","果汁":"しぼりたての{果汁}は、とてもおいしい。",
+};
+
+/* =====================================================================
+   話の構成（2026-09-30〜）。話ごとに見破り方（mode）が変わる。
+     A 札あらため   ：並んだ札の中から化け札を見つける
+     B 一画あらため ：大きく出た化け字の、化けている部分（画・部品）を指でさす
+     C 化けの皮はがし：化けた字をタップして、正しい字を4つから選んで直す
+     D 高札         ：お知らせの文の中から、化けた字を見つける
+     F 茶屋の口車   ：九尾の言葉（本当のこともうそのこともある）にまどわされず、札が本物か化け札かを決める
+     E 総仕上げ     ：札の中から化け札を見つけるたびに、その場で指さし（B）→直す（C）
+   ・負けはない：どの話も、見破りきれば必ず終わる。まちがえても減るものはない（連続が切れるだけ）。
+   ・図鑑のスタンプ・挑戦の間の得点は、正解したときにだけ増える。
+   ===================================================================== */
+const EPISODES = [
+  {no:"一", title:"札屋の化け札", mode:"A", desc:"札の中から、化けた札を見つける",
+   tasks:[{cards:6,fakes:1,lv:[1,1]},{cards:6,fakes:2,lv:[1,1]},{cards:9,fakes:2,lv:[1,2]}],
+   pre:[
+     ["narr","都のはずれの札屋に、字のおかしな札が並んでいる――そんなうわさを聞いて、そなたは店をのぞいてみた。"],
+     ["fox","ほほほ……ようこそ。わらわは<b>九尾</b>。字に化けていたずらをするのが、なによりの楽しみじゃ。","pose1"],
+     ["fox","この店の札に、わらわの<b>化け札</b>をまぜておいた。形の似た別の字に、一文字だけ化けておるぞ。","pose2"],
+     ["fox","化けた札を見つけたら、タップするのじゃ。見破れるものなら、見破ってみよ！","attack"],
+   ],
+   post:[
+     ["fox","ぐぬぬ……札屋の化け札を、すべて見破るとは。","defense"],
+     ["fox","じゃが、これはほんの小手調べ。次は<b>書庫</b>じゃ。わらわの術は、もっと細かいぞ？","pose1"],
+   ]},
+  {no:"二", title:"書庫の一画", mode:"B", desc:"大きな字の、化けている部分を指さす",
+   tasks:[{lv:[1,1]},{lv:[1,1]},{lv:[1,2]},{lv:[1,2]},{lv:[2,2]},{lv:[2,3]}],
+   pre:[
+     ["narr","九尾を追って、都の古い書庫へ。ほこりをかぶった巻物が、天井まで積み上がっている。"],
+     ["fox","わらわは昔、この書庫に住んでおった。人間の書く字を毎晩ながめては、<b>一画だけ</b>変えて化けるいたずらをしておったのじゃ。","pose1"],
+     ["fox","今度は、化けた字を大きく見せてやろう。<b>どこが化けておるか</b>、指でさしてみよ。","pose2"],
+     ["fox","線が長すぎる、点がよけい、部品がちがう……。足りない画は、<b>本当はあるはずの場所</b>をさすのじゃぞ。","pose2"],
+   ],
+   post:[
+     ["fox","点ひとつ、線の長さひとつまで見ておるとは……。","defense"],
+     ["fox","よかろう。次は<b>寺子屋</b>じゃ。見つけるだけでなく、正しい字に<b>直せる</b>かな？","pose1"],
+   ]},
+  {no:"三", title:"寺子屋の化けの皮", mode:"C", desc:"化けた字を見つけて、正しい字に直す",
+   tasks:[{lv:[1,1]},{lv:[1,1]},{lv:[1,2]},{lv:[1,2]},{lv:[2,2]},{lv:[2,3]}],
+   pre:[
+     ["narr","寺子屋の手本に、いつのまにか化け字がまぎれこんでいた。子どもたちが、そのまま書き写している。"],
+     ["fox","見つけるだけなら、だれでもできる。まことの見破り手は、<b>正しい字に直せる</b>ものじゃ。","pose1"],
+     ["fox","まず化けた字をタップ。そのあと正しい字を選んで、わらわの<b>化けの皮をはがして</b>みよ。","attack"],
+   ],
+   post:[
+     ["fox","うう、化けの皮をはがされてしもうた……。","defeat"],
+     ["fox","ならば、字が<b>文の中</b>にまぎれこんだら、どうじゃ？ 村の<b>高札</b>で待っておるぞ。","pose2"],
+   ]},
+  {no:"四", title:"村の高札", mode:"D", desc:"お知らせの文から、化けた字を見つける",
+   tasks:[{n:3,lv:[1,2]},{n:3,lv:[1,3]},{n:3,lv:[2,3]}],
+   pre:[
+     ["narr","村の<b>高札</b>（お知らせを書いてかかげる札）に、おかしな字が書かれていると、さわぎになっている。"],
+     ["fox","文の中にまぎれた化け字は、なかなか気づかぬものよ。するすると読めてしまうからのう。","pose1"],
+     ["fox","一文ずつ読みながら、おかしな字を<b>タップ</b>するのじゃ。<b>意味</b>を考えれば、きっと分かるぞ。","pose2"],
+   ],
+   post:[
+     ["fox","「未来」が「末来」なら<b>すえが来る</b>、「完璧」が「完壁」なら<b>かべ</b>になる……。一画ちがえば、意味がまるで変わるのじゃ。","pose2"],
+     ["fox","わらわが化けるときは、形だけでなく<b>意味のすきま</b>をねらっておる。……それもお見通しとはのう。","defense"],
+     ["fox","よし、次は峠の<b>茶屋</b>じゃ。わらわの口車に乗らずにいられるかな？","pose1"],
+   ]},
+  {no:"五", title:"茶屋の口車", mode:"F", desc:"九尾の言葉にまどわされず、本物か化け札かを見きわめる",
+   count:8, lv:[1,3],
+   pre:[
+     ["narr","峠の茶屋。だんごをほおばる九尾が、札を一枚ずつ差し出してくる。"],
+     ["fox","この札は本物か、化け札か。わらわが教えてやろう……ただし、わらわは<b>うそつき</b>じゃぞ？","pose1"],
+     ["fox","本当のことを言うときもあれば、うそを言うときもある。わらわの言葉ではなく、<b>札そのもの</b>をよく見て決めるのじゃ。","pose2"],
+     ["fox","<b>8回</b>見きわめたら、そなたの勝ちとしよう。","attack"],
+   ],
+   post:[
+     ["fox","わらわの口車にも乗らぬとは……。","defense"],
+     ["fox","もはや、手加減はせぬ。わらわの術をすべてつかった、<b>最後の化かし合い</b>じゃ！","attack"],
+   ]},
+  {no:"六", title:"九尾の本気", mode:"E", desc:"見つける・指さす・直すの総仕上げ",
+   tasks:[{cards:9,fakes:2,lv:[1,3]},{cards:9,fakes:2,lv:[2,3]}],
+   pre:[
+     ["narr","満月の夜。九尾が、九本の尾を大きく広げた。"],
+     ["fox","これまでの術を、すべて見せてみよ。化け札を<b>見つけ</b>、どこが化けておるかを<b>指さし</b>、正しい字に<b>直す</b>のじゃ！","attack"],
+   ],
+   post:[
+     ["fox","ま、参った……。そなたの目には、わらわの術も通じぬようじゃ。","defeat"],
+     ["fox","字を知ることは、化かされぬ力になる。そなたは、その力をしかと持っておる。","pose1"],
+     ["fox","……じゃが、わらわはあきらめが悪い。<b>九十秒</b>で、どれだけ見破れるか。<b>挑戦の間</b>を開いておいたぞ。","pose2"],
+     ["narr","「<b>七 挑戦の間</b>」が開いた！　九尾が<b>色違いの姿</b>にもなれるようになった。"],
+   ]},
+];
+const CH_SECONDS = 90;
+const MODE_NAMES = {A:"札", B:"画", C:"直", D:"文", F:"口"};
+const MODE_LONG  = {A:"札あらため（一話）", B:"一画あらため（二話）", C:"化けの皮はがし（三話）", D:"高札（四話）", F:"茶屋の口車（五話）"};
+
 const LINES = {
-  start:[
-    "{t}の尾じゃ。化けた札は{n}枚。見破れるかえ？",
-    "{t}の尾をかけて勝負じゃ。化け札は{n}枚ぞ。",
-    "ふふ、{t}の尾は簡単には渡さぬ。{n}枚、化けておる。",
-  ],
-  boss:"最後の尾じゃ……わらわも本気で化けるぞ！　化け札は{n}枚！",
   found:["むっ……見破られたか。","なかなかやるのう。","ちっ、よう見ておる。","ほう、その目はごまかせぬか。"],
   combo:["なんと、続けざまに！？","ぐぬぬ、止まらぬのう……","そ、その目……ただ者ではないな！"],
-  fooled:["ほほほ、それは本物じゃ。化かされたのう！","残念、それは正しい字じゃよ。","ふふふ、あせると見まちがえるぞ？"],
+  fooled:["ほほほ、それは本物じゃ。","残念、そこは化けておらぬ。","ふふふ、あせると見まちがえるぞ？"],
+  close:"おしい！　その言葉じゃが、化けたのは<b>別の字</b>じゃ。",
   hint:"……しかたないのう。ひとつだけ、光らせてやろう。",
-  cleared:["ぐぬぬ……{t}の尾、持っていくがよい。","見事じゃ。{t}の尾はそなたのものじゃ。","くっ……{t}の尾を取られてしもうた。"],
-  mapFirst:"ほほほ……わらわの<b>九本の尾</b>、奪えるものなら奪ってみよ。まずは<b>一の尾</b>からじゃ。",
-  mapMid:["{n}本も取られたか。次は<b>{t}の尾</b>じゃな。","ふむ、まだ尾は残っておるぞ。<b>{t}の尾</b>で待っておる。","★が少ない尾は、もう一度挑めば取り直せるぞ。"],
-  mapAll:["九本すべて取られてしもうた。★3をそろえれば、もっとよいことがあるかもしれぬぞ？","また化かし合いに来たのか。ふふ、うれしいのう。"],
+  claimReal:["これは本物の札じゃよ。","まちがいなく本物じゃ。信じてよいぞ？","ふふ、これは化けておらぬ。"],
+  claimFake:["これはわらわの化け札じゃ。見ればわかろう？","ほれ、化けておる。まちがいない。","これは化け札じゃ……たぶんのう。"],
+  liedCaught:["ちっ、うそに乗らぬか。","むう、口車が通じぬ……。"],
+  mapFirst:"ほほほ……わらわは九尾。字に化けていたずらをするのじゃ。まずは<b>一話</b>から、わらわと化かし合いじゃ。",
+  mapMid:["次は<b>{t}話</b>じゃな。待っておるぞ。","ふむ、まだまだ術は残っておるぞ。<b>{t}話</b>で勝負じゃ。","クリアした話も、何度でも遊べるぞ。"],
+  mapAll:["九十秒で、どれだけ見破れるかのう？","また化かし合いに来たのか。ふふ、うれしいのう。","図鑑のスタンプを全部そろえると、札が金色になるぞ。"],
   mapShiny:"ほれ、そなたのために、とっておきの姿になってやったぞ。",
-  talk:["わらわは字の形を少しだけ変えて化けるのじゃ。","へんやつくりを見れば、わらわの正体が分かるぞ。","あせらず、一枚ずつ見るのがこつじゃ。","「未」と「末」、どちらが長いか覚えておるか？"],
+  talk:["わらわは字の形を少しだけ変えて化けるのじゃ。","へんやつくりを見れば、わらわの正体が分かるぞ。","あせらず、一字ずつ見るのがこつじゃ。","「未」と「末」、どちらの上の線が長いか覚えておるか？"],
 };
 const pick = a => a[Math.floor(Math.random()*a.length)];
 const fill = (s, o) => s.replace(/\{(\w)\}/g, (_, k) => o[k]);
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 const $ = id => document.getElementById(id);
 function fakeWordOf(w){ return w[0].slice(0, w[2]) + w[3] + w[0].slice(w[2]+1); }
+const realCharOf = w => w[0][w[2]];
+const KANJI_RE = /[㐀-鿿々]/;
+const strokesReady = () => typeof KITSUNE_STROKES !== "undefined" && typeof KITSUNE_DIFF !== "undefined";
+const canPoint = w => strokesReady() && KITSUNE_DIFF[w[0]] && KITSUNE_DIFF[w[0]][2] === 1;
 
 /* =====================================================================
-   保存（この端末だけ）：各尾の最高★・見破った化け字（図鑑）・音のオン・オフ・色違い表示
+   保存（この端末だけ）：クリアした話・図鑑のスタンプ・挑戦の間の最高記録・音・色違い
+   図鑑 zk：{熟語: "ABCDF"のうち、その見破り方で見破ったことのある文字}
+   旧版(kitsune_bakashiai_v3、九本の尾)で見破った化け字は、「札」のスタンプとして引きつぐ。
    ===================================================================== */
-const SAVE_KEY = "kitsune_bakashiai_v3";
+const SAVE_KEY = "kitsune_bakashiai_v4";
 function loadSave(){
   let s = null;
   try{ s = JSON.parse(localStorage.getItem(SAVE_KEY)); }catch(e){}
-  s = s || {};
-  if(!Array.isArray(s.best)) s.best = [];
-  if(!Array.isArray(s.found)) s.found = [];
+  if(!s){
+    s = {};
+    try{
+      const old = JSON.parse(localStorage.getItem("kitsune_bakashiai_v3"));
+      if(old){
+        s.zk = {};
+        (old.found || []).forEach(w => { s.zk[w] = "A"; });
+        if(typeof old.muted === "boolean") s.muted = old.muted;
+      }
+    }catch(e){}
+  }
+  if(!Array.isArray(s.cleared)) s.cleared = [];
+  if(!s.zk || typeof s.zk !== "object") s.zk = {};
+  if(typeof s.best !== "number") s.best = 0;
+  if(typeof s.bestCorrect !== "number") s.bestCorrect = 0;
+  if(typeof s.chPlays !== "number") s.chPlays = 0;
   if(typeof s.muted !== "boolean") s.muted = false;
   if(typeof s.useShiny !== "boolean") s.useShiny = false;
   return s;
 }
 function writeSave(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); }catch(e){} }
 let SAVE = loadSave();
-const totalStars = () => SAVE.best.reduce((s, n) => s + (n || 0), 0);
-const clearedCount = () => SAVE.best.filter(Boolean).length;
-const unlockedUpTo = () => Math.min(TAILS.length - 1, clearedCount());   // 取った本数ぶん先まで開く
-function nextTailIndex(){
-  const i = SAVE.best.findIndex((b, k) => k < TAILS.length && !b);
-  if(i >= 0) return i;
-  if(SAVE.best.length < TAILS.length) return SAVE.best.length;
-  // 全部取った後は、★がいちばん少ない尾（同じなら若い番号）
-  let m = 0; SAVE.best.forEach((b, k) => { if(b < SAVE.best[m]) m = k; });
-  return m;
-}
-const shinyOn = () => SAVE.useShiny && totalStars() >= 27;
+writeSave();
+const allCleared = () => EPISODES.every((_, i) => SAVE.cleared[i]);
+const nextEpisode = () => { const i = EPISODES.findIndex((_, k) => !SAVE.cleared[k]); return i; };
+const shinyOn = () => SAVE.useShiny && allCleared();
+const zkCount = () => Object.keys(SAVE.zk).length;
+const zkGold = () => Object.values(SAVE.zk).filter(s => s.length >= 5).length;
 
 function toggleMute(){ SAVE.muted = !SAVE.muted; writeSave(); refreshMuteIcons(); }
 function refreshMuteIcons(){ document.querySelectorAll("#muteBtn, .mute-inline").forEach(b => b.textContent = SAVE.muted ? "🔇" : "🔊"); }
@@ -563,12 +792,13 @@ function tone(freq, dur, opt = {}){
 const SE = {
   found(combo){ const up = Math.min(combo, 8) * 60; tone(880 + up, .09); tone(1320 + up, .16, {delay:.08}); },
   wrong(){ tone(220, .18, {type:"triangle", vol:.12}); tone(175, .25, {type:"triangle", vol:.1, delay:.12}); },
+  close(){ tone(660, .08, {type:"triangle", vol:.08}); tone(620, .12, {type:"triangle", vol:.08, delay:.08}); },
   deal(i){ tone(500 + i*25, .04, {type:"triangle", vol:.05, delay:i*.04}); },
   start(){ tone(392, .12, {type:"triangle"}); tone(523, .2, {type:"triangle", delay:.12}); },
   clear(){ [523,659,784,1047].forEach((f,i) => tone(f, .22, {type:"triangle", delay:i*.09})); },
-  star(i){ tone(1175 + i*200, .14, {delay:.35 + i*.18}); },
-  drop(){ tone(600, .1, {type:"sine", vol:.08}); tone(450, .14, {type:"sine", vol:.08, delay:.08}); },
   hint(){ [1568,1319,1568].forEach((f,i) => tone(f, .12, {vol:.07, delay:i*.1})); },
+  tick(){ tone(1000, .05, {type:"square", vol:.04}); },
+  talk(){ tone(740, .04, {type:"triangle", vol:.04}); },
   win(){ [523,659,784,1047,784,1047,1319].forEach((f,i) => tone(f, .25, {type:"triangle", delay:i*.11})); },
 };
 
@@ -583,14 +813,14 @@ function setFox(el, pose, anim){
   if(anim){ el.classList.remove("hop","shiver"); void el.offsetWidth; el.classList.add(anim); }
 }
 
-/* 色違いスプライトは大きい（約7MB）ので、★27で色違いを選んでいるときだけ読み込む */
+/* 色違いスプライトは大きい（約7MB）ので、全話クリア後に色違いを選んでいるときだけ読み込む */
 let shinyLoading = false;
 function ensureShinySprites(){
   if(!shinyOn() || typeof ENEMY_SPRITES_SHINY !== "undefined" || shinyLoading) return;
   shinyLoading = true;
   const sc = document.createElement("script");
   sc.src = "enemy_sprites_shiny_data.js";
-  sc.onload = () => { if(document.body.classList.contains("in-game")) setFox($("gameFox"), "pose2"); else if($("scMap").classList.contains("show")) setFox($("mapFox"), "pose1"); };
+  sc.onload = () => { if($("scMap").classList.contains("show")) setFox($("mapFox"), "pose1"); };
   document.head.appendChild(sc);
 }
 // 知識ドリルDXのミニゲーム一覧へ戻る（kokugo_app.html側の ?from=minigame 参照）
@@ -599,309 +829,618 @@ function backToApp(){ location.href = "kokugo_app.html?from=minigame"; }
 function show(id){
   document.querySelectorAll(".screen").forEach(s => s.classList.toggle("show", s.id === id));
   document.body.classList.toggle("in-game", id === "scGame");
+  document.body.classList.toggle("in-story", id === "scStory");
 }
 
 /* =====================================================================
-   地図（タイトル兼、尾の一覧）
+   一覧（タイトル兼、話の一覧）
    ===================================================================== */
-function starsHtml(n){ return [0,1,2].map(k => k < n ? "★" : `<span class="off">★</span>`).join(""); }
 function showMap(){
-  hideBanner(); stopTimer();
-  if(G) G.token++;
+  hideBanner(); stopClock();
+  if(G){ G.token++; G = null; }
   show("scMap");
   ensureShinySprites();
-  const open = unlockedUpTo();
-  const nxt = nextTailIndex();
-  $("tailMap").innerHTML = TAILS.map((cfg, i) => {
-    const b = SAVE.best[i] || 0;
-    const locked = i > open;
-    const cls = locked ? "locked" : (b ? "cleared" : "") + (i === nxt && !b ? " next" : "");
-    return `<button class="tail-btn ${cls}" ${locked ? "disabled" : `onclick="startTail(${i}, false)"`}
-      title="${locked ? "前の尾を取ると開く" : NUM[i] + "の尾に挑戦"}">
-      <span class="n mincho">${locked ? "🔒" : NUM[i]}</span><span class="s">${b ? starsHtml(b) : (locked ? "" : "未取得")}</span></button>`;
-  }).join("");
-  const ts = totalStars();
-  $("starTotal").textContent = ts;
-  $("meter").innerHTML = `<div class="meter-fill" style="width:${ts/27*100}%"></div>` +
-    REWARDS.map(r => `<span class="mark ${ts >= r.need ? "on" : ""}" style="left:${r.need/27*100}%">🎁</span>`).join("");
-  $("rewards").innerHTML = REWARDS.map(r => {
-    const on = ts >= r.need;
-    let sub = on ? "タップで見る" : r.lock;
-    if(r.key === "shiny" && on) sub = SAVE.useShiny ? "タップでもとの姿に" : "タップで色違いの姿に";
-    return `<button class="reward ${on ? "on" : ""}" ${on ? `onclick="openReward('${r.key}')"` : "disabled"}><b>${on ? "🎁 " : "🔒 "}${r.title}</b>${sub}</button>`;
-  }).join("");
-  $("goBtn").textContent = clearedCount() >= TAILS.length
-    ? `${NUM[nxt]}の尾を取り直す（★${SAVE.best[nxt]}）`
-    : (clearedCount() ? `つづきから（${NUM[nxt]}の尾）` : "はじめる（一の尾）");
-  $("zukanBtn").textContent = `化け字図鑑 ${SAVE.found.length}/${WORDS.length}`;
-  const n = clearedCount();
+  const nxt = nextEpisode();
+  $("epList").innerHTML = EPISODES.map((E, i) => {
+    const locked = i > 0 && !SAVE.cleared[i-1];
+    const cls = locked ? "locked" : SAVE.cleared[i] ? "cleared" : (i === nxt ? "next" : "");
+    const st = locked ? "🔒" : SAVE.cleared[i] ? `<span class="st clear">✔ クリア</span>` : (i === nxt ? `<span class="st new">NEW</span>` : "");
+    return `<button class="ep-btn ${cls}" ${locked ? "disabled" : `onclick="startEpisode(${i})"`}>
+      <span class="n mincho">${E.no}</span><span><div class="t mincho">${E.title}</div><div class="d">${E.desc}</div></span>${st}</button>`;
+  }).join("") + (() => {
+    const open = allCleared();
+    const st = !open ? "🔒" : SAVE.best ? `<span class="st clear">最高 ${SAVE.best}点</span>` : `<span class="st new">NEW</span>`;
+    return `<button class="ep-btn challenge ${open ? "" : "locked"}" ${open ? `onclick="startChallenge()"` : "disabled"}>
+      <span class="n mincho">七</span><span><div class="t mincho">挑戦の間</div><div class="d">${open ? `${CH_SECONDS}秒で、どれだけ見破れるか。一〜五話の見破り方がまざって出る` : "六話まで進むと開く"}</div></span>${st}</button>`;
+  })();
+  $("zukanBtn").textContent = `化け字図鑑 ${zkCount()}/${WORDS.length}` + (zkGold() ? `（金${zkGold()}）` : "");
+  const sb = $("shinyBtn");
+  sb.hidden = !allCleared();
+  sb.textContent = SAVE.useShiny ? "九尾：いつもの姿に" : "九尾：色違いの姿に";
   let line;
   if(shinyOn()) line = LINES.mapShiny;
-  else if(n === 0) line = LINES.mapFirst;
-  else if(n < TAILS.length) line = fill(pick(LINES.mapMid), {n, t:NUM[nxt]});
+  else if(nxt === 0 && !zkCount()) line = LINES.mapFirst;
+  else if(nxt >= 0) line = fill(pick(LINES.mapMid), {t:EPISODES[nxt].no});
   else line = pick(LINES.mapAll);
   $("mapLine").innerHTML = line;
   setFox($("mapFox"), "pose1", "hop");
 }
 function foxTalk(){ $("mapLine").innerHTML = pick(LINES.talk); setFox($("mapFox"), "pose2", "hop"); }
-function openReward(key){
-  if(key === "shiny"){ SAVE.useShiny = !SAVE.useShiny; writeSave(); showMap(); return; }
-  const r = REWARDS.find(x => x.key === key);
-  openModal("🦊 " + r.title, `<p class="story mincho">${STORIES[key]}</p>`);
-}
+function toggleShiny(){ SAVE.useShiny = !SAVE.useShiny; writeSave(); showMap(); }
 
-/* ---- 化け字図鑑 ---- */
+/* ---- 化け字図鑑：見破り方ごとのスタンプ（5つそろうと金色） ---- */
 function openZukan(){
-  const got = new Set(SAVE.found);
   const lvName = ["", "やさしい", "ふつう", "むずかしい"];
-  let html = "";
+  let html = `<div class="zk-how">見破り方ごとにスタンプがたまる：` +
+    Object.keys(MODE_NAMES).map(m => `<i>${MODE_NAMES[m]}</i>${MODE_LONG[m]}`).join("　") +
+    `<br>5つそろうと<b style="color:var(--gold)">金色</b>の札になる。札をタップすると解説が見られる。</div>
+    <div class="zk-detail" id="zkDetail">　</div>`;
   [1,2,3].forEach(lv => {
     const ws = WORDS.filter(w => w[4] === lv);
-    const n = ws.filter(w => got.has(w[0])).length;
+    const n = ws.filter(w => SAVE.zk[w[0]]).length;
     html += `<div class="zk-lv">${lvName[lv]}（${n} / ${ws.length}）</div><div class="zukan">` +
-      ws.map(w => got.has(w[0])
-        ? `<div class="zk" title="${w[5]}"><div class="w mincho">${w[0]}</div><span class="f mincho">×${fakeWordOf(w)}</span></div>`
-        : `<div class="zk unknown"><div class="w">？？</div>まだ見破っていない</div>`).join("") + `</div>`;
+      ws.map(w => {
+        const s = SAVE.zk[w[0]];
+        if(!s) return `<div class="zk unknown"><div class="w">？？</div>まだ見破っていない</div>`;
+        const idx = WORDS.indexOf(w);
+        return `<div class="zk ${s.length >= 5 ? "gold" : ""}" onclick="zkShow(${idx})"><div class="w mincho">${w[0]}</div><span class="f mincho">×${fakeWordOf(w)}</span>
+          <div class="stamps">${Object.keys(MODE_NAMES).map(m => `<i class="${s.includes(m) ? "on" : ""}">${MODE_NAMES[m]}</i>`).join("")}</div></div>`;
+      }).join("") + `</div>`;
   });
-  openModal(`📖 化け字図鑑　${SAVE.found.length} / ${WORDS.length}`, html);
+  openModal(`📖 化け字図鑑　${zkCount()} / ${WORDS.length}　（金 ${zkGold()}）`, html);
+}
+function zkShow(i){
+  const w = WORDS[i];
+  $("zkDetail").innerHTML = `<b class="mincho">${w[0]}</b>（${w[1]}）　<span style="color:var(--ng)">×${fakeWordOf(w)}</span>　${w[5]}`;
 }
 function openModal(title, html){ $("modalTitle").textContent = title; $("modalBody").innerHTML = html; $("modal").classList.add("show"); }
 function closeModal(){ $("modal").classList.remove("show"); }
 
 /* =====================================================================
+   ストーリー（会話）：行は [話し手("fox"|"narr"), 文, 九尾の絵のポーズ]
+   ===================================================================== */
+let STORY = null;
+function showStory(epTitle, lines, onDone){
+  STORY = {lines, i:0, onDone};
+  show("scStory");
+  $("storyEp").textContent = epTitle;
+  renderStoryLine();
+}
+function renderStoryLine(){
+  const [who, text, pose] = STORY.lines[STORY.i];
+  const el = $("storyText");
+  el.className = "story-text mincho" + (who === "narr" ? " narr" : "");
+  el.innerHTML = text;
+  void el.offsetWidth; el.style.animation = "none"; void el.offsetWidth; el.style.animation = "";
+  $("storyName").hidden = who !== "fox";
+  if(who === "fox") setFox($("storyFox"), pose || "pose1", "hop");
+  else if(STORY.i === 0) setFox($("storyFox"), "pose1");
+  SE.talk();
+}
+function storyNext(){
+  if(!STORY) return;
+  STORY.i++;
+  if(STORY.i >= STORY.lines.length){ const f = STORY.onDone; STORY = null; f(); return; }
+  renderStoryLine();
+}
+function storySkip(){ if(!STORY) return; const f = STORY.onDone; STORY = null; f(); }
+
+/* =====================================================================
    ゲーム進行
    ・G.token：画面を離れたら古いsetTimeoutを無効にするための番号
-   ・chain=true：「はじめる／つづきから」で入った場合、取ったあと自動で次の尾へ進む
+   ・G.taskId：問題ごとの番号（前の問題のヒント用タイマーなどを無効にする）
+   ・話：G.queueの問題を順に解く。茶屋の口車だけは、まちがえた問題のかわりを後ろに足す
+     （「8回見きわめる」まで続く。まちがえても減るものはない）
+   ・挑戦の間：CH_SECONDS秒のあいだ、A/B/C/D/Fの問題をまぜて出し続ける
    ===================================================================== */
-let G = null, timerId = null;
-function later(ms, fn){ const tk = G.token; setTimeout(() => { if(G && G.token === tk) fn(); }, ms); }
+let G = null, TOKEN = 0;
+let RECENT = [];   // 直近に出た熟語（一覧に戻っても覚えておく。保存はしない）
+function later(ms, fn){ const tk = G && G.token; setTimeout(() => { if(G && G.token === tk) fn(); }, ms); }
+function laterTask(ms, fn){ const tk = G.token, t = G.taskId; setTimeout(() => { if(G && G.token === tk && G.taskId === t) fn(); }, ms); }
 
-function drawWords(pool, n, avoid){
-  const fresh = shuffle(pool.filter(w => !avoid.has(w[0])));
-  const rest  = shuffle(pool.filter(w =>  avoid.has(w[0])));
-  return fresh.concat(rest).slice(0, n);
+function newGame(opt){
+  G = Object.assign({token:++TOKEN, taskId:0, combo:0, active:false, found:[]}, opt);
 }
+// 直近に出た熟語はなるべく避けて選ぶ
+function pickWords(pool, n){
+  const recent = new Set(RECENT);
+  const fresh = shuffle(pool.filter(w => !recent.has(w[0])));
+  const rest  = shuffle(pool.filter(w =>  recent.has(w[0])));
+  const out = fresh.concat(rest).slice(0, n);
+  RECENT = RECENT.concat(out.map(w => w[0])).slice(-40);
+  return out;
+}
+const lvPool = lv => WORDS.filter(w => w[4] >= lv[0] && w[4] <= lv[1]);
 
-function startTail(idx, chain){
-  G = {token:(G ? G.token : 0) + 1, tail:idx, chain, recent:(G && G.recent) || [], combo:(G && G.chain && chain) ? G.combo : 0};
-  const cfg = TAILS[idx];
-  const avoid = new Set(G.recent);
-  const fakes = drawWords(WORDS.filter(w => w[4] >= cfg.lv[0] && w[4] <= cfg.lv[1]), cfg.fakes, avoid);
-  const used = new Set(fakes.map(w => w[0]));
-  const reals = drawWords(WORDS.filter(w => w[4] <= cfg.lv[1] && !used.has(w[0])), cfg.cards - cfg.fakes, avoid);
-  G.cards = shuffle(fakes.map(w => ({w, fake:true, state:"open"})).concat(reals.map(w => ({w, fake:false, state:"open"}))));
-  G.recent = G.cards.map(c => c.w[0]);
-  G.remaining = cfg.fakes;
-  G.mistakes = 0; G.slow = false; G.hinted = false;
-  G.elapsed = 0;
-  G.active = false;
-
+function startEpisode(i){
+  const E = EPISODES[i];
+  showStory(`${E.no}話　${E.title}`, E.pre, () => playEpisode(i));
+}
+function playEpisode(i){
+  const E = EPISODES[i];
+  const tasks = E.mode === "F"
+    ? Array.from({length:E.count}, () => ({mode:"F", lv:E.lv}))
+    : E.tasks.map(t => Object.assign({mode:E.mode}, t));
+  // 画のデータが読めなかったときは、一画あらためを化けの皮はがしで代用する
+  if(!strokesReady()) tasks.forEach(t => { if(t.mode === "B") t.mode = "C"; });
+  newGame({ep:i, challenge:false, queue:tasks, total:tasks.length, done:0});
   show("scGame");
-  renderTails(); renderPips(); renderNowStars(); setCombo(0);
-  $("timerFill").style.width = "100%"; $("timerFill").classList.remove("over");
-  $("clockNote").textContent = "なくなると ★ −1";
-  const t = NUM[idx];
-  $("gameLine").textContent = cfg.boss ? fill(LINES.boss, {n:cfg.fakes}) : fill(pick(LINES.start), {t, n:cfg.fakes});
+  $("epLabel").innerHTML = `<b class="mincho">${E.no}話</b>　${E.title}`;
+  $("progBox").hidden = false; $("chBox").hidden = true;
+  $("progLabel").textContent = E.mode === "F" ? "見きわめた数（8回で勝ち）" : "進みぐあい";
+  renderPips();
+  setCombo(0);
+  $("gameLine").innerHTML = pick(["さあ、化かし合いじゃ！","見破れるかのう？ ほほほ。","わらわの術、とくと見よ。"]);
   setFox($("gameFox"), "pose2", "hop");
-  $("grid").innerHTML = "";
-
+  $("board").innerHTML = "";
   SE.start();
-  showBanner(`<div class="big mincho">${cfg.boss ? "最後の尾" : t + "の尾"}</div>
-              <div class="small">化けた札は <b style="color:var(--gold);font-size:1.3em">${cfg.fakes}</b> 枚</div>`);
-  later(1000, () => {
-    hideBanner();
-    renderGrid();
-    later(250 + cfg.cards * 40, () => { G.active = true; startTimer(); });
-  });
+  showBanner(`<div class="big mincho">${E.no}話</div><div class="small mincho" style="font-size:clamp(20px,3.4vh,28px)">${E.title}</div>`);
+  later(1100, () => { hideBanner(); nextTask(); });
+}
+function renderPips(justGot){
+  $("pips").innerHTML = Array.from({length:G.total}, (_, i) => `<span class="pip ${i < G.done ? "on" : ""} ${justGot && i === G.done - 1 ? "got" : ""}"></span>`).join("");
+}
+function nextTask(){
+  if(G.challenge) return nextChallengeTask();
+  if(!G.queue.length) return episodeClear();
+  runTask(G.queue.shift());
+}
+function runTask(task){
+  G.taskId++;
+  G.active = true;
+  const board = $("board");
+  board.innerHTML = "";
+  const done = ok => {
+    if(!G || G.over) return;
+    G.active = false;
+    if(!G.challenge){
+      if(ok){ G.done++; renderPips(true); }
+      else G.queue.push(Object.assign({}, task));  // 口車でまちがえたときだけ：かわりの1問を足す
+    }
+    nextTask();
+  };
+  RUN[task.mode](board, task, done);
 }
 
-function layoutGrid(n){
-  const portrait = window.innerWidth / window.innerHeight < 1 || window.innerWidth <= 700;
-  const cols = n <= 9 ? 3 : (portrait ? 3 : 4);
-  const rows = Math.ceil(n / cols);
-  const g = $("grid");
-  g.style.setProperty("--cols", cols); g.style.setProperty("--rows", rows);
-  g.style.gridTemplateColumns = `repeat(${cols},1fr)`;
-  g.style.gridTemplateRows = `repeat(${rows},1fr)`;
+/* ---- 正解・まちがいの共通処理 ---- */
+function stamp(w, mode){
+  if(!w) return false;
+  const s = SAVE.zk[w[0]] || "";
+  const isNew = !s;
+  if(!s.includes(mode)) SAVE.zk[w[0]] = s + mode;
+  writeSave();
+  if(!G.found.some(x => x.w === w)) G.found.push({w, isNew});
+  return isNew;
 }
-window.addEventListener("resize", () => { if(G && G.cards) layoutGrid(G.cards.length); });
-
-function lenCls(word){ return "word mincho l" + Math.min(4, Math.max(2, word.length)); }
-function cardInner(c){
-  if(c.state === "found"){
-    return `<span class="tag">見破った！</span>
-      <div class="${lenCls(c.w[0])}">${c.w[0]}</div>
-      <div class="fix"><s>${c.w[3]}</s> → <b>${c.w[0][c.w[2]]}</b></div>`;
+function onFound(w, mode){
+  G.combo++;
+  stamp(w, mode);
+  SE.found(G.combo); setCombo(G.combo);
+  if(G.challenge){
+    const pts = 100 + Math.min(G.combo - 1, 5) * 20;
+    G.score += pts; G.correct++;
+    $("score").textContent = G.score; $("chCorrect").textContent = G.correct;
+    const p = $("plus"); p.textContent = "+" + pts; p.classList.remove("pop"); void p.offsetWidth; p.classList.add("pop");
   }
-  const shown = c.fake ? fakeWordOf(c.w) : c.w[0];
-  return (c.state === "real" ? `<span class="tag">本物</span>` : "") + `<div class="${lenCls(shown)}">${shown}</div>`;
+  $("gameLine").innerHTML = G.combo >= 3 ? pick(LINES.combo) : pick(LINES.found);
+  setFox($("gameFox"), "defense", "shiver");
 }
-function renderGrid(){
-  layoutGrid(G.cards.length);
-  const grid = $("grid");
-  grid.innerHTML = "";
-  G.cards.forEach((c, i) => {
-    const b = document.createElement("button");
-    b.className = "card deal";
-    b.style.animationDelay = (i * 0.04) + "s";
-    b.innerHTML = cardInner(c);
-    b.onclick = () => tapCard(i);
-    grid.appendChild(b);
-    SE.deal(i);
-  });
-}
-function updateCard(i){
-  const c = G.cards[i], el = $("grid").children[i];
-  el.className = "card done " + c.state;
-  el.style.animationDelay = "0s";
-  el.innerHTML = cardInner(c);
-}
-
-function renderTails(targetEl){
-  const el = targetEl || $("tails");
-  el.innerHTML = NUM.map((n, i) => {
-    const st = SAVE.best[i];
-    const cls = (!targetEl && i === G.tail) ? "now" : (st ? "done" : "");
-    const stars = st ? `<span class="st">${"★".repeat(st)}${"☆".repeat(3 - st)}</span>` : "";
-    return `<div class="tail mincho ${cls}">${n}${stars}</div>`;
-  }).join("");
-  if(!targetEl) $("tailCount").textContent = clearedCount();
-}
-const currentStars = () => Math.max(1, 3 - G.mistakes - (G.slow ? 1 : 0));
-function renderNowStars(drop){
-  const el = $("nowStars");
-  el.innerHTML = starsHtml(currentStars());
-  if(drop){ el.classList.remove("drop"); void el.offsetWidth; el.classList.add("drop"); }
-}
-function renderPips(){
-  const cfg = TAILS[G.tail];
-  const got = cfg.fakes - G.remaining;
-  $("pips").innerHTML = Array.from({length:cfg.fakes}, (_, i) => `<span class="pip ${i < got ? "on" : ""}"></span>`).join("");
+function onMiss(line){
+  G.combo = 0; setCombo(0);
+  SE.wrong();
+  $("gameLine").innerHTML = line || pick(LINES.fooled);
+  setFox($("gameFox"), "attack", "hop");
 }
 function setCombo(n){
   const el = $("combo");
   el.textContent = n >= 2 ? `${n} れんぞく！` : "";
   if(n >= 2){ el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop"); }
 }
+// 解説を読んでから進む：話では「つぎへ」ボタン、挑戦の間・総仕上げの途中は自動で進む
+function finishStep(foot, t, ok, done){
+  if(G.challenge || t.auto){ laterTask(ok ? (t.auto ? 1500 : 800) : 1500, () => done(ok)); return; }
+  const b = document.createElement("button");
+  b.className = "btn next-btn"; b.textContent = "つぎへ ▶";
+  b.onclick = () => { b.disabled = true; done(ok); };
+  foot.appendChild(b);
+}
+const fixHtml = w => `<span class="ng mincho">${w[3]}</span> → <span class="okc mincho">${realCharOf(w)}</span>　${w[5]}`;
 
-function tapCard(i){
-  if(!G.active) return;
-  const c = G.cards[i];
-  if(c.state !== "open") return;
-  if(c.fake){
-    c.state = "found";
-    G.remaining--; G.combo++;
-    SE.found(G.combo);
-    updateCard(i);
-    const s = document.createElement("span"); s.className = "smoke"; s.textContent = "💨";
-    $("grid").children[i].appendChild(s);
-    renderPips(); setCombo(G.combo);
-    $("gameLine").textContent = G.combo >= 3 ? pick(LINES.combo) : pick(LINES.found);
-    setFox($("gameFox"), "defense", "shiver");
-    if(G.remaining <= 0) clearTail();
-  }else{
-    // 本物をタップ：★が1つ減り、少しだけ目が回って（0.6秒）タップできない。負けにはならない。
-    c.state = "real";
-    const before = currentStars();
-    G.mistakes++; G.combo = 0;
-    SE.wrong();
-    updateCard(i); setCombo(0);
-    renderNowStars(currentStars() < before);
-    $("gameLine").textContent = pick(LINES.fooled);
-    setFox($("gameFox"), "attack", "hop");
-    G.active = false; $("grid").classList.add("dizzy");
-    later(600, () => { $("grid").classList.remove("dizzy"); G.active = true; });
+/* =====================================================================
+   A 札あらため（E 総仕上げもこれを使い、化け札を見つけるたびに指さし→直すへ進む）
+   ===================================================================== */
+function layoutGrid(n){
+  const portrait = window.innerWidth / window.innerHeight < 1 || window.innerWidth <= 700;
+  const cols = n <= 9 ? 3 : (portrait ? 3 : 4);
+  const rows = Math.ceil(n / cols);
+  const g = $("grid");
+  if(!g) return;
+  g.style.setProperty("--cols", cols); g.style.setProperty("--rows", rows);
+  g.style.gridTemplateColumns = `repeat(${cols},1fr)`;
+  g.style.gridTemplateRows = `repeat(${rows},1fr)`;
+}
+window.addEventListener("resize", () => { const g = $("grid"); if(g) layoutGrid(g.children.length); });
+function lenCls(word){ return "word mincho l" + Math.min(4, Math.max(2, word.length)); }
+function cardInner(c){
+  if(c.state === "found"){
+    return `<span class="tag">見破った！</span>
+      <div class="${lenCls(c.w[0])}">${c.w[0]}</div>
+      <div class="fix"><s>${c.w[3]}</s> → <b>${realCharOf(c.w)}</b></div>`;
+  }
+  const shown = c.fake ? fakeWordOf(c.w) : c.w[0];
+  return (c.state === "real" ? `<span class="tag">本物</span>` : "") + `<div class="${lenCls(shown)}">${shown}</div>`;
+}
+function runA(board, t, done){
+  const deepMode = t.mode === "E";
+  const fakes = pickWords(deepMode ? lvPool(t.lv).filter(canPoint).concat(strokesReady() ? [] : lvPool(t.lv)) : lvPool(t.lv), t.fakes);
+  const used = new Set(fakes.map(w => w[0]));
+  const reals = pickWords(WORDS.filter(w => w[4] <= t.lv[1] && !used.has(w[0])), t.cards - t.fakes);
+  const cards = shuffle(fakes.map(w => ({w, fake:true, state:"open"})).concat(reals.map(w => ({w, fake:false, state:"open"}))));
+  let remaining = t.fakes;
+  board.innerHTML = `<div class="board-head" id="aHead"></div><div class="grid" id="grid"></div>`;
+  const head = () => $("aHead").innerHTML = remaining ? `化け札 あと <b>${remaining}</b> 枚` : `すべて見破った！`;
+  head();
+  layoutGrid(cards.length);
+  const grid = $("grid");
+  cards.forEach((c, i) => {
+    const b = document.createElement("button");
+    b.className = "card deal";
+    b.style.animationDelay = (i * 0.04) + "s";
+    b.innerHTML = cardInner(c);
+    b.onclick = () => tap(i);
+    grid.appendChild(b);
+    SE.deal(i);
+  });
+  const update = i => { const el = grid.children[i]; el.className = "card done " + cards[i].state; el.style.animationDelay = "0s"; el.innerHTML = cardInner(cards[i]); };
+  // しばらく見つからないときは、九尾が化け札を1枚光らせる
+  const armHint = () => laterTask(G.challenge ? 12000 : 22000, () => {
+    if(!G.active) return armHint();
+    const i = cards.findIndex(c => c.fake && c.state === "open");
+    if(i >= 0){ grid.children[i].classList.add("hint"); SE.hint(); $("gameLine").innerHTML = LINES.hint; setFox($("gameFox"), "pose1", "hop"); }
+  });
+  armHint();
+  let busy = false;
+  function tap(i){
+    const c = cards[i];
+    if(!G.active || busy || c.state !== "open") return;
+    if(c.fake){
+      c.state = "found"; remaining--;
+      onFound(c.w, "A");
+      update(i); head();
+      const s = document.createElement("span"); s.className = "smoke"; s.textContent = "💨"; grid.children[i].appendChild(s);
+      const after = () => { if(remaining <= 0){ G.active = false; laterTask(700, () => done(true)); } };
+      if(deepMode){
+        // 総仕上げ：その場で「どこが化けておる？」→「正しい字は？」
+        busy = true;
+        laterTask(450, () => {
+          const deep = document.createElement("div"); deep.className = "deep"; board.appendChild(deep);
+          const toC = () => runC(deep, {word:c.w, skipPick:true, auto:true}, () => { deep.remove(); busy = false; after(); });
+          if(canPoint(c.w)) runB(deep, {word:c.w, auto:true}, toC); else toC();
+        });
+      }else after();
+    }else{
+      c.state = "real";
+      onMiss();
+      update(i);
+      busy = true; grid.classList.add("dizzy");
+      laterTask(500, () => { grid.classList.remove("dizzy"); busy = false; });
+    }
   }
 }
 
-/* すばやさの目安（par秒）を過ぎたら★−1。parの2倍でヒント。時間切れで終わることはない。 */
-function startTimer(){
-  stopTimer();
-  const cfg = TAILS[G.tail];
-  const fillEl = $("timerFill");
-  let last = performance.now();
-  timerId = setInterval(() => {
-    const now = performance.now();
-    if(G.active) G.elapsed += (now - last) / 1000;   // 目が回っている間は時計を止める
-    last = now;
-    const left = Math.max(0, cfg.par - G.elapsed);
-    fillEl.style.width = (left / cfg.par * 100) + "%";
-    if(!G.slow && G.elapsed >= cfg.par){
-      G.slow = true; fillEl.classList.add("over"); fillEl.style.width = "100%";
-      $("clockNote").textContent = "あせらず、よく見よう";
-      const before = G.mistakes + 1;
-      renderNowStars(3 - before >= 1);
-      if(3 - before >= 1) SE.drop();
-    }
-    if(!G.hinted && G.elapsed >= cfg.par * 2){
-      G.hinted = true;
-      const i = G.cards.findIndex(c => c.fake && c.state === "open");
-      if(i >= 0){ $("grid").children[i].classList.add("hint"); SE.hint(); $("gameLine").textContent = LINES.hint; setFox($("gameFox"), "pose1", "hop"); }
-    }
-  }, 50);
-}
-function stopTimer(){ if(timerId){ clearInterval(timerId); timerId = null; } }
-
-function clearTail(){
-  G.active = false; stopTimer();
-  const stars = currentStars();
-  const prev = SAVE.best[G.tail] || 0;
-  const firstClear = !prev;
-  const isNew = stars > prev;
-  const beforeTotal = totalStars();
-  if(isNew) SAVE.best[G.tail] = stars;
-  // 図鑑への登録（初めて見破った化け字には「NEW」）
-  const foundNow = G.cards.filter(c => c.fake).map(c => c.w);
-  const newWords = new Set(foundNow.filter(w => !SAVE.found.includes(w[0])).map(w => w[0]));
-  newWords.forEach(w => SAVE.found.push(w));
-  writeSave();
-  const afterTotal = totalStars();
-  const unlockedReward = REWARDS.find(r => beforeTotal < r.need && afterTotal >= r.need);
-
-  const t = NUM[G.tail];
-  const isLast = G.tail === TAILS.length - 1;
-  const allNow = clearedCount() >= TAILS.length;
-  later(350, () => {
-    SE.clear();
-    for(let k = 0; k < stars; k++) SE.star(k);
-    $("gameLine").textContent = fill(pick(LINES.cleared), {t});
-    setFox($("gameFox"), "defeat");
-    renderTails();
-    $("tails").children[G.tail].classList.add("got");
-    const reasons = [G.mistakes === 0 ? "ノーミス" : null, !G.slow ? "すばやい" : null].filter(Boolean);
-    const chips = foundNow.map((w, k) => `<span class="chip" style="animation-delay:${.5 + k*.1}s">
-        <span class="f mincho">${fakeWordOf(w)}</span> → <span class="t mincho">${w[0]}</span>${newWords.has(w[0]) ? `<span class="new">図鑑NEW</span>` : ""}</span>`).join("");
-    const title = firstClear ? `${t}の尾<br>いただき！` : `${t}の尾`;
-    let sub = reasons.length ? reasons.join("・") + "ボーナス！" : "★を増やすには、ミスなし・すばやく！";
-    if(unlockedReward) sub = `🎁 「${unlockedReward.title}」が開いた！`;
-    // 次に進む先：9本目を初めて取った（全部そろった）→降参画面／続けて遊んでいる→次の未取得の尾／それ以外→地図
-    const goEnd = isLast && firstClear || (firstClear && allNow);
-    const nextIdx = nextTailIndex();
-    const canChain = G.chain && !goEnd && !allNow;
-    const nextLabel = goEnd ? "九尾のようすを見る" : canChain ? `次の尾へ（${NUM[nextIdx]}）` : "尾の一覧へ";
-    const go = () => { hideBanner(); if(goEnd) showEnd(); else if(canChain) startTail(nextIdx, true); else showMap(); };
-    showBanner(`<div class="big mincho">${title}</div>
-      <div class="stars">${[0,1,2].map(k => `<span class="${k < stars ? "" : "off"}" style="animation-delay:${.35 + k*.18}s">★</span>`).join("")}</div>
-      ${isNew && !firstClear ? `<div class="newrec">最高記録こうしん！</div>` : ""}
-      <div class="small">${sub}</div>
-      <div class="chips">${chips}</div>
-      <div class="banner-btns">
-        <button class="btn" id="bnGo">${nextLabel} ▶</button>
-        <button class="btn secondary" id="bnRetry">もう一度</button>
-      </div>
-      ${canChain ? `<div class="autobar"><div id="autoFill"></div></div>` : ""}`, true);
-    $("bnGo").onclick = go;
-    $("bnRetry").onclick = () => { hideBanner(); startTail(G.tail, G.chain); };
-    // 続けて遊んでいるときは、5秒で自動的に次の尾へ（リズムを切らさない）
-    if(canChain){
-      const f = $("autoFill");
-      f.style.transition = "width 5s linear"; requestAnimationFrame(() => requestAnimationFrame(() => f.style.width = "100%"));
-      later(5000, () => { if($("banner").classList.contains("show")) go(); });
+/* =====================================================================
+   B 一画あらため：化けた字を大きく出し、化けている画（足りない画は本来の場所）を指でさす
+   ===================================================================== */
+function runB(el, t, done){
+  const w = t.word || pickWords(lvPool(t.lv).filter(canPoint), 1)[0];
+  const F = w[3], R = realCharOf(w);
+  const [fu, ru] = KITSUNE_DIFF[w[0]];
+  const fake = fakeWordOf(w);
+  el.innerHTML = `<div class="bwrap">
+    <div class="qhead"><span class="yomi">${w[1]}</span><span class="qword mincho">${[...fake].map((c, i) => i === w[2] ? `<em>${c}</em>` : c).join("")}</span></div>
+    <div class="bchar"><svg viewBox="0 0 109 109" id="bsvg">
+      <path class="guide" d="M54.5 2V107M2 54.5H107"/>
+      <g class="fk">${KITSUNE_STROKES[F].map((d, i) => `<path d="${d}" class="${fu.includes(i) ? "t" : ""}"/>`).join("")}</g>
+      <g class="rl">${ru.map(i => `<path d="${KITSUNE_STROKES[R][i]}" pathLength="1"/>`).join("")}</g>
+      <g id="bmarks"></g></svg></div>
+    <div class="qnote" id="bnote">「<span class="mincho">${F}</span>」の<b>どこが化けておる？</b>　指でさしてみよ</div>
+    <div class="qfoot" id="bfoot"></div></div>`;
+  const svg = el.querySelector("#bsvg");
+  // ねらう場所：化けた字だけにある画＋本物だけにある画（＝足りない画のあるはずの場所）
+  const pts = [];
+  svg.querySelectorAll(".fk path.t, .rl path").forEach(p => {
+    const L = p.getTotalLength(), n = Math.max(6, Math.ceil(L / 2.5));
+    for(let k = 0; k <= n; k++){ const q = p.getPointAtLength(L * k / n); pts.push([q.x, q.y]); }
+  });
+  let misses = 0, solved = false, lock = false;
+  svg.addEventListener("pointerdown", e => {
+    if(!G.active || solved || lock || !pts.length) return;
+    const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+    const p = pt.matrixTransform(svg.getScreenCTM().inverse());
+    const d = Math.min(...pts.map(q => Math.hypot(q[0] - p.x, q[1] - p.y)));
+    if(d <= 10.5){
+      solved = true;
+      svg.classList.add("solved");
+      svg.querySelectorAll(".bhint").forEach(c => c.remove());
+      onFound(w, "B");
+      el.querySelector(".qword").innerHTML = [...w[0]].map((c, i) => i === w[2] ? `<em style="color:var(--ok)">${c}</em>` : c).join("");
+      $("bnote").innerHTML = `そこじゃ！　${fixHtml(w)}`;
+      laterTask(650, () => svg.classList.add("fixed"));
+      finishStep($("bfoot"), t, true, done);
+    }else{
+      misses++;
+      const m = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      m.setAttribute("x", p.x); m.setAttribute("y", p.y); m.setAttribute("text-anchor", "middle"); m.setAttribute("dominant-baseline", "middle");
+      m.setAttribute("class", "bmark"); m.textContent = "✕";
+      $("bmarks").appendChild(m);
+      onMiss(pick(["そこは本物どおりじゃ。","ほほほ、そこは化けておらぬ。","ちがう、ちがう。よく見くらべよ。"]));
+      lock = true; laterTask(350, () => lock = false);
+      if(misses === 2){
+        // ヒント：ねらう場所のまん中あたりを光らせる
+        const cx = pts.reduce((s, q) => s + q[0], 0) / pts.length, cy = pts.reduce((s, q) => s + q[1], 0) / pts.length;
+        const xs = pts.map(q => q[0]), ys = pts.map(q => q[1]);
+        const r = Math.max(12, Math.min(34, Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) / 2 + 6));
+        const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        c.setAttribute("cx", cx); c.setAttribute("cy", cy); c.setAttribute("r", r); c.setAttribute("class", "bhint");
+        svg.insertBefore(c, svg.querySelector(".fk"));
+        SE.hint(); $("gameLine").innerHTML = "……しかたないのう。<b>このあたり</b>じゃ。";
+      }
     }
   });
 }
 
-function restAndMap(){ G.token++; stopTimer(); showMap(); }
+/* =====================================================================
+   C 化けの皮はがし：化けた字をタップ→正しい字を4つから選ぶ（skipPick：化けた字は最初から示す）
+   ===================================================================== */
+function runC(el, t, done){
+  const w = t.word || pickWords(lvPool(t.lv), 1)[0];
+  const R = realCharOf(w);
+  const opts = shuffle([R, ...[...(CHOICES[w[0]] || "")].slice(0, 3)]);
+  const fake = fakeWordOf(w);
+  el.innerHTML = `<div class="cwrap">
+    <div class="qhead"><span class="yomi">${w[1]}</span></div>
+    <div class="ctiles">${[...fake].map((c, i) => `<button class="ctile mincho" data-i="${i}">${c}</button>`).join("")}</div>
+    <div class="qnote" id="cnote"></div>
+    <div class="cchoices" id="cch" hidden>${opts.map(c => `<button class="cbtn mincho">${c}</button>`).join("")}</div>
+    <div class="qfoot" id="cfoot"></div></div>`;
+  const tiles = [...el.querySelectorAll(".ctile")];
+  const note = el.querySelector("#cnote"), cch = el.querySelector("#cch");
+  let picked = false, missPick = 0;
+  const openChoices = () => {
+    picked = true;
+    tiles[w[2]].classList.add("bake");
+    tiles.forEach(b => b.disabled = true);
+    note.innerHTML = `化け字「<span class="ng mincho">${w[3]}</span>」の<b>正体</b>は？　正しい字を選べ`;
+    cch.hidden = false;
+  };
+  if(t.skipPick) openChoices();
+  else note.innerHTML = `この熟語は化けておる。<b>化けた字</b>をタップせよ`;
+  tiles.forEach((b, i) => b.onclick = () => {
+    if(!G.active || picked) return;
+    if(i === w[2]){ SE.close(); openChoices(); }
+    else{
+      missPick++;
+      b.classList.remove("shake"); void b.offsetWidth; b.classList.add("shake");
+      onMiss("ほほほ、その字は本物じゃ。");
+      if(missPick === 2){ tiles[w[2]].style.boxShadow = "0 4px 0 #b89a62, 0 0 0 4px rgba(255,215,107,.9), 0 0 22px rgba(255,215,107,.9)"; SE.hint(); }
+    }
+  });
+  cch.querySelectorAll(".cbtn").forEach(b => b.onclick = () => {
+    if(!G.active || b.disabled) return;
+    if(b.textContent === R){
+      b.classList.add("yes");
+      cch.querySelectorAll(".cbtn").forEach(x => x.disabled = true);
+      const tile = tiles[w[2]];
+      tile.classList.remove("bake"); tile.classList.add("fixed"); tile.textContent = R;
+      onFound(w, "C");
+      note.innerHTML = `化けの皮がはがれた！　${fixHtml(w)}`;
+      finishStep(el.querySelector("#cfoot"), t, true, done);
+    }else{
+      b.classList.add("no"); b.disabled = true;
+      onMiss(pick(["ふふ、それも似ておるがちがうのう。","残念、その字ではない。"]));
+    }
+  });
+}
+
+/* =====================================================================
+   D 高札：文の中の化けた字をタップする（1文に1つ）。同じ熟語の別の字は「おしい」
+   ===================================================================== */
+function sentenceHtml(w, li){
+  const s = SENTENCES[w[0]];
+  const a = s.indexOf("{"), b = s.indexOf("}");
+  const plain = str => [...str].map(c => KANJI_RE.test(c) ? `<span class="kj">${c}</span>` : `<span>${c}</span>`).join("");
+  const fake = [...fakeWordOf(w)];
+  return `<p class="ks-line" data-l="${li}">` + plain(s.slice(0, a)) +
+    fake.map((c, i) => i === w[2] ? `<span class="kj fk" data-l="${li}" data-fix="${realCharOf(w)}">${c}</span>` : `<span class="kj fw">${c}</span>`).join("") +
+    plain(s.slice(b + 1)) + `</p>`;
+}
+function runD(el, t, done){
+  const ws = pickWords(lvPool(t.lv).filter(w => SENTENCES[w[0]]), t.n);
+  let remaining = ws.length, misses = 0;
+  el.innerHTML = `<div class="dwrap">
+    <div class="board-head" id="dHead"></div>
+    <div class="kousatsu"><div class="ks-title mincho">${t.n > 1 ? "おしらせ" : "高札"}</div><div class="ks-body mincho">${ws.map(sentenceHtml).join("")}</div></div>
+    <div class="qnote" id="dnote">文を読んで、<b>おかしな字</b>をタップせよ</div>
+    <div class="ks-fixes" id="dfix"></div>
+    <div class="qfoot" id="dfoot"></div></div>`;
+  const head = () => el.querySelector("#dHead").innerHTML = remaining ? `化け字 あと <b>${remaining}</b> 字` : `すべて見破った！`;
+  head();
+  let lock = false;
+  el.querySelector(".ks-body").addEventListener("click", e => {
+    const sp = e.target.closest("span");
+    if(!sp || !G.active || lock || !remaining) return;
+    if(sp.classList.contains("fk")){
+      if(sp.classList.contains("hit")) return;
+      sp.classList.add("hit");
+      const w = ws[+sp.dataset.l];
+      remaining--; head();
+      sp.parentElement.classList.remove("hint");
+      onFound(w, "D");
+      el.querySelector("#dfix").insertAdjacentHTML("beforeend",
+        `<div class="ks-fix"><span class="f mincho">${fakeWordOf(w)}</span> → <span class="t mincho">${w[0]}</span>　${w[5]}</div>`);
+      if(!remaining){
+        el.querySelector("#dnote").innerHTML = "高札の化け字を、すべて見破った！";
+        finishStep(el.querySelector("#dfoot"), t, true, done);
+      }
+    }else if(sp.classList.contains("fw")){
+      SE.close();
+      $("gameLine").innerHTML = LINES.close;
+      setFox($("gameFox"), "pose2", "hop");
+    }else if(sp.classList.contains("kj")){
+      misses++;
+      sp.classList.remove("nope"); void sp.offsetWidth; sp.classList.add("nope");
+      onMiss("ほほほ、その字は本物じゃ。");
+      lock = true; laterTask(300, () => lock = false);
+      if(misses % 3 === 0){
+        const f = el.querySelector(".fk:not(.hit)");
+        if(f){ f.parentElement.classList.add("hint"); SE.hint(); $("gameLine").innerHTML = "……しかたないのう。<b>光っている文</b>の中じゃ。"; }
+      }
+    }
+  });
+}
+
+/* =====================================================================
+   F 茶屋の口車：九尾の言葉（本当かうそかは半々）にまどわされず、本物か化け札かを決める
+   ===================================================================== */
+function runF(el, t, done){
+  const w = pickWords(lvPool(t.lv), 1)[0];
+  const isFake = Math.random() < .5, claimFake = Math.random() < .5;
+  const lie = isFake !== claimFake;
+  const shown = isFake ? fakeWordOf(w) : w[0];
+  el.innerHTML = `<div class="fwrap">
+    <div class="fclaim bubble"><b>九尾</b>「${pick(claimFake ? LINES.claimFake : LINES.claimReal)}」</div>
+    <div class="card fcard" id="fcard"><div class="${lenCls(shown)}">${shown}</div></div>
+    <div class="fbtns"><button class="btn secondary" id="fReal">本物</button><button class="btn" id="fFake">化け札！</button></div>
+    <div class="qnote" id="fnote">この札は、本物か？ 化け札か？</div>
+    <div class="qfoot" id="ffoot"></div></div>`;
+  const card = el.querySelector("#fcard");
+  const answer = sayFake => {
+    if(!G.active || card.dataset.done) return;
+    card.dataset.done = "1";
+    el.querySelectorAll(".fbtns .btn").forEach(b => b.disabled = true);
+    const ok = sayFake === isFake;
+    if(isFake){ card.className = "card fcard done found"; card.innerHTML = cardInner({w, fake:true, state:"found"}); }
+    else{ card.className = "card fcard done realok"; card.innerHTML = `<span class="tag" style="color:#2a5a9a">本物</span><div class="${lenCls(w[0])}">${w[0]}</div>`; }
+    if(ok){
+      onFound(isFake ? w : null, "F");
+      if(lie) $("gameLine").innerHTML = pick(LINES.liedCaught);
+    }else{
+      onMiss(lie ? "ほほほ、わらわのうそに乗せられたのう！" : "ふふ、わらわは本当のことを言うておったのに。");
+    }
+    el.querySelector("#fnote").innerHTML = (ok ? "<b style='color:var(--ok)'>見きわめた！</b>　" : "<b style='color:var(--ng)'>化かされた……</b>　") +
+      (isFake ? fixHtml(w) : `これは本物の「<span class="mincho">${w[0]}</span>」（${w[1]}）じゃ。`) +
+      (!G.challenge && !ok ? "<br><span style='font-size:13px;color:var(--sub)'>かわりの札が1枚ふえるぞ。</span>" : "");
+    finishStep(el.querySelector("#ffoot"), t, ok, done);
+  };
+  el.querySelector("#fReal").onclick = () => answer(false);
+  el.querySelector("#fFake").onclick = () => answer(true);
+}
+
+const RUN = {A:runA, E:runA, B:runB, C:runC, D:runD, F:runF};
+
+/* ---- 話のクリア ---- */
+function episodeClear(){
+  G.active = false;
+  const i = G.ep, E = EPISODES[i];
+  const wasAll = allCleared();
+  SAVE.cleared[i] = true; writeSave();
+  SE.clear();
+  setFox($("gameFox"), "defeat");
+  $("gameLine").innerHTML = "ぐぬぬ……見事じゃ。";
+  const chips = G.found.slice(0, 12).map((x, k) => `<span class="chip" style="animation-delay:${.4 + k*.07}s">
+      <span class="f mincho">${fakeWordOf(x.w)}</span> → <span class="t mincho">${x.w[0]}</span>${x.isNew ? `<span class="new">図鑑NEW</span>` : ""}</span>`).join("");
+  showBanner(`<div class="big mincho">${E.no}話 クリア！</div>
+    <div class="small">見破った化け字 <b style="color:var(--gold)">${G.found.length}</b> 個</div>
+    <div class="chips">${chips}</div>
+    <div class="banner-btns one"><button class="btn" id="bnGo">つづきを見る ▶</button></div>`, true);
+  $("bnGo").onclick = () => {
+    hideBanner();
+    const epTitle = `${E.no}話　${E.title}`;
+    if(G){ G.token++; }
+    showStory(epTitle, E.post, () => { if(!wasAll && allCleared()) SE.win(); showMap(); });
+  };
+}
+
+/* =====================================================================
+   七 挑戦の間：CH_SECONDS秒で、一〜五話の見破り方をまぜて出す。時間が来たら「記録」として終わる
+   （負けではない。まちがえても減点はなく、連続が切れるだけ）。
+   正解1つ＝100点＋連続ボーナス（2連続目から20点ずつ、最大+100点）。
+   正解数が増えるほど、むずかしい熟語もまざる。
+   ===================================================================== */
+let clockId = null;
+function stopClock(){ if(clockId){ clearInterval(clockId); clockId = null; } }
+function startChallenge(){
+  newGame({challenge:true, score:0, correct:0, over:false, last:null});
+  show("scGame");
+  $("epLabel").innerHTML = `<b class="mincho">七</b>　挑戦の間`;
+  $("progBox").hidden = true; $("chBox").hidden = false;
+  $("score").textContent = "0"; $("chCorrect").textContent = "0"; $("plus").textContent = "";
+  $("timeLeft").textContent = CH_SECONDS; $("timerFill").style.width = "100%"; $("timerFill").classList.remove("hurry");
+  setCombo(0);
+  $("gameLine").innerHTML = `${CH_SECONDS}秒勝負じゃ！　どこまで見破れるかのう？`;
+  setFox($("gameFox"), "attack", "hop");
+  $("board").innerHTML = "";
+  SE.start();
+  showBanner(`<div class="big mincho">挑戦の間</div><div class="small">${CH_SECONDS}秒で、どれだけ見破れるか！<br><span style="font-size:.85em;color:var(--sub)">見破り方は、一問ごとに変わる</span></div>`);
+  later(1600, () => { hideBanner(); startClock(); nextChallengeTask(); });
+}
+function startClock(){
+  stopClock();
+  const t0 = performance.now();
+  let lastSec = CH_SECONDS;
+  clockId = setInterval(() => {
+    if(!G || !G.challenge || G.over){ stopClock(); return; }
+    const left = Math.max(0, CH_SECONDS - (performance.now() - t0) / 1000);
+    $("timerFill").style.width = (left / CH_SECONDS * 100) + "%";
+    const sec = Math.ceil(left);
+    if(sec !== lastSec){
+      lastSec = sec; $("timeLeft").textContent = sec;
+      if(sec <= 10 && sec > 0){ $("timerFill").classList.add("hurry"); SE.tick(); }
+    }
+    if(left <= 0) finishChallenge();
+  }, 100);
+}
+function nextChallengeTask(){
+  if(G.over) return;
+  const lv = G.correct < 4 ? [1,1] : G.correct < 10 ? [1,2] : [1,3];
+  const modes = ["A","B","C","D","F"].filter(m => m !== G.last && (m !== "B" || strokesReady()));
+  const m = pick(modes);
+  G.last = m;
+  const task = m === "A" ? {mode:"A", cards:6, fakes:1, lv} : m === "D" ? {mode:"D", n:1, lv} : {mode:m, lv};
+  runTask(task);
+}
+function finishChallenge(){
+  if(G.over) return;
+  G.over = true; G.active = false; stopClock();
+  $("timeLeft").textContent = 0; $("timerFill").style.width = "0%";
+  const prev = SAVE.best;
+  const isNew = G.score > prev;
+  if(isNew) SAVE.best = G.score;
+  if(G.correct > SAVE.bestCorrect) SAVE.bestCorrect = G.correct;
+  SAVE.chPlays++;
+  writeSave();
+  SE.win();
+  setFox($("gameFox"), "defeat", "hop");
+  $("gameLine").innerHTML = G.correct >= 15 ? "ま、参った……なんという目じゃ。" : G.correct >= 8 ? "ふむ、なかなかやるのう。" : "ふふ、次はもっと見破ってみせよ。";
+  showBanner(`<div class="big mincho">そこまで！</div>
+    <div class="score-big">${G.score}<small>点</small></div>
+    <div class="small">見破った数 <b style="color:var(--gold)">${G.correct}</b>　／　これまでの最高 ${Math.max(prev, G.score)}点</div>
+    ${isNew && prev > 0 ? `<div class="newrec">最高記録こうしん！</div>` : ""}
+    <div class="rank">称号<b class="mincho">${rankName(G.score)}</b></div>
+    <div class="banner-btns"><button class="btn" id="bnAgain">もう一度 挑戦</button><button class="btn secondary" id="bnMap">一覧へ</button></div>`, true);
+  $("bnAgain").onclick = () => { hideBanner(); startChallenge(); };
+  $("bnMap").onclick = () => showMap();
+}
+// 称号の目安：1問4〜6秒で15〜20問見破り、連続もつながると3000点前後
+function rankName(score){
+  if(score >= 4000) return "九尾も認める 見破りの名人";
+  if(score >= 3000) return "化け字の達人";
+  if(score >= 2000) return "腕利きの見破り手";
+  if(score >= 1000) return "一人前の見破り手";
+  return "見破り手の見習い";
+}
+
+function restAndMap(){ stopClock(); showMap(); }
 
 /* ---- 中央の大きな表示 ---- */
 function showBanner(html, clickable){
@@ -910,27 +1449,6 @@ function showBanner(html, clickable){
   b.className = "banner show" + (clickable ? " clickable" : "");
 }
 function hideBanner(){ $("banner").className = "banner"; }
-
-/* ---- 九尾 降参（9本そろったとき） ---- */
-function rankName(stars){
-  if(stars === 27) return "九尾も認める 見破りの名人";
-  if(stars >= 22) return "化け字の達人";
-  if(stars >= 15) return "腕利きの見破り手";
-  return "九尾を降参させし者";
-}
-function showEnd(){
-  show("scEnd");
-  SE.win();
-  setFox($("endFox"), "defeat", "hop");
-  const ts = totalStars();
-  $("endLine").innerHTML = "ま、参った……九本すべて取られるとは。そなたの目には、わらわの術も通じぬようじゃ。";
-  renderTails($("endTails"));
-  $("endStars").textContent = ts;
-  $("endRank").textContent = rankName(ts);
-  $("endNote").innerHTML = ts < 27
-    ? `★が少ない尾は、一覧から何度でも取り直せます。<b style="color:var(--gold)">★27</b>をそろえると、ごほうびがあるかも……？`
-    : `★27、完全制覇！　尾の一覧で「色違いの九尾」を選べるようになりました。`;
-}
 
 showMap();
 </script>
