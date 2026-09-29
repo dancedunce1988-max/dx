@@ -6,7 +6,7 @@
 <title>炎狼ラン</title>
 <!-- 知識ドリルDXのミニゲーム「炎狼ラン」（2026-09-29〜、試作・準備中）。kokugo_app.htmlのミニゲーム一覧から、
      九尾の化かし合い(kitsune_bakashiai.html)と同じく同じタブのまま画面ごと遷移してくる別ページ。
-     炎狼(me01)が3本の道（上＝丁寧語／中＝謙譲語／下＝尊敬語）を走り、迫ってくる「炎の関所」に書かれた
+     炎狼(me01)が3本の道（上＝尊敬語／中＝謙譲語／下＝丁寧語、2026-09-29 教員の指示で上下を入れかえた）を走り、迫ってくる「炎の関所」に書かれた
      敬語の種類に合う道でくぐり抜ける。正解するほど速くなる（炎狼＝素早さ特化）。
      本体のセーブデータ(st)には一切触れず、このページ専用のlocalStorageキーだけを使う
      （経験値・ジャンルレベルにはまだ反映しない）。炎狼の絵は本番と同じスプライト(enemy_sprites_data.js)を使い、
@@ -139,6 +139,27 @@
   .gate.crash::before{ content:"💥"; }
   .barrier.gone{ opacity:0; transition:opacity .4s; }
 
+  /* 正解の演出：炎狼のいる道に「〇 正解！」の判を押し、道を緑に光らせ、上の言葉も緑に変える */
+  .ok-stamp{
+    position:absolute; z-index:8; left:55%; top:0; transform:translate(-50%,-50%); pointer-events:none; opacity:0;
+    display:flex; align-items:center; gap:.3em; white-space:nowrap;
+    font-size:clamp(30px, 6.5vw, 56px); font-weight:bold; color:#fff; text-shadow:0 0 14px var(--ok), 0 2px 4px #000;
+  }
+  .ok-stamp .ring{ width:1.1em; height:1.1em; border:.17em solid var(--ok); border-radius:50%; box-shadow:0 0 18px var(--ok), inset 0 0 10px var(--ok); }
+  .ok-stamp small{ font-size:.45em; color:var(--ok); margin-left:.2em; }
+  .ok-stamp.show{ animation:okStamp .75s ease-out; }
+  @keyframes okStamp{
+    0%{opacity:0; transform:translate(-50%,-50%) scale(.3)}
+    18%{opacity:1; transform:translate(-50%,-50%) scale(1.18)}
+    32%{transform:translate(-50%,-50%) scale(1)}
+    75%{opacity:1}
+    100%{opacity:0; transform:translate(-50%,-60%) scale(1)}
+  }
+  .lane.good{ animation:goodFlash .5s ease-out; }
+  @keyframes goodFlash{ 0%{background-color:rgba(95,208,138,.5); box-shadow:inset 0 0 0 4px var(--ok)} 100%{} }
+  .word-bar .word.ok{ color:var(--ok); text-shadow:0 0 16px rgba(95,208,138,.9); transition:color .1s; }
+  .gate.open.burst{ animation:burst .35s ease-out; }
+  @keyframes burst{ 0%{transform:scale(1)} 40%{transform:scale(1.25)} 100%{transform:scale(1)} }
   .popup{ position:absolute; z-index:8; font-weight:bold; font-size:20px; color:var(--gold); text-shadow:0 0 8px rgba(0,0,0,.8); pointer-events:none; animation:floatUp .8s ease forwards; }
   @keyframes floatUp{ 0%{transform:translateY(0);opacity:1} 100%{transform:translateY(-44px);opacity:0} }
 
@@ -219,9 +240,9 @@
         進むほど速くなるよ。
       </div>
       <div class="lane-guide">
-        <div class="lg t"><span class="pos">上の道</span><b>丁寧語</b><span>「です・ます・ございます」で、聞き手にていねいに言う</span></div>
+        <div class="lg s"><span class="pos">上の道</span><b>尊敬語</b><span>相手（目上の人）の動作を高めて言う</span></div>
         <div class="lg k"><span class="pos">中の道</span><b>謙譲語</b><span>自分や身内の動作をへりくだって、相手を立てる</span></div>
-        <div class="lg s"><span class="pos">下の道</span><b>尊敬語</b><span>相手（目上の人）の動作を高めて言う</span></div>
+        <div class="lg t"><span class="pos">下の道</span><b>丁寧語</b><span>「です・ます・ございます」で、聞き手にていねいに言う</span></div>
       </div>
       <div class="best-line" id="bestLine"></div>
       <div class="title-btns">
@@ -249,9 +270,10 @@
     <div class="word mincho" id="word"></div>
   </div>
   <div class="field" id="field">
-    <div class="lane t" data-lane="0"><div class="scroll"></div><div class="label"><b>丁寧語</b><small>です・ます</small></div></div>
+    <div class="lane s" data-lane="0"><div class="scroll"></div><div class="label"><b>尊敬語</b><small>相手を高める</small></div></div>
     <div class="lane k" data-lane="1"><div class="scroll"></div><div class="label"><b>謙譲語</b><small>へりくだる</small></div></div>
-    <div class="lane s" data-lane="2"><div class="scroll"></div><div class="label"><b>尊敬語</b><small>相手を高める</small></div></div>
+    <div class="lane t" data-lane="2"><div class="scroll"></div><div class="label"><b>丁寧語</b><small>です・ます</small></div></div>
+    <div class="ok-stamp" id="okStamp"></div>
     <div id="wolf" class="run"><div class="glow"></div><div class="body" id="wolfBody"></div></div>
     <div class="explain" id="explain" onclick="continueRun()"></div>
   </div>
@@ -360,8 +382,9 @@ const WORDS = [
   ["駅はあちらに[あります]。","T",3,MASU],
   ["弟が本を[読みます]。","T",3,MASU],
 ];
-const TYPES = {T:{name:"丁寧語", lane:0, cls:"t"}, K:{name:"謙譲語", lane:1, cls:"k"}, S:{name:"尊敬語", lane:2, cls:"s"}};
-const LANE_TYPE = ["T","K","S"];
+// 道の並び：上＝尊敬語(0)／中＝謙譲語(1)／下＝丁寧語(2)
+const TYPES = {S:{name:"尊敬語", lane:0, cls:"s"}, K:{name:"謙譲語", lane:1, cls:"k"}, T:{name:"丁寧語", lane:2, cls:"t"}};
+const LANE_TYPE = ["S","K","T"];
 
 /* 区間：正解数で進む。区間が進むと出る言葉の範囲が広がる。 */
 const ZONES = [
@@ -422,7 +445,7 @@ function tone(freq, dur, opt = {}){
 }
 const SE = {
   move(){ tone(660, .05, {type:"triangle", vol:.06}); },
-  pass(combo){ const up = Math.min(combo, 10) * 50; tone(784 + up, .08); tone(1175 + up, .14, {delay:.07}); },
+  pass(combo){ const up = Math.min(combo, 10) * 40; tone(1047 + up, .16, {type:"triangle", vol:.2}); tone(1319 + up, .3, {type:"triangle", vol:.2, delay:.12}); },
   crash(){ tone(160, .22, {type:"sawtooth", vol:.1}); tone(110, .3, {type:"triangle", vol:.12, delay:.1}); },
   count(){ tone(523, .12, {type:"triangle"}); },
   go(){ tone(784, .25, {type:"triangle"}); },
@@ -593,7 +616,8 @@ function judge(b){
   const gates = b.el.querySelectorAll(".gate");
   if(G.lane === want){
     // 正解：関所を通りぬける
-    gates[want].classList.add("open");
+    gates[want].classList.add("open", "burst");
+    showCorrect(want, b.w[1]);
     G.correct++; G.combo++; G.maxCombo = Math.max(G.maxCombo, G.combo);
     let pts = 10 + Math.min(G.combo, 10) * 2;
     if(G.hib > 0) pts *= 2;
@@ -682,11 +706,25 @@ function startHibashiri(){
 }
 function endHibashiri(){ document.body.classList.remove("hibashiri"); }
 
+// 正解がはっきりわかるように：判・道の光・言葉の色・効果音
+function showCorrect(lane, type){
+  const st = $("okStamp");
+  st.innerHTML = `<span class="ring"></span>正解！<small>${TYPES[type].name}</small>`;
+  // 炎狼に重ならないよう、炎狼の右側の空いた所のまん中に、はみ出さない大きさで出す
+  const right = geo.wolfX + geo.wolfW, room = geo.W - right - 16;
+  st.style.fontSize = Math.max(22, Math.min(56, room / 6.4)) + "px";
+  st.style.left = (right + (geo.W - right) / 2) + "px";
+  st.style.top = (lane * geo.laneH + geo.laneH / 2) + "px";
+  st.classList.remove("show"); void st.offsetWidth; st.classList.add("show");
+  const ln = document.querySelectorAll(".lane")[lane];
+  ln.classList.remove("good"); void ln.offsetWidth; ln.classList.add("good");
+  $("word").classList.add("ok");
+}
 function popup(text){
   const p = document.createElement("div");
   p.className = "popup"; p.textContent = text;
   p.style.left = (geo.wolfX + geo.wolfW * 0.4) + "px";
-  p.style.top = (G.lane * geo.laneH + 4) + "px";
+  p.style.top = (G.lane * geo.laneH + geo.laneH * 0.3) + "px";
   $("field").appendChild(p);
   setTimeout(() => p.remove(), 850);
 }
