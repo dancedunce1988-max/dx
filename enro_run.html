@@ -12,6 +12,8 @@
      （経験値・ジャンルレベルにはまだ反映しない）。炎狼の絵は本番と同じスプライト(enemy_sprites_data.js)を使い、
      読み込めなかったときは🐺の絵文字で代用する。 -->
 <script src="enemy_sprites_data.js"></script>
+<!-- 道ごとの背景（素材/画像/炎狼ラン背景.png から切り出し）。読み込めなかったときは、今までどおりの色だけの道になる -->
+<script src="enro_run_bg_data.js"></script>
 <style>
   :root{
     --bg1:#12070a; --bg2:#26100f; --bg3:#3d1712;
@@ -100,17 +102,21 @@
   .lane.t{ background:rgba(95,184,255,.07); }
   .lane.k{ background:rgba(196,155,255,.07); border-top:1px dashed rgba(255,255,255,.12); border-bottom:1px dashed rgba(255,255,255,.12); }
   .lane.s{ background:rgba(255,177,60,.07); }
+  /* 背景の景色（.bg）はゆっくり、地面の線（.scroll）は走る速さで流して奥行きを出す */
+  .lane .bg{ position:absolute; inset:0; background-repeat:repeat-x; background-size:auto 100%; background-position:0 50%; }
+  .lane .bg::after{ content:""; position:absolute; inset:0; background:rgba(0,0,0,.12); }
   .lane .scroll{ position:absolute; inset:0; background-image:repeating-linear-gradient(90deg, rgba(255,255,255,.07) 0 2px, transparent 2px 90px); }
+  body.has-bg .lane .scroll{ background-image:repeating-linear-gradient(90deg, rgba(255,255,255,.10) 0 2px, transparent 2px 140px); -webkit-mask-image:linear-gradient(transparent 70%, #000 85%); mask-image:linear-gradient(transparent 70%, #000 85%); }
   .lane .label{
     position:relative; z-index:2; height:100%; display:flex; flex-direction:column; justify-content:center; align-items:center;
-    background:rgba(0,0,0,.35); border-right:3px solid; text-align:center; padding:0 4px;
+    background:rgba(0,0,0,.6); border-right:3px solid; text-align:center; padding:0 4px;
   }
   .lane .label b{ font-size:clamp(15px, 3.6vw, 20px); letter-spacing:1px; }
   .lane .label small{ font-size:10px; color:var(--sub); line-height:1.35; margin-top:2px; }
   .lane.t .label{ border-color:var(--teinei); } .lane.t .label b{ color:var(--teinei); }
   .lane.k .label{ border-color:var(--kenjo); }  .lane.k .label b{ color:var(--kenjo); }
   .lane.s .label{ border-color:var(--sonkei); } .lane.s .label b{ color:var(--sonkei); }
-  .lane.here .label{ background:rgba(255,255,255,.12); }
+  .lane.here .label{ background:rgba(40,28,24,.85); }
   .lane.answer{ animation:ansGlow .5s ease-in-out 3; }
   @keyframes ansGlow{ 0%,100%{box-shadow:inset 0 0 0 0 rgba(95,208,138,0)} 50%{box-shadow:inset 0 0 0 4px var(--ok)} }
 
@@ -270,9 +276,9 @@
     <div class="word mincho" id="word"></div>
   </div>
   <div class="field" id="field">
-    <div class="lane s" data-lane="0"><div class="scroll"></div><div class="label"><b>尊敬語</b><small>相手を高める</small></div></div>
-    <div class="lane k" data-lane="1"><div class="scroll"></div><div class="label"><b>謙譲語</b><small>へりくだる</small></div></div>
-    <div class="lane t" data-lane="2"><div class="scroll"></div><div class="label"><b>丁寧語</b><small>です・ます</small></div></div>
+    <div class="lane s" data-lane="0"><div class="bg"></div><div class="scroll"></div><div class="label"><b>尊敬語</b><small>相手を高める</small></div></div>
+    <div class="lane k" data-lane="1"><div class="bg"></div><div class="scroll"></div><div class="label"><b>謙譲語</b><small>へりくだる</small></div></div>
+    <div class="lane t" data-lane="2"><div class="bg"></div><div class="scroll"></div><div class="label"><b>丁寧語</b><small>です・ます</small></div></div>
     <div class="ok-stamp" id="okStamp"></div>
     <div id="wolf" class="run"><div class="glow"></div><div class="body" id="wolfBody"></div></div>
     <div class="explain" id="explain" onclick="continueRun()"></div>
@@ -385,6 +391,18 @@ const WORDS = [
 // 道の並び：上＝尊敬語(0)／中＝謙譲語(1)／下＝丁寧語(2)
 const TYPES = {S:{name:"尊敬語", lane:0, cls:"s"}, K:{name:"謙譲語", lane:1, cls:"k"}, T:{name:"丁寧語", lane:2, cls:"t"}};
 const LANE_TYPE = ["S","K","T"];
+const BG_PARALLAX = 0.35; // 背景の景色は、走る速さのこの割合で流す（遠くの景色ほどゆっくり動いて見える）
+
+// 道ごとの背景をはる（enro_run_bg_data.js、キーは敬語の種類）
+(function setLaneBackgrounds(){
+  const bg = window.ENRO_RUN_BG;
+  if(!bg) return;
+  document.querySelectorAll(".lane").forEach(el => {
+    const src = bg[LANE_TYPE[+el.dataset.lane]];
+    if(src) el.querySelector(".bg").style.backgroundImage = `url("${src}")`;
+  });
+  document.body.classList.add("has-bg");
+})();
 
 /* 区間：正解数で進む。区間が進むと出る言葉の範囲が広がる。 */
 const ZONES = [
@@ -429,7 +447,8 @@ function toggleMute(){ SAVE.muted = !SAVE.muted; writeSave(); refreshMuteIcons()
 function refreshMuteIcons(){ document.querySelectorAll(".mute-inline").forEach(b => b.textContent = SAVE.muted ? "🔇" : "🔊"); }
 refreshMuteIcons();
 
-/* ---- 効果音（外部ファイルなし、WebAudioで鳴らす） ---- */
+/* ---- 効果音（外部ファイルなし、WebAudioで鳴らす） ----
+   正解＝「ピンポーン」＋炎がぬける音、不正解＝「ブッブー」＋ぶつかる音（2026-09-29、教員の指示で追加）。 */
 let AC = null;
 function tone(freq, dur, opt = {}){
   if(SAVE.muted) return;
@@ -443,10 +462,42 @@ function tone(freq, dur, opt = {}){
     o.connect(g).connect(AC.destination); o.start(t); o.stop(t + dur);
   }catch(e){}
 }
+// ザッという音（炎・衝突用）。ホワイトノイズを帯域フィルターに通して鳴らす
+function noise(dur, opt = {}){
+  if(SAVE.muted) return;
+  try{
+    if(!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+    const t = AC.currentTime + (opt.delay || 0);
+    const len = Math.floor(AC.sampleRate * dur);
+    const buf = AC.createBuffer(1, len, AC.sampleRate), d = buf.getChannelData(0);
+    for(let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    const src = AC.createBufferSource(); src.buffer = buf;
+    const f = AC.createBiquadFilter(); f.type = "bandpass"; f.Q.value = opt.q || 1;
+    f.frequency.setValueAtTime(opt.from || 800, t);
+    f.frequency.exponentialRampToValueAtTime(opt.to || 800, t + dur);
+    const g = AC.createGain();
+    g.gain.setValueAtTime(opt.vol || .2, t);
+    g.gain.exponentialRampToValueAtTime(.001, t + dur);
+    src.connect(f).connect(g).connect(AC.destination); src.start(t); src.stop(t + dur);
+  }catch(e){}
+}
 const SE = {
   move(){ tone(660, .05, {type:"triangle", vol:.06}); },
-  pass(combo){ const up = Math.min(combo, 10) * 40; tone(1047 + up, .16, {type:"triangle", vol:.2}); tone(1319 + up, .3, {type:"triangle", vol:.2, delay:.12}); },
-  crash(){ tone(160, .22, {type:"sawtooth", vol:.1}); tone(110, .3, {type:"triangle", vol:.12, delay:.1}); },
+  // 正解：ピン（高）ポーン（低く長く）＋ 炎がぬけるシュッという音。連続正解ほど少しずつ音が高くなる
+  pass(combo){
+    const k = Math.pow(2, Math.min(combo - 1, 8) / 12);
+    tone(1568 * k, .18, {vol:.22}); tone(3136 * k, .12, {vol:.05});
+    tone(1245 * k, .55, {vol:.22, delay:.14}); tone(2490 * k, .35, {vol:.05, delay:.14});
+    noise(.25, {from:600, to:4000, q:.8, vol:.12});
+  },
+  // 不正解：ドンとぶつかる音 ＋ ブッブー
+  crash(){
+    noise(.3, {from:900, to:120, q:.7, vol:.3});
+    tone(70, .25, {vol:.25});
+    tone(150, .16, {type:"square", vol:.09, delay:.12});
+    tone(150, .42, {type:"square", vol:.09, delay:.34});
+    tone(147, .42, {type:"sawtooth", vol:.05, delay:.34});
+  },
   count(){ tone(523, .12, {type:"triangle"}); },
   go(){ tone(784, .25, {type:"triangle"}); },
   fire(){ [392,523,659,784,1047].forEach((f,i) => tone(f, .18, {type:"sawtooth", vol:.07, delay:i*.06})); },
@@ -591,6 +642,7 @@ function loop(ts){
   if(G.phase === "run"){
     G.scroll += G.speed * dt;
     document.querySelectorAll(".lane .scroll").forEach(s => s.style.backgroundPosition = `${-G.scroll}px 0`);
+    document.querySelectorAll(".lane .bg").forEach(s => s.style.backgroundPosition = `${-G.scroll * BG_PARALLAX}px 50%`);
     G.barriers.forEach(b => {
       b.x -= G.speed * dt;
       b.el.style.transform = `translateX(${b.x}px)`;
