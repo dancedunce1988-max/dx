@@ -101,8 +101,8 @@
   .menu-card.locked:hover{transform:none; box-shadow:none;}
   .menu-card.locked .menu-icon{background:var(--line); color:var(--sub);}
   .menu-card.locked .shogo-badge{background:var(--sub);}
-  /* 九尾の化かし合いの「準備中」カード：タップの手応えとして軽くパルスさせるだけ（kitsuneComingSoonTap参照） */
-  .kitsune-teaser.tap-pulse{ animation:kitsuneTapPulse .18s ease; }
+  /* 九尾の化かし合い・炎狼ランの「準備中」カード：タップの手応えとして軽くパルスさせるだけ（kitsuneComingSoonTap・enroRunComingSoonTap参照） */
+  .kitsune-teaser.tap-pulse, .enro-teaser.tap-pulse{ animation:kitsuneTapPulse .18s ease; }
   @keyframes kitsuneTapPulse{ 0%{transform:scale(1);} 45%{transform:scale(.96);} 100%{transform:scale(1);} }
   /* クリア済みのストーリー章カード：カード全体タップではなく、中の2つのボタン
      （「ストーリーを見る」「問題だけ」）で選ぶ形にしたので、カード自体はクリック不可にする
@@ -4330,7 +4330,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.60</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.61</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -19802,6 +19802,7 @@ function showSideQuestMenu(){
   html += Object.keys(STORY_SIDEQUESTS).map(key => storySideQuestButtonHtml(key, st)).join("");
   html += speedMatchMenuHtml();
   html += kitsuneMenuHtml();
+  html += enroRunMenuHtml();
   html += `<div class="btn-row" style="justify-content:center; margin-top:10px">
     <button class="btn secondary" onclick="showHome()">戻る</button>
   </div>`;
@@ -19940,6 +19941,56 @@ function kitsuneComingSoonTap(el){
   }
 }
 function openKitsuneBakashiai(){ location.href = "kitsune_bakashiai.html"; }
+/* 炎狼ラン（2026-09-29〜、試作・準備中）。炎狼(me01)が3本の道（上＝丁寧語／中＝謙譲語／下＝尊敬語）を
+   走り、迫ってくる関所に出た言葉の敬語の種類に合う道でくぐり抜けるランゲーム。九尾の化かし合いと同じく
+   別ページ（enro_run.html）で、戻るときは kokugo_app.html?from=minigame でミニゲーム一覧に戻る。
+   本体のセーブデータ(st)には触れず、経験値・ジャンルレベルにもまだ反映しない。
+   教員の指示（2026-09-29：「試作して」）で、九尾と同じ「準備中」カードとして置き、隠し操作
+   （カードを3回タップ→eキーを1回→カードを2回タップ、ENRO_RUN_SECRET_SEQ）のときだけ裏で遊べるようにする。
+   正式に公開するときは ENRO_RUN_RELEASED を true にするだけでよい。 */
+const ENRO_RUN_RELEASED = false;
+const ENRO_RUN_SECRET_SEQ = ["tap","tap","tap","e","tap","tap"];
+let enroRunSeqHist = []; // 直近の隠し操作。保存しない＝ページ再読み込みでリセットされてよい。
+function enroRunMenuHtml(){
+  if(ENRO_RUN_RELEASED){
+    return `
+    <div class="card menu-card" onclick="openEnroRun()">
+      <div class="menu-icon">🐺</div>
+      <div><h2>炎狼ラン</h2><p>敬語の三つの道を駆けぬけろ</p></div>
+      <div class="right"><span class="shogo-badge">挑戦する</span></div>
+    </div>`;
+  }
+  return `
+    <div class="card menu-card locked enro-teaser" onclick="enroRunComingSoonTap(this)">
+      <div class="menu-icon">🐺</div>
+      <div><h2>炎狼ラン</h2><p>敬語の三つの道を駆けぬけろ</p></div>
+      <div class="right"><span class="shogo-badge">準備中</span></div>
+    </div>`;
+}
+// 隠し操作を1つ記録し、直前の操作がENRO_RUN_SECRET_SEQと一致したら開く（kitsuneSecretInputと同じ仕組み）。
+function enroRunSecretInput(kind){
+  enroRunSeqHist.push(kind);
+  if(enroRunSeqHist.length > ENRO_RUN_SECRET_SEQ.length) enroRunSeqHist.shift();
+  if(enroRunSeqHist.join(",") === ENRO_RUN_SECRET_SEQ.join(",")){ enroRunSeqHist = []; openEnroRun(); return true; }
+  return false;
+}
+// eキーは、ミニゲーム一覧に「準備中」カードが出ているときだけ数える（入力欄での入力は無視）。
+document.addEventListener("keydown", e => {
+  if(ENRO_RUN_RELEASED || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+  if(!document.querySelector(".enro-teaser")) return;
+  const tag = (e.target && e.target.tagName) || "";
+  if(tag === "INPUT" || tag === "TEXTAREA" || (e.target && e.target.isContentEditable)) return;
+  if(e.key === "e" || e.key === "E") enroRunSecretInput("e");
+});
+function enroRunComingSoonTap(el){
+  if(enroRunSecretInput("tap")) return;
+  if(el){
+    el.classList.remove('tap-pulse');
+    void el.offsetWidth; // タップのたびにアニメーションをやり直すための強制リフロー
+    el.classList.add('tap-pulse');
+  }
+}
+function openEnroRun(){ location.href = "enro_run.html"; }
 /* マッチ（類義語マッチ・対義語マッチ、2026-09-18〜）。ミニゲームとしては「マッチ」という
    ひとつの入口にまとめ、その中に類義語マッチ・対義語マッチの2モードを置く（以前は対義語・
    類義語を別々のミニゲームとして並べていたが、教員の指示でひとつにまとめた）。taigigo/ruigigoの
