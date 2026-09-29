@@ -83,9 +83,24 @@
   .hud .score b{ color:var(--gold); font-size:20px; }
   .hud .zone{ color:var(--fire2); font-size:12px; }
   .hud .sp{ flex:1; }
-  .gauge-wrap{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--sub); }
-  .gauge{ width:110px; height:10px; border-radius:999px; background:rgba(255,255,255,.1); overflow:hidden; }
-  .gauge-fill{ height:100%; width:0; background:linear-gradient(90deg,var(--fire),var(--gold)); transition:width .2s; }
+  /* 炎ゲージ（2026-09-29、教員の指示で大きくし、HUDの下に1段まるごと使って置く）。8マスの区切り線つき */
+  .gauge-row{ display:flex; align-items:center; justify-content:center; gap:10px; padding:2px 12px 6px; }
+  .gauge-row .gl{ font-size:16px; font-weight:bold; color:var(--fire2); white-space:nowrap; }
+  .gauge{
+    position:relative; flex:1; max-width:560px; height:24px; border-radius:999px; overflow:hidden;
+    background:rgba(255,255,255,.1); border:2px solid rgba(255,195,107,.5); box-shadow:inset 0 2px 6px rgba(0,0,0,.5);
+  }
+  .gauge::after{
+    content:""; position:absolute; inset:0; pointer-events:none;
+    background:repeating-linear-gradient(90deg, transparent 0 calc(12.5% - 2px), rgba(0,0,0,.55) calc(12.5% - 2px) 12.5%);
+  }
+  .gauge.hibmode::after{ display:none; }
+  .gauge-fill{ height:100%; width:0; background:linear-gradient(90deg,var(--fire),var(--gold)); box-shadow:0 0 12px var(--fire); transition:width .25s; }
+  .gauge-num{ font-size:15px; font-weight:bold; min-width:4.5em; white-space:nowrap; }
+  .gauge.bump{ animation:gBump .4s ease; }
+  @keyframes gBump{ 0%,100%{transform:scale(1)} 40%{transform:scale(1.06); border-color:var(--gold); box-shadow:0 0 16px var(--gold)} }
+  .gauge.drop{ animation:gDrop .5s ease; }
+  @keyframes gDrop{ 0%,100%{transform:translateX(0)} 20%{transform:translateX(-5px); border-color:var(--ng)} 40%{transform:translateX(5px); border-color:var(--ng)} 60%{transform:translateX(-3px)} }
   body.hibashiri .gauge-fill{ animation:blaze .5s linear infinite; }
   @keyframes blaze{ 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.5)} }
 
@@ -166,6 +181,13 @@
   .word-bar .word.ok{ color:var(--ok); text-shadow:0 0 16px rgba(95,208,138,.9); transition:color .1s; }
   .gate.open.burst{ animation:burst .35s ease-out; }
   @keyframes burst{ 0%{transform:scale(1)} 40%{transform:scale(1.25)} 100%{transform:scale(1)} }
+  /* 道に落ちているアイテム（🦴骨＝炎ゲージ＋3／🍖肉＝❤1つ回復）。その道を走っていれば、ぶつかってひろえる */
+  .item{ position:absolute; left:0; top:0; z-index:4; display:flex; align-items:center; justify-content:center; pointer-events:none; }
+  .item .ic{ position:relative; z-index:1; line-height:1; animation:itemFloat .9s ease-in-out infinite; filter:drop-shadow(0 3px 4px rgba(0,0,0,.6)); }
+  .item::before{ content:""; position:absolute; inset:-10%; border-radius:50%; background:radial-gradient(circle, rgba(255,240,180,.75), rgba(255,200,80,.25) 55%, transparent 72%); animation:blaze .6s linear infinite; }
+  .item.meat::before{ background:radial-gradient(circle, rgba(255,190,190,.8), rgba(255,90,110,.3) 55%, transparent 72%); }
+  @keyframes itemFloat{ 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12%)} }
+  .item.got{ transition:opacity .35s, scale .35s; opacity:0; scale:1.8; }
   .popup{ position:absolute; z-index:8; font-weight:bold; font-size:20px; color:var(--gold); text-shadow:0 0 8px rgba(0,0,0,.8); pointer-events:none; animation:floatUp .8s ease forwards; }
   @keyframes floatUp{ 0%{transform:translateY(0);opacity:1} 100%{transform:translateY(-44px);opacity:0} }
 
@@ -223,7 +245,8 @@
     .end-top{ grid-template-columns:110px 1fr; }
     .end-top .wolf{ height:100px; }
     .stats{ grid-template-columns:repeat(2,1fr); }
-    .gauge{ width:70px; }
+    .gauge-row .gl{ font-size:14px; }
+    .gauge{ height:20px; }
   }
 </style>
 </head>
@@ -242,7 +265,8 @@
         炎狼は<b>三本の道</b>を走っている。前から<b>炎の関所</b>が迫ってくるぞ。<br>
         画面の上に出た言葉が<b>どの種類の敬語か</b>考えて、その道を<b>タップ</b>して移ろう。
         合っている道なら関所を通りぬけられる。まちがえるとぶつかって❤が減る（3回で終わり）。<br>
-        正解を続けると<b>炎ゲージ</b>がたまり、満タンで<b>火走り</b>（得点2倍・ぶつかっても❤が減らない）！
+        正解すると<b>炎ゲージ</b>がたまり（まちがえると2マス減る）、満タンで<b>火走り</b>（得点2倍・ぶつかっても❤が減らない）！<br>
+        ときどき道に<b>🦴骨</b>（炎ゲージ＋3）や<b>🍖肉</b>（❤を1つ回復）が落ちている。その道を走ればひろえるぞ。
         進むほど速くなるよ。
       </div>
       <div class="lane-guide">
@@ -267,9 +291,13 @@
     <span class="score">得点 <b id="score">0</b></span>
     <span class="zone" id="zone"></span>
     <span class="sp"></span>
-    <span class="gauge-wrap"><span id="gaugeLabel">炎ゲージ</span><span class="gauge"><span class="gauge-fill" id="gauge" style="display:block"></span></span></span>
     <button class="pill mute-inline" onclick="toggleMute()">🔊</button>
     <button class="pill" onclick="pauseGame()">⏸</button>
+  </div>
+  <div class="gauge-row">
+    <span class="gl" id="gaugeLabel">🔥 炎ゲージ</span>
+    <span class="gauge" id="gaugeBox"><span class="gauge-fill" id="gauge" style="display:block"></span></span>
+    <span class="gauge-num" id="gaugeNum"></span>
   </div>
   <div class="word-bar">
     <div class="ctx" id="wordCtx"></div>
@@ -415,6 +443,16 @@ const TRAVEL_START = 5.6, TRAVEL_MIN = 2.2, TRAVEL_STEP = 0.11;
 const LIVES = 3;
 const GAUGE_MAX = 8;       // 何問連続で正解すると火走りになるか
 const HIBASHIRI_LEN = 6;   // 火走りが続く問題数
+const WRONG_GAUGE_LOSS = 2; // まちがえたときに減る炎ゲージのマス数（2026-09-29、0に戻すのは厳しすぎるとの教員の指示で変更）
+/* アイテム（2026-09-29〜）。関所を出すたびにITEM_RATEの確率で、ランダムな道に1つ落とす（同時に出るのは1つまで）。
+   関所と関所のちょうど間に来るよう、次の関所の半分だけ先に置く＝ひろってから次の関所の道へ移る時間が残る。
+   肉は❤が減っているときだけ出る（❤が満タンのときは必ず骨）。 */
+const ITEM_RATE = 0.1;
+const ITEMS = {
+  bone:{icon:"🦴", label:"炎ゲージ＋3"},
+  meat:{icon:"🍖", label:"❤ 1つ回復！"},
+};
+const BONE_GAUGE = 3;      // 骨でたまる炎ゲージ（火走り中なら、火走りが2問のびる）
 
 const RANKS = [
   [0,"子狼"],[150,"駆け出しの狼"],[350,"若き炎狼"],[650,"炎の狼"],[1000,"敬語の狼王"],[1500,"伝説の炎狼"],
@@ -501,6 +539,7 @@ const SE = {
   count(){ tone(523, .12, {type:"triangle"}); },
   go(){ tone(784, .25, {type:"triangle"}); },
   fire(){ [392,523,659,784,1047].forEach((f,i) => tone(f, .18, {type:"sawtooth", vol:.07, delay:i*.06})); },
+  item(){ [880,1175,1568,2093].forEach((f,i) => tone(f, .12, {type:"triangle", vol:.13, delay:i*.05})); },
   zone(){ [523,659,784].forEach((f,i) => tone(f, .2, {type:"triangle", delay:i*.1})); },
   over(){ [392,330,262,196].forEach((f,i) => tone(f, .3, {type:"triangle", delay:i*.16})); },
 };
@@ -589,13 +628,13 @@ function startGame(){
   stopLoop();
   G = {lane:1, lives:LIVES, score:0, correct:0, total:0, combo:0, maxCombo:0, gauge:0, hib:0,
        zone:0, used:new Set(), lastWord:null, barriers:[], phase:"count", misses:[], spawnWait:0,
-       scroll:0, speed:0, pendingZone:null};
+       scroll:0, speed:0, pendingZone:null, items:[], prevGauge:0};
   document.body.classList.remove("hibashiri");
   show("scGame");
   setWolf($("wolfBody"), "pose1");
   $("wolf").className = "run";
   $("explain").classList.remove("show");
-  document.querySelectorAll(".barrier").forEach(b => b.remove());
+  document.querySelectorAll(".barrier, .item").forEach(b => b.remove());
   $("word").textContent = ""; $("wordCtx").textContent = "";
   layout(); placeWolf(); refreshHud();
   // 3・2・1のカウントダウン
@@ -630,6 +669,42 @@ function spawnBarrier(){
   we.className = "word mincho" + (isSentence ? " sentence" : "");
   we.innerHTML = wordHtml(w[0]);
   void we.offsetWidth; we.classList.add("pop");
+  if(!G.items.length && Math.random() < ITEM_RATE) spawnItem();
+}
+
+function spawnItem(){
+  const kind = (G.lives < LIVES && Math.random() < 0.5) ? "meat" : "bone";
+  const lane = Math.floor(Math.random() * 3);
+  const size = Math.round(Math.min(geo.laneH * 0.55, 76));
+  const el = document.createElement("div");
+  el.className = "item " + kind;
+  el.style.width = el.style.height = size + "px";
+  el.innerHTML = `<span class="ic" style="font-size:${Math.round(size * 0.78)}px">${ITEMS[kind].icon}</span>`;
+  $("field").appendChild(el);
+  const it = {el, kind, lane, size, x:geo.startX + (geo.startX - geo.judgeX) * 0.5, done:false};
+  moveItem(it);
+  G.items.push(it);
+}
+function moveItem(it){
+  it.el.style.transform = `translate(${it.x}px, ${it.lane * geo.laneH + (geo.laneH - it.size) / 2}px)`;
+}
+function collectItem(it){
+  it.done = true;
+  it.el.classList.add("got");
+  setTimeout(() => it.el.remove(), 400);
+  SE.item();
+  if(it.kind === "meat" && G.lives < LIVES){
+    G.lives++;
+    popup(`🍖 ${ITEMS.meat.label}`);
+  }else if(G.hib > 0){
+    G.hib = Math.min(HIBASHIRI_LEN, G.hib + 2);
+    popup(`🦴 火走りがのびた！`);
+  }else{
+    G.gauge += it.kind === "meat" ? 1 : BONE_GAUGE;
+    popup(it.kind === "meat" ? "🍖 炎ゲージ＋1" : `🦴 ${ITEMS.bone.label}`);
+    if(G.gauge >= GAUGE_MAX) startHibashiri();
+  }
+  refreshHud();
 }
 
 function startLoop(){ lastTs = 0; rafId = requestAnimationFrame(loop); }
@@ -647,6 +722,17 @@ function loop(ts){
       b.x -= G.speed * dt;
       b.el.style.transform = `translateX(${b.x}px)`;
       if(!b.judged && b.x <= geo.judgeX) judge(b);
+    });
+    // アイテム：炎狼の体に重なったとき、同じ道にいればひろう
+    G.items.forEach(it => {
+      it.x -= G.speed * dt;
+      moveItem(it);
+      if(!it.done && G.lane === it.lane && it.x <= geo.wolfX + geo.wolfW * 0.75 && it.x + it.size >= geo.wolfX + geo.wolfW * 0.2) collectItem(it);
+    });
+    G.items = G.items.filter(it => {
+      if(it.done) return false;
+      if(it.x < -it.size - 20){ it.el.remove(); return false; }
+      return true;
     });
     // 通りすぎた関所を消す
     G.barriers = G.barriers.filter(b => {
@@ -704,7 +790,7 @@ function judge(b){
       if(G.hib === 0) endHibashiri();
     }else{
       G.lives--;
-      G.gauge = 0;
+      G.gauge = Math.max(0, G.gauge - WRONG_GAUGE_LOSS);
     }
     G.combo = 0;
     G.misses.push({w:b.w, chose:G.lane});
@@ -720,6 +806,7 @@ function judge(b){
     ex.className = "explain show" + (protectedByFire ? " hib" : "");
     ex.innerHTML = `<div class="head">${protectedByFire ? "🔥 火走りで守られた！　" : `<span class="ng">✖ ぶつかった！</span>　`}「${wordHtml(b.w[0])}」は <span style="color:var(--${t.cls === "t" ? "teinei" : t.cls === "k" ? "kenjo" : "sonkei"})">${t.name}</span></div>
       <div>${esc(b.w[3])}</div>
+      ${protectedByFire ? "" : `<div style="font-size:12px;color:var(--sub)">❤ −1　炎ゲージ −${WRONG_GAUGE_LOSS}</div>`}
       <div class="next">${G.lives > 0 ? "タップで走りを再開" : ""}</div>`;
     if(G.lives <= 0){
       setTimeout(gameOver, 1900);
@@ -787,7 +874,16 @@ function refreshHud(){
   $("zone").textContent = `${ZONES[G.zone].name}　${G.combo >= 2 ? G.combo + "連続！" : ""}`;
   const g = G.hib > 0 ? G.hib / HIBASHIRI_LEN : G.gauge / GAUGE_MAX;
   $("gauge").style.width = (g * 100) + "%";
-  $("gaugeLabel").textContent = G.hib > 0 ? `火走り あと${G.hib}` : "炎ゲージ";
+  $("gaugeLabel").textContent = G.hib > 0 ? "🔥 火走り中！" : "🔥 炎ゲージ";
+  $("gaugeNum").textContent = G.hib > 0 ? `あと${G.hib}問` : `${G.gauge} / ${GAUGE_MAX}`;
+  const box = $("gaugeBox");
+  box.classList.toggle("hibmode", G.hib > 0);
+  // ふえたらはずむ、減ったらゆれる（火走りの残りが減るのはふつうの消費なので、ゆらさない）
+  if(G.hib === 0 && G.gauge !== G.prevGauge){
+    const cls = G.gauge > G.prevGauge ? "bump" : "drop";
+    box.classList.remove("bump", "drop"); void box.offsetWidth; box.classList.add(cls);
+  }
+  G.prevGauge = G.gauge;
 }
 
 /* ---- 道の移動：道をタップ／キーボード（↑↓・1/2/3） ---- */
