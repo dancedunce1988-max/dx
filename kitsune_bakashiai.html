@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>九尾の化かし合い</title>
+<!-- 知識ドリルDXのミニゲーム「九尾の化かし合い」（2026-09-29〜、準備中）。kokugo_app.htmlの
+     ミニゲーム一覧から、のびる読解(nobiru/*.html)と同じく同じタブのまま画面ごと遷移してくる別ページ。
+     本体のセーブデータ(st)には一切触れず、このページ専用のlocalStorageキーだけを使う
+     （経験値・ジャンルレベルにはまだ反映しない）。
+     九尾(ub05)の絵は本番と同じスプライトを使う。色違い(enemy_sprites_shiny_data.js、約7MB)は
+     ★27で色違いを選んだときだけ後から読み込む（ensureShinySprites参照）。
+     読み込めなかったときは🦊の絵文字で代用する。 -->
+<script src="ura_boss_sprites_data.js"></script>
+<style>
+  :root{
+    --bg1:#0a0714; --bg2:#1a0f24; --bg3:#2d1530;
+    --fox:#ff9a3c; --fox2:#ffd08a;
+    --gold:#ffd76b; --verm:#d3462f;
+    --ofuda:#fbf1d9; --ofudaInk:#3a2a12;
+    --ok:#5fd08a; --ng:#ff6b6b;
+    --text:#f6efff; --sub:#b3a6cc;
+    --panel:rgba(255,255,255,.06); --line:rgba(255,255,255,.14);
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{
+    width:100%; height:100%; overflow:hidden;
+    background:
+      radial-gradient(1.5px 1.5px at 14% 10%, rgba(255,255,255,.8), transparent),
+      radial-gradient(1px 1px at 32% 22%, rgba(255,255,255,.55), transparent),
+      radial-gradient(1.5px 1.5px at 72% 7%, rgba(255,255,255,.75), transparent),
+      radial-gradient(1px 1px at 88% 26%, rgba(255,255,255,.5), transparent),
+      radial-gradient(ellipse at 50% -10%, var(--bg3) 0%, var(--bg2) 45%, var(--bg1) 100%);
+    background-color:var(--bg1);
+    font-family:'Hiragino Sans','Yu Gothic','Meiryo',sans-serif;
+    color:var(--text); -webkit-font-smoothing:antialiased;
+    user-select:none; -webkit-user-select:none;
+  }
+  button{ font-family:inherit; }
+  .mincho{ font-family:'Hiragino Mincho ProN','Yu Mincho','YuMincho','BIZ UDMincho',serif; }
+  .screen{ display:none; height:100vh; height:100dvh; }
+  .screen.show{ display:flex; }
+
+  #muteBtn{
+    position:fixed; top:10px; right:12px; z-index:50; width:38px; height:38px; border-radius:50%;
+    border:1px solid var(--line); background:rgba(0,0,0,.35); color:var(--text); font-size:17px; cursor:pointer;
+  }
+  body.in-game #muteBtn, body.in-game #backLink{ display:none; }
+
+  /* ---- 九尾の絵・セリフ ---- */
+  .fox-img{ width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 0 12px rgba(255,154,60,.45)); }
+  .fox-emoji{ font-size:64px; display:flex; align-items:center; justify-content:center; width:100%; height:100%; }
+  .hop{ animation:hop .4s ease; }
+  @keyframes hop{ 0%,100%{transform:translateY(0)} 40%{transform:translateY(-8%)} }
+  .shiver{ animation:shiver .4s ease; }
+  @keyframes shiver{ 0%,100%{transform:translateX(0)} 20%{transform:translateX(-6%)} 40%{transform:translateX(6%)} 60%{transform:translateX(-4%)} 80%{transform:translateX(4%)} }
+  .bubble{
+    position:relative; background:rgba(255,255,255,.08); border:1px solid rgba(255,208,138,.35);
+    border-radius:14px; padding:10px 12px; font-size:14px; line-height:1.65;
+  }
+  .bubble b{ color:var(--fox2); }
+
+  .btn{
+    display:block; width:100%; padding:13px; border-radius:14px; border:0; font-size:17px; font-weight:bold;
+    color:#3a1408; background:linear-gradient(135deg,var(--fox2),var(--fox)); box-shadow:0 4px 16px rgba(255,154,60,.35); cursor:pointer;
+  }
+  .btn:hover{ filter:brightness(1.06); }
+  .btn.secondary{ background:rgba(255,255,255,.08); color:var(--text); box-shadow:none; border:1px solid rgba(255,255,255,.2); font-size:15px; }
+  .btn.small{ padding:9px; font-size:14px; }
+
+  /* ---- 尾のまる（ゲーム中の進み具合） ---- */
+  .tails{ display:grid; grid-template-columns:repeat(9,1fr); gap:4px; }
+  .tail{
+    position:relative; aspect-ratio:1; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-weight:bold; font-size:14px; color:var(--sub); border:1.5px solid rgba(255,255,255,.18); background:rgba(255,255,255,.04);
+  }
+  .tail.now{ color:#3a1408; background:var(--fox2); border-color:var(--fox2); box-shadow:0 0 12px rgba(255,208,138,.8); animation:pulse 1.2s ease-in-out infinite; }
+  .tail.done{ color:#3a1408; background:linear-gradient(135deg,var(--gold),var(--fox)); border-color:var(--gold); }
+  .tail.got{ animation:got .6s ease; }
+  .tail .st{ position:absolute; bottom:-13px; left:50%; transform:translateX(-50%); font-size:8px; letter-spacing:-1px; color:var(--gold); white-space:nowrap; }
+  @keyframes pulse{ 0%,100%{transform:scale(1)} 50%{transform:scale(1.1)} }
+  @keyframes got{ 0%{transform:scale(1)} 40%{transform:scale(1.5)} 100%{transform:scale(1)} }
+
+  /* =====================================================================
+     地図（タイトル兼、尾の一覧）
+     ===================================================================== */
+  #scMap{ align-items:center; justify-content:center; padding:16px; }
+  .map-wrap{ width:100%; max-width:980px; display:grid; grid-template-columns:260px 1fr; gap:26px; align-items:center; }
+  .map-left{ display:flex; flex-direction:column; gap:10px; }
+  .map-left .fox{ height:clamp(130px, 30vh, 230px); cursor:pointer; }
+  .map-title{ text-align:center; }
+  .map-title h1{ font-size:30px; letter-spacing:5px; color:var(--fox2); text-shadow:0 0 18px rgba(255,154,60,.6); }
+  .map-title .sub{ font-size:12px; color:var(--sub); letter-spacing:2px; }
+  .map-right{ display:flex; flex-direction:column; gap:12px; }
+  .how{ font-size:13px; line-height:1.75; color:var(--sub); }
+  .how b{ color:var(--text); }
+  .tail-map{ display:grid; grid-template-columns:repeat(9,1fr); gap:8px; }
+  .tail-btn{
+    position:relative; border-radius:14px; border:1.5px solid rgba(255,255,255,.18); background:rgba(255,255,255,.05);
+    color:var(--text); padding:10px 0 8px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:4px;
+  }
+  .tail-btn .n{ font-size:22px; font-weight:bold; }
+  .tail-btn .s{ font-size:11px; letter-spacing:-1px; color:var(--gold); min-height:1em; }
+  .tail-btn .s .off{ color:rgba(255,255,255,.2); }
+  .tail-btn.cleared{ background:linear-gradient(160deg,rgba(255,215,107,.25),rgba(255,154,60,.12)); border-color:rgba(255,215,107,.55); }
+  .tail-btn.next{ border-color:var(--fox2); box-shadow:0 0 14px rgba(255,208,138,.6); animation:pulse 1.4s ease-in-out infinite; }
+  .tail-btn.locked{ opacity:.35; cursor:default; }
+  .tail-btn:hover:not(.locked){ filter:brightness(1.15); }
+  .star-total{ display:flex; align-items:center; gap:10px; font-size:13px; }
+  .star-total b{ font-size:22px; color:var(--gold); }
+  .meter{ position:relative; flex:1; height:12px; border-radius:999px; background:rgba(255,255,255,.1); }
+  .meter-fill{ height:100%; border-radius:999px; background:linear-gradient(90deg,var(--fox),var(--gold)); }
+  .meter .mark{ position:absolute; top:50%; transform:translate(-50%,-50%); font-size:15px; filter:grayscale(1) opacity(.5); }
+  .meter .mark.on{ filter:none; }
+  .rewards{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .reward{ border-radius:12px; padding:8px 10px; background:var(--panel); border:1px solid var(--line); font-size:12px; line-height:1.5; cursor:default; text-align:left; color:var(--sub); }
+  .reward b{ display:block; font-size:13px; color:var(--text); }
+  .reward.on{ border-color:rgba(255,215,107,.55); color:var(--text); cursor:pointer; }
+  .reward.on b{ color:var(--gold); }
+  .map-btns{ display:grid; grid-template-columns:2fr 1fr; gap:10px; }
+  .back-link{ position:fixed; top:10px; left:12px; z-index:50; }
+
+  /* =====================================================================
+     ゲーム画面（パソコン：左に状況、右に札）
+     ===================================================================== */
+  #scGame{ position:relative; gap:28px; padding:16px 20px; width:100%; max-width:1180px; margin:0 auto; }
+  .side{ width:290px; flex-shrink:0; display:flex; flex-direction:column; gap:14px; }
+  .side-top{ display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--sub); margin-bottom:5px; }
+  .side-top b{ color:var(--fox2); }
+  .side-top .tools{ display:flex; gap:6px; }
+  .pill{ border:1px solid var(--line); background:rgba(0,0,0,.3); color:var(--text); border-radius:999px; font-size:12px; padding:2px 10px; cursor:pointer; }
+  .foxbox{ display:flex; flex-direction:column; gap:10px; }
+  .foxbox .fox{ height:clamp(110px, 26vh, 210px); }
+  .foxbox .bubble{ min-height:5.2em; }
+  .status{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .now-stars{ font-size:24px; letter-spacing:2px; color:var(--gold); }
+  .now-stars .off{ color:rgba(255,255,255,.18); }
+  .now-stars.drop{ animation:shiver .4s ease; }
+  .pips{ display:flex; align-items:center; gap:5px; font-size:12px; color:var(--sub); }
+  .pip{ width:16px; height:16px; transform:rotate(45deg); border:2px solid var(--fox2); border-radius:3px; }
+  .pip.on{ background:var(--gold); border-color:var(--gold); box-shadow:0 0 8px var(--gold); }
+  .clock-label{ display:flex; justify-content:space-between; font-size:11px; color:var(--sub); margin-bottom:4px; }
+  .timer{ height:10px; border-radius:999px; background:rgba(255,255,255,.1); overflow:hidden; }
+  .timer-fill{ height:100%; width:100%; background:linear-gradient(90deg,var(--fox),var(--gold)); }
+  .timer-fill.over{ background:rgba(255,255,255,.25); }
+  .combo{ height:22px; text-align:center; font-weight:bold; color:var(--gold); font-size:15px; }
+  .combo.pop{ animation:got .35s ease; }
+
+  .board{ flex:1; min-width:0; min-height:0; position:relative; display:flex; align-items:center; justify-content:center; }
+  .grid{ display:grid; gap:12px; width:100%; height:100%; max-width:calc((100dvh - 32px) * var(--cols) / var(--rows) * .8); }
+  .card{
+    position:relative; border-radius:12px; border:0; cursor:pointer; container-type:size;
+    background:linear-gradient(180deg,#fff9ea,var(--ofuda)); color:var(--ofudaInk);
+    box-shadow:0 4px 0 #b89a62, 0 8px 16px rgba(0,0,0,.35);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    transition:transform .1s, filter .1s;
+  }
+  .card:hover:not(.done){ transform:translateY(-3px); filter:brightness(1.04); }
+  .card:active:not(.done){ transform:translateY(2px); }
+  .card::before{ content:""; position:absolute; inset:6px; border:1.5px solid rgba(211,70,47,.35); border-radius:8px; pointer-events:none; }
+  .card .word{ font-weight:bold; line-height:1.1; white-space:nowrap; }
+  .card .word.l2{ font-size:min(36cqw, 30cqh); }
+  .card .word.l3{ font-size:min(27cqw, 28cqh); }
+  .card .word.l4{ font-size:min(21cqw, 24cqh); }
+  .card .fix{ font-size:min(11cqw, 11cqh); margin-top:4cqh; font-weight:bold; }
+  .card .fix s{ color:var(--verm); }
+  .card .fix b{ color:#1b7a44; }
+  .card .tag{ position:absolute; top:5cqh; left:0; right:0; text-align:center; font-size:min(10cqw,9cqh); font-weight:bold; }
+  .card.deal{ animation:deal .35s ease backwards; }
+  @keyframes deal{ from{ transform:translateY(24px) rotateY(80deg); opacity:0; } }
+  .card.done{ cursor:default; }
+  .card.found{ background:linear-gradient(180deg,#eafff0,#c9f2d6); animation:poof .45s ease; }
+  .card.found .tag{ color:#1b7a44; }
+  .card.real{ background:linear-gradient(180deg,#f4f4f4,#dcdcdc); opacity:.6; animation:shake .35s ease; }
+  .card.real .tag{ color:#555; }
+  .card.hint{ box-shadow:0 4px 0 #b89a62, 0 0 0 4px rgba(255,215,107,.9), 0 0 26px rgba(255,215,107,.9); animation:hintGlow 1s ease-in-out infinite; }
+  @keyframes hintGlow{ 50%{ transform:scale(1.03); } }
+  @keyframes poof{ 0%{transform:scale(1)} 35%{transform:scale(1.1) rotate(-3deg); filter:blur(1.5px)} 100%{transform:scale(1)} }
+  @keyframes shake{ 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+  .smoke{ position:absolute; font-size:min(30cqw,30cqh); pointer-events:none; animation:smoke .7s ease forwards; }
+  @keyframes smoke{ 0%{opacity:1; transform:scale(.6)} 100%{opacity:0; transform:scale(1.8) translateY(-14px)} }
+  .dizzy{ pointer-events:none; }
+  .dizzy .card{ filter:saturate(.6); }
+
+  /* ---- 中央の大きな表示 ---- */
+  .banner{
+    position:fixed; inset:0; z-index:30; display:none; align-items:center; justify-content:center; flex-direction:column;
+    background:rgba(8,5,16,.78); backdrop-filter:blur(3px); text-align:center; pointer-events:none;
+  }
+  .banner.show{ display:flex; }
+  .banner.clickable{ pointer-events:auto; }
+  .banner .panel{ max-width:min(640px, calc(100vw - 32px)); padding:24px 40px; border-radius:24px; background:radial-gradient(ellipse at 50% 30%, rgba(80,40,70,.95), rgba(20,10,30,.95)); border:2px solid rgba(255,208,138,.45); box-shadow:0 0 40px rgba(255,154,60,.35); }
+  .banner .big{ line-height:1.2; font-size:clamp(40px, 10vh, 84px); font-weight:bold; letter-spacing:6px; color:var(--fox2); text-shadow:0 0 24px rgba(255,154,60,.8); animation:bannerIn .45s cubic-bezier(.2,1.6,.4,1); }
+  .banner .small{ font-size:clamp(15px, 2.6vh, 22px); margin-top:8px; animation:fadeUp .5s ease .15s backwards; }
+  .banner .stars{ font-size:clamp(34px, 8vh, 60px); color:var(--gold); letter-spacing:8px; margin-top:4px; }
+  .banner .stars span{ display:inline-block; animation:starPop .35s cubic-bezier(.2,1.8,.4,1) backwards; }
+  .banner .stars span.off{ color:rgba(255,255,255,.18); }
+  .banner .newrec{ display:inline-block; margin-top:6px; padding:2px 12px; border-radius:999px; background:var(--gold); color:#3a1408; font-weight:bold; font-size:13px; animation:fadeUp .4s ease .8s backwards; }
+  .chips{ display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin:14px 0 4px; }
+  .chip{ background:rgba(255,255,255,.08); border:1px solid var(--line); border-radius:10px; padding:6px 10px; font-size:13px; animation:fadeUp .4s ease backwards; }
+  .chip .f{ color:var(--ng); font-size:17px; font-weight:bold; }
+  .chip .t{ color:var(--ok); font-size:17px; font-weight:bold; }
+  .chip .new{ font-size:10px; color:#3a1408; background:var(--gold); border-radius:999px; padding:0 6px; margin-left:4px; vertical-align:middle; }
+  .banner-btns{ display:grid; grid-template-columns:2fr 1fr; gap:10px; margin-top:14px; }
+  .autobar{ height:4px; border-radius:999px; background:rgba(255,255,255,.12); margin-top:10px; overflow:hidden; }
+  .autobar div{ height:100%; background:var(--fox2); width:0; }
+  @keyframes bannerIn{ from{ transform:scale(.3); opacity:0; } }
+  @keyframes fadeUp{ from{ transform:translateY(10px); opacity:0; } }
+  @keyframes starPop{ from{ transform:scale(0) rotate(-90deg); opacity:0; } }
+
+  /* =====================================================================
+     九尾 降参（9本目を取ったとき）
+     ===================================================================== */
+  #scEnd{ align-items:center; justify-content:center; padding:16px; }
+  .end-wrap{ width:100%; max-width:760px; display:grid; grid-template-columns:260px 1fr; gap:26px; align-items:center; }
+  .end-wrap .fox{ height:clamp(140px, 32vh, 240px); }
+  .end-wrap h2{ font-size:clamp(30px, 6vh, 44px); letter-spacing:6px; color:var(--fox2); text-shadow:0 0 18px rgba(255,154,60,.6); }
+  .end-right{ display:flex; flex-direction:column; gap:12px; }
+  .end-rank .k{ font-size:12px; color:var(--sub); }
+  .end-rank .v{ font-size:22px; font-weight:bold; color:var(--gold); }
+
+  /* ---- 図鑑・昔話（重ねて表示） ---- */
+  .modal{ position:fixed; inset:0; z-index:40; display:none; align-items:center; justify-content:center; background:rgba(8,5,16,.8); padding:16px; }
+  .modal.show{ display:flex; }
+  .modal-box{ width:100%; max-width:760px; max-height:100%; display:flex; flex-direction:column; gap:10px; background:linear-gradient(180deg,#24142e,#150c20); border:1.5px solid rgba(255,208,138,.35); border-radius:18px; padding:16px 18px; }
+  .modal-box h3{ color:var(--fox2); font-size:17px; }
+  .modal-body{ flex:1; min-height:0; overflow:auto; }
+  .zukan{ display:grid; grid-template-columns:repeat(auto-fill, minmax(120px,1fr)); gap:6px; }
+  .zk{ border-radius:8px; padding:6px; text-align:center; background:var(--panel); font-size:12px; color:var(--sub); }
+  .zk .w{ font-size:17px; font-weight:bold; color:var(--text); }
+  .zk .f{ color:var(--ng); font-size:15px; }
+  .zk.unknown .w{ color:rgba(255,255,255,.25); }
+  .zk-lv{ font-size:12px; color:var(--sub); margin:10px 0 4px; }
+  .story{ font-size:15px; line-height:2; }
+
+  /* ---- スマホ（縦長）：上に状況、下に札 ---- */
+  @media (max-aspect-ratio: 1/1), (max-width: 700px){
+    #scGame{ flex-direction:column; gap:10px; padding:10px 12px 12px; }
+    .side{ width:100%; gap:8px; }
+    .foxbox{ flex-direction:row; align-items:center; }
+    .foxbox .fox{ height:76px; width:76px; flex-shrink:0; }
+    .foxbox .bubble{ flex:1; min-height:0; font-size:13px; padding:7px 10px; }
+    .combo{ display:none; }
+    .clock-label{ display:none; }
+    .tail{ font-size:12px; }
+    .grid{ gap:8px; max-width:none; }
+    #scMap, #scEnd{ overflow-y:auto; align-items:flex-start; padding-top:56px; }
+    .map-wrap, .end-wrap{ grid-template-columns:1fr; gap:12px; }
+    .map-left .fox{ height:110px; }
+    .end-wrap .fox{ height:120px; }
+    .map-left{ flex-direction:row; align-items:center; }
+    .map-left .fox{ width:110px; flex-shrink:0; }
+    .map-title{ text-align:left; }
+    .map-title h1{ font-size:24px; letter-spacing:2px; }
+    .tail-map{ grid-template-columns:repeat(5,1fr); }
+    .rewards{ grid-template-columns:1fr; }
+    .banner .panel{ padding:20px 16px; }
+    .banner .big{ font-size:min(11vw, 52px); letter-spacing:2px; }
+    .banner .small{ font-size:15px; }
+  }
+</style>
+</head>
+<body>
+<button id="muteBtn" onclick="toggleMute()" title="音のオン・オフ">🔊</button>
+
+<button class="pill back-link" id="backLink" onclick="backToApp()">← ミニゲーム一覧へ</button>
+
+<!-- 地図（タイトル兼、九本の尾の一覧） -->
+<section id="scMap" class="screen show">
+  <div class="map-wrap">
+    <div class="map-left">
+      <div class="fox" id="mapFox" onclick="foxTalk()" title="九尾に話しかける"></div>
+      <div class="bubble" id="mapLine"></div>
+    </div>
+    <div class="map-right">
+      <div class="map-title">
+        <h1 class="mincho">九尾の化かし合い</h1>
+        <div class="sub">― 化けた漢字を見破れ ―</div>
+      </div>
+      <p class="how">
+        札の中に、<b>形の似た別の字</b>に化けた熟語がまざっている（例：<span class="mincho" style="color:var(--ng)">完壁</span> → 正しくは <span class="mincho" style="color:var(--ok)">完璧</span>）。<br>
+        全部見破れば<b>尾を1本</b>もらえる。<b>ミスなし</b>・<b>すばやく</b>見破るほど★が増える。
+      </p>
+      <div class="tail-map" id="tailMap"></div>
+      <div class="star-total">★ <b id="starTotal">0</b><span>/ 27</span><div class="meter" id="meter"></div></div>
+      <div class="rewards" id="rewards"></div>
+      <div class="map-btns">
+        <button class="btn" id="goBtn" onclick="startTail(nextTailIndex(), true)">はじめる</button>
+        <button class="btn secondary" onclick="openZukan()" id="zukanBtn">化け字図鑑</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ゲーム -->
+<section id="scGame" class="screen">
+  <aside class="side">
+    <div>
+      <div class="side-top">
+        <span>九尾の尾　<b id="tailCount">0</b> / 9 本</span>
+        <span class="tools">
+          <button class="pill mute-inline" onclick="toggleMute()" title="音のオン・オフ">🔊</button>
+          <button class="pill" onclick="restAndMap()">ひと休み</button>
+        </span>
+      </div>
+      <div class="tails" id="tails"></div>
+    </div>
+    <div class="foxbox">
+      <div class="fox" id="gameFox"></div>
+      <div class="bubble" id="gameLine"></div>
+    </div>
+    <div class="status">
+      <div class="now-stars" id="nowStars"></div>
+      <div class="pips"><span>化け札</span><span id="pips" style="display:flex;gap:6px"></span></div>
+    </div>
+    <div>
+      <div class="clock-label"><span>すばやさ</span><span id="clockNote">なくなると ★ −1</span></div>
+      <div class="timer"><div class="timer-fill" id="timerFill"></div></div>
+    </div>
+    <div class="combo" id="combo"></div>
+  </aside>
+  <main class="board"><div class="grid" id="grid"></div></main>
+</section>
+
+<!-- 九尾 降参 -->
+<section id="scEnd" class="screen">
+  <div class="end-wrap">
+    <div class="fox" id="endFox"></div>
+    <div class="end-right">
+      <h2 class="mincho">九尾、降参！</h2>
+      <div class="bubble" id="endLine"></div>
+      <div class="tails" id="endTails" style="margin-bottom:12px"></div>
+      <div class="end-rank"><span class="k">★ </span><b id="endStars" style="font-size:24px;color:var(--gold)"></b><span class="k"> / 27　　称号</span>
+        <div class="v mincho" id="endRank"></div></div>
+      <div id="endNote" style="font-size:13px;color:var(--sub);line-height:1.7"></div>
+      <div class="map-btns">
+        <button class="btn" onclick="showMap()">尾の一覧へ</button>
+        <button class="btn secondary" onclick="openZukan()">化け字図鑑</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="banner" id="banner"></div>
+<div class="modal" id="modal" onclick="if(event.target===this) closeModal()">
+  <div class="modal-box">
+    <h3 id="modalTitle"></h3>
+    <div class="modal-body" id="modalBody"></div>
+    <button class="btn secondary small" onclick="closeModal()">とじる</button>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   問題データ：[正しい熟語, 読み, 化ける字の位置(0始まり), 化けた字, 難しさ(1〜3), 解説]
+   ・化けた熟語が偶然「実在する別の言葉」にならないものだけを選んでいる
+     （例：入口→人口、暴発、牛後 などは不採用）。
+   ===================================================================== */
+const WORDS = [
+  // --- 難しさ1：小学校で習う、形がはっきり似ている字 ---
+  ["休日","きゅうじつ",0,"体",1,"「休」は人が木で休む形。「体」はからだ。"],
+  ["体育","たいいく",0,"休",1,"「体」はからだ。「休」はやすむ。"],
+  ["太陽","たいよう",0,"犬",1,"「太」は点が下の内側、「犬」は点が右上。"],
+  ["石炭","せきたん",0,"右",1,"「石」は「丆」に「口」。「右」は「ナ」に「口」。"],
+  ["左右","さゆう",1,"石",1,"「右」は「ナ」に「口」。「石」はいし。"],
+  ["王様","おうさま",0,"玉",1,"「玉」は点がある。「王」は点がない。"],
+  ["入学","にゅうがく",0,"人",1,"「入」は右がはらいの上に出る。「人」は左が上。"],
+  ["正午","しょうご",1,"牛",1,"「牛」はたての線が上につき出る。「午」はつき出ない。"],
+  ["牛乳","ぎゅうにゅう",0,"午",1,"「牛」はたての線が上につき出る。"],
+  ["未来","みらい",0,"末",1,"「未」は上の横線が短い。「末」は上が長い（すえ）。"],
+  ["末期","まっき",0,"未",1,"「末」は上の横線が長い。「未」はまだ〜ない。"],
+  ["博士","はかせ",1,"土",1,"「士」は上の横線が長い。「土」は下が長い。"],
+  ["土地","とち",0,"士",1,"「土」は下の横線が長い。"],
+  ["失敗","しっぱい",0,"矢",1,"「失」は上につき出る。「矢」はつき出ない（や）。"],
+  ["矢印","やじるし",0,"失",1,"「矢」は上につき出ない。「失」はうしなう。"],
+  ["見聞","けんぶん",1,"間",1,"「聞」は門の中に「耳」。「間」は門の中に「日」。"],
+  ["時間","じかん",1,"聞",1,"「間」は門の中に「日」。「聞」はきく（耳）。"],
+  ["専門","せんもん",1,"問",1,"「門」だけで「もん」。「問」は口があって、とう。"],
+  ["質問","しつもん",1,"門",1,"「問」は口でたずねる。「門」はもん。"],
+  ["協力","きょうりょく",1,"刀",1,"「力」はつき出る。「刀」はつき出ない（かたな）。"],
+  ["日本刀","にほんとう",2,"力",1,"「刀」は上につき出ない。"],
+  ["幸福","こうふく",0,"辛",1,"「幸」は上が「土」。「辛」は上が「立」（からい）。"],
+  ["兄弟","きょうだい",1,"第",1,"「弟」はおとうと。「第」は竹かんむりで順番。"],
+  ["第一","だいいち",0,"弟",1,"「第」は竹かんむり。順番を表す。"],
+  ["連続","れんぞく",1,"読",1,"「続」は糸へん（つながる）。「読」は言へん。"],
+  ["読書","どくしょ",0,"続",1,"「読」は言へん（ことば）。"],
+  ["輸入","ゆにゅう",0,"輪",1,"「輸」は運ぶ。「輪」はわ。"],
+  ["車輪","しゃりん",1,"輸",1,"「輪」はわ・まるいもの。"],
+  // --- 難しさ2：中学生がよくまちがえる字 ---
+  ["完璧","かんぺき",1,"壁",2,"「璧」は下が「玉」＝宝石のたま。「壁」は下が「土」＝かべ。"],
+  ["危険","きけん",1,"検",2,"「険」はこざとへん（けわしい）。「検」は木へん（しらべる）。"],
+  ["検査","けんさ",0,"険",2,"「検」は木へん（しらべる）。"],
+  ["経験","けいけん",1,"検",2,"「験」は馬へん（ためす）。"],
+  ["積極","せっきょく",0,"績",2,"「積」は禾へん（つみ重ねる）。「績」は糸へん（成果）。"],
+  ["成績","せいせき",1,"積",2,"「績」は糸へん（仕事のできばえ）。"],
+  ["構造","こうぞう",0,"講",2,"「構」は木へん（組み立てる）。「講」は言へん（話す）。"],
+  ["講義","こうぎ",0,"構",2,"「講」は言へん（説明して話す）。"],
+  ["貨物","かもつ",0,"貸",2,"「貨」は化＋貝（品物・お金）。「貸」は代＋貝（かす）。"],
+  ["貸し出し","かしだし",0,"貨",2,"「貸」は上が「代」。"],
+  ["延長","えんちょう",0,"廷",2,"「延」は中が「止」に似た形（のびる）。「廷」は中が「壬」（裁判をする所）。"],
+  ["法廷","ほうてい",1,"延",2,"「廷」は中が「壬」（裁判をする所）。「延」は中が「止」に似た形。"],
+  ["待機","たいき",0,"侍",2,"「待」はぎょうにんべん（まつ）。「侍」はにんべん（さむらい）。"],
+  ["特技","とくぎ",0,"持",2,"「特」は牛へん。「持」は手へん（もつ）。"],
+  ["組織","そしき",1,"識",2,"「織」は糸へん（おる・くみ立てる）。「識」は言へん（しる）。"],
+  ["知識","ちしき",1,"織",2,"「識」は言へん（しる）。"],
+  ["職業","しょくぎょう",0,"識",2,"「職」は耳へん（仕事）。"],
+  ["裁判","さいばん",0,"栽",2,"「裁」は下が「衣」（たつ・さばく）。「栽」は下が「木」（植える）。"],
+  ["盆栽","ぼんさい",1,"裁",2,"「栽」は下が「木」（植物を植える）。"],
+  ["記載","きさい",1,"裁",2,"「載」は下が「車」（のせる）。"],
+  ["復習","ふくしゅう",0,"複",2,"「復」はぎょうにんべん（くり返す）。「複」はころもへん（かさなる）。"],
+  ["複雑","ふくざつ",0,"復",2,"「複」はころもへん（いくつも重なる）。"],
+  ["往復","おうふく",0,"住",2,"「往」はぎょうにんべん（行く）。「住」はにんべん（すむ）。"],
+  ["住所","じゅうしょ",0,"往",2,"「住」はにんべん（人がすむ）。"],
+  ["歓迎","かんげい",0,"観",2,"「歓」は右が「欠」（よろこぶ）。「観」は右が「見」（みる）。"],
+  ["観客","かんきゃく",0,"歓",2,"「観」は右が「見」。"],
+  ["時刻","じこく",1,"核",2,"「刻」は右がりっとう（きざむ）。「核」は木へん（中心）。"],
+  ["核心","かくしん",0,"刻",2,"「核」は木へん（ものの中心）。"],
+  ["分析","ぶんせき",1,"折",2,"「析」は木へん（分けて調べる）。「折」は手へん（おる）。"],
+  ["骨折","こっせつ",1,"析",2,"「折」は手へん（おる）。"],
+  ["招待","しょうたい",0,"紹",2,"「招」は手へん（まねく）。「紹」は糸へん（引き合わせる）。"],
+  ["紹介","しょうかい",0,"招",2,"「紹」は糸へん。"],
+  ["家賃","やちん",1,"貸",2,"「賃」は上が「任」（はらうお金）。「貸」は上が「代」。"],
+  ["探検","たんけん",0,"深",2,"「探」は手へん（さがす）。「深」はさんずい（ふかい）。"],
+  ["深海","しんかい",0,"探",2,"「深」はさんずい（水がふかい）。"],
+  ["抜群","ばつぐん",1,"郡",2,"「群」は羊（むれ）。「郡」はおおざと（地域の名前）。"],
+  ["補欠","ほけつ",0,"捕",2,"「補」はころもへん（おぎなう）。「捕」は手へん（とらえる）。"],
+  ["逮捕","たいほ",1,"補",2,"「捕」は手へん（つかまえる）。"],
+  ["除外","じょがい",0,"徐",2,"「除」はこざとへん（のぞく）。「徐」はぎょうにんべん（ゆっくり）。"],
+  ["徐行","じょこう",0,"除",2,"「徐」はぎょうにんべん（ゆっくり行く）。"],
+  ["途中","とちゅう",0,"徐",2,"「途」はしんにょう（みち）。"],
+  ["季節","きせつ",0,"委",2,"「季」は下が「子」。「委」は下が「女」。"],
+  ["委員","いいん",0,"季",2,"「委」は下が「女」（まかせる）。"],
+  ["命令","めいれい",1,"冷",2,"「令」だけ。「冷」はにすい（つめたい）。"],
+  ["恩人","おんじん",0,"思",2,"「恩」は上が「因」。「思」は上が「田」。"],
+  ["思想","しそう",0,"恩",2,"「思」は上が「田」。"],
+  // --- 難しさ3：大人でもまちがえやすい字 ---
+  ["特徴","とくちょう",1,"微",3,"「徴」は真ん中が「王」の形（しるし）。「微」は真ん中が「几」の形（わずか）。"],
+  ["微妙","びみょう",0,"徴",3,"「微」は真ん中下が「几」の形。"],
+  ["遺産","いさん",0,"遣",3,"「遺」は「貴」が入る（のこす）。「遣」は「貴」がない（つかわす）。"],
+  ["派遣","はけん",1,"遺",3,"「遣」は「貴」とちがう形（人を送る）。「遺」は中が「貴」（のこす）。"],
+  ["応援","おうえん",1,"緩",3,"「援」は手へん（たすける）。「緩」は糸へん（ゆるい）。"],
+  ["緩和","かんわ",0,"援",3,"「緩」は糸へん（ゆるめる）。"],
+  ["気候","きこう",1,"侯",3,"「候」はたてぼうが入る。「侯」は入らない（大名などの位）。"],
+  ["破壊","はかい",1,"懐",3,"「壊」は土へん（こわす）。「懐」はりっしんべん（ふところ・なつかしい）。"],
+  ["衰退","すいたい",0,"哀",3,"「衰」は中に横線がある（おとろえる）。「哀」は中が「口」（かなしい）。"],
+  ["墓地","ぼち",0,"幕",3,"「墓」は下が「土」（はか）。「幕」は下が「巾」（まく）。"],
+  ["開幕","かいまく",1,"墓",3,"「幕」は下が「巾」（ぬの）。"],
+  ["募集","ぼしゅう",0,"慕",3,"「募」は下が「力」（つのる）。「慕」は下が「小」の形（したう）。"],
+  ["名簿","めいぼ",1,"薄",3,"「簿」は竹かんむり（帳面）。「薄」は草かんむり（うすい）。"],
+  ["薄情","はくじょう",0,"簿",3,"「薄」は草かんむり（うすい）。"],
+  ["圧巻","あっかん",1,"券",3,"「巻」は下が「己」（まく）。「券」は下が「刀」（きっぷ）。"],
+  ["乗車券","じょうしゃけん",2,"巻",3,"「券」は下が「刀」。"],
+  ["自己","じこ",1,"已",3,"「己」は左上があいている。「已」は半分とじる（すでに）、「巳」は全部とじる（へび）。"],
+  ["著者","ちょしゃ",0,"暑",3,"「著」は草かんむり（あらわす）。「暑」は日（あつい）。"],
+  ["署名","しょめい",0,"暑",3,"「署」は上が「罒（あみがしら）」。"],
+  ["状態","じょうたい",1,"熊",3,"「態」は下が「心」（ようす）。「熊」は下が「灬」（くま）。"],
+  ["発汗","はっかん",1,"汁",3,"「汗」は右が「干」（あせ）。「汁」は右が「十」（しる）。"],
+  ["果汁","かじゅう",1,"汗",3,"「汁」は右が「十」。"],
+];
+
+/* =====================================================================
+   九本の尾＝九つのステージ。
+   ・負けはない：化け札をすべて見破れば、必ずその尾が手に入る。
+   ・★は3からスタートし、「本物をタップした（1回ごとに−1）」「すばやさの目安(par秒)を過ぎた（−1）」で
+     減る。最低でも★1は必ずもらえる。
+   ・parの2倍の時間がたっても見つからないときは、九尾がヒント（化け札が1枚光る）を出す。
+   ===================================================================== */
+const TAILS = [
+  {cards:6,  fakes:1, lv:[1,1], par:12},
+  {cards:6,  fakes:1, lv:[1,1], par:10},
+  {cards:6,  fakes:2, lv:[1,1], par:15},
+  {cards:9,  fakes:2, lv:[1,2], par:18},
+  {cards:9,  fakes:2, lv:[2,2], par:18},
+  {cards:9,  fakes:3, lv:[2,2], par:22},
+  {cards:9,  fakes:3, lv:[2,3], par:24},
+  {cards:12, fakes:3, lv:[2,3], par:26},
+  {cards:12, fakes:4, lv:[3,3], par:32, boss:true},
+];
+const NUM = ["一","二","三","四","五","六","七","八","九"];
+
+/* ★の合計で開くごほうび */
+const REWARDS = [
+  {need:9,  key:"story1", title:"九尾の昔話　その一", lock:"★9で開く"},
+  {need:18, key:"story2", title:"九尾の昔話　その二", lock:"★18で開く"},
+  {need:27, key:"shiny",  title:"色違いの九尾",       lock:"★27で開く"},
+];
+const STORIES = {
+  story1:"わらわは昔、都の書庫に住んでおった。人間の書く字を毎晩ながめては、一画だけ変えて化けるいたずらをしておったのじゃ。<br>「壁」を「璧」に、「未」を「末」に……。だがな、字をよく知る者には、すぐに見破られてしもうた。<br>字を知ることは、化かされぬ力になる。そなたも、その力を持っておるようじゃな。",
+  story2:"一画ちがえば、意味がまるで変わる。「未来」は<b>まだ来ていない</b>時、「末」は<b>おわり</b>じゃ。<br>わらわが化けるときは、形だけでなく<b>意味のすきま</b>をねらっておる。<br>だから、へんやつくりの意味を知っておる者には、わらわの術は通じぬ。……ふふ、そなたとの化かし合い、なかなか楽しかったぞ。",
+};
+
+const LINES = {
+  start:[
+    "{t}の尾じゃ。化けた札は{n}枚。見破れるかえ？",
+    "{t}の尾をかけて勝負じゃ。化け札は{n}枚ぞ。",
+    "ふふ、{t}の尾は簡単には渡さぬ。{n}枚、化けておる。",
+  ],
+  boss:"最後の尾じゃ……わらわも本気で化けるぞ！　化け札は{n}枚！",
+  found:["むっ……見破られたか。","なかなかやるのう。","ちっ、よう見ておる。","ほう、その目はごまかせぬか。"],
+  combo:["なんと、続けざまに！？","ぐぬぬ、止まらぬのう……","そ、その目……ただ者ではないな！"],
+  fooled:["ほほほ、それは本物じゃ。化かされたのう！","残念、それは正しい字じゃよ。","ふふふ、あせると見まちがえるぞ？"],
+  hint:"……しかたないのう。ひとつだけ、光らせてやろう。",
+  cleared:["ぐぬぬ……{t}の尾、持っていくがよい。","見事じゃ。{t}の尾はそなたのものじゃ。","くっ……{t}の尾を取られてしもうた。"],
+  mapFirst:"ほほほ……わらわの<b>九本の尾</b>、奪えるものなら奪ってみよ。まずは<b>一の尾</b>からじゃ。",
+  mapMid:["{n}本も取られたか。次は<b>{t}の尾</b>じゃな。","ふむ、まだ尾は残っておるぞ。<b>{t}の尾</b>で待っておる。","★が少ない尾は、もう一度挑めば取り直せるぞ。"],
+  mapAll:["九本すべて取られてしもうた。★3をそろえれば、もっとよいことがあるかもしれぬぞ？","また化かし合いに来たのか。ふふ、うれしいのう。"],
+  mapShiny:"ほれ、そなたのために、とっておきの姿になってやったぞ。",
+  talk:["わらわは字の形を少しだけ変えて化けるのじゃ。","へんやつくりを見れば、わらわの正体が分かるぞ。","あせらず、一枚ずつ見るのがこつじゃ。","「未」と「末」、どちらが長いか覚えておるか？"],
+};
+const pick = a => a[Math.floor(Math.random()*a.length)];
+const fill = (s, o) => s.replace(/\{(\w)\}/g, (_, k) => o[k]);
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+const $ = id => document.getElementById(id);
+function fakeWordOf(w){ return w[0].slice(0, w[2]) + w[3] + w[0].slice(w[2]+1); }
+
+/* =====================================================================
+   保存（この端末だけ）：各尾の最高★・見破った化け字（図鑑）・音のオン・オフ・色違い表示
+   ===================================================================== */
+const SAVE_KEY = "kitsune_bakashiai_v3";
+function loadSave(){
+  let s = null;
+  try{ s = JSON.parse(localStorage.getItem(SAVE_KEY)); }catch(e){}
+  s = s || {};
+  if(!Array.isArray(s.best)) s.best = [];
+  if(!Array.isArray(s.found)) s.found = [];
+  if(typeof s.muted !== "boolean") s.muted = false;
+  if(typeof s.useShiny !== "boolean") s.useShiny = false;
+  return s;
+}
+function writeSave(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); }catch(e){} }
+let SAVE = loadSave();
+const totalStars = () => SAVE.best.reduce((s, n) => s + (n || 0), 0);
+const clearedCount = () => SAVE.best.filter(Boolean).length;
+const unlockedUpTo = () => Math.min(TAILS.length - 1, clearedCount());   // 取った本数ぶん先まで開く
+function nextTailIndex(){
+  const i = SAVE.best.findIndex((b, k) => k < TAILS.length && !b);
+  if(i >= 0) return i;
+  if(SAVE.best.length < TAILS.length) return SAVE.best.length;
+  // 全部取った後は、★がいちばん少ない尾（同じなら若い番号）
+  let m = 0; SAVE.best.forEach((b, k) => { if(b < SAVE.best[m]) m = k; });
+  return m;
+}
+const shinyOn = () => SAVE.useShiny && totalStars() >= 27;
+
+function toggleMute(){ SAVE.muted = !SAVE.muted; writeSave(); refreshMuteIcons(); }
+function refreshMuteIcons(){ document.querySelectorAll("#muteBtn, .mute-inline").forEach(b => b.textContent = SAVE.muted ? "🔇" : "🔊"); }
+refreshMuteIcons();
+
+/* ---- 効果音（外部ファイルなし、WebAudioで鳴らす） ---- */
+let AC = null;
+function tone(freq, dur, opt = {}){
+  if(SAVE.muted) return;
+  try{
+    if(!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+    const t = AC.currentTime + (opt.delay || 0);
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = opt.type || "sine"; o.frequency.value = freq;
+    g.gain.setValueAtTime(opt.vol || .14, t);
+    g.gain.exponentialRampToValueAtTime(.001, t + dur);
+    o.connect(g).connect(AC.destination); o.start(t); o.stop(t + dur);
+  }catch(e){}
+}
+const SE = {
+  found(combo){ const up = Math.min(combo, 8) * 60; tone(880 + up, .09); tone(1320 + up, .16, {delay:.08}); },
+  wrong(){ tone(220, .18, {type:"triangle", vol:.12}); tone(175, .25, {type:"triangle", vol:.1, delay:.12}); },
+  deal(i){ tone(500 + i*25, .04, {type:"triangle", vol:.05, delay:i*.04}); },
+  start(){ tone(392, .12, {type:"triangle"}); tone(523, .2, {type:"triangle", delay:.12}); },
+  clear(){ [523,659,784,1047].forEach((f,i) => tone(f, .22, {type:"triangle", delay:i*.09})); },
+  star(i){ tone(1175 + i*200, .14, {delay:.35 + i*.18}); },
+  drop(){ tone(600, .1, {type:"sine", vol:.08}); tone(450, .14, {type:"sine", vol:.08, delay:.08}); },
+  hint(){ [1568,1319,1568].forEach((f,i) => tone(f, .12, {vol:.07, delay:i*.1})); },
+  win(){ [523,659,784,1047,784,1047,1319].forEach((f,i) => tone(f, .25, {type:"triangle", delay:i*.11})); },
+};
+
+/* ---- 九尾の絵 ---- */
+function foxSrc(pose){
+  if(shinyOn() && typeof ENEMY_SPRITES_SHINY !== "undefined" && ENEMY_SPRITES_SHINY["ub05_" + pose]) return ENEMY_SPRITES_SHINY["ub05_" + pose];
+  return (typeof URA_BOSS_SPRITES !== "undefined") && URA_BOSS_SPRITES["ub05_" + pose];
+}
+function setFox(el, pose, anim){
+  const src = foxSrc(pose);
+  el.innerHTML = src ? `<img class="fox-img" src="${src}" alt="九尾">` : `<span class="fox-emoji">🦊</span>`;
+  if(anim){ el.classList.remove("hop","shiver"); void el.offsetWidth; el.classList.add(anim); }
+}
+
+/* 色違いスプライトは大きい（約7MB）ので、★27で色違いを選んでいるときだけ読み込む */
+let shinyLoading = false;
+function ensureShinySprites(){
+  if(!shinyOn() || typeof ENEMY_SPRITES_SHINY !== "undefined" || shinyLoading) return;
+  shinyLoading = true;
+  const sc = document.createElement("script");
+  sc.src = "enemy_sprites_shiny_data.js";
+  sc.onload = () => { if(document.body.classList.contains("in-game")) setFox($("gameFox"), "pose2"); else if($("scMap").classList.contains("show")) setFox($("mapFox"), "pose1"); };
+  document.head.appendChild(sc);
+}
+// 知識ドリルDXのミニゲーム一覧へ戻る（kokugo_app.html側の ?from=minigame 参照）
+function backToApp(){ location.href = "kokugo_app.html?from=minigame"; }
+
+function show(id){
+  document.querySelectorAll(".screen").forEach(s => s.classList.toggle("show", s.id === id));
+  document.body.classList.toggle("in-game", id === "scGame");
+}
+
+/* =====================================================================
+   地図（タイトル兼、尾の一覧）
+   ===================================================================== */
+function starsHtml(n){ return [0,1,2].map(k => k < n ? "★" : `<span class="off">★</span>`).join(""); }
+function showMap(){
+  hideBanner(); stopTimer();
+  if(G) G.token++;
+  show("scMap");
+  ensureShinySprites();
+  const open = unlockedUpTo();
+  const nxt = nextTailIndex();
+  $("tailMap").innerHTML = TAILS.map((cfg, i) => {
+    const b = SAVE.best[i] || 0;
+    const locked = i > open;
+    const cls = locked ? "locked" : (b ? "cleared" : "") + (i === nxt && !b ? " next" : "");
+    return `<button class="tail-btn ${cls}" ${locked ? "disabled" : `onclick="startTail(${i}, false)"`}
+      title="${locked ? "前の尾を取ると開く" : NUM[i] + "の尾に挑戦"}">
+      <span class="n mincho">${locked ? "🔒" : NUM[i]}</span><span class="s">${b ? starsHtml(b) : (locked ? "" : "未取得")}</span></button>`;
+  }).join("");
+  const ts = totalStars();
+  $("starTotal").textContent = ts;
+  $("meter").innerHTML = `<div class="meter-fill" style="width:${ts/27*100}%"></div>` +
+    REWARDS.map(r => `<span class="mark ${ts >= r.need ? "on" : ""}" style="left:${r.need/27*100}%">🎁</span>`).join("");
+  $("rewards").innerHTML = REWARDS.map(r => {
+    const on = ts >= r.need;
+    let sub = on ? "タップで見る" : r.lock;
+    if(r.key === "shiny" && on) sub = SAVE.useShiny ? "タップでもとの姿に" : "タップで色違いの姿に";
+    return `<button class="reward ${on ? "on" : ""}" ${on ? `onclick="openReward('${r.key}')"` : "disabled"}><b>${on ? "🎁 " : "🔒 "}${r.title}</b>${sub}</button>`;
+  }).join("");
+  $("goBtn").textContent = clearedCount() >= TAILS.length
+    ? `${NUM[nxt]}の尾を取り直す（★${SAVE.best[nxt]}）`
+    : (clearedCount() ? `つづきから（${NUM[nxt]}の尾）` : "はじめる（一の尾）");
+  $("zukanBtn").textContent = `化け字図鑑 ${SAVE.found.length}/${WORDS.length}`;
+  const n = clearedCount();
+  let line;
+  if(shinyOn()) line = LINES.mapShiny;
+  else if(n === 0) line = LINES.mapFirst;
+  else if(n < TAILS.length) line = fill(pick(LINES.mapMid), {n, t:NUM[nxt]});
+  else line = pick(LINES.mapAll);
+  $("mapLine").innerHTML = line;
+  setFox($("mapFox"), "pose1", "hop");
+}
+function foxTalk(){ $("mapLine").innerHTML = pick(LINES.talk); setFox($("mapFox"), "pose2", "hop"); }
+function openReward(key){
+  if(key === "shiny"){ SAVE.useShiny = !SAVE.useShiny; writeSave(); showMap(); return; }
+  const r = REWARDS.find(x => x.key === key);
+  openModal("🦊 " + r.title, `<p class="story mincho">${STORIES[key]}</p>`);
+}
+
+/* ---- 化け字図鑑 ---- */
+function openZukan(){
+  const got = new Set(SAVE.found);
+  const lvName = ["", "やさしい", "ふつう", "むずかしい"];
+  let html = "";
+  [1,2,3].forEach(lv => {
+    const ws = WORDS.filter(w => w[4] === lv);
+    const n = ws.filter(w => got.has(w[0])).length;
+    html += `<div class="zk-lv">${lvName[lv]}（${n} / ${ws.length}）</div><div class="zukan">` +
+      ws.map(w => got.has(w[0])
+        ? `<div class="zk" title="${w[5]}"><div class="w mincho">${w[0]}</div><span class="f mincho">×${fakeWordOf(w)}</span></div>`
+        : `<div class="zk unknown"><div class="w">？？</div>まだ見破っていない</div>`).join("") + `</div>`;
+  });
+  openModal(`📖 化け字図鑑　${SAVE.found.length} / ${WORDS.length}`, html);
+}
+function openModal(title, html){ $("modalTitle").textContent = title; $("modalBody").innerHTML = html; $("modal").classList.add("show"); }
+function closeModal(){ $("modal").classList.remove("show"); }
+
+/* =====================================================================
+   ゲーム進行
+   ・G.token：画面を離れたら古いsetTimeoutを無効にするための番号
+   ・chain=true：「はじめる／つづきから」で入った場合、取ったあと自動で次の尾へ進む
+   ===================================================================== */
+let G = null, timerId = null;
+function later(ms, fn){ const tk = G.token; setTimeout(() => { if(G && G.token === tk) fn(); }, ms); }
+
+function drawWords(pool, n, avoid){
+  const fresh = shuffle(pool.filter(w => !avoid.has(w[0])));
+  const rest  = shuffle(pool.filter(w =>  avoid.has(w[0])));
+  return fresh.concat(rest).slice(0, n);
+}
+
+function startTail(idx, chain){
+  G = {token:(G ? G.token : 0) + 1, tail:idx, chain, recent:(G && G.recent) || [], combo:(G && G.chain && chain) ? G.combo : 0};
+  const cfg = TAILS[idx];
+  const avoid = new Set(G.recent);
+  const fakes = drawWords(WORDS.filter(w => w[4] >= cfg.lv[0] && w[4] <= cfg.lv[1]), cfg.fakes, avoid);
+  const used = new Set(fakes.map(w => w[0]));
+  const reals = drawWords(WORDS.filter(w => w[4] <= cfg.lv[1] && !used.has(w[0])), cfg.cards - cfg.fakes, avoid);
+  G.cards = shuffle(fakes.map(w => ({w, fake:true, state:"open"})).concat(reals.map(w => ({w, fake:false, state:"open"}))));
+  G.recent = G.cards.map(c => c.w[0]);
+  G.remaining = cfg.fakes;
+  G.mistakes = 0; G.slow = false; G.hinted = false;
+  G.elapsed = 0;
+  G.active = false;
+
+  show("scGame");
+  renderTails(); renderPips(); renderNowStars(); setCombo(0);
+  $("timerFill").style.width = "100%"; $("timerFill").classList.remove("over");
+  $("clockNote").textContent = "なくなると ★ −1";
+  const t = NUM[idx];
+  $("gameLine").textContent = cfg.boss ? fill(LINES.boss, {n:cfg.fakes}) : fill(pick(LINES.start), {t, n:cfg.fakes});
+  setFox($("gameFox"), "pose2", "hop");
+  $("grid").innerHTML = "";
+
+  SE.start();
+  showBanner(`<div class="big mincho">${cfg.boss ? "最後の尾" : t + "の尾"}</div>
+              <div class="small">化けた札は <b style="color:var(--gold);font-size:1.3em">${cfg.fakes}</b> 枚</div>`);
+  later(1000, () => {
+    hideBanner();
+    renderGrid();
+    later(250 + cfg.cards * 40, () => { G.active = true; startTimer(); });
+  });
+}
+
+function layoutGrid(n){
+  const portrait = window.innerWidth / window.innerHeight < 1 || window.innerWidth <= 700;
+  const cols = n <= 9 ? 3 : (portrait ? 3 : 4);
+  const rows = Math.ceil(n / cols);
+  const g = $("grid");
+  g.style.setProperty("--cols", cols); g.style.setProperty("--rows", rows);
+  g.style.gridTemplateColumns = `repeat(${cols},1fr)`;
+  g.style.gridTemplateRows = `repeat(${rows},1fr)`;
+}
+window.addEventListener("resize", () => { if(G && G.cards) layoutGrid(G.cards.length); });
+
+function lenCls(word){ return "word mincho l" + Math.min(4, Math.max(2, word.length)); }
+function cardInner(c){
+  if(c.state === "found"){
+    return `<span class="tag">見破った！</span>
+      <div class="${lenCls(c.w[0])}">${c.w[0]}</div>
+      <div class="fix"><s>${c.w[3]}</s> → <b>${c.w[0][c.w[2]]}</b></div>`;
+  }
+  const shown = c.fake ? fakeWordOf(c.w) : c.w[0];
+  return (c.state === "real" ? `<span class="tag">本物</span>` : "") + `<div class="${lenCls(shown)}">${shown}</div>`;
+}
+function renderGrid(){
+  layoutGrid(G.cards.length);
+  const grid = $("grid");
+  grid.innerHTML = "";
+  G.cards.forEach((c, i) => {
+    const b = document.createElement("button");
+    b.className = "card deal";
+    b.style.animationDelay = (i * 0.04) + "s";
+    b.innerHTML = cardInner(c);
+    b.onclick = () => tapCard(i);
+    grid.appendChild(b);
+    SE.deal(i);
+  });
+}
+function updateCard(i){
+  const c = G.cards[i], el = $("grid").children[i];
+  el.className = "card done " + c.state;
+  el.style.animationDelay = "0s";
+  el.innerHTML = cardInner(c);
+}
+
+function renderTails(targetEl){
+  const el = targetEl || $("tails");
+  el.innerHTML = NUM.map((n, i) => {
+    const st = SAVE.best[i];
+    const cls = (!targetEl && i === G.tail) ? "now" : (st ? "done" : "");
+    const stars = st ? `<span class="st">${"★".repeat(st)}${"☆".repeat(3 - st)}</span>` : "";
+    return `<div class="tail mincho ${cls}">${n}${stars}</div>`;
+  }).join("");
+  if(!targetEl) $("tailCount").textContent = clearedCount();
+}
+const currentStars = () => Math.max(1, 3 - G.mistakes - (G.slow ? 1 : 0));
+function renderNowStars(drop){
+  const el = $("nowStars");
+  el.innerHTML = starsHtml(currentStars());
+  if(drop){ el.classList.remove("drop"); void el.offsetWidth; el.classList.add("drop"); }
+}
+function renderPips(){
+  const cfg = TAILS[G.tail];
+  const got = cfg.fakes - G.remaining;
+  $("pips").innerHTML = Array.from({length:cfg.fakes}, (_, i) => `<span class="pip ${i < got ? "on" : ""}"></span>`).join("");
+}
+function setCombo(n){
+  const el = $("combo");
+  el.textContent = n >= 2 ? `${n} れんぞく！` : "";
+  if(n >= 2){ el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop"); }
+}
+
+function tapCard(i){
+  if(!G.active) return;
+  const c = G.cards[i];
+  if(c.state !== "open") return;
+  if(c.fake){
+    c.state = "found";
+    G.remaining--; G.combo++;
+    SE.found(G.combo);
+    updateCard(i);
+    const s = document.createElement("span"); s.className = "smoke"; s.textContent = "💨";
+    $("grid").children[i].appendChild(s);
+    renderPips(); setCombo(G.combo);
+    $("gameLine").textContent = G.combo >= 3 ? pick(LINES.combo) : pick(LINES.found);
+    setFox($("gameFox"), "defense", "shiver");
+    if(G.remaining <= 0) clearTail();
+  }else{
+    // 本物をタップ：★が1つ減り、少しだけ目が回って（0.6秒）タップできない。負けにはならない。
+    c.state = "real";
+    const before = currentStars();
+    G.mistakes++; G.combo = 0;
+    SE.wrong();
+    updateCard(i); setCombo(0);
+    renderNowStars(currentStars() < before);
+    $("gameLine").textContent = pick(LINES.fooled);
+    setFox($("gameFox"), "attack", "hop");
+    G.active = false; $("grid").classList.add("dizzy");
+    later(600, () => { $("grid").classList.remove("dizzy"); G.active = true; });
+  }
+}
+
+/* すばやさの目安（par秒）を過ぎたら★−1。parの2倍でヒント。時間切れで終わることはない。 */
+function startTimer(){
+  stopTimer();
+  const cfg = TAILS[G.tail];
+  const fillEl = $("timerFill");
+  let last = performance.now();
+  timerId = setInterval(() => {
+    const now = performance.now();
+    if(G.active) G.elapsed += (now - last) / 1000;   // 目が回っている間は時計を止める
+    last = now;
+    const left = Math.max(0, cfg.par - G.elapsed);
+    fillEl.style.width = (left / cfg.par * 100) + "%";
+    if(!G.slow && G.elapsed >= cfg.par){
+      G.slow = true; fillEl.classList.add("over"); fillEl.style.width = "100%";
+      $("clockNote").textContent = "あせらず、よく見よう";
+      const before = G.mistakes + 1;
+      renderNowStars(3 - before >= 1);
+      if(3 - before >= 1) SE.drop();
+    }
+    if(!G.hinted && G.elapsed >= cfg.par * 2){
+      G.hinted = true;
+      const i = G.cards.findIndex(c => c.fake && c.state === "open");
+      if(i >= 0){ $("grid").children[i].classList.add("hint"); SE.hint(); $("gameLine").textContent = LINES.hint; setFox($("gameFox"), "pose1", "hop"); }
+    }
+  }, 50);
+}
+function stopTimer(){ if(timerId){ clearInterval(timerId); timerId = null; } }
+
+function clearTail(){
+  G.active = false; stopTimer();
+  const stars = currentStars();
+  const prev = SAVE.best[G.tail] || 0;
+  const firstClear = !prev;
+  const isNew = stars > prev;
+  const beforeTotal = totalStars();
+  if(isNew) SAVE.best[G.tail] = stars;
+  // 図鑑への登録（初めて見破った化け字には「NEW」）
+  const foundNow = G.cards.filter(c => c.fake).map(c => c.w);
+  const newWords = new Set(foundNow.filter(w => !SAVE.found.includes(w[0])).map(w => w[0]));
+  newWords.forEach(w => SAVE.found.push(w));
+  writeSave();
+  const afterTotal = totalStars();
+  const unlockedReward = REWARDS.find(r => beforeTotal < r.need && afterTotal >= r.need);
+
+  const t = NUM[G.tail];
+  const isLast = G.tail === TAILS.length - 1;
+  const allNow = clearedCount() >= TAILS.length;
+  later(350, () => {
+    SE.clear();
+    for(let k = 0; k < stars; k++) SE.star(k);
+    $("gameLine").textContent = fill(pick(LINES.cleared), {t});
+    setFox($("gameFox"), "defeat");
+    renderTails();
+    $("tails").children[G.tail].classList.add("got");
+    const reasons = [G.mistakes === 0 ? "ノーミス" : null, !G.slow ? "すばやい" : null].filter(Boolean);
+    const chips = foundNow.map((w, k) => `<span class="chip" style="animation-delay:${.5 + k*.1}s">
+        <span class="f mincho">${fakeWordOf(w)}</span> → <span class="t mincho">${w[0]}</span>${newWords.has(w[0]) ? `<span class="new">図鑑NEW</span>` : ""}</span>`).join("");
+    const title = firstClear ? `${t}の尾<br>いただき！` : `${t}の尾`;
+    let sub = reasons.length ? reasons.join("・") + "ボーナス！" : "★を増やすには、ミスなし・すばやく！";
+    if(unlockedReward) sub = `🎁 「${unlockedReward.title}」が開いた！`;
+    // 次に進む先：9本目を初めて取った（全部そろった）→降参画面／続けて遊んでいる→次の未取得の尾／それ以外→地図
+    const goEnd = isLast && firstClear || (firstClear && allNow);
+    const nextIdx = nextTailIndex();
+    const canChain = G.chain && !goEnd && !allNow;
+    const nextLabel = goEnd ? "九尾のようすを見る" : canChain ? `次の尾へ（${NUM[nextIdx]}）` : "尾の一覧へ";
+    const go = () => { hideBanner(); if(goEnd) showEnd(); else if(canChain) startTail(nextIdx, true); else showMap(); };
+    showBanner(`<div class="big mincho">${title}</div>
+      <div class="stars">${[0,1,2].map(k => `<span class="${k < stars ? "" : "off"}" style="animation-delay:${.35 + k*.18}s">★</span>`).join("")}</div>
+      ${isNew && !firstClear ? `<div class="newrec">最高記録こうしん！</div>` : ""}
+      <div class="small">${sub}</div>
+      <div class="chips">${chips}</div>
+      <div class="banner-btns">
+        <button class="btn" id="bnGo">${nextLabel} ▶</button>
+        <button class="btn secondary" id="bnRetry">もう一度</button>
+      </div>
+      ${canChain ? `<div class="autobar"><div id="autoFill"></div></div>` : ""}`, true);
+    $("bnGo").onclick = go;
+    $("bnRetry").onclick = () => { hideBanner(); startTail(G.tail, G.chain); };
+    // 続けて遊んでいるときは、5秒で自動的に次の尾へ（リズムを切らさない）
+    if(canChain){
+      const f = $("autoFill");
+      f.style.transition = "width 5s linear"; requestAnimationFrame(() => requestAnimationFrame(() => f.style.width = "100%"));
+      later(5000, () => { if($("banner").classList.contains("show")) go(); });
+    }
+  });
+}
+
+function restAndMap(){ G.token++; stopTimer(); showMap(); }
+
+/* ---- 中央の大きな表示 ---- */
+function showBanner(html, clickable){
+  const b = $("banner");
+  b.innerHTML = `<div class="panel">${html}</div>`;
+  b.className = "banner show" + (clickable ? " clickable" : "");
+}
+function hideBanner(){ $("banner").className = "banner"; }
+
+/* ---- 九尾 降参（9本そろったとき） ---- */
+function rankName(stars){
+  if(stars === 27) return "九尾も認める 見破りの名人";
+  if(stars >= 22) return "化け字の達人";
+  if(stars >= 15) return "腕利きの見破り手";
+  return "九尾を降参させし者";
+}
+function showEnd(){
+  show("scEnd");
+  SE.win();
+  setFox($("endFox"), "defeat", "hop");
+  const ts = totalStars();
+  $("endLine").innerHTML = "ま、参った……九本すべて取られるとは。そなたの目には、わらわの術も通じぬようじゃ。";
+  renderTails($("endTails"));
+  $("endStars").textContent = ts;
+  $("endRank").textContent = rankName(ts);
+  $("endNote").innerHTML = ts < 27
+    ? `★が少ない尾は、一覧から何度でも取り直せます。<b style="color:var(--gold)">★27</b>をそろえると、ごほうびがあるかも……？`
+    : `★27、完全制覇！　尾の一覧で「色違いの九尾」を選べるようになりました。`;
+}
+
+showMap();
+</script>
+</body>
+</html>

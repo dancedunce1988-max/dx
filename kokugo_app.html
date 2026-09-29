@@ -101,6 +101,9 @@
   .menu-card.locked:hover{transform:none; box-shadow:none;}
   .menu-card.locked .menu-icon{background:var(--line); color:var(--sub);}
   .menu-card.locked .shogo-badge{background:var(--sub);}
+  /* 九尾の化かし合いの「準備中」カード：タップの手応えとして軽くパルスさせるだけ（kitsuneComingSoonTap参照） */
+  .kitsune-teaser.tap-pulse{ animation:kitsuneTapPulse .18s ease; }
+  @keyframes kitsuneTapPulse{ 0%{transform:scale(1);} 45%{transform:scale(.96);} 100%{transform:scale(1);} }
   /* クリア済みのストーリー章カード：カード全体タップではなく、中の2つのボタン
      （「ストーリーを見る」「問題だけ」）で選ぶ形にしたので、カード自体はクリック不可にする
      （教員の指示、2026-08-24〜）。 */
@@ -4327,7 +4330,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.58</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.59</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -4580,7 +4583,10 @@ function emptyStats(){
        この早期リターン経路でも常に「今日の分」として正しく扱われる。 */
     todayKanji:{date: todayLocalDateStr(), correctCount:0, done:false, round:1},
     story:{chapter:"ch1", beatIdx:0, flags:{}, completedChapters:[], judgedRunCorrect:0, judgedRunTotal:0, judgedBest:{}, comboBest:{}},
-    dokkaiDungeon:{skillXp:ddSkillXp, cleared:{}}};
+    dokkaiDungeon:{skillXp:ddSkillXp, cleared:{}},
+    /* 一日一読の支払い済みフラグ集合（loadStatsのマイグレーション参照）。以前はここに無く、セーブの無い
+       新規プレイヤーだけ、一日一読のある日にホーム画面(ddHomeEntryHtml)が例外で止まっていた（2026-09-29修正）。 */
+    nobiruRewardGiven:{}};
 }
 /* ステータスポイントは保存された数値ではなく、常にその場で計算する：
    「分野レベルの合計（＝これまで獲得した経験値の合計）」から「すでに割りふった分」を引いた残り。
@@ -18284,6 +18290,14 @@ function bootApp(){
      （仲間になる確率・色違い遭遇もすべて本番と同じ本物の戦闘）。 */
   if(new URLSearchParams(location.search).get('devtool') === 'uraboss'){ mbUraCarry = {questMode:'hard', isSpecialQuest:false}; mbShowUraBossChoice(); return; }
   if(resumeBossBattleIfSaved()) return;
+  /* 別ページのミニゲーム（kitsune_bakashiai.html）から「ミニゲーム一覧へ」で戻ってきたとき
+     （?from=minigame）。いつもどおりプロローグ→ホーム（一日一読の報酬確認などの処理）を通したうえで、
+     すぐにミニゲーム一覧を開く。再読み込みで毎回一覧に飛ばないよう、URLからは消しておく。 */
+  if(new URLSearchParams(location.search).get('from') === 'minigame'){
+    try{ history.replaceState(null, '', location.pathname); }catch(e){}
+    showPrologue(() => { showHome(); showSideQuestMenu(); });
+    return;
+  }
   showPrologue(showHome);
 }
 
@@ -19787,6 +19801,7 @@ function showSideQuestMenu(){
   html += mbSideQuestButtonHtml();
   html += Object.keys(STORY_SIDEQUESTS).map(key => storySideQuestButtonHtml(key, st)).join("");
   html += speedMatchMenuHtml();
+  html += kitsuneMenuHtml();
   html += `<div class="btn-row" style="justify-content:center; margin-top:10px">
     <button class="btn secondary" onclick="showHome()">戻る</button>
   </div>`;
@@ -19871,6 +19886,42 @@ function storySideQuestButtonHtml(key, st){
       <div class="right"><span class="shogo-badge">挑戦する</span></div>
     </div>`;
 }
+/* 九尾の化かし合い（2026-09-29〜、準備中）。形の似た別の字に化けた熟語（完壁・末来など）を
+   札の中から見破るミニゲーム。パートナー（漢字Questの仲間）が出演するミニゲームの第1弾として、
+   九尾(ub05)が相手役になる。ゲーム本体は別ページ（kitsune_bakashiai.html）で、のびる読解と同じく
+   同じタブのまま画面ごと遷移し、戻るときは kokugo_app.html?from=minigame でミニゲーム一覧に戻る
+   （起動時の from=minigame 参照）。本体のセーブデータ(st)には一切触れず、経験値・ジャンルレベルにも
+   まだ反映しない。教員の指示（2026-09-29：「ミニゲームに追加して。ただし、まだ解放はしないこと」）で、
+   以前のマッチ試作と同じ「準備中」カードとして置き、5回タップしたときだけ裏で遊べるようにする
+   （あと何回で遊べるかは表示しない）。正式に公開するときは KITSUNE_RELEASED を true にするだけでよい。 */
+const KITSUNE_RELEASED = false;
+let kitsuneTapCount = 0; // 「準備中」カードの隠しタップ数。保存しない＝ページ再読み込みでリセットされてよい。
+function kitsuneMenuHtml(){
+  if(KITSUNE_RELEASED){
+    return `
+    <div class="card menu-card" onclick="openKitsuneBakashiai()">
+      <div class="menu-icon">🦊</div>
+      <div><h2>九尾の化かし合い</h2><p>化けた漢字を見破って、九尾の九本の尾を奪え</p></div>
+      <div class="right"><span class="shogo-badge">挑戦する</span></div>
+    </div>`;
+  }
+  return `
+    <div class="card menu-card locked kitsune-teaser" onclick="kitsuneComingSoonTap(this)">
+      <div class="menu-icon">🦊</div>
+      <div><h2>九尾の化かし合い</h2><p>化けた漢字を見破って、九尾の九本の尾を奪え</p></div>
+      <div class="right"><span class="shogo-badge">準備中</span></div>
+    </div>`;
+}
+function kitsuneComingSoonTap(el){
+  kitsuneTapCount++;
+  if(kitsuneTapCount >= 5){ kitsuneTapCount = 0; openKitsuneBakashiai(); return; }
+  if(el){
+    el.classList.remove('tap-pulse');
+    void el.offsetWidth; // タップのたびにアニメーションをやり直すための強制リフロー
+    el.classList.add('tap-pulse');
+  }
+}
+function openKitsuneBakashiai(){ location.href = "kitsune_bakashiai.html"; }
 /* マッチ（類義語マッチ・対義語マッチ、2026-09-18〜）。ミニゲームとしては「マッチ」という
    ひとつの入口にまとめ、その中に類義語マッチ・対義語マッチの2モードを置く（以前は対義語・
    類義語を別々のミニゲームとして並べていたが、教員の指示でひとつにまとめた）。taigigo/ruigigoの
