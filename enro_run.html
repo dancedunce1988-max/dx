@@ -12,6 +12,8 @@
      最後の10個を「迷いの区間」（関所ごとに道の並びが入れかわる）にした。評価はゴール時の★（ミスの数）と得点。
      同日、教員の指示で「見きわめの区間」（敬語の使い方が正しいかを、上＝正しい／下＝正しくない で判断する。
      炎狼は関所ごとにまん中へ戻り、まん中のままだと時間切れ）を加え、4区間・関所32個にした。
+     さらに教員の指示で、区間ごとに走りを止めて「完走！」と次の区間のルールを見せる画面（showZoneCard）と、
+     →キーで関所の前まで一気に進むダッシュ（dash）を加え、見きわめの区間の考える時間を1.5倍にした。
      本体のセーブデータ(st)には一切触れず、このページ専用のlocalStorageキーだけを使う
      （経験値・ジャンルレベルにはまだ反映しない）。炎狼の絵は本番と同じスプライト(enemy_sprites_data.js)を使い、
      読み込めなかったときは🐺の絵文字で代用する。 -->
@@ -229,6 +231,37 @@
   .overlay{ position:fixed; inset:0; z-index:40; background:rgba(0,0,0,.7); display:none; align-items:center; justify-content:center; padding:20px; }
   .overlay.show{ display:flex; }
   .overlay .box{ width:min(340px,100%); background:#241010; border:1px solid var(--line); border-radius:16px; padding:18px; display:flex; flex-direction:column; gap:10px; text-align:center; }
+  /* 区間の完走・次の区間のルール */
+  .overlay .zone-box{ width:min(520px,100%); max-height:calc(100dvh - 40px); overflow-y:auto; text-align:left; gap:12px; }
+  .zb-done{ text-align:center; font-size:clamp(20px, 5.5vw, 28px); font-weight:bold; color:var(--gold); text-shadow:0 0 14px rgba(255,215,107,.6); animation:wpop .35s ease; }
+  .zb-score{ text-align:center; font-size:14px; color:var(--sub); }
+  .zb-score b{ color:var(--text); font-size:18px; }
+  .zb-next{ text-align:center; font-size:clamp(17px, 4.6vw, 21px); font-weight:bold; color:var(--fire2); border-top:1px solid var(--line); padding-top:10px; }
+  .zb-rules{ margin:0; padding-left:1.3em; font-size:14px; line-height:1.75; }
+  .zb-rules b{ color:var(--fire2); }
+  .zb-lanes{ display:flex; flex-direction:column; gap:5px; }
+  .zl{ display:grid; grid-template-columns:2.2em 7em 1fr; align-items:center; gap:6px; padding:6px 10px; border-radius:10px; background:var(--panel); border-left:5px solid; font-size:13px; }
+  .zl span{ color:var(--sub); font-size:12px; }
+  .zl b{ font-size:15px; }
+  .zl small{ color:var(--sub); font-size:12px; }
+  .zl.s{ border-color:var(--sonkei); } .zl.s b{ color:var(--sonkei); }
+  .zl.k{ border-color:var(--kenjo); }  .zl.k b{ color:var(--kenjo); }
+  .zl.t{ border-color:var(--teinei); } .zl.t b{ color:var(--teinei); }
+  .zl.ok{ border-color:var(--ok); } .zl.ok b{ color:var(--ok); }
+  .zl.ng{ border-color:var(--ng); } .zl.ng b{ color:var(--ng); }
+  .zl.mid{ border-color:rgba(255,255,255,.3); } .zl.mid b{ color:var(--sub); }
+  .zb-note{ font-size:13px; color:var(--fire2); text-align:center; }
+  .zb-key{ font-size:12px; color:var(--sub); text-align:center; }
+  /* ダッシュ：炎狼が前へ飛び出し、道に流線が走る */
+  #wolf.dash .body{ animation:dashLunge .28s ease-out; }
+  @keyframes dashLunge{ 0%{transform:translateX(0)} 35%{transform:translateX(45%) scaleX(1.08)} 100%{transform:translateX(0)} }
+  .field.dashfx::after{
+    content:""; position:absolute; inset:0; z-index:6; pointer-events:none;
+    background:repeating-linear-gradient(180deg, transparent 0 18px, rgba(255,230,190,.35) 18px 20px, transparent 20px 46px);
+    animation:dashLines .3s ease-out forwards;
+  }
+  @keyframes dashLines{ 0%{opacity:1; transform:translateX(30%)} 100%{opacity:0; transform:translateX(-30%)} }
+  .dash-hint{ font-size:12px; color:var(--sub); }
   .count{ font-size:90px; font-weight:bold; color:var(--fire2); text-shadow:0 0 30px rgba(255,122,47,.9); }
 
   /* =====================================================================
@@ -269,6 +302,7 @@
     .end-top .wolf{ height:100px; }
     .stats{ grid-template-columns:repeat(2,1fr); }
     .gauge-row .gl{ font-size:14px; }
+    .dash-hint{ display:none; }
     .gauge{ height:20px; }
   }
 </style>
@@ -291,6 +325,7 @@
         関所は全部で<b>32個</b>。第三区間は<b>見きわめの区間</b>：その敬語の使い方が<b>正しい（上）</b>か<b>正しくない（下）</b>かを選ぶ。
         まん中にいたままだと時間切れ！　最終区間は<b>迷いの区間</b>で、関所ごとに<b>道の並びが入れかわる</b>ぞ！<br>
         正解すると<b>炎ゲージ</b>がたまり（まちがえると2マス減る）、満タンで<b>火走り</b>（得点2倍・ぶつかっても❤が減らない）！<br>
+        キーボードの<b>→キー</b>で、関所の前まで一気に<b>ダッシュ</b>できる（考えがまとまったら、すぐに勝負！）。<br>
         ときどき道に<b>🦴骨</b>（炎ゲージ＋3）や<b>🍖肉</b>（❤を1つ回復）が落ちている。その道を走ればひろえるぞ。
         進むほど速くなるよ。
       </div>
@@ -318,6 +353,7 @@
     <span class="score">得点 <b id="score">0</b></span>
     <span class="zone" id="zone"></span>
     <span class="sp"></span>
+    <span class="dash-hint">→キーでダッシュ</span>
     <button class="pill mute-inline" onclick="toggleMute()">🔊</button>
     <button class="pill" onclick="pauseGame()">⏸</button>
   </div>
@@ -362,6 +398,18 @@
 </section>
 
 <div class="banner" id="banner"></div>
+<div class="overlay" id="zoneOverlay">
+  <div class="box zone-box">
+    <div class="zb-done" id="zbDone"></div>
+    <div class="zb-score" id="zbScore"></div>
+    <div class="zb-next" id="zbNext"></div>
+    <ul class="zb-rules" id="zbRules"></ul>
+    <div class="zb-lanes" id="zbLanes"></div>
+    <div class="zb-note" id="zbNote"></div>
+    <button class="btn" id="zbBtn" onclick="nextZone()">走り出す！</button>
+    <div class="zb-key">Enterキー・スペースキーでも進めます</div>
+  </div>
+</div>
 <div class="overlay" id="countOverlay"><div class="count" id="countNum">3</div></div>
 <div class="overlay" id="pauseOverlay">
   <div class="box">
@@ -525,11 +573,25 @@ function shuffleLanes(){
 /* 1回のランは関所GOAL_GATES個でゴール。区間は「何個目の関所か」で進み、進むと出る言葉の範囲が広がる。
    最終区間（maze）は迷いの区間：関所ごとに道の並びが入れかわる。並びを読む時間のぶん、関所が届くまでを少しのばす(extra秒)。 */
 const GOAL_GATES = 32;
+/* rulesは区間の始めに見せるルール（showZoneCard）。timeMulは関所が届くまでの時間の倍率
+   （見きわめの区間は文を読んで判断するので、教員の指示で1.5倍、2026-09-30〜）。 */
 const ZONES = [
-  {from:0,  maxLv:1, name:"第一区間", note:"特別な敬語の言葉を見分けよう"},
-  {from:8,  maxLv:2, name:"第二区間", note:"「お〜になる」「お〜する」などの形に注目！"},
-  {from:16, misuse:true, name:"第三区間　見きわめの区間", note:"その敬語の使い方は正しい？　上＝正しい／下＝正しくない", extra:1.2},
-  {from:24, maxLv:3, name:"最終区間　迷いの区間", note:"関所ごとに道の並びが入れかわる！　ラベルをよく見よう", maze:true, extra:0.8},
+  {from:0,  maxLv:1, name:"第一区間", note:"特別な敬語の言葉を見分けよう",
+   rules:["上に出た言葉が<b>尊敬語・謙譲語・丁寧語</b>のどれかを考えて、その道へ移ろう。",
+          "「いらっしゃる」「参る」のような<b>特別な言葉</b>と、「〜ます」「〜です」が出るよ。",
+          "道はタップか、<b>↑↓キー</b>で移れる。<b>→キー</b>でダッシュ！"]},
+  {from:8,  maxLv:2, name:"第二区間", note:"「お〜になる」「お〜する」などの形に注目！",
+   rules:["道の並びは第一区間と同じ。",
+          "「<b>お（ご）〜になる</b>」「〜れる・られる」は尊敬語、「<b>お（ご）〜する</b>」は謙譲語。",
+          "「〜てくださる」は尊敬語、「〜ていただく」は謙譲語。<b>形に注目</b>しよう。"]},
+  {from:16, misuse:true, name:"第三区間　見きわめの区間", note:"その敬語の使い方は正しい？　上＝正しい／下＝正しくない", extra:1.2, timeMul:1.5,
+   rules:["道が<b>「〇正しい」（上）</b>と<b>「✕正しくない」（下）</b>に変わる！",
+          "文の［　］の部分の<b>敬語の使い方が正しいか</b>を判断しよう。だれの動作か、だれに話しているかに注意。",
+          "炎狼は関所ごとに<b>まん中</b>へ戻る。まん中のままだと<b>時間切れ（ミス）</b>になるよ。"]},
+  {from:24, maxLv:3, name:"最終区間　迷いの区間", note:"関所ごとに道の並びが入れかわる！　ラベルをよく見よう", maze:true, extra:0.8,
+   rules:["道が<b>尊敬語・謙譲語・丁寧語</b>にもどる。",
+          "ただし、関所が来るたびに<b>道の並びが入れかわる</b>！　動く前に<b>道のラベル</b>をよく見よう。",
+          "これが最後の区間。ゴールまで走りぬけろ！"]},
 ];
 /* ★：ゴールで★1、ミス（火走りで守られたものもふくむ）がSTAR2_MISS回以内で★2、ノーミスで★3 */
 const STAR2_MISS = 2;
@@ -638,6 +700,7 @@ const SE = {
   go(){ tone(784, .25, {type:"triangle"}); },
   fire(){ [392,523,659,784,1047].forEach((f,i) => tone(f, .18, {type:"sawtooth", vol:.07, delay:i*.06})); },
   item(){ [880,1175,1568,2093].forEach((f,i) => tone(f, .12, {type:"triangle", vol:.13, delay:i*.05})); },
+  dash(){ noise(.22, {from:300, to:3000, q:.6, vol:.18}); },
   shuffle(){ [700,500,900].forEach((f,i) => tone(f, .07, {type:"square", vol:.05, delay:i*.05})); },
   win(){ [523,659,784,1047,784,1047,1319].forEach((f,i) => tone(f, .25, {type:"triangle", delay:i*.11})); },
   zone(){ [523,659,784].forEach((f,i) => tone(f, .2, {type:"triangle", delay:i*.1})); },
@@ -733,7 +796,12 @@ function nextWord(){
   return w;
 }
 
-function travelTime(){ return Math.max(TRAVEL_MIN, TRAVEL_START - G.correct * TRAVEL_STEP) + (ZONES[G.zone].extra || 0); }
+function travelTime(){
+  const z = ZONES[G.zone];
+  return (Math.max(TRAVEL_MIN, TRAVEL_START - G.correct * TRAVEL_STEP) + (z.extra || 0)) * (z.timeMul || 1);
+}
+// n個の関所を通った時点が、区間の変わり目かどうか
+const isZoneBoundary = n => n > 0 && n < GOAL_GATES && ZONES.some(z => z.from === n);
 
 function startGame(){
   stopLoop();
@@ -750,7 +818,14 @@ function startGame(){
   document.querySelectorAll(".barrier, .item").forEach(b => b.remove());
   $("word").textContent = ""; $("wordCtx").textContent = "";
   layout(); placeWolf(); refreshHud();
-  // 3・2・1のカウントダウン
+  G.zoneStart = {correct:0, total:0};
+  G.phase = "intro";
+  showZoneCard(0, true);
+}
+
+// 3・2・1のカウントダウンのあと走り出す
+function startCountdown(){
+  G.phase = "count";
   const ov = $("countOverlay"); ov.classList.add("show");
   let n = 3; $("countNum").textContent = n; SE.count();
   const tick = setInterval(() => {
@@ -759,22 +834,71 @@ function startGame(){
     if(n > 0){ $("countNum").textContent = n; SE.count(); return; }
     clearInterval(tick); ov.classList.remove("show"); SE.go();
     G.phase = "run";
-    banner(`${ZONES[0].name}<small>${ZONES[0].note}</small>`);
     spawnBarrier();
     startLoop();
   }, 700);
 }
 
-function spawnBarrier(){
-  // 区間が進んだか（何個目の関所かで決まる）
-  const z = zoneOf(G.total);
-  if(z !== G.zone){
-    G.zone = z; SE.zone();
-    banner(`${ZONES[z].name}<small>${ZONES[z].note}</small>`, 2200);
-    document.body.classList.toggle("maze", !!ZONES[z].maze);
-    LANE_TYPE = (ZONES[z].misuse ? MISUSE_LANES : DEFAULT_LANES).slice();
-    applyLanes(true);
+// 区間を切りかえる：道の並びをその区間のものにする
+function enterZone(z){
+  G.zone = z;
+  document.body.classList.toggle("maze", !!ZONES[z].maze);
+  LANE_TYPE = (ZONES[z].misuse ? MISUSE_LANES : DEFAULT_LANES).slice();
+  applyLanes(true);
+  G.lane = 1; placeWolf();
+  refreshHud();
+}
+
+/* 区間の始めに走りを止めて見せる画面。intro＝ゲームの最初（第一区間）。
+   それ以外は、終わった区間の「完走！おめでとう！」と成績、次の区間のルールと道の並びを見せる。 */
+function showZoneCard(z, intro){
+  const zone = ZONES[z];
+  if(intro){
+    $("zbDone").textContent = "🐺 炎狼ラン、スタート！";
+    $("zbScore").innerHTML = `関所は全部で<b>${GOAL_GATES}</b>個、区間は<b>${ZONES.length}</b>つ`;
+  }else{
+    const prev = ZONES[z - 1];
+    const c = G.correct - G.zoneStart.correct, t = G.total - G.zoneStart.total;
+    $("zbDone").innerHTML = `🏁 ${esc(prev.name.split("　")[0])} 完走！<br>おめでとう！`;
+    $("zbScore").innerHTML = `この区間の成績　正解 <b>${c}</b> / ${t}　${c === t ? "🔥 パーフェクト！" : ""}<br>のこりの❤ ${"❤️".repeat(G.lives)}`;
+    G.zoneStart = {correct:G.correct, total:G.total};
   }
+  $("zbNext").textContent = `${intro ? "" : "次は "}${zone.name}（関所 ${zone.from + 1}〜${(ZONES[z + 1] ? ZONES[z + 1].from : GOAL_GATES)}）`;
+  $("zbRules").innerHTML = zone.rules.map(r => `<li>${r}</li>`).join("");
+  const lanes = zone.misuse ? MISUSE_LANES : DEFAULT_LANES;
+  $("zbLanes").innerHTML = lanes.map((k, i) => {
+    const t = TYPES[k];
+    return `<div class="zl ${t.cls}"><span>${["上","中","下"][i]}</span><b>${t.name}</b><small>${t.sub}</small></div>`;
+  }).join("");
+  $("zbNote").textContent = zone.maze ? "※ 最初はこの並び。関所ごとに入れかわる！" : zone.misuse ? "※ 考える時間は、ほかの区間より長め" : "";
+  $("zbBtn").textContent = intro ? "走り出す！" : "次の区間へ走り出す！";
+  $("zoneOverlay").classList.add("show");
+}
+// 区間の変わり目で走りを止め、完走の画面を出す
+function zoneBreak(){
+  G.phase = "break";
+  setWolf($("wolfBody"), "pose1"); $("wolf").className = "";
+  SE.zone();
+  const z = zoneOf(G.total);
+  enterZone(z);
+  showZoneCard(z, false);
+}
+// 完走・ルールの画面を閉じて走り出す
+function nextZone(){
+  if(!G || (G.phase !== "break" && G.phase !== "intro")) return;
+  $("zoneOverlay").classList.remove("show");
+  if(G.phase === "intro"){ startCountdown(); return; }
+  $("wolf").className = "run";
+  setWolf($("wolfBody"), G.hib > 0 ? "attack" : "pose1");
+  G.phase = "run";
+  G.spawnWait = 0.4;
+  lastTs = 0;
+}
+
+function spawnBarrier(){
+  // 区間が進んだか（何個目の関所かで決まる。ふつうはzoneBreakで切りかえ済み）
+  const z = zoneOf(G.total);
+  if(z !== G.zone) enterZone(z);
   if(ZONES[G.zone].maze){ shuffleLanes(); SE.shuffle(); }
   // 見きわめの区間：炎狼は関所ごとにまん中（考え中）へ戻る
   if(ZONES[G.zone].misuse) G.lane = 1;
@@ -900,6 +1024,7 @@ function judge(b){
     setTimeout(() => b.el.classList.add("gone"), 150);
     refreshHud();
     if(finished) goal();
+    else if(isZoneBoundary(G.total)){ G.phase = "between"; setTimeout(() => { if(G && G.phase === "between") zoneBreak(); }, 900); }
     else G.spawnWait = 0.3;
   }else{
     // まちがい：ぶつかる。走りを止めて、正しい道と解説を見せる
@@ -934,7 +1059,7 @@ function judge(b){
       ${t.cls === "ok" || t.cls === "ng" ? `<div class="mincho" style="font-size:16px">${b.w[4] ? esc(b.w[4]) : ""}${wordHtml(b.w[0])}</div>` : ""}
       <div>${esc(b.w[3])}</div>
       ${protectedByFire ? "" : `<div style="font-size:12px;color:var(--sub)">❤ −1　炎ゲージ −${WRONG_GAUGE_LOSS}</div>`}
-      <div class="next">${G.lives > 0 ? (finished ? "タップでゴールへ" : "タップで走りを再開") : ""}</div>`;
+      <div class="next">${G.lives > 0 ? (finished ? "タップでゴールへ" : isZoneBoundary(G.total) ? "タップで区間の結果へ" : "タップで走りを再開") : ""}</div>`;
     if(G.lives <= 0){
       setTimeout(gameOver, 1900);
     }else{
@@ -952,6 +1077,7 @@ function continueRun(){
   const b = G.revealBarrier;
   if(b){ b.el.remove(); G.barriers = G.barriers.filter(x => x !== b); G.revealBarrier = null; }
   if(G.total >= GOAL_GATES){ G.phase = "run"; goal(); return; }
+  if(isZoneBoundary(G.total)){ zoneBreak(); return; }
   setWolf($("wolfBody"), G.hib > 0 ? "attack" : "pose1");
   $("wolf").className = "run";
   G.phase = "run";
@@ -1015,6 +1141,22 @@ function refreshHud(){
   G.prevGauge = G.gauge;
 }
 
+/* ---- ダッシュ（→キー）：考えがまとまったら、関所の前まで一気に進んでその場で判定する。
+   関所・アイテム・背景をまとめて同じだけ進める（炎狼が前へ飛んだように見える）。 ---- */
+function dash(){
+  if(!G || G.phase !== "run") return;
+  const b = G.barriers.find(x => !x.judged);
+  if(!b) return;
+  const d = b.x - geo.judgeX;
+  if(d <= 4) return;
+  G.barriers.forEach(x => { x.x -= d; x.el.style.transform = `translateX(${x.x}px)`; });
+  G.items.forEach(it => { it.x -= d; moveItem(it); });
+  G.scroll += d;
+  const w = $("wolf"); w.classList.remove("dash"); void w.offsetWidth; w.classList.add("dash");
+  const f = $("field"); f.classList.remove("dashfx"); void f.offsetWidth; f.classList.add("dashfx");
+  SE.dash();
+}
+
 /* ---- 道の移動：道をタップ／キーボード（↑↓・1/2/3） ---- */
 function moveTo(lane){
   if(!G || G.phase !== "run") return;
@@ -1031,6 +1173,8 @@ document.querySelectorAll(".lane").forEach(el => {
 document.addEventListener("keydown", e => {
   if(!G) return;
   if(G.phase === "reveal" && (e.key === " " || e.key === "Enter")){ e.preventDefault(); continueRun(); return; }
+  if((G.phase === "break" || G.phase === "intro") && (e.key === " " || e.key === "Enter")){ e.preventDefault(); nextZone(); return; }
+  if(e.key === "ArrowRight"){ e.preventDefault(); if(!e.repeat) dash(); return; }
   if(e.key === "ArrowUp" || e.key === "w"){ e.preventDefault(); moveTo(G.lane - 1); }
   else if(e.key === "ArrowDown" || e.key === "s"){ e.preventDefault(); moveTo(G.lane + 1); }
   else if(e.key === "1") moveTo(0);
@@ -1052,7 +1196,7 @@ function resumeGame(){
   G.phase = G.pausedFrom; lastTs = 0;
   if(G.phase === "reveal") G.revealTimer = setTimeout(continueRun, 3000);
 }
-function quitGame(){ $("pauseOverlay").classList.remove("show"); showTitle(); }
+function quitGame(){ $("pauseOverlay").classList.remove("show"); $("zoneOverlay").classList.remove("show"); showTitle(); }
 document.addEventListener("visibilitychange", () => { if(document.hidden) pauseGame(); });
 
 /* =====================================================================
