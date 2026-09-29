@@ -4327,7 +4327,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.52</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.53</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -11670,22 +11670,30 @@ function hyaPool(){
 }
 
 /* ================= 段階的アンロック（ジャンル非依存の汎用判定＋百人一首固有部分） =================
-   「対象キー群のうちquorum個以上がstreakThreshold回以上連続正解」かつ「直近の正答率(recentWindow)
-   がaccThreshold以上」の両方を満たしたら次のグループを解禁してよい、という判定だけを行う汎用エンジン。
-   グループの定義方法（決まり字・頻度ランクなど）や進捗の保存場所はジャンル側の責務（将来、他ジャンルにも
-   同じ判定ロジックを再利用できるようにするための最小限の分離。過度な抽象化はしない）。
-   2026-08-05〜：教員とのシミュレーション検証を経て、以下2点を変更。
+   「対象キー群の全問が、間違えた問題もふくめて少なくとも1回は正解できている」かつ「直近の正答率
+   (recentWindow)がaccThreshold以上」の両方を満たしたら次のグループを解禁してよい、という判定だけを
+   行う汎用エンジン。グループの定義方法（決まり字・頻度ランクなど）や進捗の保存場所はジャンル側の
+   責務（将来、他ジャンルにも同じ判定ロジックを再利用できるようにするための最小限の分離。過度な
+   抽象化はしない）。
+   2026-08-05〜：教員とのシミュレーション検証を経て、以下2点を変更（のちに2026-09-29でさらに変更）。
    ①「8問全て」→「quorum個以上」に緩和（8問同時にstreakThreshold回以上を要求すると、実力が
    ちょうど境界あたり(グループ内の実質的な正答率が7〜8割弱程度)の生徒では、統計的にほぼ揃わず
    長時間詰まるリスクがあった。詳細は[[kokugo-drill-dx-workflow]]参照）。
    ②正答率の判定を「そのグループの全期間累計(t,c)」→「そのグループに対する直近N問(recentWindow)」
    に変更。累計だと、実力が長期的にaccThreshold未満の生徒は大数の法則で理論上永久に到達不可能に
    なってしまう（後から実力が伸びても、初期の不正解が累計を汚したままなので救われない）。直近N問なら
-   古い不正解が窓から外れていくので、後から実力が伸びれば追いつける。 */
+   古い不正解が窓から外れていくので、後から実力が伸びれば追いつける。
+   2026-09-29〜：教員から「解放が遅い」との指摘を受け、さらに緩和。①「quorum個以上がstreak回以上
+   連続正解」→「全問が、間違えた問題もふくめて少なくとも1回は正解できている」（連続正解を問わない
+   ぶん、①で懸念していた長時間詰まるリスクは、そもそも連続を要求しなくなったことで解消する）。
+   ②recentWindowを30問→4問、accThresholdを80%→75%（4問中3問）に短縮・緩和。 */
 const UnlockEngine = {
-  isGroupCleared(unitKeys, streakMap, recentWindow, streakThreshold, accThreshold, quorum){
-    const streakedCount = unitKeys.reduce((n,k) => n + ((streakMap[k]||0) >= streakThreshold ? 1 : 0), 0);
-    if(streakedCount < quorum) return false;
+  /* 2026-09-29〜（教員の指示：「解放が遅い」ため緩和）：解禁条件を「連続正解の頻度」から
+     「グループ内の全問題が、間違えた問題もふくめて少なくとも1回は正解できているか」に変更。
+     correctedMapは、その問題をこれまでに一度でも正解したことがあるかを表すbool値。 */
+  isGroupCleared(unitKeys, correctedMap, recentWindow, accThreshold){
+    const clearedCount = unitKeys.reduce((n,k) => n + (correctedMap[k] ? 1 : 0), 0);
+    if(clearedCount < unitKeys.length) return false; // 全問、一度は正解している必要がある
     if(!recentWindow || recentWindow.length === 0) return false;
     return (recentWindow.reduce((a,b)=>a+b,0) / recentWindow.length) >= accThreshold;
   }
@@ -11699,10 +11707,8 @@ const UnlockEngine = {
    UnlockEngineを流用しつつ、hyaGroups系として個別に実装している（決まり字グループ方式(旧、
    2026-07-31〜)からの移行、2026-08-01〜）。 */
 const GROUP_SIZE = 8;
-const GROUP_UNLOCK_STREAK = 2;   // 2026-08-05〜：3→2に緩和（下のGROUP_UNLOCK_QUORUMの変更とセット）
-const GROUP_UNLOCK_QUORUM = 6;   // 2026-08-05〜：GROUP_SIZE(8問)中、streak要件を満たす必要がある最低数
-const GROUP_UNLOCK_ACC = 0.8;
-const GROUP_RECENT_WINDOW = 30;  // 2026-08-05〜：正答率判定を、そのグループへの直近この件数の解答で見る（全期間累計ではない）
+const GROUP_UNLOCK_ACC = 3/4;    // 2026-09-29〜：80%→75%（4問中3問）に緩和（教員の指示）
+const GROUP_RECENT_WINDOW = 4;   // 2026-09-29〜：正答率判定の窓を30問→4問に短縮（教員の指示：直近4問中3問正解）
 /* 高速解放モード（2026-08-02〜、教員の指示）。漢字の読み(5489問・687グループ)のように問題数が
    極端に多いジャンルだと、実力的には簡単すぎる生徒でも「8問ずつ・各問3連続正解」という通常の
    グループ判定に律儀に付き合わされ、解放のペースが遅くストレスになる。直近30問（st.recentCorrect、
@@ -11949,9 +11955,9 @@ function activeGroupPool(st, cat){
   if(count >= groups.length) return null;
   return groups[count - 1].indices.map(i => CATS[cat].items[i]);
 }
-/* 現在アクティブなグループの解禁条件（8問中GROUP_UNLOCK_QUORUM問以上がGROUP_UNLOCK_STREAK回以上
-   連続正解 かつ そのグループへの直近GROUP_RECENT_WINDOW問の正答率がGROUP_UNLOCK_ACC以上）を
-   満たしていれば、unlockedGroupCountを1つ進める。record()内、st.recentCorrect/fastGuessの
+/* 現在アクティブなグループの解禁条件（グループ内の全問題が、間違えた問題もふくめて少なくとも
+   1回は正解できている かつ そのグループへの直近GROUP_RECENT_WINDOW問の正答率がGROUP_UNLOCK_ACC
+   以上）を満たしていれば、unlockedGroupCountを1つ進める。record()内、st.recentCorrect/fastGuessの
    確定後に呼ぶ（fastUnlockEligible判定にst.recentCorrect[cat]の最新状態が要るため）。
    streakはst.qからその場で導出するだけで専用の記録を持たないが、正答率だけは「そのグループの
    問題に対する解答か」を問わないと直近N問を数えられないため、st.groupRecent[cat]という専用の
@@ -11982,10 +11988,10 @@ function checkGroupUnlock(st, cat, item, correct, fastGuess){
     if(st.groupRecent) st.groupRecent[cat] = [];
     return true;
   }
-  const streakMap = {};
-  cur.keys.forEach(k => { const rec = st.q[k]; streakMap[k] = rec ? (rec.k||0) : 0; });
+  const correctedMap = {};
+  cur.keys.forEach(k => { const rec = st.q[k]; correctedMap[k] = !!(rec && rec.c >= 1); });
   const recentWindow = (st.groupRecent && st.groupRecent[cat]) || [];
-  if(UnlockEngine.isGroupCleared(cur.keys, streakMap, recentWindow, GROUP_UNLOCK_STREAK, GROUP_UNLOCK_ACC, GROUP_UNLOCK_QUORUM)){
+  if(UnlockEngine.isGroupCleared(cur.keys, correctedMap, recentWindow, GROUP_UNLOCK_ACC)){
     if(!st.groupUnlock) st.groupUnlock = {};
     st.groupUnlock[cat] = catUnlockedGroupCount(st, cat) + 1;
     st.groupRecent[cat] = [];
@@ -11996,8 +12002,8 @@ function checkGroupUnlock(st, cat, item, correct, fastGuess){
 /* 移行ロジック（2026-08-01〜）：段階的アンロック導入より前からの生徒の既存正誤履歴(st.q)から、
    「実質どこまでのグループを習得済みか」を一回限り算出し、unlockedGroupCountの初期値にする
    （全員グループ1からやり直しにはしない、教員の指示。分野レベルst.lvには一切触れない）。
-   判定基準は新規アンロック基準よりやや緩め：グループ内正答率80%以上 かつ 8問中6問以上が
-   現在連続正解中(k>=1)。先頭のグループから連続してこの基準を満たす数だけ、
+   判定基準は新規アンロック基準とは別の指標（GROUP_UNLOCK_ACCを参照）：グループ内正答率が
+   その値以上 かつ 8問中6問以上が現在連続正解中(k>=1)。先頭のグループから連続してこの基準を満たす数だけ、
    最初から解禁済みとみなす（満たさないグループに達したら打ち切り）。 */
 function migrateInitialGroupUnlock(st, cat){
   const groups = catGroups(cat);
@@ -12016,7 +12022,7 @@ function migrateInitialGroupUnlock(st, cat){
 }
 
 /* ================= 百人一首の8問グループ化（段階的アンロック、2026-08-01〜） =================
-   20分野と同じGROUP_SIZE/GROUP_UNLOCK_STREAK/GROUP_UNLOCK_ACC・UnlockEngineを流用するが、
+   20分野と同じGROUP_SIZE/GROUP_UNLOCK_ACC・UnlockEngineを流用するが、
    百人一首の出題プール（hyaPool）は20分野のCATS[cat].itemsと違って起動時に動的生成され、
    各itemが元からid（歌番号+出題形式、例:"3_kami2shimo"）で一意なので、20分野のcatGroupsのように
    indices/keysを分けて持つ必要がない（qKeyの文字列ハッシュも使わない。同じ歌から生成される
@@ -12176,9 +12182,9 @@ function hyaFastUnlockEligible(st){
   const misses = recent.reduce((n,v) => n + (v ? 0 : 1), 0);
   return misses <= FAST_UNLOCK_MAX_MISSES;
 }
-/* 現在アクティブなグループの解禁条件（8問中GROUP_UNLOCK_QUORUM問以上がGROUP_UNLOCK_STREAK回以上
-   連続正解 かつ そのグループへの直近GROUP_RECENT_WINDOW問の正答率がGROUP_UNLOCK_ACC以上）を
-   満たしていれば、st.groupUnlock.hyakuninを1つ進める。hyaRecord内、st.hyakunin.recent更新の
+/* 現在アクティブなグループの解禁条件（グループ内の全問題が、間違えた問題もふくめて少なくとも
+   1回は正解できている かつ そのグループへの直近GROUP_RECENT_WINDOW問の正答率がGROUP_UNLOCK_ACC
+   以上）を満たしていれば、st.groupUnlock.hyakuninを1つ進める。hyaRecord内、st.hyakunin.recent更新の
    直後に呼ぶ（hyaFastUnlockEligible判定にst.hyakunin.recentの最新状態が要るため）。
    streakはitemHistからその場で導出するだけだが、正答率は20分野側と同じ理由でst.hyaGroupRecent
    という専用のローリング窓を新設した（2026-08-05〜、詳細はcheckGroupUnlockのコメント参照）。
@@ -12203,10 +12209,10 @@ function hyaCheckGroupUnlock(st, id, correct){
     st.hyaGroupRecent = [];
     return true;
   }
-  const streakMap = {};
-  cur.ids.forEach(itemId => { const rec = st.hyakunin.itemHist[itemId]; streakMap[itemId] = rec ? (rec.k||0) : 0; });
+  const correctedMap = {};
+  cur.ids.forEach(itemId => { const rec = st.hyakunin.itemHist[itemId]; correctedMap[itemId] = !!(rec && rec.c >= 1); });
   const recentWindow = st.hyaGroupRecent || [];
-  if(UnlockEngine.isGroupCleared(cur.ids, streakMap, recentWindow, GROUP_UNLOCK_STREAK, GROUP_UNLOCK_ACC, GROUP_UNLOCK_QUORUM)){
+  if(UnlockEngine.isGroupCleared(cur.ids, correctedMap, recentWindow, GROUP_UNLOCK_ACC)){
     st.hyaGroupRecent = [];
     if(!st.groupUnlock) st.groupUnlock = {};
     st.groupUnlock.hyakunin = hyaUnlockedGroupCount(st) + 1;
@@ -12217,7 +12223,7 @@ function hyaCheckGroupUnlock(st, id, correct){
 /* 移行ロジック（2026-08-01〜）：決まり字グループ方式（旧）からの切り替えにあたり、既存プレイヤーの
    itemHist（過去の正誤記録）から「実質どこまでのグループを習得済みか」を一回限り算出し、
    st.groupUnlock.hyakuninの初期値にする（全員グループ1からやり直しにはしない）。判定基準は
-   migrateInitialGroupUnlockと同じ：グループ内正答率80%以上 かつ 8問中6問以上が現在連続正解中(k>=1)。 */
+   migrateInitialGroupUnlockと同じ：グループ内正答率がGROUP_UNLOCK_ACC以上 かつ 8問中6問以上が現在連続正解中(k>=1)。 */
 function migrateInitialHyaGroupUnlock(st){
   const groups = hyaGroups();
   let n = 0;
@@ -27702,10 +27708,10 @@ function ktCheckGroupUnlock(st, idx, correct){
     st.ktGroupRecent = [];
     return true;
   }
-  const streakMap = {};
-  cur.keys.forEach(k => { const rec = st.q[k]; streakMap[k] = rec ? (rec.k||0) : 0; });
+  const correctedMap = {};
+  cur.keys.forEach(k => { const rec = st.q[k]; correctedMap[k] = !!(rec && rec.c >= 1); });
   const recentWindow = st.ktGroupRecent || [];
-  if(UnlockEngine.isGroupCleared(cur.keys, streakMap, recentWindow, GROUP_UNLOCK_STREAK, GROUP_UNLOCK_ACC, GROUP_UNLOCK_QUORUM)){
+  if(UnlockEngine.isGroupCleared(cur.keys, correctedMap, recentWindow, GROUP_UNLOCK_ACC)){
     if(!st.groupUnlock) st.groupUnlock = {};
     st.groupUnlock.kanbun_kt = ktUnlockedGroupCount(st) + 1;
     st.ktGroupRecent = [];
@@ -28269,7 +28275,7 @@ function ktAnimateReveal(){
    初めは8つの問題からランダムで出し、正答率等に応じて少しずつ開くシステムに。ボタンを分ける
    ということではない」）。そのため、専用のGROUP_SIZE・UnlockEngine・fastUnlockEligibleは
    ホームの「返り点をつける」ボタンとは分けたまま、既存の20分野／百人一首と全く同じ判定式
-   （UnlockEngine.isGroupCleared、GROUP_UNLOCK_STREAK/QUORUM/ACC、高速解放モード）を流用する。
+   （UnlockEngine.isGroupCleared、GROUP_UNLOCK_ACC、高速解放モード）を流用する。
    グループ解禁の進捗（st.groupUnlock.kanbun_yj）・解禁の材料になる連続正解数はKT側とは独立させる
    （KTと同じキーや同じqKeyを使うと、片方だけ解いてももう片方まで解禁・進捗してしまうため、
    st.q側のキーもyjQ()で"読順:"という専用の接頭辞を付けて区別する）。 */
@@ -28344,10 +28350,10 @@ function yjCheckGroupUnlock(st, idx, correct){
     st.yjGroupRecent = [];
     return true;
   }
-  const streakMap = {};
-  cur.keys.forEach(k => { const rec = st.q[k]; streakMap[k] = rec ? (rec.k||0) : 0; });
+  const correctedMap = {};
+  cur.keys.forEach(k => { const rec = st.q[k]; correctedMap[k] = !!(rec && rec.c >= 1); });
   const recentWindow = st.yjGroupRecent || [];
-  if(UnlockEngine.isGroupCleared(cur.keys, streakMap, recentWindow, GROUP_UNLOCK_STREAK, GROUP_UNLOCK_ACC, GROUP_UNLOCK_QUORUM)){
+  if(UnlockEngine.isGroupCleared(cur.keys, correctedMap, recentWindow, GROUP_UNLOCK_ACC)){
     if(!st.groupUnlock) st.groupUnlock = {};
     st.groupUnlock.kanbun_yj = yjUnlockedGroupCount(st) + 1;
     st.yjGroupRecent = [];
