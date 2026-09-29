@@ -28,7 +28,74 @@
       .replace(/"/g, '&quot;');
   }
 
+  function setBootStatus(label, ratio) {
+    const labelEl = document.getElementById('dx-boot-label');
+    const bar = document.getElementById('dx-boot-bar');
+    const progress = document.getElementById('dx-boot-progress');
+    const detail = document.getElementById('dx-boot-detail');
+    if (labelEl && label && labelEl.textContent !== label) labelEl.textContent = label;
+    if (detail && ratio == null) detail.textContent = '';
+    if (!bar || !progress) return;
+    if (ratio == null) {
+      bar.classList.add('is-indeterminate');
+      bar.style.width = '';
+      progress.removeAttribute('aria-valuenow');
+      return;
+    }
+    const pct = Math.max(0, Math.min(100, Math.round(ratio * 100)));
+    bar.classList.remove('is-indeterminate');
+    bar.style.width = pct + '%';
+    progress.setAttribute('aria-valuenow', String(pct));
+  }
+
+  function hideBoot() {
+    const el = document.getElementById('dx-boot');
+    const app = document.getElementById('app');
+    const reveal = function () {
+      if (app && app.getAttribute('data-dx-boot-hidden') === '1') {
+        app.removeAttribute('aria-hidden');
+        app.removeAttribute('data-dx-boot-hidden');
+      }
+    };
+    if (!el || el.getAttribute('data-closing') === '1') {
+      reveal();
+      return;
+    }
+    el.setAttribute('data-closing', '1');
+    el.setAttribute('aria-busy', 'false');
+    const reduce =
+      window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let removed = false;
+    const remove = function () {
+      if (removed) return;
+      removed = true;
+      if (el.parentNode) el.parentNode.removeChild(el);
+      reveal();
+    };
+    if (reduce) {
+      remove();
+      return;
+    }
+    el.classList.add('is-done');
+    el.addEventListener('transitionend', function (ev) {
+      if (ev.target !== el || ev.propertyName !== 'opacity') return;
+      remove();
+    });
+    setTimeout(remove, 500);
+  }
+
   function showError(message) {
+    const boot = document.getElementById('dx-boot');
+    const card = boot && boot.querySelector('.dx-boot-card');
+    const html =
+      '<p class="dx-boot-title">知識ドリル<span>DX</span></p>' +
+      '<p class="dx-boot-error-title">読み込みに失敗しました</p>' +
+      '<p class="dx-boot-error">' + escapeHtml(message) + '</p>';
+    if (boot && card) {
+      boot.setAttribute('aria-busy', 'false');
+      card.innerHTML = html;
+      return;
+    }
     const app = document.getElementById('app');
     if (!app) return;
     app.innerHTML =
@@ -132,10 +199,17 @@
    * 連続する外部 script はまとめて append（async=false → 並列取得・順序実行）。
    * インライン script の直前で、それまでの外部 script の完了を待つ。
    */
-  function injectScriptsInOrder(scriptInfos) {
+  function injectScriptsInOrder(scriptInfos, onProgress) {
     return new Promise(function (resolve, reject) {
       let i = 0;
       let settled = false;
+      let finished = 0;
+      const total = scriptInfos.length;
+
+      function note() {
+        finished++;
+        if (typeof onProgress === 'function') onProgress(finished, total);
+      }
 
       function fail(err) {
         if (settled) return;
@@ -162,6 +236,7 @@
               s.async = false;
               s.onload = function () {
                 remaining--;
+                note();
                 if (remaining === 0) res();
               };
               s.onerror = function () {
@@ -194,6 +269,7 @@
         inline.textContent = scriptInfos[i].code || '';
         document.body.appendChild(inline);
         i++;
+        note();
         pump();
       }
 
@@ -271,8 +347,11 @@
       return;
     }
 
-    hostApp.innerHTML =
-      '<p style="padding:1rem;font-family:sans-serif;color:#555;">読み込み中…</p>';
+    /* ロード画面は #app の外に置く。中に置くと本体 HTML を入れた瞬間に消え、
+       スクリプト完了前の空画面が見えてしまう。 */
+    hostApp.setAttribute('aria-hidden', 'true');
+    hostApp.setAttribute('data-dx-boot-hidden', '1');
+    setBootStatus('最新の版を確認しています');
 
     let commitHash = FALLBACK_COMMIT_HASH;
 
@@ -286,6 +365,7 @@
       })
       .then(function () {
         window.__DX_CDN_BASE__ = cdnBase(commitHash);
+        setBootStatus('アプリ本体を取得しています');
 
         return fetchText(rawHtmlUrl(commitHash)).then(function (htmlText) {
           const doc = parseHtml(htmlText);
@@ -311,7 +391,12 @@
           }
 
           const scripts = collectScripts(doc, commitHash);
-          return injectScriptsInOrder(scripts).then(function () {
+          setBootStatus('スクリプトを読み込んでいます');
+          return injectScriptsInOrder(scripts, function (done, total) {
+            setBootStatus('スクリプトを読み込んでいます', total ? done / total : 1);
+            const detail = document.getElementById('dx-boot-detail');
+            if (detail) detail.textContent = done + ' / ' + total;
+          }).then(function () {
             installNobiruOpener();
             /* CDN の旧 kokugo_app は jsDelivr HTML へ遷移して text/plain 表示になるため上書き。
                viaDaily（一日一読）と viaCheck（問題チェック）は落とさず __DX_OPEN_NOBIRU__ へ渡す。 */
@@ -321,6 +406,7 @@
               else if (viaDaily) params.viaDaily = '1';
               return window.__DX_OPEN_NOBIRU__(key, params);
             };
+            hideBoot();
           });
         });
       })
