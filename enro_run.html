@@ -14,6 +14,8 @@
      炎狼は関所ごとにまん中へ戻り、まん中のままだと時間切れ）を加え、4区間・関所32個にした。
      さらに教員の指示で、区間ごとに走りを止めて「完走！」と次の区間のルールを見せる画面（showZoneCard）と、
      →キーで関所の前まで一気に進むダッシュ（dash）を加え、見きわめの区間の考える時間を1.5倍にした。
+     さらに教員の指示で、まちがえた関所は数に入れない（正解で通った関所だけが進む）ようにし、32個目を通ったら
+     「完全クリア！」（fullClear）から「結果を見る」か「挑戦モード」（4区間の問題を1問ごとにまぜて、❤がなくなるまで）を選べるようにした。
      本体のセーブデータ(st)には一切触れず、このページ専用のlocalStorageキーだけを使う
      （経験値・ジャンルレベルにはまだ反映しない）。炎狼の絵は本番と同じスプライト(enemy_sprites_data.js)を使い、
      読み込めなかったときは🐺の絵文字で代用する。 -->
@@ -267,6 +269,14 @@
   }
   @keyframes dashLines{ 0%{opacity:1; transform:translateX(30%)} 100%{opacity:0; transform:translateX(-30%)} }
   .dash-hint{ font-size:12px; color:var(--sub); }
+  .overlay .clear-box{ width:min(420px,100%); gap:12px; }
+  .cl-title{ font-size:clamp(28px, 7vw, 38px); font-weight:bold; color:var(--gold); text-shadow:0 0 20px rgba(255,215,107,.8); animation:wpop .4s ease; }
+  .cl-sub{ font-size:12px; color:var(--sub); margin-top:-6px; }
+  .travel{ text-align:center; padding:12px; border-radius:14px; background:linear-gradient(135deg, rgba(255,122,47,.18), rgba(255,215,107,.08)); border:1px solid rgba(255,195,107,.45); }
+  .travel .km{ font-size:clamp(22px, 6vw, 30px); font-weight:bold; color:var(--gold); }
+  .travel .place{ font-size:clamp(17px, 4.6vw, 22px); font-weight:bold; margin-top:4px; }
+  .travel .next{ font-size:13px; color:var(--sub); margin-top:4px; }
+  .miss .chtag{ font-size:11px; color:var(--fire2); border:1px solid var(--fire2); border-radius:6px; padding:0 4px; margin-right:4px; }
   .count{ font-size:90px; font-weight:bold; color:var(--fire2); text-shadow:0 0 30px rgba(255,122,47,.9); }
 
   /* =====================================================================
@@ -344,8 +354,8 @@
 <section id="scGame" class="screen">
   <div class="hud">
     <span class="lives" id="lives"></span>
-    <span class="gates">関所 <b id="gates">0</b> / <span id="gatesMax"></span></span>
-    <span class="score">得点 <b id="score">0</b></span>
+    <span class="gates" id="gatesBox"></span>
+    <span class="score" id="scoreBox"></span>
     <span class="zone" id="zone"></span>
     <span class="sp"></span>
     <span class="dash-hint">→キーでダッシュ</span>
@@ -384,6 +394,7 @@
       </div>
     </div>
     <div class="stats" id="endStats"></div>
+    <div class="travel" id="endTravel" hidden></div>
     <div class="miss-list" id="missList"></div>
     <div class="end-btns">
       <button class="btn" onclick="startGame()">もう一度走る</button>
@@ -405,12 +416,22 @@
     <div class="zb-key">Enterキー・スペースキーでも進めます</div>
   </div>
 </div>
+<div class="overlay" id="clearOverlay">
+  <div class="box clear-box">
+    <div class="cl-title mincho">🏆 完全クリア！</div>
+    <div class="end-stars" id="clStars"></div>
+    <div class="zb-score" id="clInfo"></div>
+    <button class="btn" onclick="enterChallenge()">🔥 挑戦モードに突入</button>
+    <div class="cl-sub">これまでの区間の問題がまぜこぜで出る。❤がなくなるまで何問続けられるか！</div>
+    <button class="btn secondary" onclick="clearToResult()">結果を見る</button>
+  </div>
+</div>
 <div class="overlay" id="countOverlay"><div class="count" id="countNum">3</div></div>
 <div class="overlay" id="pauseOverlay">
   <div class="box">
     <div style="font-size:18px;font-weight:bold">ひと休み中</div>
     <button class="btn" onclick="resumeGame()">走りを再開する</button>
-    <button class="btn secondary" onclick="quitGame()">やめてタイトルへ</button>
+    <button class="btn secondary" id="quitBtn" onclick="quitGame()">やめてタイトルへ</button>
   </div>
 </div>
 
@@ -571,19 +592,19 @@ const GOAL_GATES = 32;
 /* rulesは区間の始めに見せるルール（showZoneCard）。timeMulは関所が届くまでの時間の倍率
    （見きわめの区間は文を読んで判断するので、教員の指示で1.5倍、2026-09-30〜）。 */
 const ZONES = [
-  {from:0,  maxLv:1, name:"第一区間", note:"特別な敬語の言葉を見分けよう",
+  {from:0,  maxLv:1, short:"第一区間", name:"第一区間", note:"特別な敬語の言葉を見分けよう",
    rules:["上に出た言葉が<b>尊敬語・謙譲語・丁寧語</b>のどれかを考えて、その道へ移ろう。",
           "「いらっしゃる」「参る」のような<b>特別な言葉</b>と、「〜ます」「〜です」が出るよ。",
           "道はタップか、<b>↑↓キー</b>で移れる。<b>→キー</b>でダッシュ！"]},
-  {from:8,  maxLv:2, name:"第二区間", note:"「お〜になる」「お〜する」などの形に注目！",
+  {from:8,  maxLv:2, short:"第二区間", name:"第二区間", note:"「お〜になる」「お〜する」などの形に注目！",
    rules:["道の並びは第一区間と同じ。",
           "「<b>お（ご）〜になる</b>」「〜れる・られる」は尊敬語、「<b>お（ご）〜する</b>」は謙譲語。",
           "「〜てくださる」は尊敬語、「〜ていただく」は謙譲語。<b>形に注目</b>しよう。"]},
-  {from:16, misuse:true, name:"第三区間　見きわめの区間", note:"その敬語の使い方は正しい？　上＝正しい／下＝正しくない", extra:1.2, timeMul:1.5,
+  {from:16, misuse:true, short:"見きわめ", name:"第三区間　見きわめの区間", note:"その敬語の使い方は正しい？　上＝正しい／下＝正しくない", extra:1.2, timeMul:1.5,
    rules:["道が<b>「〇正しい」（上）</b>と<b>「✕正しくない」（下）</b>に変わる！",
           "文の［　］の部分の<b>敬語の使い方が正しいか</b>を判断しよう。だれの動作か、だれに話しているかに注意。",
           "炎狼は関所ごとに<b>まん中</b>へ戻る。まん中のままだと<b>時間切れ（ミス）</b>になるよ。"]},
-  {from:24, maxLv:3, name:"最終区間　迷いの区間", note:"関所ごとに道の並びが入れかわる！　ラベルをよく見よう", maze:true, extra:0.8,
+  {from:24, maxLv:3, short:"迷い", name:"最終区間　迷いの区間", note:"関所ごとに道の並びが入れかわる！　ラベルをよく見よう", maze:true, extra:0.8,
    rules:["道が<b>尊敬語・謙譲語・丁寧語</b>にもどる。",
           "ただし、関所が来るたびに<b>道の並びが入れかわる</b>！　動く前に<b>道のラベル</b>をよく見よう。",
           "これが最後の区間。ゴールまで走りぬけろ！"]},
@@ -630,6 +651,8 @@ function loadSave(){
   if(typeof s.plays !== "number") s.plays = 0;
   if(typeof s.bestStars !== "number") s.bestStars = 0;   // ゴールしたときの最高★（0＝まだゴールしていない）
   if(typeof s.clears !== "number") s.clears = 0;
+  if(typeof s.bestChallenge !== "number") s.bestChallenge = 0;  // 挑戦モードで続けられた最高の問題数
+  if(typeof s.bestKm !== "number") s.bestKm = 0;                // 挑戦モードの最長の移動距離
   if(typeof s.muted !== "boolean") s.muted = false;
   return s;
 }
@@ -728,7 +751,7 @@ function showTitle(){
   document.body.classList.remove("hibashiri");
   setWolf($("titleWolf"), "pose1");
   $("bestLine").innerHTML = SAVE.bestStars > 0
-    ? `最高 <b>${starText(SAVE.bestStars)}</b>　自己ベスト <b>${SAVE.best}</b> 点　（ゴール ${SAVE.clears} 回）`
+    ? `最高 <b>${starText(SAVE.bestStars)}</b>　自己ベスト <b>${SAVE.best}</b> 点　（クリア ${SAVE.clears} 回）` + (SAVE.bestKm > 0 ? `<br>挑戦モード最長 <b>${kmText(SAVE.bestKm)}</b> km（${placeName(placeOf(SAVE.bestKm).at)}まで）` : "")
     : SAVE.best > 0 ? `自己ベスト <b>${SAVE.best}</b> 点　まずはゴールをめざそう！` : `関所${GOAL_GATES}個を走りぬけて、ゴールをめざそう！`;
   show("scTitle");
 }
@@ -791,21 +814,53 @@ function nextWord(){
   return w;
 }
 
+/* 挑戦モードの移動距離（2026-09-30〜、教員の指示）。挑戦モードでは得点のかわりにkmがたまる（1点＝KM_PER_POINT km）。
+   盛岡を出発して西回りに世界を一周し、盛岡へ帰ってくるルート。数字は盛岡からの道のり（各地点の間の大圏距離を
+   足し上げたもの、km）。一周は約4万2千km。一周をこえたら2周目に入る。 */
+const KM_PER_POINT = 10;
+const WORLD_ROUTE = [
+  [0,"盛岡","日本"],[161,"仙台","日本"],[465,"東京","日本"],[730,"名古屋","日本"],[870,"大阪","日本"],[1150,"広島","日本"],
+  [1360,"福岡","日本"],[1574,"プサン（釜山）","韓国"],[1900,"ソウル","韓国"],[2852,"ペキン（北京）","中国"],
+  [3919,"シャンハイ（上海）","中国"],[4609,"タイペイ（台北）","台湾"],[5420,"ホンコン（香港）","中国"],[6292,"ハノイ","ベトナム"],
+  [7279,"バンコク","タイ"],[8707,"シンガポール","シンガポール"],[10622,"ヤンゴン","ミャンマー"],[11658,"コルカタ","インド"],
+  [12961,"ニューデリー","インド"],[15166,"ドバイ","アラブ首長国連邦"],[17589,"カイロ","エジプト"],[18826,"イスタンブール","トルコ"],
+  [19388,"アテネ","ギリシャ"],[20439,"ローマ","イタリア"],[21545,"パリ","フランス"],[21889,"ロンドン","イギリス"],
+  [23778,"レイキャビク","アイスランド"],[25208,"ヌーク","グリーンランド"],[27685,"モントリオール","カナダ"],
+  [28219,"ニューヨーク","アメリカ"],[29363,"シカゴ","アメリカ"],[32167,"ロサンゼルス","アメリカ"],[36287,"ホノルル","アメリカ（ハワイ）"],
+  [42354,"盛岡","日本"],
+];
+const WORLD_LAP = WORLD_ROUTE[WORLD_ROUTE.length - 1][0];
+// km進んだとき、どこまで到達したか：{laps:何周したか, at:最後に着いた地点, next:次の地点, left:次までの残りkm}
+function placeOf(km){
+  const laps = Math.floor(km / WORLD_LAP), r = km % WORLD_LAP;
+  let i = 0;
+  while(i + 1 < WORLD_ROUTE.length && WORLD_ROUTE[i + 1][0] <= r) i++;
+  const next = WORLD_ROUTE[i + 1] || WORLD_ROUTE[1];
+  return {laps, at:WORLD_ROUTE[i], next, left:next[0] - r};
+}
+// 「中国のペキン（北京）」のように国名を前につける（日本の地名と、国名と同じ地名はそのまま）
+const placeName = pt => (pt[2] === "日本" || pt[1] === pt[2]) ? pt[1] : `${pt[2]}の${pt[1]}`;
+const kmText = n => n.toLocaleString("ja-JP");
+
+/* 挑戦モードは、本編の最高速(2.4秒ほど)から始めて、正解するたびにさらに速くなる（最速CH_MIN秒） */
+const CH_START = 2.6, CH_MIN = 1.6, CH_STEP = 0.03;
 function travelTime(){
   const z = ZONES[G.zone];
-  return (Math.max(TRAVEL_MIN, TRAVEL_START - G.correct * TRAVEL_STEP) + (z.extra || 0)) * (z.timeMul || 1);
+  const base = G.challenge ? Math.max(CH_MIN, CH_START - G.chCorrect * CH_STEP)
+                           : Math.max(TRAVEL_MIN, TRAVEL_START - G.correct * TRAVEL_STEP);
+  return (base + (z.extra || 0)) * (z.timeMul || 1);
 }
-// n個の関所を通った時点が、区間の変わり目かどうか
+// n個の関所を（正解で）通った時点が、区間の変わり目かどうか。まちがえた関所は数えないので、nはG.correct
 const isZoneBoundary = n => n > 0 && n < GOAL_GATES && ZONES.some(z => z.from === n);
 
 function startGame(){
   stopLoop();
   G = {lane:1, lives:LIVES, score:0, correct:0, total:0, combo:0, maxCombo:0, gauge:0, hib:0,
        zone:0, used:new Set(), lastWord:null, barriers:[], phase:"count", misses:[], spawnWait:0,
-       scroll:0, speed:0, pendingZone:null, items:[], prevGauge:0, usedMisuse:new Set()};
+       scroll:0, speed:0, pendingZone:null, items:[], prevGauge:0, usedMisuse:new Set(),
+       challenge:false, chCorrect:0, clearStars:0, clearMisses:0, km:0};
   document.body.classList.remove("hibashiri", "maze");
   LANE_TYPE = DEFAULT_LANES.slice(); applyLanes(false);
-  $("gatesMax").textContent = GOAL_GATES;
   show("scGame");
   setWolf($("wolfBody"), "pose1");
   $("wolf").className = "run";
@@ -874,7 +929,7 @@ function zoneBreak(){
   G.phase = "break";
   setWolf($("wolfBody"), "pose1"); $("wolf").className = "";
   SE.zone();
-  const z = zoneOf(G.total);
+  const z = zoneOf(G.correct);
   enterZone(z);
   showZoneCard(z, false);
 }
@@ -890,10 +945,23 @@ function nextZone(){
   lastTs = 0;
 }
 
+// 挑戦モード：1問ごとに、4つの区間のどれかの問題にする（道の種類・並びもその区間のものにする）
+function pickChallengeZone(){
+  const z = Math.floor(Math.random() * ZONES.length);
+  const changed = z !== G.zone;
+  G.zone = z;
+  document.body.classList.toggle("maze", !!ZONES[z].maze);
+  const base = (ZONES[z].misuse ? MISUSE_LANES : DEFAULT_LANES);
+  if(changed || LANE_TYPE.join() !== base.join()){ LANE_TYPE = base.slice(); applyLanes(true); }
+}
+
 function spawnBarrier(){
-  // 区間が進んだか（何個目の関所かで決まる。ふつうはzoneBreakで切りかえ済み）
-  const z = zoneOf(G.total);
-  if(z !== G.zone) enterZone(z);
+  if(G.challenge) pickChallengeZone();
+  else{
+    // 区間が進んだか（正解で通った関所の数で決まる。ふつうはzoneBreakで切りかえ済み）
+    const z = zoneOf(G.correct);
+    if(z !== G.zone) enterZone(z);
+  }
   if(ZONES[G.zone].maze){ shuffleLanes(); SE.shuffle(); }
   // 見きわめの区間：炎狼は関所ごとにまん中（考え中）へ戻る
   if(ZONES[G.zone].misuse) G.lane = 1;
@@ -909,7 +977,9 @@ function spawnBarrier(){
   G.barriers.push(b);
   G.speed = (geo.startX - geo.judgeX) / travelTime();
   const isSentence = w[0].includes("[");
-  $("wordCtx").textContent = w[4] || (ZONES[G.zone].misuse ? "この敬語の使い方は正しい？" : isSentence ? "［　］の部分は？" : "");
+  $("wordCtx").textContent = (G.challenge ? `【${ZONES[G.zone].short}】` : "")
+    + (w[4] || (ZONES[G.zone].misuse ? "この敬語の使い方は正しい？" : isSentence ? "［　］の部分は？" : ""));
+  refreshHud();
   const we = $("word");
   we.className = "word mincho" + (isSentence ? " sentence" : "");
   we.innerHTML = wordHtml(w[0]);
@@ -996,7 +1066,6 @@ function judge(b){
   b.judged = true;
   G.total++;
   const want = laneOf(b.w[1]);
-  const finished = G.total >= GOAL_GATES;
   const gates = b.el.querySelectorAll(".gate");
   if(G.lane === want){
     // 正解：関所を通りぬける
@@ -1005,8 +1074,18 @@ function judge(b){
     G.correct++; G.combo++; G.maxCombo = Math.max(G.maxCombo, G.combo);
     let pts = 10 + Math.min(G.combo, 10) * 2;
     if(G.hib > 0) pts *= 2;
-    G.score += pts;
-    popup(`+${pts}`);
+    if(G.challenge){
+      const km = pts * KM_PER_POINT, before = placeOf(G.km);
+      G.km += km;
+      popup(`+${kmText(km)}km`);
+      const after = placeOf(G.km);
+      if(after.at !== before.at || after.laps !== before.laps){
+        banner(after.at[0] === 0 ? `🌏 地球一周！<small>盛岡に帰ってきた！</small>` : `📍 ${placeName(after.at)} に到着！`, 1300);
+      }
+    }else{
+      G.score += pts;
+      popup(`+${pts}`);
+    }
     SE.pass(G.combo);
     wolfPose("attack", 260);
     if(G.hib > 0){
@@ -1018,8 +1097,9 @@ function judge(b){
     }
     setTimeout(() => b.el.classList.add("gone"), 150);
     refreshHud();
-    if(finished) goal();
-    else if(isZoneBoundary(G.total)){ G.phase = "between"; setTimeout(() => { if(G && G.phase === "between") zoneBreak(); }, 900); }
+    if(G.challenge){ G.chCorrect++; refreshHud(); G.spawnWait = 0.3; }
+    else if(G.correct >= GOAL_GATES){ G.phase = "between"; setTimeout(() => { if(G && G.phase === "between") fullClear(); }, 700); }
+    else if(isZoneBoundary(G.correct)){ G.phase = "between"; setTimeout(() => { if(G && G.phase === "between") zoneBreak(); }, 900); }
     else G.spawnWait = 0.3;
   }else{
     // まちがい：ぶつかる。走りを止めて、正しい道と解説を見せる
@@ -1035,7 +1115,7 @@ function judge(b){
       G.gauge = Math.max(0, G.gauge - WRONG_GAUGE_LOSS);
     }
     G.combo = 0;
-    G.misses.push({w:b.w, chose:LANE_TYPE[G.lane]});
+    G.misses.push({w:b.w, chose:LANE_TYPE[G.lane], ch:G.challenge});
     const w = $("wolf");
     w.classList.remove("run", "hit"); void w.offsetWidth; w.classList.add("hit");
     setWolf($("wolfBody"), "defense");
@@ -1054,7 +1134,8 @@ function judge(b){
       ${t.cls === "ok" || t.cls === "ng" ? `<div class="mincho" style="font-size:16px">${b.w[4] ? esc(b.w[4]) : ""}${wordHtml(b.w[0])}</div>` : ""}
       <div>${esc(b.w[3])}</div>
       ${protectedByFire ? "" : `<div style="font-size:12px;color:var(--sub)">❤ −1　炎ゲージ −${WRONG_GAUGE_LOSS}</div>`}
-      <div class="next">${G.lives > 0 ? (finished ? "タップでゴールへ" : isZoneBoundary(G.total) ? "タップで区間の結果へ" : "タップで走りを再開") : ""}</div>`;
+      ${!G.challenge && G.lives > 0 ? `<div style="font-size:12px;color:var(--sub)">まちがえた関所は数に入らない。もう一度、次の関所で勝負！</div>` : ""}
+      <div class="next">${G.lives > 0 ? "タップで走りを再開" : ""}</div>`;
     if(G.lives <= 0){
       setTimeout(gameOver, 1900);
     }else{
@@ -1071,8 +1152,6 @@ function continueRun(){
   document.querySelectorAll(".lane").forEach(l => l.classList.remove("answer"));
   const b = G.revealBarrier;
   if(b){ b.el.remove(); G.barriers = G.barriers.filter(x => x !== b); G.revealBarrier = null; }
-  if(G.total >= GOAL_GATES){ G.phase = "run"; goal(); return; }
-  if(isZoneBoundary(G.total)){ zoneBreak(); return; }
   setWolf($("wolfBody"), G.hib > 0 ? "attack" : "pose1");
   $("wolf").className = "run";
   G.phase = "run";
@@ -1119,9 +1198,10 @@ function popup(text){
 
 function refreshHud(){
   $("lives").innerHTML = Array.from({length:LIVES}, (_, i) => i < G.lives ? "❤️" : `<span class="off">❤️</span>`).join("");
-  $("score").textContent = G.score;
-  $("gates").textContent = Math.min(G.total, GOAL_GATES);
-  $("zone").textContent = `${ZONES[G.zone].name}　${G.combo >= 2 ? G.combo + "連続！" : ""}`;
+  $("scoreBox").innerHTML = G.challenge ? `移動 <b>${kmText(G.km)}</b> km` : `得点 <b>${G.score}</b>`;
+  $("gatesBox").innerHTML = G.challenge ? `🔥挑戦 <b>${G.chCorrect}</b> 問`
+                                       : `関所 <b>${Math.min(G.correct, GOAL_GATES)}</b> / ${GOAL_GATES}`;
+  $("zone").textContent = `${G.challenge ? "挑戦モード" : ZONES[G.zone].name}　${G.combo >= 2 ? G.combo + "連続！" : ""}`;
   const g = G.hib > 0 ? G.hib / HIBASHIRI_LEN : G.gauge / GAUGE_MAX;
   $("gauge").style.width = (g * 100) + "%";
   $("gaugeLabel").textContent = G.hib > 0 ? "🔥 火走り中！" : "🔥 炎ゲージ";
@@ -1183,6 +1263,7 @@ function pauseGame(){
   if(!G || (G.phase !== "run" && G.phase !== "reveal")) return;
   G.pausedFrom = G.phase; G.phase = "paused";
   clearTimeout(G.revealTimer);
+  $("quitBtn").textContent = G.challenge ? "挑戦を終えて結果を見る" : "やめてタイトルへ";
   $("pauseOverlay").classList.add("show");
 }
 function resumeGame(){
@@ -1191,12 +1272,17 @@ function resumeGame(){
   G.phase = G.pausedFrom; lastTs = 0;
   if(G.phase === "reveal") G.revealTimer = setTimeout(continueRun, 3000);
 }
-function quitGame(){ $("pauseOverlay").classList.remove("show"); $("zoneOverlay").classList.remove("show"); showTitle(); }
+function quitGame(){
+  $("pauseOverlay").classList.remove("show"); $("zoneOverlay").classList.remove("show");
+  if(G && G.challenge){ G.phase = "over"; stopLoop(); showEnd(true); return; }
+  showTitle();
+}
 document.addEventListener("visibilitychange", () => { if(document.hidden) pauseGame(); });
 
 /* =====================================================================
    ゲームオーバー → 結果
    ===================================================================== */
+// ❤がなくなった。挑戦モード中なら、完全クリアしたうえでの挑戦終了として結果へ
 function gameOver(){
   if(!G) return;
   G.phase = "over";
@@ -1204,41 +1290,75 @@ function gameOver(){
   SE.over();
   setWolf($("wolfBody"), "defeat");
   $("wolf").className = "";
-  setTimeout(() => showEnd(false), 900);
+  setTimeout(() => showEnd(G.challenge), 900);
 }
 
-// 関所30個を走りきった
-function goal(){
-  if(!G || G.phase === "over") return;
-  G.phase = "over";
-  stopLoop();
+// 関所32個を正解で通りきった：完全クリア。★はここまでのミスで決まる。結果を見るか、挑戦モードへ進むかを選ぶ
+function fullClear(){
+  if(!G) return;
+  G.phase = "clear";
+  G.clearMisses = G.misses.length;
+  G.clearStars = G.clearMisses === 0 ? 3 : G.clearMisses <= STAR2_MISS ? 2 : 1;
   SE.win();
-  setWolf($("wolfBody"), "attack");
-  banner(`🏁 ゴール！ 🏁<small>関所${GOAL_GATES}個を走りぬけた！</small>`, 1500);
-  setTimeout(() => showEnd(true), 1500);
+  setWolf($("wolfBody"), "attack"); $("wolf").className = "";
+  document.body.classList.remove("hibashiri", "maze");
+  $("clStars").innerHTML = [0,1,2].map(i => i < G.clearStars ? `<span class="pop" style="animation-delay:${.2 + i * .25}s">★</span>` : `<span class="off">★</span>`).join("");
+  $("clInfo").innerHTML = `関所${GOAL_GATES}個を走りぬけた！<br>得点 <b>${G.score}</b>　ミス <b>${G.clearMisses}</b> 回`;
+  $("clearOverlay").classList.add("show");
+}
+function clearToResult(){
+  $("clearOverlay").classList.remove("show");
+  G.phase = "over"; stopLoop();
+  showEnd(true);
+}
+// 挑戦モード：❤を満タンにして、ルールの画面（区間の画面と同じもの）を見せてから走り出す
+function enterChallenge(){
+  $("clearOverlay").classList.remove("show");
+  G.challenge = true; G.chCorrect = 0;
+  G.lives = LIVES;
+  G.phase = "break";
+  refreshHud();
+  $("zbDone").textContent = "🔥 挑戦モード突入！";
+  $("zbScore").innerHTML = `❤を満タンにしたぞ！ ${"❤️".repeat(LIVES)}` + (SAVE.bestKm > 0 ? `<br>これまでの最長 <b>${kmText(SAVE.bestKm)}</b> km（${placeName(placeOf(SAVE.bestKm).at)}まで）` : "");
+  $("zbNext").textContent = "挑戦モード（❤がなくなるまで）";
+  $("zbRules").innerHTML = [
+    "これまでの4つの区間の問題が、<b>1問ごとにまぜこぜ</b>で出る。",
+    "問題ごとに<b>道の種類や並びが変わる</b>。上に出る【区間の名前】と、道のラベルをよく見よう。",
+    "❤がなくなるまで、<b>何問続けられるか</b>に挑戦！　だんだん速くなるぞ。",
+    "挑戦モードでは、得点のかわりに<b>移動距離（km）</b>がたまる。<b>盛岡から出発して世界一周</b>をめざせ！",
+  ].map(r => `<li>${r}</li>`).join("");
+  $("zbLanes").innerHTML = "";
+  $("zbNote").textContent = "";
+  $("zbBtn").textContent = "挑戦スタート！";
+  $("zoneOverlay").classList.add("show");
 }
 
 function showEnd(cleared){
   if(!G) return;
   document.body.classList.remove("hibashiri", "maze");
-  const miss = G.misses.length;
-  const stars = !cleared ? 0 : miss === 0 ? 3 : miss <= STAR2_MISS ? 2 : 1;
+  const miss = cleared ? G.clearMisses : G.misses.length;
+  const stars = cleared ? G.clearStars : 0;
   const newBest = G.score > SAVE.best;
   const newStars = stars > SAVE.bestStars;
+  const newCh = G.challenge && G.chCorrect > SAVE.bestChallenge;
+  const newKm = G.challenge && G.km > SAVE.bestKm;
+  if(newKm) SAVE.bestKm = G.km;
   SAVE.plays++;
   if(newBest) SAVE.best = G.score;
   if(newStars) SAVE.bestStars = stars;
   if(cleared) SAVE.clears++;
+  if(newCh) SAVE.bestChallenge = G.chCorrect;
   if(G.correct > SAVE.bestCorrect) SAVE.bestCorrect = G.correct;
   writeSave();
   let rank = RANKS[0][1]; RANKS.forEach(([n, r]) => { if(G.score >= n) rank = r; });
   setWolf($("endWolf"), cleared ? (stars === 3 ? "attack" : "pose2") : "defeat");
-  $("endTitle").textContent = cleared ? "ゴール！" : "リタイア…";
+  $("endTitle").textContent = cleared ? "完全クリア！" : "リタイア…";
   $("endStars").innerHTML = cleared
     ? [0,1,2].map(i => i < stars ? `<span class="pop" style="animation-delay:${.2 + i * .25}s">★</span>` : `<span class="off">★</span>`).join("")
-    : `<span style="font-size:15px;color:var(--sub);letter-spacing:0">${G.total}個目の関所で力つきた…　あと${GOAL_GATES - G.total}個！</span>`;
+    : `<span style="font-size:15px;color:var(--sub);letter-spacing:0">${G.correct + 1}個目の関所で力つきた…　あと${GOAL_GATES - G.correct}個！</span>`;
   $("endRank").textContent = `称号：${rank}`;
   const notes = [];
+  if(G.challenge) notes.push(newKm ? "🌏 最長記録！" : `最長 ${kmText(SAVE.bestKm)}km`);
   if(newStars && cleared) notes.push(`🎉 ★${stars}はじめて達成！`);
   if(newBest) notes.push("🎉 自己ベスト更新！");
   if(!notes.length) notes.push(`自己ベスト ${SAVE.best} 点`);
@@ -1247,13 +1367,26 @@ function showEnd(cleared){
   $("endStats").innerHTML = `
     <div class="stat ${newBest ? "new" : ""}">得点<b>${G.score}</b></div>
     <div class="stat">正解<b>${G.correct} / ${G.total}</b></div>
-    <div class="stat">ミス<b>${miss}回</b></div>
-    <div class="stat">最大連続<b>${G.maxCombo}</b></div>`;
-  $("missList").innerHTML = !miss ? `<div class="perfect">🔥 ノーミス！ すべての関所を正しい道で走りぬけた！</div>`
+    <div class="stat">ミス${cleared ? "（クリアまで）" : ""}<b>${miss}回</b></div>
+    ${G.challenge ? `<div class="stat ${newCh ? "new" : ""}">挑戦モード<b>${G.chCorrect}問</b></div>` : `<div class="stat">最大連続<b>${G.maxCombo}</b></div>`}`;
+  // 挑戦モードの移動距離：盛岡からの世界一周ルートのどこまで行けたか
+  const tr = $("endTravel");
+  tr.hidden = !G.challenge;
+  if(G.challenge){
+    const pl = placeOf(G.km);
+    const reached = pl.laps > 0 && pl.at[0] === 0
+      ? `地球を${pl.laps}周して、盛岡に帰ってきた！`
+      : `${pl.laps > 0 ? `地球を${pl.laps}周して、さらに` : ""}${G.km === 0 ? "盛岡から出発できなかった…" : `${placeName(pl.at)}まで到達した！`}`;
+    tr.innerHTML = `<div>挑戦モード（${G.chCorrect}問正解）</div>
+      <div class="km">移動距離 ${kmText(G.km)} km</div>
+      <div class="place">${reached}</div>
+      <div class="next">次の ${placeName(pl.next)} まで、あと ${kmText(pl.left)} km　／　地球一周まで、あと ${kmText(WORLD_LAP - G.km % WORLD_LAP)} km</div>`;
+  }
+  $("missList").innerHTML = !G.misses.length ? `<div class="perfect">🔥 ノーミス！ すべての関所を正しい道で走りぬけた！</div>`
     : `<h3>ぶつかった言葉をふり返ろう</h3>` + G.misses.map(m => {
     const t = TYPES[m.w[1]];
     return `<div class="miss ${t.cls}">
-      <div class="w">${m.w[4] ? `<span style="font-size:12px;color:var(--sub)">${esc(m.w[4])}</span>` : ""}${wordHtml(m.w[0])}　→　<span class="ty">${t.name}</span>
+      <div class="w">${m.ch ? `<span class="chtag">挑戦</span>` : ""}${m.w[4] ? `<span style="font-size:12px;color:var(--sub)">${esc(m.w[4])}</span>` : ""}${wordHtml(m.w[0])}　→　<span class="ty">${t.name}</span>
         <span style="font-size:12px;color:var(--sub)">（${m.chose === "MID" ? "時間切れ" : "選んだのは" + TYPES[m.chose].name}）</span></div>
       <div>${esc(m.w[3])}</div></div>`;
   }).join("");
