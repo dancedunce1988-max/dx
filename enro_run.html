@@ -842,13 +842,15 @@ function placeOf(km){
 const placeName = pt => (pt[2] === "日本" || pt[1] === pt[2]) ? pt[1] : `${pt[2]}の${pt[1]}`;
 const kmText = n => n.toLocaleString("ja-JP");
 
-/* 挑戦モードは、本編の最高速(2.4秒ほど)から始めて、正解するたびにさらに速くなる（最速CH_MIN秒） */
-const CH_START = 2.6, CH_MIN = 1.6, CH_STEP = 0.03;
+/* 挑戦モードの速さ（2026-09-30、教員の指示）：どの種類の問題も、見きわめの区間に入ったときの速さ（約7.6秒）から始め、
+   正解CH_EVERY問ごとにCH_STEP秒ずつ速くする（最速CH_MIN秒）。 */
+const MISUSE_ZONE = ZONES.find(z => z.misuse);
+const CH_START = (Math.max(TRAVEL_MIN, TRAVEL_START - MISUSE_ZONE.from * TRAVEL_STEP) + MISUSE_ZONE.extra) * MISUSE_ZONE.timeMul;
+const CH_EVERY = 3, CH_STEP = 0.2, CH_MIN = 2.0;
 function travelTime(){
+  if(G.challenge) return Math.max(CH_MIN, CH_START - Math.floor(G.chCorrect / CH_EVERY) * CH_STEP);
   const z = ZONES[G.zone];
-  const base = G.challenge ? Math.max(CH_MIN, CH_START - G.chCorrect * CH_STEP)
-                           : Math.max(TRAVEL_MIN, TRAVEL_START - G.correct * TRAVEL_STEP);
-  return (base + (z.extra || 0)) * (z.timeMul || 1);
+  return (Math.max(TRAVEL_MIN, TRAVEL_START - G.correct * TRAVEL_STEP) + (z.extra || 0)) * (z.timeMul || 1);
 }
 // n個の関所を（正解で）通った時点が、区間の変わり目かどうか。まちがえた関所は数えないので、nはG.correct
 const isZoneBoundary = n => n > 0 && n < GOAL_GATES && ZONES.some(z => z.from === n);
@@ -1324,7 +1326,7 @@ function enterChallenge(){
   $("zbRules").innerHTML = [
     "これまでの4つの区間の問題が、<b>1問ごとにまぜこぜ</b>で出る。",
     "問題ごとに<b>道の種類や並びが変わる</b>。上に出る【区間の名前】と、道のラベルをよく見よう。",
-    "❤がなくなるまで、<b>何問続けられるか</b>に挑戦！　だんだん速くなるぞ。",
+    "❤がなくなるまで、<b>何問続けられるか</b>に挑戦！　<b>3問正解するごと</b>に少しずつ速くなるぞ。",
     "挑戦モードでは、得点のかわりに<b>移動距離（km）</b>がたまる。<b>盛岡から出発して世界一周</b>をめざせ！",
   ].map(r => `<li>${r}</li>`).join("");
   $("zbLanes").innerHTML = "";
@@ -1380,7 +1382,7 @@ function showEnd(cleared){
     tr.innerHTML = `<div>挑戦モード（${G.chCorrect}問正解）</div>
       <div class="km">移動距離 ${kmText(G.km)} km</div>
       <div class="place">${reached}</div>
-      <div class="next">次の ${placeName(pl.next)} まで、あと ${kmText(pl.left)} km　／　地球一周まで、あと ${kmText(WORLD_LAP - G.km % WORLD_LAP)} km</div>`;
+      <div class="next">次の ${placeName(pl.next)} まで、あと ${kmText(pl.left)} km</div>`;
   }
   $("missList").innerHTML = !G.misses.length ? `<div class="perfect">🔥 ノーミス！ すべての関所を正しい道で走りぬけた！</div>`
     : `<h3>ぶつかった言葉をふり返ろう</h3>` + G.misses.map(m => {
