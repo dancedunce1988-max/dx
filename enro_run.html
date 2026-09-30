@@ -118,7 +118,7 @@
   .gauge.drop{ animation:gDrop .5s ease; }
   @keyframes gDrop{ 0%,100%{transform:translateX(0)} 20%{transform:translateX(-5px); border-color:var(--ng)} 40%{transform:translateX(5px); border-color:var(--ng)} 60%{transform:translateX(-3px)} }
   @keyframes blaze{ 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.5)} }
-  /* 火走り中のゲージ：赤い炎が流れ、枠ごと赤く燃える（2026-10-01、「特別感がない」との教員の指摘で強化） */
+  /* 炎ブースト中のゲージ：赤い炎が流れ、枠ごと赤く燃える（2026-10-01、「特別感がない」との教員の指摘で強化） */
   body.hibashiri .gauge{ border-color:#ff4a2a; box-shadow:0 0 14px #ff3b1f, 0 0 28px rgba(255,40,20,.5), inset 0 2px 6px rgba(0,0,0,.5); }
   body.hibashiri .gauge-fill{
     background:linear-gradient(90deg,#ff2a1a,#ff7a2f,#ffd76b,#ff7a2f,#ff2a1a); background-size:200% 100%;
@@ -182,7 +182,7 @@
   body.hibashiri #wolf .glow{ opacity:1; animation:blaze .35s linear infinite; }
 
   /* =====================================================================
-     火走り（炎ゲージMAX）の演出（2026-10-01、教員の指示）：
+     炎ブースト（炎ゲージMAX）の演出（2026-10-01、教員の指示）：
      炎狼が赤く輝くオーラをまとい、火の粉を散らして走る。道のまわりも赤く燃え、地面の流れも速く見せる。
      ===================================================================== */
   #wolf .aura{ position:absolute; inset:-22% -12% -10% -26%; pointer-events:none; opacity:0; transition:opacity .35s; }
@@ -235,7 +235,7 @@
   body.hibashiri .lane .scroll{ background-image:repeating-linear-gradient(90deg, rgba(255,120,60,.28) 0 3px, transparent 3px 70px); }
   body.hibashiri .word-bar .word:not(.ok){ text-shadow:0 0 10px #ff2a1a, 0 0 26px rgba(255,60,20,.85); }
   body.hibashiri .hud{ box-shadow:0 2px 18px rgba(255,40,20,.45); }
-  /* 火走りに入った瞬間：画面全体が赤く燃え上がる */
+  /* 炎ブーストに入った瞬間：画面全体が赤く燃え上がる */
   .hib-flash{ position:fixed; inset:0; z-index:25; pointer-events:none; opacity:0;
     background:radial-gradient(circle at 25% 65%, rgba(255,230,160,.75), rgba(255,60,20,.5) 35%, rgba(140,0,0,.3) 75%); }
   .hib-flash.show{ animation:hibFlash 1s ease-out; }
@@ -708,13 +708,13 @@ const ZONES = [
           "ただし、関所が来るたびに<b>道の並びが入れかわる</b>！　動く前に<b>道のラベル</b>をよく見よう。",
           "これが最後の区間。ゴールまで走りぬけろ！"]},
 ];
-/* ★：ゴールで★1、ミス（火走りで守られたものもふくむ）がSTAR2_MISS回以内で★2、ノーミスで★3 */
+/* ★：ゴールで★1、ミス（炎ブーストで守られたものもふくむ）がSTAR2_MISS回以内で★2、ノーミスで★3 */
 const STAR2_MISS = 2;
 /* 関所が画面の右はしから炎狼に届くまでの秒数。正解するたびに短くなる。 */
 const TRAVEL_START = 5.6, TRAVEL_MIN = 2.2, TRAVEL_STEP = 0.11;
 const LIVES = 3;
-const GAUGE_MAX = 8;       // 何問連続で正解すると火走りになるか
-const HIBASHIRI_LEN = 6;   // 火走りが続く問題数
+const GAUGE_MAX = 8;       // 何問連続で正解すると炎ブーストになるか
+const HIBASHIRI_LEN = 6;   // 炎ブーストが続く問題数
 const WRONG_GAUGE_LOSS = 2; // まちがえたときに減る炎ゲージのマス数（2026-09-29、0に戻すのは厳しすぎるとの教員の指示で変更）
 /* アイテム（2026-09-29〜）。関所を出すたびにITEM_RATEの確率で、ランダムな道に1つ落とす（同時に出るのは1つまで）。
    関所と関所のちょうど間に来るよう、次の関所の半分だけ先に置く＝ひろってから次の関所の道へ移る時間が残る。
@@ -724,9 +724,9 @@ const ITEMS = {
   bone:{icon:"🦴", label:"炎ゲージ＋3"},
   meat:{icon:"🍖", label:"❤ 1つ回復！"},
 };
-const BONE_GAUGE = 3;      // 骨でたまる炎ゲージ（火走り中なら、火走りが2問のびる）
+const BONE_GAUGE = 3;      // 骨でたまる炎ゲージ（炎ブースト中なら、炎ブーストが2問のびる）
 
-// 称号は得点で決まる（関所32個・ノーミス・火走りを重ねると1000点前後になる）
+// 称号は得点で決まる（関所32個・ノーミス・炎ブーストを重ねると1000点前後になる）
 const RANKS = [
   [0,"子狼"],[200,"駆け出しの狼"],[400,"若き炎狼"],[600,"炎の狼"],[800,"敬語の狼王"],[1000,"伝説の炎狼"],
 ];
@@ -942,10 +942,10 @@ const placeName = pt => (pt[2] === "日本" || pt[1] === pt[2]) ? pt[1] : `${pt[
 const kmText = n => n.toLocaleString("ja-JP");
 
 /* 挑戦モードの速さ（2026-09-30、教員の指示）：どの種類の問題も、見きわめの区間に入ったときの速さ（約7.6秒）から始め、
-   正解CH_EVERY問ごとにCH_STEP秒ずつ速くする（最速CH_MIN秒）。 */
+   正解CH_EVERY問ごとにCH_STEP秒ずつ速くする（最速CH_MIN秒）。2026-10-01、「速くなるのが遅い」との教員の指示で0.2→0.4秒（2倍）に。 */
 const MISUSE_ZONE = ZONES.find(z => z.misuse);
 const CH_START = (Math.max(TRAVEL_MIN, TRAVEL_START - MISUSE_ZONE.from * TRAVEL_STEP) + MISUSE_ZONE.extra) * MISUSE_ZONE.timeMul;
-const CH_EVERY = 3, CH_STEP = 0.2, CH_MIN = 2.0;
+const CH_EVERY = 3, CH_STEP = 0.4, CH_MIN = 2.0;
 function travelTime(){
   if(G.challenge) return Math.max(CH_MIN, CH_START - Math.floor(G.chCorrect / CH_EVERY) * CH_STEP);
   const z = ZONES[G.zone];
@@ -1120,7 +1120,7 @@ function collectItem(it){
     popup(`🍖 ${ITEMS.meat.label}`);
   }else if(G.hib > 0){
     G.hib = Math.min(HIBASHIRI_LEN, G.hib + 2);
-    popup(`🦴 火走りがのびた！`);
+    popup(`🦴 炎ブーストがのびた！`);
   }else{
     G.gauge += it.kind === "meat" ? 1 : BONE_GAUGE;
     popup(it.kind === "meat" ? "🍖 炎ゲージ＋1" : `🦴 ${ITEMS.bone.label}`);
@@ -1239,7 +1239,7 @@ function judge(b){
     const verdict = t.cls === "ok" || t.cls === "ng"
       ? `この使い方は <span style="color:var(--${t.color})">${t.cls === "ok" ? "正しい" : "正しくない"}</span>`
       : `「${wordHtml(b.w[0])}」は <span style="color:var(--${t.color})">${t.name}</span>`;
-    ex.innerHTML = `<div class="head">${protectedByFire ? "🔥 火走りで守られた！　" : timeUp ? `<span class="ng">⏰ 時間切れ！</span>　` : `<span class="ng">✖ ぶつかった！</span>　`}${verdict}</div>
+    ex.innerHTML = `<div class="head">${protectedByFire ? "🔥 炎ブーストで守られた！　" : timeUp ? `<span class="ng">⏰ 時間切れ！</span>　` : `<span class="ng">✖ ぶつかった！</span>　`}${verdict}</div>
       ${t.cls === "ok" || t.cls === "ng" ? `<div class="mincho" style="font-size:16px">${b.w[4] ? esc(b.w[4]) : ""}${wordHtml(b.w[0])}</div>` : ""}
       <div>${esc(b.w[3])}</div>
       ${protectedByFire ? "" : `<div style="font-size:12px;color:var(--sub)">❤ −1　炎ゲージ −${WRONG_GAUGE_LOSS}</div>`}
@@ -1279,11 +1279,11 @@ function startHibashiri(){
   document.body.classList.add("hibashiri");
   SE.fire();
   const fl = $("hibFlash"); fl.classList.remove("show"); void fl.offsetWidth; fl.classList.add("show");
-  banner(`🔥 火走り！ 🔥<small>${HIBASHIRI_LEN}問のあいだ、得点2倍・ぶつかっても❤が減らない</small>`, 1800, "hib");
+  banner(`🔥 炎ブースト！ 🔥<small>${HIBASHIRI_LEN}問のあいだ、得点2倍・ぶつかっても❤が減らない</small>`, 1800, "hib");
 }
 function endHibashiri(){
   document.body.classList.remove("hibashiri");
-  setTimeout(() => { if(G && G.phase === "run") popup("火走りおわり"); }, 450);   // 得点の表示と重ならないよう少しずらす
+  setTimeout(() => { if(G && G.phase === "run") popup("炎ブーストおわり"); }, 450);   // 得点の表示と重ならないよう少しずらす
 }
 
 // 正解がはっきりわかるように：判・道の光・言葉の色・効果音
@@ -1366,11 +1366,11 @@ function refreshHud(){
   $("zone").textContent = `${G.challenge ? "挑戦モード" : ZONES[G.zone].name}　${G.combo >= 2 ? G.combo + "連続！" : ""}`;
   const g = G.hib > 0 ? G.hib / HIBASHIRI_LEN : G.gauge / GAUGE_MAX;
   $("gauge").style.width = (g * 100) + "%";
-  $("gaugeLabel").textContent = G.hib > 0 ? "🔥 火走り中！" : "🔥 炎ゲージ";
+  $("gaugeLabel").textContent = G.hib > 0 ? "🔥 炎ブースト中！" : "🔥 炎ゲージ";
   $("gaugeNum").textContent = G.hib > 0 ? `あと${G.hib}問` : `${G.gauge} / ${GAUGE_MAX}`;
   const box = $("gaugeBox");
   box.classList.toggle("hibmode", G.hib > 0);
-  // ふえたらはずむ、減ったらゆれる（火走りの残りが減るのはふつうの消費なので、ゆらさない）
+  // ふえたらはずむ、減ったらゆれる（炎ブーストの残りが減るのはふつうの消費なので、ゆらさない）
   if(G.hib === 0 && G.gauge !== G.prevGauge){
     const cls = G.gauge > G.prevGauge ? "bump" : "drop";
     box.classList.remove("bump", "drop"); void box.offsetWidth; box.classList.add(cls);
