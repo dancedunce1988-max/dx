@@ -4330,7 +4330,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.71</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.72</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -4552,7 +4552,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 48;
+const SAVE_FORMAT_VERSION = 49;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -4586,7 +4586,9 @@ function emptyStats(){
     dokkaiDungeon:{skillXp:ddSkillXp, cleared:{}},
     /* 一日一読の支払い済みフラグ集合（loadStatsのマイグレーション参照）。以前はここに無く、セーブの無い
        新規プレイヤーだけ、一日一読のある日にホーム画面(ddHomeEntryHtml)が例外で止まっていた（2026-09-29修正）。 */
-    nobiruRewardGiven:{}};
+    nobiruRewardGiven:{},
+    /* ミニゲーム（九尾の化かし合い・炎狼ラン）でジャンルレベルを下げた回数（mgApplyPendingLevelUps・detectSaveTampering参照） */
+    mgLevelDowns:0};
 }
 /* ステータスポイントは保存された数値ではなく、常にその場で計算する：
    「分野レベルの合計（＝これまで獲得した経験値の合計）」から「すでに割りふった分」を引いた残り。
@@ -4873,7 +4875,8 @@ function detectSaveTampering(st){
      が厳密に成り立つはずで、①と同じ安全マージンの考え方で、これを明らかに超える場合だけを見る。 */
   const hyakuninOk = (st.hyakunin && st.hyakunin.totalOk) || 0;
   const TOTAL_LEVEL_UPS_SAFETY_MARGIN = 50;
-  const maxPlausibleTotalLevelUps = sumLevelUps + hyakuninOk + TOTAL_LEVEL_UPS_SAFETY_MARGIN;
+  // ミニゲームで下げたレベル（st.mgLevelDowns、mgApplyPendingLevelUps参照）は、totalLevelUpsを減らさずにst.lvだけを下げるので、そのぶん上限に足す
+  const maxPlausibleTotalLevelUps = sumLevelUps + hyakuninOk + (st.mgLevelDowns || 0) + TOTAL_LEVEL_UPS_SAFETY_MARGIN;
   if((st.totalLevelUps || 0) > maxPlausibleTotalLevelUps){
     reasons.push(`記録されたレベルアップ回数(${st.totalLevelUps||0})が、実際のレベル・百人一首正解数から求まる上限(${maxPlausibleTotalLevelUps})を明らかに超えています`);
   }
@@ -12685,13 +12688,16 @@ let dd = null; // 読解Quest試作版の進行中ステート
    初めての合図であれば（st.nobiruRewardGiven）、一日一読経由なら全額、そうでなければ半額を
    st.stockXpに加算する。 */
 const DD_PENDING_REWARD_LSKEY = "dd_daily_pending_reward_v1";
-/* 別ページのミニゲームからのジャンルレベルアップ（2026-09-30〜、教員の指示）。
-   九尾の化かし合い（kitsune_bakashiai.html）は正解（○）1つごとに「同音異字・同訓異字・誤字訂正」
-   （kanji_shiwake）、炎狼ラン（enro_run.html）は関所を1つ正しく通るごとに「敬語」（keigo）を
-   1レベル上げる。どちらも本体のセーブ(st)には直接触れず、このキーに{ジャンル: 上げる回数}を
-   書き足すだけ。本体はshowHome()の入口でmgApplyPendingLevelUps()がこれを読み取り、
-   文節斬り（bgLevelUpShikibetsu）と同じ形（st.lv[cat]++・totalLevelUps・10回ごとの挑戦チケット）で
-   反映する（経験値はst.lvから計算されるので、それだけで経験値も上がる）。
+/* 別ページのミニゲームからのジャンルレベルの増減（2026-09-30〜、教員の指示）。
+   九尾の化かし合い（kitsune_bakashiai.html）は「同音異字・同訓異字・誤字訂正」（kanji_shiwake）、
+   炎狼ラン（enro_run.html）は「敬語」（keigo）。1回のゲームの中で「正解1つ＝＋1、まちがい2つ＝−1」と数え、
+   ゲームが終わったときの差し引き（マイナスもある）を、このキーに{ジャンル: 増減}として書き足す。
+   どちらも本体のセーブ(st)には直接触れない。本体はshowHome()の入口でmgApplyPendingLevelUps()がこれを読み取る。
+   ＋のときは文節斬り（bgLevelUpShikibetsu）と同じ形（st.lv[cat]++・totalLevelUps・10回ごとの挑戦チケット）で反映。
+   −のときはst.lv[cat]を下げ（1未満にはしない）、下げた回数をst.mgLevelDownsに数える。totalLevelUpsは
+   減らさない（減らすと、上げ直したときに挑戦チケットを何度ももらえてしまうため）。そのかわり
+   detectSaveTampering③の上限にst.mgLevelDownsを足す（下げたぶんだけ「レベルの合計よりレベルアップ回数が
+   多い」状態が正当に生じるため）。経験値はst.lvから計算されるので、レベルとあわせて上下する。
    record()は呼ばない：st.q（問題ごとの履歴）や出題プールの解放率は、実在の4択問題を前提にした
    仕組みで、ミニゲームの問題には当てはまらないため（bgLevelUpShikibetsuと同じ理由）。
    読み取った時点でキーは必ず消す（二重加算防止）。ここに書けるジャンルはMG_LVUP_CATSだけ。 */
@@ -12707,12 +12713,17 @@ function mgApplyPendingLevelUps(st){
   if(!info || typeof info !== "object") return null;
   const applied = {};
   MG_LVUP_CATS.forEach(cat => {
-    const n = Math.max(0, Math.min(1000, Math.floor(Number(info[cat]) || 0)));
+    const n = Math.max(-1000, Math.min(1000, Math.trunc(Number(info[cat]) || 0)));
     for(let i = 0; i < n && (st.lv[cat]||1) < MAX_CAT_LV; i++){
       st.lv[cat] = (st.lv[cat]||1) + 1;
       st.totalLevelUps = (st.totalLevelUps||0) + 1;
       if(st.totalLevelUps % 10 === 0) st.bossTickets = (st.bossTickets||0) + 1;
       applied[cat] = (applied[cat]||0) + 1;
+    }
+    for(let i = 0; i < -n && (st.lv[cat]||1) > 1; i++){
+      st.lv[cat] = (st.lv[cat]||1) - 1;
+      st.mgLevelDowns = (st.mgLevelDowns||0) + 1;
+      applied[cat] = (applied[cat]||0) - 1;
     }
   });
   if(!Object.keys(applied).length) return null;
@@ -19927,8 +19938,9 @@ function storySideQuestButtonHtml(key, st){
    パートナー（漢字Questの仲間）が出演するミニゲームの第1弾として、
    九尾(ub05)が相手役になる。ゲーム本体は別ページ（kitsune_bakashiai.html）で、のびる読解と同じく
    同じタブのまま画面ごと遷移し、戻るときは kokugo_app.html?from=minigame でミニゲーム一覧に戻る
-   （起動時の from=minigame 参照）。本体のセーブデータ(st)には直接触れない。2026-09-30〜、正解（○）1つごとに
-   「同音異字・同訓異字・誤字訂正」ジャンルを1レベル上げる（MG_PENDING_LVUP_LSKEY経由、mgApplyPendingLevelUps参照）。教員の指示（2026-09-29：「ミニゲームに追加して。ただし、まだ解放はしないこと」）で、
+   （起動時の from=minigame 参照）。本体のセーブデータ(st)には直接触れない。2026-09-30〜、1回のゲームごとに
+   「正解1つ＝＋1、まちがい2つ＝−1」の差し引きで「同音異字・同訓異字・誤字訂正」ジャンルのレベルを上下させる
+   （MG_PENDING_LVUP_LSKEY経由、mgApplyPendingLevelUps参照）。教員の指示（2026-09-29：「ミニゲームに追加して。ただし、まだ解放はしないこと」）で、
    以前のマッチ試作と同じ「準備中」カードとして置き、決まった操作をしたときだけ裏で遊べるようにする。
    2026-09-29〜、「5回タップ」は生徒に知られているとの教員の指示で、「カードを3回タップ→kキーを1回→
    カードを2回タップ」の順（KITSUNE_SECRET_SEQ）に変更した。直前の6操作がこの順になっていれば開く
@@ -19980,8 +19992,8 @@ function openKitsuneBakashiai(){ location.href = "kitsune_bakashiai.html"; }
 /* 炎狼ラン（2026-09-29〜、試作・準備中）。炎狼(me01)が3本の道（上＝丁寧語／中＝謙譲語／下＝尊敬語）を
    走り、迫ってくる関所に出た言葉の敬語の種類に合う道でくぐり抜けるランゲーム。九尾の化かし合いと同じく
    別ページ（enro_run.html）で、戻るときは kokugo_app.html?from=minigame でミニゲーム一覧に戻る。
-   本体のセーブデータ(st)には直接触れない。2026-09-30〜、関所を1つ正しく通るごとに「敬語」ジャンルを1レベル上げる
-   （MG_PENDING_LVUP_LSKEY経由、mgApplyPendingLevelUps参照）。
+   本体のセーブデータ(st)には直接触れない。2026-09-30〜、1回の走りごとに「正解1つ＝＋1、まちがい2つ＝−1」の
+   差し引きで「敬語」ジャンルのレベルを上下させる（MG_PENDING_LVUP_LSKEY経由、mgApplyPendingLevelUps参照）。
    教員の指示（2026-09-29：「試作して」）で、九尾と同じ「準備中」カードとして置き、隠し操作
    （カードを3回タップ→eキーを1回→カードを2回タップ、ENRO_RUN_SECRET_SEQ）のときだけ裏で遊べるようにする。
    正式に公開するときは ENRO_RUN_RELEASED を true にするだけでよい。 */

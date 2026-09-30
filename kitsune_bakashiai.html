@@ -7,7 +7,8 @@
 <!-- 知識ドリルDXのミニゲーム「九尾の化かし合い」（2026-09-29〜、準備中）。kokugo_app.htmlの
      ミニゲーム一覧から、のびる読解(nobiru/*.html)と同じく同じタブのまま画面ごと遷移してくる別ページ。
      本体のセーブデータ(st)には一切触れず、このページ専用のlocalStorageキーだけを使う
-     （2026-09-30〜、○1つごとに「同音異字・同訓異字・誤字訂正」ジャンルを1レベル上げる合図だけをMG_PENDING_LVUP_LSKEYに書き置き、本体がホーム画面で反映する）。
+     （2026-09-30〜、1回のゲームごとに「正解1つ＝＋1、まちがい2つ＝−1」の差し引きを本体のジャンルレベルの増減として
+     MG_PENDING_LVUP_LSKEYに書き置き、本体がホーム画面で反映する。mgFlush参照）。
      2026-09-30、教員の指示で「九本の尾を1本ずつ取る」形をやめ、話ごとに見破り方が変わるストーリー仕立て
      （一〜五話）＋全部の見破り方がまざって出る60秒の「挑戦の間」（六）に作り替えた
      （「同じことを何度もやらされる感じで飽きる」「間違いを探す楽しさを複数の視点から」という指摘による）。
@@ -379,6 +380,15 @@
   .lvup-toast b{ font-size:17px; color:#b3200e; }
   .lvup-toast.show{ display:flex; animation:lvupToast 1.5s ease forwards; }
   @keyframes lvupToast{ 0%{ transform:translate(-50%,-14px); opacity:0; } 12%{ transform:translate(-50%,0); opacity:1; } 78%{ opacity:1; } 100%{ transform:translate(-50%,-6px); opacity:0; } }
+  .lvup-toast.down{ background:linear-gradient(135deg,#d9e6ff,#9db8f0); }
+  .lvup-toast.down b{ color:#1f3f8a; }
+  .lvup-toast .t{ font-size:12px; }
+  .lv-result{ margin-top:10px; padding:8px 14px; border-radius:12px; font-size:15px; line-height:1.6; text-align:center;
+    background:linear-gradient(135deg,rgba(255,215,107,.22),rgba(255,154,60,.12)); border:1.5px solid rgba(255,215,107,.6); }
+  .lv-result b{ font-size:24px; color:var(--gold); margin-left:4px; }
+  .lv-result span{ display:block; font-size:11px; color:var(--sub); }
+  .lv-result.down{ background:rgba(120,150,230,.16); border-color:rgba(150,180,255,.55); }
+  .lv-result.down b{ color:#9db8f0; }
   @media (max-width:700px){ .lvup-toast{ font-size:11px; padding:5px 12px; } .lvup-toast b{ font-size:14px; } }
 </style>
 </head>
@@ -1068,6 +1078,7 @@ function playEpisode(i){
   // 画のデータが読めなかったときは、部分あらためを化けの皮はがしで代用する
   if(!strokesReady()) tasks.forEach(t => { if(t.mode === "B") t.mode = "C"; });
   newGame({ep:i, challenge:false, queue:tasks, total:tasks.length, done:0});
+  mgStart();
   show("scGame");
   $("epLabel").innerHTML = `<b class="mincho">${E.no}話</b>　${E.title}`;
   $("progBox").hidden = false; $("chBox").hidden = true;
@@ -1106,24 +1117,54 @@ function runTask(task){
   RUN[task.mode](board, task, done);
 }
 
+const MG_CAT = "kanji_shiwake", MG_GENRE = "同音異字・同訓異字・誤字訂正";   // このゲームで上下する本体のジャンル
 /* 本体（kokugo_app.html）のジャンルレベルへの反映（2026-09-30〜、教員の指示）。
-   正解するたびに「このジャンルを1レベル上げてほしい」という合図を localStorage に書き足すだけで、
-   本体のセーブデータには直接触れない。本体がホーム画面を開くときに読み取って反映する
-   （kokugo_app.html の MG_PENDING_LVUP_LSKEY・mgApplyPendingLevelUps 参照。経験値もレベルから自動で上がる）。 */
+   1回のゲームの中で「正解1つ＝＋1、まちがい2つ＝−1」と数え、ゲームが終わったときに差し引き
+   （正解数 − まちがい数÷2の切り捨て）を「今回のジャンルレベルの増減」として本体へ渡す。
+   本体のセーブには直接触れず、localStorage（MG_PENDING_LVUP_LSKEY）に{ジャンル: 増減}を書き足すだけ。
+   本体がホーム画面を開くときに反映する（kokugo_app.htmlのmgApplyPendingLevelUps参照。マイナスならレベルが下がる。
+   経験値はレベルから計算されるので、あわせて上下する）。
+   途中でやめた・ページを離れたときも、そこまでの分を必ず渡す（まちがいが多いときにやめて、下がるのを逃れられないように）。 */
 const MG_PENDING_LVUP_LSKEY = "kokugo_minigame_pending_lvups_v1";
-function addPendingLevelUp(cat){
-  let o = {};
-  try{ o = JSON.parse(localStorage.getItem(MG_PENDING_LVUP_LSKEY)) || {}; }catch(e){ o = {}; }
-  if(typeof o !== "object") o = {};
-  o[cat] = (Number(o[cat]) || 0) + 1;
-  try{ localStorage.setItem(MG_PENDING_LVUP_LSKEY, JSON.stringify(o)); }catch(e){}
+let MGS = null;   // 今のゲームの {ok:正解数, ng:まちがい数}（ゲームの外ではnull）
+const mgNet = () => MGS ? MGS.ok - Math.floor(MGS.ng / 2) : 0;
+const mgSigned = n => n > 0 ? "+" + n : n < 0 ? "−" + (-n) : "±0";
+function mgStart(){ mgFlush(); MGS = {ok:0, ng:0}; }
+function mgCorrect(){ if(!MGS) return; MGS.ok++; showLvupToast(1); }
+function mgWrong(){ if(!MGS) return; MGS.ng++; if(MGS.ng % 2 === 0) showLvupToast(-1); }
+// ゲームの終わり：差し引きを本体への合図に足し、結果を返す（ゲーム中でなければnull）
+function mgFlush(){
+  if(!MGS) return null;
+  const r = {ok:MGS.ok, ng:MGS.ng, net:mgNet()};
+  MGS = null;
+  if(r.net){
+    let o = {};
+    try{ o = JSON.parse(localStorage.getItem(MG_PENDING_LVUP_LSKEY)) || {}; }catch(e){ o = {}; }
+    if(typeof o !== "object") o = {};
+    o[MG_CAT] = (Number(o[MG_CAT]) || 0) + r.net;
+    try{ localStorage.setItem(MG_PENDING_LVUP_LSKEY, JSON.stringify(o)); }catch(e){}
+  }
+  return r;
 }
-// 「〜ジャンル　1レベルUP」の表示（画面の上のまん中に、少しのあいだ出す）
-function showLvupToast(genreName){
+window.addEventListener("pagehide", mgFlush);   // 「ミニゲーム一覧へ」やタブを閉じたときも、そこまでの分を渡す
+// 正解・まちがい（2つめごと）のたびに画面の上へ出す表示
+function showLvupToast(d, text){
   let el = document.getElementById("lvupToast");
   if(!el){ el = document.createElement("div"); el.id = "lvupToast"; el.className = "lvup-toast"; document.body.appendChild(el); }
-  el.innerHTML = `<span class="g">${genreName}ジャンル</span><b>1レベルUP</b>`;
+  el.innerHTML = text || `<span class="g">${MG_GENRE}ジャンル</span><b>${d > 0 ? "1レベルUP" : "1レベルDOWN"}</b><span class="t">（今回 ${mgSigned(mgNet())}）</span>`;
+  el.classList.toggle("down", d < 0);
   el.classList.remove("show"); void el.offsetWidth; el.classList.add("show");
+}
+// 結果画面に出す「今回のジャンルレベル」
+function mgResultHtml(r){
+  if(!r) return "";
+  return `<div class="lv-result ${r.net < 0 ? "down" : ""}">${MG_GENRE}ジャンル　レベル <b>${mgSigned(r.net)}</b>
+    <span>（正解 ${r.ok}・まちがい ${r.ng}　→　正解1つで＋1、まちがい2つで−1）</span></div>`;
+}
+// 途中でやめたときに、一覧・タイトルの画面で結果を知らせる
+function mgShowQuitResult(r){
+  if(!r || (!r.ok && !r.ng)) return;
+  showLvupToast(r.net < 0 ? -1 : 1, `<span class="g">今回の${MG_GENRE}ジャンル</span><b>レベル ${mgSigned(r.net)}</b>`);
 }
 
 /* ---- 正解・まちがいの共通処理 ---- */
@@ -1138,8 +1179,7 @@ function stamp(w, mode){
 }
 function onFound(w, mode, base = 100){
   G.combo++;
-  addPendingLevelUp("kanji_shiwake");            // ○1つごとに、本体の「同音異字・同訓異字・誤字訂正」を1レベルUP
-  showLvupToast("同音異字・同訓異字・誤字訂正");
+  mgCorrect();                                   // 本体のジャンルレベル：正解1つで＋1
   stamp(w, mode);
   SE.found(G.combo); setCombo(G.combo);
   if(G.challenge){
@@ -1152,6 +1192,7 @@ function onFound(w, mode, base = 100){
   setFox($("gameFox"), "defense", "shiver");
 }
 function onMiss(line){
+  mgWrong();                                     // 本体のジャンルレベル：まちがい2つで−1
   G.combo = 0; setCombo(0);
   SE.wrong();
   $("gameLine").innerHTML = line || pick(LINES.fooled);
@@ -1519,6 +1560,7 @@ function episodeClear(){
   G.active = false;
   const i = G.ep, E = EPISODES[i];
   const wasAll = allCleared();
+  const lvr = mgFlush();
   SAVE.cleared[i] = true; writeSave();
   SE.clear();
   setFox($("gameFox"), "defeat");
@@ -1528,6 +1570,7 @@ function episodeClear(){
   showBanner(`<div class="big mincho">${E.no}話 クリア！</div>
     <div class="small">見破った化け字 <b style="color:var(--gold)">${G.found.length}</b> 個</div>
     <div class="chips">${chips}</div>
+    ${mgResultHtml(lvr)}
     <div class="banner-btns one"><button class="btn" id="bnGo">つづきを見る ▶</button></div>`, true);
   $("bnGo").onclick = () => {
     hideBanner();
@@ -1548,6 +1591,7 @@ let clockId = null;
 function stopClock(){ if(clockId){ clearInterval(clockId); clockId = null; } }
 function startChallenge(){
   newGame({challenge:true, score:0, correct:0, over:false, last:null, q:0});
+  mgStart();
   show("scGame");
   $("epLabel").innerHTML = `<b class="mincho">六</b>　挑戦の間`;
   $("progBox").hidden = true; $("chBox").hidden = false;
@@ -1591,6 +1635,7 @@ function nextChallengeTask(){
 function finishChallenge(){
   if(G.over) return;
   G.over = true; G.active = false; stopClock();
+  const lvr = mgFlush();
   $("timeLeft").textContent = 0; $("timerFill").style.width = "0%";
   const prev = SAVE.best;
   const isNew = G.score > prev;
@@ -1606,6 +1651,7 @@ function finishChallenge(){
     <div class="small">見破った数 <b style="color:var(--gold)">${G.correct}</b>　／　これまでの最高 ${Math.max(prev, G.score)}点</div>
     ${isNew && prev > 0 ? `<div class="newrec">最高記録こうしん！</div>` : ""}
     <div class="rank">称号<b class="mincho">${rankName(G.score)}</b></div>
+    ${mgResultHtml(lvr)}
     <div class="banner-btns"><button class="btn" id="bnAgain">もう一度 挑戦</button><button class="btn secondary" id="bnMap">一覧へ</button></div>`, true);
   $("bnAgain").onclick = () => { hideBanner(); startChallenge(); };
   $("bnMap").onclick = () => showMap();
@@ -1619,7 +1665,7 @@ function rankName(score){
   return "見破り手の見習い";
 }
 
-function restAndMap(){ stopClock(); showMap(); }
+function restAndMap(){ stopClock(); const r = mgFlush(); showMap(); mgShowQuitResult(r); }
 
 /* ---- 中央の大きな表示 ---- */
 function showBanner(html, clickable){

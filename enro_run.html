@@ -17,7 +17,8 @@
      さらに教員の指示で、まちがえた関所は数に入れない（正解で通った関所だけが進む）ようにし、32個目を通ったら
      「完全クリア！」（fullClear）から「結果を見る」か「挑戦モード」（4区間の問題を1問ごとにまぜて、❤がなくなるまで）を選べるようにした。
      本体のセーブデータ(st)には一切触れず、このページ専用のlocalStorageキーだけを使う
-     （2026-09-30〜、関所を1つ正しく通るごとに「敬語」ジャンルを1レベル上げる合図だけをMG_PENDING_LVUP_LSKEYに書き置き、本体がホーム画面で反映する）。炎狼の絵は本番と同じスプライト(enemy_sprites_data.js)を使い、
+     （2026-09-30〜、1回のゲームごとに「正解1つ＝＋1、まちがい2つ＝−1」の差し引きを本体のジャンルレベルの増減として
+     MG_PENDING_LVUP_LSKEYに書き置き、本体がホーム画面で反映する。mgFlush参照）。炎狼の絵は本番と同じスプライト(enemy_sprites_data.js)を使い、
      読み込めなかったときは🐺の絵文字で代用する。 -->
 <script src="enemy_sprites_data.js"></script>
 <!-- 道ごとの背景（素材/画像/炎狼ラン背景.png から切り出し）。読み込めなかったときは、今までどおりの色だけの道になる -->
@@ -327,6 +328,15 @@
   .lvup-toast b{ font-size:17px; color:#b3200e; }
   .lvup-toast.show{ display:flex; animation:lvupToast 1.5s ease forwards; }
   @keyframes lvupToast{ 0%{ transform:translate(-50%,-14px); opacity:0; } 12%{ transform:translate(-50%,0); opacity:1; } 78%{ opacity:1; } 100%{ transform:translate(-50%,-6px); opacity:0; } }
+  .lvup-toast.down{ background:linear-gradient(135deg,#d9e6ff,#9db8f0); }
+  .lvup-toast.down b{ color:#1f3f8a; }
+  .lvup-toast .t{ font-size:12px; }
+  .lv-result{ margin-top:10px; padding:8px 14px; border-radius:12px; font-size:15px; line-height:1.6; text-align:center;
+    background:linear-gradient(135deg,rgba(255,215,107,.22),rgba(255,154,60,.12)); border:1.5px solid rgba(255,215,107,.6); }
+  .lv-result b{ font-size:24px; color:var(--gold); margin-left:4px; }
+  .lv-result span{ display:block; font-size:11px; color:var(--sub); }
+  .lv-result.down{ background:rgba(120,150,230,.16); border-color:rgba(150,180,255,.55); }
+  .lv-result.down b{ color:#9db8f0; }
   @media (max-width:700px){ .lvup-toast{ font-size:11px; padding:5px 12px; } .lvup-toast b{ font-size:14px; } }
 </style>
 </head>
@@ -402,6 +412,7 @@
       </div>
     </div>
     <div class="stats" id="endStats"></div>
+    <div id="endLv"></div>
     <div class="travel" id="endTravel" hidden></div>
     <div class="miss-list" id="missList"></div>
     <div class="end-btns">
@@ -865,6 +876,7 @@ const isZoneBoundary = n => n > 0 && n < GOAL_GATES && ZONES.some(z => z.from ==
 
 function startGame(){
   stopLoop();
+  mgStart();
   G = {lane:1, lives:LIVES, score:0, correct:0, total:0, combo:0, maxCombo:0, gauge:0, hib:0,
        zone:0, used:new Set(), lastWord:null, barriers:[], phase:"count", misses:[], spawnWait:0,
        scroll:0, speed:0, pendingZone:null, items:[], prevGauge:0, usedMisuse:new Set(),
@@ -1081,8 +1093,7 @@ function judge(b){
     // 正解：関所を通りぬける
     gates[want].classList.add("open", "burst");
     showCorrect(want, b.w[1]);
-    addPendingLevelUp("keigo");                  // 関所を1つ正しく通るごとに、本体の「敬語」を1レベルUP
-    showLvupToast("敬語");
+    mgCorrect();                                 // 本体の「敬語」ジャンル：正解1つで＋1
     G.correct++; G.combo++; G.maxCombo = Math.max(G.maxCombo, G.combo);
     let pts = 10 + Math.min(G.combo, 10) * 2;
     if(G.hib > 0) pts *= 2;
@@ -1116,6 +1127,7 @@ function judge(b){
   }else{
     // まちがい：ぶつかる。走りを止めて、正しい道と解説を見せる
     gates[G.lane].classList.add("crash");
+    mgWrong();                                   // 本体の「敬語」ジャンル：まちがい2つで−1
     gates[want].classList.add("open");
     SE.crash();
     const protectedByFire = G.hib > 0;
@@ -1199,24 +1211,54 @@ function showCorrect(lane, type){
   ln.classList.remove("good"); void ln.offsetWidth; ln.classList.add("good");
   $("word").classList.add("ok");
 }
+const MG_CAT = "keigo", MG_GENRE = "敬語";   // このゲームで上下する本体のジャンル
 /* 本体（kokugo_app.html）のジャンルレベルへの反映（2026-09-30〜、教員の指示）。
-   正解するたびに「このジャンルを1レベル上げてほしい」という合図を localStorage に書き足すだけで、
-   本体のセーブデータには直接触れない。本体がホーム画面を開くときに読み取って反映する
-   （kokugo_app.html の MG_PENDING_LVUP_LSKEY・mgApplyPendingLevelUps 参照。経験値もレベルから自動で上がる）。 */
+   1回のゲームの中で「正解1つ＝＋1、まちがい2つ＝−1」と数え、ゲームが終わったときに差し引き
+   （正解数 − まちがい数÷2の切り捨て）を「今回のジャンルレベルの増減」として本体へ渡す。
+   本体のセーブには直接触れず、localStorage（MG_PENDING_LVUP_LSKEY）に{ジャンル: 増減}を書き足すだけ。
+   本体がホーム画面を開くときに反映する（kokugo_app.htmlのmgApplyPendingLevelUps参照。マイナスならレベルが下がる。
+   経験値はレベルから計算されるので、あわせて上下する）。
+   途中でやめた・ページを離れたときも、そこまでの分を必ず渡す（まちがいが多いときにやめて、下がるのを逃れられないように）。 */
 const MG_PENDING_LVUP_LSKEY = "kokugo_minigame_pending_lvups_v1";
-function addPendingLevelUp(cat){
-  let o = {};
-  try{ o = JSON.parse(localStorage.getItem(MG_PENDING_LVUP_LSKEY)) || {}; }catch(e){ o = {}; }
-  if(typeof o !== "object") o = {};
-  o[cat] = (Number(o[cat]) || 0) + 1;
-  try{ localStorage.setItem(MG_PENDING_LVUP_LSKEY, JSON.stringify(o)); }catch(e){}
+let MGS = null;   // 今のゲームの {ok:正解数, ng:まちがい数}（ゲームの外ではnull）
+const mgNet = () => MGS ? MGS.ok - Math.floor(MGS.ng / 2) : 0;
+const mgSigned = n => n > 0 ? "+" + n : n < 0 ? "−" + (-n) : "±0";
+function mgStart(){ mgFlush(); MGS = {ok:0, ng:0}; }
+function mgCorrect(){ if(!MGS) return; MGS.ok++; showLvupToast(1); }
+function mgWrong(){ if(!MGS) return; MGS.ng++; if(MGS.ng % 2 === 0) showLvupToast(-1); }
+// ゲームの終わり：差し引きを本体への合図に足し、結果を返す（ゲーム中でなければnull）
+function mgFlush(){
+  if(!MGS) return null;
+  const r = {ok:MGS.ok, ng:MGS.ng, net:mgNet()};
+  MGS = null;
+  if(r.net){
+    let o = {};
+    try{ o = JSON.parse(localStorage.getItem(MG_PENDING_LVUP_LSKEY)) || {}; }catch(e){ o = {}; }
+    if(typeof o !== "object") o = {};
+    o[MG_CAT] = (Number(o[MG_CAT]) || 0) + r.net;
+    try{ localStorage.setItem(MG_PENDING_LVUP_LSKEY, JSON.stringify(o)); }catch(e){}
+  }
+  return r;
 }
-// 「〜ジャンル　1レベルUP」の表示（画面の上のまん中に、少しのあいだ出す）
-function showLvupToast(genreName){
+window.addEventListener("pagehide", mgFlush);   // 「ミニゲーム一覧へ」やタブを閉じたときも、そこまでの分を渡す
+// 正解・まちがい（2つめごと）のたびに画面の上へ出す表示
+function showLvupToast(d, text){
   let el = document.getElementById("lvupToast");
   if(!el){ el = document.createElement("div"); el.id = "lvupToast"; el.className = "lvup-toast"; document.body.appendChild(el); }
-  el.innerHTML = `<span class="g">${genreName}ジャンル</span><b>1レベルUP</b>`;
+  el.innerHTML = text || `<span class="g">${MG_GENRE}ジャンル</span><b>${d > 0 ? "1レベルUP" : "1レベルDOWN"}</b><span class="t">（今回 ${mgSigned(mgNet())}）</span>`;
+  el.classList.toggle("down", d < 0);
   el.classList.remove("show"); void el.offsetWidth; el.classList.add("show");
+}
+// 結果画面に出す「今回のジャンルレベル」
+function mgResultHtml(r){
+  if(!r) return "";
+  return `<div class="lv-result ${r.net < 0 ? "down" : ""}">${MG_GENRE}ジャンル　レベル <b>${mgSigned(r.net)}</b>
+    <span>（正解 ${r.ok}・まちがい ${r.ng}　→　正解1つで＋1、まちがい2つで−1）</span></div>`;
+}
+// 途中でやめたときに、一覧・タイトルの画面で結果を知らせる
+function mgShowQuitResult(r){
+  if(!r || (!r.ok && !r.ng)) return;
+  showLvupToast(r.net < 0 ? -1 : 1, `<span class="g">今回の${MG_GENRE}ジャンル</span><b>レベル ${mgSigned(r.net)}</b>`);
 }
 function popup(text){
   const p = document.createElement("div");
@@ -1306,7 +1348,9 @@ function resumeGame(){
 function quitGame(){
   $("pauseOverlay").classList.remove("show"); $("zoneOverlay").classList.remove("show");
   if(G && G.challenge){ G.phase = "over"; stopLoop(); showEnd(true); return; }
+  const r = mgFlush();
   showTitle();
+  mgShowQuitResult(r);
 }
 document.addEventListener("visibilitychange", () => { if(document.hidden) pauseGame(); });
 
@@ -1381,6 +1425,8 @@ function showEnd(cleared){
   if(newCh) SAVE.bestChallenge = G.chCorrect;
   if(G.correct > SAVE.bestCorrect) SAVE.bestCorrect = G.correct;
   writeSave();
+  const lvr = mgFlush();
+  $("endLv").innerHTML = mgResultHtml(lvr);
   let rank = RANKS[0][1]; RANKS.forEach(([n, r]) => { if(G.score >= n) rank = r; });
   setWolf($("endWolf"), cleared ? (stars === 3 ? "attack" : "pose2") : "defeat");
   $("endTitle").textContent = cleared ? "完全クリア！" : "リタイア…";
