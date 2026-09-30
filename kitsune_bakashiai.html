@@ -212,7 +212,7 @@
   .qhead .qword{ font-size:clamp(30px, 6vh, 48px); font-weight:bold; letter-spacing:4px; }
   .qhead .qword em{ font-style:normal; color:var(--fox2); text-decoration:underline wavy rgba(255,208,138,.6); text-underline-offset:6px; }
 
-  /* ---- 一画あらため（大きな字の化けた部分を指さす） ---- */
+  /* ---- 部分あらため（大きな字の化けた部分を指さす） ---- */
   .bwrap, .cwrap, .fwrap, .dwrap{ width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; }
   .bchar{ height:min(52vh, 86vw); aspect-ratio:1; background:linear-gradient(180deg,#fff9ea,var(--ofuda)); border-radius:18px; box-shadow:0 5px 0 #b89a62, 0 10px 22px rgba(0,0,0,.35); padding:3%; }
   .bchar svg{ width:100%; height:100%; display:block; cursor:crosshair; touch-action:manipulation; }
@@ -623,7 +623,7 @@ const SENTENCES = {
 /* =====================================================================
    話の構成（2026-09-30〜）。話ごとに見破り方（mode）が変わる。
      A 札あらため   ：並んだ札の中から化け札を見つける
-     B 一画あらため ：大きく出た化け字の、化けている部分（画・部品）を指でさす
+     B 部分あらため ：大きく出た化け字の、化けている部分（画・部品）を指でさす
      C 化けの皮はがし：化けた字をタップして、正しい字を4つから選んで直す
      D 高札         ：お知らせの文の中から、化けた字を見つける
      F 茶屋の口車   ：九尾の言葉（本当のこともうそのこともある）にまどわされず、札が本物か化け札かを決める
@@ -644,11 +644,11 @@ const EPISODES = [
      ["fox","ぐぬぬ……札屋の化け札を、すべて見破るとは。","defense"],
      ["fox","じゃが、これはほんの小手調べ。次は<b>書庫</b>じゃ。わらわの術は、もっと細かいぞ？","pose1"],
    ]},
-  {no:"二", title:"書庫の一画", mode:"B", desc:"大きな字の、化けている部分を指さす",
+  {no:"二", title:"書庫の化け字", mode:"B", desc:"大きな字の、化けている部分を指さす",
    tasks:[{lv:[1,1]},{lv:[1,1]},{lv:[1,2]},{lv:[1,2]},{lv:[2,2]},{lv:[2,3]}],
    pre:[
      ["narr","九尾を追って、都の古い書庫へ。ほこりをかぶった巻物が、天井まで積み上がっている。"],
-     ["fox","わらわは昔、この書庫に住んでおった。人間の書く字を毎晩ながめては、<b>一画だけ</b>変えて化けるいたずらをしておったのじゃ。","pose1"],
+     ["fox","わらわは昔、この書庫に住んでおった。人間の書く字を毎晩ながめては、<b>字の一部だけ</b>変えて化けるいたずらをしておったのじゃ。","pose1"],
      ["fox","今度は、化けた字を大きく見せてやろう。<b>どこが化けておるか</b>、指でさしてみよ。","pose2"],
      ["fox","線が長すぎる、点がよけい、部品がちがう……。足りない画は、<b>本当はあるはずの場所</b>をさすのじゃぞ。","pose2"],
    ],
@@ -675,7 +675,7 @@ const EPISODES = [
      ["fox","一文ずつ読みながら、おかしな字を<b>タップ</b>するのじゃ。<b>意味</b>を考えれば、きっと分かるぞ。","pose2"],
    ],
    post:[
-     ["fox","「未来」が「末来」なら<b>すえが来る</b>、「完璧」が「完壁」なら<b>かべ</b>になる……。一画ちがえば、意味がまるで変わるのじゃ。","pose2"],
+     ["fox","「未来」が「末来」なら<b>すえが来る</b>、「完璧」が「完壁」なら<b>かべ</b>になる……。字の一部がちがうだけで、意味がまるで変わるのじゃ。","pose2"],
      ["fox","わらわが化けるときは、形だけでなく<b>意味のすきま</b>をねらっておる。……それもお見通しとはのう。","defense"],
      ["fox","よし、次は峠の<b>茶屋</b>じゃ。わらわの口車に乗らずにいられるかな？","pose1"],
    ]},
@@ -705,8 +705,8 @@ const EPISODES = [
    ]},
 ];
 const CH_SECONDS = 90;
-const MODE_NAMES = {A:"札", B:"画", C:"直", D:"文", F:"口"};
-const MODE_LONG  = {A:"札あらため（一話）", B:"一画あらため（二話）", C:"化けの皮はがし（三話）", D:"高札（四話）", F:"茶屋の口車（五話）"};
+const MODE_NAMES = {A:"札", B:"部", C:"直", D:"文", F:"口"};
+const MODE_LONG  = {A:"札あらため（一話）", B:"部分あらため（二話）", C:"化けの皮はがし（三話）", D:"高札（四話）", F:"茶屋の口車（五話）"};
 
 const LINES = {
   found:["むっ……見破られたか。","なかなかやるのう。","ちっ、よう見ておる。","ほう、その目はごまかせぬか。"],
@@ -961,7 +961,7 @@ function playEpisode(i){
   const tasks = E.mode === "F"
     ? Array.from({length:E.count}, () => ({mode:"F", lv:E.lv}))
     : E.tasks.map(t => Object.assign({mode:E.mode}, t));
-  // 画のデータが読めなかったときは、一画あらためを化けの皮はがしで代用する
+  // 画のデータが読めなかったときは、部分あらためを化けの皮はがしで代用する
   if(!strokesReady()) tasks.forEach(t => { if(t.mode === "B") t.mode = "C"; });
   newGame({ep:i, challenge:false, queue:tasks, total:tasks.length, done:0});
   show("scGame");
@@ -1129,7 +1129,7 @@ function runA(board, t, done){
 }
 
 /* =====================================================================
-   B 一画あらため：化けた字を大きく出し、化けている画（足りない画は本来の場所）を指でさす
+   B 部分あらため：化けた字を大きく出し、化けている画（足りない画は本来の場所）を指でさす
    ===================================================================== */
 function runB(el, t, done){
   const w = t.word || pickWords(lvPool(t.lv).filter(canPoint), 1)[0];
