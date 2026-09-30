@@ -203,6 +203,12 @@
   @keyframes poof{ 0%{transform:scale(1)} 35%{transform:scale(1.1) rotate(-3deg); filter:blur(1.5px)} 100%{transform:scale(1)} }
   .smoke{ position:absolute; font-size:min(30cqw,30cqh); pointer-events:none; animation:smoke .7s ease forwards; }
   @keyframes smoke{ 0%{opacity:1; transform:scale(.6)} 100%{opacity:0; transform:scale(1.8) translateY(-14px)} }
+  /* 当たり・はずれの大きな○×（2026-09-30、教員の指示：当たったかどうかが分かりにくい） */
+  .card .mark{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; z-index:2; animation:markPop 1.6s ease forwards; }
+  .card .mark svg{ width:min(92cqw, 92cqh); height:min(92cqw, 92cqh); overflow:visible; filter:drop-shadow(0 0 4px rgba(255,255,255,.95)); }
+  .card .mark.ok svg{ stroke:#e0301e; }
+  .card .mark.ng svg{ stroke:#2b4fa0; }
+  @keyframes markPop{ 0%{ transform:scale(.3); opacity:0; } 15%{ transform:scale(1.12); opacity:1; } 25%{ transform:scale(1); } 75%{ opacity:1; } 100%{ opacity:0; } }
   .dizzy{ pointer-events:none; }
   .dizzy .card{ filter:saturate(.6); }
 
@@ -1056,6 +1062,9 @@ function runA(board, t, done){
     grid.appendChild(b);
     SE.deal(i);
   });
+  const showMark = (i, ok) => { const m = document.createElement("span"); m.className = "mark " + (ok ? "ok" : "ng");
+    m.innerHTML = ok ? `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="none" stroke-width="11"/></svg>`
+                     : `<svg viewBox="0 0 100 100"><path d="M16 16L84 84M84 16L16 84" fill="none" stroke-width="13" stroke-linecap="round"/></svg>`; grid.children[i].appendChild(m); };
   const update = i => { const el = grid.children[i]; el.className = "card done " + cards[i].state; el.style.animationDelay = "0s"; el.innerHTML = cardInner(cards[i]); };
   // しばらく見つからないときは、九尾が化け札を1枚光らせる
   const armHint = () => laterTask(G.challenge ? 12000 : 22000, () => {
@@ -1071,13 +1080,13 @@ function runA(board, t, done){
     if(c.fake){
       c.state = "found"; remaining--;
       onFound(c.w, "A");
-      update(i); head();
+      update(i); head(); showMark(i, true);
       const s = document.createElement("span"); s.className = "smoke"; s.textContent = "💨"; grid.children[i].appendChild(s);
       if(remaining <= 0){ G.active = false; laterTask(700, () => done(true)); }
     }else{
       c.state = "real";
       onMiss();
-      update(i);
+      update(i); showMark(i, false);
       busy = true; grid.classList.add("dizzy");
       laterTask(500, () => { grid.classList.remove("dizzy"); busy = false; });
     }
