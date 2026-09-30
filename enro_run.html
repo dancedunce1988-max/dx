@@ -99,6 +99,15 @@
   .hud .gates{ font-size:13px; color:var(--sub); }
   .hud .gates b{ color:var(--text); font-size:17px; }
   .hud .sp{ flex:1; }
+  /* 挑戦モードの現在地（2026-10-01、教員の指示）：移動kmのすぐ横に、今いる地名と次の地名を大きめに出す */
+  .travel-row{ display:flex; align-items:baseline; justify-content:center; flex-wrap:wrap; gap:4px 14px; padding:0 12px 6px; }
+  .travel-row[hidden]{ display:none; }
+  .travel-row .tkm{ font-size:clamp(18px, 4.4vw, 24px); font-weight:bold; color:var(--gold); white-space:nowrap; }
+  .travel-row .tat{ font-size:clamp(20px, 5vw, 28px); font-weight:bold; color:var(--text); text-shadow:0 0 12px rgba(255,122,47,.7); white-space:nowrap; }
+  .travel-row .tat small, .travel-row .tkm small{ font-size:12px; color:var(--sub); font-weight:normal; margin-right:4px; }
+  .travel-row .tnext{ font-size:clamp(13px, 3.4vw, 16px); color:var(--fire2); white-space:nowrap; }
+  .travel-row .tnext b{ font-size:1.15em; }
+  .travel-row .tat.arrive{ animation:wpop .4s ease; }
   /* 炎ゲージ（2026-09-29、教員の指示で大きくし、HUDの下に1段まるごと使って置く）。8マスの区切り線つき */
   .gauge-row{ display:flex; align-items:center; justify-content:center; gap:10px; padding:2px 12px 6px; }
   .gauge-row .gl{ font-size:16px; font-weight:bold; color:var(--fire2); white-space:nowrap; }
@@ -455,6 +464,7 @@
     <button class="pill mute-inline" onclick="toggleMute()">🔊</button>
     <button class="pill" onclick="pauseGame()">⏸</button>
   </div>
+  <div class="travel-row" id="travelRow" hidden></div>
   <div class="gauge-row">
     <span class="gl" id="gaugeLabel">🔥 炎ゲージ</span>
     <span class="gauge" id="gaugeBox"><span class="gauge-fill" id="gauge" style="display:block"></span></span>
@@ -1360,7 +1370,19 @@ function popup(text){
 
 function refreshHud(){
   $("lives").innerHTML = Array.from({length:LIVES}, (_, i) => i < G.lives ? "❤️" : `<span class="off">❤️</span>`).join("");
-  $("scoreBox").innerHTML = G.challenge ? `移動 <b>${kmText(G.km)}</b> km` : `得点 <b>${G.score}</b>`;
+  $("scoreBox").innerHTML = `得点 <b>${G.score}</b>`;
+  $("scoreBox").hidden = G.challenge;   // 挑戦モードの移動kmは、下の現在地の行に大きく出す
+  const tr = $("travelRow");
+  tr.hidden = !G.challenge;
+  if(G.challenge){
+    const pl = placeOf(G.km);
+    const here = G.km === 0 ? "盛岡（出発）" : placeName(pl.at);
+    const arrived = tr.dataset.at !== here;
+    tr.dataset.at = here;
+    tr.innerHTML = `<span class="tkm"><small>移動</small>${kmText(G.km)} km</span>
+      <span class="tat ${arrived ? "arrive" : ""}"><small>📍現在地</small>${esc(here)}${pl.laps > 0 ? `<small style="margin-left:6px">🌏${pl.laps}周達成</small>` : ""}</span>
+      <span class="tnext">次は <b>${esc(placeName(pl.next))}</b>　あと ${kmText(pl.left)} km</span>`;
+  }
   $("gatesBox").innerHTML = G.challenge ? `🔥挑戦 <b>${G.chCorrect}</b> 問`
                                        : `関所 <b>${Math.min(G.correct, GOAL_GATES)}</b> / ${GOAL_GATES}`;
   $("zone").textContent = `${G.challenge ? "挑戦モード" : ZONES[G.zone].name}　${G.combo >= 2 ? G.combo + "連続！" : ""}`;
@@ -1482,6 +1504,7 @@ function enterChallenge(){
   G.lives = LIVES;
   G.phase = "break";
   refreshHud();
+  layout(); placeWolf();   // 現在地の行が出たぶん道の高さが変わるので、配置を計算し直す
   $("zbDone").textContent = "🔥 挑戦モード突入！";
   $("zbScore").innerHTML = `❤を満タンにしたぞ！ ${"❤️".repeat(LIVES)}` + (SAVE.bestKm > 0 ? `<br>これまでの最長 <b>${kmText(SAVE.bestKm)}</b> km（${placeName(placeOf(SAVE.bestKm).at)}まで）` : "");
   $("zbNext").textContent = "挑戦モード（❤がなくなるまで）";
