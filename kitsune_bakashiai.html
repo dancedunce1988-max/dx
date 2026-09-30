@@ -280,6 +280,7 @@
   .ks-line span.fk.hit::after{ content:attr(data-fix); position:absolute; left:50%; top:-.78em; transform:translateX(-50%); font-size:.62em; line-height:1; color:#11703c; font-weight:bold; }
   .ks-line span.nope{ animation:nope .5s ease; }
   @keyframes nope{ 50%{ background:rgba(60,30,10,.3); } }
+  .kousatsu.long .ks-line{ font-size:clamp(17px, 2.9vh, 24px); line-height:2.1; }
   .ks-line.hint{ background:rgba(255,236,160,.75); }
   .ks-fixes{ display:flex; flex-wrap:wrap; justify-content:center; gap:8px; }
   .ks-fix{ background:rgba(255,255,255,.08); border:1px solid var(--line); border-radius:10px; padding:6px 10px; font-size:13px; line-height:1.5; max-width:340px; animation:fadeUp .4s ease backwards; }
@@ -354,6 +355,8 @@
     .scoreline b{ font-size:24px; }
     .timer{ margin-top:2px; }
     .grid{ gap:8px; max-width:none; }
+    .board:has(.dwrap){ overflow-y:auto; justify-content:flex-start; }   /* 高札（長文＋解説）がはみ出してもスクロールで読めるように */
+    .dwrap{ height:auto; }
     .qnote{ font-size:14px; }
     .bchar{ height:min(40vh, 84vw); }
     #scMap, #scStory{ overflow-y:auto; align-items:flex-start; padding-top:56px; }
@@ -631,6 +634,64 @@ const SENTENCES = {
   "発汗":"運動すると、{発汗}して体温が下がる。","果汁":"しぼりたての{果汁}は、とてもおいしい。",
 };
 
+/* 挑戦の間の「長文の高札」（2026-09-30、教員の指示）。5問目・10問目…（5の倍数）に必ず出す。
+   { }の熟語は4〜5個あり、出すたびにその中から3つをランダムに化けさせる（残りは本物のまま出る）。
+   同じ文章が出ても化ける場所が変わるので、丸暗記しにくい。1つ見破るごとに、ほかの問題より高い得点が入る。 */
+const LONG_TEXTS = [
+  "明日は{休日}なので、朝から家族で山に登る。{太陽}がまぶしい山道を歩いていると、{途中}で道が二つに分かれていた。{矢印}の看板にしたがって進むと、ようやく頂上に着いた。",
+  "三日{連続}で雨が降り、{体育}の授業は体育館で行われた。先生の{命令}で全員がリレーの練習をしたが、わたしはバトンを落とす{失敗}をしてしまった。",
+  "図書館では、本の{貸し出し}は一人五冊までと決まっている。秋は{読書}の{季節}なので、図書{委員}のわたしは、おすすめの本を{紹介}するポスターを作った。",
+  "夏休みに、近くの洞くつを{探検}した。中には{危険}な場所もあるので、{経験}のある大人といっしょに行った。帰る{途中}で見た夕日は、まさに{圧巻}だった。",
+  "駅の窓口で{乗車券}を買い、{時刻}表を確かめた。{正午}の電車に乗って、祖父の家に向かう。{往復}で三時間もかかるが、祖父の{盆栽}を見るのが楽しみだ。",
+  "大会の{第一}試合は、朝九時から始まった。相手チームの{特徴}は、背の高い選手が多いことだ。試合は{延長}戦にもつれこんだが、みんなの{応援}のおかげで勝つことができた。",
+  "港に大きな{貨物}船が着いた。この国は、多くの食べ物を{輸入}にたよっている。船から下ろされた荷物は、{専門}の業者が、大きな{車輪}のトラックで町へ運んでいった。",
+  "転校生を、クラス全員で{歓迎}した。{自己}紹介では、好きな飲み物は{牛乳}だと話していた。かれの{特技}はけん玉で、その腕前は{抜群}だった。",
+  "先週、学校で歯の{検査}があった。虫歯が見つかった人は、歯医者で歯の{状態}を見てもらう。先生の話を聞いて、わたしは毎日の歯みがきの{時間}を見直すことにした。これからは{積極}的に歯を大切にしよう。",
+  "社会科見学で、{裁判}所を訪れた。{法廷}では、裁判官が判決を言いわたしていた。案内の人は、わたしたちの{質問}にていねいに答えてくれ、たくさんの{知識}を得ることができた。",
+  "テストの前に、ノートを見て{復習}した。数学の問題は、思ったより{複雑}だった。それでも、分からないところを先生に{積極}的に質問したので、二学期は{成績}が上がった。",
+  "文化祭の手伝いを{募集}しています。参加したい人は、この{名簿}に名前を{記載}してください。{住所}や電話番号は書かなくてかまいません。",
+  "助けてくれたおじさんは、わたしの命の{恩人}だ。台風で古い小屋が{破壊}されたとき、下じきになりそうなわたしを救い出してくれた。そのとき足を{骨折}したおじさんは、今は元気に{盆栽}の手入れをしている。",
+  "{深海}には、ふしぎな生き物がすんでいる。ある{博士}は、集めたデータを{分析}して、新しい生き物の{特徴}をまとめた。その研究は、世界中の新聞に取り上げられた。",
+  "日本の{気候}は、四季がはっきりしている。春はお花見の{季節}で、夏は少し運動しただけでも{発汗}する。暑い日には、しぼりたての{果汁}で水分をとるのもよいだろう。",
+  "災害の起きた町に、救助隊が{派遣}された。{危険}な場所では、車も{徐行}して走る。けがをした人たちは、{途中}にある病院に次々と運ばれた。",
+  "この古い寺は、大切な文化{遺産}だ。人が減って、門前の商店街は{衰退}している。それでも、秋祭りの{開幕}を告げる太鼓が鳴ると、集まった{観客}から大きな拍手がわき起こる。",
+  "将来どんな{職業}につきたいか、考えてみた。わたしは虫が好きなので、こん虫を{専門}に研究する{博士}になりたい。そのためには、たくさんの{知識}と{経験}が必要だ。",
+  "学校という{組織}には、たくさんの人がかかわっている。わたしは図書{委員}として、本の{貸し出し}を手伝っている。{読書}好きの友達がふえるのがうれしい。",
+  "{未来}の自分に、手紙を書いてみよう。十年後の自分は、どんな{職業}についているだろうか。{幸福}に暮らしているだろうか。そんなことを考えながら、封筒に{住所}を書いた。",
+  "江戸時代の{末期}には、多くの外国船が来航した。{王様}のいる国から来た船もあったという。人々は、見たこともない船の{構造}におどろき、その様子を{記載}した絵を残している。",
+  "隊長の{命令}で、全員がその場に{待機}していた。雨がやむまで{時間}がかかりそうだったので、隊長は、いったん{除外}していた作戦をもう一度考え直した。",
+  "かれは試合に出られず、{補欠}としてベンチにいた。それでも、仲間を大きな声で{応援}しつづけた。みんなで{協力}して勝ったあと、監督は「きみの声が勝利の{核心}だった」と言った。",
+  "警察が、町をさわがせていたどろぼうを{逮捕}した。どろぼうは{薄情}にも、お年寄りの家ばかりをねらっていたらしい。警察は集めた証拠を{分析}し、ついに犯人の{特徴}をつきとめたのだ。",
+  "校則を少し{緩和}することになった。生徒会が{署名}を集め、先生たちと話し合ったのだ。話し合いの{途中}では意見がぶつかったが、最後は全員が{協力}して案をまとめた。",
+  "最後の演技は、{完璧}な出来ばえだった。{観客}は立ち上がって拍手を送った。指先の{微妙}な動きまで練習を重ねてきた{経験}が、実を結んだのだ。",
+  "お盆には、家族で{墓地}へお参りに行く。{兄弟}みんなで、祖先に感謝の気持ちを伝える。帰りの電車の{時刻}まで、駅前の店で{果汁}たっぷりのかき氷を食べる。",
+  "アパートの{家賃}を、毎月はらう。一人暮らしを始めた兄は、{複雑}な手続きにとまどっていた。それでも、新しい{土地}での生活に少しずつなれ、今では{幸福}そうだ。",
+  "いよいよ、運動会の{開幕}だ。{正午}までに午前の競技を終え、午後は{第一}グループからリレーを行う。赤組と白組の点差は{微妙}で、最後まで目がはなせない。",
+  "昔は{石炭}を燃やして汽車を走らせていた。今は電気で走る電車が多いが、古い汽車の{構造}を調べるのはおもしろい。{車輪}の大きさや形にも、それぞれ{特徴}がある。",
+  "{自己}紹介の{時間}に、わたしは{特技}のピアノの話をした。みんながたくさん{質問}してくれたので、少しずつ緊張がほぐれていった。",
+  "計画に反対する人たちが、{署名}を集めた。町の緑地を{破壊}して、大きな建物をつくる計画だ。話し合いは{延長}され、市長は、みんなの意見を{分析}してから結論を出すと話した。",
+  "旅に出て、{見聞}を広めたい。知らない{土地}の料理を食べたり、その国の人々の{思想}にふれたりすることは、きっとよい{経験}になるはずだ。",
+  "祖父の家には、とても大きな{盆栽}がある。祖父はその手入れの{専門}家で、{微妙}な枝の形まで気を配っている。「{失敗}してもいい、まずやってごらん」と、わたしにもはさみを持たせてくれた。",
+  "友達から、誕生日会の{招待}状が届いた。当日は、友達の{兄弟}や近所の人も来るらしい。{自己}紹介で何を話そうかと考えていたら、プレゼントを選ぶのに{時間}がかかってしまった。",
+  "試合中に、キャプテンが足を{骨折}してしまった。チームの{状態}は最悪だったが、残りの選手たちが{協力}して守りきった。試合のあと、キャプテンは「みんなはぼくの{恩人}だ」と言った。",
+  "かれの歌のうまさは{抜群}だ。コンクールでは{完璧}な歌声をひびかせ、{観客}をおどろかせた。かれにとって、歌を一から教えてくれた先生は{恩人}だ。",
+  "大学の先生の{講義}を聞きに行った。テーマは、地球の{気候}の変化についてだった。先生は、集めたデータの{分析}結果を示しながら、{未来}のためにできることを話してくれた。",
+  "この物語の{著者}は、どんな人だろう。あとがきを読むと、若いころに{派遣}された外国での{経験}が、物語のもとになっているらしい。作品には、作者の{思想}がよく表れている。",
+  "雪の日は、車も{徐行}して走る。{危険}な坂道は、通行止めになることもある。バスが遅れたので、{途中}から歩いて学校に向かったが、着いたのは始業{時間}ぎりぎりだった。",
+  "朝ごはんに、パンと{牛乳}を食べた。今日は、弟の小学校{入学}式だ。横断歩道では{左右}をよく確かめて渡った。{太陽}の光が、弟の新しいランドセルをきらきらと照らしていた。",
+  "夏休みの自由研究で、{深海}魚について調べた。{博士}が書いた本を読み、写真で見た魚の{特徴}をノートに{記載}した。調べれば調べるほど、海の世界の{複雑}さにおどろかされる。",
+  "{王様}は、国じゅうの人々を城に{招待}した。{正午}になると、城の門が開き、人々が中へ入っていった。広間では、{兄弟}の王子たちが客を{歓迎}した。",
+  "村の{遺産}である古い橋が、台風で{破壊}されてしまった。村の人たちはボランティアを{募集}し、橋を元どおりにする作業を始めた。完成までには、長い{時間}がかかりそうだ。",
+  "体育祭の{第一}種目は、クラス対抗リレーだ。相手は三年{連続}で一位をとっているクラスなので、作戦の{核心}はバトンの受けわたしにある。放課後、みんなで何度も{復習}した。",
+  "図書館の{名簿}を見ると、今月いちばん本を借りたのは、わたしの兄だった。{読書}が好きな兄は、本の{貸し出し}のたびに、感想をノートに書いている。いつか兄のように、{知識}の豊かな人になりたい。",
+  "しばらくは、おだやかな{気候}が続くらしい。次の{休日}には、家族で{果汁}のしぼり体験に行く予定だ。{往復}の{乗車券}は、父がもう買ってくれている。",
+  "学級会で、{委員}長が話し合いの司会をした。意見が{複雑}にからみ合ったが、最後はみんなの考えを{分析}して、「{協力}し合うクラス」という目標に決まった。",
+  "暑い日に運動すると、{発汗}して体温が下がる。{体育}の授業のあとは、水分をとって体の{状態}をととのえよう。そうすることで、熱中症の{危険}を減らすことができる。",
+  "公園の{矢印}の看板にしたがって歩くと、小さな{墓地}の横に出た。そこには、この町の{恩人}とよばれた人の石碑が立っていた。石碑には、その人が町に{貨物}列車を通した話が{記載}されていた。",
+  "家の近くの{土地}に、新しい図書館が建つ。{構造}は木造で、地震にも強いそうだ。開館の日には{著者}のサイン会もあるらしく、開館の{時刻}が待ち遠しい。",
+  "兄は{日本刀}の研究をしている。博物館で、名人がきたえた刀の{微妙}な反りについて、{専門}家から話を聞いたそうだ。兄の{知識}には、いつもおどろかされる。",
+];
+
 /* =====================================================================
    話の構成（2026-09-30〜）。話ごとに見破り方（mode）が変わる。
      A 札あらため   ：並んだ札の中から化け札を見つける
@@ -706,6 +767,9 @@ const EPISODES = [
    ]},
 ];
 const CH_SECONDS = 60;
+const LONG_EVERY = 5;      // 挑戦の間で、この数の倍数の問題は長文の高札
+const LONG_FAKES = 3;      // 長文の高札で化けさせる数
+const LONG_POINTS = 250;   // 長文の高札で1字見破ったときの点（ほかは100点）。連続ボーナスは同じく加算
 const MODE_NAMES = {A:"札", B:"部", C:"直", D:"文", F:"口"};
 const MODE_LONG  = {A:"札あらため（一話）", B:"部分あらため（二話）", C:"化けの皮はがし（三話）", D:"高札（四話）", F:"茶屋の口車（五話）"};
 
@@ -993,12 +1057,12 @@ function stamp(w, mode){
   if(!G.found.some(x => x.w === w)) G.found.push({w, isNew});
   return isNew;
 }
-function onFound(w, mode){
+function onFound(w, mode, base = 100){
   G.combo++;
   stamp(w, mode);
   SE.found(G.combo); setCombo(G.combo);
   if(G.challenge){
-    const pts = 100 + Math.min(G.combo - 1, 5) * 20;
+    const pts = base + Math.min(G.combo - 1, 5) * 20;
     G.score += pts; G.correct++;
     $("score").textContent = G.score; $("chCorrect").textContent = G.correct;
     const p = $("plus"); p.textContent = "+" + pts; p.classList.remove("pop"); void p.offsetWidth; p.classList.add("pop");
@@ -1232,25 +1296,55 @@ function runC(el, t, done){
 /* =====================================================================
    D 高札：文の中の化けた字をタップする（1文に1つ）。同じ熟語の別の字は「おしい」
    ===================================================================== */
-function sentenceHtml(w, li){
-  const s = SENTENCES[w[0]];
-  const a = s.indexOf("{"), b = s.indexOf("}");
+// 1行ぶんの文を作る。text の{熟語}のうち、fakeSet に入っているものだけ化けた形で出し、ws に足す
+// （化けた字＝.fk、同じ熟語のほかの字＝.fw。data-kはwsの何番目か）
+function lineHtml(text, li, fakeSet, ws){
   const plain = str => [...str].map(c => KANJI_RE.test(c) ? `<span class="kj">${c}</span>` : `<span>${c}</span>`).join("");
-  const fake = [...fakeWordOf(w)];
-  return `<p class="ks-line" data-l="${li}">` + plain(s.slice(0, a)) +
-    fake.map((c, i) => i === w[2] ? `<span class="kj fk" data-l="${li}" data-fix="${realCharOf(w)}">${c}</span>` : `<span class="kj fw" data-l="${li}" data-i="${i}">${c}</span>`).join("") +
-    plain(s.slice(b + 1)) + `</p>`;
+  let html = `<p class="ks-line" data-l="${li}">`, last = 0, m;
+  const re = /{([^}]+)}/g;
+  while((m = re.exec(text))){
+    html += plain(text.slice(last, m.index));
+    const w = WORDS.find(x => x[0] === m[1]);
+    if(w && fakeSet.has(w[0])){
+      const k = ws.push(w) - 1;
+      html += [...fakeWordOf(w)].map((c, i) => i === w[2]
+        ? `<span class="kj fk" data-k="${k}" data-fix="${realCharOf(w)}">${c}</span>`
+        : `<span class="kj fw" data-k="${k}" data-i="${i}">${c}</span>`).join("");
+    }else html += plain(m[1]);
+    last = re.lastIndex;
+  }
+  return html + plain(text.slice(last)) + `</p>`;
+}
+// 長文の高札：直近に出た文章はなるべく避けて選び、{ }の中から3つを化けさせる
+let RECENT_LONG = [];
+function pickLongText(){
+  const idx = LONG_TEXTS.map((_, i) => i);
+  const fresh = idx.filter(i => !RECENT_LONG.includes(i));
+  const i = pick(fresh.length ? fresh : idx);
+  RECENT_LONG = RECENT_LONG.concat(i).slice(-30);
+  return LONG_TEXTS[i];
 }
 function runD(el, t, done){
-  const ws = pickWords(lvPool(t.lv).filter(w => SENTENCES[w[0]]), t.n);
+  const ws = [];
+  let body;
+  if(t.long){
+    const text = pickLongText();
+    const marks = [...text.matchAll(/{([^}]+)}/g)].map(m => m[1]);
+    const fakeSet = new Set(shuffle(marks).slice(0, LONG_FAKES));
+    body = text.split(/(?<=。)/).filter(s => s.trim()).map((s, li) => lineHtml(s, li, fakeSet, ws)).join("");
+    $("gameLine").innerHTML = `長い高札じゃ！　化け字は<b>${LONG_FAKES}つ</b>。1つ見破るごとに<b>大きく点</b>が入るぞ。`;
+    setFox($("gameFox"), "attack", "hop");
+  }else{
+    body = pickWords(lvPool(t.lv).filter(w => SENTENCES[w[0]]), t.n).map((w, li) => lineHtml(SENTENCES[w[0]], li, new Set([w[0]]), ws)).join("");
+  }
   let remaining = ws.length, misses = 0;
   el.innerHTML = `<div class="dwrap">
     <div class="board-head" id="dHead"></div>
-    <div class="kousatsu"><div class="ks-title mincho">${t.n > 1 ? "おしらせ" : "高札"}</div><div class="ks-body mincho">${ws.map(sentenceHtml).join("")}</div></div>
+    <div class="kousatsu ${t.long ? "long" : ""}"><div class="ks-title mincho">${t.long ? "長文の高札" : t.n > 1 ? "おしらせ" : "高札"}</div><div class="ks-body mincho">${body}</div></div>
     <div class="qnote" id="dnote">文を読んで、<b>おかしな字</b>をタップせよ</div>
     <div class="ks-fixes" id="dfix"></div>
     <div class="qfoot" id="dfoot"></div></div>`;
-  const head = () => el.querySelector("#dHead").innerHTML = remaining ? `化け字 あと <b>${remaining}</b> 字` : `すべて見破った！`;
+  const head = () => el.querySelector("#dHead").innerHTML = remaining ? `化け字 あと <b>${remaining}</b> 字` + (t.long ? `　<span style="color:var(--gold)">（1字 ${LONG_POINTS}点〜）</span>` : "") : `すべて見破った！`;
   head();
   let lock = false;
   el.querySelector(".ks-body").addEventListener("click", e => {
@@ -1259,10 +1353,10 @@ function runD(el, t, done){
     if(sp.classList.contains("fk")){
       if(sp.classList.contains("hit")) return;
       sp.classList.add("hit");
-      const w = ws[+sp.dataset.l];
+      const w = ws[+sp.dataset.k];
       remaining--; head();
       sp.parentElement.classList.remove("hint");
-      onFound(w, "D");
+      onFound(w, "D", t.long ? LONG_POINTS : 100);
       showMaru(sp, 2.8);
       el.querySelector("#dfix").insertAdjacentHTML("beforeend",
         `<div class="ks-fix"><span class="f mincho">${fakeWordOf(w)}</span> → <span class="t mincho">${w[0]}</span>　${w[5]}</div>`);
@@ -1272,7 +1366,7 @@ function runD(el, t, done){
       }
     }else if(sp.classList.contains("fw")){
       SE.close();
-      const w = ws[+sp.dataset.l], vi = +sp.dataset.i;
+      const w = ws[+sp.dataset.k], vi = +sp.dataset.i;
       $("gameLine").innerHTML = variantNote(w, vi) || LINES.close;
       setFox($("gameFox"), "pose2", "hop");
     }else if(sp.classList.contains("kj")){
@@ -1366,12 +1460,13 @@ function episodeClear(){
    六 挑戦の間：CH_SECONDS秒で、一〜五話の見破り方をまぜて出す。時間が来たら「記録」として終わる
    （負けではない。まちがえても減点はなく、連続が切れるだけ）。
    正解1つ＝100点＋連続ボーナス（2連続目から20点ずつ、最大+100点）。
+   5問目・10問目…は必ず「長文の高札」（LONG_TEXTS、化け字3つ、1字LONG_POINTS点＋連続ボーナス）。
    正解数が増えるほど、むずかしい熟語もまざる。
    ===================================================================== */
 let clockId = null;
 function stopClock(){ if(clockId){ clearInterval(clockId); clockId = null; } }
 function startChallenge(){
-  newGame({challenge:true, score:0, correct:0, over:false, last:null});
+  newGame({challenge:true, score:0, correct:0, over:false, last:null, q:0});
   show("scGame");
   $("epLabel").innerHTML = `<b class="mincho">六</b>　挑戦の間`;
   $("progBox").hidden = true; $("chBox").hidden = false;
@@ -1403,6 +1498,8 @@ function startClock(){
 }
 function nextChallengeTask(){
   if(G.over) return;
+  G.q++;
+  if(G.q % LONG_EVERY === 0) return runTask({mode:"D", long:true});   // 5問目・10問目…は必ず長文の高札
   const lv = G.correct < 4 ? [1,1] : G.correct < 10 ? [1,2] : [1,3];
   const modes = ["A","B","C","D","F"].filter(m => m !== G.last && (m !== "B" || strokesReady()));
   const m = pick(modes);
