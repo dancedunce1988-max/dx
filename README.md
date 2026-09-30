@@ -29,6 +29,6 @@
 ### 注意
 
 - jsDelivr で `@main` は使わない（キャッシュで更新が届かない）。ハッシュは Actions が管理する
-- CDN の形: `https://cdn.jsdelivr.net/gh/happa0827/dx@<commitHash>/`
+- CDN の形: `https://cdn.jsdelivr.net/gh/dancedunce1988-max/dx@<commitHash>/`
 - `import-config.json`（`commitHash` / `repo`）はリポジトリ上にあり、生徒 PC に置かなくてよい
 - ランチャーは `raw.githubusercontent.com/.../main/dist/import-config.json` から最新ハッシュを読み、`window.__DX_CDN_BASE__` をセットして本体を読み込む
