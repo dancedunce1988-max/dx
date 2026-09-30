@@ -9,11 +9,11 @@
      本体のセーブデータ(st)には一切触れず、このページ専用のlocalStorageキーだけを使う
      （経験値・ジャンルレベルにはまだ反映しない）。
      2026-09-30、教員の指示で「九本の尾を1本ずつ取る」形をやめ、話ごとに見破り方が変わるストーリー仕立て
-     （一〜六話）＋全部の見破り方がまざって出る90秒の「挑戦の間」（七）に作り替えた
+     （一〜五話）＋全部の見破り方がまざって出る60秒の「挑戦の間」（六）に作り替えた
      （「同じことを何度もやらされる感じで飽きる」「間違いを探す楽しさを複数の視点から」という指摘による）。
-     九尾(ub05)の絵は本番と同じスプライトを使う。色違い(enemy_sprites_shiny_data.js、約7MB)は
-     全話クリア後に色違いを選んだときだけ後から読み込む（ensureShinySprites参照）。
-     読み込めなかったときは🦊の絵文字で代用する。 -->
+     同日、教員の指示で「総仕上げ」の話（札で見つける→指さし→直すを続ける）は「同じ答えを何回も答えさせられて
+     退屈」のため削除、挑戦の間は90秒→60秒、九尾の色違いの姿を選ぶボタンも不要として削除した。
+     九尾(ub05)の絵は本番と同じスプライトを使う。読み込めなかったときは🦊の絵文字で代用する。 -->
 <script src="ura_boss_sprites_data.js"></script>
 <script src="kitsune_stroke_data.js"></script>
 <style>
@@ -108,7 +108,7 @@
   .ep-btn.challenge{ grid-column:1 / -1; background:linear-gradient(135deg,rgba(211,70,47,.28),rgba(255,154,60,.12)); border-color:rgba(255,154,60,.55); }
   .ep-btn.challenge.locked{ background:rgba(255,255,255,.04); border-color:rgba(255,255,255,.18); }
   .ep-btn:hover:not(.locked){ filter:brightness(1.15); }
-  .map-btns{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .map-btns{ display:grid; grid-template-columns:1fr; gap:10px; }
   .back-link{ position:fixed; top:10px; left:12px; z-index:50; }
 
   /* =====================================================================
@@ -282,9 +282,6 @@
   .fbtns{ width:100%; display:grid; grid-template-columns:1fr 1fr; gap:12px; }
   .fbtns .btn{ font-size:19px; padding:15px; }
 
-  /* ---- 総仕上げ：化け札を見つけたら、その場で指さし→直す ---- */
-  .deep{ position:absolute; inset:0; z-index:5; display:flex; align-items:center; justify-content:center; padding:8px; border-radius:18px; background:#140a1e; box-shadow:0 0 0 6px #140a1e; animation:fadeUp .25s ease; }
-
   /* ---- 中央の大きな表示 ---- */
   .banner{
     position:fixed; inset:0; z-index:30; display:none; align-items:center; justify-content:center; flex-direction:column;
@@ -379,7 +376,6 @@
       <div class="ep-list" id="epList"></div>
       <div class="map-btns">
         <button class="btn secondary" onclick="openZukan()" id="zukanBtn">化け字図鑑</button>
-        <button class="btn secondary" id="shinyBtn" onclick="toggleShiny()" hidden></button>
       </div>
     </div>
   </div>
@@ -627,7 +623,6 @@ const SENTENCES = {
      C 化けの皮はがし：化けた字をタップして、正しい字を4つから選んで直す
      D 高札         ：お知らせの文の中から、化けた字を見つける
      F 茶屋の口車   ：九尾の言葉（本当のこともうそのこともある）にまどわされず、札が本物か化け札かを決める
-     E 総仕上げ     ：札の中から化け札を見つけるたびに、その場で指さし（B）→直す（C）
    ・負けはない：どの話も、見破りきれば必ず終わる。まちがえても減るものはない（連続が切れるだけ）。
    ・図鑑のスタンプ・挑戦の間の得点は、正解したときにだけ増える。
    ===================================================================== */
@@ -689,22 +684,13 @@ const EPISODES = [
    ],
    post:[
      ["fox","わらわの口車にも乗らぬとは……。","defense"],
-     ["fox","もはや、手加減はせぬ。わらわの術をすべてつかった、<b>最後の化かし合い</b>じゃ！","attack"],
-   ]},
-  {no:"六", title:"九尾の本気", mode:"E", desc:"見つける・指さす・直すの総仕上げ",
-   tasks:[{cards:9,fakes:2,lv:[1,3]},{cards:9,fakes:2,lv:[2,3]}],
-   pre:[
-     ["narr","満月の夜。九尾が、九本の尾を大きく広げた。"],
-     ["fox","これまでの術を、すべて見せてみよ。化け札を<b>見つけ</b>、どこが化けておるかを<b>指さし</b>、正しい字に<b>直す</b>のじゃ！","attack"],
-   ],
-   post:[
      ["fox","ま、参った……。そなたの目には、わらわの術も通じぬようじゃ。","defeat"],
      ["fox","字を知ることは、化かされぬ力になる。そなたは、その力をしかと持っておる。","pose1"],
-     ["fox","……じゃが、わらわはあきらめが悪い。<b>九十秒</b>で、どれだけ見破れるか。<b>挑戦の間</b>を開いておいたぞ。","pose2"],
-     ["narr","「<b>七 挑戦の間</b>」が開いた！　九尾が<b>色違いの姿</b>にもなれるようになった。"],
+     ["fox","……じゃが、わらわはあきらめが悪い。<b>六十秒</b>で、どれだけ見破れるか。<b>挑戦の間</b>を開いておいたぞ。","pose2"],
+     ["narr","「<b>六 挑戦の間</b>」が開いた！"],
    ]},
 ];
-const CH_SECONDS = 90;
+const CH_SECONDS = 60;
 const MODE_NAMES = {A:"札", B:"部", C:"直", D:"文", F:"口"};
 const MODE_LONG  = {A:"札あらため（一話）", B:"部分あらため（二話）", C:"化けの皮はがし（三話）", D:"高札（四話）", F:"茶屋の口車（五話）"};
 
@@ -719,8 +705,7 @@ const LINES = {
   liedCaught:["ちっ、うそに乗らぬか。","むう、口車が通じぬ……。"],
   mapFirst:"ほほほ……わらわは九尾。字に化けていたずらをするのじゃ。まずは<b>一話</b>から、わらわと化かし合いじゃ。",
   mapMid:["次は<b>{t}話</b>じゃな。待っておるぞ。","ふむ、まだまだ術は残っておるぞ。<b>{t}話</b>で勝負じゃ。","クリアした話も、何度でも遊べるぞ。"],
-  mapAll:["九十秒で、どれだけ見破れるかのう？","また化かし合いに来たのか。ふふ、うれしいのう。","図鑑のスタンプを全部そろえると、札が金色になるぞ。"],
-  mapShiny:"ほれ、そなたのために、とっておきの姿になってやったぞ。",
+  mapAll:["六十秒で、どれだけ見破れるかのう？","また化かし合いに来たのか。ふふ、うれしいのう。","図鑑のスタンプを全部そろえると、札が金色になるぞ。"],
   talk:["わらわは字の形を少しだけ変えて化けるのじゃ。","へんやつくりを見れば、わらわの正体が分かるぞ。","あせらず、一字ずつ見るのがこつじゃ。","「未」と「末」、どちらの上の線が長いか覚えておるか？"],
 };
 const pick = a => a[Math.floor(Math.random()*a.length)];
@@ -734,7 +719,7 @@ const strokesReady = () => typeof KITSUNE_STROKES !== "undefined" && typeof KITS
 const canPoint = w => strokesReady() && KITSUNE_DIFF[w[0]] && KITSUNE_DIFF[w[0]][2] === 1;
 
 /* =====================================================================
-   保存（この端末だけ）：クリアした話・図鑑のスタンプ・挑戦の間の最高記録・音・色違い
+   保存（この端末だけ）：クリアした話・図鑑のスタンプ・挑戦の間の最高記録・音
    図鑑 zk：{熟語: "ABCDF"のうち、その見破り方で見破ったことのある文字}
    旧版(kitsune_bakashiai_v3、九本の尾)で見破った化け字は、「札」のスタンプとして引きつぐ。
    ===================================================================== */
@@ -759,7 +744,6 @@ function loadSave(){
   if(typeof s.bestCorrect !== "number") s.bestCorrect = 0;
   if(typeof s.chPlays !== "number") s.chPlays = 0;
   if(typeof s.muted !== "boolean") s.muted = false;
-  if(typeof s.useShiny !== "boolean") s.useShiny = false;
   return s;
 }
 function writeSave(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); }catch(e){} }
@@ -767,7 +751,6 @@ let SAVE = loadSave();
 writeSave();
 const allCleared = () => EPISODES.every((_, i) => SAVE.cleared[i]);
 const nextEpisode = () => { const i = EPISODES.findIndex((_, k) => !SAVE.cleared[k]); return i; };
-const shinyOn = () => SAVE.useShiny && allCleared();
 const zkCount = () => Object.keys(SAVE.zk).length;
 const zkGold = () => Object.values(SAVE.zk).filter(s => s.length >= 5).length;
 
@@ -804,7 +787,6 @@ const SE = {
 
 /* ---- 九尾の絵 ---- */
 function foxSrc(pose){
-  if(shinyOn() && typeof ENEMY_SPRITES_SHINY !== "undefined" && ENEMY_SPRITES_SHINY["ub05_" + pose]) return ENEMY_SPRITES_SHINY["ub05_" + pose];
   return (typeof URA_BOSS_SPRITES !== "undefined") && URA_BOSS_SPRITES["ub05_" + pose];
 }
 function setFox(el, pose, anim){
@@ -813,16 +795,6 @@ function setFox(el, pose, anim){
   if(anim){ el.classList.remove("hop","shiver"); void el.offsetWidth; el.classList.add(anim); }
 }
 
-/* 色違いスプライトは大きい（約7MB）ので、全話クリア後に色違いを選んでいるときだけ読み込む */
-let shinyLoading = false;
-function ensureShinySprites(){
-  if(!shinyOn() || typeof ENEMY_SPRITES_SHINY !== "undefined" || shinyLoading) return;
-  shinyLoading = true;
-  const sc = document.createElement("script");
-  sc.src = "enemy_sprites_shiny_data.js";
-  sc.onload = () => { if($("scMap").classList.contains("show")) setFox($("mapFox"), "pose1"); };
-  document.head.appendChild(sc);
-}
 // 知識ドリルDXのミニゲーム一覧へ戻る（kokugo_app.html側の ?from=minigame 参照）
 function backToApp(){ location.href = "kokugo_app.html?from=minigame"; }
 
@@ -839,7 +811,6 @@ function showMap(){
   hideBanner(); stopClock();
   if(G){ G.token++; G = null; }
   show("scMap");
-  ensureShinySprites();
   const nxt = nextEpisode();
   $("epList").innerHTML = EPISODES.map((E, i) => {
     const locked = i > 0 && !SAVE.cleared[i-1];
@@ -851,22 +822,17 @@ function showMap(){
     const open = allCleared();
     const st = !open ? "🔒" : SAVE.best ? `<span class="st clear">最高 ${SAVE.best}点</span>` : `<span class="st new">NEW</span>`;
     return `<button class="ep-btn challenge ${open ? "" : "locked"}" ${open ? `onclick="startChallenge()"` : "disabled"}>
-      <span class="n mincho">七</span><span><div class="t mincho">挑戦の間</div><div class="d">${open ? `${CH_SECONDS}秒で、どれだけ見破れるか。一〜五話の見破り方がまざって出る` : "六話まで進むと開く"}</div></span>${st}</button>`;
+      <span class="n mincho">六</span><span><div class="t mincho">挑戦の間</div><div class="d">${open ? `${CH_SECONDS}秒で、どれだけ見破れるか。一〜五話の見破り方がまざって出る` : "五話まで進むと開く"}</div></span>${st}</button>`;
   })();
   $("zukanBtn").textContent = `化け字図鑑 ${zkCount()}/${WORDS.length}` + (zkGold() ? `（金${zkGold()}）` : "");
-  const sb = $("shinyBtn");
-  sb.hidden = !allCleared();
-  sb.textContent = SAVE.useShiny ? "九尾：いつもの姿に" : "九尾：色違いの姿に";
   let line;
-  if(shinyOn()) line = LINES.mapShiny;
-  else if(nxt === 0 && !zkCount()) line = LINES.mapFirst;
+  if(nxt === 0 && !zkCount()) line = LINES.mapFirst;
   else if(nxt >= 0) line = fill(pick(LINES.mapMid), {t:EPISODES[nxt].no});
   else line = pick(LINES.mapAll);
   $("mapLine").innerHTML = line;
   setFox($("mapFox"), "pose1", "hop");
 }
 function foxTalk(){ $("mapLine").innerHTML = pick(LINES.talk); setFox($("mapFox"), "pose2", "hop"); }
-function toggleShiny(){ SAVE.useShiny = !SAVE.useShiny; writeSave(); showMap(); }
 
 /* ---- 化け字図鑑：見破り方ごとのスタンプ（5つそろうと金色） ---- */
 function openZukan(){
@@ -1036,9 +1002,9 @@ function setCombo(n){
   el.textContent = n >= 2 ? `${n} れんぞく！` : "";
   if(n >= 2){ el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop"); }
 }
-// 解説を読んでから進む：話では「つぎへ」ボタン、挑戦の間・総仕上げの途中は自動で進む
+// 解説を読んでから進む：話では「つぎへ」ボタン、挑戦の間は自動で進む
 function finishStep(foot, t, ok, done){
-  if(G.challenge || t.auto){ laterTask(ok ? (t.auto ? 1500 : 800) : 1500, () => done(ok)); return; }
+  if(G.challenge){ laterTask(ok ? 800 : 1500, () => done(ok)); return; }
   const b = document.createElement("button");
   b.className = "btn next-btn"; b.textContent = "つぎへ ▶";
   b.onclick = () => { b.disabled = true; done(ok); };
@@ -1047,7 +1013,7 @@ function finishStep(foot, t, ok, done){
 const fixHtml = w => `<span class="ng mincho">${w[3]}</span> → <span class="okc mincho">${realCharOf(w)}</span>　${w[5]}`;
 
 /* =====================================================================
-   A 札あらため（E 総仕上げもこれを使い、化け札を見つけるたびに指さし→直すへ進む）
+   A 札あらため
    ===================================================================== */
 function layoutGrid(n){
   const portrait = window.innerWidth / window.innerHeight < 1 || window.innerWidth <= 700;
@@ -1071,8 +1037,7 @@ function cardInner(c){
   return (c.state === "real" ? `<span class="tag">本物</span>` : "") + `<div class="${lenCls(shown)}">${shown}</div>`;
 }
 function runA(board, t, done){
-  const deepMode = t.mode === "E";
-  const fakes = pickWords(deepMode ? lvPool(t.lv).filter(canPoint).concat(strokesReady() ? [] : lvPool(t.lv)) : lvPool(t.lv), t.fakes);
+  const fakes = pickWords(lvPool(t.lv), t.fakes);
   const used = new Set(fakes.map(w => w[0]));
   const reals = pickWords(WORDS.filter(w => w[4] <= t.lv[1] && !used.has(w[0])), t.cards - t.fakes);
   const cards = shuffle(fakes.map(w => ({w, fake:true, state:"open"})).concat(reals.map(w => ({w, fake:false, state:"open"}))));
@@ -1108,16 +1073,7 @@ function runA(board, t, done){
       onFound(c.w, "A");
       update(i); head();
       const s = document.createElement("span"); s.className = "smoke"; s.textContent = "💨"; grid.children[i].appendChild(s);
-      const after = () => { if(remaining <= 0){ G.active = false; laterTask(700, () => done(true)); } };
-      if(deepMode){
-        // 総仕上げ：その場で「どこが化けておる？」→「正しい字は？」
-        busy = true;
-        laterTask(450, () => {
-          const deep = document.createElement("div"); deep.className = "deep"; board.appendChild(deep);
-          const toC = () => runC(deep, {word:c.w, skipPick:true, auto:true}, () => { deep.remove(); busy = false; after(); });
-          if(canPoint(c.w)) runB(deep, {word:c.w, auto:true}, toC); else toC();
-        });
-      }else after();
+      if(remaining <= 0){ G.active = false; laterTask(700, () => done(true)); }
     }else{
       c.state = "real";
       onMiss();
@@ -1190,7 +1146,7 @@ function runB(el, t, done){
 }
 
 /* =====================================================================
-   C 化けの皮はがし：化けた字をタップ→正しい字を4つから選ぶ（skipPick：化けた字は最初から示す）
+   C 化けの皮はがし：化けた字をタップ→正しい字を4つから選ぶ
    ===================================================================== */
 function runC(el, t, done){
   const w = t.word || pickWords(lvPool(t.lv), 1)[0];
@@ -1213,8 +1169,7 @@ function runC(el, t, done){
     note.innerHTML = `化け字「<span class="ng mincho">${w[3]}</span>」の<b>正体</b>は？　正しい字を選べ`;
     cch.hidden = false;
   };
-  if(t.skipPick) openChoices();
-  else note.innerHTML = `この熟語は化けておる。<b>化けた字</b>をタップせよ`;
+  note.innerHTML = `この熟語は化けておる。<b>化けた字</b>をタップせよ`;
   tiles.forEach((b, i) => b.onclick = () => {
     if(!G.active || picked) return;
     if(i === w[2]){ SE.close(); openChoices(); }
@@ -1349,7 +1304,7 @@ function variantNote(w, i){
   return `「${w[0]}」は「<b>${alt}</b>」とも書くので、「${w[0][i]}」も「${v}」もどちらも正しい。化けたのは<b>別の字</b>じゃ。`;
 }
 
-const RUN = {A:runA, E:runA, B:runB, C:runC, D:runD, F:runF};
+const RUN = {A:runA, B:runB, C:runC, D:runD, F:runF};
 
 /* ---- 話のクリア ---- */
 function episodeClear(){
@@ -1375,7 +1330,7 @@ function episodeClear(){
 }
 
 /* =====================================================================
-   七 挑戦の間：CH_SECONDS秒で、一〜五話の見破り方をまぜて出す。時間が来たら「記録」として終わる
+   六 挑戦の間：CH_SECONDS秒で、一〜五話の見破り方をまぜて出す。時間が来たら「記録」として終わる
    （負けではない。まちがえても減点はなく、連続が切れるだけ）。
    正解1つ＝100点＋連続ボーナス（2連続目から20点ずつ、最大+100点）。
    正解数が増えるほど、むずかしい熟語もまざる。
@@ -1385,7 +1340,7 @@ function stopClock(){ if(clockId){ clearInterval(clockId); clockId = null; } }
 function startChallenge(){
   newGame({challenge:true, score:0, correct:0, over:false, last:null});
   show("scGame");
-  $("epLabel").innerHTML = `<b class="mincho">七</b>　挑戦の間`;
+  $("epLabel").innerHTML = `<b class="mincho">六</b>　挑戦の間`;
   $("progBox").hidden = true; $("chBox").hidden = false;
   $("score").textContent = "0"; $("chCorrect").textContent = "0"; $("plus").textContent = "";
   $("timeLeft").textContent = CH_SECONDS; $("timerFill").style.width = "100%"; $("timerFill").classList.remove("hurry");
@@ -1444,12 +1399,12 @@ function finishChallenge(){
   $("bnAgain").onclick = () => { hideBanner(); startChallenge(); };
   $("bnMap").onclick = () => showMap();
 }
-// 称号の目安：1問4〜6秒で15〜20問見破り、連続もつながると3000点前後
+// 称号の目安（60秒）：1問4〜6秒で10〜15問見破り、連続もつながると2000点前後
 function rankName(score){
-  if(score >= 4000) return "九尾も認める 見破りの名人";
-  if(score >= 3000) return "化け字の達人";
-  if(score >= 2000) return "腕利きの見破り手";
-  if(score >= 1000) return "一人前の見破り手";
+  if(score >= 2700) return "九尾も認める 見破りの名人";
+  if(score >= 2000) return "化け字の達人";
+  if(score >= 1300) return "腕利きの見破り手";
+  if(score >= 700)  return "一人前の見破り手";
   return "見破り手の見習い";
 }
 
