@@ -7,7 +7,7 @@
 <!-- 知識ドリルDXのミニゲーム「九尾の化かし合い」（2026-09-29〜、準備中）。kokugo_app.htmlの
      ミニゲーム一覧から、のびる読解(nobiru/*.html)と同じく同じタブのまま画面ごと遷移してくる別ページ。
      本体のセーブデータ(st)には一切触れず、このページ専用のlocalStorageキーだけを使う
-     （経験値・ジャンルレベルにはまだ反映しない）。
+     （2026-09-30〜、○1つごとに「同音異字・同訓異字・誤字訂正」ジャンルを1レベル上げる合図だけをMG_PENDING_LVUP_LSKEYに書き置き、本体がホーム画面で反映する）。
      2026-09-30、教員の指示で「九本の尾を1本ずつ取る」形をやめ、話ごとに見破り方が変わるストーリー仕立て
      （一〜五話）＋全部の見破り方がまざって出る60秒の「挑戦の間」（六）に作り替えた
      （「同じことを何度もやらされる感じで飽きる」「間違いを探す楽しさを複数の視点から」という指摘による）。
@@ -372,6 +372,14 @@
     .banner .big{ font-size:min(11vw, 50px); letter-spacing:2px; }
     .banner .small{ font-size:15px; }
   }
+  /* 「〜ジャンル　1レベルUP」（本体のジャンルレベルへの反映、2026-09-30〜） */
+  .lvup-toast{ position:fixed; top:10px; left:50%; z-index:60; display:none; align-items:center; gap:8px; white-space:nowrap; pointer-events:none;
+    padding:6px 16px; border-radius:999px; font-size:14px; color:#3a1408; background:linear-gradient(135deg,#ffe9a8,#ffb347);
+    box-shadow:0 0 0 2px rgba(255,255,255,.6), 0 6px 18px rgba(0,0,0,.45); }
+  .lvup-toast b{ font-size:17px; color:#b3200e; }
+  .lvup-toast.show{ display:flex; animation:lvupToast 1.5s ease forwards; }
+  @keyframes lvupToast{ 0%{ transform:translate(-50%,-14px); opacity:0; } 12%{ transform:translate(-50%,0); opacity:1; } 78%{ opacity:1; } 100%{ transform:translate(-50%,-6px); opacity:0; } }
+  @media (max-width:700px){ .lvup-toast{ font-size:11px; padding:5px 12px; } .lvup-toast b{ font-size:14px; } }
 </style>
 </head>
 <body>
@@ -1098,6 +1106,26 @@ function runTask(task){
   RUN[task.mode](board, task, done);
 }
 
+/* 本体（kokugo_app.html）のジャンルレベルへの反映（2026-09-30〜、教員の指示）。
+   正解するたびに「このジャンルを1レベル上げてほしい」という合図を localStorage に書き足すだけで、
+   本体のセーブデータには直接触れない。本体がホーム画面を開くときに読み取って反映する
+   （kokugo_app.html の MG_PENDING_LVUP_LSKEY・mgApplyPendingLevelUps 参照。経験値もレベルから自動で上がる）。 */
+const MG_PENDING_LVUP_LSKEY = "kokugo_minigame_pending_lvups_v1";
+function addPendingLevelUp(cat){
+  let o = {};
+  try{ o = JSON.parse(localStorage.getItem(MG_PENDING_LVUP_LSKEY)) || {}; }catch(e){ o = {}; }
+  if(typeof o !== "object") o = {};
+  o[cat] = (Number(o[cat]) || 0) + 1;
+  try{ localStorage.setItem(MG_PENDING_LVUP_LSKEY, JSON.stringify(o)); }catch(e){}
+}
+// 「〜ジャンル　1レベルUP」の表示（画面の上のまん中に、少しのあいだ出す）
+function showLvupToast(genreName){
+  let el = document.getElementById("lvupToast");
+  if(!el){ el = document.createElement("div"); el.id = "lvupToast"; el.className = "lvup-toast"; document.body.appendChild(el); }
+  el.innerHTML = `<span class="g">${genreName}ジャンル</span><b>1レベルUP</b>`;
+  el.classList.remove("show"); void el.offsetWidth; el.classList.add("show");
+}
+
 /* ---- 正解・まちがいの共通処理 ---- */
 function stamp(w, mode){
   if(!w) return false;
@@ -1110,6 +1138,8 @@ function stamp(w, mode){
 }
 function onFound(w, mode, base = 100){
   G.combo++;
+  addPendingLevelUp("kanji_shiwake");            // ○1つごとに、本体の「同音異字・同訓異字・誤字訂正」を1レベルUP
+  showLvupToast("同音異字・同訓異字・誤字訂正");
   stamp(w, mode);
   SE.found(G.combo); setCombo(G.combo);
   if(G.challenge){

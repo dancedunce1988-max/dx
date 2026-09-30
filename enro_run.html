@@ -17,7 +17,7 @@
      さらに教員の指示で、まちがえた関所は数に入れない（正解で通った関所だけが進む）ようにし、32個目を通ったら
      「完全クリア！」（fullClear）から「結果を見る」か「挑戦モード」（4区間の問題を1問ごとにまぜて、❤がなくなるまで）を選べるようにした。
      本体のセーブデータ(st)には一切触れず、このページ専用のlocalStorageキーだけを使う
-     （経験値・ジャンルレベルにはまだ反映しない）。炎狼の絵は本番と同じスプライト(enemy_sprites_data.js)を使い、
+     （2026-09-30〜、関所を1つ正しく通るごとに「敬語」ジャンルを1レベル上げる合図だけをMG_PENDING_LVUP_LSKEYに書き置き、本体がホーム画面で反映する）。炎狼の絵は本番と同じスプライト(enemy_sprites_data.js)を使い、
      読み込めなかったときは🐺の絵文字で代用する。 -->
 <script src="enemy_sprites_data.js"></script>
 <!-- 道ごとの背景（素材/画像/炎狼ラン背景.png から切り出し）。読み込めなかったときは、今までどおりの色だけの道になる -->
@@ -320,6 +320,14 @@
     .dash-hint{ display:none; }
     .gauge{ height:20px; }
   }
+  /* 「〜ジャンル　1レベルUP」（本体のジャンルレベルへの反映、2026-09-30〜） */
+  .lvup-toast{ position:fixed; top:10px; left:50%; z-index:60; display:none; align-items:center; gap:8px; white-space:nowrap; pointer-events:none;
+    padding:6px 16px; border-radius:999px; font-size:14px; color:#3a1408; background:linear-gradient(135deg,#ffe9a8,#ffb347);
+    box-shadow:0 0 0 2px rgba(255,255,255,.6), 0 6px 18px rgba(0,0,0,.45); }
+  .lvup-toast b{ font-size:17px; color:#b3200e; }
+  .lvup-toast.show{ display:flex; animation:lvupToast 1.5s ease forwards; }
+  @keyframes lvupToast{ 0%{ transform:translate(-50%,-14px); opacity:0; } 12%{ transform:translate(-50%,0); opacity:1; } 78%{ opacity:1; } 100%{ transform:translate(-50%,-6px); opacity:0; } }
+  @media (max-width:700px){ .lvup-toast{ font-size:11px; padding:5px 12px; } .lvup-toast b{ font-size:14px; } }
 </style>
 </head>
 <body>
@@ -1073,6 +1081,8 @@ function judge(b){
     // 正解：関所を通りぬける
     gates[want].classList.add("open", "burst");
     showCorrect(want, b.w[1]);
+    addPendingLevelUp("keigo");                  // 関所を1つ正しく通るごとに、本体の「敬語」を1レベルUP
+    showLvupToast("敬語");
     G.correct++; G.combo++; G.maxCombo = Math.max(G.maxCombo, G.combo);
     let pts = 10 + Math.min(G.combo, 10) * 2;
     if(G.hib > 0) pts *= 2;
@@ -1188,6 +1198,25 @@ function showCorrect(lane, type){
   const ln = document.querySelectorAll(".lane")[lane];
   ln.classList.remove("good"); void ln.offsetWidth; ln.classList.add("good");
   $("word").classList.add("ok");
+}
+/* 本体（kokugo_app.html）のジャンルレベルへの反映（2026-09-30〜、教員の指示）。
+   正解するたびに「このジャンルを1レベル上げてほしい」という合図を localStorage に書き足すだけで、
+   本体のセーブデータには直接触れない。本体がホーム画面を開くときに読み取って反映する
+   （kokugo_app.html の MG_PENDING_LVUP_LSKEY・mgApplyPendingLevelUps 参照。経験値もレベルから自動で上がる）。 */
+const MG_PENDING_LVUP_LSKEY = "kokugo_minigame_pending_lvups_v1";
+function addPendingLevelUp(cat){
+  let o = {};
+  try{ o = JSON.parse(localStorage.getItem(MG_PENDING_LVUP_LSKEY)) || {}; }catch(e){ o = {}; }
+  if(typeof o !== "object") o = {};
+  o[cat] = (Number(o[cat]) || 0) + 1;
+  try{ localStorage.setItem(MG_PENDING_LVUP_LSKEY, JSON.stringify(o)); }catch(e){}
+}
+// 「〜ジャンル　1レベルUP」の表示（画面の上のまん中に、少しのあいだ出す）
+function showLvupToast(genreName){
+  let el = document.getElementById("lvupToast");
+  if(!el){ el = document.createElement("div"); el.id = "lvupToast"; el.className = "lvup-toast"; document.body.appendChild(el); }
+  el.innerHTML = `<span class="g">${genreName}ジャンル</span><b>1レベルUP</b>`;
+  el.classList.remove("show"); void el.offsetWidth; el.classList.add("show");
 }
 function popup(text){
   const p = document.createElement("div");
