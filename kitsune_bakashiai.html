@@ -508,7 +508,7 @@ const WORDS = [
   ["招待","しょうたい",0,"紹",2,"「招」は手へん（まねく）。「紹」は糸へん（引き合わせる）。"],
   ["紹介","しょうかい",0,"招",2,"「紹」は糸へん。"],
   ["家賃","やちん",1,"貸",2,"「賃」は上が「任」（はらうお金）。「貸」は上が「代」。"],
-  ["探検","たんけん",0,"深",2,"「探」は手へん（さがす）。「深」はさんずい（ふかい）。"],
+  ["探検","たんけん",0,"深",2,"「探」は手へん（さがす）。「深」はさんずい（ふかい）。なお「探険」と書いてもよい。"],
   ["深海","しんかい",0,"探",2,"「深」はさんずい（水がふかい）。"],
   ["抜群","ばつぐん",1,"郡",2,"「群」は羊（むれ）。「郡」はおおざと（地域の名前）。"],
   ["補欠","ほけつ",0,"捕",2,"「補」はころもへん（おぎなう）。「捕」は手へん（とらえる）。"],
@@ -1218,6 +1218,7 @@ function runC(el, t, done){
   tiles.forEach((b, i) => b.onclick = () => {
     if(!G.active || picked) return;
     if(i === w[2]){ SE.close(); openChoices(); }
+    else if(variantNote(w, i)){ SE.close(); $("gameLine").innerHTML = variantNote(w, i); setFox($("gameFox"), "pose2", "hop"); }
     else{
       missPick++;
       b.classList.remove("shake"); void b.offsetWidth; b.classList.add("shake");
@@ -1251,7 +1252,7 @@ function sentenceHtml(w, li){
   const plain = str => [...str].map(c => KANJI_RE.test(c) ? `<span class="kj">${c}</span>` : `<span>${c}</span>`).join("");
   const fake = [...fakeWordOf(w)];
   return `<p class="ks-line" data-l="${li}">` + plain(s.slice(0, a)) +
-    fake.map((c, i) => i === w[2] ? `<span class="kj fk" data-l="${li}" data-fix="${realCharOf(w)}">${c}</span>` : `<span class="kj fw">${c}</span>`).join("") +
+    fake.map((c, i) => i === w[2] ? `<span class="kj fk" data-l="${li}" data-fix="${realCharOf(w)}">${c}</span>` : `<span class="kj fw" data-l="${li}" data-i="${i}">${c}</span>`).join("") +
     plain(s.slice(b + 1)) + `</p>`;
 }
 function runD(el, t, done){
@@ -1284,7 +1285,8 @@ function runD(el, t, done){
       }
     }else if(sp.classList.contains("fw")){
       SE.close();
-      $("gameLine").innerHTML = LINES.close;
+      const w = ws[+sp.dataset.l], vi = +sp.dataset.i;
+      $("gameLine").innerHTML = variantNote(w, vi) || LINES.close;
       setFox($("gameFox"), "pose2", "hop");
     }else if(sp.classList.contains("kj")){
       misses++;
@@ -1334,6 +1336,17 @@ function runF(el, t, done){
   };
   el.querySelector("#fReal").onclick = () => answer(false);
   el.querySelector("#fFake").onclick = () => answer(true);
+}
+
+/* 化けていない字のうち、別の書き方も正しいもの（2026-09-30、教員の指摘：「探検」を「探険」に直す生徒がいる。
+   「探険」も正しい書き方）。熟語→{字の位置: 別の書き方の字}。化けの皮はがし・高札でその字をタップしても
+   ミスにせず、「どちらも正しい、化けたのは別の字」と伝える。 */
+const VARIANTS = {"探検":{1:"険"}};
+function variantNote(w, i){
+  const v = VARIANTS[w[0]] && VARIANTS[w[0]][i];
+  if(!v) return null;
+  const alt = w[0].slice(0, i) + v + w[0].slice(i + 1);
+  return `「${w[0]}」は「<b>${alt}</b>」とも書くので、「${w[0][i]}」も「${v}」もどちらも正しい。化けたのは<b>別の字</b>じゃ。`;
 }
 
 const RUN = {A:runA, E:runA, B:runB, C:runC, D:runD, F:runF};
