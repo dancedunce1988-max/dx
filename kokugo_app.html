@@ -101,6 +101,9 @@
   .menu-card.locked:hover{transform:none; box-shadow:none;}
   .menu-card.locked .menu-icon{background:var(--line); color:var(--sub);}
   .menu-card.locked .shogo-badge{background:var(--sub);}
+  /* 九尾の化かし合い・炎狼ランの「準備中」カード：タップの手応えとして軽くパルスさせるだけ（kitsuneComingSoonTap・enroRunComingSoonTap参照） */
+  .kitsune-teaser.tap-pulse, .enro-teaser.tap-pulse{ animation:kitsuneTapPulse .18s ease; }
+  @keyframes kitsuneTapPulse{ 0%{transform:scale(1);} 45%{transform:scale(.96);} 100%{transform:scale(1);} }
   /* クリア済みのストーリー章カード：カード全体タップではなく、中の2つのボタン
      （「ストーリーを見る」「問題だけ」）で選ぶ形にしたので、カード自体はクリック不可にする
      （教員の指示、2026-08-24〜）。 */
@@ -131,6 +134,21 @@
     border-radius:99px; background:var(--accent2); color:#fff; white-space:nowrap;
   }
   .shogo-badge.top{background:var(--gold);}
+  /* 「NEW」吹き出し（2026-09-29〜、教員の指示：新設コンテンツの告知を3日間だけ出す）。
+     newBadgeHtml()が期間内だけ差し込む小さな丸ふきだし。position:relativeな見出し文字の
+     すぐ右に、行の流れに乗せてインライン表示する（絶対配置にすると、カードごとにレイアウトが
+     違うため位置がずれやすいのを避けた）。 */
+  .new-bubble{
+    display:inline-block; position:relative; margin-left:6px; margin-top:-2px;
+    font-size:.68rem; font-weight:bold; padding:2px 9px; border-radius:99px;
+    background:#ff5577; color:#fff; white-space:nowrap; vertical-align:middle;
+    animation:newBubblePop 1.6s ease-in-out infinite;
+  }
+  .new-bubble::after{
+    content:""; position:absolute; left:-4px; top:50%; transform:translateY(-50%);
+    border-width:4px 5px 4px 0; border-style:solid; border-color:transparent #ff5577 transparent transparent;
+  }
+  @keyframes newBubblePop{ 0%,100%{transform:scale(1);} 50%{transform:scale(1.12);} }
   /* 第8章「体育祭」の組バッジ（2026-07-22〜、教員の指示で組団カラーに変更）。碧組・紅組・黄組は
      既存のテーマカラー（--accent2/--accent/--gold）が偶然にも近い色味だったのでそのまま流用し、
      蒼組（青系）だけ新しい色を追加した。 */
@@ -4312,7 +4330,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.42</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.76</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -4534,7 +4552,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 48;
+const SAVE_FORMAT_VERSION = 49;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -4565,7 +4583,12 @@ function emptyStats(){
        この早期リターン経路でも常に「今日の分」として正しく扱われる。 */
     todayKanji:{date: todayLocalDateStr(), correctCount:0, done:false, round:1},
     story:{chapter:"ch1", beatIdx:0, flags:{}, completedChapters:[], judgedRunCorrect:0, judgedRunTotal:0, judgedBest:{}, comboBest:{}},
-    dokkaiDungeon:{skillXp:ddSkillXp, cleared:{}}};
+    dokkaiDungeon:{skillXp:ddSkillXp, cleared:{}},
+    /* 一日一読の支払い済みフラグ集合（loadStatsのマイグレーション参照）。以前はここに無く、セーブの無い
+       新規プレイヤーだけ、一日一読のある日にホーム画面(ddHomeEntryHtml)が例外で止まっていた（2026-09-29修正）。 */
+    nobiruRewardGiven:{},
+    /* ミニゲーム（九尾の化かし合い・炎狼ラン）でジャンルレベルを下げた回数（mgApplyPendingLevelUps・detectSaveTampering参照） */
+    mgLevelDowns:0};
 }
 /* ステータスポイントは保存された数値ではなく、常にその場で計算する：
    「分野レベルの合計（＝これまで獲得した経験値の合計）」から「すでに割りふった分」を引いた残り。
@@ -4852,7 +4875,8 @@ function detectSaveTampering(st){
      が厳密に成り立つはずで、①と同じ安全マージンの考え方で、これを明らかに超える場合だけを見る。 */
   const hyakuninOk = (st.hyakunin && st.hyakunin.totalOk) || 0;
   const TOTAL_LEVEL_UPS_SAFETY_MARGIN = 50;
-  const maxPlausibleTotalLevelUps = sumLevelUps + hyakuninOk + TOTAL_LEVEL_UPS_SAFETY_MARGIN;
+  // ミニゲームで下げたレベル（st.mgLevelDowns、mgApplyPendingLevelUps参照）は、totalLevelUpsを減らさずにst.lvだけを下げるので、そのぶん上限に足す
+  const maxPlausibleTotalLevelUps = sumLevelUps + hyakuninOk + (st.mgLevelDowns || 0) + TOTAL_LEVEL_UPS_SAFETY_MARGIN;
   if((st.totalLevelUps || 0) > maxPlausibleTotalLevelUps){
     reasons.push(`記録されたレベルアップ回数(${st.totalLevelUps||0})が、実際のレベル・百人一首正解数から求まる上限(${maxPlausibleTotalLevelUps})を明らかに超えています`);
   }
@@ -7602,6 +7626,7 @@ function showHome(){
   const kbOverlay = document.getElementById('kbAtkOverlay'); // 演出の途中で離れた場合、残った全画面オーバーレイを消す
   if(kbOverlay) kbOverlay.remove();
   const st = loadStats();
+  mgApplyPendingLevelUps(st);   // ミニゲーム（九尾の化かし合い・炎狼ラン）で上がったジャンルレベルを反映（ほかの表示より先に）
   if(st.pendingDailyLoginStamp){ showDailyLoginStampOverlay(st); return; }
   /* のびる読解（別ページ、nobiru/engine.js）から「一日一読、読み終わりました」の合図が
      来ていれば、ストック経験値を加算してから一度だけお知らせを見せる（教員の指示、
@@ -7653,7 +7678,7 @@ function showHome(){
       html += `
       <div class="card menu-card" onclick="startQuiz('${key}')">
         <div class="menu-icon">${GROUP_ICONS[g.name] || "📝"}</div>
-        <div><h2>${esc(m.name)}</h2><p>${esc(m.desc)}</p></div>
+        <div><h2>${esc(m.name)}${(key === "bunsetsu_kankei" || key === "kanji_shiwake") ? newBadgeHtml() : ""}</h2><p>${esc(m.desc)}</p></div>
         <div class="right">
           <span class="shogo-badge ${t.hidden?"top":""}">${t.icon} ${esc(t.name)} Lv.${lv}</span>
           <span class="count">全${m.items.length}問${unlockPct!=null ? `・解放率${unlockPct}%` : ""}</span>
@@ -7785,7 +7810,7 @@ function showStockXpConvert(){
   if(stockXpConvertAmount > bank) stockXpConvertAmount = bank;
   if(stockXpConvertAmount < 0) stockXpConvertAmount = 0;
   const amt = stockXpConvertAmount;
-  const step = (delta, label) => `<button class="btn inline secondary stat-step-btn" ${(amt+delta<0||amt+delta>bank)?'disabled':''} onclick="stockXpConvertStep(${delta})">${label}</button>`;
+  const step = (delta, label) => `<button class="btn inline secondary stat-step-btn" data-stock-delta="${delta}" ${(amt+delta<0||amt+delta>bank)?'disabled':''} onclick="stockXpConvertStep(${delta})">${label}</button>`;
   const html = `
     <div class="card">
       <h3 class="section">🈶 ストック経験値を変える</h3>
@@ -7820,6 +7845,38 @@ function stockXpConvertSetMax(){
   stockXpConvertAmount = st.stockXp||0;
   showStockXpConvert();
 }
+/* 「＋100」などのボタンを押しっぱなしにすると、くり返し加算されていくようにする
+   （教員の指示、2026-09-29〜：「押し続ければ、徐々に加算されていくスタイルに」）。
+   stockXpConvertStep()は毎回screen.innerHTMLを丸ごと作り直すため、押しているあいだの
+   ボタン要素自体は消えて別の要素に置き換わり続ける。そのためボタンにイベントを
+   直接つけるのではなく、消えないscreen要素にイベント委任し、押した瞬間のdelta値だけを
+   クロージャで覚えて直接stockXpConvertStep(delta)をくり返し呼ぶ（再生成後の新しい
+   ボタンの存在には依存しない）。離す・画面外に出る・タブを離れるの、いずれでも止める。 */
+let stockXpHoldTimer = null, stockXpHoldInterval = null;
+function stopStockXpHoldRepeat(){
+  if(stockXpHoldTimer) clearTimeout(stockXpHoldTimer);
+  if(stockXpHoldInterval) clearInterval(stockXpHoldInterval);
+  stockXpHoldTimer = null; stockXpHoldInterval = null;
+}
+function startStockXpHoldRepeat(delta){
+  stopStockXpHoldRepeat();
+  stockXpHoldTimer = setTimeout(() => {
+    stockXpHoldInterval = setInterval(() => stockXpConvertStep(delta), 110);
+  }, 400);
+}
+screen.addEventListener("mousedown", e => {
+  const btn = e.target.closest(".stat-step-btn[data-stock-delta]");
+  if(!btn || btn.disabled) return;
+  startStockXpHoldRepeat(parseInt(btn.dataset.stockDelta, 10));
+});
+screen.addEventListener("touchstart", e => {
+  const btn = e.target.closest(".stat-step-btn[data-stock-delta]");
+  if(!btn || btn.disabled) return;
+  startStockXpHoldRepeat(parseInt(btn.dataset.stockDelta, 10));
+}, {passive:true});
+["mouseup","touchend","touchcancel","blur"].forEach(evt => {
+  window.addEventListener(evt, stopStockXpHoldRepeat);
+});
 function stockXpConvertConfirm(){
   const st = loadStats();
   const amount = Math.max(0, Math.min(st.stockXp||0, stockXpConvertAmount));
@@ -8169,9 +8226,9 @@ function gradeAnswer(ok, chosenOrig, typed){
   let expl;
   if(Array.isArray(it.ans)){
     const wrongMsg = ok ? "" : `正解は「${esc(it.ans.join("」または「"))}」（あなたの答え：${esc(typed||"")}）`;
-    expl = [wrongMsg, it.e ? esc(it.e) : ""].filter(Boolean).join("<br>");
+    expl = [wrongMsg, it.e ? esc(it.e).replace(/\n/g,"<br>") : ""].filter(Boolean).join("<br>");
   }else{
-    expl = it.e ? esc(it.e) : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
+    expl = it.e ? esc(it.e).replace(/\n/g,"<br>") : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
   }
   const lvChip = (r.lvup ? `<span class="lvup-chip">${esc(CATS[cat].name)} Lv.${r.lv} にアップ！</span>` : "")
     + (r.eventXp ? `<span class="lvup-chip">🎉 イベント経験値＋${r.eventXp}</span>` : "");
@@ -8317,9 +8374,9 @@ function diagGrade(ok, chosenOrig, typed){
   let expl;
   if(Array.isArray(it.ans)){
     const wrongMsg = ok ? "" : `正解は「${esc(it.ans.join("」または「"))}」（あなたの答え：${esc(typed||"")}）`;
-    expl = [wrongMsg, it.e ? esc(it.e) : ""].filter(Boolean).join("<br>");
+    expl = [wrongMsg, it.e ? esc(it.e).replace(/\n/g,"<br>") : ""].filter(Boolean).join("<br>");
   }else{
-    expl = it.e ? esc(it.e) : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
+    expl = it.e ? esc(it.e).replace(/\n/g,"<br>") : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
   }
   fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}</div>${expl}`;
   document.getElementById("diagNextBtn").style.display = "inline-block";
@@ -11623,22 +11680,30 @@ function hyaPool(){
 }
 
 /* ================= 段階的アンロック（ジャンル非依存の汎用判定＋百人一首固有部分） =================
-   「対象キー群のうちquorum個以上がstreakThreshold回以上連続正解」かつ「直近の正答率(recentWindow)
-   がaccThreshold以上」の両方を満たしたら次のグループを解禁してよい、という判定だけを行う汎用エンジン。
-   グループの定義方法（決まり字・頻度ランクなど）や進捗の保存場所はジャンル側の責務（将来、他ジャンルにも
-   同じ判定ロジックを再利用できるようにするための最小限の分離。過度な抽象化はしない）。
-   2026-08-05〜：教員とのシミュレーション検証を経て、以下2点を変更。
+   「対象キー群の全問が、間違えた問題もふくめて少なくとも1回は正解できている」かつ「直近の正答率
+   (recentWindow)がaccThreshold以上」の両方を満たしたら次のグループを解禁してよい、という判定だけを
+   行う汎用エンジン。グループの定義方法（決まり字・頻度ランクなど）や進捗の保存場所はジャンル側の
+   責務（将来、他ジャンルにも同じ判定ロジックを再利用できるようにするための最小限の分離。過度な
+   抽象化はしない）。
+   2026-08-05〜：教員とのシミュレーション検証を経て、以下2点を変更（のちに2026-09-29でさらに変更）。
    ①「8問全て」→「quorum個以上」に緩和（8問同時にstreakThreshold回以上を要求すると、実力が
    ちょうど境界あたり(グループ内の実質的な正答率が7〜8割弱程度)の生徒では、統計的にほぼ揃わず
    長時間詰まるリスクがあった。詳細は[[kokugo-drill-dx-workflow]]参照）。
    ②正答率の判定を「そのグループの全期間累計(t,c)」→「そのグループに対する直近N問(recentWindow)」
    に変更。累計だと、実力が長期的にaccThreshold未満の生徒は大数の法則で理論上永久に到達不可能に
    なってしまう（後から実力が伸びても、初期の不正解が累計を汚したままなので救われない）。直近N問なら
-   古い不正解が窓から外れていくので、後から実力が伸びれば追いつける。 */
+   古い不正解が窓から外れていくので、後から実力が伸びれば追いつける。
+   2026-09-29〜：教員から「解放が遅い」との指摘を受け、さらに緩和。①「quorum個以上がstreak回以上
+   連続正解」→「全問が、間違えた問題もふくめて少なくとも1回は正解できている」（連続正解を問わない
+   ぶん、①で懸念していた長時間詰まるリスクは、そもそも連続を要求しなくなったことで解消する）。
+   ②recentWindowを30問→4問、accThresholdを80%→75%（4問中3問）に短縮・緩和。 */
 const UnlockEngine = {
-  isGroupCleared(unitKeys, streakMap, recentWindow, streakThreshold, accThreshold, quorum){
-    const streakedCount = unitKeys.reduce((n,k) => n + ((streakMap[k]||0) >= streakThreshold ? 1 : 0), 0);
-    if(streakedCount < quorum) return false;
+  /* 2026-09-29〜（教員の指示：「解放が遅い」ため緩和）：解禁条件を「連続正解の頻度」から
+     「グループ内の全問題が、間違えた問題もふくめて少なくとも1回は正解できているか」に変更。
+     correctedMapは、その問題をこれまでに一度でも正解したことがあるかを表すbool値。 */
+  isGroupCleared(unitKeys, correctedMap, recentWindow, accThreshold){
+    const clearedCount = unitKeys.reduce((n,k) => n + (correctedMap[k] ? 1 : 0), 0);
+    if(clearedCount < unitKeys.length) return false; // 全問、一度は正解している必要がある
     if(!recentWindow || recentWindow.length === 0) return false;
     return (recentWindow.reduce((a,b)=>a+b,0) / recentWindow.length) >= accThreshold;
   }
@@ -11652,10 +11717,8 @@ const UnlockEngine = {
    UnlockEngineを流用しつつ、hyaGroups系として個別に実装している（決まり字グループ方式(旧、
    2026-07-31〜)からの移行、2026-08-01〜）。 */
 const GROUP_SIZE = 8;
-const GROUP_UNLOCK_STREAK = 2;   // 2026-08-05〜：3→2に緩和（下のGROUP_UNLOCK_QUORUMの変更とセット）
-const GROUP_UNLOCK_QUORUM = 6;   // 2026-08-05〜：GROUP_SIZE(8問)中、streak要件を満たす必要がある最低数
-const GROUP_UNLOCK_ACC = 0.8;
-const GROUP_RECENT_WINDOW = 30;  // 2026-08-05〜：正答率判定を、そのグループへの直近この件数の解答で見る（全期間累計ではない）
+const GROUP_UNLOCK_ACC = 3/4;    // 2026-09-29〜：80%→75%（4問中3問）に緩和（教員の指示）
+const GROUP_RECENT_WINDOW = 4;   // 2026-09-29〜：正答率判定の窓を30問→4問に短縮（教員の指示：直近4問中3問正解）
 /* 高速解放モード（2026-08-02〜、教員の指示）。漢字の読み(5489問・687グループ)のように問題数が
    極端に多いジャンルだと、実力的には簡単すぎる生徒でも「8問ずつ・各問3連続正解」という通常の
    グループ判定に律儀に付き合わされ、解放のペースが遅くストレスになる。直近30問（st.recentCorrect、
@@ -11902,9 +11965,9 @@ function activeGroupPool(st, cat){
   if(count >= groups.length) return null;
   return groups[count - 1].indices.map(i => CATS[cat].items[i]);
 }
-/* 現在アクティブなグループの解禁条件（8問中GROUP_UNLOCK_QUORUM問以上がGROUP_UNLOCK_STREAK回以上
-   連続正解 かつ そのグループへの直近GROUP_RECENT_WINDOW問の正答率がGROUP_UNLOCK_ACC以上）を
-   満たしていれば、unlockedGroupCountを1つ進める。record()内、st.recentCorrect/fastGuessの
+/* 現在アクティブなグループの解禁条件（グループ内の全問題が、間違えた問題もふくめて少なくとも
+   1回は正解できている かつ そのグループへの直近GROUP_RECENT_WINDOW問の正答率がGROUP_UNLOCK_ACC
+   以上）を満たしていれば、unlockedGroupCountを1つ進める。record()内、st.recentCorrect/fastGuessの
    確定後に呼ぶ（fastUnlockEligible判定にst.recentCorrect[cat]の最新状態が要るため）。
    streakはst.qからその場で導出するだけで専用の記録を持たないが、正答率だけは「そのグループの
    問題に対する解答か」を問わないと直近N問を数えられないため、st.groupRecent[cat]という専用の
@@ -11935,10 +11998,10 @@ function checkGroupUnlock(st, cat, item, correct, fastGuess){
     if(st.groupRecent) st.groupRecent[cat] = [];
     return true;
   }
-  const streakMap = {};
-  cur.keys.forEach(k => { const rec = st.q[k]; streakMap[k] = rec ? (rec.k||0) : 0; });
+  const correctedMap = {};
+  cur.keys.forEach(k => { const rec = st.q[k]; correctedMap[k] = !!(rec && rec.c >= 1); });
   const recentWindow = (st.groupRecent && st.groupRecent[cat]) || [];
-  if(UnlockEngine.isGroupCleared(cur.keys, streakMap, recentWindow, GROUP_UNLOCK_STREAK, GROUP_UNLOCK_ACC, GROUP_UNLOCK_QUORUM)){
+  if(UnlockEngine.isGroupCleared(cur.keys, correctedMap, recentWindow, GROUP_UNLOCK_ACC)){
     if(!st.groupUnlock) st.groupUnlock = {};
     st.groupUnlock[cat] = catUnlockedGroupCount(st, cat) + 1;
     st.groupRecent[cat] = [];
@@ -11949,8 +12012,8 @@ function checkGroupUnlock(st, cat, item, correct, fastGuess){
 /* 移行ロジック（2026-08-01〜）：段階的アンロック導入より前からの生徒の既存正誤履歴(st.q)から、
    「実質どこまでのグループを習得済みか」を一回限り算出し、unlockedGroupCountの初期値にする
    （全員グループ1からやり直しにはしない、教員の指示。分野レベルst.lvには一切触れない）。
-   判定基準は新規アンロック基準よりやや緩め：グループ内正答率80%以上 かつ 8問中6問以上が
-   現在連続正解中(k>=1)。先頭のグループから連続してこの基準を満たす数だけ、
+   判定基準は新規アンロック基準とは別の指標（GROUP_UNLOCK_ACCを参照）：グループ内正答率が
+   その値以上 かつ 8問中6問以上が現在連続正解中(k>=1)。先頭のグループから連続してこの基準を満たす数だけ、
    最初から解禁済みとみなす（満たさないグループに達したら打ち切り）。 */
 function migrateInitialGroupUnlock(st, cat){
   const groups = catGroups(cat);
@@ -11969,7 +12032,7 @@ function migrateInitialGroupUnlock(st, cat){
 }
 
 /* ================= 百人一首の8問グループ化（段階的アンロック、2026-08-01〜） =================
-   20分野と同じGROUP_SIZE/GROUP_UNLOCK_STREAK/GROUP_UNLOCK_ACC・UnlockEngineを流用するが、
+   20分野と同じGROUP_SIZE/GROUP_UNLOCK_ACC・UnlockEngineを流用するが、
    百人一首の出題プール（hyaPool）は20分野のCATS[cat].itemsと違って起動時に動的生成され、
    各itemが元からid（歌番号+出題形式、例:"3_kami2shimo"）で一意なので、20分野のcatGroupsのように
    indices/keysを分けて持つ必要がない（qKeyの文字列ハッシュも使わない。同じ歌から生成される
@@ -12129,9 +12192,9 @@ function hyaFastUnlockEligible(st){
   const misses = recent.reduce((n,v) => n + (v ? 0 : 1), 0);
   return misses <= FAST_UNLOCK_MAX_MISSES;
 }
-/* 現在アクティブなグループの解禁条件（8問中GROUP_UNLOCK_QUORUM問以上がGROUP_UNLOCK_STREAK回以上
-   連続正解 かつ そのグループへの直近GROUP_RECENT_WINDOW問の正答率がGROUP_UNLOCK_ACC以上）を
-   満たしていれば、st.groupUnlock.hyakuninを1つ進める。hyaRecord内、st.hyakunin.recent更新の
+/* 現在アクティブなグループの解禁条件（グループ内の全問題が、間違えた問題もふくめて少なくとも
+   1回は正解できている かつ そのグループへの直近GROUP_RECENT_WINDOW問の正答率がGROUP_UNLOCK_ACC
+   以上）を満たしていれば、st.groupUnlock.hyakuninを1つ進める。hyaRecord内、st.hyakunin.recent更新の
    直後に呼ぶ（hyaFastUnlockEligible判定にst.hyakunin.recentの最新状態が要るため）。
    streakはitemHistからその場で導出するだけだが、正答率は20分野側と同じ理由でst.hyaGroupRecent
    という専用のローリング窓を新設した（2026-08-05〜、詳細はcheckGroupUnlockのコメント参照）。
@@ -12156,10 +12219,10 @@ function hyaCheckGroupUnlock(st, id, correct){
     st.hyaGroupRecent = [];
     return true;
   }
-  const streakMap = {};
-  cur.ids.forEach(itemId => { const rec = st.hyakunin.itemHist[itemId]; streakMap[itemId] = rec ? (rec.k||0) : 0; });
+  const correctedMap = {};
+  cur.ids.forEach(itemId => { const rec = st.hyakunin.itemHist[itemId]; correctedMap[itemId] = !!(rec && rec.c >= 1); });
   const recentWindow = st.hyaGroupRecent || [];
-  if(UnlockEngine.isGroupCleared(cur.ids, streakMap, recentWindow, GROUP_UNLOCK_STREAK, GROUP_UNLOCK_ACC, GROUP_UNLOCK_QUORUM)){
+  if(UnlockEngine.isGroupCleared(cur.ids, correctedMap, recentWindow, GROUP_UNLOCK_ACC)){
     st.hyaGroupRecent = [];
     if(!st.groupUnlock) st.groupUnlock = {};
     st.groupUnlock.hyakunin = hyaUnlockedGroupCount(st) + 1;
@@ -12170,7 +12233,7 @@ function hyaCheckGroupUnlock(st, id, correct){
 /* 移行ロジック（2026-08-01〜）：決まり字グループ方式（旧）からの切り替えにあたり、既存プレイヤーの
    itemHist（過去の正誤記録）から「実質どこまでのグループを習得済みか」を一回限り算出し、
    st.groupUnlock.hyakuninの初期値にする（全員グループ1からやり直しにはしない）。判定基準は
-   migrateInitialGroupUnlockと同じ：グループ内正答率80%以上 かつ 8問中6問以上が現在連続正解中(k>=1)。 */
+   migrateInitialGroupUnlockと同じ：グループ内正答率がGROUP_UNLOCK_ACC以上 かつ 8問中6問以上が現在連続正解中(k>=1)。 */
 function migrateInitialHyaGroupUnlock(st){
   const groups = hyaGroups();
   let n = 0;
@@ -12625,6 +12688,48 @@ let dd = null; // 読解Quest試作版の進行中ステート
    初めての合図であれば（st.nobiruRewardGiven）、一日一読経由なら全額、そうでなければ半額を
    st.stockXpに加算する。 */
 const DD_PENDING_REWARD_LSKEY = "dd_daily_pending_reward_v1";
+/* 別ページのミニゲームからのジャンルレベルの増減（2026-09-30〜、教員の指示）。
+   九尾の化かし合い（kitsune_bakashiai.html）は「同音異字・同訓異字・誤字訂正」（kanji_shiwake）、
+   炎狼ラン（enro_run.html）は「敬語」（keigo）。1回のゲームの中で「正解1つ＝＋1、まちがい2つ＝−1」と数え、
+   ゲームが終わったときの差し引き（マイナスもある）を、このキーに{ジャンル: 増減}として書き足す。
+   どちらも本体のセーブ(st)には直接触れない。本体はshowHome()の入口でmgApplyPendingLevelUps()がこれを読み取る。
+   ＋のときは文節斬り（bgLevelUpShikibetsu）と同じ形（st.lv[cat]++・totalLevelUps・10回ごとの挑戦チケット）で反映。
+   −のときはst.lv[cat]を下げ（1未満にはしない）、下げた回数をst.mgLevelDownsに数える。totalLevelUpsは
+   減らさない（減らすと、上げ直したときに挑戦チケットを何度ももらえてしまうため）。そのかわり
+   detectSaveTampering③の上限にst.mgLevelDownsを足す（下げたぶんだけ「レベルの合計よりレベルアップ回数が
+   多い」状態が正当に生じるため）。経験値はst.lvから計算されるので、レベルとあわせて上下する。
+   record()は呼ばない：st.q（問題ごとの履歴）や出題プールの解放率は、実在の4択問題を前提にした
+   仕組みで、ミニゲームの問題には当てはまらないため（bgLevelUpShikibetsuと同じ理由）。
+   読み取った時点でキーは必ず消す（二重加算防止）。ここに書けるジャンルはMG_LVUP_CATSだけ。 */
+const MG_PENDING_LVUP_LSKEY = "kokugo_minigame_pending_lvups_v1";
+const MG_LVUP_CATS = ["kanji_shiwake", "keigo"];
+function mgApplyPendingLevelUps(st){
+  let raw;
+  try{ raw = localStorage.getItem(MG_PENDING_LVUP_LSKEY); }catch(e){ raw = null; }
+  if(!raw) return null;
+  try{ localStorage.removeItem(MG_PENDING_LVUP_LSKEY); }catch(e){}
+  let info;
+  try{ info = JSON.parse(raw); }catch(e){ info = null; }
+  if(!info || typeof info !== "object") return null;
+  const applied = {};
+  MG_LVUP_CATS.forEach(cat => {
+    const n = Math.max(-1000, Math.min(1000, Math.trunc(Number(info[cat]) || 0)));
+    for(let i = 0; i < n && (st.lv[cat]||1) < MAX_CAT_LV; i++){
+      st.lv[cat] = (st.lv[cat]||1) + 1;
+      st.totalLevelUps = (st.totalLevelUps||0) + 1;
+      if(st.totalLevelUps % 10 === 0) st.bossTickets = (st.bossTickets||0) + 1;
+      applied[cat] = (applied[cat]||0) + 1;
+    }
+    for(let i = 0; i < -n && (st.lv[cat]||1) > 1; i++){
+      st.lv[cat] = (st.lv[cat]||1) - 1;
+      st.mgLevelDowns = (st.mgLevelDowns||0) + 1;
+      applied[cat] = (applied[cat]||0) - 1;
+    }
+  });
+  if(!Object.keys(applied).length) return null;
+  saveStats(st);
+  return applied;
+}
 // 「すでに経験値を受け取ったテキストキー」一覧（配列をJSON化して保存、2026-09-23〜）。
 // nobiru/engine.jsがこれを読み、2回目以降のポップアップ演出を出さないようにする
 // （st.nobiruRewardGivenの単純なミラー。ddCheckNobiruPendingReward参照）。
@@ -12733,24 +12838,24 @@ const NOBIRU_TEXTS = [
      「のびる読解」本来の一覧では変わらず公開されている。 */
   { key:"ishigaki", title:"石垣", desc:"筆者は、ふぞろいな石垣を「無造作で頼りない」と見ていた。けれども――", cat:"文学" },
   { key:"hougen", title:"方言", desc:"方言を笑われて、もう使わないと決めた「私」。けれども、祖母の家に帰った夏、気づいたことがあった。", cat:"文学", ddPublishDate:"2026-09-25" },
-  { key:"seisuisho", title:"都のならひ【古文】", desc:"醒睡笑（安楽庵策伝）より。藤五郎がでっち上げた「京の習ひ」を信じ込んだ専十郎に、何が起きるか。", cat:"古文" },
-  { key:"kanpeki", title:"完璧【漢文】", desc:"『十八史略』より。秦の理不尽な要求に、藺相如はどう立ち向かうか。故事成語「完璧」の由来となった話。", cat:"漢文" },
+  { key:"seisuisho", title:"都のならひ【古文】", desc:"醒睡笑（安楽庵策伝）より。藤五郎がでっち上げた「京の習ひ」を信じ込んだ専十郎に、何が起きるか。", cat:"古文", ddPublishDate:"2026-11-04" },
+  { key:"kanpeki", title:"完璧【漢文】", desc:"『十八史略』より。秦の理不尽な要求に、藺相如はどう立ち向かうか。故事成語「完璧」の由来となった話。", cat:"漢文", ddPublishDate:"2026-11-05" },
   { key:"wakariyasusa", title:"「わかりやすさ」の落とし穴【論説文】", desc:"見出しや降水確率など、身近な「要約」を例に、わかりやすさの裏にあるものを論じる。", cat:"説明", ddPublishDate:"2026-09-24" },
   { key:"benchi", title:"ベンチから【小説】", desc:"先発を外された陸と、その座をつかんだ蒼。悔しさを抱えた陸の心は、大会当日どう動くか。", cat:"文学", ddPublishDate:"2026-09-29" },
-  { key:"ooeyama", title:"大江山【古文】", desc:"『十訓抄』より。母の代作を疑われた小式部内侍が、とっさの一首で言い返す。掛詞に注目。", cat:"古文" },
-  { key:"gashinshoutan", title:"臥薪嘗胆【漢文】", desc:"『十八史略』より。呉王夫差の「薪に臥す」と、越王勾践の「胆を嘗める」。四字熟語の由来となった二つの復讐。", cat:"漢文" },
+  { key:"ooeyama", title:"大江山【古文】", desc:"『十訓抄』より。母の代作を疑われた小式部内侍が、とっさの一首で言い返す。掛詞に注目。", cat:"古文", ddPublishDate:"2026-11-10" },
+  { key:"gashinshoutan", title:"臥薪嘗胆【漢文】", desc:"『十八史略』より。呉王夫差の「薪に臥す」と、越王勾践の「胆を嘗める」。四字熟語の由来となった二つの復讐。", cat:"漢文", ddPublishDate:"2026-11-11" },
   { key:"monosashi", title:"「ふつう」という物差し【論説文】", desc:"食事の量や時代・地域の違いを例に、「ふつう」という感覚の相対性を論じる。", cat:"説明", ddPublishDate:"2026-09-28" },
   { key:"madobenoe", title:"窓辺の絵【小説】", desc:"友梨の絵と比べて落ち込む陽菜。コンクール直前、自分の絵を描き直そうとするが。", cat:"文学", ddPublishDate:"2026-10-01" },
-  { key:"nekomata", title:"猫また【古文】", desc:"『徒然草』より。人を食う「猫また」の噂に怯える法師。夜道で足もとに飛びついてきたものの正体は。", cat:"古文" },
-  { key:"kaiyorihajimeyo", title:"隗より始めよ【漢文】", desc:"『十八史略』より。まず自分を厚遇せよと説いた郭隗。「死馬の骨」のたとえ話とともに、天下の賢者が集まる。", cat:"漢文" },
+  { key:"nekomata", title:"猫また【古文】", desc:"『徒然草』より。人を食う「猫また」の噂に怯える法師。夜道で足もとに飛びついてきたものの正体は。", cat:"古文", ddPublishDate:"2026-11-16" },
+  { key:"kaiyorihajimeyo", title:"隗より始めよ【漢文】", desc:"『十八史略』より。まず自分を厚遇せよと説いた郭隗。「死馬の骨」のたとえ話とともに、天下の賢者が集まる。", cat:"漢文", ddPublishDate:"2026-11-17" },
   { key:"mienaishigoto", title:"見えない仕事【論説文】", desc:"清掃当番が誰もいなかった日の教室から、うまくいっているほど気づかれない仕事について論じる。", cat:"説明", ddPublishDate:"2026-09-30" },
   { key:"ienakattahitokoto", title:"言えなかった一言【小説】", desc:"けんか以来、口をきいていない美月と遥。文化祭の準備で同じ班になり、二人の距離は。", cat:"文学", ddPublishDate:"2026-10-05" },
-  { key:"yoshihide", title:"絵仏師良秀【古文】", desc:"『宇治拾遺物語』より。自分の家が燃えるのを見て、なぜか喜ぶ絵仏師。その理由とは。", cat:"古文" },
-  { key:"mujun", title:"矛盾【漢文】", desc:"『韓非子』より。何ものにも突き通されない盾と、何でも突き通す矛。同時に売る商人に、鋭い問いが飛ぶ。", cat:"漢文" },
+  { key:"yoshihide", title:"絵仏師良秀【古文】", desc:"『宇治拾遺物語』より。自分の家が燃えるのを見て、なぜか喜ぶ絵仏師。その理由とは。", cat:"古文", ddPublishDate:"2026-11-20" },
+  { key:"mujun", title:"矛盾【漢文】", desc:"『韓非子』より。何ものにも突き通されない盾と、何でも突き通す矛。同時に売る商人に、鋭い問いが飛ぶ。", cat:"漢文", ddPublishDate:"2026-11-24" },
   { key:"kikukoto", title:"聞くという技術【論説文】", desc:"アドバイスばかりされて聞いてもらえなかった経験から、「聞く」ことも技術であることを論じる。", cat:"説明", ddPublishDate:"2026-10-02" },
   { key:"koewafuruetemo", title:"声が震えても【小説】", desc:"人前で話すのが苦手な陽太。スピーチ発表を前に、目立たない同級生・大地の一言が心を軽くする。", cat:"文学", ddPublishDate:"2026-10-07" },
-  { key:"ouginomato", title:"扇の的【古文】", desc:"『平家物語』より。屋島の合戦、揺れる舟の上の扇めがけて、那須与一が放つ一射。", cat:"古文" },
-  { key:"shimensoka", title:"四面楚歌【漢文】", desc:"『史記』より。垓下に追い詰められた項羽が聞いた、四方からの楚の歌。虞美人との別れの歌。", cat:"漢文" },
+  { key:"ouginomato", title:"扇の的【古文】", desc:"『平家物語』より。屋島の合戦、揺れる舟の上の扇めがけて、那須与一が放つ一射。", cat:"古文", ddPublishDate:"2026-11-27" },
+  { key:"shimensoka", title:"四面楚歌【漢文】", desc:"『史記』より。垓下に追い詰められた項羽が聞いた、四方からの楚の歌。虞美人との別れの歌。", cat:"漢文", ddPublishDate:"2026-11-30" },
   { key:"kotobanoshoumikigen", title:"ことばの賞味期限【論説文】", desc:"数年前の流行語やことわざを例に、言葉が変化し続けることの意味を論じる。", cat:"説明", ddPublishDate:"2026-10-06" },
   { key:"kashidashicard", title:"貸出カードの隅で【小説】", desc:"図書室でいつも一人のひかりが、古い本に残された見知らぬ生徒たちの書き込みに出会う。", cat:"文学", ddPublishDate:"2026-10-09" },
   { key:"kaguyahime", title:"かぐや姫の昇天【古文】", desc:"『竹取物語』より。月の都へ帰らねばならないかぐや姫。天の羽衣を着る前に、翁へ残した思いとは。", cat:"古文" },
@@ -12798,6 +12903,86 @@ const NOBIRU_TEXTS = [
   { key:"gojippohyappo", title:"五十歩百歩【漢文】", desc:"『孟子』より。五十歩逃げた者は、百歩逃げた者を笑えるか。梁恵王への鋭い問い返し。", cat:"漢文" },
   { key:"suikou", title:"推敲【漢文】", desc:"『唐詩紀事』より。「推す」か「敲く」か、一字にこだわり抜いた賈島と、韓愈との出会い。", cat:"漢文" },
   { key:"chousanboshi", title:"朝三暮四【漢文】", desc:"『列子』より。朝三つ暮れに四つと、朝四つ暮れに三つ。合計は同じなのに、猿の反応は。", cat:"漢文" },
+  /* ここから2026-09-29追加分（論説文・文学的文章・古典のストック増量、教員の指示）。
+     ddPublishDateは付けず、既存の2026-09-27・2026-09-23追加分と同じく「のびる読解」の
+     ロック中ストックとして温存する。 */
+  { key:"namae", title:"名前を呼ぶこと【論説文】", desc:"担任に名前を覚えてもらえた驚きから、名前を呼ぶことが持つ意味を論じる。", cat:"説明", ddPublishDate:"2026-11-02" },
+  { key:"yohaku", title:"予定表の余白【論説文】", desc:"びっしりうまった週間予定表と、友人があえて空けている一日。余白の時間の意味を論じる。", cat:"説明", ddPublishDate:"2026-11-09" },
+  { key:"shippai", title:"失敗という材料【論説文】", desc:"消してしまいたい失敗の記憶と、自転車の練習で転んだ経験から、失敗の意味を論じる。", cat:"説明", ddPublishDate:"2026-11-13" },
+  { key:"narekeshiki", title:"見慣れた景色【論説文】", desc:"祖母が驚いた通学路の景色から、見慣れることで気づかなくなるものについて論じる。", cat:"説明", ddPublishDate:"2026-11-19" },
+  { key:"kazakami", title:"風上の自転車【小説】", desc:"部活帰り、向かい風の土手道。部活を辞めようか迷うたけると、先に立って風よけになる「私」。", cat:"文学", ddPublishDate:"2026-10-30" },
+  { key:"kubararenakatta", title:"配られなかったプリント【小説】", desc:"学級委員のゆいが、進路説明会のプリントを配り忘れる。副委員そらの申し出が支えになる。", cat:"文学", ddPublishDate:"2026-11-06" },
+  { key:"nibanmenooto", title:"二番目の音【小説】", desc:"吹奏楽部、メロディの陽とハーモニーのみなみ。地味に感じていた自分の音の意味に気づく。", cat:"文学", ddPublishDate:"2026-11-12" },
+  { key:"batonnoyukue", title:"バトンの行方【小説】", desc:"体育祭のリレー、うまくいかないバトンパス。前走者みずきとのぎくしゃくした関係が動く。", cat:"文学", ddPublishDate:"2026-11-18" },
+  { key:"kinobori", title:"高名の木登り【古文】", desc:"兼好法師『徒然草』より。木登りの名人が、なぜ安全に見える低い所で声をかけるのか。", cat:"古文" },
+  { key:"chigonosorane", title:"児のそら寝【古文】", desc:"『宇治拾遺物語』より。ぼたもちを期待しつつ寝たふりをする児。返事のタイミングをはかった末は。", cat:"古文" },
+  { key:"sanninkou", title:"三人行けば、必ず我が師あり【漢文】", desc:"『論語』より。学びと考えの関係、身近な他者から学ぶこと、過ちへの向き合い方を説く。", cat:"漢文" },
+  { key:"shushu", title:"守株【漢文】", desc:"『韓非子』より。たまたま切り株にぶつかった兎。それを待ち続けた男の行く末は。", cat:"漢文" },
+  /* ここから2026-09-29 13:00〆切ぶんの追加（古文・漢文のストック増量、教員の指示。
+     文学13・説明14が多いバランスを踏まえ、少ないジャンルから優先して増やした）。
+     ddPublishDateは付けず、ロック中ストックとして温存する。 */
+  { key:"gyofunori", title:"漁夫の利【漢文】", desc:"『戦国策』より。鷸と蚌が争い、たがいに放さずにいるうちに――。蘇代が趙王を説いた寓話。", cat:"漢文" },
+  { key:"yukukawa", title:"ゆく河の流れ【古文】", desc:"鴨長明『方丈記』冒頭より。川の流れ、都の家々、朝顔の露――重なり合う無常のたとえ。", cat:"古文" },
+  { key:"saiou", title:"塞翁が馬【漢文】", desc:"『淮南子』より。馬が逃げ、帰り、息子が落馬し――そのたびに塞翁がくり返す一言とは。", cat:"漢文" },
+  { key:"utsukushiki", title:"うつくしきもの【古文】", desc:"清少納言『枕草子』より。瓜に描いた児の顔、雀の子、塵を見せる幼子――かわいらしいものたち。", cat:"古文" },
+  { key:"wasuremonobox", title:"忘れ物ボックスの中で【小説】", desc:"いつも忘れ物をする陸に、学級委員のぼくはうんざりしていた。けれど、その理由を知ったとき。", cat:"文学", ddPublishDate:"2026-11-25" },
+  { key:"chinmoku", title:"沈黙という言葉【論説文】", desc:"会話が途切れた気まずさから、演劇や落語の「間」を例に、沈黙が持つ意味を論じる。", cat:"説明", ddPublishDate:"2026-11-26" },
+  { key:"hanahasakari", title:"花は盛りに【古文】", desc:"兼好法師『徒然草』より。満開の花、満ちた月だけが見どころか。散り際にこそ宿る趣を説く。", cat:"古文" },
+  { key:"keisetsu", title:"蛍雪の功【漢文】", desc:"『晋書』より。貧しさの中、蛍の光や雪明かりで書物を読んだ車胤と孫康。二人の工夫と、その後。", cat:"漢文" },
+  { key:"magatta", title:"曲がった掲示物【小説】", desc:"教室の掲示物は、いつも少し曲がっていた。ある朝早く、それをそっと直す陽菜の姿を見かける。", cat:"文学", ddPublishDate:"2026-12-01" },
+  { key:"atarimae", title:"「当たり前」のちがい【論説文】", desc:"駅の階段で困る人を見た経験や利き手の例から、「当たり前」は立場によって変わることを論じる。", cat:"説明", ddPublishDate:"2026-12-02" },
+  { key:"garyoutensei", title:"画竜点睛【漢文】", desc:"『歴代名画記』より。瞳を描けば龍は飛び去ると言った張僧繇。人々が半信半疑で瞳を描かせると。", cat:"漢文" },
+  { key:"tsutsuizutsu", title:"筒井筒【古文】", desc:"『伊勢物語』より。井戸のそばで遊んだ幼なじみの二人。大人になり恥じらう二人を結んだ和歌とは。", cat:"古文" },
+  /* ここから2026-09-29追加分（文学的文章・説明的文章を、当時の古文18・漢文17と同数
+     （各17教材）に近づけるための増量、教員の指示）。ddPublishDateは付けず、ロック中
+     ストックとして温存する。12/3以降のddPublishDate振り直し（下のコメント参照）は、
+     この34教材を含めた「文学→説明→古文→漢文」均等ローテーションとして行うこと。 */
+  { key:"pianobansou", title:"ピアノの伴奏者【小説】", desc:"合唱コンクールの伴奏者に選ばれた愛。去年の失敗の記憶に怯えるが、陽の一言に支えられる。", cat:"文学" },
+  { key:"hanadanchulip", title:"花壇のチューリップ【小説】", desc:"秋に植えた球根から芽が出ず不安なみのり。「見えないところで根が伸びている」という先輩の言葉。", cat:"文学" },
+  { key:"shougibu", title:"将棋部の一手【小説】", desc:"大会で負け続ける陸。「負けた将棋ほど学べる」という顧問の言葉から、感想戦に向き合う。", cat:"文学" },
+  { key:"rikashitsu", title:"理科室のフラスコ【小説】", desc:"実験に何度も失敗するさくら。「失敗も立派なデータ」という先輩の言葉から原因を探り始める。", cat:"文学" },
+  { key:"shodoubu", title:"書道部の一画【小説】", desc:"「はらい」がうまく書けない結衣。「気持ちを込める方が大事」という先生の言葉。", cat:"文学" },
+  { key:"hokenshitsu", title:"保健室の折り紙【小説】", desc:"一人で折り紙を折る翼が気になるななみ。勇気を出した声かけから始まる、二人の交流。", cat:"文学" },
+  { key:"takkyuubu", title:"卓球部のラケット【小説】", desc:"経験者になかなか追いつけないなつき。「一つずつ直せばいい」という先輩の助言。", cat:"文学" },
+  { key:"shashinbu", title:"写真部のシャッターチャンス【小説】", desc:"完璧な構図を狙いすぎるあおい。「まず撮ってみることも大事」という顧問の言葉。", cat:"文学" },
+  { key:"chourijisshu", title:"調理実習のだし巻き卵【小説】", desc:"一人で抱え込み失敗が続くはると。係を分担し直したことから生まれた協力。", cat:"文学" },
+  { key:"haikutoukubako", title:"俳句の投句箱【小説】", desc:"投句をためらうひなた。思い切って出した句に届いた、匿名の感想カード。", cat:"文学" },
+  { key:"madogiwa", title:"窓際の席【小説】", desc:"一人で外を眺めるしおり。学級委員まどかとの出会いで気づく、分かち合う楽しさ。", cat:"文学" },
+  { key:"sanshamendan", title:"三者面談の後で【小説】", desc:"将来の夢を答えられず落ち込むこうき。親友ゆうまの「探している途中でいい」という言葉。", cat:"文学" },
+  { key:"ouendan", title:"応援団の声【小説】", desc:"声の小ささがコンプレックスのりくと。「気持ちが伝わればいい」という仲間の言葉。", cat:"文学" },
+  { key:"gakkyuunisshi", title:"学級日誌の最後のページ【小説】", desc:"立派な言葉で書けず悩むみさき。友人の指摘から、素直な言葉で書き直す。", cat:"文学" },
+  { key:"shokubataiken", title:"職場体験の一日【小説】", desc:"パン屋での単調な作業に飽き始めるそうた。お客さんの「おいしかった」の一言。", cat:"文学" },
+  { key:"tankyori", title:"短距離走のスタートライン【小説】", desc:"生まれつき速い同期に嫉妬するけんと。誰よりも早く練習する姿を見て尊敬に変わる。", cat:"文学" },
+  { key:"gakkyuukai", title:"合唱曲を決める学級会【小説】", desc:"選曲をめぐり意見が割れるクラス。押し通そうとしていたあやのが、聞く姿勢に気づく。", cat:"文学" },
+  { key:"kanpekiwohanasu", title:"「完璧」を手放す【論説文】", desc:"完璧に仕上げようとして提出できなかった経験から、完璧さより継続の大切さを論じる。", cat:"説明" },
+  { key:"kiokutokiroku", title:"記憶と記録のちがい【論説文】", desc:"写真と記憶のずれから、記録と記憶、それぞれの持つ価値を論じる。", cat:"説明" },
+  { key:"mottainai", title:"「もったいない」の意味【論説文】", desc:"祖母の口ぐせから、物に込められた手間や思いへの敬意について論じる。", cat:"説明" },
+  { key:"kuse", title:"「くせ」というもの【論説文】", desc:"話し方のくせを指摘された経験から、くせが持つ個性としての価値を論じる。", cat:"説明" },
+  { key:"ruleimi", title:"ルールの意味を考える【論説文】", desc:"廊下の右側通行の理由を調べた経験から、ルールの理由を考える姿勢の大切さを論じる。", cat:"説明" },
+  { key:"wagamamakosei", title:"「わがまま」と「個性」のあいだ【論説文】", desc:"意見を「わがまま」と言われた経験から、理由を伝えることの大切さを論じる。", cat:"説明" },
+  { key:"suujidehakarenai", title:"数字では測れないもの【論説文】", desc:"テストの点数と友人の支えを対比し、数字では測れない価値について論じる。", cat:"説明" },
+  { key:"arigatounoomomi", title:"「ありがとう」の重み【論説文】", desc:"軽く返した感謝の言葉と祖父母の伝え方を対比し、言葉の重みについて論じる。", cat:"説明" },
+  { key:"hitorinojikan", title:"一人の時間の意味【論説文】", desc:"一人で過ごした休み時間の体験から、一人の時間が持つ価値について論じる。", cat:"説明" },
+  { key:"madatomou", title:"「まだ」と「もう」ということば【論説文】", desc:"逆上がりの練習を例に、言葉の選び方が物事の見え方を変えることを論じる。", cat:"説明" },
+  { key:"keigonokabe", title:"敬語のかべ【論説文】", desc:"職場体験での敬語の経験から、敬語が持つ距離感と敬意の両面について論じる。", cat:"説明" },
+  { key:"mitamedekimetsukenai", title:"「見た目」で決めつけない【論説文】", desc:"怖そうだと思っていた先輩の意外な優しさから、見た目で判断しないことの大切さを論じる。", cat:"説明" },
+  { key:"tokuitosuki", title:"「得意」と「好き」のちがい【論説文】", desc:"得意だが好きになれない科目と、苦手だが好きな絵を対比して論じる。", cat:"説明" },
+  { key:"tegakinoondo", title:"手書きの温度【論説文】", desc:"打ち直したメッセージと祖父からの手紙を対比し、手書きの持つ温かさについて論じる。", cat:"説明" },
+  { key:"atomawashinoshinri", title:"「後回し」の心理【論説文】", desc:"宿題を後回しにしてしまう経験から、始める前の想像の重さについて論じる。", cat:"説明" },
+  { key:"futsuunohinonneuchi", title:"「ふつうの日」のねうち【論説文】", desc:"思い出せない普通の日と、よく覚えている特別な日を対比し、積み重ねの価値を論じる。", cat:"説明" },
+  { key:"shitsumonsuruyuuki", title:"質問する勇気【論説文】", desc:"質問できなかった経験から、勇気を出して聞くことの大切さを論じる。", cat:"説明" },
+  /* 2026-09-29〜：10/29までは文学・説明の2ジャンルだけのローテーションだったが、教員の指示で
+     10/30以降は「文学→説明→古文→漢文」の4ジャンルが均等に回るよう、当時ddPublishDate未設定
+     だった在庫（石垣を除く47教材：文学6・説明6・古文18・漢文17）に、この順で平日
+     （土日・11/3文化の日・11/23勤労感謝の日・2027/1/1元日を除く）へ1教材ずつ割り振る計算をした。
+     文学・説明は6教材ずつしかないため、6周目（2026-12-02、atarimae）で尽きる計算だった。
+     2026-09-29〜再修正：教員の指示で、確定させるのは2026-12-02（atarimae）までとし、
+     それ以降（2026-12-03のkaguyahime〜2027-01-07のtsutsuizutsuまでの25教材）は
+     いったんddPublishDateを外してロック中ストックに戻した。教材をさらに補充してから、
+     改めて12/3以降ぶんの日付を振り直す予定（教員の指示）。次に振り直すときも、
+     このコメント冒頭の「文学→説明→古文→漢文」均等ローテーションの続きとして
+     （12/2時点で文学・説明は使い切っているので、補充教材を含めて4ジャンルの残数を
+     数え直したうえで）日付を割り振ること。 */
 ];
 const NOBIRU_CATS = [
   { key:"文学", label:"文学的文章", icon:"📖" },
@@ -13667,9 +13852,9 @@ function battleGrade(ok, chosenOrig, typed){
   let expl;
   if(Array.isArray(it.ans)){
     const wrongMsg = ok ? "" : `正解は「${esc(it.ans.join("」または「"))}」（こたえ：${esc(typed||"")}）`;
-    expl = [wrongMsg, it.e ? esc(it.e) : ""].filter(Boolean).join("<br>");
+    expl = [wrongMsg, it.e ? esc(it.e).replace(/\n/g,"<br>") : ""].filter(Boolean).join("<br>");
   }else{
-    expl = it.e ? esc(it.e) : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
+    expl = it.e ? esc(it.e).replace(/\n/g,"<br>") : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
   }
   const defenderName = defender === "A" ? battle.nameA : battle.nameB;
   const dmgMsg = ok ? `<span class="lvup-chip">${esc(defenderName)}に ${dealt} ダメージ！</span>` : "";
@@ -14217,9 +14402,9 @@ function cmGrade(ok, ms, chosenOrig, typed){
     }
     if(Array.isArray(it.ans)){
       const wrongMsg = ok ? "" : `正解は「${esc(it.ans.join("」または「"))}」（こたえ：${esc(typed||"")}）`;
-      expl = [wrongMsg, it.e ? esc(it.e) : ""].filter(Boolean).join("<br>");
+      expl = [wrongMsg, it.e ? esc(it.e).replace(/\n/g,"<br>") : ""].filter(Boolean).join("<br>");
     }else{
-      expl = it.e ? esc(it.e) : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
+      expl = it.e ? esc(it.e).replace(/\n/g,"<br>") : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
     }
   }else if(entry.type === 'kws'){
     // タイムアウトで採点された場合はcmKwsSubmitJudgeを経由していないので、ここで正解の
@@ -15577,6 +15762,12 @@ TREASURE_NAMES.add(SHIRAN_BOSS.treasure);
    他の時間制限つきボスの15秒とは個別に指定、`bossHasTimeLimit`側で対応）。
    atk/accuracy/evadePct/luckは反撃が発生しないため未使用（値に意味はない）。 */
 const KOKUGO_KAMI_ENCOUNTER_RATE = 1/1000000;
+/* 「東京で買ったお守り」所持時の国語の神出現率（2026-09-29〜、ストーリー第二部・第2章クリア
+   報酬。教員の指示：「国語の神の出現率が、10000分の1にアップする」）。通常の
+   1/1,000,000から100倍に上がる。判定側はrollBossEncounter参照（STORY_PART2_OMAMORI_ITEMは
+   このファイルの後方、STORY_PART2_CHAPTERSの近くで定義しているが、constは実際に呼ばれる
+   ゲームプレイ時点ではすでに評価済みのため参照して問題ない）。 */
+const KOKUGO_KAMI_ENCOUNTER_RATE_BOOSTED = 1/10000;
 const KOKUGO_KAMI_BOSS = {
   id:"kokugo_kami", name:"国語の神", icon:"⛩️",
   item:"文殊の知恵", treasure:"神の化身",
@@ -15698,7 +15889,8 @@ function resumeBossBattleIfSaved(){
 function rollBossEncounter(resumeFn, hyakuninMode){
   if(bossPromptActive || bossBattle) return false;
   const st = loadStats();
-  if(Math.random() < KOKUGO_KAMI_ENCOUNTER_RATE){
+  const kokugoKamiRate = (st.items && st.items[STORY_PART2_OMAMORI_ITEM] > 0) ? KOKUGO_KAMI_ENCOUNTER_RATE_BOOSTED : KOKUGO_KAMI_ENCOUNTER_RATE;
+  if(Math.random() < kokugoKamiRate){
     /* 宝具のドロップ判定は「出会った時点」の直近30回正答率で決まる（bossWin参照）ので、
        ここで一度だけスナップショットしてボスオブジェクト（共有シングルトン）に持たせておく。 */
     KOKUGO_KAMI_BOSS._encounterAcc = recentAccAll(st);
@@ -16840,9 +17032,9 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
   let expl;
   if(Array.isArray(it.ans)){
     const wrongMsg = ok ? "" : `正解は「${esc(it.ans.join("」または「"))}」（こたえ：${esc(typed||"")}）`;
-    expl = [wrongMsg, it.e ? esc(it.e) : ""].filter(Boolean).join("<br>");
+    expl = [wrongMsg, it.e ? esc(it.e).replace(/\n/g,"<br>") : ""].filter(Boolean).join("<br>");
   }else{
-    expl = it.e ? esc(it.e) : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
+    expl = it.e ? esc(it.e).replace(/\n/g,"<br>") : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
   }
   const dmgMsg = ok
     ? (fled
@@ -18171,6 +18363,14 @@ function bootApp(){
      （仲間になる確率・色違い遭遇もすべて本番と同じ本物の戦闘）。 */
   if(new URLSearchParams(location.search).get('devtool') === 'uraboss'){ mbUraCarry = {questMode:'hard', isSpecialQuest:false}; mbShowUraBossChoice(); return; }
   if(resumeBossBattleIfSaved()) return;
+  /* 別ページのミニゲーム（kitsune_bakashiai.html）から「ミニゲーム一覧へ」で戻ってきたとき
+     （?from=minigame）。いつもどおりプロローグ→ホーム（一日一読の報酬確認などの処理）を通したうえで、
+     すぐにミニゲーム一覧を開く。再読み込みで毎回一覧に飛ばないよう、URLからは消しておく。 */
+  if(new URLSearchParams(location.search).get('from') === 'minigame'){
+    try{ history.replaceState(null, '', location.pathname); }catch(e){}
+    showPrologue(() => { showHome(); showSideQuestMenu(); });
+    return;
+  }
   showPrologue(showHome);
 }
 
@@ -18241,6 +18441,18 @@ const STORY_EVENT_BOSSES = {
   printPile: {
     id:"story_print_pile", name:"手強い配布プリントの山", icon:"📄",
     item:"入学準備リスト", treasure:"先輩からのお守り",
+  },
+  /* 第二部・第2章「修学旅行のお土産」の中ボス（2026-09-29〜）。既存のbattle beat（正答数ゲート）を
+     そのまま使う、通常のジャンル問題ボス。 */
+  hanakoKeigoTest: {
+    id:"story_hanako_keigo", name:"先輩のきびしい言葉づかいチェック", icon:"🎁",
+    item:"お土産の包み紙", treasure:"先輩おすすめのメモ帳",
+  },
+  /* 第二部・第3章「新人戦」の中ボス（2026-09-29〜）。新設ジャンルbunsetsu_kankeiのうち
+     「文の成分」部分（tag:"bunsei"）だけに絞って出題する。 */
+  shinjinBunsei: {
+    id:"story_shinjin_bunsei", name:"一回戦の相手・隣のクラスの代表", icon:"🥋",
+    item:"新人戦の参加賞", treasure:"一回戦突破のメダル",
   },
   selfIntroCard: {
     id:"story_self_intro_card", name:"白紙のまま固まった自己紹介カード", icon:"📇",
@@ -19034,6 +19246,430 @@ const STORY_CHAPTERS = {
   },
 };
 
+/* ================= ストーリーモード「第二部」（2026-09-29〜、教員の指示） =================
+   第一部（STORY_CHAPTERS）とは完全に独立した章集合。第一部を全クリアしなくても第1章から
+   遊べる（storyPart2ChapterUnlocked参照）。beatの記法（line/choice/quiz/battle等）は
+   STORY_CHAPTERSと共通のエンジンをそのまま使い回す。
+   ・p2ch1「新学期」：中ボス/ボスとも言の刃斬（bunsetsu beat、bgStoryStageIdでBG_STAGESの
+     ストーリー専用の巻に直接入り、通常の巻えらび画面は経由しない。10問正解でクリア）。
+   ・p2ch2「修学旅行のお土産」：中ボスは敬語の通常battle beat。ボスはボキャブラ・シューティング
+     （shooting beat）にstoryGoalLevelIndexを指定し、無敵＋高校生レベル到達で強制クリアという
+     ストーリー限定ルールを適用する（2026-09-29〜追記：誤答オーブに一度でも命中した問題は、
+     その後正解オーブを撃っても得点・記録にならない、vsHitOrbのshoot.roundMissed参照）。
+     章クリアで「東京で買ったお守り」を入手し、以後国語の神の出現率が上がる
+     （storyChapterEnd・rollBossEncounter参照）。
+   ・p2ch3「新人戦」：中ボスは新設ジャンルbunsetsu_kankeiの「文の成分」部分（tag:"bunsei"）に
+     filterTagで絞ったbattle beat。ボスはマッチ＆MATCH（新設speedMatch beat）にstoryGoalMatchesを
+     指定し、制限時間なし・30マッチ到達で強制終了というストーリー限定ルールを適用する。 */
+const STORY_PART2_OMAMORI_ITEM = "東京で買ったお守り";
+const STORY_PART2_CHAPTERS = {
+  "p2ch1": {
+    "title": "第1章「新学期」",
+    "beats": [
+      {
+        "type": "line",
+        "text": "長かった夏休みが終わり、今日から二学期がはじまる。"
+      },
+      {
+        "type": "line",
+        "text": "宿題は昨日の夜になんとか片づけたものの、頭のほうはまだ夏休みモードのままだった。"
+      },
+      {
+        "type": "line",
+        "speaker": "ことのは",
+        "text": "……なんだか、頭がぼんやりしてない？　二学期はじまったよ？"
+      },
+      {
+        "type": "choice",
+        "flagKey": "p2c1SummerMood",
+        "text": "ことのはに、どう答える？",
+        "options": [
+          {
+            "label": "「まだ休み気分が抜けてなくて……」",
+            "value": "honest"
+          },
+          {
+            "label": "「そんなことないよ、ばっちり！」",
+            "value": "bluff"
+          }
+        ]
+      },
+      {
+        "type": "line",
+        "speaker": "ことのは",
+        "text": "うーん、その顔はぜんぜんばっちりじゃないなあ。",
+        "variants": [
+          {
+            "flag": "p2c1SummerMood",
+            "value": "honest",
+            "text": "だよね、そんな気がしてた。無理もないよ、長い休みだったもん。"
+          },
+          {
+            "flag": "p2c1SummerMood",
+            "value": "bluff",
+            "text": "うーん、その顔はぜんぜんばっちりじゃないなあ。"
+          }
+        ]
+      },
+      {
+        "type": "line",
+        "text": "教室に入ると、太郎がこちらに気づいて手を挙げた。"
+      },
+      {
+        "type": "line",
+        "speaker": "太郎",
+        "text": "おー、久しぶり！　夏休みどうだった？"
+      },
+      {
+        "type": "line",
+        "speaker": "太郎",
+        "text": "って顔を見ればわかるな。それ、完全に「まだ夏休みの顔」だ。"
+      },
+      {
+        "type": "line",
+        "speaker": "太郎",
+        "text": "よし、頭の準備運動につきあえよ。"
+      },
+      {
+        "type": "quiz",
+        "cat": "shikibetsu",
+        "filterS": "正しく文節で区切られているのはどれか",
+        "speaker": "太郎"
+      },
+      {
+        "type": "line",
+        "speaker": "太郎",
+        "text": "お、意外と覚えてるじゃん。じゃあ、もう少し本気を出してもらおうかな。"
+      },
+      {
+        "type": "line",
+        "speaker": "太郎",
+        "text": "「言の刃斬」、知ってるだろ？　"
+      },
+      {
+        "type": "line",
+        "text": "まずは文節の切れ目だけを狙う「文節切り」からいくぞ。"
+      },
+      {
+        "type": "line",
+        "speaker": "太郎",
+        "text": "十本、まっすぐ斬り抜けたら合格だ。いくぞ！"
+      },
+      {
+        "type": "bunsetsu",
+        "bgStoryStageId": "p2_bunsetsu",
+        "need": 10
+      },
+      {
+        "type": "line",
+        "speaker": "太郎",
+        "text": "やるじゃん！　文節はばっちりだな。"
+      },
+      {
+        "type": "line",
+        "speaker": "太郎",
+        "text": "じゃあ次は「単語切り」。文節よりさらに細かく、単語の切れ目だけを狙う。こっちのほうが少し難しいぞ。"
+      },
+      {
+        "type": "line",
+        "speaker": "太郎",
+        "text": "同じように十本、いってみよう！"
+      },
+      {
+        "type": "bunsetsu",
+        "bgStoryStageId": "p2_tango",
+        "need": 10
+      },
+      {
+        "type": "line",
+        "speaker": "太郎",
+        "text": "よっしゃ、完璧！　これで頭の準備運動は終わりだな。"
+      },
+      {
+        "type": "line",
+        "speaker": "太郎",
+        "text": "二学期も、この調子でいこうぜ。"
+      },
+      {
+        "type": "line",
+        "speaker": "ことのは",
+        "text": "うん、さっきよりずっと目が覚めた顔してる。二学期、がんばろうね。"
+      }
+    ]
+  },
+  "p2ch2": {
+    "title": "第2章「修学旅行のお土産」",
+    "beats": [
+      {
+        "type": "line",
+        "text": "休み時間、花子が小さな紙袋を大事そうに抱えて教室に入ってきた。"
+      },
+      {
+        "type": "line",
+        "speaker": "花子",
+        "text": "見て見て！　修学旅行に行ってた先輩から、東京のお土産もらっちゃった！"
+      },
+      {
+        "type": "line",
+        "text": "紙袋の中には、色とりどりのお菓子が入っている。"
+      },
+      {
+        "type": "line",
+        "speaker": "ことのは",
+        "text": "わあ、おいしそう。……ねえ、それ少し分けてもらえたりする？"
+      },
+      {
+        "type": "choice",
+        "flagKey": "p2c2Ask",
+        "text": "花子に、どう頼む？",
+        "options": [
+          {
+            "label": "「ぼくにも少し分けてくれない？」",
+            "value": "direct"
+          },
+          {
+            "label": "ことのはの代わりに、目で訴えてみる",
+            "value": "eyes"
+          }
+        ]
+      },
+      {
+        "type": "line",
+        "speaker": "花子",
+        "text": "いいよ！　……って言いたいところなんだけど、実は先輩から条件を出されちゃって。",
+        "variants": [
+          {
+            "flag": "p2c2Ask",
+            "value": "direct",
+            "text": "うん、いいよ！　……って言いたいところなんだけど、実は先輩から条件を出されちゃって。"
+          },
+          {
+            "flag": "p2c2Ask",
+            "value": "eyes",
+            "text": "ふふ、その顔、わかりやすいなあ。いいよ！　……って言いたいところなんだけど、実は先輩から条件を出されちゃって。"
+          }
+        ]
+      },
+      {
+        "type": "line",
+        "speaker": "花子",
+        "text": "「後輩に分けるなら、まず敬語のテストに合格してからね」だって。先輩、厳しいんだから。"
+      },
+      {
+        "type": "line",
+        "speaker": "太郎",
+        "text": "それ、おれたちも巻き込まれてるってことじゃん……。まあいいや、やるか。"
+      },
+      {
+        "type": "line",
+        "speaker": "花子",
+        "text": "10問のうち8問正解できたら合格なんだって。がんばって！"
+      },
+      {
+        "type": "battle",
+        "boss": "hanakoKeigoTest",
+        "cat": "keigo",
+        "trackLevel": true,
+        "total": 10,
+        "need": 8
+      },
+      {
+        "type": "line",
+        "speaker": "花子",
+        "text": "やったね、合格！　……あ、でもメッセージがまだ続いてる。"
+      },
+      {
+        "type": "line",
+        "speaker": "花子",
+        "text": "「本当のごほうびは、もう一つのゲームをクリアした人にあげるね」って。先輩、なんでゲーム好きなんだろう。"
+      },
+      {
+        "type": "line",
+        "speaker": "太郎",
+        "text": "「ボキャブラ・シューティング」か。よし、次はおれに任せろ！"
+      },
+      {
+        "type": "line",
+        "speaker": "花子",
+        "text": "今回は特別ルールがあるみたい。ライフが減ってもゲームオーバーにならないから、高校生レベルに届くまで思いきり撃ちまくって！　あ、でも間違ったものを一度撃つと、その問題はもう点数にならないみたいだから気をつけて。"
+      },
+      {
+        "type": "shooting",
+        "cat": "goi",
+        "storyGoalLevelIndex": 6
+      },
+      {
+        "type": "line",
+        "text": "画面いっぱいに「高校生レベル到達！」の文字が輝いた。"
+      },
+      {
+        "type": "line",
+        "speaker": "花子",
+        "text": "見て見て、先輩からまたメッセージ！"
+      },
+      {
+        "type": "line",
+        "speaker": "花子",
+        "text": "「二つとも突破できたんだね。じゃあお土産、みんなで分けっこしてね。……あと、これも一緒に渡しておくよ」"
+      },
+      {
+        "type": "line",
+        "text": "紙袋の底から、小さな巾着に入ったお守りが出てきた。"
+      },
+      {
+        "type": "line",
+        "speaker": "花子",
+        "text": "「東京で買ったお守り」だって。すごく良いことが起きるように、ってメッセージが添えてあるよ。"
+      },
+      {
+        "type": "line",
+        "speaker": "ことのは",
+        "text": "……なんだか、とても特別な力が宿ってる気がする。大切に持っておこうね。"
+      }
+    ]
+  },
+  "p2ch3": {
+    "title": "第3章「新人戦」",
+    "beats": [
+      {
+        "type": "line",
+        "text": "放課後、新人戦に向けての話題で教室が少しざわついていた。"
+      },
+      {
+        "type": "line",
+        "speaker": "花子",
+        "text": "もうすぐ新人戦だね。"
+      },
+      {
+        "type": "line",
+        "speaker": "太郎",
+        "text": "ありがとう。頑張るよ。"
+      },
+      {
+        "type": "line",
+        "speaker": "花子",
+        "text": "え、あなたに言ったつもりはなかったんだけど。"
+      },
+      {
+        "type": "line",
+        "speaker": "太郎",
+        "text": "えっ、そうなの！？　てっきり、おれに言ってくれたんだと思った……。"
+      },
+      {
+        "type": "line",
+        "speaker": "ことのは",
+        "text": "「もうすぐ新人戦だね」だけだと、だれのことを言っているのか分からないよ。主語がないんだ。"
+      },
+      {
+        "type": "choice",
+        "flagKey": "p2c3Subject",
+        "text": "ことのはの説明を聞いて、どう思う？",
+        "options": [
+          {
+            "label": "「そっか、主語って大事なんだね」",
+            "value": "agree"
+          },
+          {
+            "label": "「主語って、そんなに重要なの？」",
+            "value": "unsure"
+          }
+        ]
+      },
+      {
+        "type": "line",
+        "speaker": "ことのは",
+        "text": "うん、大事なんだよ。「主語」は文の成分の一つで、「だれが」「何が」を表す部分なんだ。ちょっと練習してみようか。",
+        "variants": [
+          {
+            "flag": "p2c3Subject",
+            "value": "agree",
+            "text": "そうそう、大事なんだよ。「主語」は文の成分の一つで、「だれが」「何が」を表す部分なんだ。ちょっと練習してみようか。"
+          },
+          {
+            "flag": "p2c3Subject",
+            "value": "unsure",
+            "text": "うん、実はすごく重要なんだよ。「主語」は文の成分の一つで、「だれが」「何が」を表す部分なんだ。ちょっと練習してみようか。"
+          }
+        ]
+      },
+      {
+        "type": "line",
+        "speaker": "太郎",
+        "text": "よし、じゃあ「文の成分」の力、試してみるか！"
+      },
+      {
+        "type": "battle",
+        "boss": "shinjinBunsei",
+        "cat": "bunsetsu_kankei",
+        "filterTag": "bunsei",
+        "trackLevel": true,
+        "total": 10,
+        "need": 6
+      },
+      {
+        "type": "line",
+        "speaker": "花子",
+        "text": "やった、ちゃんと見分けられたね！"
+      },
+      {
+        "type": "line",
+        "speaker": "太郎",
+        "text": "そういえば、新人戦の応援でよく聞くけど、「勝利する」と「勝つ」って、何がちがうんだろうね。"
+      },
+      {
+        "type": "line",
+        "speaker": "花子",
+        "text": "たしかに、同じような意味だよね。"
+      },
+      {
+        "type": "line",
+        "speaker": "ことのは",
+        "text": "意味が全く一緒というわけではないけれど、似ている言葉を「類義語」というんだよ。"
+      },
+      {
+        "type": "line",
+        "speaker": "ことのは",
+        "text": "せっかくだから、類義語マッチ＆MATCHで練習してみようか。"
+      },
+      {
+        "type": "line",
+        "speaker": "太郎",
+        "text": "お、いいね。今回は新人戦にあわせて特別ルールにしよう。時間制限はなし、そのかわり30マッチ見つけたら終了だ。"
+      },
+      {
+        "type": "line",
+        "speaker": "花子",
+        "text": "じっくり確実に見つけていこう。"
+      },
+      {
+        "type": "speedMatch",
+        "cat": "ruigigo",
+        "storyGoalMatches": 30
+      },
+      {
+        "type": "line",
+        "text": "30個めのペアを見つけた瞬間、三人は顔を見合わせてほっと笑った。"
+      },
+      {
+        "type": "line",
+        "speaker": "太郎",
+        "text": "類義語も文の成分も、これでばっちりだな。"
+      },
+      {
+        "type": "line",
+        "speaker": "花子",
+        "text": "新人戦、いい結果が出せるといいね。"
+      },
+      {
+        "type": "line",
+        "speaker": "ことのは",
+        "text": "うん、二人ともよくがんばったね。新人戦、応援してるよ。"
+      }
+    ]
+  }
+};
+
+
 /* 一人称選択（ch1のpronoun choice）の表示名。ホーム画面の「相棒」表記などで使う。 */
 const STORY_PRONOUN_LABELS = {
   watashi:"私", atashi:"あたし", ore:"俺", boku:"ボク",
@@ -19136,7 +19772,7 @@ const STORY_SIDEQUESTS = {
 /* STORY_CHAPTERS・STORY_SIDEQUESTSのどちらのキーでも章の定義を引けるようにする共通ヘルパー。
    storyRenderBeat等、章の種類を意識せず進行させたい箇所から使う。 */
 function storyChapterDef(key){
-  return STORY_CHAPTERS[key] || STORY_SIDEQUESTS[key];
+  return STORY_CHAPTERS[key] || STORY_SIDEQUESTS[key] || STORY_PART2_CHAPTERS[key];
 }
 
 let storyRun = null; // 実行中の一時状態（セーブしない。直前の出題・選択肢の並び順・合格ゲートの進捗など）
@@ -19152,6 +19788,7 @@ function storyFreshRun(){
     wpWords:null, wpFound:null, wpDeadline:null, wpDone:false, wpTimerId:null,
     shootBeatIdx:null, shoot:null,
     bgBeatIdx:null, bg:null,
+    smBeatIdx:null, // 「マッチ＆MATCH」をstoryのspeedMatch beatとして埋め込むときのbeat切り替え検知用（storyRenderSpeedMatch参照）
     psBeatIdx:null,
     ydBeatIdx:null, yd:null,
   };
@@ -19161,11 +19798,27 @@ function storyProgress(st){
   if(!st.story) st.story = {chapter:"ch1", beatIdx:0, flags:{}, completedChapters:[], judgedRunCorrect:0, judgedRunTotal:0, judgedBest:{}, comboBest:{}};
   return st.story;
 }
+/* 「NEW」吹き出し（2026-09-29〜、教員の指示：「今日から3日間つけて、そのあとは自然となくなる
+   ように」）。表示開始日から丸3日（当日をふくむ）だけtrueになる、日付だけの比較（時刻は無視）。
+   対象：ストーリーモードの入口カード・「第二部」タブ・「文の成分・文節相互の関係」「同音異字・
+   同訓異字・誤字訂正」のジャンルカード（storyEntryHtml・showMainStoryMenu・showHomeの
+   ジャンル一覧を参照）。 */
+const NEW_BADGE_START = new Date(2026, 8, 29); // 月は0始まりなので8=9月
+const NEW_BADGE_DAYS = 3;
+function isNewBadgeActive(){
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const days = Math.round((today - NEW_BADGE_START) / 86400000);
+  return days >= 0 && days < NEW_BADGE_DAYS;
+}
+function newBadgeHtml(){
+  return isNewBadgeActive() ? `<span class="new-bubble">NEW</span>` : "";
+}
 function storyEntryHtml(st){
   return `
     <div class="card menu-card story-btn" onclick="showMainStoryMenu()">
       <div class="menu-icon">📖</div>
-      <div><h2>ストーリーモード</h2>
+      <div><h2>ストーリーモード${newBadgeHtml()}</h2>
       <p>ことのはと一緒に、中学校生活を歩む物語</p></div>
     </div>`;
 }
@@ -19184,11 +19837,30 @@ function miniGameEntryHtml(st){
 }
 /* 章選択画面。STORY_CHAPTERSのキーをそのまま順番にボタン化するので、
    今後2章目以降を追加してもこの関数を変更する必要はない。 */
-function showMainStoryMenu(){
+/* 「第一部」「第二部」タブの選択状態（2026-09-29〜、教員の指示：「常に全部が開いていると
+   冗長で見づらい」）。セーブしない画面内だけの状態で、アプリを開き直すと常に第一部から。
+   showMainStoryMenu()を引数なしで呼ぶ既存の呼び出し元（storyEntryHtml等）は、
+   今の選択タブをそのまま維持して開き直す。 */
+let storyMenuPart = "1";
+function showMainStoryMenu(part){
+  if(part) storyMenuPart = part;
   const st = loadStats();
-  let html = `<div class="card"><h3 class="section">📖 第一部</h3>
-    <p class="note">ことのはと一緒に、中学校生活を歩む物語です。<br>章を選んで読み進めよう。前の章をクリアすると、次の章が解放されます。</p></div>`;
-  html += Object.keys(STORY_CHAPTERS).map(key => storyChapterButtonHtml(key, st)).join("");
+  let html = `<div class="btn-row" style="justify-content:center; margin-bottom:10px">
+    <button class="btn ${storyMenuPart==='1' ? '' : 'secondary'}" onclick="showMainStoryMenu('1')">📖 第一部</button>
+    <button class="btn ${storyMenuPart==='2' ? '' : 'secondary'}" onclick="showMainStoryMenu('2')">📖 第二部${newBadgeHtml()}</button>
+  </div>`;
+  if(storyMenuPart === '2'){
+    /* 第二部（2026-09-29〜、教員の指示：「第一部をクリアしなくても、第二部はあけられるように
+       する」）。第一部の進行状況とは無関係に、第二部自身の章キー順だけで解放が進む
+       （storyPart2ChapterUnlocked参照）。 */
+    html += `<div class="card"><h3 class="section">📖 第二部</h3>
+      <p class="note">こちらは第一部とは独立した物語です。第一部をクリアしていなくても遊べます。</p></div>`;
+    html += Object.keys(STORY_PART2_CHAPTERS).map(key => storyPart2ChapterButtonHtml(key, st)).join("");
+  }else{
+    html += `<div class="card"><h3 class="section">📖 第一部</h3>
+      <p class="note">ことのはと一緒に、中学校生活を歩む物語です。<br>章を選んで読み進めよう。前の章をクリアすると、次の章が解放されます。</p></div>`;
+    html += Object.keys(STORY_CHAPTERS).map(key => storyChapterButtonHtml(key, st)).join("");
+  }
   html += `<div class="btn-row" style="justify-content:center; margin-top:10px">
     <button class="btn secondary" onclick="showHome()">ホームへ</button>
   </div>`;
@@ -19202,6 +19874,8 @@ function showSideQuestMenu(){
   html += mbSideQuestButtonHtml();
   html += Object.keys(STORY_SIDEQUESTS).map(key => storySideQuestButtonHtml(key, st)).join("");
   html += speedMatchMenuHtml();
+  html += enroRunMenuHtml();   // 教員の指示（2026-09-30）で炎狼ランを九尾より上に
+  html += kitsuneMenuHtml();
   html += `<div class="btn-row" style="justify-content:center; margin-top:10px">
     <button class="btn secondary" onclick="showHome()">戻る</button>
   </div>`;
@@ -19286,6 +19960,113 @@ function storySideQuestButtonHtml(key, st){
       <div class="right"><span class="shogo-badge">挑戦する</span></div>
     </div>`;
 }
+/* 九尾の化かし合い（2026-09-29〜、準備中）。形の似た別の字に化けた熟語（完壁・末来など）を
+   見破るミニゲーム（2026-09-30〜、一〜五話のストーリー仕立てで話ごとに見破り方が変わり、六で60秒の挑戦の間）。
+   パートナー（漢字Questの仲間）が出演するミニゲームの第1弾として、
+   九尾(ub05)が相手役になる。ゲーム本体は別ページ（kitsune_bakashiai.html）で、のびる読解と同じく
+   同じタブのまま画面ごと遷移し、戻るときは kokugo_app.html?from=minigame でミニゲーム一覧に戻る
+   （起動時の from=minigame 参照）。本体のセーブデータ(st)には直接触れない。2026-09-30〜、1回のゲームごとに
+   「正解1つ＝＋1、まちがい2つ＝−1」の差し引きで「同音異字・同訓異字・誤字訂正」ジャンルのレベルを上下させる
+   （MG_PENDING_LVUP_LSKEY経由、mgApplyPendingLevelUps参照）。教員の指示（2026-09-29：「ミニゲームに追加して。ただし、まだ解放はしないこと」）で、
+   以前のマッチ試作と同じ「準備中」カードとして置き、決まった操作をしたときだけ裏で遊べるようにする。
+   2026-09-29〜、「5回タップ」は生徒に知られているとの教員の指示で、「カードを3回タップ→kキーを1回→
+   カードを2回タップ」の順（KITSUNE_SECRET_SEQ）に変更した。直前の6操作がこの順になっていれば開く
+   （多めにタップしてしまっても、そのままk→2回タップで開ける）。
+   正式に公開するときは KITSUNE_RELEASED を true にするだけでよい。 */
+const KITSUNE_RELEASED = false;
+const KITSUNE_SECRET_SEQ = ["tap","tap","tap","k","tap","tap"];
+let kitsuneSeqHist = []; // 直近の隠し操作。保存しない＝ページ再読み込みでリセットされてよい。
+function kitsuneMenuHtml(){
+  if(KITSUNE_RELEASED){
+    return `
+    <div class="card menu-card" onclick="openKitsuneBakashiai()">
+      <div class="menu-icon">🦊</div>
+      <div><h2>九尾の化かし合い</h2><p>化けた漢字を見破れ！ 話ごとに見破り方が変わる、九尾との化かし合い</p></div>
+      <div class="right"><span class="shogo-badge">挑戦する</span></div>
+    </div>`;
+  }
+  return `
+    <div class="card menu-card locked kitsune-teaser" onclick="kitsuneComingSoonTap(this)">
+      <div class="menu-icon">🦊</div>
+      <div><h2>九尾の化かし合い</h2><p>化けた漢字を見破れ！ 話ごとに見破り方が変わる、九尾との化かし合い</p></div>
+      <div class="right"><span class="shogo-badge">準備中</span></div>
+    </div>`;
+}
+// 隠し操作を1つ記録し、直前の操作がKITSUNE_SECRET_SEQと一致したら開く。
+function kitsuneSecretInput(kind){
+  kitsuneSeqHist.push(kind);
+  if(kitsuneSeqHist.length > KITSUNE_SECRET_SEQ.length) kitsuneSeqHist.shift();
+  if(kitsuneSeqHist.join(",") === KITSUNE_SECRET_SEQ.join(",")){ kitsuneSeqHist = []; openKitsuneBakashiai(); return true; }
+  return false;
+}
+// kキーは、ミニゲーム一覧に「準備中」カードが出ているときだけ数える（入力欄での入力は無視）。
+document.addEventListener("keydown", e => {
+  if(KITSUNE_RELEASED || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+  if(!document.querySelector(".kitsune-teaser")) return;
+  const tag = (e.target && e.target.tagName) || "";
+  if(tag === "INPUT" || tag === "TEXTAREA" || (e.target && e.target.isContentEditable)) return;
+  if(e.key === "k" || e.key === "K") kitsuneSecretInput("k");
+});
+function kitsuneComingSoonTap(el){
+  if(kitsuneSecretInput("tap")) return;
+  if(el){
+    el.classList.remove('tap-pulse');
+    void el.offsetWidth; // タップのたびにアニメーションをやり直すための強制リフロー
+    el.classList.add('tap-pulse');
+  }
+}
+function openKitsuneBakashiai(){ location.href = "kitsune_bakashiai.html"; }
+/* 炎狼ラン（2026-09-29〜、試作・準備中）。炎狼(me01)が3本の道（上＝丁寧語／中＝謙譲語／下＝尊敬語）を
+   走り、迫ってくる関所に出た言葉の敬語の種類に合う道でくぐり抜けるランゲーム。九尾の化かし合いと同じく
+   別ページ（enro_run.html）で、戻るときは kokugo_app.html?from=minigame でミニゲーム一覧に戻る。
+   本体のセーブデータ(st)には直接触れない。2026-09-30〜、1回の走りごとに「正解1つ＝＋1、まちがい2つ＝−1」の
+   差し引きで「敬語」ジャンルのレベルを上下させる（MG_PENDING_LVUP_LSKEY経由、mgApplyPendingLevelUps参照）。
+   教員の指示（2026-09-29：「試作して」）で、九尾と同じ「準備中」カードとして置き、隠し操作
+   （カードを3回タップ→eキーを1回→カードを2回タップ、ENRO_RUN_SECRET_SEQ）のときだけ裏で遊べるようにする。
+   正式に公開するときは ENRO_RUN_RELEASED を true にするだけでよい。 */
+const ENRO_RUN_RELEASED = false;
+const ENRO_RUN_SECRET_SEQ = ["tap","tap","tap","e","tap","tap"];
+let enroRunSeqHist = []; // 直近の隠し操作。保存しない＝ページ再読み込みでリセットされてよい。
+function enroRunMenuHtml(){
+  if(ENRO_RUN_RELEASED){
+    return `
+    <div class="card menu-card" onclick="openEnroRun()">
+      <div class="menu-icon">🐺</div>
+      <div><h2>炎狼ラン</h2><p>敬語の三つの道を駆けぬけろ</p></div>
+      <div class="right"><span class="shogo-badge">挑戦する</span></div>
+    </div>`;
+  }
+  return `
+    <div class="card menu-card locked enro-teaser" onclick="enroRunComingSoonTap(this)">
+      <div class="menu-icon">🐺</div>
+      <div><h2>炎狼ラン</h2><p>敬語の三つの道を駆けぬけろ</p></div>
+      <div class="right"><span class="shogo-badge">準備中</span></div>
+    </div>`;
+}
+// 隠し操作を1つ記録し、直前の操作がENRO_RUN_SECRET_SEQと一致したら開く（kitsuneSecretInputと同じ仕組み）。
+function enroRunSecretInput(kind){
+  enroRunSeqHist.push(kind);
+  if(enroRunSeqHist.length > ENRO_RUN_SECRET_SEQ.length) enroRunSeqHist.shift();
+  if(enroRunSeqHist.join(",") === ENRO_RUN_SECRET_SEQ.join(",")){ enroRunSeqHist = []; openEnroRun(); return true; }
+  return false;
+}
+// eキーは、ミニゲーム一覧に「準備中」カードが出ているときだけ数える（入力欄での入力は無視）。
+document.addEventListener("keydown", e => {
+  if(ENRO_RUN_RELEASED || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+  if(!document.querySelector(".enro-teaser")) return;
+  const tag = (e.target && e.target.tagName) || "";
+  if(tag === "INPUT" || tag === "TEXTAREA" || (e.target && e.target.isContentEditable)) return;
+  if(e.key === "e" || e.key === "E") enroRunSecretInput("e");
+});
+function enroRunComingSoonTap(el){
+  if(enroRunSecretInput("tap")) return;
+  if(el){
+    el.classList.remove('tap-pulse');
+    void el.offsetWidth; // タップのたびにアニメーションをやり直すための強制リフロー
+    el.classList.add('tap-pulse');
+  }
+}
+function openEnroRun(){ location.href = "enro_run.html"; }
 /* マッチ（類義語マッチ・対義語マッチ、2026-09-18〜）。ミニゲームとしては「マッチ」という
    ひとつの入口にまとめ、その中に類義語マッチ・対義語マッチの2モードを置く（以前は対義語・
    類義語を別々のミニゲームとして並べていたが、教員の指示でひとつにまとめた）。taigigo/ruigigoの
@@ -19387,6 +20168,27 @@ function speedMatchBuildPairs(catKey, count){
   return pairs;
 }
 // スタート画面（教員の指示、2026-09-24〜：スタートボタン→3・2・1カウントダウンを挟む）。
+/* 「マッチ＆MATCH」をストーリーのspeedMatch beatとして埋め込む（2026-09-29〜、第二部・
+   第3章「新人戦」用）。既存のミニゲーム版（startSpeedMatchGame以下）とエンジンを完全に
+   共有し、beat.storyGoalMatchesを持つときだけ「時間制限なし・指定マッチ数で終了」という
+   特別ルールになる（speedMatchBeginRun・speedMatchPick・finishSpeedMatchGame参照）。 */
+function storyRenderSpeedMatch(beat, idx){
+  storyRun.curBeat = beat;
+  if(storyRun.smBeatIdx === idx && speedMatch) return;
+  storyRun.smBeatIdx = idx;
+  clearSpeedMatchTimer();
+  speedMatch = null;
+  const def = SPEED_MATCH_DEFS[beat.cat] || SPEED_MATCH_DEFS.ruigigo;
+  screen.innerHTML = `
+    <div class="card story-scene" style="text-align:center">
+      <h3 class="section">${def.icon} ${esc(def.title)}</h3>
+      <p class="note">${esc(def.label)}のペアをすばやく見つけよう。今回は特別ルール：時間制限はなし。そのかわり、${beat.storyGoalMatches||30}マッチ見つけたら終了だよ。</p>
+      <div class="btn-row" style="justify-content:center; margin-top:14px">
+        <button class="btn" onclick="speedMatchStartCountdown('${beat.cat}')">スタート</button>
+      </div>
+    </div>
+    ${storyFooterHtml()}`;
+}
 function startSpeedMatchGame(key){
   clearSpeedMatchTimer();
   speedMatch = null;
@@ -19431,6 +20233,10 @@ function speedMatchBeginRun(key){
   };
   speedMatchNewBoard();
   renderSpeedMatchGame();
+  /* ストーリー第二部専用ルール（2026-09-29〜、教員の指示：「制限時間はなく、30マッチまで
+     出来たら終了」）。storyGoalMatchesを持つbeatのあいだは、時間切れタイマー自体を
+     動かさない（speedMatchPick側のマッチ数ゴール判定だけで終了させる）。 */
+  if(storyRun && storyRun.curBeat && storyRun.curBeat.storyGoalMatches != null) return;
   speedMatchTimerHandle = setInterval(() => {
     if(!speedMatch || !speedMatch.running) return;
     speedMatch.timeLeft--;
@@ -19592,6 +20398,7 @@ function renderSpeedMatchGame(){
   if(!speedMatch) return;
   const def = SPEED_MATCH_DEFS[speedMatch.key];
   const sticks = speedMatchSticks(speedMatch);
+  const storyGoal = storyRun && storyRun.curBeat && storyRun.curBeat.storyGoalMatches;
   const cardsHtml = speedMatch.cards.map((c, idx) => {
     const cls = ['speed-match-card'];
     if(c.matched) cls.push('matched');
@@ -19599,21 +20406,27 @@ function renderSpeedMatchGame(){
     else if(speedMatch.selected.includes(idx)) cls.push('selected');
     return `<div class="${cls.join(' ')}" onclick="speedMatchPick(${idx})">${esc(c.word)}</div>`;
   }).join('');
+  /* ストーリー第二部専用ルール（2026-09-29〜）：時間制限なしのあいだは「残り時間」表示を
+     「目標◯マッチ」表示に置きかえる（timeLeftは動かさないまま固定値が出てしまうため）。 */
+  const timeOrGoalHtml = storyGoal
+    ? `<span>目標：${storyGoal}マッチ</span>`
+    : `<span>残り時間：<span id="speedMatchTimer">${speedMatch.timeLeft}</span>秒</span>`;
   screen.innerHTML = `
     <div class="card"><h3 class="section">${def.icon} ${esc(def.title)}</h3>
-      <p class="note">${esc(def.label)}のペアになる2枚を選んでね。全部そろうと、また新しいカードが出てきます。残り時間でいくつペアを見つけられるかに挑戦！</p>
+      <p class="note">${esc(def.label)}のペアになる2枚を選んでね。全部そろうと、また新しいカードが出てきます。${storyGoal ? `${storyGoal}マッチ見つけたら終了だよ。` : "残り時間でいくつペアを見つけられるかに挑戦！"}</p>
       <div class="speed-match-status">
         <span>🔥マッチ：${sticks}本</span>
         <span>ミス：${speedMatch.mistakes}回</span>
-        <span>残り時間：<span id="speedMatchTimer">${speedMatch.timeLeft}</span>秒</span>
+        ${timeOrGoalHtml}
       </div>
-      <div class="speed-match-time-bar"><div class="speed-match-time-fill" id="speedMatchTimeFill" style="width:${Math.max(0, speedMatch.timeLeft / SPEED_MATCH_TIME_LIMIT * 100)}%"></div></div>
+      ${storyGoal ? "" : `<div class="speed-match-time-bar"><div class="speed-match-time-fill" id="speedMatchTimeFill" style="width:${Math.max(0, speedMatch.timeLeft / SPEED_MATCH_TIME_LIMIT * 100)}%"></div></div>`}
       ${speedMatchSticksHtml(sticks)}
     </div>
     <div class="speed-match-grid">${cardsHtml}</div>
+    ${storyGoal ? storyFooterHtml() : `
     <div class="btn-row" style="justify-content:center; margin-top:14px">
       <button class="btn secondary" onclick="clearSpeedMatchTimer(); speedMatch=null; showSpeedMatchModeSelect();">やめて戻る</button>
-    </div>`;
+    </div>`}`;
 }
 function speedMatchPick(idx){
   if(!speedMatch || !speedMatch.running || speedMatch.busy) return;
@@ -19637,6 +20450,11 @@ function speedMatchPick(idx){
     speedMatch.selected = [];
     speedMatchPlayCorrectSound();
     speedMatchShowCorrectPopup();
+    /* ストーリー第二部専用ルール（2026-09-29〜、教員の指示：「30マッチまで出来たら終了」）。
+       目標マッチ数に到達した瞬間、新しい盤面を出さずそのままfinishSpeedMatchGameへ進む
+       （時間切れがない代わりの終了条件）。 */
+    const storyGoal = storyRun && storyRun.curBeat && storyRun.curBeat.storyGoalMatches;
+    if(storyGoal != null && speedMatch.matches >= storyGoal){ finishSpeedMatchGame(); return; }
     if(speedMatch.cards.every(c => c.matched)) speedMatchNewBoard();
     renderSpeedMatchGame();
   } else {
@@ -19690,9 +20508,13 @@ function finishSpeedMatchGame(){
   const bg = speedMatchResultColor(sticks);
   const fg = speedMatchResultTextColor(sticks);
   const fgStyle = fg ? `color:${fg};` : "";
+  /* ストーリー第二部専用ルール（2026-09-29〜）：目標マッチ数で終えたときは、通常の
+     「もう一度あそぶ」等の続行ボタンではなく「つづける」（storyAdvance）だけを出す。
+     ジャンルレベル・ベストスコアの反映（上のロジック）はそのまま共有する。 */
+  const storyGoal = storyRun && storyRun.curBeat && storyRun.curBeat.storyGoalMatches;
   screen.innerHTML = `
     <div class="card" style="text-align:center; background:${bg}; transition:background .4s ease;">
-      <h3 class="section" style="${fgStyle}">${def.icon} 結果発表</h3>
+      <h3 class="section" style="${fgStyle}">${def.icon} ${storyGoal ? "クリア達成！" : "結果発表"}</h3>
       <p class="dd-score-big" style="${fgStyle}">マッチ${sticks}本</p>
       <p class="note" style="font-size:1rem; ${fgStyle}">${esc(msg)}</p>
       ${isNewBest
@@ -19701,9 +20523,10 @@ function finishSpeedMatchGame(){
       <p class="note" style="${fgStyle}">ミス：${mistakes}回</p>
       ${sticks > 0 ? `<p class="note" style="${fgStyle}">🔗${esc(def.label)}のジャンルレベルが${sticks}上がりました！</p>` : ""}
       <div class="btn-row" style="justify-content:center; margin-top:14px">
+        ${storyGoal ? `<button class="btn story-advance-btn" onclick="storyAdvance()">つづける</button>` : `
         <button class="btn" onclick="startSpeedMatchGame('${key}')">もう一度あそぶ</button>
         <button class="btn secondary" onclick="speedMatch=null; showSpeedMatchModeSelect();">別のマッチに挑戦</button>
-        <button class="btn secondary" onclick="speedMatch=null; showSideQuestMenu();">ミニゲーム一覧へ戻る</button>
+        <button class="btn secondary" onclick="speedMatch=null; showSideQuestMenu();">ミニゲーム一覧へ戻る</button>`}
       </div>
     </div>`;
 }
@@ -19712,6 +20535,12 @@ function finishSpeedMatchGame(){
    追加しても、この関数・呼び出し側は変更不要（並び順から自動的に判定する）。 */
 function storyChapterUnlocked(key, st){
   if(STORY_SIDEQUESTS[key]) return true; // サブクエストは常に解放（メインストーリーの進行と無関係）
+  /* 第二部（STORY_PART2_CHAPTERS）のキーは、ここで早期にstoryPart2ChapterUnlockedへ委譲する。
+     これをしないと、下のkeys.indexOf(key)がSTORY_CHAPTERS内に見つからず-1を返し、
+     「idx<=0だから常に解放」という誤った判定になってしまう（startStoryMode・
+     storyQuizOnlyChapter等、このstoryChapterUnlockedを直接呼ぶ既存箇所すべてに影響するため、
+     呼び出し側ではなくここで一括対応する）。 */
+  if(STORY_PART2_CHAPTERS[key]) return storyPart2ChapterUnlocked(key, st);
   const keys = Object.keys(STORY_CHAPTERS);
   const idx = keys.indexOf(key);
   if(idx <= 0) return true;
@@ -19762,6 +20591,61 @@ function storyChapterButtonHtml(key, st){
     <div class="card menu-card" onclick="startStoryMode('${key}')">
       <div class="menu-icon">📖</div>
       <div><h2>${esc(chapter.title)}</h2><p>${esc(sub)}</p>${rateNote}${comboNote}</div>
+      <div class="right"><span class="shogo-badge">${esc(badge)}</span></div>
+    </div>`;
+}
+/* 第二部の章解放（2026-09-29〜）。storyChapterUnlockedと同じ並び順判定だが、
+   STORY_PART2_CHAPTERS自身のキー順だけを見る＝第一部の進行状況は一切参照しない
+   （教員の指示：「第一部をクリアしなくても、第二部はあけられるようにする」）。 */
+function storyPart2ChapterUnlocked(key, st){
+  const keys = Object.keys(STORY_PART2_CHAPTERS);
+  const idx = keys.indexOf(key);
+  if(idx <= 0) return true;
+  const sp = storyProgress(st);
+  return sp.completedChapters.includes(keys[idx - 1]);
+}
+/* storyChapterButtonHtmlと見た目・分岐は同じだが、STORY_PART2_CHAPTERS／
+   storyPart2ChapterUnlockedを参照する。sp.completedChapters・sp.judgedBest・sp.comboBestは
+   第一部と共有の配列／オブジェクトだが、キーがch1〜ch9とp2ch1〜p2ch3で重ならないため
+   安全に共存できる。 */
+function storyPart2ChapterButtonHtml(key, st){
+  const chapter = STORY_PART2_CHAPTERS[key];
+  const sp = storyProgress(st);
+  if(!storyPart2ChapterUnlocked(key, st)){
+    const keys = Object.keys(STORY_PART2_CHAPTERS);
+    const prevTitle = STORY_PART2_CHAPTERS[keys[keys.indexOf(key) - 1]].title;
+    return `
+      <div class="card menu-card locked">
+        <div class="menu-icon">🔒</div>
+        <div><h2>${esc(chapter.title)}</h2><p>先に「${esc(prevTitle)}」をクリアすると挑戦できます。</p></div>
+        <div class="right"><span class="shogo-badge">未解放</span></div>
+      </div>`;
+  }
+  const isCompleted = sp.completedChapters.includes(key);
+  const best = sp.judgedBest && sp.judgedBest[key];
+  const rateNote = best ? `<p class="note">クリア率 ${Math.round(100*best.correct/best.total)}%</p>` : "";
+  if(isCompleted){
+    return `
+      <div class="card menu-card story-done">
+        <div class="menu-icon">📖</div>
+        <div>
+          <h2>${esc(chapter.title)}</h2>
+          <p>クリア済み。物語を読み返すか、ボス戦だけに挑戦できます。</p>
+          ${rateNote}
+          <div class="btn-row" style="margin-top:10px">
+            <button class="btn inline secondary" onclick="startStoryMode('${key}')">📖 ストーリーを見る</button>
+            <button class="btn inline secondary" onclick="storyQuizOnlyChapter('${key}')">⚔️ 問題だけ</button>
+          </div>
+        </div>
+      </div>`;
+  }
+  const inProgress = sp.chapter === key && sp.beatIdx > 0;
+  const badge = inProgress ? "つづきから" : "はじめから";
+  const sub = inProgress ? "続きから読み進めよう" : "タップして読みはじめる";
+  return `
+    <div class="card menu-card" onclick="startStoryMode('${key}')">
+      <div class="menu-icon">📖</div>
+      <div><h2>${esc(chapter.title)}</h2><p>${esc(sub)}</p>${rateNote}</div>
       <div class="right"><span class="shogo-badge">${esc(badge)}</span></div>
     </div>`;
 }
@@ -19854,6 +20738,7 @@ function storyRenderBeat(){
   else if(beat.type === "partsOfSpeech") storyRenderPartsOfSpeech(beat, sp.beatIdx);
   else if(beat.type === "yomunoda") storyRenderYomunoDa(beat, sp.beatIdx);
   else if(beat.type === "kotonohaRebirthReveal") storyRenderKotonohaRebirthReveal();
+  else if(beat.type === "speedMatch") storyRenderSpeedMatch(beat, sp.beatIdx);
   else showHome();
 }
 function storyFooterHtml(){
@@ -21458,6 +22343,19 @@ function vsWrongWordsHtml(shoot){
 }
 function vsOverlayHtml(){
   const shoot = storyRun.shoot;
+  /* ストーリー第二部専用（2026-09-29〜）：storyGoalLevelIndexに到達した瞬間の
+     即クリア画面。通常のgameover（自己ベスト・誤答一覧つき）とは別の、
+     お祝い演出＋「つづける」（storyAdvance）だけの簡潔な画面にする。 */
+  if(shoot.phase === 'storyclear'){
+    return `
+      <div class="vs-overlay">
+        <div class="vs-newbest">🎉 ${esc(VS_LEVEL_NAMES[shoot.vsLevelIndex])}到達！🎉</div>
+        <div class="vs-overlay-big">クリア達成！</div>
+        <div class="btn-row" style="justify-content:center; flex-wrap:wrap">
+          <button class="vs-overlay-btn story-advance-btn" onclick="storyAdvance()">つづける</button>
+        </div>
+      </div>`;
+  }
   if(shoot.phase === 'gameover'){
     return `
       <div class="vs-overlay">
@@ -21476,11 +22374,14 @@ function vsOverlayHtml(){
         ${vsWrongWordsHtml(shoot)}
       </div>`;
   }
+  const isStoryGoal = storyRun.curBeat && storyRun.curBeat.storyGoalLevelIndex != null;
   return `
     <div class="vs-overlay">
       <h4>🚀 ボキャブラ・シューティング</h4>
       <p>上から降ってくる「意味」の中から、表示された言葉の正しい意味を選んで撃ち落とそう。</p>
-      <p>・自機は画面をドラッグ、または数字キー1〜4／矢印キーで移動<br>・SHOOTボタン、またはEnter／スペースキーを押している間、連射<br>・まちがった意味に当てたり、正解を撃ちもらすとライフが減る</p>
+      <p>・自機は画面をドラッグ、または数字キー1〜4／矢印キーで移動<br>・SHOOTボタン、またはEnter／スペースキーを押している間、連射<br>${isStoryGoal
+        ? `・今回は特別ルール：ライフが減ってもゲームオーバーにならない。${esc(VS_LEVEL_NAMES[storyRun.curBeat.storyGoalLevelIndex])}に到達したら自動でクリアになる`
+        : `・まちがった意味に当てたり、正解を撃ちもらすとライフが減る`}</p>
       <button class="vs-overlay-btn story-advance-btn" onclick="vsStartGame()">スタート</button>
     </div>`;
 }
@@ -21596,6 +22497,7 @@ function vsPickNextItem(){
   shoot.currentOrder = shuffledOrder(it.c.length);
   shoot.spawnedForItem = false;
   shoot.bullets = [];
+  shoot.roundMissed = false; // ストーリー第二部専用ルール用（vsHitOrb参照）。問題が変わるたびリセットする
   const el = document.getElementById("vsWord");
   if(el) el.innerHTML = vsWordHtml(it.q);
 }
@@ -21794,7 +22696,20 @@ function vsHitOrb(o){
   const shoot = storyRun.shoot;
   o.hit = true; o.gone = true;
   const elapsedMs = Date.now() - (shoot.itemShownAt || Date.now());
+  const isStoryGoal = storyRun.curBeat && storyRun.curBeat.storyGoalLevelIndex != null;
   if(o.correct){
+    /* ストーリー第二部専用ルール（2026-09-29〜、教員の指示：「間違ったものを撃った場合は、
+       その問題で他の選択肢を撃ち直しても、点数にはならない」）。同じ問題（お題の語）で
+       すでに誤答オーブに命中していれば（shoot.roundMissed）、正解オーブを撃っても
+       得点・記録・報酬は一切発生させず、その場を片付けて次の問題へ進むだけにする。 */
+    if(isStoryGoal && shoot.roundMissed){
+      vsSpawnParticles(o.x,o.y,'#8899cc',10);
+      vsSpawnPopup(o.x,o.y, 'ノーカウント', '#8899cc');
+      shoot.orbs.forEach(other=>{ if(!other.hit){ other.hit=true; other.gone=true; } });
+      shoot.bullets = [];
+      vsUpdateHud();
+      return;
+    }
     shoot.combo++;
     const gain = 10 + shoot.combo*2;
     shoot.score += gain;
@@ -21822,6 +22737,13 @@ function vsHitOrb(o){
         shoot.vsLevelIndex++;
         shoot.usedWords = [];
         vsShowLevelUpBanner();
+        /* ストーリー第二部専用ルール（2026-09-29〜、教員の指示：「大学生レベルに到達した
+           タイミングで、強制的にゲームクリアとなる」）。storyRenderShootingがcurBeatに
+           セットしたstoryGoalLevelIndexに到達した瞬間、通常のプレイ続行ではなく即クリアにする。 */
+        if(storyRun.curBeat && storyRun.curBeat.storyGoalLevelIndex != null && shoot.vsLevelIndex >= storyRun.curBeat.storyGoalLevelIndex){
+          vsStoryForceClear();
+          return;
+        }
       }
     }
     // 落下速度は最初から、正解を重ねるごとに徐々に上がっていく
@@ -21832,6 +22754,7 @@ function vsHitOrb(o){
       vsSpawnPopup(shoot.W/2, shoot.H/2, 'スピードアップ!', '#ff9dc0');
     }
   }else{
+    if(isStoryGoal) shoot.roundMissed = true;
     shoot.combo = 0;
     vsSpawnParticles(o.x,o.y,'#ff5577',14);
     vsSpawnPopup(o.x,o.y,'ちがう!', '#ff5577');
@@ -21848,6 +22771,10 @@ function vsHitOrb(o){
    意図（速度そのものを下げる）とズレるため。 */
 function vsLoseLife(){
   const shoot = storyRun.shoot;
+  /* ストーリー第二部専用ルール（2026-09-29〜、教員の指示：「機体はいくら攻撃を受けても
+     ゲームオーバーにならない」）。storyGoalLevelIndexを持つbeatのあいだは、ライフを
+     一切減らさない（「ちがう!」のポップアップ演出自体は呼び出し側でそのまま出る）。 */
+  if(storyRun.curBeat && storyRun.curBeat.storyGoalLevelIndex != null) return;
   shoot.lives--; shoot.shakeTime = 12;
   const before = shoot.orbFallSpeed;
   shoot.orbFallSpeed = Math.max(VS_BASE_SPEED, shoot.orbFallSpeed - VS_SPEEDUP_STEP*2);
@@ -22085,6 +23012,15 @@ function vsLoop(){
 
   if(shoot.lives<=0){ vsEndGame(); return; }
   shoot.rafId = requestAnimationFrame(vsLoop);
+}
+/* ストーリー第二部専用（2026-09-29〜）：storyGoalLevelIndexに到達した瞬間にvsHitOrbから
+   呼ばれる。通常のvsEndGame（自己ベスト判定・誤答一覧つきのgameover画面）は経由せず、
+   ループを止めてお祝い画面（vsOverlayHtmlのstoryclear分岐）だけを出す。 */
+function vsStoryForceClear(){
+  const shoot = storyRun.shoot;
+  vsStopLoop();
+  shoot.phase = 'storyclear';
+  vsRenderGameScreen();
 }
 function vsEndGame(){
   const shoot = storyRun.shoot;
@@ -22440,6 +23376,16 @@ function storyChapterEnd(){
     st.kotonohaRebirthUnlocked = true;
     unlockedRebirth = true;
   }
+  /* 第二部・第2章クリアで「東京で買ったお守り」を入手する（教員の指示、2026-09-29〜）。
+     st.itemsは他のボス戦アイテムと共通の「名前→個数」カウンタ。一度きりの入手にする
+     （すでに持っていれば増やさない。再プレイでの重複入手を防ぐ、上のunlockedXxxと同じ考え方）。
+     この所持がKOKUGO_KAMI_ENCOUNTER_RATE_BOOSTEDへの切り替え条件になる（rollBossEncounter参照）。 */
+  let unlockedOmamori = false;
+  if(sp.chapter === "p2ch2" && !(st.items && st.items[STORY_PART2_OMAMORI_ITEM] > 0)){
+    if(!st.items) st.items = {};
+    st.items[STORY_PART2_OMAMORI_ITEM] = (st.items[STORY_PART2_OMAMORI_ITEM]||0) + 1;
+    unlockedOmamori = true;
+  }
   saveStats(st);
   const pronoun = sp.chapter === "ch1" ? STORY_PRONOUN_LABELS[sp.flags.pronoun] : null;
   const pronounNote = pronoun ? `<p class="note">✨ 一人称が、「${esc(pronoun)}」に設定されました！</p>` : "";
@@ -22465,6 +23411,9 @@ function storyChapterEnd(){
         ? `<p class="note">🔁 ことのはの「転生」が解放された！　これからは、ホーム画面からいつでも卵の姿に立ち返って育て直せる。</p>`
         : `<p class="note">🔁 ことのはの「転生」を解放した！<br>分野のバランスが整えば、ホーム画面から卵の姿に戻って育て直せるようになる。</p>`)
     : "";
+  const omamoriNote = unlockedOmamori
+    ? `<p class="note">🎁 【${esc(STORY_PART2_OMAMORI_ITEM)}】を手に入れた！　とても特別な力が宿っている気がする……。</p>`
+    : "";
   screen.innerHTML = `
     <div class="card story-scene">
       <div class="story-chapter-end">📖 ${esc(storyChapterDef(sp.chapter).title)} クリア！</div>
@@ -22476,9 +23425,11 @@ function storyChapterEnd(){
       ${finisherNote}
       ${faceNote}
       ${rebirthNote}
+      ${omamoriNote}
       <div class="btn-row" style="justify-content:center">
         <button class="btn" onclick="showHome()">ホームへ</button>
         <button class="btn secondary" onclick="storyReplayChapter()">もう一度プレイする</button>
+        <button class="btn secondary" onclick="showMainStoryMenu('${sp.chapter.startsWith("p2") ? "2" : "1"}')">ほかのストーリーを選択</button>
       </div>
       <p class="note">※ボス戦のアイテム・宝具は再プレイではもらえません。<br>選択肢問題の正答率は、今回の記録の方が自己ベストより高い場合だけ更新されます。</p>
     </div>`;
@@ -22636,6 +23587,15 @@ const BG_STAGES = [
   {id:7, name:"七の巻", sub:"免許皆伝",     blades:["bunsetsu","tango"], lv:[1,2,3], count:40, clearCount:10, escalate:true, important:true, beat:780,
    lead:'二刀。すき間ごとに<b>大太刀・小刀・見送る</b>の三択。<br>三の巻・六の巻と同じ、まとめのシステムで挑む最終試練。<br>10問を解ききれば合格、その先も終わりなく続く（腕試し）。',
    goal:"文節と単語を、その場で自分の力で見分ける"},
+  /* ストーリー第二部・第1章「新学期」専用（2026-09-29〜）。storyOnly:trueの巻は、
+     bgTitle()の巻えらび一覧（allCleared判定もふくむ）から除外し（bgTitle参照）、
+     storyRenderBunsetsuがbgStartStageへ直接ジャンプする専用入口としてのみ使う。
+     bgSecureClearUnlock（恒久ランク保存）もstoryOnlyでは呼ばないため、免許状には影響しない。
+     clearCountに到達した瞬間、通常の「その先も続く（腕試し）」ではなくストーリーへ戻る
+     （justCleared判定のstoryOnly分岐、bgStoryClearNow参照）ので、countはclearCountより
+     少し多い程度で足りる。 */
+  {id:"p2_bunsetsu", name:"新学期の腕試し（文節）", sub:"文節切り", blades:["bunsetsu"], lv:[1,2,3], count:14, clearCount:10, beat:850, storyOnly:true},
+  {id:"p2_tango", name:"新学期の腕試し（単語）", sub:"単語切り", blades:["tango"], lv:[1,2,3], count:14, clearCount:10, beat:850, storyOnly:true},
 ];
 
 /* 三の巻限定の、もう一つの四の巻解放ルート（教員の指示、2026-08-20〜：「三巻について、
@@ -23509,14 +24469,18 @@ function bgUpdateSentence(){
        クリア。クリアとなる20問以降も、問題は出続けるようにして」）。同じ拍に
        2つの中央バナーが重ならないよう、一刀両断とは排他で出す。 */
     const justCleared = !!(BG.stage.clearCount && !BG.clearAnnounced && (BG.curSentence+1) >= BG.stage.clearCount);
-    if(justCleared) bgSecureClearUnlock(BG.stage.id);
+    if(justCleared && !BG.stage.storyOnly) bgSecureClearUnlock(BG.stage.id);
     if(BG.sentenceClean){
       BG.cleanSentences++;
       bgAddScore(300*bgComboMult());
       const lvResult = bgLevelUpShikibetsu();
       if(justCleared){
         BG.clearAnnounced = true;
-        bgBanner("クリア達成","ここからは腕試し。速さはさらに上がる");
+        bgBanner("クリア達成", BG.stage.storyOnly ? "" : "ここからは腕試し。速さはさらに上がる");
+      }else if(BG.stage.storyOnly){
+        /* ストーリー第二部専用（2026-09-29〜、教員の指示：「一問答えるごとに、『10問でクリア
+           現在○問！』と分かりやすく2秒間表示する」）。通常の「一刀両断」の代わりに出す。 */
+        bgBanner(`${BG.stage.clearCount}問でクリア`, `現在${BG.curSentence+1}問！`, 2000);
       }else{
         bgBanner("一刀両断","＋三〇〇");
       }
@@ -23537,11 +24501,17 @@ function bgUpdateSentence(){
     }else if(justCleared){
       /* ミスがあった文でクリア問数に到達した場合も、達成そのものは変わらず伝える。 */
       BG.clearAnnounced = true;
-      bgBanner("クリア達成","ここからは腕試し。速さはさらに上がる");
+      bgBanner("クリア達成", BG.stage.storyOnly ? "" : "ここからは腕試し。速さはさらに上がる");
+    }else if(BG.stage.storyOnly){
+      /* ミスがあった文でも、ストーリー第二部では毎問すすみ具合を表示する。 */
+      bgBanner(`${BG.stage.clearCount}問でクリア`, `現在${BG.curSentence+1}問！`, 2000);
     }
     BG.sentenceClean=true;
     BG.sentenceLifeLost=false;
     BG.curSentence++;
+    /* ストーリー第二部専用（storyOnly）の巻は、clearCountに到達したらそのまま「腕試し」を
+       続けず、即座にゲームを止めてストーリーへ戻す（bgStoryClearNow）。 */
+    if(justCleared && BG.stage.storyOnly){ bgStoryClearNow(); return; }
     /* 速度スケジュール：正解・ミスは問わず、解いた文の数だけで判定する
        （教員の指示、2026-08-19〜。詳しくはbgSpeedStepUpのコメント参照）。 */
     if(BG.stage.escalate && BG.curSentence > BG_SPEED_GRACE &&
@@ -23780,14 +24750,17 @@ function bgOnMiss(kind,g){
   bgPushMiss(kind,g);
   bgLoseCombo();
   BG.miss++;
+  /* ストーリー第二部専用ルール（2026-09-29〜、教員の指示：「ライフが減少することがない
+     ようにしてください」）。storyOnlyな巻のあいだはミスをそのまま記録するだけで、
+     ライフを一切減らさない（＝bgFailStageにも到達しない）。 */
   if(!BG.sentenceLifeLost){
     BG.sentenceLifeLost = true;
-    BG.life = Math.max(0, BG.life-1);
+    if(!BG.stage.storyOnly) BG.life = Math.max(0, BG.life-1);
   }
   const fieldEl=bg$("bgField");
   fieldEl.classList.remove("shake"); void fieldEl.offsetWidth; fieldEl.classList.add("shake");
   bgDrawHud();
-  if(BG.life<=0) bgFailStage();
+  if(BG.life<=0 && !BG.stage.storyOnly) bgFailStage();
 }
 
 /* ---------- 演出（独立版のまま） ---------- */
@@ -23860,13 +24833,14 @@ function bgFxComboBreak(before){
   if(ctx){ const t=ctx.currentTime;
     [523.3,415.3,311.1,207.7].forEach((f,i)=>bgTone(ctx,"triangle",f,f,t+i*0.08,0.36,0.12)); }
 }
-function bgBanner(t,s){
+function bgBanner(t,s,durationMs){
+  const dur = durationMs || 1100;
   const m=bgMetrics();
   const d=document.createElement("div");
   d.className="verdict"; d.style.top=(m.H*0.34)+"px"; d.style.color="#9c7c2a";
-  d.style.fontSize="1.6rem"; d.style.animationDuration="1.05s";
+  d.style.fontSize="1.6rem"; d.style.animationDuration=Math.max(dur-100,100)/1000+"s";
   d.innerHTML=t+'<div style="font-size:.58rem;letter-spacing:.3em;margin-top:6px;color:#7b7466">'+s+"</div>";
-  bg$("bgField").appendChild(d); setTimeout(()=>d.remove(),1100);
+  bg$("bgField").appendChild(d); setTimeout(()=>d.remove(),dur);
 }
 
 /* =========================================================================
@@ -24329,7 +25303,10 @@ function bgTitle(){
     '<div class="rule"></div>'+
     '<p style="margin-bottom:10px">文字が一つ通るたびに<b>一拍</b>。<br>拍にのって、切れ目だけを斬る。</p>';
 
-  const allCleared = BG_STAGES.every(st=>!!BG_REC.rank[st.id]);
+  /* storyOnly（ストーリー専用）の巻は、この巻えらび画面・免許状のどちらにも出さない
+     （bgStartStageへ直接ジャンプする専用入口としてのみ使うため）。 */
+  const BG_MENU_STAGES = BG_STAGES.filter(st=>!st.storyOnly);
+  const allCleared = BG_MENU_STAGES.every(st=>!!BG_REC.rank[st.id]);
 
   /* 全7巻をクリア済みなら、巻えらびを簡易な4ボタンに変える（教員の指示、2026-08-20〜：
      「7巻まで達成した場合の見た目は、シンプルにしたい。『〜巻』というボタンはやめて、
@@ -24377,7 +25354,7 @@ function bgTitle(){
      必要はなくなったので、完全に元に戻して」）で通常の巻順（BG_STAGESの並びのまま）に
      戻した。 */
   let cards="";
-  BG_STAGES.forEach(st=>{
+  BG_MENU_STAGES.forEach(st=>{
     const open = st.id<=BG_REC.open;
     const shadow = (st.id===BG_REC.open+1);
     if(!open && !shadow) return;
@@ -24400,12 +25377,12 @@ function bgTitle(){
   let seal="";
   if(!allCleared){
     seal='<div class="menkyo"><h3>免　許　状</h3><div class="seals">';
-    BG_STAGES.forEach(st=>{
+    BG_MENU_STAGES.forEach(st=>{
       const rk=BG_REC.rank[st.id];
       seal+='<div class="seal'+(rk?" got":"")+'" title="'+st.name+'">'+
         (rk?'<span class="sn">'+st.name.replace(/の巻|ノ巻/,"")+'</span>':'<span class="sn">・</span>')+'</div>';
     });
-    seal+='</div><div class="menkyo-note">'+Object.keys(BG_REC.rank).length+' ／ '+BG_STAGES.length+' 巻</div></div>';
+    seal+='</div><div class="menkyo-note">'+Object.keys(BG_REC.rank).length+' ／ '+BG_MENU_STAGES.length+' 巻</div></div>';
   }
 
   /* 全7巻クリア後に、簡易表示（bgShowFullList=false）へ戻れる導線。 */
@@ -24484,6 +25461,22 @@ function bgStopLoop(){
   }
   BG=null;
 }
+/* ストーリー第二部専用（2026-09-29〜）：storyOnlyな巻がclearCountに到達した瞬間に
+   bgUpdateSentenceから呼ばれる。通常の「腕試し続行」はせず、その場でゲームを止めて
+   ストーリーへ戻す（bgStopLoopがBGをnullにするので、必要な値は先に取り出しておく）。 */
+function bgStoryClearNow(){
+  const need = BG.stage.clearCount;
+  bgStopLoop();
+  screen.innerHTML = `
+    <div class="card story-scene" style="text-align:center">
+      <h3 class="section">🗡️ クリア達成！</h3>
+      <p class="note">${need}問、まっすぐ斬り抜いた！</p>
+      <div class="btn-row" style="justify-content:center; margin-top:14px">
+        <button class="btn story-advance-btn" onclick="storyAdvance()">つづける</button>
+      </div>
+    </div>
+    ${storyFooterHtml()}`;
+}
 
 /* =========================================================================
    骨格HTML（独立版<body>の中身とほぼ同じ。id="app"だけid="bgApp"に変更）
@@ -24539,7 +25532,11 @@ function storyRenderBunsetsu(beat, idx){
   screen.innerHTML = `<div class="card story-scene">${bgSkeletonHtml()}</div>${storyFooterHtml()}`;
   bgAttachHandlers();
   bgLoadRec();
-  bgTitle();
+  /* beat.bgStoryStageId（ストーリー第二部専用、2026-09-29〜）が指定されているときは、
+     巻えらび画面（bgTitle）を経由せず、bgShowRuleが普段やっているのと同じ呼び方で
+     直接その巻へ入る（BG_TEMPOS[0]固定＝速さ選択が廃止された現行仕様と同じ）。 */
+  if(beat.bgStoryStageId) bgStartStage(beat.bgStoryStageId, BG_TEMPOS[0]);
+  else bgTitle();
 }
 
 /* ================= サブクエスト「言の葉つなぎ」（parts-of-speech beat、2026-〜） =================
@@ -26972,10 +27969,10 @@ function ktCheckGroupUnlock(st, idx, correct){
     st.ktGroupRecent = [];
     return true;
   }
-  const streakMap = {};
-  cur.keys.forEach(k => { const rec = st.q[k]; streakMap[k] = rec ? (rec.k||0) : 0; });
+  const correctedMap = {};
+  cur.keys.forEach(k => { const rec = st.q[k]; correctedMap[k] = !!(rec && rec.c >= 1); });
   const recentWindow = st.ktGroupRecent || [];
-  if(UnlockEngine.isGroupCleared(cur.keys, streakMap, recentWindow, GROUP_UNLOCK_STREAK, GROUP_UNLOCK_ACC, GROUP_UNLOCK_QUORUM)){
+  if(UnlockEngine.isGroupCleared(cur.keys, correctedMap, recentWindow, GROUP_UNLOCK_ACC)){
     if(!st.groupUnlock) st.groupUnlock = {};
     st.groupUnlock.kanbun_kt = ktUnlockedGroupCount(st) + 1;
     st.ktGroupRecent = [];
@@ -27539,7 +28536,7 @@ function ktAnimateReveal(){
    初めは8つの問題からランダムで出し、正答率等に応じて少しずつ開くシステムに。ボタンを分ける
    ということではない」）。そのため、専用のGROUP_SIZE・UnlockEngine・fastUnlockEligibleは
    ホームの「返り点をつける」ボタンとは分けたまま、既存の20分野／百人一首と全く同じ判定式
-   （UnlockEngine.isGroupCleared、GROUP_UNLOCK_STREAK/QUORUM/ACC、高速解放モード）を流用する。
+   （UnlockEngine.isGroupCleared、GROUP_UNLOCK_ACC、高速解放モード）を流用する。
    グループ解禁の進捗（st.groupUnlock.kanbun_yj）・解禁の材料になる連続正解数はKT側とは独立させる
    （KTと同じキーや同じqKeyを使うと、片方だけ解いてももう片方まで解禁・進捗してしまうため、
    st.q側のキーもyjQ()で"読順:"という専用の接頭辞を付けて区別する）。 */
@@ -27614,10 +28611,10 @@ function yjCheckGroupUnlock(st, idx, correct){
     st.yjGroupRecent = [];
     return true;
   }
-  const streakMap = {};
-  cur.keys.forEach(k => { const rec = st.q[k]; streakMap[k] = rec ? (rec.k||0) : 0; });
+  const correctedMap = {};
+  cur.keys.forEach(k => { const rec = st.q[k]; correctedMap[k] = !!(rec && rec.c >= 1); });
   const recentWindow = st.yjGroupRecent || [];
-  if(UnlockEngine.isGroupCleared(cur.keys, streakMap, recentWindow, GROUP_UNLOCK_STREAK, GROUP_UNLOCK_ACC, GROUP_UNLOCK_QUORUM)){
+  if(UnlockEngine.isGroupCleared(cur.keys, correctedMap, recentWindow, GROUP_UNLOCK_ACC)){
     if(!st.groupUnlock) st.groupUnlock = {};
     st.groupUnlock.kanbun_yj = yjUnlockedGroupCount(st) + 1;
     st.yjGroupRecent = [];

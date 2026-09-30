@@ -66,6 +66,13 @@ try{
 
 let stage = 0, finalIdx = 0;
 let finished = false;
+/* 実際に本文へ表示済みの最大段落インデックス（「先まで表示する」ボタン用、2026-09-29〜、
+   教員の指示：「プレイヤーの判断で、先まで読んでから答えることができるようにしたい」）。
+   stageは「何問目を出題中か」であり、答えないと進まない。maxRevealedIdxはそれとは別に
+   「本文として何段落目まで表示済みか」を追う。先読みでstageより先に進んでいても、
+   通常の進行（step→revealPara(stage)）が追いついてきたときに段落を二重表示しないための
+   ガードにも使う。 */
+let maxRevealedIdx = -1;
 /* 累計経験値。設問ごとの内訳は画面に出さず、この合計だけをフッターに出し続ける
    （2026-09-19〜、当時はハードモード新設にあわせた経験値設計だったが、2026-09-22〜
    ハードモードは無効化済み）。NobiruRecordsが読み込まれている（records.js経由）教材だけ、
@@ -210,6 +217,8 @@ function parseInto(str, parent, insideU){
 
 /* ---- 本文描画 ---- */
 function revealPara(i){
+  if(i <= maxRevealedIdx) return; // 先読み後に通常進行が追いついても二重表示しない
+  maxRevealedIdx = i;
   const p = document.createElement("p");
   p.className = "para fresh";
   PARAS[i].s.forEach(sent => {
@@ -225,6 +234,28 @@ function revealPara(i){
   renderFullTr();
   p.scrollIntoView({ behavior: "smooth", block: "nearest" });
   scheduleDemRedraw();
+  updateAheadBtn();
+}
+
+/* ---- 「先まで表示する」ボタン（2026-09-29〜） ----
+   構造図・全文訳（buildMap/renderFullTr）はstage（答え終えた段落）までのままとし、
+   このボタンでは進めない。要約や現代語訳は設問の答えのヒントになりうるため、本文の
+   先読みだけを許し、それらは従来どおり「答えた分だけ」出す。 */
+const aheadBtn = document.createElement("button");
+aheadBtn.id = "b-ahead";
+aheadBtn.className = "fulltrBtn ui";
+aheadBtn.hidden = true;
+aheadBtn.onclick = () => revealPara(maxRevealedIdx + 1);
+const textWrapEl = $("textWrap");
+if(textWrapEl && textWrapEl.parentNode) textWrapEl.parentNode.insertBefore(aheadBtn, $("map"));
+function updateAheadBtn(){
+  const total = PARAS.length;
+  if(maxRevealedIdx >= total - 1){
+    aheadBtn.hidden = true;
+    return;
+  }
+  aheadBtn.hidden = false;
+  aheadBtn.textContent = `先まで表示する（第${kanjiNum(maxRevealedIdx + 2)}段落へ）`;
 }
 
 /* ---- 全文訳（sent.trがある教材だけ、下の方のボタンから一括で見られるようにする） ----
