@@ -621,8 +621,123 @@
       });
   }
 
+  /** ルート直下の別ページ HTML（九尾の化かし合い・炎狼ラン等）を srcdoc で開く */
+  function openStandaloneHtml(fileName) {
+    const base = window.__DX_CDN_BASE__;
+    const home = dxHostHomeUrl();
+    const safeName = String(fileName || '').trim();
+    if (!/^[A-Za-z0-9_-]+\.html$/.test(safeName)) {
+      return Promise.reject(new Error('不正なページ名です'));
+    }
+
+    if (!base) {
+      location.href = safeName;
+      return Promise.resolve();
+    }
+
+    const assetBase = base;
+    return fetch(assetBase + safeName, { cache: 'no-store' })
+      .then(function (res) {
+        if (!res.ok) {
+          throw new Error('ページの取得に失敗しました (HTTP ' + res.status + ')');
+        }
+        return res.text();
+      })
+      .then(function (html) {
+        const openerSrc =
+          'window.__DX_OPEN_STANDALONE_HTML__=(' +
+          window.__DX_OPEN_STANDALONE_HTML__.toString() +
+          ');' +
+          'window.__DX_SHOW_NOBIRU_HTML__=(' +
+          window.__DX_SHOW_NOBIRU_HTML__.toString() +
+          ');' +
+          'window.__DX_CLOSE_NOBIRU__=function(){try{if(parent!==window&&parent.__DX_CLOSE_NOBIRU__)parent.__DX_CLOSE_NOBIRU__();}catch(e){}};' +
+          'window.__DX_RESOLVE_NOBIRU__=(' +
+          window.__DX_RESOLVE_NOBIRU__.toString() +
+          ');' +
+          'window.__DX_ABS_NOBIRU__=(' +
+          window.__DX_ABS_NOBIRU__.toString() +
+          ');';
+
+        const boot =
+          '<script>(function(){' +
+          'window.__DX_CDN_BASE__=' +
+          JSON.stringify(base) +
+          ';' +
+          'window.__DX_HOME_URL__=' +
+          JSON.stringify(home) +
+          ';' +
+          'window.__DX_STANDALONE_PAGE__=' +
+          JSON.stringify(safeName) +
+          ';' +
+          '(function(){const nb=' +
+          JSON.stringify(assetBase) +
+          ';const ce=document.createElement.bind(document);' +
+          'document.createElement=function(tag){const el=ce(tag);' +
+          'if(String(tag).toLowerCase()==="script"){const sa=el.setAttribute.bind(el);' +
+          'el.setAttribute=function(n,v){if(String(n).toLowerCase()==="src"&&v&&!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(v)&&v.indexOf("//")!==0){' +
+          'v=nb+String(v).replace(/^\\.\\//,"").replace(/^\\/+/,"");}return sa(n,v);};' +
+          'try{Object.defineProperty(el,"src",{configurable:true,enumerable:true,' +
+          'get:function(){return el.getAttribute("src");},' +
+          'set:function(v){el.setAttribute("src",v);}});}' +
+          'catch(e2){}}return el;};})();' +
+          'window.__DX_GO_HOME__=function(){try{if(parent!==window&&parent.__DX_CLOSE_NOBIRU__){parent.__DX_CLOSE_NOBIRU__();if(parent.__DX_RETURN_FROM_MINIGAME__)parent.__DX_RETURN_FROM_MINIGAME__();return;}}catch(e){}' +
+          'if(window.__DX_HOME_URL__)location.href=window.__DX_HOME_URL__;};' +
+          'document.addEventListener("click",function(ev){' +
+          'const back=ev.target&&ev.target.closest&&ev.target.closest("#backLink,.back-link,a[href*=\\"kokugo_app\\"]");' +
+          'if(back){ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();}' +
+          '},true);' +
+          openerSrc +
+          '})();<\/script>';
+
+        const absHtml = window.__DX_ABS_NOBIRU__(html, assetBase);
+        let out = absHtml;
+        if (/<head[^>]*>/i.test(out)) {
+          out = out.replace(/<head[^>]*>/i, function (m) {
+            return m + boot;
+          });
+        } else {
+          out = boot + out;
+        }
+
+        const f = document.getElementById('dx-nobiru-frame');
+        if (f) f.title = 'ミニゲーム';
+        window.__DX_SHOW_NOBIRU_HTML__(out);
+      });
+  }
+
+  function dxHostHomeUrl() {
+    let home = window.__DX_HOME_URL__ || '';
+    try {
+      if (!home && (!window.frameElement || window.frameElement.id !== 'dx-nobiru-frame')) {
+        home = location.href;
+      }
+    } catch (e0) {
+      home = home || location.href;
+    }
+    return home;
+  }
+
+  function returnFromMinigame() {
+    closeNobiruFrame();
+    try {
+      if (
+        typeof showPrologue === 'function' &&
+        typeof showHome === 'function' &&
+        typeof showSideQuestMenu === 'function'
+      ) {
+        showPrologue(function () {
+          showHome();
+          showSideQuestMenu();
+        });
+      }
+    } catch (e) {}
+  }
+
   function installNobiruOpener() {
     window.__DX_OPEN_NOBIRU__ = openNobiruPage;
+    window.__DX_OPEN_STANDALONE_HTML__ = openStandaloneHtml;
+    window.__DX_RETURN_FROM_MINIGAME__ = returnFromMinigame;
     window.__DX_SHOW_NOBIRU_HTML__ = showNobiruHtml;
     window.__DX_CLOSE_NOBIRU__ = closeNobiruFrame;
     /* ABS が RESOLVE を参照するため、RESOLVE を先に載せる */
