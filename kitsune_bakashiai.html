@@ -3,6 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<!-- 通行証のチェック（2026-10-01）：知識ドリルDXの入口（kokugo_app.htmlのmgGoWithPass）を通らずに、
+     このファイルを直接開いたときは本体へ戻す（準備中の隠しゲームを、配布版のフォルダから開けないように）。
+     ブラウザの設定でsessionStorageが使えないときは、確かめようがないのでそのまま開く。 -->
+<script>
+(function(){
+  var ok = true;
+  try{ ok = !!(JSON.parse(sessionStorage.getItem("kokugo_mg_pass_v1") || "{}")["kitsune"]); }catch(e){ ok = true; }
+  if(!ok){ document.documentElement.style.display = "none"; location.replace("kokugo_app.html"); }
+})();
+</script>
 <title>九尾の化かし合い</title>
 <!-- 知識ドリルDXのミニゲーム「九尾の化かし合い」（2026-09-29〜、準備中）。kokugo_app.htmlの
      ミニゲーム一覧から、のびる読解(nobiru/*.html)と同じく同じタブのまま画面ごと遷移してくる別ページ。

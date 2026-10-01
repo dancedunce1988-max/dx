@@ -4330,7 +4330,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.83</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.84</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -19986,7 +19986,16 @@ function kitsuneComingSoonTap(el){
     el.classList.add('tap-pulse');
   }
 }
-function openKitsuneBakashiai(){ location.href = "kitsune_bakashiai.html"; }
+/* 別ページのミニゲームへの「通行証」（2026-10-01、教員の指示）：配布版のフォルダからhtmlを直接開くと、
+   隠し入口を通らずに準備中のゲームへ入れてしまうため、本体の入口から移るときだけ
+   sessionStorage（このタブの中だけ有効）に通行証を置く。ゲーム側（kitsune_bakashiai.html・enro_run.html）は
+   通行証がなければ本体へ戻す。 */
+const MG_PASS_SSKEY = "kokugo_mg_pass_v1";
+function mgGoWithPass(id, url){
+  try{ const o = JSON.parse(sessionStorage.getItem(MG_PASS_SSKEY) || "{}"); o[id] = 1; sessionStorage.setItem(MG_PASS_SSKEY, JSON.stringify(o)); }catch(e){}
+  location.href = url;
+}
+function openKitsuneBakashiai(){ mgGoWithPass("kitsune", "kitsune_bakashiai.html"); }
 /* 炎狼ラン（2026-09-29〜、試作・準備中）。炎狼(me01)が3本の道（上＝丁寧語／中＝謙譲語／下＝尊敬語）を
    走り、迫ってくる関所に出た言葉の敬語の種類に合う道でくぐり抜けるランゲーム。九尾の化かし合いと同じく
    別ページ（enro_run.html）で、戻るときは kokugo_app.html?from=minigame でミニゲーム一覧に戻る。
@@ -20037,7 +20046,7 @@ function enroRunComingSoonTap(el){
     el.classList.add('tap-pulse');
   }
 }
-function openEnroRun(){ location.href = "enro_run.html"; }
+function openEnroRun(){ mgGoWithPass("enro", "enro_run.html"); }
 /* マッチ（類義語マッチ・対義語マッチ、2026-09-18〜）。ミニゲームとしては「マッチ」という
    ひとつの入口にまとめ、その中に類義語マッチ・対義語マッチの2モードを置く（以前は対義語・
    類義語を別々のミニゲームとして並べていたが、教員の指示でひとつにまとめた）。taigigo/ruigigoの
