@@ -7,7 +7,7 @@
 <!-- 知識ドリルDXのミニゲーム「九尾の化かし合い」（2026-09-29〜、準備中）。kokugo_app.htmlの
      ミニゲーム一覧から、のびる読解(nobiru/*.html)と同じく同じタブのまま画面ごと遷移してくる別ページ。
      本体のセーブデータ(st)には一切触れず、このページ専用のlocalStorageキーだけを使う
-     （2026-09-30〜、1回のゲームごとに「正解1つ＝＋1、まちがい2つ＝−1」の差し引きを本体のジャンルレベルの増減として
+     （2026-09-30〜、1回のゲームごとに「正解1つ＝＋1、まちがい1つ＝−1」（2026-10-01に2つ→1つに変更）の差し引きを本体のジャンルレベルの増減として
      MG_PENDING_LVUP_LSKEYに書き置き、本体がホーム画面で反映する。mgFlush参照）。
      2026-09-30、教員の指示で「九本の尾を1本ずつ取る」形をやめ、話ごとに見破り方が変わるストーリー仕立て
      （一〜五話）＋全部の見破り方がまざって出る60秒の「挑戦の間」（六）に作り替えた
@@ -322,6 +322,11 @@
   .banner .miss .how{ font-size:12px; color:var(--sub); font-weight:normal; margin-left:6px; }
   .banner .miss .cnt{ font-size:11px; color:var(--gold); border:1px solid var(--gold); border-radius:6px; padding:0 4px; margin-left:4px; font-weight:normal; }
   .banner .miss .ng{ color:var(--ng); font-weight:bold; } .banner .miss .okc{ color:var(--ok); font-weight:bold; }
+  .banner .pop-cmp{ margin:8px auto 0; padding:8px 14px; border-radius:12px; font-size:clamp(14px, 2.3vh, 17px); line-height:1.6;
+    background:rgba(255,215,107,.12); border:1px solid rgba(255,215,107,.45); animation:fadeUp .5s ease .4s backwards; }
+  .banner .pop-cmp b{ color:var(--gold); font-size:1.15em; }
+  .banner .pop-cmp span{ display:block; font-size:.85em; color:var(--sub); }
+  .scoreline .unit{ font-size:14px; color:var(--gold); margin-left:2px; }
   .banner .rank b{ display:block; font-size:22px; color:var(--gold); }
   .chips{ display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin:14px 0 4px; }
   .chip{ background:rgba(255,255,255,.08); border:1px solid var(--line); border-radius:10px; padding:6px 10px; font-size:13px; animation:fadeUp .4s ease backwards; }
@@ -462,7 +467,7 @@
       <div class="pips" id="pips"></div>
     </div>
     <div class="ch-box" id="chBox" hidden>
-      <div class="scoreline"><span class="k">得点</span><span><b id="score">0</b><span class="plus" id="plus"></span></span></div>
+      <div class="scoreline"><span class="k">救った人数</span><span><b id="score">0</b><small class="unit">人</small><span class="plus" id="plus"></span></span></div>
       <div class="timer"><div class="timer-fill" id="timerFill"></div></div>
       <div class="clock-label"><span>見破った数 <b id="chCorrect">0</b></span><span>のこり <b id="timeLeft">90</b> 秒</span></div>
     </div>
@@ -848,6 +853,34 @@ const EPISODES = [
 const CH_SECONDS = 60;
 const LONG_EVERY = 5;      // 挑戦の間で、この数の倍数の問題は長文の高札
 const LONG_FAKES = 3;      // 長文の高札で化けさせる数
+/* 挑戦の間の得点は「九尾に化かされている人を救った人数」として見せる（2026-10-01、教員の指示）。
+   内部の点数（G.score・SAVE.best）はそのままで、表示だけ PEOPLE_PER_POINT 倍して「人」にする。
+   救った人数を、日本の地域（都道府県・市町村）の人口にたとえる。人口は2020年国勢調査の値（表示は「約」でまるめる）。盛岡市は必ず入れる。 */
+const PEOPLE_PER_POINT = 100;
+const peopleOf = pts => pts * PEOPLE_PER_POINT;
+const peopleText = pts => peopleOf(pts).toLocaleString("ja-JP");
+const POPULATIONS = [
+  ["岩手県雫石町", 15731], ["岩手県陸前高田市", 18262], ["岩手県遠野市", 25366], ["岩手県釜石市", 32078],
+  ["岩手県宮古市", 50369], ["岩手県滝沢市", 55579], ["岩手県花巻市", 93763], ["岩手県一関市", 111932],
+  ["青森県弘前市", 168466], ["青森県八戸市", 223415], ["青森市", 275192], ["盛岡市", 289731], ["秋田市", 307672],
+  ["鳥取県", 553407], ["島根県", 671126], ["仙台市", 1096704], ["岩手県", 1210534], ["札幌市", 1973395],
+  ["宮城県", 2301996], ["大阪市", 2752412], ["横浜市", 3777491], ["東京都", 14047594],
+];
+// 「約29万人」「約1.6万人」のようにまるめる
+function approxPop(n){
+  if(n >= 1e5) return `約${Math.round(n / 1e4).toLocaleString("ja-JP")}万人`;
+  return `約${(Math.round(n / 1e3) / 10).toString()}万人`;
+}
+// 救った人数を、こえた地域と次の地域で表す
+function popCompareHtml(pts){
+  const n = peopleOf(pts);
+  const passed = POPULATIONS.filter(p => p[1] <= n).pop();
+  const next = POPULATIONS.find(p => p[1] > n);
+  return `<div class="pop-cmp">` +
+    (passed ? `🏙 <b>${passed[0]}</b>の人口（${approxPop(passed[1])}）をこえる人を救った！` : `まずは<b>${POPULATIONS[0][0]}</b>の人口（${approxPop(POPULATIONS[0][1])}）をめざそう！`) +
+    (passed && next ? `<span>次は ${next[0]}（${approxPop(next[1])}）　あと ${(next[1] - n).toLocaleString("ja-JP")}人</span>` : "") +
+    (!next ? `<span>東京都の人口をこえた！ 日本一の救い手じゃ！</span>` : "") + `</div>`;
+}
 const LONG_POINTS = 250;   // 長文の高札で1字見破ったときの点（ほかは100点）。連続ボーナスは同じく加算
 const MODE_NAMES = {A:"札", B:"部", C:"直", D:"文", F:"口"};
 const MODE_LONG  = {A:"札あらため（一話）", B:"部分あらため（二話）", C:"化けの皮はがし（三話）", D:"高札（四話）", F:"茶屋の口車（五話）"};
@@ -978,9 +1011,9 @@ function showMap(){
       <span class="n mincho">${E.no}</span><span><div class="t mincho">${E.title}</div><div class="d">${E.desc}</div></span>${st}</button>`;
   }).join("") + (() => {
     const open = allCleared();
-    const st = !open ? "🔒" : SAVE.best ? `<span class="st clear">最高 ${SAVE.best}点</span>` : `<span class="st new">NEW</span>`;
+    const st = !open ? "🔒" : SAVE.best ? `<span class="st clear">最高 ${peopleText(SAVE.best)}人</span>` : `<span class="st new">NEW</span>`;
     return `<button class="ep-btn challenge ${open ? "" : "locked"}" ${open ? `onclick="startChallenge()"` : "disabled"}>
-      <span class="n mincho">六</span><span><div class="t mincho">挑戦の間</div><div class="d">${open ? `${CH_SECONDS}秒で、どれだけ見破れるか。一〜五話の見破り方がまざって出る` : "五話まで進むと開く"}</div></span>${st}</button>`;
+      <span class="n mincho">六</span><span><div class="t mincho">挑戦の間</div><div class="d">${open ? `${CH_SECONDS}秒で、九尾に化かされた人を何人救えるか。一〜五話の見破り方がまざって出る` : "五話まで進むと開く"}</div></span>${st}</button>`;
   })();
   $("zukanBtn").textContent = `化け字図鑑 ${zkCount()}/${WORDS.length}` + (zkGold() ? `（金${zkGold()}）` : "");
   let line;
@@ -1137,11 +1170,12 @@ const MG_CAT = "kanji_shiwake", MG_GENRE = "同音異字・同訓異字・誤字
    途中でやめた・ページを離れたときも、そこまでの分を必ず渡す（まちがいが多いときにやめて、下がるのを逃れられないように）。 */
 const MG_PENDING_LVUP_LSKEY = "kokugo_minigame_pending_lvups_v1";
 let MGS = null;   // 今のゲームの {ok:正解数, ng:まちがい数}（ゲームの外ではnull）
-const mgNet = () => MGS ? MGS.ok - Math.floor(MGS.ng / 2) : 0;
+// 2026-10-01、教員の指示で「まちがい1つ＝−1」に変更（それまではまちがい2つで−1）。炎狼ランは2つで−1のまま
+const mgNet = () => MGS ? MGS.ok - MGS.ng : 0;
 const mgSigned = n => n > 0 ? "+" + n : n < 0 ? "−" + (-n) : "±0";
 function mgStart(){ mgFlush(); MGS = {ok:0, ng:0}; }
 function mgCorrect(){ if(!MGS) return; MGS.ok++; showLvupToast(1); }
-function mgWrong(){ if(!MGS) return; MGS.ng++; if(MGS.ng % 2 === 0) showLvupToast(-1); }
+function mgWrong(){ if(!MGS) return; MGS.ng++; showLvupToast(-1); }
 // ゲームの終わり：差し引きを本体への合図に足し、結果を返す（ゲーム中でなければnull）
 function mgFlush(){
   if(!MGS) return null;
@@ -1169,7 +1203,7 @@ function showLvupToast(d, text){
 function mgResultHtml(r){
   if(!r) return "";
   return `<div class="lv-result ${r.net < 0 ? "down" : ""}">${MG_GENRE}ジャンル　レベル <b>${mgSigned(r.net)}</b>
-    <span>（正解 ${r.ok}・まちがい ${r.ng}　→　正解1つで＋1、まちがい2つで−1）</span></div>`;
+    <span>（正解 ${r.ok}・まちがい ${r.ng}　→　正解1つで＋1、まちがい1つで−1）</span></div>`;
 }
 // 途中でやめたときに、一覧・タイトルの画面で結果を知らせる
 function mgShowQuitResult(r){
@@ -1195,8 +1229,8 @@ function onFound(w, mode, base = 100){
   if(G.challenge){
     const pts = base + Math.min(G.combo - 1, 5) * 20;
     G.score += pts; G.correct++;
-    $("score").textContent = G.score; $("chCorrect").textContent = G.correct;
-    const p = $("plus"); p.textContent = "+" + pts; p.classList.remove("pop"); void p.offsetWidth; p.classList.add("pop");
+    $("score").textContent = peopleText(G.score); $("chCorrect").textContent = G.correct;
+    const p = $("plus"); p.textContent = "+" + peopleText(pts) + "人"; p.classList.remove("pop"); void p.offsetWidth; p.classList.add("pop");
   }
   $("gameLine").innerHTML = G.combo >= 3 ? pick(LINES.combo) : pick(LINES.found);
   setFox($("gameFox"), "defense", "shiver");
@@ -1225,7 +1259,7 @@ function missListHtml(){
 }
 function onMiss(line, rec){
   recordMiss(rec);
-  mgWrong();                                     // 本体のジャンルレベル：まちがい2つで−1
+  mgWrong();                                     // 本体のジャンルレベル：まちがい1つで−1
   G.combo = 0; setCombo(0);
   SE.wrong();
   $("gameLine").innerHTML = line || pick(LINES.fooled);
@@ -1487,7 +1521,7 @@ function runD(el, t, done){
     const marks = [...text.matchAll(/{([^}]+)}/g)].map(m => m[1]);
     const fakeSet = new Set(shuffle(marks).slice(0, LONG_FAKES));
     body = text.split(/(?<=。)/).filter(s => s.trim()).map((s, li) => lineHtml(s, li, fakeSet, ws)).join("");
-    $("gameLine").innerHTML = `長い高札じゃ！　化け字は<b>${LONG_FAKES}つ</b>。1つ見破るごとに<b>大きく点</b>が入るぞ。`;
+    $("gameLine").innerHTML = `長い高札じゃ！　化け字は<b>${LONG_FAKES}つ</b>。1つ見破るごとに<b>大勢の人</b>が救われるぞ。`;
     setFox($("gameFox"), "attack", "hop");
   }else{
     body = pickWords(lvPool(t.lv).filter(w => SENTENCES[w[0]]), t.n).map((w, li) => lineHtml(SENTENCES[w[0]], li, new Set([w[0]]), ws)).join("");
@@ -1499,7 +1533,7 @@ function runD(el, t, done){
     <div class="qnote" id="dnote">文を読んで、<b>おかしな字</b>をタップせよ</div>
     <div class="ks-fixes" id="dfix"></div>
     <div class="qfoot" id="dfoot"></div></div>`;
-  const head = () => el.querySelector("#dHead").innerHTML = remaining ? `化け字 あと <b>${remaining}</b> 字` + (t.long ? `　<span style="color:var(--gold)">（1字 ${LONG_POINTS}点〜）</span>` : "") : `すべて見破った！`;
+  const head = () => el.querySelector("#dHead").innerHTML = remaining ? `化け字 あと <b>${remaining}</b> 字` + (t.long ? `　<span style="color:var(--gold)">（1字 ${peopleText(LONG_POINTS)}人〜）</span>` : "") : `すべて見破った！`;
   head();
   let lock = false;
   el.querySelector(".ks-body").addEventListener("click", e => {
@@ -1636,11 +1670,11 @@ function startChallenge(){
   $("score").textContent = "0"; $("chCorrect").textContent = "0"; $("plus").textContent = "";
   $("timeLeft").textContent = CH_SECONDS; $("timerFill").style.width = "100%"; $("timerFill").classList.remove("hurry");
   setCombo(0);
-  $("gameLine").innerHTML = `${CH_SECONDS}秒勝負じゃ！　どこまで見破れるかのう？`;
+  $("gameLine").innerHTML = `${CH_SECONDS}秒勝負じゃ！　わらわが化かした人々を、何人救えるかのう？`;
   setFox($("gameFox"), "attack", "hop");
   $("board").innerHTML = "";
   SE.start();
-  showBanner(`<div class="big mincho">挑戦の間</div><div class="small">${CH_SECONDS}秒で、どれだけ見破れるか！<br><span style="font-size:.85em;color:var(--sub)">見破り方は、一問ごとに変わる</span></div>`);
+  showBanner(`<div class="big mincho">挑戦の間</div><div class="small">九尾に化かされた人々を救え！<br>${CH_SECONDS}秒で、化け字を見破った分だけ人が救われる<br><span style="font-size:.85em;color:var(--sub)">見破り方は、一問ごとに変わる</span></div>`);
   later(1600, () => { hideBanner(); startClock(); nextChallengeTask(); });
 }
 function startClock(){
@@ -1685,8 +1719,10 @@ function finishChallenge(){
   setFox($("gameFox"), "defeat", "hop");
   $("gameLine").innerHTML = G.correct >= 15 ? "ま、参った……なんという目じゃ。" : G.correct >= 8 ? "ふむ、なかなかやるのう。" : "ふふ、次はもっと見破ってみせよ。";
   showBanner(`<div class="big mincho">そこまで！</div>
-    <div class="score-big">${G.score}<small>点</small></div>
-    <div class="small">見破った数 <b style="color:var(--gold)">${G.correct}</b>　／　これまでの最高 ${Math.max(prev, G.score)}点</div>
+    <div class="small" style="margin-top:2px">九尾に化かされていた人を</div>
+    <div class="score-big">${peopleText(G.score)}<small>人 救った！</small></div>
+    ${popCompareHtml(G.score)}
+    <div class="small">見破った数 <b style="color:var(--gold)">${G.correct}</b>　／　これまでの最高 ${peopleText(Math.max(prev, G.score))}人</div>
     ${isNew && prev > 0 ? `<div class="newrec">最高記録こうしん！</div>` : ""}
     <div class="rank">称号<b class="mincho">${rankName(G.score)}</b></div>
     ${mgResultHtml(lvr)}
