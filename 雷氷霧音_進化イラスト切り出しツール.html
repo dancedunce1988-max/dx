@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>雷氷霧音 進化イラスト切り出しツール</title>
+<style>
+  body{font-family:sans-serif; margin:16px; background:#1b1e26; color:#eee;}
+  h1{font-size:18px; margin:0 0 8px;}
+  .hint{font-size:13px; color:#bbb; margin-bottom:10px; line-height:1.6;}
+  .hint code{background:#000; padding:1px 5px; border-radius:3px;}
+  #controls{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px; background:#262a35; padding:10px; border-radius:8px;}
+  #controls label{font-size:12px; display:flex; flex-direction:column; gap:2px;}
+  #controls input[type=number]{width:64px;}
+  button{cursor:pointer; padding:6px 12px; border-radius:6px; border:1px solid #555; background:#3a3f4d; color:#eee; font-size:13px;}
+  button:hover{background:#4a5063;}
+  button.primary{background:#2f6fd6; border-color:#2f6fd6;}
+  button.primary:hover{background:#3f7fe6;}
+  #canvasWrap{overflow:auto; border:1px solid #444; background:#000; max-width:100%;}
+  canvas#stage{display:block; cursor:default;}
+  #status{font-size:12px; color:#9fd; margin:6px 0;}
+  #selInfo{font-size:12px; color:#fd6; margin:4px 0; min-height:16px;}
+  #previewWrap{margin-top:16px;}
+  .prevRow{display:flex; gap:4px; margin-bottom:4px; align-items:center;}
+  .prevRow .rowLabel{width:60px; font-size:12px; font-weight:bold; flex-shrink:0;}
+  .prevCell{width:80px; height:100px; background:#000; border:1px solid #444; overflow:hidden; display:flex; align-items:center; justify-content:center;}
+  .prevCell canvas{max-width:100%; max-height:100%;}
+  #exportArea{margin-top:16px;}
+  textarea#outJs{width:100%; height:180px; font-family:monospace; font-size:11px; background:#111; color:#9f9; box-sizing:border-box;}
+  .row{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:8px 0;}
+</style>
+</head>
+<body>
+<h1>雷氷霧音 進化イラスト切り出しツール</h1>
+<div class="hint">
+  ①「画像を選ぶ」で <code>素材/画像/雷霧音氷.png</code> を選択 → ②各セルの枠をドラッグ/角をドラッグしてサイズ調整して合わせる（下の「グリッドを再配置」で全体を一括調整してから微調整すると早いです）
+  → ③「プレビュー更新」で切り出しを確認 → ④「書き出す」→ できたテキストを <code>kotonoha_evolution_images.js</code> の
+  <code>KOTONOHA_EVOLUTION_IMAGES</code> オブジェクトの中にそのまま貼り付けてください（透過処理はしていません、そのままの四角形切り出しです）。
+</div>
+<div class="row">
+  <input type="file" id="fileInput" accept="image/*">
+  <span id="status">画像未選択</span>
+</div>
+<div id="controls">
+  <label>左端X<input type="number" id="gLeft" value="215"></label>
+  <label>上端Y<input type="number" id="gTop" value="75"></label>
+  <label>セル幅<input type="number" id="gCellW" value="188"></label>
+  <label>セル高<input type="number" id="gCellH" value="237"></label>
+  <label>列すきま<input type="number" id="gColGap" value="2"></label>
+  <label>行すきま<input type="number" id="gRowGap" value="2"></label>
+  <button id="applyGrid">グリッドを再配置</button>
+</div>
+<div id="selInfo">枠をクリックすると選択されます（選択中は矢印キーで1px移動、Shift+矢印で10px移動）</div>
+<div id="canvasWrap"><canvas id="stage" tabindex="0"></canvas></div>
+<div class="row">
+  <button id="updatePreview" class="primary">プレビュー更新</button>
+  <button id="exportBtn" class="primary">書き出す</button>
+  <button id="downloadBtn">.jsとしてダウンロード</button>
+  <button id="copyBtn">テキストをコピー</button>
+</div>
+<div id="previewWrap"></div>
+<div id="exportArea">
+  <textarea id="outJs" placeholder="「書き出す」を押すとここに結果が表示されます"></textarea>
+</div>
+
+<script>
+const LINES = [
+  {key:"rai",  label:"雷龍"},
+  {key:"kiri", label:"霧龍"},
+  {key:"oto",  label:"音龍"},
+  {key:"hyou", label:"氷龍"},
+];
+const STAGE_KEYS  = ["1_tamago","2_youtai","3_shounentai","4_seinentai","5_seijintai","6_seijukutai","7_densetsu"];
+const STAGE_LABEL = ["卵","幼体","少年体","青年体","成人体","成熟体","伝説級"];
+
+let img = null;
+let scale = 1;
+let boxes = []; // {line, stage, x,y,w,h} in natural pixel coords
+let selected = -1;
+let drag = null; // {mode:'move'|'resize', idx, handle, startX, startY, orig:{x,y,w,h}}
+
+const canvas = document.getElementById("stage");
+const ctx = canvas.getContext("2d");
+const fileInput = document.getElementById("fileInput");
+const statusEl = document.getElementById("status");
+const selInfo = document.getElementById("selInfo");
+
+fileInput.addEventListener("change", e=>{
+  const f = e.target.files[0];
+  if(!f) return;
+  const reader = new FileReader();
+  reader.onload = ev=>{
+    const im = new Image();
+    im.onload = ()=>{
+      img = im;
+      statusEl.textContent = `${f.name}（${img.naturalWidth}×${img.naturalHeight}px）を読み込みました`;
+      buildGrid();
+      layoutCanvas();
+      draw();
+    };
+    im.src = ev.target.result;
+  };
+  reader.readAsDataURL(f);
+});
+
+function buildGrid(){
+  const left = +document.getElementById("gLeft").value;
+  const top = +document.getElementById("gTop").value;
+  const cw = +document.getElementById("gCellW").value;
+  const ch = +document.getElementById("gCellH").value;
+  const colGap = +document.getElementById("gColGap").value;
+  const rowGap = +document.getElementById("gRowGap").value;
+  boxes = [];
+  LINES.forEach((line, row)=>{
+    STAGE_KEYS.forEach((stage, col)=>{
+      boxes.push({
+        line: line.key, stage,
+        x: left + col*(cw+colGap),
+        y: top + row*(ch+rowGap),
+        w: cw, h: ch,
+      });
+    });
+  });
+  selected = -1;
+}
+document.getElementById("applyGrid").addEventListener("click", ()=>{
+  if(!img){ alert("先に画像を選んでください"); return; }
+  buildGrid();
+  draw();
+});
+
+function layoutCanvas(){
+  const maxW = Math.min(1400, window.innerWidth - 40);
+  scale = Math.min(1, maxW / img.naturalWidth);
+  canvas.width = Math.round(img.naturalWidth * scale);
+  canvas.height = Math.round(img.naturalHeight * scale);
+}
+
+function draw(){
+  if(!img) return;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.drawImage(img, 0,0, canvas.width, canvas.height);
+  boxes.forEach((b, i)=>{
+    const sx=b.x*scale, sy=b.y*scale, sw=b.w*scale, sh=b.h*scale;
+    ctx.strokeStyle = i===selected ? "#ff4444" : "#ffe14d";
+    ctx.lineWidth = i===selected ? 2 : 1;
+    ctx.strokeRect(sx,sy,sw,sh);
+    if(i===selected){
+      ctx.fillStyle = "#ff4444";
+      const hs=6;
+      [[sx,sy],[sx+sw,sy],[sx,sy+sh],[sx+sw,sy+sh]].forEach(([hx,hy])=>{
+        ctx.fillRect(hx-hs/2, hy-hs/2, hs, hs);
+      });
+    }
+  });
+}
+
+function findLineLabel(key){ return LINES.find(l=>l.key===key).label; }
+
+function hitTest(mx, my){
+  // mx,my は natural pixel座標
+  for(let i=boxes.length-1;i>=0;i--){
+    const b = boxes[i];
+    const hs = 10/scale;
+    const corners = {
+      nw:[b.x,b.y], ne:[b.x+b.w,b.y], sw:[b.x,b.y+b.h], se:[b.x+b.w,b.y+b.h],
+    };
+    for(const [name,[cx,cy]] of Object.entries(corners)){
+      if(Math.abs(mx-cx)<=hs && Math.abs(my-cy)<=hs) return {idx:i, handle:name};
+    }
+    if(mx>=b.x && mx<=b.x+b.w && my>=b.y && my<=b.y+b.h){
+      return {idx:i, handle:"move"};
+    }
+  }
+  return null;
+}
+
+function toNatural(evt){
+  const rect = canvas.getBoundingClientRect();
+  const sx = evt.clientX - rect.left;
+  const sy = evt.clientY - rect.top;
+  return {x: sx/scale, y: sy/scale};
+}
+
+canvas.addEventListener("mousedown", e=>{
+  if(!img) return;
+  const {x,y} = toNatural(e);
+  const hit = hitTest(x,y);
+  if(hit){
+    selected = hit.idx;
+    const b = boxes[hit.idx];
+    drag = {mode: hit.handle==="move"?"move":"resize", idx:hit.idx, handle:hit.handle,
+      startX:x, startY:y, orig:{x:b.x,y:b.y,w:b.w,h:b.h}};
+    updateSelInfo();
+  }else{
+    selected = -1;
+    drag = null;
+  }
+  draw();
+});
+canvas.addEventListener("mousemove", e=>{
+  if(!drag) return;
+  const {x,y} = toNatural(e);
+  const dx = x - drag.startX, dy = y - drag.startY;
+  const b = boxes[drag.idx];
+  const o = drag.orig;
+  if(drag.mode==="move"){
+    b.x = Math.round(o.x + dx);
+    b.y = Math.round(o.y + dy);
+  }else{
+    if(drag.handle==="nw"){ b.x=Math.round(o.x+dx); b.y=Math.round(o.y+dy); b.w=Math.round(o.w-dx); b.h=Math.round(o.h-dy); }
+    if(drag.handle==="ne"){ b.y=Math.round(o.y+dy); b.w=Math.round(o.w+dx); b.h=Math.round(o.h-dy); }
+    if(drag.handle==="sw"){ b.x=Math.round(o.x+dx); b.w=Math.round(o.w-dx); b.h=Math.round(o.h+dy); }
+    if(drag.handle==="se"){ b.w=Math.round(o.w+dx); b.h=Math.round(o.h+dy); }
+    b.w = Math.max(8, b.w); b.h = Math.max(8, b.h);
+  }
+  draw();
+});
+window.addEventListener("mouseup", ()=>{ drag=null; });
+
+canvas.addEventListener("keydown", e=>{
+  if(selected<0) return;
+  const step = e.shiftKey ? 10 : 1;
+  const b = boxes[selected];
+  let handled = true;
+  if(e.key==="ArrowLeft") b.x -= step;
+  else if(e.key==="ArrowRight") b.x += step;
+  else if(e.key==="ArrowUp") b.y -= step;
+  else if(e.key==="ArrowDown") b.y += step;
+  else handled = false;
+  if(handled){ e.preventDefault(); draw(); updateSelInfo(); }
+});
+
+function updateSelInfo(){
+  if(selected<0){ selInfo.textContent = "枠をクリックすると選択されます（選択中は矢印キーで1px移動、Shift+矢印で10px移動）"; return; }
+  const b = boxes[selected];
+  selInfo.textContent = `選択中：${findLineLabel(b.line)} ${STAGE_LABEL[STAGE_KEYS.indexOf(b.stage)]} （x:${b.x}, y:${b.y}, w:${b.w}, h:${b.h}）`;
+}
+
+function cropBox(b){
+  const c = document.createElement("canvas");
+  c.width = b.w; c.height = b.h;
+  const cctx = c.getContext("2d");
+  cctx.drawImage(img, b.x, b.y, b.w, b.h, 0, 0, b.w, b.h);
+  return c;
+}
+
+document.getElementById("updatePreview").addEventListener("click", ()=>{
+  if(!img){ alert("先に画像を選んでください"); return; }
+  const wrap = document.getElementById("previewWrap");
+  wrap.innerHTML = "";
+  LINES.forEach(line=>{
+    const row = document.createElement("div");
+    row.className = "prevRow";
+    const rl = document.createElement("div");
+    rl.className = "rowLabel";
+    rl.textContent = line.label;
+    row.appendChild(rl);
+    STAGE_KEYS.forEach(stage=>{
+      const b = boxes.find(x=>x.line===line.key && x.stage===stage);
+      const cell = document.createElement("div");
+      cell.className = "prevCell";
+      if(b){
+        const c = cropBox(b);
+        cell.appendChild(c);
+      }
+      row.appendChild(cell);
+    });
+    wrap.appendChild(row);
+  });
+});
+
+document.getElementById("exportBtn").addEventListener("click", ()=>{
+  if(!img){ alert("先に画像を選んでください"); return; }
+  const lines = [];
+  lines.push("// 雷龍・霧龍・音龍・氷龍の進化イラスト追加ぶん（28枚）。");
+  lines.push("// kotonoha_evolution_images.js の KOTONOHA_EVOLUTION_IMAGES オブジェクトの中に、");
+  lines.push("// 下のキーと値をそのまま追記してください。");
+  LINES.forEach(line=>{
+    STAGE_KEYS.forEach(stage=>{
+      const b = boxes.find(x=>x.line===line.key && x.stage===stage);
+      const c = cropBox(b);
+      const dataUrl = c.toDataURL("image/png");
+      lines.push(`"${line.key}_${stage}": "${dataUrl}",`);
+    });
+  });
+  document.getElementById("outJs").value = lines.join("\n");
+});
+
+document.getElementById("downloadBtn").addEventListener("click", ()=>{
+  const text = document.getElementById("outJs").value;
+  if(!text){ alert("先に「書き出す」を押してください"); return; }
+  const blob = new Blob([text], {type:"text/javascript"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "kotonoha_evolution_images_raikirotohyou.js";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById("copyBtn").addEventListener("click", ()=>{
+  const ta = document.getElementById("outJs");
+  if(!ta.value){ alert("先に「書き出す」を押してください"); return; }
+  ta.select();
+  try{
+    document.execCommand("copy");
+    alert("コピーしました");
+  }catch(e){
+    alert("自動コピーに失敗しました。テキストエリアを選択して手動でコピーしてください");
+  }
+});
+</script>
+</body>
+</html>

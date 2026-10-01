@@ -7,10 +7,10 @@
 (function () {
   'use strict';
 
-  var FALLBACK_COMMIT_HASH = 'abb7c4954d80cc25617a025545de9fd685e08773';
-  var REPO = 'happa0827/dx';
-  var JSDELIVR_HOST = 'cdn.jsdelivr.net';
-  var RAW_HOST = 'raw.githubusercontent.com';
+  const FALLBACK_COMMIT_HASH = 'abb7c4954d80cc25617a025545de9fd685e08773';
+  const REPO = 'dancedunce1988-max/dx';
+  const JSDELIVR_HOST = 'cdn.jsdelivr.net';
+  const RAW_HOST = 'raw.githubusercontent.com';
 
   function cdnBase(commitHash) {
     return 'https://' + JSDELIVR_HOST + '/gh/' + REPO + '@' + commitHash + '/';
@@ -28,8 +28,75 @@
       .replace(/"/g, '&quot;');
   }
 
+  function setBootStatus(label, ratio) {
+    const labelEl = document.getElementById('dx-boot-label');
+    const bar = document.getElementById('dx-boot-bar');
+    const progress = document.getElementById('dx-boot-progress');
+    const detail = document.getElementById('dx-boot-detail');
+    if (labelEl && label && labelEl.textContent !== label) labelEl.textContent = label;
+    if (detail && ratio == null) detail.textContent = '';
+    if (!bar || !progress) return;
+    if (ratio == null) {
+      bar.classList.add('is-indeterminate');
+      bar.style.width = '';
+      progress.removeAttribute('aria-valuenow');
+      return;
+    }
+    const pct = Math.max(0, Math.min(100, Math.round(ratio * 100)));
+    bar.classList.remove('is-indeterminate');
+    bar.style.width = pct + '%';
+    progress.setAttribute('aria-valuenow', String(pct));
+  }
+
+  function hideBoot() {
+    const el = document.getElementById('dx-boot');
+    const app = document.getElementById('app');
+    const reveal = function () {
+      if (app && app.getAttribute('data-dx-boot-hidden') === '1') {
+        app.removeAttribute('aria-hidden');
+        app.removeAttribute('data-dx-boot-hidden');
+      }
+    };
+    if (!el || el.getAttribute('data-closing') === '1') {
+      reveal();
+      return;
+    }
+    el.setAttribute('data-closing', '1');
+    el.setAttribute('aria-busy', 'false');
+    const reduce =
+      window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let removed = false;
+    const remove = function () {
+      if (removed) return;
+      removed = true;
+      if (el.parentNode) el.parentNode.removeChild(el);
+      reveal();
+    };
+    if (reduce) {
+      remove();
+      return;
+    }
+    el.classList.add('is-done');
+    el.addEventListener('transitionend', function (ev) {
+      if (ev.target !== el || ev.propertyName !== 'opacity') return;
+      remove();
+    });
+    setTimeout(remove, 500);
+  }
+
   function showError(message) {
-    var app = document.getElementById('app');
+    const boot = document.getElementById('dx-boot');
+    const card = boot && boot.querySelector('.dx-boot-card');
+    const html =
+      '<p class="dx-boot-title">知識ドリル<span>DX</span></p>' +
+      '<p class="dx-boot-error-title">読み込みに失敗しました</p>' +
+      '<p class="dx-boot-error">' + escapeHtml(message) + '</p>';
+    if (boot && card) {
+      boot.setAttribute('aria-busy', 'false');
+      card.innerHTML = html;
+      return;
+    }
+    const app = document.getElementById('app');
     if (!app) return;
     app.innerHTML =
       '<div style="padding:1.5rem;font-family:sans-serif;line-height:1.6;color:#333;">' +
@@ -40,9 +107,9 @@
 
   function isDangerousSrc(src) {
     if (!src || typeof src !== 'string') return true;
-    var s = src.trim();
+    const s = src.trim();
     if (!s) return true;
-    var lower = s.toLowerCase();
+    const lower = s.toLowerCase();
     if (lower.indexOf('javascript:') === 0) return true;
     if (lower.indexOf('data:') === 0) return true;
     if (lower.indexOf('vbscript:') === 0) return true;
@@ -52,7 +119,7 @@
 
   function isAllowedAbsoluteUrl(url) {
     try {
-      var u = new URL(url);
+      const u = new URL(url);
       if (u.protocol !== 'https:') return false;
       if (u.hostname === JSDELIVR_HOST) {
         return u.pathname.indexOf('/gh/' + REPO + '@') === 0;
@@ -72,56 +139,56 @@
    */
   function resolveAssetUrl(src, commitHash) {
     if (isDangerousSrc(src)) return null;
-    var s = src.trim();
+    const s = src.trim();
 
     if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(s) || s.indexOf('//') === 0) {
-      var abs = s.indexOf('//') === 0 ? 'https:' + s : s;
+      const abs = s.indexOf('//') === 0 ? 'https:' + s : s;
       return isAllowedAbsoluteUrl(abs) ? abs : null;
     }
 
-    var path = s.replace(/^\.\//, '').replace(/^\/+/, '');
+    const path = s.replace(/^\.\//, '').replace(/^\/+/, '');
     if (!path || path.indexOf('..') !== -1) return null;
     return cdnBase(commitHash) + path;
   }
 
   function rewriteAssetAttrs(root, commitHash) {
-    var nodes = root.querySelectorAll('[src], [href]');
-    for (var i = 0; i < nodes.length; i++) {
-      var el = nodes[i];
-      var tag = el.tagName.toLowerCase();
+    const nodes = root.querySelectorAll('[src], [href]');
+    for (let i = 0; i < nodes.length; i++) {
+      const el = nodes[i];
+      const tag = el.tagName.toLowerCase();
       if (tag === 'script') continue;
 
       if (el.hasAttribute('src')) {
-        var src = el.getAttribute('src');
-        var resolvedSrc = resolveAssetUrl(src, commitHash);
+        const src = el.getAttribute('src');
+        const resolvedSrc = resolveAssetUrl(src, commitHash);
         if (resolvedSrc) el.setAttribute('src', resolvedSrc);
         else if (src && src.trim()) el.removeAttribute('src');
       }
       if (el.hasAttribute('href') && tag === 'link') {
-        var href = el.getAttribute('href');
-        var resolvedHref = resolveAssetUrl(href, commitHash);
+        const href = el.getAttribute('href');
+        const resolvedHref = resolveAssetUrl(href, commitHash);
         if (resolvedHref) el.setAttribute('href', resolvedHref);
       }
     }
   }
 
   function injectHeadStyles(doc, commitHash) {
-    var head = document.head || document.getElementsByTagName('head')[0];
+    const head = document.head || document.getElementsByTagName('head')[0];
     if (!head) return;
 
-    var styles = doc.querySelectorAll('head style');
-    for (var i = 0; i < styles.length; i++) {
-      var styleEl = document.createElement('style');
+    const styles = doc.querySelectorAll('head style');
+    for (let i = 0; i < styles.length; i++) {
+      const styleEl = document.createElement('style');
       styleEl.textContent = styles[i].textContent;
       head.appendChild(styleEl);
     }
 
-    var links = doc.querySelectorAll('head link[rel="stylesheet"]');
-    for (var j = 0; j < links.length; j++) {
-      var href = links[j].getAttribute('href');
-      var resolved = resolveAssetUrl(href, commitHash);
+    const links = doc.querySelectorAll('head link[rel="stylesheet"]');
+    for (let j = 0; j < links.length; j++) {
+      const href = links[j].getAttribute('href');
+      const resolved = resolveAssetUrl(href, commitHash);
       if (!resolved) continue;
-      var linkEl = document.createElement('link');
+      const linkEl = document.createElement('link');
       linkEl.rel = 'stylesheet';
       linkEl.href = resolved;
       head.appendChild(linkEl);
@@ -132,10 +199,17 @@
    * 連続する外部 script はまとめて append（async=false → 並列取得・順序実行）。
    * インライン script の直前で、それまでの外部 script の完了を待つ。
    */
-  function injectScriptsInOrder(scriptInfos) {
+  function injectScriptsInOrder(scriptInfos, onProgress) {
     return new Promise(function (resolve, reject) {
-      var i = 0;
-      var settled = false;
+      let i = 0;
+      let settled = false;
+      let finished = 0;
+      const total = scriptInfos.length;
+
+      function note() {
+        finished++;
+        if (typeof onProgress === 'function') onProgress(finished, total);
+      }
 
       function fail(err) {
         if (settled) return;
@@ -155,13 +229,14 @@
             res();
             return;
           }
-          var remaining = batch.length;
-          for (var b = 0; b < batch.length; b++) {
+          let remaining = batch.length;
+          for (let b = 0; b < batch.length; b++) {
             (function (info) {
-              var s = document.createElement('script');
+              const s = document.createElement('script');
               s.async = false;
               s.onload = function () {
                 remaining--;
+                note();
                 if (remaining === 0) res();
               };
               s.onerror = function () {
@@ -181,7 +256,7 @@
         }
 
         if (scriptInfos[i].src) {
-          var batch = [];
+          const batch = [];
           while (i < scriptInfos.length && scriptInfos[i].src) {
             batch.push(scriptInfos[i]);
             i++;
@@ -190,10 +265,11 @@
           return;
         }
 
-        var inline = document.createElement('script');
+        const inline = document.createElement('script');
         inline.textContent = scriptInfos[i].code || '';
         document.body.appendChild(inline);
         i++;
+        note();
         pump();
       }
 
@@ -202,13 +278,13 @@
   }
 
   function collectScripts(doc, commitHash) {
-    var list = [];
-    var scripts = doc.querySelectorAll('script');
-    for (var i = 0; i < scripts.length; i++) {
-      var sc = scripts[i];
-      var src = sc.getAttribute('src');
+    const list = [];
+    const scripts = doc.querySelectorAll('script');
+    for (let i = 0; i < scripts.length; i++) {
+      const sc = scripts[i];
+      const src = sc.getAttribute('src');
       if (src != null && String(src).trim() !== '') {
-        var resolved = resolveAssetUrl(src, commitHash);
+        const resolved = resolveAssetUrl(src, commitHash);
         if (!resolved) {
           throw new Error('許可されていないスクリプト URL です: ' + src);
         }
@@ -221,7 +297,7 @@
   }
 
   function extractVersion(doc) {
-    var tag = doc.querySelector('span.ver-tag');
+    const tag = doc.querySelector('span.ver-tag');
     if (!tag) return '';
     return (tag.textContent || '').trim();
   }
@@ -242,7 +318,7 @@
   // 最新 config は @hash 固定だと永遠に古い。main の raw を読む（再配布不要のため）。
   // jsDelivr @main は CDN キャッシュが残りやすいので使わない。
   function fetchConfig() {
-    var url =
+    const url =
       'https://' +
       RAW_HOST +
       '/' +
@@ -265,16 +341,19 @@
   }
 
   function boot() {
-    var hostApp = document.getElementById('app');
+    const hostApp = document.getElementById('app');
     if (!hostApp) {
       console.error('[DX] #app が見つかりません');
       return;
     }
 
-    hostApp.innerHTML =
-      '<p style="padding:1rem;font-family:sans-serif;color:#555;">読み込み中…</p>';
+    /* ロード画面は #app の外に置く。中に置くと本体 HTML を入れた瞬間に消え、
+       スクリプト完了前の空画面が見えてしまう。 */
+    hostApp.setAttribute('aria-hidden', 'true');
+    hostApp.setAttribute('data-dx-boot-hidden', '1');
+    setBootStatus('最新の版を確認しています');
 
-    var commitHash = FALLBACK_COMMIT_HASH;
+    let commitHash = FALLBACK_COMMIT_HASH;
 
     fetchConfig()
       .then(function (hash) {
@@ -286,15 +365,16 @@
       })
       .then(function () {
         window.__DX_CDN_BASE__ = cdnBase(commitHash);
+        setBootStatus('アプリ本体を取得しています');
 
         return fetchText(rawHtmlUrl(commitHash)).then(function (htmlText) {
-          var doc = parseHtml(htmlText);
-          var remoteApp = doc.querySelector('#app');
+          const doc = parseHtml(htmlText);
+          const remoteApp = doc.querySelector('#app');
           if (!remoteApp) {
             throw new Error('リモート HTML に #app がありません');
           }
 
-          var ver = extractVersion(doc);
+          const ver = extractVersion(doc);
           if (ver) {
             document.title = '知識ドリルDX (' + ver + ')';
           }
@@ -302,7 +382,7 @@
           injectHeadStyles(doc, commitHash);
 
           // ネスト回避: remote #app の中身だけを host #app へ
-          var wrapper = document.createElement('div');
+          const wrapper = document.createElement('div');
           wrapper.innerHTML = remoteApp.innerHTML;
           rewriteAssetAttrs(wrapper, commitHash);
           hostApp.innerHTML = '';
@@ -310,18 +390,28 @@
             hostApp.appendChild(wrapper.firstChild);
           }
 
-          var scripts = collectScripts(doc, commitHash);
-          return injectScriptsInOrder(scripts).then(function () {
+          const scripts = collectScripts(doc, commitHash);
+          setBootStatus('スクリプトを読み込んでいます');
+          return injectScriptsInOrder(scripts, function (done, total) {
+            setBootStatus('スクリプトを読み込んでいます', total ? done / total : 1);
+            const detail = document.getElementById('dx-boot-detail');
+            if (detail) detail.textContent = done + ' / ' + total;
+          }).then(function () {
             installNobiruOpener();
-            /* CDN の旧 kokugo_app は jsDelivr HTML へ遷移して text/plain 表示になるため上書き */
-            window.ddOpenNobiru = function (key) {
-              return window.__DX_OPEN_NOBIRU__(key, {});
+            /* CDN の旧 kokugo_app は jsDelivr HTML へ遷移して text/plain 表示になるため上書き。
+               viaDaily（一日一読）と viaCheck（問題チェック）は落とさず __DX_OPEN_NOBIRU__ へ渡す。 */
+            window.ddOpenNobiru = function (key, viaDaily, viaCheck) {
+              const params = {};
+              if (viaCheck) params.viaCheck = '1';
+              else if (viaDaily) params.viaDaily = '1';
+              return window.__DX_OPEN_NOBIRU__(key, params);
             };
+            hideBoot();
           });
         });
       })
       .catch(function (err) {
-        var msg =
+        const msg =
           (err && err.message) ||
           String(err) ||
           '不明なエラーです。ネットワーク接続と CDN の状態を確認してください。';
@@ -337,7 +427,7 @@
    * → iframe srcdoc + 相対URLの絶対化（<base> なし）+ キャプチャ段階で遷移を差し替え。
    */
   function closeNobiruFrame() {
-    var f = document.getElementById('dx-nobiru-frame');
+    const f = document.getElementById('dx-nobiru-frame');
     if (!f) return;
     try {
       f.srcdoc = '';
@@ -353,7 +443,7 @@
       }
     } catch (e1) {}
 
-    var f = document.getElementById('dx-nobiru-frame');
+    let f = document.getElementById('dx-nobiru-frame');
     if (!f) {
       f = document.createElement('iframe');
       f.id = 'dx-nobiru-frame';
@@ -370,7 +460,7 @@
 
   function resolveNobiruAsset(url, nobiruBase) {
     if (!url || typeof url !== 'string') return null;
-    var s = url.trim();
+    const s = url.trim();
     if (!s || s.charAt(0) === '#' || s.indexOf('mailto:') === 0 || s.indexOf('javascript:') === 0) {
       return null;
     }
@@ -383,31 +473,31 @@
 
   function absolutizeNobiruHtml(html, nobiruBase) {
     /* .toString() で iframe に注入するため、クロージャ名ではなく window 経由で解決する */
-    var resolve = window.__DX_RESOLVE_NOBIRU__;
-    var doc = new DOMParser().parseFromString(html, 'text/html');
-    var nodes = doc.querySelectorAll('[src], link[href], image[href]');
-    for (var i = 0; i < nodes.length; i++) {
-      var el = nodes[i];
+    const resolve = window.__DX_RESOLVE_NOBIRU__;
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const nodes = doc.querySelectorAll('[src], link[href], image[href]');
+    for (let i = 0; i < nodes.length; i++) {
+      const el = nodes[i];
       if (el.hasAttribute('src')) {
-        var absSrc = resolve(el.getAttribute('src'), nobiruBase);
+        const absSrc = resolve(el.getAttribute('src'), nobiruBase);
         if (absSrc) el.setAttribute('src', absSrc);
       }
       if (el.hasAttribute('href') && el.tagName.toLowerCase() === 'link') {
-        var absHref = resolve(el.getAttribute('href'), nobiruBase);
+        const absHref = resolve(el.getAttribute('href'), nobiruBase);
         if (absHref) el.setAttribute('href', absHref);
       }
     }
     /* ホームリンクはクリックで差し替える。相対 href のまま残すと変な遷移の元になる */
-    var homes = doc.querySelectorAll('a.back, a.modesel-back');
-    for (var h = 0; h < homes.length; h++) {
+    const homes = doc.querySelectorAll('a.back, a.modesel-back');
+    for (let h = 0; h < homes.length; h++) {
       homes[h].setAttribute('href', '#');
     }
     return '<!DOCTYPE html>\n' + doc.documentElement.outerHTML;
   }
 
   function openNobiruPage(key, searchObj) {
-    var base = window.__DX_CDN_BASE__;
-    var home = window.__DX_HOME_URL__ || '';
+    const base = window.__DX_CDN_BASE__;
+    let home = window.__DX_HOME_URL__ || '';
     try {
       if (!home && (!window.frameElement || window.frameElement.id !== 'dx-nobiru-frame')) {
         home = location.href;
@@ -417,17 +507,17 @@
     }
 
     if (!base) {
-      var qsLocal = new URLSearchParams(searchObj || {});
-      var localUrl = 'nobiru/' + key + '.html';
+      const qsLocal = new URLSearchParams(searchObj || {});
+      let localUrl = 'nobiru/' + key + '.html';
       if (qsLocal.toString()) localUrl += '?' + qsLocal.toString();
       location.href = localUrl;
       return Promise.resolve();
     }
 
-    var nobiruBase = base + 'nobiru/';
-    var bootParams = new URLSearchParams(searchObj || {});
-    var bootSearch = bootParams.toString() ? '?' + bootParams.toString() : '';
-    var htmlName = String(key || '').replace(/[^A-Za-z0-9_-]/g, '');
+    const nobiruBase = base + 'nobiru/';
+    const bootParams = new URLSearchParams(searchObj || {});
+    const bootSearch = bootParams.toString() ? '?' + bootParams.toString() : '';
+    const htmlName = String(key || '').replace(/[^A-Za-z0-9_-]/g, '');
     if (!htmlName) {
       return Promise.reject(new Error('不正な教材キーです'));
     }
@@ -440,7 +530,7 @@
         return res.text();
       })
       .then(function (html) {
-        var openerSrc =
+        const openerSrc =
           'window.__DX_OPEN_NOBIRU__=(' +
           window.__DX_OPEN_NOBIRU__.toString() +
           ');' +
@@ -455,7 +545,7 @@
           window.__DX_ABS_NOBIRU__.toString() +
           ');';
 
-        var boot =
+        const boot =
           '<script>(function(){' +
           'window.__DX_CDN_BASE__=' +
           JSON.stringify(base) +
@@ -472,17 +562,17 @@
           'window.__DX_BOOT_SEARCH__=' +
           JSON.stringify(bootSearch) +
           ';' +
-          'try{var d=Object.getOwnPropertyDescriptor(Location.prototype,"search");' +
+          'try{const d=Object.getOwnPropertyDescriptor(Location.prototype,"search");' +
           'if(d&&d.get&&window.__DX_BOOT_SEARCH__){Object.defineProperty(Location.prototype,"search",{' +
           'configurable:true,enumerable:true,get:function(){' +
           'if(this===window.location&&window.__DX_BOOT_SEARCH__)return window.__DX_BOOT_SEARCH__;' +
           'return d.get.call(this);}});}}catch(e){}' +
           /* 動的 script.src = "engine.js" を CDN 絶対URLへ */
-          '(function(){var nb=' +
+          '(function(){const nb=' +
           JSON.stringify(nobiruBase) +
-          ';var ce=document.createElement.bind(document);' +
-          'document.createElement=function(tag){var el=ce(tag);' +
-          'if(String(tag).toLowerCase()==="script"){var sa=el.setAttribute.bind(el);' +
+          ';const ce=document.createElement.bind(document);' +
+          'document.createElement=function(tag){const el=ce(tag);' +
+          'if(String(tag).toLowerCase()==="script"){const sa=el.setAttribute.bind(el);' +
           'el.setAttribute=function(n,v){if(String(n).toLowerCase()==="src"&&v&&!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(v)&&v.indexOf("//")!==0){' +
           'v=nb+String(v).replace(/^\\.\\//,"").replace(/^\\/+/,"");}return sa(n,v);};' +
           'try{Object.defineProperty(el,"src",{configurable:true,enumerable:true,' +
@@ -491,23 +581,34 @@
           'catch(e2){}}return el;};})();' +
           'window.__DX_GO_HOME__=function(){try{if(parent!==window&&parent.__DX_CLOSE_NOBIRU__){parent.__DX_CLOSE_NOBIRU__();return;}}catch(e){}' +
           'if(window.__DX_HOME_URL__)location.href=window.__DX_HOME_URL__;};' +
-          /* キャプチャで旧 modeselect / modeSwitch の location.pathname(=srcdoc) 遷移を潰す */
+          /* キャプチャで srcdoc 上の壊れる遷移（pathname=srcdoc / ../kokugo_app / reload）を潰す */
           'document.addEventListener("click",function(ev){' +
-          'var btn=ev.target&&ev.target.closest&&ev.target.closest(".modesel-card[data-mode]");' +
+          'const btn=ev.target&&ev.target.closest&&ev.target.closest(".modesel-card[data-mode]");' +
           'if(btn&&window.__DX_OPEN_NOBIRU__){ev.preventDefault();ev.stopImmediatePropagation();' +
           'window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__,{mode:btn.getAttribute("data-mode")});return;}' +
-          'var sw=ev.target&&ev.target.closest&&ev.target.closest("a.modeSwitch, #modeSwitch");' +
+          'const sw=ev.target&&ev.target.closest&&ev.target.closest("a.modeSwitch, #modeSwitch");' +
           'if(sw&&window.__DX_OPEN_NOBIRU__&&window.__DX_NOBIRU_KEY__){ev.preventDefault();ev.stopImmediatePropagation();' +
           'window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__,{});return;}' +
-          'var a=ev.target&&ev.target.closest&&ev.target.closest("a.back, a.modesel-back");' +
-          'if(a){ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();}' +
+          'const a=ev.target&&ev.target.closest&&ev.target.closest("a.back, a.modesel-back");' +
+          'if(a){' +
+          'if(a.classList.contains("back")&&/[?&]viaDaily=1(?:&|$)/.test(String(window.__DX_BOOT_SEARCH__||""))&&document.documentElement.getAttribute("data-dx-nobiru-finished")!=="1"){return;}' +
+          'ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();return;}' +
+          'const again=ev.target&&ev.target.closest&&ev.target.closest("button.again");' +
+          'if(again){const oc=String(again.getAttribute("onclick")||"");const tx=String(again.textContent||"");' +
+          'if(again.classList.contains("daily-end")||oc.indexOf("kokugo_app")!==-1||tx.indexOf("ホーム")!==-1||tx.indexOf("一日一読を終える")!==-1){' +
+          'ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();return;}' +
+          'if(oc.indexOf("location.reload")!==-1||tx.indexOf("はじめからやり直す")!==-1){' +
+          'ev.preventDefault();ev.stopImmediatePropagation();' +
+          'if(window.__DX_OPEN_NOBIRU__&&window.__DX_NOBIRU_KEY__){const o={};' +
+          'try{new URLSearchParams(window.__DX_BOOT_SEARCH__||"").forEach(function(v,k){o[k]=v;});}catch(e3){}' +
+          'window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__,o);}return;}}' +
           '},true);' +
           openerSrc +
           '})();<\/script>';
 
         /* <base> は使わない（about:srcdoc → /nobiru/srcdoc 事故の原因） */
-        var absHtml = window.__DX_ABS_NOBIRU__(html, nobiruBase);
-        var out = absHtml;
+        const absHtml = window.__DX_ABS_NOBIRU__(html, nobiruBase);
+        let out = absHtml;
         if (/<head[^>]*>/i.test(out)) {
           out = out.replace(/<head[^>]*>/i, function (m) {
             return m + boot;
@@ -520,8 +621,123 @@
       });
   }
 
+  /** ルート直下の別ページ HTML（九尾の化かし合い・炎狼ラン等）を srcdoc で開く */
+  function openStandaloneHtml(fileName) {
+    const base = window.__DX_CDN_BASE__;
+    const home = dxHostHomeUrl();
+    const safeName = String(fileName || '').trim();
+    if (!/^[A-Za-z0-9_-]+\.html$/.test(safeName)) {
+      return Promise.reject(new Error('不正なページ名です'));
+    }
+
+    if (!base) {
+      location.href = safeName;
+      return Promise.resolve();
+    }
+
+    const assetBase = base;
+    return fetch(assetBase + safeName, { cache: 'no-store' })
+      .then(function (res) {
+        if (!res.ok) {
+          throw new Error('ページの取得に失敗しました (HTTP ' + res.status + ')');
+        }
+        return res.text();
+      })
+      .then(function (html) {
+        const openerSrc =
+          'window.__DX_OPEN_STANDALONE_HTML__=(' +
+          window.__DX_OPEN_STANDALONE_HTML__.toString() +
+          ');' +
+          'window.__DX_SHOW_NOBIRU_HTML__=(' +
+          window.__DX_SHOW_NOBIRU_HTML__.toString() +
+          ');' +
+          'window.__DX_CLOSE_NOBIRU__=function(){try{if(parent!==window&&parent.__DX_CLOSE_NOBIRU__)parent.__DX_CLOSE_NOBIRU__();}catch(e){}};' +
+          'window.__DX_RESOLVE_NOBIRU__=(' +
+          window.__DX_RESOLVE_NOBIRU__.toString() +
+          ');' +
+          'window.__DX_ABS_NOBIRU__=(' +
+          window.__DX_ABS_NOBIRU__.toString() +
+          ');';
+
+        const boot =
+          '<script>(function(){' +
+          'window.__DX_CDN_BASE__=' +
+          JSON.stringify(base) +
+          ';' +
+          'window.__DX_HOME_URL__=' +
+          JSON.stringify(home) +
+          ';' +
+          'window.__DX_STANDALONE_PAGE__=' +
+          JSON.stringify(safeName) +
+          ';' +
+          '(function(){const nb=' +
+          JSON.stringify(assetBase) +
+          ';const ce=document.createElement.bind(document);' +
+          'document.createElement=function(tag){const el=ce(tag);' +
+          'if(String(tag).toLowerCase()==="script"){const sa=el.setAttribute.bind(el);' +
+          'el.setAttribute=function(n,v){if(String(n).toLowerCase()==="src"&&v&&!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(v)&&v.indexOf("//")!==0){' +
+          'v=nb+String(v).replace(/^\\.\\//,"").replace(/^\\/+/,"");}return sa(n,v);};' +
+          'try{Object.defineProperty(el,"src",{configurable:true,enumerable:true,' +
+          'get:function(){return el.getAttribute("src");},' +
+          'set:function(v){el.setAttribute("src",v);}});}' +
+          'catch(e2){}}return el;};})();' +
+          'window.__DX_GO_HOME__=function(){try{if(parent!==window&&parent.__DX_CLOSE_NOBIRU__){parent.__DX_CLOSE_NOBIRU__();if(parent.__DX_RETURN_FROM_MINIGAME__)parent.__DX_RETURN_FROM_MINIGAME__();return;}}catch(e){}' +
+          'if(window.__DX_HOME_URL__)location.href=window.__DX_HOME_URL__;};' +
+          'document.addEventListener("click",function(ev){' +
+          'const back=ev.target&&ev.target.closest&&ev.target.closest("#backLink,.back-link,a[href*=\\"kokugo_app\\"]");' +
+          'if(back){ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();}' +
+          '},true);' +
+          openerSrc +
+          '})();<\/script>';
+
+        const absHtml = window.__DX_ABS_NOBIRU__(html, assetBase);
+        let out = absHtml;
+        if (/<head[^>]*>/i.test(out)) {
+          out = out.replace(/<head[^>]*>/i, function (m) {
+            return m + boot;
+          });
+        } else {
+          out = boot + out;
+        }
+
+        const f = document.getElementById('dx-nobiru-frame');
+        if (f) f.title = 'ミニゲーム';
+        window.__DX_SHOW_NOBIRU_HTML__(out);
+      });
+  }
+
+  function dxHostHomeUrl() {
+    let home = window.__DX_HOME_URL__ || '';
+    try {
+      if (!home && (!window.frameElement || window.frameElement.id !== 'dx-nobiru-frame')) {
+        home = location.href;
+      }
+    } catch (e0) {
+      home = home || location.href;
+    }
+    return home;
+  }
+
+  function returnFromMinigame() {
+    closeNobiruFrame();
+    try {
+      if (
+        typeof showPrologue === 'function' &&
+        typeof showHome === 'function' &&
+        typeof showSideQuestMenu === 'function'
+      ) {
+        showPrologue(function () {
+          showHome();
+          showSideQuestMenu();
+        });
+      }
+    } catch (e) {}
+  }
+
   function installNobiruOpener() {
     window.__DX_OPEN_NOBIRU__ = openNobiruPage;
+    window.__DX_OPEN_STANDALONE_HTML__ = openStandaloneHtml;
+    window.__DX_RETURN_FROM_MINIGAME__ = returnFromMinigame;
     window.__DX_SHOW_NOBIRU_HTML__ = showNobiruHtml;
     window.__DX_CLOSE_NOBIRU__ = closeNobiruFrame;
     /* ABS が RESOLVE を参照するため、RESOLVE を先に載せる */

@@ -18,10 +18,10 @@
   /** open-redirect 対策: file / http(s) のみ。javascript: 等は拒否 */
   function safeHomeUrl(raw) {
     if (!raw || typeof raw !== "string") return null;
-    var s = raw.trim();
+    const s = raw.trim();
     if (!s) return null;
     try {
-      var u = new URL(s, location.href);
+      const u = new URL(s, location.href);
       if (u.protocol !== "http:" && u.protocol !== "https:" && u.protocol !== "file:") {
         return null;
       }
@@ -49,7 +49,7 @@
       location.href = global.__DX_HOME_URL__;
       return;
     }
-    var home = dxHomeFromQuery();
+    const home = dxHomeFromQuery();
     if (home) {
       location.href = home;
       return;

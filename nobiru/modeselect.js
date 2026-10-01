@@ -1,13 +1,39 @@
 /* ============================================================
    のびる読解　モード選択（2026-09-19〜）
-   イージー（選択問題のみ）／ハード（記述式中心）を、開くたびに毎回選び直せる
-   ようにする。固定的にどちらかへ割り振ることはしない。
-   texts/<教材名>.js（window.NOBIRU_TEXT）・records.js（window.NobiruRecords、
-   あれば）のあとに読み込む。engine.js／engine_hard.jsは、ここで選ばれたモード
-   に応じて、このファイルが動的に読み込む（モードが決まるまでは読まない）。
+
+   ハードモードは一旦無効化（教員の指示、2026-09-22〜：「ハードモード、
+   うまくいかないので、一旦無くしてください。1つのモードだけとします」）。
+   イージー／ハードを選ばせる画面は出さず、読解Questからはモード選択なしで
+   そのままengine.jsに入る。エンジン自体（engine_hard.js）・教材データ
+   （texts/<教材名>.jsのhardキー）・採点ロジックは削除せずそのまま残してあり、
+   下の「元のモード選択ロジック」を戻すだけで復活できる。
    ============================================================ */
 (function(){
 "use strict";
+
+const readerRoot = document.getElementById("readerRoot");
+const modeRoot = document.getElementById("modeSelectRoot");
+if(modeRoot) modeRoot.hidden = true;
+readerRoot.hidden = false;
+window.NOBIRU_MODE = "easy";
+
+/* engine.jsは動的にscriptタグを作って読み込むため、HTML側の
+   <script src="...?v=...">のようなキャッシュ対策が効かない。
+   modeselect.js自身のsrcに付いている?v=をそのまま引き継ぐ
+   （教員の報告、2026-09-23〜：更新したはずの表示が反映されない問題への対応）。 */
+const selfSrc = (document.currentScript && document.currentScript.src) || "";
+const verMatch = selfSrc.match(/[?&]v=([^&]+)/);
+const verQuery = verMatch ? ("?v=" + verMatch[1]) : "";
+const s = document.createElement("script");
+s.src = "engine.js" + verQuery;
+document.body.appendChild(s);
+
+/* ---- 元のモード選択ロジック（2026-09-19〜2026-09-22。ハードモードを
+   復活させるときは、上のブロックを削除してこちらのコメントを外すだけでよい） ----
+
+function escHtml(s){
+  return String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+}
 
 const params = new URLSearchParams(
   (typeof window.__DX_BOOT_SEARCH__ === "string" && window.__DX_BOOT_SEARCH__.length)
@@ -18,31 +44,24 @@ const raw = params.get("mode");
 const mode = raw === "hard" ? "hard" : raw === "easy" ? "easy" : null;
 window.NOBIRU_MODE = mode;
 
-const modeRoot = document.getElementById("modeSelectRoot");
-const readerRoot = document.getElementById("readerRoot");
-
-function escHtml(s){
-  return String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
-}
-
 if(mode){
   modeRoot.hidden = true;
   readerRoot.hidden = false;
-  /* engine.js／engine_hard.jsは動的にscriptタグを作って読み込むため、
-     HTML側の<script src="...?v=...">のようなキャッシュ対策が効かず、
-     修正を配信してもブラウザに古い版がキャッシュされたまま反映されない
-     ことがあった（教員の報告、2026-09-23〜：更新したはずの表示が
-     実際には出ていなかった）。modeselect.js自身のsrcに付いている
-     ?v=をそのまま引き継ぐことで、HTML側のバージョンを上げるたびに
-     engine.js／engine_hard.jsも一緒にキャッシュが更新されるようにする。 */
-  const selfSrc = (document.currentScript && document.currentScript.src) || "";
-  const verMatch = selfSrc.match(/[?&]v=([^&]+)/);
-  const verQuery = verMatch ? ("?v=" + verMatch[1]) : "";
-  const s = document.createElement("script");
-  /* ページ自体が CDN 絶対URLで開かれていれば相対パスで足りる。
-     file:// 直開き時も同じディレクトリ相対で engine を読む。 */
-  s.src = (mode === "hard" ? "engine_hard.js" : "engine.js") + verQuery;
-  document.body.appendChild(s);
+  // engine.js／engine_hard.jsは動的にscriptタグを作って読み込むため、
+  // HTML側の<script src="...?v=...">のようなキャッシュ対策が効かず、
+  // 修正を配信してもブラウザに古い版がキャッシュされたまま反映されない
+  // ことがあった（教員の報告、2026-09-23〜：更新したはずの表示が
+  // 実際には出ていなかった）。modeselect.js自身のsrcに付いている
+  // ?v=をそのまま引き継ぐことで、HTML側のバージョンを上げるたびに
+  // engine.js／engine_hard.jsも一緒にキャッシュが更新されるようにする。
+  const selfSrc2 = (document.currentScript && document.currentScript.src) || "";
+  const verMatch2 = selfSrc2.match(/[?&]v=([^&]+)/);
+  const verQuery2 = verMatch2 ? ("?v=" + verMatch2[1]) : "";
+  const s2 = document.createElement("script");
+  // ページ自体が CDN 絶対URLで開かれていれば相対パスで足りる。
+  // file:// 直開き時も同じディレクトリ相対で engine を読む。
+  s2.src = (mode === "hard" ? "engine_hard.js" : "engine.js") + verQuery2;
+  document.body.appendChild(s2);
 } else {
   readerRoot.hidden = true;
   const TEXT = window.NOBIRU_TEXT;
@@ -63,7 +82,7 @@ if(mode){
       <p class="lead">読み方を選んでください。どちらも同じ文章を読みます。順位や他の人との比較はなく、自分の記録とだけ比べられます。何度でも選び直せます。</p>
       <div class="modesel-cards">
         <button class="modesel-card" data-mode="easy" type="button">
-          <h3>イージーモード</h3>
+          <h3>通常モード</h3>
           <p>段落ごとに本文がのびていきます。設問はすべて選択問題です。</p>
           ${recLine("easy")}
         </button>
@@ -84,7 +103,7 @@ if(mode){
   if (window.DxCompat) DxCompat.wireHomeLinks(modeRoot);
   modeRoot.querySelectorAll(".modesel-card[data-mode]").forEach(btn => {
     btn.onclick = () => {
-      /* dx_home / Blob 再オープン用に既存クエリを維持 */
+      // dx_home / Blob・srcdoc 再オープン用に既存クエリを維持
       const next = new URLSearchParams(
         (typeof window.__DX_BOOT_SEARCH__ === "string" && window.__DX_BOOT_SEARCH__.length)
           ? window.__DX_BOOT_SEARCH__
@@ -102,4 +121,5 @@ if(mode){
     };
   });
 }
+---- ここまで元のモード選択ロジック ---- */
 })();
