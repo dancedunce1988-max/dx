@@ -398,6 +398,7 @@
             if (detail) detail.textContent = done + ' / ' + total;
           }).then(function () {
             installNobiruOpener();
+            installMinigameDistHooks();
             /* CDN の旧 kokugo_app は jsDelivr HTML へ遷移して text/plain 表示になるため上書き。
                viaDaily（一日一読）と viaCheck（問題チェック）は落とさず __DX_OPEN_NOBIRU__ へ渡す。 */
             window.ddOpenNobiru = function (key, viaDaily, viaCheck) {
@@ -699,10 +700,17 @@
           '(function(){try{const lr=Location.prototype.replace;Location.prototype.replace=function(u){' +
           'if(String(u||"").indexOf("kokugo_app")!==-1&&window.__DX_GO_HOME__){window.__DX_GO_HOME__();return;}' +
           'return lr.apply(this,arguments);};}catch(e4){}})();' +
+          '(function(){try{const la=Location.prototype.assign;Location.prototype.assign=function(u){' +
+          'if(String(u||"").indexOf("kokugo_app")!==-1&&window.__DX_GO_HOME__){window.__DX_GO_HOME__();return;}' +
+          'return la.apply(this,arguments);};}catch(e5){}})();' +
           'document.addEventListener("click",function(ev){' +
           'const back=ev.target&&ev.target.closest&&ev.target.closest("#backLink,.back-link,a[href*=\\"kokugo_app\\"]");' +
           'if(back){ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();}' +
           '},true);' +
+          /* 本体 HTML は触らず、戻る関数だけ差し替え */
+          'document.addEventListener("DOMContentLoaded",function(){' +
+          'window.backToApp=function(){if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();};' +
+          '});' +
           openerSrc +
           '})();<\/script>';
 
@@ -748,6 +756,34 @@
         });
       }
     } catch (e) {}
+  }
+
+  function installMinigameDistHooks() {
+    /* 本体の mgGoWithPass（location.href）を、配布時だけ srcdoc 開きに差し替える。
+       kokugo_app.html / ミニゲーム HTML は変更しない。 */
+    function wrap() {
+      if (typeof window.mgGoWithPass !== 'function' || window.mgGoWithPass.__dxWrapped) return;
+      const orig = window.mgGoWithPass;
+      const wrapped = function (id, url) {
+        try {
+          const key = 'kokugo_mg_pass_v1';
+          const o = JSON.parse(sessionStorage.getItem(key) || '{}');
+          o[id] = 1;
+          sessionStorage.setItem(key, JSON.stringify(o));
+        } catch (e) {}
+        const name = String(url || '')
+          .split('?')[0]
+          .replace(/^.*\//, '');
+        if (window.__DX_CDN_BASE__ && /^[A-Za-z0-9_-]+\.html$/.test(name)) {
+          return openStandaloneHtml(name);
+        }
+        return orig.apply(this, arguments);
+      };
+      wrapped.__dxWrapped = true;
+      window.mgGoWithPass = wrapped;
+    }
+    wrap();
+    setTimeout(wrap, 0);
   }
 
   function installNobiruOpener() {
