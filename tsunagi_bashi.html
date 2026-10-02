@@ -558,7 +558,7 @@ const STAGES = [
   {id:4, name:"四の谷　長い吊り橋", desc:"文章の中の2か所に、順に板を架けて谷を渡れ", kind:"chain", src:"chain", n:4},
   {id:5, name:"五の谷　腐った板", desc:"一枚だけまぎれた腐った板を見つけて、正しい板に替えよ", kind:"rotten", n:4},
   {id:6, name:"六の谷　大河の橋", desc:"段落をまたぐ長い文章。流れを読んで、2か所に板を架けよ", kind:"chain", src:"long", n:3},
-  {id:9, name:"挑戦の谷　90秒の耐久戦", desc:"90秒・鎧3つ。時間切れか、板を3回割ると終わり。5問に1回の長文の橋では時間が止まる", kind:"challenge"},
+  {id:9, name:"挑戦の谷　90秒の耐久戦", desc:"90秒・鎧3つ。時間切れか、板を3回割ると終わり。5問に1回の長文の橋では時間が止まる。ここでの正解・まちがいだけが、知識ドリルDXの「接続詞」のレベルに反映される", kind:"challenge"},
 ];
 const TB_LSKEY = "tsunagi_bashi_v1";
 function loadSave(){ try{ return JSON.parse(localStorage.getItem(TB_LSKEY)) || {}; }catch(e){ return {}; } }
@@ -566,7 +566,8 @@ function saveSave(s){ try{ localStorage.setItem(TB_LSKEY, JSON.stringify(s)); }c
 
 /* =====================================================================
    本体（kokugo_app.html）のジャンルレベルへの反映（九尾の化かし合いと同じしくみ・同じ数え方）。
-   1回の谷（ゲーム）の中で「正解1つ＝＋1、まちがい1つ＝−1」と数え、終わったときの差し引きを
+   2026-10-03〜、教員の指示で、反映するのは挑戦の谷だけにした（一〜六の谷は練習として、レベルは上下しない）。
+   1回の挑戦の谷の中で「正解1つ＝＋1、まちがい1つ＝−1」と数え、終わったときの差し引きを
    localStorage（MG_PENDING_LVUP_LSKEY）に{ジャンル: 増減}として書き足す。本体がホーム画面を開くときに反映する
    （kokugo_app.htmlのmgApplyPendingLevelUps・MG_LVUP_CATS参照）。途中でやめた・ページを離れたときも、
    そこまでの分を必ず渡す（まちがいが多いときにやめて、下がるのを逃れられないように）。
@@ -787,7 +788,8 @@ function startStage(id){
   else if(st.kind === "rotten") rounds = shuffle(ROTTENS).slice(0, st.n).map(r => ({kind:"rotten", r}));
   else rounds = [];
   stopTimer();
-  mgStart();
+  // 本体のジャンルレベルが上下するのは、挑戦の谷だけ（教員の指示）。ほかの谷では数えない（MGSがnullのまま）
+  if(st.kind === "challenge") mgStart(); else mgFlush();
   G = {stage:st, rounds, idx:0, ok:0, ng:0, misses:[], busy:false, crossed:0, armor:ARMOR_MAX, tier:0, over:false,
        timeLeft:0, frozen:false, explaining:false, endReason:null};
   $("hudStage").textContent = st.name.split("　")[0];
