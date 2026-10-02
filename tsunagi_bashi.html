@@ -568,7 +568,7 @@ function saveSave(s){ try{ localStorage.setItem(TB_LSKEY, JSON.stringify(s)); }c
 /* =====================================================================
    本体（kokugo_app.html）のジャンルレベルへの反映（九尾の化かし合いと同じしくみ・同じ数え方）。
    2026-10-03〜、教員の指示で、挑戦の谷は「正解1つ＝＋1、まちがい1つ＝−1」、一〜六の谷は「正解2つ＝＋1、
-   まちがい2つ＝−1で、差し引きがマイナスなら0」と数え方を分けた（mgNet参照）。
+   まちがい2つ＝−1」と数え方を分け、どちらも差し引きがマイナスなら0にした（mgNet参照）。
    1回の谷の中で「正解1つ＝＋1、まちがい1つ＝−1」と数え、終わったときの差し引きを
    localStorage（MG_PENDING_LVUP_LSKEY）に{ジャンル: 増減}として書き足す。本体がホーム画面を開くときに反映する
    （kokugo_app.htmlのmgApplyPendingLevelUps・MG_LVUP_CATS参照）。途中でやめた・ページを離れたときも、
@@ -578,11 +578,12 @@ const MG_CAT = "setsuzokushi", MG_GENRE = "接続詞";
 const MG_PENDING_LVUP_LSKEY = "kokugo_minigame_pending_lvups_v1";
 let MGS = null;   // 今の谷の {ok:正解数, ng:まちがい数, practice:練習の谷か}（谷の外ではnull）
 /* 数え方（2026-10-03、教員の指示）：
-   ・挑戦の谷：正解1つ＝＋1、まちがい1つ＝−1（マイナスもある。九尾の化かし合いと同じ）。
-   ・一〜六の谷（練習）：正解2つで＋1、まちがい2つで−1と数え、差し引きがマイナスになるときは0にする。 */
+   ・挑戦の谷：正解1つ＝＋1、まちがい1つ＝−1。
+   ・一〜六の谷（練習）：正解2つで＋1、まちがい2つで−1。
+   どちらも、1回の谷の差し引きがマイナスになるときは0にする（全体ではレベルが下がらない。教員の指示）。 */
 const mgNet = () => !MGS ? 0
   : MGS.practice ? Math.max(0, Math.floor(MGS.ok / 2) - Math.floor(MGS.ng / 2))
-  : MGS.ok - MGS.ng;
+  : Math.max(0, MGS.ok - MGS.ng);
 const mgSigned = n => n > 0 ? "+" + n : n < 0 ? "−" + (-n) : "±0";
 function mgStart(practice){ mgFlush(); MGS = {ok:0, ng:0, practice:!!practice}; }
 // 正解・まちがいのたびに数え、今回の増減が実際に変わったときだけ上に表示する
@@ -1339,7 +1340,7 @@ function finishStage(){
     <h2 class="mincho">${esc(head)}</h2>
     <div class="score">${esc(score)}</div>
     <div class="sub">${esc(sub)}${newBest ? "　🎉 自己ベスト更新！" : ""}</div>
-    ${lvr ? `<div class="lv-result ${lvr.net < 0 ? "down" : ""}">${esc(MG_GENRE)}ジャンル　<b>${esc(mgSigned(lvr.net))}レベル</b>（正解 ${lvr.ok}・まちがい ${lvr.ng}）${st.kind !== "challenge" ? `<div class="lv-rule">練習の谷は、正解2問で＋1・まちがい2問で−1（全体ではマイナスにならない）</div>` : ""}</div>` : ""}
+    ${lvr ? `<div class="lv-result ${lvr.net < 0 ? "down" : ""}">${esc(MG_GENRE)}ジャンル　<b>${esc(mgSigned(lvr.net))}レベル</b>（正解 ${lvr.ok}・まちがい ${lvr.ng}）<div class="lv-rule">${st.kind !== "challenge" ? "練習の谷は、正解2問で＋1・まちがい2問で−1" : "挑戦の谷は、正解1問で＋1・まちがい1問で−1"}（全体ではマイナスにならない）</div></div>` : ""}
     <div class="speech">${esc(line)}</div>
     ${misses ? `<h3 style="margin-top:18px;font-size:15px;text-align:left">割れた板のふり返り</h3><div class="miss-list">${misses}</div>` : ""}
     <div class="foot-btns" style="margin-top:18px">
