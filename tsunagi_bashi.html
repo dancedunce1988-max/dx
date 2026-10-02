@@ -10,7 +10,9 @@
      一〜四の谷で見る力を変え（板を選ぶ→板の働きを見る→長い橋を続けて架ける→腐った板を見つけて直す）、
      「挑戦の谷」で60秒のタイムアタック。
      試作なので、まだミニゲーム一覧には載せておらず、通行証のチェックも入れていない（このファイルを直接開いて遊べる）。
-     本体のセーブデータ(st)にもジャンルのレベルにも触れず、このページ専用のlocalStorageキー(TB_LSKEY)だけを使う。
+     本体のセーブデータ(st)には直接触れず、このページ専用のlocalStorageキー(TB_LSKEY)を使う。
+     2026-10-02〜、本体に新ジャンル「接続詞」（setsuzokushi）ができたので、九尾の化かし合いと同じく
+     「正解1つ＝＋1、まちがい1つ＝−1」の差し引きを本体のジャンルレベルの増減としてMG_PENDING_LVUP_LSKEYに書き置く（mgFlush参照）。
      鉄甲兵の絵は本番と同じスプライト(enemy_sprites_data.js)を使い、読み込めなかったときは🛡️の絵文字で代用する。 -->
 <script src="enemy_sprites_data.js"></script>
 <style>
@@ -240,6 +242,19 @@
   .z-ex{ font-size:13.5px; margin-top:8px; line-height:1.7; color:var(--text); }
   .z-ex u{ text-decoration:none; background:rgba(255,215,107,.22); padding:0 3px; border-radius:3px; font-weight:800; }
   .z-note{ font-size:12px; color:var(--sub); margin-top:4px; line-height:1.6; }
+
+  /* 本体のジャンルレベルの増減（九尾の化かし合いと同じ見せ方） */
+  .lvup-toast{ position:fixed; left:50%; top:56px; transform:translate(-50%,-10px); z-index:70; pointer-events:none;
+    background:rgba(20,60,35,.92); border:1px solid var(--ok); color:#dfffe9; border-radius:999px; padding:5px 14px;
+    font-size:12.5px; white-space:nowrap; opacity:0; transition:opacity .2s, transform .2s; }
+  .lvup-toast.down{ background:rgba(70,20,20,.92); border-color:var(--ng); color:#ffe1e1; }
+  .lvup-toast.show{ animation:lvToast 1.4s ease-out forwards; }
+  @keyframes lvToast{ 0%{opacity:0; transform:translate(-50%,-10px)} 15%,70%{opacity:1; transform:translate(-50%,0)} 100%{opacity:0; transform:translate(-50%,0)} }
+  .lvup-toast .g{ opacity:.8; margin-right:6px; }
+  .lvup-toast .t{ opacity:.8; margin-left:4px; }
+  .lv-result{ margin-top:8px; font-size:14px; color:#bff3d0; }
+  .lv-result.down{ color:#ffc9c9; }
+  .lv-result b{ font-size:18px; }
 
   /* ---------- 結果 ---------- */
   #result .wrap{ padding-top:24px; padding-bottom:24px; text-align:center; }
@@ -540,6 +555,43 @@ function loadSave(){ try{ return JSON.parse(localStorage.getItem(TB_LSKEY)) || {
 function saveSave(s){ try{ localStorage.setItem(TB_LSKEY, JSON.stringify(s)); }catch(e){} }
 
 /* =====================================================================
+   本体（kokugo_app.html）のジャンルレベルへの反映（九尾の化かし合いと同じしくみ・同じ数え方）。
+   1回の谷（ゲーム）の中で「正解1つ＝＋1、まちがい1つ＝−1」と数え、終わったときの差し引きを
+   localStorage（MG_PENDING_LVUP_LSKEY）に{ジャンル: 増減}として書き足す。本体がホーム画面を開くときに反映する
+   （kokugo_app.htmlのmgApplyPendingLevelUps・MG_LVUP_CATS参照）。途中でやめた・ページを離れたときも、
+   そこまでの分を必ず渡す（まちがいが多いときにやめて、下がるのを逃れられないように）。
+   ===================================================================== */
+const MG_CAT = "setsuzokushi", MG_GENRE = "接続詞";
+const MG_PENDING_LVUP_LSKEY = "kokugo_minigame_pending_lvups_v1";
+let MGS = null;   // 今の谷の {ok:正解数, ng:まちがい数}（谷の外ではnull）
+const mgNet = () => MGS ? MGS.ok - MGS.ng : 0;
+const mgSigned = n => n > 0 ? "+" + n : n < 0 ? "−" + (-n) : "±0";
+function mgStart(){ mgFlush(); MGS = {ok:0, ng:0}; }
+function mgCorrect(){ if(!MGS) return; MGS.ok++; showLvupToast(1); }
+function mgWrong(){ if(!MGS) return; MGS.ng++; showLvupToast(-1); }
+function mgFlush(){
+  if(!MGS) return null;
+  const r = {ok:MGS.ok, ng:MGS.ng, net:mgNet()};
+  MGS = null;
+  if(r.net){
+    let o = {};
+    try{ o = JSON.parse(localStorage.getItem(MG_PENDING_LVUP_LSKEY)) || {}; }catch(e){ o = {}; }
+    if(!o || typeof o !== "object") o = {};
+    o[MG_CAT] = (Number(o[MG_CAT]) || 0) + r.net;
+    try{ localStorage.setItem(MG_PENDING_LVUP_LSKEY, JSON.stringify(o)); }catch(e){}
+  }
+  return r;
+}
+window.addEventListener("pagehide", mgFlush);
+function showLvupToast(d){
+  let el = document.getElementById("lvupToast");
+  if(!el){ el = document.createElement("div"); el.id = "lvupToast"; el.className = "lvup-toast"; document.body.appendChild(el); }
+  el.innerHTML = `<span class="g">${MG_GENRE}ジャンル</span><b>${d > 0 ? "1レベルUP" : "1レベルDOWN"}</b><span class="t">（今回 ${mgSigned(mgNet())}）</span>`;
+  el.classList.toggle("down", d < 0);
+  el.classList.remove("show"); void el.offsetWidth; el.classList.add("show");
+}
+
+/* =====================================================================
    小道具
    ===================================================================== */
 const $ = id => document.getElementById(id);
@@ -725,6 +777,7 @@ function startStage(id){
   else if(st.kind === "rotten") rounds = shuffle(ROTTENS).slice(0, st.n).map(r => ({kind:"rotten", r}));
   else rounds = [];
   stopTimer();
+  mgStart();
   G = {stage:st, rounds, idx:0, ok:0, ng:0, misses:[], busy:false, crossed:0, armor:ARMOR_MAX, tier:0, over:false,
        timeLeft:0, frozen:false, explaining:false, endReason:null};
   $("hudStage").textContent = st.name.split("　")[0];
@@ -831,7 +884,7 @@ function updateProg(){
   if(st.kind === "challenge") return updatePips();
   $("hudProg").style.width = Math.min(100, G.idx / G.rounds.length * 100) + "%";
 }
-function quitStage(){ stopTimer(); G.over = true; showTitle(); }
+function quitStage(){ stopTimer(); G.over = true; mgFlush(); showTitle(); }
 
 async function nextRound(){
   if(G.over) return;
@@ -878,9 +931,9 @@ async function afterRound(){
   G.busy = false; nextRound();
 }
 
-function recordOk(){ G.ok++; }
+function recordOk(){ G.ok++; mgCorrect(); }
 function recordNg(miss){
-  G.ng++; G.misses.push(miss);
+  G.ng++; G.misses.push(miss); mgWrong();
   if(G.stage.kind === "challenge"){ G.armor = Math.max(0, G.armor - 1); updateArmor(); }
 }
 
@@ -1196,6 +1249,7 @@ async function fixRotten(r, btn){
 function finishStage(){
   if(G.over) return;
   G.over = true; stopTimer();
+  const lvr = mgFlush();
   const st = G.stage, sv = loadSave();
   let head, score, sub, newBest = false;
   if(st.kind === "challenge"){
@@ -1239,6 +1293,7 @@ function finishStage(){
     <h2 class="mincho">${esc(head)}</h2>
     <div class="score">${esc(score)}</div>
     <div class="sub">${esc(sub)}${newBest ? "　🎉 自己ベスト更新！" : ""}</div>
+    ${lvr ? `<div class="lv-result ${lvr.net < 0 ? "down" : ""}">${esc(MG_GENRE)}ジャンル　<b>${esc(mgSigned(lvr.net))}レベル</b>（正解 ${lvr.ok}・まちがい ${lvr.ng}）</div>` : ""}
     <div class="speech">${esc(line)}</div>
     ${misses ? `<h3 style="margin-top:18px;font-size:15px;text-align:left">割れた板のふり返り</h3><div class="miss-list">${misses}</div>` : ""}
     <div class="foot-btns" style="margin-top:18px">
