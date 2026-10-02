@@ -4330,7 +4330,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.85</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.86</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -4552,7 +4552,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 50;
+const SAVE_FORMAT_VERSION = 51;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -19851,6 +19851,7 @@ function showSideQuestMenu(){
   html += speedMatchMenuHtml();
   html += enroRunMenuHtml();   // 教員の指示（2026-09-30）で炎狼ランを九尾より上に
   html += kitsuneMenuHtml();
+  html += tsunagiMenuHtml();
   html += `<div class="btn-row" style="justify-content:center; margin-top:10px">
     <button class="btn secondary" onclick="showHome()">戻る</button>
   </div>`;
@@ -19947,8 +19948,9 @@ function storySideQuestButtonHtml(key, st){
    2026-09-29〜、「5回タップ」は生徒に知られているとの教員の指示で、「カードを3回タップ→kキーを1回→
    カードを2回タップ」の順（KITSUNE_SECRET_SEQ）に変更した。直前の6操作がこの順になっていれば開く
    （多めにタップしてしまっても、そのままk→2回タップで開ける）。
-   正式に公開するときは KITSUNE_RELEASED を true にするだけでよい。 */
-const KITSUNE_RELEASED = false;
+   正式に公開するときは KITSUNE_RELEASED を true にするだけでよい。
+   2026-10-03、教員の指示で公開した（隠しモードを解除）。 */
+const KITSUNE_RELEASED = true;
 const KITSUNE_SECRET_SEQ = ["tap","tap","tap","k","tap","tap"];
 let kitsuneSeqHist = []; // 直近の隠し操作。保存しない＝ページ再読み込みでリセットされてよい。
 function kitsuneMenuHtml(){
@@ -20007,8 +20009,9 @@ function openKitsuneBakashiai(){ mgGoWithPass("kitsune", "kitsune_bakashiai.html
    差し引きで「敬語」ジャンルのレベルを上下させる（MG_PENDING_LVUP_LSKEY経由、mgApplyPendingLevelUps参照）。
    教員の指示（2026-09-29：「試作して」）で、九尾と同じ「準備中」カードとして置き、隠し操作
    （カードを3回タップ→eキーを1回→カードを2回タップ、ENRO_RUN_SECRET_SEQ）のときだけ裏で遊べるようにする。
-   正式に公開するときは ENRO_RUN_RELEASED を true にするだけでよい。 */
-const ENRO_RUN_RELEASED = false;
+   正式に公開するときは ENRO_RUN_RELEASED を true にするだけでよい。
+   2026-10-03、教員の指示で公開した（隠しモードを解除）。 */
+const ENRO_RUN_RELEASED = true;
 const ENRO_RUN_SECRET_SEQ = ["tap","tap","tap","e","tap","tap"];
 let enroRunSeqHist = []; // 直近の隠し操作。保存しない＝ページ再読み込みでリセットされてよい。
 function enroRunMenuHtml(){
@@ -20051,6 +20054,55 @@ function enroRunComingSoonTap(el){
   }
 }
 function openEnroRun(){ mgGoWithPass("enro", "enro_run.html"); }
+/* 鉄甲兵のつなぎ橋（2026-10-02〜、試作・準備中）。鉄甲兵(me02)が、接続詞の板で谷に橋を架けて渡るゲーム。
+   九尾・炎狼ランと同じく別ページ（tsunagi_bashi.html）で、戻るときは kokugo_app.html?from=minigame。
+   正誤は「接続詞」（setsuzokushi）ジャンルのレベルに反映する（MG_LVUP_CATS参照）。
+   教員の指示（2026-10-03）で、九尾・炎狼ランと同じ「準備中」カードとして置き、隠し操作
+   （カードを3回タップ→tキーを1回→カードを2回タップ、TSUNAGI_SECRET_SEQ）のときだけ裏で遊べるようにする。
+   正式に公開するときは TSUNAGI_RELEASED を true にするだけでよい。 */
+const TSUNAGI_RELEASED = false;
+const TSUNAGI_SECRET_SEQ = ["tap","tap","tap","t","tap","tap"];
+let tsunagiSeqHist = []; // 直近の隠し操作。保存しない＝ページ再読み込みでリセットされてよい。
+function tsunagiMenuHtml(){
+  if(TSUNAGI_RELEASED){
+    return `
+    <div class="card menu-card" onclick="openTsunagiBashi()">
+      <div class="menu-icon">🛡️</div>
+      <div><h2>鉄甲兵のつなぎ橋</h2><p>接続詞の板で谷に橋を架け、鉄甲兵を向こう岸へ渡らせよう</p></div>
+      <div class="right"><span class="shogo-badge">挑戦する</span></div>
+    </div>`;
+  }
+  return `
+    <div class="card menu-card locked tsunagi-teaser" onclick="tsunagiComingSoonTap(this)">
+      <div class="menu-icon">🛡️</div>
+      <div><h2>鉄甲兵のつなぎ橋</h2><p>接続詞の板で谷に橋を架け、鉄甲兵を向こう岸へ渡らせよう</p></div>
+      <div class="right"><span class="shogo-badge">準備中</span></div>
+    </div>`;
+}
+// 隠し操作を1つ記録し、直前の操作がTSUNAGI_SECRET_SEQと一致したら開く（kitsuneSecretInputと同じ仕組み）。
+function tsunagiSecretInput(kind){
+  tsunagiSeqHist.push(kind);
+  if(tsunagiSeqHist.length > TSUNAGI_SECRET_SEQ.length) tsunagiSeqHist.shift();
+  if(tsunagiSeqHist.join(",") === TSUNAGI_SECRET_SEQ.join(",")){ tsunagiSeqHist = []; openTsunagiBashi(); return true; }
+  return false;
+}
+// tキーは、ミニゲーム一覧に「準備中」カードが出ているときだけ数える（入力欄での入力は無視）。
+document.addEventListener("keydown", e => {
+  if(TSUNAGI_RELEASED || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+  if(!document.querySelector(".tsunagi-teaser")) return;
+  const tag = (e.target && e.target.tagName) || "";
+  if(tag === "INPUT" || tag === "TEXTAREA" || (e.target && e.target.isContentEditable)) return;
+  if(e.key === "t" || e.key === "T") tsunagiSecretInput("t");
+});
+function tsunagiComingSoonTap(el){
+  if(tsunagiSecretInput("tap")) return;
+  if(el){
+    el.classList.remove('tap-pulse');
+    void el.offsetWidth; // タップのたびにアニメーションをやり直すための強制リフロー
+    el.classList.add('tap-pulse');
+  }
+}
+function openTsunagiBashi(){ mgGoWithPass("tsunagi", "tsunagi_bashi.html"); }
 /* マッチ（類義語マッチ・対義語マッチ、2026-09-18〜）。ミニゲームとしては「マッチ」という
    ひとつの入口にまとめ、その中に類義語マッチ・対義語マッチの2モードを置く（以前は対義語・
    類義語を別々のミニゲームとして並べていたが、教員の指示でひとつにまとめた）。taigigo/ruigigoの

@@ -3,13 +3,25 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<!-- 通行証のチェック（九尾・炎狼ランと同じ）：知識ドリルDXの入口（kokugo_app.htmlのmgGoWithPass）を通らずに、
+     このファイルを直接開いたときは本体へ戻す。sessionStorageが使えないときは、確かめようがないのでそのまま開く。 -->
+<!--PASS_CHECK_BEGIN-->
+<script>
+(function(){
+  var ok = true;
+  try{ ok = !!(JSON.parse(sessionStorage.getItem("kokugo_mg_pass_v1") || "{}")["tsunagi"]); }catch(e){ ok = true; }
+  if(!ok){ document.documentElement.style.display = "none"; location.replace("kokugo_app.html"); }
+})();
+</script>
+<!--PASS_CHECK_END-->
 <title>鉄甲兵のつなぎ橋</title>
 <!-- 知識ドリルDXのミニゲーム「鉄甲兵のつなぎ橋」（2026-10-02〜、試作）。
      接続語で文と文をつなぎ、谷に橋を架けて鉄甲兵(me02)を向こう岸へ渡らせる。鉄甲兵は鎧が重いので、
      前後の関係（順接・逆接など）に合わない板を選ぶと、乗った瞬間に割れる。
      一〜四の谷で見る力を変え（板を選ぶ→板の働きを見る→長い橋を続けて架ける→腐った板を見つけて直す）、
      「挑戦の谷」で60秒のタイムアタック。
-     試作なので、まだミニゲーム一覧には載せておらず、通行証のチェックも入れていない（このファイルを直接開いて遊べる）。
+     2026-10-03〜、ミニゲーム一覧に「準備中」カードとして載せ、隠し操作（3回タップ→t→2回タップ）でだけ開ける。
+     九尾・炎狼ランと同じく、本体の入口を通ったときだけ入れる（通行証のチェック）。
      本体のセーブデータ(st)には直接触れず、このページ専用のlocalStorageキー(TB_LSKEY)を使う。
      2026-10-02〜、本体に新ジャンル「接続詞」（setsuzokushi）ができたので、九尾の化かし合いと同じく
      「正解1つ＝＋1、まちがい1つ＝−1」の差し引きを本体のジャンルレベルの増減としてMG_PENDING_LVUP_LSKEYに書き置く（mgFlush参照）。
