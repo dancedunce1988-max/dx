@@ -622,14 +622,16 @@
       });
   }
 
-  /** ルート直下の別ページ HTML（九尾の化かし合い・炎狼ラン等）を srcdoc で開く */
-  function openStandaloneHtml(fileName) {
+  /** ルート直下の別ページ HTML（九尾の化かし合い・炎狼ラン等）を srcdoc で開く。
+   *  passId は本体 mgGoWithPass の第1引数（通行証キー）。新ミニゲーム追加時も対応表不要。 */
+  function openStandaloneHtml(fileName, passId) {
     const base = window.__DX_CDN_BASE__;
     const home = dxHostHomeUrl();
     const safeName = String(fileName || '').trim();
     if (!/^[A-Za-z0-9_-]+\.html$/.test(safeName)) {
       return Promise.reject(new Error('不正なページ名です'));
     }
+    const safePassId = /^[A-Za-z0-9_-]+$/.test(String(passId || '')) ? String(passId) : '';
 
     if (!base) {
       location.href = safeName;
@@ -645,10 +647,6 @@
         return res.text();
       })
       .then(function (html) {
-        let passId = '';
-        if (safeName === 'kitsune_bakashiai.html') passId = 'kitsune';
-        else if (safeName === 'enro_run.html') passId = 'enro';
-
         const openerSrc =
           'window.__DX_OPEN_STANDALONE_HTML__=(' +
           window.__DX_OPEN_STANDALONE_HTML__.toString() +
@@ -665,9 +663,9 @@
           ');';
 
         /* 通行証チェックより先に head 先頭で実行する。srcdoc の sessionStorage は親と共有されない */
-        const passBoot = passId
+        const passBoot = safePassId
           ? 'try{var __dxpo=JSON.parse(sessionStorage.getItem("kokugo_mg_pass_v1")||"{}");__dxpo[' +
-            JSON.stringify(passId) +
+            JSON.stringify(safePassId) +
             ']=1;sessionStorage.setItem("kokugo_mg_pass_v1",JSON.stringify(__dxpo));}catch(e){}'
           : '';
 
@@ -775,7 +773,7 @@
           .split('?')[0]
           .replace(/^.*\//, '');
         if (window.__DX_CDN_BASE__ && /^[A-Za-z0-9_-]+\.html$/.test(name)) {
-          return openStandaloneHtml(name);
+          return openStandaloneHtml(name, id);
         }
         return orig.apply(this, arguments);
       };
