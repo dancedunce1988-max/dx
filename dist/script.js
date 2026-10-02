@@ -644,6 +644,10 @@
         return res.text();
       })
       .then(function (html) {
+        let passId = '';
+        if (safeName === 'kitsune_bakashiai.html') passId = 'kitsune';
+        else if (safeName === 'enro_run.html') passId = 'enro';
+
         const openerSrc =
           'window.__DX_OPEN_STANDALONE_HTML__=(' +
           window.__DX_OPEN_STANDALONE_HTML__.toString() +
@@ -659,8 +663,16 @@
           window.__DX_ABS_NOBIRU__.toString() +
           ');';
 
+        /* 通行証チェックより先に head 先頭で実行する。srcdoc の sessionStorage は親と共有されない */
+        const passBoot = passId
+          ? 'try{var __dxpo=JSON.parse(sessionStorage.getItem("kokugo_mg_pass_v1")||"{}");__dxpo[' +
+            JSON.stringify(passId) +
+            ']=1;sessionStorage.setItem("kokugo_mg_pass_v1",JSON.stringify(__dxpo));}catch(e){}'
+          : '';
+
         const boot =
           '<script>(function(){' +
+          passBoot +
           'window.__DX_CDN_BASE__=' +
           JSON.stringify(base) +
           ';' +
@@ -683,6 +695,10 @@
           'catch(e2){}}return el;};})();' +
           'window.__DX_GO_HOME__=function(){try{if(parent!==window&&parent.__DX_CLOSE_NOBIRU__){parent.__DX_CLOSE_NOBIRU__();if(parent.__DX_RETURN_FROM_MINIGAME__)parent.__DX_RETURN_FROM_MINIGAME__();return;}}catch(e){}' +
           'if(window.__DX_HOME_URL__)location.href=window.__DX_HOME_URL__;};' +
+          /* 通行証なし時の location.replace("kokugo_app.html") もホーム復帰へ */
+          '(function(){try{const lr=Location.prototype.replace;Location.prototype.replace=function(u){' +
+          'if(String(u||"").indexOf("kokugo_app")!==-1&&window.__DX_GO_HOME__){window.__DX_GO_HOME__();return;}' +
+          'return lr.apply(this,arguments);};}catch(e4){}})();' +
           'document.addEventListener("click",function(ev){' +
           'const back=ev.target&&ev.target.closest&&ev.target.closest("#backLink,.back-link,a[href*=\\"kokugo_app\\"]");' +
           'if(back){ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();}' +
