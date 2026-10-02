@@ -970,6 +970,17 @@ async function waitNext(boxHtml, cls){
   if(G.stage.kind === "challenge"){ G.explaining = false; updateTimer(); }
 }
 
+/* 板の刻印のボタンに添える例の語。板に刻まれた語（＝答え）がそのまま例に出ると答えが分かってしまうので、
+   その語を除いて、同じ働きのほかの語を2つ出す（教員の指示）。 */
+const TYPE_EXAMPLE_ORDER = {
+  jun:["だから","すると","そこで","そのため"], gyaku:["しかし","ところが","けれども","だが"],
+  hei:["また","しかも","そのうえ","さらに"], tai:["一方","それとも","または","これに対して"],
+  setsu:["なぜなら","つまり","たとえば","ただし"], ten:["ところで","さて","では"],
+};
+function typeExamples(k, exclude){
+  return TYPE_EXAMPLE_ORDER[k].filter(w => w !== exclude).slice(0, 2).join("・");
+}
+
 /* ---------- 一の谷（pick）・二の谷（type）：二文の橋 ---------- */
 function pairTablet(p, slotHtml){
   return `<div class="tablet mincho">${esc(p.a)}${slotHtml}${esc(p.b)}</div>`;
@@ -988,7 +999,7 @@ function renderPair(r){
     placePlank(0, p.ans, "rot");
     $("board").innerHTML = `<div class="ask">この板の「働き」は？ 刻印を読み当てると、板が固まる</div>` +
       pairTablet(p, `<span class="slot filled" id="slot0">${esc(p.ans)}</span>`) +
-      `<div class="opts six">${TYPE_KEYS.map(k => `<button class="opt" data-t="${k}">${esc(TYPES[k].name)}<small>${esc(TYPES[k].ex)}</small></button>`).join("")}</div>`;
+      `<div class="opts six">${TYPE_KEYS.map(k => `<button class="opt" data-t="${k}">${esc(TYPES[k].name)}<small>${esc(typeExamples(k, p.ans))}</small></button>`).join("")}</div>`;
     $("board").querySelectorAll(".opt").forEach(b => b.onclick = () => answerType(r, b));
   }
 }
