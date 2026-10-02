@@ -103,11 +103,7 @@
   .menu-card.locked .shogo-badge{background:var(--sub);}
   /* 九尾の化かし合い・炎狼ランの「準備中」カード：タップの手応えとして軽くパルスさせるだけ（kitsuneComingSoonTap・enroRunComingSoonTap参照） */
   .kitsune-teaser.tap-pulse, .enro-teaser.tap-pulse{ animation:kitsuneTapPulse .18s ease; }
-  /* 九尾・炎狼の入口バナー（mgBannerHtml参照）：画像の四隅が透明な角丸の額縁なので、四角い
-     box-shadowではなく画像の形に沿ったdrop-shadowにする。「準備中」の間は浮き上がらせない。 */
-  .menu-card-img-btn.mg-banner-btn{ box-shadow:none; border-radius:0; overflow:visible; margin-left:auto; margin-right:auto; }
-  .menu-card-img-btn.mg-banner-btn img{ filter:drop-shadow(0 1px 3px rgba(0,0,0,.25)); }
-  .menu-card-img-btn.mg-banner-btn:hover{ box-shadow:none; }
+  /* 九尾・炎狼の入口バナー（mgBannerHtml参照）：「準備中」の間は浮き上がらせない。 */
   .menu-card-img-btn.mg-banner-locked{ cursor:default; }
   .menu-card-img-btn.mg-banner-locked:hover{ transform:none; }
   @keyframes kitsuneTapPulse{ 0%{transform:scale(1);} 45%{transform:scale(.96);} 100%{transform:scale(1);} }
@@ -4337,7 +4333,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.88</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.89</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -19963,19 +19959,15 @@ const KITSUNE_RELEASED = true;
    .menu-card-img-btnで画像そのものをボタンにする。「準備中」の間も隠し操作のクラス
    （kitsune-teaser/enro-teaser）とタップ処理はそのまま引き継ぎ、右下のバッジだけ「準備中」にする。
    画像が無ければnullを返し、従来のテキストカードにフォールバックする。
-   2026-10-03、教員の指示で、ほかのミニゲーム画像（マッチ＆MATCH、2146x326）と表示の高さをそろえる。
-   バナーは縦長（炎狼711x216・九尾710x229）なので、幅を「バナーの縦横比÷マッチの縦横比」に縮めて
-   中央に寄せる（%指定なので画面幅が変わっても高さはそろったまま）。幅が半分ほどになり、スマホでは
-   「タップして挑戦しよう」のバッジがタイトル文字を隠してしまうため、公開中はバッジを出さない
-   （このバナーは自己ベスト等の表示も無い）。「準備中」のときだけ短いバッジを重ねる。 */
-const MG_BANNER_WIDTH = { enroRun: "50%", kitsune: "47.1%" };
+   2026-10-03、教員がバナー画像をほかのミニゲームと同じ横長の形に作り直したので、一度入れた
+   「幅を縮めて高さをそろえる」処理はやめ、ほかの画像ボタンと同じ全幅・同じ見た目にもどした。 */
 function mgBannerHtml(key, alt, released, teaserClass, openFn, tapFn){
   const img = window.MB_MENU_TITLE_IMAGES && window.MB_MENU_TITLE_IMAGES[key];
   if(!img) return null;
   return `
-    <div class="menu-card-img-btn mg-banner-btn${released ? "" : " mg-banner-locked " + teaserClass}" style="width:${MG_BANNER_WIDTH[key] || "100%"}" onclick="${released ? openFn : tapFn}">
+    <div class="menu-card-img-btn${released ? "" : " mg-banner-locked " + teaserClass}" onclick="${released ? openFn : tapFn}">
       <img src="${img}" alt="${esc(alt)}">
-      ${released ? "" : `<span class="menu-card-overlay">準備中</span>`}
+      <span class="menu-card-overlay">${released ? "タップして挑戦しよう" : "準備中"}</span>
     </div>`;
 }
 const KITSUNE_SECRET_SEQ = ["tap","tap","tap","k","tap","tap"];
