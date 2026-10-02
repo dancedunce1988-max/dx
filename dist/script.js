@@ -582,6 +582,29 @@
           'catch(e2){}}return el;};})();' +
           'window.__DX_GO_HOME__=function(){try{if(parent!==window&&parent.__DX_CLOSE_NOBIRU__){parent.__DX_CLOSE_NOBIRU__();return;}}catch(e){}' +
           'if(window.__DX_HOME_URL__)location.href=window.__DX_HOME_URL__;};' +
+          /* 本体 engine を触らず、location 遷移を配布側で横取りする */
+          '(function(){function dxIsHomeNav(u){return /kokugo_app\\.html/i.test(String(u||""));}' +
+          'function dxReopenNobiru(){if(!window.__DX_OPEN_NOBIRU__||!window.__DX_NOBIRU_KEY__)return false;' +
+          'const o={};try{new URLSearchParams(window.__DX_BOOT_SEARCH__||"").forEach(function(v,k){o[k]=v;});}catch(eR){}' +
+          'window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__,o);return true;}' +
+          'try{const lr=Location.prototype.replace;Location.prototype.replace=function(u){' +
+          'if(dxIsHomeNav(u)&&window.__DX_GO_HOME__){window.__DX_GO_HOME__();return;}' +
+          'return lr.apply(this,arguments);};}catch(e4){}' +
+          'try{const la=Location.prototype.assign;Location.prototype.assign=function(u){' +
+          'if(dxIsHomeNav(u)&&window.__DX_GO_HOME__){window.__DX_GO_HOME__();return;}' +
+          'return la.apply(this,arguments);};}catch(e5){}' +
+          'try{const hd=Object.getOwnPropertyDescriptor(Location.prototype,"href");' +
+          'if(hd&&hd.set){Object.defineProperty(Location.prototype,"href",{configurable:true,enumerable:true,' +
+          'get:function(){return hd.get.call(this);},' +
+          'set:function(v){if(dxIsHomeNav(v)&&window.__DX_GO_HOME__){window.__DX_GO_HOME__();return;}' +
+          'return hd.set.call(this,v);}});}}catch(e6){}' +
+          'try{const rl=Location.prototype.reload;Location.prototype.reload=function(){' +
+          'if(dxReopenNobiru())return;return rl.apply(this,arguments);};}catch(e8){}' +
+          'window.__DX_REOPEN_NOBIRU__=dxReopenNobiru;' +
+          'window.__DX_NOBIRU_FINISHED__=function(){return Array.prototype.some.call(document.querySelectorAll("button.again"),function(b){' +
+          'const t=String(b.textContent||"");' +
+          'return b.classList.contains("daily-end")||t.indexOf("ホーム")!==-1||t.indexOf("一日一読を終える")!==-1||t.indexOf("はじめからやり直す")!==-1;});};' +
+          '})();' +
           /* キャプチャで srcdoc 上の壊れる遷移（pathname=srcdoc / ../kokugo_app / reload）を潰す */
           'document.addEventListener("click",function(ev){' +
           'const btn=ev.target&&ev.target.closest&&ev.target.closest(".modesel-card[data-mode]");' +
@@ -592,7 +615,9 @@
           'window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__,{});return;}' +
           'const a=ev.target&&ev.target.closest&&ev.target.closest("a.back, a.modesel-back");' +
           'if(a){' +
-          'if(a.classList.contains("back")&&/[?&]viaDaily=1(?:&|$)/.test(String(window.__DX_BOOT_SEARCH__||""))&&document.documentElement.getAttribute("data-dx-nobiru-finished")!=="1"){return;}' +
+          /* 一日一読の未完了中は engine の confirm に任せる。完了後は結果ボタン有無で判定（data属性不要） */
+          'if(a.classList.contains("back")&&/[?&]viaDaily=1(?:&|$)/.test(String(window.__DX_BOOT_SEARCH__||""))&&' +
+          '!(window.__DX_NOBIRU_FINISHED__&&window.__DX_NOBIRU_FINISHED__())){return;}' +
           'ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();return;}' +
           'const again=ev.target&&ev.target.closest&&ev.target.closest("button.again");' +
           'if(again){const oc=String(again.getAttribute("onclick")||"");const tx=String(again.textContent||"");' +
@@ -600,9 +625,7 @@
           'ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();return;}' +
           'if(oc.indexOf("location.reload")!==-1||tx.indexOf("はじめからやり直す")!==-1){' +
           'ev.preventDefault();ev.stopImmediatePropagation();' +
-          'if(window.__DX_OPEN_NOBIRU__&&window.__DX_NOBIRU_KEY__){const o={};' +
-          'try{new URLSearchParams(window.__DX_BOOT_SEARCH__||"").forEach(function(v,k){o[k]=v;});}catch(e3){}' +
-          'window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__,o);}return;}}' +
+          'if(window.__DX_REOPEN_NOBIRU__){window.__DX_REOPEN_NOBIRU__();}return;}}' +
           '},true);' +
           openerSrc +
           '})();<\/script>';
