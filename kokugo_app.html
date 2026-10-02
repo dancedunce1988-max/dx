@@ -13018,32 +13018,7 @@ function nobiruIsUnlocked(t){
 // 参照）。engine.js側が?viaCheck=1を読み取り、経験値の合図（DD_PENDING_REWARD_LSKEY）を
 // いっさい書かない＝このモードで解いても経験値には絶対にならない。
 function ddOpenNobiru(key, viaDaily, viaCheck){
-  /* file:// ランチャー時:
-     jsDelivr の .html は text/plain のため直接遷移するとソース表示になる。
-     dist/script.js が入れる __DX_OPEN_NOBIRU__（fetch→srcdoc）を優先。
-     viaDaily / viaCheck も渡す。 */
-  if (typeof window.__DX_OPEN_NOBIRU__ === "function") {
-    const params = {};
-    if (viaCheck) params.viaCheck = "1";
-    else if (viaDaily) params.viaDaily = "1";
-    window.__DX_OPEN_NOBIRU__(key, params);
-    return;
-  }
-  /* file:// ランチャー時は相対 nobiru/ がホスト側に解決されて壊れるため、
-     __DX_CDN_BASE__（末尾スラッシュ）があれば CDN 絶対URLへ。未定義なら従来どおり。
-     CDN遷移時は dx_home に現在URLを付け、モード選択後も「ホームに戻る」で
-     ランチャーへ戻れるようにする（history.back 1回では足りない）。 */
-  const base = window.__DX_CDN_BASE__;
-  let url = (base || "") + "nobiru/" + key + ".html";
-  if (viaCheck) {
-    url += (url.indexOf("?") >= 0 ? "&" : "?") + "viaCheck=1";
-  } else if (viaDaily) {
-    url += (url.indexOf("?") >= 0 ? "&" : "?") + "viaDaily=1";
-  }
-  if (base) {
-    url += (url.indexOf("?") >= 0 ? "&" : "?") + "dx_home=" + encodeURIComponent(location.href);
-  }
-  location.href = url;
+  location.href = "nobiru/" + key + ".html" + (viaCheck ? "?viaCheck=1" : viaDaily ? "?viaDaily=1" : "");
 }
 /* 「問題チェックモード」（教員の指示、2026-09-27〜）。読解Quest入口画面（ddShowLevelSelect）
    で「dokkaichekku」と連続入力すると発動する、管理者用の裏メニュー。NOBIRU_TEXTSに

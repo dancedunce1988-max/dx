@@ -399,8 +399,8 @@
           }).then(function () {
             installNobiruOpener();
             installMinigameDistHooks();
-            /* CDN の旧 kokugo_app は jsDelivr HTML へ遷移して text/plain 表示になるため上書き。
-               viaDaily（一日一読）と viaCheck（問題チェック）は落とさず __DX_OPEN_NOBIRU__ へ渡す。 */
+            /* 配布時ののびる読解入口はここだけ。本体 ddOpenNobiru（location.href）を上書きし、
+               viaDaily / viaCheck を落とさず __DX_OPEN_NOBIRU__（fetch→srcdoc）へ渡す。 */
             window.ddOpenNobiru = function (key, viaDaily, viaCheck) {
               const params = {};
               if (viaCheck) params.viaCheck = '1';
