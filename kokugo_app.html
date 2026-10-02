@@ -103,6 +103,13 @@
   .menu-card.locked .shogo-badge{background:var(--sub);}
   /* 九尾の化かし合い・炎狼ランの「準備中」カード：タップの手応えとして軽くパルスさせるだけ（kitsuneComingSoonTap・enroRunComingSoonTap参照） */
   .kitsune-teaser.tap-pulse, .enro-teaser.tap-pulse{ animation:kitsuneTapPulse .18s ease; }
+  /* 九尾・炎狼の入口バナー（mgBannerHtml参照）：画像の四隅が透明な角丸の額縁なので、四角い
+     box-shadowではなく画像の形に沿ったdrop-shadowにする。「準備中」の間は浮き上がらせない。 */
+  .menu-card-img-btn.mg-banner-btn{ box-shadow:none; border-radius:0; overflow:visible; }
+  .menu-card-img-btn.mg-banner-btn img{ filter:drop-shadow(0 1px 3px rgba(0,0,0,.25)); }
+  .menu-card-img-btn.mg-banner-btn:hover{ box-shadow:none; }
+  .menu-card-img-btn.mg-banner-locked{ cursor:default; }
+  .menu-card-img-btn.mg-banner-locked:hover{ transform:none; }
   @keyframes kitsuneTapPulse{ 0%{transform:scale(1);} 45%{transform:scale(.96);} 100%{transform:scale(1);} }
   /* クリア済みのストーリー章カード：カード全体タップではなく、中の2つのボタン
      （「ストーリーを見る」「問題だけ」）で選ぶ形にしたので、カード自体はクリック不可にする
@@ -4330,7 +4337,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.86</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.87</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -19951,9 +19958,25 @@ function storySideQuestButtonHtml(key, st){
    正式に公開するときは KITSUNE_RELEASED を true にするだけでよい。
    2026-10-03、教員の指示で公開した（隠しモードを解除）。 */
 const KITSUNE_RELEASED = true;
+/* 別ページのミニゲーム（九尾の化かし合い・炎狼ラン）の入口バナー（2026-10-03〜、教員が用意した
+   九尾バナー.png・炎狼バナー.png、menu_title_images.jsのkitsune/enroRun）。他のミニゲームと同じ
+   .menu-card-img-btnで画像そのものをボタンにする。「準備中」の間も隠し操作のクラス
+   （kitsune-teaser/enro-teaser）とタップ処理はそのまま引き継ぎ、右下のバッジだけ「準備中」にする。
+   画像が無ければnullを返し、従来のテキストカードにフォールバックする。 */
+function mgBannerHtml(key, alt, released, teaserClass, openFn, tapFn){
+  const img = window.MB_MENU_TITLE_IMAGES && window.MB_MENU_TITLE_IMAGES[key];
+  if(!img) return null;
+  return `
+    <div class="menu-card-img-btn mg-banner-btn${released ? "" : " mg-banner-locked " + teaserClass}" onclick="${released ? openFn : tapFn}">
+      <img src="${img}" alt="${esc(alt)}">
+      <span class="menu-card-overlay">${released ? "タップして挑戦しよう" : "準備中"}</span>
+    </div>`;
+}
 const KITSUNE_SECRET_SEQ = ["tap","tap","tap","k","tap","tap"];
 let kitsuneSeqHist = []; // 直近の隠し操作。保存しない＝ページ再読み込みでリセットされてよい。
 function kitsuneMenuHtml(){
+  const banner = mgBannerHtml("kitsune", "九尾の化かし合い", KITSUNE_RELEASED, "kitsune-teaser", "openKitsuneBakashiai()", "kitsuneComingSoonTap(this)");
+  if(banner) return banner;
   if(KITSUNE_RELEASED){
     return `
     <div class="card menu-card" onclick="openKitsuneBakashiai()">
@@ -20015,6 +20038,8 @@ const ENRO_RUN_RELEASED = true;
 const ENRO_RUN_SECRET_SEQ = ["tap","tap","tap","e","tap","tap"];
 let enroRunSeqHist = []; // 直近の隠し操作。保存しない＝ページ再読み込みでリセットされてよい。
 function enroRunMenuHtml(){
+  const banner = mgBannerHtml("enroRun", "炎狼ラン", ENRO_RUN_RELEASED, "enro-teaser", "openEnroRun()", "enroRunComingSoonTap(this)");
+  if(banner) return banner;
   if(ENRO_RUN_RELEASED){
     return `
     <div class="card menu-card" onclick="openEnroRun()">
