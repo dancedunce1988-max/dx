@@ -83,8 +83,35 @@
   .hud .prog i{ display:block; height:100%; width:0; background:linear-gradient(90deg, var(--wood1), var(--gold)); transition:width .4s; }
   .hud .timer{ font-size:18px; font-weight:800; color:var(--gold); min-width:3.2em; text-align:right; }
   .hud .timer.low{ color:var(--ng); }
-  .hud .timer .armor{ font-size:17px; margin-left:1px; transition:opacity .3s, filter .3s; }
-  .hud .timer .armor.lost{ opacity:.25; filter:grayscale(1); }
+  .hud .armors{ white-space:nowrap; }
+  .hud .armor{ font-size:15px; transition:opacity .3s, filter .3s; }
+  .hud .armor.lost{ opacity:.25; filter:grayscale(1); }
+  /* 5問ごとの長文までの道のり。最後の📜が長文の橋（時間停止） */
+  .hud .pips{ flex:1; display:flex; align-items:center; gap:4px; min-width:0; }
+  .hud .pip{ width:9px; height:9px; border-radius:50%; background:rgba(255,255,255,.18); flex:0 0 auto; }
+  .hud .pip.done{ background:var(--wood1); }
+  .hud .pip.now{ background:var(--gold); box-shadow:0 0 6px var(--gold); }
+  .hud .pip.scroll{ width:auto; height:auto; background:none; font-size:14px; opacity:.55; }
+  .hud .pip.scroll.now{ opacity:1; box-shadow:none; animation:blink 1s infinite; }
+  .hud .timer.frozen{ color:var(--ice); font-size:14px; }
+  /* 時間停止中（長文の橋）：景色を青く凍らせ、左上に「時間停止中」の札を出す */
+  :root{ --ice:#8fe3ff; }
+  #scene .freeze{ position:absolute; inset:0; z-index:7; pointer-events:none; opacity:0; transition:opacity .4s;
+    background:radial-gradient(ellipse at 50% 40%, rgba(143,227,255,.08), rgba(80,170,230,.35));
+    box-shadow:inset 0 0 0 3px rgba(143,227,255,.6); }
+  #scene .freeze span{ position:absolute; left:10px; bottom:10px; background:rgba(10,30,50,.75); color:var(--ice);
+    border:1px solid var(--ice); border-radius:8px; padding:3px 9px; font-size:12.5px; font-weight:800; }
+  #game.frozen #scene .freeze{ opacity:1; }
+  .freeze-note{ background:rgba(143,227,255,.12); border:1px solid rgba(143,227,255,.5); color:var(--ice);
+    border-radius:10px; padding:7px 10px; font-size:12.5px; font-weight:700; text-align:center; margin-bottom:10px; }
+  #timeBanner{ position:fixed; left:50%; top:38%; transform:translate(-50%,-50%) scale(.8); z-index:60; width:min(86vw, 420px);
+    background:rgba(8,24,42,.94); border:2px solid var(--ice); border-radius:16px; padding:16px 14px; text-align:center;
+    color:var(--text); opacity:0; pointer-events:none; transition:opacity .25s, transform .25s; }
+  #timeBanner.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+  #timeBanner b{ display:block; font-size:24px; color:var(--ice); margin-bottom:6px; letter-spacing:.06em; }
+  #timeBanner.go{ border-color:var(--gold); }
+  #timeBanner.go b{ color:var(--gold); }
+  #timeBanner p{ font-size:13.5px; line-height:1.6; }
   .hud .quit{ border:0; background:none; color:var(--sub); font-size:13px; }
 
   /* 谷の景色 */
@@ -257,7 +284,9 @@
 <section id="game" class="screen">
   <div class="hud">
     <span class="stg" id="hudStage"></span>
-    <span class="prog"><i id="hudProg"></i></span>
+    <span class="prog" id="hudProgWrap"><i id="hudProg"></i></span>
+    <span class="pips" id="hudPips" hidden></span>
+    <span class="armors" id="hudArmor" hidden></span>
     <span class="timer" id="hudTimer"></span>
     <button class="quit" onclick="quitStage()">やめる</button>
   </div>
@@ -268,6 +297,7 @@
     <div id="knight"></div>
     <div class="say" id="say"></div>
     <div class="bigmark" id="bigmark">×</div>
+    <div class="freeze"><span>⏸️ 時間停止中</span></div>
   </div>
   <div class="board" id="board"></div>
 </section>
@@ -276,6 +306,8 @@
 <section id="zukan" class="screen">
   <div class="wrap" id="zukanBody"></div>
 </section>
+
+<div id="timeBanner"></div>
 
 <!-- 結果 -->
 <section id="result" class="screen">
@@ -500,7 +532,7 @@ const STAGES = [
   {id:4, name:"四の谷　長い吊り橋", desc:"文章の中の2か所に、順に板を架けて谷を渡れ", kind:"chain", src:"chain", n:4},
   {id:5, name:"五の谷　腐った板", desc:"一枚だけまぎれた腐った板を見つけて、正しい板に替えよ", kind:"rotten", n:4},
   {id:6, name:"六の谷　大河の橋", desc:"段落をまたぐ長い文章。流れを読んで、2か所に板を架けよ", kind:"chain", src:"long", n:3},
-  {id:9, name:"挑戦の谷　鎧の耐久戦", desc:"時間制限なし。板を3回割ると鎧が砕けて終わり。1枚も割らずに渡った橋の数を競う。渡るほど谷が深くなり、10本ごとに鎧が1つ直る", kind:"challenge"},
+  {id:9, name:"挑戦の谷　90秒の耐久戦", desc:"90秒・鎧3つ。時間切れか、板を3回割ると終わり。5問に1回の長文の橋では時間が止まる", kind:"challenge"},
 ];
 const TB_LSKEY = "tsunagi_bashi_v1";
 function loadSave(){ try{ return JSON.parse(localStorage.getItem(TB_LSKEY)) || {}; }catch(e){ return {}; } }
@@ -554,6 +586,7 @@ const sfx = {
   ng(){ noise(.45, .45, 900); tone(160, .35, "sawtooth", .12, 0, 70); },
   clear(){ [523, 659, 784, 1047].forEach((f, i) => tone(f, .25, "triangle", .16, i * .11)); },
   tick(){ tone(1200, .04, "square", .05); },
+  freeze(){ [1568, 1319, 1047, 784].forEach((f, i) => tone(f, .35, "sine", .1, i * .08)); },
 };
 function toggleMute(){
   muted = !muted; $("muteBtn").textContent = muted ? "🔇" : "🔊";
@@ -569,7 +602,7 @@ function showTitle(){
   const sv = loadSave();
   $("stageList").innerHTML = STAGES.map(s => {
     let mark = "";
-    if(s.kind === "challenge"){ if(sv.armorBest) mark = `最高 ${sv.armorBest}本`; }
+    if(s.kind === "challenge"){ if(sv.ch90Best) mark = `最高 ${sv.ch90Best}本`; }
     else if(sv.clear && sv.clear[s.id] != null) mark = `踏破済み`;
     return `<button class="stage-btn" onclick="startStage(${s.id})">
       <span class="num ${s.kind === "challenge" ? "ch" : ""}">${s.kind === "challenge" ? "挑戦" : ["","一","二","三","四","五","六"][s.id]}</span>
@@ -690,31 +723,47 @@ function startStage(id){
   else if(st.kind === "term") rounds = buildTermRounds(st.n);
   else if(st.kind === "rotten") rounds = shuffle(ROTTENS).slice(0, st.n).map(r => ({kind:"rotten", r}));
   else rounds = [];
-  G = {stage:st, rounds, idx:0, ok:0, ng:0, misses:[], busy:false, crossed:0, armor:ARMOR_MAX, tier:0, over:false};
+  stopTimer();
+  G = {stage:st, rounds, idx:0, ok:0, ng:0, misses:[], busy:false, crossed:0, armor:ARMOR_MAX, tier:0, over:false,
+       timeLeft:0, frozen:false, explaining:false, endReason:null};
   $("hudStage").textContent = st.name.split("　")[0];
   $("hudTimer").textContent = ""; $("hudTimer").classList.remove("low");
   show("game");
-  if(st.kind === "challenge") updateArmor();
+  const ch = st.kind === "challenge";
+  $("hudProgWrap").hidden = ch; $("hudPips").hidden = !ch; $("hudArmor").hidden = !ch;
+  $("game").classList.remove("frozen");
+  if(ch){
+    G.timeLeft = CHALLENGE_SEC; G.frozen = false; G.explaining = false;
+    updateArmor(); updateTimer(); updatePips();
+    timerId = setInterval(tick, 1000);
+  }
   nextRound();
 }
 
 /* =====================================================================
-   挑戦の谷（鎧の耐久戦）：時間制限なし。まちがえるたびに鎧が1つ欠け、3つとも欠けたら終わり。
-   渡った橋の数で谷が深くなり（TIERS）、出る問題の種類が増える。10本渡るごとに鎧が1つ直る。
-   九尾の「60秒の挑戦の間」とは違い、急がずにじっくり考えられるようにしている。
+   挑戦の谷（90秒の耐久戦）：90秒の制限時間と、鎧3つ。時間切れか、鎧が3つとも欠けたら終わり。
+   （教員の指示で、時間制限なしの「鎧の耐久戦」は「ずっと終わらずにストレス」のため、時間と鎧の両方にした）
+   5問に1回（5・10・15問目…）は必ず長文の橋（LONGS）で、その間は時間が止まる。止まっていることは、
+   ①入るときの大きな札「時が止まった！」 ②景色が青く凍る＋「⏸ 時間停止中」の札 ③残り時間の表示が「⏸ 停止中」
+   ④上の道のり（●●●●📜）の📜が光る、の4つで見せる。まちがえたときの解説を読んでいる間も時間は止める。
+   渡った橋の数で谷が深くなり（TIERS）、出る問題の種類が増える。
    ===================================================================== */
 const ARMOR_MAX = 3;
+const CHALLENGE_SEC = 90;
+const LONG_EVERY = 5;   // 5問ごとに長文の橋（時間停止）
 const TIERS = [
-  {from:0,  name:"浅瀬",       mix:{pick:6, termEasy:4}},
-  {from:5,  name:"谷の中ほど", mix:{pick:4, type:3, term:3},
+  {from:0, name:"浅瀬",       mix:{pick:6, termEasy:4}},
+  {from:3, name:"谷の中ほど", mix:{pick:4, type:3, term:3},
    line:"谷が深くなったぞ！ ここからは板の「働き」も問われる。"},
-  {from:10, name:"深い谷",     mix:{pick:3, type:2, term:2, chain:3},
+  {from:6, name:"深い谷",     mix:{pick:3, type:2, term:2, chain:3},
    line:"さらに深い谷だ！ 長い吊り橋が現れたぞ。"},
-  {from:15, name:"底なしの谷", mix:{pick:2, type:2, term:2, chain:2, rotten:2, long:2},
-   line:"ここは底なしの谷…腐った板と大河の橋にも気をつけよ！"},
+  {from:9, name:"底なしの谷", mix:{pick:2, type:2, term:2, chain:2, rotten:2},
+   line:"ここは底なしの谷…腐った板にも気をつけよ！"},
 ];
+const isLongTurn = () => G.idx % LONG_EVERY === LONG_EVERY - 1;
 function tierOf(n){ let t = 0; TIERS.forEach((x, i) => { if(n >= x.from) t = i; }); return t; }
 function challengeRound(){
+  if(isLongTurn()) return {kind:"chain", c:pick1(LONGS), long:true, frozen:true};
   const mix = TIERS[G.tier].mix, keys = Object.keys(mix);
   let x = Math.random() * keys.reduce((a, k) => a + mix[k], 0), kind = keys[0];
   for(const k of keys){ if((x -= mix[k]) < 0){ kind = k; break; } }
@@ -722,37 +771,84 @@ function challengeRound(){
   if(kind === "termEasy") return {kind:"term", q:makeTermQ(pick1(["w2t","kanji"]))};
   if(kind === "term") return {kind:"term", q:makeTermQ(pick1(["w2t","t2w","d2t","kanji"]))};
   if(kind === "chain") return {kind:"chain", c:pick1(CHAINS)};
-  if(kind === "long") return {kind:"chain", c:pick1(LONGS), long:true};
   return {kind:"rotten", r:pick1(ROTTENS)};
 }
 function updateArmor(){
+  $("hudArmor").innerHTML = Array.from({length:ARMOR_MAX}, (_, i) => `<span class="armor ${i < G.armor ? "" : "lost"}">🛡️</span>`).join("");
+  $("hudStage").textContent = `${G.crossed}本`;
+}
+function updateTimer(){
   const el = $("hudTimer");
-  el.innerHTML = Array.from({length:ARMOR_MAX}, (_, i) => `<span class="armor ${i < G.armor ? "" : "lost"}">🛡️</span>`).join("");
-  el.classList.toggle("low", G.armor <= 1);
-  $("hudStage").textContent = `挑戦の谷　${G.crossed}本`;
+  if(G.frozen || G.explaining){
+    el.textContent = G.frozen ? "⏸️ 停止中" : "⏸️ 解説中";
+    el.className = "timer frozen";
+    return;
+  }
+  const t = Math.max(0, G.timeLeft);
+  el.textContent = t + "秒";
+  el.className = "timer" + (t <= 10 ? " low" : "");
+}
+function updatePips(){
+  const k = G.idx % LONG_EVERY;
+  $("hudPips").innerHTML = Array.from({length:LONG_EVERY}, (_, i) => {
+    const cls = i < k ? "done" : i === k ? "now" : "";
+    return i === LONG_EVERY - 1
+      ? `<span class="pip scroll ${cls}" title="長文の橋（時間停止）">📜</span>`
+      : `<span class="pip ${cls}"></span>`;
+  }).join("");
+}
+function tick(){
+  if(!G || G.over || G.frozen || G.explaining) return;
+  G.timeLeft--; updateTimer();
+  if(G.timeLeft <= 5 && G.timeLeft > 0) sfx.tick();
+  if(G.timeLeft <= 0){ G.endReason = "time"; finishStage(); }
+}
+let bannerT = null;
+async function timeBanner(go, title, text, ms){
+  const el = $("timeBanner");
+  el.className = go ? "go" : "";
+  el.innerHTML = `<b>${esc(title)}</b><p>${esc(text)}</p>`;
+  void el.offsetWidth; el.classList.add("show");
+  await sleep(ms);
+  el.classList.remove("show");
+  await sleep(250);
+}
+function setFrozen(on){
+  G.frozen = on;
+  $("game").classList.toggle("frozen", on);
+  updateTimer();
 }
 const armorOut = () => G.stage.kind === "challenge" && G.armor <= 0;
 async function endByArmor(){
-  G.busy = true;
+  G.busy = true; G.endReason = "armor";
   setPose("defeat"); say("鎧が砕けた…ここまでか…", 2200);
   await sleep(1800);
   finishStage();
 }
 function updateProg(){
   const st = G.stage;
-  // 挑戦の谷では、次に鎧が直る（10本ごと）までの進み具合を見せる
-  const pct = st.kind === "challenge" ? (G.crossed % 10) / 10 * 100 : G.idx / G.rounds.length * 100;
-  $("hudProg").style.width = Math.min(100, pct) + "%";
+  if(st.kind === "challenge") return updatePips();
+  $("hudProg").style.width = Math.min(100, G.idx / G.rounds.length * 100) + "%";
 }
 function quitStage(){ stopTimer(); G.over = true; showTitle(); }
 
-function nextRound(){
+async function nextRound(){
   if(G.over) return;
   updateProg();
   let r;
   G.roundNg = G.ng;
-  if(G.stage.kind === "challenge") r = challengeRound();
-  else{
+  if(G.stage.kind === "challenge"){
+    r = challengeRound();
+    if(r.frozen){
+      // 長文の橋を先に出してから、その上に「時が止まった！」の札を重ねる（札が出ている間は答えられない）
+      setFrozen(true); sfx.freeze();
+      renderChain(r); G.busy = true;
+      await timeBanner(false, "⏸️ 時が止まった！", "長文の橋では、時間が進まない。あわてずに、じっくり読んで2か所に板を架けよう。", 2200);
+      if(G.over) return;
+      G.busy = false;
+      return;
+    }
+  }else{
     if(G.idx >= G.rounds.length) return finishStage();
     r = G.rounds[G.idx];
   }
@@ -767,13 +863,14 @@ async function afterRound(){
   if(G.ng === G.roundNg) G.crossed++;
   if(G.stage.kind === "challenge"){
     updateArmor();
-    const t = tierOf(G.crossed);
-    if(G.ng === G.roundNg && G.crossed % 10 === 0 && G.armor < ARMOR_MAX){
-      G.armor++; updateArmor(); sfx.clear();
-      say("鎧を打ち直したぞ！ 鎧が1つ直った。", 1800); await sleep(1500);
+    if(G.frozen){
+      await timeBanner(true, "▶️ 時間が動き出す！", `残り ${G.timeLeft}秒。ここからまた急ごう！`, 1300);
+      if(G.over) return;
+      setFrozen(false);
     }
+    const t = tierOf(G.crossed);
     if(t !== G.tier){
-      G.tier = t; say(TIERS[t].line, 2400); await sleep(1700);
+      G.tier = t; say(TIERS[t].line, 2400); await sleep(900);
     }
     if(G.over) return;
   }
@@ -804,7 +901,9 @@ async function waitNext(boxHtml){
   b.innerHTML = boxHtml + `<button class="btn primary next">次へ</button>`;
   $("board").appendChild(b);
   b.scrollIntoView({block:"nearest", behavior:"smooth"});
+  if(G.stage.kind === "challenge"){ G.explaining = true; updateTimer(); }
   await new Promise(r => b.querySelector(".next").onclick = r);
+  if(G.stage.kind === "challenge"){ G.explaining = false; updateTimer(); }
 }
 
 /* ---------- 一の谷（pick）・二の谷（type）：二文の橋 ---------- */
@@ -966,7 +1065,7 @@ function renderChain(r){
   buildScene(ps.planks.length);
   const pool = shuffle(ps.planks.map(p => p.word).concat(r.c.extra));
   const draw = () => {
-    $("board").innerHTML = (r.long ? `<div class="ask">大河の橋「${esc(r.c.title)}」　文章の流れを読んで、①から順に板を架けよ（${CIRCLED[r.at]}／${ps.planks.length}枚）</div>`
+    $("board").innerHTML = (r.frozen ? `<div class="freeze-note">⏸️ 時間停止中　この橋を渡りきるまで、残り時間は減らない</div>` : "") + (r.long ? `<div class="ask">大河の橋「${esc(r.c.title)}」　文章の流れを読んで、①から順に板を架けよ（${CIRCLED[r.at]}／${ps.planks.length}枚）</div>`
         : `<div class="ask">左から順に板を架けよ（${r.at + 1}枚目／${ps.planks.length}枚）</div>`) +
       passageHtml(ps, i => {
         if(i < r.at) return `<span class="slot filled right">${esc(ps.planks[i].word)}</span>`;
@@ -1100,9 +1199,9 @@ function finishStage(){
   let head, score, sub, newBest = false;
   if(st.kind === "challenge"){
     score = `${G.crossed}本`;
-    head = "鎧の耐久戦";
+    head = G.endReason === "armor" ? "鎧が砕けた…" : "時間切れ！";
     sub = `たどり着いた深さ：${TIERS[G.tier].name}　正解 ${G.ok}　まちがい ${G.ng}`;
-    if(G.crossed > (sv.armorBest || 0)){ sv.armorBest = G.crossed; newBest = G.crossed > 0; }
+    if(G.crossed > (sv.ch90Best || 0)){ sv.ch90Best = G.crossed; newBest = G.crossed > 0; }
   }else{
     const total = G.ok + G.ng;
     score = `${G.ok} / ${total}`;
@@ -1114,7 +1213,7 @@ function finishStage(){
   saveSave(sv);
   sfx.clear();
   const line = st.kind === "challenge"
-    ? `鎧が砕けるまでに、板を割らずに${G.crossed}本の橋を渡った。割れた板の理由をたしかめて、次はもっと深くまで進むのだ。`
+    ? `${G.endReason === "armor" ? "鎧が砕けるまでに" : "90秒で"}、板を割らずに${G.crossed}本の橋を渡った。割れた板の理由をたしかめて、次はもっと深くまで進むのだ。`
     : G.ng === 0 ? "見事だ！ おぬしの架ける橋なら、どんな谷でも渡れる。"
     : G.ng <= 2 ? "よくやった。割れた板の理由を、下でたしかめておくのだぞ。"
     : "板の働きを見直せば、もっと丈夫な橋が架けられるはずだ。";
