@@ -100,7 +100,6 @@ if(mode){
       <a class="modesel-back ui" href="../kokugo_app.html">← ホームに戻る</a>
     </div>`;
 
-  if (window.DxCompat) DxCompat.wireHomeLinks(modeRoot);
   modeRoot.querySelectorAll(".modesel-card[data-mode]").forEach(btn => {
     btn.onclick = () => {
       // dx_home / Blob・srcdoc 再オープン用に既存クエリを維持
