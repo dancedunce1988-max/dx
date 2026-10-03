@@ -438,29 +438,28 @@
     f.hidden = true;
   }
 
+  /* iframe を閉じる前に、子の localStorage を親へ写す。
+     srcdoc と親で storage が分かれているときだけ必要。同じなら読み書きは同じ領域。 */
+  function copyFrameStorage(keys) {
+    try {
+      const f = document.getElementById('dx-nobiru-frame');
+      if (!f || !f.contentWindow) return;
+      try {
+        const cw = f.contentWindow;
+        for (let i = 0; i < keys.length; i++) {
+          const value = cw.localStorage.getItem(keys[i]);
+          if (value) localStorage.setItem(keys[i], value);
+        }
+      } catch (eSync) {}
+    } catch (eFrame) {}
+  }
+
   /* 通常版は nobiru → kokugo_app.html へ遷移し直し、showHome でクリア報酬が出る。
      配布は同一ページのまま iframe を閉じるだけなので、明示的に showHome を呼ぶ。
      （閉じるだけだと、開く前の「読解Quest選択」が再表示され、ホームへ押すまで
       クリア画面が出ない） */
   function returnFromNobiru() {
-    try {
-      const f = document.getElementById('dx-nobiru-frame');
-      if (f && f.contentWindow) {
-        try {
-          const cw = f.contentWindow;
-          const pending = cw.localStorage.getItem('dd_daily_pending_reward_v1');
-          if (pending) {
-            localStorage.setItem('dd_daily_pending_reward_v1', pending);
-          }
-          const rewarded = cw.localStorage.getItem('dd_daily_rewarded_keys_v1');
-          if (rewarded) {
-            localStorage.setItem('dd_daily_rewarded_keys_v1', rewarded);
-          }
-        } catch (eSync) {
-          /* srcdoc と親で storage が分かれている場合のみ失敗。同じなら不要 */
-        }
-      }
-    } catch (eFrame) {}
+    copyFrameStorage(['dd_daily_pending_reward_v1', 'dd_daily_rewarded_keys_v1']);
     closeNobiruFrame();
     const go = function () {
       try {
@@ -867,6 +866,7 @@
   }
 
   function returnFromMinigame() {
+    copyFrameStorage(['kokugo_minigame_pending_lvups_v1']);
     closeNobiruFrame();
     try {
       if (
