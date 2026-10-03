@@ -12,6 +12,9 @@
   const REPO = 'dancedunce1988-max/dx';
   const JSDELIVR_HOST = 'cdn.jsdelivr.net';
   const RAW_HOST = 'raw.githubusercontent.com';
+  window.__DX_REPO__ = REPO;
+  window.__DX_JSDELIVR_HOST__ = JSDELIVR_HOST;
+  window.__DX_RAW_HOST__ = RAW_HOST;
 
   function cdnBase(commitHash) {
     return 'https://' + JSDELIVR_HOST + '/gh/' + REPO + '@' + commitHash + '/';
@@ -106,50 +109,69 @@
       '</div>';
   }
 
-  function isDangerousSrc(src) {
-    if (!src || typeof src !== 'string') return true;
-    const s = src.trim();
-    if (!s) return true;
-    const lower = s.toLowerCase();
-    if (lower.indexOf('javascript:') === 0) return true;
-    if (lower.indexOf('data:') === 0) return true;
-    if (lower.indexOf('vbscript:') === 0) return true;
-    if (s.indexOf('..') !== -1) return true;
-    return false;
-  }
-
-  function isAllowedAbsoluteUrl(url) {
-    try {
-      const u = new URL(url);
-      if (u.protocol !== 'https:') return false;
-      if (u.hostname === JSDELIVR_HOST) {
-        return u.pathname.indexOf('/gh/' + REPO + '@') === 0;
-      }
-      if (u.hostname === RAW_HOST) {
-        return u.pathname.indexOf('/' + REPO + '/') === 0;
-      }
-      return false;
-    } catch (e) {
-      return false;
-    }
-  }
-
   /**
-   * 相対パス → jsDelivr 絶対 URL。既に絶対 URL なら許可ホストのみ通す。
-   * 危険・不許可なら null。
+   * 相対パス → base 付きの絶対 URL。既に絶対 URL なら許可ホストのみ通す。
+   * 危険・不許可なら null。toString で iframe に渡すため window の定数だけを見る。
    */
-  function resolveAssetUrl(src, commitHash) {
-    if (isDangerousSrc(src)) return null;
-    const s = src.trim();
+  function resolveCdnUrl(url, base) {
+    const repo = window.__DX_REPO__;
+    const jsdelivrHost = window.__DX_JSDELIVR_HOST__;
+    const rawHost = window.__DX_RAW_HOST__;
+    if (!url || typeof url !== 'string') return null;
+    const s = url.trim();
+    if (!s || s.charAt(0) === '#') return null;
 
-    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(s) || s.indexOf('//') === 0) {
-      const abs = s.indexOf('//') === 0 ? 'https:' + s : s;
-      return isAllowedAbsoluteUrl(abs) ? abs : null;
+    /* 空白・改行を抜いたあと、%2e%2e のようなエンコードを最大3回戻して判定する */
+    function checkText(raw) {
+      let t = String(raw).replace(/[\u0000-\u0020\u007f]+/g, '');
+      for (let n = 0; n < 3; n++) {
+        try {
+          const decoded = decodeURIComponent(t);
+          if (decoded === t) break;
+          t = decoded;
+        } catch (e) {
+          return null;
+        }
+      }
+      return t.toLowerCase();
     }
 
+    function isUnsafe(text) {
+      if (text == null) return true;
+      if (text.indexOf('mailto:') === 0) return true;
+      if (text.indexOf('javascript:') === 0) return true;
+      if (text.indexOf('data:') === 0) return true;
+      if (text.indexOf('vbscript:') === 0) return true;
+      if (text.indexOf('..') !== -1) return true;
+      if (text.indexOf('\\') !== -1) return true;
+      return false;
+    }
+
+    const checked = checkText(s);
+    if (isUnsafe(checked)) return null;
+
+    const originalAbs = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(s) || s.indexOf('//') === 0;
+    const decodedAbs = /^[a-z][a-z0-9+.-]*:/.test(checked) || checked.indexOf('//') === 0;
+    if (decodedAbs && !originalAbs) return null;
+    if (originalAbs) {
+      if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(s) && !/^https:/i.test(s)) return null;
+      const abs = s.indexOf('//') === 0 ? 'https:' + s : s;
+      try {
+        const u = new URL(abs);
+        if (u.protocol !== 'https:' || u.username || u.password) return null;
+        if (isUnsafe(checkText(u.pathname + u.search + u.hash))) return null;
+        if (u.hostname === jsdelivrHost && u.pathname.indexOf('/gh/' + repo + '@') === 0) return abs;
+        if (u.hostname === rawHost && u.pathname.indexOf('/' + repo + '/') === 0) return abs;
+      } catch (e) {}
+      return null;
+    }
     const path = s.replace(/^\.\//, '').replace(/^\/+/, '');
-    if (!path || path.indexOf('..') !== -1) return null;
-    return cdnBase(commitHash) + path;
+    if (!path) return null;
+    return base + path;
+  }
+
+  function resolveAssetUrl(src, commitHash) {
+    return resolveCdnUrl(src, cdnBase(commitHash));
   }
 
   function rewriteAssetAttrs(root, commitHash) {
@@ -169,6 +191,7 @@
         const href = el.getAttribute('href');
         const resolvedHref = resolveAssetUrl(href, commitHash);
         if (resolvedHref) el.setAttribute('href', resolvedHref);
+        else if (href && String(href).trim()) el.removeAttribute('href');
       }
     }
   }
@@ -308,7 +331,7 @@
   }
 
   function fetchText(url) {
-    return fetch(url, { cache: 'no-store' }).then(function (res) {
+    return fetch(url).then(function (res) {
       if (!res.ok) {
         throw new Error('HTTP ' + res.status + ' — ' + url);
       }
@@ -497,40 +520,11 @@
     f.srcdoc = out;
   }
 
-  /* toString で iframe に渡すため、外側の定数は参照しない */
-  function resolveNobiruAsset(url, nobiruBase) {
-    const repo = 'dancedunce1988-max/dx';
-    const jsdelivrHost = 'cdn.jsdelivr.net';
-    const rawHost = 'raw.githubusercontent.com';
-    if (!url || typeof url !== 'string') return null;
-    const s = url.trim();
-    if (!s || s.charAt(0) === '#') return null;
-    const lower = s.toLowerCase();
-    if (lower.indexOf('mailto:') === 0) return null;
-    if (lower.indexOf('javascript:') === 0) return null;
-    if (lower.indexOf('data:') === 0) return null;
-    if (lower.indexOf('vbscript:') === 0) return null;
-    if (s.indexOf('..') !== -1) return null;
-    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(s) || s.indexOf('//') === 0) {
-      const abs = s.indexOf('//') === 0 ? 'https:' + s : s;
-      try {
-        const u = new URL(abs);
-        if (u.protocol !== 'https:') return null;
-        if (u.hostname === jsdelivrHost && u.pathname.indexOf('/gh/' + repo + '@') === 0) return abs;
-        if (u.hostname === rawHost && u.pathname.indexOf('/' + repo + '/') === 0) return abs;
-      } catch (e) {}
-      return null;
-    }
-    const path = s.replace(/^\.\//, '').replace(/^\/+/, '');
-    if (!path) return null;
-    return nobiruBase + path;
-  }
-
   function absolutizeNobiruHtml(html, nobiruBase) {
     /* .toString() で iframe に注入するため、クロージャ名ではなく window 経由で解決する */
     const resolve = window.__DX_RESOLVE_NOBIRU__;
     const doc = new DOMParser().parseFromString(html, 'text/html');
-    const nodes = doc.querySelectorAll('[src], link[href], image[href]');
+    const nodes = doc.querySelectorAll('[src], link[href]');
     for (let i = 0; i < nodes.length; i++) {
       const el = nodes[i];
       if (el.hasAttribute('src')) {
@@ -540,8 +534,10 @@
         else if (src && String(src).trim()) el.removeAttribute('src');
       }
       if (el.hasAttribute('href') && el.tagName.toLowerCase() === 'link') {
-        const absHref = resolve(el.getAttribute('href'), nobiruBase);
+        const href = el.getAttribute('href');
+        const absHref = resolve(href, nobiruBase);
         if (absHref) el.setAttribute('href', absHref);
+        else if (href && String(href).trim()) el.removeAttribute('href');
       }
     }
     /* ホームリンクはクリックで差し替える。相対 href のまま残すと変な遷移の元になる */
@@ -599,6 +595,20 @@
     console.error('[DX] page open failed', err);
   }
 
+  function fetchPageHtml(url, failLabel, onHtml) {
+    return fetch(url)
+      .then(function (res) {
+        if (!res.ok) {
+          throw new Error(failLabel + ' (HTTP ' + res.status + ')');
+        }
+        return res.text();
+      })
+      .then(onHtml)
+      .catch(function (err) {
+        window.__DX_REPORT_PAGE_ERROR__(err);
+      });
+  }
+
   /**
    * のびる読解とミニゲームで共有する srcdoc ブート。
    * toString で iframe に渡すため、ここでは window 上の関数だけを参照する。
@@ -620,6 +630,9 @@
       ');' +
       'window.__DX_BUILD_SRCDOC_BOOT__=(' +
       window.__DX_BUILD_SRCDOC_BOOT__.toString() +
+      ');' +
+      'window.__DX_FETCH_PAGE__=(' +
+      window.__DX_FETCH_PAGE__.toString() +
       ');' +
       'window.' +
       openerName +
@@ -644,6 +657,15 @@
       : '';
 
     let globals =
+      'window.__DX_REPO__=' +
+      JSON.stringify(window.__DX_REPO__) +
+      ';' +
+      'window.__DX_JSDELIVR_HOST__=' +
+      JSON.stringify(window.__DX_JSDELIVR_HOST__) +
+      ';' +
+      'window.__DX_RAW_HOST__=' +
+      JSON.stringify(window.__DX_RAW_HOST__) +
+      ';' +
       'window.__DX_CDN_BASE__=' +
       JSON.stringify(opts.base) +
       ';' +
@@ -810,15 +832,11 @@
       return Promise.resolve();
     }
 
-    return fetch(nobiruBase + htmlName + '.html', { cache: 'no-store' })
-      .then(function (res) {
-        if (!res.ok) {
-          throw new Error('のびる読解の取得に失敗しました (HTTP ' + res.status + ')');
-        }
-        return res.text();
-      })
-      .then(function (html) {
-        /* <base> は使わない（about:srcdoc → /nobiru/srcdoc 事故の原因） */
+    /* <base> は使わない（about:srcdoc → /nobiru/srcdoc 事故の原因） */
+    return window.__DX_FETCH_PAGE__(
+      nobiruBase + htmlName + '.html',
+      'のびる読解の取得に失敗しました',
+      function (html) {
         window.__DX_SHOW_NOBIRU_HTML__(
           window.__DX_BUILD_SRCDOC_BOOT__(html, {
             kind: 'nobiru',
@@ -829,10 +847,8 @@
             bootSearch: bootSearch,
           })
         );
-      })
-      .catch(function (err) {
-        window.__DX_REPORT_PAGE_ERROR__(err);
-      });
+      }
+    );
   }
 
   /** ルート直下の別ページ HTML（九尾の化かし合い・炎狼ラン等）を srcdoc で開く。
@@ -852,30 +868,20 @@
       return Promise.resolve();
     }
 
-    return fetch(base + safeName, { cache: 'no-store' })
-      .then(function (res) {
-        if (!res.ok) {
-          throw new Error('ページの取得に失敗しました (HTTP ' + res.status + ')');
-        }
-        return res.text();
-      })
-      .then(function (html) {
-        const f = document.getElementById('dx-nobiru-frame');
-        if (f) f.title = 'ミニゲーム';
-        window.__DX_SHOW_NOBIRU_HTML__(
-          window.__DX_BUILD_SRCDOC_BOOT__(html, {
-            kind: 'minigame',
-            base: base,
-            home: home,
-            assetBase: base,
-            pageName: safeName,
-            passId: safePassId,
-          })
-        );
-      })
-      .catch(function (err) {
-        window.__DX_REPORT_PAGE_ERROR__(err);
-      });
+    return window.__DX_FETCH_PAGE__(base + safeName, 'ページの取得に失敗しました', function (html) {
+      const f = document.getElementById('dx-nobiru-frame');
+      if (f) f.title = 'ミニゲーム';
+      window.__DX_SHOW_NOBIRU_HTML__(
+        window.__DX_BUILD_SRCDOC_BOOT__(html, {
+          kind: 'minigame',
+          base: base,
+          home: home,
+          assetBase: base,
+          pageName: safeName,
+          passId: safePassId,
+        })
+      );
+    });
   }
 
   function dxHostHomeUrl() {
@@ -946,6 +952,7 @@
     window.__DX_REPORT_PAGE_ERROR__ = reportPageError;
     window.__DX_HOST_HOME_URL__ = dxHostHomeUrl;
     window.__DX_BUILD_SRCDOC_BOOT__ = buildSrcdocDocument;
+    window.__DX_FETCH_PAGE__ = fetchPageHtml;
     window.__DX_OPEN_NOBIRU__ = openNobiruPage;
     window.__DX_OPEN_STANDALONE_HTML__ = openStandaloneHtml;
     window.__DX_RETURN_FROM_MINIGAME__ = returnFromMinigame;
@@ -953,7 +960,7 @@
     window.__DX_SHOW_NOBIRU_HTML__ = showNobiruHtml;
     window.__DX_CLOSE_NOBIRU__ = closeNobiruFrame;
     /* ABS が RESOLVE を参照するため、RESOLVE を先に載せる */
-    window.__DX_RESOLVE_NOBIRU__ = resolveNobiruAsset;
+    window.__DX_RESOLVE_NOBIRU__ = resolveCdnUrl;
     window.__DX_ABS_NOBIRU__ = absolutizeNobiruHtml;
   }
 
