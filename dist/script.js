@@ -8,6 +8,7 @@
   'use strict';
 
   const FALLBACK_COMMIT_HASH = 'abb7c4954d80cc25617a025545de9fd685e08773';
+  const COMMIT_HASH_RE = /^[0-9a-f]{40}$/i;
   const REPO = 'dancedunce1988-max/dx';
   const JSDELIVR_HOST = 'cdn.jsdelivr.net';
   const RAW_HOST = 'raw.githubusercontent.com';
@@ -333,10 +334,11 @@
         return res.json();
       })
       .then(function (data) {
-        if (!data || typeof data.commitHash !== 'string' || !data.commitHash.trim()) {
-          throw new Error('import-config.json に有効な commitHash がありません');
+        const hash = data && typeof data.commitHash === 'string' ? data.commitHash.trim() : '';
+        if (!COMMIT_HASH_RE.test(hash)) {
+          throw new Error('import-config.json の commitHash が不正です');
         }
-        return data.commitHash.trim();
+        return hash;
       });
   }
 
@@ -533,16 +535,239 @@
     return '<!DOCTYPE html>\n' + doc.documentElement.outerHTML;
   }
 
+  function showPageError(message) {
+    const old = document.getElementById('dx-page-error');
+    if (old && old.parentNode) old.parentNode.removeChild(old);
+    const wrap = document.createElement('div');
+    wrap.id = 'dx-page-error';
+    wrap.setAttribute('role', 'alert');
+    wrap.setAttribute(
+      'style',
+      'position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(43,43,43,.35);'
+    );
+    const card = document.createElement('div');
+    card.setAttribute(
+      'style',
+      'width:min(100%,360px);background:#fff;border:1px solid #e4ded3;border-radius:14px;padding:28px 28px 24px;text-align:center;font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;color:#2b2b2b;'
+    );
+    const title = document.createElement('p');
+    title.setAttribute('style', 'margin:0 0 8px;color:#b00020;font-weight:bold;font-size:.95rem;');
+    title.textContent = '読み込みに失敗しました';
+    const body = document.createElement('p');
+    body.setAttribute('style', 'margin:0;text-align:left;white-space:pre-wrap;font-size:.88rem;line-height:1.6;');
+    body.textContent = String(message || '');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = '閉じる';
+    btn.setAttribute(
+      'style',
+      'margin-top:16px;padding:8px 18px;border:1px solid #e4ded3;border-radius:8px;background:#fff;font:inherit;cursor:pointer;'
+    );
+    btn.addEventListener('click', function () {
+      if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
+    });
+    card.appendChild(title);
+    card.appendChild(body);
+    card.appendChild(btn);
+    wrap.appendChild(card);
+    (document.documentElement || document.body).appendChild(wrap);
+  }
+
+  function reportPageError(err) {
+    const msg =
+      (err && err.message) ||
+      String(err) ||
+      'ページを開けませんでした。ネットワーク接続を確認してください。';
+    window.__DX_SHOW_PAGE_ERROR__(msg);
+    console.error('[DX] page open failed', err);
+  }
+
+  /**
+   * のびる読解とミニゲームで共有する srcdoc ブート。
+   * toString で iframe に渡すため、ここでは window 上の関数だけを参照する。
+   * kind: 'nobiru' | 'minigame'
+   */
+  function buildSrcdocDocument(html, opts) {
+    const kind = opts.kind;
+    const openerName = kind === 'nobiru' ? '__DX_OPEN_NOBIRU__' : '__DX_OPEN_STANDALONE_HTML__';
+    const openerFn = window[openerName];
+    const openerSrc =
+      'window.__DX_SHOW_PAGE_ERROR__=(' +
+      window.__DX_SHOW_PAGE_ERROR__.toString() +
+      ');' +
+      'window.__DX_REPORT_PAGE_ERROR__=(' +
+      window.__DX_REPORT_PAGE_ERROR__.toString() +
+      ');' +
+      'window.__DX_HOST_HOME_URL__=(' +
+      window.__DX_HOST_HOME_URL__.toString() +
+      ');' +
+      'window.__DX_BUILD_SRCDOC_BOOT__=(' +
+      window.__DX_BUILD_SRCDOC_BOOT__.toString() +
+      ');' +
+      'window.' +
+      openerName +
+      '=(' +
+      openerFn.toString() +
+      ');' +
+      'window.__DX_SHOW_NOBIRU_HTML__=(' +
+      window.__DX_SHOW_NOBIRU_HTML__.toString() +
+      ');' +
+      'window.__DX_CLOSE_NOBIRU__=function(){try{if(parent!==window&&parent.__DX_CLOSE_NOBIRU__)parent.__DX_CLOSE_NOBIRU__();}catch(e){}};' +
+      'window.__DX_RESOLVE_NOBIRU__=(' +
+      window.__DX_RESOLVE_NOBIRU__.toString() +
+      ');' +
+      'window.__DX_ABS_NOBIRU__=(' +
+      window.__DX_ABS_NOBIRU__.toString() +
+      ');';
+
+    const passBoot = opts.passId
+      ? 'try{var __dxpo=JSON.parse(sessionStorage.getItem("kokugo_mg_pass_v1")||"{}");__dxpo[' +
+        JSON.stringify(opts.passId) +
+        ']=1;sessionStorage.setItem("kokugo_mg_pass_v1",JSON.stringify(__dxpo));}catch(e){}'
+      : '';
+
+    let globals =
+      'window.__DX_CDN_BASE__=' +
+      JSON.stringify(opts.base) +
+      ';' +
+      'window.__DX_HOME_URL__=' +
+      JSON.stringify(opts.home) +
+      ';';
+    if (kind === 'nobiru') {
+      globals +=
+        'window.__DX_NOBIRU_KEY__=' +
+        JSON.stringify(opts.htmlName) +
+        ';' +
+        'window.__DX_NOBIRU_BASE__=' +
+        JSON.stringify(opts.assetBase) +
+        ';' +
+        'window.__DX_BOOT_SEARCH__=' +
+        JSON.stringify(opts.bootSearch || '') +
+        ';';
+    } else {
+      globals += 'window.__DX_STANDALONE_PAGE__=' + JSON.stringify(opts.pageName) + ';';
+    }
+
+    const searchHook =
+      kind === 'nobiru'
+        ? 'try{const d=Object.getOwnPropertyDescriptor(Location.prototype,"search");' +
+          'if(d&&d.get&&window.__DX_BOOT_SEARCH__){Object.defineProperty(Location.prototype,"search",{' +
+          'configurable:true,enumerable:true,get:function(){' +
+          'if(this===window.location&&window.__DX_BOOT_SEARCH__)return window.__DX_BOOT_SEARCH__;' +
+          'return d.get.call(this);}});}}catch(e){}'
+        : '';
+
+    const scriptHook =
+      '(function(){const nb=' +
+      JSON.stringify(opts.assetBase) +
+      ';const ce=document.createElement.bind(document);' +
+      'document.createElement=function(tag){const el=ce(tag);' +
+      'if(String(tag).toLowerCase()==="script"){const sa=el.setAttribute.bind(el);' +
+      'el.setAttribute=function(n,v){if(String(n).toLowerCase()==="src"&&v&&!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(v)&&v.indexOf("//")!==0){' +
+      'v=nb+String(v).replace(/^\\.\\//,"").replace(/^\\/+/,"");}return sa(n,v);};' +
+      'try{Object.defineProperty(el,"src",{configurable:true,enumerable:true,' +
+      'get:function(){return el.getAttribute("src");},' +
+      'set:function(v){el.setAttribute("src",v);}});}' +
+      'catch(e2){}}return el;};})();';
+
+    const goHome =
+      kind === 'nobiru'
+        ? 'window.__DX_GO_HOME__=function(){try{if(parent!==window){' +
+          'if(typeof parent.__DX_RETURN_FROM_NOBIRU__==="function"){parent.__DX_RETURN_FROM_NOBIRU__();return;}' +
+          'if(typeof parent.__DX_CLOSE_NOBIRU__==="function")parent.__DX_CLOSE_NOBIRU__();' +
+          'if(typeof parent.showHome==="function"){parent.showHome();return;}' +
+          '}}catch(e){}' +
+          'if(window.__DX_HOME_URL__)location.href=window.__DX_HOME_URL__;};'
+        : 'window.__DX_GO_HOME__=function(){try{if(parent!==window&&parent.__DX_CLOSE_NOBIRU__){parent.__DX_CLOSE_NOBIRU__();if(parent.__DX_RETURN_FROM_MINIGAME__)parent.__DX_RETURN_FROM_MINIGAME__();return;}}catch(e){}' +
+          'if(window.__DX_HOME_URL__)location.href=window.__DX_HOME_URL__;};';
+
+    let locationHooks =
+      '(function(){function dxIsHomeNav(u){return /kokugo_app\\.html/i.test(String(u||""));}' +
+      'function dxReopenNobiru(){if(!window.__DX_OPEN_NOBIRU__||!window.__DX_NOBIRU_KEY__)return false;' +
+      'const o={};try{new URLSearchParams(window.__DX_BOOT_SEARCH__||"").forEach(function(v,k){o[k]=v;});}catch(eR){}' +
+      'window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__,o);return true;}' +
+      'try{const lr=Location.prototype.replace;Location.prototype.replace=function(u){' +
+      'if(dxIsHomeNav(u)&&window.__DX_GO_HOME__){window.__DX_GO_HOME__();return;}' +
+      'return lr.apply(this,arguments);};}catch(e4){}' +
+      'try{const la=Location.prototype.assign;Location.prototype.assign=function(u){' +
+      'if(dxIsHomeNav(u)&&window.__DX_GO_HOME__){window.__DX_GO_HOME__();return;}' +
+      'return la.apply(this,arguments);};}catch(e5){}' +
+      'try{const hd=Object.getOwnPropertyDescriptor(Location.prototype,"href");' +
+      'if(hd&&hd.set){Object.defineProperty(Location.prototype,"href",{configurable:true,enumerable:true,' +
+      'get:function(){return hd.get.call(this);},' +
+      'set:function(v){if(dxIsHomeNav(v)&&window.__DX_GO_HOME__){window.__DX_GO_HOME__();return;}' +
+      'return hd.set.call(this,v);}});}}catch(e6){}';
+    if (kind === 'nobiru') {
+      locationHooks +=
+        'try{const rl=Location.prototype.reload;Location.prototype.reload=function(){' +
+        'if(dxReopenNobiru())return;return rl.apply(this,arguments);};}catch(e8){}' +
+        'window.__DX_REOPEN_NOBIRU__=dxReopenNobiru;' +
+        'window.__DX_NOBIRU_FINISHED__=function(){return Array.prototype.some.call(document.querySelectorAll("button.again"),function(b){' +
+        'const t=String(b.textContent||"");' +
+        'return b.classList.contains("daily-end")||t.indexOf("ホーム")!==-1||t.indexOf("一日一読を終える")!==-1||t.indexOf("はじめからやり直す")!==-1;});};';
+    }
+    locationHooks += '})();';
+
+    const nobiruClicks =
+      kind === 'nobiru'
+        ? 'document.addEventListener("click",function(ev){' +
+          'const btn=ev.target&&ev.target.closest&&ev.target.closest(".modesel-card[data-mode]");' +
+          'if(btn&&window.__DX_OPEN_NOBIRU__){ev.preventDefault();ev.stopImmediatePropagation();' +
+          'window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__,{mode:btn.getAttribute("data-mode")});return;}' +
+          'const sw=ev.target&&ev.target.closest&&ev.target.closest("a.modeSwitch, #modeSwitch");' +
+          'if(sw&&window.__DX_OPEN_NOBIRU__&&window.__DX_NOBIRU_KEY__){ev.preventDefault();ev.stopImmediatePropagation();' +
+          'window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__,{});return;}' +
+          'const a=ev.target&&ev.target.closest&&ev.target.closest("a.back, a.modesel-back");' +
+          'if(a){' +
+          'if(a.classList.contains("back")&&/[?&]viaDaily=1(?:&|$)/.test(String(window.__DX_BOOT_SEARCH__||""))&&' +
+          '!(window.__DX_NOBIRU_FINISHED__&&window.__DX_NOBIRU_FINISHED__())){return;}' +
+          'ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();return;}' +
+          'const again=ev.target&&ev.target.closest&&ev.target.closest("button.again");' +
+          'if(again){const oc=String(again.getAttribute("onclick")||"");const tx=String(again.textContent||"");' +
+          'if(again.classList.contains("daily-end")||oc.indexOf("kokugo_app")!==-1||tx.indexOf("ホーム")!==-1||tx.indexOf("一日一読を終える")!==-1){' +
+          'ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();return;}' +
+          'if(oc.indexOf("location.reload")!==-1||tx.indexOf("はじめからやり直す")!==-1){' +
+          'ev.preventDefault();ev.stopImmediatePropagation();' +
+          'if(window.__DX_REOPEN_NOBIRU__){window.__DX_REOPEN_NOBIRU__();}return;}}' +
+          '},true);'
+        : '';
+
+    const minigameClicks =
+      kind === 'minigame'
+        ? 'document.addEventListener("click",function(ev){' +
+          'const back=ev.target&&ev.target.closest&&ev.target.closest("#backLink,.back-link,a[href*=\\"kokugo_app\\"]");' +
+          'if(back){ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();}' +
+          '},true);' +
+          'document.addEventListener("DOMContentLoaded",function(){' +
+          'window.backToApp=function(){if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();};' +
+          '});'
+        : '';
+
+    const boot =
+      '<script>(function(){' +
+      passBoot +
+      globals +
+      searchHook +
+      scriptHook +
+      goHome +
+      locationHooks +
+      nobiruClicks +
+      minigameClicks +
+      openerSrc +
+      '})();<\/script>';
+
+    const absHtml = window.__DX_ABS_NOBIRU__(html, opts.assetBase);
+    if (/<head[^>]*>/i.test(absHtml)) {
+      return absHtml.replace(/<head[^>]*>/i, function (m) {
+        return m + boot;
+      });
+    }
+    return boot + absHtml;
+  }
+
   function openNobiruPage(key, searchObj) {
     const base = window.__DX_CDN_BASE__;
-    let home = window.__DX_HOME_URL__ || '';
-    try {
-      if (!home && (!window.frameElement || window.frameElement.id !== 'dx-nobiru-frame')) {
-        home = location.href;
-      }
-    } catch (e0) {
-      home = home || location.href;
-    }
+    const home = window.__DX_HOST_HOME_URL__();
 
     if (!base) {
       const qsLocal = new URLSearchParams(searchObj || {});
@@ -557,7 +782,8 @@
     const bootSearch = bootParams.toString() ? '?' + bootParams.toString() : '';
     const htmlName = String(key || '').replace(/[^A-Za-z0-9_-]/g, '');
     if (!htmlName) {
-      return Promise.reject(new Error('不正な教材キーです'));
+      window.__DX_REPORT_PAGE_ERROR__(new Error('不正な教材キーです'));
+      return Promise.resolve();
     }
 
     return fetch(nobiruBase + htmlName + '.html', { cache: 'no-store' })
@@ -568,121 +794,20 @@
         return res.text();
       })
       .then(function (html) {
-        const openerSrc =
-          'window.__DX_OPEN_NOBIRU__=(' +
-          window.__DX_OPEN_NOBIRU__.toString() +
-          ');' +
-          'window.__DX_SHOW_NOBIRU_HTML__=(' +
-          window.__DX_SHOW_NOBIRU_HTML__.toString() +
-          ');' +
-          'window.__DX_CLOSE_NOBIRU__=function(){try{if(parent!==window&&parent.__DX_CLOSE_NOBIRU__)parent.__DX_CLOSE_NOBIRU__();}catch(e){}};' +
-          'window.__DX_RESOLVE_NOBIRU__=(' +
-          window.__DX_RESOLVE_NOBIRU__.toString() +
-          ');' +
-          'window.__DX_ABS_NOBIRU__=(' +
-          window.__DX_ABS_NOBIRU__.toString() +
-          ');';
-
-        const boot =
-          '<script>(function(){' +
-          'window.__DX_CDN_BASE__=' +
-          JSON.stringify(base) +
-          ';' +
-          'window.__DX_HOME_URL__=' +
-          JSON.stringify(home) +
-          ';' +
-          'window.__DX_NOBIRU_KEY__=' +
-          JSON.stringify(htmlName) +
-          ';' +
-          'window.__DX_NOBIRU_BASE__=' +
-          JSON.stringify(nobiruBase) +
-          ';' +
-          'window.__DX_BOOT_SEARCH__=' +
-          JSON.stringify(bootSearch) +
-          ';' +
-          'try{const d=Object.getOwnPropertyDescriptor(Location.prototype,"search");' +
-          'if(d&&d.get&&window.__DX_BOOT_SEARCH__){Object.defineProperty(Location.prototype,"search",{' +
-          'configurable:true,enumerable:true,get:function(){' +
-          'if(this===window.location&&window.__DX_BOOT_SEARCH__)return window.__DX_BOOT_SEARCH__;' +
-          'return d.get.call(this);}});}}catch(e){}' +
-          /* 動的 script.src = "engine.js" を CDN 絶対URLへ */
-          '(function(){const nb=' +
-          JSON.stringify(nobiruBase) +
-          ';const ce=document.createElement.bind(document);' +
-          'document.createElement=function(tag){const el=ce(tag);' +
-          'if(String(tag).toLowerCase()==="script"){const sa=el.setAttribute.bind(el);' +
-          'el.setAttribute=function(n,v){if(String(n).toLowerCase()==="src"&&v&&!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(v)&&v.indexOf("//")!==0){' +
-          'v=nb+String(v).replace(/^\\.\\//,"").replace(/^\\/+/,"");}return sa(n,v);};' +
-          'try{Object.defineProperty(el,"src",{configurable:true,enumerable:true,' +
-          'get:function(){return el.getAttribute("src");},' +
-          'set:function(v){el.setAttribute("src",v);}});}' +
-          'catch(e2){}}return el;};})();' +
-          'window.__DX_GO_HOME__=function(){try{if(parent!==window){' +
-          'if(typeof parent.__DX_RETURN_FROM_NOBIRU__==="function"){parent.__DX_RETURN_FROM_NOBIRU__();return;}' +
-          'if(typeof parent.__DX_CLOSE_NOBIRU__==="function")parent.__DX_CLOSE_NOBIRU__();' +
-          'if(typeof parent.showHome==="function"){parent.showHome();return;}' +
-          '}}catch(e){}' +
-          'if(window.__DX_HOME_URL__)location.href=window.__DX_HOME_URL__;};' +
-          /* 本体 engine を触らず、location 遷移を配布側で横取りする */
-          '(function(){function dxIsHomeNav(u){return /kokugo_app\\.html/i.test(String(u||""));}' +
-          'function dxReopenNobiru(){if(!window.__DX_OPEN_NOBIRU__||!window.__DX_NOBIRU_KEY__)return false;' +
-          'const o={};try{new URLSearchParams(window.__DX_BOOT_SEARCH__||"").forEach(function(v,k){o[k]=v;});}catch(eR){}' +
-          'window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__,o);return true;}' +
-          'try{const lr=Location.prototype.replace;Location.prototype.replace=function(u){' +
-          'if(dxIsHomeNav(u)&&window.__DX_GO_HOME__){window.__DX_GO_HOME__();return;}' +
-          'return lr.apply(this,arguments);};}catch(e4){}' +
-          'try{const la=Location.prototype.assign;Location.prototype.assign=function(u){' +
-          'if(dxIsHomeNav(u)&&window.__DX_GO_HOME__){window.__DX_GO_HOME__();return;}' +
-          'return la.apply(this,arguments);};}catch(e5){}' +
-          'try{const hd=Object.getOwnPropertyDescriptor(Location.prototype,"href");' +
-          'if(hd&&hd.set){Object.defineProperty(Location.prototype,"href",{configurable:true,enumerable:true,' +
-          'get:function(){return hd.get.call(this);},' +
-          'set:function(v){if(dxIsHomeNav(v)&&window.__DX_GO_HOME__){window.__DX_GO_HOME__();return;}' +
-          'return hd.set.call(this,v);}});}}catch(e6){}' +
-          'try{const rl=Location.prototype.reload;Location.prototype.reload=function(){' +
-          'if(dxReopenNobiru())return;return rl.apply(this,arguments);};}catch(e8){}' +
-          'window.__DX_REOPEN_NOBIRU__=dxReopenNobiru;' +
-          'window.__DX_NOBIRU_FINISHED__=function(){return Array.prototype.some.call(document.querySelectorAll("button.again"),function(b){' +
-          'const t=String(b.textContent||"");' +
-          'return b.classList.contains("daily-end")||t.indexOf("ホーム")!==-1||t.indexOf("一日一読を終える")!==-1||t.indexOf("はじめからやり直す")!==-1;});};' +
-          '})();' +
-          /* キャプチャで srcdoc 上の壊れる遷移（pathname=srcdoc / ../kokugo_app / reload）を潰す */
-          'document.addEventListener("click",function(ev){' +
-          'const btn=ev.target&&ev.target.closest&&ev.target.closest(".modesel-card[data-mode]");' +
-          'if(btn&&window.__DX_OPEN_NOBIRU__){ev.preventDefault();ev.stopImmediatePropagation();' +
-          'window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__,{mode:btn.getAttribute("data-mode")});return;}' +
-          'const sw=ev.target&&ev.target.closest&&ev.target.closest("a.modeSwitch, #modeSwitch");' +
-          'if(sw&&window.__DX_OPEN_NOBIRU__&&window.__DX_NOBIRU_KEY__){ev.preventDefault();ev.stopImmediatePropagation();' +
-          'window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__,{});return;}' +
-          'const a=ev.target&&ev.target.closest&&ev.target.closest("a.back, a.modesel-back");' +
-          'if(a){' +
-          /* 一日一読の未完了中は engine の confirm に任せる。完了後は結果ボタン有無で判定（data属性不要） */
-          'if(a.classList.contains("back")&&/[?&]viaDaily=1(?:&|$)/.test(String(window.__DX_BOOT_SEARCH__||""))&&' +
-          '!(window.__DX_NOBIRU_FINISHED__&&window.__DX_NOBIRU_FINISHED__())){return;}' +
-          'ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();return;}' +
-          'const again=ev.target&&ev.target.closest&&ev.target.closest("button.again");' +
-          'if(again){const oc=String(again.getAttribute("onclick")||"");const tx=String(again.textContent||"");' +
-          'if(again.classList.contains("daily-end")||oc.indexOf("kokugo_app")!==-1||tx.indexOf("ホーム")!==-1||tx.indexOf("一日一読を終える")!==-1){' +
-          'ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();return;}' +
-          'if(oc.indexOf("location.reload")!==-1||tx.indexOf("はじめからやり直す")!==-1){' +
-          'ev.preventDefault();ev.stopImmediatePropagation();' +
-          'if(window.__DX_REOPEN_NOBIRU__){window.__DX_REOPEN_NOBIRU__();}return;}}' +
-          '},true);' +
-          openerSrc +
-          '})();<\/script>';
-
         /* <base> は使わない（about:srcdoc → /nobiru/srcdoc 事故の原因） */
-        const absHtml = window.__DX_ABS_NOBIRU__(html, nobiruBase);
-        let out = absHtml;
-        if (/<head[^>]*>/i.test(out)) {
-          out = out.replace(/<head[^>]*>/i, function (m) {
-            return m + boot;
-          });
-        } else {
-          out = boot + out;
-        }
-
-        window.__DX_SHOW_NOBIRU_HTML__(out);
+        window.__DX_SHOW_NOBIRU_HTML__(
+          window.__DX_BUILD_SRCDOC_BOOT__(html, {
+            kind: 'nobiru',
+            base: base,
+            home: home,
+            assetBase: nobiruBase,
+            htmlName: htmlName,
+            bootSearch: bootSearch,
+          })
+        );
+      })
+      .catch(function (err) {
+        window.__DX_REPORT_PAGE_ERROR__(err);
       });
   }
 
@@ -690,10 +815,11 @@
    *  passId は本体 mgGoWithPass の第1引数（通行証キー）。新ミニゲーム追加時も対応表不要。 */
   function openStandaloneHtml(fileName, passId) {
     const base = window.__DX_CDN_BASE__;
-    const home = dxHostHomeUrl();
+    const home = window.__DX_HOST_HOME_URL__();
     const safeName = String(fileName || '').trim();
     if (!/^[A-Za-z0-9_-]+\.html$/.test(safeName)) {
-      return Promise.reject(new Error('不正なページ名です'));
+      window.__DX_REPORT_PAGE_ERROR__(new Error('不正なページ名です'));
+      return Promise.resolve();
     }
     const safePassId = /^[A-Za-z0-9_-]+$/.test(String(passId || '')) ? String(passId) : '';
 
@@ -702,8 +828,7 @@
       return Promise.resolve();
     }
 
-    const assetBase = base;
-    return fetch(assetBase + safeName, { cache: 'no-store' })
+    return fetch(base + safeName, { cache: 'no-store' })
       .then(function (res) {
         if (!res.ok) {
           throw new Error('ページの取得に失敗しました (HTTP ' + res.status + ')');
@@ -711,84 +836,21 @@
         return res.text();
       })
       .then(function (html) {
-        const openerSrc =
-          'window.__DX_OPEN_STANDALONE_HTML__=(' +
-          window.__DX_OPEN_STANDALONE_HTML__.toString() +
-          ');' +
-          'window.__DX_SHOW_NOBIRU_HTML__=(' +
-          window.__DX_SHOW_NOBIRU_HTML__.toString() +
-          ');' +
-          'window.__DX_CLOSE_NOBIRU__=function(){try{if(parent!==window&&parent.__DX_CLOSE_NOBIRU__)parent.__DX_CLOSE_NOBIRU__();}catch(e){}};' +
-          'window.__DX_RESOLVE_NOBIRU__=(' +
-          window.__DX_RESOLVE_NOBIRU__.toString() +
-          ');' +
-          'window.__DX_ABS_NOBIRU__=(' +
-          window.__DX_ABS_NOBIRU__.toString() +
-          ');';
-
-        /* 通行証チェックより先に head 先頭で実行する。srcdoc の sessionStorage は親と共有されない */
-        const passBoot = safePassId
-          ? 'try{var __dxpo=JSON.parse(sessionStorage.getItem("kokugo_mg_pass_v1")||"{}");__dxpo[' +
-            JSON.stringify(safePassId) +
-            ']=1;sessionStorage.setItem("kokugo_mg_pass_v1",JSON.stringify(__dxpo));}catch(e){}'
-          : '';
-
-        const boot =
-          '<script>(function(){' +
-          passBoot +
-          'window.__DX_CDN_BASE__=' +
-          JSON.stringify(base) +
-          ';' +
-          'window.__DX_HOME_URL__=' +
-          JSON.stringify(home) +
-          ';' +
-          'window.__DX_STANDALONE_PAGE__=' +
-          JSON.stringify(safeName) +
-          ';' +
-          '(function(){const nb=' +
-          JSON.stringify(assetBase) +
-          ';const ce=document.createElement.bind(document);' +
-          'document.createElement=function(tag){const el=ce(tag);' +
-          'if(String(tag).toLowerCase()==="script"){const sa=el.setAttribute.bind(el);' +
-          'el.setAttribute=function(n,v){if(String(n).toLowerCase()==="src"&&v&&!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(v)&&v.indexOf("//")!==0){' +
-          'v=nb+String(v).replace(/^\\.\\//,"").replace(/^\\/+/,"");}return sa(n,v);};' +
-          'try{Object.defineProperty(el,"src",{configurable:true,enumerable:true,' +
-          'get:function(){return el.getAttribute("src");},' +
-          'set:function(v){el.setAttribute("src",v);}});}' +
-          'catch(e2){}}return el;};})();' +
-          'window.__DX_GO_HOME__=function(){try{if(parent!==window&&parent.__DX_CLOSE_NOBIRU__){parent.__DX_CLOSE_NOBIRU__();if(parent.__DX_RETURN_FROM_MINIGAME__)parent.__DX_RETURN_FROM_MINIGAME__();return;}}catch(e){}' +
-          'if(window.__DX_HOME_URL__)location.href=window.__DX_HOME_URL__;};' +
-          /* 通行証なし時の location.replace("kokugo_app.html") もホーム復帰へ */
-          '(function(){try{const lr=Location.prototype.replace;Location.prototype.replace=function(u){' +
-          'if(String(u||"").indexOf("kokugo_app")!==-1&&window.__DX_GO_HOME__){window.__DX_GO_HOME__();return;}' +
-          'return lr.apply(this,arguments);};}catch(e4){}})();' +
-          '(function(){try{const la=Location.prototype.assign;Location.prototype.assign=function(u){' +
-          'if(String(u||"").indexOf("kokugo_app")!==-1&&window.__DX_GO_HOME__){window.__DX_GO_HOME__();return;}' +
-          'return la.apply(this,arguments);};}catch(e5){}})();' +
-          'document.addEventListener("click",function(ev){' +
-          'const back=ev.target&&ev.target.closest&&ev.target.closest("#backLink,.back-link,a[href*=\\"kokugo_app\\"]");' +
-          'if(back){ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();}' +
-          '},true);' +
-          /* 本体 HTML は触らず、戻る関数だけ差し替え */
-          'document.addEventListener("DOMContentLoaded",function(){' +
-          'window.backToApp=function(){if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();};' +
-          '});' +
-          openerSrc +
-          '})();<\/script>';
-
-        const absHtml = window.__DX_ABS_NOBIRU__(html, assetBase);
-        let out = absHtml;
-        if (/<head[^>]*>/i.test(out)) {
-          out = out.replace(/<head[^>]*>/i, function (m) {
-            return m + boot;
-          });
-        } else {
-          out = boot + out;
-        }
-
         const f = document.getElementById('dx-nobiru-frame');
         if (f) f.title = 'ミニゲーム';
-        window.__DX_SHOW_NOBIRU_HTML__(out);
+        window.__DX_SHOW_NOBIRU_HTML__(
+          window.__DX_BUILD_SRCDOC_BOOT__(html, {
+            kind: 'minigame',
+            base: base,
+            home: home,
+            assetBase: base,
+            pageName: safeName,
+            passId: safePassId,
+          })
+        );
+      })
+      .catch(function (err) {
+        window.__DX_REPORT_PAGE_ERROR__(err);
       });
   }
 
@@ -849,6 +911,10 @@
   }
 
   function installNobiruOpener() {
+    window.__DX_SHOW_PAGE_ERROR__ = showPageError;
+    window.__DX_REPORT_PAGE_ERROR__ = reportPageError;
+    window.__DX_HOST_HOME_URL__ = dxHostHomeUrl;
+    window.__DX_BUILD_SRCDOC_BOOT__ = buildSrcdocDocument;
     window.__DX_OPEN_NOBIRU__ = openNobiruPage;
     window.__DX_OPEN_STANDALONE_HTML__ = openStandaloneHtml;
     window.__DX_RETURN_FROM_MINIGAME__ = returnFromMinigame;
