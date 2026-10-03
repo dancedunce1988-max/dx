@@ -290,6 +290,10 @@ const cv = $("cv"), ctx = cv.getContext("2d");
 let W = 800, H = 600, DPR = 1;
 let S = 1;          // 本体版(高さ600px)に対する大きさの倍率。機体・弾・アイテムの大きさに使う
 let ORB_FONT = 14;  // オーブの文字の大きさ(px)
+/* アイテムの半径(px)。オーブの文字に合わせて大きくする（2026-10-03、教員の指示：「大きくなった時に負けないくらい大きく」）。 */
+let ITEM_R = 16;
+/* 弾の大きさの倍率（2026-10-03、教員の指示：「少し大きくして見えやすく」。本体内の版の1.6倍）。 */
+let BULLET_SC = 1.6;
 /* canvasの大きさを、実際に表示されている大きさに合わせる。ゲーム中に窓の大きさが変わったときは、
    画面の中の物の位置を同じ割合で動かす（レーンの位置がずれないように）。 */
 function fitCanvas(){
@@ -301,10 +305,12 @@ function fitCanvas(){
   S = Math.max(0.8, Math.min(2.2, H / 600));
   const laneW = W / 4;
   ORB_FONT = Math.round(Math.max(13, Math.min(laneW * 0.085, H * 0.046, 34)));
+  ITEM_R = Math.round(Math.max(26*S, ORB_FONT * 1.5));
+  BULLET_SC = 1.6 * S;
   if(G){
     G.player.x *= fx; G.player.targetX *= fx; G.player.y = H - 70*S;
     G.orbs.forEach(o => { o.y *= fy; layoutOrb(o); });
-    G.items.forEach(it => { it.x *= fx; it.y *= fy; it.r = 16*S; });
+    G.items.forEach(it => { it.x = laneCenter(it.lane); it.y *= fy; it.r = ITEM_R; });
     G.bullets = []; G.particles = []; G.popups = [];
   }
   render();
@@ -360,6 +366,7 @@ function pickNextItem(){
 }
 
 const laneCount = () => (G && G.currentOrder && G.currentOrder.length) || 4;
+const laneCenter = lane => W / 4 * lane + W / 8;
 function moveToLane(idx){
   const n = laneCount();
   idx = Math.max(0, Math.min(n-1, idx));
@@ -417,7 +424,7 @@ function fireBullet(){
   G.lastFire = now;
   const dmg = bulletDamage(G.shipLevel);
   bulletPattern(G.shipLevel).forEach(p => {
-    G.bullets.push({x:G.player.x + p.dx*S, y:G.player.y - 20*S, vx:p.vx*S, vy:-9*S, big:!!p.big, diag:!!p.diag, dmg});
+    G.bullets.push({x:G.player.x + p.dx*BULLET_SC, y:G.player.y - 20*S, vx:p.vx*S, vy:-9*S, big:!!p.big, diag:!!p.diag, dmg});
   });
   beep(880,0.05,'square',0.06);
 }
@@ -445,7 +452,10 @@ function pickItemType(lv){
 }
 function spawnItem(){
   const d = pickItemType(G.shipLevel);
-  G.items.push({type:d.type, color:d.color, symbol:d.symbol, x:30*S + Math.random()*(W-60*S), y:-30*S, vyBase:1.6+Math.random()*0.4, r:16*S});
+  /* アイテムはどれかのレーンのまん中に落とす（2026-10-03、教員の指示：キーで操作する人が多いので、
+     数字キー・矢印キーで移った機体の中心にちょうど来るように）。 */
+  const lane = Math.floor(Math.random() * 4);
+  G.items.push({type:d.type, color:d.color, symbol:d.symbol, lane, x:laneCenter(lane), y:-ITEM_R*2, vyBase:1.6+Math.random()*0.4, r:ITEM_R});
 }
 function collectItem(it){
   beep(1500,0.1,'triangle',0.15);
@@ -583,7 +593,7 @@ function loop(t){
     it.y += it.vyBase * fall * k;
     const dx = Math.abs(it.x - G.player.x), dy = Math.abs(it.y - G.player.y);
     if(!it.gone && dx < (20*S + it.r*0.7) && dy < (18*S + it.r*0.7)){ it.gone = true; collectItem(it); }
-    else if(!it.gone && it.y > H + 30*S) it.gone = true;
+    else if(!it.gone && it.y > H + it.r*2) it.gone = true;
   });
   G.items = G.items.filter(it => !it.gone);
   G.particles.forEach(p => { p.x += p.vx*k; p.y += p.vy*k; p.vy += 0.08*S*k; p.life -= 0.03*k; });
@@ -671,7 +681,7 @@ function render(){
     ctx.fillStyle = g; ctx.fill();
     ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.stroke();
     ctx.shadowBlur = 0;
-    ctx.fillStyle = '#1a1a3e'; ctx.font = `bold ${Math.round(14*S)}px sans-serif`;
+    ctx.fillStyle = '#1a1a3e'; ctx.font = `bold ${Math.round(it.r*0.95)}px sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(it.symbol, 0, 1);
     ctx.restore();
@@ -680,7 +690,7 @@ function render(){
   // 弾
   const colors = ['#7ee8fa','#8ff0d6','#ffe38a','#ffb37e'];
   const bc = colors[Math.min(G.shipLevel, colors.length-1)];
-  const bw0 = (4 + G.shipLevel*1.2)*S, bh0 = (14 + G.shipLevel*2)*S;
+  const bw0 = (4 + G.shipLevel*1.2)*BULLET_SC, bh0 = (14 + G.shipLevel*2)*BULLET_SC;
   const hue0 = (now*0.25) % 360;
   G.bullets.forEach(b => {
     const bw = b.big ? bw0*2.1 : bw0, bh = b.big ? bh0*1.35 : bh0;
