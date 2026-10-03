@@ -437,12 +437,40 @@
   }
 
   /* 通常版は nobiru → kokugo_app.html へ遷移し直し、showHome でクリア報酬が出る。
-     配布は同一ページのまま iframe を閉じるだけなので、明示的に showHome を呼ぶ。 */
+     配布は同一ページのまま iframe を閉じるだけなので、明示的に showHome を呼ぶ。
+     （閉じるだけだと、開く前の「読解Quest選択」が再表示され、ホームへ押すまで
+      クリア画面が出ない） */
   function returnFromNobiru() {
-    closeNobiruFrame();
     try {
-      if (typeof showHome === 'function') showHome();
-    } catch (e) {}
+      const f = document.getElementById('dx-nobiru-frame');
+      if (f && f.contentWindow) {
+        try {
+          const cw = f.contentWindow;
+          const pending = cw.localStorage.getItem('dd_daily_pending_reward_v1');
+          if (pending) {
+            localStorage.setItem('dd_daily_pending_reward_v1', pending);
+          }
+          const rewarded = cw.localStorage.getItem('dd_daily_rewarded_keys_v1');
+          if (rewarded) {
+            localStorage.setItem('dd_daily_rewarded_keys_v1', rewarded);
+          }
+        } catch (eSync) {
+          /* srcdoc と親で storage が分かれている場合のみ失敗。同じなら不要 */
+        }
+      }
+    } catch (eFrame) {}
+    closeNobiruFrame();
+    const go = function () {
+      try {
+        if (typeof window.showHome === 'function') {
+          window.showHome();
+        }
+      } catch (eHome) {
+        console.error('[DX] showHome after nobiru failed', eHome);
+      }
+    };
+    /* iframe 破棄と同フレームで DOM を書き換えると端末によって描画が残るため、次タスクへ */
+    setTimeout(go, 0);
   }
 
   function showNobiruHtml(out) {
@@ -589,8 +617,11 @@
           'get:function(){return el.getAttribute("src");},' +
           'set:function(v){el.setAttribute("src",v);}});}' +
           'catch(e2){}}return el;};})();' +
-          'window.__DX_GO_HOME__=function(){try{if(parent!==window&&parent.__DX_RETURN_FROM_NOBIRU__){parent.__DX_RETURN_FROM_NOBIRU__();return;}' +
-          'if(parent!==window&&parent.__DX_CLOSE_NOBIRU__){parent.__DX_CLOSE_NOBIRU__();return;}}catch(e){}' +
+          'window.__DX_GO_HOME__=function(){try{if(parent!==window){' +
+          'if(typeof parent.__DX_RETURN_FROM_NOBIRU__==="function"){parent.__DX_RETURN_FROM_NOBIRU__();return;}' +
+          'if(typeof parent.__DX_CLOSE_NOBIRU__==="function")parent.__DX_CLOSE_NOBIRU__();' +
+          'if(typeof parent.showHome==="function"){parent.showHome();return;}' +
+          '}}catch(e){}' +
           'if(window.__DX_HOME_URL__)location.href=window.__DX_HOME_URL__;};' +
           /* 本体 engine を触らず、location 遷移を配布側で横取りする */
           '(function(){function dxIsHomeNav(u){return /kokugo_app\\.html/i.test(String(u||""));}' +
