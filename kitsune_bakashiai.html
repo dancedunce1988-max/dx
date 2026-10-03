@@ -1184,22 +1184,37 @@ let MGS = null;   // 今のゲームの {ok:正解数, ng:まちがい数}（ゲ
 const mgNet = () => MGS ? MGS.ok - MGS.ng : 0;
 const mgSigned = n => n > 0 ? "+" + n : n < 0 ? "−" + (-n) : "±0";
 function mgStart(){ mgFlush(); MGS = {ok:0, ng:0}; }
-function mgCorrect(){ if(!MGS) return; MGS.ok++; showLvupToast(1); }
-function mgWrong(){ if(!MGS) return; MGS.ng++; showLvupToast(-1); }
+function mgCorrect0(){ if(!MGS) return; MGS.ok++; showLvupToast(1); }
+function mgWrong0(){ if(!MGS) return; MGS.ng++; showLvupToast(-1); }
 // ゲームの終わり：差し引きを本体への合図に足し、結果を返す（ゲーム中でなければnull）
 function mgFlush(){
   if(!MGS) return null;
   const r = {ok:MGS.ok, ng:MGS.ng, net:mgNet()};
+  const sent = MGS.sent || 0;   // 上がった分はその場で渡し済み（mgSyncUp）
   MGS = null;
-  if(r.net){
-    let o = {};
-    try{ o = JSON.parse(localStorage.getItem(MG_PENDING_LVUP_LSKEY)) || {}; }catch(e){ o = {}; }
-    if(typeof o !== "object") o = {};
-    o[MG_CAT] = (Number(o[MG_CAT]) || 0) + r.net;
-    try{ localStorage.setItem(MG_PENDING_LVUP_LSKEY, JSON.stringify(o)); }catch(e){}
-  }
+  mgWritePending(r.net - sent);   // 残り（下がる分など）をここで精算
   return r;
 }
+/* 本体へのリアルタイム反映とデイリーログイン報酬（2026-10-04、教員の指示：「ミニゲームは全部ログイン報酬の対象に」
+   「ジャンルレベルが上がった場合も必ずリアルタイムで反映」）。
+   ・答えるたびに、本体と共通のキー（kokugo_mg_played_v1）へ今日の日付を書く。本体はこれが今日ならログイン報酬を成立させる。
+   ・ジャンルレベルが上がった分は、上がったその場で書き置きに足す（本体はセーブを読むたびに取りこむ）。
+     下がる分は、今までどおりゲームの終わり（mgFlush）にまとめて精算する（途中で上下をくり返してごほうびを余分にもらわないように）。 */
+const MG_PLAYED_LSKEY = "kokugo_mg_played_v1";
+function mgNotePlayed(){
+  try{ const d = new Date(); localStorage.setItem(MG_PLAYED_LSKEY, d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0")); }catch(e){}
+}
+function mgWritePending(n){
+  if(!n) return;
+  let o = {};
+  try{ o = JSON.parse(localStorage.getItem(MG_PENDING_LVUP_LSKEY)) || {}; }catch(e){ o = {}; }
+  if(!o || typeof o !== "object") o = {};
+  o[MG_CAT] = (Number(o[MG_CAT]) || 0) + n;
+  try{ localStorage.setItem(MG_PENDING_LVUP_LSKEY, JSON.stringify(o)); }catch(e){}
+}
+function mgSyncUp(){ if(!MGS) return; const n = mgNet(); if(n > (MGS.sent || 0)){ mgWritePending(n - (MGS.sent || 0)); MGS.sent = n; } }
+function mgCorrect(){ mgCorrect0(); mgNotePlayed(); mgSyncUp(); }
+function mgWrong(){ mgWrong0(); mgNotePlayed(); }
 window.addEventListener("pagehide", mgFlush);   // 「ミニゲーム一覧へ」やタブを閉じたときも、そこまでの分を渡す
 // 正解・まちがい（2つめごと）のたびに画面の上へ出す表示
 function showLvupToast(d, text){

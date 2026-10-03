@@ -4333,7 +4333,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.96</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.97</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -5235,6 +5235,7 @@ function loadStats(){
            （nobiru/engine.js）で完結するため、そちら側は`localStorage`の合図（"一日一読
            待ち受け中の報酬"、ddCheckNobiruPendingReward参照）経由でここに伝える。 */
         if(!st.nobiruRewardGiven || typeof st.nobiruRewardGiven !== "object") st.nobiruRewardGiven = {};
+        mgSyncFromMinigames(st); // 別ページのミニゲームのジャンルレベル・ログイン報酬をすぐ取りこむ
         return st;
       }
     }
@@ -7631,7 +7632,7 @@ function showHome(){
   if(kbOverlay) kbOverlay.remove();
   vsApplyPendingResults();      // ボキャブラ・シューティング大画面版の正誤・得点を反映（record()が自分で保存するので、stを読む前に）
   const st = loadStats();
-  mgApplyPendingLevelUps(st);   // ミニゲーム（九尾の化かし合い・炎狼ラン）で上がったジャンルレベルを反映（ほかの表示より先に）
+  mgSyncFromMinigames(st);   // ミニゲームで上がったジャンルレベル・今日答えたことによるログイン報酬を反映（ほかの表示より先に。新しいプレイヤーでも通るよう、ここでも呼ぶ）
   if(st.pendingDailyLoginStamp){ showDailyLoginStampOverlay(st); return; }
   /* のびる読解（別ページ、nobiru/engine.js）から「一日一読、読み終わりました」の合図が
      来ていれば、ストック経験値を加算してから一度だけお知らせを見せる（教員の指示、
@@ -12710,7 +12711,40 @@ const DD_PENDING_REWARD_LSKEY = "dd_daily_pending_reward_v1";
    仕組みで、ミニゲームの問題には当てはまらないため（bgLevelUpShikibetsuと同じ理由）。
    読み取った時点でキーは必ず消す（二重加算防止）。ここに書けるジャンルはMG_LVUP_CATSだけ。 */
 const MG_PENDING_LVUP_LSKEY = "kokugo_minigame_pending_lvups_v1";
-const MG_LVUP_CATS = ["kanji_shiwake", "keigo", "setsuzokushi"];
+/* ミニゲームはすべてデイリーログイン報酬の対象（2026-10-04、教員の指示）。本体の中のミニゲーム・別ページのミニゲームの
+   どちらも、問題に答えるたびにこのキーへ「答えた日付」を書く（mgNotePlayed、別ページは同じキーに直接書く）。
+   本体はセーブを読むたびに（loadStats→mgSyncFromMinigames）、この日付が今日なら maybeGrantDailyLogin を通す。
+   成立は1日1回なので、今日の日付のキーは消さずに残しておく（どこかで古いstが上書き保存されても、次の読み込みで成立し直せる）。
+   日付が今日でないキーは消す（昨日遊んだ分で今日の報酬が成立しないように）。 */
+const MG_PLAYED_LSKEY = "kokugo_mg_played_v1";
+function mgNotePlayed(){ try{ localStorage.setItem(MG_PLAYED_LSKEY, todayLocalDateStr()); }catch(e){} }
+function mgCheckPlayedLogin(st){
+  let d = null;
+  try{ d = localStorage.getItem(MG_PLAYED_LSKEY); }catch(e){}
+  if(!d) return false;
+  if(d !== todayLocalDateStr()){ try{ localStorage.removeItem(MG_PLAYED_LSKEY); }catch(e){} return false; }
+  const before = st.dailyLogin && st.dailyLogin.lastDate;
+  maybeGrantDailyLogin(st);
+  return !!st.dailyLogin && st.dailyLogin.lastDate !== before;
+}
+/* 別ページのミニゲームのジャンルレベル・ログイン報酬を、ホーム画面を待たずに取りこむ（2026-10-04、教員の指示：
+   「ジャンルレベルが上がった場合も、必ずリアルタイムで反映」）。loadStats()の最後で毎回呼ぶので、本体のどの画面を
+   開いても最新になる。別のタブで本体を開いたままでも、storageイベントで書き置きが届いた瞬間に取りこむ。 */
+let mgSyncing = false;
+function mgSyncFromMinigames(st){
+  if(mgSyncing) return;
+  mgSyncing = true;
+  try{
+    const applied = mgApplyPendingLevelUps(st); // レベルが変わったときは中で保存済み
+    if(mgCheckPlayedLogin(st)) saveStats(st); // ログイン報酬が成立したら必ず保存（レベル反映の保存のあとでも）
+  }finally{ mgSyncing = false; }
+}
+window.addEventListener("storage", e => {
+  if(e.key === MG_PENDING_LVUP_LSKEY || e.key === MG_PLAYED_LSKEY){ try{ loadStats(); }catch(err){} }
+});
+/* 表現の魔術道（gihou_madousho.html、2026-10-03〜、試作）は「表現技法」（hyougen）。ほかと違い、まちがいでは下げず、
+   正解1問ごとに＋1を、答えるたびにその場で書き足す（途中でやめてもそこまでの分は反映される。教員の指示）。 */
+const MG_LVUP_CATS = ["kanji_shiwake", "keigo", "setsuzokushi", "hyougen"];
 function mgApplyPendingLevelUps(st){
   let raw;
   try{ raw = localStorage.getItem(MG_PENDING_LVUP_LSKEY); }catch(e){ raw = null; }
@@ -12719,6 +12753,12 @@ function mgApplyPendingLevelUps(st){
   let info;
   try{ info = JSON.parse(raw); }catch(e){ info = null; }
   if(!info || typeof info !== "object") return null;
+  /* 別ページのミニゲームで「今日」問題に答えていれば（_played＝答えた日付、2026-10-04〜、表現の魔術道が書く）、
+     本体で1問答えたのと同じくデイリーログイン報酬を成立させる（教員の指示）。日付が今日でなければ成立させない
+     （昨日遊んで今日ホームを開いた、という場合に今日の分がもらえてしまわないように）。スタンプ演出は
+     showHome()がこのあとpendingDailyLoginStampを見て出す。 */
+  const playedToday = info._played === todayLocalDateStr();
+  if(playedToday) maybeGrantDailyLogin(st);
   const applied = {};
   MG_LVUP_CATS.forEach(cat => {
     const n = Math.max(-1000, Math.min(1000, Math.trunc(Number(info[cat]) || 0)));
@@ -12734,7 +12774,7 @@ function mgApplyPendingLevelUps(st){
       applied[cat] = (applied[cat]||0) - 1;
     }
   });
-  if(!Object.keys(applied).length) return null;
+  if(!Object.keys(applied).length){ if(playedToday) saveStats(st); return null; }
   saveStats(st);
   return applied;
 }
@@ -20543,6 +20583,7 @@ function speedMatchPick(idx){
   if(!speedMatch || !speedMatch.running || speedMatch.busy) return;
   const card = speedMatch.cards[idx];
   if(!card || card.matched) return;
+  mgNotePlayed(); // ミニゲームで答えた＝デイリーログイン報酬の対象（2026-10-04）
   // 選んだカードをもう一度タップしたら選択を解除する（教員の指示、2026-09-25〜：
   // 「一旦一つ選んだ場合でも、もう一度押せば選択を解除できるように」＝先に違うものを選び直せる）。
   if(speedMatch.selected.includes(idx)){
@@ -24790,6 +24831,7 @@ function bgSlash(blade){
   if(!BG || BG.phase!=="run") return;
   if(!BG.stage.blades.includes(blade)) return;
   if(bgInDemo(BG.beat)){ bgVerdict("いまは見る","#7b7466"); return; }
+  mgNotePlayed(); // ミニゲームで答えた＝デイリーログイン報酬の対象（2026-10-04）
   const tr=BG.track;
   let best=null, bd=1e9;
   for(let i=Math.max(0,BG.gi-2); i<tr.gaps.length; i++){
@@ -24861,6 +24903,7 @@ function bgPushMiss(kind, g){
    連斬が切れて記録には残るが、ライフはもう減らない。次の文に進むと
    sentenceLifeLostがbgUpdateSentenceで改めてfalseに戻る。 */
 function bgOnMiss(kind,g){
+  mgNotePlayed(); // ミニゲームで答えた＝デイリーログイン報酬の対象（2026-10-04）
   bgPushMiss(kind,g);
   bgLoseCombo();
   BG.miss++;
@@ -26279,6 +26322,7 @@ function psOnPointerUp(e){
 }
 
 function psShowFloatScore(cellsForPos, gain){
+  mgNotePlayed(); // ミニゲームで答えた＝デイリーログイン報酬の対象（2026-10-04）
   const p = psCellCenter(cellsForPos[Math.floor(cellsForPos.length/2)]);
   const el = document.createElement("div");
   el.className = "psFloatScore";
@@ -31132,6 +31176,7 @@ function kbStrokeToLogicalForChar(strokePts, charIndex, cellPx){
 function kbSubmitJudge(timedOut){
   if(!kanjiBoss || kanjiBoss.turnBusy) return;
   kbSetTurnBusy(true);
+  mgNotePlayed(); // ミニゲームで答えた＝デイリーログイン報酬の対象（2026-10-04）
   const kdata = kanjiBoss.data[kanjiBoss.currentId];
   let ok = false;
   if(!timedOut && kbCompletedStrokes.length > 0){
@@ -32946,6 +32991,7 @@ function mbChallengeSuccess(){
 // 会心チャレンジの不正解は「チャンスを逃しただけ」で、選び直しはさせず、最初に選んでいた
 // 攻撃魔法をそのまま通常発動する（2026-09-08〜、mbShowCritOutcome参照）。
 function mbChallengeFail(){
+  mgNotePlayed(); // ミニゲームで答えた＝デイリーログイン報酬の対象（2026-10-04）
   const action = mbPendingAction;
   mbChallenge = null;
   if(action.type === 'crit'){

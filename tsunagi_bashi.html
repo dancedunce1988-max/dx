@@ -228,6 +228,18 @@
   .opt:disabled{ opacity:.35; transform:none; box-shadow:0 4px 0 #5d3b17; }
   .opt.picked-ok{ outline:3px solid var(--ok); }
   .opt.picked-ng{ outline:3px solid var(--ng); }
+  /* キー操作：選んでいる板・ボタンの枠と、パソコンだけに出す数字キーの目印 */
+  .opt, .tablet .slot.tap{ position:relative; }
+  .opt:focus-visible, .tablet .slot.tap:focus-visible, .stage-btn:focus-visible, .btn:focus-visible{ outline:3px solid #ffd76a; outline-offset:2px; }
+  .kbd-hint{ display:none; }
+  @media (hover:hover) and (pointer:fine){
+    .opt[data-k]::before, .tablet .slot.tap[data-k]::before{
+      content:attr(data-k); position:absolute; top:3px; left:5px; font:700 11px/1 system-ui, sans-serif;
+      color:#fff; background:rgba(60,35,10,.75); border-radius:4px; padding:2px 4px; text-decoration:none;
+    }
+    .tablet .slot.tap[data-k]::before{ top:-9px; left:-6px; }
+    .kbd-hint{ display:block; text-align:center; font-size:11px; color:var(--sub); margin-top:8px; }
+  }
   .explain{
     margin-top:12px; background:rgba(0,0,0,.3); border:1px solid var(--line); border-left:4px solid var(--ng);
     border-radius:10px; padding:10px 12px; font-size:13.5px; line-height:1.75;
@@ -309,6 +321,7 @@
       正しい板で橋を架け、わしを向こう岸まで渡してくれ！
     </div>
     <div class="stage-list" id="stageList"></div>
+    <div class="kbd-hint">⌨️ キーボードでも遊べる：数字キー（1〜9）で板を選ぶ／Enter・スペースで「次へ」／←→で選んでEnterで決定</div>
     <div class="foot-btns">
       <button class="btn" onclick="showZukan()">📖 板の図鑑</button>
       <button class="btn" onclick="backToApp()">ミニゲーム一覧へ戻る</button>
@@ -600,21 +613,36 @@ const mgSigned = n => n > 0 ? "+" + n : n < 0 ? "−" + (-n) : "±0";
 function mgStart(practice){ mgFlush(); MGS = {ok:0, ng:0, practice:!!practice}; }
 // 正解・まちがいのたびに数え、今回の増減が実際に変わったときだけ上に表示する
 // （練習の谷では2問ごと、またマイナスにならないので、まちがえても表示が出ないことがある）
-function mgCorrect(){ if(!MGS) return; const b = mgNet(); MGS.ok++; const a = mgNet(); if(a !== b) showLvupToast(a - b); }
-function mgWrong(){ if(!MGS) return; const b = mgNet(); MGS.ng++; const a = mgNet(); if(a !== b) showLvupToast(a - b); }
+function mgCorrect0(){ if(!MGS) return; const b = mgNet(); MGS.ok++; const a = mgNet(); if(a !== b) showLvupToast(a - b); }
+function mgWrong0(){ if(!MGS) return; const b = mgNet(); MGS.ng++; const a = mgNet(); if(a !== b) showLvupToast(a - b); }
 function mgFlush(){
   if(!MGS) return null;
   const r = {ok:MGS.ok, ng:MGS.ng, net:mgNet()};
+  const sent = MGS.sent || 0;   // 上がった分はその場で渡し済み（mgSyncUp）
   MGS = null;
-  if(r.net){
-    let o = {};
-    try{ o = JSON.parse(localStorage.getItem(MG_PENDING_LVUP_LSKEY)) || {}; }catch(e){ o = {}; }
-    if(!o || typeof o !== "object") o = {};
-    o[MG_CAT] = (Number(o[MG_CAT]) || 0) + r.net;
-    try{ localStorage.setItem(MG_PENDING_LVUP_LSKEY, JSON.stringify(o)); }catch(e){}
-  }
+  mgWritePending(r.net - sent);   // 残り（下がる分など）をここで精算
   return r;
 }
+/* 本体へのリアルタイム反映とデイリーログイン報酬（2026-10-04、教員の指示：「ミニゲームは全部ログイン報酬の対象に」
+   「ジャンルレベルが上がった場合も必ずリアルタイムで反映」）。
+   ・答えるたびに、本体と共通のキー（kokugo_mg_played_v1）へ今日の日付を書く。本体はこれが今日ならログイン報酬を成立させる。
+   ・ジャンルレベルが上がった分は、上がったその場で書き置きに足す（本体はセーブを読むたびに取りこむ）。
+     下がる分は、今までどおりゲームの終わり（mgFlush）にまとめて精算する（途中で上下をくり返してごほうびを余分にもらわないように）。 */
+const MG_PLAYED_LSKEY = "kokugo_mg_played_v1";
+function mgNotePlayed(){
+  try{ const d = new Date(); localStorage.setItem(MG_PLAYED_LSKEY, d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0")); }catch(e){}
+}
+function mgWritePending(n){
+  if(!n) return;
+  let o = {};
+  try{ o = JSON.parse(localStorage.getItem(MG_PENDING_LVUP_LSKEY)) || {}; }catch(e){ o = {}; }
+  if(!o || typeof o !== "object") o = {};
+  o[MG_CAT] = (Number(o[MG_CAT]) || 0) + n;
+  try{ localStorage.setItem(MG_PENDING_LVUP_LSKEY, JSON.stringify(o)); }catch(e){}
+}
+function mgSyncUp(){ if(!MGS) return; const n = mgNet(); if(n > (MGS.sent || 0)){ mgWritePending(n - (MGS.sent || 0)); MGS.sent = n; } }
+function mgCorrect(){ mgCorrect0(); mgNotePlayed(); mgSyncUp(); }
+function mgWrong(){ mgWrong0(); mgNotePlayed(); }
 window.addEventListener("pagehide", mgFlush);
 function showLvupToast(d){
   let el = document.getElementById("lvupToast");
@@ -1393,6 +1421,64 @@ function showZukan(){
   show("zukan");
   $("zukan").scrollTop = 0;
 }
+
+/* =====================================================================
+   パソコンのキー操作（2026-10-04、教員の指示）
+   ・ゲーム中：数字キー 1〜9・0 で板（選択肢）を選ぶ。四の谷で腐った板を探すときは、石板の板に番号がつく。
+     ←→↑↓ で選ぶ板を動かし、Enter／スペースで決定。「次へ」が出ているときは Enter／スペースで進む。
+   ・谷の地図：←→↑↓ で谷を選び、Enter で挑む（Tab でも動かせる）。
+   ===================================================================== */
+function kbdTargets(){
+  const scr = document.querySelector(".screen.show");
+  if(!scr) return [];
+  if(scr.id === "game") return [...$("board").querySelectorAll(".opt, .slot.tap")];
+  if(scr.id === "title") return [...scr.querySelectorAll(".stage-btn, .foot-btns .btn")];
+  return [];
+}
+// 盤面が書きかわるたびに、選択肢へ数字キーの目印をつける（腐った板探しの板はTabでも選べるようにする）
+function kbdLabel(){
+  const opts = [...$("board").querySelectorAll(".opt")];
+  const items = opts.length ? opts : [...$("board").querySelectorAll(".slot.tap")];
+  $("board").querySelectorAll("[data-k]").forEach(el => { if(!items.includes(el)) el.removeAttribute("data-k"); });
+  items.forEach((el, i) => { if(i < 10) el.dataset.k = String((i + 1) % 10); });
+  $("board").querySelectorAll(".slot.tap").forEach(s => s.tabIndex = 0);
+  $("board").querySelectorAll(".slot:not(.tap)[tabindex]").forEach(s => s.removeAttribute("tabindex"));
+  const nx = $("board").querySelector(".explain .next");
+  if(nx && !nx.dataset.kf){ nx.dataset.kf = "1"; try{ nx.focus({preventScroll:true}); }catch(e){} }
+}
+new MutationObserver(kbdLabel).observe($("board"), {childList:true, subtree:true});
+document.addEventListener("keydown", e => {
+  if(e.ctrlKey || e.altKey || e.metaKey || e.isComposing) return;
+  const scr = document.querySelector(".screen.show");
+  if(!scr) return;
+  const k = e.key;
+  if(scr.id === "game"){
+    // 「次へ」が出ていれば Enter／スペースで進む
+    const nx = $("board").querySelector(".explain .next");
+    if(nx && (k === "Enter" || k === " ")){ e.preventDefault(); if(!e.repeat) nx.click(); return; }
+    // 数字キーで板を選ぶ
+    if(/^[0-9]$/.test(k)){
+      const el = $("board").querySelector(`[data-k="${k}"]`);
+      if(el && !el.disabled && (el.classList.contains("opt") || el.classList.contains("tap"))){ e.preventDefault(); if(!e.repeat) el.click(); }
+      return;
+    }
+    // 石板の腐った板（spanなので、Enter／スペースは自前で押す）
+    const a = document.activeElement;
+    if(a && a.classList && a.classList.contains("tap") && (k === "Enter" || k === " ")){ e.preventDefault(); if(!e.repeat) a.click(); return; }
+  }
+  if(k === "ArrowRight" || k === "ArrowDown" || k === "ArrowLeft" || k === "ArrowUp"){
+    const ts = kbdTargets().filter(el => !el.disabled);
+    if(!ts.length) return;
+    const cur = ts.indexOf(document.activeElement);
+    // ゲーム中、まだ板を選んでいないときの↑↓は、長い文章のスクロールに残す
+    if(scr.id === "game" && cur < 0 && (k === "ArrowUp" || k === "ArrowDown")) return;
+    e.preventDefault();
+    const d = (k === "ArrowRight" || k === "ArrowDown") ? 1 : -1;
+    const nxt = cur < 0 ? (d > 0 ? 0 : ts.length - 1) : (cur + d + ts.length) % ts.length;
+    ts[nxt].focus();
+    ts[nxt].scrollIntoView({block:"nearest"});
+  }
+});
 
 $("muteBtn").textContent = muted ? "🔇" : "🔊";
 showTitle();
