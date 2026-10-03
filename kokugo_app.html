@@ -4333,7 +4333,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.95</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.96</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -20097,7 +20097,13 @@ function openEnroRun(){ mgGoWithPass("enro", "enro_run.html"); }
    （正誤ごとにrecord("goi", ..., {skipRecentAcc:true})・期間限定イベント経験値・自己ベストと100点きざみの経験値、vsApplyHighScore）を行う。
    読み取った時点でキーは必ず消す（二重加算防止）。 */
 const VS_PENDING_LSKEY = "kokugo_vs_pending_v1";
-function openVocabShooter(){ mgGoWithPass("vocab", "vocab_shooter.html"); }
+/* GitHub Pagesはページをブラウザに最大10分保存させる（Cache-Control: max-age=600）ため、本体は新しい版なのに
+   移った先の大画面版だけ古いまま、ということが起きた（2026-10-03、ver12.95で教員の指摘）。ヘッダーの版番号を
+   ?v= に付けて、版が変わるたびに別のURLとして読み直させる（zip作成時の書き換えのため、ファイル名の文字列は分けたままにする）。 */
+function openVocabShooter(){
+  const ver = ((document.querySelector(".ver-tag") || {}).textContent || "").replace(/[^0-9.]/g, "");
+  mgGoWithPass("vocab", "vocab_shooter.html" + (ver ? "?v=" + ver : ""));
+}
 function vsApplyPendingResults(){
   let raw;
   try{ raw = localStorage.getItem(VS_PENDING_LSKEY); }catch(e){ raw = null; }
