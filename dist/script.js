@@ -2,12 +2,12 @@
  * 知識ドリルDX — 生徒配布用ローダー
  * file:// で開き、CDN 上の本体を読み込む（classic script / no modules）
  *
- * 初期ハッシュ (abb7c49…): abb7c4954d80cc25617a025545de9fd685e08773
+ * フォールバックハッシュ (1f097f6…): 1f097f6738b5be3d5f057c27c2b7993cd7a228a9
  */
 (function () {
   'use strict';
 
-  const FALLBACK_COMMIT_HASH = 'abb7c4954d80cc25617a025545de9fd685e08773';
+  const FALLBACK_COMMIT_HASH = '1f097f6738b5be3d5f057c27c2b7993cd7a228a9';
   const COMMIT_HASH_RE = /^[0-9a-f]{40}$/i;
   const REPO = 'dancedunce1988-max/dx';
   const JSDELIVR_HOST = 'cdn.jsdelivr.net';
@@ -497,17 +497,33 @@
     f.srcdoc = out;
   }
 
+  /* toString で iframe に渡すため、外側の定数は参照しない */
   function resolveNobiruAsset(url, nobiruBase) {
+    const repo = 'dancedunce1988-max/dx';
+    const jsdelivrHost = 'cdn.jsdelivr.net';
+    const rawHost = 'raw.githubusercontent.com';
     if (!url || typeof url !== 'string') return null;
     const s = url.trim();
-    if (!s || s.charAt(0) === '#' || s.indexOf('mailto:') === 0 || s.indexOf('javascript:') === 0) {
+    if (!s || s.charAt(0) === '#') return null;
+    const lower = s.toLowerCase();
+    if (lower.indexOf('mailto:') === 0) return null;
+    if (lower.indexOf('javascript:') === 0) return null;
+    if (lower.indexOf('data:') === 0) return null;
+    if (lower.indexOf('vbscript:') === 0) return null;
+    if (s.indexOf('..') !== -1) return null;
+    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(s) || s.indexOf('//') === 0) {
+      const abs = s.indexOf('//') === 0 ? 'https:' + s : s;
+      try {
+        const u = new URL(abs);
+        if (u.protocol !== 'https:') return null;
+        if (u.hostname === jsdelivrHost && u.pathname.indexOf('/gh/' + repo + '@') === 0) return abs;
+        if (u.hostname === rawHost && u.pathname.indexOf('/' + repo + '/') === 0) return abs;
+      } catch (e) {}
       return null;
     }
-    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(s) || s.indexOf('//') === 0) {
-      return s;
-    }
-    if (s.indexOf('..') !== -1) return null;
-    return nobiruBase + s.replace(/^\.\//, '').replace(/^\/+/, '');
+    const path = s.replace(/^\.\//, '').replace(/^\/+/, '');
+    if (!path) return null;
+    return nobiruBase + path;
   }
 
   function absolutizeNobiruHtml(html, nobiruBase) {
@@ -518,8 +534,10 @@
     for (let i = 0; i < nodes.length; i++) {
       const el = nodes[i];
       if (el.hasAttribute('src')) {
-        const absSrc = resolve(el.getAttribute('src'), nobiruBase);
+        const src = el.getAttribute('src');
+        const absSrc = resolve(src, nobiruBase);
         if (absSrc) el.setAttribute('src', absSrc);
+        else if (src && String(src).trim()) el.removeAttribute('src');
       }
       if (el.hasAttribute('href') && el.tagName.toLowerCase() === 'link') {
         const absHref = resolve(el.getAttribute('href'), nobiruBase);
@@ -656,14 +674,20 @@
           'return d.get.call(this);}});}}catch(e){}'
         : '';
 
+    const resolveBoot =
+      'window.__DX_RESOLVE_NOBIRU__=(' +
+      window.__DX_RESOLVE_NOBIRU__.toString() +
+      ');';
+
     const scriptHook =
       '(function(){const nb=' +
       JSON.stringify(opts.assetBase) +
       ';const ce=document.createElement.bind(document);' +
       'document.createElement=function(tag){const el=ce(tag);' +
       'if(String(tag).toLowerCase()==="script"){const sa=el.setAttribute.bind(el);' +
-      'el.setAttribute=function(n,v){if(String(n).toLowerCase()==="src"&&v&&!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(v)&&v.indexOf("//")!==0){' +
-      'v=nb+String(v).replace(/^\\.\\//,"").replace(/^\\/+/,"");}return sa(n,v);};' +
+      'el.setAttribute=function(n,v){if(String(n).toLowerCase()==="src"&&v){' +
+      'var r=window.__DX_RESOLVE_NOBIRU__&&window.__DX_RESOLVE_NOBIRU__(String(v), nb);' +
+      'if(!r)return; v=r;}return sa(n,v);};' +
       'try{Object.defineProperty(el,"src",{configurable:true,enumerable:true,' +
       'get:function(){return el.getAttribute("src");},' +
       'set:function(v){el.setAttribute("src",v);}});}' +
@@ -747,6 +771,7 @@
       passBoot +
       globals +
       searchHook +
+      resolveBoot +
       scriptHook +
       goHome +
       locationHooks +
@@ -868,18 +893,24 @@
   function returnFromMinigame() {
     copyFrameStorage(['kokugo_minigame_pending_lvups_v1']);
     closeNobiruFrame();
-    try {
-      if (
-        typeof showPrologue === 'function' &&
-        typeof showHome === 'function' &&
-        typeof showSideQuestMenu === 'function'
-      ) {
-        showPrologue(function () {
-          showHome();
-          showSideQuestMenu();
-        });
+    const go = function () {
+      try {
+        if (
+          typeof showPrologue === 'function' &&
+          typeof showHome === 'function' &&
+          typeof showSideQuestMenu === 'function'
+        ) {
+          showPrologue(function () {
+            showHome();
+            showSideQuestMenu();
+          });
+        }
+      } catch (e) {
+        console.error('[DX] showHome after minigame failed', e);
       }
-    } catch (e) {}
+    };
+    /* iframe 破棄と同フレームで DOM を書き換えると端末によって描画が残る */
+    setTimeout(go, 0);
   }
 
   function installMinigameDistHooks() {
