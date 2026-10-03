@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'self' https://cdn.jsdelivr.net https://raw.githubusercontent.com; style-src 'unsafe-inline' 'self' https://cdn.jsdelivr.net https://raw.githubusercontent.com; img-src data: blob: https://cdn.jsdelivr.net https://raw.githubusercontent.com; media-src data: blob: https://cdn.jsdelivr.net https://raw.githubusercontent.com; font-src data: https://cdn.jsdelivr.net https://raw.githubusercontent.com; connect-src https://cdn.jsdelivr.net https://raw.githubusercontent.com; frame-src about:; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>知識ドリルDX</title>
+  <style>
+    #dx-boot {
+      position: fixed;
+      inset: 0;
+      z-index: 20000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: #f7f4ee;
+      color: #2b2b2b;
+      font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+    }
+    #dx-boot[hidden],
+    #dx-boot.is-gone {
+      display: none !important;
+    }
+    #dx-boot.is-done {
+      opacity: 0;
+      transition: opacity .25s ease;
+      pointer-events: none;
+    }
+    #dx-boot .dx-boot-card {
+      width: min(100%, 360px);
+      background: #fff;
+      border: 1px solid #e4ded3;
+      border-radius: 14px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, .05);
+      padding: 28px 28px 24px;
+      text-align: center;
+    }
+    #dx-boot .dx-boot-title {
+      margin: 0;
+      font-size: 1.35rem;
+      font-weight: bold;
+      letter-spacing: .15em;
+      line-height: 1.4;
+      padding-bottom: 12px;
+      border-bottom: 3px double #e4ded3;
+    }
+    #dx-boot .dx-boot-title span {
+      color: #c0392b;
+    }
+    #dx-boot .dx-boot-label {
+      margin: 16px 0 0;
+      font-size: .92rem;
+      color: #6b6b6b;
+    }
+    #dx-boot .dx-boot-detail {
+      margin: 4px 0 0;
+      min-height: 1.2em;
+      font-size: .78rem;
+      color: #6b6b6b;
+      font-variant-numeric: tabular-nums;
+    }
+    #dx-boot .dx-boot-track {
+      position: relative;
+      overflow: hidden;
+      height: 4px;
+      margin-top: 16px;
+      border-radius: 999px;
+      background: #e4ded3;
+    }
+    #dx-boot .dx-boot-bar {
+      height: 100%;
+      width: 0;
+      border-radius: inherit;
+      background: #2c6e63;
+    }
+    #dx-boot .dx-boot-bar.is-indeterminate {
+      width: 38%;
+      animation: dx-boot-slide 1.15s ease-in-out infinite;
+    }
+    #dx-boot .dx-boot-error-title {
+      margin: 16px 0 8px;
+      color: #b00020;
+      font-weight: bold;
+      font-size: .95rem;
+    }
+    #dx-boot .dx-boot-error {
+      margin: 0;
+      text-align: left;
+      white-space: pre-wrap;
+      color: #2b2b2b;
+      font-size: .88rem;
+      line-height: 1.6;
+    }
+    @keyframes dx-boot-slide {
+      0% { transform: translateX(-120%); }
+      100% { transform: translateX(280%); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #dx-boot.is-done { transition: none; }
+      #dx-boot .dx-boot-bar.is-indeterminate { animation: none; width: 100%; opacity: .45; }
+    }
+  </style>
+</head>
+<body>
+  <div id="dx-boot" role="status" aria-live="polite" aria-busy="true">
+    <div class="dx-boot-card">
+      <p class="dx-boot-title">知識ドリル<span>DX</span></p>
+      <p class="dx-boot-label" id="dx-boot-label">読み込んでいます</p>
+      <p class="dx-boot-detail" id="dx-boot-detail" aria-hidden="true"></p>
+      <div class="dx-boot-track" id="dx-boot-progress" role="progressbar" aria-label="読み込み" aria-valuemin="0" aria-valuemax="100">
+        <div class="dx-boot-bar is-indeterminate" id="dx-boot-bar"></div>
+      </div>
+    </div>
+  </div>
+  <div id="app"></div>
+  <script src="script.js"></script>
+</body>
+</html>
