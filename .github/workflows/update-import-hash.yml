@@ -6,14 +6,18 @@ on:
       - main
     paths:
       # ルートの別ページ HTML（九尾・炎狼ラン等）が増えても commitHash を更新する
+      # kokugo_app.html は *.html、dist/script.js は **/*.js に含まれる
       - '*.html'
-      - 'kokugo_app.html'
       - '**/*.js'
       - 'nobiru/**'
-      - 'dist/script.js'
       - 'dist/index.html'
       - '!dist/import-config.json'
   workflow_dispatch:
+
+# 連続 push では古い run を止める。最後の commit のハッシュだけを書く。
+concurrency:
+  group: update-import-hash-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: write
