@@ -121,18 +121,21 @@
     const s = url.trim();
     if (!s || s.charAt(0) === '#') return null;
 
-    /* 空白・改行を抜いたあと、%2e%2e のようなエンコードを最大3回戻して判定する */
+    /* 空白・改行を抜いたあと、%2e%2e のようなエンコードを戻す。
+       戻し切っても %2e / %2f / %5c が残るものは拒否する。 */
     function checkText(raw) {
       let t = String(raw).replace(/[\u0000-\u0020\u007f]+/g, '');
-      for (let n = 0; n < 3; n++) {
+      for (let n = 0; n < 8; n++) {
+        let decoded;
         try {
-          const decoded = decodeURIComponent(t);
-          if (decoded === t) break;
-          t = decoded;
+          decoded = decodeURIComponent(t);
         } catch (e) {
           return null;
         }
+        if (decoded === t) break;
+        t = decoded;
       }
+      if (/%(?:2e|2f|5c)/i.test(t)) return null;
       return t.toLowerCase();
     }
 
@@ -389,51 +392,67 @@
         commitHash = FALLBACK_COMMIT_HASH;
       })
       .then(function () {
-        window.__DX_CDN_BASE__ = cdnBase(commitHash);
         setBootStatus('アプリ本体を取得しています');
-
-        return fetchText(rawHtmlUrl(commitHash)).then(function (htmlText) {
-          const doc = parseHtml(htmlText);
-          const remoteApp = doc.querySelector('#app');
-          if (!remoteApp) {
-            throw new Error('リモート HTML に #app がありません');
+        const requested = commitHash;
+        return fetchText(rawHtmlUrl(requested)).then(
+          function (htmlText) {
+            return { hash: requested, htmlText: htmlText };
+          },
+          function (err) {
+            if (requested === FALLBACK_COMMIT_HASH) throw err;
+            console.warn('[DX] app html fetch failed, using fallback hash', err);
+            commitHash = FALLBACK_COMMIT_HASH;
+            setBootStatus('前回の版を取得しています');
+            return fetchText(rawHtmlUrl(FALLBACK_COMMIT_HASH)).then(function (htmlText) {
+              return { hash: FALLBACK_COMMIT_HASH, htmlText: htmlText };
+            });
           }
+        );
+      })
+      .then(function (loaded) {
+        commitHash = loaded.hash;
+        window.__DX_CDN_BASE__ = cdnBase(commitHash);
+        const htmlText = loaded.htmlText;
+        const doc = parseHtml(htmlText);
+        const remoteApp = doc.querySelector('#app');
+        if (!remoteApp) {
+          throw new Error('リモート HTML に #app がありません');
+        }
 
-          const ver = extractVersion(doc);
-          if (ver) {
-            document.title = '知識ドリルDX (' + ver + ')';
-          }
+        const ver = extractVersion(doc);
+        if (ver) {
+          document.title = '知識ドリルDX (' + ver + ')';
+        }
 
-          injectHeadStyles(doc, commitHash);
+        injectHeadStyles(doc, commitHash);
 
-          // ネスト回避: remote #app の中身だけを host #app へ
-          const wrapper = document.createElement('div');
-          wrapper.innerHTML = remoteApp.innerHTML;
-          rewriteAssetAttrs(wrapper, commitHash);
-          hostApp.innerHTML = '';
-          while (wrapper.firstChild) {
-            hostApp.appendChild(wrapper.firstChild);
-          }
+        // ネスト回避: remote #app の中身だけを host #app へ
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = remoteApp.innerHTML;
+        rewriteAssetAttrs(wrapper, commitHash);
+        hostApp.innerHTML = '';
+        while (wrapper.firstChild) {
+          hostApp.appendChild(wrapper.firstChild);
+        }
 
-          const scripts = collectScripts(doc, commitHash);
-          setBootStatus('スクリプトを読み込んでいます');
-          return injectScriptsInOrder(scripts, function (done, total) {
-            setBootStatus('スクリプトを読み込んでいます', total ? done / total : 1);
-            const detail = document.getElementById('dx-boot-detail');
-            if (detail) detail.textContent = done + ' / ' + total;
-          }).then(function () {
-            installNobiruOpener();
-            installMinigameDistHooks();
-            /* 配布時ののびる読解入口はここだけ。本体 ddOpenNobiru（location.href）を上書きし、
-               viaDaily / viaCheck を落とさず __DX_OPEN_NOBIRU__（fetch→srcdoc）へ渡す。 */
-            window.ddOpenNobiru = function (key, viaDaily, viaCheck) {
-              const params = {};
-              if (viaCheck) params.viaCheck = '1';
-              else if (viaDaily) params.viaDaily = '1';
-              return window.__DX_OPEN_NOBIRU__(key, params);
-            };
-            hideBoot();
-          });
+        const scripts = collectScripts(doc, commitHash);
+        setBootStatus('スクリプトを読み込んでいます');
+        return injectScriptsInOrder(scripts, function (done, total) {
+          setBootStatus('スクリプトを読み込んでいます', total ? done / total : 1);
+          const detail = document.getElementById('dx-boot-detail');
+          if (detail) detail.textContent = done + ' / ' + total;
+        }).then(function () {
+          installNobiruOpener();
+          installMinigameDistHooks();
+          /* 配布時ののびる読解入口はここだけ。本体 ddOpenNobiru（location.href）を上書きし、
+             viaDaily / viaCheck を落とさず __DX_OPEN_NOBIRU__（fetch→srcdoc）へ渡す。 */
+          window.ddOpenNobiru = function (key, viaDaily, viaCheck) {
+            const params = {};
+            if (viaCheck) params.viaCheck = '1';
+            else if (viaDaily) params.viaDaily = '1';
+            return window.__DX_OPEN_NOBIRU__(key, params);
+          };
+          hideBoot();
         });
       })
       .catch(function (err) {
@@ -459,30 +478,82 @@
       f.srcdoc = '';
     } catch (e) {}
     f.hidden = true;
+    try {
+      if (window.__DX_HOST_TITLE__) document.title = window.__DX_HOST_TITLE__;
+    } catch (eTitle) {}
   }
 
   /* iframe を閉じる前に、子の localStorage を親へ写す。
-     srcdoc と親で storage が分かれているときだけ必要。同じなら読み書きは同じ領域。 */
+     srcdoc と親で storage が分かれているときだけ必要。同じなら読み書きは同じ領域。
+     失敗したら ok: false。呼び出し側は iframe を閉じずに知らせる。 */
   function copyFrameStorage(keys) {
+    const f = document.getElementById('dx-nobiru-frame');
+    if (!f || !f.contentWindow) return { ok: true };
     try {
-      const f = document.getElementById('dx-nobiru-frame');
-      if (!f || !f.contentWindow) return;
-      try {
-        const cw = f.contentWindow;
-        for (let i = 0; i < keys.length; i++) {
-          const value = cw.localStorage.getItem(keys[i]);
-          if (value) localStorage.setItem(keys[i], value);
-        }
-      } catch (eSync) {}
-    } catch (eFrame) {}
+      const cw = f.contentWindow;
+      for (let i = 0; i < keys.length; i++) {
+        const value = cw.localStorage.getItem(keys[i]);
+        if (value) localStorage.setItem(keys[i], value);
+      }
+      return { ok: true };
+    } catch (eSync) {
+      console.error('[DX] frame storage copy failed', eSync);
+      return { ok: false, error: eSync };
+    }
+  }
+
+  /* 写しに失敗したまま閉じると、iframe 側の報酬・レベルが消える。残るか戻るかを選ばせる。 */
+  function confirmLeaveWithoutStorage(message, onLeave) {
+    const old = document.getElementById('dx-storage-copy-error');
+    if (old && old.parentNode) old.parentNode.removeChild(old);
+    const wrap = document.createElement('div');
+    wrap.id = 'dx-storage-copy-error';
+    wrap.setAttribute('role', 'alert');
+    wrap.setAttribute(
+      'style',
+      'position:fixed;inset:0;z-index:100001;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(43,43,43,.35);'
+    );
+    const card = document.createElement('div');
+    card.setAttribute(
+      'style',
+      'width:min(100%,360px);background:#fff;border:1px solid #e4ded3;border-radius:14px;padding:28px 28px 24px;text-align:center;font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;color:#2b2b2b;'
+    );
+    const title = document.createElement('p');
+    title.setAttribute('style', 'margin:0 0 8px;color:#b00020;font-weight:bold;font-size:.95rem;');
+    title.textContent = '記録を写せませんでした';
+    const body = document.createElement('p');
+    body.setAttribute('style', 'margin:0;text-align:left;white-space:pre-wrap;font-size:.88rem;line-height:1.6;');
+    body.textContent = message;
+    const stay = document.createElement('button');
+    stay.type = 'button';
+    stay.textContent = 'この画面に残る';
+    const leave = document.createElement('button');
+    leave.type = 'button';
+    leave.textContent = 'ホームに戻る';
+    const btnStyle =
+      'margin-top:16px;padding:8px 18px;border:1px solid #e4ded3;border-radius:8px;background:#fff;font:inherit;cursor:pointer;';
+    stay.setAttribute('style', btnStyle + 'margin-right:8px;');
+    leave.setAttribute('style', btnStyle);
+    stay.addEventListener('click', function () {
+      if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
+    });
+    leave.addEventListener('click', function () {
+      if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
+      onLeave();
+    });
+    card.appendChild(title);
+    card.appendChild(body);
+    card.appendChild(stay);
+    card.appendChild(leave);
+    wrap.appendChild(card);
+    (document.documentElement || document.body).appendChild(wrap);
   }
 
   /* 通常版は nobiru → kokugo_app.html へ遷移し直し、showHome でクリア報酬が出る。
      配布は同一ページのまま iframe を閉じるだけなので、明示的に showHome を呼ぶ。
      （閉じるだけだと、開く前の「読解Quest選択」が再表示され、ホームへ押すまで
       クリア画面が出ない） */
-  function returnFromNobiru() {
-    copyFrameStorage(['dd_daily_pending_reward_v1', 'dd_daily_rewarded_keys_v1']);
+  function finishReturnFromNobiru() {
     closeNobiruFrame();
     const go = function () {
       try {
@@ -497,9 +568,39 @@
     setTimeout(go, 0);
   }
 
-  function showNobiruHtml(out) {
+  function returnFromNobiru() {
+    const copied = copyFrameStorage(['dd_daily_pending_reward_v1', 'dd_daily_rewarded_keys_v1']);
+    if (!copied.ok) {
+      confirmLeaveWithoutStorage(
+        'クリア報酬を本体に写せませんでした。この画面に残れば記録は残ります。ホームに戻ると、今回の報酬が反映されないことがあります。',
+        finishReturnFromNobiru
+      );
+      return;
+    }
+    finishReturnFromNobiru();
+  }
+
+  function showNobiruHtml(out, title) {
+    /* タブに出るのは親の document.title。iframe の title 属性だけでは変わらない。 */
+    let pageTitle = title || '';
+    if (!pageTitle) {
+      try {
+        const parsed = new DOMParser().parseFromString(out || '', 'text/html');
+        pageTitle = (parsed.title || '').trim();
+      } catch (eTitleParse) {}
+    }
+    try {
+      let host = window;
+      if (window.parent && window.parent !== window) host = window.parent;
+      if (pageTitle) {
+        if (!host.__DX_HOST_TITLE__) host.__DX_HOST_TITLE__ = host.document.title;
+        host.document.title = pageTitle;
+      }
+    } catch (eTitle) {}
+
     try {
       if (window.frameElement && window.frameElement.id === 'dx-nobiru-frame') {
+        if (pageTitle) window.frameElement.title = pageTitle;
         window.frameElement.srcdoc = out;
         return;
       }
@@ -509,13 +610,19 @@
     if (!f) {
       f = document.createElement('iframe');
       f.id = 'dx-nobiru-frame';
-      f.title = 'のびる読解';
+      f.title = pageTitle || 'のびる読解';
+      /* 親タブの遷移は許さない。same-origin は記録の写しと戻り処理に必要。 */
+      f.setAttribute(
+        'sandbox',
+        'allow-scripts allow-same-origin allow-modals allow-forms'
+      );
       f.setAttribute(
         'style',
         'position:fixed;inset:0;border:0;width:100%;height:100%;z-index:99999;background:#fff;'
       );
       document.documentElement.appendChild(f);
     }
+    if (pageTitle) f.title = pageTitle;
     f.hidden = false;
     f.srcdoc = out;
   }
@@ -728,20 +835,22 @@
 
     let locationHooks =
       '(function(){function dxIsHomeNav(u){return /kokugo_app\\.html/i.test(String(u||""));}' +
+      'function dxBlockAbs(u){var s=String(u||"");if(dxIsHomeNav(s))return false;' +
+      'return /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(s)||s.indexOf("//")===0;}' +
       'function dxReopenNobiru(){if(!window.__DX_OPEN_NOBIRU__||!window.__DX_NOBIRU_KEY__)return false;' +
       'const o={};try{new URLSearchParams(window.__DX_BOOT_SEARCH__||"").forEach(function(v,k){o[k]=v;});}catch(eR){}' +
       'window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__,o);return true;}' +
-      'try{const lr=Location.prototype.replace;Location.prototype.replace=function(u){' +
+      'try{const lr=Location.prototype.replace;Object.defineProperty(Location.prototype,"replace",{configurable:false,writable:false,value:function(u){' +
       'if(dxIsHomeNav(u)&&window.__DX_GO_HOME__){window.__DX_GO_HOME__();return;}' +
-      'return lr.apply(this,arguments);};}catch(e4){}' +
-      'try{const la=Location.prototype.assign;Location.prototype.assign=function(u){' +
+      'if(dxBlockAbs(u))return;return lr.apply(this,arguments);}});}catch(e4){}' +
+      'try{const la=Location.prototype.assign;Object.defineProperty(Location.prototype,"assign",{configurable:false,writable:false,value:function(u){' +
       'if(dxIsHomeNav(u)&&window.__DX_GO_HOME__){window.__DX_GO_HOME__();return;}' +
-      'return la.apply(this,arguments);};}catch(e5){}' +
+      'if(dxBlockAbs(u))return;return la.apply(this,arguments);}});}catch(e5){}' +
       'try{const hd=Object.getOwnPropertyDescriptor(Location.prototype,"href");' +
-      'if(hd&&hd.set){Object.defineProperty(Location.prototype,"href",{configurable:true,enumerable:true,' +
+      'if(hd&&hd.set){Object.defineProperty(Location.prototype,"href",{configurable:false,enumerable:true,' +
       'get:function(){return hd.get.call(this);},' +
       'set:function(v){if(dxIsHomeNav(v)&&window.__DX_GO_HOME__){window.__DX_GO_HOME__();return;}' +
-      'return hd.set.call(this,v);}});}}catch(e6){}';
+      'if(dxBlockAbs(v))return;return hd.set.call(this,v);}});}}catch(e6){}';
     if (kind === 'nobiru') {
       locationHooks +=
         'try{const rl=Location.prototype.reload;Location.prototype.reload=function(){' +
@@ -788,6 +897,18 @@
           '});'
         : '';
 
+    const cspMeta =
+      '<meta http-equiv="Content-Security-Policy" content="' +
+      "default-src 'none'; " +
+      "script-src 'unsafe-inline' https://cdn.jsdelivr.net https://raw.githubusercontent.com; " +
+      "style-src 'unsafe-inline' https://cdn.jsdelivr.net https://raw.githubusercontent.com; " +
+      "img-src data: blob: https://cdn.jsdelivr.net https://raw.githubusercontent.com; " +
+      "media-src data: blob: https://cdn.jsdelivr.net https://raw.githubusercontent.com; " +
+      "font-src data: https://cdn.jsdelivr.net https://raw.githubusercontent.com; " +
+      "connect-src https://cdn.jsdelivr.net https://raw.githubusercontent.com; " +
+      "frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'" +
+      '">';
+
     const boot =
       '<script>(function(){' +
       passBoot +
@@ -805,19 +926,24 @@
     const absHtml = window.__DX_ABS_NOBIRU__(html, opts.assetBase);
     if (/<head[^>]*>/i.test(absHtml)) {
       return absHtml.replace(/<head[^>]*>/i, function (m) {
-        return m + boot;
+        return m + cspMeta + boot;
       });
     }
-    return boot + absHtml;
+    return cspMeta + boot + absHtml;
   }
 
   function openNobiruPage(key, searchObj) {
     const base = window.__DX_CDN_BASE__;
     const home = window.__DX_HOST_HOME_URL__();
+    const htmlName = String(key || '').replace(/[^A-Za-z0-9_-]/g, '');
+    if (!htmlName) {
+      window.__DX_REPORT_PAGE_ERROR__(new Error('不正な教材キーです'));
+      return Promise.resolve();
+    }
 
     if (!base) {
       const qsLocal = new URLSearchParams(searchObj || {});
-      let localUrl = 'nobiru/' + key + '.html';
+      let localUrl = 'nobiru/' + htmlName + '.html';
       if (qsLocal.toString()) localUrl += '?' + qsLocal.toString();
       location.href = localUrl;
       return Promise.resolve();
@@ -826,11 +952,6 @@
     const nobiruBase = base + 'nobiru/';
     const bootParams = new URLSearchParams(searchObj || {});
     const bootSearch = bootParams.toString() ? '?' + bootParams.toString() : '';
-    const htmlName = String(key || '').replace(/[^A-Za-z0-9_-]/g, '');
-    if (!htmlName) {
-      window.__DX_REPORT_PAGE_ERROR__(new Error('不正な教材キーです'));
-      return Promise.resolve();
-    }
 
     /* <base> は使わない（about:srcdoc → /nobiru/srcdoc 事故の原因） */
     return window.__DX_FETCH_PAGE__(
@@ -869,8 +990,6 @@
     }
 
     return window.__DX_FETCH_PAGE__(base + safeName, 'ページの取得に失敗しました', function (html) {
-      const f = document.getElementById('dx-nobiru-frame');
-      if (f) f.title = 'ミニゲーム';
       window.__DX_SHOW_NOBIRU_HTML__(
         window.__DX_BUILD_SRCDOC_BOOT__(html, {
           kind: 'minigame',
@@ -896,8 +1015,7 @@
     return home;
   }
 
-  function returnFromMinigame() {
-    copyFrameStorage(['kokugo_minigame_pending_lvups_v1']);
+  function finishReturnFromMinigame() {
     closeNobiruFrame();
     const go = function () {
       try {
@@ -917,6 +1035,18 @@
     };
     /* iframe 破棄と同フレームで DOM を書き換えると端末によって描画が残る */
     setTimeout(go, 0);
+  }
+
+  function returnFromMinigame() {
+    const copied = copyFrameStorage(['kokugo_minigame_pending_lvups_v1']);
+    if (!copied.ok) {
+      confirmLeaveWithoutStorage(
+        'レベルの変化を本体に写せませんでした。この画面に残れば記録は残ります。ホームに戻ると、今回のレベルが反映されないことがあります。',
+        finishReturnFromMinigame
+      );
+      return;
+    }
+    finishReturnFromMinigame();
   }
 
   function installMinigameDistHooks() {
