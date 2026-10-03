@@ -33,19 +33,12 @@ jobs:
       )
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
 
-      - name: Write commitHash into dist/import-config.json
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p dist
-          jq -n \
-            --arg commitHash "${{ github.sha }}" \
-            --arg repo "dancedunce1988-max/dx" \
-            '{commitHash: $commitHash, repo: $repo}' \
-            > dist/import-config.json
-
+      # 先に別 run が import-config を push していると、この checkout からの push は non-fast-forward になる。
+      # 最新の main に書き直して再試行する。より新しい教材コミットが main にある run は上書きしない。
       - name: Commit and push if changed
         shell: bash
         run: |
@@ -53,11 +46,42 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          if git diff --quiet -- dist/import-config.json; then
-            echo "No changes to commit"
-            exit 0
-          fi
+          latest_content_sha() {
+            git log origin/main --format='%H%x09%s' | awk -F '\t' '
+              index($2, "chore: update import-config commitHash") != 1 { print $1; exit }
+            '
+          }
 
-          git add dist/import-config.json
-          git commit -m "chore: update import-config commitHash [skip ci]"
-          git push
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+              tip="$(latest_content_sha || true)"
+              if [ "$tip" != "${{ github.sha }}" ]; then
+                echo "Skip: main content commit is ${tip:-unknown}, this run is ${{ github.sha }}"
+                exit 0
+              fi
+            fi
+
+            git checkout -B main origin/main
+            mkdir -p dist
+            jq -n \
+              --arg commitHash "${{ github.sha }}" \
+              '{commitHash: $commitHash}' \
+              > dist/import-config.json
+
+            if git diff --quiet -- dist/import-config.json; then
+              echo "No changes to commit"
+              exit 0
+            fi
+
+            git add dist/import-config.json
+            git commit -m "chore: update import-config commitHash [skip ci]"
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "Push was not fast-forward, retrying (${attempt})"
+            sleep "$attempt"
+          done
+
+          echo "Failed to push dist/import-config.json"
+          exit 1
