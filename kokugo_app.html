@@ -4333,7 +4333,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.93</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.94</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -7629,6 +7629,7 @@ function showHome(){
   bossPromptResumeFn = null;
   const kbOverlay = document.getElementById('kbAtkOverlay'); // 演出の途中で離れた場合、残った全画面オーバーレイを消す
   if(kbOverlay) kbOverlay.remove();
+  vsApplyPendingResults();      // ボキャブラ・シューティング大画面版の正誤・得点を反映（record()が自分で保存するので、stを読む前に）
   const st = loadStats();
   mgApplyPendingLevelUps(st);   // ミニゲーム（九尾の化かし合い・炎狼ラン）で上がったジャンルレベルを反映（ほかの表示より先に）
   if(st.pendingDailyLoginStamp){ showDailyLoginStampOverlay(st); return; }
@@ -19924,9 +19925,12 @@ function storySideQuestButtonHtml(key, st){
   // 背景付き・邪魔になりにくい位置）。画像が無いキー（今後ミニゲームを追加した場合など）は
   // 従来どおりテキストカードにフォールバックする。
   const img = window.MB_MENU_TITLE_IMAGES && window.MB_MENU_TITLE_IMAGES[key];
+  /* ボキャブラ・シューティングは、2026-10-03〜（ver12.94、教員の指示）ミニゲーム一覧からは大画面版の別ページ
+     （openVocabShooter）へ移る。ストーリー第二部のボス戦（shooting beat）は従来どおり本体内の版で遊ぶ。 */
+  const open = key === "sqShooting" ? "openVocabShooter()" : `startStoryMode('${key}')`;
   if(img){
     return `
-      <div class="menu-card-img-btn" onclick="startStoryMode('${key}')">
+      <div class="menu-card-img-btn" onclick="${open}">
         <img src="${img}" alt="${esc(q.title)}">
         <span class="menu-card-overlay">${esc(overlayText)}</span>
       </div>`;
@@ -19934,7 +19938,7 @@ function storySideQuestButtonHtml(key, st){
   const sub = customLabel ? `<p class="note">${esc(customLabel)}</p>`
     : (best > 0 ? `<p class="note">自己ベスト：${best}点</p>` : `<p>タップして挑戦しよう</p>`);
   return `
-    <div class="card menu-card" onclick="startStoryMode('${key}')">
+    <div class="card menu-card" onclick="${open}">
       <div class="menu-icon">${esc(q.icon || "🚀")}</div>
       <div><h2>${esc(q.title)}</h2>${sub}</div>
       <div class="right"><span class="shogo-badge">挑戦する</span></div>
@@ -20085,6 +20089,40 @@ function enroRunComingSoonTap(el){
   }
 }
 function openEnroRun(){ mgGoWithPass("enro", "enro_run.html"); }
+/* ボキャブラ・シューティング 大画面版（2026-10-03〜、ver12.94、教員の指示）。「画面が小さくて見えにくい」という声を受け、
+   炎狼ランと同じ別ページ（vocab_shooter.html）にして、ブラウザの画面いっぱいで遊べるようにした。戻るときは
+   kokugo_app.html?from=minigame。別ページは本体のセーブ(st)に直接触れず、1問ごとの正誤と、ゲームが終わったときの得点を
+   localStorage（VS_PENDING_LSKEY）に {ans:[[語, 正誤, 経過ミリ秒], ...], scores:[得点, ...]} として書き置く。
+   本体はshowHome()の入口でvsApplyPendingResults()がそれを読み、本体内の版とまったく同じ処理
+   （正誤ごとにrecord("goi", ..., {skipRecentAcc:true})・期間限定イベント経験値・自己ベストと100点きざみの経験値、vsApplyHighScore）を行う。
+   読み取った時点でキーは必ず消す（二重加算防止）。 */
+const VS_PENDING_LSKEY = "kokugo_vs_pending_v1";
+function openVocabShooter(){ mgGoWithPass("vocab", "vocab_shooter.html"); }
+function vsApplyPendingResults(){
+  let raw;
+  try{ raw = localStorage.getItem(VS_PENDING_LSKEY); }catch(e){ raw = null; }
+  if(!raw) return;
+  try{ localStorage.removeItem(VS_PENDING_LSKEY); }catch(e){}
+  let info;
+  try{ info = JSON.parse(raw); }catch(e){ info = null; }
+  if(!info || typeof info !== "object") return;
+  const items = (CATS.goi && CATS.goi.items) || [];
+  (Array.isArray(info.ans) ? info.ans : []).slice(0, 2000).forEach(a => {
+    if(!Array.isArray(a)) return;
+    const item = items.find(it => it.q === a[0]);
+    if(!item) return;
+    const ok = !!a[1];
+    record("goi", item, ok, Number(a[2]) || 0, {skipRecentAcc:true});
+    const ev = ok ? activeEventIdFor("vocabshooter") : null;
+    if(ev){ const st = loadStats(); eventBonusAdd(st, ev, 1); saveStats(st); }
+  });
+  const scores = (Array.isArray(info.scores) ? info.scores : []).map(n => Math.trunc(Number(n)) || 0).filter(n => n > 0 && n < 1000000);
+  if(scores.length){
+    const st = loadStats();
+    scores.forEach(n => vsApplyHighScore(st, n));
+    saveStats(st);
+  }
+}
 /* 鉄甲兵のつなぎ橋（2026-10-02〜、試作・準備中）。鉄甲兵(me02)が、接続詞の板で谷に橋を架けて渡るゲーム。
    九尾・炎狼ランと同じく別ページ（tsunagi_bashi.html）で、戻るときは kokugo_app.html?from=minigame。
    正誤は「接続詞」（setsuzokushi）ジャンルのレベルに反映する（MG_LVUP_CATS参照）。
@@ -23089,33 +23127,36 @@ function vsStoryForceClear(){
   shoot.phase = 'storyclear';
   vsRenderGameScreen();
 }
+/* 自己ベストの更新と、100点きざみの大台を初めて超えたときの経験値（本体内の版のvsEndGameと、大画面版の
+   vsApplyPendingResultsの共通処理、2026-10-03〜）。stを書きかえるだけで保存はしない（呼び出し側でsaveStats）。
+   すでに超えた大台の位置は、st.vocabShooterXpTier（超えた最大の「◯◯0点」÷100）に持たせておく
+   （教員の指示、2026-08-17〜：いきなり400点なら100〜400の4段ぶんまとめて＋40、以後は新しく超えた段だけ＋10ずつ）。 */
+function vsApplyHighScore(st, score){
+  const prevBest = st.vocabShooterHighScore || 0;
+  const r = {isNewRecord: score > 0 && score > prevBest, xpGained:0, xpTierReached:0};
+  if(!r.isNewRecord) return r;
+  st.vocabShooterHighScore = score;
+  const oldTier = st.vocabShooterXpTier || 0;
+  const newTier = Math.floor(score / 100);
+  if(newTier > oldTier){
+    const gained = (newTier - oldTier) * 10;
+    st.vocabShooterBonusExp = (st.vocabShooterBonusExp||0) + gained;
+    st.vocabShooterXpTier = newTier;
+    r.xpGained = gained;
+    r.xpTierReached = newTier * 100;
+  }
+  return r;
+}
 function vsEndGame(){
   const shoot = storyRun.shoot;
   vsStopLoop();
   shoot.phase = 'gameover';
   const st = loadStats();
   const prevBest = st.vocabShooterHighScore || 0;
-  const isNewRecord = shoot.score > 0 && shoot.score > prevBest;
-  shoot.xpGained = 0; shoot.xpTierReached = 0;
-  if(isNewRecord){
-    st.vocabShooterHighScore = shoot.score;
-    /* 自己ベストが100点きざみの大台（100・200・300…）を初めて超えるたびに、お祝いとして
-       経験値＋10（教員の指示、2026-08-17〜）。すでに超えた大台は、以後は同じか下回る
-       自己ベストを出しても再加算しない。いきなり400点なら、100〜400の4段ぶんまとめて
-       ＋40。次に一度も更新できなかったあと500点を初めて超えたら、そのぶんだけ＋10。
-       すでに超えた大台の位置は、st.vocabShooterXpTier（超えた最大の「◯◯0点」÷100）に
-       持たせておく。 */
-    const oldTier = st.vocabShooterXpTier || 0;
-    const newTier = Math.floor(shoot.score / 100);
-    if(newTier > oldTier){
-      const gained = (newTier - oldTier) * 10;
-      st.vocabShooterBonusExp = (st.vocabShooterBonusExp||0) + gained;
-      st.vocabShooterXpTier = newTier;
-      shoot.xpGained = gained;
-      shoot.xpTierReached = newTier * 100;
-    }
-    saveStats(st);
-  }
+  const hs = vsApplyHighScore(st, shoot.score);
+  if(hs.isNewRecord) saveStats(st);
+  const isNewRecord = hs.isNewRecord;
+  shoot.xpGained = hs.xpGained; shoot.xpTierReached = hs.xpTierReached;
   shoot.finalScore = shoot.score;
   shoot.isNewRecord = isNewRecord;
   shoot.bestAfter = Math.max(prevBest, shoot.score);
