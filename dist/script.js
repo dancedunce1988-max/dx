@@ -436,6 +436,15 @@
     f.hidden = true;
   }
 
+  /* 通常版は nobiru → kokugo_app.html へ遷移し直し、showHome でクリア報酬が出る。
+     配布は同一ページのまま iframe を閉じるだけなので、明示的に showHome を呼ぶ。 */
+  function returnFromNobiru() {
+    closeNobiruFrame();
+    try {
+      if (typeof showHome === 'function') showHome();
+    } catch (e) {}
+  }
+
   function showNobiruHtml(out) {
     try {
       if (window.frameElement && window.frameElement.id === 'dx-nobiru-frame') {
@@ -580,7 +589,8 @@
           'get:function(){return el.getAttribute("src");},' +
           'set:function(v){el.setAttribute("src",v);}});}' +
           'catch(e2){}}return el;};})();' +
-          'window.__DX_GO_HOME__=function(){try{if(parent!==window&&parent.__DX_CLOSE_NOBIRU__){parent.__DX_CLOSE_NOBIRU__();return;}}catch(e){}' +
+          'window.__DX_GO_HOME__=function(){try{if(parent!==window&&parent.__DX_RETURN_FROM_NOBIRU__){parent.__DX_RETURN_FROM_NOBIRU__();return;}' +
+          'if(parent!==window&&parent.__DX_CLOSE_NOBIRU__){parent.__DX_CLOSE_NOBIRU__();return;}}catch(e){}' +
           'if(window.__DX_HOME_URL__)location.href=window.__DX_HOME_URL__;};' +
           /* 本体 engine を触らず、location 遷移を配布側で横取りする */
           '(function(){function dxIsHomeNav(u){return /kokugo_app\\.html/i.test(String(u||""));}' +
@@ -811,6 +821,7 @@
     window.__DX_OPEN_NOBIRU__ = openNobiruPage;
     window.__DX_OPEN_STANDALONE_HTML__ = openStandaloneHtml;
     window.__DX_RETURN_FROM_MINIGAME__ = returnFromMinigame;
+    window.__DX_RETURN_FROM_NOBIRU__ = returnFromNobiru;
     window.__DX_SHOW_NOBIRU_HTML__ = showNobiruHtml;
     window.__DX_CLOSE_NOBIRU__ = closeNobiruFrame;
     /* ABS が RESOLVE を参照するため、RESOLVE を先に載せる */
