@@ -1043,6 +1043,17 @@
       'set:function(v){el.setAttribute("src",v);}});}' +
       'catch(e2){}}return el;};})();';
 
+    /* engine.js は起動後に document.title を教材名にする。iframe の題名はタブに出ないので親へ写す。
+       title 要素は head にあるので head だけ見張る（body の描画では動かない）。 */
+    const titleMirror =
+      '(function(){var host=null;try{if(window.parent&&window.parent!==window)host=window.parent;}catch(eH){}' +
+      'if(!host)return;var last="";' +
+      'function sync(){var t="";try{t=String(document.title||"").trim();}catch(eT){}' +
+      'if(!t||t===last)return;last=t;' +
+      'try{if(!host.__DX_HOST_TITLE__)host.__DX_HOST_TITLE__=host.document.title;host.document.title=t;}catch(eS){}}' +
+      'try{new MutationObserver(sync).observe(document.head||document.documentElement,{childList:true,subtree:true,characterData:true});}catch(eO){}' +
+      'document.addEventListener("DOMContentLoaded",sync);})();';
+
     const goHome =
       'var __dxHome=String(window.__DX_HOME_URL__||"");' +
       (kind === 'nobiru'
@@ -1171,6 +1182,7 @@
       storageSeed +
       passBoot +
       globals +
+      titleMirror +
       scriptHook +
       goHome +
       /* ページを開かないクリックは、取得中の応答を捨てる。開くクリックより先に登録する */
