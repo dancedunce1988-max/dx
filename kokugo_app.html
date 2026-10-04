@@ -4334,7 +4334,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.00</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.01</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -18384,11 +18384,15 @@ function bootApp(){
   if(new URLSearchParams(location.search).get('devtool') === 'uraboss'){ mbUraCarry = {questMode:'hard', isSpecialQuest:false}; mbShowUraBossChoice(); return; }
   if(resumeBossBattleIfSaved()) return;
   /* 別ページのミニゲーム（kitsune_bakashiai.html）から「ミニゲーム一覧へ」で戻ってきたとき
-     （?from=minigame）。いつもどおりプロローグ→ホーム（一日一読の報酬確認などの処理）を通したうえで、
-     すぐにミニゲーム一覧を開く。再読み込みで毎回一覧に飛ばないよう、URLからは消しておく。 */
-  if(new URLSearchParams(location.search).get('from') === 'minigame'){
+     （?from=minigame）。ホーム（一日一読の報酬確認などの処理）を通したうえで、すぐにミニゲーム一覧を開く。
+     「ホームへ」で戻ってきたとき（?from=minigame_home、表現の魔術道）はホームを開く。
+     2026-10-04〜、教員の指示で、どちらもプロローグ（緑のイントロ画面）は出さない（アプリを開き直したわけではないので）。
+     再読み込みで毎回一覧に飛ばないよう、URLからは消しておく。 */
+  const fromParam = new URLSearchParams(location.search).get('from');
+  if(fromParam === 'minigame' || fromParam === 'minigame_home'){
     try{ history.replaceState(null, '', location.pathname); }catch(e){}
-    showPrologue(() => { showHome(); showSideQuestMenu(); });
+    showHome();
+    if(fromParam === 'minigame') showSideQuestMenu();
     return;
   }
   showPrologue(showHome);
