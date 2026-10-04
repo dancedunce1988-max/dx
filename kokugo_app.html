@@ -102,10 +102,11 @@
   .menu-card.locked .menu-icon{background:var(--line); color:var(--sub);}
   .menu-card.locked .shogo-badge{background:var(--sub);}
   /* 九尾の化かし合い・炎狼ランの「準備中」カード：タップの手応えとして軽くパルスさせるだけ（kitsuneComingSoonTap・enroRunComingSoonTap参照） */
-  .kitsune-teaser.tap-pulse, .enro-teaser.tap-pulse{ animation:kitsuneTapPulse .18s ease; }
+  .kitsune-teaser.tap-pulse, .enro-teaser.tap-pulse, .tsunagi-teaser.tap-pulse{ animation:kitsuneTapPulse .18s ease; }
   /* 九尾・炎狼の入口バナー（mgBannerHtml参照）：「準備中」の間は浮き上がらせない。 */
   .menu-card-img-btn.mg-banner-locked{ cursor:default; }
   .menu-card-img-btn.mg-banner-locked:hover{ transform:none; }
+  .menu-card-img-btn.mg-banner-locked img{ filter:brightness(.62) saturate(.7); }
   @keyframes kitsuneTapPulse{ 0%{transform:scale(1);} 45%{transform:scale(.96);} 100%{transform:scale(1);} }
   /* クリア済みのストーリー章カード：カード全体タップではなく、中の2つのボタン
      （「ストーリーを見る」「問題だけ」）で選ぶ形にしたので、カード自体はクリック不可にする
@@ -4333,7 +4334,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.98</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.99</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -19897,6 +19898,7 @@ function showSideQuestMenu(){
   html += enroRunMenuHtml();   // 教員の指示（2026-09-30）で炎狼ランを九尾より上に
   html += kitsuneMenuHtml();
   html += tsunagiMenuHtml();
+  html += gihouMenuHtml();
   html += `<div class="btn-row" style="justify-content:center; margin-top:10px">
     <button class="btn secondary" onclick="showHome()">戻る</button>
   </div>`;
@@ -19997,8 +19999,9 @@ function storySideQuestButtonHtml(key, st){
    カードを2回タップ」の順（KITSUNE_SECRET_SEQ）に変更した。直前の6操作がこの順になっていれば開く
    （多めにタップしてしまっても、そのままk→2回タップで開ける）。
    正式に公開するときは KITSUNE_RELEASED を true にするだけでよい。
-   2026-10-03、教員の指示で公開した（隠しモードを解除）。 */
-const KITSUNE_RELEASED = true;
+   2026-10-03、教員の指示で公開した（隠しモードを解除）。
+   2026-10-04、教員の指示でふたたび鍵をかけた（遊べるのは炎狼ランだけ。隠し操作は残す）。 */
+const KITSUNE_RELEASED = false;
 /* 別ページのミニゲーム（九尾の化かし合い・炎狼ラン）の入口バナー（2026-10-03〜、教員が用意した
    九尾バナー.png・炎狼バナー.png、menu_title_images.jsのkitsune/enroRun）。他のミニゲームと同じ
    .menu-card-img-btnで画像そのものをボタンにする。「準備中」の間も隠し操作のクラス
@@ -20012,14 +20015,17 @@ const KITSUNE_RELEASED = true;
    マッチ＆MATCH（2146x326）と同じ縦横比にした（九尾は約1.38倍、炎狼は約1.12倍）。
    さらに教員の指示で、ミニゲームのバナーの高さを「YOMUの打」まで（1359x165、縦横比約8.24）にそろえるため、
    九尾・炎狼・マッチ＆MATCHの3枚を、枠の帯を残して文字を欠かさない範囲で切り詰めたあと横に伸ばして
-   同じ縦横比にした（九尾 約1.72倍、炎狼 約1.40倍、マッチ 約1.12倍。マッチは下の透明な影も切った）。 */
+   同じ縦横比にした（九尾 約1.72倍、炎狼 約1.40倍、マッチ 約1.12倍。マッチは下の透明な影も切った）。
+   2026-10-04、教員が作り直した新しいバナー（素材/画像/九尾バナー.png・炎狼バナー.png・鉄鋼兵バナー.png）に差し替えた。
+   今度は引き伸ばさず、元の縦横比のまま幅1360pxに縮めて入れている（鉄甲兵はmenu_title_images.jsのtsunagi）。
+   鍵のかかったバナーは少し暗くし、右下に「🔒 準備中」と出す。 */
 function mgBannerHtml(key, alt, released, teaserClass, openFn, tapFn){
   const img = window.MB_MENU_TITLE_IMAGES && window.MB_MENU_TITLE_IMAGES[key];
   if(!img) return null;
   return `
     <div class="menu-card-img-btn${released ? "" : " mg-banner-locked " + teaserClass}" onclick="${released ? openFn : tapFn}">
       <img src="${img}" alt="${esc(alt)}">
-      <span class="menu-card-overlay">${released ? "タップして挑戦しよう" : "準備中"}</span>
+      <span class="menu-card-overlay">${released ? "タップして挑戦しよう" : "🔒 準備中"}</span>
     </div>`;
 }
 const KITSUNE_SECRET_SEQ = ["tap","tap","tap","k","tap","tap"];
@@ -20068,7 +20074,8 @@ function kitsuneComingSoonTap(el){
 /* 別ページのミニゲームへの「通行証」（2026-10-01、教員の指示）：配布版のフォルダからhtmlを直接開くと、
    隠し入口を通らずに準備中のゲームへ入れてしまうため、本体の入口から移るときだけ
    sessionStorage（このタブの中だけ有効）に通行証を置く。ゲーム側（kitsune_bakashiai.html・enro_run.html）は
-   通行証がなければ本体へ戻す。 */
+   通行証がなければ本体へ戻す。2026-10-04〜、教員の指示で、本体へ戻さず「このファイルは開けません」とだけ表示する
+   （つなぎ橋・ボキャブラ大画面版・表現の魔術道も同じ）。 */
 const MG_PASS_SSKEY = "kokugo_mg_pass_v1";
 function mgGoWithPass(id, url){
   try{ const o = JSON.parse(sessionStorage.getItem(MG_PASS_SSKEY) || "{}"); o[id] = 1; sessionStorage.setItem(MG_PASS_SSKEY, JSON.stringify(o)); }catch(e){}
@@ -20179,6 +20186,9 @@ const TSUNAGI_RELEASED = false;
 const TSUNAGI_SECRET_SEQ = ["tap","tap","tap","t","tap","tap"];
 let tsunagiSeqHist = []; // 直近の隠し操作。保存しない＝ページ再読み込みでリセットされてよい。
 function tsunagiMenuHtml(){
+  // 2026-10-04〜、教員が用意した鉄鋼兵バナー.png（menu_title_images.jsのtsunagi）を入口にする。
+  const banner = mgBannerHtml("tsunagi", "鉄甲兵のつなぎ橋", TSUNAGI_RELEASED, "tsunagi-teaser", "openTsunagiBashi()", "tsunagiComingSoonTap(this)");
+  if(banner) return banner;
   if(TSUNAGI_RELEASED){
     return `
     <div class="card menu-card" onclick="openTsunagiBashi()">
@@ -20218,6 +20228,21 @@ function tsunagiComingSoonTap(el){
   }
 }
 function openTsunagiBashi(){ mgGoWithPass("tsunagi", "tsunagi_bashi.html"); }
+/* 表現の魔術道（gihou_madousho.html、2026-10-03〜試作、2026-10-04〜β版としてミニゲーム一覧に入れた。教員の指示）。
+   「表現技法」（hyougen）のカードバトル。正解ごとにジャンルレベルを書き置く（MG_LVUP_CATS参照）。
+   配布版のzipには入れない（教員の指示）ので、zipを作るとき（開発ツール/make_dist_zip.py）に GIHOU_IN_BUILD を
+   false に書き換え、カードを出さないようにする。バナー画像はまだないので文字のカード。 */
+const GIHOU_IN_BUILD = true;
+function gihouMenuHtml(){
+  if(!GIHOU_IN_BUILD) return "";
+  return `
+    <div class="card menu-card" onclick="openGihouMadousho()">
+      <div class="menu-icon">🔮</div>
+      <div><h2>表現の魔術道 <span class="shogo-badge" style="font-size:.65rem; vertical-align:middle">β版</span></h2><p>表現技法のカードで、闇の魔術師の呪文を打ち消せ</p></div>
+      <div class="right"><span class="shogo-badge">挑戦する</span></div>
+    </div>`;
+}
+function openGihouMadousho(){ mgGoWithPass("gihou", "gihou_madousho.html"); }
 /* マッチ（類義語マッチ・対義語マッチ、2026-09-18〜）。ミニゲームとしては「マッチ」という
    ひとつの入口にまとめ、その中に類義語マッチ・対義語マッチの2モードを置く（以前は対義語・
    類義語を別々のミニゲームとして並べていたが、教員の指示でひとつにまとめた）。taigigo/ruigigoの
