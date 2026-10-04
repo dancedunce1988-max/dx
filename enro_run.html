@@ -774,7 +774,12 @@ function loadSave(){
   if(typeof s.muted !== "boolean") s.muted = false;
   return s;
 }
-function writeSave(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); }catch(e){} }
+/* bestKmPlace：挑戦モードの最長記録で着いた地名。知識ドリルDX本体のミニゲーム一覧のバナーに
+   「最長 〇km・〇〇まで到着」と出すために保存しておく（2026-10-04〜、教員の指示。本体はWORLD_ROUTEを持たないため）。 */
+function writeSave(){
+  if(typeof placeName === "function") SAVE.bestKmPlace = SAVE.bestKm > 0 ? placeName(placeOf(SAVE.bestKm).at) : "";
+  try{ localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); }catch(e){}
+}
 let SAVE = loadSave();
 
 function toggleMute(){ SAVE.muted = !SAVE.muted; writeSave(); refreshMuteIcons(); }
@@ -959,6 +964,8 @@ function placeOf(km){
 // 「中国のペキン（北京）」のように国名を前につける（日本の地名と、国名と同じ地名はそのまま）
 const placeName = pt => (pt[2] === "日本" || pt[1] === pt[2]) ? pt[1] : `${pt[2]}の${pt[1]}`;
 const kmText = n => n.toLocaleString("ja-JP");
+// 地名を保存する前からの記録（bestKmだけある）にも、開いたときに地名を足しておく
+if(SAVE.bestKm > 0 && !SAVE.bestKmPlace) writeSave();
 
 /* 挑戦モードの速さ（2026-09-30、教員の指示）：どの種類の問題も、見きわめの区間に入ったときの速さ（約7.6秒）から始め、
    正解CH_EVERY問ごとにCH_STEP秒ずつ速くする（最速CH_MIN秒）。2026-10-01、「速くなるのが遅い」との教員の指示で0.2→0.4秒（2倍）に。 */
