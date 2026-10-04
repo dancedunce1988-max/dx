@@ -1278,15 +1278,12 @@
     returnFromFrame(
       'レベルの変化を本体に写せませんでした。この画面に残れば記録は残ります。ホームに戻ると、今回のレベルが反映されないことがあります。',
       function () {
-        if (
-          typeof window.showPrologue === 'function' &&
-          typeof window.showHome === 'function' &&
-          typeof window.showSideQuestMenu === 'function'
-        ) {
-          window.showPrologue(function () {
-            window.showHome();
-            window.showSideQuestMenu();
-          });
+        /* 通常版はページを読み直すので、起動のたびにプロローグが出る。
+           配布は同じページのまま戻る。プロローグは起動時だけで、ミニゲームから戻ったときは出さない。
+           レベルの反映は showHome、着地はミニゲーム一覧。 */
+        if (typeof window.showHome === 'function' && typeof window.showSideQuestMenu === 'function') {
+          window.showHome();
+          window.showSideQuestMenu();
         } else {
           console.error('[DX] minigame return hooks missing');
         }
