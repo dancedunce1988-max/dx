@@ -17,8 +17,17 @@ const svgNS = "http://www.w3.org/2000/svg";
    kokugo_app.html側へ伝える合図（DD_PENDING_REWARD_LSKEY）に含める。一日一読経由なら
    その全額、そうでなければ半額をkokugo_app.html側がst.stockXpへ加算する（ddCheckNobiruPendingReward参照）。
    同一オリジンなのでlocalStorageはkokugo_app.htmlと共有できるが、st（本体のセーブデータ）の
-   複雑な形を直接ここで書き換えるのは危険なので、合図だけを置く簡単な仕組みにしてある。 */
-const VIA_DAILY = new URLSearchParams(location.search).get("viaDaily") === "1";
+   複雑な形を直接ここで書き換えるのは危険なので、合図だけを置く簡単な仕組みにしてある。
+   配布ランチャーは iframe の srcdoc で開く。srcdoc の location.search は空で、
+   Location の search は仕様上差し替えられない。クエリは window.__DX_BOOT_SEARCH__ に入っている。 */
+function dxPageSearch(){
+  try{
+    const boot = window.__DX_BOOT_SEARCH__;
+    if(typeof boot === "string" && boot) return boot.charAt(0) === "?" ? boot : ("?" + boot);
+  }catch(e){}
+  return location.search || "";
+}
+const VIA_DAILY = new URLSearchParams(dxPageSearch()).get("viaDaily") === "1";
 /* 「問題チェックモード」（2026-09-27〜、教員の指示）：知識ドリルDXの読解Quest入口画面で
    「dokkaichekku」と入力すると開ける、管理者用の裏メニュー（ddShowNobiruCheckMode）経由。
    ?viaCheck=1付きで開かれたときは、経験値の合図（DD_PENDING_REWARD_LSKEY）をいっさい書かず、
@@ -26,7 +35,7 @@ const VIA_DAILY = new URLSearchParams(location.search).get("viaDaily") === "1";
    このモードで最後まで解いても、経験値には絶対にならない。画面上にこのモードであることを
    示す表示は出さない（管理者本人がURLで判別できれば十分。生徒向けの通常表示に手を
    加えるとヒントになってしまうため）。 */
-const VIA_CHECK = new URLSearchParams(location.search).get("viaCheck") === "1";
+const VIA_CHECK = new URLSearchParams(dxPageSearch()).get("viaCheck") === "1";
 const DD_PENDING_REWARD_LSKEY = "dd_daily_pending_reward_v1";
 /* この教材が、以前すでにストック経験値を受け取り済みかどうか（2026-09-23〜、教員の指示：
    「2回目以降は経験値を獲得できないので、獲得していない経験値についてはポップアップ等で
@@ -676,6 +685,7 @@ function finish(){
     try{
       localStorage.setItem(DD_PENDING_REWARD_LSKEY, JSON.stringify({ textKey: TEXT_KEY, totalXp, viaDaily: VIA_DAILY, ts: Date.now(), aborted:true }));
     }catch(e){ /* privateモード等で保存できない場合は、合図なしでそのまま戻る */ }
+    if(typeof window.__DX_GO_HOME__ === "function"){ window.__DX_GO_HOME__(); return; }
     location.href = "../kokugo_app.html";
   }
   const backLink = document.querySelector(".back.ui");

@@ -2,12 +2,13 @@
  * 知識ドリルDX — 生徒配布用ローダー
  * file:// で開き、CDN 上の本体を読み込む（classic script / no modules）
  *
- * フォールバックハッシュ (1f097f6…): 1f097f6738b5be3d5f057c27c2b7993cd7a228a9
+ * フォールバックハッシュ: upstream main（2026-10-04）
+ * 33026c5e9615742ce39f40200c2eeb485d341ee2
  */
 (function () {
   'use strict';
 
-  const FALLBACK_COMMIT_HASH = '1f097f6738b5be3d5f057c27c2b7993cd7a228a9';
+  const FALLBACK_COMMIT_HASH = '33026c5e9615742ce39f40200c2eeb485d341ee2';
   const COMMIT_HASH_RE = /^[0-9a-f]{40}$/i;
   const REPO = 'dancedunce1988-max/dx';
   const JSDELIVR_HOST = 'cdn.jsdelivr.net';
@@ -385,7 +386,7 @@
         return res.json();
       })
       .then(function (data) {
-        const hash = data && typeof data.commitHash === 'string' ? data.commitHash.trim() : '';
+        const hash = data && typeof data.commitHash === 'string' ? data.commitHash.trim().toLowerCase() : '';
         if (!COMMIT_HASH_RE.test(hash)) {
           throw new Error('import-config.json の commitHash が不正です');
         }
@@ -542,10 +543,9 @@
       if (value != null) pairs.push([keys[i], value]);
     }
     if (!pairs.length) return '';
-    const json = JSON.stringify(pairs)
-      .replace(/</g, '\\u003c')
-      .replace(/\u2028/g, '\\u2028')
-      .replace(/\u2029/g, '\\u2029');
+    const embed = window.__DX_JS_EMBED__;
+    if (typeof embed !== 'function') return '';
+    const json = embed(pairs);
     return (
       'try{var __dxls=' +
       json +
@@ -720,6 +720,13 @@
         else if (href && String(href).trim()) el.removeAttribute('href');
       }
     }
+    /* <base> は srcdoc の相対 URL を外へ逃す。<meta refresh> は遷移になる。 */
+    const bases = doc.querySelectorAll('base, meta[http-equiv]');
+    for (let b = 0; b < bases.length; b++) {
+      const tag = bases[b].tagName.toLowerCase();
+      if (tag === 'meta' && !/^refresh$/i.test(bases[b].getAttribute('http-equiv') || '')) continue;
+      if (bases[b].parentNode) bases[b].parentNode.removeChild(bases[b]);
+    }
     /* ホームリンクはクリックで差し替える。相対 href のまま残すと変な遷移の元になる */
     const homes = doc.querySelectorAll('a.back, a.modesel-back');
     for (let h = 0; h < homes.length; h++) {
@@ -878,14 +885,8 @@
       globals += 'window.__DX_STANDALONE_PAGE__=' + embed(opts.pageName) + ';';
     }
 
-    const searchHook =
-      kind === 'nobiru'
-        ? 'try{const d=Object.getOwnPropertyDescriptor(Location.prototype,"search");' +
-          'if(d&&d.get&&window.__DX_BOOT_SEARCH__){Object.defineProperty(Location.prototype,"search",{' +
-          'configurable:true,enumerable:true,get:function(){' +
-          'if(this===window.location&&window.__DX_BOOT_SEARCH__)return window.__DX_BOOT_SEARCH__;' +
-          'return d.get.call(this);}});}}catch(e){}'
-        : '';
+    /* location.search は LegacyUnforgeable で、prototype を差し替えても srcdoc の実値は空のまま。
+       一日一読 / チェックモードは engine.js が __DX_BOOT_SEARCH__ を読む。 */
 
     const scriptHook =
       '(function(){const nb=' +
@@ -916,15 +917,16 @@
       '(function(){function dxNorm(u){var t=String(u||"").replace(/[\\u0000-\\u0020\\u007f]+/g,"");' +
       'for(var n=0;n<8;n++){try{var d=decodeURIComponent(t);}catch(e){return null;}if(d===t)break;t=d;}' +
       'if(/[\\u0000-\\u0020\\u007f]/.test(t)||/%(?:2e|2f|5c)/i.test(t))return null;return t.toLowerCase();}' +
+      'function dxIsHashOnly(u){return String(u||"").charAt(0)==="#";}' +
       'function dxIsHomeNav(u){var raw=String(u||"");var norm=dxNorm(u)||"";' +
       'if(/^(javascript|data|vbscript):/i.test(raw)||/^(javascript|data|vbscript):/.test(norm))return false;' +
+      'if(/^[a-z][a-z0-9+.-]*:/.test(norm)&&norm.indexOf("file:")!==0)return false;' +
+      'if(norm.indexOf("//")===0)return false;' +
       'return /(?:^|\\/)kokugo_app\\.html(?:[?#]|$)/i.test(raw)||/(?:^|\\/)kokugo_app\\.html(?:[?#]|$)/i.test(norm);}' +
       'var dxLauncherHome=String(window.__DX_HOME_URL__||"");' +
       'function dxIsLauncherHome(u){if(!dxLauncherHome)return false;var raw=String(u||"");if(raw===dxLauncherHome)return true;' +
       'var hn=dxLauncherHome.toLowerCase().split("#")[0];var un=(dxNorm(u)||"").split("#")[0];return un===hn;}' +
-      'function dxBlockAbs(u){if(dxIsHomeNav(u)||dxIsLauncherHome(u))return false;var s=dxNorm(u);if(s==null)return true;' +
-      'if(s.indexOf("javascript:")===0||s.indexOf("data:")===0||s.indexOf("vbscript:")===0)return true;' +
-      'return /^[a-z][a-z0-9+.-]*:/.test(s)||s.indexOf("//")===0;}' +
+      'function dxBlockAbs(u){if(dxIsHashOnly(u)||dxIsHomeNav(u)||dxIsLauncherHome(u))return false;return true;}' +
       'function dxReopenNobiru(){if(!window.__DX_OPEN_NOBIRU__||!window.__DX_NOBIRU_KEY__)return false;' +
       'const o={};try{new URLSearchParams(window.__DX_BOOT_SEARCH__||"").forEach(function(v,k){o[k]=v;});}catch(eR){}' +
       'window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__,o);return true;}' +
@@ -939,14 +941,16 @@
       'get:function(){return hd.get.call(this);},' +
       'set:function(v){if(dxIsHomeNav(v)&&window.__DX_GO_HOME__){window.__DX_GO_HOME__();return;}' +
       'if(dxBlockAbs(v))return;return hd.set.call(this,v);}});}}catch(e6){}' +
-      'function dxShouldBlockNav(u){if(dxIsLauncherHome(u))return false;var s=dxNorm(u);if(s==null)return true;if(dxIsHomeNav(u))return false;' +
-      'if(s.indexOf("javascript:")===0||s.indexOf("data:")===0||s.indexOf("vbscript:")===0)return true;' +
-      'return s.indexOf("https:")===0||s.indexOf("http:")===0||s.indexOf("file:")===0||s.indexOf("//")===0;}' +
+      'function dxShouldBlockNav(u){if(dxIsLauncherHome(u)||dxIsHomeNav(u)||dxIsHashOnly(u))return false;return true;}' +
       'try{if(window.navigation&&navigation.addEventListener){navigation.addEventListener("navigate",function(ev){' +
       'if(ev.hashChange)return;var u=ev.destination&&ev.destination.url||"";' +
       'if(dxIsLauncherHome(u))return;' +
       'if(dxIsHomeNav(u)){if(ev.cancelable)ev.preventDefault();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();return;}' +
-      'if(dxShouldBlockNav(u)&&ev.cancelable)ev.preventDefault();});}}catch(eN){}';
+      'if(dxShouldBlockNav(u)&&ev.cancelable)ev.preventDefault();});}}catch(eN){}' +
+      'document.addEventListener("click",function(ev){var el=ev.target&&ev.target.closest&&ev.target.closest("a[href]");' +
+      'if(!el)return;var href=el.getAttribute("href")||"";' +
+      'if(dxIsHashOnly(href)||dxIsHomeNav(href)||dxIsLauncherHome(href))return;' +
+      'ev.preventDefault();},true);';
     if (kind === 'nobiru') {
       locationHooks +=
         'try{const rl=Location.prototype.reload;Location.prototype.reload=function(){' +
@@ -1010,7 +1014,6 @@
       storageSeed +
       passBoot +
       globals +
-      searchHook +
       scriptHook +
       goHome +
       locationHooks +
@@ -1046,12 +1049,17 @@
     }
 
     const nobiruBase = base + 'nobiru/';
+    const pageUrl = nobiruBase + htmlName + '.html';
+    if (!window.__DX_RESOLVE_NOBIRU__ || !window.__DX_RESOLVE_NOBIRU__(pageUrl, base)) {
+      window.__DX_REPORT_PAGE_ERROR__(new Error('許可されていない教材 URL です'));
+      return Promise.resolve();
+    }
     const bootParams = new URLSearchParams(searchObj || {});
     const bootSearch = bootParams.toString() ? '?' + bootParams.toString() : '';
 
     /* <base> は使わない（about:srcdoc → /nobiru/srcdoc 事故の原因） */
     return window.__DX_FETCH_PAGE__(
-      nobiruBase + htmlName + '.html',
+      pageUrl,
       'のびる読解の取得に失敗しました',
       function (html) {
         window.__DX_SHOW_NOBIRU_HTML__(
@@ -1085,7 +1093,13 @@
       return Promise.resolve();
     }
 
-    return window.__DX_FETCH_PAGE__(base + safeName, 'ページの取得に失敗しました', function (html) {
+    const pageUrl = base + safeName;
+    if (!window.__DX_RESOLVE_NOBIRU__ || !window.__DX_RESOLVE_NOBIRU__(pageUrl, base)) {
+      window.__DX_REPORT_PAGE_ERROR__(new Error('許可されていないページ URL です'));
+      return Promise.resolve();
+    }
+
+    return window.__DX_FETCH_PAGE__(pageUrl, 'ページの取得に失敗しました', function (html) {
       window.__DX_SHOW_NOBIRU_HTML__(
         window.__DX_BUILD_SRCDOC_BOOT__(html, {
           kind: 'minigame',
