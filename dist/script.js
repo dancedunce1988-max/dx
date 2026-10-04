@@ -359,13 +359,28 @@
     return new DOMParser().parseFromString(htmlText, 'text/html');
   }
 
-  function fetchText(url) {
+  function fetchText(url, commitHash) {
+    const base = cdnBase(commitHash);
     return fetch(url).then(function (res) {
       if (!res.ok) {
         throw new Error('HTTP ' + res.status + ' — ' + url);
       }
+      /* 転送先が別ホストや別コミットなら、許可した URL の中身ではない */
+      if (!resolveCdnUrl(res.url, base)) {
+        throw new Error('許可されていない URL へ転送されました');
+      }
       return res.text();
     });
+  }
+
+  function allowedConfigResponseUrl(url) {
+    try {
+      const u = new URL(url);
+      if (u.protocol !== 'https:' || u.hostname !== RAW_HOST || u.username || u.password) return false;
+      return u.pathname === '/' + REPO + '/main/dist/import-config.json';
+    } catch (e) {
+      return false;
+    }
   }
 
   // 最新 config は @hash 固定だと永遠に古い。main の raw を読む（再配布不要のため）。
@@ -382,6 +397,9 @@
       .then(function (res) {
         if (!res.ok) {
           throw new Error('設定の取得に失敗しました (HTTP ' + res.status + ')');
+        }
+        if (!allowedConfigResponseUrl(res.url)) {
+          throw new Error('許可されていない URL へ転送されました');
         }
         return res.json();
       })
@@ -420,7 +438,7 @@
       .then(function () {
         setBootStatus('アプリ本体を取得しています');
         const requested = commitHash;
-        return fetchText(rawHtmlUrl(requested)).then(
+        return fetchText(rawHtmlUrl(requested), requested).then(
           function (htmlText) {
             return { hash: requested, htmlText: htmlText };
           },
@@ -429,7 +447,7 @@
             console.warn('[DX] app html fetch failed, using fallback hash', err);
             commitHash = FALLBACK_COMMIT_HASH;
             setBootStatus('前回の版を取得しています');
-            return fetchText(rawHtmlUrl(FALLBACK_COMMIT_HASH)).then(function (htmlText) {
+            return fetchText(rawHtmlUrl(FALLBACK_COMMIT_HASH), FALLBACK_COMMIT_HASH).then(function (htmlText) {
               return { hash: FALLBACK_COMMIT_HASH, htmlText: htmlText };
             });
           }
@@ -497,8 +515,18 @@
    * /nobiru/srcdoc や /nobiru/null/<uuid> を取りにいって壊れる。
    * → iframe srcdoc + 相対URLの絶対化（<base> なし）+ キャプチャ段階で遷移を差し替え。
    */
+  /* 注入 HTML が同じ id を持っても、作った iframe 自身を掴む。 */
+  let nobiruFrameEl = null;
+  function dxNobiruFrame() {
+    if (nobiruFrameEl && nobiruFrameEl.isConnected && nobiruFrameEl.tagName === 'IFRAME') {
+      return nobiruFrameEl;
+    }
+    nobiruFrameEl = null;
+    return null;
+  }
+
   function closeNobiruFrame() {
-    const f = document.getElementById('dx-nobiru-frame');
+    const f = dxNobiruFrame();
     if (!f) return;
     try {
       f.srcdoc = '';
@@ -509,18 +537,28 @@
     } catch (eTitle) {}
   }
 
-  /* 親と srcdoc で storage が分かれるとき、子が読む／書くキー。
-     本体セーブ（kokugoTrainingStats_v5 など）は含めない。 */
+  /* 親と srcdoc で storage が分かれるとき、開く前に渡し、閉じる前に親へ戻すキー。
+     見ている版（import-config の commit）の別ページが書くキーを足す。 */
   const FRAME_STORAGE_KEYS = [
     'dd_daily_pending_reward_v1',
     'dd_daily_rewarded_keys_v1',
     'nobiru_records_v1',
     'kokugo_minigame_pending_lvups_v1',
+    'kokugo_mg_played_v1',
+    'kokugo_vs_pending_v1',
     'enro_run_v1',
     'kitsune_bakashiai_v4',
     /* v4 が無い端末は iframe 側の移行が v3 を読む。分けた storage だと種がないと空の v4 で上書きする */
-    'kitsune_bakashiai_v3'
+    'kitsune_bakashiai_v3',
+    'gihou_madousho_v1',
+    'tsunagi_bashi_v1',
+    'tsunagi_bashi_v1_mute'
   ];
+  /* ミニゲームがレベル表示のため読む本体セーブ。戻すときは写さない。
+     開いている間に親が更新した値を、開いた時点の写しで上書きしないため。 */
+  const FRAME_STORAGE_SEED_ONLY_KEYS = ['kokugoTrainingStats_v5'];
+  window.__DX_FRAME_STORAGE_KEYS__ = FRAME_STORAGE_KEYS;
+  window.__DX_FRAME_STORAGE_SEED_ONLY_KEYS__ = FRAME_STORAGE_SEED_ONLY_KEYS;
 
   /* srcdoc に埋め込む JSON。`<` を残すと script タグを途中で閉じる。 */
   function jsEmbed(value) {
@@ -532,15 +570,17 @@
 
   /* toString で iframe に渡す。キー一覧は window を見る（クロージャは toString に含まれない）。 */
   function frameStorageSeedScript() {
-    const keys = window.__DX_FRAME_STORAGE_KEYS__;
-    if (!keys || !keys.length) return '';
+    const keys = (window.__DX_FRAME_STORAGE_KEYS__ || []).concat(
+      window.__DX_FRAME_STORAGE_SEED_ONLY_KEYS__ || []
+    );
+    if (!keys.length) return '';
     const pairs = [];
     for (let i = 0; i < keys.length; i++) {
       let value = null;
       try {
         value = localStorage.getItem(keys[i]);
       } catch (e) {
-        return '';
+        continue;
       }
       if (value != null) pairs.push([keys[i], value]);
     }
@@ -559,7 +599,7 @@
      srcdoc と親で storage が分かれているときだけ必要。同じなら読み書きは同じ領域。
      失敗したら ok: false。呼び出し側は iframe を閉じずに知らせる。 */
   function copyFrameStorage() {
-    const f = document.getElementById('dx-nobiru-frame');
+    const f = dxNobiruFrame();
     if (!f) return { ok: true };
     const keys = window.__DX_FRAME_STORAGE_KEYS__ || [];
     try {
@@ -675,13 +715,31 @@
 
     try {
       if (window.frameElement && window.frameElement.id === 'dx-nobiru-frame') {
+        let copiedOk = true;
+        try {
+          if (window.parent && window.parent.__DX_COPY_FRAME_STORAGE__) {
+            const copied = window.parent.__DX_COPY_FRAME_STORAGE__();
+            copiedOk = !!(copied && copied.ok);
+          }
+        } catch (eCopy) {
+          copiedOk = false;
+        }
+        if (!copiedOk) {
+          if (window.__DX_SHOW_PAGE_ERROR__) {
+            window.__DX_SHOW_PAGE_ERROR__('記録を写せなかったので、ページを切り替えませんでした。');
+          }
+          return;
+        }
         if (pageTitle) window.frameElement.title = pageTitle;
         window.frameElement.srcdoc = out;
         return;
       }
     } catch (e1) {}
 
-    let f = document.getElementById('dx-nobiru-frame');
+    /* toString で iframe に渡した複製は、この関数を持たない。中では frameElement 側で戻る。 */
+    if (typeof dxNobiruFrame !== 'function') return;
+
+    let f = dxNobiruFrame();
     if (!f) {
       f = document.createElement('iframe');
       f.id = 'dx-nobiru-frame';
@@ -695,7 +753,14 @@
         'style',
         'position:fixed;inset:0;border:0;width:100%;height:100%;z-index:99999;background:#fff;'
       );
+      nobiruFrameEl = f;
       document.documentElement.appendChild(f);
+    } else if (f.getAttribute('srcdoc')) {
+      const copied = copyFrameStorage();
+      if (!copied.ok) {
+        showPageError('記録を写せなかったので、ページを切り替えませんでした。');
+        return;
+      }
     }
     if (pageTitle) f.title = pageTitle;
     f.hidden = false;
@@ -797,6 +862,9 @@
         if (!res.ok) {
           throw new Error(failLabel + ' (HTTP ' + res.status + ')');
         }
+        if (!resolve(res.url, base)) {
+          throw new Error('許可されていない URL へ転送されました');
+        }
         return res.text();
       })
       .then(onHtml)
@@ -873,6 +941,9 @@
       'window.__DX_FRAME_STORAGE_KEYS__=' +
       embed(window.__DX_FRAME_STORAGE_KEYS__) +
       ';' +
+      'window.__DX_FRAME_STORAGE_SEED_ONLY_KEYS__=' +
+      embed(window.__DX_FRAME_STORAGE_SEED_ONLY_KEYS__) +
+      ';' +
       'window.__DX_CDN_BASE__=' +
       embed(opts.base) +
       ';' +
@@ -938,7 +1009,14 @@
       'if(norm.indexOf("//")===0)return false;' +
       'return /(?:^|\\/)kokugo_app\\.html(?:[?#]|$)/i.test(raw)||/(?:^|\\/)kokugo_app\\.html(?:[?#]|$)/i.test(norm);}' +
       'var dxLauncherHome=String(window.__DX_HOME_URL__||"");' +
+      'function dxFilePath(u){try{var x=new URL(String(u||""),dxLauncherHome||"file:///");' +
+      'if(x.protocol!=="file:")return "";' +
+      'return decodeURI(x.pathname).replace(/\\\\/g,"/").replace(/\\/+$/,"").toLowerCase();' +
+      '}catch(eF){return "";}}' +
+      'function dxSameLauncherFile(u){var raw=String(u||"");if(!/^file:/i.test(raw)||!dxLauncherHome)return false;' +
+      'var a=dxFilePath(dxLauncherHome);var b=dxFilePath(u);return !!a&&a===b;}' +
       'function dxIsLauncherHome(u){if(!dxLauncherHome)return false;var raw=String(u||"");if(raw===dxLauncherHome)return true;' +
+      'if(dxSameLauncherFile(u))return true;' +
       'var hn=dxLauncherHome.toLowerCase().split("#")[0];var un=(dxNorm(u)||"").split("#")[0];return un===hn;}' +
       'function dxNavKind(u){if(dxIsHashOnly(u))return "hash";if(dxIsHomeNav(u))return "home";if(dxIsLauncherHome(u))return "launcher";return "block";}' +
       'var dxLauncherOnce=false;' +
@@ -959,14 +1037,15 @@
       'get:function(){return hd.get.call(this);},' +
       'set:function(v){var self=this;dxPass(v,function(x){hd.set.call(self,x);});}});}}catch(e6){}' +
       'try{if(window.navigation&&navigation.addEventListener){navigation.addEventListener("navigate",function(ev){' +
-      'if(ev.hashChange)return;if(dxLauncherOnce){dxLauncherOnce=false;return;}' +
-      'var u=ev.destination&&ev.destination.url||"";var k=dxNavKind(u);' +
+      'if(ev.hashChange)return;var u=ev.destination&&ev.destination.url||"";' +
+      'if(dxLauncherOnce){dxLauncherOnce=false;if(String(u)===dxLauncherHome||dxSameLauncherFile(u))return;}' +
+      'var k=dxNavKind(u);' +
       'if(k==="hash")return;' +
       'if(k==="home"){if(ev.cancelable)ev.preventDefault();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();return;}' +
-      'if(k==="launcher"){if(String(u)===dxLauncherHome)return;' +
+      'if(k==="launcher"){if(String(u)===dxLauncherHome||dxSameLauncherFile(u))return;' +
       'if(ev.cancelable)ev.preventDefault();dxGoLauncher();return;}' +
       'if(ev.cancelable)ev.preventDefault();});}}catch(eN){}' +
-      'document.addEventListener("click",function(ev){var el=ev.target&&ev.target.closest&&ev.target.closest("a[href]");' +
+      'document.addEventListener("click",function(ev){var el=ev.target&&ev.target.closest&&ev.target.closest("a[href],area[href]");' +
       'if(!el)return;var href=el.getAttribute("href")||"";var k=dxNavKind(href);' +
       'if(k==="hash"||k==="home")return;ev.preventDefault();if(k==="launcher")dxGoLauncher();},true);';
     if (kind === 'nobiru') {
@@ -1210,6 +1289,7 @@
   function installNobiruOpener() {
     window.__DX_JS_EMBED__ = jsEmbed;
     window.__DX_FRAME_STORAGE_KEYS__ = FRAME_STORAGE_KEYS;
+    window.__DX_FRAME_STORAGE_SEED_ONLY_KEYS__ = FRAME_STORAGE_SEED_ONLY_KEYS;
     window.__DX_FRAME_STORAGE_SEED__ = frameStorageSeedScript;
     window.__DX_SHOW_PAGE_ERROR__ = showPageError;
     window.__DX_REPORT_PAGE_ERROR__ = reportPageError;
@@ -1220,6 +1300,7 @@
     window.__DX_OPEN_STANDALONE_HTML__ = openStandaloneHtml;
     window.__DX_RETURN_FROM_MINIGAME__ = returnFromMinigame;
     window.__DX_RETURN_FROM_NOBIRU__ = returnFromNobiru;
+    window.__DX_COPY_FRAME_STORAGE__ = copyFrameStorage;
     window.__DX_SHOW_NOBIRU_HTML__ = showNobiruHtml;
     window.__DX_CLOSE_NOBIRU__ = closeNobiruFrame;
     /* ABS が RESOLVE を参照するため、RESOLVE を先に載せる */
