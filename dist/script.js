@@ -158,10 +158,11 @@
     const checked = checkText(s);
     if (isUnsafe(checked)) return null;
 
-    const originalAbs = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(s) || s.indexOf('//') === 0;
+    const hasScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(s);
+    const originalAbs = hasScheme || s.indexOf('//') === 0;
     const decodedAbs = /^[a-z][a-z0-9+.-]*:/.test(checked) || checked.indexOf('//') === 0;
     if (decodedAbs && !originalAbs) return null;
-    if (originalAbs && /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(s) && !/^https:/i.test(s)) return null;
+    if (hasScheme && !/^https:/i.test(s)) return null;
 
     let pinnedJs = '';
     let pinnedRaw = '';
@@ -199,26 +200,33 @@
     return null;
   }
 
+  /* 本体の注入でも srcdoc でも同じ判定を使う。window 経由で参照する関数（rewriteAssetAttrs 等）のため先に載せる */
+  window.__DX_RESOLVE_NOBIRU__ = resolveCdnUrl;
+
   function resolveAssetUrl(src, commitHash) {
     return resolveCdnUrl(src, cdnBase(commitHash));
   }
 
-  function rewriteAssetAttrs(root, commitHash) {
-    const nodes = root.querySelectorAll('[src], [href]');
+  /* src と link の href を base 付きの絶対 URL にする。許可外は属性ごと外す。
+     本体 #app（script は別に集める）と、のびる読解・ミニゲームの srcdoc の両方で使う。
+     toString で iframe に渡すため、判定は window.__DX_RESOLVE_NOBIRU__ を見る。 */
+  function rewriteAssetAttrs(root, base, skipScripts) {
+    const resolve = window.__DX_RESOLVE_NOBIRU__;
+    const nodes = root.querySelectorAll('[src], link[href]');
     for (let i = 0; i < nodes.length; i++) {
       const el = nodes[i];
       const tag = el.tagName.toLowerCase();
-      if (tag === 'script') continue;
+      if (skipScripts && tag === 'script') continue;
 
       if (el.hasAttribute('src')) {
         const src = el.getAttribute('src');
-        const resolvedSrc = resolveAssetUrl(src, commitHash);
+        const resolvedSrc = resolve(src, base);
         if (resolvedSrc) el.setAttribute('src', resolvedSrc);
-        else if (src && src.trim()) el.removeAttribute('src');
+        else if (src && String(src).trim()) el.removeAttribute('src');
       }
-      if (el.hasAttribute('href') && tag === 'link') {
+      if (tag === 'link' && el.hasAttribute('href')) {
         const href = el.getAttribute('href');
-        const resolvedHref = resolveAssetUrl(href, commitHash);
+        const resolvedHref = resolve(href, base);
         if (resolvedHref) el.setAttribute('href', resolvedHref);
         else if (href && String(href).trim()) el.removeAttribute('href');
       }
@@ -475,7 +483,7 @@
         wrapper.innerHTML = remoteApp.innerHTML;
         /* #app 内の base / meta refresh は、親ページの遷移先を書き換える */
         removeNavigationTraps(wrapper);
-        rewriteAssetAttrs(wrapper, commitHash);
+        rewriteAssetAttrs(wrapper, cdnBase(commitHash), true);
         hostApp.innerHTML = '';
         while (wrapper.firstChild) {
           hostApp.appendChild(wrapper.firstChild);
@@ -540,6 +548,7 @@
     }
     if (!f) return;
     try {
+      markSrcdocSwitch(f.contentWindow);
       f.srcdoc = '';
     } catch (e) {}
     f.hidden = true;
@@ -548,10 +557,21 @@
     } catch (eTitle) {}
   }
 
+  /* srcdoc の差し替えは、同一オリジンなら iframe 側の navigate イベントにもなる（destination は about:srcdoc）。
+     ランチャーが行う差し替えだと分かるよう、直前に印を立てる。印のない about:srcdoc 遷移は止める。 */
+  function markSrcdocSwitch(win) {
+    try {
+      if (win) win.__DX_SRCDOC_SWITCHING__ = true;
+    } catch (eMark) {}
+  }
+
   /* 本体セーブはレベル表示のために iframe へ渡すが、戻すときは写さない。
      それ以外は、開いたときから変わったキーと新しいキーだけ親へ戻す。 */
   const FRAME_STORAGE_SKIP_KEYS = ['kokugoTrainingStats_v5'];
-  window.__DX_FRAME_STORAGE_SKIP_KEYS__ = FRAME_STORAGE_SKIP_KEYS;
+  /* 親と iframe の保存場所が同じかを調べる印。親が書き、iframe が同じ値を読めれば同じ場所。
+     Storage オブジェクトは window ごとに別なので、`parent.localStorage === localStorage` では分からない。 */
+  const FRAME_STORAGE_PROBE_KEY = '__dx_frame_storage_probe__';
+  window.__DX_FRAME_STORAGE_PROBE_KEY__ = FRAME_STORAGE_PROBE_KEY;
 
   /* srcdoc に埋め込む JSON。`<` を残すと script タグを途中で閉じる。 */
   function jsEmbed(value) {
@@ -561,43 +581,71 @@
       .replace(/\u2029/g, '\\u2029');
   }
 
-  /* toString で iframe に渡す。親の localStorage を種にする。
-     保存場所が同じときは、既にあるキーを上書きしない（取得中の更新を潰さない）。
-     分かれているときは、渡した値で子を揃える。
+  /* toString で iframe に渡す。この window の localStorage を種にする。
+     印（probe）を書いてから渡し、iframe が同じ値を読めれば保存場所は同じ。
+     同じなら何も書かない（取得中の親の更新を古い値で潰さない）。分かれているときだけ、渡した値で子を揃える。
+     親が組み立てたときは、同じかどうかを親の __DX_FRAME_STORAGE_SHARED__ に残し、以後の写しと種を省く。
      控え（snapshot）は、この関数の実行時ではなく、新しい srcdoc が動き始めてから親へ書く。
      ページを切り替える前の写しが、今の値を「最初からこうだった」と誤認しないため。 */
   function frameStorageSeedScript() {
-    const pairs = [];
-    let count = 0;
-    try {
-      count = localStorage.length;
-    } catch (e) {
-      return '';
-    }
-    for (let i = 0; i < count; i++) {
-      let key = null;
-      let value = null;
-      try {
-        key = localStorage.key(i);
-        if (key == null) continue;
-        value = localStorage.getItem(key);
-      } catch (e) {
-        continue;
-      }
-      if (value != null) pairs.push([key, value]);
-    }
     const embed = window.__DX_JS_EMBED__;
-    if (typeof embed !== 'function') return '';
-    const json = embed(pairs);
+    const probeKey = window.__DX_FRAME_STORAGE_PROBE_KEY__;
+    if (typeof embed !== 'function' || !probeKey) return '';
+    let byHost = true;
+    try {
+      byHost = !(window.frameElement && window.frameElement.id === 'dx-nobiru-frame');
+    } catch (eFrame) {}
+    let knownShared = false;
+    try {
+      const host = window.parent && window.parent !== window ? window.parent : window;
+      knownShared = host.__DX_FRAME_STORAGE_SHARED__ === true;
+    } catch (eKnown) {}
+
+    let token = '';
+    try {
+      token = String(Date.now()) + '-' + Math.random().toString(36).slice(2);
+      localStorage.setItem(probeKey, token);
+    } catch (e) {
+      token = '';
+    }
+
+    /* 同じ場所だと分かっていれば、種は要らない。印だけ渡す。 */
+    const pairs = [];
+    if (!knownShared) {
+      let count = 0;
+      try {
+        count = localStorage.length;
+      } catch (e) {
+        count = 0;
+      }
+      for (let i = 0; i < count; i++) {
+        let key = null;
+        let value = null;
+        try {
+          key = localStorage.key(i);
+          if (key == null || key === probeKey) continue;
+          value = localStorage.getItem(key);
+        } catch (e) {
+          continue;
+        }
+        if (value != null) pairs.push([key, value]);
+      }
+    }
     return (
       'try{var __dxls=' +
-      json +
-      ';try{var __dxhost=window.parent&&window.parent!==window?window.parent:window;' +
-      '__dxhost.__DX_FRAME_STORAGE_SEED_SNAPSHOT__=__dxls;}catch(eSnap){}' +
-      'var __dxsh=false;try{__dxsh=parent.localStorage===localStorage;}catch(eSh){}' +
-      'for(var i=0;i<__dxls.length;i++){var __dxk=__dxls[i][0];var __dxv=__dxls[i][1];' +
-      'if(__dxsh){if(localStorage.getItem(__dxk)==null)localStorage.setItem(__dxk,__dxv);}' +
-      'else localStorage.setItem(__dxk,__dxv);}}catch(e){}'
+      embed(pairs) +
+      ';var __dxpk=' +
+      embed(probeKey) +
+      ';var __dxtok=' +
+      embed(token) +
+      ';var __dxsh=false;' +
+      'try{__dxsh=!!__dxtok&&localStorage.getItem(__dxpk)===__dxtok;}catch(eSh){}' +
+      'try{if(__dxsh)localStorage.removeItem(__dxpk);}catch(eRm){}' +
+      'try{var __dxhost=window.parent&&window.parent!==window?window.parent:window;' +
+      '__dxhost.__DX_FRAME_STORAGE_SEED_SNAPSHOT__=__dxls;' +
+      (byHost ? '__dxhost.__DX_FRAME_STORAGE_SHARED__=__dxsh;' : '') +
+      '}catch(eSnap){}' +
+      'if(!__dxsh){for(var i=0;i<__dxls.length;i++){localStorage.setItem(__dxls[i][0],__dxls[i][1]);}}}catch(e){}'
     );
   }
 
@@ -624,7 +672,12 @@
     const f = dxNobiruFrame();
     /* srcdoc を空にしたあとの枠は、空の保存場所を親へ写さない */
     if (!f || !f.getAttribute('srcdoc')) return { ok: true };
-    const skip = window.__DX_FRAME_STORAGE_SKIP_KEYS__ || [];
+    /* 分かれていたときに残る印は、ここで消す */
+    try {
+      localStorage.removeItem(FRAME_STORAGE_PROBE_KEY);
+    } catch (eProbe) {}
+    /* 同じ保存場所なら、子の書き込みはすでに親から見えている */
+    if (window.__DX_FRAME_STORAGE_SHARED__ === true) return { ok: true };
     try {
       const cw = f.contentWindow;
       if (!cw) return { ok: false, error: new Error('frame window missing') };
@@ -640,7 +693,7 @@
         if (snap[s] && snap[s].length >= 2) seeded[snap[s][0]] = snap[s][1];
       }
       for (let j = 0; j < names.length; j++) {
-        if (skip.indexOf(names[j]) !== -1) continue;
+        if (names[j] === FRAME_STORAGE_PROBE_KEY || FRAME_STORAGE_SKIP_KEYS.indexOf(names[j]) !== -1) continue;
         const value = store.getItem(names[j]);
         if (value == null) continue;
         if (Object.prototype.hasOwnProperty.call(seeded, names[j]) && seeded[names[j]] === value) continue;
@@ -653,16 +706,17 @@
     }
   }
 
-  /* 写しに失敗したまま閉じると、iframe 側の報酬・レベルが消える。残るか戻るかを選ばせる。 */
-  function confirmLeaveWithoutStorage(message, onLeave) {
-    const old = document.getElementById('dx-storage-copy-error');
+  /* 画面全体に重ねるカード。toString で iframe にも渡すため、window の関数だけを使う。
+     buttons: [{ label, onClick }]。押すとカードを閉じてから onClick を呼ぶ。 */
+  function overlayCard(id, heading, message, buttons) {
+    const old = document.getElementById(id);
     if (old && old.parentNode) old.parentNode.removeChild(old);
     const wrap = document.createElement('div');
-    wrap.id = 'dx-storage-copy-error';
+    wrap.id = id;
     wrap.setAttribute('role', 'alert');
     wrap.setAttribute(
       'style',
-      'position:fixed;inset:0;z-index:100001;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(43,43,43,.35);'
+      'position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(43,43,43,.35);'
     );
     const card = document.createElement('div');
     card.setAttribute(
@@ -671,64 +725,73 @@
     );
     const title = document.createElement('p');
     title.setAttribute('style', 'margin:0 0 8px;color:#b00020;font-weight:bold;font-size:.95rem;');
-    title.textContent = '記録を写せませんでした';
+    title.textContent = String(heading || '');
     const body = document.createElement('p');
     body.setAttribute('style', 'margin:0;text-align:left;white-space:pre-wrap;font-size:.88rem;line-height:1.6;');
-    body.textContent = message;
-    const stay = document.createElement('button');
-    stay.type = 'button';
-    stay.textContent = 'この画面に残る';
-    const leave = document.createElement('button');
-    leave.type = 'button';
-    leave.textContent = 'ホームに戻る';
-    const btnStyle =
-      'margin-top:16px;padding:8px 18px;border:1px solid #e4ded3;border-radius:8px;background:#fff;font:inherit;cursor:pointer;';
-    stay.setAttribute('style', btnStyle + 'margin-right:8px;');
-    leave.setAttribute('style', btnStyle);
-    stay.addEventListener('click', function () {
-      if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
-    });
-    leave.addEventListener('click', function () {
-      if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
-      onLeave();
-    });
+    body.textContent = String(message || '');
     card.appendChild(title);
     card.appendChild(body);
-    card.appendChild(stay);
-    card.appendChild(leave);
+    const btnStyle =
+      'margin-top:16px;padding:8px 18px;border:1px solid #e4ded3;border-radius:8px;background:#fff;font:inherit;cursor:pointer;';
+    for (let i = 0; i < buttons.length; i++) {
+      (function (spec) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = spec.label;
+        btn.setAttribute('style', btnStyle + (i < buttons.length - 1 ? 'margin-right:8px;' : ''));
+        btn.addEventListener('click', function () {
+          if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
+          if (typeof spec.onClick === 'function') spec.onClick();
+        });
+        card.appendChild(btn);
+      })(buttons[i]);
+    }
     wrap.appendChild(card);
     (document.documentElement || document.body).appendChild(wrap);
   }
 
-  /* 通常版は nobiru → kokugo_app.html へ遷移し直し、showHome でクリア報酬が出る。
-     配布は同一ページのまま iframe を閉じるだけなので、明示的に showHome を呼ぶ。
-     （閉じるだけだと、開く前の「読解Quest選択」が再表示され、ホームへ押すまで
-      クリア画面が出ない） */
-  function finishReturnFromNobiru() {
+  /* 写しに失敗したまま閉じると、iframe 側の報酬・レベルが消える。残るか戻るかを選ばせる。 */
+  function confirmLeaveWithoutStorage(message, onLeave) {
+    overlayCard('dx-storage-copy-error', '記録を写せませんでした', message, [
+      { label: 'この画面に残る' },
+      { label: 'ホームに戻る', onClick: onLeave },
+    ]);
+  }
+
+  /* 通常版は nobiru / ミニゲーム → kokugo_app.html へ遷移し直し、showHome で報酬やレベルが出る。
+     配布は同一ページのまま iframe を閉じるだけなので、本体の画面遷移を明示的に呼ぶ。
+     （閉じるだけだと、開く前の画面が再表示され、ホームへ押すまでクリア画面が出ない）
+     iframe 破棄と同フレームで DOM を書き換えると端末によって描画が残るため、次タスクで呼ぶ。 */
+  function finishReturnFromFrame(afterClose) {
     closeNobiruFrame();
-    const go = function () {
+    setTimeout(function () {
       try {
-        if (typeof window.showHome === 'function') {
-          window.showHome();
-        }
-      } catch (eHome) {
-        console.error('[DX] showHome after nobiru failed', eHome);
+        afterClose();
+      } catch (eAfter) {
+        console.error('[DX] return from frame failed', eAfter);
       }
-    };
-    /* iframe 破棄と同フレームで DOM を書き換えると端末によって描画が残るため、次タスクへ */
-    setTimeout(go, 0);
+    }, 0);
+  }
+
+  /* 記録を親へ写してから閉じる。写せなければ、残るか戻るかを選ばせる。 */
+  function returnFromFrame(failMessage, afterClose) {
+    const copied = copyFrameStorage();
+    if (!copied.ok) {
+      confirmLeaveWithoutStorage(failMessage, function () {
+        finishReturnFromFrame(afterClose);
+      });
+      return;
+    }
+    finishReturnFromFrame(afterClose);
   }
 
   function returnFromNobiru() {
-    const copied = copyFrameStorage();
-    if (!copied.ok) {
-      confirmLeaveWithoutStorage(
-        'クリア報酬を本体に写せませんでした。この画面に残れば記録は残ります。ホームに戻ると、今回の報酬が反映されないことがあります。',
-        finishReturnFromNobiru
-      );
-      return;
-    }
-    finishReturnFromNobiru();
+    returnFromFrame(
+      'クリア報酬を本体に写せませんでした。この画面に残れば記録は残ります。ホームに戻ると、今回の報酬が反映されないことがあります。',
+      function () {
+        if (typeof window.showHome === 'function') window.showHome();
+      }
+    );
   }
 
   function showNobiruHtml(out, title) {
@@ -752,6 +815,8 @@
     try {
       if (window.frameElement && window.frameElement.id === 'dx-nobiru-frame') {
         if (pageTitle) window.frameElement.title = pageTitle;
+        /* 自分の navigate 監視に止められないよう印を立ててから差し替える */
+        window.__DX_SRCDOC_SWITCHING__ = true;
         window.frameElement.srcdoc = out;
         return;
       }
@@ -779,6 +844,7 @@
     }
     if (pageTitle) f.title = pageTitle;
     f.hidden = false;
+    markSrcdocSwitch(f.contentWindow);
     f.srcdoc = out;
   }
 
@@ -795,27 +861,11 @@
   }
 
   function absolutizeNobiruHtml(html, nobiruBase) {
-    /* .toString() で iframe に注入するため、クロージャ名ではなく window 経由で解決する */
-    const resolve = window.__DX_RESOLVE_NOBIRU__;
+    /* .toString() で iframe に注入するため、クロージャ名ではなく window 経由で呼ぶ */
     const doc = new DOMParser().parseFromString(html, 'text/html');
-    const nodes = doc.querySelectorAll('[src], link[href]');
-    for (let i = 0; i < nodes.length; i++) {
-      const el = nodes[i];
-      if (el.hasAttribute('src')) {
-        const src = el.getAttribute('src');
-        const absSrc = resolve(src, nobiruBase);
-        if (absSrc) el.setAttribute('src', absSrc);
-        else if (src && String(src).trim()) el.removeAttribute('src');
-      }
-      if (el.hasAttribute('href') && el.tagName.toLowerCase() === 'link') {
-        const href = el.getAttribute('href');
-        const absHref = resolve(href, nobiruBase);
-        if (absHref) el.setAttribute('href', absHref);
-        else if (href && String(href).trim()) el.removeAttribute('href');
-      }
-    }
+    window.__DX_REWRITE_ASSETS__(doc, nobiruBase, false);
     /* <base> は srcdoc の相対 URL を外へ逃す。<meta refresh> は遷移になる。 */
-    if (window.__DX_REMOVE_TRAPS__) window.__DX_REMOVE_TRAPS__(doc);
+    window.__DX_REMOVE_TRAPS__(doc);
     /* ホームリンクはクリックで差し替える。相対 href のまま残すと変な遷移の元になる */
     const homes = doc.querySelectorAll('a.back, a.modesel-back');
     for (let h = 0; h < homes.length; h++) {
@@ -825,41 +875,7 @@
   }
 
   function showPageError(message, heading) {
-    const old = document.getElementById('dx-page-error');
-    if (old && old.parentNode) old.parentNode.removeChild(old);
-    const wrap = document.createElement('div');
-    wrap.id = 'dx-page-error';
-    wrap.setAttribute('role', 'alert');
-    wrap.setAttribute(
-      'style',
-      'position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(43,43,43,.35);'
-    );
-    const card = document.createElement('div');
-    card.setAttribute(
-      'style',
-      'width:min(100%,360px);background:#fff;border:1px solid #e4ded3;border-radius:14px;padding:28px 28px 24px;text-align:center;font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;color:#2b2b2b;'
-    );
-    const title = document.createElement('p');
-    title.setAttribute('style', 'margin:0 0 8px;color:#b00020;font-weight:bold;font-size:.95rem;');
-    title.textContent = heading || '読み込みに失敗しました';
-    const body = document.createElement('p');
-    body.setAttribute('style', 'margin:0;text-align:left;white-space:pre-wrap;font-size:.88rem;line-height:1.6;');
-    body.textContent = String(message || '');
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.textContent = '閉じる';
-    btn.setAttribute(
-      'style',
-      'margin-top:16px;padding:8px 18px;border:1px solid #e4ded3;border-radius:8px;background:#fff;font:inherit;cursor:pointer;'
-    );
-    btn.addEventListener('click', function () {
-      if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
-    });
-    card.appendChild(title);
-    card.appendChild(body);
-    card.appendChild(btn);
-    wrap.appendChild(card);
-    (document.documentElement || document.body).appendChild(wrap);
+    window.__DX_OVERLAY_CARD__('dx-page-error', heading || '読み込みに失敗しました', message, [{ label: '閉じる' }]);
   }
 
   function reportPageError(err) {
@@ -944,56 +960,33 @@
   function buildSrcdocDocument(html, opts) {
     const kind = opts.kind;
     const openerName = kind === 'nobiru' ? '__DX_OPEN_NOBIRU__' : '__DX_OPEN_STANDALONE_HTML__';
-    const openerFn = window[openerName];
-    const openerSrc =
-      'window.__DX_SHOW_PAGE_ERROR__=(' +
-      window.__DX_SHOW_PAGE_ERROR__.toString() +
-      ');' +
-      'window.__DX_REPORT_PAGE_ERROR__=(' +
-      window.__DX_REPORT_PAGE_ERROR__.toString() +
-      ');' +
-      'window.__DX_HOST_HOME_URL__=(' +
-      window.__DX_HOST_HOME_URL__.toString() +
-      ');' +
-      'window.__DX_BUILD_SRCDOC_BOOT__=(' +
-      window.__DX_BUILD_SRCDOC_BOOT__.toString() +
-      ');' +
-      'window.__DX_FETCH_PAGE__=(' +
-      window.__DX_FETCH_PAGE__.toString() +
-      ');' +
-      'window.__DX_CANCEL_PAGE_OPEN__=(' +
-      window.__DX_CANCEL_PAGE_OPEN__.toString() +
-      ');' +
-      'window.__DX_ARM_PAGE_CLICK__=(' +
-      window.__DX_ARM_PAGE_CLICK__.toString() +
-      ');' +
-      'window.__DX_REMOVE_TRAPS__=(' +
-      window.__DX_REMOVE_TRAPS__.toString() +
-      ');' +
-      'window.' +
-      openerName +
-      '=(' +
-      openerFn.toString() +
-      ');' +
-      'window.__DX_SHOW_NOBIRU_HTML__=(' +
-      window.__DX_SHOW_NOBIRU_HTML__.toString() +
-      ');' +
-      'window.__DX_CLOSE_NOBIRU__=function(){try{if(parent!==window&&parent.__DX_CLOSE_NOBIRU__)parent.__DX_CLOSE_NOBIRU__();}catch(e){}};' +
-      'window.__DX_RESOLVE_NOBIRU__=(' +
-      window.__DX_RESOLVE_NOBIRU__.toString() +
-      ');' +
-      'window.__DX_ABS_NOBIRU__=(' +
-      window.__DX_ABS_NOBIRU__.toString() +
-      ');' +
-      'window.__DX_JS_EMBED__=(' +
-      window.__DX_JS_EMBED__.toString() +
-      ');' +
-      'window.__DX_FRAME_STORAGE_SEED__=(' +
-      window.__DX_FRAME_STORAGE_SEED__.toString() +
-      ');' +
-      'window.__DX_COPY_BEFORE_SWITCH__=(' +
-      window.__DX_COPY_BEFORE_SWITCH__.toString() +
-      ');';
+    /* 親の関数を toString で iframe に写す。どれも window 上の名前だけを参照する。 */
+    const copiedNames = [
+      '__DX_OVERLAY_CARD__',
+      '__DX_SHOW_PAGE_ERROR__',
+      '__DX_REPORT_PAGE_ERROR__',
+      '__DX_HOST_HOME_URL__',
+      '__DX_BUILD_SRCDOC_BOOT__',
+      '__DX_FETCH_PAGE__',
+      '__DX_CANCEL_PAGE_OPEN__',
+      '__DX_ARM_PAGE_CLICK__',
+      '__DX_REMOVE_TRAPS__',
+      '__DX_OPEN_SRCDOC_PAGE__',
+      openerName,
+      '__DX_SHOW_NOBIRU_HTML__',
+      '__DX_RESOLVE_NOBIRU__',
+      '__DX_REWRITE_ASSETS__',
+      '__DX_ABS_NOBIRU__',
+      '__DX_JS_EMBED__',
+      '__DX_FRAME_STORAGE_SEED__',
+      '__DX_COPY_BEFORE_SWITCH__',
+    ];
+    let openerSrc = '';
+    for (let c = 0; c < copiedNames.length; c++) {
+      openerSrc += 'window.' + copiedNames[c] + '=(' + window[copiedNames[c]].toString() + ');';
+    }
+    openerSrc +=
+      'window.__DX_CLOSE_NOBIRU__=function(){try{if(parent!==window&&parent.__DX_CLOSE_NOBIRU__)parent.__DX_CLOSE_NOBIRU__();}catch(e){}};';
 
     const embed = window.__DX_JS_EMBED__;
     const storageSeed = window.__DX_FRAME_STORAGE_SEED__();
@@ -1013,6 +1006,9 @@
       'window.__DX_RAW_HOST__=' +
       embed(window.__DX_RAW_HOST__) +
       ';' +
+      'window.__DX_FRAME_STORAGE_PROBE_KEY__=' +
+      embed(window.__DX_FRAME_STORAGE_PROBE_KEY__) +
+      ';' +
       'window.__DX_CDN_BASE__=' +
       embed(opts.base) +
       ';' +
@@ -1024,14 +1020,9 @@
         'window.__DX_NOBIRU_KEY__=' +
         embed(opts.htmlName) +
         ';' +
-        'window.__DX_NOBIRU_BASE__=' +
-        embed(opts.assetBase) +
-        ';' +
         'window.__DX_BOOT_SEARCH__=' +
         embed(opts.bootSearch || '') +
         ';';
-    } else {
-      globals += 'window.__DX_STANDALONE_PAGE__=' + embed(opts.pageName) + ';';
     }
 
     /* location.search は LegacyUnforgeable で、prototype を差し替えても srcdoc の実値は空のまま。
@@ -1091,25 +1082,19 @@
       'function dxNavKind(u){if(dxIsHashOnly(u))return "hash";if(dxIsHomeNav(u))return "home";if(dxIsLauncherHome(u))return "launcher";return "block";}' +
       'var dxLauncherOnce=false;' +
       'function dxGoLauncher(){dxLauncherOnce=true;location.href=dxLauncherHome;}' +
-      'function dxPass(u,pass){var k=dxNavKind(u);' +
-      'if(k==="home"){if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();return;}' +
-      'if(k==="launcher"){dxLauncherOnce=true;pass(dxLauncherHome);return;}' +
-      'if(k==="block")return;pass(u);}' +
       'function dxReopenNobiru(){if(!window.__DX_OPEN_NOBIRU__||!window.__DX_NOBIRU_KEY__)return false;' +
       'const o={};try{new URLSearchParams(window.__DX_BOOT_SEARCH__||"").forEach(function(v,k){o[k]=v;});}catch(eR){}' +
       'window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__,o);return true;}' +
-      'try{const lr=Location.prototype.replace;Object.defineProperty(Location.prototype,"replace",{configurable:false,writable:false,value:function(u){' +
-      'var self=this;dxPass(u,function(x){lr.call(self,x);});}});}catch(e4){}' +
-      'try{const la=Location.prototype.assign;Object.defineProperty(Location.prototype,"assign",{configurable:false,writable:false,value:function(u){' +
-      'var self=this;dxPass(u,function(x){la.call(self,x);});}});}catch(e5){}' +
-      'try{const hd=Object.getOwnPropertyDescriptor(Location.prototype,"href");' +
-      'if(hd&&hd.set){Object.defineProperty(Location.prototype,"href",{configurable:false,enumerable:true,' +
-      'get:function(){return hd.get.call(this);},' +
-      'set:function(v){var self=this;dxPass(v,function(x){hd.set.call(self,x);});}});}}catch(e6){}' +
+      /* location の href / assign / replace / reload は実体の own property（LegacyUnforgeable）で、
+         Location.prototype を書き換えても呼ばれない。スクリプトからの遷移は Navigation API で止める。
+         reload は srcdoc の再読み込み（白紙）になるので、のびる読解は同じ教材を開き直す。 */
       'try{if(window.navigation&&navigation.addEventListener){navigation.addEventListener("navigate",function(ev){' +
       'if(ev.hashChange)return;var u=ev.destination&&ev.destination.url||"";' +
       'if(dxLauncherOnce){dxLauncherOnce=false;if(String(u)===dxLauncherHome||dxSameLauncherFile(u))return;' +
       'if(ev.cancelable)ev.preventDefault();return;}' +
+      'if(ev.navigationType==="reload"){if(ev.cancelable)ev.preventDefault();if(window.__DX_REOPEN_NOBIRU__)window.__DX_REOPEN_NOBIRU__();return;}' +
+      /* ランチャーによる srcdoc の差し替え（モード選択・やり直し・閉じる）は通す。印のない about:srcdoc は止める */
+      'if(/^about:srcdoc$/i.test(String(u))){if(window.__DX_SRCDOC_SWITCHING__)return;if(ev.cancelable)ev.preventDefault();return;}' +
       'var k=dxNavKind(u);' +
       'if(k==="hash")return;' +
       'if(k==="home"){if(ev.cancelable)ev.preventDefault();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();return;}' +
@@ -1125,8 +1110,6 @@
       'ev.preventDefault();if(k==="launcher")dxGoLauncher();},true);';
     if (kind === 'nobiru') {
       locationHooks +=
-        'try{const rl=Location.prototype.reload;Location.prototype.reload=function(){' +
-        'if(dxReopenNobiru())return;return rl.apply(this,arguments);};}catch(e8){}' +
         'window.__DX_REOPEN_NOBIRU__=dxReopenNobiru;' +
         'window.__DX_NOBIRU_FINISHED__=function(){return Array.prototype.some.call(document.querySelectorAll("button.again"),function(b){' +
         'const t=String(b.textContent||"");' +
@@ -1169,15 +1152,17 @@
           '});'
         : '';
 
+    /* 通信先は URL 許可と同じ定数から組む。dist/index.html の CSP も同じ 2 ホスト。 */
+    const cdnHosts = 'https://' + window.__DX_JSDELIVR_HOST__ + ' https://' + window.__DX_RAW_HOST__;
     const cspMeta =
       '<meta http-equiv="Content-Security-Policy" content="' +
       "default-src 'none'; " +
-      "script-src 'unsafe-inline' https://cdn.jsdelivr.net https://raw.githubusercontent.com; " +
-      "style-src 'unsafe-inline' https://cdn.jsdelivr.net https://raw.githubusercontent.com; " +
-      "img-src data: blob: https://cdn.jsdelivr.net https://raw.githubusercontent.com; " +
-      "media-src data: blob: https://cdn.jsdelivr.net https://raw.githubusercontent.com; " +
-      "font-src data: https://cdn.jsdelivr.net https://raw.githubusercontent.com; " +
-      "connect-src https://cdn.jsdelivr.net https://raw.githubusercontent.com; " +
+      "script-src 'unsafe-inline' " + cdnHosts + '; ' +
+      "style-src 'unsafe-inline' " + cdnHosts + '; ' +
+      'img-src data: blob: ' + cdnHosts + '; ' +
+      'media-src data: blob: ' + cdnHosts + '; ' +
+      'font-src data: ' + cdnHosts + '; ' +
+      'connect-src ' + cdnHosts + '; ' +
       "frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'" +
       '">';
 
@@ -1205,82 +1190,22 @@
     return cspMeta + boot + absHtml;
   }
 
-  function openNobiruPage(key, searchObj) {
+  /* のびる読解とミニゲームの共通部分。取得 → 今の iframe の記録を親へ写す → srcdoc を組み立てて表示。
+     写せなければページは切り替えない。toString で iframe に渡すため window の関数だけを使う。
+     <base> は使わない（about:srcdoc → /nobiru/srcdoc 事故の原因）。 */
+  function openSrcdocPage(pageUrl, failLabel, bootOpts) {
     const base = window.__DX_CDN_BASE__;
-    const home = window.__DX_HOST_HOME_URL__();
-    const htmlName = String(key || '').replace(/[^A-Za-z0-9_-]/g, '');
-    if (!htmlName) {
-      window.__DX_REPORT_PAGE_ERROR__(new Error('不正な教材キーです'));
-      return Promise.resolve();
-    }
-
     if (!base) {
-      const qsLocal = new URLSearchParams(searchObj || {});
-      let localUrl = 'nobiru/' + htmlName + '.html';
-      if (qsLocal.toString()) localUrl += '?' + qsLocal.toString();
-      location.href = localUrl;
+      window.__DX_REPORT_PAGE_ERROR__(new Error('CDN の基点が未設定です'));
       return Promise.resolve();
     }
-
-    const nobiruBase = base + 'nobiru/';
-    const pageUrl = nobiruBase + htmlName + '.html';
-    if (!window.__DX_RESOLVE_NOBIRU__ || !window.__DX_RESOLVE_NOBIRU__(pageUrl, base)) {
-      window.__DX_REPORT_PAGE_ERROR__(new Error('許可されていない教材 URL です'));
-      return Promise.resolve();
-    }
-    const bootParams = new URLSearchParams(searchObj || {});
-    const bootSearch = bootParams.toString() ? '?' + bootParams.toString() : '';
-
-    /* <base> は使わない（about:srcdoc → /nobiru/srcdoc 事故の原因） */
-    return window.__DX_FETCH_PAGE__(
-      pageUrl,
-      'のびる読解の取得に失敗しました',
-      function (html) {
-        if (!window.__DX_COPY_BEFORE_SWITCH__ || !window.__DX_COPY_BEFORE_SWITCH__()) {
-          window.__DX_SHOW_PAGE_ERROR__(
-            '記録を写せなかったので、ページを切り替えませんでした。',
-            'ページを切り替えませんでした'
-          );
-          return;
-        }
-        window.__DX_SHOW_NOBIRU_HTML__(
-          window.__DX_BUILD_SRCDOC_BOOT__(html, {
-            kind: 'nobiru',
-            base: base,
-            home: home,
-            assetBase: nobiruBase,
-            htmlName: htmlName,
-            bootSearch: bootSearch,
-          })
-        );
-      }
-    );
-  }
-
-  /** ルート直下の別ページ HTML（九尾の化かし合い・炎狼ラン等）を srcdoc で開く。
-   *  passId は本体 mgGoWithPass の第1引数（通行証キー）。新ミニゲーム追加時も対応表不要。 */
-  function openStandaloneHtml(fileName, passId) {
-    const base = window.__DX_CDN_BASE__;
-    const home = window.__DX_HOST_HOME_URL__();
-    const safeName = String(fileName || '').trim();
-    if (!/^[A-Za-z0-9_-]+\.html$/.test(safeName)) {
-      window.__DX_REPORT_PAGE_ERROR__(new Error('不正なページ名です'));
-      return Promise.resolve();
-    }
-    const safePassId = /^[A-Za-z0-9_-]+$/.test(String(passId || '')) ? String(passId) : '';
-
-    if (!base) {
-      location.href = safeName;
-      return Promise.resolve();
-    }
-
-    const pageUrl = base + safeName;
     if (!window.__DX_RESOLVE_NOBIRU__ || !window.__DX_RESOLVE_NOBIRU__(pageUrl, base)) {
       window.__DX_REPORT_PAGE_ERROR__(new Error('許可されていないページ URL です'));
       return Promise.resolve();
     }
-
-    return window.__DX_FETCH_PAGE__(pageUrl, 'ページの取得に失敗しました', function (html) {
+    bootOpts.base = base;
+    bootOpts.home = window.__DX_HOST_HOME_URL__();
+    return window.__DX_FETCH_PAGE__(pageUrl, failLabel, function (html) {
       if (!window.__DX_COPY_BEFORE_SWITCH__ || !window.__DX_COPY_BEFORE_SWITCH__()) {
         window.__DX_SHOW_PAGE_ERROR__(
           '記録を写せなかったので、ページを切り替えませんでした。',
@@ -1288,16 +1213,40 @@
         );
         return;
       }
-      window.__DX_SHOW_NOBIRU_HTML__(
-        window.__DX_BUILD_SRCDOC_BOOT__(html, {
-          kind: 'minigame',
-          base: base,
-          home: home,
-          assetBase: base,
-          pageName: safeName,
-          passId: safePassId,
-        })
-      );
+      window.__DX_SHOW_NOBIRU_HTML__(window.__DX_BUILD_SRCDOC_BOOT__(html, bootOpts));
+    });
+  }
+
+  function openNobiruPage(key, searchObj) {
+    const htmlName = String(key || '').replace(/[^A-Za-z0-9_-]/g, '');
+    if (!htmlName) {
+      window.__DX_REPORT_PAGE_ERROR__(new Error('不正な教材キーです'));
+      return Promise.resolve();
+    }
+    const nobiruBase = String(window.__DX_CDN_BASE__ || '') + 'nobiru/';
+    const bootParams = new URLSearchParams(searchObj || {});
+    const bootSearch = bootParams.toString() ? '?' + bootParams.toString() : '';
+    return window.__DX_OPEN_SRCDOC_PAGE__(nobiruBase + htmlName + '.html', 'のびる読解の取得に失敗しました', {
+      kind: 'nobiru',
+      assetBase: nobiruBase,
+      htmlName: htmlName,
+      bootSearch: bootSearch,
+    });
+  }
+
+  /** ルート直下の別ページ HTML（九尾の化かし合い・炎狼ラン等）を srcdoc で開く。
+   *  passId は本体 mgGoWithPass の第1引数（通行証キー）。新ミニゲーム追加時も対応表不要。 */
+  function openStandaloneHtml(fileName, passId) {
+    const safeName = String(fileName || '').trim();
+    if (!/^[A-Za-z0-9_-]+\.html$/.test(safeName)) {
+      window.__DX_REPORT_PAGE_ERROR__(new Error('不正なページ名です'));
+      return Promise.resolve();
+    }
+    const base = String(window.__DX_CDN_BASE__ || '');
+    return window.__DX_OPEN_SRCDOC_PAGE__(base + safeName, 'ページの取得に失敗しました', {
+      kind: 'minigame',
+      assetBase: base,
+      passId: /^[A-Za-z0-9_-]+$/.test(String(passId || '')) ? String(passId) : '',
     });
   }
 
@@ -1313,40 +1262,24 @@
     return home;
   }
 
-  function finishReturnFromMinigame() {
-    closeNobiruFrame();
-    const go = function () {
-      try {
+  function returnFromMinigame() {
+    returnFromFrame(
+      'レベルの変化を本体に写せませんでした。この画面に残れば記録は残ります。ホームに戻ると、今回のレベルが反映されないことがあります。',
+      function () {
         if (
-          typeof showPrologue === 'function' &&
-          typeof showHome === 'function' &&
-          typeof showSideQuestMenu === 'function'
+          typeof window.showPrologue === 'function' &&
+          typeof window.showHome === 'function' &&
+          typeof window.showSideQuestMenu === 'function'
         ) {
-          showPrologue(function () {
-            showHome();
-            showSideQuestMenu();
+          window.showPrologue(function () {
+            window.showHome();
+            window.showSideQuestMenu();
           });
         } else {
           console.error('[DX] minigame return hooks missing');
         }
-      } catch (e) {
-        console.error('[DX] showHome after minigame failed', e);
       }
-    };
-    /* iframe 破棄と同フレームで DOM を書き換えると端末によって描画が残る */
-    setTimeout(go, 0);
-  }
-
-  function returnFromMinigame() {
-    const copied = copyFrameStorage();
-    if (!copied.ok) {
-      confirmLeaveWithoutStorage(
-        'レベルの変化を本体に写せませんでした。この画面に残れば記録は残ります。ホームに戻ると、今回のレベルが反映されないことがあります。',
-        finishReturnFromMinigame
-      );
-      return;
-    }
-    finishReturnFromMinigame();
+    );
   }
 
   function installMinigameDistHooks() {
@@ -1379,14 +1312,15 @@
 
   function installNobiruOpener() {
     window.__DX_JS_EMBED__ = jsEmbed;
-    window.__DX_FRAME_STORAGE_SKIP_KEYS__ = FRAME_STORAGE_SKIP_KEYS;
     window.__DX_FRAME_STORAGE_SEED__ = frameStorageSeedScript;
     window.__DX_COPY_BEFORE_SWITCH__ = copyBeforeFrameSwitch;
+    window.__DX_OVERLAY_CARD__ = overlayCard;
     window.__DX_SHOW_PAGE_ERROR__ = showPageError;
     window.__DX_REPORT_PAGE_ERROR__ = reportPageError;
     window.__DX_HOST_HOME_URL__ = dxHostHomeUrl;
     window.__DX_BUILD_SRCDOC_BOOT__ = buildSrcdocDocument;
     window.__DX_FETCH_PAGE__ = fetchPageHtml;
+    window.__DX_OPEN_SRCDOC_PAGE__ = openSrcdocPage;
     window.__DX_CANCEL_PAGE_OPEN__ = cancelPageOpen;
     window.__DX_ARM_PAGE_CLICK__ = armPageClick;
     window.__DX_REMOVE_TRAPS__ = removeNavigationTraps;
@@ -1397,8 +1331,8 @@
     window.__DX_COPY_FRAME_STORAGE__ = copyFrameStorage;
     window.__DX_SHOW_NOBIRU_HTML__ = showNobiruHtml;
     window.__DX_CLOSE_NOBIRU__ = closeNobiruFrame;
-    /* ABS が RESOLVE を参照するため、RESOLVE を先に載せる */
-    window.__DX_RESOLVE_NOBIRU__ = resolveCdnUrl;
+    /* __DX_RESOLVE_NOBIRU__ は定義直後に window へ載せている（本体注入でも使うため） */
+    window.__DX_REWRITE_ASSETS__ = rewriteAssetAttrs;
     window.__DX_ABS_NOBIRU__ = absolutizeNobiruHtml;
     document.addEventListener(
       'click',

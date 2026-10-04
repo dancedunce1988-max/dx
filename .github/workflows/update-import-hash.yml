@@ -39,12 +39,9 @@ jobs:
 
       # 先に別 run が import-config を push していると、この checkout からの push は non-fast-forward になる。
       # 最新の main に書き直して再試行する。より新しい教材コミットが main にある run は上書きしない。
+      # GITHUB_EVENT_NAME / GITHUB_SHA / GITHUB_REF はランナーが用意する既定の環境変数
       - name: Commit and push if changed
         shell: bash
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          GITHUB_SHA: ${{ github.sha }}
-          GITHUB_REF: ${{ github.ref }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
@@ -56,7 +53,7 @@ jobs:
             '
           }
 
-          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$GITHUB_REF" != "refs/heads/main" ]; then
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] && [ "$GITHUB_REF" != "refs/heads/main" ]; then
             echo "Refuse: workflow_dispatch must run on refs/heads/main (got $GITHUB_REF)"
             exit 1
           fi
@@ -68,7 +65,7 @@ jobs:
               echo "Failed: origin/main has no content commit"
               exit 1
             fi
-            if [ "$EVENT_NAME" != "workflow_dispatch" ] && [ "$tip" != "$GITHUB_SHA" ]; then
+            if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ] && [ "$tip" != "$GITHUB_SHA" ]; then
               echo "Skip: main content commit is $tip, this run is $GITHUB_SHA"
               exit 0
             fi
