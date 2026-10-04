@@ -41,6 +41,10 @@ jobs:
       # 最新の main に書き直して再試行する。より新しい教材コミットが main にある run は上書きしない。
       - name: Commit and push if changed
         shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REF: ${{ github.ref }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
@@ -52,22 +56,36 @@ jobs:
             '
           }
 
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "Refuse: workflow_dispatch must run on refs/heads/main (got $GITHUB_REF)"
+            exit 1
+          fi
+
           for attempt in 1 2 3 4 5; do
             git fetch origin main
-            if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
-              tip="$(latest_content_sha || true)"
-              if [ "$tip" != "${{ github.sha }}" ]; then
-                echo "Skip: main content commit is ${tip:-unknown}, this run is ${{ github.sha }}"
-                exit 0
-              fi
+            tip="$(latest_content_sha || true)"
+            if [[ ! "$tip" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "Failed: origin/main has no content commit"
+              exit 1
+            fi
+            if [ "$EVENT_NAME" != "workflow_dispatch" ] && [ "$tip" != "$GITHUB_SHA" ]; then
+              echo "Skip: main content commit is $tip, this run is $GITHUB_SHA"
+              exit 0
             fi
 
-            git checkout -B main origin/main
+            git checkout -f -B main origin/main
             mkdir -p dist
             jq -n \
-              --arg commitHash "${{ github.sha }}" \
+              --arg commitHash "$tip" \
               '{commitHash: $commitHash}' \
               > dist/import-config.json
+
+            git fetch origin main
+            tip_now="$(latest_content_sha || true)"
+            if [ "$tip_now" != "$tip" ]; then
+              echo "main moved before commit, retrying (${attempt})"
+              continue
+            fi
 
             if git diff --quiet -- dist/import-config.json; then
               echo "No changes to commit"
