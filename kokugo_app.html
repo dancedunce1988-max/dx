@@ -106,9 +106,11 @@
   /* 九尾・炎狼の入口バナー（mgBannerHtml参照）：「準備中」の間は浮き上がらせない。 */
   .menu-card-img-btn.mg-banner-locked{ cursor:default; }
   .menu-card-img-btn.mg-banner-locked:hover{ transform:none; }
-  /* 炎狼ランの自己ベスト（2行、右下の絵の側に寄せてタイトル文字にかぶらないように） */
-  .menu-card-img-btn .menu-card-overlay.mg-best-2line{ right:6px; bottom:5px; max-width:52%; text-align:right; line-height:1.3; border-radius:9px; padding:3px 9px; }
-  .menu-card-img-btn .menu-card-overlay.mg-best-2line small{ font-size:.62rem; font-weight:600; }
+  /* 炎狼ランの自己ベスト：バナーの絵には重ねず、すぐ下に帯として出す（絵に重ねると、端末によって地名が折り返して
+     下に切れて見えなかったため。2026-10-04、教員の指摘） */
+  .menu-card-img-btn .mg-best-bar{ display:block; background:#2a1408; color:#ffd9a0; font-size:.78rem; font-weight:700;
+    line-height:1.45; padding:5px 12px 6px; text-align:center; }
+  .menu-card-img-btn .mg-best-bar small{ display:inline-block; color:#fff; font-weight:600; font-size:.74rem; }  /* 狭い画面では地名ごと次の行へ */
   .menu-card-img-btn.mg-banner-locked img{ filter:brightness(.62) saturate(.7); }
   @keyframes kitsuneTapPulse{ 0%{transform:scale(1);} 45%{transform:scale(.96);} 100%{transform:scale(1);} }
   /* クリア済みのストーリー章カード：カード全体タップではなく、中の2つのボタン
@@ -4337,7 +4339,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.03</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.04</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -20091,14 +20093,35 @@ function openKitsuneBakashiai(){ mgGoWithPass("kitsune", "kitsune_bakashiai.html
    正式に公開するときは ENRO_RUN_RELEASED を true にするだけでよい。
    2026-10-03、教員の指示で公開した（隠しモードを解除）。 */
 const ENRO_RUN_RELEASED = true;
-/* 炎狼ランの自己ベスト（挑戦モードの最長km・着いた地名）を、バナーの右下に出す（2026-10-04、教員の指示）。
+/* 炎狼ランの挑戦モードの世界一周ルート（enro_run.htmlのWORLD_ROUTEの写し。炎狼ラン側を変えたら、ここも同じに直す）。
+   保存に地名（bestKmPlace）がまだない記録や、ブラウザに古い炎狼ランのページが残っていて地名が保存されなかったときでも、
+   距離から地名を出せるようにする（2026-10-04、教員の指摘：「場所が見えない」）。 */
+const ENRO_WORLD_ROUTE = [
+  [0,"盛岡","日本"],[161,"仙台","日本"],[465,"東京","日本"],[730,"名古屋","日本"],[870,"大阪","日本"],[1150,"広島","日本"],
+  [1360,"福岡","日本"],[1574,"プサン（釜山）","韓国"],[1900,"ソウル","韓国"],[2852,"ペキン（北京）","中国"],
+  [3919,"シャンハイ（上海）","中国"],[4609,"タイペイ（台北）","台湾"],[5420,"ホンコン（香港）","中国"],[6292,"ハノイ","ベトナム"],
+  [7279,"バンコク","タイ"],[8707,"シンガポール","シンガポール"],[10622,"ヤンゴン","ミャンマー"],[11658,"コルカタ","インド"],
+  [12961,"ニューデリー","インド"],[15166,"ドバイ","アラブ首長国連邦"],[17589,"カイロ","エジプト"],[18826,"イスタンブール","トルコ"],
+  [19388,"アテネ","ギリシャ"],[20439,"ローマ","イタリア"],[21545,"パリ","フランス"],[21889,"ロンドン","イギリス"],
+  [23778,"レイキャビク","アイスランド"],[25208,"ヌーク","グリーンランド"],[27685,"モントリオール","カナダ"],
+  [28219,"ニューヨーク","アメリカ"],[29363,"シカゴ","アメリカ"],[32167,"ロサンゼルス","アメリカ"],[36287,"ホノルル","アメリカ（ハワイ）"],
+  [42354,"盛岡","日本"],
+];
+function enroRunPlaceName(km){
+  const lap = ENRO_WORLD_ROUTE[ENRO_WORLD_ROUTE.length - 1][0], r = km % lap;
+  let i = 0;
+  while(i + 1 < ENRO_WORLD_ROUTE.length && ENRO_WORLD_ROUTE[i + 1][0] <= r) i++;
+  const pt = ENRO_WORLD_ROUTE[i];
+  return (pt[2] === "日本" || pt[1] === pt[2]) ? pt[1] : `${pt[2]}の${pt[1]}`;
+}
+/* 炎狼ランの自己ベスト（挑戦モードの最長km・着いた地名）を、バナーのすぐ下に出す（2026-10-04、教員の指示）。
    炎狼ラン側の保存（localStorage "enro_run_v1"）の bestKm と bestKmPlace を読むだけ（本体からは書かない）。 */
 function enroRunBestLabel(){
   let s = null;
   try{ s = JSON.parse(localStorage.getItem("enro_run_v1")); }catch(e){}
   const km = s && Number(s.bestKm) > 0 ? Math.trunc(Number(s.bestKm)) : 0;
   if(!km) return null;
-  const place = s && typeof s.bestKmPlace === "string" ? s.bestKmPlace : "";
+  const place = (s && typeof s.bestKmPlace === "string" && s.bestKmPlace) || enroRunPlaceName(km);
   return {km:`🏆 ベスト ${km.toLocaleString("ja-JP")}km`, place: place ? `${place}まで到着` : ""};
 }
 function enroRunMenuHtml(){
@@ -20108,7 +20131,7 @@ function enroRunMenuHtml(){
     if(img) return `
     <div class="menu-card-img-btn" onclick="openEnroRun()">
       <img src="${img}" alt="炎狼ラン">
-      <span class="menu-card-overlay mg-best-2line">${esc(best.km)}${best.place ? `<br><small>${esc(best.place)}</small>` : ""}</span>
+      <span class="mg-best-bar">${esc(best.km)}${best.place ? `　<small>${esc(best.place)}</small>` : ""}</span>
     </div>`;
     return mgTextCardHtml("🐺", "炎狼ラン", best.km + (best.place ? "・" + best.place : ""), true, "", "openEnroRun()");
   }
