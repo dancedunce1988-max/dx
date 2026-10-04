@@ -101,8 +101,8 @@
   .menu-card.locked:hover{transform:none; box-shadow:none;}
   .menu-card.locked .menu-icon{background:var(--line); color:var(--sub);}
   .menu-card.locked .shogo-badge{background:var(--sub);}
-  /* 九尾の化かし合い・炎狼ランの「準備中」カード：タップの手応えとして軽くパルスさせるだけ（kitsuneComingSoonTap・enroRunComingSoonTap参照） */
-  .kitsune-teaser.tap-pulse, .enro-teaser.tap-pulse, .tsunagi-teaser.tap-pulse{ animation:kitsuneTapPulse .18s ease; }
+  /* 鍵のかかったミニゲームの入口：タップの手応えとして軽くパルスさせるだけ（mgLockedTap参照） */
+  .mg-teaser.tap-pulse{ animation:kitsuneTapPulse .18s ease; }
   /* 九尾・炎狼の入口バナー（mgBannerHtml参照）：「準備中」の間は浮き上がらせない。 */
   .menu-card-img-btn.mg-banner-locked{ cursor:default; }
   .menu-card-img-btn.mg-banner-locked:hover{ transform:none; }
@@ -4334,7 +4334,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.01</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.02</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -19899,9 +19899,10 @@ function showSideQuestMenu(){
   html += mbSideQuestButtonHtml();
   html += Object.keys(STORY_SIDEQUESTS).map(key => storySideQuestButtonHtml(key, st)).join("");
   html += speedMatchMenuHtml();
-  html += enroRunMenuHtml();   // 教員の指示（2026-09-30）で炎狼ランを九尾より上に
-  html += kitsuneMenuHtml();
+  // 解禁の順（時系列）に並べる（2026-10-04、教員の指示）：炎狼ラン→つなぎ橋（10/9）→九尾（10/15）→表現の魔術道（準備中）
+  html += enroRunMenuHtml();
   html += tsunagiMenuHtml();
+  html += kitsuneMenuHtml();
   html += gihouMenuHtml();
   html += `<div class="btn-row" style="justify-content:center; margin-top:10px">
     <button class="btn secondary" onclick="showHome()">戻る</button>
@@ -20004,8 +20005,10 @@ function storySideQuestButtonHtml(key, st){
    （多めにタップしてしまっても、そのままk→2回タップで開ける）。
    正式に公開するときは KITSUNE_RELEASED を true にするだけでよい。
    2026-10-03、教員の指示で公開した（隠しモードを解除）。
-   2026-10-04、教員の指示でふたたび鍵をかけた（遊べるのは炎狼ランだけ。隠し操作は残す）。 */
-const KITSUNE_RELEASED = false;
+   2026-10-04、教員の指示でふたたび鍵をかけた。同日、教員の指示で隠し操作（タップ→キー→タップ）は九尾・炎狼ラン・
+   つなぎ橋のすべてで廃止し、かわりに日付で解禁する形にした（KITSUNE_RELEASE_DATE、端末の日付で判定）。 */
+const KITSUNE_RELEASE_DATE = "2026-10-15";
+const KITSUNE_RELEASED = mgReleasedOn(KITSUNE_RELEASE_DATE);
 /* 別ページのミニゲーム（九尾の化かし合い・炎狼ラン）の入口バナー（2026-10-03〜、教員が用意した
    九尾バナー.png・炎狼バナー.png、menu_title_images.jsのkitsune/enroRun）。他のミニゲームと同じ
    .menu-card-img-btnで画像そのものをボタンにする。「準備中」の間も隠し操作のクラス
@@ -20023,57 +20026,46 @@ const KITSUNE_RELEASED = false;
    2026-10-04、教員が作り直した新しいバナー（素材/画像/九尾バナー.png・炎狼バナー.png・鉄甲兵バナー.png）に差し替えた。
    今度は引き伸ばさず、元の縦横比のまま幅1360pxに縮めて入れている（鉄甲兵はmenu_title_images.jsのtsunagi）。
    鍵のかかったバナーは少し暗くし、右下に「🔒 準備中」と出す。 */
-function mgBannerHtml(key, alt, released, teaserClass, openFn, tapFn){
+function mgBannerHtml(key, alt, released, lockLabel, openFn){
   const img = window.MB_MENU_TITLE_IMAGES && window.MB_MENU_TITLE_IMAGES[key];
   if(!img) return null;
   return `
-    <div class="menu-card-img-btn${released ? "" : " mg-banner-locked " + teaserClass}" onclick="${released ? openFn : tapFn}">
+    <div class="menu-card-img-btn${released ? "" : " mg-banner-locked mg-teaser"}" onclick="${released ? openFn : "mgLockedTap(this)"}">
       <img src="${img}" alt="${esc(alt)}">
-      <span class="menu-card-overlay">${released ? "タップして挑戦しよう" : "🔒 準備中"}</span>
+      <span class="menu-card-overlay">${released ? "タップして挑戦しよう" : esc(lockLabel)}</span>
     </div>`;
 }
-const KITSUNE_SECRET_SEQ = ["tap","tap","tap","k","tap","tap"];
-let kitsuneSeqHist = []; // 直近の隠し操作。保存しない＝ページ再読み込みでリセットされてよい。
-function kitsuneMenuHtml(){
-  const banner = mgBannerHtml("kitsune", "九尾の化かし合い", KITSUNE_RELEASED, "kitsune-teaser", "openKitsuneBakashiai()", "kitsuneComingSoonTap(this)");
-  if(banner) return banner;
-  if(KITSUNE_RELEASED){
+/* ミニゲームの日付解禁（2026-10-04〜、教員の指示）。"YYYY-MM-DD" の日の0時（端末の日付）から遊べる。
+   バナーには「🔒 10月9日解禁」のように解禁日を出す。鍵がかかっている間は、押しても軽く揺れるだけ。 */
+function mgReleasedOn(dateStr){ return todayLocalDateStr() >= dateStr; }
+function mgReleaseLabel(dateStr){ const a = dateStr.split("-").map(Number); return `🔒 ${a[1]}月${a[2]}日解禁`; }
+function mgLockedTap(el){
+  if(!el) return;
+  el.classList.remove('tap-pulse');
+  void el.offsetWidth; // タップのたびにアニメーションをやり直すための強制リフロー
+  el.classList.add('tap-pulse');
+}
+// 画像がないとき用の文字カード（鍵つきは解禁日を出す）
+function mgTextCardHtml(icon, title, desc, released, lockLabel, openFn){
+  if(released){
     return `
-    <div class="card menu-card" onclick="openKitsuneBakashiai()">
-      <div class="menu-icon">🦊</div>
-      <div><h2>九尾の化かし合い</h2><p>化けた漢字を見破れ！ 話ごとに見破り方が変わる、九尾との化かし合い</p></div>
+    <div class="card menu-card" onclick="${openFn}">
+      <div class="menu-icon">${icon}</div>
+      <div><h2>${esc(title)}</h2><p>${esc(desc)}</p></div>
       <div class="right"><span class="shogo-badge">挑戦する</span></div>
     </div>`;
   }
   return `
-    <div class="card menu-card locked kitsune-teaser" onclick="kitsuneComingSoonTap(this)">
-      <div class="menu-icon">🦊</div>
-      <div><h2>九尾の化かし合い</h2><p>化けた漢字を見破れ！ 話ごとに見破り方が変わる、九尾との化かし合い</p></div>
-      <div class="right"><span class="shogo-badge">準備中</span></div>
+    <div class="card menu-card locked mg-teaser" onclick="mgLockedTap(this)">
+      <div class="menu-icon">${icon}</div>
+      <div><h2>${esc(title)}</h2><p>${esc(desc)}</p></div>
+      <div class="right"><span class="shogo-badge">${esc(lockLabel)}</span></div>
     </div>`;
 }
-// 隠し操作を1つ記録し、直前の操作がKITSUNE_SECRET_SEQと一致したら開く。
-function kitsuneSecretInput(kind){
-  kitsuneSeqHist.push(kind);
-  if(kitsuneSeqHist.length > KITSUNE_SECRET_SEQ.length) kitsuneSeqHist.shift();
-  if(kitsuneSeqHist.join(",") === KITSUNE_SECRET_SEQ.join(",")){ kitsuneSeqHist = []; openKitsuneBakashiai(); return true; }
-  return false;
-}
-// kキーは、ミニゲーム一覧に「準備中」カードが出ているときだけ数える（入力欄での入力は無視）。
-document.addEventListener("keydown", e => {
-  if(KITSUNE_RELEASED || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
-  if(!document.querySelector(".kitsune-teaser")) return;
-  const tag = (e.target && e.target.tagName) || "";
-  if(tag === "INPUT" || tag === "TEXTAREA" || (e.target && e.target.isContentEditable)) return;
-  if(e.key === "k" || e.key === "K") kitsuneSecretInput("k");
-});
-function kitsuneComingSoonTap(el){
-  if(kitsuneSecretInput("tap")) return;
-  if(el){
-    el.classList.remove('tap-pulse');
-    void el.offsetWidth; // タップのたびにアニメーションをやり直すための強制リフロー
-    el.classList.add('tap-pulse');
-  }
+function kitsuneMenuHtml(){
+  const label = mgReleaseLabel(KITSUNE_RELEASE_DATE);
+  return mgBannerHtml("kitsune", "九尾の化かし合い", KITSUNE_RELEASED, label, "openKitsuneBakashiai()")
+    || mgTextCardHtml("🦊", "九尾の化かし合い", "化けた漢字を見破れ！ 話ごとに見破り方が変わる、九尾との化かし合い", KITSUNE_RELEASED, label, "openKitsuneBakashiai()");
 }
 /* 別ページのミニゲームへの「通行証」（2026-10-01、教員の指示）：配布版のフォルダからhtmlを直接開くと、
    隠し入口を通らずに準備中のゲームへ入れてしまうため、本体の入口から移るときだけ
@@ -20092,52 +20084,13 @@ function openKitsuneBakashiai(){ mgGoWithPass("kitsune", "kitsune_bakashiai.html
    本体のセーブデータ(st)には直接触れない。2026-09-30〜、1回の走りごとに「正解1つ＝＋1、まちがい2つ＝−1」の
    差し引きで「敬語」ジャンルのレベルを上下させる（MG_PENDING_LVUP_LSKEY経由、mgApplyPendingLevelUps参照）。
    教員の指示（2026-09-29：「試作して」）で、九尾と同じ「準備中」カードとして置き、隠し操作
-   （カードを3回タップ→eキーを1回→カードを2回タップ、ENRO_RUN_SECRET_SEQ）のときだけ裏で遊べるようにする。
+   （カードを3回タップ→eキーを1回→カードを2回タップ）のときだけ裏で遊べるようにしていた（2026-10-04に隠し操作は廃止）。
    正式に公開するときは ENRO_RUN_RELEASED を true にするだけでよい。
    2026-10-03、教員の指示で公開した（隠しモードを解除）。 */
 const ENRO_RUN_RELEASED = true;
-const ENRO_RUN_SECRET_SEQ = ["tap","tap","tap","e","tap","tap"];
-let enroRunSeqHist = []; // 直近の隠し操作。保存しない＝ページ再読み込みでリセットされてよい。
 function enroRunMenuHtml(){
-  const banner = mgBannerHtml("enroRun", "炎狼ラン", ENRO_RUN_RELEASED, "enro-teaser", "openEnroRun()", "enroRunComingSoonTap(this)");
-  if(banner) return banner;
-  if(ENRO_RUN_RELEASED){
-    return `
-    <div class="card menu-card" onclick="openEnroRun()">
-      <div class="menu-icon">🐺</div>
-      <div><h2>炎狼ラン</h2><p>敬語の三つの道を駆けぬけろ</p></div>
-      <div class="right"><span class="shogo-badge">挑戦する</span></div>
-    </div>`;
-  }
-  return `
-    <div class="card menu-card locked enro-teaser" onclick="enroRunComingSoonTap(this)">
-      <div class="menu-icon">🐺</div>
-      <div><h2>炎狼ラン</h2><p>敬語の三つの道を駆けぬけろ</p></div>
-      <div class="right"><span class="shogo-badge">準備中</span></div>
-    </div>`;
-}
-// 隠し操作を1つ記録し、直前の操作がENRO_RUN_SECRET_SEQと一致したら開く（kitsuneSecretInputと同じ仕組み）。
-function enroRunSecretInput(kind){
-  enroRunSeqHist.push(kind);
-  if(enroRunSeqHist.length > ENRO_RUN_SECRET_SEQ.length) enroRunSeqHist.shift();
-  if(enroRunSeqHist.join(",") === ENRO_RUN_SECRET_SEQ.join(",")){ enroRunSeqHist = []; openEnroRun(); return true; }
-  return false;
-}
-// eキーは、ミニゲーム一覧に「準備中」カードが出ているときだけ数える（入力欄での入力は無視）。
-document.addEventListener("keydown", e => {
-  if(ENRO_RUN_RELEASED || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
-  if(!document.querySelector(".enro-teaser")) return;
-  const tag = (e.target && e.target.tagName) || "";
-  if(tag === "INPUT" || tag === "TEXTAREA" || (e.target && e.target.isContentEditable)) return;
-  if(e.key === "e" || e.key === "E") enroRunSecretInput("e");
-});
-function enroRunComingSoonTap(el){
-  if(enroRunSecretInput("tap")) return;
-  if(el){
-    el.classList.remove('tap-pulse');
-    void el.offsetWidth; // タップのたびにアニメーションをやり直すための強制リフロー
-    el.classList.add('tap-pulse');
-  }
+  return mgBannerHtml("enroRun", "炎狼ラン", ENRO_RUN_RELEASED, "🔒 準備中", "openEnroRun()")
+    || mgTextCardHtml("🐺", "炎狼ラン", "敬語の三つの道を駆けぬけろ", ENRO_RUN_RELEASED, "🔒 準備中", "openEnroRun()");
 }
 function openEnroRun(){ mgGoWithPass("enro", "enro_run.html"); }
 /* ボキャブラ・シューティング 大画面版（2026-10-03〜、ver12.94、教員の指示）。「画面が小さくて見えにくい」という声を受け、
@@ -20184,67 +20137,27 @@ function vsApplyPendingResults(){
    九尾・炎狼ランと同じく別ページ（tsunagi_bashi.html）で、戻るときは kokugo_app.html?from=minigame。
    正誤は「接続詞」（setsuzokushi）ジャンルのレベルに反映する（MG_LVUP_CATS参照）。
    教員の指示（2026-10-03）で、九尾・炎狼ランと同じ「準備中」カードとして置き、隠し操作
-   （カードを3回タップ→tキーを1回→カードを2回タップ、TSUNAGI_SECRET_SEQ）のときだけ裏で遊べるようにする。
-   正式に公開するときは TSUNAGI_RELEASED を true にするだけでよい。 */
-const TSUNAGI_RELEASED = false;
-const TSUNAGI_SECRET_SEQ = ["tap","tap","tap","t","tap","tap"];
-let tsunagiSeqHist = []; // 直近の隠し操作。保存しない＝ページ再読み込みでリセットされてよい。
+   （カードを3回タップ→tキーを1回→カードを2回タップ）のときだけ裏で遊べるようにしていた。
+   2026-10-04、教員の指示で隠し操作は廃止し、日付で解禁する形にした（TSUNAGI_RELEASE_DATE、端末の日付で判定）。 */
+const TSUNAGI_RELEASE_DATE = "2026-10-09";
+const TSUNAGI_RELEASED = mgReleasedOn(TSUNAGI_RELEASE_DATE);
 function tsunagiMenuHtml(){
   // 2026-10-04〜、教員が用意した鉄甲兵バナー.png（menu_title_images.jsのtsunagi）を入口にする。
-  const banner = mgBannerHtml("tsunagi", "鉄甲兵のつなぎ橋", TSUNAGI_RELEASED, "tsunagi-teaser", "openTsunagiBashi()", "tsunagiComingSoonTap(this)");
-  if(banner) return banner;
-  if(TSUNAGI_RELEASED){
-    return `
-    <div class="card menu-card" onclick="openTsunagiBashi()">
-      <div class="menu-icon">🛡️</div>
-      <div><h2>鉄甲兵のつなぎ橋</h2><p>接続詞の板で谷に橋を架け、鉄甲兵を向こう岸へ渡らせよう</p></div>
-      <div class="right"><span class="shogo-badge">挑戦する</span></div>
-    </div>`;
-  }
-  return `
-    <div class="card menu-card locked tsunagi-teaser" onclick="tsunagiComingSoonTap(this)">
-      <div class="menu-icon">🛡️</div>
-      <div><h2>鉄甲兵のつなぎ橋</h2><p>接続詞の板で谷に橋を架け、鉄甲兵を向こう岸へ渡らせよう</p></div>
-      <div class="right"><span class="shogo-badge">準備中</span></div>
-    </div>`;
-}
-// 隠し操作を1つ記録し、直前の操作がTSUNAGI_SECRET_SEQと一致したら開く（kitsuneSecretInputと同じ仕組み）。
-function tsunagiSecretInput(kind){
-  tsunagiSeqHist.push(kind);
-  if(tsunagiSeqHist.length > TSUNAGI_SECRET_SEQ.length) tsunagiSeqHist.shift();
-  if(tsunagiSeqHist.join(",") === TSUNAGI_SECRET_SEQ.join(",")){ tsunagiSeqHist = []; openTsunagiBashi(); return true; }
-  return false;
-}
-// tキーは、ミニゲーム一覧に「準備中」カードが出ているときだけ数える（入力欄での入力は無視）。
-document.addEventListener("keydown", e => {
-  if(TSUNAGI_RELEASED || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
-  if(!document.querySelector(".tsunagi-teaser")) return;
-  const tag = (e.target && e.target.tagName) || "";
-  if(tag === "INPUT" || tag === "TEXTAREA" || (e.target && e.target.isContentEditable)) return;
-  if(e.key === "t" || e.key === "T") tsunagiSecretInput("t");
-});
-function tsunagiComingSoonTap(el){
-  if(tsunagiSecretInput("tap")) return;
-  if(el){
-    el.classList.remove('tap-pulse');
-    void el.offsetWidth; // タップのたびにアニメーションをやり直すための強制リフロー
-    el.classList.add('tap-pulse');
-  }
+  const label = mgReleaseLabel(TSUNAGI_RELEASE_DATE);
+  return mgBannerHtml("tsunagi", "鉄甲兵のつなぎ橋", TSUNAGI_RELEASED, label, "openTsunagiBashi()")
+    || mgTextCardHtml("🛡️", "鉄甲兵のつなぎ橋", "接続詞の板で谷に橋を架け、鉄甲兵を向こう岸へ渡らせよう", TSUNAGI_RELEASED, label, "openTsunagiBashi()");
 }
 function openTsunagiBashi(){ mgGoWithPass("tsunagi", "tsunagi_bashi.html"); }
 /* 表現の魔術道（gihou_madousho.html、2026-10-03〜試作、2026-10-04〜β版としてミニゲーム一覧に入れた。教員の指示）。
    「表現技法」（hyougen）のカードバトル。正解ごとにジャンルレベルを書き置く（MG_LVUP_CATS参照）。
    配布版のzipには入れない（教員の指示）ので、zipを作るとき（開発ツール/make_dist_zip.py）に GIHOU_IN_BUILD を
-   false に書き換え、カードを出さないようにする。バナー画像はまだないので文字のカード。 */
+   false に書き換え、カードを出さないようにする。バナー画像はまだないので文字のカード。
+   2026-10-04、教員の指示で「準備中」にして開けないようにした（GIHOU_RELEASED、公開するときは true に）。 */
 const GIHOU_IN_BUILD = true;
+const GIHOU_RELEASED = false;
 function gihouMenuHtml(){
   if(!GIHOU_IN_BUILD) return "";
-  return `
-    <div class="card menu-card" onclick="openGihouMadousho()">
-      <div class="menu-icon">🔮</div>
-      <div><h2>表現の魔術道 <span class="shogo-badge" style="font-size:.65rem; vertical-align:middle">β版</span></h2><p>表現技法のカードで、闇の魔術師の呪文を打ち消せ</p></div>
-      <div class="right"><span class="shogo-badge">挑戦する</span></div>
-    </div>`;
+  return mgTextCardHtml("🔮", "表現の魔術道", "表現技法のカードで、闇の魔術師の呪文を打ち消せ", GIHOU_RELEASED, "🔒 準備中", "openGihouMadousho()");
 }
 function openGihouMadousho(){ mgGoWithPass("gihou", "gihou_madousho.html"); }
 /* マッチ（類義語マッチ・対義語マッチ、2026-09-18〜）。ミニゲームとしては「マッチ」という
