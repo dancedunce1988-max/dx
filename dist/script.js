@@ -918,8 +918,11 @@
       'for(var n=0;n<8;n++){try{var d=decodeURIComponent(t);}catch(e){return null;}if(d===t)break;t=d;}' +
       'if(/[\\u0000-\\u0020\\u007f]/.test(t)||/%(?:2e|2f|5c)/i.test(t))return null;return t.toLowerCase();}' +
       'function dxIsHashOnly(u){return String(u||"").charAt(0)==="#";}' +
-      'function dxIsHomeNav(u){var raw=String(u||"");var norm=dxNorm(u)||"";' +
-      'if(/^(javascript|data|vbscript):/i.test(raw)||/^(javascript|data|vbscript):/.test(norm))return false;' +
+      'function dxIsHomeNav(u){var raw=String(u||"");' +
+      'if(/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(raw)&&!/^file:/i.test(raw))return false;' +
+      'if(raw.indexOf("//")===0)return false;' +
+      'var norm=dxNorm(u);if(norm==null)return false;' +
+      'if(/^(javascript|data|vbscript):/.test(norm))return false;' +
       'if(/^[a-z][a-z0-9+.-]*:/.test(norm)&&norm.indexOf("file:")!==0)return false;' +
       'if(norm.indexOf("//")===0)return false;' +
       'return /(?:^|\\/)kokugo_app\\.html(?:[?#]|$)/i.test(raw)||/(?:^|\\/)kokugo_app\\.html(?:[?#]|$)/i.test(norm);}' +
