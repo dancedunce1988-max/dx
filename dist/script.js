@@ -538,7 +538,7 @@
   }
 
   /* 本体セーブはレベル表示のために iframe へ渡すが、戻すときは写さない。
-     それ以外のキーは一覧にせず、iframe にあるものをすべて親へ戻す。 */
+     それ以外は、開いたときから変わったキーと新しいキーだけ親へ戻す。 */
   const FRAME_STORAGE_SKIP_KEYS = ['kokugoTrainingStats_v5'];
   window.__DX_FRAME_STORAGE_SKIP_KEYS__ = FRAME_STORAGE_SKIP_KEYS;
 
@@ -550,13 +550,26 @@
       .replace(/\u2029/g, '\\u2029');
   }
 
-  /* toString で iframe に渡す。親の localStorage をそのまま種にする。 */
+  /* toString で iframe に渡す。親の localStorage を種にする。
+     保存場所が同じときは、既にあるキーを上書きしない（取得中の更新を潰さない）。
+     分かれているときは、渡した値で子を揃える。
+     渡した値は親に控え、変わっていないキーは戻さない。 */
   function frameStorageSeedScript() {
+    function remember(pairs) {
+      let host = window;
+      try {
+        if (window.parent && window.parent !== window) host = window.parent;
+      } catch (eHost) {}
+      try {
+        host.__DX_FRAME_STORAGE_SEED_SNAPSHOT__ = pairs;
+      } catch (eSnap) {}
+    }
     const pairs = [];
     let count = 0;
     try {
       count = localStorage.length;
     } catch (e) {
+      remember([]);
       return '';
     }
     for (let i = 0; i < count; i++) {
@@ -571,6 +584,7 @@
       }
       if (value != null) pairs.push([key, value]);
     }
+    remember(pairs);
     if (!pairs.length) return '';
     const embed = window.__DX_JS_EMBED__;
     if (typeof embed !== 'function') return '';
@@ -578,7 +592,10 @@
     return (
       'try{var __dxls=' +
       json +
-      ';for(var i=0;i<__dxls.length;i++)localStorage.setItem(__dxls[i][0],__dxls[i][1]);}catch(e){}'
+      ';var __dxsh=false;try{__dxsh=parent.localStorage===localStorage;}catch(eSh){}' +
+      'for(var i=0;i<__dxls.length;i++){var __dxk=__dxls[i][0];var __dxv=__dxls[i][1];' +
+      'if(__dxsh){if(localStorage.getItem(__dxk)==null)localStorage.setItem(__dxk,__dxv);}' +
+      'else localStorage.setItem(__dxk,__dxv);}}catch(e){}'
     );
   }
 
@@ -598,10 +615,17 @@
         const key = store.key(i);
         if (key != null) names.push(key);
       }
+      const seeded = Object.create(null);
+      const snap = window.__DX_FRAME_STORAGE_SEED_SNAPSHOT__ || [];
+      for (let s = 0; s < snap.length; s++) {
+        if (snap[s] && snap[s].length >= 2) seeded[snap[s][0]] = snap[s][1];
+      }
       for (let j = 0; j < names.length; j++) {
         if (skip.indexOf(names[j]) !== -1) continue;
         const value = store.getItem(names[j]);
-        if (value != null) localStorage.setItem(names[j], value);
+        if (value == null) continue;
+        if (Object.prototype.hasOwnProperty.call(seeded, names[j]) && seeded[names[j]] === value) continue;
+        localStorage.setItem(names[j], value);
       }
       return { ok: true };
     } catch (eSync) {
