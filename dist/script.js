@@ -553,23 +553,14 @@
   /* toString で iframe に渡す。親の localStorage を種にする。
      保存場所が同じときは、既にあるキーを上書きしない（取得中の更新を潰さない）。
      分かれているときは、渡した値で子を揃える。
-     渡した値は親に控え、変わっていないキーは戻さない。 */
+     控え（snapshot）は、この関数の実行時ではなく、新しい srcdoc が動き始めてから親へ書く。
+     ページを切り替える前の写しが、今の値を「最初からこうだった」と誤認しないため。 */
   function frameStorageSeedScript() {
-    function remember(pairs) {
-      let host = window;
-      try {
-        if (window.parent && window.parent !== window) host = window.parent;
-      } catch (eHost) {}
-      try {
-        host.__DX_FRAME_STORAGE_SEED_SNAPSHOT__ = pairs;
-      } catch (eSnap) {}
-    }
     const pairs = [];
     let count = 0;
     try {
       count = localStorage.length;
     } catch (e) {
-      remember([]);
       return '';
     }
     for (let i = 0; i < count; i++) {
@@ -584,19 +575,35 @@
       }
       if (value != null) pairs.push([key, value]);
     }
-    remember(pairs);
-    if (!pairs.length) return '';
     const embed = window.__DX_JS_EMBED__;
     if (typeof embed !== 'function') return '';
     const json = embed(pairs);
     return (
       'try{var __dxls=' +
       json +
-      ';var __dxsh=false;try{__dxsh=parent.localStorage===localStorage;}catch(eSh){}' +
+      ';try{var __dxhost=window.parent&&window.parent!==window?window.parent:window;' +
+      '__dxhost.__DX_FRAME_STORAGE_SEED_SNAPSHOT__=__dxls;}catch(eSnap){}' +
+      'var __dxsh=false;try{__dxsh=parent.localStorage===localStorage;}catch(eSh){}' +
       'for(var i=0;i<__dxls.length;i++){var __dxk=__dxls[i][0];var __dxv=__dxls[i][1];' +
       'if(__dxsh){if(localStorage.getItem(__dxk)==null)localStorage.setItem(__dxk,__dxv);}' +
       'else localStorage.setItem(__dxk,__dxv);}}catch(e){}'
     );
+  }
+
+  /* 次の srcdoc を組み立てる前に、今の iframe の記録を親へ写す。
+     組み立て側で控えを更新すると、写しが差分なしになる。 */
+  function copyBeforeFrameSwitch() {
+    try {
+      const host =
+        window.parent && typeof window.parent.__DX_COPY_FRAME_STORAGE__ === 'function'
+          ? window.parent
+          : window;
+      if (typeof host.__DX_COPY_FRAME_STORAGE__ !== 'function') return false;
+      const copied = host.__DX_COPY_FRAME_STORAGE__();
+      return !!(copied && copied.ok);
+    } catch (e) {
+      return false;
+    }
   }
 
   /* iframe を閉じる前に、子の localStorage を親へ写す。
@@ -604,7 +611,8 @@
      失敗したら ok: false。呼び出し側は iframe を閉じずに知らせる。 */
   function copyFrameStorage() {
     const f = dxNobiruFrame();
-    if (!f) return { ok: true };
+    /* srcdoc を空にしたあとの枠は、空の保存場所を親へ写さない */
+    if (!f || !f.getAttribute('srcdoc')) return { ok: true };
     const skip = window.__DX_FRAME_STORAGE_SKIP_KEYS__ || [];
     try {
       const cw = f.contentWindow;
@@ -732,21 +740,6 @@
 
     try {
       if (window.frameElement && window.frameElement.id === 'dx-nobiru-frame') {
-        let copiedOk = true;
-        try {
-          if (window.parent && window.parent.__DX_COPY_FRAME_STORAGE__) {
-            const copied = window.parent.__DX_COPY_FRAME_STORAGE__();
-            copiedOk = !!(copied && copied.ok);
-          }
-        } catch (eCopy) {
-          copiedOk = false;
-        }
-        if (!copiedOk) {
-          if (window.__DX_SHOW_PAGE_ERROR__) {
-            window.__DX_SHOW_PAGE_ERROR__('記録を写せなかったので、ページを切り替えませんでした。');
-          }
-          return;
-        }
         if (pageTitle) window.frameElement.title = pageTitle;
         window.frameElement.srcdoc = out;
         return;
@@ -772,12 +765,6 @@
       );
       nobiruFrameEl = f;
       document.documentElement.appendChild(f);
-    } else if (f.getAttribute('srcdoc')) {
-      const copied = copyFrameStorage();
-      if (!copied.ok) {
-        showPageError('記録を写せなかったので、ページを切り替えませんでした。');
-        return;
-      }
     }
     if (pageTitle) f.title = pageTitle;
     f.hidden = false;
@@ -935,6 +922,9 @@
       ');' +
       'window.__DX_FRAME_STORAGE_SEED__=(' +
       window.__DX_FRAME_STORAGE_SEED__.toString() +
+      ');' +
+      'window.__DX_COPY_BEFORE_SWITCH__=(' +
+      window.__DX_COPY_BEFORE_SWITCH__.toString() +
       ');';
 
     const embed = window.__DX_JS_EMBED__;
@@ -1021,10 +1011,11 @@
       'return /(?:^|\\/)kokugo_app\\.html(?:[?#]|$)/i.test(raw)||/(?:^|\\/)kokugo_app\\.html(?:[?#]|$)/i.test(norm);}' +
       'var dxLauncherHome=String(window.__DX_HOME_URL__||"");' +
       'function dxFilePath(u){try{var x=new URL(String(u||""),dxLauncherHome||"file:///");' +
-      'if(x.protocol!=="file:")return "";' +
+      'if(x.protocol!=="file:"||x.username||x.password||x.search)return "";' +
+      'var host=(x.hostname||"").toLowerCase();if(host&&host!=="localhost")return "";' +
       'return decodeURI(x.pathname).replace(/\\\\/g,"/").replace(/\\/+$/,"").toLowerCase();' +
       '}catch(eF){return "";}}' +
-      'function dxSameLauncherFile(u){var raw=String(u||"");if(!/^file:/i.test(raw)||!dxLauncherHome)return false;' +
+      'function dxSameLauncherFile(u){if(!dxLauncherHome||!/^file:/i.test(String(u||"")))return false;' +
       'var a=dxFilePath(dxLauncherHome);var b=dxFilePath(u);return !!a&&a===b;}' +
       'function dxIsLauncherHome(u){if(!dxLauncherHome)return false;var raw=String(u||"");if(raw===dxLauncherHome)return true;' +
       'if(dxSameLauncherFile(u))return true;' +
@@ -1049,16 +1040,21 @@
       'set:function(v){var self=this;dxPass(v,function(x){hd.set.call(self,x);});}});}}catch(e6){}' +
       'try{if(window.navigation&&navigation.addEventListener){navigation.addEventListener("navigate",function(ev){' +
       'if(ev.hashChange)return;var u=ev.destination&&ev.destination.url||"";' +
-      'if(dxLauncherOnce){dxLauncherOnce=false;if(String(u)===dxLauncherHome||dxSameLauncherFile(u))return;}' +
+      'if(dxLauncherOnce){dxLauncherOnce=false;if(String(u)===dxLauncherHome||dxSameLauncherFile(u))return;' +
+      'if(ev.cancelable)ev.preventDefault();return;}' +
       'var k=dxNavKind(u);' +
       'if(k==="hash")return;' +
       'if(k==="home"){if(ev.cancelable)ev.preventDefault();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();return;}' +
-      'if(k==="launcher"){if(String(u)===dxLauncherHome||dxSameLauncherFile(u))return;' +
-      'if(ev.cancelable)ev.preventDefault();dxGoLauncher();return;}' +
+      'if(k==="launcher"){if(ev.cancelable)ev.preventDefault();dxGoLauncher();return;}' +
       'if(ev.cancelable)ev.preventDefault();});}}catch(eN){}' +
       'document.addEventListener("click",function(ev){var el=ev.target&&ev.target.closest&&ev.target.closest("a[href],area[href]");' +
       'if(!el)return;var href=el.getAttribute("href")||"";var k=dxNavKind(href);' +
-      'if(k==="hash"||k==="home")return;ev.preventDefault();if(k==="launcher")dxGoLauncher();},true);';
+      'if(k==="hash")return;' +
+      'if(k==="home"){var dailyMid=/[?&]viaDaily=1(?:&|$)/.test(String(window.__DX_BOOT_SEARCH__||""))' +
+      '&&!(window.__DX_NOBIRU_FINISHED__&&window.__DX_NOBIRU_FINISHED__());' +
+      'if(dailyMid&&el.closest&&el.closest("a.back"))return;' +
+      'ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();return;}' +
+      'ev.preventDefault();if(k==="launcher")dxGoLauncher();},true);';
     if (kind === 'nobiru') {
       locationHooks +=
         'try{const rl=Location.prototype.reload;Location.prototype.reload=function(){' +
@@ -1170,6 +1166,10 @@
       pageUrl,
       'のびる読解の取得に失敗しました',
       function (html) {
+        if (!window.__DX_COPY_BEFORE_SWITCH__ || !window.__DX_COPY_BEFORE_SWITCH__()) {
+          window.__DX_SHOW_PAGE_ERROR__('記録を写せなかったので、ページを切り替えませんでした。');
+          return;
+        }
         window.__DX_SHOW_NOBIRU_HTML__(
           window.__DX_BUILD_SRCDOC_BOOT__(html, {
             kind: 'nobiru',
@@ -1208,6 +1208,10 @@
     }
 
     return window.__DX_FETCH_PAGE__(pageUrl, 'ページの取得に失敗しました', function (html) {
+      if (!window.__DX_COPY_BEFORE_SWITCH__ || !window.__DX_COPY_BEFORE_SWITCH__()) {
+        window.__DX_SHOW_PAGE_ERROR__('記録を写せなかったので、ページを切り替えませんでした。');
+        return;
+      }
       window.__DX_SHOW_NOBIRU_HTML__(
         window.__DX_BUILD_SRCDOC_BOOT__(html, {
           kind: 'minigame',
@@ -1301,6 +1305,7 @@
     window.__DX_JS_EMBED__ = jsEmbed;
     window.__DX_FRAME_STORAGE_SKIP_KEYS__ = FRAME_STORAGE_SKIP_KEYS;
     window.__DX_FRAME_STORAGE_SEED__ = frameStorageSeedScript;
+    window.__DX_COPY_BEFORE_SWITCH__ = copyBeforeFrameSwitch;
     window.__DX_SHOW_PAGE_ERROR__ = showPageError;
     window.__DX_REPORT_PAGE_ERROR__ = reportPageError;
     window.__DX_HOST_HOME_URL__ = dxHostHomeUrl;
