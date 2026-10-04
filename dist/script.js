@@ -473,6 +473,8 @@
         // ネスト回避: remote #app の中身だけを host #app へ
         const wrapper = document.createElement('div');
         wrapper.innerHTML = remoteApp.innerHTML;
+        /* #app 内の base / meta refresh は、親ページの遷移先を書き換える */
+        removeNavigationTraps(wrapper);
         rewriteAssetAttrs(wrapper, commitHash);
         hostApp.innerHTML = '';
         while (wrapper.firstChild) {
@@ -527,6 +529,15 @@
 
   function closeNobiruFrame() {
     const f = dxNobiruFrame();
+    /* 閉じたあとに、取得中のページが iframe を開き直さない */
+    if (window.__DX_CANCEL_PAGE_OPEN__) window.__DX_CANCEL_PAGE_OPEN__();
+    if (f) {
+      try {
+        if (f.contentWindow && f.contentWindow.__DX_CANCEL_PAGE_OPEN__) {
+          f.contentWindow.__DX_CANCEL_PAGE_OPEN__();
+        }
+      } catch (eCancel) {}
+    }
     if (!f) return;
     try {
       f.srcdoc = '';
@@ -771,6 +782,18 @@
     f.srcdoc = out;
   }
 
+  /* base と meta refresh は、文書の遷移先を外へずらす。src と同じく属性ごと外す。 */
+  function removeNavigationTraps(root) {
+    if (!root || !root.querySelectorAll) return;
+    const nodes = root.querySelectorAll('base, meta[http-equiv]');
+    for (let i = 0; i < nodes.length; i++) {
+      const el = nodes[i];
+      const tag = el.tagName.toLowerCase();
+      if (tag === 'meta' && !/^refresh$/i.test(el.getAttribute('http-equiv') || '')) continue;
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }
+  }
+
   function absolutizeNobiruHtml(html, nobiruBase) {
     /* .toString() で iframe に注入するため、クロージャ名ではなく window 経由で解決する */
     const resolve = window.__DX_RESOLVE_NOBIRU__;
@@ -792,12 +815,7 @@
       }
     }
     /* <base> は srcdoc の相対 URL を外へ逃す。<meta refresh> は遷移になる。 */
-    const bases = doc.querySelectorAll('base, meta[http-equiv]');
-    for (let b = 0; b < bases.length; b++) {
-      const tag = bases[b].tagName.toLowerCase();
-      if (tag === 'meta' && !/^refresh$/i.test(bases[b].getAttribute('http-equiv') || '')) continue;
-      if (bases[b].parentNode) bases[b].parentNode.removeChild(bases[b]);
-    }
+    if (window.__DX_REMOVE_TRAPS__) window.__DX_REMOVE_TRAPS__(doc);
     /* ホームリンクはクリックで差し替える。相対 href のまま残すと変な遷移の元になる */
     const homes = doc.querySelectorAll('a.back, a.modesel-back');
     for (let h = 0; h < homes.length; h++) {
@@ -806,7 +824,7 @@
     return '<!DOCTYPE html>\n' + doc.documentElement.outerHTML;
   }
 
-  function showPageError(message) {
+  function showPageError(message, heading) {
     const old = document.getElementById('dx-page-error');
     if (old && old.parentNode) old.parentNode.removeChild(old);
     const wrap = document.createElement('div');
@@ -823,7 +841,7 @@
     );
     const title = document.createElement('p');
     title.setAttribute('style', 'margin:0 0 8px;color:#b00020;font-weight:bold;font-size:.95rem;');
-    title.textContent = '読み込みに失敗しました';
+    title.textContent = heading || '読み込みに失敗しました';
     const body = document.createElement('p');
     body.setAttribute('style', 'margin:0;text-align:left;white-space:pre-wrap;font-size:.88rem;line-height:1.6;');
     body.textContent = String(message || '');
@@ -853,16 +871,51 @@
     console.error('[DX] page open failed', err);
   }
 
+  /* 新しいページ取得と、ページを開かないクリックは、前の取得を捨てる。
+     遅い応答が、あとから開いたページや移動先の上に被さらないようにする。 */
+  function cancelPageOpen() {
+    window.__DX_PAGE_TOKEN__ = (window.__DX_PAGE_TOKEN__ || 0) + 1;
+    const ac = window.__DX_PAGE_ABORT__;
+    window.__DX_PAGE_ABORT__ = null;
+    try {
+      if (ac) ac.abort();
+    } catch (eAbort) {}
+  }
+
+  /* クリックの捕捉で先に呼ぶ。ページを開く処理がその後で ARMED を立てる。 */
+  function armPageClick() {
+    window.__DX_PAGE_ARMED__ = false;
+    setTimeout(function () {
+      if (window.__DX_PAGE_ARMED__) return;
+      if (window.__DX_CANCEL_PAGE_OPEN__) window.__DX_CANCEL_PAGE_OPEN__();
+    }, 0);
+  }
+
   function fetchPageHtml(url, failLabel, onHtml) {
+    /* このクリックはページを開く。直後の取り消しタイマーに消させない */
+    window.__DX_PAGE_ARMED__ = true;
+    const token = (window.__DX_PAGE_TOKEN__ = (window.__DX_PAGE_TOKEN__ || 0) + 1);
+    const prev = window.__DX_PAGE_ABORT__;
+    const ac = typeof AbortController === 'function' ? new AbortController() : null;
+    window.__DX_PAGE_ABORT__ = ac;
+    try {
+      if (prev) prev.abort();
+    } catch (ePrev) {}
+
+    function stillCurrent() {
+      return token === window.__DX_PAGE_TOKEN__;
+    }
+
     const base = window.__DX_CDN_BASE__;
     const resolve = window.__DX_RESOLVE_NOBIRU__;
     const resolved = resolve && base ? resolve(String(url || ''), base) : null;
     if (!resolved) {
-      window.__DX_REPORT_PAGE_ERROR__(new Error('許可されていない URL です'));
+      if (stillCurrent()) window.__DX_REPORT_PAGE_ERROR__(new Error('許可されていない URL です'));
       return Promise.resolve();
     }
-    return fetch(resolved)
+    return fetch(resolved, ac ? { signal: ac.signal } : undefined)
       .then(function (res) {
+        if (!stillCurrent()) return null;
         if (!res.ok) {
           throw new Error(failLabel + ' (HTTP ' + res.status + ')');
         }
@@ -871,8 +924,14 @@
         }
         return res.text();
       })
-      .then(onHtml)
+      .then(function (html) {
+        /* null は「もう開かない」印。空の HTML は開く側に渡す */
+        if (html == null || !stillCurrent()) return;
+        return onHtml(html);
+      })
       .catch(function (err) {
+        if (!stillCurrent()) return;
+        if (err && err.name === 'AbortError') return;
         window.__DX_REPORT_PAGE_ERROR__(err);
       });
   }
@@ -901,6 +960,15 @@
       ');' +
       'window.__DX_FETCH_PAGE__=(' +
       window.__DX_FETCH_PAGE__.toString() +
+      ');' +
+      'window.__DX_CANCEL_PAGE_OPEN__=(' +
+      window.__DX_CANCEL_PAGE_OPEN__.toString() +
+      ');' +
+      'window.__DX_ARM_PAGE_CLICK__=(' +
+      window.__DX_ARM_PAGE_CLICK__.toString() +
+      ');' +
+      'window.__DX_REMOVE_TRAPS__=(' +
+      window.__DX_REMOVE_TRAPS__.toString() +
       ');' +
       'window.' +
       openerName +
@@ -1120,6 +1188,8 @@
       globals +
       scriptHook +
       goHome +
+      /* ページを開かないクリックは、取得中の応答を捨てる。開くクリックより先に登録する */
+      'document.addEventListener("click",function(){if(window.__DX_ARM_PAGE_CLICK__)window.__DX_ARM_PAGE_CLICK__();},true);' +
       locationHooks +
       nobiruClicks +
       minigameClicks +
@@ -1167,7 +1237,10 @@
       'のびる読解の取得に失敗しました',
       function (html) {
         if (!window.__DX_COPY_BEFORE_SWITCH__ || !window.__DX_COPY_BEFORE_SWITCH__()) {
-          window.__DX_SHOW_PAGE_ERROR__('記録を写せなかったので、ページを切り替えませんでした。');
+          window.__DX_SHOW_PAGE_ERROR__(
+            '記録を写せなかったので、ページを切り替えませんでした。',
+            'ページを切り替えませんでした'
+          );
           return;
         }
         window.__DX_SHOW_NOBIRU_HTML__(
@@ -1209,7 +1282,10 @@
 
     return window.__DX_FETCH_PAGE__(pageUrl, 'ページの取得に失敗しました', function (html) {
       if (!window.__DX_COPY_BEFORE_SWITCH__ || !window.__DX_COPY_BEFORE_SWITCH__()) {
-        window.__DX_SHOW_PAGE_ERROR__('記録を写せなかったので、ページを切り替えませんでした。');
+        window.__DX_SHOW_PAGE_ERROR__(
+          '記録を写せなかったので、ページを切り替えませんでした。',
+          'ページを切り替えませんでした'
+        );
         return;
       }
       window.__DX_SHOW_NOBIRU_HTML__(
@@ -1311,6 +1387,9 @@
     window.__DX_HOST_HOME_URL__ = dxHostHomeUrl;
     window.__DX_BUILD_SRCDOC_BOOT__ = buildSrcdocDocument;
     window.__DX_FETCH_PAGE__ = fetchPageHtml;
+    window.__DX_CANCEL_PAGE_OPEN__ = cancelPageOpen;
+    window.__DX_ARM_PAGE_CLICK__ = armPageClick;
+    window.__DX_REMOVE_TRAPS__ = removeNavigationTraps;
     window.__DX_OPEN_NOBIRU__ = openNobiruPage;
     window.__DX_OPEN_STANDALONE_HTML__ = openStandaloneHtml;
     window.__DX_RETURN_FROM_MINIGAME__ = returnFromMinigame;
@@ -1321,6 +1400,13 @@
     /* ABS が RESOLVE を参照するため、RESOLVE を先に載せる */
     window.__DX_RESOLVE_NOBIRU__ = resolveCdnUrl;
     window.__DX_ABS_NOBIRU__ = absolutizeNobiruHtml;
+    document.addEventListener(
+      'click',
+      function () {
+        if (window.__DX_ARM_PAGE_CLICK__) window.__DX_ARM_PAGE_CLICK__();
+      },
+      true
+    );
   }
 
   if (document.readyState === 'loading') {
