@@ -106,11 +106,13 @@
   /* 九尾・炎狼の入口バナー（mgBannerHtml参照）：「準備中」の間は浮き上がらせない。 */
   .menu-card-img-btn.mg-banner-locked{ cursor:default; }
   .menu-card-img-btn.mg-banner-locked:hover{ transform:none; }
-  /* 炎狼ランの自己ベスト：バナーの絵には重ねず、すぐ下に帯として出す（絵に重ねると、端末によって地名が折り返して
-     下に切れて見えなかったため。2026-10-04、教員の指摘） */
-  .menu-card-img-btn .mg-best-bar{ display:block; background:#2a1408; color:#ffd9a0; font-size:.78rem; font-weight:700;
-    line-height:1.45; padding:5px 12px 6px; text-align:center; }
-  .menu-card-img-btn .mg-best-bar small{ display:inline-block; color:#fff; font-weight:600; font-size:.74rem; }  /* 狭い画面では地名ごと次の行へ */
+  /* 炎狼ランの自己ベスト：絵の上に重ね、距離は右上・地名は右下にそれぞれ1行で出す（2026-10-04、教員の指示）。
+     1つのバッジに2行で入れると、端末によって地名が折り返して下に切れたため、上端・下端に分けた。 */
+  /* スマホではバナーの縦が40px前後しかないので、画面の幅に合わせて文字と余白を小さくし、上下が重ならないようにする */
+  .menu-card-img-btn .menu-card-overlay.mg-best-top, .menu-card-img-btn .menu-card-overlay.mg-best-bottom{
+    right:5px; white-space:nowrap; line-height:1.2; padding:1px 8px; font-size:clamp(8px, 2.5vw, 11.2px); }
+  .menu-card-img-btn .menu-card-overlay.mg-best-top{ top:3px; bottom:auto; }
+  .menu-card-img-btn .menu-card-overlay.mg-best-bottom{ bottom:3px; font-size:clamp(7.5px, 2.3vw, 10.2px); }
   .menu-card-img-btn.mg-banner-locked img{ filter:brightness(.62) saturate(.7); }
   @keyframes kitsuneTapPulse{ 0%{transform:scale(1);} 45%{transform:scale(.96);} 100%{transform:scale(1);} }
   /* クリア済みのストーリー章カード：カード全体タップではなく、中の2つのボタン
@@ -4339,7 +4341,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.04</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.05</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -20114,7 +20116,7 @@ function enroRunPlaceName(km){
   const pt = ENRO_WORLD_ROUTE[i];
   return (pt[2] === "日本" || pt[1] === pt[2]) ? pt[1] : `${pt[2]}の${pt[1]}`;
 }
-/* 炎狼ランの自己ベスト（挑戦モードの最長km・着いた地名）を、バナーのすぐ下に出す（2026-10-04、教員の指示）。
+/* 炎狼ランの自己ベスト（挑戦モードの最長km・着いた地名）を、バナーの右上・右下に重ねて出す（2026-10-04、教員の指示）。
    炎狼ラン側の保存（localStorage "enro_run_v1"）の bestKm と bestKmPlace を読むだけ（本体からは書かない）。 */
 function enroRunBestLabel(){
   let s = null;
@@ -20131,7 +20133,8 @@ function enroRunMenuHtml(){
     if(img) return `
     <div class="menu-card-img-btn" onclick="openEnroRun()">
       <img src="${img}" alt="炎狼ラン">
-      <span class="mg-best-bar">${esc(best.km)}${best.place ? `　<small>${esc(best.place)}</small>` : ""}</span>
+      <span class="menu-card-overlay mg-best-top">${esc(best.km)}</span>
+      ${best.place ? `<span class="menu-card-overlay mg-best-bottom">${esc(best.place)}</span>` : ""}
     </div>`;
     return mgTextCardHtml("🐺", "炎狼ラン", best.km + (best.place ? "・" + best.place : ""), true, "", "openEnroRun()");
   }
