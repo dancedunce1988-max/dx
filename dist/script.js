@@ -537,28 +537,10 @@
     } catch (eTitle) {}
   }
 
-  /* 親と srcdoc で storage が分かれるとき、開く前に渡し、閉じる前に親へ戻すキー。
-     見ている版（import-config の commit）の別ページが書くキーを足す。 */
-  const FRAME_STORAGE_KEYS = [
-    'dd_daily_pending_reward_v1',
-    'dd_daily_rewarded_keys_v1',
-    'nobiru_records_v1',
-    'kokugo_minigame_pending_lvups_v1',
-    'kokugo_mg_played_v1',
-    'kokugo_vs_pending_v1',
-    'enro_run_v1',
-    'kitsune_bakashiai_v4',
-    /* v4 が無い端末は iframe 側の移行が v3 を読む。分けた storage だと種がないと空の v4 で上書きする */
-    'kitsune_bakashiai_v3',
-    'gihou_madousho_v1',
-    'tsunagi_bashi_v1',
-    'tsunagi_bashi_v1_mute'
-  ];
-  /* ミニゲームがレベル表示のため読む本体セーブ。戻すときは写さない。
-     開いている間に親が更新した値を、開いた時点の写しで上書きしないため。 */
-  const FRAME_STORAGE_SEED_ONLY_KEYS = ['kokugoTrainingStats_v5'];
-  window.__DX_FRAME_STORAGE_KEYS__ = FRAME_STORAGE_KEYS;
-  window.__DX_FRAME_STORAGE_SEED_ONLY_KEYS__ = FRAME_STORAGE_SEED_ONLY_KEYS;
+  /* 本体セーブはレベル表示のために iframe へ渡すが、戻すときは写さない。
+     それ以外のキーは一覧にせず、iframe にあるものをすべて親へ戻す。 */
+  const FRAME_STORAGE_SKIP_KEYS = ['kokugoTrainingStats_v5'];
+  window.__DX_FRAME_STORAGE_SKIP_KEYS__ = FRAME_STORAGE_SKIP_KEYS;
 
   /* srcdoc に埋め込む JSON。`<` を残すと script タグを途中で閉じる。 */
   function jsEmbed(value) {
@@ -568,21 +550,26 @@
       .replace(/\u2029/g, '\\u2029');
   }
 
-  /* toString で iframe に渡す。キー一覧は window を見る（クロージャは toString に含まれない）。 */
+  /* toString で iframe に渡す。親の localStorage をそのまま種にする。 */
   function frameStorageSeedScript() {
-    const keys = (window.__DX_FRAME_STORAGE_KEYS__ || []).concat(
-      window.__DX_FRAME_STORAGE_SEED_ONLY_KEYS__ || []
-    );
-    if (!keys.length) return '';
     const pairs = [];
-    for (let i = 0; i < keys.length; i++) {
+    let count = 0;
+    try {
+      count = localStorage.length;
+    } catch (e) {
+      return '';
+    }
+    for (let i = 0; i < count; i++) {
+      let key = null;
       let value = null;
       try {
-        value = localStorage.getItem(keys[i]);
+        key = localStorage.key(i);
+        if (key == null) continue;
+        value = localStorage.getItem(key);
       } catch (e) {
         continue;
       }
-      if (value != null) pairs.push([keys[i], value]);
+      if (value != null) pairs.push([key, value]);
     }
     if (!pairs.length) return '';
     const embed = window.__DX_JS_EMBED__;
@@ -601,14 +588,20 @@
   function copyFrameStorage() {
     const f = dxNobiruFrame();
     if (!f) return { ok: true };
-    const keys = window.__DX_FRAME_STORAGE_KEYS__ || [];
+    const skip = window.__DX_FRAME_STORAGE_SKIP_KEYS__ || [];
     try {
       const cw = f.contentWindow;
       if (!cw) return { ok: false, error: new Error('frame window missing') };
       const store = cw.localStorage;
-      for (let i = 0; i < keys.length; i++) {
-        const value = store.getItem(keys[i]);
-        if (value != null) localStorage.setItem(keys[i], value);
+      const names = [];
+      for (let i = 0; i < store.length; i++) {
+        const key = store.key(i);
+        if (key != null) names.push(key);
+      }
+      for (let j = 0; j < names.length; j++) {
+        if (skip.indexOf(names[j]) !== -1) continue;
+        const value = store.getItem(names[j]);
+        if (value != null) localStorage.setItem(names[j], value);
       }
       return { ok: true };
     } catch (eSync) {
@@ -937,12 +930,6 @@
       ';' +
       'window.__DX_RAW_HOST__=' +
       embed(window.__DX_RAW_HOST__) +
-      ';' +
-      'window.__DX_FRAME_STORAGE_KEYS__=' +
-      embed(window.__DX_FRAME_STORAGE_KEYS__) +
-      ';' +
-      'window.__DX_FRAME_STORAGE_SEED_ONLY_KEYS__=' +
-      embed(window.__DX_FRAME_STORAGE_SEED_ONLY_KEYS__) +
       ';' +
       'window.__DX_CDN_BASE__=' +
       embed(opts.base) +
@@ -1288,8 +1275,7 @@
 
   function installNobiruOpener() {
     window.__DX_JS_EMBED__ = jsEmbed;
-    window.__DX_FRAME_STORAGE_KEYS__ = FRAME_STORAGE_KEYS;
-    window.__DX_FRAME_STORAGE_SEED_ONLY_KEYS__ = FRAME_STORAGE_SEED_ONLY_KEYS;
+    window.__DX_FRAME_STORAGE_SKIP_KEYS__ = FRAME_STORAGE_SKIP_KEYS;
     window.__DX_FRAME_STORAGE_SEED__ = frameStorageSeedScript;
     window.__DX_SHOW_PAGE_ERROR__ = showPageError;
     window.__DX_REPORT_PAGE_ERROR__ = reportPageError;
