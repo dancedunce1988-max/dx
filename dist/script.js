@@ -110,21 +110,24 @@
   }
 
   /**
-   * 相対パス → base 付きの絶対 URL。既に絶対 URL なら許可ホストのみ通す。
-   * 危険・不許可なら null。toString で iframe に渡すため window の定数だけを見る。
+   * 相対パス → base 付きの絶対 URL。既に絶対 URL なら、base と同じコミットの
+   * jsDelivr / raw だけ通す。危険・不許可なら null。
+   * toString で iframe に渡すため window の定数だけを見る。
+   * 判定に使う文字列と返す文字列を分けない（空白を抜いた形だけ見て、元の文字列を返さない）。
    */
   function resolveCdnUrl(url, base) {
     const repo = window.__DX_REPO__;
     const jsdelivrHost = window.__DX_JSDELIVR_HOST__;
     const rawHost = window.__DX_RAW_HOST__;
-    if (!url || typeof url !== 'string') return null;
+    if (!url || typeof url !== 'string' || !base) return null;
     const s = url.trim();
     if (!s || s.charAt(0) === '#') return null;
+    /* 途中の空白・制御文字は、抜いた結果だけを検査すると別 URL に化ける */
+    if (/[\u0000-\u0020\u007f]/.test(s)) return null;
 
-    /* 空白・改行を抜いたあと、%2e%2e のようなエンコードを戻す。
-       戻し切っても %2e / %2f / %5c が残るものは拒否する。 */
+    /* %2e%2e のようなエンコードを戻す。戻し切っても %2e / %2f / %5c が残るものは拒否する。 */
     function checkText(raw) {
-      let t = String(raw).replace(/[\u0000-\u0020\u007f]+/g, '');
+      let t = String(raw);
       for (let n = 0; n < 8; n++) {
         let decoded;
         try {
@@ -135,6 +138,7 @@
         if (decoded === t) break;
         t = decoded;
       }
+      if (/[\u0000-\u0020\u007f]/.test(t)) return null;
       if (/%(?:2e|2f|5c)/i.test(t)) return null;
       return t.toLowerCase();
     }
@@ -156,21 +160,42 @@
     const originalAbs = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(s) || s.indexOf('//') === 0;
     const decodedAbs = /^[a-z][a-z0-9+.-]*:/.test(checked) || checked.indexOf('//') === 0;
     if (decodedAbs && !originalAbs) return null;
-    if (originalAbs) {
-      if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(s) && !/^https:/i.test(s)) return null;
-      const abs = s.indexOf('//') === 0 ? 'https:' + s : s;
-      try {
-        const u = new URL(abs);
-        if (u.protocol !== 'https:' || u.username || u.password) return null;
-        if (isUnsafe(checkText(u.pathname + u.search + u.hash))) return null;
-        if (u.hostname === jsdelivrHost && u.pathname.indexOf('/gh/' + repo + '@') === 0) return abs;
-        if (u.hostname === rawHost && u.pathname.indexOf('/' + repo + '/') === 0) return abs;
-      } catch (e) {}
+    if (originalAbs && /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(s) && !/^https:/i.test(s)) return null;
+
+    let pinnedJs = '';
+    let pinnedRaw = '';
+    try {
+      const b = new URL(base);
+      const marker = '/gh/' + repo + '@';
+      if (b.protocol !== 'https:' || b.hostname !== jsdelivrHost || b.username || b.password) return null;
+      if (b.pathname.indexOf(marker) !== 0) return null;
+      const after = b.pathname.slice(marker.length);
+      const slash = after.indexOf('/');
+      const hash = slash < 0 ? after : after.slice(0, slash);
+      if (!/^[0-9a-f]{40}$/i.test(hash)) return null;
+      pinnedJs = marker + hash + '/';
+      pinnedRaw = '/' + repo + '/' + hash + '/';
+    } catch (ePin) {
       return null;
     }
-    const path = s.replace(/^\.\//, '').replace(/^\/+/, '');
-    if (!path) return null;
-    return base + path;
+
+    let resolved;
+    try {
+      if (originalAbs) {
+        resolved = new URL(s.indexOf('//') === 0 ? 'https:' + s : s);
+      } else {
+        const path = s.replace(/^\.\//, '').replace(/^\/+/, '');
+        if (!path) return null;
+        resolved = new URL(path, base);
+      }
+    } catch (eUrl) {
+      return null;
+    }
+    if (resolved.protocol !== 'https:' || resolved.username || resolved.password) return null;
+    if (isUnsafe(checkText(resolved.pathname + resolved.search + resolved.hash))) return null;
+    if (resolved.hostname === jsdelivrHost && resolved.pathname.indexOf(pinnedJs) === 0) return resolved.href;
+    if (resolved.hostname === rawHost && resolved.pathname.indexOf(pinnedRaw) === 0) return resolved.href;
+    return null;
   }
 
   function resolveAssetUrl(src, commitHash) {
@@ -483,17 +508,65 @@
     } catch (eTitle) {}
   }
 
+  /* 親と srcdoc で storage が分かれるとき、子が読む／書くキー。
+     本体セーブ（kokugoTrainingStats_v5 など）は含めない。 */
+  const FRAME_STORAGE_KEYS = [
+    'dd_daily_pending_reward_v1',
+    'dd_daily_rewarded_keys_v1',
+    'nobiru_records_v1',
+    'kokugo_minigame_pending_lvups_v1',
+    'enro_run_v1',
+    'kitsune_bakashiai_v4'
+  ];
+
+  /* srcdoc に埋め込む JSON。`<` を残すと script タグを途中で閉じる。 */
+  function jsEmbed(value) {
+    return JSON.stringify(value)
+      .replace(/</g, '\\u003c')
+      .replace(/\u2028/g, '\\u2028')
+      .replace(/\u2029/g, '\\u2029');
+  }
+
+  /* toString で iframe に渡す。キー一覧は window を見る（クロージャは toString に含まれない）。 */
+  function frameStorageSeedScript() {
+    const keys = window.__DX_FRAME_STORAGE_KEYS__;
+    if (!keys || !keys.length) return '';
+    const pairs = [];
+    for (let i = 0; i < keys.length; i++) {
+      let value = null;
+      try {
+        value = localStorage.getItem(keys[i]);
+      } catch (e) {
+        return '';
+      }
+      if (value != null) pairs.push([keys[i], value]);
+    }
+    if (!pairs.length) return '';
+    const json = JSON.stringify(pairs)
+      .replace(/</g, '\\u003c')
+      .replace(/\u2028/g, '\\u2028')
+      .replace(/\u2029/g, '\\u2029');
+    return (
+      'try{var __dxls=' +
+      json +
+      ';for(var i=0;i<__dxls.length;i++)localStorage.setItem(__dxls[i][0],__dxls[i][1]);}catch(e){}'
+    );
+  }
+
   /* iframe を閉じる前に、子の localStorage を親へ写す。
      srcdoc と親で storage が分かれているときだけ必要。同じなら読み書きは同じ領域。
      失敗したら ok: false。呼び出し側は iframe を閉じずに知らせる。 */
-  function copyFrameStorage(keys) {
+  function copyFrameStorage() {
     const f = document.getElementById('dx-nobiru-frame');
-    if (!f || !f.contentWindow) return { ok: true };
+    if (!f) return { ok: true };
+    const keys = window.__DX_FRAME_STORAGE_KEYS__ || [];
     try {
       const cw = f.contentWindow;
+      if (!cw) return { ok: false, error: new Error('frame window missing') };
+      const store = cw.localStorage;
       for (let i = 0; i < keys.length; i++) {
-        const value = cw.localStorage.getItem(keys[i]);
-        if (value) localStorage.setItem(keys[i], value);
+        const value = store.getItem(keys[i]);
+        if (value != null) localStorage.setItem(keys[i], value);
       }
       return { ok: true };
     } catch (eSync) {
@@ -569,7 +642,7 @@
   }
 
   function returnFromNobiru() {
-    const copied = copyFrameStorage(['dd_daily_pending_reward_v1', 'dd_daily_rewarded_keys_v1']);
+    const copied = copyFrameStorage();
     if (!copied.ok) {
       confirmLeaveWithoutStorage(
         'クリア報酬を本体に写せませんでした。この画面に残れば記録は残ります。ホームに戻ると、今回の報酬が反映されないことがあります。',
@@ -755,43 +828,54 @@
       ');' +
       'window.__DX_ABS_NOBIRU__=(' +
       window.__DX_ABS_NOBIRU__.toString() +
+      ');' +
+      'window.__DX_JS_EMBED__=(' +
+      window.__DX_JS_EMBED__.toString() +
+      ');' +
+      'window.__DX_FRAME_STORAGE_SEED__=(' +
+      window.__DX_FRAME_STORAGE_SEED__.toString() +
       ');';
 
+    const embed = window.__DX_JS_EMBED__;
+    const storageSeed = window.__DX_FRAME_STORAGE_SEED__();
     const passBoot = opts.passId
       ? 'try{var __dxpo=JSON.parse(sessionStorage.getItem("kokugo_mg_pass_v1")||"{}");__dxpo[' +
-        JSON.stringify(opts.passId) +
+        embed(opts.passId) +
         ']=1;sessionStorage.setItem("kokugo_mg_pass_v1",JSON.stringify(__dxpo));}catch(e){}'
       : '';
 
     let globals =
       'window.__DX_REPO__=' +
-      JSON.stringify(window.__DX_REPO__) +
+      embed(window.__DX_REPO__) +
       ';' +
       'window.__DX_JSDELIVR_HOST__=' +
-      JSON.stringify(window.__DX_JSDELIVR_HOST__) +
+      embed(window.__DX_JSDELIVR_HOST__) +
       ';' +
       'window.__DX_RAW_HOST__=' +
-      JSON.stringify(window.__DX_RAW_HOST__) +
+      embed(window.__DX_RAW_HOST__) +
+      ';' +
+      'window.__DX_FRAME_STORAGE_KEYS__=' +
+      embed(window.__DX_FRAME_STORAGE_KEYS__) +
       ';' +
       'window.__DX_CDN_BASE__=' +
-      JSON.stringify(opts.base) +
+      embed(opts.base) +
       ';' +
       'window.__DX_HOME_URL__=' +
-      JSON.stringify(opts.home) +
+      embed(opts.home) +
       ';';
     if (kind === 'nobiru') {
       globals +=
         'window.__DX_NOBIRU_KEY__=' +
-        JSON.stringify(opts.htmlName) +
+        embed(opts.htmlName) +
         ';' +
         'window.__DX_NOBIRU_BASE__=' +
-        JSON.stringify(opts.assetBase) +
+        embed(opts.assetBase) +
         ';' +
         'window.__DX_BOOT_SEARCH__=' +
-        JSON.stringify(opts.bootSearch || '') +
+        embed(opts.bootSearch || '') +
         ';';
     } else {
-      globals += 'window.__DX_STANDALONE_PAGE__=' + JSON.stringify(opts.pageName) + ';';
+      globals += 'window.__DX_STANDALONE_PAGE__=' + embed(opts.pageName) + ';';
     }
 
     const searchHook =
@@ -803,14 +887,9 @@
           'return d.get.call(this);}});}}catch(e){}'
         : '';
 
-    const resolveBoot =
-      'window.__DX_RESOLVE_NOBIRU__=(' +
-      window.__DX_RESOLVE_NOBIRU__.toString() +
-      ');';
-
     const scriptHook =
       '(function(){const nb=' +
-      JSON.stringify(opts.assetBase) +
+      embed(opts.assetBase) +
       ';const ce=document.createElement.bind(document);' +
       'document.createElement=function(tag){const el=ce(tag);' +
       'if(String(tag).toLowerCase()==="script"){const sa=el.setAttribute.bind(el);' +
@@ -830,13 +909,22 @@
           'if(typeof parent.showHome==="function"){parent.showHome();return;}' +
           '}}catch(e){}' +
           'if(window.__DX_HOME_URL__)location.href=window.__DX_HOME_URL__;};'
-        : 'window.__DX_GO_HOME__=function(){try{if(parent!==window&&parent.__DX_CLOSE_NOBIRU__){parent.__DX_CLOSE_NOBIRU__();if(parent.__DX_RETURN_FROM_MINIGAME__)parent.__DX_RETURN_FROM_MINIGAME__();return;}}catch(e){}' +
+        : 'window.__DX_GO_HOME__=function(){try{if(parent!==window&&parent.__DX_RETURN_FROM_MINIGAME__){parent.__DX_RETURN_FROM_MINIGAME__();return;}}catch(e){}' +
           'if(window.__DX_HOME_URL__)location.href=window.__DX_HOME_URL__;};';
 
     let locationHooks =
-      '(function(){function dxIsHomeNav(u){return /kokugo_app\\.html/i.test(String(u||""));}' +
-      'function dxBlockAbs(u){var s=String(u||"");if(dxIsHomeNav(s))return false;' +
-      'return /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(s)||s.indexOf("//")===0;}' +
+      '(function(){function dxNorm(u){var t=String(u||"").replace(/[\\u0000-\\u0020\\u007f]+/g,"");' +
+      'for(var n=0;n<8;n++){try{var d=decodeURIComponent(t);}catch(e){return null;}if(d===t)break;t=d;}' +
+      'if(/[\\u0000-\\u0020\\u007f]/.test(t)||/%(?:2e|2f|5c)/i.test(t))return null;return t.toLowerCase();}' +
+      'function dxIsHomeNav(u){var raw=String(u||"");var norm=dxNorm(u)||"";' +
+      'if(/^(javascript|data|vbscript):/i.test(raw)||/^(javascript|data|vbscript):/.test(norm))return false;' +
+      'return /(?:^|\\/)kokugo_app\\.html(?:[?#]|$)/i.test(raw)||/(?:^|\\/)kokugo_app\\.html(?:[?#]|$)/i.test(norm);}' +
+      'var dxLauncherHome=String(window.__DX_HOME_URL__||"");' +
+      'function dxIsLauncherHome(u){if(!dxLauncherHome)return false;var raw=String(u||"");if(raw===dxLauncherHome)return true;' +
+      'var hn=dxLauncherHome.toLowerCase().split("#")[0];var un=(dxNorm(u)||"").split("#")[0];return un===hn;}' +
+      'function dxBlockAbs(u){if(dxIsHomeNav(u)||dxIsLauncherHome(u))return false;var s=dxNorm(u);if(s==null)return true;' +
+      'if(s.indexOf("javascript:")===0||s.indexOf("data:")===0||s.indexOf("vbscript:")===0)return true;' +
+      'return /^[a-z][a-z0-9+.-]*:/.test(s)||s.indexOf("//")===0;}' +
       'function dxReopenNobiru(){if(!window.__DX_OPEN_NOBIRU__||!window.__DX_NOBIRU_KEY__)return false;' +
       'const o={};try{new URLSearchParams(window.__DX_BOOT_SEARCH__||"").forEach(function(v,k){o[k]=v;});}catch(eR){}' +
       'window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__,o);return true;}' +
@@ -850,7 +938,15 @@
       'if(hd&&hd.set){Object.defineProperty(Location.prototype,"href",{configurable:false,enumerable:true,' +
       'get:function(){return hd.get.call(this);},' +
       'set:function(v){if(dxIsHomeNav(v)&&window.__DX_GO_HOME__){window.__DX_GO_HOME__();return;}' +
-      'if(dxBlockAbs(v))return;return hd.set.call(this,v);}});}}catch(e6){}';
+      'if(dxBlockAbs(v))return;return hd.set.call(this,v);}});}}catch(e6){}' +
+      'function dxShouldBlockNav(u){if(dxIsLauncherHome(u))return false;var s=dxNorm(u);if(s==null)return true;if(dxIsHomeNav(u))return false;' +
+      'if(s.indexOf("javascript:")===0||s.indexOf("data:")===0||s.indexOf("vbscript:")===0)return true;' +
+      'return s.indexOf("https:")===0||s.indexOf("http:")===0||s.indexOf("file:")===0||s.indexOf("//")===0;}' +
+      'try{if(window.navigation&&navigation.addEventListener){navigation.addEventListener("navigate",function(ev){' +
+      'if(ev.hashChange)return;var u=ev.destination&&ev.destination.url||"";' +
+      'if(dxIsLauncherHome(u))return;' +
+      'if(dxIsHomeNav(u)){if(ev.cancelable)ev.preventDefault();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();return;}' +
+      'if(dxShouldBlockNav(u)&&ev.cancelable)ev.preventDefault();});}}catch(eN){}';
     if (kind === 'nobiru') {
       locationHooks +=
         'try{const rl=Location.prototype.reload;Location.prototype.reload=function(){' +
@@ -911,10 +1007,10 @@
 
     const boot =
       '<script>(function(){' +
+      storageSeed +
       passBoot +
       globals +
       searchHook +
-      resolveBoot +
       scriptHook +
       goHome +
       locationHooks +
@@ -1028,6 +1124,8 @@
             showHome();
             showSideQuestMenu();
           });
+        } else {
+          console.error('[DX] minigame return hooks missing');
         }
       } catch (e) {
         console.error('[DX] showHome after minigame failed', e);
@@ -1038,7 +1136,7 @@
   }
 
   function returnFromMinigame() {
-    const copied = copyFrameStorage(['kokugo_minigame_pending_lvups_v1']);
+    const copied = copyFrameStorage();
     if (!copied.ok) {
       confirmLeaveWithoutStorage(
         'レベルの変化を本体に写せませんでした。この画面に残れば記録は残ります。ホームに戻ると、今回のレベルが反映されないことがあります。',
@@ -1078,6 +1176,9 @@
   }
 
   function installNobiruOpener() {
+    window.__DX_JS_EMBED__ = jsEmbed;
+    window.__DX_FRAME_STORAGE_KEYS__ = FRAME_STORAGE_KEYS;
+    window.__DX_FRAME_STORAGE_SEED__ = frameStorageSeedScript;
     window.__DX_SHOW_PAGE_ERROR__ = showPageError;
     window.__DX_REPORT_PAGE_ERROR__ = reportPageError;
     window.__DX_HOST_HOME_URL__ = dxHostHomeUrl;
