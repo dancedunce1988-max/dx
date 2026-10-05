@@ -4341,7 +4341,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.06</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.07</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -7684,7 +7684,7 @@ function showHome(){
     // 従来どおり通常カードのまま残す（下のg.keys.forEachでkobun/kanazukai/kanbunだけ除外する）。
     if(g.name === "古典・表現") html += kotenMenuCardsHtml(st);
     g.keys.forEach(key=>{
-      if(g.name === "古典・表現" && (key === "kobun" || key === "kanazukai" || key === "kanbun")) return;
+      if(g.name === "古典・表現" && (key === "kobun" || key === "kanazukai" || key === "kobun_joshiki" || key === "kanbun")) return;
       if(!CATS[key]) return;
       const m = CATS[key];
       const lv = st.lv[key], t = titleOf(lv);
@@ -11283,16 +11283,18 @@ function showKanjiWritePicker(){
 function kotenMenuCardsHtml(st){
   const kobunT = titleOf(st.lv.kobun);
   const kanazukaiT = titleOf(st.lv.kanazukai);
+  const kobunJoshikiT = titleOf(st.lv.kobun_joshiki);
   const ktT = titleOf(st.lv.kanbun_kt);
   const yjT = titleOf(st.lv.kanbun_yj);
   const kanbunT = titleOf(st.lv.kanbun);
   return `
   <div class="card menu-card" onclick="showKobunPicker()">
     <div class="menu-icon">🎋</div>
-    <div><h2>古文</h2><p>古文の言葉・歴史的仮名遣いから選んで練習</p></div>
+    <div><h2>古文</h2><p>古文の言葉・歴史的仮名遣い・古文常識から選んで練習</p></div>
     <div class="right">
       <span class="shogo-badge ${kobunT.hidden?"top":""}">${kobunT.icon} Lv.${st.lv.kobun}</span>
       <span class="shogo-badge ${kanazukaiT.hidden?"top":""}">${kanazukaiT.icon} Lv.${st.lv.kanazukai}</span>
+      <span class="shogo-badge ${kobunJoshikiT.hidden?"top":""}">${kobunJoshikiT.icon} Lv.${st.lv.kobun_joshiki}</span>
     </div>
   </div>
   <div class="card menu-card" onclick="showKanbunPicker()">
@@ -11311,6 +11313,12 @@ function showKobunPicker(){
   const kobunT = titleOf(st.lv.kobun), kanazukaiT = titleOf(st.lv.kanazukai);
   const kobunPct = catUnlockedQuestionPct(st, 'kobun');
   const kanazukaiPct = catUnlockedQuestionPct(st, 'kanazukai');
+  /* 古文常識（kobun_joshiki、2026-10-05〜、教員の指示）。平安・鎌倉の古文を読むための常識を、
+     4択（仲間はずれ・組み合わせ・まちがい探し・順番・古文の一節からの場面読解など）と、
+     読みをひらがなで書く記述式で出題する。通常の20分野と同じくCAT_KEYSに入る新ジャンル。 */
+  const joshiki = CATS['kobun_joshiki'];
+  const joshikiT = titleOf(st.lv.kobun_joshiki);
+  const joshikiPct = catUnlockedQuestionPct(st, 'kobun_joshiki');
   screen.innerHTML = `
     <h3 class="section">🎋 古文</h3>
     <div class="card menu-card" onclick="startQuiz('kobun')">
@@ -11327,6 +11335,14 @@ function showKobunPicker(){
       <div class="right">
         <span class="shogo-badge ${kanazukaiT.hidden?"top":""}">${kanazukaiT.icon} ${esc(kanazukaiT.name)} Lv.${st.lv.kanazukai}</span>
         <span class="count">全${kanazukai.items.length}問${kanazukaiPct!=null ? `・解放率${kanazukaiPct}%` : ""}</span>
+      </div>
+    </div>
+    <div class="card menu-card" onclick="startQuiz('kobun_joshiki')">
+      <div class="menu-icon">📜</div>
+      <div><h2>${esc(joshiki.name)}${newBadgeHtml()}</h2><p>${esc(joshiki.desc)}</p></div>
+      <div class="right">
+        <span class="shogo-badge ${joshikiT.hidden?"top":""}">${joshikiT.icon} ${esc(joshikiT.name)} Lv.${st.lv.kobun_joshiki}</span>
+        <span class="count">全${joshiki.items.length}問${joshikiPct!=null ? `・解放率${joshikiPct}%` : ""}</span>
       </div>
     </div>
     <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
