@@ -4341,7 +4341,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.08</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.09</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -15933,8 +15933,20 @@ function resumeBossBattleIfSaved(){
    どちらも直近30回の正答率による足切り／出やすさ調整がかかる（bossEncounterRate/shiranEncounterAllowed参照）。
    hyakuninMode: 百人一首クイズ（hyaNextQuestion）から呼ばれたときだけtrue。出現するボスの種類・確率には
    影響しないが、startBossBattle側で「出題を百人一首の問題にする」判定に使う（教員の指示、2026-08-02）。 */
+// ボスと出会ったあと、次の抽選を何問ぶん休むか（2026-10-06、バグ修正：教員の報告「エンカウントのボスが、
+// ２回連続で勝負を仕掛けてきた」）。「いいえ」や戦闘終了のあとに戻る先（resumeFn）がnextQuestion／
+// hyaNextQuestion自身で、その冒頭でまた抽選していたため、1問もはさまずに次のボスが出ることがあった。
+// 出会った時点でこのカウンタを立て、以後の抽選呼び出しごとに1減らし、0になるまでは出現させない。
+// 戻った直後の1回＋その後2回ぶんを休むので、ボスとボスの間には必ず3問以上はさまる。
+const BOSS_ENCOUNTER_COOLDOWN_ROLLS = 3;
+let bossEncounterCooldown = 0;
+function bossEncounterOnCooldown(){
+  if(bossEncounterCooldown > 0){ bossEncounterCooldown--; return true; }
+  return false;
+}
 function rollBossEncounter(resumeFn, hyakuninMode){
   if(bossPromptActive || bossBattle) return false;
+  if(bossEncounterOnCooldown()) return false;
   const st = loadStats();
   const kokugoKamiRate = (st.items && st.items[STORY_PART2_OMAMORI_ITEM] > 0) ? KOKUGO_KAMI_ENCOUNTER_RATE_BOOSTED : KOKUGO_KAMI_ENCOUNTER_RATE;
   if(Math.random() < kokugoKamiRate){
@@ -15946,6 +15958,7 @@ function rollBossEncounter(resumeFn, hyakuninMode){
     pendingBossHyakunin = !!hyakuninMode;
     bossPromptResumeFn = resumeFn;
     bossPromptActive = true;
+    bossEncounterCooldown = BOSS_ENCOUNTER_COOLDOWN_ROLLS;
     bossPromptSelection = "no";
     renderBossPrompt();
     return true;
@@ -15956,6 +15969,7 @@ function rollBossEncounter(resumeFn, hyakuninMode){
     pendingBossHyakunin = !!hyakuninMode;
     bossPromptResumeFn = resumeFn;
     bossPromptActive = true;
+    bossEncounterCooldown = BOSS_ENCOUNTER_COOLDOWN_ROLLS;
     bossPromptSelection = "no";
     renderBossPrompt();
     return true;
@@ -15966,6 +15980,7 @@ function rollBossEncounter(resumeFn, hyakuninMode){
   pendingBossHyakunin = !!hyakuninMode;
   bossPromptResumeFn = resumeFn;
   bossPromptActive = true;
+  bossEncounterCooldown = BOSS_ENCOUNTER_COOLDOWN_ROLLS;
   bossPromptSelection = "no";
   renderBossPrompt();
   return true;
@@ -15977,6 +15992,7 @@ function rollBossEncounter(resumeFn, hyakuninMode){
 // 国語の神のような特別枠はkws中には出さない（漢字Questのボスに置き換える、という指示のとおり）。
 function rollKwsMbEncounter(resumeFn){
   if(bossPromptActive || bossBattle || mbBattle) return false;
+  if(bossEncounterOnCooldown()) return false;
   const st = loadStats();
   if(Math.random() >= bossEncounterRate(st)) return false;
   pendingBoss = MB_ENEMIES[Math.floor(Math.random() * MB_ENEMIES.length)];
@@ -15988,6 +16004,7 @@ function rollKwsMbEncounter(resumeFn){
   pendingBossMbShiny = mbHasShinySprite(pendingBoss) && Math.random() < MB_SHINY_ENCOUNTER_CHANCE;
   bossPromptResumeFn = resumeFn;
   bossPromptActive = true;
+  bossEncounterCooldown = BOSS_ENCOUNTER_COOLDOWN_ROLLS;
   bossPromptSelection = "no";
   renderBossPrompt();
   return true;
