@@ -830,11 +830,9 @@
       f = document.createElement('iframe');
       f.id = 'dx-nobiru-frame';
       f.title = pageTitle || 'のびる読解';
-      /* 親タブの遷移は許さない。same-origin は記録の写しと戻り処理に必要。 */
-      f.setAttribute(
-        'sandbox',
-        'allow-scripts allow-same-origin allow-modals allow-forms'
-      );
+      /* sandbox は付けない。記録の写しと戻りには同じオリジンとスクリプトの両方が要る。
+         その二つを同時に許すと、中から sandbox 自体を外せてしまい、制限にならない。
+         親タブへの遷移は、srcdoc 内のクリック監視と Navigation API で止める。 */
       f.setAttribute(
         'style',
         'position:fixed;inset:0;border:0;width:100%;height:100%;z-index:99999;background:#fff;'
@@ -983,7 +981,9 @@
     ];
     let openerSrc = '';
     for (let c = 0; c < copiedNames.length; c++) {
-      openerSrc += 'window.' + copiedNames[c] + '=(' + window[copiedNames[c]].toString() + ');';
+      /* </script> だけを逃す。すべての </ を変えると、/< /g のような正規表現の閉じが消える。 */
+      const src = window[copiedNames[c]].toString().replace(/<\/script/gi, '<\\/script');
+      openerSrc += 'window.' + copiedNames[c] + '=(' + src + ');';
     }
     openerSrc +=
       'window.__DX_CLOSE_NOBIRU__=function(){try{if(parent!==window&&parent.__DX_CLOSE_NOBIRU__)parent.__DX_CLOSE_NOBIRU__();}catch(e){}};';
@@ -1116,7 +1116,8 @@
       'if(k==="hash")return;' +
       'if(k==="home"){const dailyMid=/[?&]viaDaily=1(?:&|$)/.test(String(window.__DX_BOOT_SEARCH__||""))' +
       '&&!(window.__DX_NOBIRU_FINISHED__&&window.__DX_NOBIRU_FINISHED__());' +
-      'if(dailyMid&&el.closest&&el.closest("a.back"))return;' +
+      /* 一日一読の途中は engine.js の確認に任せる。既定の遷移は CSP で止まるので、ここでは止めるだけ */
+      'if(dailyMid&&el.closest&&el.closest("a.back")){ev.preventDefault();return;}' +
       'ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();return;}' +
       'ev.preventDefault();if(k==="launcher")dxGoLauncher();},true);';
     if (kind === 'nobiru') {
@@ -1140,7 +1141,7 @@
           'const a=ev.target&&ev.target.closest&&ev.target.closest("a.back, a.modesel-back");' +
           'if(a){' +
           'if(a.classList.contains("back")&&/[?&]viaDaily=1(?:&|$)/.test(String(window.__DX_BOOT_SEARCH__||""))&&' +
-          '!(window.__DX_NOBIRU_FINISHED__&&window.__DX_NOBIRU_FINISHED__())){return;}' +
+          '!(window.__DX_NOBIRU_FINISHED__&&window.__DX_NOBIRU_FINISHED__())){ev.preventDefault();return;}' +
           'ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();return;}' +
           'const again=ev.target&&ev.target.closest&&ev.target.closest("button.again");' +
           'if(again){const oc=String(again.getAttribute("onclick")||"");const tx=String(again.textContent||"");' +
@@ -1155,11 +1156,12 @@
     const minigameClicks =
       kind === 'minigame'
         ? 'document.addEventListener("click",function(ev){' +
-          'const back=ev.target&&ev.target.closest&&ev.target.closest("#backLink,.back-link,a[href*=\\"kokugo_app\\"]");' +
+          'const back=ev.target&&ev.target.closest&&ev.target.closest("#backLink,.back-link,#bHome,#bMgList,a[href*=\\"kokugo_app\\"]");' +
           'if(back){ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();}' +
           '},true);' +
           'document.addEventListener("DOMContentLoaded",function(){' +
           'window.backToApp=function(){if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();};' +
+          'window.goBack=function(){if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();};' +
           '});'
         : '';
 
@@ -1177,7 +1179,31 @@
       "frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'" +
       '">';
 
+    /* 大きな起動スクリプトが途中で失敗しても、一日一読の印と戻りだけは先に置く。
+       engine.js はこの印を読んで、確認と「一日一読を終える」を出す。 */
+    const dailyFlag =
+      kind === 'nobiru'
+        ? '<script>window.__DX_BOOT_SEARCH__=' +
+          embed(opts.bootSearch || '') +
+          ';window.__DX_GO_HOME__=function(){try{if(parent!==window){' +
+          'if(typeof parent.__DX_RETURN_FROM_NOBIRU__==="function"){parent.__DX_RETURN_FROM_NOBIRU__();return;}' +
+          'if(typeof parent.__DX_CLOSE_NOBIRU__==="function")parent.__DX_CLOSE_NOBIRU__();' +
+          'if(typeof parent.showHome==="function"){parent.showHome();return;}' +
+          '}}catch(e){}};' +
+          'document.addEventListener("click",function(ev){const t=ev.target;if(!t||!t.closest)return;' +
+          'const a=t.closest("a.back");if(a){ev.preventDefault();' +
+          'const daily=/[?&]viaDaily=1(?:&|$)/.test(String(window.__DX_BOOT_SEARCH__||""));' +
+          'const finished=window.__DX_NOBIRU_FINISHED__&&window.__DX_NOBIRU_FINISHED__();' +
+          'if(!(daily&&!finished)){ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();}' +
+          'return;}' +
+          'const b=t.closest("button.again");if(!b)return;const tx=String(b.textContent||"");' +
+          'if(!b.classList.contains("daily-end")&&tx.indexOf("一日一読を終える")===-1&&tx.indexOf("ホーム")===-1)return;' +
+          'ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();},true);</' +
+          'script>'
+        : '';
+
     const boot =
+      dailyFlag +
       '<script>(function(){' +
       storageSeed +
       passBoot +
@@ -1206,6 +1232,60 @@
      写せなければページは切り替えない。toString で iframe に渡すため window の関数だけを使う。
      <base> は使わない（about:srcdoc → /nobiru/srcdoc 事故の原因）。 */
   function openSrcdocPage(pageUrl, failLabel, bootOpts) {
+    /* toString で iframe に渡す。一日一読の判定も、この関数の中に含める。 */
+    /* CDN の engine.js は location.search を見る。srcdoc では search が空なので、
+       一日一読が通常の読解と同じ画面になる。nobiru/engine.js と同じく
+       __DX_BOOT_SEARCH__ を先に読み、途中で戻るときは配布の戻り関数を使う。 */
+    function patchNobiruEngine(src) {
+      let out = String(src || '');
+      if (out.indexOf('dxPageSearch') === -1 && /new URLSearchParams\(\s*location\.search\s*\)/.test(out)) {
+        const helper =
+          'function dxPageSearch(){try{const boot=window.__DX_BOOT_SEARCH__;if(typeof boot==="string"&&boot)return boot.charAt(0)==="?"?boot:("?"+boot);}catch(e){}return location.search||"";}\n';
+        out =
+          helper +
+          out.replace(/new URLSearchParams\(\s*location\.search\s*\)/g, 'new URLSearchParams(dxPageSearch())');
+      }
+      /* 「一日一読を終える」は onclick で kokugo_app.html へ進む。srcdoc では CSP で止まる。 */
+      out = out.replace(
+        /location\.href\s*=\s*(['"])\.\.\/kokugo_app\.html\1/g,
+        'window.__DX_GO_HOME__&&window.__DX_GO_HOME__()'
+      );
+      return out;
+    }
+
+    function nobiruHtmlWithEngine(html, assetBase) {
+      if (!html || !assetBase) return Promise.resolve(html);
+      const re = /<script\b[^>]*\bsrc\s*=\s*(["'])([^"']+)\1[^>]*>\s*<\/script>/gi;
+      let found = null;
+      let match;
+      while ((match = re.exec(html))) {
+        if (/(^|\/)engine\.js(?:[?#]|$)/i.test(match[2])) {
+          found = { full: match[0], src: match[2] };
+          break;
+        }
+      }
+      if (!found) return Promise.resolve(html);
+      const resolve = window.__DX_RESOLVE_NOBIRU__;
+      const abs = resolve ? resolve(found.src, assetBase) : null;
+      if (!abs) return Promise.resolve(html);
+      const token = window.__DX_PAGE_TOKEN__;
+      const ac = window.__DX_PAGE_ABORT__;
+      return fetch(abs, ac ? { signal: ac.signal } : undefined)
+        .then(function (res) {
+          if (!res.ok) throw new Error('のびる読解エンジンの取得に失敗しました (HTTP ' + res.status + ')');
+          return res.text();
+        })
+        .then(function (src) {
+          if (token !== window.__DX_PAGE_TOKEN__) return null;
+          const patched = patchNobiruEngine(src);
+          if (patched === src) return html;
+          const safe = patched.replace(/<\/script/gi, '<\\/script');
+          return html.replace(found.full, function () {
+            return '<script>' + safe + '</script>';
+          });
+        });
+    }
+
     const base = window.__DX_CDN_BASE__;
     if (!base) {
       window.__DX_REPORT_PAGE_ERROR__(new Error('CDN の基点が未設定です'));
@@ -1225,7 +1305,12 @@
         );
         return;
       }
-      window.__DX_SHOW_NOBIRU_HTML__(window.__DX_BUILD_SRCDOC_BOOT__(html, bootOpts));
+      const ready =
+        bootOpts.kind === 'nobiru' ? nobiruHtmlWithEngine(html, bootOpts.assetBase) : Promise.resolve(html);
+      return ready.then(function (docHtml) {
+        if (docHtml == null) return;
+        window.__DX_SHOW_NOBIRU_HTML__(window.__DX_BUILD_SRCDOC_BOOT__(docHtml, bootOpts));
+      });
     });
   }
 

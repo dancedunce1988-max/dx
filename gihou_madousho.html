@@ -1,0 +1,2009 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>表現の魔術道</title>
+<!-- 通行証のチェック（2026-10-04〜、β版としてミニゲーム一覧に入れたとき、教員の指示）：知識ドリルDXの入口
+     （kokugo_app.htmlのmgGoWithPass）を通らずに直接開いたときは「このファイルは開けません」とだけ表示し、ゲームを動かさない（2026-10-04〜、教員の指示。以前は本体へ戻していた）。
+     sessionStorageが使えないときは、確かめようがないのでそのまま開く。 -->
+<script>
+(function(){
+  var ok = true;
+  try{ ok = !!(JSON.parse(sessionStorage.getItem("kokugo_mg_pass_v1") || "{}")["gihou"]); }catch(e){ ok = true; }
+  if(!ok){ document.write('<style>html,body{margin:0;height:100%;background:#1d1f38;color:#fff;font-family:sans-serif}body{display:flex;align-items:center;justify-content:center}</style></head><body><p style="font-size:22px;font-weight:bold">このファイルは開けません</p><plaintext style="display:none">'); }
+})();
+</script>
+<!-- 表現の魔術道（2026-10-03〜、試作。最初の仮題は「技法の魔導書」）。ジャンル「表現技法」(hyougen)をまるごと、漢字Questの「闇の魔術師」(me03)
+     1体とのカードバトルにしたミニゲーム。
+     ・魔術師が「呪文」（kokugo_data.jsの例文）を唱えると、魔法の玉が右の魔術師から左の自分のことのはに向かって飛んでくる。ことのははたまごから始まり、1問答えるとランダムな系統の龍として生まれ、正解を重ねるごとに伝説級まで育つ（育つほど反撃が強い）。
+       玉が届く前に《　》の部分の技法カードをタップすると、ことのはから光弾が飛んで玉を打ち消し、そのまま魔術師に当たる。
+       まちがえる／間に合わないと玉がプレイヤーに当たる。
+     ・カードは毎回4枚。正解＋もとの4択の選択肢（開いている頁のものだけ）＋足りない分は開いている頁からランダムで、
+       並びは毎回シャッフル（2026-10-03、教員の指示：「選択肢が多すぎてタップが大変、毎回シャッフルしながら4つに」）。
+       「しおり」（ヒント、1回の挑戦で3枚）は4枚を2枚にしぼる。
+     ・まちがえた（時間切れも）技法のカードは魔術師に「奪われ」、1〜2問あとに同じ技法の呪文が必ず来る。そこで正解すると
+       「奪還」で2倍ダメージ。直喩→隠喩、擬音語→擬態語のような「紛らわしい対」を続けて唱える「対の詠唱」もある。
+     ・玉が魔術師の近く（飛んできた道のりの40%まで）で打ち消すと「速詠返し」1.5倍。正解でたまる「魔術書ゲージ」が満タンの
+       ときに正解すると「魔術書解放」2.5倍。
+     ・3人の相手が順に勝負を仕掛けてくる：闇の魔術師見習い(基本6枚)→闇の魔術師(+倒置法・対句・反復法・呼びかけ、「名を問う詠唱」＝定義文から技法名を当てる、
+       ときどき速い「加速の魔法」)→闇の大魔術師(+反語・破調、カードの説明文が消える、4問ごとに「結界の謎」＝詩の形式・字余りなど)。
+     ・正解した例文は「魔術書」の頁に集まる（図鑑）。頁ごとに★1(3問正解)/★2(10問)/★3(その技法の呪文を全部集める)。
+     本体のセーブデータには触れず、このページ専用の localStorage(SAVE_KEY) だけを使う。
+     通行証のチェック（kokugo_mg_pass_v1）は2026-10-04に入れた（<title>の直後）。 -->
+<script src="kokugo_data.js"></script>
+<script src="enemy_sprites_data.js"></script>
+<style>
+  :root{
+    --bg1:#07040f; --bg2:#140a2a; --bg3:#2a1450;
+    --ink:#f3eeff; --sub:#b9a9dd; --gold:#ffd86b; --red:#ff5a7a; --green:#6bffb0; --cyan:#7ee8fa;
+    --panel:rgba(255,255,255,.06); --line:rgba(255,255,255,.15);
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{
+    width:100%; height:100%; overflow:hidden;
+    background:radial-gradient(ellipse at 50% 0%, var(--bg3) 0%, var(--bg2) 45%, var(--bg1) 100%);
+    background-color:var(--bg1);
+    font-family:'Hiragino Sans','Yu Gothic','Meiryo',sans-serif;
+    color:var(--ink); -webkit-font-smoothing:antialiased;
+    user-select:none; -webkit-user-select:none;
+  }
+  button{ font-family:inherit; cursor:pointer; }
+  .screen{ display:none; height:100vh; height:100dvh; flex-direction:column; }
+  .screen.on{ display:flex; }
+
+  /* ---------- タイトル ---------- */
+  #title{ align-items:center; justify-content:center; gap:14px; padding:16px; text-align:center; overflow-y:auto; }
+  #title .t-sprite{ height:min(30vh,220px); filter:drop-shadow(0 0 18px rgba(170,100,255,.7)); animation:float 3s ease-in-out infinite; }
+  @keyframes float{ 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(-8px) } }
+  #title h1{ font-size:clamp(30px,6vh,48px); letter-spacing:.2em; color:var(--gold);
+    text-shadow:0 0 14px rgba(255,200,80,.6), 0 2px 0 #5a2d00; font-family:'Yu Mincho','Hiragino Mincho ProN',serif; }
+  #title .lead{ color:var(--sub); font-size:15px; line-height:1.7; max-width:520px; }
+  .btnrow{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+  .btn{ border:none; border-radius:12px; padding:12px 22px; font-size:17px; font-weight:bold; color:#1a0b33;
+    background:linear-gradient(180deg,#ffe9a0,#ffc83d); box-shadow:0 4px 0 #a86b00; }
+  .btn:active{ transform:translateY(3px); box-shadow:0 1px 0 #a86b00; }
+  .btn.sub{ background:linear-gradient(180deg,#d9c8ff,#9d82e8); box-shadow:0 4px 0 #4b3593; }
+  .btn.sub:active{ box-shadow:0 1px 0 #4b3593; }
+  .btn.small{ padding:8px 16px; font-size:14px; }
+  .btn.ghost{ background:var(--panel); color:var(--ink); box-shadow:none; border:1px solid var(--line); }
+  .record{ font-size:13px; color:var(--sub); line-height:1.8; }
+  .record b{ color:var(--gold); }
+
+  /* ---------- バトル ---------- */
+  #battle{ padding:8px 10px 10px; gap:6px; width:100%; max-width:960px; margin:0 auto; }
+  .hud{ display:grid; grid-template-columns:1fr auto 1fr; gap:10px; align-items:center; }
+  .bar-wrap{ display:flex; flex-direction:column; gap:3px; min-width:0; }
+  .bar-wrap.right{ align-items:flex-end; }
+  .bar-label{ font-size:12px; color:var(--sub); white-space:nowrap; }
+  .bar{ width:100%; height:12px; border-radius:6px; background:rgba(255,255,255,.1); overflow:hidden; border:1px solid var(--line); }
+  .bar > i{ display:block; height:100%; transition:width .35s; }
+  #pHPbar > i{ background:linear-gradient(90deg,#3cd68a,#a6ffcf); }
+  .xbar{ width:100%; height:4px; border-radius:2px; background:rgba(255,255,255,.08); overflow:hidden; }
+  .xbar > i{ display:block; height:100%; background:linear-gradient(90deg,#7ee8fa,#d6fbff); transition:width .4s; }
+  .dmg.exp{ font-size:14px; color:var(--cyan); top:auto; bottom:28px; text-shadow:0 0 6px #000; }
+  #wHPbar > i{ background:linear-gradient(90deg,#b05cff,#ff6bd6); margin-left:auto; }
+  .chapter{ font-size:13px; color:var(--gold); text-align:center; white-space:nowrap; font-weight:bold; }
+  .iconbtn{ background:var(--panel); border:1px solid var(--line); color:var(--ink); border-radius:8px; padding:3px 8px; font-size:14px; }
+
+  /* 戦う場所：左＝自分のことのは、右＝闇の魔術師。魔法の玉は右から左へ飛ぶ */
+  .field{ position:relative; flex:none; height:min(30vh,270px); display:flex; align-items:flex-end; justify-content:space-between; gap:8px;
+    border-radius:14px; background:linear-gradient(180deg,rgba(255,255,255,0) 55%,rgba(170,100,255,.12)); padding:0 4%; }
+  .me{ position:relative; height:100%; width:40%; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+  #meLook{ height:calc(100% - 20px); display:flex; align-items:flex-end; justify-content:center; width:100%; }
+  .me .halo{ height:100%; max-width:100%; }
+  .me .halo img{ transform:scaleX(-1); } /* 元の絵は左向きなので、魔術師のいる右を向かせる */
+  .me .emoji{ font-size:min(13vh,110px); line-height:1; filter:drop-shadow(0 0 14px rgba(255,216,107,.55)); }
+  .me .mename{ position:relative; z-index:2; text-shadow:0 0 4px #000, 0 0 8px #000; font-size:12px; color:var(--gold); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; margin-top:2px; }
+  .me.hurt .halo, .me.hurt .emoji{ animation:hurt .5s; }
+  @keyframes hurt{ 0%{ filter:drop-shadow(0 0 20px #ff2050) brightness(1.6) sepia(1) hue-rotate(-50deg) saturate(4); transform:translateX(-10px) } 100%{ } }
+  .me.danger .halo, .me.danger .emoji{ filter:drop-shadow(0 0 16px #ff5a7a); }
+  .me.fire .halo, .me.fire .emoji{ animation:fire .3s; }
+  .me.wobble .halo, .me.wobble .emoji{ animation:wobble .8s ease-in-out; }
+  @keyframes wobble{ 0%,100%{ transform:rotate(0) } 15%{ transform:rotate(-12deg) } 30%{ transform:rotate(10deg) } 45%{ transform:rotate(-8deg) }
+                     60%{ transform:rotate(6deg) } 75%{ transform:rotate(-3deg) } }
+  .me.evolve .halo, .me.evolve .emoji{ animation:evolve .9s ease-out; }
+  @keyframes evolve{ 0%{ filter:brightness(4) drop-shadow(0 0 30px #fff); transform:scale(1.25) } 100%{ } }
+  .me .mename .atk{ color:var(--cyan); margin-left:4px; }
+  /* 龍の絵の「ふわふわの光の輪」（2026-10-03、教員の指示：「絵の周りが白っぽいのが違和感。もう少し広い範囲を同じような色で
+     囲み、丸くふわふわした感じに」）。絵はもともと古紙色などの背景つきなので、その背景色（四すみの平均、--hc）で
+     絵よりひと回り大きい丸い光を敷き、縁を雲のようにぼかす。絵の縁もマスクでぼかして、光の中に溶けこませる。 */
+  .halo{ --hc:239,230,218; position:relative; aspect-ratio:1 / 1; display:flex; align-items:center; justify-content:center; isolation:isolate; }
+  /* 光は絵の四すみまで包むように、箱より大きく広げる（絵そのものは切り抜かない） */
+  .halo::before{ content:""; position:absolute; inset:-6%; border-radius:50%; z-index:-1; pointer-events:none;
+    background:radial-gradient(circle closest-side, rgba(var(--hc),1) 0 84%, rgba(var(--hc),.8) 91%, rgba(var(--hc),.3) 96%, rgba(var(--hc),0) 100%);
+    filter:blur(4px); animation:puff 3.2s ease-in-out infinite; }
+  .halo::after{ content:""; position:absolute; inset:-14%; border-radius:50%; z-index:-1; pointer-events:none; filter:blur(8px); opacity:.85;
+    background:
+      radial-gradient(circle at 50% 14%, rgba(var(--hc),.9) 0 13%, transparent 14%),
+      radial-gradient(circle at 80% 25%, rgba(var(--hc),.9) 0 12%, transparent 13%),
+      radial-gradient(circle at 88% 55%, rgba(var(--hc),.9) 0 13%, transparent 14%),
+      radial-gradient(circle at 74% 82%, rgba(var(--hc),.9) 0 12%, transparent 13%),
+      radial-gradient(circle at 45% 88%, rgba(var(--hc),.9) 0 13%, transparent 14%),
+      radial-gradient(circle at 18% 76%, rgba(var(--hc),.9) 0 12%, transparent 13%),
+      radial-gradient(circle at 12% 45%, rgba(var(--hc),.9) 0 13%, transparent 14%),
+      radial-gradient(circle at 22% 20%, rgba(var(--hc),.9) 0 12%, transparent 13%);
+    animation:puffSpin 24s linear infinite; }
+  @keyframes puff{ 0%,100%{ transform:scale(1) } 50%{ transform:scale(1.04) } }
+  @keyframes puffSpin{ to{ transform:rotate(360deg) } }
+  /* 絵は切り抜かず、そのまま全部見せる（2026-10-03、教員の指示）。四角い線が目立たないよう、外側3%だけを薄くなじませる */
+  .halo img{ max-width:66%; max-height:66%; object-fit:contain;
+    -webkit-mask-image:linear-gradient(to right, transparent, #000 3%, #000 97%, transparent), linear-gradient(to bottom, transparent, #000 3%, #000 97%, transparent);
+    -webkit-mask-composite:source-in;
+    mask-image:linear-gradient(to right, transparent, #000 3%, #000 97%, transparent), linear-gradient(to bottom, transparent, #000 3%, #000 97%, transparent);
+    mask-composite:intersect; }
+  /* 手ごたえ：のけぞり・怒り状態・会心 */
+  .stage.knock img{ animation:knock .42s ease-out; }
+  @keyframes knock{ 0%{ transform:translateX(0) } 20%{ transform:translateX(26px) rotate(6deg) } 55%{ transform:translateX(-6px) rotate(-2deg) } 100%{ transform:none } }
+  .stage.rage img{ animation:rage 1s ease-in-out infinite; }
+  @keyframes rage{ 0%,100%{ filter:drop-shadow(0 0 12px #ff2040) } 50%{ filter:drop-shadow(0 0 30px #ff2040) saturate(1.4) brightness(1.1) } }
+  .stage.rage.knock img{ animation:knock .42s ease-out; }
+  /* 色違い：金と水色のオーラ。出現時は闇から浮かび上がる */
+  .stage.shiny img{ filter:drop-shadow(0 0 14px #ffd86b) drop-shadow(0 0 28px #7ee8fa); }
+  .stage.shiny.rage img{ animation:rageShiny 1s ease-in-out infinite; }
+  @keyframes rageShiny{ 0%,100%{ filter:drop-shadow(0 0 14px #ffd86b) drop-shadow(0 0 24px #ff2040) } 50%{ filter:drop-shadow(0 0 22px #ffd86b) drop-shadow(0 0 40px #ff2040) brightness(1.15) } }
+  .stage.appear img{ animation:appear 1.3s ease-out; }
+  /* 相手ごとの見た目 */
+  .stage img{ position:relative; z-index:1; }
+  .stage.boss1 img{ filter:drop-shadow(0 0 6px rgba(190,150,255,.35)) saturate(.7) brightness(1.1); }
+  .stage.boss2 img{ filter:drop-shadow(0 0 16px rgba(170,100,255,.85)) drop-shadow(0 0 4px #000); }
+  .stage.boss3 img{ filter:drop-shadow(0 0 10px #000) drop-shadow(0 0 22px rgba(200,30,90,.8)) contrast(1.1); }
+  .aura{ position:absolute; left:50%; bottom:3%; width:115%; height:104%; transform:translateX(-50%); z-index:0; pointer-events:none; opacity:0; transition:opacity .6s; }
+  .stage.boss3 .aura, .stage.shiny .aura{ opacity:1; }
+  .aura::before, .aura::after{ content:""; position:absolute; inset:0; border-radius:50% 50% 40% 40%; }
+  .stage.boss3 .aura::before{ background:radial-gradient(ellipse at 50% 65%, rgba(170,0,70,.95), rgba(90,0,150,.75) 42%, rgba(40,0,60,.4) 60%, transparent 72%);
+    filter:blur(10px); animation:auraPulse 1.6s ease-in-out infinite; }
+  .stage.boss3 .aura::after{ background:conic-gradient(from 0deg, transparent 0 7%, rgba(255,40,110,.85) 10%, transparent 14% 28%, rgba(170,60,255,.85) 32%, transparent 36% 53%, rgba(255,40,110,.8) 57%, transparent 61% 76%, rgba(170,60,255,.8) 80%, transparent 84%);
+    filter:blur(6px); animation:auraFlame 2.4s linear infinite; mix-blend-mode:screen; }
+  .stage.shiny .aura::before{ background:radial-gradient(ellipse at 50% 70%, rgba(255,216,107,.5), rgba(126,232,250,.35) 45%, transparent 70%); filter:blur(12px); animation:auraPulse 1.4s ease-in-out infinite; }
+  .stage.shiny .aura::after{ background:conic-gradient(from 0deg, transparent 0 10%, rgba(255,216,107,.55) 13%, transparent 17% 45%, rgba(126,232,250,.55) 48%, transparent 52% 80%, rgba(255,255,255,.5) 83%, transparent 87%);
+    filter:blur(6px); animation:auraFlame 1.8s linear infinite; mix-blend-mode:screen; }
+  @keyframes auraPulse{ 0%,100%{ transform:scale(1); opacity:.85 } 50%{ transform:scale(1.12); opacity:1 } }
+  @keyframes auraFlame{ to{ transform:rotate(360deg) } }
+  /* 入れかわり：倒れた相手は闇に消え、次の相手が降り立つ */
+  .stage.leave img{ animation:leave .7s ease-in forwards; }
+  @keyframes leave{ to{ opacity:0; transform:translateY(10px) scale(.85); filter:brightness(0) blur(2px); } }
+  .stage.leave .aura{ opacity:0; }
+  .stage.enter img{ animation:enter .9s cubic-bezier(.2,1.4,.4,1); }
+  @keyframes enter{ 0%{ opacity:0; transform:translateY(-40px) scale(.7); filter:brightness(0) } 60%{ opacity:1; filter:brightness(1.6) } 100%{ transform:none } }
+  /* 色違いの登場演出 */
+  .shiny-dark{ position:fixed; inset:0; background:radial-gradient(ellipse at 70% 30%, rgba(30,0,60,.55), rgba(0,0,0,.88)); opacity:0; transition:opacity .6s; pointer-events:none; z-index:8; }
+  .shiny-dark.on{ opacity:1; }
+  /* 魔術書解放のカットイン */
+  .cutin{ position:fixed; left:0; right:0; top:50%; height:170px; margin-top:-85px; z-index:14; pointer-events:none; overflow:hidden; }
+  .cutin .band{ position:absolute; inset:0; background:linear-gradient(100deg, transparent 0 4%, var(--c2) 12%, var(--c1) 50%, var(--c2) 88%, transparent 96%);
+    opacity:.92; transform:skewY(-4deg); box-shadow:0 0 40px var(--c1); animation:bandIn .35s ease-out both; }
+  .cutin .band::after{ content:""; position:absolute; inset:0;
+    background:repeating-linear-gradient(100deg, rgba(255,255,255,.0) 0 18px, rgba(255,255,255,.35) 18px 22px); animation:speed .4s linear infinite; }
+  @keyframes bandIn{ from{ transform:skewY(-4deg) scaleX(0); } }
+  @keyframes speed{ to{ background-position:-120px 0; } }
+  .cutin img, .cutin .ci-emoji{ position:absolute; left:6%; top:50%; height:200px; transform:translateY(-50%) scaleX(-1);
+    filter:drop-shadow(0 0 18px #fff) drop-shadow(0 0 30px var(--c1)); animation:dragonIn .5s cubic-bezier(.2,1.4,.4,1) both .1s;
+    -webkit-mask-image:radial-gradient(ellipse 72% 72% at 50% 50%, #000 55%, transparent 100%); mask-image:radial-gradient(ellipse 72% 72% at 50% 50%, #000 55%, transparent 100%); }
+  .cutin .ci-emoji{ font-size:140px; height:auto; }
+  @keyframes dragonIn{ from{ transform:translate(-120%,-50%) scaleX(-1); opacity:0; } }
+  .cutin .ci-text{ position:absolute; left:34%; right:4%; top:50%; transform:translateY(-50%); text-align:left; }
+  .cutin .ci-count{ color:#fff6b0; margin-left:8px; letter-spacing:.05em; }
+  .cutin .ci-text small{ display:block; font-size:clamp(14px,2.2vw,20px); font-weight:bold; color:#fff; text-shadow:0 0 8px #000, 0 0 2px #000; letter-spacing:.15em;
+    animation:fadeUp .4s ease-out both .2s; }
+  .cutin .ci-text b{ display:block; font-family:'Yu Mincho','Hiragino Mincho ProN',serif; font-weight:900; font-size:clamp(30px,5.6vw,62px); color:#fff;
+    letter-spacing:.08em; -webkit-text-stroke:1.5px rgba(0,0,0,.65); paint-order:stroke fill;
+    text-shadow:0 0 6px #000, 0 0 14px var(--c2), 0 0 28px var(--c1), 0 4px 0 rgba(0,0,0,.5); opacity:0; transform:scale(2.2); }
+  .cutin.name .ci-text b{ animation:nameIn .45s cubic-bezier(.2,1.4,.4,1) forwards; }
+  .cutin.final .ci-text b{ color:#fff6d0; text-shadow:0 0 12px #ffd86b, 0 0 30px var(--c1), 0 0 50px #ff5a7a, 0 4px 0 rgba(0,0,0,.5); }
+  @keyframes nameIn{ to{ opacity:1; transform:scale(1); } }
+  @keyframes fadeUp{ from{ opacity:0; transform:translateY(10px); } }
+  .cutin.out{ transition:opacity .4s, transform .4s; opacity:0; transform:scaleY(.2); }
+  body.quake #battle{ animation:quake .12s linear infinite; }
+  @keyframes quake{ 0%{ transform:translate(0,0) } 25%{ transform:translate(3px,-2px) } 50%{ transform:translate(-3px,2px) } 75%{ transform:translate(2px,3px) } 100%{ transform:translate(0,0) } }
+  .lightning{ position:fixed; top:0; width:14px; height:62vh; margin-left:-7px; z-index:12; pointer-events:none;
+    background:linear-gradient(180deg,#fff,#cfe9ff 60%,transparent); filter:drop-shadow(0 0 14px #9fd8ff) drop-shadow(0 0 30px #fff);
+    clip-path:polygon(40% 0,70% 0,52% 35%,80% 35%,30% 100%,45% 55%,20% 55%); animation:zap .38s ease-out forwards; }
+  @keyframes zap{ 0%{ opacity:1 } 60%{ opacity:1 } 100%{ opacity:0 } }
+  .magic-circle{ position:fixed; width:0; height:0; z-index:9; pointer-events:none; }
+  .magic-circle i{ position:absolute; left:50%; top:50%; border-radius:50%; transform:translate(-50%,-50%) scaleY(.32); }
+  .magic-circle i:nth-child(1){ width:300px; height:300px; border:3px solid rgba(255,216,107,.9); box-shadow:0 0 24px #ffd86b, inset 0 0 24px #ffd86b; animation:circleIn 1s ease-out forwards, circleSpin 3s linear infinite; }
+  .magic-circle i:nth-child(2){ width:230px; height:230px; border:2px dashed rgba(126,232,250,.95); box-shadow:0 0 18px #7ee8fa; animation:circleIn 1.2s ease-out forwards, circleSpinR 2.2s linear infinite; }
+  .magic-circle i:nth-child(3){ width:150px; height:150px; border:4px double rgba(255,255,255,.9); animation:circleIn 1.4s ease-out forwards, circleSpin 1.6s linear infinite; }
+  @keyframes circleIn{ from{ opacity:0; width:0; height:0 } }
+  @keyframes circleSpin{ to{ transform:translate(-50%,-50%) scaleY(.32) rotate(360deg) } }
+  @keyframes circleSpinR{ to{ transform:translate(-50%,-50%) scaleY(.32) rotate(-360deg) } }
+  .magic-circle.out{ transition:opacity .6s; opacity:0; }
+  .spark.gather{ position:fixed; width:9px; height:9px; margin:-4px 0 0 -4px; border-radius:50%; z-index:11; pointer-events:none; }
+  .stage.vanish img{ animation:vanish 1.4s ease-in forwards; }
+  @keyframes vanish{ 0%{ filter:brightness(1) } 60%{ filter:brightness(3) drop-shadow(0 0 30px #fff); transform:scale(1.05) } 100%{ filter:brightness(6) drop-shadow(0 0 60px #fff); transform:scale(.4); opacity:0 } }
+  .stage.appear-big img{ animation:appearBig 1.6s cubic-bezier(.2,1.4,.4,1); }
+  @keyframes appearBig{ 0%{ transform:scale(.2); opacity:0; filter:brightness(5) drop-shadow(0 0 60px #ffd86b) } 50%{ opacity:1 } 70%{ transform:scale(1.15) } 100%{ transform:scale(1) } }
+  .shiny-banner{ position:fixed; left:0; right:0; top:38%; z-index:13; text-align:center; pointer-events:none;
+    font-family:'Yu Mincho','Hiragino Mincho ProN',serif; font-weight:900; font-size:clamp(26px,5.5vw,52px); letter-spacing:.12em;
+    color:#fff6d0; text-shadow:0 0 14px #ffd86b, 0 0 30px #ff9b3d, 0 0 50px #7ee8fa, 0 3px 0 #6a3a00;
+    background:linear-gradient(90deg,transparent,rgba(20,0,40,.75) 20%,rgba(20,0,40,.75) 80%,transparent); padding:14px 0;
+    animation:bannerIn .7s cubic-bezier(.2,1.5,.4,1); transition:opacity .6s, transform .6s; }
+  .shiny-banner small{ display:block; font-size:.42em; letter-spacing:.4em; color:#7ee8fa; text-shadow:0 0 10px #7ee8fa; margin-bottom:4px; }
+  .shiny-banner.out{ opacity:0; transform:scale(1.3); }
+  @keyframes bannerIn{ from{ transform:scaleX(0) scaleY(.3); opacity:0 } }
+  @keyframes appear{ 0%{ filter:brightness(0) drop-shadow(0 0 40px #7ee8fa); transform:scale(.7); opacity:0 } 60%{ opacity:1 } 100%{ } }
+  .dmg.crit{ font-size:30px; color:#ffe14d; top:4%; text-shadow:0 0 10px #ff8a00, 0 2px 0 #7a3b00; }
+  .combo.bump{ animation:bump .45s ease-out; }
+  @keyframes bump{ 0%{ transform:translateX(-50%) scale(1.9); color:#fff } 100%{ transform:translateX(-50%) scale(1) } }
+  .genrelv{ flex:none; font-size:12px; color:var(--sub); white-space:nowrap; padding:2px 8px; border-radius:10px; background:rgba(255,255,255,.06); }
+  .genrelv b{ color:var(--green); }
+  .genrelv.bump{ animation:genreBump .6s ease-out; }
+  @keyframes genreBump{ 0%{ transform:scale(1.4); background:rgba(107,255,176,.35); } 100%{ transform:none; } }
+  .buffs{ font-size:13px; color:var(--cyan); white-space:nowrap; }
+  /* HPバーの残像（減った分が少し遅れて消える） */
+  .bar{ position:relative; }
+  .bar > i{ position:relative; z-index:1; }
+  .bar > .lag{ position:absolute; top:0; height:100%; background:rgba(255,255,255,.8); transition:width .7s ease .35s; }
+  #pHPbar > .lag{ left:0; } #wHPbar > .lag{ right:0; }
+  /* 実績のお知らせ */
+  .toast{ position:fixed; top:12px; left:50%; transform:translateX(-50%); z-index:40; white-space:nowrap;
+    background:linear-gradient(180deg,#4a3500,#1d1300); border:1px solid var(--gold); color:var(--gold);
+    padding:8px 18px; border-radius:22px; font-weight:bold; font-size:15px; box-shadow:0 0 20px rgba(255,216,107,.5);
+    animation:toastIn .35s cubic-bezier(.2,1.5,.4,1); transition:opacity .35s; }
+  .toast small{ display:block; font-size:11px; color:#ffe9b0; font-weight:normal; text-align:center; }
+  .toast.out{ opacity:0; }
+  @keyframes toastIn{ from{ transform:translate(-50%,-40px); opacity:0 } }
+  /* 宝箱 */
+  .chests{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:12px 0; }
+  .chests.four{ grid-template-columns:repeat(4,1fr); }
+  @media (max-width:520px){ .chests.four{ grid-template-columns:repeat(2,1fr); } }
+  .chest.healchoice{ background:linear-gradient(180deg,#6a1f45,#2a0a1c); box-shadow:inset 0 0 0 2px rgba(255,143,176,.6), 0 0 12px rgba(255,120,160,.35); }
+  .chest.healchoice .cd b{ color:#ffd0e0; }
+  .chest{ border:none; border-radius:12px; padding:12px 6px; color:#fff; min-height:120px;
+    background:linear-gradient(180deg,#5a3a10,#2a1a05); box-shadow:inset 0 0 0 2px rgba(255,216,107,.4);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; transition:opacity .3s, box-shadow .3s; }
+  .chest .ci{ font-size:44px; line-height:1; animation:chestBob 1.2s ease-in-out infinite; }
+  .chest:nth-child(2) .ci{ animation-delay:.2s } .chest:nth-child(3) .ci{ animation-delay:.4s }
+  @keyframes chestBob{ 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(-6px) } }
+  .chest .cn{ font-weight:bold; font-size:14px; }
+  .chest .cd{ font-size:11px; color:#e8d9b8; line-height:1.35; }
+  .chest.open{ box-shadow:0 0 0 3px var(--gold), 0 0 26px var(--gold); }
+  .chest.open .ci{ animation:chestOpen .6s ease-out; }
+  @keyframes chestOpen{ 0%{ transform:scale(.4) rotate(-20deg) } 60%{ transform:scale(1.35) } 100%{ transform:none } }
+  .chest.other{ opacity:.4; }
+  .chest .cr{ font-size:11px; font-weight:bold; padding:1px 8px; border-radius:10px; }
+  .chest .cr.r2{ background:#3a6bff; color:#fff; }
+  .chest .cr.r3{ background:linear-gradient(90deg,#ff5a7a,#ffd86b); color:#2a1000; }
+  .chest.rare2{ box-shadow:inset 0 0 0 2px #7aa0ff, 0 0 14px rgba(90,140,255,.6); }
+  .chest.rare3{ box-shadow:inset 0 0 0 2px #ffd86b, 0 0 20px rgba(255,200,80,.8); animation:pulse 1s ease-in-out infinite; }
+  .chest .cd b{ color:var(--gold); }
+  /* まだ開けていない宝珠：中身はわからない */
+  .chest.hidden{ background:radial-gradient(circle at 50% 35%, #4a2a8a, #1a0c33); box-shadow:inset 0 0 0 2px rgba(190,140,255,.5), 0 0 14px rgba(170,100,255,.4); }
+  .chest.hidden .cn{ font-size:22px; color:#e3c8ff; }
+  .chest.hidden:hover{ box-shadow:inset 0 0 0 2px #e3c8ff, 0 0 22px rgba(190,140,255,.8); }
+  /* 結果：ランクのはんこ・経験値 */
+  .rank{ animation:stamp .55s cubic-bezier(.2,1.6,.4,1) .15s both; }
+  @keyframes stamp{ from{ transform:scale(3); opacity:0 } }
+  .expbox{ background:var(--panel); border-radius:10px; padding:8px 12px; margin:8px 0; }
+  .expbox .row{ display:flex; justify-content:space-between; font-size:13px; color:var(--sub); margin-bottom:4px; }
+  .expbox .row b{ color:var(--ink); }
+  .expbar{ height:12px; border-radius:6px; background:rgba(255,255,255,.1); overflow:hidden; }
+  .expbar i{ display:block; height:100%; width:0; background:linear-gradient(90deg,#7ee8fa,#d6fbff); transition:width .9s ease; }
+  .lvup{ color:var(--gold); font-weight:900; font-size:22px; text-align:center; margin-top:6px; animation:pulse .6s ease-in-out infinite; }
+  .lvup small{ display:block; font-size:12px; color:#ffe9b0; font-weight:bold; animation:none; }
+  .achv{ display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:8px; }
+  .achv div{ background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:8px 10px; font-size:13px; line-height:1.4; }
+  .achv div b{ display:block; color:var(--gold); font-size:14px; }
+  .achv div.locked{ opacity:.45; }
+  .achv div.locked b{ color:var(--sub); }
+  .lvline{ font-size:14px; color:var(--ink); }
+  .lvline b{ color:var(--gold); }
+  .t-exp{ width:min(320px,80vw); margin:4px auto 0; }
+  .spanel{ width:min(460px,92vw); margin:4px auto; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:8px 12px; text-align:left; }
+  .shead{ display:flex; justify-content:space-between; font-size:13px; font-weight:bold; color:var(--gold); margin-bottom:4px; }
+  .shead span{ color:var(--sub); font-weight:normal; } .shead b{ color:var(--ink); }
+  .srow{ display:grid; grid-template-columns:72px 1fr 64px; grid-template-areas:"n b v" ". e e"; column-gap:8px; align-items:center; font-size:13px; padding:2px 0; }
+  .srow .sn{ grid-area:n; white-space:nowrap; color:var(--ink); }
+  .srow .sbar{ grid-area:b; height:9px; border-radius:5px; background:rgba(255,255,255,.1); overflow:hidden; }
+  .srow .sbar i{ display:block; height:100%; border-radius:5px; box-shadow:0 0 6px currentColor; transition:width .6s; }
+  .srow .sv{ grid-area:v; text-align:right; color:var(--sub); white-space:nowrap; }
+  .srow .sv b{ color:var(--gold); font-size:11px; }
+  .srow .se{ grid-area:e; font-size:11px; color:var(--sub); margin-top:-1px; }
+  .dmg.grow{ font-size:20px; color:#fff; text-shadow:0 0 10px var(--gold), 0 2px 0 #7a3b00; top:10%; }
+  .dragon-res{ display:flex; align-items:center; gap:12px; background:var(--panel); border-radius:12px; padding:8px 12px; margin:8px 0; }
+  .dragon-res .halo{ height:100px; flex:none; margin:4px 6px; }
+  .dragons{ display:grid; grid-template-columns:repeat(auto-fill,minmax(96px,1fr)); gap:8px; }
+  .dragons > div{ background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:6px; text-align:center; font-size:12px; color:var(--sub); }
+  .dragons .halo{ height:72px; margin:6px auto 6px; }
+  .dragons .unknown{ height:64px; display:flex; align-items:center; justify-content:center; font-size:30px; color:rgba(255,255,255,.25); }
+  .dragons b{ color:var(--gold); display:block; }
+  @keyframes fire{ 0%{ transform:translateX(0) } 40%{ transform:translateX(14px) scale(1.06) } 100%{ transform:translateX(0) } }
+  .stage{ position:relative; display:flex; align-items:flex-end; justify-content:center; height:100%; width:40%; transition:width .8s ease; }
+  .stage.boss3{ width:50%; } .stage.shiny{ width:54%; } /* 大魔術師・色違いは居場所も広げて、ひと回り大きく見せる */
+  .stage img{ height:100%; max-width:100%; object-fit:contain; filter:drop-shadow(0 0 14px rgba(170,100,255,.55)); transition:filter .15s, height .8s ease; }
+  .stage.hit img{ filter:drop-shadow(0 0 22px #fff) brightness(2); }
+  .stage .bubble{ position:absolute; top:2px; right:80%; white-space:nowrap;
+    background:#f6f0ff; color:#2a1450; font-size:13px; font-weight:bold; padding:6px 10px; border-radius:12px; max-width:40vw;
+    opacity:0; transition:opacity .25s; pointer-events:none; z-index:2; }
+  .stage .bubble.on{ opacity:1; }
+  .stage .bubble::after{ content:""; position:absolute; right:-8px; top:50%; border:6px solid transparent; border-left-color:#f6f0ff; transform:translateY(-50%); }
+  .dmg{ position:absolute; top:30%; left:50%; font-size:34px; font-weight:900; color:var(--gold); z-index:3;
+    text-shadow:0 0 8px #000, 0 2px 0 #7a3b00; pointer-events:none; animation:dmgUp 1s ease-out forwards; white-space:nowrap; }
+  .dmg.small{ font-size:18px; color:var(--cyan); top:55%; }
+  .dmg.ouch{ color:#ff5a7a; text-shadow:0 0 8px #000, 0 2px 0 #5a0018; }
+  .dmg.big{ font-size:48px; color:#fff; text-shadow:0 0 14px var(--gold), 0 2px 0 #7a3b00; }
+  @keyframes dmgUp{ 0%{ transform:translate(-50%,0) scale(.6); opacity:0 } 20%{ transform:translate(-50%,-10px) scale(1.15); opacity:1 }
+                   100%{ transform:translate(-50%,-60px) scale(1); opacity:0 } }
+  .combo{ position:absolute; left:50%; transform:translateX(-50%); top:4px; font-size:14px; font-weight:bold; color:var(--cyan); text-shadow:0 0 6px #000; }
+  .stolenbox{ position:absolute; left:50%; transform:translateX(-50%); bottom:4px; display:flex; gap:4px; flex-wrap:wrap; justify-content:center; max-width:30%; }
+  .stolenbox span{ font-size:12px; background:rgba(255,90,122,.2); border:1px solid var(--red); color:#ffc2cf; border-radius:6px; padding:1px 5px; }
+
+  /* 巻物：右側（padding-right）は魔法の玉が通る道としてあけておく */
+  .scroll{ position:relative; flex:1 1 auto; min-height:90px; border-radius:12px; padding:10px 14px 14px;
+    background:linear-gradient(180deg,#f4ead2,#e6d6b0); color:#2b1a05; box-shadow:inset 0 0 0 2px #b68f4a, 0 0 18px rgba(170,100,255,.3);
+    display:flex; flex-direction:column; justify-content:center; overflow:hidden; }
+  .scroll .kind{ font-size:clamp(12px,1.8vh,15px); font-weight:bold; color:#7a3fb0; margin-bottom:4px; }
+  .scroll .pre{ font-size:13px; color:#5b4630; margin-bottom:4px; line-height:1.5; }
+  .scroll .body{ font-size:clamp(18px,3.6vh,34px); line-height:1.6; font-weight:bold; white-space:pre-wrap;
+    font-family:'Yu Mincho','Hiragino Mincho ProN',serif; }
+  .scroll .body .mark{ color:#a0127a; background:rgba(214,80,200,.15); border-bottom:3px solid #d650c8; padding:0 2px; border-radius:3px;
+    animation:glow 1.6s ease-in-out infinite; }
+  @keyframes glow{ 0%,100%{ background:rgba(214,80,200,.12) } 50%{ background:rgba(214,80,200,.32) } }
+  .scroll.veil .body, .scroll.veil .pre{ filter:blur(9px); }
+  .shake{ animation:shake .4s; }
+  @keyframes shake{ 0%,100%{ transform:translateX(0) } 20%{ transform:translateX(-8px) } 40%{ transform:translateX(7px) } 60%{ transform:translateX(-5px) } 80%{ transform:translateX(3px) } }
+
+  /* プレイヤーの列：しおり／メッセージ／魔術書ゲージ／プレイヤー（魔術書） */
+  .prow{ flex:none; display:flex; align-items:center; gap:8px; }
+  .hintbtn{ flex:none; border:1px solid var(--gold); background:rgba(255,216,107,.12); color:var(--gold); border-radius:10px; padding:6px 10px; font-size:14px; font-weight:bold; }
+  .hintbtn:disabled{ opacity:.35; }
+  .prow .msg{ font-size:13px; color:var(--sub); flex:1; text-align:center; min-width:0; line-height:1.35; }
+  .gauge{ flex:none; display:flex; flex-direction:column; align-items:center; gap:2px; font-size:11px; color:var(--sub); }
+  .gauge .pips{ display:flex; gap:3px; }
+  .gauge .pips i{ width:12px; height:12px; border-radius:3px; background:rgba(255,255,255,.12); border:1px solid var(--line); }
+  .gauge .pips i.on{ background:linear-gradient(180deg,#fff2b0,#ffc83d); box-shadow:0 0 6px var(--gold); border-color:var(--gold); }
+  .gauge.full{ color:var(--gold); animation:pulse .8s ease-in-out infinite; }
+  @keyframes pulse{ 0%,100%{ transform:scale(1) } 50%{ transform:scale(1.08) } }
+
+  .hand{ flex:none; display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  @media (min-width:700px){ .hand{ grid-template-columns:repeat(4,1fr); } }
+  .card{ position:relative; border:none; border-radius:12px; padding:8px 6px 7px; color:#fff; text-align:center;
+    background:linear-gradient(160deg,var(--c1),var(--c2)); box-shadow:0 4px 0 rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.25);
+    display:flex; align-items:center; justify-content:center; gap:10px; min-height:clamp(62px,9vh,86px); transition:transform .12s, opacity .2s, filter .2s; }
+  .card:active{ transform:translateY(3px) scale(.97); }
+  .card.deal{ animation:deal .28s ease-out backwards; }
+  @keyframes deal{ 0%{ transform:translateY(24px) rotate(-4deg) scale(.85); opacity:0 } 100%{ transform:none; opacity:1 } }
+  .card .seal{ flex:none; font-size:clamp(20px,3.2vh,28px); line-height:1; font-family:'Yu Mincho','Hiragino Mincho ProN',serif; font-weight:900;
+    width:clamp(34px,5vh,46px); height:clamp(34px,5vh,46px); display:flex; align-items:center; justify-content:center; border-radius:50%;
+    background:rgba(0,0,0,.25); box-shadow:inset 0 0 0 2px rgba(255,255,255,.6); }
+  .card .txt{ display:flex; flex-direction:column; align-items:flex-start; gap:2px; min-width:0; text-align:left; }
+  .card .nm{ font-size:clamp(16px,2.4vh,20px); font-weight:bold; text-shadow:0 1px 2px rgba(0,0,0,.6); }
+  .card .hn{ font-size:11px; opacity:.92; line-height:1.25; }
+  .card .key{ position:absolute; top:4px; left:7px; font-size:12px; font-weight:bold; opacity:.75; }
+  .hand.nohint .card .hn{ display:none; }
+  .card.dim{ opacity:.2; filter:grayscale(1); pointer-events:none; }
+  .card.chain::after{ content:"⛓"; position:absolute; top:3px; right:6px; font-size:15px; }
+  .card.shot{ filter:brightness(1.6); transform:scale(1.05); }
+  .card.bad{ animation:shake .4s; filter:grayscale(.6) brightness(.7); }
+  .card.right{ box-shadow:0 0 0 3px var(--gold), 0 0 16px var(--gold); }
+  .choice{ border:none; border-radius:10px; padding:10px 8px; font-size:14px; font-weight:bold; color:#fff; line-height:1.4; position:relative;
+    background:linear-gradient(160deg,#3a2a6a,#241645); box-shadow:0 3px 0 rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,215,107,.4); min-height:56px; }
+  .choice .key{ position:absolute; top:3px; left:7px; font-size:12px; opacity:.75; }
+  .choice.dim{ opacity:.2; pointer-events:none; }
+  .choice.right{ box-shadow:0 0 0 3px var(--gold), 0 0 14px var(--gold); }
+  .choice.bad{ filter:brightness(.6); animation:shake .4s; }
+
+  /* ---------- 魔法の演出（画面全体に重ねる層） ---------- */
+  #fx{ position:fixed; inset:0; pointer-events:none; z-index:10; overflow:hidden; }
+  /* 魔法の玉。種類（v-○○）ごとに色・オーラ・大きさを変える。文字の説明は出さず、見た目だけで種類が伝わるようにする。
+     v-normal＝ふつうの呪文（紫）／v-fast＝加速（小さく水色の稲妻）／v-steal＝奪った頁の呪文（赤黒＋鎖）／
+     v-twin＝対の詠唱（金と水色の2つの玉がまわる）／v-name＝名を問う詠唱（銀白＋？）／v-barrier＝結界の謎（大きな金の結界玉） */
+  .orb{ --d:46px; position:absolute; left:0; top:0; width:var(--d); height:var(--d); margin:calc(var(--d) / -2) 0 0 calc(var(--d) / -2);
+    border-radius:50%; display:none; align-items:center; justify-content:center;
+    color:#fff; font-weight:900; font-family:'Yu Mincho','Hiragino Mincho ProN',serif; font-size:calc(var(--d) * .45); text-shadow:0 0 6px #000; }
+  .orb::before{ content:""; position:absolute; inset:-9px; border-radius:50%; animation:spin .6s linear infinite; }
+  .orb::after{ content:""; position:absolute; }
+  @keyframes spin{ to{ transform:rotate(360deg) } }
+  .orb.v-normal{ background:radial-gradient(circle at 35% 32%, #fbe9ff 0%, #c27bff 28%, #6a12c9 62%, #22003f 100%);
+    box-shadow:0 0 18px 6px rgba(176,96,255,.75), 0 0 40px 10px rgba(120,30,200,.45); }
+  .orb.v-normal::before{ background:conic-gradient(from 0deg, transparent 0 20%, rgba(230,180,255,.9) 25%, transparent 32% 55%, rgba(230,180,255,.9) 60%, transparent 67%); }
+  .orb.v-fast{ --d:30px; background:radial-gradient(circle at 35% 32%, #f2feff 0%, #7ee8fa 30%, #1f7ea8 65%, #04233a 100%);
+    box-shadow:0 0 14px 5px rgba(126,232,250,.85), 0 0 30px 8px rgba(30,140,200,.5); }
+  .orb.v-fast::before{ inset:-7px; animation-duration:.18s;
+    background:conic-gradient(from 0deg, transparent 0 10%, #fff 12%, transparent 15% 40%, #aef6ff 42%, transparent 45% 70%, #fff 72%, transparent 75%); }
+  .orb.v-steal{ --d:54px; background:radial-gradient(circle at 35% 32%, #ffe3e8 0%, #ff5a7a 24%, #7a0026 58%, #0d0006 100%);
+    box-shadow:0 0 20px 7px rgba(255,40,90,.7), 0 0 44px 14px rgba(40,0,10,.85); }
+  .orb.v-steal::before{ inset:-8px; border:3px dashed rgba(255,190,200,.85); animation-duration:1.4s; }
+  .orb.v-twin{ --d:38px; background:radial-gradient(circle at 35% 32%, #fffbe6 0%, #ffd86b 30%, #a8630a 65%, #2a1600 100%);
+    box-shadow:0 0 16px 6px rgba(255,216,107,.75), 0 0 34px 10px rgba(200,140,20,.4); }
+  .orb.v-twin::before{ inset:-26px; animation-duration:.9s;
+    background:radial-gradient(circle at 50% 8%, #f2feff 0, #7ee8fa 7px, rgba(126,232,250,.5) 10px, transparent 13px); }
+  .orb.v-name{ --d:46px; background:radial-gradient(circle at 35% 32%, #ffffff 0%, #dfe3ff 30%, #7076b8 65%, #191a3a 100%);
+    box-shadow:0 0 18px 6px rgba(220,225,255,.75), 0 0 40px 10px rgba(120,130,220,.4); }
+  .orb.v-name::before{ inset:-8px; animation-duration:2.4s; border:2px dotted rgba(255,255,255,.85); }
+  .orb.v-barrier{ --d:80px; background:radial-gradient(circle at 35% 32%, #fffbe0 0%, #ffd86b 22%, #8a5200 56%, #1a0f00 100%);
+    box-shadow:0 0 26px 10px rgba(255,216,107,.7), 0 0 60px 20px rgba(160,100,0,.45); }
+  .orb.v-barrier::before{ inset:-14px; animation-duration:4s; border:4px double rgba(255,236,170,.95); border-radius:22%; }
+  .orb.v-barrier::after{ inset:-14px; border:2px solid rgba(255,236,170,.6); border-radius:22%; transform:rotate(45deg); animation:spinR 5s linear infinite; }
+  @keyframes spinR{ from{ transform:rotate(45deg) } to{ transform:rotate(-315deg) } }
+  /* もうすぐ当たる：色はそのままで、赤い光が脈打つ */
+  .orb.danger{ animation:dangerPulse .28s ease-in-out infinite alternate; }
+  @keyframes dangerPulse{ from{ filter:drop-shadow(0 0 2px #ff2050) } to{ filter:drop-shadow(0 0 16px #ff2050) brightness(1.2) } }
+  .trail{ position:absolute; width:16px; height:16px; margin:-8px 0 0 -8px; border-radius:50%; background:rgba(190,120,255,.55);
+    animation:trail .45s ease-out forwards; }
+  @keyframes trail{ to{ transform:scale(.1); opacity:0 } }
+  .bolt{ position:absolute; left:0; top:0; width:44px; height:44px; margin:-22px 0 0 -22px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; color:#fff; font-weight:900; font-size:22px;
+    font-family:'Yu Mincho','Hiragino Mincho ProN',serif; text-shadow:0 0 6px #000; }
+  .bolt.big{ width:80px; height:80px; margin:-40px 0 0 -40px; font-size:40px; }
+  .ring{ position:absolute; width:20px; height:20px; margin:-10px 0 0 -10px; border-radius:50%; border:4px solid #fff; }
+  .spark{ position:absolute; width:8px; height:8px; margin:-4px 0 0 -4px; border-radius:50%; }
+  .screenflash{ position:fixed; inset:0; pointer-events:none; z-index:9; }
+
+  /* ---------- 重ねて出す板（章の始まり・解説・結果・頁） ---------- */
+  .ov{ position:fixed; inset:0; background:rgba(5,2,12,.78); display:none; align-items:center; justify-content:center; padding:16px; z-index:20; }
+  .ov.on{ display:flex; }
+  .ov .box{ width:min(560px,100%); max-height:100%; overflow-y:auto; background:linear-gradient(180deg,#24164a,#160c30);
+    border:1px solid rgba(255,216,107,.5); border-radius:16px; padding:18px 18px 16px; box-shadow:0 0 30px rgba(170,100,255,.4); }
+  .ov h2{ font-size:20px; color:var(--gold); margin-bottom:8px; font-family:'Yu Mincho','Hiragino Mincho ProN',serif; letter-spacing:.08em; }
+  .ov p{ font-size:14px; line-height:1.75; color:var(--ink); margin-bottom:8px; white-space:pre-wrap; }
+  .ov .say{ color:#e3c8ff; font-weight:bold; }
+  .ov .btnrow{ margin-top:12px; }
+  .newcards{ display:grid; gap:6px; margin:8px 0; }
+  .newcards div{ display:flex; gap:10px; align-items:center; background:var(--panel); border-radius:10px; padding:6px 10px; font-size:14px; }
+  .seal-b{ flex:none; width:32px; height:32px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; vertical-align:middle;
+    font-family:'Yu Mincho','Hiragino Mincho ProN',serif; font-weight:900; font-size:18px; color:#fff; }
+  .ansline{ font-size:17px; font-weight:bold; margin:4px 0 8px; }
+  .ansline .seal-b{ margin-right:6px; }
+  .expl{ background:rgba(255,255,255,.06); border-radius:10px; padding:10px 12px; font-size:14px; line-height:1.75; white-space:pre-wrap; }
+  .rank{ font-size:64px; font-weight:900; text-align:center; color:var(--gold); text-shadow:0 0 18px rgba(255,200,80,.7); line-height:1.1; }
+  .stats{ display:grid; grid-template-columns:1fr 1fr; gap:6px; margin:10px 0; }
+  .stats div{ background:var(--panel); border-radius:8px; padding:6px 10px; font-size:13px; color:var(--sub); }
+  .stats b{ color:var(--ink); font-size:16px; margin-left:4px; }
+
+  /* ---------- 魔術書（図鑑） ---------- */
+  #book{ padding:12px; gap:10px; overflow-y:auto; }
+  #book .head{ display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  #book h2{ color:var(--gold); font-family:'Yu Mincho','Hiragino Mincho ProN',serif; letter-spacing:.1em; }
+  .pages{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; }
+  .page{ border:none; border-radius:12px; padding:10px; color:#2b1a05; text-align:left;
+    background:linear-gradient(180deg,#f4ead2,#e2cfa3); box-shadow:inset 0 0 0 2px #b68f4a; display:flex; flex-direction:column; gap:4px; }
+  .page .top{ display:flex; align-items:center; gap:8px; }
+  .page .nm{ font-weight:bold; font-size:16px; }
+  .page .stars{ color:#b07a00; font-size:14px; letter-spacing:2px; }
+  .page .cnt{ font-size:12px; color:#6a5536; }
+  .page.blank{ filter:grayscale(.8); opacity:.6; }
+  .collected{ display:flex; flex-direction:column; gap:6px; margin-top:6px; }
+  .collected div{ background:rgba(255,255,255,.06); border-radius:8px; padding:6px 10px; font-size:14px; line-height:1.6; }
+  .collected .mark{ color:#ff9ce8; font-weight:bold; }
+  .muted{ color:var(--sub); font-size:13px; }
+</style>
+</head>
+<body>
+
+<!-- タイトル -->
+<section id="title" class="screen on">
+  <img class="t-sprite" id="tSprite" alt="">
+  <h1>表現の魔術道</h1>
+  <div class="btnrow">
+    <button class="btn" id="bStart">挑戦する</button>
+    <button class="btn sub" id="bBook">魔術書を見る</button>
+    <button class="btn ghost" id="bHow">あそびかた</button>
+  </div>
+  <div class="btnrow backrow">
+    <button class="btn ghost small" id="bHome">🏠 ホームに戻る</button>
+    <button class="btn ghost small" id="bMgList">🎮 ミニゲーム一覧へ</button>
+  </div>
+  <div class="lvline" id="tLevel"></div>
+  <div class="expbar t-exp"><i id="tExp"></i></div>
+  <div class="record" id="tPower"></div>
+  <div class="record" id="tRecord"></div>
+</section>
+
+<!-- バトル -->
+<section id="battle" class="screen">
+  <div class="hud">
+    <div class="bar-wrap"><span class="bar-label" id="pHPlabel">あなた</span><div class="bar" id="pHPbar"><b class="lag"></b><i></i></div><div class="xbar"><i id="xFill"></i></div></div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+      <span class="chapter" id="chapterName"></span>
+      <div style="display:flex;gap:6px"><button class="iconbtn" id="bPause">⏸</button><button class="iconbtn" id="bSound">🔊</button></div>
+    </div>
+    <div class="bar-wrap right"><span class="bar-label" id="wHPlabel">闇の魔術師</span><div class="bar" id="wHPbar"><b class="lag"></b><i></i></div></div>
+  </div>
+  <div class="field" id="field">
+    <div class="me" id="me"><div id="meLook"></div><div class="mename" id="meName"></div></div>
+    <div class="stage" id="stage">
+      <div class="bubble" id="bubble"></div>
+      <div class="aura" id="aura"></div>
+      <img id="wSprite" alt="闇の魔術師">
+    </div>
+    <div class="stolenbox" id="stolenBox"></div>
+    <div class="combo" id="comboLabel"></div>
+  </div>
+  <div class="scroll" id="scroll">
+    <div class="kind" id="sKind"></div>
+    <div class="pre" id="sPre"></div>
+    <div class="body" id="sBody"></div>
+  </div>
+  <div class="prow">
+    <button class="hintbtn" id="bHint">🔖×3</button>
+    <span class="msg" id="footMsg"><span class="buffs" id="buffs"></span></span>
+    <span class="genrelv" id="genreLv"></span>
+    <div class="gauge" id="gauge"><span>魔術書解放</span><div class="pips" id="pips"></div></div>
+  </div>
+  <div class="hand" id="hand"></div>
+</section>
+
+<!-- 魔術書 -->
+<section id="book" class="screen">
+  <div class="head">
+    <h2>📖 魔術書</h2>
+    <button class="btn ghost" id="bBookBack">もどる</button>
+  </div>
+  <p class="muted" id="bookSummary"></p>
+  <div class="pages" id="pages"></div>
+  <h2 style="font-size:18px;margin-top:6px">🐉 育てた龍</h2>
+  <p class="muted" id="dragonSummary"></p>
+  <div class="dragons" id="dragons"></div>
+  <h2 style="font-size:18px;margin-top:6px">🏅 実績</h2>
+  <p class="muted" id="achvSummary"></p>
+  <div class="achv" id="achv"></div>
+</section>
+
+<div id="fx"><div class="orb" id="orb"></div></div>
+<div class="ov" id="ov"><div class="box" id="ovBox"></div></div>
+
+<script>
+"use strict";
+/* ================= データ ================= */
+const ITEMS = (window.QUESTION_DATA && window.QUESTION_DATA.cats.hyougen) ? window.QUESTION_DATA.cats.hyougen.items : [];
+
+// 技法カード12枚。seal＝カードの印（漢字1字）、hint＝第一章・第二章だけカードに出る短い説明、def＝魔術書の頁の説明。
+const CARDS = [
+  { id:'直喩',   seal:'直', c1:'#4f7cff', c2:'#2a3f9e', hint:'「ような」でたとえる',   def:'「ようだ」「みたいだ」「ごとし」など、たとえだとわかる言葉を使ってたとえる技法。' },
+  { id:'隠喩',   seal:'隠', c1:'#2fb3c9', c2:'#17606e', hint:'「ような」なしでたとえる', def:'「ようだ」などを使わずに、「AはBだ」のように直接たとえる技法。暗喩ともいう。' },
+  { id:'擬人法', seal:'人', c1:'#4fc46a', c2:'#22683a', hint:'人でないものを人のように', def:'人でないもの（花・風・町など）を、人のように「話す」「笑う」「踊る」などと表す技法。' },
+  { id:'擬音語', seal:'音', c1:'#ff9b3d', c2:'#9e4a0a', hint:'聞こえる音をまねる',     def:'実際に耳に聞こえる音や声をまねた言葉（ざあざあ・ワンワン・ガタン）。' },
+  { id:'擬態語', seal:'態', c1:'#ffc93d', c2:'#9a6a00', hint:'様子を音のように表す',   def:'音のしない様子や状態を、音のような言葉で表したもの（きらきら・にっこり・のろのろ）。' },
+  { id:'体言止め', seal:'体', c1:'#c45cff', c2:'#5e1f8a', hint:'名詞で文を止める',     def:'文の終わりを名詞（体言）で止めて、余韻や印象を残す技法。' },
+  { id:'倒置法', seal:'倒', c1:'#ff5a7a', c2:'#8f1530', hint:'語順を入れかえる',       def:'ふつうの言葉の順序を入れかえて、前に出した部分を強める技法。' },
+  { id:'対句',   seal:'対', c1:'#5a8cff', c2:'#3a2a9e', hint:'似た組み立てを並べる',   def:'組み立てが似ている言葉や文を並べて、リズムや対比を生む技法。' },
+  { id:'反復法', seal:'復', c1:'#3ad0a0', c2:'#126e55', hint:'同じ言葉をくり返す',     def:'同じ言葉やフレーズをくり返して、気持ちの強さや印象を強める技法。' },
+  { id:'呼びかけ', seal:'呼', c1:'#ff7ad0', c2:'#8a1f6a', hint:'「〜よ」と語りかける', def:'人やものに向かって「〜よ」などの形で直接語りかける技法。' },
+  { id:'反語',   seal:'反', c1:'#9a7cff', c2:'#3f2a8a', hint:'疑問の形で反対を言う',   def:'「〜だろうか（いや、〜ない）」のように、疑問の形で反対の意味を強く伝える技法。' },
+  { id:'破調',   seal:'破', c1:'#e0643a', c2:'#6e2410', hint:'音数のリズムをくずす',   def:'短歌や俳句などで、決まった音数のリズムをわざと大きくくずす技法。' },
+];
+const CARD = Object.fromEntries(CARDS.map(c => [c.id, c]));
+const CARD_IDS = new Set(CARDS.map(c => c.id));
+
+// まぎらわしい対（正解した直後に35%の確率で相手側の技法を続けて唱える。4枚の手札にも優先して入れる）
+const TWINS = { '直喩':'隠喩', '隠喩':'直喩', '擬音語':'擬態語', '擬態語':'擬音語', '対句':'反復法', '反復法':'対句',
+                '倒置法':'体言止め', '体言止め':'倒置法', '反語':'呼びかけ', '呼びかけ':'反語', '擬人法':'直喩', '破調':'対句' };
+
+const GENERIC_PRE = /^次の文で使われている表現技法として正しいものはどれか。$/;
+
+// 問題を3種類に分ける
+//  spell   … 例文の技法をカードで答える（正解が技法カードで、4択がすべて技法名のもの）
+//  name    … 「〇〇とは、どのような表現技法か」の定義文を見せて、技法名をカードで答える
+//  barrier … それ以外（詩の形式・字余り・ちがいの説明など）。終章の「結界の謎」として4択で出す
+const SPELLS = [], BARRIERS = [];
+ITEMS.forEach((it, idx) => {
+  const ans = it.c[it.a];
+  const m = it.q.match(/^(.+?)とは、どのような(?:表現技法|言葉)か/);
+  if(m && CARD_IDS.has(m[1])){
+    SPELLS.push({ idx, kind:'name', ans:m[1], pre:'', body:ans, lv:it.lv, orig:[m[1]], e:it.e || '' });
+  }else if(CARD_IDS.has(ans) && it.c.every(x => CARD_IDS.has(x)) && !/あてはまらない/.test(it.q)){
+    const lines = it.q.split('\n');
+    let pre = '', body = it.q;
+    if(lines.length > 1){ pre = GENERIC_PRE.test(lines[0]) ? '' : lines[0]; body = lines.slice(1).join('\n'); }
+    SPELLS.push({ idx, kind:'spell', ans, pre, body, lv:it.lv, orig:it.c.slice(), e:it.e || '', collect:/《/.test(body) });
+  }else{
+    BARRIERS.push({ idx, kind:'barrier', q:it.q, choices:it.c.slice(), ans, lv:it.lv, e:it.e || '' });
+  }
+});
+const COLLECT_TOTAL = {};
+SPELLS.forEach(s => { if(s.collect) COLLECT_TOTAL[s.ans] = (COLLECT_TOTAL[s.ans] || 0) + 1; });
+// 頁の「見分け方」は、データの解説文の【見分け方】の部分から取る
+const TIPS = {};
+ITEMS.forEach(it => {
+  const ans = it.c[it.a];
+  if(!CARD_IDS.has(ans) || TIPS[ans] || !it.e) return;
+  const m = it.e.match(/【見分け方】([\s\S]*)$/);
+  if(m) TIPS[ans] = m[1].trim();
+});
+
+// 章ごとの強さ（2026-10-03、教員の指示：「1体目は無強化でも攻略できるくらい、それ以降は魔術師レベルが上がってはじめて
+// 攻略できるくらい。初めの方の魔術師は小さく、だんだん大きく」）。何度も挑戦して強くなる流れごとシミュレーションした目安：
+// 正答率90%の生徒は、1回目は第一章はほぼ突破、全クリは約1割。初めての全クリは4回目ごろ（正答率97%なら2回目、80%なら12回目）。
+// loss＝まちがえたときに受けるダメージ（lossTimeout＝時間切れ）、scale＝魔術師の大きさ（戦う場所の高さに対する割合）。
+// 正解し続けても負けることがある（2026-10-03、教員の指示：「正解し続けると負けないのはつまらない」）：
+//  ・余波：正解でも、玉が道のりの半分より近づいてから打ち消すと、loss×最大30%（ぎりぎりほど大きい）を受ける
+//  ・闇の追撃：chaseEvery回の詠唱ごとに、防げない攻撃（chase）。守りで軽くなり、運でかわせる
+// 章ではなく「3人の相手が順に勝負を仕掛けてくる」設定（2026-10-03、教員の指示）。
+// foe＝相手の名前、short＝上の小さな見出し、look＝見た目のクラス（boss1：小さく淡い／boss2：大きく濃い紫の光／boss3：闇のオーラ）。
+// lines：登場・倒れたとき・怒ったときの台詞。
+// 強さの目安（2026-10-04、教員の指示でシミュレーションして調整。正答率80%の生徒がその相手に挑んだときの勝率）：
+//  闇の魔術師見習い：強化なしでもほぼ100%。
+//  闇の魔術師：まちがえたときの一撃が重い（140）。Lv.5〜7で54%、Lv.8〜9で82%、Lv.10〜12で96%（＝Lv.10あれば突破できる）。
+//  闇の大魔術師：Lv.20〜24で52%、Lv.30〜34で75%、Lv.40〜49で87%（＝Lv.30あれば突破できる）。
+const PHASES = [
+  { foe:'闇の魔術師見習い', short:'見習い', look:'boss1', add:['直喩','隠喩','擬人法','擬音語','擬態語','体言止め'], lv:[1,3], castSec:9, hp:120, loss:20, lossTimeout:16, chaseEvery:5, chase:6, scale:.44,
+    hideHint:false, nameAsk:false, fast:false, barrierEvery:0,
+    intro:'し、師匠に言われて来ました…！ その魔術書、いただきます！',
+    lines:{ defeat:'う、うわぁ…師匠〜！', rage:'ひ、ひぃ…もう本気出しちゃいます！' },
+    note:'闇の魔術師見習いの魔法の玉が、左にいるあなたのことのはに向かって飛んでくる。届く前に、《　》の部分の技法のカードをタップして打ち消そう！\n早く打ち消すほど大ダメージ。ぎりぎりで打ち消すと余波を受ける。ときどき防げない「闇の追撃」も放ってくる。' },
+  { foe:'闇の魔術師', short:'魔術師', look:'boss2', add:['倒置法','対句','反復法','呼びかけ'], lv:[2,4], castSec:8, hp:640, loss:140, lossTimeout:125, chaseEvery:4, chase:30, scale:.8,
+    hideHint:false, nameAsk:true, fast:true, barrierEvery:0,
+    intro:'見習いを倒したのはお前か。ならば、この私が相手をしよう。',
+    lines:{ defeat:'くっ…大魔術師様、あとはお願いします…', rage:'おのれ…本気を出してやる！' },
+    note:'見習いとは比べものにならない強さだ！ 歯が立たないときは、魔術ステータスを鍛えてから何度でも挑もう。\n新しい頁が4枚開いた。魔法の種類も増える。小さく速い水色の玉、金色のまわりを水色の玉がまわる玉、技法の説明だけを唱える銀色の「？」の玉…。玉の見た目をよく見よう！' },
+  { foe:'闇の大魔術師', short:'大魔術師', look:'boss3', add:['反語','破調'], lv:[3,5], castSec:7.5, hp:2200, loss:200, lossTimeout:180, chaseEvery:3, chase:65, scale:1,
+    hideHint:true, nameAsk:true, fast:true, barrierEvery:4,
+    intro:'我が弟子たちを退けるとは…。闇の大魔術師、ここに参る！',
+    lines:{ defeat:'見事だ…と言いたいところだが…', rage:'我が真の闇、とくと味わうがいい！' },
+    note:'闇のオーラをまとった、弟子たちとは格のちがう相手だ。最後の2枚の頁が開いた。闇の力で、カードの説明が消えてしまう。ときどき、「封」の字の入った大きな金色の結界玉がゆっくり迫ってくる。' },
+];
+// 色違いの闇の魔術師（2026-10-03、教員の指示：「全クリしたら30%の確率で色違いが勝負を挑む。能力値を跳ね上げて、
+// それまで集めたアイテムを駆使してようやく倒せる。倒したらこのゲームの経験値が普通の倍」）。
+// 強さは「魔術ステータス」の強化とあわせてシミュレーションで調整：強化なしではほぼ勝てず、うまく強化を重ねると勝てるようになる。
+// 2026-10-03、教員の指示で「必ず出る」に変更（もとは30%）。
+const SHINY_CHANCE = 1;
+const SHINY_PHASE = { foe:'色違いの闇の大魔術師', short:'色違い', look:'shiny', add:[], lv:[3,5], castSec:6, hp:1900, chaseEvery:3, chase:65, scale:1,
+  hideHint:true, nameAsk:true, fast:true, fastP:.4, barrierEvery:3, shiny:true,
+  taken:.45,       // 受けるダメージ（こちらの反撃）は0.45倍
+  loss:200, lossTimeout:180, // こちらが受けるダメージ（2026-10-04、教員の指示：攻撃力は少なくとも大魔術師と同じ）
+  heal:.3,         // HPが半分を切ると、1回だけ最大HPの30%を回復する
+  rageAt:.4, rageMult:.8, // HPが4割を切ると怒り、玉がさらに速くなる
+  intro:'…ほう、我が影を退けたか。ならば、本当の闇を見せてやろう。',
+  lines:{ defeat:'ば、ばかな…この我が…！', rage:'この我を追いつめるとは…！ 許さぬ！' },
+  note:'色違いの闇の大魔術師が現れた！ これまでとは比べものにならない強さだ。\n・反撃のダメージが通りにくい\n・魔法が速く、当たると痛い\n・一度だけ傷を癒やす\nこれまで高めてきた魔術の力が試される。倒せば経験値が2倍！' };
+const GAUGE_MAX = 5;
+
+/* ================= セーブ（このページ専用） ================= */
+const SAVE_KEY = 'gihou_madousho_v1';
+function emptySave(){ return { v:1, stats:{}, got:{}, barrierGot:{}, dragons:{}, exp:0, achv:{}, power:{}, best:null, clears:0, plays:0, sound:true }; }
+let SAVE = emptySave();
+try{
+  const s = JSON.parse(localStorage.getItem(SAVE_KEY));
+  if(s && s.v === 1) SAVE = Object.assign(emptySave(), s);
+}catch(e){}
+if(SAVE.power && !SAVE.powerV2){
+  Object.keys(SAVE.power).forEach(k => { SAVE.power[k] = Math.min(100, (SAVE.power[k] || 0) * 4); });
+  SAVE.powerV2 = true;
+  try{ localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); }catch(e){}
+}
+function writeSave(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); }catch(e){} }
+function techStat(t){ if(!SAVE.stats[t]) SAVE.stats[t] = { c:0, w:0 }; return SAVE.stats[t]; }
+function errRate(t){ const s = SAVE.stats[t] || { c:0, w:0 }; return (s.w + 0.5) / (s.c + s.w + 1); }
+function collectedCount(t){ return SPELLS.filter(s => s.ans === t && s.collect && SAVE.got[s.idx]).length; }
+function starsOf(t){
+  const c = (SAVE.stats[t] || {}).c || 0;
+  let n = 0;
+  if(c >= 3) n = 1;
+  if(c >= 10) n = 2;
+  if(COLLECT_TOTAL[t] && collectedCount(t) >= COLLECT_TOTAL[t]) n = 3;
+  return n;
+}
+
+/* ================= 小道具 ================= */
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c])); }
+function markup(s){ return esc(s).replace(/《([\s\S]*?)》/g, '<span class="mark">$1</span>'); }
+function shuffle(a){ for(let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function weightedPick(list, wf){
+  const ws = list.map(wf); const sum = ws.reduce((a, b) => a + b, 0);
+  let r = Math.random() * sum;
+  for(let i = 0; i < list.length; i++){ r -= ws[i]; if(r <= 0) return list[i]; }
+  return list[list.length - 1];
+}
+function showScreen(id){ document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id)); }
+function spriteSrc(pose){
+  if(G && G.shiny && typeof ENEMY_SPRITES_SHINY !== 'undefined' && ENEMY_SPRITES_SHINY['me03_' + pose]) return ENEMY_SPRITES_SHINY['me03_' + pose];
+  return (typeof ENEMY_SPRITES !== 'undefined' && ENEMY_SPRITES['me03_' + pose]) || '';
+}
+(function loadShinySprites(){
+  const sc = document.createElement('script'); sc.src = 'enemy_sprites_shiny_data.js'; sc.async = true;
+  document.head.appendChild(sc);
+})();
+function sealHTML(t){ const c = CARD[t]; return `<span class="seal-b" style="background:linear-gradient(160deg,${c.c1},${c.c2})">${c.seal}</span>`; }
+function center(el){ const r = el.getBoundingClientRect(); return { x:r.left + r.width / 2, y:r.top + r.height / 2 }; }
+
+// 効果音（WebAudioの短い音だけ）
+let AC = null;
+function beep(kind){
+  if(!SAVE.sound) return;
+  try{
+    if(!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+    const seq = { hit:[[660,.06],[990,.09]], crit:[[660,.05],[880,.05],[1320,.12]], bad:[[220,.12],[160,.18]],
+                  steal:[[300,.08],[200,.08],[150,.14]], win:[[523,.1],[659,.1],[784,.1],[1047,.25]], tick:[[880,.03]],
+                  cast:[[180,.05],[260,.08]], rumble:[[55,.25],[48,.25],[60,.3],[45,.3]], thunder:[[1400,.03],[90,.25]],
+                  charge:[[220,.12],[330,.12],[440,.12],[550,.12],[660,.12],[880,.2]], shot:[[1200,.04],[1600,.05]], clash:[[90,.12]], release:[[392,.07],[523,.07],[659,.07],[784,.07],[1047,.3]] }[kind] || [];
+    let t = AC.currentTime;
+    seq.forEach(([f, d]) => {
+      const o = AC.createOscillator(), g = AC.createGain();
+      o.type = (kind === 'bad' || kind === 'steal' || kind === 'clash' || kind === 'rumble' || kind === 'thunder') ? 'sawtooth' : (kind === 'cast' ? 'square' : 'triangle');
+      o.frequency.value = f; g.gain.setValueAtTime(.12, t); g.gain.exponentialRampToValueAtTime(.001, t + d);
+      o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + d + .02); t += d;
+    });
+  }catch(e){}
+}
+
+/* ================= 魔術師の見た目 ================= */
+let pose = 'pose1', idleTimer = null, poseLock = 0;
+function setPose(p, ms){
+  pose = p; $('wSprite').src = spriteSrc(p);
+  if(ms){ poseLock = Date.now() + ms; setTimeout(() => { if(Date.now() >= poseLock && G && !G.over) setPose('pose1'); }, ms); }
+}
+function startIdle(){
+  stopIdle();
+  idleTimer = setInterval(() => { if(Date.now() < poseLock) return; setPose(pose === 'pose1' ? 'pose2' : 'pose1'); }, 550);
+}
+function stopIdle(){ if(idleTimer) clearInterval(idleTimer); idleTimer = null; }
+let sayTimer = null;
+function say(text, ms){
+  const b = $('bubble'); b.textContent = text; b.classList.add('on');
+  clearTimeout(sayTimer); sayTimer = setTimeout(() => b.classList.remove('on'), ms || 1800);
+}
+function floatText(text, cls){
+  const d = document.createElement('div'); d.className = 'dmg' + (cls ? ' ' + cls : ''); d.textContent = text;
+  $('stage').appendChild(d); setTimeout(() => d.remove(), 1000);
+}
+
+/* ================= 魔法の演出 ================= */
+// 魔法の玉の通り道：右の魔術師の杖のあたり→ゆるい山なり→左の自分のことのは。2次ベジェ曲線。
+// 戦う場所(.field)の中だけを横に飛ぶので、巻物の本文の上は通らない。
+function meCenter(){
+  const el = $('meLook').firstElementChild || $('me');
+  const r = el.getBoundingClientRect();
+  return { x:r.left + r.width / 2, y:r.top + r.height * .5 };
+}
+function orbPath(){
+  const s = $('wSprite').getBoundingClientRect();
+  const f = $('field').getBoundingClientRect();
+  const p0 = { x:s.left + s.width * .25, y:s.top + s.height * .38 };
+  const p2 = meCenter();
+  const p1 = { x:(p0.x + p2.x) / 2, y:Math.max(f.top + 10, Math.min(p0.y, p2.y) - f.height * .35) };
+  return t => ({ x:(1-t)*(1-t)*p0.x + 2*(1-t)*t*p1.x + t*t*p2.x, y:(1-t)*(1-t)*p0.y + 2*(1-t)*t*p1.y + t*t*p2.y });
+}
+let orbPos = { x:0, y:0 }, trailT = 0, orbKind = 'normal';
+// 玉の種類ごとの尾の色・大きさ、放つときの火花の色、玉の中の字
+const ORB_LOOK = {
+  normal:  { trail:'rgba(190,120,255,.55)', trailSize:16, burst:'#c27bff', mark:'' },
+  fast:    { trail:'rgba(126,232,250,.7)',  trailSize:10, burst:'#7ee8fa', mark:'' },
+  steal:   { trail:'rgba(160,0,40,.65)',    trailSize:20, burst:'#ff2050', mark:'⛓' },
+  twin:    { trail:'rgba(255,216,107,.6)',  trailSize:14, burst:'#ffd86b', mark:'' },
+  name:    { trail:'rgba(220,225,255,.6)',  trailSize:16, burst:'#dfe3ff', mark:'？' },
+  barrier: { trail:'rgba(255,216,107,.5)',  trailSize:30, burst:'#ffd86b', mark:'封' },
+};
+function placeOrb(p, t){
+  const o = $('orb');
+  orbPos = p;
+  o.style.transform = `translate(${p.x}px,${p.y}px) scale(${.55 + .65 * t})`;
+  const now = performance.now();
+  if(now - trailT > 45){ trailT = now; trail(p.x, p.y, ORB_LOOK[orbKind].trail, ORB_LOOK[orbKind].trailSize); }
+}
+function trail(x, y, color, size){
+  const d = document.createElement('div'); d.className = 'trail';
+  d.style.left = x + 'px'; d.style.top = y + 'px'; d.style.background = color;
+  if(size){ d.style.width = d.style.height = size + 'px'; d.style.margin = `${-size / 2}px 0 0 ${-size / 2}px`; }
+  $('fx').appendChild(d); setTimeout(() => d.remove(), 460);
+}
+function hideOrb(){ $('orb').style.display = 'none'; }
+// 光弾（カード→目標）。Web Animations APIで飛ばし、着いたら消す
+function fireBolt(from, to, card, ms, big){
+  const c = CARD[card] || { c1:'#ffe9a0', c2:'#ffc83d', seal:'✦' };
+  const b = document.createElement('div'); b.className = 'bolt' + (big ? ' big' : '');
+  b.textContent = c.seal;
+  b.style.background = `radial-gradient(circle at 40% 35%, #fff 0%, ${c.c1} 45%, ${c.c2} 100%)`;
+  b.style.boxShadow = `0 0 18px 6px ${c.c1}, 0 0 40px 12px ${c.c1}88`;
+  $('fx').appendChild(b);
+  const tr = setInterval(() => {
+    const r = b.getBoundingClientRect();
+    const d = document.createElement('div'); d.className = 'trail';
+    d.style.background = c.c1 + 'aa'; d.style.left = (r.left + r.width / 2) + 'px'; d.style.top = (r.top + r.height / 2) + 'px';
+    $('fx').appendChild(d); setTimeout(() => d.remove(), 460);
+  }, 30);
+  const anim = b.animate([
+    { transform:`translate(${from.x}px,${from.y}px) scale(.6)` },
+    { transform:`translate(${to.x}px,${to.y}px) scale(1)` },
+  ], { duration:ms, easing:'cubic-bezier(.3,0,.8,.6)', fill:'forwards' });
+  // anim.finishedは描画が止まっていると（タブが裏にあるときなど）いつまでも終わらないので、時間で待つ
+  return sleep(ms).then(() => { clearInterval(tr); b.remove(); });
+}
+// 爆発（輪＋火花）
+function burst(x, y, color, big){
+  const n = big ? 18 : 10, size = big ? 7 : 4;
+  const ring = document.createElement('div'); ring.className = 'ring';
+  ring.style.left = x + 'px'; ring.style.top = y + 'px'; ring.style.borderColor = color;
+  $('fx').appendChild(ring);
+  ring.animate([{ transform:'scale(.3)', opacity:1 }, { transform:`scale(${size})`, opacity:0 }], { duration:big ? 650 : 450, easing:'ease-out', fill:'forwards' });
+  setTimeout(() => ring.remove(), 700);
+  for(let i = 0; i < n; i++){
+    const s = document.createElement('div'); s.className = 'spark';
+    s.style.left = x + 'px'; s.style.top = y + 'px'; s.style.background = i % 2 ? color : '#fff';
+    s.style.boxShadow = `0 0 6px ${color}`;
+    $('fx').appendChild(s);
+    const ang = Math.PI * 2 * i / n + Math.random() * .4, dist = (big ? 90 : 50) + Math.random() * 30;
+    s.animate([{ transform:'translate(0,0) scale(1)', opacity:1 },
+               { transform:`translate(${Math.cos(ang) * dist}px,${Math.sin(ang) * dist}px) scale(.2)`, opacity:0 }],
+              { duration:500 + Math.random() * 200, easing:'ease-out', fill:'forwards' });
+    setTimeout(() => s.remove(), 750);
+  }
+}
+function screenFlash(color, ms){
+  const f = document.createElement('div'); f.className = 'screenflash'; f.style.background = color;
+  document.body.appendChild(f);
+  f.animate([{ opacity:.55 }, { opacity:0 }], { duration:ms || 350, fill:'forwards' });
+  setTimeout(() => f.remove(), (ms || 350) + 20);
+}
+
+// 自分のことのはの上に出す数字（受けたダメージなど）
+function meFloat(text, cls){
+  const d = document.createElement('div'); d.className = 'dmg ' + (cls || 'ouch'); d.textContent = text;
+  $('me').appendChild(d); setTimeout(() => d.remove(), 1000);
+}
+// 自分のことのは：毎回たまごから始まり、1問答えるとランダムな系統の龍として生まれ、正解を重ねるごとに育つ
+// （2026-10-03、教員の指示）。イラストは本体と同じ kotonoha_evolution_images.js（13系統×7段階）を使う。
+// 11MBあるので、ページを開いたあとで読み込む（読み込み中はたまご🥚／🐉の絵文字で代わりに出す）。
+const DRAGON_LINES = [
+  { id:'tensho',  name:'天翔龍', w:3 }, { id:'engoku', name:'焔獄龍', w:3 }, { id:'soukai', name:'蒼海龍', w:3 },
+  { id:'meien',   name:'冥淵龍', w:3 }, { id:'seiki',  name:'聖輝龍', w:3 }, { id:'suishin', name:'翠森龍', w:3 },
+  { id:'shigen',  name:'始原龍', w:1, rare:true }, { id:'kodai', name:'古代龍', w:1, rare:true }, { id:'mirai', name:'未来龍', w:1, rare:true },
+  { id:'rai',     name:'雷龍',   w:1, rare:true }, { id:'kiri',  name:'霧龍',   w:1, rare:true },
+  { id:'oto',     name:'音龍',   w:1, rare:true }, { id:'hyou',  name:'氷龍',   w:1, rare:true },
+];
+const DRAGON = Object.fromEntries(DRAGON_LINES.map(d => [d.id, d]));
+const STAGE_KEYS = ['1_tamago','2_youtai','3_shounentai','4_seinentai','5_seijintai','6_seijukutai','7_densetsu'];
+const STAGE_LABEL = ['たまご','幼体','少年体','青年体','成人体','成熟体','伝説級'];
+// 龍の成長は「どこまで攻略したか」で決める（2026-10-03、教員の指示）。正解の数で育てると、魔術ステータスやレベルが上がって
+// 早く倒せるようになるほど1回の挑戦の正解数が減り、伝説級が解放される高いレベルで逆に届かなくなるため。
+// 攻略の進み具合＝章の番号＋その章の魔術師のHPを削った割合（第一章の途中は0〜1、第二章は1〜2、終章は2〜3、突破で3）。
+// 生まれるのは1問目。少年体＝第一章を6割、青年体＝第二章を3割、成人体＝第二章の突破、成熟体＝終章を6割、伝説級＝終章の突破。
+const GROW_AT = [0, 0, 0.6, 1.3, 2, 2.6, 3];
+function runProgress(){
+  if(!G || !G.wMax) return 0;
+  return Math.min(3, G.phase + (1 - G.wHP / G.wMax)); // 色違い（裏章、G.phase=3）では3のまま
+}
+// 龍が育てる上限は、プレイヤーのレベル（何度も挑戦するとたまる）で広がる（2026-10-03、教員の指示：
+// 「初めの挑戦ではどんなに頑張っても青年体くらい、何度も挑戦することで伝説級になれる可能性が広がる」）。
+// やりこむ人向けに、伝説級は「ゲームを40回クリアするくらい」で届くようにする（2026-10-03、教員の指示）。
+// 1回の撃退でおよそ430の経験値（シミュレーションの平均）→Lv.5≒2勝、Lv.19≒19勝、Lv.28≒40勝。上限は龍の系統に関係なく共通。
+const DRAGON_CAP_BY_LV = [[1, 3], [5, 4], [19, 5], [28, 6]]; // [このレベルから, 上限の段階]（3＝青年体…6＝伝説級）
+function dragonCapFor(lv){ let c = 3; DRAGON_CAP_BY_LV.forEach(([l, st]) => { if(lv >= l) c = st; }); return c; }
+function dragonCap(){ return dragonCapFor(levelInfo(SAVE.exp || 0).lv); }
+function nextCapLv(lv){ const n = DRAGON_CAP_BY_LV.find(([l]) => l > lv); return n ? n : null; }
+const DRAGON_ATK_PER_STAGE = 0.1; // 1段階育つごとに反撃のダメージ＋10%
+(function loadDragonImages(){
+  const sc = document.createElement('script'); sc.src = 'kotonoha_evolution_images.js'; sc.async = true;
+  sc.onload = () => { if(G) renderMe(); };
+  document.head.appendChild(sc);
+})();
+function dragonSrc(line, idx){
+  return (typeof KOTONOHA_EVOLUTION_IMAGES !== 'undefined' && KOTONOHA_EVOLUTION_IMAGES[`${line}_${STAGE_KEYS[idx]}`]) || null;
+}
+const HALO_COLOR = {};
+function haloHTML(src){ return `<div class="halo" data-src-key="${src.length}"><img src="${src}" alt=""></div>`; }
+// 光の輪の色を、絵の四すみと辺のまん中の平均色にする（画像はdata URLなのでcanvasで読める）
+function tintHalos(root){
+  (root || document).querySelectorAll('.halo').forEach(h => {
+    const img = h.querySelector('img'); if(!img) return;
+    const src = img.getAttribute('src');
+    const apply = col => h.style.setProperty('--hc', col);
+    if(HALO_COLOR[src]) return apply(HALO_COLOR[src]);
+    const im = new Image();
+    im.onload = () => {
+      try{
+        const c = document.createElement('canvas'), w = c.width = im.naturalWidth, hh = c.height = im.naturalHeight;
+        const x = c.getContext('2d'); x.drawImage(im, 0, 0);
+        // 端ぎりぎりは暗い縁取りのことがあるので少し内側を読み、明るいほう半分の平均を使う（絵の背景の色に近くなる）
+        const ix = Math.round(w * .07), iy = Math.round(hh * .07), samples = [];
+        let clear = 0;
+        [[ix,iy],[w-1-ix,iy],[ix,hh-1-iy],[w-1-ix,hh-1-iy],[w>>1,iy],[w>>1,hh-1-iy],[ix,hh>>1],[w-1-ix,hh>>1],
+         [w>>2,iy],[w*3>>2,iy],[w>>2,hh-1-iy],[w*3>>2,hh-1-iy]].forEach(([px, py]) => {
+          const d = x.getImageData(px, py, 1, 1).data;
+          if(d[3] > 20) samples.push([d[0], d[1], d[2]]); else clear++;
+        });
+        samples.sort((a, b) => (b[0] + b[1] + b[2]) - (a[0] + a[1] + a[2]));
+        const top = samples.slice(0, Math.max(1, Math.ceil(samples.length / 2)));
+        const avg = k => Math.round(top.reduce((t, c) => t + c[k], 0) / top.length);
+        // 背景が透明な絵（読み取った点のうち3つ以上が透明）は、本体の卵の枠と同じ古紙色にする
+        HALO_COLOR[src] = clear < 3 && samples.length ? `${avg(0)},${avg(1)},${avg(2)}` : '239,230,218';
+        apply(HALO_COLOR[src]);
+      }catch(e){}
+    };
+    im.src = src;
+  });
+}
+function pickDragonLine(){ return weightedPick(DRAGON_LINES, d => d.w).id; }
+function dragonName(d){ return d.stage === 0 ? 'ことばのたまご' : `${DRAGON[d.line].name}・${STAGE_LABEL[d.stage]}`; }
+function renderMe(){
+  const d = G.dragon;
+  const src = dragonSrc(d.line, d.stage);
+  $('meLook').innerHTML = src ? haloHTML(src) : `<div class="emoji">${d.stage === 0 ? '🥚' : '🐉'}</div>`;
+  tintHalos($('meLook'));
+  $('meName').innerHTML = esc(dragonName(d)) + (d.stage > 0 ? `<span class="atk">⚔+${Math.round(d.stage * DRAGON_ATK_PER_STAGE * 100)}%</span>` : '');
+}
+// 生まれる／育つ演出。育たないときは何もしない
+async function growCheck(){
+  const d = G.dragon;
+  let target = d.stage === 0 ? 1 : d.stage;
+  const prog = runProgress();
+  for(let i = GROW_AT.length - 1; i >= 2; i--){ if(prog >= GROW_AT[i] - 1e-9){ target = Math.max(target, i); break; } }
+  const cap = dragonCap();
+  if(target > cap){
+    target = Math.max(d.stage, cap);
+    // 上限に届いて、まだ育てる力が余っているときに一度だけ知らせる
+    if(!G.capNoticed && d.stage >= cap){
+      G.capNoticed = true;
+      const n = nextCapLv(levelInfo(SAVE.exp || 0).lv);
+      if(n) meFloat(`今はここまで…（Lv.${n[0]}で${STAGE_LABEL[n[1]]}へ）`, 'grow');
+    }
+  }
+  if(target === d.stage) return;
+  const hatch = d.stage === 0;
+  const me = $('me');
+  if(hatch){
+    me.classList.add('wobble'); beep('tick');
+    await sleep(800);
+    me.classList.remove('wobble');
+  }
+  d.stage = target;
+  renderMe();
+  me.classList.add('evolve'); setTimeout(() => me.classList.remove('evolve'), 900);
+  const c = meCenter();
+  burst(c.x, c.y, '#ffd86b', true); screenFlash('#fff6d0', 300); beep('release');
+  const line = DRAGON[d.line];
+  meFloat(hatch ? `誕生！ ${line.name}${line.rare ? ' ✨レア' : ''}` : `${STAGE_LABEL[d.stage]}に成長！`, 'grow');
+  say(hatch ? 'む…龍が生まれただと？' : (d.stage === 6 ? 'ば、伝説の龍…！？' : 'なに…育っている…！'), 1500);
+  // 図鑑（育てた龍）：系統ごとの最高段階を記録
+  if(!SAVE.dragons) SAVE.dragons = {};
+  if((SAVE.dragons[d.line] || 0) < d.stage){ SAVE.dragons[d.line] = d.stage; G.dragonNew = true; writeSave(); }
+  dragonAchv();
+  await sleep(900);
+}
+
+/* ================= プレイヤーのレベル・実績・宝箱（アクションRPG風の達成感、2026-10-03） ================= */
+// 経験値は挑戦のたびにたまる（正解・与えたダメージ・撃退）。レベルが上がると称号が変わり、最大HPが3ずつ増える（最大＋60）。
+// 称号は「魔術使い」の道（2026-10-03、教員の指示）
+const TITLES = [[1,'見習い魔術使い'],[3,'駆け出しの魔術使い'],[5,'技法の魔術使い'],[8,'一人前の魔術使い'],[12,'上級魔術使い'],[16,'熟練の魔術使い'],[20,'言霊の大魔術使い'],[28,'伝説の魔術使い']];
+function expNeed(lv){ return 80 + lv * 40; }
+function levelInfo(exp){ let lv = 1, e = exp; while(e >= expNeed(lv)){ e -= expNeed(lv); lv++; } return { lv, cur:e, need:expNeed(lv) }; }
+function titleOf(lv){ let t = TITLES[0][1]; TITLES.forEach(([l, n]) => { if(lv >= l) t = n; }); return t; }
+function playerMaxHP(lv){ return 100 + Math.min(60, (lv - 1) * 3); }
+
+const ACHV = [
+  { id:'first_win', name:'はじめての撃退',     desc:'闇の大魔術師を退けた' },
+  { id:'nomiss',    name:'完全なる詠唱',       desc:'1回もまちがえずに撃退した' },
+  { id:'nohint',    name:'しおりいらず',       desc:'しおりを使わずに撃退した' },
+  { id:'combo10',   name:'十連鎖',             desc:'1回の挑戦で10回続けて正解した' },
+  { id:'crit5',     name:'速詠の名手',         desc:'1回の挑戦で速詠返しを5回決めた' },
+  { id:'release3',  name:'魔術書の申し子',     desc:'1回の挑戦で魔術書解放を3回放った' },
+  { id:'reclaim3',  name:'取り返す者',         desc:'1回の挑戦で奪還を3回決めた' },
+  { id:'rare',      name:'まれなる出会い',     desc:'レア龍が生まれた' },
+  { id:'legend',    name:'伝説を育てし者',     desc:'ことのはを伝説級まで育てた' },
+  { id:'dragons',   name:'龍の友',             desc:'13系統の龍すべてと出会った' },
+  { id:'pages',     name:'十二の頁',           desc:'魔術書の12頁すべてで★1以上' },
+  { id:'spells',    name:'呪文の書庫',         desc:'呪文をすべて記録した' },
+  { id:'lv10',      name:'魔術使いの道',       desc:'レベル10になった' },
+  { id:'shiny',     name:'色違いを退けし者',   desc:'色違いの闇の大魔術師を倒した' },
+  { id:'power30',   name:'鍛えられし魔術',     desc:'魔術ステータスの合計がLv.100になった' },
+];
+function unlock(id){
+  if(!SAVE.achv) SAVE.achv = {};
+  if(SAVE.achv[id]) return;
+  SAVE.achv[id] = Date.now(); writeSave();
+  const a = ACHV.find(x => x.id === id);
+  if(a){ toast(`🏅 実績「${a.name}」`, a.desc); beep('win'); }
+}
+let toastQ = [], toastBusy = false;
+function toast(text, sub){ toastQ.push([text, sub]); if(!toastBusy) nextToast(); }
+function nextToast(){
+  const t = toastQ.shift();
+  if(!t){ toastBusy = false; return; }
+  toastBusy = true;
+  const d = document.createElement('div'); d.className = 'toast';
+  d.innerHTML = esc(t[0]) + (t[1] ? `<small>${esc(t[1])}</small>` : '');
+  document.body.appendChild(d);
+  setTimeout(() => d.classList.add('out'), 2200);
+  setTimeout(() => { d.remove(); nextToast(); }, 2600);
+}
+
+// 魔術ステータス（2026-10-03、教員の指示：「漢字Questのように少しずつキャラそのものを強化していく方式に。ただし今のように
+// 3つに1つをランダムで強化。強化がうまくいくと色違いを倒せるように」。名前は知識ドリル全体の「ことのは」のステータスと
+// 混同しないよう「魔術ステータス」。どれもLv.100まで上げられ、やりこむほど少しずつ強くなる）。
+// 章を突破するたびに、7つの能力のうち3つが（中身を見せずに）候補に出て、1つを選ぶ。上がった能力はずっと残る（SAVE.power）。
+// 1回の強化は＋3、まれに＋6（★レア、20%）・＋10（★★超レア、5%）。Lv.100に届いた能力は候補に出ない。
+// 伸び方はシミュレーションで調整：毎回うまく選ぶと、色違いへの勝率は正答率90%の生徒で10回クリア4%→20回28%→30回79%→40回99%。
+const POWER_MAX = 100;
+const pct = v => String(Math.round(v * 10) / 10); // 7.5→"7.5"、6→"6"
+const POWERS = [
+  { id:'hp',    icon:'❤️', name:'体力',   eff:n => `最大HP ＋${n * 2}` },
+  { id:'atk',   icon:'⚔️', name:'攻撃',   eff:n => `反撃のダメージ ＋${pct(n * 1.2)}%` },
+  { id:'def',   icon:'🛡️', name:'守り',   eff:n => `受けるダメージ −${n * 5}（1回のダメージの75%まで）` },
+  { id:'spd',   icon:'💨', name:'素早さ', eff:n => `魔法の玉が届くまでの時間 ＋${pct(n * .6)}%` },
+  { id:'luck',  icon:'🍀', name:'運',     eff:n => `${pct(n * .3)}%の確率で魔法をかわす` },
+  { id:'magic', icon:'✨', name:'魔力',   eff:n => `魔術書解放 ＋${n}%${Math.floor(n / 25) ? `・ゲージが最初から${Math.floor(n / 25)}` : ''}` },
+  { id:'wis',   icon:'🔖', name:'知恵',   eff:n => Math.floor(n / 20) ? `最初のしおり ＋${Math.floor(n / 20)}枚${n < 100 && n % 20 ? `（あとLv.${20 - n % 20}でもう1枚）` : ''}` : `Lv.20ごとに最初のしおり＋1枚（あとLv.${20 - n}）` },
+].map(x => Object.assign(x, { max:POWER_MAX }));
+const POWER = Object.fromEntries(POWERS.map(x => [x.id, x]));
+function pw(id){ return Math.min(POWER_MAX, (SAVE.power && SAVE.power[id]) || 0); }
+const PW = {
+  hpPlus:  () => pw('hp') * 2,
+  atkMult: () => 1 + pw('atk') * .012,
+  // 守り：受けるダメージから「Lv×5」を引く（ただし1回のダメージの75%まで）。2026-10-04、教員の指示：
+  // 「闇の魔術師の強い一撃は、守りLv.10くらいで防げるように」→守りLv.10で−50（魔術師のまちがい140が90に）
+  reduce:  raw => Math.max(1, Math.round(raw - Math.min(raw * .75, pw('def') * 5))),
+  spdMult: () => 1 + pw('spd') * .006,
+  dodge:   () => pw('luck') * .003,
+  relMult: () => 1 + pw('magic') * .01,
+  gauge0:  () => Math.floor(pw('magic') / 25),
+  hints0:  () => 3 + Math.floor(pw('wis') / 20),
+};
+function rollPowerChoices(){
+  const pool = shuffle(POWERS.filter(x => pw(x.id) < x.max)).slice(0, 3);
+  return pool.map(x => {
+    const r = Math.random();
+    const tier = r < .05 ? 3 : r < .25 ? 2 : 1;
+    const amt = Math.min(x.max - pw(x.id), [0, 3, 6, 10][tier]);
+    return { id:x.id, amt, tier };
+  });
+}
+function showChest(){
+  const picks = rollPowerChoices();
+  let chosen = false;
+  // ＋3＝ふつう、＋6＝★レア、＋10＝★★超レア（Lv.100の手前で上がり幅が切りつめられたときも、引いた等級のまま表示する）
+  const tier = r => r.tier || 1;
+  const rare = t => t >= 3 ? '<span class="cr r3">★★超レア</span>' : t === 2 ? '<span class="cr r2">★レア</span>' : '';
+  openOv(`<h2>🏆 ${esc(G.phases[G.phase].foe)}を倒した！</h2>
+    <p>${picks.length ? '強化の宝珠が現れた。中身は開けるまでわからない…（強化はずっと残る）<br>または、いやしの泉でHPを全回復することもできる。1つだけ選ぼう！' : '魔術の力は、すべて限界まで高まっている！ いやしの泉でHPを回復しよう。'}</p>
+    <div class="chests four">${picks.map((r, i) => `<button class="chest pchoice hidden" data-i="${i}"><span class="ci">🔮</span><span class="cn">？</span><span class="cd"></span></button>`).join('')}
+      <button class="chest healchoice" id="healChoice"><span class="ci">💖</span><span class="cn">いやしの泉</span><span class="cd">HPを全回復<br>（いま ${G.pHP} / ${G.pMax}）</span></button></div>
+    <div class="btnrow"><button class="btn" id="ovGo" style="visibility:hidden">次の相手へ</button></div>`);
+  const boxes = [...$('ovBox').querySelectorAll('.chest.pchoice')];
+  const healBtn = $('healChoice');
+  // 4つ目（固定）：HP全回復。選ぶと強化はなし。見送った宝珠の中身も明かす
+  healBtn.onclick = () => {
+    if(chosen) return;
+    chosen = true;
+    const gain = G.pMax - G.pHP;
+    G.pHP = G.pMax;
+    boxes.forEach((x, i) => {
+      const rr = picks[i], xx = POWER[rr.id];
+      x.classList.remove('hidden');
+      if(tier(rr) >= 2) x.classList.add('rare' + tier(rr));
+      x.innerHTML = `<span class="ci">${xx.icon}</span><span class="cn">${xx.name} ＋${rr.amt}</span>${rare(tier(rr))}<span class="cd">${esc(xx.eff(Math.min(xx.max, pw(rr.id) + rr.amt)))}</span>`;
+      x.classList.add('other');
+    });
+    healBtn.classList.add('open');
+    healBtn.querySelector('.cd').innerHTML = `HPが <b>${G.pMax}</b> まで回復した！`;
+    const c = center(healBtn); burst(c.x, c.y, '#ff8fb0', true); screenFlash('#ffd0e0', 350); beep('win');
+    if(gain > 0) meFloat(`HP +${gain}`, 'grow');
+    updateHUD();
+    $('ovGo').style.visibility = '';
+  };
+  boxes.forEach(b => b.onclick = () => {
+    if(chosen) return;
+    chosen = true;
+    healBtn.classList.add('other');
+    const r = picks[+b.dataset.i];
+    const now = pw(r.id);
+    applyPower(r.id, r.amt);
+    // 3つとも中身を見せる（選ばなかったものはうすく）
+    boxes.forEach((x, i) => {
+      const rr = picks[i], xx = POWER[rr.id], base = x === b ? now : pw(rr.id);
+      x.classList.remove('hidden');
+      if(tier(rr) >= 2) x.classList.add('rare' + tier(rr));
+      x.innerHTML = `<span class="ci">${xx.icon}</span><span class="cn">${xx.name} ＋${rr.amt}</span>${rare(tier(rr))}
+        <span class="cd">${x === b ? `Lv.${now} → <b>${pw(rr.id)}</b><br>${esc(xx.eff(pw(rr.id)))}` : esc(xx.eff(Math.min(xx.max, base + rr.amt)))}</span>`;
+      x.classList.add(x === b ? 'open' : 'other');
+    });
+    const c = center(b);
+    if(tier(r) >= 3){ screenFlash('#ffe9a0', 600); burst(c.x, c.y, '#ff5a7a', true); setTimeout(() => burst(c.x, c.y, '#ffd86b', true), 180); }
+    else if(tier(r) === 2){ screenFlash('#a8c4ff', 350); burst(c.x, c.y, '#7aa0ff', true); }
+    else burst(c.x, c.y, '#ffd86b', true);
+    beep('release');
+    updateHUD();
+    $('ovGo').style.visibility = '';
+  });
+  $('ovGo').onclick = () => { if(!chosen) return; closeOv(); showPhaseIntro(G.phase + 1); };
+  if(G.phases[G.phase + 1] && G.phases[G.phase + 1].shiny) $('ovGo').textContent = '色違いに挑む';
+}
+// 強化を保存し、今の挑戦にもすぐ反映する
+function applyPower(id, amt){
+  if(!SAVE.power) SAVE.power = {};
+  const before = pw(id);
+  SAVE.power[id] = Math.min(POWER[id].max, before + amt);
+  const add = SAVE.power[id] - before;
+  writeSave();
+  if(id === 'hp'){ G.pMax += add * 2; G.pHP += add * 2; meFloat(`最大HP +${add * 2}`, 'grow'); }
+  if(id === 'magic'){ G.gauge = Math.min(GAUGE_MAX, G.gauge + Math.floor(SAVE.power[id] / 25) - Math.floor(before / 25)); }
+  if(id === 'wis'){ G.hints += Math.floor(SAVE.power[id] / 20) - Math.floor(before / 20); }
+  if(Object.values(SAVE.power).reduce((a, b) => a + b, 0) >= 100) unlock('power30');
+}
+// ことのはの今のステータス（タイトル画面）：能力ごとにバー（今のレベル／上限）と効果
+const POWER_COLOR = { hp:'#ff6b8a', atk:'#ff9b3d', def:'#5a8cff', spd:'#7ee8fa', luck:'#6bffb0', magic:'#ffd86b', wis:'#d08cff' };
+function statusPanelHTML(lv){
+  const maxHP = playerMaxHP(lv) + PW.hpPlus();
+  return `<div class="spanel"><div class="shead">🔮 魔術ステータス<span>最大HP <b>${maxHP}</b></span></div>`
+    + POWERS.map(x => { const n = pw(x.id);
+      return `<div class="srow"><span class="sn">${x.icon} ${x.name}</span>
+        <span class="sbar"><i style="width:${n / x.max * 100}%;background:${POWER_COLOR[x.id]}"></i></span>
+        <span class="sv">Lv.${n}${n >= x.max ? '<b> MAX</b>' : ''}</span>
+        <span class="se">${n ? esc(x.eff(n)) : '―'}</span></div>`; }).join('')
+    + `</div>`;
+}
+function powerSummaryHTML(){
+  return POWERS.map(x => `<div class="${pw(x.id) ? '' : 'locked'}"><b>${x.icon} ${x.name} Lv.${pw(x.id)}${pw(x.id) >= x.max ? '（MAX）' : ` / ${x.max}`}</b>${pw(x.id) ? esc(x.eff(pw(x.id))) : 'まだ強化していない'}</div>`).join('');
+}
+function dragonAchv(){
+  const d = G.dragon;
+  if(d.stage >= 1 && DRAGON[d.line].rare) unlock('rare');
+  if(d.stage >= 6) unlock('legend');
+  if(Object.keys(SAVE.dragons || {}).length >= DRAGON_LINES.length) unlock('dragons');
+}
+
+/* 本体への書き置き：正解1問ごとに、本体の「表現技法」(hyougen)のジャンルレベルを＋1（2026-10-03、教員の指示）。
+   九尾・炎狼ランと同じキー（kokugo_app.htmlのmgApplyPendingLevelUps）に、答えるたびに書き足す。本体の経験値は
+   ジャンルレベルから計算されるので、レベルが上がればそのぶん経験値も増える。本体のセーブには直接触れない。
+   まちがえたときも＋0で書き、答えた日付（_played）を残す＝本体のデイリーログイン報酬の成立に使う（2026-10-04〜）。 */
+const MG_PENDING_LVUP_LSKEY = 'kokugo_minigame_pending_lvups_v1';
+function mgAddGenreLevel(n){
+  try{
+    let o = null;
+    try{ o = JSON.parse(localStorage.getItem(MG_PENDING_LVUP_LSKEY)); }catch(e){}
+    if(!o || typeof o !== 'object') o = {};
+    o.hyougen = (Number(o.hyougen) || 0) + n;
+    // 答えた日付（本体はこれが今日なら、デイリーログイン報酬を成立させる）
+    const d = new Date();
+    o._played = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    // ほかのミニゲームと共通の「今日答えた」印（本体はこれでデイリーログイン報酬を成立させる）
+    localStorage.setItem('kokugo_mg_played_v1', o._played);
+    localStorage.setItem(MG_PENDING_LVUP_LSKEY, JSON.stringify(o));
+  }catch(e){}
+}
+
+/* 経験値は攻撃1回ごとに少しずつ（2026-10-03、教員の指示）。削った魔術師のHPの0.1倍（色違いへの攻撃は2倍）。
+   戦闘中にレベルが上がることもあり、上がった瞬間に最大HPも増える。挑戦の最後にまとめてもらう分（勝ち・ランクのボーナス）はない。
+   シミュレーションの目安：正答率90%の生徒は、Lv.5が9回目ごろ、Lv.19が30回目ごろ、Lv.28（伝説級の解放）が44回目ごろ。 */
+const EXP_PER_HP = 0.12;
+function gainExp(n){
+  const before = levelInfo(SAVE.exp || 0).lv;
+  SAVE.exp = (SAVE.exp || 0) + n; G.expGained += n;
+  writeSave();
+  meFloat(`+${n} EXP`, 'exp');
+  const after = levelInfo(SAVE.exp).lv;
+  if(after > before) onLevelUp(before, after);
+  updateHUD();
+}
+function onLevelUp(before, after){
+  const hpUp = playerMaxHP(after) - playerMaxHP(before);
+  G.pMax += hpUp; G.pHP += hpUp;
+  G.lvUps += after - before;
+  screenFlash('#ffe9a0', 400); beep('release');
+  const c = meCenter(); burst(c.x, c.y, '#ffd86b', true);
+  setTimeout(() => meFloat('LEVEL UP!', 'grow'), 250);
+  const newTitle = titleOf(after) !== titleOf(before) ? `　称号「${titleOf(after)}」` : '';
+  const capUp = dragonCapFor(after) > dragonCapFor(before) ? `　🐉${STAGE_LABEL[dragonCapFor(after)]}まで育つ` : '';
+  toast(`⬆ Lv.${after}${newTitle}`, `${hpUp > 0 ? `最大HP＋${hpUp}` : ''}${capUp}`);
+  if(after >= 10) unlock('lv10');
+}
+
+// 正解していても受けるダメージ（余波・闇の追撃）。守りで軽くなり、運でかわせる
+const SPLASH_RATE = 0.3;
+function takeChip(raw, label){
+  if(Math.random() < PW.dodge()){ meFloat('🍀 ひらりとかわした！', 'grow'); return 0; }
+  const d = PW.reduce(raw);
+  G.pHP = Math.max(0, G.pHP - d);
+  const me = $('me'); me.classList.remove('hurt'); void me.offsetWidth; me.classList.add('hurt');
+  setTimeout(() => me.classList.remove('hurt'), 500);
+  meFloat(`-${d} ${label}`, 'ouch');
+  updateHUD();
+  return d;
+}
+function darkBolt(from, to, ms){
+  const b = document.createElement('div'); b.className = 'bolt';
+  b.textContent = '闇';
+  b.style.background = 'radial-gradient(circle at 40% 35%, #b88cff 0%, #3a0a6a 50%, #0a0014 100%)';
+  b.style.boxShadow = '0 0 18px 6px rgba(120,30,200,.8), 0 0 40px 12px rgba(40,0,60,.7)';
+  $('fx').appendChild(b);
+  const tr = setInterval(() => {
+    const r = b.getBoundingClientRect();
+    const d = document.createElement('div'); d.className = 'trail';
+    d.style.background = 'rgba(80,0,120,.6)'; d.style.left = (r.left + r.width / 2) + 'px'; d.style.top = (r.top + r.height / 2) + 'px';
+    $('fx').appendChild(d); setTimeout(() => d.remove(), 460);
+  }, 30);
+  b.animate([{ transform:`translate(${from.x}px,${from.y}px) scale(.6)` }, { transform:`translate(${to.x}px,${to.y}px) scale(1.2)` }],
+            { duration:ms, easing:'ease-in', fill:'forwards' });
+  return sleep(ms).then(() => { clearInterval(tr); b.remove(); });
+}
+// 闇の追撃：chaseEvery回の詠唱ごとに、答えとは関係なく飛んでくる
+async function darkChase(ph){
+  setPose('attack', 800); beep('cast');
+  say(G.shiny ? '闇の深淵に沈め！' : '闇よ、穿て！', 1300);
+  const w = $('wSprite').getBoundingClientRect();
+  const from = { x:w.left + w.width * .3, y:w.top + w.height * .4 };
+  await sleep(250);
+  const to = meCenter();
+  await darkBolt(from, to, 420);
+  burst(to.x, to.y, '#8a2be2', true);
+  const d = takeChip(ph.chase, '追撃');
+  if(d){ screenFlash('#3a0060', 300); beep('bad'); document.body.classList.add('shake'); setTimeout(() => document.body.classList.remove('shake'), 420); }
+  await sleep(700);
+}
+
+/* 色違いの闇の魔術師の登場演出（2026-10-03、教員の指示：「もっと派手に」）。約6秒。
+   暗転→地鳴り→落雷3回→魔法陣が広がり、金と水色の光の粒が集まる→闇の魔術師が光に包まれて消え、色違いが巨大化して現れる
+   →金の大閃光→「色違いの闇の魔術師」の大きな文字。 */
+async function shinyEntrance(){
+  stopIdle();
+  const st = $('stage'), img = $('wSprite');
+  const wc = () => { const r = img.getBoundingClientRect(); return { x:r.left + r.width / 2, y:r.top + r.height / 2 }; };
+  // 暗転
+  const dark = document.createElement('div'); dark.className = 'shiny-dark'; document.body.appendChild(dark);
+  await sleep(50); dark.classList.add('on');
+  // 地鳴り
+  document.body.classList.add('quake'); beep('rumble');
+  await sleep(900);
+  // 落雷3回
+  for(let i = 0; i < 3; i++){
+    const bolt = document.createElement('div'); bolt.className = 'lightning';
+    bolt.style.left = (wc().x + (i - 1) * 60) + 'px';
+    document.body.appendChild(bolt); setTimeout(() => bolt.remove(), 380);
+    screenFlash('#ffffff', 160); beep('thunder');
+    await sleep(320);
+  }
+  // 魔法陣と光の粒
+  const c = wc();
+  const circle = document.createElement('div'); circle.className = 'magic-circle';
+  circle.style.left = c.x + 'px'; circle.style.top = (img.getBoundingClientRect().bottom - 10) + 'px';
+  circle.innerHTML = '<i></i><i></i><i></i>';
+  document.body.appendChild(circle);
+  for(let i = 0; i < 36; i++){
+    const sp = document.createElement('div'); sp.className = 'spark gather';
+    const ang = Math.random() * Math.PI * 2, dist = 220 + Math.random() * 260;
+    sp.style.left = c.x + 'px'; sp.style.top = c.y + 'px';
+    sp.style.background = i % 2 ? '#ffd86b' : '#7ee8fa'; sp.style.boxShadow = `0 0 10px ${i % 2 ? '#ffd86b' : '#7ee8fa'}`;
+    document.body.appendChild(sp);
+    sp.animate([{ transform:`translate(${Math.cos(ang) * dist}px,${Math.sin(ang) * dist}px) scale(1.4)`, opacity:0 },
+                { opacity:1, offset:.3 },
+                { transform:'translate(0,0) scale(.3)', opacity:1 }],
+               { duration:900 + Math.random() * 500, easing:'ease-in', fill:'forwards' });
+    setTimeout(() => sp.remove(), 1500);
+  }
+  beep('charge');
+  // 闇の魔術師が光に包まれて消える
+  st.classList.add('vanish');
+  await sleep(1400);
+  // 色違いに入れかわる
+  G.shiny = true; G.phases.push(SHINY_PHASE);
+  st.classList.remove('vanish', 'boss1', 'boss2', 'boss3', 'rage'); st.classList.add('shiny', 'appear-big');
+  img.style.height = '100%';
+  setPose('pose1');
+  screenFlash('#fff2b0', 700); beep('release');
+  const c2 = wc();
+  burst(c2.x, c2.y, '#ffd86b', true); setTimeout(() => burst(c2.x, c2.y, '#7ee8fa', true), 150); setTimeout(() => burst(c2.x, c2.y, '#ffffff', true), 300);
+  document.body.classList.remove('quake');
+  setTimeout(() => st.classList.remove('appear-big'), 1600);
+  // 大きな文字
+  const ban = document.createElement('div'); ban.className = 'shiny-banner';
+  ban.innerHTML = '<small>― 真の姿 ―</small>✨ 色違いの闇の大魔術師 ✨';
+  document.body.appendChild(ban);
+  dark.classList.remove('on');
+  await sleep(600);
+  startIdle();
+  say('…………フフフ。これが我が真の姿だ', 2400);
+  await sleep(2000);
+  ban.classList.add('out'); circle.classList.add('out');
+  setTimeout(() => { ban.remove(); circle.remove(); dark.remove(); }, 600);
+  await sleep(400);
+}
+
+/* 魔術書解放の演出（2026-10-04、教員の指示：「ことのはが、魔力を解放する…」として、その龍の必殺技の名前で派手に攻撃）。
+   技名は本体（kokugo_app.htmlのKOTONOHA_LINE_MOVES）と同じ。少年体〜伝説級の5段階で名前が変わる。幼体は「○○の息吹」。
+   始原龍は発動のたびにほかの系統の力を借りる（本体の「六道の力」と同じ考え方）。 */
+const LINE_MOVES = {
+  tensho:['疾風の一閃','旋風の斬撃','暴風の剛刃','神速の破空','天翔絶刃'],
+  soukai:['癒しの波動','静水の癒し波','深海の慈雨','蒼海の生命波','蒼海絶界・癒しの奔流'],
+  engoku:['灼熱の連撃','業火の連撃','猛火の乱舞','紅蓮の乱撃','焔獄絶炎・万撃'],
+  suishin:['眠りの胞子','深眠の胞子','幻惑の眠華','悠久の眠り歌','翠森絶眠・永久の子守唄'],
+  seiki:['光の高揚','光輝の高揚','聖光の加護','極光の祝福','聖輝絶光・天啓'],
+  meien:['深淵の守り','冥府の守り','幽玄の盾','常闇の鉄壁','冥淵絶闇・不滅の盾'],
+  kodai:['太古の目覚め','古代の咆哮','悠久の顕現','太古龍の覇道','古代龍絶技・輪廻転生'],
+  mirai:['未来への胎動','近未来の加速','次元を超える力','未来龍の覚醒','未来龍絶技・超進化'],
+  rai:['感電の一撃','雷光の一撃','迅雷の連鎖','紫電の裁き','雷龍絶技・感電'],
+  hyou:['凍結の一撃','氷結の一撃','氷牙の一閃','絶対零度','氷龍絶技・凍結'],
+  kiri:['幻惑の霧','深霧の帳','幻夢の霧衣','千里霧中','霧龍絶技・幻惑'],
+  oto:['共鳴の音色','共鳴の旋律','共鳴の協奏','共鳴の交響','音龍絶技・共鳴'],
+};
+const LINE_FX = {
+  tensho:{ c1:'#9ff5d8', c2:'#1f9d7f', em:'🌪️' }, engoku:{ c1:'#ffb347', c2:'#d7261e', em:'🔥' },
+  soukai:{ c1:'#8fd3ff', c2:'#1f5fd1', em:'💧' },  suishin:{ c1:'#b6f58a', c2:'#2f8a2f', em:'🍃' },
+  seiki:{ c1:'#fff6b0', c2:'#e0a800', em:'✨' },   meien:{ c1:'#c59bff', c2:'#3b0a6b', em:'🌑' },
+  kodai:{ c1:'#f0d39a', c2:'#8a5a1e', em:'🪨' },   mirai:{ c1:'#9ff0ff', c2:'#6a3bd1', em:'💠' },
+  rai:{ c1:'#fff27a', c2:'#c9a400', em:'⚡' },     hyou:{ c1:'#e2f7ff', c2:'#5ab4e0', em:'❄️' },
+  kiri:{ c1:'#f2f4ff', c2:'#8a93b8', em:'🌫️' },   oto:{ c1:'#ffc2e8', c2:'#d1479a', em:'🎵' },
+  shigen:{ c1:'#ffffff', c2:'#b06bff', em:'🌈' },
+};
+function releaseMove(){
+  const d = G.dragon;
+  let line = d.line, prefix = '';
+  if(line === 'shigen'){ const ls = Object.keys(LINE_MOVES); line = ls[Math.floor(Math.random() * ls.length)]; prefix = '六道の力 ── '; }
+  const name = d.stage >= 2 ? LINE_MOVES[line][Math.min(4, d.stage - 2)] : `${DRAGON[d.line].name}の息吹`;
+  return { name:prefix + name, fx:LINE_FX[line] || LINE_FX.shigen, final:d.stage >= 6 };
+}
+// 1）画面を暗くして、ことのはの姿と技名が横一文字に入る「カットイン」
+const RELEASE_GROWTH = 1.2;
+async function releaseCutin(mv){
+  const dark = document.createElement('div'); dark.className = 'shiny-dark'; document.body.appendChild(dark);
+  await sleep(30); dark.classList.add('on');
+  const src = dragonSrc(G.dragon.line, G.dragon.stage);
+  const ci = document.createElement('div'); ci.className = 'cutin' + (mv.final ? ' final' : '');
+  ci.style.setProperty('--c1', mv.fx.c1); ci.style.setProperty('--c2', mv.fx.c2);
+  ci.innerHTML = `<div class="band"></div>${src ? `<img src="${src}" alt="">` : '<span class="ci-emoji">🐉</span>'}
+    <div class="ci-text"><small>ことのはが、魔力を解放する…${mv.count > 1 ? `<span class="ci-count">（${mv.count}回目　威力×${(Math.round(mv.stack * 100) / 100)}）</span>` : ''}</small><b>${esc(mv.name)}</b></div>`;
+  document.body.appendChild(ci);
+  beep('charge');
+  await sleep(700);
+  ci.classList.add('name'); beep('release');
+  await sleep(1100);
+  ci.classList.add('out'); dark.classList.remove('on');
+  setTimeout(() => { ci.remove(); dark.remove(); }, 450);
+  await sleep(250);
+}
+// 2）系統の色の光弾と、その系統のしるし（🔥❄️⚡…）が嵐のように魔術師へ降りそそぐ
+function themedBolt(from, to, fx, ms, size){
+  const b = document.createElement('div'); b.className = 'bolt big';
+  if(size){ b.style.width = b.style.height = size + 'px'; b.style.margin = `${-size / 2}px 0 0 ${-size / 2}px`; b.style.fontSize = (size * .5) + 'px'; }
+  b.textContent = fx.em;
+  b.style.background = `radial-gradient(circle at 40% 35%, #fff 0%, ${fx.c1} 40%, ${fx.c2} 100%)`;
+  b.style.boxShadow = `0 0 24px 10px ${fx.c1}, 0 0 60px 20px ${fx.c2}aa`;
+  $('fx').appendChild(b);
+  b.animate([{ transform:`translate(${from.x}px,${from.y}px) scale(.5)` }, { transform:`translate(${to.x}px,${to.y}px) scale(1.1)` }],
+            { duration:ms, easing:'cubic-bezier(.4,0,.9,.6)', fill:'forwards' });
+  return sleep(ms).then(() => b.remove());
+}
+async function releaseVolley(from, to, fx, final){
+  const n = final ? 12 : 8;
+  const shots = [];
+  for(let i = 0; i < n; i++){
+    const f = { x:from.x + (Math.random() - .5) * 60, y:from.y + (Math.random() - .5) * 80 };
+    const t = { x:to.x + (Math.random() - .5) * 70, y:to.y + (Math.random() - .5) * 90 };
+    shots.push(sleep(i * 70).then(() => { beep('shot'); return themedBolt(f, t, fx, 260, 30 + Math.random() * 26); })
+      .then(() => { burst(t.x, t.y, fx.c1, false); }));
+  }
+  await Promise.all(shots);
+  // とどめの大きな一発
+  beep('clash');
+  await themedBolt(from, to, fx, 300, final ? 150 : 110);
+  screenFlash(fx.c1, 500);
+  burst(to.x, to.y, fx.c1, true); setTimeout(() => burst(to.x, to.y, fx.c2, true), 120); setTimeout(() => burst(to.x, to.y, '#ffffff', true), 240);
+}
+
+/* 知識ドリルの「表現技法」のレベルをバトル中に見せる（2026-10-04、教員の指示：「ジャンルレベルが上がった場合も必ず
+   リアルタイムで反映」）。本体のセーブ（読むだけ）のレベル＋まだ本体に取りこまれていない書き置きの分を、今のレベルとして出し、
+   正解するたびにその場で＋1する（書き置きは正解のたびに書いているので、本体を開けばこの数字のまま反映される）。 */
+const MAIN_STORE_KEY = 'kokugoTrainingStats_v5';
+function currentGenreLevel(){
+  let lv = 1, pend = 0;
+  try{ const st = JSON.parse(localStorage.getItem(MAIN_STORE_KEY)); if(st && st.lv && st.lv.hyougen) lv = st.lv.hyougen; }catch(e){}
+  try{ const o = JSON.parse(localStorage.getItem(MG_PENDING_LVUP_LSKEY)); if(o && o.hyougen) pend = Number(o.hyougen) || 0; }catch(e){}
+  return lv + pend;
+}
+function renderGenreLv(bump){
+  const el = $('genreLv'); if(!el) return;
+  el.innerHTML = `📈 表現技法 <b>Lv.${currentGenreLevel()}</b>`;
+  if(bump){ el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+}
+
+/* ================= ゲーム本体 ================= */
+let G = null;
+function newRun(){
+  const mhp = playerMaxHP(levelInfo(SAVE.exp || 0).lv) + PW.hpPlus();
+  G = { expStart:SAVE.exp || 0, expGained:0, lvUps:0, phase:0, phases:PHASES.slice(), shiny:false, shinyBeaten:false, shinyHealed:false, cards:[], pHP:mhp, pMax:mhp, shield:0, atkBuff:0, rage:false, hintsUsed:0, wHP:0, wMax:0, combo:0, maxCombo:0, used:new Set(),
+        stolen:new Map(), hints:PW.hints0(), dmgTotal:0, correct:0, wrong:0, reclaim:0, crit:0, release:0, newGot:0, gauge:PW.gauge0(),
+        spellNo:0, cur:null, hand:[], capNoticed:false, dragon:{ line:pickDragonLine(), stage:0 }, dragonNew:false, elapsed:0, castDur:10, busy:true, paused:false, lastOkTech:null, over:false, path:null };
+  SAVE.plays++; writeSave();
+}
+
+function startRun(){
+  newRun();
+  showScreen('battle');
+  $('stage').classList.remove('shiny', 'rage');
+  setPose('pose1'); startIdle(); renderMe(); renderGenreLv(false);
+  updateHUD(); clearScroll();
+  showPhaseIntro(0);
+}
+
+function showPhaseIntro(p){
+  G.busy = true; hideOrb();
+  const ph = G.phases[p];
+  const cards = ph.add.map(t => `<div>${sealHTML(t)}<span><b>${t}</b>　<span class="muted">${esc(CARD[t].def)}</span></span></div>`).join('');
+  openOv(`<h2>${ph.shiny ? '✨ ' : '⚔ '}${esc(ph.foe)}が勝負を仕掛けてきた！</h2>
+    <p class="say">${esc(ph.foe)}「${esc(ph.intro)}」</p>
+    <p>${esc(ph.note)}</p>
+    ${cards ? `<p class="muted">${p === 0 ? '開いた頁' : '新しく開いた頁'}</p><div class="newcards">${cards}</div>` : ''}
+    <div class="btnrow"><button class="btn" id="ovGo">詠唱を受けて立つ</button></div>`);
+  $('ovGo').onclick = () => { closeOv(); startPhase(p); };
+}
+
+function startPhase(p){
+  G.phase = p;
+  const ph = G.phases[p];
+  G.cards = G.cards.concat(ph.add);
+  G.wMax = G.wHP = ph.hp;
+  G.foeRelease = 0; // 魔術書解放の重ねがけは相手ごとにリセット
+  G.rage = false;
+  // 相手ごとの見た目（大きさ・光・オーラ）に入れかえて、登場させる
+  const st = $('stage');
+  st.classList.remove('rage', 'leave', 'boss1', 'boss2', 'boss3');
+  if(ph.look !== 'shiny') st.classList.remove('shiny');
+  st.classList.add(ph.look);
+  $('wSprite').style.height = Math.round((ph.scale || 1) * 100) + '%';
+  if(!ph.shiny){ st.classList.remove('enter'); void st.offsetWidth; st.classList.add('enter'); setTimeout(() => st.classList.remove('enter'), 1000); }
+  setPose('pose1');
+  clearScroll();
+  $('chapterName').textContent = ph.short;
+  say(ph.intro, 2200);
+  updateHUD();
+  setTimeout(nextSpell, 900);
+}
+
+function pickSpell(){
+  const ph = G.phases[G.phase];
+  // 奪われた頁のカウントダウン。0になった技法は必ず次に唱える
+  let target = null;
+  G.stolen.forEach((due, t) => { G.stolen.set(t, due - 1); });
+  G.stolen.forEach((due, t) => { if(!target && due <= 0) target = t; });
+  let twin = false;
+  if(!target && G.lastOkTech && TWINS[G.lastOkTech] && G.cards.includes(TWINS[G.lastOkTech]) && Math.random() < .35){
+    target = TWINS[G.lastOkTech]; twin = true;
+  }
+  const base = s => G.cards.includes(s.ans) && (s.kind === 'spell' || ph.nameAsk);
+  const tries = [
+    s => base(s) && !G.used.has(s.idx) && (s.kind === 'name' || (s.lv >= ph.lv[0] && s.lv <= ph.lv[1])),
+    s => base(s) && !G.used.has(s.idx),
+    s => base(s),
+  ];
+  for(const useTarget of [true, false]){
+    if(useTarget && !target) continue;
+    for(const f of tries){
+      const pool = SPELLS.filter(s => f(s) && (!useTarget || s.ans === target));
+      if(!pool.length) continue;
+      // 名を問う詠唱は出すぎないように重みを下げる。苦手な技法ほど出やすい
+      const q = weightedPick(pool, s => (1 + 3 * errRate(s.ans)) * (s.kind === 'name' ? .35 : 1));
+      return { q, twin: useTarget && twin, forced: useTarget && !twin };
+    }
+  }
+  return { q: SPELLS[0], twin:false, forced:false };
+}
+
+// 手札4枚：正解＋もとの4択の選択肢（開いている頁のもの）＋まぎらわしい対＋開いている頁からランダム。並びは毎回シャッフル
+function buildHand(cur){
+  const ans = cur.ans;
+  let d = shuffle(cur.orig.filter(t => t !== ans && G.cards.includes(t)));
+  const tw = TWINS[ans];
+  if(tw && tw !== ans && G.cards.includes(tw) && !d.includes(tw)) d.unshift(tw);
+  d = d.slice(0, 3);
+  const rest = shuffle(G.cards.filter(t => t !== ans && !d.includes(t)));
+  while(d.length < 3 && rest.length) d.push(rest.shift());
+  return shuffle([ans].concat(d));
+}
+
+function nextSpell(){
+  if(G.over) return;
+  const ph0 = G.phases[G.phase];
+  // 闇の追撃（詠唱がchaseEvery回終わるごと）
+  if(ph0.chaseEvery && G.spellNo > 0 && G.spellNo % ph0.chaseEvery === 0 && G.lastChase !== G.spellNo){
+    G.lastChase = G.spellNo; G.busy = true;
+    darkChase(ph0).then(() => { if(G.pHP <= 0) endRun(G.shiny); else nextSpell(); });
+    return;
+  }
+  const ph = G.phases[G.phase];
+  G.spellNo++;
+  G.usedHintNow = false;
+  $('scroll').classList.remove('veil');
+  let speedMult = 1;
+  const isBarrier = ph.barrierEvery && G.spellNo % ph.barrierEvery === 0 && BARRIERS.length;
+  if(isBarrier){
+    const pool = BARRIERS.filter(b => !G.used.has(b.idx));
+    const b = weightedPick(pool.length ? pool : BARRIERS, x => 1 + (SAVE.barrierGot[x.idx] ? 0 : 1));
+    G.cur = b; G.used.add(b.idx);
+    renderBarrier(b);
+    orbKind = 'barrier';
+    say('結界よ、閉じよ…！', 1500);
+  }else{
+    const r = pickSpell();
+    G.cur = r.q; G.used.add(r.q.idx);
+    G.hand = buildHand(r.q);
+    if(ph.fast && !r.forced && Math.random() < (ph.fastP || .25)){ speedMult = .65; orbKind = 'fast'; }
+    else if(r.forced) orbKind = 'steal';
+    else if(r.twin) orbKind = 'twin';
+    else if(r.q.kind === 'name') orbKind = 'name';
+    else orbKind = 'normal';
+    renderSpell(r.q);
+    if(r.forced) say('この頁の力、使わせてもらうぞ', 1500);
+    else if(r.twin) say('次は見分けられるかな？', 1500);
+  }
+  const len = (G.cur.body || G.cur.q || '').length;
+  G.castDur = (ph.castSec + Math.min(5, len * .05) + (G.cur.kind === 'barrier' ? 6 : 0)) * speedMult * (G.rage ? (ph.rageMult || .85) : 1) * PW.spdMult();
+  // 魔法を放つ
+  setPose('attack', 500); beep('cast');
+  G.path = orbPath();
+  const o = $('orb'); o.className = 'orb v-' + orbKind; o.textContent = ORB_LOOK[orbKind].mark; o.style.display = 'flex';
+  placeOrb(G.path(0), 0);
+  burst(orbPos.x, orbPos.y, ORB_LOOK[orbKind].burst, orbKind === 'barrier');
+  G.elapsed = 0; G.lastFrame = performance.now(); G.ticked = false;
+  G.busy = false;
+  updateHintBtn();
+  requestAnimationFrame(tick);
+}
+
+function tick(now){
+  if(!G || G.over || G.busy) return;
+  const dt = Math.max(0, Math.min(.1, (now - G.lastFrame) / 1000)); G.lastFrame = now;
+  if(!G.paused) G.elapsed += dt;
+  const t = Math.min(1, G.elapsed / G.castDur);
+  if(!G.paused){
+    placeOrb(G.path(t), t);
+    const danger = t > .75;
+    $('orb').classList.toggle('danger', danger);
+    $('me').classList.toggle('danger', danger);
+    if(danger && !G.ticked){ G.ticked = true; beep('tick'); }
+  }
+  if(t >= 1){ answer(null); return; }
+  requestAnimationFrame(tick);
+}
+
+// 問題の前置き（データの1行目）。俳句・短歌の「〜音であるはずのところが、明らかに音数が多くなっている」のように
+// 答え（破調・字余り・字足らず）を言ってしまう前置きは出さず、「次の俳句」「次の短歌」だけにする（2026-10-03 教員の指摘）。
+function safePre(pre){
+  if(!pre) return '';
+  if(/音数|音であるはず/.test(pre)){ const m = pre.match(/次の(俳句|短歌)/); return m ? `次の${m[1]}` : ''; }
+  return pre;
+}
+function clearScroll(){ $('sKind').textContent = ''; $('sPre').textContent = ''; $('sBody').innerHTML = ''; $('hand').innerHTML = ''; }
+
+function renderSpell(s){
+  $('sKind').textContent = s.kind === 'name' ? '❓ 名を問う詠唱 ── この説明の技法の名は？' : '🔮 呪文の詠唱 ── 《　》の技法は？';
+  $('sPre').textContent = safePre(s.pre);
+  $('sBody').innerHTML = markup(s.body);
+  const h = $('hand');
+  h.className = 'hand' + (G.phases[G.phase].hideHint ? ' nohint' : '');
+  h.innerHTML = G.hand.map((t, i) => {
+    const c = CARD[t];
+    return `<button class="card deal" data-t="${t}" style="--c1:${c.c1};--c2:${c.c2};animation-delay:${i * 50}ms">
+      <span class="key">${i + 1}</span><span class="seal">${c.seal}</span><span class="txt"><span class="nm">${t}</span><span class="hn">${esc(c.hint)}</span></span></button>`;
+  }).join('');
+  h.querySelectorAll('.card').forEach(b => b.onclick = () => answer(b.dataset.t, b));
+}
+
+function renderBarrier(b){
+  $('sKind').textContent = '🔒 結界の謎 ── 正しいものを選べ';
+  const lines = b.q.split('\n');
+  $('sPre').textContent = lines.length > 1 ? safePre(lines[0]) : '';
+  $('sBody').innerHTML = markup(lines.length > 1 ? lines.slice(1).join('\n') : b.q);
+  const h = $('hand'); h.className = 'hand';
+  h.innerHTML = shuffle(b.choices.slice()).map((c, i) => `<button class="choice card-like deal" data-t="${esc(c)}"><span class="key">${i + 1}</span>${esc(c)}</button>`).join('');
+  h.querySelectorAll('.choice').forEach(x => x.onclick = () => answer(x.dataset.t, x));
+}
+
+function updateHintBtn(){
+  $('bHint').textContent = `🔖×${G.hints}`;
+  $('bHint').disabled = G.hints <= 0 || G.busy || G.usedHintNow;
+}
+
+// しおり：4枚のうちまちがいを2枚消す
+function useHint(){
+  if(!G || G.busy || G.hints <= 0 || G.usedHintNow) return;
+  G.hints--; G.usedHintNow = true; G.hintsUsed++;
+  const cur = G.cur;
+  const wrongs = shuffle([...$('hand').querySelectorAll('[data-t]')].filter(x => x.dataset.t !== cur.ans)).slice(0, 2);
+  wrongs.forEach(x => x.classList.add('dim'));
+  updateHintBtn();
+}
+
+function answer(t, el){
+  if(!G || G.busy || G.over || G.paused) return;
+  if(el && el.classList.contains('dim')) return;
+  G.busy = true;
+  $('bHint').disabled = true;
+  const cur = G.cur;
+  const ok = t !== null && t === cur.ans;
+  const prog = Math.min(1, G.elapsed / G.castDur);
+  if(ok) onCorrect(cur, el, prog); else onWrong(cur, el, t === null);
+}
+
+async function onCorrect(cur, el, prog){
+  G.correct++; G.combo++; G.maxCombo = Math.max(G.maxCombo, G.combo);
+  mgAddGenreLevel(1);
+  renderGenreLv(true);
+  let dmg = cur.kind === 'barrier' ? 30 : 15;
+  dmg += Math.min(G.combo - 1, 5) * 2;
+  dmg = Math.round(dmg * (1 + G.dragon.stage * DRAGON_ATK_PER_STAGE + G.atkBuff) * PW.atkMult());
+  const phNow = G.phases[G.phase];
+  const tags = [];
+  const crit = prog < .4;
+  const splashRaw = (!crit && prog > .5) ? Math.round((G.phases[G.phase].loss || 25) * SPLASH_RATE * (prog - .5) / .5) : 0;
+  if(crit){ dmg = Math.round(dmg * 1.5); G.crit++; }
+  if(cur.kind !== 'barrier' && G.stolen.has(cur.ans)){
+    dmg *= 2; tags.push('奪還！'); G.stolen.delete(cur.ans); G.reclaim++;
+  }
+  if(cur.kind === 'barrier') tags.unshift('結界破り！');
+  const release = G.gauge >= GAUGE_MAX;
+  // 魔術書解放は、同じ相手との戦いの中で放つたびに威力が1.2倍ずつ重なる。相手が変わるとリセット（2026-10-04、教員の指示）
+  const relStack = release ? Math.pow(RELEASE_GROWTH, G.foeRelease || 0) : 1;
+  if(release){ dmg = Math.round(dmg * 2.5 * PW.relMult() * relStack); G.gauge = 0; G.release++; G.foeRelease = (G.foeRelease || 0) + 1; }
+  else G.gauge = Math.min(GAUGE_MAX, G.gauge + (prog < .4 ? 2 : 1));
+  if(phNow.taken) dmg = Math.max(1, Math.round(dmg * phNow.taken));
+  const expNow = Math.max(1, Math.round(Math.min(dmg, G.wHP) * EXP_PER_HP * (G.shiny ? 2 : 1)));
+  G.wHP = Math.max(0, G.wHP - dmg); G.dmgTotal += dmg;
+  // 記録
+  if(cur.kind === 'barrier'){ SAVE.barrierGot[cur.idx] = true; }
+  else{
+    techStat(cur.ans).c++;
+    if(cur.collect && !SAVE.got[cur.idx]){ SAVE.got[cur.idx] = true; G.newGot++; tags.push('📖記録'); }
+    G.lastOkTech = cur.ans;
+  }
+  writeSave();
+
+  // 演出：カード→玉（打ち消し）→魔術師（命中）
+  const card = cur.kind === 'barrier' ? null : cur.ans;
+  const color = card ? CARD[card].c1 : '#ffd86b';
+  // 反撃の光弾は自分のことのはから撃つ（押したカードは光らせるだけ）
+  const from = meCenter();
+  if(el) el.classList.add(cur.kind === 'barrier' ? 'right' : 'shot');
+  $('me').classList.add('fire'); setTimeout(() => $('me').classList.remove('fire'), 320);
+  const hitAt = { x:orbPos.x, y:orbPos.y };
+  const mv = release ? Object.assign(releaseMove(), { count:G.foeRelease, stack:relStack }) : null;
+  if(release){ G.paused = true; await releaseCutin(mv); G.paused = false; }
+  beep('shot');
+  await fireBolt(from, hitAt, card, release ? 260 : 200, release);
+  hideOrb(); $('me').classList.remove('danger');
+  burst(hitAt.x, hitAt.y, color, release); beep('clash');
+  const wiz = $('wSprite').getBoundingClientRect();
+  const wizPt = { x:wiz.left + wiz.width / 2, y:wiz.top + wiz.height * .45 };
+  if(release){
+    say('な、なんだその光は…！', 1400);
+    const me = $('me'); me.classList.add('fire'); setTimeout(() => me.classList.remove('fire'), 320);
+    await releaseVolley(meCenter(), wizPt, mv.fx, mv.final);
+  }else{
+    await fireBolt(hitAt, wizPt, card, 220, false);
+  }
+  // 命中：一瞬止める（ヒットストップ）→のけぞり・数字
+  $('stage').classList.add('hit'); setPose('defense', 650);
+  burst(wiz.left + wiz.width / 2, wiz.top + wiz.height * .45, color, release);
+  await sleep(release ? 150 : (crit ? 90 : 50));
+  $('stage').classList.remove('hit');
+  const st = $('stage'); st.classList.remove('knock'); void st.offsetWidth; st.classList.add('knock');
+  setTimeout(() => st.classList.remove('knock'), 430);
+  if(release || crit){ document.body.classList.add('shake'); setTimeout(() => document.body.classList.remove('shake'), 420); }
+  beep(release ? 'release' : (crit || tags.length ? 'crit' : 'hit'));
+  floatText('-' + dmg, release ? 'big' : '');
+  // 余波：遅く打ち消すと、近くで爆ぜた魔法の余波を受ける（とどめの一撃のときは受けない）
+  if(splashRaw > 0 && G.wHP > 0) takeChip(splashRaw, '余波');
+  if(crit) floatText('会心！', 'crit');
+  if(release) setTimeout(() => floatText(mv.name + '！', 'small'), 120);
+  if(tags.length) setTimeout(() => floatText(tags.join(' '), 'small'), release ? 400 : 150);
+  if(tags.includes('奪還！')) say('ぐっ…取り返したか！', 1400);
+  setTimeout(() => { if(G && !G.over) gainExp(expNow); }, 200);
+  if([3, 5, 10, 15, 20].includes(G.combo)){
+    const cl = $('comboLabel'); cl.classList.remove('bump'); void cl.offsetWidth; cl.classList.add('bump');
+    screenFlash('#7ee8fa', 220);
+  }
+  // 怒り状態（HPが3割を切ったら、赤いオーラ＋玉が速くなる）
+  if(!G.rage && G.wHP > 0 && G.wHP <= G.wMax * (phNow.rageAt || .3)){
+    G.rage = true; st.classList.add('rage');
+    setTimeout(() => { say(phNow.lines.rage, 1600); screenFlash('#ff0030', 300); }, 300);
+  }
+  if(G.combo >= 10) unlock('combo10');
+  if(G.crit >= 5) unlock('crit5');
+  if(G.release >= 3) unlock('release3');
+  if(G.reclaim >= 3) unlock('reclaim3');
+  updateHUD();
+  await sleep(750);
+  if(G.pHP <= 0){ await sleep(300); endRun(G.shiny); return; }
+  await growCheck();
+  if(phNow.heal && !G.shinyHealed && G.wHP > 0 && G.wHP <= G.wMax * .5){
+    G.shinyHealed = true;
+    const h = Math.round(G.wMax * phNow.heal);
+    G.wHP = Math.min(G.wMax, G.wHP + h);
+    say('闇よ…我が傷を癒やせ！', 1600);
+    const w2 = $('wSprite').getBoundingClientRect();
+    burst(w2.left + w2.width / 2, w2.top + w2.height / 2, '#6bffb0', true); beep('cast');
+    floatText('+' + h, 'small'); updateHUD();
+    await sleep(900);
+  }
+  if(G.wHP <= 0) phaseClear(); else nextSpell();
+}
+
+async function onWrong(cur, el, timeout){
+  mgAddGenreLevel(0);
+  G.wrong++; G.combo = 0; G.lastOkTech = null;
+  const phL = G.phases[G.phase];
+  let loss = timeout ? (phL.lossTimeout || 20) : (phL.loss || 25);
+  // 運：一定の確率でかわす／守り：受けるダメージを減らす
+  const shielded = Math.random() < PW.dodge();
+  if(shielded) loss = 0; else loss = PW.reduce(loss);
+  G.pHP = Math.max(0, G.pHP - loss);
+  let stoleNow = false;
+  if(cur.kind !== 'barrier'){
+    techStat(cur.ans).w++;
+    // 奪われた頁は1〜2問あとに必ずもう一度唱えられる
+    stoleNow = !G.stolen.has(cur.ans);
+    G.stolen.set(cur.ans, 1 + Math.floor(Math.random() * 2));
+  }
+  writeSave();
+  if(el) el.classList.add('bad');
+  $('hand').querySelectorAll('[data-t]').forEach(b => { if(b.dataset.t === cur.ans) b.classList.add('right'); });
+  // 演出：玉がプレイヤーへ一気に飛んできて命中
+  const a = meCenter();
+  if(!timeout){
+    $('orb').classList.add('danger');
+    const start = { x:orbPos.x, y:orbPos.y };
+    const o = $('orb');
+    o.style.transition = 'transform .18s ease-in';
+    placeOrb({ x:a.x, y:a.y }, 1);
+    await sleep(190);
+    o.style.transition = '';
+  }
+  hideOrb();
+  burst(a.x, a.y, '#ff3b6b', true);
+  screenFlash('#ff0040', 380);
+  $('me').classList.remove('danger'); $('me').classList.add('hurt');
+  setTimeout(() => $('me').classList.remove('hurt'), 500);
+  meFloat(shielded ? '🍀 ひらりとかわした！' : '-' + loss, shielded ? 'grow' : 'ouch');
+  setPose('attack', 900);
+  beep(stoleNow ? 'steal' : 'bad');
+  document.body.classList.add('shake');
+  setTimeout(() => document.body.classList.remove('shake'), 450);
+  say(timeout ? '遅い！' : (stoleNow ? 'その頁、いただいた！' : 'ふははは！'), 1500);
+  updateHUD();
+  await sleep(700);
+  showExplanation(cur, timeout, stoleNow);
+}
+
+function showExplanation(cur, timeout, stoleNow){
+  const head = timeout ? '⌛ 間に合わなかった…' : '💥 打ち消せなかった…';
+  const ansHTML = cur.kind === 'barrier'
+    ? `<div class="ansline">正解：${esc(cur.ans)}</div>`
+    : `<div class="ansline">正解：${sealHTML(cur.ans)}${esc(cur.ans)}</div>`;
+  const body = cur.kind === 'barrier' ? '' : `<p style="font-size:15px">${markup(cur.body)}</p>`;
+  const tip = cur.kind !== 'barrier' && !cur.e ? CARD[cur.ans].def : '';
+  const steal = cur.kind !== 'barrier'
+    ? `<p class="muted">⛓ 「${esc(cur.ans)}」の頁が${stoleNow ? '奪われた' : 'まだ奪われたまま'}。すぐにまた唱えてくるので、正解すれば<b style="color:var(--gold)">奪還（ダメージ2倍）</b>！</p>` : '';
+  openOv(`<h2>${head}</h2>${ansHTML}${body}
+    <div class="expl">${markup(cur.e || tip || '')}</div>
+    ${steal}
+    <div class="btnrow"><button class="btn" id="ovGo">${G.pHP <= 0 ? '結果を見る' : 'わかった'}</button></div>`);
+  $('ovGo').onclick = async () => { closeOv(); if(G.pHP <= 0) endRun(G.shiny); else { renderStolen(); await growCheck(); nextSpell(); } };
+}
+
+function phaseClear(){
+  G.busy = true; hideOrb();
+  if(G.phase < G.phases.length - 1){
+    setPose('defeat', 1400);
+    $('stage').classList.remove('rage');
+    say(G.phases[G.phase].lines.defeat, 1600);
+    beep('win');
+    setTimeout(() => $('stage').classList.add('leave'), 1200);
+    const heal = Math.min(G.pMax - G.pHP, 20);
+    G.pHP += heal;
+    setTimeout(() => {
+      updateHUD();
+      if(heal > 0) meFloat(`HP +${heal}`, 'grow');
+      showChest();
+    }, 1500);
+  }else if(!G.shiny && Math.random() < SHINY_CHANCE){
+    // 色違いの闇の魔術師が現れる（派手な登場演出 shinyEntrance）
+    setPose('defeat'); $('stage').classList.remove('rage');
+    say(G.phases[G.phase].lines.defeat, 1800);
+    beep('win');
+    setTimeout(async () => {
+      await shinyEntrance();
+      const heal = Math.min(G.pMax - G.pHP, 20);
+      G.pHP += heal; updateHUD();
+      if(heal > 0) meFloat(`HP +${heal}`, 'grow');
+      setTimeout(showChest, 900);
+    }, 1900);
+  }else{
+    G.over = true; stopIdle(); setPose('defeat'); $('stage').classList.remove('rage');
+    if(G.shiny) G.shinyBeaten = true;
+    say(G.shiny ? G.phases[G.phase].lines.defeat : '見事だ…その魔術書、お前のものだ', 2500);
+    beep('win');
+    if(G.shiny){ screenFlash('#ffe9a0', 600); const c = $('wSprite').getBoundingClientRect(); burst(c.left + c.width / 2, c.top + c.height / 2, '#ffd86b', true); }
+    setTimeout(() => endRun(true), 1800);
+  }
+}
+
+function endRun(win){
+  G.over = true; G.busy = true; stopIdle(); hideOrb();
+  if(!win) setPose('pose1');
+  const acc = G.correct + G.wrong ? Math.round(G.correct / (G.correct + G.wrong) * 100) : 0;
+  const score = G.dmgTotal + (win ? G.pHP * 3 + G.hints * 30 + 300 : 0) + G.maxCombo * 5 + (G.shinyBeaten ? 1000 : 0);
+  const rank = !win ? 'C' : G.wrong === 0 ? 'S' : G.wrong <= 2 ? 'A' : 'B';
+  if(win) SAVE.clears++;
+  if(G.shiny) SAVE.shinyMet = (SAVE.shinyMet || 0) + 1;
+  if(G.shinyBeaten){ SAVE.shinyWins = (SAVE.shinyWins || 0) + 1; unlock('shiny'); }
+  let isBest = false;
+  if(!SAVE.best || score > SAVE.best.score){ SAVE.best = { score, rank }; isBest = true; }
+  // 経験値は戦闘中に1回ずつ入っている。ここではこの挑戦の合計を見せるだけ
+  const gained = G.expGained;
+  const before = levelInfo(G.expStart);
+  const after = levelInfo(SAVE.exp || 0);
+  writeSave();
+  if(win){ unlock('first_win'); if(G.wrong === 0) unlock('nomiss'); if(G.hintsUsed === 0) unlock('nohint'); }
+  if(CARDS.every(c => starsOf(c.id) >= 1)) unlock('pages');
+  if(Object.keys(SAVE.got).length >= SPELLS.filter(x => x.collect).length) unlock('spells');
+  if(after.lv >= 10) unlock('lv10');
+  const lvUp = after.lv > before.lv;
+  const expHTML = `<div class="expbox"><div class="row"><span>Lv.<b>${after.lv}</b>　${esc(titleOf(after.lv))}</span><span>この挑戦で 経験値 <b>+${gained}</b>${G.shiny ? ' <span class="muted">（色違いへの攻撃は2倍）</span>' : ''}</span></div>
+    <div class="expbar"><i id="resExp" style="width:${after.cur / after.need * 100}%"></i></div>
+    ${after.lv > before.lv ? `<div class="lvup">LEVEL UP!<small>Lv.${before.lv} → Lv.${after.lv}　最大HP ＋${playerMaxHP(after.lv) - playerMaxHP(before.lv)}${titleOf(after.lv) !== titleOf(before.lv) ? `　称号「${esc(titleOf(after.lv))}」` : ''}${dragonCapFor(after.lv) > dragonCapFor(before.lv) ? `<br>🐉 ことのはが「${STAGE_LABEL[dragonCapFor(after.lv)]}」まで育てるようになった！` : ''}</small></div>` : ''}
+    </div>`;
+  const stolenList = [...G.stolen.keys()];
+  const stolenHTML = stolenList.length
+    ? `<p class="muted">⛓ 取り返せなかった頁：</p><div class="newcards">${stolenList.map(t => `<div>${sealHTML(t)}<span><b>${t}</b>　<span class="muted">${esc(CARD[t].def)}</span></span></div>`).join('')}</div>`
+    : (win ? '<p class="muted">奪われた頁はすべて取り返した！</p>' : '');
+  const head = G.shinyBeaten ? '✨ 色違いの闇の大魔術師を倒した！' : (G.shiny ? '🏆 闇の大魔術師は退けた…（色違いには敗れた）' : (win ? '🏆 闇の大魔術師を退けた！' : `💀 魔術書の力が尽きた…（${esc(G.phases[G.phase].foe)}に敗れた）`));
+  openOv(`<h2>${head}</h2>
+    <div class="rank">${rank}</div>
+    <p style="text-align:center">スコア <b style="font-size:22px;color:var(--gold)">${score}</b>${isBest ? '　<span style="color:var(--green)">自己ベスト！</span>' : ''}</p>
+    ${G.dragon.stage > 0 ? `<div class="dragon-res">${dragonSrc(G.dragon.line, G.dragon.stage) ? haloHTML(dragonSrc(G.dragon.line, G.dragon.stage)) : '<span style="font-size:48px">🐉</span>'}
+      <div><b style="color:var(--gold);font-size:17px">${esc(dragonName(G.dragon))}</b><br><span class="muted">いっしょに戦った龍${G.dragonNew ? '　<span style="color:var(--green)">図鑑に記録！</span>' : ''}</span></div></div>` : ''}
+    ${expHTML}
+    ${G.correct ? `<p class="muted" style="text-align:center">📈 知識ドリルの「表現技法」のレベル <b style="color:var(--gold)">＋${G.correct}</b>（知識ドリルにすぐ反映される）</p>` : ''}
+    <div class="stats">
+      <div>正解<b>${G.correct}</b> / ${G.correct + G.wrong}（${acc}%）</div>
+      <div>最大連鎖<b>${G.maxCombo}</b></div>
+      <div>速詠返し<b>${G.crit}</b></div>
+      <div>魔術書解放<b>${G.release}</b></div>
+      <div>奪還<b>${G.reclaim}</b></div>
+      <div>新しく記録した呪文<b>${G.newGot}</b></div>
+    </div>
+    ${stolenHTML}
+    <div class="btnrow"><button class="btn" id="ovAgain">もう一度</button><button class="btn sub" id="ovBook">魔術書を見る</button><button class="btn ghost" id="ovTitle">タイトルへ</button></div>`);
+  tintHalos($('ovBox'));
+  $('ovAgain').onclick = () => { closeOv(); startRun(); };
+  $('ovBook').onclick = () => { closeOv(); openBook(); };
+  $('ovTitle').onclick = () => { closeOv(); showTitle(); };
+}
+
+function updateHUD(){
+  const pw = (G.pHP / G.pMax * 100) + '%', ww = (G.wMax ? G.wHP / G.wMax * 100 : 100) + '%';
+  $('pHPbar').querySelector('i').style.width = pw; $('pHPbar').querySelector('.lag').style.width = pw;
+  const liH = levelInfo(SAVE.exp || 0);
+  $('pHPlabel').textContent = `Lv.${liH.lv}　HP ${G.pHP}/${G.pMax}`;
+  $('xFill').style.width = (liH.cur / liH.need * 100) + '%';
+  $('wHPbar').querySelector('i').style.width = ww; $('wHPbar').querySelector('.lag').style.width = ww;
+  $('buffs').textContent = '';
+  const foeNow = (G.phases[G.phase] || G.phases[0]).foe;
+  $('wHPlabel').textContent = `${G.phases[G.phase] && G.phases[G.phase].shiny ? '✨' : ''}${foeNow} ${G.wHP}/${G.wMax}`;
+  $('comboLabel').textContent = G.combo >= 2 ? `連鎖 ×${G.combo}` : '';
+  $('pips').innerHTML = Array.from({ length:GAUGE_MAX }, (_, i) => `<i class="${i < G.gauge ? 'on' : ''}"></i>`).join('');
+  $('gauge').classList.toggle('full', G.gauge >= GAUGE_MAX);
+  $('gauge').firstElementChild.textContent = G.gauge >= GAUGE_MAX ? '✨解放できる！' : '魔術書解放';
+  renderStolen();
+}
+// 奪われた頁の名前は戦闘中には出さない（次に来る呪文の答えがわかってしまうため、2026-10-03 教員の指摘）。
+// 奪われた頁は、まちがえたときの説明と結果画面でだけ知らせる。
+function renderStolen(){ $('stolenBox').innerHTML = ''; }
+
+function togglePause(){
+  if(!G || G.over || G.busy) return;
+  G.paused = !G.paused;
+  $('scroll').classList.toggle('veil', G.paused);
+  $('bPause').textContent = G.paused ? '▶' : '⏸';
+  $('hand').style.visibility = G.paused ? 'hidden' : '';
+}
+
+/* ================= 重ね板 ================= */
+function openOv(html){ $('ovBox').innerHTML = html; $('ov').classList.add('on'); $('ovBox').scrollTop = 0; }
+function closeOv(){ $('ov').classList.remove('on'); }
+
+/* ================= タイトル・魔術書 ================= */
+function showTitle(){
+  stopIdle(); G = null; hideOrb();
+  showScreen('title');
+  $('tSprite').src = spriteSrc('pose1');
+  const li = levelInfo(SAVE.exp || 0);
+  $('tLevel').innerHTML = `Lv.<b>${li.lv}</b>　${esc(titleOf(li.lv))}`;
+  $('tExp').style.width = (li.cur / li.need * 100) + '%';
+  $('tPower').innerHTML = statusPanelHTML(li.lv);
+  // ホームの記録は最高記録だけ（2026-10-03、教員の指示）。呪文・龍・実績の数は魔術書の画面で見られる
+  $('tRecord').innerHTML = SAVE.best ? `最高記録 <b>${SAVE.best.score}</b>（ランク${SAVE.best.rank}）` : '';
+}
+
+function openBook(){
+  showScreen('book');
+  const got = Object.keys(SAVE.got).length, total = SPELLS.filter(s => s.collect).length;
+  const bTotal = BARRIERS.length, bGot = Object.keys(SAVE.barrierGot).length;
+  $('bookSummary').textContent = `記録した呪文 ${got} / ${total}　｜　解いた結界の謎 ${bGot} / ${bTotal}`;
+  const dr = SAVE.dragons || {};
+  $('dragonSummary').textContent = `出会った龍 ${Object.keys(dr).length} / ${DRAGON_LINES.length}　（いちばん育った姿を記録）`;
+  $('dragons').innerHTML = DRAGON_LINES.map(d => {
+    if(!dr[d.id]) return `<div><span class="unknown">？</span>？？？</div>`;
+    const src = dragonSrc(d.id, dr[d.id]);
+    return `<div>${src ? haloHTML(src) : '<span class="unknown">🐉</span>'}<b>${d.name}</b>${STAGE_LABEL[dr[d.id]]}</div>`;
+  }).join('');
+  tintHalos($('dragons'));
+  const av = SAVE.achv || {};
+  $('achvSummary').textContent = `${Object.keys(av).length} / ${ACHV.length}`;
+  $('achv').innerHTML = ACHV.map(a => `<div class="${av[a.id] ? '' : 'locked'}"><b>${av[a.id] ? '🏅' : '🔒'} ${esc(a.name)}</b>${esc(a.desc)}</div>`).join('');
+  $('pages').innerHTML = CARDS.map(c => {
+    const st = SAVE.stats[c.id] || { c:0, w:0 };
+    const s = starsOf(c.id);
+    return `<button class="page${st.c ? '' : ' blank'}" data-t="${c.id}">
+      <div class="top">${sealHTML(c.id)}<span class="nm">${c.id}</span></div>
+      <div class="stars">${'★'.repeat(s)}${'☆'.repeat(3 - s)}</div>
+      <div class="cnt">呪文 ${collectedCount(c.id)} / ${COLLECT_TOTAL[c.id] || 0}　正解 ${st.c}・ミス ${st.w}</div></button>`;
+  }).join('');
+  $('pages').querySelectorAll('.page').forEach(b => b.onclick = () => openPage(b.dataset.t));
+}
+
+function openPage(t){
+  const c = CARD[t];
+  const list = SPELLS.filter(s => s.ans === t && s.collect && SAVE.got[s.idx]);
+  const st = SAVE.stats[t] || { c:0, w:0 };
+  openOv(`<h2>${sealHTML(t)} ${t}</h2>
+    <p>${esc(c.def)}</p>
+    ${TIPS[t] ? `<div class="expl">【見分け方】${esc(TIPS[t])}</div>` : ''}
+    <p class="muted" style="margin-top:8px">★1：3問正解　★2：10問正解　★3：この頁の呪文を全部記録（正解 ${st.c}／記録 ${list.length} / ${COLLECT_TOTAL[t] || 0}）</p>
+    <div class="collected">${list.length ? list.map(s => `<div>${markup(s.body)}</div>`).join('') : '<div class="muted">まだ記録した呪文はない。バトルで正解すると、ここに集まっていく。</div>'}</div>
+    <div class="btnrow"><button class="btn ghost" id="ovClose">閉じる</button></div>`);
+  $('ovClose').onclick = closeOv;
+}
+
+function showHow(){
+  openOv(`<h2>あそびかた</h2>
+    <p>① 闇の魔術師見習い→闇の魔術師→闇の大魔術師の順に、勝負を仕掛けてくる。相手は「呪文」（例文）を唱え、魔法の玉を放ってくる。玉は左にいるあなたの「ことのは」に向かって飛んでくる。</p>
+    <p>② 玉が届く前に、《　》の部分の技法のカードを4枚の中からタップ！ あなたのことのはが光弾を撃って玉を打ち消し、魔術師に反撃する。（キーボードの<b>1〜4</b>でもカードを出せる。Hでしおり、Enterで次へ）</p>
+    <p>③ <b>速詠返し</b>：玉が魔術師の近くにあるうちに打ち消すとダメージ1.5倍。続けて正解すると<b>連鎖</b>でダメージアップ。</p>
+    <p>④ <b>魔術書解放</b>：正解するとゲージがたまる。満タンのときに正解すると、ことのはが魔力を解放して<b>龍の必殺技</b>を放つ（ダメージ2.5倍）。技の名前は龍の種類と育ち方で変わる！ 同じ相手との戦いの中で放つたびに、威力が1.2倍ずつ増していく（相手が変わると元にもどる）。</p>
+    <p>④' 正解しても、玉がすぐ近くまで来てから打ち消すと<b>余波</b>を受ける。魔術師は何回かに1回、防げない<b>闇の追撃</b>も放ってくる（守りで軽くなり、運でかわせる）。</p>
+    <p>⑤ まちがえると、その技法の頁を<b>奪われる</b>⛓。すぐに鎖の巻きついた赤黒い玉（奪った頁の呪文）が飛んでくるので、正解すれば<b>奪還</b>でダメージ2倍！</p>
+    <p>⑥ 困ったら<b>🔖しおり</b>（1回の挑戦で3枚）。まちがいのカードを2枚消せる。使わずに残すとスコアボーナス。</p>
+    <p>⑦ あなたのことのはは、毎回<b>たまご</b>から始まる。1問答えると、どんな龍が生まれるかはお楽しみ！ 魔術師を攻略していくほど育ち（見習いとの戦いで少年体、魔術師との戦いで青年体・成人体、大魔術師との戦いで成熟体、大魔術師を倒すと伝説級）、育つほど反撃が強くなる。どこまで育てるかはあなたのレベルしだい。最初は青年体まで、レベルが上がると成人体→成熟体→伝説級と広がっていく。</p>
+    <p>⑧ 相手を倒すと<b>強化の宝珠</b>（または<b>いやしの泉＝HP全回復</b>）から1つを選べる。宝珠はが3つ現れる。中身は開けるまでわからない。選んだ宝珠で<b>魔術ステータス</b>（体力・攻撃・守り・素早さ・運・魔力・知恵）が上がる。<b>強化はずっと残り</b>、どれもLv.100まで上げられる。まれに★レア（＋6）・★★超レア（＋10）も！</p>
+    <p>⑨ 魔術師はHPが少なくなると<b>怒り</b>、魔法が速くなる。闇の大魔術師まで倒すと、<b>色違いの闇の大魔術師</b>が現れる。とても強いが、魔術ステータスを鍛えれば倒せる。</p>
+    <p>⑩ 魔術師に攻撃を当てるたびに<b>経験値</b>が少しずつたまり（色違いへの攻撃は2倍）、レベルが上がると称号が変わって最大HPが増える。正解した呪文・育てた龍・実績は<b>魔術書</b>に記録される。</p>
+    <div class="btnrow"><button class="btn" id="ovClose">とじる</button></div>`);
+  $('ovClose').onclick = closeOv;
+}
+
+/* ================= ボタン・キー ================= */
+$('bStart').onclick = startRun;
+$('bBook').onclick = openBook;
+$('bHow').onclick = showHow;
+// 知識ドリルDXへ戻る（ほかの別ページのミニゲームと同じ。?from=minigame でミニゲーム一覧が開く）
+$('bHome').onclick = () => { location.href = 'kokugo_app.html?from=minigame_home'; };   // イントロを出さずにホームへ（kokugo_app.html側の ?from= 参照）
+$('bMgList').onclick = () => { location.href = 'kokugo_app.html?from=minigame'; };
+$('bBookBack').onclick = showTitle;
+$('bHint').onclick = useHint;
+$('bPause').onclick = togglePause;
+function soundLabel(){ $('bSound').textContent = SAVE.sound ? '🔊' : '🔇'; }
+$('bSound').onclick = () => { SAVE.sound = !SAVE.sound; writeSave(); soundLabel(); };
+soundLabel();
+// キー操作：1〜4でカード（日本語入力がオンのときの全角「１〜４」、テンキーも受けつける）、Hでしおり、
+// P／Escで一時停止、説明の板が出ているときはEnter／スペースで先へ進む。
+function keyToIndex(e){
+  const m = /^(?:Digit|Numpad)([1-4])$/.exec(e.code || '');
+  if(m) return +m[1] - 1;
+  const k = '1234１２３４'.indexOf(e.key);
+  return k >= 0 ? k % 4 : -1;
+}
+document.addEventListener('keydown', e => {
+  if($('ov').classList.contains('on')){
+    if(e.key === 'Enter' || e.code === 'Space'){
+      e.preventDefault();
+      const b = $('ovBox').querySelector('.btn'); if(b) b.click();
+    }
+    return;
+  }
+  if(!$('battle').classList.contains('on') || !G) return;
+  const n = keyToIndex(e);
+  if(n >= 0){
+    e.preventDefault();
+    if(G.busy || G.paused) return;
+    const b = $('hand').querySelectorAll('[data-t]')[n];
+    if(b && !b.classList.contains('dim')) answer(b.dataset.t, b);
+  }else if(e.code === 'KeyH'){ useHint(); }
+  else if(e.code === 'KeyP' || e.key === 'Escape'){ togglePause(); }
+});
+document.addEventListener('visibilitychange', () => { if(document.hidden && G && !G.over && !G.busy && !G.paused) togglePause(); });
+
+showTitle();
+</script>
+</body>
+</html>

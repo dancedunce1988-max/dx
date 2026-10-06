@@ -4,13 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <!-- 通行証のチェック（2026-10-01）：知識ドリルDXの入口（kokugo_app.htmlのmgGoWithPass）を通らずに、
-     このファイルを直接開いたときは本体へ戻す（準備中の隠しゲームを、配布版のフォルダから開けないように）。
+     直接開いたときは「このファイルは開けません」とだけ表示し、ゲームを動かさない（2026-10-04〜、教員の指示。以前は本体へ戻していた）（準備中の隠しゲームを、配布版のフォルダから開けないように）。
      ブラウザの設定でsessionStorageが使えないときは、確かめようがないのでそのまま開く。 -->
 <script>
 (function(){
   var ok = true;
   try{ ok = !!(JSON.parse(sessionStorage.getItem("kokugo_mg_pass_v1") || "{}")["enro"]); }catch(e){ ok = true; }
-  if(!ok){ document.documentElement.style.display = "none"; location.replace("kokugo_app.html"); }
+  if(!ok){ document.write('<style>html,body{margin:0;height:100%;background:#1d1f38;color:#fff;font-family:sans-serif}body{display:flex;align-items:center;justify-content:center}</style></head><body><p style="font-size:22px;font-weight:bold">このファイルは開けません</p><plaintext style="display:none">'); }
 })();
 </script>
 <title>炎狼ラン</title>
@@ -774,7 +774,12 @@ function loadSave(){
   if(typeof s.muted !== "boolean") s.muted = false;
   return s;
 }
-function writeSave(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); }catch(e){} }
+/* bestKmPlace：挑戦モードの最長記録で着いた地名。知識ドリルDX本体のミニゲーム一覧のバナーに
+   「最長 〇km・〇〇まで到着」と出すために保存しておく（2026-10-04〜、教員の指示。本体はWORLD_ROUTEを持たないため）。 */
+function writeSave(){
+  if(typeof placeName === "function") SAVE.bestKmPlace = SAVE.bestKm > 0 ? placeName(placeOf(SAVE.bestKm).at) : "";
+  try{ localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); }catch(e){}
+}
 let SAVE = loadSave();
 
 function toggleMute(){ SAVE.muted = !SAVE.muted; writeSave(); refreshMuteIcons(); }
@@ -959,6 +964,8 @@ function placeOf(km){
 // 「中国のペキン（北京）」のように国名を前につける（日本の地名と、国名と同じ地名はそのまま）
 const placeName = pt => (pt[2] === "日本" || pt[1] === pt[2]) ? pt[1] : `${pt[2]}の${pt[1]}`;
 const kmText = n => n.toLocaleString("ja-JP");
+// 地名を保存する前からの記録（bestKmだけある）にも、開いたときに地名を足しておく
+if(SAVE.bestKm > 0 && !SAVE.bestKmPlace) writeSave();
 
 /* 挑戦モードの速さ（2026-09-30、教員の指示）：どの種類の問題も、見きわめの区間に入ったときの速さ（約7.6秒）から始め、
    正解CH_EVERY問ごとにCH_STEP秒ずつ速くする（最速CH_MIN秒）。2026-10-01、「速くなるのが遅い」との教員の指示で0.2→0.4秒（2倍）に。 */
@@ -1332,22 +1339,37 @@ let MGS = null;   // 今のゲームの {ok:正解数, ng:まちがい数}（ゲ
 const mgNet = () => MGS ? MGS.ok - Math.floor(MGS.ng / 2) : 0;
 const mgSigned = n => n > 0 ? "+" + n : n < 0 ? "−" + (-n) : "±0";
 function mgStart(){ mgFlush(); MGS = {ok:0, ng:0}; }
-function mgCorrect(){ if(!MGS) return; MGS.ok++; showLvupToast(1); }
-function mgWrong(){ if(!MGS) return; MGS.ng++; if(MGS.ng % 2 === 0) showLvupToast(-1); }
+function mgCorrect0(){ if(!MGS) return; MGS.ok++; showLvupToast(1); }
+function mgWrong0(){ if(!MGS) return; MGS.ng++; if(MGS.ng % 2 === 0) showLvupToast(-1); }
 // ゲームの終わり：差し引きを本体への合図に足し、結果を返す（ゲーム中でなければnull）
 function mgFlush(){
   if(!MGS) return null;
   const r = {ok:MGS.ok, ng:MGS.ng, net:mgNet()};
+  const sent = MGS.sent || 0;   // 上がった分はその場で渡し済み（mgSyncUp）
   MGS = null;
-  if(r.net){
-    let o = {};
-    try{ o = JSON.parse(localStorage.getItem(MG_PENDING_LVUP_LSKEY)) || {}; }catch(e){ o = {}; }
-    if(typeof o !== "object") o = {};
-    o[MG_CAT] = (Number(o[MG_CAT]) || 0) + r.net;
-    try{ localStorage.setItem(MG_PENDING_LVUP_LSKEY, JSON.stringify(o)); }catch(e){}
-  }
+  mgWritePending(r.net - sent);   // 残り（下がる分など）をここで精算
   return r;
 }
+/* 本体へのリアルタイム反映とデイリーログイン報酬（2026-10-04、教員の指示：「ミニゲームは全部ログイン報酬の対象に」
+   「ジャンルレベルが上がった場合も必ずリアルタイムで反映」）。
+   ・答えるたびに、本体と共通のキー（kokugo_mg_played_v1）へ今日の日付を書く。本体はこれが今日ならログイン報酬を成立させる。
+   ・ジャンルレベルが上がった分は、上がったその場で書き置きに足す（本体はセーブを読むたびに取りこむ）。
+     下がる分は、今までどおりゲームの終わり（mgFlush）にまとめて精算する（途中で上下をくり返してごほうびを余分にもらわないように）。 */
+const MG_PLAYED_LSKEY = "kokugo_mg_played_v1";
+function mgNotePlayed(){
+  try{ const d = new Date(); localStorage.setItem(MG_PLAYED_LSKEY, d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0")); }catch(e){}
+}
+function mgWritePending(n){
+  if(!n) return;
+  let o = {};
+  try{ o = JSON.parse(localStorage.getItem(MG_PENDING_LVUP_LSKEY)) || {}; }catch(e){ o = {}; }
+  if(!o || typeof o !== "object") o = {};
+  o[MG_CAT] = (Number(o[MG_CAT]) || 0) + n;
+  try{ localStorage.setItem(MG_PENDING_LVUP_LSKEY, JSON.stringify(o)); }catch(e){}
+}
+function mgSyncUp(){ if(!MGS) return; const n = mgNet(); if(n > (MGS.sent || 0)){ mgWritePending(n - (MGS.sent || 0)); MGS.sent = n; } }
+function mgCorrect(){ mgCorrect0(); mgNotePlayed(); mgSyncUp(); }
+function mgWrong(){ mgWrong0(); mgNotePlayed(); }
 window.addEventListener("pagehide", mgFlush);   // 「ミニゲーム一覧へ」やタブを閉じたときも、そこまでの分を渡す
 // 正解・まちがい（2つめごと）のたびに画面の上へ出す表示
 function showLvupToast(d, text){
