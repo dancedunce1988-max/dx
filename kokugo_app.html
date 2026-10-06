@@ -4342,7 +4342,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.11</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.12</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -8145,7 +8145,9 @@ function startBalanced(){
 }
 function nextQuestion(){
   if(kotonohaMaybeInterruptForEvolve(() => nextQuestion())) return;
-  if(rollBossEncounter(() => nextQuestion())) return;
+  // ジャンルを始めた直後（まだ1問も答えていない quiz.n===0）は抽選しない（2026-10-06、バグ修正：教員の報告
+  // 「何かのジャンルをやろうとすると、その瞬間にボスと出会うことがある」）。開始時のnextQuestionでも抽選していたため。
+  if(quiz.n > 0 && rollBossEncounter(() => nextQuestion())) return;
   if(quiz.mode === "review"){
     const st = loadStats();
     let weak = weakItems();
@@ -12532,7 +12534,7 @@ function startHyakuninQuiz(qType){
 }
 function hyaNextQuestion(){
   if(kotonohaMaybeInterruptForEvolve(() => hyaNextQuestion())) return;
-  if(rollBossEncounter(() => hyaNextQuestion(), true)) return;
+  if(hya.n > 0 && rollBossEncounter(() => hyaNextQuestion(), true)) return; // 開始直後は抽選しない（nextQuestion参照）
   const st = loadStats();
   const dueKey = ReviewSystem.getDueKey(hyaVisibleHist(st, hya.qType), hya.lastId);
   const due = dueKey ? hyaPool().find(it => it.id === dueKey) : null;
