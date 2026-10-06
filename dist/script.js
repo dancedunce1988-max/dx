@@ -632,20 +632,20 @@
       }
     }
     return (
-      'try{var __dxls=' +
+      'try{const __dxls=' +
       embed(pairs) +
-      ';var __dxpk=' +
+      ';const __dxpk=' +
       embed(probeKey) +
-      ';var __dxtok=' +
+      ';const __dxtok=' +
       embed(token) +
-      ';var __dxsh=false;' +
+      ';let __dxsh=false;' +
       'try{__dxsh=!!__dxtok&&localStorage.getItem(__dxpk)===__dxtok;}catch(eSh){}' +
       'try{if(__dxsh)localStorage.removeItem(__dxpk);}catch(eRm){}' +
-      'try{var __dxhost=window.parent&&window.parent!==window?window.parent:window;' +
+      'try{const __dxhost=window.parent&&window.parent!==window?window.parent:window;' +
       '__dxhost.__DX_FRAME_STORAGE_SEED_SNAPSHOT__=__dxls;' +
       (byHost ? '__dxhost.__DX_FRAME_STORAGE_SHARED__=__dxsh;' : '') +
       '}catch(eSnap){}' +
-      'if(!__dxsh){for(var i=0;i<__dxls.length;i++){localStorage.setItem(__dxls[i][0],__dxls[i][1]);}}}catch(e){}'
+      'if(!__dxsh){for(let i=0;i<__dxls.length;i++){localStorage.setItem(__dxls[i][0],__dxls[i][1]);}}}catch(e){}'
     );
   }
 
@@ -991,7 +991,7 @@
     const embed = window.__DX_JS_EMBED__;
     const storageSeed = window.__DX_FRAME_STORAGE_SEED__();
     const passBoot = opts.passId
-      ? 'try{var __dxpo=JSON.parse(sessionStorage.getItem("kokugo_mg_pass_v1")||"{}");__dxpo[' +
+      ? 'try{const __dxpo=JSON.parse(sessionStorage.getItem("kokugo_mg_pass_v1")||"{}");__dxpo[' +
         embed(opts.passId) +
         ']=1;sessionStorage.setItem("kokugo_mg_pass_v1",JSON.stringify(__dxpo));}catch(e){}'
       : '';
@@ -1035,7 +1035,7 @@
       'document.createElement=function(tag){const el=ce(tag);' +
       'if(String(tag).toLowerCase()==="script"){el.async=false;const sa=el.setAttribute.bind(el);' +
       'el.setAttribute=function(n,v){if(String(n).toLowerCase()==="src"&&v){' +
-      'var r=window.__DX_RESOLVE_NOBIRU__&&window.__DX_RESOLVE_NOBIRU__(String(v), nb);' +
+      'const r=window.__DX_RESOLVE_NOBIRU__&&window.__DX_RESOLVE_NOBIRU__(String(v), nb);' +
       'if(!r){if(window.__DX_REPORT_PAGE_ERROR__)window.__DX_REPORT_PAGE_ERROR__(new Error("許可されていないスクリプト URL です"));return;}' +
       'v=r;}return sa(n,v);};' +
       'try{Object.defineProperty(el,"src",{configurable:true,enumerable:true,' +
@@ -1046,16 +1046,16 @@
     /* engine.js は起動後に document.title を教材名にする。iframe の題名はタブに出ないので親へ写す。
        title 要素は head にあるので head だけ見張る（body の描画では動かない）。 */
     const titleMirror =
-      '(function(){var host=null;try{if(window.parent&&window.parent!==window)host=window.parent;}catch(eH){}' +
-      'if(!host)return;var last="";' +
-      'function sync(){var t="";try{t=String(document.title||"").trim();}catch(eT){}' +
+      '(function(){let host=null;try{if(window.parent&&window.parent!==window)host=window.parent;}catch(eH){}' +
+      'if(!host)return;let last="";' +
+      'function sync(){let t="";try{t=String(document.title||"").trim();}catch(eT){}' +
       'if(!t||t===last)return;last=t;' +
       'try{if(!host.__DX_HOST_TITLE__)host.__DX_HOST_TITLE__=host.document.title;host.document.title=t;}catch(eS){}}' +
       'try{new MutationObserver(sync).observe(document.head||document.documentElement,{childList:true,subtree:true,characterData:true});}catch(eO){}' +
       'document.addEventListener("DOMContentLoaded",sync);})();';
 
     const goHome =
-      'var __dxHome=String(window.__DX_HOME_URL__||"");' +
+      'const __dxHome=String(window.__DX_HOME_URL__||"");' +
       (kind === 'nobiru'
         ? 'window.__DX_GO_HOME__=function(){try{if(parent!==window){' +
           'if(typeof parent.__DX_RETURN_FROM_NOBIRU__==="function"){parent.__DX_RETURN_FROM_NOBIRU__();return;}' +
@@ -1067,31 +1067,31 @@
           'if(__dxHome)location.href=__dxHome;};');
 
     let locationHooks =
-      '(function(){function dxNorm(u){var t=String(u||"").replace(/[\\u0000-\\u0020\\u007f]+/g,"");' +
-      'for(var n=0;n<8;n++){try{var d=decodeURIComponent(t);}catch(e){return null;}if(d===t)break;t=d;}' +
+      '(function(){function dxNorm(u){let t=String(u||"").replace(/[\\u0000-\\u0020\\u007f]+/g,"");' +
+      'for(let n=0;n<8;n++){let d;try{d=decodeURIComponent(t);}catch(e){return null;}if(d===t)break;t=d;}' +
       'if(/[\\u0000-\\u0020\\u007f]/.test(t)||/%(?:2e|2f|5c)/i.test(t))return null;return t.toLowerCase();}' +
       'function dxIsHashOnly(u){return String(u||"").charAt(0)==="#";}' +
-      'function dxIsHomeNav(u){var raw=String(u||"");' +
+      'function dxIsHomeNav(u){const raw=String(u||"");' +
       'if(/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(raw)&&!/^file:/i.test(raw))return false;' +
       'if(raw.indexOf("//")===0)return false;' +
-      'var norm=dxNorm(u);if(norm==null)return false;' +
+      'const norm=dxNorm(u);if(norm==null)return false;' +
       'if(/^(javascript|data|vbscript):/.test(norm))return false;' +
       'if(/^[a-z][a-z0-9+.-]*:/.test(norm)&&norm.indexOf("file:")!==0)return false;' +
       'if(norm.indexOf("//")===0)return false;' +
       'return /(?:^|\\/)kokugo_app\\.html(?:[?#]|$)/i.test(raw)||/(?:^|\\/)kokugo_app\\.html(?:[?#]|$)/i.test(norm);}' +
-      'var dxLauncherHome=String(window.__DX_HOME_URL__||"");' +
-      'function dxFilePath(u){try{var x=new URL(String(u||""),dxLauncherHome||"file:///");' +
+      'const dxLauncherHome=String(window.__DX_HOME_URL__||"");' +
+      'function dxFilePath(u){try{const x=new URL(String(u||""),dxLauncherHome||"file:///");' +
       'if(x.protocol!=="file:"||x.username||x.password||x.search)return "";' +
-      'var host=(x.hostname||"").toLowerCase();if(host&&host!=="localhost")return "";' +
+      'const host=(x.hostname||"").toLowerCase();if(host&&host!=="localhost")return "";' +
       'return decodeURI(x.pathname).replace(/\\\\/g,"/").replace(/\\/+$/,"").toLowerCase();' +
       '}catch(eF){return "";}}' +
       'function dxSameLauncherFile(u){if(!dxLauncherHome||!/^file:/i.test(String(u||"")))return false;' +
-      'var a=dxFilePath(dxLauncherHome);var b=dxFilePath(u);return !!a&&a===b;}' +
-      'function dxIsLauncherHome(u){if(!dxLauncherHome)return false;var raw=String(u||"");if(raw===dxLauncherHome)return true;' +
+      'const a=dxFilePath(dxLauncherHome);const b=dxFilePath(u);return !!a&&a===b;}' +
+      'function dxIsLauncherHome(u){if(!dxLauncherHome)return false;const raw=String(u||"");if(raw===dxLauncherHome)return true;' +
       'if(dxSameLauncherFile(u))return true;' +
-      'var hn=dxLauncherHome.toLowerCase().split("#")[0];var un=(dxNorm(u)||"").split("#")[0];return un===hn;}' +
+      'const hn=dxLauncherHome.toLowerCase().split("#")[0];const un=(dxNorm(u)||"").split("#")[0];return un===hn;}' +
       'function dxNavKind(u){if(dxIsHashOnly(u))return "hash";if(dxIsHomeNav(u))return "home";if(dxIsLauncherHome(u))return "launcher";return "block";}' +
-      'var dxLauncherOnce=false;' +
+      'let dxLauncherOnce=false;' +
       'function dxGoLauncher(){dxLauncherOnce=true;location.href=dxLauncherHome;}' +
       'function dxReopenNobiru(){if(!window.__DX_OPEN_NOBIRU__||!window.__DX_NOBIRU_KEY__)return false;' +
       'const o={};try{new URLSearchParams(window.__DX_BOOT_SEARCH__||"").forEach(function(v,k){o[k]=v;});}catch(eR){}' +
@@ -1100,21 +1100,21 @@
          Location.prototype を書き換えても呼ばれない。スクリプトからの遷移は Navigation API で止める。
          reload は srcdoc の再読み込み（白紙）になるので、のびる読解は同じ教材を開き直す。 */
       'try{if(window.navigation&&navigation.addEventListener){navigation.addEventListener("navigate",function(ev){' +
-      'if(ev.hashChange)return;var u=ev.destination&&ev.destination.url||"";' +
+      'if(ev.hashChange)return;const u=ev.destination&&ev.destination.url||"";' +
       'if(dxLauncherOnce){dxLauncherOnce=false;if(String(u)===dxLauncherHome||dxSameLauncherFile(u))return;' +
       'if(ev.cancelable)ev.preventDefault();return;}' +
       'if(ev.navigationType==="reload"){if(ev.cancelable)ev.preventDefault();if(window.__DX_REOPEN_NOBIRU__)window.__DX_REOPEN_NOBIRU__();return;}' +
       /* ランチャーによる srcdoc の差し替え（モード選択・やり直し・閉じる）は通す。印のない about:srcdoc は止める */
       'if(/^about:srcdoc$/i.test(String(u))){if(window.__DX_SRCDOC_SWITCHING__)return;if(ev.cancelable)ev.preventDefault();return;}' +
-      'var k=dxNavKind(u);' +
+      'const k=dxNavKind(u);' +
       'if(k==="hash")return;' +
       'if(k==="home"){if(ev.cancelable)ev.preventDefault();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();return;}' +
       'if(k==="launcher"){if(ev.cancelable)ev.preventDefault();dxGoLauncher();return;}' +
       'if(ev.cancelable)ev.preventDefault();});}}catch(eN){}' +
-      'document.addEventListener("click",function(ev){var el=ev.target&&ev.target.closest&&ev.target.closest("a[href],area[href]");' +
-      'if(!el)return;var href=el.getAttribute("href")||"";var k=dxNavKind(href);' +
+      'document.addEventListener("click",function(ev){const el=ev.target&&ev.target.closest&&ev.target.closest("a[href],area[href]");' +
+      'if(!el)return;const href=el.getAttribute("href")||"";const k=dxNavKind(href);' +
       'if(k==="hash")return;' +
-      'if(k==="home"){var dailyMid=/[?&]viaDaily=1(?:&|$)/.test(String(window.__DX_BOOT_SEARCH__||""))' +
+      'if(k==="home"){const dailyMid=/[?&]viaDaily=1(?:&|$)/.test(String(window.__DX_BOOT_SEARCH__||""))' +
       '&&!(window.__DX_NOBIRU_FINISHED__&&window.__DX_NOBIRU_FINISHED__());' +
       'if(dailyMid&&el.closest&&el.closest("a.back"))return;' +
       'ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();return;}' +
