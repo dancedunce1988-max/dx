@@ -4336,12 +4336,13 @@
   background:radial-gradient(circle at 35% 30%, #ffd873, #ff7a1a 60%, #b3390a);
 }
 @keyframes matchStickPop{ 0%{transform:scale(.2); opacity:0;} 60%{transform:scale(1.2); opacity:1;} 100%{transform:scale(1);} }
+  .expl-link{display:inline-block;margin-top:4px;color:var(--accent2);font-weight:bold;word-break:break-all}
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.10</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.11</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -5543,6 +5544,26 @@ function weakItems(){
 
 /* ================= 共通 ================= */
 function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;"); }
+/* 問題の解説(e)を表示用のHTMLにする（2026-10-06〜、教員の指示：「解説の中で、参考となるURLを載せてくれるとさらに嬉しい」）。
+   esc＋改行<br>に加えて、解説中の http(s):// のURLを、新しいタブで開くリンクにする。
+   ウィキペディアのURLは「ウィキペディア「項目名」」という短い名前で表示する（日本語のURLは長く読みにくいため）。
+   リンクを直接タップしたときは、tap-advance（画面のどこをタップしても次へ）より本来の動作が優先される（a要素は除外済み）。 */
+function explLinkLabel(url){
+  let u = url;
+  try{ u = decodeURI(url); }catch(e){}
+  const m = u.match(/^https?:\/\/ja\.(?:m\.)?wikipedia\.org\/wiki\/([^#?]+)/);
+  if(m) return "ウィキペディア「" + m[1].replace(/_/g," ") + "」";
+  const h = u.match(/^https?:\/\/([^\/]+)/);
+  return h ? h[1] : u;
+}
+function explHtml(s){
+  return esc(s)
+    .replace(/https?:\/\/[^\s<>"）」、。]+/g, u => {
+      const raw = u.replace(/&amp;/g,"&");
+      return '<a class="expl-link" href="' + raw.replace(/"/g,"%22").replace(/&/g,"&amp;") + '" target="_blank" rel="noopener">🔗 ' + esc(explLinkLabel(raw)) + '</a>';
+    })
+    .replace(/\n/g,"<br>");
+}
 /* 問題文中の《…》を、太字＋下線の強調表示に変換する（表現技法などで、該当箇所を示すのに使う）。
    《》を含まない通常の問題文は、esc(q)と同じ結果になる（安全に共通で使える）。 */
 function markQuestionHtml(q){
@@ -8240,9 +8261,9 @@ function gradeAnswer(ok, chosenOrig, typed){
   let expl;
   if(Array.isArray(it.ans)){
     const wrongMsg = ok ? "" : `正解は「${esc(it.ans.join("」または「"))}」（あなたの答え：${esc(typed||"")}）`;
-    expl = [wrongMsg, it.e ? esc(it.e).replace(/\n/g,"<br>") : ""].filter(Boolean).join("<br>");
+    expl = [wrongMsg, it.e ? explHtml(it.e) : ""].filter(Boolean).join("<br>");
   }else{
-    expl = it.e ? esc(it.e).replace(/\n/g,"<br>") : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
+    expl = it.e ? explHtml(it.e) : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
   }
   const lvChip = (r.lvup ? `<span class="lvup-chip">${esc(CATS[cat].name)} Lv.${r.lv} にアップ！</span>` : "")
     + (r.eventXp ? `<span class="lvup-chip">🎉 イベント経験値＋${r.eventXp}</span>` : "");
@@ -8388,9 +8409,9 @@ function diagGrade(ok, chosenOrig, typed){
   let expl;
   if(Array.isArray(it.ans)){
     const wrongMsg = ok ? "" : `正解は「${esc(it.ans.join("」または「"))}」（あなたの答え：${esc(typed||"")}）`;
-    expl = [wrongMsg, it.e ? esc(it.e).replace(/\n/g,"<br>") : ""].filter(Boolean).join("<br>");
+    expl = [wrongMsg, it.e ? explHtml(it.e) : ""].filter(Boolean).join("<br>");
   }else{
-    expl = it.e ? esc(it.e).replace(/\n/g,"<br>") : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
+    expl = it.e ? explHtml(it.e) : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
   }
   fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}</div>${expl}`;
   document.getElementById("diagNextBtn").style.display = "inline-block";
@@ -12664,7 +12685,7 @@ function answerDokkai(origIdx){
   const ticketMsg = r.gotTicket ? `<div class="evolve ticket-get">🎟️ ボスへの挑戦チケットを1枚手に入れた！</div>` : "";
   const lowAccMsg = r.lowAccuracy ? `<p class="note">⏸️ 直近の正答率が低いため、レベルアップはお休み中です。<br>落ち着いて問題を読んで答えると、また上がるようになります。</p>` : "";
   const fastMsg = r.fastGuess ? `<p class="note">⏸️ 少し急いで答えているようです。落ち着いて問題を読んで答えると、また上がるようになります。</p>` : "";
-  fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}${lvChip}</div>${it.e?esc(it.e):""}${evolveMsg}${ticketMsg}${lowAccMsg}${fastMsg}`;
+  fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}${lvChip}</div>${it.e?explHtml(it.e):""}${evolveMsg}${ticketMsg}${lowAccMsg}${fastMsg}`;
   document.getElementById("nextBtnD").style.display = "inline-block";
 }
 function nextDokkai(){
@@ -13899,9 +13920,9 @@ function battleGrade(ok, chosenOrig, typed){
   let expl;
   if(Array.isArray(it.ans)){
     const wrongMsg = ok ? "" : `正解は「${esc(it.ans.join("」または「"))}」（こたえ：${esc(typed||"")}）`;
-    expl = [wrongMsg, it.e ? esc(it.e).replace(/\n/g,"<br>") : ""].filter(Boolean).join("<br>");
+    expl = [wrongMsg, it.e ? explHtml(it.e) : ""].filter(Boolean).join("<br>");
   }else{
-    expl = it.e ? esc(it.e).replace(/\n/g,"<br>") : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
+    expl = it.e ? explHtml(it.e) : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
   }
   const defenderName = defender === "A" ? battle.nameA : battle.nameB;
   const dmgMsg = ok ? `<span class="lvup-chip">${esc(defenderName)}に ${dealt} ダメージ！</span>` : "";
@@ -14449,9 +14470,9 @@ function cmGrade(ok, ms, chosenOrig, typed){
     }
     if(Array.isArray(it.ans)){
       const wrongMsg = ok ? "" : `正解は「${esc(it.ans.join("」または「"))}」（こたえ：${esc(typed||"")}）`;
-      expl = [wrongMsg, it.e ? esc(it.e).replace(/\n/g,"<br>") : ""].filter(Boolean).join("<br>");
+      expl = [wrongMsg, it.e ? explHtml(it.e) : ""].filter(Boolean).join("<br>");
     }else{
-      expl = it.e ? esc(it.e).replace(/\n/g,"<br>") : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
+      expl = it.e ? explHtml(it.e) : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
     }
   }else if(entry.type === 'kws'){
     // タイムアウトで採点された場合はcmKwsSubmitJudgeを経由していないので、ここで正解の
@@ -17096,9 +17117,9 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
   let expl;
   if(Array.isArray(it.ans)){
     const wrongMsg = ok ? "" : `正解は「${esc(it.ans.join("」または「"))}」（こたえ：${esc(typed||"")}）`;
-    expl = [wrongMsg, it.e ? esc(it.e).replace(/\n/g,"<br>") : ""].filter(Boolean).join("<br>");
+    expl = [wrongMsg, it.e ? explHtml(it.e) : ""].filter(Boolean).join("<br>");
   }else{
-    expl = it.e ? esc(it.e).replace(/\n/g,"<br>") : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
+    expl = it.e ? explHtml(it.e) : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
   }
   const dmgMsg = ok
     ? (fled
