@@ -46,8 +46,9 @@
     return 'https://' + JSDELIVR_HOST + '/gh/' + REPO + '@' + commitHash + '/';
   }
 
-  function rawHtmlUrl(commitHash) {
-    return 'https://' + RAW_HOST + '/' + REPO + '/' + commitHash + '/kokugo_app.html';
+  /* ピン済みの本体は fetch だけなので jsDelivr。text/plain は画面遷移のときだけ問題になる。 */
+  function appHtmlUrl(commitHash) {
+    return cdnBase(commitHash) + 'kokugo_app.html';
   }
 
   function escapeHtml(text) {
@@ -464,7 +465,7 @@
       setBootStatus(requested === FALLBACK_COMMIT_HASH && !PINNED_COMMIT_HASH
         ? '前回の版を取得しています'
         : 'アプリ本体を取得しています');
-      return fetchText(rawHtmlUrl(requested), requested).then(function (htmlText) {
+      return fetchText(appHtmlUrl(requested), requested).then(function (htmlText) {
         return { hash: requested, htmlText: htmlText };
       });
     };
@@ -508,18 +509,25 @@
 
         injectHeadStyles(doc, commitHash);
 
-        // ネスト回避: remote #app の中身だけを host #app へ
-        const wrapper = document.createElement('div');
-        wrapper.innerHTML = remoteApp.innerHTML;
-        /* #app 内の base / meta refresh は、親ページの遷移先を書き換える */
-        removeNavigationTraps(wrapper);
-        rewriteAssetAttrs(wrapper, cdnBase(commitHash), true);
-        hostApp.innerHTML = '';
-        while (wrapper.firstChild) {
-          hostApp.appendChild(wrapper.firstChild);
-        }
-
+        /* スクリプトの中身は、ノードを移す前に控える。移したあとは doc から外れる。 */
         const scripts = collectScripts(doc, commitHash);
+
+        /* ネスト回避: remote #app の中身だけを host #app へ。
+           innerHTML でパースし直さない。script は別に実行するので、ここからは外す。 */
+        const fragment = document.createDocumentFragment();
+        while (remoteApp.firstChild) {
+          fragment.appendChild(document.adoptNode(remoteApp.firstChild));
+        }
+        const inertScripts = fragment.querySelectorAll('script');
+        for (let s = 0; s < inertScripts.length; s++) {
+          const node = inertScripts[s];
+          if (node.parentNode) node.parentNode.removeChild(node);
+        }
+        /* #app 内の base / meta refresh は、親ページの遷移先を書き換える */
+        removeNavigationTraps(fragment);
+        rewriteAssetAttrs(fragment, cdnBase(commitHash), true);
+        hostApp.textContent = '';
+        hostApp.appendChild(fragment);
         setBootStatus('スクリプトを読み込んでいます');
         return injectScriptsInOrder(scripts, function (done, total) {
           setBootStatus('スクリプトを読み込んでいます', total ? done / total : 1);
@@ -987,37 +995,6 @@
    */
   function buildSrcdocDocument(html, opts) {
     const kind = opts.kind;
-    const openerName = kind === 'nobiru' ? '__DX_OPEN_NOBIRU__' : '__DX_OPEN_STANDALONE_HTML__';
-    /* 親の関数を toString で iframe に写す。どれも window 上の名前だけを参照する。 */
-    const copiedNames = [
-      '__DX_OVERLAY_CARD__',
-      '__DX_SHOW_PAGE_ERROR__',
-      '__DX_REPORT_PAGE_ERROR__',
-      '__DX_HOST_HOME_URL__',
-      '__DX_BUILD_SRCDOC_BOOT__',
-      '__DX_FETCH_PAGE__',
-      '__DX_CANCEL_PAGE_OPEN__',
-      '__DX_ARM_PAGE_CLICK__',
-      '__DX_REMOVE_TRAPS__',
-      '__DX_OPEN_SRCDOC_PAGE__',
-      openerName,
-      '__DX_SHOW_NOBIRU_HTML__',
-      '__DX_RESOLVE_NOBIRU__',
-      '__DX_REWRITE_ASSETS__',
-      '__DX_ABS_NOBIRU__',
-      '__DX_JS_EMBED__',
-      '__DX_FRAME_STORAGE_SEED__',
-      '__DX_COPY_BEFORE_SWITCH__',
-    ];
-    let openerSrc = '';
-    for (let c = 0; c < copiedNames.length; c++) {
-      /* </script> だけを逃す。すべての </ を変えると、/< /g のような正規表現の閉じが消える。 */
-      const src = window[copiedNames[c]].toString().replace(/<\/script/gi, '<\\/script');
-      openerSrc += 'window.' + copiedNames[c] + '=(' + src + ');';
-    }
-    openerSrc +=
-      'window.__DX_CLOSE_NOBIRU__=function(){try{if(parent!==window&&parent.__DX_CLOSE_NOBIRU__)parent.__DX_CLOSE_NOBIRU__();}catch(e){}};';
-
     const embed = window.__DX_JS_EMBED__;
     const storageSeed = window.__DX_FRAME_STORAGE_SEED__();
     const passBoot = opts.passId
@@ -1058,143 +1035,6 @@
     /* location.search は LegacyUnforgeable で、prototype を差し替えても srcdoc の実値は空のまま。
        一日一読 / チェックモードは engine.js が __DX_BOOT_SEARCH__ を読む。 */
 
-    const scriptHook =
-      '(function(){const nb=' +
-      embed(opts.assetBase) +
-      ';const ce=document.createElement.bind(document);' +
-      'document.createElement=function(tag){const el=ce(tag);' +
-      'if(String(tag).toLowerCase()==="script"){el.async=false;const sa=el.setAttribute.bind(el);' +
-      'el.setAttribute=function(n,v){if(String(n).toLowerCase()==="src"&&v){' +
-      'const r=window.__DX_RESOLVE_NOBIRU__&&window.__DX_RESOLVE_NOBIRU__(String(v), nb);' +
-      'if(!r){if(window.__DX_REPORT_PAGE_ERROR__)window.__DX_REPORT_PAGE_ERROR__(new Error("許可されていないスクリプト URL です"));return;}' +
-      'v=r;}return sa(n,v);};' +
-      'try{Object.defineProperty(el,"src",{configurable:true,enumerable:true,' +
-      'get:function(){return el.getAttribute("src");},' +
-      'set:function(v){el.setAttribute("src",v);}});}' +
-      'catch(e2){}}return el;};})();';
-
-    /* engine.js は起動後に document.title を教材名にする。iframe の題名はタブに出ないので親へ写す。
-       title 要素は head にあるので head だけ見張る（body の描画では動かない）。 */
-    const titleMirror =
-      '(function(){let host=null;try{if(window.parent&&window.parent!==window)host=window.parent;}catch(eH){}' +
-      'if(!host)return;let last="";' +
-      'function sync(){let t="";try{t=String(document.title||"").trim();}catch(eT){}' +
-      'if(!t||t===last)return;last=t;' +
-      'try{if(!host.__DX_HOST_TITLE__)host.__DX_HOST_TITLE__=host.document.title;host.document.title=t;}catch(eS){}}' +
-      'try{new MutationObserver(sync).observe(document.head||document.documentElement,{childList:true,subtree:true,characterData:true});}catch(eO){}' +
-      'document.addEventListener("DOMContentLoaded",sync);})();';
-
-    const goHome =
-      'const __dxHome=String(window.__DX_HOME_URL__||"");' +
-      (kind === 'nobiru'
-        ? 'window.__DX_GO_HOME__=function(){try{if(parent!==window){' +
-          'if(typeof parent.__DX_RETURN_FROM_NOBIRU__==="function"){parent.__DX_RETURN_FROM_NOBIRU__();return;}' +
-          'if(typeof parent.__DX_CLOSE_NOBIRU__==="function")parent.__DX_CLOSE_NOBIRU__();' +
-          'if(typeof parent.showHome==="function"){parent.showHome();return;}' +
-          '}}catch(e){}' +
-          'if(__dxHome)location.href=__dxHome;};'
-        : 'window.__DX_GO_HOME__=function(){try{if(parent!==window&&parent.__DX_RETURN_FROM_MINIGAME__){parent.__DX_RETURN_FROM_MINIGAME__();return;}}catch(e){}' +
-          'if(__dxHome)location.href=__dxHome;};');
-
-    let locationHooks =
-      '(function(){function dxNorm(u){let t=String(u||"").replace(/[\\u0000-\\u0020\\u007f]+/g,"");' +
-      'for(let n=0;n<8;n++){let d;try{d=decodeURIComponent(t);}catch(e){return null;}if(d===t)break;t=d;}' +
-      'if(/[\\u0000-\\u0020\\u007f]/.test(t)||/%(?:2e|2f|5c)/i.test(t))return null;return t.toLowerCase();}' +
-      'function dxIsHashOnly(u){return String(u||"").charAt(0)==="#";}' +
-      'function dxIsHomeNav(u){const raw=String(u||"");' +
-      'if(/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(raw)&&!/^file:/i.test(raw))return false;' +
-      'if(raw.indexOf("//")===0)return false;' +
-      'const norm=dxNorm(u);if(norm==null)return false;' +
-      'if(/^(javascript|data|vbscript):/.test(norm))return false;' +
-      'if(/^[a-z][a-z0-9+.-]*:/.test(norm)&&norm.indexOf("file:")!==0)return false;' +
-      'if(norm.indexOf("//")===0)return false;' +
-      'return /(?:^|\\/)kokugo_app\\.html(?:[?#]|$)/i.test(raw)||/(?:^|\\/)kokugo_app\\.html(?:[?#]|$)/i.test(norm);}' +
-      'const dxLauncherHome=String(window.__DX_HOME_URL__||"");' +
-      'function dxFilePath(u){try{const x=new URL(String(u||""),dxLauncherHome||"file:///");' +
-      'if(x.protocol!=="file:"||x.username||x.password||x.search)return "";' +
-      'const host=(x.hostname||"").toLowerCase();if(host&&host!=="localhost")return "";' +
-      'return decodeURI(x.pathname).replace(/\\\\/g,"/").replace(/\\/+$/,"").toLowerCase();' +
-      '}catch(eF){return "";}}' +
-      'function dxSameLauncherFile(u){if(!dxLauncherHome||!/^file:/i.test(String(u||"")))return false;' +
-      'const a=dxFilePath(dxLauncherHome);const b=dxFilePath(u);return !!a&&a===b;}' +
-      'function dxIsLauncherHome(u){if(!dxLauncherHome)return false;const raw=String(u||"");if(raw===dxLauncherHome)return true;' +
-      'if(dxSameLauncherFile(u))return true;' +
-      'const hn=dxLauncherHome.toLowerCase().split("#")[0];const un=(dxNorm(u)||"").split("#")[0];return un===hn;}' +
-      'function dxNavKind(u){if(dxIsHashOnly(u))return "hash";if(dxIsHomeNav(u))return "home";if(dxIsLauncherHome(u))return "launcher";return "block";}' +
-      'let dxLauncherOnce=false;' +
-      'function dxGoLauncher(){dxLauncherOnce=true;location.href=dxLauncherHome;}' +
-      'function dxReopenNobiru(){if(!window.__DX_OPEN_NOBIRU__||!window.__DX_NOBIRU_KEY__)return false;' +
-      'const o={};try{new URLSearchParams(window.__DX_BOOT_SEARCH__||"").forEach(function(v,k){o[k]=v;});}catch(eR){}' +
-      'window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__,o);return true;}' +
-      /* location の href / assign / replace / reload は実体の own property（LegacyUnforgeable）で、
-         Location.prototype を書き換えても呼ばれない。スクリプトからの遷移は Navigation API で止める。
-         reload は srcdoc の再読み込み（白紙）になるので、のびる読解は同じ教材を開き直す。 */
-      'try{if(window.navigation&&navigation.addEventListener){navigation.addEventListener("navigate",function(ev){' +
-      'if(ev.hashChange)return;const u=ev.destination&&ev.destination.url||"";' +
-      'if(dxLauncherOnce){dxLauncherOnce=false;if(String(u)===dxLauncherHome||dxSameLauncherFile(u))return;' +
-      'if(ev.cancelable)ev.preventDefault();return;}' +
-      'if(ev.navigationType==="reload"){if(ev.cancelable)ev.preventDefault();if(window.__DX_REOPEN_NOBIRU__)window.__DX_REOPEN_NOBIRU__();return;}' +
-      /* ランチャーによる srcdoc の差し替え（モード選択・やり直し・閉じる）は通す。印のない about:srcdoc は止める */
-      'if(/^about:srcdoc$/i.test(String(u))){if(window.__DX_SRCDOC_SWITCHING__)return;if(ev.cancelable)ev.preventDefault();return;}' +
-      'const k=dxNavKind(u);' +
-      'if(k==="hash")return;' +
-      'if(k==="home"){if(ev.cancelable)ev.preventDefault();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();return;}' +
-      'if(k==="launcher"){if(ev.cancelable)ev.preventDefault();dxGoLauncher();return;}' +
-      'if(ev.cancelable)ev.preventDefault();});}}catch(eN){}' +
-      'document.addEventListener("click",function(ev){const el=ev.target&&ev.target.closest&&ev.target.closest("a[href],area[href]");' +
-      'if(!el)return;const href=el.getAttribute("href")||"";const k=dxNavKind(href);' +
-      'if(k==="hash")return;' +
-      'if(k==="home"){const dailyMid=/[?&]viaDaily=1(?:&|$)/.test(String(window.__DX_BOOT_SEARCH__||""))' +
-      '&&!(window.__DX_NOBIRU_FINISHED__&&window.__DX_NOBIRU_FINISHED__());' +
-      /* 一日一読の途中は engine.js の確認に任せる。既定の遷移は CSP で止まるので、ここでは止めるだけ */
-      'if(dailyMid&&el.closest&&el.closest("a.back")){ev.preventDefault();return;}' +
-      'ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();return;}' +
-      'ev.preventDefault();if(k==="launcher")dxGoLauncher();},true);';
-    if (kind === 'nobiru') {
-      locationHooks +=
-        'window.__DX_REOPEN_NOBIRU__=dxReopenNobiru;' +
-        'window.__DX_NOBIRU_FINISHED__=function(){return Array.prototype.some.call(document.querySelectorAll("button.again"),function(b){' +
-        'const t=String(b.textContent||"");' +
-        'return b.classList.contains("daily-end")||t.indexOf("ホーム")!==-1||t.indexOf("一日一読を終える")!==-1||t.indexOf("はじめからやり直す")!==-1;});};';
-    }
-    locationHooks += '})();';
-
-    const nobiruClicks =
-      kind === 'nobiru'
-        ? 'document.addEventListener("click",function(ev){' +
-          'const btn=ev.target&&ev.target.closest&&ev.target.closest(".modesel-card[data-mode]");' +
-          'if(btn&&window.__DX_OPEN_NOBIRU__){ev.preventDefault();ev.stopImmediatePropagation();' +
-          'window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__,{mode:btn.getAttribute("data-mode")});return;}' +
-          'const sw=ev.target&&ev.target.closest&&ev.target.closest("a.modeSwitch, #modeSwitch");' +
-          'if(sw&&window.__DX_OPEN_NOBIRU__&&window.__DX_NOBIRU_KEY__){ev.preventDefault();ev.stopImmediatePropagation();' +
-          'window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__,{});return;}' +
-          'const a=ev.target&&ev.target.closest&&ev.target.closest("a.back, a.modesel-back");' +
-          'if(a){' +
-          'if(a.classList.contains("back")&&/[?&]viaDaily=1(?:&|$)/.test(String(window.__DX_BOOT_SEARCH__||""))&&' +
-          '!(window.__DX_NOBIRU_FINISHED__&&window.__DX_NOBIRU_FINISHED__())){ev.preventDefault();return;}' +
-          'ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();return;}' +
-          'const again=ev.target&&ev.target.closest&&ev.target.closest("button.again");' +
-          'if(again){const oc=String(again.getAttribute("onclick")||"");const tx=String(again.textContent||"");' +
-          'if(again.classList.contains("daily-end")||oc.indexOf("kokugo_app")!==-1||tx.indexOf("ホーム")!==-1||tx.indexOf("一日一読を終える")!==-1){' +
-          'ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();return;}' +
-          'if(oc.indexOf("location.reload")!==-1||tx.indexOf("はじめからやり直す")!==-1){' +
-          'ev.preventDefault();ev.stopImmediatePropagation();' +
-          'if(window.__DX_REOPEN_NOBIRU__){window.__DX_REOPEN_NOBIRU__();}return;}}' +
-          '},true);'
-        : '';
-
-    const minigameClicks =
-      kind === 'minigame'
-        ? 'document.addEventListener("click",function(ev){' +
-          'const back=ev.target&&ev.target.closest&&ev.target.closest("#backLink,.back-link,#bHome,#bMgList,a[href*=\\"kokugo_app\\"]");' +
-          'if(back){ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();}' +
-          '},true);' +
-          'document.addEventListener("DOMContentLoaded",function(){' +
-          'window.backToApp=function(){if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();};' +
-          'window.goBack=function(){if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();};' +
-          '});'
-        : '';
-
     /* 通信先は URL 許可と同じ定数から組む。dist/index.html の CSP も同じ 2 ホスト。 */
     const cdnHosts = 'https://' + window.__DX_JSDELIVR_HOST__ + ' https://' + window.__DX_RAW_HOST__;
     const cspMeta =
@@ -1232,21 +1072,206 @@
           'script>'
         : '';
 
+    /* 種類と assetBase が同じなら、関数の文字列は親に1回だけ置く。教材キーや bootSearch は毎回足す。 */
+    function srcdocRest(kind, assetBase) {
+      let host = window;
+      try {
+        if (window.parent && window.parent !== window) host = window.parent;
+      } catch (eHost) {}
+      const cache = host.__DX_BOOT_REST__ || (host.__DX_BOOT_REST__ = Object.create(null));
+      const key = kind + '\n' + assetBase;
+      if (cache[key]) return cache[key];
+      const embed = window.__DX_JS_EMBED__;
+      const openerName = kind === 'nobiru' ? '__DX_OPEN_NOBIRU__' : '__DX_OPEN_STANDALONE_HTML__';
+      /* 親の関数を toString で iframe に写す。どれも window 上の名前だけを参照する。 */
+      const copiedNames = [
+        '__DX_OVERLAY_CARD__',
+        '__DX_SHOW_PAGE_ERROR__',
+        '__DX_REPORT_PAGE_ERROR__',
+        '__DX_HOST_HOME_URL__',
+        '__DX_BUILD_SRCDOC_BOOT__',
+        '__DX_FETCH_PAGE__',
+        '__DX_CANCEL_PAGE_OPEN__',
+        '__DX_ARM_PAGE_CLICK__',
+        '__DX_REMOVE_TRAPS__',
+        '__DX_OPEN_SRCDOC_PAGE__',
+        openerName,
+        '__DX_SHOW_NOBIRU_HTML__',
+        '__DX_RESOLVE_NOBIRU__',
+        '__DX_REWRITE_ASSETS__',
+        '__DX_ABS_NOBIRU__',
+        '__DX_JS_EMBED__',
+        '__DX_FRAME_STORAGE_SEED__',
+        '__DX_COPY_BEFORE_SWITCH__',
+      ];
+      let openerSrc = '';
+      for (let c = 0; c < copiedNames.length; c++) {
+        /* </script> だけを逃す。すべての </ を変えると、/< /g のような正規表現の閉じが消える。 */
+        const src = window[copiedNames[c]].toString().replace(/<\/script/gi, '<\\/script');
+        openerSrc += 'window.' + copiedNames[c] + '=(' + src + ');';
+      }
+      openerSrc +=
+        'window.__DX_CLOSE_NOBIRU__=function(){try{if(parent!==window&&parent.__DX_CLOSE_NOBIRU__)parent.__DX_CLOSE_NOBIRU__();}catch(e){}};';
+
+      const scriptHook =
+        '(function(){const nb=' +
+        embed(assetBase) +
+        ';const ce=document.createElement.bind(document);' +
+        'document.createElement=function(tag){const el=ce(tag);' +
+        'if(String(tag).toLowerCase()==="script"){el.async=false;const sa=el.setAttribute.bind(el);' +
+        'el.setAttribute=function(n,v){if(String(n).toLowerCase()==="src"&&v){' +
+        'const r=window.__DX_RESOLVE_NOBIRU__&&window.__DX_RESOLVE_NOBIRU__(String(v), nb);' +
+        'if(!r){if(window.__DX_REPORT_PAGE_ERROR__)window.__DX_REPORT_PAGE_ERROR__(new Error("許可されていないスクリプト URL です"));return;}' +
+        'v=r;}return sa(n,v);};' +
+        'try{Object.defineProperty(el,"src",{configurable:true,enumerable:true,' +
+        'get:function(){return el.getAttribute("src");},' +
+        'set:function(v){el.setAttribute("src",v);}});}' +
+        'catch(e2){}}return el;};})();';
+
+      /* engine.js は起動後に document.title を教材名にする。iframe の題名はタブに出ないので親へ写す。
+         title 要素は head にあるので head だけ見張る（body の描画では動かない）。 */
+      const titleMirror =
+        '(function(){let host=null;try{if(window.parent&&window.parent!==window)host=window.parent;}catch(eH){}' +
+        'if(!host)return;let last="";' +
+        'function sync(){let t="";try{t=String(document.title||"").trim();}catch(eT){}' +
+        'if(!t||t===last)return;last=t;' +
+        'try{if(!host.__DX_HOST_TITLE__)host.__DX_HOST_TITLE__=host.document.title;host.document.title=t;}catch(eS){}}' +
+        'try{new MutationObserver(sync).observe(document.head||document.documentElement,{childList:true,subtree:true,characterData:true});}catch(eO){}' +
+        'document.addEventListener("DOMContentLoaded",sync);})();';
+
+      const goHome =
+        'const __dxHome=String(window.__DX_HOME_URL__||"");' +
+        (kind === 'nobiru'
+          ? 'window.__DX_GO_HOME__=function(){try{if(parent!==window){' +
+            'if(typeof parent.__DX_RETURN_FROM_NOBIRU__==="function"){parent.__DX_RETURN_FROM_NOBIRU__();return;}' +
+            'if(typeof parent.__DX_CLOSE_NOBIRU__==="function")parent.__DX_CLOSE_NOBIRU__();' +
+            'if(typeof parent.showHome==="function"){parent.showHome();return;}' +
+            '}}catch(e){}' +
+            'if(__dxHome)location.href=__dxHome;};'
+          : 'window.__DX_GO_HOME__=function(){try{if(parent!==window&&parent.__DX_RETURN_FROM_MINIGAME__){parent.__DX_RETURN_FROM_MINIGAME__();return;}}catch(e){}' +
+            'if(__dxHome)location.href=__dxHome;};');
+
+      let locationHooks =
+        '(function(){function dxNorm(u){let t=String(u||"").replace(/[\\u0000-\\u0020\\u007f]+/g,"");' +
+        'for(let n=0;n<8;n++){let d;try{d=decodeURIComponent(t);}catch(e){return null;}if(d===t)break;t=d;}' +
+        'if(/[\\u0000-\\u0020\\u007f]/.test(t)||/%(?:2e|2f|5c)/i.test(t))return null;return t.toLowerCase();}' +
+        'function dxIsHashOnly(u){return String(u||"").charAt(0)==="#";}' +
+        'function dxIsHomeNav(u){const raw=String(u||"");' +
+        'if(/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(raw)&&!/^file:/i.test(raw))return false;' +
+        'if(raw.indexOf("//")===0)return false;' +
+        'const norm=dxNorm(u);if(norm==null)return false;' +
+        'if(/^(javascript|data|vbscript):/.test(norm))return false;' +
+        'if(/^[a-z][a-z0-9+.-]*:/.test(norm)&&norm.indexOf("file:")!==0)return false;' +
+        'if(norm.indexOf("//")===0)return false;' +
+        'return /(?:^|\\/)kokugo_app\\.html(?:[?#]|$)/i.test(raw)||/(?:^|\\/)kokugo_app\\.html(?:[?#]|$)/i.test(norm);}' +
+        'const dxLauncherHome=String(window.__DX_HOME_URL__||"");' +
+        'function dxFilePath(u){try{const x=new URL(String(u||""),dxLauncherHome||"file:///");' +
+        'if(x.protocol!=="file:"||x.username||x.password||x.search)return "";' +
+        'const host=(x.hostname||"").toLowerCase();if(host&&host!=="localhost")return "";' +
+        'return decodeURI(x.pathname).replace(/\\\\/g,"/").replace(/\\/+$/,"").toLowerCase();' +
+        '}catch(eF){return "";}}' +
+        'function dxSameLauncherFile(u){if(!dxLauncherHome||!/^file:/i.test(String(u||"")))return false;' +
+        'const a=dxFilePath(dxLauncherHome);const b=dxFilePath(u);return !!a&&a===b;}' +
+        'function dxIsLauncherHome(u){if(!dxLauncherHome)return false;const raw=String(u||"");if(raw===dxLauncherHome)return true;' +
+        'if(dxSameLauncherFile(u))return true;' +
+        'const hn=dxLauncherHome.toLowerCase().split("#")[0];const un=(dxNorm(u)||"").split("#")[0];return un===hn;}' +
+        'function dxNavKind(u){if(dxIsHashOnly(u))return "hash";if(dxIsHomeNav(u))return "home";if(dxIsLauncherHome(u))return "launcher";return "block";}' +
+        'let dxLauncherOnce=false;' +
+        'function dxGoLauncher(){dxLauncherOnce=true;location.href=dxLauncherHome;}' +
+        'function dxReopenNobiru(){if(!window.__DX_OPEN_NOBIRU__||!window.__DX_NOBIRU_KEY__)return false;' +
+        'const o={};try{new URLSearchParams(window.__DX_BOOT_SEARCH__||"").forEach(function(v,k){o[k]=v;});}catch(eR){}' +
+        'window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__,o);return true;}' +
+        /* location の href / assign / replace / reload は実体の own property（LegacyUnforgeable）で、
+           Location.prototype を書き換えても呼ばれない。スクリプトからの遷移は Navigation API で止める。
+           reload は srcdoc の再読み込み（白紙）になるので、のびる読解は同じ教材を開き直す。 */
+        'try{if(window.navigation&&navigation.addEventListener){navigation.addEventListener("navigate",function(ev){' +
+        'if(ev.hashChange)return;const u=ev.destination&&ev.destination.url||"";' +
+        'if(dxLauncherOnce){dxLauncherOnce=false;if(String(u)===dxLauncherHome||dxSameLauncherFile(u))return;' +
+        'if(ev.cancelable)ev.preventDefault();return;}' +
+        'if(ev.navigationType==="reload"){if(ev.cancelable)ev.preventDefault();if(window.__DX_REOPEN_NOBIRU__)window.__DX_REOPEN_NOBIRU__();return;}' +
+        /* ランチャーによる srcdoc の差し替え（モード選択・やり直し・閉じる）は通す。印のない about:srcdoc は止める */
+        'if(/^about:srcdoc$/i.test(String(u))){if(window.__DX_SRCDOC_SWITCHING__)return;if(ev.cancelable)ev.preventDefault();return;}' +
+        'const k=dxNavKind(u);' +
+        'if(k==="hash")return;' +
+        'if(k==="home"){if(ev.cancelable)ev.preventDefault();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();return;}' +
+        'if(k==="launcher"){if(ev.cancelable)ev.preventDefault();dxGoLauncher();return;}' +
+        'if(ev.cancelable)ev.preventDefault();});}}catch(eN){}' +
+        'document.addEventListener("click",function(ev){const el=ev.target&&ev.target.closest&&ev.target.closest("a[href],area[href]");' +
+        'if(!el)return;const href=el.getAttribute("href")||"";const k=dxNavKind(href);' +
+        'if(k==="hash")return;' +
+        'if(k==="home"){const dailyMid=/[?&]viaDaily=1(?:&|$)/.test(String(window.__DX_BOOT_SEARCH__||""))' +
+        '&&!(window.__DX_NOBIRU_FINISHED__&&window.__DX_NOBIRU_FINISHED__());' +
+        /* 一日一読の途中は engine.js の確認に任せる。既定の遷移は CSP で止まるので、ここでは止めるだけ */
+        'if(dailyMid&&el.closest&&el.closest("a.back")){ev.preventDefault();return;}' +
+        'ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();return;}' +
+        'ev.preventDefault();if(k==="launcher")dxGoLauncher();},true);';
+      if (kind === 'nobiru') {
+        locationHooks +=
+          'window.__DX_REOPEN_NOBIRU__=dxReopenNobiru;' +
+          'window.__DX_NOBIRU_FINISHED__=function(){return Array.prototype.some.call(document.querySelectorAll("button.again"),function(b){' +
+          'const t=String(b.textContent||"");' +
+          'return b.classList.contains("daily-end")||t.indexOf("ホーム")!==-1||t.indexOf("一日一読を終える")!==-1||t.indexOf("はじめからやり直す")!==-1;});};';
+      }
+      locationHooks += '})();';
+
+      const nobiruClicks =
+        kind === 'nobiru'
+          ? 'document.addEventListener("click",function(ev){' +
+            'const btn=ev.target&&ev.target.closest&&ev.target.closest(".modesel-card[data-mode]");' +
+            'if(btn&&window.__DX_OPEN_NOBIRU__){ev.preventDefault();ev.stopImmediatePropagation();' +
+            'window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__,{mode:btn.getAttribute("data-mode")});return;}' +
+            'const sw=ev.target&&ev.target.closest&&ev.target.closest("a.modeSwitch, #modeSwitch");' +
+            'if(sw&&window.__DX_OPEN_NOBIRU__&&window.__DX_NOBIRU_KEY__){ev.preventDefault();ev.stopImmediatePropagation();' +
+            'window.__DX_OPEN_NOBIRU__(window.__DX_NOBIRU_KEY__,{});return;}' +
+            'const a=ev.target&&ev.target.closest&&ev.target.closest("a.back, a.modesel-back");' +
+            'if(a){' +
+            'if(a.classList.contains("back")&&/[?&]viaDaily=1(?:&|$)/.test(String(window.__DX_BOOT_SEARCH__||""))&&' +
+            '!(window.__DX_NOBIRU_FINISHED__&&window.__DX_NOBIRU_FINISHED__())){ev.preventDefault();return;}' +
+            'ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();return;}' +
+            'const again=ev.target&&ev.target.closest&&ev.target.closest("button.again");' +
+            'if(again){const oc=String(again.getAttribute("onclick")||"");const tx=String(again.textContent||"");' +
+            'if(again.classList.contains("daily-end")||oc.indexOf("kokugo_app")!==-1||tx.indexOf("ホーム")!==-1||tx.indexOf("一日一読を終える")!==-1){' +
+            'ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();return;}' +
+            'if(oc.indexOf("location.reload")!==-1||tx.indexOf("はじめからやり直す")!==-1){' +
+            'ev.preventDefault();ev.stopImmediatePropagation();' +
+            'if(window.__DX_REOPEN_NOBIRU__){window.__DX_REOPEN_NOBIRU__();}return;}}' +
+            '},true);'
+          : '';
+
+      const minigameClicks =
+        kind === 'minigame'
+          ? 'document.addEventListener("click",function(ev){' +
+            'const back=ev.target&&ev.target.closest&&ev.target.closest("#backLink,.back-link,#bHome,#bMgList,a[href*=\\"kokugo_app\\"]");' +
+            'if(back){ev.preventDefault();ev.stopImmediatePropagation();if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();}' +
+            '},true);' +
+            'document.addEventListener("DOMContentLoaded",function(){' +
+            'window.backToApp=function(){if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();};' +
+            'window.goBack=function(){if(window.__DX_GO_HOME__)window.__DX_GO_HOME__();};' +
+            '});'
+          : '';
+
+      const built =
+        titleMirror +
+        scriptHook +
+        goHome +
+        /* ページを開かないクリックは、取得中の応答を捨てる。開くクリックより先に登録する */
+        'document.addEventListener("click",function(){if(window.__DX_ARM_PAGE_CLICK__)window.__DX_ARM_PAGE_CLICK__();},true);' +
+        locationHooks +
+        nobiruClicks +
+        minigameClicks +
+        openerSrc;
+      cache[key] = built;
+      return built;
+    }
+
+    const rest = srcdocRest(kind, String(opts.assetBase || ''));
     const boot =
       dailyFlag +
       '<script>(function(){' +
       storageSeed +
       passBoot +
       globals +
-      titleMirror +
-      scriptHook +
-      goHome +
-      /* ページを開かないクリックは、取得中の応答を捨てる。開くクリックより先に登録する */
-      'document.addEventListener("click",function(){if(window.__DX_ARM_PAGE_CLICK__)window.__DX_ARM_PAGE_CLICK__();},true);' +
-      locationHooks +
-      nobiruClicks +
-      minigameClicks +
-      openerSrc +
+      rest +
       '})();<\/script>';
 
     const absHtml = window.__DX_ABS_NOBIRU__(html, opts.assetBase);
@@ -1299,21 +1324,49 @@
       const abs = resolve ? resolve(found.src, assetBase) : null;
       if (!abs) return Promise.resolve(html);
       const token = window.__DX_PAGE_TOKEN__;
-      const ac = window.__DX_PAGE_ABORT__;
-      return fetch(abs, ac ? { signal: ac.signal } : undefined)
+      return loadPatchedEngine(abs, assetBase).then(function (engine) {
+        if (token !== window.__DX_PAGE_TOKEN__) return null;
+        if (!engine || !engine.inline) return html;
+        return html.replace(found.full, function () {
+          return '<script>' + engine.safe + '</script>';
+        });
+      });
+    }
+
+    /* 置換後の engine.js は、許可した絶対 URL ごとに親へ置く。
+       ページの中止では捨てない。失敗は覚えない。コミットが変わると URL が変わる。 */
+    function loadPatchedEngine(abs, assetBase) {
+      let host = window;
+      try {
+        if (window.parent && window.parent !== window) host = window.parent;
+      } catch (eHost) {}
+      const cache = host.__DX_ENGINE_CACHE__ || (host.__DX_ENGINE_CACHE__ = Object.create(null));
+      if (cache[abs]) return cache[abs];
+      const resolve = window.__DX_RESOLVE_NOBIRU__;
+      let pending;
+      pending = fetch(abs)
         .then(function (res) {
           if (!res.ok) throw new Error('のびる読解エンジンの取得に失敗しました (HTTP ' + res.status + ')');
+          /* 転送先が別ホストや別コミットなら、許可した URL の中身ではない */
+          if (!resolve || !resolve(res.url, assetBase)) {
+            throw new Error('許可されていない URL へ転送されました');
+          }
           return res.text();
         })
         .then(function (src) {
-          if (token !== window.__DX_PAGE_TOKEN__) return null;
           const patched = patchNobiruEngine(src);
-          if (patched === src) return html;
-          const safe = patched.replace(/<\/script/gi, '<\\/script');
-          return html.replace(found.full, function () {
-            return '<script>' + safe + '</script>';
-          });
+          const inline = patched !== src;
+          return {
+            inline: inline,
+            safe: inline ? patched.replace(/<\/script/gi, '<\\/script') : '',
+          };
+        })
+        .catch(function (err) {
+          if (cache[abs] === pending) delete cache[abs];
+          throw err;
         });
+      cache[abs] = pending;
+      return pending;
     }
 
     const base = window.__DX_CDN_BASE__;

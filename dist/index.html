@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'self' https://cdn.jsdelivr.net https://raw.githubusercontent.com; style-src 'unsafe-inline' 'self' https://cdn.jsdelivr.net https://raw.githubusercontent.com; img-src data: blob: https://cdn.jsdelivr.net https://raw.githubusercontent.com; media-src data: blob: https://cdn.jsdelivr.net https://raw.githubusercontent.com; font-src data: https://cdn.jsdelivr.net https://raw.githubusercontent.com; connect-src https://cdn.jsdelivr.net https://raw.githubusercontent.com; frame-src about:; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <!-- 設定は raw、script.js と本体 HTML は jsDelivr。script の crossorigin と fetch に合わせる。 -->
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preconnect" href="https://raw.githubusercontent.com" crossorigin>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>知識ドリルDX</title>
   <style>
@@ -118,6 +121,7 @@
     生徒PCに残す起動役。厚いローダーはリポジトリの dist/script.js のまま。
     ここを script.js に置き換えると、CDN 上のそのファイルも起動役になり自分を読み続ける。
     フォールバックハッシュは dist/script.js の FALLBACK_COMMIT_HASH と同じ値に保つ。
+    FALLBACK_SCRIPT_INTEGRITY は、そのコミットの dist/script.js（Git のバイト列）の sha384。
     開発時は index.html?local=1 でローカルの script.js を読む。
   -->
   <script>
@@ -125,7 +129,9 @@
       'use strict';
 
       var FALLBACK_COMMIT_HASH = '3fd657b029e1a8ae84444ac8af969dab40f97caa';
+      var FALLBACK_SCRIPT_INTEGRITY = 'sha384-QJ+K/WrvKSJSbG+K6tYsXK8j5KNZbfkrJQ0F3LX7I5P6xmPEVng9dXzvIXt8ZCWa';
       var COMMIT_HASH_RE = /^[0-9a-f]{40}$/;
+      var SRI_RE = /^sha384-[A-Za-z0-9+/]{64}$/;
       var REPO = 'dancedunce1988-max/dx';
       var JSDELIVR_HOST = 'cdn.jsdelivr.net';
       var RAW_HOST = 'raw.githubusercontent.com';
@@ -158,19 +164,21 @@
         return 'https://' + JSDELIVR_HOST + '/gh/' + REPO + '@' + hash + '/dist/script.js';
       }
 
-      function loadLoader(hash, isFallback) {
+      function loadLoader(hash, integrity, isFallback) {
         setLabel(isFallback ? '前回の版を読み込んでいます' : 'ローダーを読み込んでいます');
         var s = document.createElement('script');
-        s.src = loaderSrc(hash);
+        s.crossOrigin = 'anonymous';
+        s.integrity = integrity;
         s.onerror = function () {
-          if (!isFallback && hash !== FALLBACK_COMMIT_HASH) {
-            loadLoader(FALLBACK_COMMIT_HASH, true);
+          if (!isFallback && (hash !== FALLBACK_COMMIT_HASH || integrity !== FALLBACK_SCRIPT_INTEGRITY)) {
+            loadLoader(FALLBACK_COMMIT_HASH, FALLBACK_SCRIPT_INTEGRITY, true);
             return;
           }
           showBootError(
             'ローダーを取得できませんでした。\nネットワーク接続を確認して、もう一度開いてください。'
           );
         };
+        s.src = loaderSrc(hash);
         document.body.appendChild(s);
       }
 
@@ -219,12 +227,14 @@
         })
         .then(function (data) {
           var hash = data && typeof data.commitHash === 'string' ? data.commitHash.trim().toLowerCase() : '';
+          var integrity = data && typeof data.integrity === 'string' ? data.integrity.trim() : '';
           if (!COMMIT_HASH_RE.test(hash)) throw new Error('import-config.json の commitHash が不正です');
-          loadLoader(hash, false);
+          if (!SRI_RE.test(integrity)) throw new Error('import-config.json の integrity が不正です');
+          loadLoader(hash, integrity, false);
         })
         .catch(function (err) {
           console.warn('[DX] config fetch failed, using fallback loader', err);
-          loadLoader(FALLBACK_COMMIT_HASH, true);
+          loadLoader(FALLBACK_COMMIT_HASH, FALLBACK_SCRIPT_INTEGRITY, true);
         });
     })();
   </script>

@@ -72,9 +72,18 @@ jobs:
 
             git checkout -f -B main origin/main
             mkdir -p dist
+            # jsDelivr が返すバイト列は、このコミットの dist/script.js。SRI はその sha384。
+            git cat-file -e "${tip}:dist/script.js"
+            raw_integrity="$(git cat-file blob "${tip}:dist/script.js" | openssl dgst -sha384 -binary | base64 -w 0)"
+            if [[ ! "$raw_integrity" =~ ^[A-Za-z0-9+/]{64}$ ]]; then
+              echo "Failed: dist/script.js integrity at $tip"
+              exit 1
+            fi
+            integrity="sha384-${raw_integrity}"
             jq -n \
               --arg commitHash "$tip" \
-              '{commitHash: $commitHash}' \
+              --arg integrity "$integrity" \
+              '{commitHash: $commitHash, integrity: $integrity}' \
               > dist/import-config.json
 
             git fetch origin main
