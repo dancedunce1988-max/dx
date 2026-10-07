@@ -1,0 +1,1487 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<!-- 通行証のチェック（九尾・炎狼ランと同じ）：知識ドリルDXの入口（kokugo_app.htmlのmgGoWithPass）を通らずに、
+     直接開いたときは「このファイルは開けません」とだけ表示し、ゲームを動かさない（2026-10-04〜、教員の指示。以前は本体へ戻していた）。sessionStorageが使えないときは、確かめようがないのでそのまま開く。 -->
+<!--PASS_CHECK_BEGIN-->
+<script>
+(function(){
+  var ok = true;
+  try{ ok = !!(JSON.parse(sessionStorage.getItem("kokugo_mg_pass_v1") || "{}")["tsunagi"]); }catch(e){ ok = true; }
+  if(!ok){ document.write('<style>html,body{margin:0;height:100%;background:#1d1f38;color:#fff;font-family:sans-serif}body{display:flex;align-items:center;justify-content:center}</style></head><body><p style="font-size:22px;font-weight:bold">このファイルは開けません</p><plaintext style="display:none">'); }
+})();
+</script>
+<!--PASS_CHECK_END-->
+<title>鉄甲兵のつなぎ橋</title>
+<!-- 知識ドリルDXのミニゲーム「鉄甲兵のつなぎ橋」（2026-10-02〜、試作）。
+     接続語で文と文をつなぎ、谷に橋を架けて鉄甲兵(me02)を向こう岸へ渡らせる。鉄甲兵は鎧が重いので、
+     前後の関係（順接・逆接など）に合わない板を選ぶと、乗った瞬間に割れる。
+     一〜四の谷で見る力を変え（板を選ぶ→板の働きを見る→長い橋を続けて架ける→腐った板を見つけて直す）、
+     「挑戦の谷」で60秒のタイムアタック。
+     2026-10-03〜、ミニゲーム一覧に「準備中」カードとして載せ、隠し操作（3回タップ→t→2回タップ）でだけ開ける。
+     九尾・炎狼ランと同じく、本体の入口を通ったときだけ入れる（通行証のチェック）。
+     本体のセーブデータ(st)には直接触れず、このページ専用のlocalStorageキー(TB_LSKEY)を使う。
+     2026-10-02〜、本体に新ジャンル「接続詞」（setsuzokushi）ができたので、九尾の化かし合いと同じく
+     「正解1つ＝＋1、まちがい1つ＝−1」の差し引きを本体のジャンルレベルの増減としてMG_PENDING_LVUP_LSKEYに書き置く（mgFlush参照）。
+     鉄甲兵の絵は本番と同じスプライト(enemy_sprites_data.js)を使い、読み込めなかったときは🛡️の絵文字で代用する。 -->
+<script src="enemy_sprites_data.js"></script>
+<script src="tsunagi_long_data.js"></script>
+<style>
+  :root{
+    --sky1:#1b2340; --sky2:#3a3560; --sky3:#c4704a;
+    --rock1:#6b5a4a; --rock2:#4a3c31; --rock3:#2e251f;
+    --wood1:#c99a5b; --wood2:#9c6c35; --woodInk:#3a2410;
+    --steel:#c9d2dc; --steel2:#8a96a3;
+    --gold:#ffd76b; --ok:#5fd08a; --ng:#ff6b6b; --red:#e23b2e;
+    --text:#f3f1ec; --sub:#b8b2c8;
+    --panel:rgba(255,255,255,.07); --line:rgba(255,255,255,.16);
+    --tablet:#ece4d2; --tabletInk:#2b2318;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{
+    width:100%; height:100%; overflow:hidden;
+    background:linear-gradient(180deg, #11162b 0%, #1d1f38 60%, #2a2238 100%);
+    background-color:#11162b;
+    font-family:'Hiragino Sans','Yu Gothic','Meiryo',sans-serif;
+    color:var(--text); -webkit-font-smoothing:antialiased;
+    user-select:none; -webkit-user-select:none;
+  }
+  button{ font-family:inherit; cursor:pointer; }
+  .mincho{ font-family:'Hiragino Mincho ProN','Yu Mincho','YuMincho','BIZ UDMincho',serif; }
+  .screen{ display:none; height:100vh; height:100dvh; flex-direction:column; overflow-y:auto; }
+  .screen.show{ display:flex; }
+  .wrap{ width:100%; max-width:560px; margin:0 auto; padding:0 16px; }
+
+  #muteBtn{
+    position:fixed; top:10px; right:12px; z-index:50; width:38px; height:38px; border-radius:50%;
+    border:1px solid var(--line); background:rgba(0,0,0,.35); color:var(--text); font-size:17px;
+  }
+
+  /* ---------- タイトル（谷の地図） ---------- */
+  #title .hero{ text-align:center; padding:26px 0 6px; }
+  #title .hero img, #title .hero .emoji{ height:150px; display:block; margin:0 auto; filter:drop-shadow(0 8px 14px rgba(0,0,0,.5)); }
+  #title .hero .emoji{ font-size:110px; line-height:150px; }
+  #title h1{ font-size:30px; letter-spacing:.12em; margin-top:6px; color:var(--steel);
+    text-shadow:0 2px 0 #3c4550, 0 0 18px rgba(201,210,220,.25); }
+  #title .tag{ color:var(--sub); font-size:13px; margin-top:4px; }
+  .speech{
+    position:relative; background:var(--tablet); color:var(--tabletInk); border-radius:12px;
+    padding:12px 14px; margin:14px 0 6px; font-size:14px; line-height:1.7;
+  }
+  .speech b{ color:#7a3a10; }
+  .speech::before{ content:""; position:absolute; top:-9px; left:50%; margin-left:-9px;
+    border:9px solid transparent; border-top:0; border-bottom-color:var(--tablet); }
+  .stage-list{ display:flex; flex-direction:column; gap:10px; margin:14px 0 18px; }
+  .stage-btn{
+    display:flex; align-items:center; gap:12px; text-align:left; width:100%;
+    background:linear-gradient(180deg, rgba(255,255,255,.09), rgba(255,255,255,.04));
+    border:1px solid var(--line); border-radius:14px; color:var(--text); padding:12px 14px;
+  }
+  .stage-btn:active{ transform:translateY(1px); }
+  .stage-btn .num{ flex:0 0 46px; height:46px; border-radius:10px; display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(180deg, var(--wood1), var(--wood2)); color:var(--woodInk); font-size:20px; font-weight:800; }
+  .stage-btn .num.ch{ background:linear-gradient(180deg, #ff8a5c, #c2402a); color:#fff; font-size:15px; }
+  .stage-btn h3{ font-size:16px; }
+  .stage-btn p{ font-size:12px; color:var(--sub); margin-top:2px; line-height:1.5; }
+  .stage-btn .mark{ margin-left:auto; font-size:12px; color:var(--gold); white-space:nowrap; }
+  .foot-btns{ display:flex; justify-content:center; gap:10px; margin-bottom:24px; }
+  .btn{ border:1px solid var(--line); background:var(--panel); color:var(--text); border-radius:999px; padding:10px 20px; font-size:14px; }
+  .btn.primary{ background:linear-gradient(180deg, #ffcf6b, #e19a2c); color:#2a1a05; border-color:transparent; font-weight:700; }
+
+  /* ---------- ゲーム画面 ---------- */
+  #game{ overflow:hidden; }
+  .hud{ display:flex; align-items:center; gap:10px; padding:10px 60px 6px 16px; flex:0 0 auto; }
+  .hud .stg{ font-size:14px; font-weight:700; color:var(--steel); white-space:nowrap; }
+  .hud .prog{ flex:1; height:8px; background:rgba(255,255,255,.12); border-radius:4px; overflow:hidden; }
+  .hud .prog i{ display:block; height:100%; width:0; background:linear-gradient(90deg, var(--wood1), var(--gold)); transition:width .4s; }
+  .hud .timer{ font-size:18px; font-weight:800; color:var(--gold); min-width:3.2em; text-align:right; }
+  .hud .timer.low{ color:var(--ng); }
+  .hud .armors{ white-space:nowrap; }
+  .hud .armor{ font-size:15px; transition:opacity .3s, filter .3s; }
+  .hud .armor.lost{ opacity:.25; filter:grayscale(1); }
+  /* 5問ごとの長文までの道のり。最後の📜が長文の橋（時間停止） */
+  .hud .pips{ flex:1; display:flex; align-items:center; gap:4px; min-width:0; }
+  .hud .pip{ width:9px; height:9px; border-radius:50%; background:rgba(255,255,255,.18); flex:0 0 auto; }
+  .hud .pip.done{ background:var(--wood1); }
+  .hud .pip.now{ background:var(--gold); box-shadow:0 0 6px var(--gold); }
+  .hud .pip.scroll{ width:auto; height:auto; background:none; font-size:14px; opacity:.55; }
+  .hud .pip.scroll.now{ opacity:1; box-shadow:none; animation:blink 1s infinite; }
+  .hud .timer.frozen{ color:var(--ice); font-size:14px; }
+  /* 時間停止中（長文の橋）：景色を青く凍らせ、左上に「時間停止中」の札を出す */
+  :root{ --ice:#8fe3ff; }
+  #scene .freeze{ position:absolute; inset:0; z-index:7; pointer-events:none; opacity:0; transition:opacity .4s;
+    background:radial-gradient(ellipse at 50% 40%, rgba(143,227,255,.08), rgba(80,170,230,.35));
+    box-shadow:inset 0 0 0 3px rgba(143,227,255,.6); }
+  #scene .freeze span{ position:absolute; left:10px; bottom:10px; background:rgba(10,30,50,.75); color:var(--ice);
+    border:1px solid var(--ice); border-radius:8px; padding:3px 9px; font-size:12.5px; font-weight:800; }
+  #game.frozen #scene .freeze{ opacity:1; }
+  .freeze-note{ background:rgba(143,227,255,.12); border:1px solid rgba(143,227,255,.5); color:var(--ice);
+    border-radius:10px; padding:7px 10px; font-size:12.5px; font-weight:700; text-align:center; margin-bottom:10px; }
+  #timeBanner{ position:fixed; left:50%; top:38%; transform:translate(-50%,-50%) scale(.8); z-index:60; width:min(86vw, 420px);
+    background:rgba(8,24,42,.94); border:2px solid var(--ice); border-radius:16px; padding:16px 14px; text-align:center;
+    color:var(--text); opacity:0; pointer-events:none; transition:opacity .25s, transform .25s; }
+  #timeBanner.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+  #timeBanner b{ display:block; font-size:24px; color:var(--ice); margin-bottom:6px; letter-spacing:.06em; }
+  #timeBanner.go{ border-color:var(--gold); }
+  #timeBanner.go b{ color:var(--gold); }
+  #timeBanner p{ font-size:13.5px; line-height:1.6; }
+  .hud .quit{ border:0; background:none; color:var(--sub); font-size:13px; }
+
+  /* 谷の景色 */
+  #scene{
+    position:relative; flex:0 0 auto; height:clamp(170px, 30vh, 240px); overflow:hidden;
+    background:
+      radial-gradient(ellipse at 70% 95%, rgba(255,160,90,.55) 0%, transparent 55%),
+      linear-gradient(180deg, var(--sky1) 0%, var(--sky2) 55%, var(--sky3) 100%);
+  }
+  #scene .mtn{ position:absolute; left:-10%; right:-10%; bottom:20%; height:45%;
+    background:#2b2a45; clip-path:polygon(0 100%,0 60%,10% 35%,20% 55%,32% 20%,45% 50%,55% 30%,68% 58%,80% 25%,92% 50%,100% 40%,100% 100%); opacity:.8; }
+  #scene .river{ position:absolute; left:0; right:0; bottom:0; height:14%;
+    background:repeating-linear-gradient(90deg, #1d4a6b 0 18px, #23608a 18px 30px); animation:flow 1.4s linear infinite; }
+  @keyframes flow{ from{ background-position:0 0 } to{ background-position:30px 0 } }
+  .plat{
+    position:absolute; bottom:0; top:58%;
+    background:linear-gradient(90deg, var(--rock2), var(--rock1) 45%, var(--rock2) 85%, var(--rock3));
+    border-top:6px solid #5f7a3c; border-radius:4px 4px 0 0;
+    box-shadow:inset 0 10px 14px rgba(0,0,0,.25);
+  }
+  .plank{
+    position:absolute; top:calc(58% - 4px); height:24px; border-radius:4px;
+    display:flex; align-items:center; justify-content:center; overflow:hidden;
+    color:var(--woodInk); font-weight:800; white-space:nowrap; z-index:3;
+  }
+  .plank.empty{ border:2px dashed rgba(255,255,255,.35); background:rgba(0,0,0,.15); }
+  .plank.empty.active{ border-color:var(--gold); animation:blink 1s ease-in-out infinite; }
+  @keyframes blink{ 50%{ box-shadow:0 0 12px rgba(255,215,107,.8); } }
+  .plank.wood{ background:linear-gradient(180deg, var(--wood1), var(--wood2)); border:1px solid #5d3b17;
+    box-shadow:0 3px 0 #5d3b17; }
+  .plank.drop{ animation:drop .35s cubic-bezier(.3,.0,.5,1.4); }
+  @keyframes drop{ from{ transform:translateY(-120px); opacity:.3 } to{ transform:none; opacity:1 } }
+  .plank.good{ box-shadow:0 3px 0 #5d3b17, 0 0 14px rgba(95,208,138,.9); }
+  .plank.rot{ background:linear-gradient(180deg, #8e8a5a, #5d5a37); }
+  .plank .half{ position:absolute; top:0; bottom:0; width:50%; background:inherit; display:flex; align-items:center; overflow:hidden; }
+  .plank.breaking{ background:none; border:0; box-shadow:none; overflow:visible; }
+  .plank.breaking .half{ background:linear-gradient(180deg, var(--wood1), var(--wood2)); border:1px solid #5d3b17; }
+  .plank.breaking .half.l{ left:0; justify-content:flex-end; animation:fallL .9s ease-in forwards; transform-origin:0 50%; }
+  .plank.breaking .half.r{ right:0; justify-content:flex-start; animation:fallR .9s ease-in forwards; transform-origin:100% 50%; }
+  @keyframes fallL{ 30%{ transform:rotate(35deg) } 100%{ transform:translateY(160px) rotate(80deg); opacity:0 } }
+  @keyframes fallR{ 30%{ transform:rotate(-35deg) } 100%{ transform:translateY(160px) rotate(-80deg); opacity:0 } }
+  #knight{
+    position:absolute; z-index:5; bottom:calc(42% + 2px); width:clamp(64px, 18vw, 92px); transform:translateX(-50%);
+    transition:left .8s linear;
+  }
+  #knight img{ width:100%; display:block; transform:scaleX(-1); filter:drop-shadow(0 4px 4px rgba(0,0,0,.45)); }
+  #knight .emoji{ font-size:48px; text-align:center; }
+  #knight.walk{ animation:bob .25s ease-in-out infinite; }
+  @keyframes bob{ 50%{ margin-bottom:4px } }
+  #knight.shake{ animation:shake .4s; }
+  @keyframes shake{ 20%{ margin-left:-6px } 40%{ margin-left:6px } 60%{ margin-left:-4px } 80%{ margin-left:3px } }
+  #scene .say{
+    position:absolute; z-index:6; top:8px; left:50%; transform:translateX(-50%); max-width:86%;
+    background:var(--tablet); color:var(--tabletInk); border-radius:10px; padding:5px 10px;
+    font-size:12.5px; font-weight:700; line-height:1.4; opacity:0; transition:opacity .25s; pointer-events:none; text-align:center;
+  }
+  #scene .say.show{ opacity:1; }
+  .bigmark{
+    position:absolute; z-index:8; left:50%; top:44%; transform:translate(-50%,-50%) scale(.4);
+    font-size:110px; font-weight:900; line-height:1; opacity:0; pointer-events:none;
+  }
+  .bigmark.ok{ color:transparent; width:110px; height:110px; border:13px solid var(--red); border-radius:50%; }
+  .bigmark.ng{ color:#3b6fd8; text-shadow:0 0 10px rgba(255,255,255,.6); }
+  .bigmark.pop{ animation:pop .7s ease-out forwards; }
+  @keyframes pop{ 0%{ opacity:0; transform:translate(-50%,-50%) scale(.4) } 30%{ opacity:1; transform:translate(-50%,-50%) scale(1.05) }
+    75%{ opacity:1; transform:translate(-50%,-50%) scale(1) } 100%{ opacity:0; transform:translate(-50%,-50%) scale(1) } }
+
+  /* 問題文（石板） */
+  .board{ flex:1 1 auto; overflow-y:auto; padding:12px 16px 14px; }
+  .ask{ font-size:13px; color:var(--gold); font-weight:700; margin-bottom:8px; text-align:center; }
+  .tablet{
+    background:var(--tablet); color:var(--tabletInk); border-radius:10px; padding:12px 14px;
+    font-size:17px; line-height:2.05; box-shadow:0 4px 0 #a99d82;
+  }
+  .tablet .slot{
+    display:inline-block; min-width:4.2em; text-align:center; padding:0 6px; margin:0 3px; line-height:1.55;
+    border-radius:6px; border:2px dashed #a99d82; color:#a99d82; font-weight:800; vertical-align:baseline;
+  }
+  .tablet .slot.active{ border-color:#d48a1d; color:#d48a1d; background:rgba(255,200,80,.2); }
+  .tablet .slot.filled{ border:2px solid #9c6c35; background:linear-gradient(180deg, var(--wood1), var(--wood2)); color:var(--woodInk); }
+  .tablet .slot.right{ border-color:#2f8a52; box-shadow:0 0 0 2px rgba(47,138,82,.25); }
+  .tablet .slot.wrong{ background:#f3c9c4; border-color:#c0392b; color:#c0392b; text-decoration:line-through; }
+  .tablet .slot.tap{ cursor:pointer; }
+  .tablet .slot.tap:active{ transform:translateY(1px); }
+  .tablet .slot .fix{ text-decoration:none; color:#1f6e3f; margin-left:4px; }
+  .opts{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px; }
+  .opts.six{ grid-template-columns:1fr 1fr; }
+  /* 長い文章のときは、選択肢の板を画面の下に貼りつけて、文章をスクロールしても手元に残す */
+  .opts.dock{ position:sticky; bottom:-14px; z-index:4; margin:10px -16px -14px; padding:10px 16px 14px;
+    background:linear-gradient(180deg, rgba(29,31,56,0), #1d1f38 18px); grid-template-columns:repeat(3, 1fr); gap:8px; }
+  .opts.dock .opt{ min-height:44px; font-size:16px; padding:4px; }
+  .opt{
+    min-height:52px; border-radius:10px; border:1px solid #5d3b17; color:var(--woodInk);
+    background:linear-gradient(180deg, var(--wood1), var(--wood2)); box-shadow:0 4px 0 #5d3b17;
+    font-size:19px; font-weight:800; padding:6px 8px; line-height:1.25;
+  }
+  .opt small{ display:block; font-size:11px; font-weight:600; opacity:.8; margin-top:2px; }
+  .opt:active{ transform:translateY(3px); box-shadow:0 1px 0 #5d3b17; }
+  .opt:disabled{ opacity:.35; transform:none; box-shadow:0 4px 0 #5d3b17; }
+  .opt.picked-ok{ outline:3px solid var(--ok); }
+  .opt.picked-ng{ outline:3px solid var(--ng); }
+  /* キー操作：選んでいる板・ボタンの枠と、パソコンだけに出す数字キーの目印 */
+  .opt, .tablet .slot.tap{ position:relative; }
+  .opt:focus-visible, .tablet .slot.tap:focus-visible, .stage-btn:focus-visible, .btn:focus-visible{ outline:3px solid #ffd76a; outline-offset:2px; }
+  .kbd-hint{ display:none; }
+  @media (hover:hover) and (pointer:fine){
+    .opt[data-k]::before, .tablet .slot.tap[data-k]::before{
+      content:attr(data-k); position:absolute; top:3px; left:5px; font:700 11px/1 system-ui, sans-serif;
+      color:#fff; background:rgba(60,35,10,.75); border-radius:4px; padding:2px 4px; text-decoration:none;
+    }
+    .tablet .slot.tap[data-k]::before{ top:-9px; left:-6px; }
+    .kbd-hint{ display:block; text-align:center; font-size:11px; color:var(--sub); margin-top:8px; }
+  }
+  .explain{
+    margin-top:12px; background:rgba(0,0,0,.3); border:1px solid var(--line); border-left:4px solid var(--ng);
+    border-radius:10px; padding:10px 12px; font-size:13.5px; line-height:1.75;
+  }
+  .explain.okk{ border-left-color:var(--ok); }
+  .explain.review .rv-head{ font-weight:800; color:var(--gold); margin-bottom:6px; }
+  .explain.review .rv{ padding:8px 0; border-top:1px dashed var(--line); }
+  .explain.review .rv:first-of-type{ border-top:0; }
+  .explain.review .rv-w{ margin-bottom:2px; }
+  .explain.review .rv-n{ color:var(--gold); margin-right:4px; }
+  .explain.review .rv-w b{ color:var(--text); font-size:15px; }
+  .explain.review .rv-t{ font-size:12px; color:var(--sub); margin-left:6px; }
+  .explain b{ color:var(--gold); }
+  .explain .next{ display:block; margin:10px auto 0; }
+
+  .tablet.term-q{ text-align:center; font-size:30px; font-weight:800; line-height:1.6; padding:18px 14px; }
+  .tablet.term-q small{ font-size:15px; font-weight:600; margin-left:4px; }
+  .tablet.term-q .desc{ display:block; font-size:18px; font-weight:700; text-align:left; }
+
+  /* ---------- 板の図鑑 ---------- */
+  #zukan .wrap{ padding-top:22px; padding-bottom:24px; }
+  .z-title{ font-size:22px; color:var(--steel); text-align:center; }
+  .z-group{ margin-top:16px; }
+  .z-group h3{ font-size:15px; color:var(--gold); margin-bottom:8px; }
+  .z-term{ background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:10px 12px; margin-bottom:8px; }
+  .z-head{ display:flex; align-items:baseline; gap:8px; }
+  .z-name{ font-size:22px; font-weight:800; color:var(--steel); }
+  .z-yomi{ font-size:12px; color:var(--sub); }
+  .z-desc{ font-size:13.5px; margin-top:2px; line-height:1.6; }
+  .z-words{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .z-plank{ background:linear-gradient(180deg, var(--wood1), var(--wood2)); color:var(--woodInk); border-radius:6px; padding:2px 10px; font-weight:800; font-size:14px; }
+  .z-ex{ font-size:13.5px; margin-top:8px; line-height:1.7; color:var(--text); }
+  .z-ex u{ text-decoration:none; background:rgba(255,215,107,.22); padding:0 3px; border-radius:3px; font-weight:800; }
+  .z-note{ font-size:12px; color:var(--sub); margin-top:4px; line-height:1.6; }
+
+  /* 本体のジャンルレベルの増減（九尾の化かし合いと同じ見せ方） */
+  .lvup-toast{ position:fixed; left:50%; top:56px; transform:translate(-50%,-10px); z-index:70; pointer-events:none;
+    background:rgba(20,60,35,.92); border:1px solid var(--ok); color:#dfffe9; border-radius:999px; padding:5px 14px;
+    font-size:12.5px; white-space:nowrap; opacity:0; transition:opacity .2s, transform .2s; }
+  .lvup-toast.down{ background:rgba(70,20,20,.92); border-color:var(--ng); color:#ffe1e1; }
+  .lvup-toast.show{ animation:lvToast 1.4s ease-out forwards; }
+  @keyframes lvToast{ 0%{opacity:0; transform:translate(-50%,-10px)} 15%,70%{opacity:1; transform:translate(-50%,0)} 100%{opacity:0; transform:translate(-50%,0)} }
+  .lvup-toast .g{ opacity:.8; margin-right:6px; }
+  .lvup-toast .t{ opacity:.8; margin-left:4px; }
+  .lv-result{ margin-top:8px; font-size:14px; color:#bff3d0; }
+  .lv-result.down{ color:#ffc9c9; }
+  .lv-result b{ font-size:18px; }
+  .lv-result .lv-rule{ font-size:11.5px; color:var(--sub); margin-top:2px; }
+
+  /* ---------- 結果 ---------- */
+  #result .wrap{ padding-top:24px; padding-bottom:24px; text-align:center; }
+  #result img, #result .emoji{ height:130px; display:block; margin:0 auto; }
+  #result .emoji{ font-size:90px; line-height:130px; }
+  #result h2{ font-size:22px; margin-top:8px; color:var(--steel); }
+  #result .score{ font-size:44px; font-weight:900; color:var(--gold); margin:4px 0; }
+  #result .sub{ color:var(--sub); font-size:13px; }
+  .miss-list{ text-align:left; margin:16px 0; display:flex; flex-direction:column; gap:10px; }
+  .miss{ background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-size:13px; line-height:1.75; }
+  .miss .q{ font-size:14px; }
+  .miss .q u{ text-decoration:none; background:rgba(95,208,138,.25); color:#bff3d0; padding:0 4px; border-radius:4px; font-weight:800; }
+  .miss .q s{ color:var(--ng); }
+  .miss .w{ color:var(--sub); margin-top:4px; }
+</style>
+</head>
+<body>
+<button id="muteBtn" onclick="toggleMute()" aria-label="音のオン・オフ">🔊</button>
+
+<!-- タイトル（谷の地図） -->
+<section id="title" class="screen show">
+  <div class="wrap">
+    <div class="hero">
+      <div id="titleKnight"></div>
+      <h1 class="mincho">鉄甲兵のつなぎ橋</h1>
+      <div class="tag">ことばの板で、文と文に橋を架けよう</div>
+    </div>
+    <div class="speech">
+      わしは鉄甲兵。この鎧は重いぞ。<br>
+      <b>前と後ろの文の関係に合わない板</b>では、わしの重さに耐えられず、乗ったとたんに割れてしまう。<br>
+      正しい板で橋を架け、わしを向こう岸まで渡してくれ！
+    </div>
+    <div class="stage-list" id="stageList"></div>
+    <div class="kbd-hint">⌨️ キーボードでも遊べる：数字キー（1〜9）で板を選ぶ／Enter・スペースで「次へ」／←→で選んでEnterで決定</div>
+    <div class="foot-btns">
+      <button class="btn" onclick="showZukan()">📖 板の図鑑</button>
+      <button class="btn" onclick="backToApp()">ミニゲーム一覧へ戻る</button>
+    </div>
+  </div>
+</section>
+
+<!-- ゲーム -->
+<section id="game" class="screen">
+  <div class="hud">
+    <span class="stg" id="hudStage"></span>
+    <span class="prog" id="hudProgWrap"><i id="hudProg"></i></span>
+    <span class="pips" id="hudPips" hidden></span>
+    <span class="armors" id="hudArmor" hidden></span>
+    <span class="timer" id="hudTimer"></span>
+    <button class="quit" onclick="quitStage()">やめる</button>
+  </div>
+  <div id="scene">
+    <div class="mtn"></div>
+    <div class="river"></div>
+    <div id="bridge"></div>
+    <div id="knight"></div>
+    <div class="say" id="say"></div>
+    <div class="bigmark" id="bigmark">×</div>
+    <div class="freeze"><span>⏸️ 時間停止中</span></div>
+  </div>
+  <div class="board" id="board"></div>
+</section>
+
+<!-- 板の図鑑：働きの名前・意味・代表的な語・例文の一覧（覚えるためのページ） -->
+<section id="zukan" class="screen">
+  <div class="wrap" id="zukanBody"></div>
+</section>
+
+<div id="timeBanner"></div>
+
+<!-- 結果 -->
+<section id="result" class="screen">
+  <div class="wrap" id="resultBody"></div>
+</section>
+
+<script>
+/* =====================================================================
+   接続語の種類（6つの働き）と、選択肢に出てくる語ごとの使いどころ。
+   まちがえたとき「選んだ語はこういうときに使う」と見せるために、語ごとに一言ずつ持たせる。
+   ===================================================================== */
+const TYPES = {
+  jun:  {name:"順接",       ex:"だから・すると", desc:"前のことが原因・理由になって、後ろにその結果が来る"},
+  gyaku:{name:"逆接",       ex:"しかし・ところが", desc:"後ろに、前から予想されることと反対のことが来る"},
+  hei:  {name:"並立・累加", ex:"また・しかも",   desc:"前のことと対等に並べたり、付け加えたりする"},
+  tai:  {name:"対比・選択", ex:"一方・それとも", desc:"前と後ろを比べたり、どちらかを選んだりする"},
+  setsu:{name:"説明・補足", ex:"なぜなら・つまり", desc:"前のことについて、理由・言いかえ・例・条件を補う"},
+  ten:  {name:"転換",       ex:"ところで・さて", desc:"それまでの話題を変える"},
+};
+const TYPE_KEYS = ["jun","gyaku","hei","tai","setsu","ten"];
+/* 「でも」は話し言葉なので、接続語としては出さない（教員の指示）。逆接の書き言葉は「だが」「しかし」などを使う。 */
+const WORDS = {
+  "だから":     {t:"jun",   use:"前が理由で、後ろがその結果のとき"},
+  "すると":     {t:"jun",   use:"前のことに続いて、後ろのことが起こるとき"},
+  "そこで":     {t:"jun",   use:"前の状況を受けて、次の行動をとるとき"},
+  "そのため":   {t:"jun",   use:"前が原因で、後ろがその結果のとき"},
+  "しかし":     {t:"gyaku", use:"後ろに、前と反対のことが来るとき"},
+  "けれども":   {t:"gyaku", use:"後ろに、前と反対のことが来るとき"},
+  "ところが":   {t:"gyaku", use:"前から予想されることと反対の、意外なことが起こるとき"},
+  "それなのに": {t:"gyaku", use:"当然そうなるはずなのに、そうならなかったとき"},
+  "だが":       {t:"gyaku", use:"後ろに、前と反対の考えや事がらが来るとき"},
+  "また":       {t:"hei",   use:"同じようなことを並べるとき"},
+  "しかも":     {t:"hei",   use:"前のことに、さらに付け加えるとき"},
+  "そのうえ":   {t:"hei",   use:"前のことに、さらに付け加えるとき"},
+  "それに":     {t:"hei",   use:"前のことに、さらに付け加えるとき"},
+  "一方":       {t:"tai",   use:"二つのことを比べるとき"},
+  "これに対して":{t:"tai",  use:"二つのことを比べるとき"},
+  "または":     {t:"tai",   use:"どちらか一方を選ぶとき"},
+  "それとも":   {t:"tai",   use:"問いかけで、どちらかを選ばせるとき"},
+  "なぜなら":   {t:"setsu", use:"後ろに理由が来るとき（文末が「〜からだ」になる）"},
+  "つまり":     {t:"setsu", use:"前のことを言いかえたり、まとめたりするとき"},
+  "たとえば":   {t:"setsu", use:"前のことの例をあげるとき"},
+  "ただし":     {t:"setsu", use:"前のことに、条件や例外を付け加えるとき"},
+  "ところで":   {t:"ten",   use:"話題を変えるとき"},
+  "さて":       {t:"ten",   use:"話題を変えたり、本題に入ったりするとき"},
+  "では":       {t:"ten",   use:"話題を変えて、次のことに移るとき"},
+};
+
+WORDS["および"] = {t:"hei",   use:"前のことと対等に並べるとき"};
+WORDS["なお"]   = {t:"setsu", use:"前のことに、補足を付け加えるとき"};
+
+/* =====================================================================
+   働きの名前（用語）。教科書の「並立・累加」「対比・選択」「説明・補足」を一語ずつに分けた9つ。
+   二の谷（名前の石碑）と板の図鑑で使う。g＝上の6つのどのなかまか、words＝その働きの代表的な語、
+   fakes＝漢字を問う問題の、形や音の似たまちがいの選択肢、note＝覚え方・まぎらわしい言葉の注意。
+   並立と累加のように同じなかまどうしは、語によってはどちらとも言える（「また」など）ので、
+   「語→名前」「名前→語」の問題では、同じなかまの名前・語を選択肢に入れない。
+   ===================================================================== */
+const TERMS = {
+  "順接":{yomi:"じゅんせつ", g:"jun",   desc:"前のことが原因・理由となり、その順当な結果が後ろに来る",
+          words:["だから","すると","そこで","そのため"], fakes:["順説","準接","純接"], note:"「順」は「順当な」、「接」は「つなぐ」。"},
+  "逆接":{yomi:"ぎゃくせつ", g:"gyaku", desc:"前から予想されることと、反対のことが後ろに来る",
+          words:["しかし","けれども","ところが","だが"], fakes:["逆説","逆節","虐接"], note:"「逆説（ぎゃくせつ）」は、一見まちがっているようで実は正しい説のこと。別の言葉なので注意。"},
+  "並立":{yomi:"へいりつ",   g:"hei",   desc:"前と後ろのことを、対等に並べる",
+          words:["また","および"], fakes:["平立","並律","兵立"], note:"「並べて立てる」と覚えよう。「並列」と呼ぶ教科書もある。"},
+  "累加":{yomi:"るいか",     g:"hei",   desc:"前のことに、後ろのことを付け加える",
+          words:["しかも","そのうえ","さらに","それに"], fakes:["類加","塁加","累化"], note:"「累」は「重ねる」という意味。「添加」と呼ぶ教科書もある。"},
+  "対比":{yomi:"たいひ",     g:"tai",   desc:"前と後ろのことを、比べる",
+          words:["一方","これに対して"], fakes:["対非","待比","体比"], note:"「対（むかい合わせて）」＋「比べる」。"},
+  "選択":{yomi:"せんたく",   g:"tai",   desc:"前と後ろの、どちらかを選ぶ",
+          words:["または","それとも"], fakes:["洗濯","選宅","専択"], note:"「洗濯」は衣服をあらうこと。「選んで択（と）る」と覚えよう。"},
+  "説明":{yomi:"せつめい",   g:"setsu", desc:"前のことについて、理由を述べたり、言いかえたり、例をあげたりする",
+          words:["なぜなら","つまり","たとえば"], fakes:["節明","説名","接明"], note:""},
+  "補足":{yomi:"ほそく",     g:"setsu", desc:"前のことに、条件や例外などを補う",
+          words:["ただし","なお"], fakes:["捕足","補即","保足"], note:"「補う（おぎなう）」＋「足す」。"},
+  "転換":{yomi:"てんかん",   g:"ten",   desc:"それまでの話題を変える",
+          words:["ところで","さて","では"], fakes:["展換","転喚","転環"], note:"「転じる」＋「換える」。"},
+};
+const TERM_KEYS = Object.keys(TERMS);
+function termOfWord(w){ return TERM_KEYS.find(k => TERMS[k].words.includes(w)); }
+
+/* =====================================================================
+   一の谷・二の谷・挑戦の谷で使う「二文」の問題。a＝前の文、b＝後ろの文、ans＝正解の板、
+   opts＝選択肢（ほかの働きの語から、どう読んでも入らないものを手で選んである）、why＝この問題での決め手。
+   ===================================================================== */
+const PAIRS = [
+  {a:"毎日欠かさず練習を続けた。", b:"大会で優勝することができた。", ans:"だから", opts:["だから","しかし","ところで","または"],
+   why:"「練習を続けた」が理由で、「優勝できた」がその結果。"},
+  {a:"毎日欠かさず練習を続けた。", b:"一回戦で負けてしまった。", ans:"しかし", opts:["しかし","だから","つまり","さらに"],
+   why:"練習を続けたのに負けた。前から予想されること（勝つ）と反対の結果。"},
+  {a:"空が急に暗くなった。", b:"大粒の雨が降り出した。", ans:"すると", opts:["すると","しかし","なぜなら","ところで"],
+   why:"暗くなったのに続いて、雨が降り出した。前のことに続いて後ろのことが起こっている。"},
+  {a:"今日は朝から頭が痛い。", b:"少し熱もある。", ans:"しかも", opts:["しかも","しかし","だから","ところで"],
+   why:"「頭が痛い」に、「熱もある」という同じ向きのことを付け加えている。"},
+  {a:"兄はサッカーが得意だ。", b:"弟は野球が得意だ。", ans:"一方", opts:["一方","だから","なぜなら","すると"],
+   why:"兄と弟の得意なことを比べている。"},
+  {a:"飲み物はお茶にしますか。", b:"ジュースにしますか。", ans:"それとも", opts:["それとも","だから","しかし","つまり"],
+   why:"問いかけで、お茶かジュースのどちらかを選ばせている。"},
+  {a:"今日は学校を休んだ。", b:"かぜをひいてしまったからだ。", ans:"なぜなら", opts:["なぜなら","だから","しかし","さて"],
+   why:"後ろの文が休んだ理由。文末の「〜からだ」が目印。「だから」だと理由と結果が逆になる。"},
+  {a:"彼女は母の妹の娘だ。", b:"私のいとこにあたる。", ans:"つまり", opts:["つまり","しかし","なぜなら","それとも"],
+   why:"「母の妹の娘」を「いとこ」と言いかえている。"},
+  {a:"参加費は無料です。", b:"昼食代は各自で負担してください。", ans:"ただし", opts:["ただし","だから","すると","それとも"],
+   why:"「無料」に、例外（昼食代はかかる）を付け加えている。"},
+  {a:"長い冬が終わり、すっかり暖かくなった。", b:"週末の遠足の行き先は決まったかな。", ans:"ところで", opts:["ところで","だから","なぜなら","つまり"],
+   why:"季節の話から、遠足の話へと話題を変えている。"},
+  {a:"一生懸命に説明した。", b:"だれもわかってくれなかった。", ans:"けれども", opts:["けれども","だから","なぜなら","または"],
+   why:"一生懸命に説明したのに、わかってもらえなかった。予想と反対の結果。"},
+  {a:"ボタンを押した。", b:"ドアがゆっくりと開いた。", ans:"すると", opts:["すると","しかし","なぜなら","それとも"],
+   why:"ボタンを押したのに続いて、ドアが開いた。"},
+  {a:"この町には、古い寺が多い。", b:"温泉も有名だ。", ans:"また", opts:["また","しかし","なぜなら","つまり"],
+   why:"町の特色を二つ並べている。"},
+  {a:"果物には、さまざまな栄養がある。", b:"みかんにはビタミンCが多く含まれている。", ans:"たとえば", opts:["たとえば","しかし","それとも","ところで"],
+   why:"「さまざまな栄養」の例として、みかんのビタミンCをあげている。"},
+  {a:"天気予報では晴れだと言っていた。", b:"一日中雨が降った。", ans:"ところが", opts:["ところが","だから","つまり","また"],
+   why:"晴れの予報だったのに雨。予想と反対の、意外なことが起こった。"},
+  {a:"宿題は終わった。", b:"部屋のそうじも済ませた。", ans:"そのうえ", opts:["そのうえ","しかし","なぜなら","それとも"],
+   why:"「宿題が終わった」に、「そうじも済ませた」を付け加えている。"},
+  {a:"電話で連絡してください。", b:"メールでもかまいません。", ans:"または", opts:["または","だから","なぜなら","すると"],
+   why:"電話かメールのどちらかを選べばよい。"},
+  {a:"練習は十分にした。", b:"本番では自信をもって演奏しよう。", ans:"だから", opts:["だから","ところが","それとも","なぜなら"],
+   why:"「十分に練習した」が理由で、「自信をもとう」がそこから導かれること。"},
+  {a:"彼は足が速い。", b:"泳ぐのも得意だ。", ans:"それに", opts:["それに","しかし","だから","なぜなら"],
+   why:"「足が速い」に、「泳ぐのも得意」という得意なことを付け加えている。"},
+  {a:"地図を見ながら歩いた。", b:"道に迷ってしまった。", ans:"それなのに", opts:["それなのに","だから","そのうえ","つまり"],
+   why:"地図を見ていれば迷わないはずなのに、迷った。"},
+  {a:"都会は交通が便利だ。", b:"いなかは自然が豊かだ。", ans:"これに対して", opts:["これに対して","だから","なぜなら","すると"],
+   why:"都会といなかのよいところを比べている。"},
+  {a:"本日の議題は以上です。", b:"次回の日程について相談しましょう。", ans:"では", opts:["では","しかし","なぜなら","それとも"],
+   why:"議題が終わったところで、次の話（日程）に移っている。"},
+  {a:"試験まであと三日しかない。", b:"今夜から勉強時間を増やそう。", ans:"そこで", opts:["そこで","しかし","なぜなら","または"],
+   why:"「あと三日しかない」という状況を受けて、「勉強時間を増やす」という行動をとる。"},
+  {a:"この作品は高く評価されている。", b:"作者がわずか十四歳のときに書いたものだ。", ans:"しかも", opts:["しかも","だから","それとも","ところで"],
+   why:"「高く評価されている」に、さらにおどろくべきことを付け加えている。"},
+  {a:"君の意見はよくわかった。", b:"ぼくは賛成できない。", ans:"だが", opts:["だが","だから","つまり","それとも"],
+   why:"意見はわかったが、賛成はしない。前と反対の考えが後ろに来ている。"},
+  {a:"その店は月曜日が定休日だ。", b:"月曜日に行っても開いていない。", ans:"つまり", opts:["つまり","しかし","それとも","ところで"],
+   why:"「月曜日が定休日」を、「月曜日に行っても開いていない」と言いかえている。"},
+];
+/* opts に「さらに」があるが WORDS には無い → 下で補う（並列・累加） */
+WORDS["さらに"] = {t:"hei", use:"前のことに、さらに付け加えるとき"};
+
+/* =====================================================================
+   四の谷（長い吊り橋）：{語} が空いている板（どの文章も2つ）。pool＝使える板（正解＋まぎらわしい1枚）。
+   四の谷（腐った板）：{語} はそのままの板、{まちがい>正解} が腐った板。fix＝直すときの選択肢。
+   ===================================================================== */
+const CHAINS = [
+  {text:"朝、目覚まし時計が鳴らなかった。{だから}家を出るのがいつもより遅くなった。{しかし}走ったおかげで、始業には間に合った。ところで、今日の給食は何だろう。",
+   why:["前の「目覚まし時計が鳴らなかった」が理由で、後ろの「家を出るのが遅くなった」が結果。理由→結果なので、順接の「だから」。", "前の「家を出るのが遅くなった」から予想されるのは「遅刻する」ことだが、後ろは「始業には間に合った」。予想と反対なので、逆接の「しかし」。"],
+   extra:"なぜなら"},
+  {text:"私は図書委員をしている。{また}放送委員もしている。だから、昼休みはいつも忙しい。{しかし}どちらの仕事にもやりがいを感じている。",
+   why:["前の「図書委員をしている」に、後ろで「放送委員もしている」と、同じような事がらを並べている。文中の「〜も」が目印。並べるので、並立の「また」。", "前の「昼休みはいつも忙しい」から予想されるのは「いやになる」ことだが、後ろは「やりがいを感じている」。予想と反対なので、逆接の「しかし」。"],
+   extra:"それとも"},
+  {text:"明日は遠足だ。{ところが}天気予報によると、雨の確率は八十パーセントだそうだ。{そこで}雨の場合の持ち物も準備しておくことにした。たとえば、折りたたみ傘やタオルなどだ。",
+   why:["前の「明日は遠足だ（楽しみ）」に対して、後ろは「雨の確率は八十パーセント」という、期待と反対の知らせ。予想と反対なので、逆接の「ところが」。", "前の「雨の確率が高い」という状況を受けて、後ろで「雨の場合の持ち物も準備する」という行動をとっている。状況を受けて行動するので、順接の「そこで」。"],
+   extra:"なぜなら"},
+  {text:"ペンギンは鳥のなかまだ。{しかし}空を飛ぶことはできない。{なぜなら}つばさが小さく、ひれのような形をしているからだ。",
+   why:["前の「鳥のなかまだ」から予想されるのは「空を飛べる」ことだが、後ろは「飛ぶことはできない」。予想と反対なので、逆接の「しかし」。", "後ろの文が「〜形をしているからだ」と終わっていて、前の「飛べない」理由を述べている。理由を後ろに置くので、説明の「なぜなら」。"],
+   extra:"または"},
+  {text:"この池にはたくさんの生き物がすんでいる。たとえば、メダカやザリガニだ。{ところが}最近、その数が急に減ってきた。{なぜなら}外来種の魚が放されたからだ。",
+   why:["前の「たくさんの生き物がすんでいる」から予想されるのとは反対に、後ろは「最近、その数が急に減ってきた」。予想と反対なので、逆接の「ところが」。", "後ろの文が「〜放されたからだ」と終わっていて、前の「数が減った」理由を述べている。理由を後ろに置くので、説明の「なぜなら」。"],
+   extra:"それとも"},
+  {text:"兄は数学が得意だ。{一方}私は国語が得意だ。だから、宿題でわからないところがあると、教え合うことにしている。{ただし}答えを丸写しするのは禁止だ。",
+   why:["前は「兄は数学が得意」、後ろは「私は国語が得意」。二人を比べているので、対比の「一方」。", "前の「教え合うことにしている」に、後ろで「丸写しは禁止」と、条件を付け加えている。前の内容に条件をつけるので、補足の「ただし」。"],
+   extra:"すると"},
+  {text:"昨日、新しい靴を買った。{しかも}セールで半額だった。ところが、家ではいてみると、少しきつかった。{そこで}今日、店で交換してもらった。",
+   why:["前の「新しい靴を買った」に、後ろで「セールで半額だった」と、うれしいことを付け加えている。付け加えなので、累加の「しかも」。", "前の「少しきつかった」という困った状況を受けて、後ろで「店で交換してもらった」という行動をとっている。状況を受けて行動するので、順接の「そこで」。"],
+   extra:"つまり"},
+  {text:"植物は日光を浴びて養分を作る。つまり、光がなければ生きていけない。{しかし}日の当たらない深い森の中でも育つ植物がある。{なぜなら}弱い光でも養分を作れるしくみを持っているからだ。",
+   why:["前の「光がなければ生きていけない」から予想されるのは「暗い森では育たない」ことだが、後ろは「日の当たらない森でも育つ植物がある」。予想と反対なので、逆接の「しかし」。", "後ろの文が「〜持っているからだ」と終わっていて、前の「暗い森でも育つ」理由を述べている。理由を後ろに置くので、説明の「なぜなら」。"],
+   extra:"ところで"},
+];
+const ROTTENS = [
+  {text:"サッカー部の練習は厳しい。{しかし}私は毎日休まず参加している。{だから>なぜなら}試合に出てレギュラーになりたいからだ。{それに}仲間と一緒に汗を流すのが楽しい。",
+   fix:["なぜなら","ところが","それとも","すると"], why:"文末が「〜からだ」なので、後ろは参加している理由。理由を後ろに置くときは「なぜなら」。"},
+  {text:"今朝は雪が十センチも積もった。{しかし>そのため}電車が大幅に遅れた。{そのうえ}バスも運休になった。{ところで}雪の結晶の形を知っているだろうか。",
+   fix:["そのため","けれども","それとも","たとえば"], why:"雪が積もったことが原因で、電車が遅れた。原因→結果なので順接。"},
+  {text:"ぼくの家では、犬を一ぴき飼っている。{また}ねこも二ひき飼っている。{なぜなら>だから}毎日とてもにぎやかだ。{ただし}ねこと犬はあまり仲がよくない。",
+   fix:["だから","ところが","それとも","たとえば"], why:"動物がたくさんいることが理由で、にぎやかなのはその結果。「なぜなら」は後ろに理由が来るときに使う。"},
+  {text:"発表会に向けて、何度も練習した。{だから>ところが}本番ではひどく緊張して、うまく話せなかった。{それでも}最後まであきらめずに発表した。{すると}先生が「よくがんばったね」とほめてくれた。",
+   fix:["ところが","そのうえ","なぜなら","または"], why:"何度も練習したのに、うまく話せなかった。予想と反対の結果なので逆接。"},
+  {text:"週末は家族で出かける予定だ。行き先は動物園にするか、{しかも>それとも}水族館にするか、まだ決まっていない。{なぜなら}妹と弟の意見が分かれているからだ。{そこで}くじ引きで決めることにした。",
+   fix:["それとも","だから","しかし","つまり"], why:"動物園か水族館か、どちらかを選ぶ話なので選択の「それとも」。「しかも」は付け加えるときに使う。"},
+  {text:"メダカに、えさをあたえすぎてはいけない。{たとえば>なぜなら}食べ残したえさで水がよごれてしまうからだ。{また}水そうは日光が直接当たらない場所に置こう。{ところで}メダカの卵を見たことがあるだろうか。",
+   fix:["なぜなら","だから","それとも","しかも"], why:"文末が「〜からだ」で、あたえすぎてはいけない理由を述べている。"},
+  {text:"この地方は一年中雨が少ない。{ところが>つまり}空気がとても乾燥している。{そのため}昔から火事に気をつけてきた。{たとえば}家と家の間を広くあけて建てている。",
+   fix:["つまり","しかし","それとも","なぜなら"], why:"「雨が少ない」を「空気が乾燥している」と言いかえている。反対のことは来ていないので逆接ではない。"},
+  {text:"今日の話し合いで、文化祭の出し物は劇に決まった。{また}役割分担も決めた。{だから>さて}来週の校外学習の集合時刻を確認しておこう。",
+   fix:["さて","しかし","なぜなら","すると"], why:"文化祭の話から、校外学習の話へと話題が変わっている。"},
+];
+WORDS["それでも"] = {t:"gyaku", use:"前のことがあっても、変わらずに後ろのことをするとき"};
+
+/* 六の谷（大河の橋）・挑戦の谷の長文：問題は tsunagi_long_data.js（window.TSUNAGI_LONGS）に分けた（2026-10-02、100本）。
+   読みこめなかったときは、六の谷と挑戦の谷の長文が出せないので、タイトル画面で知らせる（showTitle参照）。 */
+const LONGS = (window.TSUNAGI_LONGS || []).filter(l => {
+  // 空欄が2つで、使う語がすべて WORDS にあるものだけを使う（書きまちがいで遊べなくならないように）
+  const ws = (l.text.match(/\{([^}]+)\}/g) || []).map(x => x.slice(1, -1));
+  const ok = ws.length === 2 && ws.concat(l.extra || []).every(w => WORDS[w]) && (l.extra || []).length === 2;
+  if(!ok) console.warn("大河の橋の問題に不備があるので使わない：", l.title);
+  return ok;
+});
+
+/* {…} を区切って、文の切れ端と板の列にする。板は {word, wrong?} */
+function parsePassage(text){
+  const parts = [], planks = [];
+  const re = /\{([^}]+)\}/g; let last = 0, m;
+  while((m = re.exec(text))){
+    parts.push(text.slice(last, m.index));
+    const s = m[1];
+    if(s.includes(">")){ const [w, r] = s.split(">"); planks.push({word:r, wrong:w}); }
+    else planks.push({word:s});
+    last = re.lastIndex;
+  }
+  parts.push(text.slice(last));
+  return {parts, planks};
+}
+
+/* =====================================================================
+   谷の一覧
+   ===================================================================== */
+const STAGES = [
+  {id:1, name:"一の谷　二つの岸", desc:"前の文と後ろの文。間に入る板を選べ", kind:"pick", n:8},
+  {id:2, name:"二の谷　名前の石碑", desc:"順接・逆接・並立・累加…働きの名前と漢字を覚えよ", kind:"term", n:10},
+  {id:3, name:"三の谷　板の刻印", desc:"文の中の板の「働き」を見きわめよ", kind:"type", n:8},
+  {id:4, name:"四の谷　長い吊り橋", desc:"文章の中の2か所に、順に板を架けて谷を渡れ", kind:"chain", src:"chain", n:4},
+  {id:5, name:"五の谷　腐った板", desc:"一枚だけまぎれた腐った板を見つけて、正しい板に替えよ", kind:"rotten", n:4},
+  {id:6, name:"六の谷　大河の橋", desc:"段落をまたぐ長い文章。流れを読んで、2か所に板を架けよ", kind:"chain", src:"long", n:3},
+  {id:9, name:"挑戦の谷　90秒の耐久戦", desc:"90秒・鎧3つ。時間切れか、板を3回割ると終わり。5問に1回の長文の橋では時間が止まる。ここでは1問ごとに「接続詞」のレベルが上下する（ほかの谷は2問ごと）", kind:"challenge"},
+];
+const TB_LSKEY = "tsunagi_bashi_v1";
+function loadSave(){ try{ return JSON.parse(localStorage.getItem(TB_LSKEY)) || {}; }catch(e){ return {}; } }
+function saveSave(s){ try{ localStorage.setItem(TB_LSKEY, JSON.stringify(s)); }catch(e){} }
+
+/* =====================================================================
+   本体（kokugo_app.html）のジャンルレベルへの反映（九尾の化かし合いと同じしくみ・同じ数え方）。
+   2026-10-03〜、教員の指示で、挑戦の谷は「正解1つ＝＋1、まちがい1つ＝−1」、一〜六の谷は「正解2つ＝＋1、
+   まちがい2つ＝−1」と数え方を分け、どちらも差し引きがマイナスなら0にした（mgNet参照）。
+   1回の谷の中で「正解1つ＝＋1、まちがい1つ＝−1」と数え、終わったときの差し引きを
+   localStorage（MG_PENDING_LVUP_LSKEY）に{ジャンル: 増減}として書き足す。本体がホーム画面を開くときに反映する
+   （kokugo_app.htmlのmgApplyPendingLevelUps・MG_LVUP_CATS参照）。途中でやめた・ページを離れたときも、
+   そこまでの分を必ず渡す（まちがいが多いときにやめて、下がるのを逃れられないように）。
+   ===================================================================== */
+const MG_CAT = "setsuzokushi", MG_GENRE = "接続詞";
+const MG_PENDING_LVUP_LSKEY = "kokugo_minigame_pending_lvups_v1";
+let MGS = null;   // 今の谷の {ok:正解数, ng:まちがい数, practice:練習の谷か}（谷の外ではnull）
+/* 数え方（2026-10-03、教員の指示）：
+   ・挑戦の谷：正解1つ＝＋1、まちがい1つ＝−1。
+   ・一〜六の谷（練習）：正解2つで＋1、まちがい2つで−1。
+   どちらも、1回の谷の差し引きがマイナスになるときは0にする（全体ではレベルが下がらない。教員の指示）。 */
+const mgNet = () => !MGS ? 0
+  : MGS.practice ? Math.max(0, Math.floor(MGS.ok / 2) - Math.floor(MGS.ng / 2))
+  : Math.max(0, MGS.ok - MGS.ng);
+const mgSigned = n => n > 0 ? "+" + n : n < 0 ? "−" + (-n) : "±0";
+function mgStart(practice){ mgFlush(); MGS = {ok:0, ng:0, practice:!!practice}; }
+// 正解・まちがいのたびに数え、今回の増減が実際に変わったときだけ上に表示する
+// （練習の谷では2問ごと、またマイナスにならないので、まちがえても表示が出ないことがある）
+function mgCorrect0(){ if(!MGS) return; const b = mgNet(); MGS.ok++; const a = mgNet(); if(a !== b) showLvupToast(a - b); }
+function mgWrong0(){ if(!MGS) return; const b = mgNet(); MGS.ng++; const a = mgNet(); if(a !== b) showLvupToast(a - b); }
+function mgFlush(){
+  if(!MGS) return null;
+  const r = {ok:MGS.ok, ng:MGS.ng, net:mgNet()};
+  const sent = MGS.sent || 0;   // 上がった分はその場で渡し済み（mgSyncUp）
+  MGS = null;
+  mgWritePending(r.net - sent);   // 残り（下がる分など）をここで精算
+  return r;
+}
+/* 本体へのリアルタイム反映とデイリーログイン報酬（2026-10-04、教員の指示：「ミニゲームは全部ログイン報酬の対象に」
+   「ジャンルレベルが上がった場合も必ずリアルタイムで反映」）。
+   ・答えるたびに、本体と共通のキー（kokugo_mg_played_v1）へ今日の日付を書く。本体はこれが今日ならログイン報酬を成立させる。
+   ・ジャンルレベルが上がった分は、上がったその場で書き置きに足す（本体はセーブを読むたびに取りこむ）。
+     下がる分は、今までどおりゲームの終わり（mgFlush）にまとめて精算する（途中で上下をくり返してごほうびを余分にもらわないように）。 */
+const MG_PLAYED_LSKEY = "kokugo_mg_played_v1";
+function mgNotePlayed(){
+  try{ const d = new Date(); localStorage.setItem(MG_PLAYED_LSKEY, d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0")); }catch(e){}
+}
+function mgWritePending(n){
+  if(!n) return;
+  let o = {};
+  try{ o = JSON.parse(localStorage.getItem(MG_PENDING_LVUP_LSKEY)) || {}; }catch(e){ o = {}; }
+  if(!o || typeof o !== "object") o = {};
+  o[MG_CAT] = (Number(o[MG_CAT]) || 0) + n;
+  try{ localStorage.setItem(MG_PENDING_LVUP_LSKEY, JSON.stringify(o)); }catch(e){}
+}
+function mgSyncUp(){ if(!MGS) return; const n = mgNet(); if(n > (MGS.sent || 0)){ mgWritePending(n - (MGS.sent || 0)); MGS.sent = n; } }
+function mgCorrect(){ mgCorrect0(); mgNotePlayed(); mgSyncUp(); }
+function mgWrong(){ mgWrong0(); mgNotePlayed(); }
+window.addEventListener("pagehide", mgFlush);
+function showLvupToast(d){
+  let el = document.getElementById("lvupToast");
+  if(!el){ el = document.createElement("div"); el.id = "lvupToast"; el.className = "lvup-toast"; document.body.appendChild(el); }
+  el.innerHTML = `<span class="g">${MG_GENRE}ジャンル</span><b>${d > 0 ? "1レベルUP" : "1レベルDOWN"}</b><span class="t">（今回 ${mgSigned(mgNet())}）</span>`;
+  el.classList.toggle("down", d < 0);
+  el.classList.remove("show"); void el.offsetWidth; el.classList.add("show");
+}
+
+/* =====================================================================
+   小道具
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function shuffle(a){ a = a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function knightSrc(pose){ return (typeof ENEMY_SPRITES !== "undefined") && ENEMY_SPRITES["me02_" + pose]; }
+function knightHtml(pose, cls){
+  const src = knightSrc(pose);
+  return src ? `<img src="${src}" alt="鉄甲兵"${cls ? ` class="${cls}"` : ""}>` : `<div class="emoji">🛡️</div>`;
+}
+function show(id){ document.querySelectorAll(".screen").forEach(s => s.classList.toggle("show", s.id === id)); }
+function backToApp(){ location.href = "kokugo_app.html?from=minigame"; }
+function wordInfo(w){ return WORDS[w] || {t:null, use:""}; }
+function typeName(w){ const i = wordInfo(w); return i.t ? TYPES[i.t].name : ""; }
+/* 「並立・累加のうち累加」のように、なかまの名前に細かい名前を添える（用語を覚えられるように） */
+function typeLabel(w){
+  const g = typeName(w), t = termOfWord(w);
+  return t && t !== g ? `${g}のうち「${t}」` : g;
+}
+
+/* ---------- 効果音（専用のAudioContext） ---------- */
+let AC = null, muted = false;
+try{ muted = localStorage.getItem(TB_LSKEY + "_mute") === "1"; }catch(e){}
+function ac(){ if(muted) return null; try{ if(!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); if(AC.state === "suspended") AC.resume(); }catch(e){ return null; } return AC; }
+function tone(f, d, type, vol, delay, f2){
+  const c = ac(); if(!c) return;
+  const t = c.currentTime + (delay || 0), o = c.createOscillator(), g = c.createGain();
+  o.type = type || "sine"; o.frequency.setValueAtTime(f, t); if(f2) o.frequency.exponentialRampToValueAtTime(f2, t + d);
+  g.gain.setValueAtTime(vol || .15, t); g.gain.exponentialRampToValueAtTime(.001, t + d);
+  o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + d + .02);
+}
+function noise(d, vol, freq){
+  const c = ac(); if(!c) return;
+  const len = Math.floor(c.sampleRate * d), buf = c.createBuffer(1, len, c.sampleRate), ch = buf.getChannelData(0);
+  for(let i=0;i<len;i++) ch[i] = (Math.random()*2-1) * (1 - i/len);
+  const s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+  s.buffer = buf; f.type = "lowpass"; f.frequency.value = freq || 1200; g.gain.value = vol || .3;
+  s.connect(f); f.connect(g); g.connect(c.destination); s.start();
+}
+const sfx = {
+  place(){ tone(220, .09, "triangle", .25); noise(.05, .15, 2000); },
+  step(){ tone(90, .07, "square", .08); noise(.04, .08, 500); },
+  ok(){ tone(660, .12, "sine", .18); tone(990, .2, "sine", .18, .1); },
+  ng(){ noise(.45, .45, 900); tone(160, .35, "sawtooth", .12, 0, 70); },
+  clear(){ [523, 659, 784, 1047].forEach((f, i) => tone(f, .25, "triangle", .16, i * .11)); },
+  tick(){ tone(1200, .04, "square", .05); },
+  freeze(){ [1568, 1319, 1047, 784].forEach((f, i) => tone(f, .35, "sine", .1, i * .08)); },
+};
+function toggleMute(){
+  muted = !muted; $("muteBtn").textContent = muted ? "🔇" : "🔊";
+  try{ localStorage.setItem(TB_LSKEY + "_mute", muted ? "1" : "0"); }catch(e){}
+}
+
+/* =====================================================================
+   タイトル
+   ===================================================================== */
+function showTitle(){
+  stopTimer();
+  $("titleKnight").innerHTML = knightHtml("pose1");
+  const sv = loadSave();
+  $("stageList").innerHTML = STAGES.map(s => {
+    let mark = "";
+    if(s.kind === "challenge"){ if(sv.ch90Best) mark = `最高 ${sv.ch90Best}本`; }
+    else if(sv.clear && sv.clear[s.id] != null) mark = `踏破済み`;
+    return `<button class="stage-btn" onclick="startStage(${s.id})">
+      <span class="num ${s.kind === "challenge" ? "ch" : ""}">${s.kind === "challenge" ? "挑戦" : ["","一","二","三","四","五","六"][s.id]}</span>
+      <span><h3 class="mincho">${esc(s.name)}</h3><p>${esc(s.desc)}</p></span>
+      <span class="mark">${esc(mark)}</span>
+    </button>`;
+  }).join("");
+  show("title");
+}
+
+/* =====================================================================
+   谷の景色：板の数(n)に応じて岸と柱を並べ、鉄甲兵を立たせる
+   ===================================================================== */
+let SC = null;   // {n, plats:[{l,w}], gaps:[{l,w}], pos}
+function buildScene(n){
+  const P = n + 1;
+  let plats = [], gaps = [];
+  if(n === 1){
+    plats = [{l:0, w:34}, {l:66, w:34}]; gaps = [{l:34, w:32}];
+  }else{
+    const g = 1.15, unit = 100 / (P + n * g);
+    let x = 0;
+    for(let i=0;i<P;i++){
+      plats.push({l:x, w:unit}); x += unit;
+      if(i < n){ gaps.push({l:x, w:unit * g}); x += unit * g; }
+    }
+  }
+  SC = {n, plats, gaps, pos:0};
+  $("bigmark").className = "bigmark";   // 画面を出し直すと、前の○×のアニメーションが再生されてしまうので消しておく
+  $("bridge").innerHTML =
+    plats.map(p => `<div class="plat" style="left:${p.l}%;width:${p.w}%"></div>`).join("") +
+    gaps.map((g, i) => `<div class="plank empty" id="pk${i}" style="left:calc(${g.l}% - 3px);width:calc(${g.w}% + 6px)"></div>`).join("");
+  const k = $("knight");
+  k.style.transition = "none";
+  k.style.left = platCenter(0) + "%";
+  k.className = "";
+  k.innerHTML = knightHtml("pose1");
+  k.style.width = n >= 4 ? "clamp(50px, 13vw, 76px)" : "";
+  void k.offsetWidth; k.style.transition = "";
+  setActiveGap(0);
+}
+// 両端の岸が細いとき（長い橋）に鉄甲兵が画面からはみ出さないよう、端から少し内側に寄せる
+function platCenter(i){ const p = SC.plats[i]; return Math.min(91, Math.max(9, p.l + p.w / 2)); }
+function gapCenter(i){ const g = SC.gaps[i]; return g.l + g.w / 2; }
+function setActiveGap(i){ SC && SC.gaps.forEach((_, j) => { const el = $("pk" + j); if(el) el.classList.toggle("active", j === i && el.classList.contains("empty")); }); }
+function plankFont(word, i){
+  const px = $("scene").clientWidth * SC.gaps[i].w / 100;
+  return Math.max(9, Math.min(15, Math.floor(px * .86 / Math.max(2, word.length))));
+}
+function placePlank(i, word, cls){
+  const el = $("pk" + i);
+  el.className = "plank wood drop " + (cls || "");
+  el.style.fontSize = plankFont(word, i) + "px";
+  el.innerHTML = esc(word);
+  sfx.place();
+}
+function breakPlank(i){
+  const el = $("pk" + i); const w = el.textContent;
+  el.className = "plank breaking";
+  el.innerHTML = `<span class="half l">${esc(w.slice(0, Math.ceil(w.length/2)))}</span><span class="half r">${esc(w.slice(Math.ceil(w.length/2)))}</span>`;
+  sfx.ng();
+  // 割れた板を片づける。その前に別の板が架かっていたら（placePlank済み）、そちらを残す。
+  setTimeout(() => { if(el.classList.contains("breaking")){ el.className = "plank empty"; el.innerHTML = ""; } }, 900);
+}
+let walkTimer = null;
+function setPose(p){ const img = $("knight").querySelector("img"); const s = knightSrc(p); if(img && s) img.src = s; }
+async function walkTo(leftPct, ms){
+  const k = $("knight");
+  k.style.transition = `left ${ms}ms linear`;
+  k.classList.add("walk");
+  let f = 0; clearInterval(walkTimer);
+  walkTimer = setInterval(() => { f ^= 1; setPose(f ? "pose2" : "pose1"); sfx.step(); }, 220);
+  k.style.left = leftPct + "%";
+  await sleep(ms);
+  clearInterval(walkTimer); k.classList.remove("walk"); setPose("pose1");
+}
+/* 正しい板：板の上を渡って次の岸へ */
+async function crossGap(i){
+  await walkTo(platCenter(i + 1), SC.n === 1 ? 1100 : 750);
+  SC.pos = i + 1;
+}
+/* まちがいの板：板の上に一歩ふみ出したところで割れ、盾で身を守りながら岸へ戻る */
+async function failGap(i){
+  await walkTo(gapCenter(i) - SC.gaps[i].w * .25, 380);
+  breakPlank(i);
+  setPose("defense");
+  const k = $("knight"); k.classList.add("shake");
+  await sleep(250);
+  k.style.transition = "left .3s ease-out"; k.style.left = platCenter(i) + "%";
+  await sleep(450);
+  k.classList.remove("shake"); setPose("pose1");
+}
+function say(text, ms){
+  const el = $("say"); el.textContent = text; el.classList.add("show");
+  clearTimeout(say.t); say.t = setTimeout(() => el.classList.remove("show"), ms || 1600);
+}
+function bigMark(ok){
+  const el = $("bigmark"); el.className = "bigmark"; el.textContent = ok ? "" : "×";
+  void el.offsetWidth; el.className = "bigmark pop " + (ok ? "ok" : "ng");
+}
+const OK_LINES = ["うむ、びくともせん！", "よい板だ。", "見事なつなぎだ！", "これなら渡れるぞ。", "理屈が通っておる！"];
+const NG_LINES = ["ぬおっ！板が割れた！", "その板では、わしは渡れん…", "前と後ろがかみ合っておらんぞ！"];
+const pickLine = a => a[Math.floor(Math.random() * a.length)];
+
+/* =====================================================================
+   ゲーム進行
+   ===================================================================== */
+let G = null;   // {stage, rounds, idx, ok, ng, misses[], busy, crossed, armor, tier}
+let timerId = null;
+function stopTimer(){ clearInterval(timerId); timerId = null; }
+
+function startStage(id){
+  ac();
+  const st = STAGES.find(s => s.id === id);
+  let rounds;
+  if(st.kind === "pick" || st.kind === "type") rounds = shuffle(PAIRS).slice(0, st.n).map(p => ({kind:st.kind, p}));
+  else if(st.kind === "chain") rounds = shuffle(st.src === "long" ? LONGS : CHAINS).slice(0, st.n).map(c => ({kind:"chain", c, long:st.src === "long"}));
+  else if(st.kind === "term") rounds = buildTermRounds(st.n);
+  else if(st.kind === "rotten") rounds = shuffle(ROTTENS).slice(0, st.n).map(r => ({kind:"rotten", r}));
+  else rounds = [];
+  stopTimer();
+  // 挑戦の谷は1問ごと、ほかの谷（練習）は2問ごとに数える（mgNet参照）
+  mgStart(st.kind !== "challenge");
+  G = {stage:st, rounds, idx:0, ok:0, ng:0, misses:[], busy:false, crossed:0, armor:ARMOR_MAX, tier:0, over:false,
+       timeLeft:0, frozen:false, explaining:false, endReason:null};
+  $("hudStage").textContent = st.name.split("　")[0];
+  $("hudTimer").textContent = ""; $("hudTimer").classList.remove("low");
+  show("game");
+  const ch = st.kind === "challenge";
+  $("hudProgWrap").hidden = ch; $("hudPips").hidden = !ch; $("hudArmor").hidden = !ch;
+  $("game").classList.remove("frozen");
+  if(ch){
+    G.timeLeft = CHALLENGE_SEC; G.frozen = false; G.explaining = false;
+    updateArmor(); updateTimer(); updatePips();
+    timerId = setInterval(tick, 1000);
+  }
+  nextRound();
+}
+
+/* =====================================================================
+   挑戦の谷（90秒の耐久戦）：90秒の制限時間と、鎧3つ。時間切れか、鎧が3つとも欠けたら終わり。
+   （教員の指示で、時間制限なしの「鎧の耐久戦」は「ずっと終わらずにストレス」のため、時間と鎧の両方にした）
+   5問に1回（5・10・15問目…）は必ず長文の橋（LONGS）で、その間は時間が止まる。止まっていることは、
+   ①入るときの大きな札「時が止まった！」 ②景色が青く凍る＋「⏸ 時間停止中」の札 ③残り時間の表示が「⏸ 停止中」
+   ④上の道のり（●●●●📜）の📜が光る、の4つで見せる。まちがえたときの解説を読んでいる間も時間は止める。
+   渡った橋の数で谷が深くなり（TIERS）、出る問題の種類が増える。
+   ===================================================================== */
+const ARMOR_MAX = 3;
+const CHALLENGE_SEC = 90;
+const LONG_EVERY = 5;   // 5問ごとに長文の橋（時間停止）
+const TIERS = [
+  {from:0, name:"浅瀬",       mix:{pick:6, termEasy:4}},
+  {from:3, name:"谷の中ほど", mix:{pick:4, type:3, term:3},
+   line:"谷が深くなったぞ！ ここからは板の「働き」も問われる。"},
+  {from:6, name:"深い谷",     mix:{pick:3, type:2, term:2, chain:3},
+   line:"さらに深い谷だ！ 長い吊り橋が現れたぞ。"},
+  {from:9, name:"底なしの谷", mix:{pick:2, type:2, term:2, chain:2, rotten:2},
+   line:"ここは底なしの谷…腐った板にも気をつけよ！"},
+];
+const isLongTurn = () => G.idx % LONG_EVERY === LONG_EVERY - 1;
+function tierOf(n){ let t = 0; TIERS.forEach((x, i) => { if(n >= x.from) t = i; }); return t; }
+function challengeRound(){
+  if(isLongTurn()) return {kind:"chain", c:pick1(LONGS), long:true, frozen:true};
+  const mix = TIERS[G.tier].mix, keys = Object.keys(mix);
+  let x = Math.random() * keys.reduce((a, k) => a + mix[k], 0), kind = keys[0];
+  for(const k of keys){ if((x -= mix[k]) < 0){ kind = k; break; } }
+  if(kind === "pick" || kind === "type") return {kind, p:pick1(PAIRS)};
+  if(kind === "termEasy") return {kind:"term", q:makeTermQ(pick1(["w2t","kanji"]))};
+  if(kind === "term") return {kind:"term", q:makeTermQ(pick1(["w2t","t2w","d2t","kanji"]))};
+  if(kind === "chain") return {kind:"chain", c:pick1(CHAINS)};
+  return {kind:"rotten", r:pick1(ROTTENS)};
+}
+function updateArmor(){
+  $("hudArmor").innerHTML = Array.from({length:ARMOR_MAX}, (_, i) => `<span class="armor ${i < G.armor ? "" : "lost"}">🛡️</span>`).join("");
+  $("hudStage").textContent = `${G.crossed}本`;
+}
+function updateTimer(){
+  const el = $("hudTimer");
+  if(G.frozen || G.explaining){
+    el.textContent = G.frozen ? "⏸️ 停止中" : "⏸️ 解説中";
+    el.className = "timer frozen";
+    return;
+  }
+  const t = Math.max(0, G.timeLeft);
+  el.textContent = t + "秒";
+  el.className = "timer" + (t <= 10 ? " low" : "");
+}
+function updatePips(){
+  const k = G.idx % LONG_EVERY;
+  $("hudPips").innerHTML = Array.from({length:LONG_EVERY}, (_, i) => {
+    const cls = i < k ? "done" : i === k ? "now" : "";
+    return i === LONG_EVERY - 1
+      ? `<span class="pip scroll ${cls}" title="長文の橋（時間停止）">📜</span>`
+      : `<span class="pip ${cls}"></span>`;
+  }).join("");
+}
+function tick(){
+  if(!G || G.over || G.frozen || G.explaining) return;
+  G.timeLeft--; updateTimer();
+  if(G.timeLeft <= 5 && G.timeLeft > 0) sfx.tick();
+  if(G.timeLeft <= 0){ G.endReason = "time"; finishStage(); }
+}
+let bannerT = null;
+async function timeBanner(go, title, text, ms){
+  const el = $("timeBanner");
+  el.className = go ? "go" : "";
+  el.innerHTML = `<b>${esc(title)}</b><p>${esc(text)}</p>`;
+  void el.offsetWidth; el.classList.add("show");
+  await sleep(ms);
+  el.classList.remove("show");
+  await sleep(250);
+}
+function setFrozen(on){
+  G.frozen = on;
+  $("game").classList.toggle("frozen", on);
+  updateTimer();
+}
+const armorOut = () => G.stage.kind === "challenge" && G.armor <= 0;
+async function endByArmor(){
+  G.busy = true; G.endReason = "armor";
+  setPose("defeat"); say("鎧が砕けた…ここまでか…", 2200);
+  await sleep(1800);
+  finishStage();
+}
+function updateProg(){
+  const st = G.stage;
+  if(st.kind === "challenge") return updatePips();
+  $("hudProg").style.width = Math.min(100, G.idx / G.rounds.length * 100) + "%";
+}
+function quitStage(){ stopTimer(); G.over = true; mgFlush(); showTitle(); }
+
+async function nextRound(){
+  if(G.over) return;
+  updateProg();
+  let r;
+  G.roundNg = G.ng;
+  if(G.stage.kind === "challenge"){
+    r = challengeRound();
+    if(r.frozen){
+      // 長文の橋を先に出してから、その上に「時が止まった！」の札を重ねる（札が出ている間は答えられない）
+      setFrozen(true); sfx.freeze();
+      renderChain(r); G.busy = true;
+      await timeBanner(false, "⏸️ 時が止まった！", "長文の橋では、時間が進まない。あわてずに、じっくり読んで2か所に板を架けよう。", 2200);
+      if(G.over) return;
+      G.busy = false;
+      return;
+    }
+  }else{
+    if(G.idx >= G.rounds.length) return finishStage();
+    r = G.rounds[G.idx];
+  }
+  if(r.kind === "pick" || r.kind === "type") renderPair(r);
+  else if(r.kind === "term") renderTerm(r);
+  else if(r.kind === "chain") renderChain(r);
+  else renderRotten(r);
+}
+async function afterRound(){
+  G.idx++;
+  // 挑戦の谷で数えるのは、板を1枚も割らずに渡れた橋だけ（まちがえて直してもらった橋は数えない）
+  if(G.ng === G.roundNg) G.crossed++;
+  if(G.stage.kind === "challenge"){
+    updateArmor();
+    if(G.frozen){
+      await timeBanner(true, "▶️ 時間が動き出す！", `残り ${G.timeLeft}秒。ここからまた急ごう！`, 1300);
+      if(G.over) return;
+      setFrozen(false);
+    }
+    const t = tierOf(G.crossed);
+    if(t !== G.tier){
+      G.tier = t; say(TIERS[t].line, 2400); await sleep(900);
+    }
+    if(G.over) return;
+  }
+  G.busy = false; nextRound();
+}
+
+function recordOk(){ G.ok++; mgCorrect(); }
+function recordNg(miss){
+  G.ng++; G.misses.push(miss); mgWrong();
+  if(G.stage.kind === "challenge"){ G.armor = Math.max(0, G.armor - 1); updateArmor(); }
+}
+
+/* まちがえたときの解説（次へボタン付き）。挑戦の谷では止めずに少しだけ見せる。 */
+function explainHtml(correct, chosen, why, isType){
+  const ci = wordInfo(correct);
+  let h = `正解は <b>「${esc(correct)}」</b>（${esc(typeLabel(correct))}）。${esc(why)}`;
+  if(chosen && !isType){
+    const xi = wordInfo(chosen);
+    if(xi.t) h += `<br>「${esc(chosen)}」は${esc(typeLabel(chosen))}で、${esc(xi.use)}に使う。`;
+  }else if(chosen && isType){
+    h += `<br>${esc(TYPES[chosen].name)}は、${esc(TYPES[chosen].desc)}ときに使う。`;
+  }
+  return h;
+}
+async function waitNext(boxHtml, cls){
+  const b = document.createElement("div");
+  b.className = "explain" + (cls ? " " + cls : "");
+  b.innerHTML = boxHtml + `<button class="btn primary next">次へ</button>`;
+  $("board").appendChild(b);
+  b.scrollIntoView({block:"nearest", behavior:"smooth"});
+  if(G.stage.kind === "challenge"){ G.explaining = true; updateTimer(); }
+  await new Promise(r => b.querySelector(".next").onclick = r);
+  if(G.stage.kind === "challenge"){ G.explaining = false; updateTimer(); }
+}
+
+/* 板の刻印のボタンに添える例の語。板に刻まれた語（＝答え）がそのまま例に出ると答えが分かってしまうので、
+   その語を除いて、同じ働きのほかの語を2つ出す（教員の指示）。 */
+const TYPE_EXAMPLE_ORDER = {
+  jun:["だから","すると","そこで","そのため"], gyaku:["しかし","ところが","けれども","だが"],
+  hei:["また","しかも","そのうえ","さらに"], tai:["一方","それとも","または","これに対して"],
+  setsu:["なぜなら","つまり","たとえば","ただし"], ten:["ところで","さて","では"],
+};
+function typeExamples(k, exclude){
+  return TYPE_EXAMPLE_ORDER[k].filter(w => w !== exclude).slice(0, 2).join("・");
+}
+
+/* ---------- 一の谷（pick）・二の谷（type）：二文の橋 ---------- */
+function pairTablet(p, slotHtml){
+  return `<div class="tablet mincho">${esc(p.a)}${slotHtml}${esc(p.b)}</div>`;
+}
+function renderPair(r){
+  const p = r.p;
+  buildScene(1);
+  G.busy = false;
+  if(r.kind === "pick"){
+    $("board").innerHTML = `<div class="ask">前と後ろの文をつなぐ板を選べ</div>` +
+      pairTablet(p, `<span class="slot active" id="slot0">？</span>`) +
+      `<div class="opts">${shuffle(p.opts).map(w => `<button class="opt mincho" data-w="${esc(w)}">${esc(w)}</button>`).join("")}</div>`;
+    $("board").querySelectorAll(".opt").forEach(b => b.onclick = () => answerPick(r, b));
+  }else{
+    // 二の谷：正しい板はもう架かっている。働きを見きわめないと板が固まらない。
+    placePlank(0, p.ans, "rot");
+    $("board").innerHTML = `<div class="ask">この板の「働き」は？ 刻印を読み当てると、板が固まる</div>` +
+      pairTablet(p, `<span class="slot filled" id="slot0">${esc(p.ans)}</span>`) +
+      `<div class="opts six">${TYPE_KEYS.map(k => `<button class="opt" data-t="${k}">${esc(TYPES[k].name)}<small>${esc(typeExamples(k, p.ans))}</small></button>`).join("")}</div>`;
+    $("board").querySelectorAll(".opt").forEach(b => b.onclick = () => answerType(r, b));
+  }
+}
+async function answerPick(r, btn){
+  if(G.busy || G.over) return; G.busy = true;
+  const p = r.p, w = btn.dataset.w, ok = w === p.ans;
+  document.querySelectorAll(".opt").forEach(b => b.disabled = true);
+  btn.disabled = false; btn.classList.add(ok ? "picked-ok" : "picked-ng");
+  const slot = $("slot0");
+  slot.className = "slot filled"; slot.textContent = w;
+  placePlank(0, w);
+  await sleep(380);
+  if(ok){
+    recordOk(); slot.classList.add("right"); $("pk0").classList.add("good");
+    bigMark(true); sfx.ok(); say(pickLine(OK_LINES));
+    await crossGap(0);
+    setPose("attack"); await sleep(450);
+  }else{
+    recordNg({p, chosen:w, kind:"pick"});
+    bigMark(false); say(pickLine(NG_LINES));
+    await failGap(0);
+    slot.className = "slot filled wrong"; slot.innerHTML = `${esc(w)}`;
+    slot.insertAdjacentHTML("afterend", `<span class="slot filled right">${esc(p.ans)}</span>`);
+    placePlank(0, p.ans, "good");
+    await waitNext(explainHtml(p.ans, w, p.why));
+    if(G.over) return;
+    if(armorOut()) return endByArmor();
+    await crossGap(0);
+  }
+  afterRound();
+}
+async function answerType(r, btn){
+  if(G.busy || G.over) return; G.busy = true;
+  const p = r.p, t = btn.dataset.t, right = wordInfo(p.ans).t, ok = t === right;
+  document.querySelectorAll(".opt").forEach(b => b.disabled = true);
+  btn.disabled = false; btn.classList.add(ok ? "picked-ok" : "picked-ng");
+  if(ok){
+    recordOk(); $("pk0").className = "plank wood good"; $("slot0").classList.add("right");
+    bigMark(true); sfx.ok(); say(`${TYPES[t].name}の板だ。びくともせん！`);
+    await crossGap(0);
+    setPose("attack"); await sleep(450);
+  }else{
+    recordNg({p, chosen:t, kind:"type"});
+    bigMark(false); say("刻印を読みちがえたな…板がもろくなった！");
+    await failGap(0);
+    placePlank(0, p.ans, "good");
+    const box = `「${esc(p.ans)}」は <b>${esc(TYPES[right].name)}</b>（${esc(TYPES[right].desc)}）。${esc(p.why)}` +
+      `<br>選んだ${esc(TYPES[t].name)}は、${esc(TYPES[t].desc)}ときの働き。`;
+    await waitNext(box);
+    if(G.over) return;
+    if(armorOut()) return endByArmor();
+    await crossGap(0);
+  }
+  afterRound();
+}
+
+/* ---------- 二の谷（term）：働きの名前を覚える ----------
+   w2t＝語→名前、t2w＝名前→語、d2t＝説明→名前、kanji＝読み→漢字 の4種類をまぜて出す。 */
+const pick1 = a => a[Math.floor(Math.random() * a.length)];
+function termNote(k){
+  const t = TERMS[k];
+  return `<b>${esc(k)}</b>（${esc(t.yomi)}）…${esc(t.desc)}。代表的な語：${esc(t.words.join("・"))}。${esc(t.note)}`;
+}
+function makeTermQ(kind){
+  const k = pick1(TERM_KEYS), t = TERMS[k];
+  const others = TERM_KEYS.filter(x => x !== k && TERMS[x].g !== t.g);   // 同じなかま（並立と累加など）は入れない
+  if(kind === "w2t"){
+    const w = pick1(t.words);
+    return {kind, ans:k, opts:shuffle([k].concat(shuffle(others).slice(0, 3))), ask:"この板の働きの名前は？",
+      prompt:esc(`「${w}」`), plank:x => x, why:termNote(k), miss:`「${w}」の働き → ${k}`};
+  }
+  if(kind === "t2w"){
+    const w = pick1(t.words);
+    const ds = shuffle(others).slice(0, 3).map(x => pick1(TERMS[x].words));
+    return {kind, ans:w, opts:shuffle([w].concat(ds)), ask:`「${k}」の働きをする板はどれ？`,
+      prompt:`${esc(k)}<small>（${esc(t.yomi)}）</small>`, plank:x => x, why:termNote(k), miss:`${k}の板 → ${w}`};
+  }
+  if(kind === "d2t"){
+    const ds = shuffle(TERM_KEYS.filter(x => x !== k)).slice(0, 3);
+    return {kind, ans:k, opts:shuffle([k].concat(ds)), ask:"この働きを何という？",
+      prompt:`<span class="desc">${esc(t.desc)}</span>`, plank:x => x, why:termNote(k), miss:`「${t.desc}」働き → ${k}`};
+  }
+  return {kind:"kanji", ans:k, opts:shuffle([k].concat(t.fakes)), ask:"漢字で正しく書くと？",
+    prompt:esc(t.yomi), plank:x => x, why:termNote(k), miss:`${t.yomi} → ${k}`};
+}
+function buildTermRounds(n){
+  // 4種類がかたよらないように、順番に並べてからまぜる
+  const kinds = ["w2t","t2w","d2t","kanji"];
+  const out = [];
+  for(let i=0;i<n;i++) out.push({kind:"term", q:makeTermQ(kinds[i % 4])});
+  return shuffle(out);
+}
+function renderTerm(r){
+  const q = r.q;
+  buildScene(1);
+  G.busy = false;
+  $("board").innerHTML = `<div class="ask">${esc(q.ask)}</div>` +
+    `<div class="tablet mincho term-q">${q.prompt}</div>` +
+    `<div class="opts">${q.opts.map(w => `<button class="opt mincho" data-w="${esc(w)}">${esc(w)}</button>`).join("")}</div>`;
+  $("board").querySelectorAll(".opt").forEach(b => b.onclick = () => answerTerm(r, b));
+}
+async function answerTerm(r, btn){
+  if(G.busy || G.over) return; G.busy = true;
+  const q = r.q, w = btn.dataset.w, ok = w === q.ans;
+  document.querySelectorAll(".opt").forEach(b => b.disabled = true);
+  btn.disabled = false; btn.classList.add(ok ? "picked-ok" : "picked-ng");
+  placePlank(0, q.plank(w));
+  await sleep(380);
+  if(ok){
+    recordOk(); $("pk0").classList.add("good");
+    bigMark(true); sfx.ok(); say(pickLine(["名前を覚えたな！", "石碑の文字が光った！", "うむ、正しい名だ。"]));
+    const b = document.createElement("div"); b.className = "explain okk"; b.innerHTML = q.why;
+    $("board").appendChild(b);
+    await crossGap(0);
+    setPose("attack"); await sleep(1100);
+  }else{
+    recordNg({kind:"term", q, chosen:w});
+    bigMark(false); say(pickLine(NG_LINES));
+    await failGap(0);
+    placePlank(0, q.plank(q.ans), "good");
+    await waitNext(`正解は <b>「${esc(q.ans)}」</b>。<br>` + q.why);
+    if(G.over) return;
+    if(armorOut()) return endByArmor();
+    await crossGap(0);
+  }
+  afterRound();
+}
+
+/* ---------- 四の谷・六の谷（chain）：長い吊り橋・大河の橋を左から順に架ける ---------- */
+function passageHtml(parsed, slotFn){
+  return `<div class="tablet mincho">` + parsed.parts.map((t, i) =>
+    esc(t).replace(/\n/g, "<br>") + (i < parsed.planks.length ? slotFn(i) : "")).join("") + `</div>`;
+}
+const CIRCLED = ["①","②","③","④","⑤","⑥","⑦"];
+function renderChain(r){
+  const ps = parsePassage(r.c.text);
+  r.ps = ps; r.at = 0;
+  buildScene(ps.planks.length);
+  const pool = shuffle(ps.planks.map(p => p.word).concat(r.c.extra));
+  const draw = () => {
+    $("board").innerHTML = (r.frozen ? `<div class="freeze-note">⏸️ 時間停止中　この橋を渡りきるまで、残り時間は減らない</div>` : "") + (r.long ? `<div class="ask">大河の橋「${esc(r.c.title)}」　文章の流れを読んで、①から順に板を架けよ（${CIRCLED[r.at]}／${ps.planks.length}枚）</div>`
+        : `<div class="ask">左から順に板を架けよ（${r.at + 1}枚目／${ps.planks.length}枚）</div>`) +
+      passageHtml(ps, i => {
+        if(i < r.at) return `<span class="slot filled right">${esc(ps.planks[i].word)}</span>`;
+        return `<span class="slot ${i === r.at ? "active" : ""}" id="slot${i}">${i === r.at ? CIRCLED[i] + "？" : CIRCLED[i]}</span>`;
+      }) +
+      `<div class="opts dock">${pool.map((w, j) => r.used && r.used[j] ? "" : `<button class="opt mincho" data-j="${j}">${esc(w)}</button>`).join("")}</div>`;
+    $("board").querySelectorAll(".opt").forEach(b => b.onclick = () => answerChain(r, pool, +b.dataset.j, draw));
+    $("slot" + r.at) && $("slot" + r.at).scrollIntoView({block:r.long ? "center" : "nearest"});
+  };
+  r.used = {};
+  draw();
+  G.busy = false;
+}
+async function answerChain(r, pool, j, draw){
+  if(G.busy || G.over) return; G.busy = true;
+  const ps = r.ps, i = r.at, w = pool[j], ans = ps.planks[i].word, ok = w === ans;
+  document.querySelectorAll(".opt").forEach(b => b.disabled = true);
+  const slot = $("slot" + i); slot.className = "slot filled"; slot.textContent = w;
+  placePlank(i, w);
+  await sleep(380);
+  if(ok){
+    recordOk(); $("pk" + i).classList.add("good"); bigMark(true); sfx.ok(); say(pickLine(OK_LINES), 1100);
+    await crossGap(i);
+  }else{
+    const pre = ps.parts[i].replace(/\n/g, "").split("。").filter(Boolean).pop() || "", post = (ps.parts[i + 1].replace(/\n/g, "").split("。")[0] || "");
+    recordNg({p:{a:pre + "。", b:post + "。", ans, why:gapWhy(r, i)}, chosen:w, kind:"pick"});
+    bigMark(false); say(pickLine(NG_LINES));
+    await failGap(i);
+    slot.className = "slot filled wrong";
+    slot.insertAdjacentHTML("afterend", `<span class="slot filled right">${esc(ans)}</span>`);
+    placePlank(i, ans, "good");
+    await waitNext(explainHtml(ans, w, gapWhy(r, i)));
+    if(G.over) return;
+    if(armorOut()) return endByArmor();
+    await crossGap(i);
+  }
+  // 正解の板は使用済みにする（まちがえた板は手元に残る）
+  r.used[pool.indexOf(ans)] = true;
+  r.at++;
+  if(r.at >= ps.planks.length){
+    setPose("attack"); sfx.clear(); say("長い谷を渡りきったぞ！", 1400);
+    await sleep(1100);
+    if(G.over) return;
+    // 渡りきったら、正解・不正解にかかわらず、①②の解説をまとめて読ませる（教員の指示：解説を丁寧に）
+    const op = $("board").querySelector(".opts"); if(op) op.remove();
+    await waitNext(chainReviewHtml(r), "okk review");
+    if(G.over) return;
+    return afterRound();
+  }
+  G.busy = false;
+  setActiveGap(r.at);
+  draw();
+}
+/* 長い吊り橋・大河の橋の、空欄ごとの解説。データに why があればそれを、なければ語の一般的な使い方を出す。 */
+function gapWhy(r, i){
+  const w = r.ps.planks[i].word;
+  return (r.c.why && r.c.why[i]) || chainWhy(w);
+}
+function chainReviewHtml(r){
+  return `<div class="rv-head">📖 ふり返り　${r.long ? `「${esc(r.c.title)}」` : ""}</div>` +
+    r.ps.planks.map((p, i) => `<div class="rv"><div class="rv-w"><span class="rv-n">${CIRCLED[i]}</span><b>「${esc(p.word)}」</b><span class="rv-t">${esc(typeLabel(p.word))}</span></div>${esc(gapWhy(r, i))}</div>`).join("");
+}
+function chainWhy(w){ const i = wordInfo(w); return i.t ? `${typeLabel(w)}の「${w}」は、${i.use}に使う。` : ""; }
+
+/* ---------- 四の谷（rotten）：腐った板を探して替える ---------- */
+function renderRotten(r){
+  const ps = parsePassage(r.r.text);
+  r.ps = ps;
+  const bad = ps.planks.findIndex(p => p.wrong);
+  r.bad = bad;
+  buildScene(ps.planks.length);
+  ps.planks.forEach((p, i) => { const el = $("pk" + i); el.className = "plank wood"; el.style.fontSize = plankFont(p.wrong || p.word, i) + "px"; el.textContent = p.wrong || p.word; });
+  setActiveGap(-1);
+  $("board").innerHTML = `<div class="ask">一枚だけ腐った板（前後の関係に合わない板）がまじっている。どれだ？</div>` +
+    passageHtml(ps, i => `<span class="slot filled tap" id="slot${i}" data-i="${i}">${esc(ps.planks[i].wrong || ps.planks[i].word)}</span>`);
+  $("board").querySelectorAll(".slot.tap").forEach(s => s.onclick = () => findRotten(r, +s.dataset.i));
+  G.busy = false;
+  say("この橋のどこかに、腐った板がある…", 2000);
+}
+async function findRotten(r, i){
+  if(G.busy || G.over) return; G.busy = true;
+  const ps = r.ps, bad = r.bad, p = ps.planks[bad];
+  document.querySelectorAll(".slot.tap").forEach(s => { s.classList.remove("tap"); s.onclick = null; });
+  if(i === bad){
+    recordOk(); bigMark(true); sfx.ok(); say("よくぞ見抜いた！");
+  }else{
+    recordNg({p:{a:"", b:"", ans:p.word, why:r.r.why}, chosen:null, kind:"find", text:r.r.text});
+    bigMark(false); sfx.ng(); say(`「${ps.planks[i].word}」は丈夫な板だ。腐っておるのは…こっちだ！`, 2200);
+    $("slot" + i).classList.add("right");
+    await sleep(1200);
+    if(armorOut()) return endByArmor();
+  }
+  const s = $("slot" + bad); s.className = "slot filled wrong"; s.id = "slotBad";
+  $("pk" + bad).classList.add("rot");
+  breakPlank(bad);
+  await sleep(900);
+  // 直す：正しい板を選ぶ
+  const box = document.createElement("div");
+  box.innerHTML = `<div class="ask" style="margin-top:14px">腐った「${esc(p.wrong)}」の代わりに架ける板は？</div>` +
+    `<div class="opts">${shuffle(r.r.fix).map(w => `<button class="opt mincho" data-w="${esc(w)}">${esc(w)}</button>`).join("")}</div>`;
+  $("board").appendChild(box);
+  box.scrollIntoView({block:"nearest", behavior:"smooth"});
+  setActiveGap(bad);
+  box.querySelectorAll(".opt").forEach(b => b.onclick = () => fixRotten(r, b));
+  G.busy = false;
+}
+async function fixRotten(r, btn){
+  if(G.busy || G.over) return; G.busy = true;
+  const ps = r.ps, bad = r.bad, p = ps.planks[bad], w = btn.dataset.w, ok = w === p.word;
+  document.querySelectorAll(".opt").forEach(b => b.disabled = true);
+  btn.disabled = false; btn.classList.add(ok ? "picked-ok" : "picked-ng");
+  const s = $("slotBad");
+  if(ok){
+    recordOk(); bigMark(true); sfx.ok();
+    placePlank(bad, w, "good");
+    s.insertAdjacentHTML("afterend", `<span class="slot filled right">${esc(w)}</span>`);
+    say("これで橋は直った！ 渡るぞ！", 1400);
+    await sleep(500);
+  }else{
+    recordNg({p:{a:"", b:"", ans:p.word, why:r.r.why}, chosen:w, kind:"fix", text:r.r.text});
+    placePlank(bad, w);
+    await sleep(350);
+    bigMark(false); say(pickLine(NG_LINES));
+    await failGap(bad > 0 ? bad : 0);
+    placePlank(bad, p.word, "good");
+    s.insertAdjacentHTML("afterend", `<span class="slot filled right">${esc(p.word)}</span>`);
+    await waitNext(explainHtml(p.word, w, r.r.why));
+    if(G.over) return;
+    if(armorOut()) return endByArmor();
+  }
+  // 端から端まで渡る
+  await walkTo(platCenter(SC.n), 600 * SC.n);
+  setPose("attack"); sfx.clear();
+  await sleep(900);
+  afterRound();
+}
+
+/* =====================================================================
+   結果
+   ===================================================================== */
+function finishStage(){
+  if(G.over) return;
+  G.over = true; stopTimer();
+  const lvr = mgFlush();
+  const st = G.stage, sv = loadSave();
+  let head, score, sub, newBest = false;
+  if(st.kind === "challenge"){
+    score = `${G.crossed}本`;
+    head = G.endReason === "armor" ? "鎧が砕けた…" : "時間切れ！";
+    sub = `たどり着いた深さ：${TIERS[G.tier].name}　正解 ${G.ok}　まちがい ${G.ng}`;
+    if(G.crossed > (sv.ch90Best || 0)){ sv.ch90Best = G.crossed; newBest = G.crossed > 0; }
+  }else{
+    const total = G.ok + G.ng;
+    score = `${G.ok} / ${total}`;
+    head = st.name.split("　")[1] + "　踏破！";
+    sub = G.ng === 0 ? "一枚も割らずに渡りきった！" : `割った板：${G.ng}枚`;
+    sv.clear = sv.clear || {};
+    if(sv.clear[st.id] == null || G.ok > sv.clear[st.id]) sv.clear[st.id] = G.ok;
+  }
+  saveSave(sv);
+  sfx.clear();
+  const line = st.kind === "challenge"
+    ? `${G.endReason === "armor" ? "鎧が砕けるまでに" : "90秒で"}、板を割らずに${G.crossed}本の橋を渡った。割れた板の理由をたしかめて、次はもっと深くまで進むのだ。`
+    : G.ng === 0 ? "見事だ！ おぬしの架ける橋なら、どんな谷でも渡れる。"
+    : G.ng <= 2 ? "よくやった。割れた板の理由を、下でたしかめておくのだぞ。"
+    : "板の働きを見直せば、もっと丈夫な橋が架けられるはずだ。";
+  const misses = G.misses.map(m => {
+    if(m.kind === "term"){
+      return `<div class="miss"><div class="q mincho">${esc(m.q.miss)}</div><div class="w">「${esc(m.chosen)}」と答えた。${m.q.why}</div></div>`;
+    }
+    if(m.kind === "find" || m.kind === "fix"){
+      const ps = parsePassage(m.text);
+      const q = ps.parts.map((t, i) => esc(t) + (i < ps.planks.length ? (ps.planks[i].wrong ? `<s>${esc(ps.planks[i].wrong)}</s><u>${esc(ps.planks[i].word)}</u>` : esc(ps.planks[i].word)) : "")).join("");
+      return `<div class="miss"><div class="q mincho">${q}</div><div class="w">${m.kind === "find" ? "腐った板を見のがした。" : `「${esc(m.chosen)}」に替えてしまった。`}${esc(m.p.why)}</div></div>`;
+    }
+    const p = m.p;
+    const q = `${esc(p.a)}<u>${esc(p.ans)}</u>${esc(p.b)}`;
+    const w = m.kind === "type"
+      ? `働き：<b>${esc(TYPES[wordInfo(p.ans).t].name)}</b>（${esc(TYPES[m.chosen].name)}と答えた）。${esc(p.why)}`
+      : `「${esc(m.chosen)}」を選んだ（${esc(typeName(m.chosen))}）。正解は${esc(typeName(p.ans))}。${esc(p.why)}`;
+    return `<div class="miss"><div class="q mincho">${q}</div><div class="w">${w}</div></div>`;
+  }).join("");
+  $("resultBody").innerHTML = `
+    ${knightHtml(st.kind === "challenge" ? "defeat" : G.ng === 0 ? "attack" : "pose1")}
+    <h2 class="mincho">${esc(head)}</h2>
+    <div class="score">${esc(score)}</div>
+    <div class="sub">${esc(sub)}${newBest ? "　🎉 自己ベスト更新！" : ""}</div>
+    ${lvr ? `<div class="lv-result ${lvr.net < 0 ? "down" : ""}">${esc(MG_GENRE)}ジャンル　<b>${esc(mgSigned(lvr.net))}レベル</b>（正解 ${lvr.ok}・まちがい ${lvr.ng}）<div class="lv-rule">${st.kind !== "challenge" ? "練習の谷は、正解2問で＋1・まちがい2問で−1" : "挑戦の谷は、正解1問で＋1・まちがい1問で−1"}（全体ではマイナスにならない）</div></div>` : ""}
+    <div class="speech">${esc(line)}</div>
+    ${misses ? `<h3 style="margin-top:18px;font-size:15px;text-align:left">割れた板のふり返り</h3><div class="miss-list">${misses}</div>` : ""}
+    <div class="foot-btns" style="margin-top:18px">
+      <button class="btn primary" onclick="startStage(${st.id})">もう一度</button>
+      <button class="btn" onclick="showTitle()">谷の地図へ</button>
+    </div>`;
+  show("result");
+  $("result").scrollTop = 0;
+}
+
+/* =====================================================================
+   板の図鑑
+   ===================================================================== */
+function showZukan(){
+  const groups = TYPE_KEYS.map(g => {
+    const terms = TERM_KEYS.filter(k => TERMS[k].g === g).map(k => {
+      const t = TERMS[k];
+      const ex = PAIRS.find(p => t.words.includes(p.ans));
+      return `<div class="z-term">
+        <div class="z-head"><span class="z-name mincho">${esc(k)}</span><span class="z-yomi">${esc(t.yomi)}</span></div>
+        <div class="z-desc">${esc(t.desc)}</div>
+        <div class="z-words">${t.words.map(w => `<span class="z-plank mincho">${esc(w)}</span>`).join("")}</div>
+        ${ex ? `<div class="z-ex mincho">例）${esc(ex.a)}<u>${esc(ex.ans)}</u>${esc(ex.b)}</div>` : ""}
+        ${t.note ? `<div class="z-note">${esc(t.note)}</div>` : ""}
+      </div>`;
+    }).join("");
+    const many = TERM_KEYS.filter(k => TERMS[k].g === g).length > 1;   // 順接・逆接・転換は名前とかぶるので見出しを出さない
+    return `<div class="z-group">${many ? `<h3 class="mincho">${esc(TYPES[g].name)}</h3>` : ""}${terms}</div>`;
+  }).join("");
+  $("zukanBody").innerHTML = `
+    <h2 class="mincho z-title">📖 板の図鑑</h2>
+    <div class="speech">接続語の働きには名前がある。<b>名前・読み・代表的な語</b>をセットで覚えるのだ。二の谷「名前の石碑」で腕だめしができるぞ。</div>
+    ${groups}
+    <div class="foot-btns" style="margin-top:18px">
+      <button class="btn primary" onclick="startStage(2)">名前の石碑に挑む</button>
+      <button class="btn" onclick="showTitle()">谷の地図へ</button>
+    </div>`;
+  show("zukan");
+  $("zukan").scrollTop = 0;
+}
+
+/* =====================================================================
+   パソコンのキー操作（2026-10-04、教員の指示）
+   ・ゲーム中：数字キー 1〜9・0 で板（選択肢）を選ぶ。四の谷で腐った板を探すときは、石板の板に番号がつく。
+     ←→↑↓ で選ぶ板を動かし、Enter／スペースで決定。「次へ」が出ているときは Enter／スペースで進む。
+   ・谷の地図：←→↑↓ で谷を選び、Enter で挑む（Tab でも動かせる）。
+   ===================================================================== */
+function kbdTargets(){
+  const scr = document.querySelector(".screen.show");
+  if(!scr) return [];
+  if(scr.id === "game") return [...$("board").querySelectorAll(".opt, .slot.tap")];
+  if(scr.id === "title") return [...scr.querySelectorAll(".stage-btn, .foot-btns .btn")];
+  return [];
+}
+// 盤面が書きかわるたびに、選択肢へ数字キーの目印をつける（腐った板探しの板はTabでも選べるようにする）
+function kbdLabel(){
+  const opts = [...$("board").querySelectorAll(".opt")];
+  const items = opts.length ? opts : [...$("board").querySelectorAll(".slot.tap")];
+  $("board").querySelectorAll("[data-k]").forEach(el => { if(!items.includes(el)) el.removeAttribute("data-k"); });
+  items.forEach((el, i) => { if(i < 10) el.dataset.k = String((i + 1) % 10); });
+  $("board").querySelectorAll(".slot.tap").forEach(s => s.tabIndex = 0);
+  $("board").querySelectorAll(".slot:not(.tap)[tabindex]").forEach(s => s.removeAttribute("tabindex"));
+  const nx = $("board").querySelector(".explain .next");
+  if(nx && !nx.dataset.kf){ nx.dataset.kf = "1"; try{ nx.focus({preventScroll:true}); }catch(e){} }
+}
+new MutationObserver(kbdLabel).observe($("board"), {childList:true, subtree:true});
+document.addEventListener("keydown", e => {
+  if(e.ctrlKey || e.altKey || e.metaKey || e.isComposing) return;
+  const scr = document.querySelector(".screen.show");
+  if(!scr) return;
+  const k = e.key;
+  if(scr.id === "game"){
+    // 「次へ」が出ていれば Enter／スペースで進む
+    const nx = $("board").querySelector(".explain .next");
+    if(nx && (k === "Enter" || k === " ")){ e.preventDefault(); if(!e.repeat) nx.click(); return; }
+    // 数字キーで板を選ぶ
+    if(/^[0-9]$/.test(k)){
+      const el = $("board").querySelector(`[data-k="${k}"]`);
+      if(el && !el.disabled && (el.classList.contains("opt") || el.classList.contains("tap"))){ e.preventDefault(); if(!e.repeat) el.click(); }
+      return;
+    }
+    // 石板の腐った板（spanなので、Enter／スペースは自前で押す）
+    const a = document.activeElement;
+    if(a && a.classList && a.classList.contains("tap") && (k === "Enter" || k === " ")){ e.preventDefault(); if(!e.repeat) a.click(); return; }
+  }
+  if(k === "ArrowRight" || k === "ArrowDown" || k === "ArrowLeft" || k === "ArrowUp"){
+    const ts = kbdTargets().filter(el => !el.disabled);
+    if(!ts.length) return;
+    const cur = ts.indexOf(document.activeElement);
+    // ゲーム中、まだ板を選んでいないときの↑↓は、長い文章のスクロールに残す
+    if(scr.id === "game" && cur < 0 && (k === "ArrowUp" || k === "ArrowDown")) return;
+    e.preventDefault();
+    const d = (k === "ArrowRight" || k === "ArrowDown") ? 1 : -1;
+    const nxt = cur < 0 ? (d > 0 ? 0 : ts.length - 1) : (cur + d + ts.length) % ts.length;
+    ts[nxt].focus();
+    ts[nxt].scrollIntoView({block:"nearest"});
+  }
+});
+
+$("muteBtn").textContent = muted ? "🔇" : "🔊";
+showTitle();
+</script>
+</body>
+</html>

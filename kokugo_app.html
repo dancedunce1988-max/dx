@@ -101,8 +101,19 @@
   .menu-card.locked:hover{transform:none; box-shadow:none;}
   .menu-card.locked .menu-icon{background:var(--line); color:var(--sub);}
   .menu-card.locked .shogo-badge{background:var(--sub);}
-  /* 九尾の化かし合い・炎狼ランの「準備中」カード：タップの手応えとして軽くパルスさせるだけ（kitsuneComingSoonTap・enroRunComingSoonTap参照） */
-  .kitsune-teaser.tap-pulse, .enro-teaser.tap-pulse{ animation:kitsuneTapPulse .18s ease; }
+  /* 鍵のかかったミニゲームの入口：タップの手応えとして軽くパルスさせるだけ（mgLockedTap参照） */
+  .mg-teaser.tap-pulse{ animation:kitsuneTapPulse .18s ease; }
+  /* 九尾・炎狼の入口バナー（mgBannerHtml参照）：「準備中」の間は浮き上がらせない。 */
+  .menu-card-img-btn.mg-banner-locked{ cursor:default; }
+  .menu-card-img-btn.mg-banner-locked:hover{ transform:none; }
+  /* 炎狼ランの自己ベスト：絵の上に重ね、距離は右上・地名は右下にそれぞれ1行で出す（2026-10-04、教員の指示）。
+     1つのバッジに2行で入れると、端末によって地名が折り返して下に切れたため、上端・下端に分けた。 */
+  /* スマホではバナーの縦が40px前後しかないので、画面の幅に合わせて文字と余白を小さくし、上下が重ならないようにする */
+  .menu-card-img-btn .menu-card-overlay.mg-best-top, .menu-card-img-btn .menu-card-overlay.mg-best-bottom{
+    right:5px; white-space:nowrap; line-height:1.2; padding:1px 8px; font-size:clamp(8px, 2.5vw, 11.2px); }
+  .menu-card-img-btn .menu-card-overlay.mg-best-top{ top:3px; bottom:auto; }
+  .menu-card-img-btn .menu-card-overlay.mg-best-bottom{ bottom:3px; font-size:clamp(7.5px, 2.3vw, 10.2px); }
+  .menu-card-img-btn.mg-banner-locked img{ filter:brightness(.62) saturate(.7); }
   @keyframes kitsuneTapPulse{ 0%{transform:scale(1);} 45%{transform:scale(.96);} 100%{transform:scale(1);} }
   /* クリア済みのストーリー章カード：カード全体タップではなく、中の2つのボタン
      （「ストーリーを見る」「問題だけ」）で選ぶ形にしたので、カード自体はクリック不可にする
@@ -4325,12 +4336,13 @@
   background:radial-gradient(circle at 35% 30%, #ffd873, #ff7a1a 60%, #b3390a);
 }
 @keyframes matchStickPop{ 0%{transform:scale(.2); opacity:0;} 60%{transform:scale(1.2); opacity:1;} 100%{transform:scale(1);} }
+  .expl-link{display:inline-block;margin-top:4px;color:var(--accent2);font-weight:bold;word-break:break-all}
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver12.76</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.11</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -4353,7 +4365,8 @@
 <script src="ura_boss_sprites_data.js"></script>
 <script src="kanji_quest_title_data.js"></script>
 <script src="mb_action_button_images.js"></script>
-<script src="menu_title_images.js"></script>
+<!-- menu_title_images.jsは画像を差し替えることがあるので、?v=を変えてブラウザのキャッシュ（GitHub Pagesは10分）に古い画像が残らないようにする（2026-10-03）。画像を変えたら?v=もそのときのバージョンにする。 -->
+<script src="menu_title_images.js?v=12.93"></script>
 <script src="mb_bgm_data.js"></script>
 <script src="dokkai_dungeon_data.js"></script>
 <script>
@@ -4552,7 +4565,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 49;
+const SAVE_FORMAT_VERSION = 51;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -5231,6 +5244,7 @@ function loadStats(){
            （nobiru/engine.js）で完結するため、そちら側は`localStorage`の合図（"一日一読
            待ち受け中の報酬"、ddCheckNobiruPendingReward参照）経由でここに伝える。 */
         if(!st.nobiruRewardGiven || typeof st.nobiruRewardGiven !== "object") st.nobiruRewardGiven = {};
+        mgSyncFromMinigames(st); // 別ページのミニゲームのジャンルレベル・ログイン報酬をすぐ取りこむ
         return st;
       }
     }
@@ -5530,6 +5544,26 @@ function weakItems(){
 
 /* ================= 共通 ================= */
 function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;"); }
+/* 問題の解説(e)を表示用のHTMLにする（2026-10-06〜、教員の指示：「解説の中で、参考となるURLを載せてくれるとさらに嬉しい」）。
+   esc＋改行<br>に加えて、解説中の http(s):// のURLを、新しいタブで開くリンクにする。
+   ウィキペディアのURLは「ウィキペディア「項目名」」という短い名前で表示する（日本語のURLは長く読みにくいため）。
+   リンクを直接タップしたときは、tap-advance（画面のどこをタップしても次へ）より本来の動作が優先される（a要素は除外済み）。 */
+function explLinkLabel(url){
+  let u = url;
+  try{ u = decodeURI(url); }catch(e){}
+  const m = u.match(/^https?:\/\/ja\.(?:m\.)?wikipedia\.org\/wiki\/([^#?]+)/);
+  if(m) return "ウィキペディア「" + m[1].replace(/_/g," ") + "」";
+  const h = u.match(/^https?:\/\/([^\/]+)/);
+  return h ? h[1] : u;
+}
+function explHtml(s){
+  return esc(s)
+    .replace(/https?:\/\/[^\s<>"）」、。]+/g, u => {
+      const raw = u.replace(/&amp;/g,"&");
+      return '<a class="expl-link" href="' + raw.replace(/"/g,"%22").replace(/&/g,"&amp;") + '" target="_blank" rel="noopener">🔗 ' + esc(explLinkLabel(raw)) + '</a>';
+    })
+    .replace(/\n/g,"<br>");
+}
 /* 問題文中の《…》を、太字＋下線の強調表示に変換する（表現技法などで、該当箇所を示すのに使う）。
    《》を含まない通常の問題文は、esc(q)と同じ結果になる（安全に共通で使える）。 */
 function markQuestionHtml(q){
@@ -6282,7 +6316,7 @@ function kotonohaStatBonusText(stat){
 // 1レベルごとに+1%」のまま変わらない。
 const MB_PARTNER_STAT_BONUS_PCT = {
   me01: { spd: {base:1, perLevel:1} },                                    // 炎狼：素早さ+1%/Lv
-  me02: { def: {base:1, perLevel:1} },                                    // 鉄鋼兵：防御力+1%/Lv
+  me02: { def: {base:1, perLevel:1} },                                    // 鉄甲兵：防御力+1%/Lv
   me03: { luck: {base:1, perLevel:1}, spd: {base:1, perLevel:1} },        // 闇の魔術師：運・素早さ+1%/Lv
   me04: { hp: {base:1, perLevel:1}, atk: {base:1, perLevel:1} },          // 言霊の番人：HP・攻撃力+1%/Lv
   // 裏ボス4体分（教員の指示、2026-09-09〜、URA_BOSS_ENEMIES参照）。
@@ -7625,8 +7659,9 @@ function showHome(){
   bossPromptResumeFn = null;
   const kbOverlay = document.getElementById('kbAtkOverlay'); // 演出の途中で離れた場合、残った全画面オーバーレイを消す
   if(kbOverlay) kbOverlay.remove();
+  vsApplyPendingResults();      // ボキャブラ・シューティング大画面版の正誤・得点を反映（record()が自分で保存するので、stを読む前に）
   const st = loadStats();
-  mgApplyPendingLevelUps(st);   // ミニゲーム（九尾の化かし合い・炎狼ラン）で上がったジャンルレベルを反映（ほかの表示より先に）
+  mgSyncFromMinigames(st);   // ミニゲームで上がったジャンルレベル・今日答えたことによるログイン報酬を反映（ほかの表示より先に。新しいプレイヤーでも通るよう、ここでも呼ぶ）
   if(st.pendingDailyLoginStamp){ showDailyLoginStampOverlay(st); return; }
   /* のびる読解（別ページ、nobiru/engine.js）から「一日一読、読み終わりました」の合図が
      来ていれば、ストック経験値を加算してから一度だけお知らせを見せる（教員の指示、
@@ -7670,7 +7705,7 @@ function showHome(){
     // 従来どおり通常カードのまま残す（下のg.keys.forEachでkobun/kanazukai/kanbunだけ除外する）。
     if(g.name === "古典・表現") html += kotenMenuCardsHtml(st);
     g.keys.forEach(key=>{
-      if(g.name === "古典・表現" && (key === "kobun" || key === "kanazukai" || key === "kanbun")) return;
+      if(g.name === "古典・表現" && (key === "kobun" || key === "kanazukai" || key === "kobun_joshiki" || key === "kanbun")) return;
       if(!CATS[key]) return;
       const m = CATS[key];
       const lv = st.lv[key], t = titleOf(lv);
@@ -7678,7 +7713,7 @@ function showHome(){
       html += `
       <div class="card menu-card" onclick="startQuiz('${key}')">
         <div class="menu-icon">${GROUP_ICONS[g.name] || "📝"}</div>
-        <div><h2>${esc(m.name)}${(key === "bunsetsu_kankei" || key === "kanji_shiwake") ? newBadgeHtml() : ""}</h2><p>${esc(m.desc)}</p></div>
+        <div><h2>${esc(m.name)}${(key === "bunsetsu_kankei" || key === "kanji_shiwake" || key === "setsuzokushi") ? newBadgeHtml() : ""}</h2><p>${esc(m.desc)}</p></div>
         <div class="right">
           <span class="shogo-badge ${t.hidden?"top":""}">${t.icon} ${esc(t.name)} Lv.${lv}</span>
           <span class="count">全${m.items.length}問${unlockPct!=null ? `・解放率${unlockPct}%` : ""}</span>
@@ -8051,7 +8086,7 @@ function balancedCatWeight(lv, avgLv){
    ランダム遭遇でジャンルが未確定なとき）の対象から除外される。ホーム画面からその分野を直接選んで
    ふつうにクイズを解くこと自体は、ONのままでも今までどおりでき（生徒本人の意思による直接の選択は
    妨げない）、そのときにボスが出れば今までどおりその分野で戦う。 */
-const NOT_LEARNED_ELIGIBLE_CATS = ["kanbun", "kobun", "kanazukai", "katsuyo", "shikibetsu", "doushi_katsuyo", "kanbun_kt", "kanbun_yj"];
+const NOT_LEARNED_ELIGIBLE_CATS = ["kanbun", "kobun", "kanazukai", "katsuyo", "shikibetsu", "setsuzokushi", "doushi_katsuyo", "kanbun_kt", "kanbun_yj"];
 const NOT_LEARNED_SPECIAL_LABEL = { kanbun_kt:"返り点をつける", kanbun_yj:"読み順タップ" };
 function notLearnedExcludedKeys(st){
   return NOT_LEARNED_ELIGIBLE_CATS.filter(k => st.notLearnedCats && st.notLearnedCats[k]);
@@ -8226,9 +8261,9 @@ function gradeAnswer(ok, chosenOrig, typed){
   let expl;
   if(Array.isArray(it.ans)){
     const wrongMsg = ok ? "" : `正解は「${esc(it.ans.join("」または「"))}」（あなたの答え：${esc(typed||"")}）`;
-    expl = [wrongMsg, it.e ? esc(it.e).replace(/\n/g,"<br>") : ""].filter(Boolean).join("<br>");
+    expl = [wrongMsg, it.e ? explHtml(it.e) : ""].filter(Boolean).join("<br>");
   }else{
-    expl = it.e ? esc(it.e).replace(/\n/g,"<br>") : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
+    expl = it.e ? explHtml(it.e) : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
   }
   const lvChip = (r.lvup ? `<span class="lvup-chip">${esc(CATS[cat].name)} Lv.${r.lv} にアップ！</span>` : "")
     + (r.eventXp ? `<span class="lvup-chip">🎉 イベント経験値＋${r.eventXp}</span>` : "");
@@ -8374,9 +8409,9 @@ function diagGrade(ok, chosenOrig, typed){
   let expl;
   if(Array.isArray(it.ans)){
     const wrongMsg = ok ? "" : `正解は「${esc(it.ans.join("」または「"))}」（あなたの答え：${esc(typed||"")}）`;
-    expl = [wrongMsg, it.e ? esc(it.e).replace(/\n/g,"<br>") : ""].filter(Boolean).join("<br>");
+    expl = [wrongMsg, it.e ? explHtml(it.e) : ""].filter(Boolean).join("<br>");
   }else{
-    expl = it.e ? esc(it.e).replace(/\n/g,"<br>") : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
+    expl = it.e ? explHtml(it.e) : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
   }
   fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}</div>${expl}`;
   document.getElementById("diagNextBtn").style.display = "inline-block";
@@ -11269,16 +11304,18 @@ function showKanjiWritePicker(){
 function kotenMenuCardsHtml(st){
   const kobunT = titleOf(st.lv.kobun);
   const kanazukaiT = titleOf(st.lv.kanazukai);
+  const kobunJoshikiT = titleOf(st.lv.kobun_joshiki);
   const ktT = titleOf(st.lv.kanbun_kt);
   const yjT = titleOf(st.lv.kanbun_yj);
   const kanbunT = titleOf(st.lv.kanbun);
   return `
   <div class="card menu-card" onclick="showKobunPicker()">
     <div class="menu-icon">🎋</div>
-    <div><h2>古文</h2><p>古文の言葉・歴史的仮名遣いから選んで練習</p></div>
+    <div><h2>古文</h2><p>古文の言葉・歴史的仮名遣い・古文常識から選んで練習</p></div>
     <div class="right">
       <span class="shogo-badge ${kobunT.hidden?"top":""}">${kobunT.icon} Lv.${st.lv.kobun}</span>
       <span class="shogo-badge ${kanazukaiT.hidden?"top":""}">${kanazukaiT.icon} Lv.${st.lv.kanazukai}</span>
+      <span class="shogo-badge ${kobunJoshikiT.hidden?"top":""}">${kobunJoshikiT.icon} Lv.${st.lv.kobun_joshiki}</span>
     </div>
   </div>
   <div class="card menu-card" onclick="showKanbunPicker()">
@@ -11297,6 +11334,14 @@ function showKobunPicker(){
   const kobunT = titleOf(st.lv.kobun), kanazukaiT = titleOf(st.lv.kanazukai);
   const kobunPct = catUnlockedQuestionPct(st, 'kobun');
   const kanazukaiPct = catUnlockedQuestionPct(st, 'kanazukai');
+  /* 古文常識（kobun_joshiki、2026-10-05〜、教員の指示）。平安・鎌倉の古文を読むための常識を、
+     4択（仲間はずれ・組み合わせ・順番・古文の一節からの場面読解など）と、
+     読みをひらがなで書く記述式で出題する。通常の20分野と同じくCAT_KEYSに入る新ジャンル。
+     ver13.08：「〜について説明した文のうち、まちがっているものはどれ？」形式の8問は、教員の指示（面白くない）で削除。
+     消したのはLv2〜3の問題だけなので、Lv1のグループ境界は変わらず、CAT_POOL_VERSIONによる解放率リセットはしない。 */
+  const joshiki = CATS['kobun_joshiki'];
+  const joshikiT = titleOf(st.lv.kobun_joshiki);
+  const joshikiPct = catUnlockedQuestionPct(st, 'kobun_joshiki');
   screen.innerHTML = `
     <h3 class="section">🎋 古文</h3>
     <div class="card menu-card" onclick="startQuiz('kobun')">
@@ -11313,6 +11358,14 @@ function showKobunPicker(){
       <div class="right">
         <span class="shogo-badge ${kanazukaiT.hidden?"top":""}">${kanazukaiT.icon} ${esc(kanazukaiT.name)} Lv.${st.lv.kanazukai}</span>
         <span class="count">全${kanazukai.items.length}問${kanazukaiPct!=null ? `・解放率${kanazukaiPct}%` : ""}</span>
+      </div>
+    </div>
+    <div class="card menu-card" onclick="startQuiz('kobun_joshiki')">
+      <div class="menu-icon">📜</div>
+      <div><h2>${esc(joshiki.name)}${newBadgeHtml()}</h2><p>${esc(joshiki.desc)}</p></div>
+      <div class="right">
+        <span class="shogo-badge ${joshikiT.hidden?"top":""}">${joshikiT.icon} ${esc(joshikiT.name)} Lv.${st.lv.kobun_joshiki}</span>
+        <span class="count">全${joshiki.items.length}問${joshikiPct!=null ? `・解放率${joshikiPct}%` : ""}</span>
       </div>
     </div>
     <div class="btn-row"><button class="btn secondary" onclick="showHome()">ホームへ</button></div>`;
@@ -11876,9 +11929,12 @@ function closeUnlockModeSettings(cat){
    （76問が復旧後になく217問が現在にしかない）機械的な復旧が危険なため対象外とし、
    yojiは復旧後の105問に、事故後に追加された記述式40問（8ccd6b7）をマージして145問にした。
    影響した全ジャンルのバージョンを一律1に設定し、問題解放率を強制リセットする
-   （教員の指示「問題を挿入した場合には0%から再スタートする設計に」を踏襲）。 */
+   （教員の指示「問題を挿入した場合には0%から再スタートする設計に」を踏襲）。
+   shikibetsu:3＝「接続詞の種類」17問（tag:"setsuzokushi"）を新ジャンル「接続詞」（setsuzokushi）に
+   移した（2026-10-02、教員の指示）。8問グループの境界が変わるため、問題解放率をリセットする。
+   新ジャンルsetsuzokushiは今回が初めてなので、バージョンは書かない（0のまま）。 */
 const CAT_POOL_VERSION = {
-  kanbun: 5, shikibetsu: 2,
+  kanbun: 5, shikibetsu: 3,
   kanji_yomi: 1, okurigana: 1, busyu: 1, jukugo: 1, taigigo: 1, ruigigo: 1,
   yoji: 1, kotowaza: 1, kanyoku: 1, koji: 1, keigo: 1, hinshi: 1, katsuyo: 1,
   kobun: 1, kanazukai: 1, kigo: 1, hyougen: 1,
@@ -12629,7 +12685,7 @@ function answerDokkai(origIdx){
   const ticketMsg = r.gotTicket ? `<div class="evolve ticket-get">🎟️ ボスへの挑戦チケットを1枚手に入れた！</div>` : "";
   const lowAccMsg = r.lowAccuracy ? `<p class="note">⏸️ 直近の正答率が低いため、レベルアップはお休み中です。<br>落ち着いて問題を読んで答えると、また上がるようになります。</p>` : "";
   const fastMsg = r.fastGuess ? `<p class="note">⏸️ 少し急いで答えているようです。落ち着いて問題を読んで答えると、また上がるようになります。</p>` : "";
-  fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}${lvChip}</div>${it.e?esc(it.e):""}${evolveMsg}${ticketMsg}${lowAccMsg}${fastMsg}`;
+  fb.innerHTML = `<div class="verdict">${ok?"○ 正解！":"× ざんねん…"}${lvChip}</div>${it.e?explHtml(it.e):""}${evolveMsg}${ticketMsg}${lowAccMsg}${fastMsg}`;
   document.getElementById("nextBtnD").style.display = "inline-block";
 }
 function nextDokkai(){
@@ -12690,7 +12746,7 @@ let dd = null; // 読解Quest試作版の進行中ステート
 const DD_PENDING_REWARD_LSKEY = "dd_daily_pending_reward_v1";
 /* 別ページのミニゲームからのジャンルレベルの増減（2026-09-30〜、教員の指示）。
    九尾の化かし合い（kitsune_bakashiai.html）は「同音異字・同訓異字・誤字訂正」（kanji_shiwake）、
-   炎狼ラン（enro_run.html）は「敬語」（keigo）。1回のゲームの中で「正解1つ＝＋1、まちがい2つ＝−1」と数え、
+   炎狼ラン（enro_run.html）は「敬語」（keigo）、鉄甲兵のつなぎ橋（tsunagi_bashi.html、2026-10-02〜、試作）は「接続詞」（setsuzokushi）。1回のゲームの中で「正解1つ＝＋1、まちがい2つ＝−1」と数え、
    ゲームが終わったときの差し引き（マイナスもある）を、このキーに{ジャンル: 増減}として書き足す。
    どちらも本体のセーブ(st)には直接触れない。本体はshowHome()の入口でmgApplyPendingLevelUps()がこれを読み取る。
    ＋のときは文節斬り（bgLevelUpShikibetsu）と同じ形（st.lv[cat]++・totalLevelUps・10回ごとの挑戦チケット）で反映。
@@ -12702,7 +12758,40 @@ const DD_PENDING_REWARD_LSKEY = "dd_daily_pending_reward_v1";
    仕組みで、ミニゲームの問題には当てはまらないため（bgLevelUpShikibetsuと同じ理由）。
    読み取った時点でキーは必ず消す（二重加算防止）。ここに書けるジャンルはMG_LVUP_CATSだけ。 */
 const MG_PENDING_LVUP_LSKEY = "kokugo_minigame_pending_lvups_v1";
-const MG_LVUP_CATS = ["kanji_shiwake", "keigo"];
+/* ミニゲームはすべてデイリーログイン報酬の対象（2026-10-04、教員の指示）。本体の中のミニゲーム・別ページのミニゲームの
+   どちらも、問題に答えるたびにこのキーへ「答えた日付」を書く（mgNotePlayed、別ページは同じキーに直接書く）。
+   本体はセーブを読むたびに（loadStats→mgSyncFromMinigames）、この日付が今日なら maybeGrantDailyLogin を通す。
+   成立は1日1回なので、今日の日付のキーは消さずに残しておく（どこかで古いstが上書き保存されても、次の読み込みで成立し直せる）。
+   日付が今日でないキーは消す（昨日遊んだ分で今日の報酬が成立しないように）。 */
+const MG_PLAYED_LSKEY = "kokugo_mg_played_v1";
+function mgNotePlayed(){ try{ localStorage.setItem(MG_PLAYED_LSKEY, todayLocalDateStr()); }catch(e){} }
+function mgCheckPlayedLogin(st){
+  let d = null;
+  try{ d = localStorage.getItem(MG_PLAYED_LSKEY); }catch(e){}
+  if(!d) return false;
+  if(d !== todayLocalDateStr()){ try{ localStorage.removeItem(MG_PLAYED_LSKEY); }catch(e){} return false; }
+  const before = st.dailyLogin && st.dailyLogin.lastDate;
+  maybeGrantDailyLogin(st);
+  return !!st.dailyLogin && st.dailyLogin.lastDate !== before;
+}
+/* 別ページのミニゲームのジャンルレベル・ログイン報酬を、ホーム画面を待たずに取りこむ（2026-10-04、教員の指示：
+   「ジャンルレベルが上がった場合も、必ずリアルタイムで反映」）。loadStats()の最後で毎回呼ぶので、本体のどの画面を
+   開いても最新になる。別のタブで本体を開いたままでも、storageイベントで書き置きが届いた瞬間に取りこむ。 */
+let mgSyncing = false;
+function mgSyncFromMinigames(st){
+  if(mgSyncing) return;
+  mgSyncing = true;
+  try{
+    const applied = mgApplyPendingLevelUps(st); // レベルが変わったときは中で保存済み
+    if(mgCheckPlayedLogin(st)) saveStats(st); // ログイン報酬が成立したら必ず保存（レベル反映の保存のあとでも）
+  }finally{ mgSyncing = false; }
+}
+window.addEventListener("storage", e => {
+  if(e.key === MG_PENDING_LVUP_LSKEY || e.key === MG_PLAYED_LSKEY){ try{ loadStats(); }catch(err){} }
+});
+/* 表現の魔術道（gihou_madousho.html、2026-10-03〜、試作）は「表現技法」（hyougen）。ほかと違い、まちがいでは下げず、
+   正解1問ごとに＋1を、答えるたびにその場で書き足す（途中でやめてもそこまでの分は反映される。教員の指示）。 */
+const MG_LVUP_CATS = ["kanji_shiwake", "keigo", "setsuzokushi", "hyougen"];
 function mgApplyPendingLevelUps(st){
   let raw;
   try{ raw = localStorage.getItem(MG_PENDING_LVUP_LSKEY); }catch(e){ raw = null; }
@@ -12711,6 +12800,12 @@ function mgApplyPendingLevelUps(st){
   let info;
   try{ info = JSON.parse(raw); }catch(e){ info = null; }
   if(!info || typeof info !== "object") return null;
+  /* 別ページのミニゲームで「今日」問題に答えていれば（_played＝答えた日付、2026-10-04〜、表現の魔術道が書く）、
+     本体で1問答えたのと同じくデイリーログイン報酬を成立させる（教員の指示）。日付が今日でなければ成立させない
+     （昨日遊んで今日ホームを開いた、という場合に今日の分がもらえてしまわないように）。スタンプ演出は
+     showHome()がこのあとpendingDailyLoginStampを見て出す。 */
+  const playedToday = info._played === todayLocalDateStr();
+  if(playedToday) maybeGrantDailyLogin(st);
   const applied = {};
   MG_LVUP_CATS.forEach(cat => {
     const n = Math.max(-1000, Math.min(1000, Math.trunc(Number(info[cat]) || 0)));
@@ -12726,7 +12821,7 @@ function mgApplyPendingLevelUps(st){
       applied[cat] = (applied[cat]||0) - 1;
     }
   });
-  if(!Object.keys(applied).length) return null;
+  if(!Object.keys(applied).length){ if(playedToday) saveStats(st); return null; }
   saveStats(st);
   return applied;
 }
@@ -12822,10 +12917,8 @@ function ddSkillGridHtml(before, after){
    読解は集中力を要する活動のため、2026-09-17〜教員の指示でiframe埋め込みをやめ、
    新しいタブも開かずに同じタブのまま画面全体をnobiru/<key>.htmlへ遷移させる
    （知識ドリルDXから完全に切り離された専用画面として読ませる）。
-   各nobiru/*.html側の「ホームに戻る」は通常 ../kokugo_app.html。
-   生徒用 file:// ランチャー（window.__DX_CDN_BASE__ あり）から開いた場合は
-   CDN上のnobiruへ遷移し、ホームは nobiru/dx_compat.js 側で history.back()
-   または window.__DX_GO_HOME__ を使う。
+   各nobiru/*.html側の「ホームに戻る」リンクで../kokugo_app.htmlへ戻れば、
+   知識ドリルDXのホーム画面に戻る。
    読解Quest側のst.dokkaiDungeonには今のところ一切触れない。 */
 const NOBIRU_TEXTS = [
   /* ddPublishDate（2026-09-23〜、教員の指示）：「一日一読」用の日付割り振り。
@@ -13018,32 +13111,7 @@ function nobiruIsUnlocked(t){
 // 参照）。engine.js側が?viaCheck=1を読み取り、経験値の合図（DD_PENDING_REWARD_LSKEY）を
 // いっさい書かない＝このモードで解いても経験値には絶対にならない。
 function ddOpenNobiru(key, viaDaily, viaCheck){
-  /* file:// ランチャー時:
-     jsDelivr の .html は text/plain のため直接遷移するとソース表示になる。
-     dist/script.js が入れる __DX_OPEN_NOBIRU__（fetch→srcdoc）を優先。
-     viaDaily / viaCheck も渡す。 */
-  if (typeof window.__DX_OPEN_NOBIRU__ === "function") {
-    const params = {};
-    if (viaCheck) params.viaCheck = "1";
-    else if (viaDaily) params.viaDaily = "1";
-    window.__DX_OPEN_NOBIRU__(key, params);
-    return;
-  }
-  /* file:// ランチャー時は相対 nobiru/ がホスト側に解決されて壊れるため、
-     __DX_CDN_BASE__（末尾スラッシュ）があれば CDN 絶対URLへ。未定義なら従来どおり。
-     CDN遷移時は dx_home に現在URLを付け、モード選択後も「ホームに戻る」で
-     ランチャーへ戻れるようにする（history.back 1回では足りない）。 */
-  const base = window.__DX_CDN_BASE__;
-  let url = (base || "") + "nobiru/" + key + ".html";
-  if (viaCheck) {
-    url += (url.indexOf("?") >= 0 ? "&" : "?") + "viaCheck=1";
-  } else if (viaDaily) {
-    url += (url.indexOf("?") >= 0 ? "&" : "?") + "viaDaily=1";
-  }
-  if (base) {
-    url += (url.indexOf("?") >= 0 ? "&" : "?") + "dx_home=" + encodeURIComponent(location.href);
-  }
-  location.href = url;
+  location.href = "nobiru/" + key + ".html" + (viaCheck ? "?viaCheck=1" : viaDaily ? "?viaDaily=1" : "");
 }
 /* 「問題チェックモード」（教員の指示、2026-09-27〜）。読解Quest入口画面（ddShowLevelSelect）
    で「dokkaichekku」と連続入力すると発動する、管理者用の裏メニュー。NOBIRU_TEXTSに
@@ -13852,9 +13920,9 @@ function battleGrade(ok, chosenOrig, typed){
   let expl;
   if(Array.isArray(it.ans)){
     const wrongMsg = ok ? "" : `正解は「${esc(it.ans.join("」または「"))}」（こたえ：${esc(typed||"")}）`;
-    expl = [wrongMsg, it.e ? esc(it.e).replace(/\n/g,"<br>") : ""].filter(Boolean).join("<br>");
+    expl = [wrongMsg, it.e ? explHtml(it.e) : ""].filter(Boolean).join("<br>");
   }else{
-    expl = it.e ? esc(it.e).replace(/\n/g,"<br>") : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
+    expl = it.e ? explHtml(it.e) : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
   }
   const defenderName = defender === "A" ? battle.nameA : battle.nameB;
   const dmgMsg = ok ? `<span class="lvup-chip">${esc(defenderName)}に ${dealt} ダメージ！</span>` : "";
@@ -14402,9 +14470,9 @@ function cmGrade(ok, ms, chosenOrig, typed){
     }
     if(Array.isArray(it.ans)){
       const wrongMsg = ok ? "" : `正解は「${esc(it.ans.join("」または「"))}」（こたえ：${esc(typed||"")}）`;
-      expl = [wrongMsg, it.e ? esc(it.e).replace(/\n/g,"<br>") : ""].filter(Boolean).join("<br>");
+      expl = [wrongMsg, it.e ? explHtml(it.e) : ""].filter(Boolean).join("<br>");
     }else{
-      expl = it.e ? esc(it.e).replace(/\n/g,"<br>") : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
+      expl = it.e ? explHtml(it.e) : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
     }
   }else if(entry.type === 'kws'){
     // タイムアウトで採点された場合はcmKwsSubmitJudgeを経由していないので、ここで正解の
@@ -15886,8 +15954,20 @@ function resumeBossBattleIfSaved(){
    どちらも直近30回の正答率による足切り／出やすさ調整がかかる（bossEncounterRate/shiranEncounterAllowed参照）。
    hyakuninMode: 百人一首クイズ（hyaNextQuestion）から呼ばれたときだけtrue。出現するボスの種類・確率には
    影響しないが、startBossBattle側で「出題を百人一首の問題にする」判定に使う（教員の指示、2026-08-02）。 */
+// ボスと出会ったあと、次の抽選を何問ぶん休むか（2026-10-06、バグ修正：教員の報告「エンカウントのボスが、
+// ２回連続で勝負を仕掛けてきた」）。「いいえ」や戦闘終了のあとに戻る先（resumeFn）がnextQuestion／
+// hyaNextQuestion自身で、その冒頭でまた抽選していたため、1問もはさまずに次のボスが出ることがあった。
+// 出会った時点でこのカウンタを立て、以後の抽選呼び出しごとに1減らし、0になるまでは出現させない。
+// 戻った直後の1回＋その後2回ぶんを休むので、ボスとボスの間には必ず3問以上はさまる。
+const BOSS_ENCOUNTER_COOLDOWN_ROLLS = 3;
+let bossEncounterCooldown = 0;
+function bossEncounterOnCooldown(){
+  if(bossEncounterCooldown > 0){ bossEncounterCooldown--; return true; }
+  return false;
+}
 function rollBossEncounter(resumeFn, hyakuninMode){
   if(bossPromptActive || bossBattle) return false;
+  if(bossEncounterOnCooldown()) return false;
   const st = loadStats();
   const kokugoKamiRate = (st.items && st.items[STORY_PART2_OMAMORI_ITEM] > 0) ? KOKUGO_KAMI_ENCOUNTER_RATE_BOOSTED : KOKUGO_KAMI_ENCOUNTER_RATE;
   if(Math.random() < kokugoKamiRate){
@@ -15899,6 +15979,7 @@ function rollBossEncounter(resumeFn, hyakuninMode){
     pendingBossHyakunin = !!hyakuninMode;
     bossPromptResumeFn = resumeFn;
     bossPromptActive = true;
+    bossEncounterCooldown = BOSS_ENCOUNTER_COOLDOWN_ROLLS;
     bossPromptSelection = "no";
     renderBossPrompt();
     return true;
@@ -15909,6 +15990,7 @@ function rollBossEncounter(resumeFn, hyakuninMode){
     pendingBossHyakunin = !!hyakuninMode;
     bossPromptResumeFn = resumeFn;
     bossPromptActive = true;
+    bossEncounterCooldown = BOSS_ENCOUNTER_COOLDOWN_ROLLS;
     bossPromptSelection = "no";
     renderBossPrompt();
     return true;
@@ -15919,6 +16001,7 @@ function rollBossEncounter(resumeFn, hyakuninMode){
   pendingBossHyakunin = !!hyakuninMode;
   bossPromptResumeFn = resumeFn;
   bossPromptActive = true;
+  bossEncounterCooldown = BOSS_ENCOUNTER_COOLDOWN_ROLLS;
   bossPromptSelection = "no";
   renderBossPrompt();
   return true;
@@ -15930,6 +16013,7 @@ function rollBossEncounter(resumeFn, hyakuninMode){
 // 国語の神のような特別枠はkws中には出さない（漢字Questのボスに置き換える、という指示のとおり）。
 function rollKwsMbEncounter(resumeFn){
   if(bossPromptActive || bossBattle || mbBattle) return false;
+  if(bossEncounterOnCooldown()) return false;
   const st = loadStats();
   if(Math.random() >= bossEncounterRate(st)) return false;
   pendingBoss = MB_ENEMIES[Math.floor(Math.random() * MB_ENEMIES.length)];
@@ -15941,6 +16025,7 @@ function rollKwsMbEncounter(resumeFn){
   pendingBossMbShiny = mbHasShinySprite(pendingBoss) && Math.random() < MB_SHINY_ENCOUNTER_CHANCE;
   bossPromptResumeFn = resumeFn;
   bossPromptActive = true;
+  bossEncounterCooldown = BOSS_ENCOUNTER_COOLDOWN_ROLLS;
   bossPromptSelection = "no";
   renderBossPrompt();
   return true;
@@ -17032,9 +17117,9 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
   let expl;
   if(Array.isArray(it.ans)){
     const wrongMsg = ok ? "" : `正解は「${esc(it.ans.join("」または「"))}」（こたえ：${esc(typed||"")}）`;
-    expl = [wrongMsg, it.e ? esc(it.e).replace(/\n/g,"<br>") : ""].filter(Boolean).join("<br>");
+    expl = [wrongMsg, it.e ? explHtml(it.e) : ""].filter(Boolean).join("<br>");
   }else{
-    expl = it.e ? esc(it.e).replace(/\n/g,"<br>") : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
+    expl = it.e ? explHtml(it.e) : (ok ? "" : `正解は「${esc(it.c[it.a])}」`);
   }
   const dmgMsg = ok
     ? (fled
@@ -17985,12 +18070,10 @@ function importData(input){
    このアプリを開いたとき（＝ブラウザで最初から読み込まれたとき）に必ず一度だけ再生する、
    短い全画面演出。アプリ内の画面遷移はページの読み込み直しをともなわないため、
    「初回起動時」も「ブラウザの更新時」も、この起動シーケンスが実行されるタイミングと一致する。
-   しつこくならないよう、セリフは短く・少なくしてある。 */
+   しつこくならないよう、セリフは短く・少なくしてある。
+   2026-10-01、「オープニングが長い」との教員の指示で、この一文だけにした（ワンタップですぐ開く。1枚だけのときはスキップも出さない）。 */
 const PROLOGUE_STEPS = [
-  {text:"言葉が力を失いつつある時代"},
-  {text:"見つけた。\n\n\n僕を育ててくれる人。"},
-  {icon:"🥚", text:"ぼくは、【ことのは】。\n\n\n君の言葉の力とともに\nぼくも育つ。"},
-  {text:"さあ、ともに成長しよう"},
+  {text:"言葉の力が、\nきっとあなたの人生を豊かにする"},
 ];
 let prologueIdx = 0;
 let prologueOnDone = null;
@@ -18010,7 +18093,7 @@ function renderPrologueStep(){
   prologueEl.innerHTML = `
     ${step.icon ? `<div class="prologue-icon">${step.icon}</div>` : ""}
     <p class="prologue-text">${step.text}</p>
-    <span class="prologue-skip" onclick="event.stopPropagation(); finishPrologue();">スキップ</span>
+    ${PROLOGUE_STEPS.length > 1 ? `<span class="prologue-skip" onclick="event.stopPropagation(); finishPrologue();">スキップ</span>` : ""}
     <p class="prologue-hint">${isLast ? "タップしてはじめる" : "タップしてすすむ"}</p>`;
 }
 function advancePrologue(){
@@ -18364,11 +18447,15 @@ function bootApp(){
   if(new URLSearchParams(location.search).get('devtool') === 'uraboss'){ mbUraCarry = {questMode:'hard', isSpecialQuest:false}; mbShowUraBossChoice(); return; }
   if(resumeBossBattleIfSaved()) return;
   /* 別ページのミニゲーム（kitsune_bakashiai.html）から「ミニゲーム一覧へ」で戻ってきたとき
-     （?from=minigame）。いつもどおりプロローグ→ホーム（一日一読の報酬確認などの処理）を通したうえで、
-     すぐにミニゲーム一覧を開く。再読み込みで毎回一覧に飛ばないよう、URLからは消しておく。 */
-  if(new URLSearchParams(location.search).get('from') === 'minigame'){
+     （?from=minigame）。ホーム（一日一読の報酬確認などの処理）を通したうえで、すぐにミニゲーム一覧を開く。
+     「ホームへ」で戻ってきたとき（?from=minigame_home、表現の魔術道）はホームを開く。
+     2026-10-04〜、教員の指示で、どちらもプロローグ（緑のイントロ画面）は出さない（アプリを開き直したわけではないので）。
+     再読み込みで毎回一覧に飛ばないよう、URLからは消しておく。 */
+  const fromParam = new URLSearchParams(location.search).get('from');
+  if(fromParam === 'minigame' || fromParam === 'minigame_home'){
     try{ history.replaceState(null, '', location.pathname); }catch(e){}
-    showPrologue(() => { showHome(); showSideQuestMenu(); });
+    showHome();
+    if(fromParam === 'minigame') showSideQuestMenu();
     return;
   }
   showPrologue(showHome);
@@ -18481,9 +18568,10 @@ const STORY_EVENT_BOSSES = {
     item:"朝読書スタンプ", treasure:"担任の先生からの合格シール",
   },
   /* 第6章「説明的文章①」用（2026-07-19〜）。battle beatにbeat.trackLevel:trueを付けた
-     唯一の例（storyGradeBattle参照）。正解するとその場で識別（shikibetsu）のレベルが
-     上がりうる。出題はshikibetsuプールのうちtag:"setsuzokushi"（接続詞の種類分類）の
-     問題だけに絞る（beat.filterTag参照）。
+     唯一の例（storyGradeBattle参照）。正解するとその場で接続詞（setsuzokushi）のレベルが
+     上がりうる。出題はsetsuzokushiプールのうちtag:"setsuzokushi"（接続詞の種類分類）の
+     問題だけに絞る（beat.filterTag参照）。2026-10-02、教員の指示でこの17問を識別（shikibetsu）から
+     新ジャンル「接続詞」に移したので、出題元もsetsuzokushiに変えた（問題そのものとtagは同じ）。
      item2（2026-07-19〜、教員の指示）：宝具（確率ドロップ）ではなく、item同様に確定で
      もらえる2つ目のクリア報酬アイテム。storyBattleResolve側でboss.item2がある場合だけ
      追加で付与する特別対応（他のボスは全員item2を持たないtreasure枠のまま）。
@@ -19050,7 +19138,7 @@ const STORY_CHAPTERS = {
         ],
       },
       {type:"line", speaker:"ことのは", text:"よくできたね。じゃあ、この問題もやってみて。"},
-      {type:"battle", boss:"setsuzokushiTest", cat:"shikibetsu", filterTag:"setsuzokushi", trackLevel:true, total:10, need:8, timeMs:30000},
+      {type:"battle", boss:"setsuzokushiTest", cat:"setsuzokushi", filterTag:"setsuzokushi", trackLevel:true, total:10, need:8, timeMs:30000},
       {type:"line", speaker:"太郎", text:"「なるほど、構成と展開か。これなら、次から少しは読みやすくなりそうだ」"},
       {type:"line", speaker:"ことのは", text:"「地図」と「進み方」、この2つを意識するだけで、説明的な文章はぐっと読みやすくなるよ。", variants:[
         {flag:"favoriteSubject", value:"kanji", text:"漢字が得意なきみなら、あとは文章の『地図』と『進み方』を意識するだけで、説明的な文章もぐっと読みやすくなるよ。"},
@@ -19874,8 +19962,11 @@ function showSideQuestMenu(){
   html += mbSideQuestButtonHtml();
   html += Object.keys(STORY_SIDEQUESTS).map(key => storySideQuestButtonHtml(key, st)).join("");
   html += speedMatchMenuHtml();
-  html += enroRunMenuHtml();   // 教員の指示（2026-09-30）で炎狼ランを九尾より上に
+  // 解禁の順（時系列）に並べる（2026-10-04、教員の指示）：炎狼ラン→つなぎ橋（10/9）→九尾（10/15）→表現の魔術道（準備中）
+  html += enroRunMenuHtml();
+  html += tsunagiMenuHtml();
   html += kitsuneMenuHtml();
+  html += gihouMenuHtml();
   html += `<div class="btn-row" style="justify-content:center; margin-top:10px">
     <button class="btn secondary" onclick="showHome()">戻る</button>
   </div>`;
@@ -19944,9 +20035,12 @@ function storySideQuestButtonHtml(key, st){
   // 背景付き・邪魔になりにくい位置）。画像が無いキー（今後ミニゲームを追加した場合など）は
   // 従来どおりテキストカードにフォールバックする。
   const img = window.MB_MENU_TITLE_IMAGES && window.MB_MENU_TITLE_IMAGES[key];
+  /* ボキャブラ・シューティングは、2026-10-03〜（ver12.94、教員の指示）ミニゲーム一覧からは大画面版の別ページ
+     （openVocabShooter）へ移る。ストーリー第二部のボス戦（shooting beat）は従来どおり本体内の版で遊ぶ。 */
+  const open = key === "sqShooting" ? "openVocabShooter()" : `startStoryMode('${key}')`;
   if(img){
     return `
-      <div class="menu-card-img-btn" onclick="startStoryMode('${key}')">
+      <div class="menu-card-img-btn" onclick="${open}">
         <img src="${img}" alt="${esc(q.title)}">
         <span class="menu-card-overlay">${esc(overlayText)}</span>
       </div>`;
@@ -19954,7 +20048,7 @@ function storySideQuestButtonHtml(key, st){
   const sub = customLabel ? `<p class="note">${esc(customLabel)}</p>`
     : (best > 0 ? `<p class="note">自己ベスト：${best}点</p>` : `<p>タップして挑戦しよう</p>`);
   return `
-    <div class="card menu-card" onclick="startStoryMode('${key}')">
+    <div class="card menu-card" onclick="${open}">
       <div class="menu-icon">${esc(q.icon || "🚀")}</div>
       <div><h2>${esc(q.title)}</h2>${sub}</div>
       <div class="right"><span class="shogo-badge">挑戦する</span></div>
@@ -19972,111 +20066,205 @@ function storySideQuestButtonHtml(key, st){
    2026-09-29〜、「5回タップ」は生徒に知られているとの教員の指示で、「カードを3回タップ→kキーを1回→
    カードを2回タップ」の順（KITSUNE_SECRET_SEQ）に変更した。直前の6操作がこの順になっていれば開く
    （多めにタップしてしまっても、そのままk→2回タップで開ける）。
-   正式に公開するときは KITSUNE_RELEASED を true にするだけでよい。 */
-const KITSUNE_RELEASED = false;
-const KITSUNE_SECRET_SEQ = ["tap","tap","tap","k","tap","tap"];
-let kitsuneSeqHist = []; // 直近の隠し操作。保存しない＝ページ再読み込みでリセットされてよい。
-function kitsuneMenuHtml(){
-  if(KITSUNE_RELEASED){
+   正式に公開するときは KITSUNE_RELEASED を true にするだけでよい。
+   2026-10-03、教員の指示で公開した（隠しモードを解除）。
+   2026-10-04、教員の指示でふたたび鍵をかけた。同日、教員の指示で隠し操作（タップ→キー→タップ）は九尾・炎狼ラン・
+   つなぎ橋のすべてで廃止し、かわりに日付で解禁する形にした（KITSUNE_RELEASE_DATE、端末の日付で判定）。 */
+const KITSUNE_RELEASE_DATE = "2026-10-15";
+const KITSUNE_RELEASED = mgReleasedOn(KITSUNE_RELEASE_DATE);
+/* 別ページのミニゲーム（九尾の化かし合い・炎狼ラン）の入口バナー（2026-10-03〜、教員が用意した
+   九尾バナー.png・炎狼バナー.png、menu_title_images.jsのkitsune/enroRun）。他のミニゲームと同じ
+   .menu-card-img-btnで画像そのものをボタンにする。「準備中」の間も隠し操作のクラス
+   （kitsune-teaser/enro-teaser）とタップ処理はそのまま引き継ぎ、右下のバッジだけ「準備中」にする。
+   画像が無ければnullを返し、従来のテキストカードにフォールバックする。
+   2026-10-03、教員がバナー画像をほかのミニゲームと同じ横長の形に作り直したので、一度入れた
+   「幅を縮めて高さをそろえる」処理はやめ、ほかの画像ボタンと同じ全幅・同じ見た目にもどした。
+   さらに教員の指示で、高さをほかのバナーに近づけるため、上下の金の枠は残したまま中の絵の上下を
+   切り詰めた画像（素材/画像/〇〇バナー_トリミング.png）を使う。文字を欠かさない範囲で切っても
+   まだ縦が大きかったため（特に九尾はタイトルが2行）、教員の指示で、切ったあと横に引き伸ばして
+   マッチ＆MATCH（2146x326）と同じ縦横比にした（九尾は約1.38倍、炎狼は約1.12倍）。
+   さらに教員の指示で、ミニゲームのバナーの高さを「YOMUの打」まで（1359x165、縦横比約8.24）にそろえるため、
+   九尾・炎狼・マッチ＆MATCHの3枚を、枠の帯を残して文字を欠かさない範囲で切り詰めたあと横に伸ばして
+   同じ縦横比にした（九尾 約1.72倍、炎狼 約1.40倍、マッチ 約1.12倍。マッチは下の透明な影も切った）。
+   2026-10-04、教員が作り直した新しいバナー（素材/画像/九尾バナー.png・炎狼バナー.png・鉄甲兵バナー.png）に差し替えた。
+   今度は引き伸ばさず、元の縦横比のまま幅1360pxに縮めて入れている（鉄甲兵はmenu_title_images.jsのtsunagi）。
+   鍵のかかったバナーは少し暗くし、右下に「🔒 準備中」と出す。 */
+function mgBannerHtml(key, alt, released, lockLabel, openFn){
+  const img = window.MB_MENU_TITLE_IMAGES && window.MB_MENU_TITLE_IMAGES[key];
+  if(!img) return null;
+  return `
+    <div class="menu-card-img-btn${released ? "" : " mg-banner-locked mg-teaser"}" onclick="${released ? openFn : "mgLockedTap(this)"}">
+      <img src="${img}" alt="${esc(alt)}">
+      <span class="menu-card-overlay">${released ? "タップして挑戦しよう" : esc(lockLabel)}</span>
+    </div>`;
+}
+/* ミニゲームの日付解禁（2026-10-04〜、教員の指示）。"YYYY-MM-DD" の日の0時（端末の日付）から遊べる。
+   バナーには「🔒 10月9日解禁」のように解禁日を出す。鍵がかかっている間は、押しても軽く揺れるだけ。 */
+function mgReleasedOn(dateStr){ return todayLocalDateStr() >= dateStr; }
+function mgReleaseLabel(dateStr){ const a = dateStr.split("-").map(Number); return `🔒 ${a[1]}月${a[2]}日解禁`; }
+function mgLockedTap(el){
+  if(!el) return;
+  el.classList.remove('tap-pulse');
+  void el.offsetWidth; // タップのたびにアニメーションをやり直すための強制リフロー
+  el.classList.add('tap-pulse');
+}
+// 画像がないとき用の文字カード（鍵つきは解禁日を出す）
+function mgTextCardHtml(icon, title, desc, released, lockLabel, openFn){
+  if(released){
     return `
-    <div class="card menu-card" onclick="openKitsuneBakashiai()">
-      <div class="menu-icon">🦊</div>
-      <div><h2>九尾の化かし合い</h2><p>化けた漢字を見破れ！ 話ごとに見破り方が変わる、九尾との化かし合い</p></div>
+    <div class="card menu-card" onclick="${openFn}">
+      <div class="menu-icon">${icon}</div>
+      <div><h2>${esc(title)}</h2><p>${esc(desc)}</p></div>
       <div class="right"><span class="shogo-badge">挑戦する</span></div>
     </div>`;
   }
   return `
-    <div class="card menu-card locked kitsune-teaser" onclick="kitsuneComingSoonTap(this)">
-      <div class="menu-icon">🦊</div>
-      <div><h2>九尾の化かし合い</h2><p>化けた漢字を見破れ！ 話ごとに見破り方が変わる、九尾との化かし合い</p></div>
-      <div class="right"><span class="shogo-badge">準備中</span></div>
+    <div class="card menu-card locked mg-teaser" onclick="mgLockedTap(this)">
+      <div class="menu-icon">${icon}</div>
+      <div><h2>${esc(title)}</h2><p>${esc(desc)}</p></div>
+      <div class="right"><span class="shogo-badge">${esc(lockLabel)}</span></div>
     </div>`;
 }
-// 隠し操作を1つ記録し、直前の操作がKITSUNE_SECRET_SEQと一致したら開く。
-function kitsuneSecretInput(kind){
-  kitsuneSeqHist.push(kind);
-  if(kitsuneSeqHist.length > KITSUNE_SECRET_SEQ.length) kitsuneSeqHist.shift();
-  if(kitsuneSeqHist.join(",") === KITSUNE_SECRET_SEQ.join(",")){ kitsuneSeqHist = []; openKitsuneBakashiai(); return true; }
-  return false;
+function kitsuneMenuHtml(){
+  const label = mgReleaseLabel(KITSUNE_RELEASE_DATE);
+  return mgBannerHtml("kitsune", "九尾の化かし合い", KITSUNE_RELEASED, label, "openKitsuneBakashiai()")
+    || mgTextCardHtml("🦊", "九尾の化かし合い", "化けた漢字を見破れ！ 話ごとに見破り方が変わる、九尾との化かし合い", KITSUNE_RELEASED, label, "openKitsuneBakashiai()");
 }
-// kキーは、ミニゲーム一覧に「準備中」カードが出ているときだけ数える（入力欄での入力は無視）。
-document.addEventListener("keydown", e => {
-  if(KITSUNE_RELEASED || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
-  if(!document.querySelector(".kitsune-teaser")) return;
-  const tag = (e.target && e.target.tagName) || "";
-  if(tag === "INPUT" || tag === "TEXTAREA" || (e.target && e.target.isContentEditable)) return;
-  if(e.key === "k" || e.key === "K") kitsuneSecretInput("k");
-});
-function kitsuneComingSoonTap(el){
-  if(kitsuneSecretInput("tap")) return;
-  if(el){
-    el.classList.remove('tap-pulse');
-    void el.offsetWidth; // タップのたびにアニメーションをやり直すための強制リフロー
-    el.classList.add('tap-pulse');
-  }
+/* 別ページのミニゲームへの「通行証」（2026-10-01、教員の指示）：配布版のフォルダからhtmlを直接開くと、
+   隠し入口を通らずに準備中のゲームへ入れてしまうため、本体の入口から移るときだけ
+   sessionStorage（このタブの中だけ有効）に通行証を置く。ゲーム側（kitsune_bakashiai.html・enro_run.html）は
+   通行証がなければ本体へ戻す。2026-10-04〜、教員の指示で、本体へ戻さず「このファイルは開けません」とだけ表示する
+   （つなぎ橋・ボキャブラ大画面版・表現の魔術道も同じ）。 */
+const MG_PASS_SSKEY = "kokugo_mg_pass_v1";
+function mgGoWithPass(id, url){
+  try{ const o = JSON.parse(sessionStorage.getItem(MG_PASS_SSKEY) || "{}"); o[id] = 1; sessionStorage.setItem(MG_PASS_SSKEY, JSON.stringify(o)); }catch(e){}
+  location.href = url;
 }
-function openKitsuneBakashiai(){
-  if(typeof window.__DX_OPEN_STANDALONE_HTML__ === "function"){
-    return window.__DX_OPEN_STANDALONE_HTML__("kitsune_bakashiai.html");
-  }
-  location.href = "kitsune_bakashiai.html";
-}
+function openKitsuneBakashiai(){ mgGoWithPass("kitsune", "kitsune_bakashiai.html"); }
 /* 炎狼ラン（2026-09-29〜、試作・準備中）。炎狼(me01)が3本の道（上＝丁寧語／中＝謙譲語／下＝尊敬語）を
    走り、迫ってくる関所に出た言葉の敬語の種類に合う道でくぐり抜けるランゲーム。九尾の化かし合いと同じく
    別ページ（enro_run.html）で、戻るときは kokugo_app.html?from=minigame でミニゲーム一覧に戻る。
    本体のセーブデータ(st)には直接触れない。2026-09-30〜、1回の走りごとに「正解1つ＝＋1、まちがい2つ＝−1」の
    差し引きで「敬語」ジャンルのレベルを上下させる（MG_PENDING_LVUP_LSKEY経由、mgApplyPendingLevelUps参照）。
    教員の指示（2026-09-29：「試作して」）で、九尾と同じ「準備中」カードとして置き、隠し操作
-   （カードを3回タップ→eキーを1回→カードを2回タップ、ENRO_RUN_SECRET_SEQ）のときだけ裏で遊べるようにする。
-   正式に公開するときは ENRO_RUN_RELEASED を true にするだけでよい。 */
-const ENRO_RUN_RELEASED = false;
-const ENRO_RUN_SECRET_SEQ = ["tap","tap","tap","e","tap","tap"];
-let enroRunSeqHist = []; // 直近の隠し操作。保存しない＝ページ再読み込みでリセットされてよい。
+   （カードを3回タップ→eキーを1回→カードを2回タップ）のときだけ裏で遊べるようにしていた（2026-10-04に隠し操作は廃止）。
+   正式に公開するときは ENRO_RUN_RELEASED を true にするだけでよい。
+   2026-10-03、教員の指示で公開した（隠しモードを解除）。 */
+const ENRO_RUN_RELEASED = true;
+/* 炎狼ランの挑戦モードの世界一周ルート（enro_run.htmlのWORLD_ROUTEの写し。炎狼ラン側を変えたら、ここも同じに直す）。
+   保存に地名（bestKmPlace）がまだない記録や、ブラウザに古い炎狼ランのページが残っていて地名が保存されなかったときでも、
+   距離から地名を出せるようにする（2026-10-04、教員の指摘：「場所が見えない」）。 */
+const ENRO_WORLD_ROUTE = [
+  [0,"盛岡","日本"],[161,"仙台","日本"],[465,"東京","日本"],[730,"名古屋","日本"],[870,"大阪","日本"],[1150,"広島","日本"],
+  [1360,"福岡","日本"],[1574,"プサン（釜山）","韓国"],[1900,"ソウル","韓国"],[2852,"ペキン（北京）","中国"],
+  [3919,"シャンハイ（上海）","中国"],[4609,"タイペイ（台北）","台湾"],[5420,"ホンコン（香港）","中国"],[6292,"ハノイ","ベトナム"],
+  [7279,"バンコク","タイ"],[8707,"シンガポール","シンガポール"],[10622,"ヤンゴン","ミャンマー"],[11658,"コルカタ","インド"],
+  [12961,"ニューデリー","インド"],[15166,"ドバイ","アラブ首長国連邦"],[17589,"カイロ","エジプト"],[18826,"イスタンブール","トルコ"],
+  [19388,"アテネ","ギリシャ"],[20439,"ローマ","イタリア"],[21545,"パリ","フランス"],[21889,"ロンドン","イギリス"],
+  [23778,"レイキャビク","アイスランド"],[25208,"ヌーク","グリーンランド"],[27685,"モントリオール","カナダ"],
+  [28219,"ニューヨーク","アメリカ"],[29363,"シカゴ","アメリカ"],[32167,"ロサンゼルス","アメリカ"],[36287,"ホノルル","アメリカ（ハワイ）"],
+  [42354,"盛岡","日本"],
+];
+function enroRunPlaceName(km){
+  const lap = ENRO_WORLD_ROUTE[ENRO_WORLD_ROUTE.length - 1][0], r = km % lap;
+  let i = 0;
+  while(i + 1 < ENRO_WORLD_ROUTE.length && ENRO_WORLD_ROUTE[i + 1][0] <= r) i++;
+  const pt = ENRO_WORLD_ROUTE[i];
+  return (pt[2] === "日本" || pt[1] === pt[2]) ? pt[1] : `${pt[2]}の${pt[1]}`;
+}
+/* 炎狼ランの自己ベスト（挑戦モードの最長km・着いた地名）を、バナーの右上・右下に重ねて出す（2026-10-04、教員の指示）。
+   炎狼ラン側の保存（localStorage "enro_run_v1"）の bestKm と bestKmPlace を読むだけ（本体からは書かない）。 */
+function enroRunBestLabel(){
+  let s = null;
+  try{ s = JSON.parse(localStorage.getItem("enro_run_v1")); }catch(e){}
+  const km = s && Number(s.bestKm) > 0 ? Math.trunc(Number(s.bestKm)) : 0;
+  if(!km) return null;
+  const place = (s && typeof s.bestKmPlace === "string" && s.bestKmPlace) || enroRunPlaceName(km);
+  return {km:`🏆 ベスト ${km.toLocaleString("ja-JP")}km`, place: place ? `${place}まで到着` : ""};
+}
 function enroRunMenuHtml(){
-  if(ENRO_RUN_RELEASED){
-    return `
-    <div class="card menu-card" onclick="openEnroRun()">
-      <div class="menu-icon">🐺</div>
-      <div><h2>炎狼ラン</h2><p>敬語の三つの道を駆けぬけろ</p></div>
-      <div class="right"><span class="shogo-badge">挑戦する</span></div>
+  const best = ENRO_RUN_RELEASED ? enroRunBestLabel() : null;
+  if(best){
+    const img = window.MB_MENU_TITLE_IMAGES && window.MB_MENU_TITLE_IMAGES.enroRun;
+    if(img) return `
+    <div class="menu-card-img-btn" onclick="openEnroRun()">
+      <img src="${img}" alt="炎狼ラン">
+      <span class="menu-card-overlay mg-best-top">${esc(best.km)}</span>
+      ${best.place ? `<span class="menu-card-overlay mg-best-bottom">${esc(best.place)}</span>` : ""}
     </div>`;
+    return mgTextCardHtml("🐺", "炎狼ラン", best.km + (best.place ? "・" + best.place : ""), true, "", "openEnroRun()");
   }
-  return `
-    <div class="card menu-card locked enro-teaser" onclick="enroRunComingSoonTap(this)">
-      <div class="menu-icon">🐺</div>
-      <div><h2>炎狼ラン</h2><p>敬語の三つの道を駆けぬけろ</p></div>
-      <div class="right"><span class="shogo-badge">準備中</span></div>
-    </div>`;
+  return mgBannerHtml("enroRun", "炎狼ラン", ENRO_RUN_RELEASED, "🔒 準備中", "openEnroRun()")
+    || mgTextCardHtml("🐺", "炎狼ラン", "敬語の三つの道を駆けぬけろ", ENRO_RUN_RELEASED, "🔒 準備中", "openEnroRun()");
 }
-// 隠し操作を1つ記録し、直前の操作がENRO_RUN_SECRET_SEQと一致したら開く（kitsuneSecretInputと同じ仕組み）。
-function enroRunSecretInput(kind){
-  enroRunSeqHist.push(kind);
-  if(enroRunSeqHist.length > ENRO_RUN_SECRET_SEQ.length) enroRunSeqHist.shift();
-  if(enroRunSeqHist.join(",") === ENRO_RUN_SECRET_SEQ.join(",")){ enroRunSeqHist = []; openEnroRun(); return true; }
-  return false;
+function openEnroRun(){ mgGoWithPass("enro", "enro_run.html"); }
+/* ボキャブラ・シューティング 大画面版（2026-10-03〜、ver12.94、教員の指示）。「画面が小さくて見えにくい」という声を受け、
+   炎狼ランと同じ別ページ（vocab_shooter.html）にして、ブラウザの画面いっぱいで遊べるようにした。戻るときは
+   kokugo_app.html?from=minigame。別ページは本体のセーブ(st)に直接触れず、1問ごとの正誤と、ゲームが終わったときの得点を
+   localStorage（VS_PENDING_LSKEY）に {ans:[[語, 正誤, 経過ミリ秒], ...], scores:[得点, ...]} として書き置く。
+   本体はshowHome()の入口でvsApplyPendingResults()がそれを読み、本体内の版とまったく同じ処理
+   （正誤ごとにrecord("goi", ..., {skipRecentAcc:true})・期間限定イベント経験値・自己ベストと100点きざみの経験値、vsApplyHighScore）を行う。
+   読み取った時点でキーは必ず消す（二重加算防止）。 */
+const VS_PENDING_LSKEY = "kokugo_vs_pending_v1";
+/* GitHub Pagesはページをブラウザに最大10分保存させる（Cache-Control: max-age=600）ため、本体は新しい版なのに
+   移った先の大画面版だけ古いまま、ということが起きた（2026-10-03、ver12.95で教員の指摘）。ヘッダーの版番号を
+   ?v= に付けて、版が変わるたびに別のURLとして読み直させる（zip作成時の書き換えのため、ファイル名の文字列は分けたままにする）。 */
+function openVocabShooter(){
+  const ver = ((document.querySelector(".ver-tag") || {}).textContent || "").replace(/[^0-9.]/g, "");
+  mgGoWithPass("vocab", "vocab_shooter.html" + (ver ? "?v=" + ver : ""));
 }
-// eキーは、ミニゲーム一覧に「準備中」カードが出ているときだけ数える（入力欄での入力は無視）。
-document.addEventListener("keydown", e => {
-  if(ENRO_RUN_RELEASED || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
-  if(!document.querySelector(".enro-teaser")) return;
-  const tag = (e.target && e.target.tagName) || "";
-  if(tag === "INPUT" || tag === "TEXTAREA" || (e.target && e.target.isContentEditable)) return;
-  if(e.key === "e" || e.key === "E") enroRunSecretInput("e");
-});
-function enroRunComingSoonTap(el){
-  if(enroRunSecretInput("tap")) return;
-  if(el){
-    el.classList.remove('tap-pulse');
-    void el.offsetWidth; // タップのたびにアニメーションをやり直すための強制リフロー
-    el.classList.add('tap-pulse');
+function vsApplyPendingResults(){
+  let raw;
+  try{ raw = localStorage.getItem(VS_PENDING_LSKEY); }catch(e){ raw = null; }
+  if(!raw) return;
+  try{ localStorage.removeItem(VS_PENDING_LSKEY); }catch(e){}
+  let info;
+  try{ info = JSON.parse(raw); }catch(e){ info = null; }
+  if(!info || typeof info !== "object") return;
+  const items = (CATS.goi && CATS.goi.items) || [];
+  (Array.isArray(info.ans) ? info.ans : []).slice(0, 2000).forEach(a => {
+    if(!Array.isArray(a)) return;
+    const item = items.find(it => it.q === a[0]);
+    if(!item) return;
+    const ok = !!a[1];
+    record("goi", item, ok, Number(a[2]) || 0, {skipRecentAcc:true});
+    const ev = ok ? activeEventIdFor("vocabshooter") : null;
+    if(ev){ const st = loadStats(); eventBonusAdd(st, ev, 1); saveStats(st); }
+  });
+  const scores = (Array.isArray(info.scores) ? info.scores : []).map(n => Math.trunc(Number(n)) || 0).filter(n => n > 0 && n < 1000000);
+  if(scores.length){
+    const st = loadStats();
+    scores.forEach(n => vsApplyHighScore(st, n));
+    saveStats(st);
   }
 }
-function openEnroRun(){
-  if(typeof window.__DX_OPEN_STANDALONE_HTML__ === "function"){
-    return window.__DX_OPEN_STANDALONE_HTML__("enro_run.html");
-  }
-  location.href = "enro_run.html";
+/* 鉄甲兵のつなぎ橋（2026-10-02〜、試作・準備中）。鉄甲兵(me02)が、接続詞の板で谷に橋を架けて渡るゲーム。
+   九尾・炎狼ランと同じく別ページ（tsunagi_bashi.html）で、戻るときは kokugo_app.html?from=minigame。
+   正誤は「接続詞」（setsuzokushi）ジャンルのレベルに反映する（MG_LVUP_CATS参照）。
+   教員の指示（2026-10-03）で、九尾・炎狼ランと同じ「準備中」カードとして置き、隠し操作
+   （カードを3回タップ→tキーを1回→カードを2回タップ）のときだけ裏で遊べるようにしていた。
+   2026-10-04、教員の指示で隠し操作は廃止し、日付で解禁する形にした（TSUNAGI_RELEASE_DATE、端末の日付で判定）。 */
+const TSUNAGI_RELEASE_DATE = "2026-10-09";
+const TSUNAGI_RELEASED = mgReleasedOn(TSUNAGI_RELEASE_DATE);
+function tsunagiMenuHtml(){
+  // 2026-10-04〜、教員が用意した鉄甲兵バナー.png（menu_title_images.jsのtsunagi）を入口にする。
+  const label = mgReleaseLabel(TSUNAGI_RELEASE_DATE);
+  return mgBannerHtml("tsunagi", "鉄甲兵のつなぎ橋", TSUNAGI_RELEASED, label, "openTsunagiBashi()")
+    || mgTextCardHtml("🛡️", "鉄甲兵のつなぎ橋", "接続詞の板で谷に橋を架け、鉄甲兵を向こう岸へ渡らせよう", TSUNAGI_RELEASED, label, "openTsunagiBashi()");
 }
+function openTsunagiBashi(){ mgGoWithPass("tsunagi", "tsunagi_bashi.html"); }
+/* 表現の魔術道（gihou_madousho.html、2026-10-03〜試作、2026-10-04〜β版としてミニゲーム一覧に入れた。教員の指示）。
+   「表現技法」（hyougen）のカードバトル。正解ごとにジャンルレベルを書き置く（MG_LVUP_CATS参照）。
+   配布版のzipには入れない（教員の指示）ので、zipを作るとき（開発ツール/make_dist_zip.py）に GIHOU_IN_BUILD を
+   false に書き換え、カードを出さないようにする。バナー画像はまだないので文字のカード。
+   2026-10-04、教員の指示で「準備中」にして開けないようにした（GIHOU_RELEASED、公開するときは true に）。 */
+const GIHOU_IN_BUILD = true;
+const GIHOU_RELEASED = false;
+function gihouMenuHtml(){
+  if(!GIHOU_IN_BUILD) return "";
+  return mgTextCardHtml("🔮", "表現の魔術道", "巧みな表現とは、もはや魔術である", GIHOU_RELEASED, "🔒 準備中", "openGihouMadousho()");
+}
+function openGihouMadousho(){ mgGoWithPass("gihou", "gihou_madousho.html"); }
 /* マッチ（類義語マッチ・対義語マッチ、2026-09-18〜）。ミニゲームとしては「マッチ」という
    ひとつの入口にまとめ、その中に類義語マッチ・対義語マッチの2モードを置く（以前は対義語・
    類義語を別々のミニゲームとして並べていたが、教員の指示でひとつにまとめた）。taigigo/ruigigoの
@@ -20442,6 +20630,7 @@ function speedMatchPick(idx){
   if(!speedMatch || !speedMatch.running || speedMatch.busy) return;
   const card = speedMatch.cards[idx];
   if(!card || card.matched) return;
+  mgNotePlayed(); // ミニゲームで答えた＝デイリーログイン報酬の対象（2026-10-04）
   // 選んだカードをもう一度タップしたら選択を解除する（教員の指示、2026-09-25〜：
   // 「一旦一つ選んだ場合でも、もう一度押せば選択を解除できるように」＝先に違うものを選び直せる）。
   if(speedMatch.selected.includes(idx)){
@@ -23032,33 +23221,36 @@ function vsStoryForceClear(){
   shoot.phase = 'storyclear';
   vsRenderGameScreen();
 }
+/* 自己ベストの更新と、100点きざみの大台を初めて超えたときの経験値（本体内の版のvsEndGameと、大画面版の
+   vsApplyPendingResultsの共通処理、2026-10-03〜）。stを書きかえるだけで保存はしない（呼び出し側でsaveStats）。
+   すでに超えた大台の位置は、st.vocabShooterXpTier（超えた最大の「◯◯0点」÷100）に持たせておく
+   （教員の指示、2026-08-17〜：いきなり400点なら100〜400の4段ぶんまとめて＋40、以後は新しく超えた段だけ＋10ずつ）。 */
+function vsApplyHighScore(st, score){
+  const prevBest = st.vocabShooterHighScore || 0;
+  const r = {isNewRecord: score > 0 && score > prevBest, xpGained:0, xpTierReached:0};
+  if(!r.isNewRecord) return r;
+  st.vocabShooterHighScore = score;
+  const oldTier = st.vocabShooterXpTier || 0;
+  const newTier = Math.floor(score / 100);
+  if(newTier > oldTier){
+    const gained = (newTier - oldTier) * 10;
+    st.vocabShooterBonusExp = (st.vocabShooterBonusExp||0) + gained;
+    st.vocabShooterXpTier = newTier;
+    r.xpGained = gained;
+    r.xpTierReached = newTier * 100;
+  }
+  return r;
+}
 function vsEndGame(){
   const shoot = storyRun.shoot;
   vsStopLoop();
   shoot.phase = 'gameover';
   const st = loadStats();
   const prevBest = st.vocabShooterHighScore || 0;
-  const isNewRecord = shoot.score > 0 && shoot.score > prevBest;
-  shoot.xpGained = 0; shoot.xpTierReached = 0;
-  if(isNewRecord){
-    st.vocabShooterHighScore = shoot.score;
-    /* 自己ベストが100点きざみの大台（100・200・300…）を初めて超えるたびに、お祝いとして
-       経験値＋10（教員の指示、2026-08-17〜）。すでに超えた大台は、以後は同じか下回る
-       自己ベストを出しても再加算しない。いきなり400点なら、100〜400の4段ぶんまとめて
-       ＋40。次に一度も更新できなかったあと500点を初めて超えたら、そのぶんだけ＋10。
-       すでに超えた大台の位置は、st.vocabShooterXpTier（超えた最大の「◯◯0点」÷100）に
-       持たせておく。 */
-    const oldTier = st.vocabShooterXpTier || 0;
-    const newTier = Math.floor(shoot.score / 100);
-    if(newTier > oldTier){
-      const gained = (newTier - oldTier) * 10;
-      st.vocabShooterBonusExp = (st.vocabShooterBonusExp||0) + gained;
-      st.vocabShooterXpTier = newTier;
-      shoot.xpGained = gained;
-      shoot.xpTierReached = newTier * 100;
-    }
-    saveStats(st);
-  }
+  const hs = vsApplyHighScore(st, shoot.score);
+  if(hs.isNewRecord) saveStats(st);
+  const isNewRecord = hs.isNewRecord;
+  shoot.xpGained = hs.xpGained; shoot.xpTierReached = hs.xpTierReached;
   shoot.finalScore = shoot.score;
   shoot.isNewRecord = isNewRecord;
   shoot.bestAfter = Math.max(prevBest, shoot.score);
@@ -24686,6 +24878,7 @@ function bgSlash(blade){
   if(!BG || BG.phase!=="run") return;
   if(!BG.stage.blades.includes(blade)) return;
   if(bgInDemo(BG.beat)){ bgVerdict("いまは見る","#7b7466"); return; }
+  mgNotePlayed(); // ミニゲームで答えた＝デイリーログイン報酬の対象（2026-10-04）
   const tr=BG.track;
   let best=null, bd=1e9;
   for(let i=Math.max(0,BG.gi-2); i<tr.gaps.length; i++){
@@ -24757,6 +24950,7 @@ function bgPushMiss(kind, g){
    連斬が切れて記録には残るが、ライフはもう減らない。次の文に進むと
    sentenceLifeLostがbgUpdateSentenceで改めてfalseに戻る。 */
 function bgOnMiss(kind,g){
+  mgNotePlayed(); // ミニゲームで答えた＝デイリーログイン報酬の対象（2026-10-04）
   bgPushMiss(kind,g);
   bgLoseCombo();
   BG.miss++;
@@ -26175,6 +26369,7 @@ function psOnPointerUp(e){
 }
 
 function psShowFloatScore(cellsForPos, gain){
+  mgNotePlayed(); // ミニゲームで答えた＝デイリーログイン報酬の対象（2026-10-04）
   const p = psCellCenter(cellsForPos[Math.floor(cellsForPos.length/2)]);
   const el = document.createElement("div");
   el.className = "psFloatScore";
@@ -31028,6 +31223,7 @@ function kbStrokeToLogicalForChar(strokePts, charIndex, cellPx){
 function kbSubmitJudge(timedOut){
   if(!kanjiBoss || kanjiBoss.turnBusy) return;
   kbSetTurnBusy(true);
+  mgNotePlayed(); // ミニゲームで答えた＝デイリーログイン報酬の対象（2026-10-04）
   const kdata = kanjiBoss.data[kanjiBoss.currentId];
   let ok = false;
   if(!timedOut && kbCompletedStrokes.length > 0){
@@ -32842,6 +33038,7 @@ function mbChallengeSuccess(){
 // 会心チャレンジの不正解は「チャンスを逃しただけ」で、選び直しはさせず、最初に選んでいた
 // 攻撃魔法をそのまま通常発動する（2026-09-08〜、mbShowCritOutcome参照）。
 function mbChallengeFail(){
+  mgNotePlayed(); // ミニゲームで答えた＝デイリーログイン報酬の対象（2026-10-04）
   const action = mbPendingAction;
   mbChallenge = null;
   if(action.type === 'crit'){
