@@ -114,6 +114,119 @@
     </div>
   </div>
   <div id="app"></div>
-  <script src="script.js"></script>
+  <!--
+    生徒PCに残す起動役。厚いローダーはリポジトリの dist/script.js のまま。
+    ここを script.js に置き換えると、CDN 上のそのファイルも起動役になり自分を読み続ける。
+    フォールバックハッシュは dist/script.js の FALLBACK_COMMIT_HASH と同じ値に保つ。
+    開発時は index.html?local=1 でローカルの script.js を読む。
+  -->
+  <script>
+    (function () {
+      'use strict';
+
+      var FALLBACK_COMMIT_HASH = '3fd657b029e1a8ae84444ac8af969dab40f97caa';
+      var COMMIT_HASH_RE = /^[0-9a-f]{40}$/;
+      var REPO = 'dancedunce1988-max/dx';
+      var JSDELIVR_HOST = 'cdn.jsdelivr.net';
+      var RAW_HOST = 'raw.githubusercontent.com';
+
+      function escapeHtml(text) {
+        return String(text)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function setLabel(text) {
+        var labelEl = document.getElementById('dx-boot-label');
+        if (labelEl) labelEl.textContent = text;
+      }
+
+      function showBootError(message) {
+        var boot = document.getElementById('dx-boot');
+        var card = boot && boot.querySelector('.dx-boot-card');
+        if (!boot || !card) return;
+        boot.setAttribute('aria-busy', 'false');
+        card.innerHTML =
+          '<p class="dx-boot-title">知識ドリル<span>DX</span></p>' +
+          '<p class="dx-boot-error-title">読み込みに失敗しました</p>' +
+          '<p class="dx-boot-error">' + escapeHtml(message) + '</p>';
+      }
+
+      function loaderSrc(hash) {
+        return 'https://' + JSDELIVR_HOST + '/gh/' + REPO + '@' + hash + '/dist/script.js';
+      }
+
+      function loadLoader(hash, isFallback) {
+        setLabel(isFallback ? '前回の版を読み込んでいます' : 'ローダーを読み込んでいます');
+        var s = document.createElement('script');
+        s.src = loaderSrc(hash);
+        s.onerror = function () {
+          if (!isFallback && hash !== FALLBACK_COMMIT_HASH) {
+            loadLoader(FALLBACK_COMMIT_HASH, true);
+            return;
+          }
+          showBootError(
+            'ローダーを取得できませんでした。\nネットワーク接続を確認して、もう一度開いてください。'
+          );
+        };
+        document.body.appendChild(s);
+      }
+
+      function allowedConfigResponseUrl(url) {
+        try {
+          var u = new URL(url);
+          if (u.protocol !== 'https:' || u.hostname !== RAW_HOST || u.username || u.password) return false;
+          return u.pathname === '/' + REPO + '/main/dist/import-config.json';
+        } catch (e) {
+          return false;
+        }
+      }
+
+      function useLocalLoader() {
+        try {
+          return new URLSearchParams(location.search).get('local') === '1';
+        } catch (e) {
+          return false;
+        }
+      }
+
+      if (useLocalLoader()) {
+        setLabel('開発用のローダーを読み込んでいます');
+        var localScript = document.createElement('script');
+        localScript.src = 'script.js';
+        localScript.onerror = function () {
+          showBootError('ローカルの script.js を読み込めませんでした。');
+        };
+        document.body.appendChild(localScript);
+        return;
+      }
+
+      setLabel('最新の版を確認しています');
+      var configUrl =
+        'https://' +
+        RAW_HOST +
+        '/' +
+        REPO +
+        '/main/dist/import-config.json?ts=' +
+        String(Date.now());
+      fetch(configUrl, { cache: 'no-store' })
+        .then(function (res) {
+          if (!res.ok) throw new Error('設定の取得に失敗しました (HTTP ' + res.status + ')');
+          if (!allowedConfigResponseUrl(res.url)) throw new Error('許可されていない URL へ転送されました');
+          return res.json();
+        })
+        .then(function (data) {
+          var hash = data && typeof data.commitHash === 'string' ? data.commitHash.trim().toLowerCase() : '';
+          if (!COMMIT_HASH_RE.test(hash)) throw new Error('import-config.json の commitHash が不正です');
+          loadLoader(hash, false);
+        })
+        .catch(function (err) {
+          console.warn('[DX] config fetch failed, using fallback loader', err);
+          loadLoader(FALLBACK_COMMIT_HASH, true);
+        });
+    })();
+  </script>
 </body>
 </html>

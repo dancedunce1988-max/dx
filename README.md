@@ -17,8 +17,9 @@
 
 ## 生徒への配布（dist）
 
-生徒には `dist/` フォルダ一式を渡します（`index.html` + `script.js` + `README.txt`）。
-`script.js` は CDN 上の本体を読み込むランチャーです。
+生徒には `dist/index.html` と `dist/README.txt` を渡します。
+`index.html` は起動役です。`import-config.json` のコミットハッシュに付いた `dist/script.js` を CDN から読み、その世代の本体を起動します。
+`dist/script.js` はリポジトリに残します。フォルダごと渡しても、起動役はローカルの `script.js` を使いません。
 
 ### 教員側（更新の流れ）
 
@@ -31,4 +32,6 @@
 - jsDelivr で `@main` は使わない（キャッシュで更新が届かない）。ハッシュは Actions が管理する
 - CDN の形: `https://cdn.jsdelivr.net/gh/dancedunce1988-max/dx@<commitHash>/`
 - `import-config.json`（`commitHash`）はリポジトリ上にあり、生徒 PC に置かなくてよい
-- ランチャーは `raw.githubusercontent.com/.../main/dist/import-config.json` から最新ハッシュを読み、`window.__DX_CDN_BASE__` をセットして本体を読み込む
+- 起動役は `raw.githubusercontent.com/.../main/dist/import-config.json` から最新ハッシュを読み、同じハッシュの `dist/script.js` を jsDelivr から読む
+- その `script.js` が `window.__DX_CDN_BASE__` をセットして、同じ世代の本体を読み込む
+- ローダーの開発時は `dist/index.html?local=1` で、ローカルの `script.js` を使う

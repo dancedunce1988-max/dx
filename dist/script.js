@@ -1,18 +1,43 @@
 /**
- * 知識ドリルDX — 生徒配布用ローダー
- * file:// で開き、CDN 上の本体を読み込む（classic script / no modules）
+ * 知識ドリルDX — CDN 上の厚いローダー
+ * file:// の index.html が、このファイルをコミットハッシュ付きで読む。
+ * URL にハッシュがあるときは、その世代の本体だけを取る（設定は読み直さない）。
+ * index.html?local=1 でローカルのこのファイルを開いたときは、import-config を読む。
  *
- * フォールバックハッシュ: upstream main（2026-10-04）
- * 33026c5e9615742ce39f40200c2eeb485d341ee2
+ * フォールバックハッシュ: index.html の起動役と同じ値に保つ
+ * dist/script.js がある世代（33026c5 にはこのファイルが無い）
+ * 3fd657b029e1a8ae84444ac8af969dab40f97caa
  */
 (function () {
   'use strict';
 
-  const FALLBACK_COMMIT_HASH = '33026c5e9615742ce39f40200c2eeb485d341ee2';
+  const FALLBACK_COMMIT_HASH = '3fd657b029e1a8ae84444ac8af969dab40f97caa';
   const COMMIT_HASH_RE = /^[0-9a-f]{40}$/i;
+
+  /* DOMContentLoaded より前に取る。コールバックの中では currentScript は null。 */
+  function hashFromThisScript() {
+    const src = document.currentScript && document.currentScript.src;
+    if (!src) return '';
+    try {
+      const u = new URL(src);
+      const marker = '/gh/' + REPO + '@';
+      if (u.protocol !== 'https:' || u.hostname !== JSDELIVR_HOST || u.username || u.password) return '';
+      if (u.pathname.indexOf(marker) !== 0) return '';
+      const after = u.pathname.slice(marker.length);
+      const slash = after.indexOf('/');
+      const hash = (slash < 0 ? after : after.slice(0, slash)).toLowerCase();
+      const rest = slash < 0 ? '' : after.slice(slash);
+      if (!COMMIT_HASH_RE.test(hash) || rest !== '/dist/script.js') return '';
+      return hash;
+    } catch (eHash) {
+      return '';
+    }
+  }
+
   const REPO = 'dancedunce1988-max/dx';
   const JSDELIVR_HOST = 'cdn.jsdelivr.net';
   const RAW_HOST = 'raw.githubusercontent.com';
+  const PINNED_COMMIT_HASH = hashFromThisScript();
   window.__DX_REPO__ = REPO;
   window.__DX_JSDELIVR_HOST__ = JSDELIVR_HOST;
   window.__DX_RAW_HOST__ = RAW_HOST;
@@ -431,36 +456,41 @@
        スクリプト完了前の空画面が見えてしまう。 */
     hostApp.setAttribute('aria-hidden', 'true');
     hostApp.setAttribute('data-dx-boot-hidden', '1');
-    setBootStatus('最新の版を確認しています');
+    if (!PINNED_COMMIT_HASH) setBootStatus('最新の版を確認しています');
 
-    let commitHash = FALLBACK_COMMIT_HASH;
+    let commitHash = PINNED_COMMIT_HASH || FALLBACK_COMMIT_HASH;
 
-    fetchConfig()
-      .then(function (hash) {
-        commitHash = hash;
-      })
-      .catch(function (err) {
-        console.warn('[DX] config fetch failed, using fallback hash', err);
-        commitHash = FALLBACK_COMMIT_HASH;
-      })
-      .then(function () {
-        setBootStatus('アプリ本体を取得しています');
-        const requested = commitHash;
-        return fetchText(rawHtmlUrl(requested), requested).then(
-          function (htmlText) {
-            return { hash: requested, htmlText: htmlText };
-          },
-          function (err) {
-            if (requested === FALLBACK_COMMIT_HASH) throw err;
-            console.warn('[DX] app html fetch failed, using fallback hash', err);
+    const loadAppHtml = function (requested) {
+      setBootStatus(requested === FALLBACK_COMMIT_HASH && !PINNED_COMMIT_HASH
+        ? '前回の版を取得しています'
+        : 'アプリ本体を取得しています');
+      return fetchText(rawHtmlUrl(requested), requested).then(function (htmlText) {
+        return { hash: requested, htmlText: htmlText };
+      });
+    };
+
+    /* CDN から読まれた世代は、その HTML だけ。別世代へは落とさない。 */
+    const appReady = PINNED_COMMIT_HASH
+      ? loadAppHtml(PINNED_COMMIT_HASH)
+      : fetchConfig()
+          .then(function (hash) {
+            commitHash = hash;
+          })
+          .catch(function (err) {
+            console.warn('[DX] config fetch failed, using fallback hash', err);
             commitHash = FALLBACK_COMMIT_HASH;
-            setBootStatus('前回の版を取得しています');
-            return fetchText(rawHtmlUrl(FALLBACK_COMMIT_HASH), FALLBACK_COMMIT_HASH).then(function (htmlText) {
-              return { hash: FALLBACK_COMMIT_HASH, htmlText: htmlText };
+          })
+          .then(function () {
+            const requested = commitHash;
+            return loadAppHtml(requested).catch(function (err) {
+              if (requested === FALLBACK_COMMIT_HASH) throw err;
+              console.warn('[DX] app html fetch failed, using fallback hash', err);
+              commitHash = FALLBACK_COMMIT_HASH;
+              return loadAppHtml(FALLBACK_COMMIT_HASH);
             });
-          }
-        );
-      })
+          });
+
+    appReady
       .then(function (loaded) {
         commitHash = loaded.hash;
         window.__DX_CDN_BASE__ = cdnBase(commitHash);
