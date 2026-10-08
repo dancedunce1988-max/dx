@@ -129,13 +129,13 @@
     (function () {
       'use strict';
 
-      var FALLBACK_COMMIT_HASH = '96add6bd29bc0d2a7d260cd4ca5b51ada9a6fd84';
-      var FALLBACK_SCRIPT_INTEGRITY = 'sha384-QJ+K/WrvKSJSbG+K6tYsXK8j5KNZbfkrJQ0F3LX7I5P6xmPEVng9dXzvIXt8ZCWa';
-      var COMMIT_HASH_RE = /^[0-9a-f]{40}$/;
-      var SRI_RE = /^sha384-[A-Za-z0-9+/]{64}$/;
-      var REPO = 'dancedunce1988-max/dx';
-      var JSDELIVR_HOST = 'cdn.jsdelivr.net';
-      var RAW_HOST = 'raw.githubusercontent.com';
+      const FALLBACK_COMMIT_HASH = '96add6bd29bc0d2a7d260cd4ca5b51ada9a6fd84';
+      const FALLBACK_SCRIPT_INTEGRITY = 'sha384-QJ+K/WrvKSJSbG+K6tYsXK8j5KNZbfkrJQ0F3LX7I5P6xmPEVng9dXzvIXt8ZCWa';
+      const COMMIT_HASH_RE = /^[0-9a-f]{40}$/;
+      const SRI_RE = /^sha384-[A-Za-z0-9+/]{64}$/;
+      const REPO = 'dancedunce1988-max/dx';
+      const JSDELIVR_HOST = 'cdn.jsdelivr.net';
+      const RAW_HOST = 'raw.githubusercontent.com';
 
       function escapeHtml(text) {
         return String(text)
@@ -146,13 +146,13 @@
       }
 
       function setLabel(text) {
-        var labelEl = document.getElementById('dx-boot-label');
+        const labelEl = document.getElementById('dx-boot-label');
         if (labelEl) labelEl.textContent = text;
       }
 
       function showBootError(message) {
-        var boot = document.getElementById('dx-boot');
-        var card = boot && boot.querySelector('.dx-boot-card');
+        const boot = document.getElementById('dx-boot');
+        const card = boot && boot.querySelector('.dx-boot-card');
         if (!boot || !card) return;
         boot.setAttribute('aria-busy', 'false');
         card.innerHTML =
@@ -165,12 +165,12 @@
         return 'https://' + JSDELIVR_HOST + '/gh/' + REPO + '@' + hash + '/dist/script.js';
       }
 
-      var localLoaderTried = false;
+      let localLoaderTried = false;
 
       function loadLocalLoader(missingMessage) {
         if (localLoaderTried) return;
         localLoaderTried = true;
-        var s = document.createElement('script');
+        const s = document.createElement('script');
         s.src = 'script.js';
         s.onerror = function () {
           showBootError(missingMessage);
@@ -180,7 +180,7 @@
 
       function loadLoader(hash, integrity, isFallback) {
         setLabel(isFallback ? '前回の版を読み込んでいます' : 'ローダーを読み込んでいます');
-        var s = document.createElement('script');
+        const s = document.createElement('script');
         s.crossOrigin = 'anonymous';
         s.integrity = integrity;
         s.onerror = function () {
@@ -199,7 +199,7 @@
 
       function allowedConfigResponseUrl(url) {
         try {
-          var u = new URL(url);
+          const u = new URL(url);
           if (u.protocol !== 'https:' || u.hostname !== RAW_HOST || u.username || u.password) return false;
           return u.pathname === '/' + REPO + '/main/dist/import-config.json';
         } catch (e) {
@@ -222,7 +222,7 @@
       }
 
       setLabel('最新の版を確認しています');
-      var configUrl =
+      const configUrl =
         'https://' +
         RAW_HOST +
         '/' +
@@ -236,8 +236,8 @@
           return res.json();
         })
         .then(function (data) {
-          var hash = data && typeof data.commitHash === 'string' ? data.commitHash.trim().toLowerCase() : '';
-          var integrity = data && typeof data.integrity === 'string' ? data.integrity.trim() : '';
+          const hash = data && typeof data.commitHash === 'string' ? data.commitHash.trim().toLowerCase() : '';
+          const integrity = data && typeof data.integrity === 'string' ? data.integrity.trim() : '';
           if (!COMMIT_HASH_RE.test(hash)) throw new Error('import-config.json の commitHash が不正です');
           if (!SRI_RE.test(integrity)) throw new Error('import-config.json の integrity が不正です');
           loadLoader(hash, integrity, false);
