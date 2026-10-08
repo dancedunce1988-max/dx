@@ -19,7 +19,7 @@
 
 生徒には `dist/index.html` と `dist/README.txt` を渡します。
 `index.html` は起動役です。`import-config.json` のコミットハッシュに付いた `dist/script.js` を CDN から読み、その世代の本体を起動します。
-`dist/script.js` はリポジトリに残します。フォルダごと渡しても、起動役はローカルの `script.js` を使いません。
+`dist/script.js` はリポジトリに残します。GitHub からローダーを取得できないときは、同じフォルダの `script.js` を使います。それも無いときはエラーを出します。
 
 ### 教員側（更新の流れ）
 

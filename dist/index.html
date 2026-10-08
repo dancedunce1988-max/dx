@@ -123,6 +123,7 @@
     フォールバックハッシュは dist/script.js の FALLBACK_COMMIT_HASH と同じ値に保つ。
     FALLBACK_SCRIPT_INTEGRITY は、そのコミットの dist/script.js（Git のバイト列）の sha384。
     開発時は index.html?local=1 でローカルの script.js を読む。
+    GitHub / CDN からローダーを取れないときは、同じフォルダの script.js を使う。それも無いときはエラーを出す。
   -->
   <script>
     (function () {
@@ -164,6 +165,19 @@
         return 'https://' + JSDELIVR_HOST + '/gh/' + REPO + '@' + hash + '/dist/script.js';
       }
 
+      var localLoaderTried = false;
+
+      function loadLocalLoader(missingMessage) {
+        if (localLoaderTried) return;
+        localLoaderTried = true;
+        var s = document.createElement('script');
+        s.src = 'script.js';
+        s.onerror = function () {
+          showBootError(missingMessage);
+        };
+        document.body.appendChild(s);
+      }
+
       function loadLoader(hash, integrity, isFallback) {
         setLabel(isFallback ? '前回の版を読み込んでいます' : 'ローダーを読み込んでいます');
         var s = document.createElement('script');
@@ -174,8 +188,9 @@
             loadLoader(FALLBACK_COMMIT_HASH, FALLBACK_SCRIPT_INTEGRITY, true);
             return;
           }
-          showBootError(
-            'ローダーを取得できませんでした。\nネットワーク接続を確認して、もう一度開いてください。'
+          setLabel('このフォルダのローダーを読み込んでいます');
+          loadLocalLoader(
+            'ローダーを取得できませんでした。\nネットワーク接続を確認するか、同じフォルダに script.js を置いて、もう一度開いてください。'
           );
         };
         s.src = loaderSrc(hash);
@@ -202,12 +217,7 @@
 
       if (useLocalLoader()) {
         setLabel('開発用のローダーを読み込んでいます');
-        var localScript = document.createElement('script');
-        localScript.src = 'script.js';
-        localScript.onerror = function () {
-          showBootError('ローカルの script.js を読み込めませんでした。');
-        };
-        document.body.appendChild(localScript);
+        loadLocalLoader('ローカルの script.js を読み込めませんでした。');
         return;
       }
 
