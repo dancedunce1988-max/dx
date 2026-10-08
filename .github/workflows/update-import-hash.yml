@@ -1,0 +1,111 @@
+name: Update import-config commitHash
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      # ルートの別ページ HTML（九尾・炎狼ラン等）が増えても commitHash を更新する
+      # kokugo_app.html は *.html、dist/script.js は **/*.js に含まれる
+      - '*.html'
+      - '**/*.js'
+      - 'nobiru/**'
+      - 'dist/index.html'
+      - '!dist/import-config.json'
+  workflow_dispatch:
+
+# 連続 push では古い run を止める。最後の commit のハッシュだけを書く。
+concurrency:
+  group: update-import-hash-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  update-import-hash:
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (
+        !contains(github.event.head_commit.message, '[skip ci]') &&
+        !contains(github.event.head_commit.message, '[skip actions]')
+      )
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      # 先に別 run が import-config を push していると、この checkout からの push は non-fast-forward になる。
+      # 最新の main に書き直して再試行する。より新しい教材コミットが main にある run は上書きしない。
+      # GITHUB_EVENT_NAME / GITHUB_SHA / GITHUB_REF はランナーが用意する既定の環境変数
+      - name: Commit and push if changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          latest_content_sha() {
+            git log origin/main --format='%H%x09%s' | awk -F '\t' '
+              index($2, "chore: update import-config commitHash") != 1 { print $1; exit }
+            '
+          }
+
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] && [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "Refuse: workflow_dispatch must run on refs/heads/main (got $GITHUB_REF)"
+            exit 1
+          fi
+
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            tip="$(latest_content_sha || true)"
+            if [[ ! "$tip" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "Failed: origin/main has no content commit"
+              exit 1
+            fi
+            if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ] && [ "$tip" != "$GITHUB_SHA" ]; then
+              echo "Skip: main content commit is $tip, this run is $GITHUB_SHA"
+              exit 0
+            fi
+
+            git checkout -f -B main origin/main
+            mkdir -p dist
+            # jsDelivr が返すバイト列は、このコミットの dist/script.js。SRI はその sha384。
+            git cat-file -e "${tip}:dist/script.js"
+            raw_integrity="$(git cat-file blob "${tip}:dist/script.js" | openssl dgst -sha384 -binary | base64 -w 0)"
+            if [[ ! "$raw_integrity" =~ ^[A-Za-z0-9+/]{64}$ ]]; then
+              echo "Failed: dist/script.js integrity at $tip"
+              exit 1
+            fi
+            integrity="sha384-${raw_integrity}"
+            jq -n \
+              --arg commitHash "$tip" \
+              --arg integrity "$integrity" \
+              '{commitHash: $commitHash, integrity: $integrity}' \
+              > dist/import-config.json
+
+            git fetch origin main
+            tip_now="$(latest_content_sha || true)"
+            if [ "$tip_now" != "$tip" ]; then
+              echo "main moved before commit, retrying (${attempt})"
+              continue
+            fi
+
+            if git diff --quiet -- dist/import-config.json; then
+              echo "No changes to commit"
+              exit 0
+            fi
+
+            git add dist/import-config.json
+            git commit -m "chore: update import-config commitHash [skip ci]"
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "Push was not fast-forward, retrying (${attempt})"
+            sleep "$attempt"
+          done
+
+          echo "Failed to push dist/import-config.json"
+          exit 1
