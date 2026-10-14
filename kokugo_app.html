@@ -4342,7 +4342,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.19</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.20</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -19964,7 +19964,7 @@ function showSideQuestMenu(){
   html += mbSideQuestButtonHtml();
   html += Object.keys(STORY_SIDEQUESTS).map(key => storySideQuestButtonHtml(key, st)).join("");
   html += speedMatchMenuHtml();
-  // 解禁の順（時系列）に並べる（2026-10-04、教員の指示）：炎狼ラン→つなぎ橋（10/9）→九尾（10/15）→表現の魔術道（準備中）
+  // 解禁の順（時系列）に並べる（2026-10-04、教員の指示）：炎狼ラン→つなぎ橋（10/9）→九尾（10/15）→表現の魔術道（10/20）
   html += enroRunMenuHtml();
   html += tsunagiMenuHtml();
   html += kitsuneMenuHtml();
@@ -20261,11 +20261,14 @@ function openTsunagiBashi(){ mgGoWithPass("tsunagi", "tsunagi_bashi.html"); }
    false に書き換え、カードを出さないようにする。バナー画像はまだないので文字のカード。
    2026-10-04、教員の指示で「準備中」にして開けないようにした（GIHOU_RELEASED、公開するときは true に）。 */
 const GIHOU_IN_BUILD = true;
-const GIHOU_RELEASED = false;
+// 2026-10-14、教員の指示で10月20日に解禁（つなぎ橋・九尾と同じく、端末の日付で判定する）
+const GIHOU_RELEASE_DATE = "2026-10-20";
+const GIHOU_RELEASED = mgReleasedOn(GIHOU_RELEASE_DATE);
 function gihouMenuHtml(){
   if(!GIHOU_IN_BUILD) return "";
-  return mgBannerHtml("gihou", "表現の魔術道", GIHOU_RELEASED, "🔒 準備中", "openGihouMadousho()")
-    || mgTextCardHtml("🔮", "表現の魔術道", "巧みな表現とは、もはや魔術である", GIHOU_RELEASED, "🔒 準備中", "openGihouMadousho()");
+  const label = mgReleaseLabel(GIHOU_RELEASE_DATE);
+  return mgBannerHtml("gihou", "表現の魔術道", GIHOU_RELEASED, label, "openGihouMadousho()")
+    || mgTextCardHtml("🔮", "表現の魔術道", "巧みな表現とは、もはや魔術である", GIHOU_RELEASED, label, "openGihouMadousho()");
 }
 function openGihouMadousho(){ mgGoWithPass("gihou", "gihou_madousho.html"); }
 /* マッチ（類義語マッチ・対義語マッチ、2026-09-18〜）。ミニゲームとしては「マッチ」という
