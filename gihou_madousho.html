@@ -497,7 +497,7 @@
     <div class="bar-wrap"><span class="bar-label" id="pHPlabel">あなた</span><div class="bar" id="pHPbar"><b class="lag"></b><i></i></div><div class="xbar"><i id="xFill"></i></div></div>
     <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
       <span class="chapter" id="chapterName"></span>
-      <div style="display:flex;gap:6px"><button class="iconbtn" id="bPause">⏸</button><button class="iconbtn" id="bSound">🔊</button></div>
+      <div style="display:flex;gap:6px"><button class="iconbtn" id="bPause">⏸</button><button class="iconbtn" id="bSound">🔊</button><button class="iconbtn" id="bQuit">✕</button></div>
     </div>
     <div class="bar-wrap right"><span class="bar-label" id="wHPlabel">闇の魔術師</span><div class="bar" id="wHPbar"><b class="lag"></b><i></i></div></div>
   </div>
@@ -543,6 +543,10 @@
 
 <div id="fx"><div class="orb" id="orb"></div></div>
 <div class="ov" id="ov"><div class="box" id="ovBox"></div></div>
+<div class="ov" id="quitOv" style="z-index:30"><div class="box" style="text-align:center">
+  <h2>ミニゲーム一覧にもどる？</h2>
+  <div class="btnrow"><button class="btn" id="bQuitYes">もどる</button><button class="btn ghost" id="bQuitNo">つづける</button></div>
+</div></div>
 
 <script>
 "use strict";
@@ -1969,6 +1973,20 @@ $('bHow').onclick = showHow;
 // 知識ドリルDXへ戻る（ほかの別ページのミニゲームと同じ。?from=minigame でミニゲーム一覧が開く）
 $('bHome').onclick = () => { location.href = 'kokugo_app.html?from=minigame_home'; };   // イントロを出さずにホームへ（kokugo_app.html側の ?from= 参照）
 $('bMgList').onclick = () => { location.href = 'kokugo_app.html?from=minigame'; };
+/* 戦いの途中でやめる（2026-10-14、教員の指示）。経験値・ジャンルレベルは答えるたびに保存・書き置き済みなので、そのままミニゲーム一覧へ移ってよい。
+   確かめの板を出している間は止めておき、「つづける」で、自分が止めたときだけ再開する。 */
+let quitPausedByMe = false;
+$('bQuit').onclick = () => {
+  quitPausedByMe = false;
+  if(G && !G.over && !G.paused){ G.paused = true; quitPausedByMe = true; }
+  $('quitOv').classList.add('on');
+};
+$('bQuitYes').onclick = () => { location.href = 'kokugo_app.html?from=minigame'; };
+$('bQuitNo').onclick = () => {
+  $('quitOv').classList.remove('on');
+  if(quitPausedByMe && G){ G.paused = false; }
+  quitPausedByMe = false;
+};
 $('bBookBack').onclick = showTitle;
 $('bHint').onclick = useHint;
 $('bPause').onclick = togglePause;
