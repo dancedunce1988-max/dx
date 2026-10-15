@@ -4342,7 +4342,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.22</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.23</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -4565,9 +4565,109 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 51;
+const SAVE_FORMAT_VERSION = 52;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
+}
+/* ================= 改ざん対策の「しるし」（2026-10-15〜、教員の指示） =================
+   転生の種を、書き出したファイルの手編集やlocalStorageの直接編集で増やす生徒がいたための対策。
+   ①記録の書き出しファイル（exportData/importData）：中身を読めない形にし、署名をつける。
+     署名が合わないファイル・古い形式（ver5以前の平文JSON）は読み込まない（教員の指示：すぐ読み込めなくする）。
+   ②転生の種の監査（auditRebirthSeeds、loadStatsのたびに実行）：ありえない所持数なら0にし、
+     st.cheatLogに記録する（教員の指示：種は0、画面上の印は不要、記録は残す）。
+   ブラウザだけで動くアプリなので、プログラムを読めば仕組みは分かってしまう。「中学生が思いつきで
+   やる書き換え」を止めるための仕組みで、完全な防止ではない。 */
+const SAVE_SEAL_SECRET = "kdx-kotonoha-seal-2026-10";
+function sealHash(str){
+  // cyrb53（53bitの簡易ハッシュ）。暗号学的な強さはないが、手計算で署名を作り直すのは無理
+  let h1 = 0xdeadbeef ^ 0x5eed, h2 = 0x41c6ce57 ^ 0x5eed;
+  for(let i=0;i<str.length;i++){
+    const ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1>>>16), 2246822507) ^ Math.imul(h2 ^ (h2>>>13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2>>>16), 2246822507) ^ Math.imul(h1 ^ (h1>>>13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1>>>0)).toString(36);
+}
+function sealSign(str){ return sealHash(SAVE_SEAL_SECRET + "|" + str + "|" + SAVE_SEAL_SECRET); }
+// 文字列 → UTF-8 → 鍵でXOR → base64（メモ帳で開いても数字が読めないようにする）
+function sealEncode(str){
+  const bytes = new TextEncoder().encode(str);
+  const key = new TextEncoder().encode(SAVE_SEAL_SECRET);
+  for(let i=0;i<bytes.length;i++) bytes[i] ^= key[i % key.length] ^ (i & 0xff);
+  let bin = "";
+  for(let i=0;i<bytes.length;i+=0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i+0x8000));
+  return btoa(bin);
+}
+function sealDecode(b64){
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+  const key = new TextEncoder().encode(SAVE_SEAL_SECRET);
+  for(let i=0;i<bytes.length;i++) bytes[i] ^= key[i % key.length] ^ (i & 0xff);
+  return new TextDecoder().decode(bytes);
+}
+/* 転生の種の監査。種はデイリーログイン7日目（maybeGrantDailyLogin）でしか増えず、転生
+   （kotonohaRebirthConfirmed、st.seedUsedを+1）でしか減らない。よって正当なプレイでは常に
+     所持数 ≦ floor(通算ログイン日数/7) − 使った数
+   が成り立つ。さらにsaveStatsのたびに、その時点の{所持数・使った数・通算ログイン日数・日付}を
+   署名つきでst.seedSealに封印しておき、前回の封印からの増え方が「その間の日数で可能なログイン
+   回数」で説明できるかも確かめる（localStorageを直接書き換えて通算ログイン日数ごと水増しする
+   手口への対策）。古いタブが封印を更新せずに保存しても、正当な増減なら前回の封印との比較で
+   矛盾は出ない（＝誤検知しない）ように、比較はすべて「増え方の上限」だけを見ている。
+   封印が無いセーブ（この仕組みより前のセーブ）は、上の不等式だけで判定する。 */
+const DAILY_LOGIN_LAUNCH_DATE = "2026-08-01"; // デイリーログイン報酬の開始日
+function seedDaysBetween(fromStr, toStr){
+  const p = s => { const [y,m,d] = s.split("-").map(Number); return Date.UTC(y, m-1, d); };
+  return Math.round((p(toStr) - p(fromStr)) / 86400000);
+}
+function seedSealPayload(st){
+  return JSON.stringify({h:(st.items && st.items["転生の種"]) || 0, u:st.seedUsed || 0,
+    t:(st.dailyLogin && st.dailyLogin.totalLoginDays) || 0, d:todayLocalDateStr()});
+}
+function makeSeedSeal(st){
+  const p = seedSealPayload(st);
+  return sealEncode(p) + "." + sealSign(p);
+}
+function readSeedSeal(seal){
+  // 戻り値：null＝封印なし、false＝封印が壊れている（書き換えられた）、それ以外＝封印の中身
+  if(typeof seal !== "string" || !seal) return null;
+  try{
+    const dot = seal.lastIndexOf(".");
+    const p = sealDecode(seal.slice(0, dot));
+    if(sealSign(p) !== seal.slice(dot+1)) return false;
+    return JSON.parse(p);
+  }catch(e){ return false; }
+}
+function auditRebirthSeeds(st){
+  const held = (st.items && st.items["転生の種"]) || 0;
+  const used = st.seedUsed || 0;
+  const tld = (st.dailyLogin && st.dailyLogin.totalLoginDays) || 0;
+  const today = todayLocalDateStr();
+  const reasons = [];
+  const sinceLaunch = seedDaysBetween(DAILY_LOGIN_LAUNCH_DATE, today) + 1;
+  if(sinceLaunch > 0 && tld > sinceLaunch) reasons.push(`通算ログイン日数(${tld})が、開始日からの日数(${sinceLaunch})を超えている`);
+  if(held > Math.floor(tld/7) - used) reasons.push(`所持数(${held})が、ログイン日数(${tld})と使った数(${used})から求まる上限(${Math.floor(tld/7) - used})を超えている`);
+  const snap = readSeedSeal(st.seedSeal);
+  if(snap === false){
+    reasons.push("封印（seedSeal）が書き換えられている");
+  }else if(snap){
+    if(used < snap.u) reasons.push(`使った数(${used})が前回の記録(${snap.u})より減っている`);
+    const maxNewLogins = Math.max(0, seedDaysBetween(snap.d, today)) + 1;
+    if(tld - snap.t > maxNewLogins) reasons.push(`前回の記録(${snap.d})からログイン日数が${tld - snap.t}日ぶん増えている（最大${maxNewLogins}日）`);
+    const maxNewSeeds = Math.floor(tld/7) - Math.floor(snap.t/7);
+    if(held - snap.h > maxNewSeeds) reasons.push(`前回の記録から所持数が${held - snap.h}個増えている（最大${maxNewSeeds}個）`);
+  }
+  if(reasons.length === 0) return false;
+  // 種は0にする（教員の指示）。通算ログイン日数が開始日からの日数を超えていれば、そこまで戻す
+  if(st.items) delete st.items["転生の種"];
+  if(sinceLaunch > 0 && tld > sinceLaunch) st.dailyLogin.totalLoginDays = sinceLaunch;
+  st.seedUsed = Math.min(used, Math.floor(st.dailyLogin ? st.dailyLogin.totalLoginDays/7 : 0));
+  if(!Array.isArray(st.cheatLog)) st.cheatLog = [];
+  st.cheatLog.push({at:new Date().toISOString(), kind:"転生の種", held, reasons});
+  if(st.cheatLog.length > 50) st.cheatLog = st.cheatLog.slice(-50);
+  return true;
 }
 let memStats = null;
 function emptyStats(){
@@ -4585,7 +4685,7 @@ function emptyStats(){
     kanjiWriteElem:{totalOk:0, itemHist:{}, targetLv:1, recent:[]},
     hyakunin:{totalOk:0, itemHist:{}, targetLv:1, recent:[]},
     ktSolved:[],
-    dailyLogin:{lastDate:null, cycleDay:0, totalLoginDays:0}, pendingDailyLoginStamp:null,
+    dailyLogin:{lastDate:null, cycleDay:0, totalLoginDays:0}, pendingDailyLoginStamp:null, seedUsed:0,
     notLearnedCats:{},
     stockXp:0, stockXpConvertedExp:0,
     /* dateをnullのままにすると、真の新規セーブ（loadStats()がlocalStorageに何も無く
@@ -5247,6 +5347,11 @@ function loadStats(){
            （nobiru/engine.js）で完結するため、そちら側は`localStorage`の合図（"一日一読
            待ち受け中の報酬"、ddCheckNobiruPendingReward参照）経由でここに伝える。 */
         if(!st.nobiruRewardGiven || typeof st.nobiruRewardGiven !== "object") st.nobiruRewardGiven = {};
+        /* 転生の種の監査（2026-10-15〜、auditRebirthSeeds参照）。ありえない所持数なら0にして
+           st.cheatLogに記録し、その場で保存する（読み込むたびに同じ記録が増えないように）。
+           ミニゲーム経由のログイン報酬（mgSyncFromMinigames）より前に見る。 */
+        if(typeof st.seedUsed !== "number") st.seedUsed = 0;
+        if(auditRebirthSeeds(st)) saveStats(st);
         mgSyncFromMinigames(st); // 別ページのミニゲームのジャンルレベル・ログイン報酬をすぐ取りこむ
         return st;
       }
@@ -5256,6 +5361,7 @@ function loadStats(){
 }
 function saveStats(st){
   st.saveFormatVer = SAVE_FORMAT_VERSION;
+  try{ st.seedSeal = makeSeedSeal(st); }catch(e){} // 転生の種の封印（auditRebirthSeeds参照）
   memStats = st;
   try{ localStorage.setItem(STORE_KEY, JSON.stringify(st)); }catch(e){}
 }
@@ -7468,6 +7574,7 @@ function kotonohaRebirthConfirmed(chosenLine){
     if(kotonohaRebirthStageIndex(st) < KOTONOHA_YOUTH_STAGE_IDX){ showHome(); return; }
     if((st.items[REBIRTH_SEED_ITEM]||0) <= 0){ showHome(); return; }
     st.items[REBIRTH_SEED_ITEM]--;
+    st.seedUsed = (st.seedUsed||0) + 1; // 使った数（auditRebirthSeedsの上限計算に使う）
   }
   const fromSrc = wasAlready ? kotonohaRebirthImageSrc(st) : null;
   const fromIcon = wasAlready ? null : kotonohaForm(st).icon;
@@ -18033,7 +18140,12 @@ function resetStats(){
 /* ================= 記録の保存・引きつぎ ================= */
 function exportData(){
   const st = loadStats();
-  const payload = {app:"kokugoTraining", ver:5, savedAt:new Date().toISOString(), data:st};
+  saveStats(st); // 封印（seedSeal）を今の中身で付け直してから書き出す
+  /* ver6（2026-10-15〜）：中身はsealEncodeで読めない形にし、sealSignの署名をつける
+     （importData側で署名が合わないファイル・ver5以前の平文ファイルは読み込まない）。 */
+  const savedAt = new Date().toISOString();
+  const enc = sealEncode(JSON.stringify(st));
+  const payload = {app:"kokugoTraining", ver:6, savedAt, enc, sig:sealSign(savedAt + "|" + enc)};
   const blob = new Blob([JSON.stringify(payload)], {type:"application/json"});
   const a = document.createElement("a");
   const d = new Date();
@@ -18050,7 +18162,13 @@ function importData(input){
   reader.onload = () => {
     try{
       const payload = JSON.parse(reader.result);
-      const st = payload && payload.app === "kokugoTraining" ? payload.data : payload;
+      /* ver6の署名つきファイルだけを受けつける（2026-10-15〜、教員の指示：古い形式はすぐ読み込めなくする）。 */
+      if(!payload || payload.app !== "kokugoTraining" || payload.ver !== 6 || typeof payload.enc !== "string" ||
+         sealSign(payload.savedAt + "|" + payload.enc) !== payload.sig){
+        alert("このファイルは読み込めません。\n\n古い形式のファイルや、中身を書きかえたファイルは使えません。\n記録が残っている端末で、もう一度「💾 記録を書き出す」をしてから読み込んでください。");
+        return;
+      }
+      const st = JSON.parse(sealDecode(payload.enc));
       if(!st || !st.cats || !st.q || !st.lv) throw new Error("形式ちがい");
       if(isSaveFromNewerVersion(st)){
         alert("このファイルは、これより新しいバージョンの「知識ドリルDX」で保存されたものです。\nこのページ（古いバージョン）では読み込めません。最新版のページで開き直してください。");
