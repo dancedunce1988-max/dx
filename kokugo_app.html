@@ -4349,7 +4349,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.25</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.26</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -4373,7 +4373,7 @@
 <script src="kanji_quest_title_data.js"></script>
 <script src="mb_action_button_images.js"></script>
 <!-- menu_title_images.jsは画像を差し替えることがあるので、?v=を変えてブラウザのキャッシュ（GitHub Pagesは10分）に古い画像が残らないようにする（2026-10-03）。画像を変えたら?v=もそのときのバージョンにする。 -->
-<script src="menu_title_images.js?v=13.24"></script>
+<script src="menu_title_images.js?v=13.26"></script>
 <script src="mb_bgm_data.js"></script>
 <script src="dokkai_dungeon_data.js"></script>
 <script>
@@ -12902,16 +12902,59 @@ function mgSyncFromMinigames(st){
   mgSyncing = true;
   try{
     const applied = mgApplyPendingLevelUps(st); // レベルが変わったときは中で保存済み
+    mgApplyPendingAllies(st);                   // 仲間が増えた・絆が深まったときは中で保存済み
     if(mgCheckPlayedLogin(st)) saveStats(st); // ログイン報酬が成立したら必ず保存（レベル反映の保存のあとでも）
   }finally{ mgSyncing = false; }
 }
 window.addEventListener("storage", e => {
-  if(e.key === MG_PENDING_LVUP_LSKEY || e.key === MG_PLAYED_LSKEY){ try{ loadStats(); }catch(err){} }
+  if(e.key === MG_PENDING_LVUP_LSKEY || e.key === MG_PENDING_ALLY_LSKEY || e.key === MG_PLAYED_LSKEY){ try{ loadStats(); }catch(err){} }
 });
 /* 表現の魔術道（gihou_madousho.html、2026-10-03〜、試作）は「表現技法」（hyougen）。ほかと違い、まちがいでは下げず、
    正解1問ごとに＋1を、答えるたびにその場で書き足す（途中でやめてもそこまでの分は反映される。教員の指示）。 */
+/* 大熊猫の竹林わたり（panda_chikurin.html、2026-10-05〜、試作）は「読む順タップ」（kanbun_yj）・「返り点をつける」（kanbun_kt）。
+   どちらもEXTRA_LEVEL_CATS（CAT_KEYSの外）だが、st.lvに必ずあるので同じ形で上げられる。表現の魔術道と同じく、まちがいでは下げない。 */
 /* 言霊並べ（kotodama_shoko.html、2026-10-12〜）は「識別」（shikibetsu）。正解するたびに＋1、まちがいでは下げない。 */
-const MG_LVUP_CATS = ["kanji_shiwake", "keigo", "setsuzokushi", "hyougen", "shikibetsu"];
+/* 別ページのミニゲームで仲間になった者の書き置き（2026-10-18〜、教員の指示）。
+   大熊猫の竹林わたり（panda_chikurin.html）でマスターパンダに勝つと、1%で漢字Questの「大熊猫」(ub02)が仲間になる。
+   {ub02:当たった回数, ub02_shiny:1（色違いを見つけた）}。書けるのは MG_ALLY_IDS だけ。1回目＝仲間に（Lv.1）、それ以降は1回ごとにLv.＋1（MB_PARTNER_MAX_LEVELまで）。
+   漢字Questで仲間になったときと同じく、パートナーの枠が空いていれば自動で入れる。読み取った時点でキーは消す。 */
+const MG_PENDING_ALLY_LSKEY = "kokugo_minigame_pending_allies_v1";
+const MG_ALLY_IDS = ["ub02"];
+function mgApplyPendingAllies(st){
+  let raw;
+  try{ raw = localStorage.getItem(MG_PENDING_ALLY_LSKEY); }catch(e){ raw = null; }
+  if(!raw) return false;
+  try{ localStorage.removeItem(MG_PENDING_ALLY_LSKEY); }catch(e){}
+  let info;
+  try{ info = JSON.parse(raw); }catch(e){ info = null; }
+  if(!info || typeof info !== "object") return false;
+  if(!Array.isArray(st.mbCompanions)) st.mbCompanions = [];
+  if(!st.mbCompanionLevels || typeof st.mbCompanionLevels !== "object") st.mbCompanionLevels = {};
+  let changed = false;
+  MG_ALLY_IDS.forEach(id => {
+    const n = Math.max(0, Math.min(MB_PARTNER_MAX_LEVEL, Math.trunc(Number(info[id]) || 0)));
+    for(let i = 0; i < n; i++){
+      if(!st.mbCompanions.includes(id)){
+        st.mbCompanions.push(id);
+        st.mbCompanionLevels[id] = 1;
+        if(!st.mbActivePartner) st.mbActivePartner = id;
+        else if(!st.mbActivePartner2) st.mbActivePartner2 = id;
+        changed = true;
+      } else if(mbCompanionLevel(st, id) < MB_PARTNER_MAX_LEVEL){
+        st.mbCompanionLevels[id] = mbCompanionLevel(st, id) + 1;
+        changed = true;
+      }
+    }
+  });
+  // 色違いの発見（ミニゲームの「金色の桃仙老師」に勝ったとき、2026-10-18〜）。{ub02_shiny:1}
+  if(!st.mbCompanionShiny || typeof st.mbCompanionShiny !== "object") st.mbCompanionShiny = {};
+  MG_ALLY_IDS.forEach(id => {
+    if(info[id + "_shiny"] && st.mbCompanions.includes(id) && !st.mbCompanionShiny[id]){ st.mbCompanionShiny[id] = true; changed = true; }
+  });
+  if(changed) saveStats(st);
+  return changed;
+}
+const MG_LVUP_CATS = ["kanji_shiwake", "keigo", "setsuzokushi", "hyougen", "kanbun_yj", "kanbun_kt", "shikibetsu"];
 function mgApplyPendingLevelUps(st){
   let raw;
   try{ raw = localStorage.getItem(MG_PENDING_LVUP_LSKEY); }catch(e){ raw = null; }
@@ -20100,6 +20143,7 @@ function showSideQuestMenu(){
   html += kitsuneMenuHtml();
   html += gihouMenuHtml();
   html += kotodamaMenuHtml(); // 言霊並べ（2026-10-26解禁。それまでは「新ゲーム～10月26日解禁～」だけ）
+  html += pandaMenuHtml();    // 大熊猫の竹林わたり（2026-11-11解禁。それまでは「新ゲーム～11月11日解禁～」だけ）
   html += `</div>`;   // .mg-grid ここまで
   html += `<div class="btn-row" style="justify-content:center; margin-top:10px">
     <button class="btn secondary" onclick="showHome()">戻る</button>
@@ -20405,6 +20449,26 @@ function gihouMenuHtml(){
     || mgTextCardHtml("🔮", "表現の魔術道", "巧みな表現とは、もはや魔術である", GIHOU_RELEASED, label, "openGihouMadousho()");
 }
 function openGihouMadousho(){ mgGoWithPass("gihou", "gihou_madousho.html"); }
+/* 大熊猫の竹林わたり（panda_chikurin.html、2026-10-05〜、試作）。「読む順タップ」と「返り点をつける」を同じ白文の
+   2問セットにしたミニゲーム（教員の指示：読む順→返り点の順）。漢字Questの大熊猫(ub02)が、竹の節に見立てた字を
+   読む順に跳んでいく。①ミスなし＝kanbun_yj＋1、②1回目で成功＝kanbun_kt＋1を書き置く（MG_LVUP_CATS参照）。
+   バナーは menu_title_images.js の panda（2026-10-18、教員の画像をトリミング）。入れる裏コードは作らない（教員の指示）。 */
+/* 2026-10-18、教員の指示で 2026-11-11 解禁。解禁前は、一覧に名前も説明も出さず「新ゲーム～11月11日解禁～」とだけ出す（言霊並べと同じ）。
+   ゲームのページ側も、解禁日より前は（入口から来ても）開けない（panda_chikurin.html の通行証チェック）。
+   パンダの絵（panda_chikurin_sprites_data.js・panda_master_sprites_data.js）は "enc:"＋base64逆順で入れてあり、ゲームのページが表示するときだけもどす。 */
+const PANDA_RELEASE_DATE = "2026-11-11";
+const PANDA_RELEASED = mgReleasedOn(PANDA_RELEASE_DATE);
+function pandaMenuHtml(){
+  if(!PANDA_RELEASED){
+    return `
+    <div class="card menu-card locked mg-teaser" onclick="mgLockedTap(this)">
+      <div style="flex:1; text-align:center"><h2>新ゲーム～11月11日解禁～</h2></div>
+    </div>`;
+  }
+  return mgBannerHtml("panda", "大熊猫の竹林わたり", true, "", "openPandaChikurin()")
+    || mgTextCardHtml("🐼", "大熊猫の竹林わたり", "読む順にたどって、返り点をつける。竹の節をわたる漢文の道", true, "", "openPandaChikurin()");
+}
+function openPandaChikurin(){ if(!PANDA_RELEASED) return; mgGoWithPass("panda", "panda_chikurin.html"); }
 /* 言霊並べ（kotodama_shoko.html、2026-10-12〜。もとは「言霊の番人と影の書庫」、2026-10-18〜この名前。教員の指示）。
    言霊の番人と9×9の盤で言霊を並べあう。識別の問い（「ない」「れる・られる」「の」「だ」ほか）に正解すると言霊を1つ置け、
    先に5つ並べたら勝ち。一〜四の巻（2段階）→ すべての盤（3段階・色違い・5%で番人が仲間に）。本体のセーブには直接触れず、
