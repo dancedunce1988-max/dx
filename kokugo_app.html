@@ -59,6 +59,13 @@
     transition:transform .1s, box-shadow .1s;
   }
   .menu-card-img-btn:hover{ transform:translateY(-2px); box-shadow:0 4px 10px rgba(0,0,0,.2); }
+  /* ミニゲーム一覧は2列（2026-10-18、教員の指示「一列だとスクロールが大変。二列で横に広く」）。
+     この画面のときだけ #app を横に広げる（:has で、ほかの画面の幅は変えない）。スマホなどせまい画面は1列のまま。 */
+  #app:has(.mg-grid){ max-width:1200px; }
+  .mg-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px 16px; align-items:start; margin-bottom:14px; }
+  .mg-grid > *{ margin:0 !important; }
+  .mg-grid > .menu-card{ min-height:100%; }
+  @media (max-width:640px){ .mg-grid{ grid-template-columns:1fr; } }
   .menu-card-img-btn:active{ transform:translateY(1px) scale(.99); }
   .menu-card-img-btn img{ display:block; width:100%; height:auto; }
   /* ホームの「ミニゲーム」ボタン画像（ミニゲームボタン.png）は、他のメニュー画像より
@@ -4342,7 +4349,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.24</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.25</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -4565,7 +4572,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 53;
+const SAVE_FORMAT_VERSION = 54;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -20082,6 +20089,7 @@ function showSideQuestMenu(){
   const st = loadStats();
   let html = `<div class="card"><h3 class="section">🎮 ミニゲーム</h3>
     <p class="note">ストーリーの進み具合とは関係なく、いつでも遊べる番外編です。</p></div>`;
+  html += `<div class="mg-grid">`;   // ここから下のミニゲームは2列で並べる（.mg-grid）
   if(KB_GAUNTLET_VISIBLE) html += kanjiBossSideQuestButtonHtml();
   html += mbSideQuestButtonHtml();
   html += Object.keys(STORY_SIDEQUESTS).map(key => storySideQuestButtonHtml(key, st)).join("");
@@ -20092,6 +20100,7 @@ function showSideQuestMenu(){
   html += kitsuneMenuHtml();
   html += gihouMenuHtml();
   html += kotodamaMenuHtml(); // 言霊並べ（2026-10-26解禁。それまでは「新ゲーム～10月26日解禁～」だけ）
+  html += `</div>`;   // .mg-grid ここまで
   html += `<div class="btn-row" style="justify-content:center; margin-top:10px">
     <button class="btn secondary" onclick="showHome()">戻る</button>
   </div>`;
