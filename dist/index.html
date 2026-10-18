@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'self' https://cdn.jsdelivr.net https://raw.githubusercontent.com; style-src 'unsafe-inline' 'self' https://cdn.jsdelivr.net https://raw.githubusercontent.com; img-src data: blob: https://cdn.jsdelivr.net https://raw.githubusercontent.com; media-src data: blob: https://cdn.jsdelivr.net https://raw.githubusercontent.com; font-src data: https://cdn.jsdelivr.net https://raw.githubusercontent.com; connect-src https://cdn.jsdelivr.net https://raw.githubusercontent.com; frame-src about:; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <!-- 設定は raw、script.js と本体 HTML は jsDelivr。script の crossorigin と fetch に合わせる。 -->
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preconnect" href="https://raw.githubusercontent.com" crossorigin>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>知識ドリルDX</title>
+  <style>
+    #dx-boot {
+      position: fixed;
+      inset: 0;
+      z-index: 20000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: #f7f4ee;
+      color: #2b2b2b;
+      font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+    }
+    #dx-boot[hidden],
+    #dx-boot.is-gone {
+      display: none !important;
+    }
+    #dx-boot.is-done {
+      opacity: 0;
+      transition: opacity .25s ease;
+      pointer-events: none;
+    }
+    #dx-boot .dx-boot-card {
+      width: min(100%, 360px);
+      background: #fff;
+      border: 1px solid #e4ded3;
+      border-radius: 14px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, .05);
+      padding: 28px 28px 24px;
+      text-align: center;
+    }
+    #dx-boot .dx-boot-title {
+      margin: 0;
+      font-size: 1.35rem;
+      font-weight: bold;
+      letter-spacing: .15em;
+      line-height: 1.4;
+      padding-bottom: 12px;
+      border-bottom: 3px double #e4ded3;
+    }
+    #dx-boot .dx-boot-title span {
+      color: #c0392b;
+    }
+    #dx-boot .dx-boot-label {
+      margin: 16px 0 0;
+      font-size: .92rem;
+      color: #6b6b6b;
+    }
+    #dx-boot .dx-boot-detail {
+      margin: 4px 0 0;
+      min-height: 1.2em;
+      font-size: .78rem;
+      color: #6b6b6b;
+      font-variant-numeric: tabular-nums;
+    }
+    #dx-boot .dx-boot-track {
+      position: relative;
+      overflow: hidden;
+      height: 4px;
+      margin-top: 16px;
+      border-radius: 999px;
+      background: #e4ded3;
+    }
+    #dx-boot .dx-boot-bar {
+      height: 100%;
+      width: 0;
+      border-radius: inherit;
+      background: #2c6e63;
+    }
+    #dx-boot .dx-boot-bar.is-indeterminate {
+      width: 38%;
+      animation: dx-boot-slide 1.15s ease-in-out infinite;
+    }
+    #dx-boot .dx-boot-error-title {
+      margin: 16px 0 8px;
+      color: #b00020;
+      font-weight: bold;
+      font-size: .95rem;
+    }
+    #dx-boot .dx-boot-error {
+      margin: 0;
+      text-align: left;
+      white-space: pre-wrap;
+      color: #2b2b2b;
+      font-size: .88rem;
+      line-height: 1.6;
+    }
+    @keyframes dx-boot-slide {
+      0% { transform: translateX(-120%); }
+      100% { transform: translateX(280%); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #dx-boot.is-done { transition: none; }
+      #dx-boot .dx-boot-bar.is-indeterminate { animation: none; width: 100%; opacity: .45; }
+    }
+  </style>
+</head>
+<body>
+  <div id="dx-boot" role="status" aria-live="polite" aria-busy="true">
+    <div class="dx-boot-card">
+      <p class="dx-boot-title">知識ドリル<span>DX</span></p>
+      <p class="dx-boot-label" id="dx-boot-label">読み込んでいます</p>
+      <p class="dx-boot-detail" id="dx-boot-detail" aria-hidden="true"></p>
+      <div class="dx-boot-track" id="dx-boot-progress" role="progressbar" aria-label="読み込み" aria-valuemin="0" aria-valuemax="100">
+        <div class="dx-boot-bar is-indeterminate" id="dx-boot-bar"></div>
+      </div>
+    </div>
+  </div>
+  <div id="app"></div>
+  <!--
+    生徒PCに残す起動役。厚いローダーはリポジトリの dist/script.js のまま。
+    ここを script.js に置き換えると、CDN 上のそのファイルも起動役になり自分を読み続ける。
+    フォールバックハッシュは dist/script.js の FALLBACK_COMMIT_HASH と同じ値に保つ。
+    FALLBACK_SCRIPT_INTEGRITY は、そのコミットの dist/script.js（Git のバイト列）の sha384。
+    開発時は index.html?local=1 でローカルの script.js を読む。
+    GitHub / CDN からローダーを取れないときは、同じフォルダの script.js を使う。それも無いときはエラーを出す。
+  -->
+  <script>
+    (function () {
+      'use strict';
+
+      const FALLBACK_COMMIT_HASH = '96add6bd29bc0d2a7d260cd4ca5b51ada9a6fd84';
+      const FALLBACK_SCRIPT_INTEGRITY = 'sha384-QJ+K/WrvKSJSbG+K6tYsXK8j5KNZbfkrJQ0F3LX7I5P6xmPEVng9dXzvIXt8ZCWa';
+      const COMMIT_HASH_RE = /^[0-9a-f]{40}$/;
+      const SRI_RE = /^sha384-[A-Za-z0-9+/]{64}$/;
+      const REPO = 'dancedunce1988-max/dx';
+      const JSDELIVR_HOST = 'cdn.jsdelivr.net';
+      const RAW_HOST = 'raw.githubusercontent.com';
+
+      function escapeHtml(text) {
+        return String(text)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function setLabel(text) {
+        const labelEl = document.getElementById('dx-boot-label');
+        if (labelEl) labelEl.textContent = text;
+      }
+
+      function showBootError(message) {
+        const boot = document.getElementById('dx-boot');
+        const card = boot && boot.querySelector('.dx-boot-card');
+        if (!boot || !card) return;
+        boot.setAttribute('aria-busy', 'false');
+        card.innerHTML =
+          '<p class="dx-boot-title">知識ドリル<span>DX</span></p>' +
+          '<p class="dx-boot-error-title">読み込みに失敗しました</p>' +
+          '<p class="dx-boot-error">' + escapeHtml(message) + '</p>';
+      }
+
+      function loaderSrc(hash) {
+        return 'https://' + JSDELIVR_HOST + '/gh/' + REPO + '@' + hash + '/dist/script.js';
+      }
+
+      let localLoaderTried = false;
+
+      function loadLocalLoader(missingMessage) {
+        if (localLoaderTried) return;
+        localLoaderTried = true;
+        const s = document.createElement('script');
+        s.src = 'script.js';
+        s.onerror = function () {
+          showBootError(missingMessage);
+        };
+        document.body.appendChild(s);
+      }
+
+      function loadLoader(hash, integrity, isFallback) {
+        setLabel(isFallback ? '前回の版を読み込んでいます' : 'ローダーを読み込んでいます');
+        const s = document.createElement('script');
+        s.crossOrigin = 'anonymous';
+        s.integrity = integrity;
+        s.onerror = function () {
+          if (!isFallback && (hash !== FALLBACK_COMMIT_HASH || integrity !== FALLBACK_SCRIPT_INTEGRITY)) {
+            loadLoader(FALLBACK_COMMIT_HASH, FALLBACK_SCRIPT_INTEGRITY, true);
+            return;
+          }
+          setLabel('このフォルダのローダーを読み込んでいます');
+          loadLocalLoader(
+            'ローダーを取得できませんでした。\nネットワーク接続を確認するか、同じフォルダに script.js を置いて、もう一度開いてください。'
+          );
+        };
+        s.src = loaderSrc(hash);
+        document.body.appendChild(s);
+      }
+
+      function allowedConfigResponseUrl(url) {
+        try {
+          const u = new URL(url);
+          if (u.protocol !== 'https:' || u.hostname !== RAW_HOST || u.username || u.password) return false;
+          return u.pathname === '/' + REPO + '/main/dist/import-config.json';
+        } catch (e) {
+          return false;
+        }
+      }
+
+      function useLocalLoader() {
+        try {
+          return new URLSearchParams(location.search).get('local') === '1';
+        } catch (e) {
+          return false;
+        }
+      }
+
+      if (useLocalLoader()) {
+        setLabel('開発用のローダーを読み込んでいます');
+        loadLocalLoader('ローカルの script.js を読み込めませんでした。');
+        return;
+      }
+
+      setLabel('最新の版を確認しています');
+      const configUrl =
+        'https://' +
+        RAW_HOST +
+        '/' +
+        REPO +
+        '/main/dist/import-config.json?ts=' +
+        String(Date.now());
+      fetch(configUrl, { cache: 'no-store' })
+        .then(function (res) {
+          if (!res.ok) throw new Error('設定の取得に失敗しました (HTTP ' + res.status + ')');
+          if (!allowedConfigResponseUrl(res.url)) throw new Error('許可されていない URL へ転送されました');
+          return res.json();
+        })
+        .then(function (data) {
+          const hash = data && typeof data.commitHash === 'string' ? data.commitHash.trim().toLowerCase() : '';
+          const integrity = data && typeof data.integrity === 'string' ? data.integrity.trim() : '';
+          if (!COMMIT_HASH_RE.test(hash)) throw new Error('import-config.json の commitHash が不正です');
+          if (!SRI_RE.test(integrity)) throw new Error('import-config.json の integrity が不正です');
+          loadLoader(hash, integrity, false);
+        })
+        .catch(function (err) {
+          console.warn('[DX] config fetch failed, using fallback loader', err);
+          loadLoader(FALLBACK_COMMIT_HASH, FALLBACK_SCRIPT_INTEGRITY, true);
+        });
+    })();
+  </script>
+</body>
+</html>
