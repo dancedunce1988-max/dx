@@ -1,0 +1,2131 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<!-- 通行証のチェック（九尾・炎狼ラン・つなぎ橋と同じ）：知識ドリルDXの入口（kokugo_app.htmlのmgGoWithPass）を通らずに、
+     直接開いたときは「このファイルは開けません」とだけ表示し、ゲームを動かさない。sessionStorageが使えないときは、確かめようがないのでそのまま開く。 -->
+<!--PASS_CHECK_BEGIN-->
+<script>
+(function(){
+  var ok = true, pass = {};
+  try{ pass = JSON.parse(sessionStorage.getItem("kokugo_mg_pass_v1") || "{}") || {}; ok = !!pass["kotodama"]; }catch(e){ ok = true; }
+  /* 解禁日（2026-10-26）より前は、通行証があっても開けない（端末の日付で判定、本体の KOTODAMA_RELEASE_DATE と同じ日）。
+     教員が解禁前に試すときだけ、確認用の入口が kotodamaPreview を渡す。 */
+  var d = new Date(), today = d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2);
+  if(today < "2026-10-26" && !pass["kotodamaPreview"]) ok = false;
+  if(!ok){ document.write('<style>html,body{margin:0;height:100%;background:#141a33;color:#fff;font-family:sans-serif}body{display:flex;align-items:center;justify-content:center}</style></head><body><p style="font-size:22px;font-weight:bold">このファイルは開けません</p><plaintext style="display:none">'); }
+})();
+</script>
+<!--PASS_CHECK_END-->
+<title>言霊並べ</title>
+<!-- 知識ドリルDXのミニゲーム「言霊の番人と影の書庫」（2026-10-12〜、試作。教員の指示で「識別探偵」を言霊の番人(me04)をモチーフに作り直した）。
+     言葉の書庫で、同じ姿をした言葉（「ない」「れる・られる」「の」「だ」）の言霊が正体（本当の名前＝用法）を忘れて「影」になった。
+     番人の弟子として「術」（置きかえ・確かめの手順）をかけ、写し出された文が自然か不自然かを自分で見きわめて、正体の札を選んで呼ぶ。
+     術の結果に○×はすぐには出さない。正体を呼ぶと「番人の手引き」で、術の順番どおりに○×と決め手を見せる。
+     2026-10-17〜、教員の指示で術は「ヒント」の位置づけ（使わずにすぐ正体を呼んでもよい。renderQ参照）。
+     2026-10-17〜、終の巻を「言霊並べ」（言霊の番人と五目並べ、NR）にした。一〜四の巻をすべてクリアすると挑める。
+     2026-10-18〜、一〜四の巻も番人との言霊並べ（その棚の問いだけ、2段階）にした。仲間になれるのは「すべての棚」だけ。
+     2026-10-18〜、このミニゲーム全体の名前を「言霊並べ」に変えた（それまで「言霊の番人と影の書庫」。教員の指示）。
+     「五目・石・打つ」は使わず、「言霊を並べる・置く」で一貫させる。最後の勝負の名前は「すべての棚」。
+     問題データ（CASES[].items）の r は術の順番どおり。正解 a は「最初に○になる術」の番号と一致させる
+     （術の数より札が一枚多い棚は、どれも×なら最後の札）。checkData()が読み込み時に確かめる。
+     本体のセーブデータ(st)には直接触れず、このページ専用のlocalStorageキー(ST_LSKEY)を使う。
+     1回目で正しい正体を呼べたら（★）、本体の「識別」(shikibetsu)ジャンルに＋1を書き置く（MG_PENDING_LVUP_LSKEY、まちがいでは下げない）。
+     番人の絵は本体と同じスプライト(enemy_sprites_data.js の me04_*)を使い、読み込めなかったときは👑で代用する。 -->
+<script src="enemy_sprites_data.js"></script>
+<style>
+  :root{
+    --bg1:#0d1128; --bg2:#18204a; --bg3:#26306a;
+    --gold:#f2cf75; --gold2:#d9a740; --sky:#9fd3ff;
+    --paper:#f3ead6; --paperInk:#2a2216;
+    --kage:#4b3a8f; --kage2:#8a73e0;
+    --ok:#6fe0a0; --ng:#ff7b7b;
+    --text:#f4f2ec; --sub:#b9b6d3;
+    --panel:rgba(255,255,255,.07); --line:rgba(255,255,255,.16);
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{
+    width:100%; height:100%; overflow:hidden;
+    background:radial-gradient(ellipse at 50% -10%, #3a3a7a 0%, var(--bg2) 45%, var(--bg1) 100%);
+    background-color:var(--bg1);
+    font-family:'Hiragino Sans','Yu Gothic','Meiryo',sans-serif;
+    color:var(--text); -webkit-font-smoothing:antialiased;
+    user-select:none; -webkit-user-select:none;
+  }
+  button{ font-family:inherit; cursor:pointer; }
+  .mincho{ font-family:'Hiragino Mincho ProN','Yu Mincho','YuMincho','BIZ UDMincho',serif; }
+  .screen{ display:none; height:100vh; height:100dvh; flex-direction:column; overflow-y:auto; position:relative; z-index:1; }
+  .screen.show{ display:flex; }
+  .wrap{ width:100%; max-width:560px; margin:0 auto; padding:0 16px 28px; }
+  /* 背景に舞う文字 */
+  #floatKana{ position:fixed; inset:0; pointer-events:none; z-index:0; overflow:hidden; }
+  #floatKana span{ position:absolute; color:rgba(159,211,255,.13); font-family:'Hiragino Mincho ProN','Yu Mincho',serif; animation:drift linear infinite; }
+  @keyframes drift{ from{ transform:translateY(105vh) rotate(0deg); } to{ transform:translateY(-15vh) rotate(40deg); } }
+  #muteBtn{ position:fixed; top:10px; right:12px; z-index:50; width:38px; height:38px; border-radius:50%;
+    border:1px solid var(--line); background:rgba(0,0,0,.35); color:var(--text); font-size:17px; }
+
+  /* ---------- 番人 ---------- */
+  .bannin img{ display:block; width:100%; height:auto; filter:drop-shadow(0 6px 14px rgba(0,0,0,.55)); }
+  .bannin .emoji{ font-size:90px; line-height:1.2; text-align:center; }
+  .talk{ display:flex; gap:10px; align-items:flex-start; margin:12px 0 6px; }
+  .talk .who{ flex:none; width:62px; }
+  .talk .bubble{ flex:1; background:var(--paper); color:var(--paperInk); border-radius:12px; padding:11px 13px;
+    font-size:14px; line-height:1.75; position:relative; }
+  .talk .bubble::before{ content:""; position:absolute; left:-8px; top:16px; border:8px solid transparent; border-left:0; border-right-color:var(--paper); }
+  .talk .bubble b{ color:#6a3a00; }
+  .talk .bubble .nm{ display:block; font-size:11px; color:#7a6a4d; letter-spacing:.08em; margin-bottom:2px; }
+
+  /* ---------- タイトル ---------- */
+  .hero{ text-align:center; padding:22px 0 0; }
+  .hero .bannin{ width:180px; margin:0 auto; }
+  .hero h1{ font-size:27px; letter-spacing:.1em; margin-top:4px; color:var(--gold);
+    text-shadow:0 2px 0 #6b4a12, 0 0 20px rgba(242,207,117,.3); }
+  .hero .tag{ color:var(--sub); font-size:13px; margin-top:4px; letter-spacing:.06em; }
+  .case-list{ display:flex; flex-direction:column; gap:10px; margin:14px 0 8px; }
+  .case-btn{ display:flex; align-items:center; gap:12px; text-align:left; width:100%;
+    background:linear-gradient(180deg, rgba(255,255,255,.09), rgba(255,255,255,.04));
+    border:1px solid var(--line); border-radius:14px; color:var(--text); padding:12px 14px; }
+  .case-btn:active{ transform:scale(.98); }
+  .case-btn .num{ flex:none; width:46px; height:46px; border-radius:10px; display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(180deg, #f6e7c2, #d8c08c); color:#3a2408; border:1px solid var(--gold2);
+    font-family:'Hiragino Mincho ProN','Yu Mincho',serif; font-size:19px; font-weight:bold; }
+  .case-btn .t{ font-size:16px; font-weight:bold; }
+  .case-btn .d{ font-size:12px; color:var(--sub); margin-top:2px; }
+  .case-btn .best{ margin-left:auto; flex:none; font-size:12px; color:var(--gold); text-align:right; white-space:nowrap; }
+  .case-btn.final{ border-color:rgba(242,207,117,.5); }
+  .case-btn.final .num{ background:linear-gradient(180deg, #ffe9a8, #e2b04a); }
+
+  /* ---------- 巻の前置き ---------- */
+  .intro-title{ text-align:center; padding:22px 0 0; }
+  .intro-title .k{ color:var(--sub); font-size:13px; letter-spacing:.2em; }
+  .intro-title .n{ font-size:25px; font-weight:bold; color:var(--gold); margin-top:4px; letter-spacing:.08em; }
+  .scroll{ background:linear-gradient(180deg, #f6eedb, #ebdfc2); color:var(--paperInk); border-radius:6px; padding:12px 14px; margin-top:12px;
+    box-shadow:0 6px 18px rgba(0,0,0,.4); border-left:8px solid #b8925a; border-right:8px solid #b8925a; }
+  .scroll h3{ font-size:14px; color:#6a3a00; margin-bottom:6px; letter-spacing:.06em; }
+  .flow{ list-style:none; counter-reset:f; }
+  .flow li{ counter-increment:f; position:relative; padding:7px 0 7px 32px; font-size:15.5px; line-height:1.6; border-top:1px dashed rgba(0,0,0,.15); }
+  .flow li:first-child{ border-top:0; }
+  .flow li::before{ content:counter(f); position:absolute; left:0; top:8px; width:22px; height:22px; border-radius:50%;
+    background:var(--kage); color:#fff; font-size:12px; display:flex; align-items:center; justify-content:center; }
+  .flow li .lens{ color:#6a3a00; font-weight:bold; }
+  .flow li .to{ color:#4b3a8f; font-weight:bold; }
+  .flow li.last::before{ content:"他"; background:#777; }
+
+  .btn-main{ display:block; width:100%; margin-top:16px; padding:15px; border:0; border-radius:14px;
+    background:linear-gradient(180deg, var(--gold), var(--gold2)); color:#3a2408; font-size:17px; font-weight:bold;
+    letter-spacing:.08em; box-shadow:0 4px 0 #8a5a14; }
+  .btn-main:active{ transform:translateY(2px); box-shadow:0 2px 0 #8a5a14; }
+  .btn-main:disabled{ background:#555a70; color:#c9c9d2; box-shadow:0 4px 0 #33363e; }
+  .btn-sub[hidden]{ display:none; } /* display:blockが[hidden]に勝たないように（ヒントのボタン） */
+  .btn-sub{ display:block; width:100%; margin-top:10px; padding:12px; border:1px solid var(--line); border-radius:12px;
+    background:transparent; color:var(--sub); font-size:14px; }
+
+  /* ---------- 書庫（遊ぶ画面） ---------- */
+  .bar{ display:flex; align-items:center; gap:8px; padding:12px 0 6px; }
+  .bar .cn{ font-size:13px; color:var(--sub); }
+  .bar .prog{ margin-left:auto; font-size:13px; color:var(--gold); font-weight:bold; }
+  .bar button{ border:1px solid var(--line); background:rgba(0,0,0,.25); color:var(--text); border-radius:10px; padding:6px 10px; font-size:12px; }
+  .scene{ background:linear-gradient(180deg, #f6eedb, #ebdfc2); color:var(--paperInk); border-radius:8px; padding:16px 14px 14px; margin-top:4px;
+    box-shadow:0 8px 24px rgba(0,0,0,.45); border-left:10px solid #b8925a; border-right:10px solid #b8925a; }
+  .scene .lbl{ font-size:14px; font-weight:bold; color:#7a5a24; letter-spacing:.2em; text-align:center; }
+  .scene .sent{ font-size:24px; line-height:1.9; text-align:center; margin-top:6px; word-break:keep-all; overflow-wrap:anywhere; }
+  .kage{ display:inline-block; padding:0 4px; margin:0 1px; border-radius:6px; color:#fff;
+    background:linear-gradient(180deg, var(--kage2), var(--kage));
+    box-shadow:0 0 0 2px rgba(75,58,143,.25), 0 0 14px rgba(138,115,224,.75); animation:kage 2.4s ease-in-out infinite; }
+  @keyframes kage{ 50%{ box-shadow:0 0 0 2px rgba(75,58,143,.25), 0 0 4px rgba(138,115,224,.4); } }
+  .ask{ display:flex; gap:8px; align-items:center; margin:10px 0 2px; }
+  .ask .mini{ flex:none; width:44px; }
+  .ask .t{ font-size:16px; color:var(--sub); line-height:1.6; }
+  .sec-h{ font-size:14.5px; color:var(--gold); margin:14px 0 6px; letter-spacing:.06em; }
+  .sec-h small{ color:var(--sub); font-size:11px; letter-spacing:0; }
+  .tools{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .tool{ text-align:left; border:1px solid rgba(159,211,255,.35); border-radius:12px; background:rgba(159,211,255,.07);
+    color:var(--text); padding:9px 10px; min-height:58px; }
+  .tool .tn{ font-size:16px; font-weight:bold; color:var(--sky); }
+  .tool .td{ font-size:13px; color:var(--sub); margin-top:2px; line-height:1.45; }
+  .tool.used{ border-color:rgba(242,207,117,.6); background:rgba(242,207,117,.12); }
+  .tool.used .tn{ color:var(--gold); }
+  .tool:active{ transform:scale(.97); }
+  .evid{ display:flex; flex-direction:column; gap:8px; }
+  .evid .empty{ font-size:12.5px; color:var(--sub); border:1px dashed var(--line); border-radius:12px; padding:12px; text-align:center; }
+  .ev{ background:rgba(0,0,0,.28); border:1px solid var(--line); border-left:4px solid var(--sky); border-radius:10px; padding:9px 11px; animation:pop .3s ease-out; }
+  .ev .en{ font-size:13px; color:var(--sky); letter-spacing:.06em; }
+  .ev .et{ font-size:20px; margin-top:3px; line-height:1.7; }
+  .ev .et mark{ background:rgba(242,207,117,.22); color:var(--gold); border-bottom:2px solid var(--gold); padding:0 2px; border-radius:3px; }
+  @keyframes pop{ from{ opacity:0; transform:translateY(-4px) scale(.98); filter:blur(2px); } to{ opacity:1; transform:none; filter:none; } }
+  .ev .pick{ margin-top:6px; border:1px solid var(--gold); background:rgba(242,207,117,.14); color:var(--gold); border-radius:99px; padding:4px 12px; font-size:12.5px; font-weight:bold; }
+  .ev .pick:active{ transform:scale(.96); }
+  .ev .tag{ margin-top:6px; font-size:12px; font-weight:bold; }
+  .ev.chosen{ border-left-color:var(--gold); background:rgba(242,207,117,.12); box-shadow:0 0 0 2px rgba(242,207,117,.45); }
+  .ev.chosen .tag{ color:var(--gold); }
+  .ev.wrong{ opacity:.6; border-left-color:var(--ng); }
+  .ev.wrong .tag{ color:var(--ng); }
+  .ev.shake{ animation:evShake .4s; }
+  @keyframes evShake{ 25%{ transform:translateX(-6px); } 75%{ transform:translateX(6px); } }
+  #plNameSec{ animation:pop .35s ease-out; }
+  .ri .m.h{ color:var(--gold); }
+  .sus{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .su{ text-align:left; border:2px solid #b8925a; border-radius:6px; background:linear-gradient(180deg, #f6eedb, #e6d7b4);
+    color:var(--paperInk); padding:9px 10px; }
+  .su .sn{ font-size:17px; font-weight:bold; line-height:1.5; font-family:'Hiragino Mincho ProN','Yu Mincho',serif; }
+  .su .sk{ font-size:11px; color:#6d5f45; margin-top:3px; line-height:1.45; }
+  /* いろいろな問い（2026-10-17〜）：文を選ぶ問いは1列、文の中の影は小さめに。
+     2026-10-17、教員の指示「問題文のフォントが小さくて読みにくい」で、問題文・選択肢・指示・解説の文字をひと回り大きくした */
+  .sus.one{ grid-template-columns:1fr; }
+  .su .sn .kage{ animation:none; padding:0 3px; }
+  .su .sn mark{ background:none; color:inherit; }
+  .scene .qname{ font-size:23px; font-weight:bold; }
+  .scene .qk{ font-size:15px; color:#6d5f45; margin-top:2px; }
+  .scene .qorig{ font-size:19px; color:#6d5f45; }
+  .scene .qtool{ font-size:15px; color:#8a5a14; margin:2px 0; }
+  .scene .sent mark{ background:rgba(233,185,74,.35); color:inherit; border-bottom:2px solid #b8925a; padding:0 2px; border-radius:3px; }
+  .judge-opts{ margin-top:10px; display:flex; flex-direction:column; gap:6px; }
+  .judge-opts .jo{ display:flex; gap:8px; align-items:flex-start; font-size:17px; line-height:1.6; padding:6px 8px; border-radius:8px; background:rgba(255,255,255,.05); }
+  .judge-opts .jo.ans{ background:rgba(242,207,117,.16); box-shadow:0 0 0 1px var(--gold); }
+  .judge-opts .jo .mk{ flex:none; width:1.4em; text-align:center; font-weight:bold; color:var(--gold); }
+  .judge-opts .jo .u{ display:block; font-size:14px; color:var(--sub); }
+  .su.sel{ border-color:var(--kage2); box-shadow:0 0 0 3px rgba(138,115,224,.6), 0 0 16px rgba(138,115,224,.6); transform:translateY(-2px); }
+  .warn{ font-size:12px; color:var(--sub); text-align:center; margin-top:8px; min-height:1.2em; }
+
+  /* ---------- 番人の手引き（答え合わせ） ---------- */
+  .overlay{ position:fixed; inset:0; background:rgba(5,6,18,.8); display:none; align-items:flex-end; justify-content:center; z-index:20; }
+  .overlay.show{ display:flex; }
+  .sheet{ width:100%; max-width:560px; max-height:92dvh; overflow-y:auto; background:var(--bg2); border-top:1px solid var(--line);
+    border-radius:18px 18px 0 0; padding:16px 16px 22px; animation:up .28s ease-out; }
+  @keyframes up{ from{ transform:translateY(30px); opacity:0; } to{ transform:none; opacity:1; } }
+  .verdict-row{ display:flex; align-items:center; gap:10px; }
+  .verdict-row .bannin{ flex:none; width:96px; }
+  .verdict{ font-size:23px; font-weight:bold; letter-spacing:.06em; }
+  .verdict.ok{ color:var(--ok); }
+  .verdict.ng{ color:var(--ng); }
+  .truth{ margin-top:4px; font-size:15px; color:var(--sub); line-height:1.6; }
+  .truth b{ color:#d9ccff; font-size:18px; }
+  .truth .yours{ display:block; font-size:12px; }
+  .steps{ margin-top:6px; display:flex; flex-direction:column; gap:7px; }
+  .st{ display:flex; gap:10px; align-items:flex-start; background:rgba(255,255,255,.05); border-radius:10px; padding:8px 10px; }
+  .st .mk{ flex:none; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:15px; }
+  .st .mk.o{ background:rgba(111,224,160,.2); color:var(--ok); border:1px solid var(--ok); }
+  .st .mk.x{ background:rgba(255,123,123,.15); color:var(--ng); border:1px solid var(--ng); }
+  .st .mk.e{ background:rgba(255,255,255,.08); color:var(--sub); border:1px solid var(--line); font-size:12px; }
+  .st .sl{ font-size:13px; color:var(--sky); }
+  .st .stt{ font-size:18px; line-height:1.6; }
+  .st .stt mark{ background:rgba(242,207,117,.22); color:var(--gold); padding:0 2px; border-radius:3px; }
+  .st .sj{ font-size:14px; color:var(--sub); }
+  .st.deci{ outline:2px solid rgba(111,224,160,.55); }
+  .expl{ margin-top:12px; background:var(--paper); color:var(--paperInk); border-radius:12px; padding:11px 13px; font-size:16.5px; line-height:1.75; }
+  .expl::before{ content:"👑 言霊の番人のことば"; display:block; font-size:11px; color:#7a6a4d; letter-spacing:.08em; margin-bottom:3px; }
+  .lvup{ margin-top:8px; text-align:center; font-size:12px; color:var(--gold); }
+
+  /* ---------- 結果 ---------- */
+  .res{ text-align:center; padding:20px 0 4px; }
+  .res .bannin{ width:170px; margin:0 auto; }
+  .res .rank{ font-size:25px; font-weight:bold; color:var(--gold); margin-top:4px; letter-spacing:.08em; }
+  .res .score{ font-size:16px; margin-top:6px; color:var(--sub); }
+  .res .score b{ font-size:30px; color:var(--text); }
+  .res .newbest{ display:inline-block; margin-top:8px; font-size:12px; color:#3a2408; background:var(--gold); border-radius:99px; padding:3px 10px; }
+  .res .lv{ font-size:13px; color:var(--gold); margin-top:6px; }
+  .rlist{ margin-top:14px; display:flex; flex-direction:column; gap:6px; }
+  .ri{ display:flex; gap:8px; align-items:center; background:var(--panel); border-radius:10px; padding:8px 10px; font-size:13.5px; text-align:left; }
+  .ri .m{ flex:none; font-weight:bold; width:20px; text-align:center; }
+  .ri .m.o{ color:var(--ok); } .ri .m.x{ color:var(--ng); }
+  .ri .s{ flex:1; line-height:1.6; }
+  .ri .s .kage{ animation:none; font-size:12.5px; }
+  .ri .a{ flex:none; font-size:11px; color:#d9ccff; max-width:42%; text-align:right; }
+
+  /* 決め手の術を当てた：判子 */
+  .ev{ position:relative; }
+  .ev .stamp{ position:absolute; right:10px; top:50%; transform:translateY(-50%) rotate(-12deg); border:3px solid #e0463a; color:#e0463a;
+    border-radius:10px; padding:2px 8px; font-weight:bold; font-size:18px; font-family:'Hiragino Mincho ProN','Yu Mincho',serif;
+    background:rgba(255,240,230,.9); box-shadow:0 0 12px rgba(224,70,58,.5); animation:stampIn .45s cubic-bezier(.2,1.6,.4,1) both; pointer-events:none; }
+  @keyframes stampIn{ from{ opacity:0; transform:translateY(-50%) rotate(-12deg) scale(2.6); } to{ opacity:1; transform:translateY(-50%) rotate(-12deg) scale(1); } }
+  .ev.chosen{ animation:chosenGlow 1.2s ease-out; }
+  @keyframes chosenGlow{ 0%{ box-shadow:0 0 0 0 rgba(242,207,117,.9); } 100%{ box-shadow:0 0 0 2px rgba(242,207,117,.45); } }
+  .spark{ position:fixed; z-index:70; pointer-events:none; font-size:18px; color:var(--gold); text-shadow:0 0 8px rgba(242,207,117,.9); }
+  /* 影が正体をとりもどした */
+  .kage.revealed{ background:linear-gradient(180deg, #fff1b8, #e9b94a); color:#3a2408; animation:revealPop .6s cubic-bezier(.2,1.6,.4,1);
+    box-shadow:0 0 0 2px rgba(242,207,117,.5), 0 0 22px rgba(242,207,117,.95); }
+  @keyframes revealPop{ 0%{ transform:scale(.6); } 60%{ transform:scale(1.35); } 100%{ transform:scale(1); } }
+  .sent.miss{ animation:evShake .45s; }
+  /* 正体を正しく呼んだ：画面いっぱいの演出 */
+  .celebrate{ position:fixed; inset:0; z-index:40; display:flex; align-items:center; justify-content:center; flex-direction:column;
+    background:radial-gradient(circle at 50% 45%, rgba(255,236,170,.35), rgba(13,17,40,.88) 62%); overflow:hidden; animation:celFade .25s ease-out; }
+  @keyframes celFade{ from{ opacity:0; } to{ opacity:1; } }
+  .celebrate .rays{ position:absolute; left:50%; top:45%; width:220vmax; height:220vmax; margin:-110vmax 0 0 -110vmax;
+    background:repeating-conic-gradient(rgba(255,226,140,.22) 0 8deg, transparent 8deg 20deg); animation:spin 9s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  .celebrate .bn{ position:relative; width:150px; animation:celUp .5s cubic-bezier(.2,1.4,.4,1) both; }
+  .celebrate .big{ position:relative; font-family:'Hiragino Mincho ProN','Yu Mincho',serif; font-size:64px; font-weight:bold; color:#fff3c4; letter-spacing:.08em;
+    text-shadow:0 0 18px rgba(255,214,102,.95), 0 4px 0 #8a5a14; animation:celBig .55s cubic-bezier(.2,1.8,.4,1) .1s both; }
+  @keyframes celBig{ from{ opacity:0; transform:scale(3); } to{ opacity:1; transform:scale(1); } }
+  @keyframes celUp{ from{ opacity:0; transform:translateY(30px); } to{ opacity:1; transform:none; } }
+  .celebrate .nm{ position:relative; margin-top:6px; font-family:'Hiragino Mincho ProN','Yu Mincho',serif; font-size:24px; font-weight:bold; color:#3a2408;
+    background:linear-gradient(180deg, #fff1b8, #e9b94a); border-radius:10px; padding:6px 16px; box-shadow:0 0 20px rgba(242,207,117,.8);
+    animation:celUp .45s ease-out .35s both; }
+  .celebrate .star{ position:relative; font-size:70px; color:#ffd84a; text-shadow:0 0 20px rgba(255,216,74,1); margin-top:6px;
+    animation:starIn .7s cubic-bezier(.2,1.6,.4,1) .55s both; }
+  @keyframes starIn{ from{ opacity:0; transform:scale(0) rotate(-200deg); } to{ opacity:1; transform:scale(1) rotate(0); } }
+  .celebrate .pt{ position:absolute; left:50%; top:45%; font-family:'Hiragino Mincho ProN','Yu Mincho',serif; color:#ffe9a8;
+    text-shadow:0 0 10px rgba(255,214,102,.9); animation:burst 1.3s cubic-bezier(.1,.8,.3,1) forwards; }
+  @keyframes burst{ from{ transform:translate(-50%,-50%) scale(.4); opacity:1; } to{ transform:translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.2) rotate(var(--r)); opacity:0; } }
+  /* 正解の演出に、かんたんな解説と「次へ」をのせる（2026-10-17〜、教員の指示）。縦に収まるよう少し小さくする。
+     解説は演出と同時に見せる（遅らせて出さない、教員の指示） */
+  .celebrate.with-ex{ padding:16px; }
+  .celebrate.with-ex .bn{ width:100px; }
+  .celebrate.with-ex .big{ font-size:50px; }
+  .celebrate.with-ex .star{ font-size:48px; margin-top:2px; }
+  .celebrate .ex{ position:relative; max-width:520px; margin-top:12px; padding:12px 16px; border:1px solid var(--gold); border-radius:12px;
+    background:rgba(13,17,40,.9); color:#f6eed6; font-size:17px; line-height:1.75; text-align:left; animation:celFade .25s ease-out both; }
+  .celebrate .ex b{ color:var(--gold); }
+  .celebrate .go{ position:relative; margin-top:14px; padding:12px 34px; border:none; border-radius:12px; font-size:16px; font-weight:bold;
+    color:#3a2408; background:linear-gradient(180deg, #fff1b8, #e9b94a); box-shadow:0 0 16px rgba(242,207,117,.7); animation:celFade .25s ease-out both; }
+  .toast{ position:fixed; left:50%; top:14px; transform:translateX(-50%); z-index:60; background:rgba(20,24,60,.95); border:1px solid var(--gold);
+    color:var(--gold); border-radius:99px; padding:6px 14px; font-size:13px; animation:toast 1.8s ease-out forwards; pointer-events:none; }
+  @keyframes toast{ 0%{ opacity:0; transform:translate(-50%,-12px); } 12%{ opacity:1; transform:translate(-50%,0); } 80%{ opacity:1; } 100%{ opacity:0; } }
+
+  /* ============================================================
+     終の巻「言霊並べ」（2026-10-17〜、教員の指示）：言霊の番人と五目並べ。
+     ほかの画面とまざらないよう、すべて #narabe の中だけに効かせる（アニメーション名も nr- をつける）。
+     ============================================================ */
+  #narabe .nr-wrap{ width:100%; max-width:900px; margin:0 auto; padding:10px 16px 28px; }
+  #narabe .nr-top{ display:flex; align-items:center; gap:8px; padding-right:46px; }
+  #narabe .nr-top h1{ font-size:18px; letter-spacing:.1em; color:var(--gold); flex:1; }
+  #narabe .nr-pill{ background:rgba(255,255,255,.08); border:1px solid var(--line); border-radius:99px; padding:4px 10px; font-size:13px; white-space:nowrap; }
+  #narabe .nr-pill b{ color:var(--gold); font-size:16px; }
+  #narabe .nr-pill[hidden]{ display:none; }
+  #narabe .nr-back{ background:rgba(255,255,255,.08); border:1px solid var(--line); border-radius:8px; color:var(--text); font-size:14px; padding:3px 9px; }
+  /* 並び（2026-10-17、教員の指示「盤のちょうど右側に、キャラクターの画像があると見やすい」）：
+     上に問いのカード、その下に 盤（左）＋番人（右）を横にならべ、番人の欄の高さを盤にそろえる。 */
+  #narabe .nr-layout{ display:grid; grid-template-columns:auto 320px; grid-template-areas:"card card" "board foe" "rules rules";
+    justify-content:center; gap:14px 18px; margin-top:8px; }
+  #narabe .nr-card{ grid-area:card; }
+  #narabe .nr-board{ grid-area:board; }
+  #narabe .nr-foe{ grid-area:foe; }
+  #narabe .nr-rules{ grid-area:rules; }
+
+  /* 相手：言霊の番人（右側に大きく） */
+  #narabe .nr-foe{ position:relative; align-self:stretch; display:flex; flex-direction:column; align-items:stretch; gap:8px; padding:12px; border-radius:16px;
+    background:radial-gradient(ellipse at 50% 70%, rgba(138,115,224,.35), rgba(25,10,40,.9) 70%), linear-gradient(180deg, #2a1d52, #120a26);
+    border:1px solid rgba(201,167,255,.45); box-shadow:0 10px 30px rgba(0,0,0,.5), inset 0 0 40px rgba(138,115,224,.25); overflow:hidden; }
+  #narabe .nr-foe.shiny{ border-color:#ffe680; box-shadow:0 10px 30px rgba(0,0,0,.5), inset 0 0 50px rgba(255,214,102,.25), 0 0 24px rgba(255,214,102,.35); }
+  #narabe .nr-foe.danger{ border-color:#ff7b7b; animation:nr-warn .9s ease-in-out infinite; }
+  @keyframes nr-warn{ 50%{ box-shadow:0 0 0 3px rgba(255,123,123,.5), 0 0 26px rgba(255,80,80,.7); } }
+  #narabe .nr-foehead{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  #narabe .nr-foename{ font-family:'Hiragino Mincho ProN','Yu Mincho',serif; font-size:19px; font-weight:bold; color:#f1e6ff; letter-spacing:.06em; text-shadow:0 0 10px rgba(160,100,255,.8); }
+  #narabe .nr-foe.shiny .nr-foename{ color:#fff3c4; text-shadow:0 0 10px rgba(255,214,102,.9); }
+  #narabe .nr-pips{ display:flex; gap:5px; }
+  #narabe .nr-pips i{ width:12px; height:12px; border-radius:50%; border:1.5px solid #c9a7ff; display:block; }
+  #narabe .nr-pips i.done{ background:#c9a7ff; }
+  #narabe .nr-pips i.now{ background:#ffe680; border-color:#ffe680; box-shadow:0 0 8px #ffe680; }
+  #narabe .nr-foestage{ font-size:12.5px; color:var(--sub); }
+  #narabe .nr-say{ position:relative; background:#f6eedb; color:#3a1a50; border-radius:12px; padding:9px 12px; font-size:15.5px; font-weight:bold; line-height:1.6;
+    min-height:3.4em; box-shadow:0 4px 12px rgba(0,0,0,.35); }
+  #narabe .nr-say::after{ content:""; position:absolute; left:50%; bottom:-9px; margin-left:-9px; border:9px solid transparent; border-bottom:0; border-top-color:#f6eedb; }
+  #narabe .nr-say.pop{ animation:nr-sayPop .3s ease-out; }
+  @keyframes nr-sayPop{ from{ transform:scale(.92); opacity:.4; } }
+  #narabe .nr-foeimg{ position:relative; flex:1; min-height:220px; display:flex; align-items:flex-end; justify-content:center; font-size:120px; margin-top:4px; }
+  #narabe .nr-foeimg::before{ content:""; position:absolute; left:10%; right:10%; bottom:4px; height:26px; border-radius:50%; background:radial-gradient(ellipse, rgba(138,115,224,.55), transparent 70%); }
+  #narabe .nr-foe.shiny .nr-foeimg::before{ background:radial-gradient(ellipse, rgba(255,214,102,.55), transparent 70%); }
+  #narabe .nr-foeimg img{ position:relative; width:100%; height:100%; object-fit:contain; object-position:center bottom; filter:drop-shadow(0 0 14px rgba(160,100,255,.75)); animation:nr-float 3.2s ease-in-out infinite; }
+  #narabe .nr-foe.shiny .nr-foeimg img{ filter:drop-shadow(0 0 16px rgba(255,214,102,.85)); }
+  @keyframes nr-float{ 50%{ transform:translateY(-8px); } }
+  #narabe .nr-foeimg.cast img{ animation:nr-cast .7s; }
+  @keyframes nr-cast{ 40%{ transform:scale(1.12); filter:drop-shadow(0 0 30px #b06cff) brightness(1.3); } }
+  #narabe .nr-foeimg.hit img{ animation:nr-hit .5s; }
+  @keyframes nr-hit{ 20%{ transform:translateX(-12px); filter:brightness(2.5); } 45%{ transform:translateX(10px); } 70%{ transform:translateX(-5px); } }
+  @media (max-width:760px){
+    #narabe .nr-layout{ grid-template-columns:1fr; grid-template-areas:"foe" "card" "board" "rules"; gap:8px; }
+    #narabe .nr-board{ margin:0 auto; }
+    #narabe .nr-foe{ position:relative; top:0; display:grid; grid-template-columns:1fr 120px; grid-template-rows:auto 1fr; gap:6px 10px; padding:10px; }
+    #narabe .nr-foehead{ grid-column:1; grid-row:1; flex-wrap:wrap; }
+    #narabe .nr-foename{ font-size:16px; }
+    #narabe .nr-say{ grid-column:1; grid-row:2; font-size:14.5px; min-height:0; align-self:start; }
+    #narabe .nr-say::after{ left:auto; right:-9px; top:14px; bottom:auto; margin:0; border:9px solid transparent; border-right:0; border-left-color:#f6eedb; }
+    #narabe .nr-foeimg{ grid-column:2; grid-row:1 / span 2; height:130px; min-height:0; font-size:70px; margin:0; }
+  }
+
+  /* 問いのカード */
+  #narabe .nr-card{ background:linear-gradient(180deg, #f6eedb, #ebdfc2); color:var(--paperInk); border-radius:10px; padding:10px 14px 12px; box-shadow:0 6px 20px rgba(0,0,0,.35); }
+  #narabe .nr-turn{ font-size:13px; font-weight:bold; text-align:center; color:#4b3a8f; }
+  #narabe .nr-turn.danger{ color:#c0283f; }
+  #narabe .nr-lbl{ font-size:13px; font-weight:bold; color:#7a5a24; letter-spacing:.15em; text-align:center; margin-top:2px; }
+  #narabe .nr-sent{ font-size:21px; line-height:1.8; text-align:center; margin-top:2px; }
+  #narabe .nr-qorig{ font-size:17px; color:#6d5f45; text-align:center; }
+  #narabe .nr-qtool{ font-size:14px; color:#8a5a14; text-align:center; }
+  #narabe .nr-qname{ font-size:20px; font-weight:bold; text-align:center; margin-top:2px; }
+  #narabe .nr-ask{ font-size:15px; color:#5a4a2c; text-align:center; margin-top:2px; }
+  #narabe .nr-card mark{ background:rgba(233,185,74,.35); color:inherit; border-bottom:2px solid #b8925a; padding:0 2px; border-radius:3px; }
+  #narabe .nr-card .kage{ animation:none; }
+  #narabe .nr-opts{ display:grid; grid-template-columns:1fr 1fr; gap:7px; margin-top:8px; }
+  #narabe .nr-opts.one{ grid-template-columns:1fr; }
+  #narabe .nr-opt{ text-align:left; border:2px solid #b8925a; border-radius:7px; background:#fffaf0; color:var(--paperInk); padding:7px 10px;
+    font-size:16px; font-weight:bold; line-height:1.5; font-family:'Hiragino Mincho ProN','Yu Mincho',serif; }
+  #narabe .nr-opt .kage{ padding:0 3px; }
+  #narabe .nr-opt.right{ border-color:#2f9a5e; background:#e3f7ea; }
+  #narabe .nr-opt.wrong{ border-color:#c94b4b; background:#fbe3e3; }
+  #narabe .nr-res{ text-align:center; }
+  #narabe .nr-big{ font-size:24px; font-weight:bold; letter-spacing:.1em; }
+  #narabe .nr-big.ok{ color:#c0841a; }
+  #narabe .nr-big.ng{ color:#b84040; }
+  #narabe .nr-ans{ font-size:16px; margin-top:2px; }
+  #narabe .nr-ex{ font-size:14.5px; line-height:1.7; text-align:left; margin-top:6px; background:rgba(255,255,255,.6); border-radius:8px; padding:7px 10px; }
+  #narabe .nr-go{ margin-top:8px; font-size:16px; font-weight:bold; color:#4b3a8f; }
+  #narabe .nr-btn{ display:block; width:100%; margin-top:8px; padding:11px; border:none; border-radius:10px; font-size:16px; font-weight:bold;
+    color:#3a2408; background:linear-gradient(180deg, #fff1b8, #e9b94a); }
+  #narabe .nr-btn.sub{ background:rgba(255,255,255,.12); color:var(--text); }
+
+  /* 碁盤 */
+  #narabe .nr-board{ position:relative; margin:0; width:min(calc(100vw - 32px), 50vh, 520px); min-width:270px; aspect-ratio:1; padding:3%; border-radius:10px;
+    background:linear-gradient(135deg, #3b2f1c, #2a2013); box-shadow:0 8px 24px rgba(0,0,0,.5), inset 0 0 0 2px rgba(242,207,117,.35); }
+  #narabe .nr-grid{ position:relative; width:100%; height:100%; display:grid; grid-template-columns:repeat(9, 1fr); grid-template-rows:repeat(9, 1fr); }
+  #narabe .pt{ position:relative; display:flex; align-items:center; justify-content:center; }
+  #narabe .pt::before, #narabe .pt::after{ content:""; position:absolute; background:rgba(242,207,117,.45); }
+  #narabe .pt::before{ left:0; right:0; top:50%; height:1px; }
+  #narabe .pt::after{ top:0; bottom:0; left:50%; width:1px; }
+  #narabe .pt.l::before{ left:50%; } #narabe .pt.r::before{ right:50%; } #narabe .pt.t::after{ top:50%; } #narabe .pt.b::after{ bottom:50%; }
+  #narabe .pt.star .dot{ position:absolute; width:18%; height:18%; border-radius:50%; background:rgba(242,207,117,.7); }
+  #narabe .pt.can{ cursor:pointer; }
+  #narabe .pt.can:hover .ghost{ opacity:.55; }
+  #narabe .ghost{ position:absolute; width:78%; height:78%; border-radius:50%; background:radial-gradient(circle at 35% 30%, #fff6d8, #f2cf75 70%); opacity:0; transition:opacity .1s; z-index:1; }
+  #narabe .pt.can .ghost{ opacity:.12; }
+  #narabe .st{ position:absolute; width:84%; height:84%; border-radius:50%; z-index:2; }
+  #narabe .st.me{ background:radial-gradient(circle at 35% 30%, #fffbe8, #f2cf75 55%, #c89a2e); box-shadow:0 2px 4px rgba(0,0,0,.5), 0 0 8px rgba(242,207,117,.5); }
+  #narabe .st.foe{ background:radial-gradient(circle at 38% 32%, #6a5a98, #1a1030 70%); box-shadow:0 2px 4px rgba(0,0,0,.6), 0 0 8px rgba(140,90,230,.55); }
+  #narabe .st.last::after{ content:""; position:absolute; inset:34%; border-radius:50%; border:2px solid #ff7b7b; }
+  #narabe .st.put{ animation:nr-put .35s cubic-bezier(.2,1.6,.4,1); }
+  @keyframes nr-put{ from{ transform:scale(1.8); opacity:0; } to{ transform:scale(1); opacity:1; } }
+  #narabe .st.win{ animation:nr-winp .8s ease-in-out infinite; }
+  @keyframes nr-winp{ 50%{ transform:scale(1.15); filter:brightness(1.6); } }
+  #narabe .pt.threat .ring{ position:absolute; width:90%; height:90%; border-radius:50%; border:2px dashed #ff7b7b; animation:nr-spinr 3s linear infinite; z-index:1; }
+  @keyframes nr-spinr{ to{ transform:rotate(360deg); } }
+  #narabe .nr-rule{ font-size:13px; color:var(--sub); line-height:1.7; margin-top:10px; text-align:center; }
+
+  /* 結果の板 */
+  #narabe .nr-ov{ position:fixed; inset:0; background:rgba(5,6,18,.82); display:none; align-items:center; justify-content:center; z-index:30; padding:16px; }
+  #narabe .nr-ov.show{ display:flex; }
+  #narabe .nr-sheet{ width:100%; max-width:420px; background:linear-gradient(180deg, #232a63, #141836); border:1px solid var(--line); border-radius:16px; padding:20px; text-align:center; }
+  #narabe .nr-sheet h2{ font-size:24px; color:var(--gold); letter-spacing:.1em; }
+  #narabe .nr-stat{ font-size:15px; color:var(--sub); margin-top:10px; line-height:1.8; }
+  #narabe .nr-pic{ width:96px; height:96px; margin:8px auto 0; display:flex; align-items:center; justify-content:center; font-size:56px; }
+  #narabe .nr-pic img{ max-width:100%; max-height:100%; }
+
+  /* タイトル：終の巻（言霊並べ）がまだ開いていないとき・各巻のクリア印 */
+  .case-btn.locked{ opacity:.55; }
+  .case-btn.locked .num{ filter:grayscale(1); }
+  .case-btn .clr{ display:inline-block; margin-left:6px; font-size:11px; color:#3a2408; background:var(--gold); border-radius:99px; padding:0 7px; vertical-align:middle; }
+  /* 一〜四をクリアしたあとのタイトル：終の巻を大きく、一〜四は「復習する」の中にたたむ */
+  .case-btn.final.big{ padding:16px 14px; border-width:2px; border-color:var(--gold); background:linear-gradient(180deg, rgba(242,207,117,.22), rgba(242,207,117,.06));
+    box-shadow:0 0 18px rgba(242,207,117,.35); animation:nr-titleGlow 2.4s ease-in-out infinite; }
+  .case-btn.final.big .num{ width:56px; height:56px; font-size:24px; }
+  .case-btn.final.big .t{ font-size:19px; }
+  .case-btn.final.big .d{ font-size:13px; color:var(--gold); }
+  @keyframes nr-titleGlow{ 50%{ box-shadow:0 0 6px rgba(242,207,117,.15); } }
+  .review{ margin-top:10px; border:1px solid var(--line); border-radius:12px; background:rgba(255,255,255,.04); }
+  .review summary{ cursor:pointer; padding:11px 14px; font-size:14.5px; color:var(--sub); list-style:none; }
+  .review summary::-webkit-details-marker{ display:none; }
+  .review summary::after{ content:"▼"; float:right; font-size:11px; transition:transform .2s; }
+  .review[open] summary::after{ transform:rotate(180deg); }
+  .review .review-list{ padding:0 10px 10px; display:flex; flex-direction:column; gap:8px; }
+  /* 位置の固定（2026-10-17、教員の指示「問題が変わるたびに盤面とキャラの位置がガタガタ動く」）：
+     問いの形・答えた後の表示で中身の高さが変わっても、カードの高さは固定（中身は上下中央）。
+     4つの文から選ぶ問いは、広い画面では2列にして背を低くする。番人のせりふも高さを固定し、絵が上下しないようにする。
+     高さは全部の棚・5つの形の問いを実際に出して測った最大（広い画面232px・スマホ幅391px）に少し余裕を足した値。 */
+  #narabe .nr-card{ height:242px; overflow-y:auto; display:flex; flex-direction:column; justify-content:center; }
+  #narabe .nr-opts.one{ grid-template-columns:1fr 1fr; }
+  #narabe .nr-say{ height:calc(3.2em + 18px); min-height:0; overflow:hidden; display:flex; align-items:center; }
+  @media (max-width:760px){
+    #narabe .nr-card{ height:400px; }
+    #narabe .nr-opts.one{ grid-template-columns:1fr; }
+    #narabe .nr-say{ height:calc(4.8em + 18px); }
+    #narabe .nr-foe{ grid-template-rows:auto auto; }
+  }
+
+  /* 色違いの番人を倒したときの全画面演出（finale） */
+  #narabe.nr-shake{ animation:nr-shake .7s; }
+  @keyframes nr-shake{ 10%,50%,90%{ transform:translate(-8px, 3px); } 30%,70%{ transform:translate(8px, -3px); } }
+  #narabe .nr-finale{ position:fixed; inset:0; z-index:40; overflow:hidden; display:flex; align-items:center; justify-content:center; cursor:pointer;
+    background:radial-gradient(circle at 50% 45%, #fff0b4 0%, #b071d8 22%, #4a2283 48%, #1a0a3a 75%, #07031a 100%); animation:nr-fin-in .3s ease-out; }
+  #narabe .nr-finale.out{ animation:nr-fin-out .45s ease-in forwards; }
+  @keyframes nr-fin-in{ from{ opacity:0; } }
+  @keyframes nr-fin-out{ to{ opacity:0; transform:scale(1.04); } }
+  #narabe .nr-finale .fl{ position:absolute; inset:0; background:#fff; animation:nr-fin-flash 1s ease-out forwards; z-index:9; pointer-events:none; }
+  @keyframes nr-fin-flash{ 0%{ opacity:1; } 100%{ opacity:0; } }
+  #narabe .nr-finale .rays{ position:absolute; left:50%; top:45%; width:240vmax; height:240vmax; margin:-120vmax 0 0 -120vmax; pointer-events:none; }
+  #narabe .nr-finale .r1{ background:repeating-conic-gradient(rgba(255,226,140,.32) 0 7deg, transparent 7deg 18deg); animation:nr-fin-spin 14s linear infinite; }
+  #narabe .nr-finale .r2{ background:repeating-conic-gradient(from 5deg, rgba(255,140,210,.16) 0 4deg, rgba(140,200,255,.16) 4deg 8deg, transparent 8deg 26deg);
+    animation:nr-fin-spin 20s linear infinite reverse; mix-blend-mode:screen; }
+  @keyframes nr-fin-spin{ to{ transform:rotate(360deg); } }
+  #narabe .nr-finale .ring{ position:absolute; left:50%; top:45%; width:40px; height:40px; margin:-20px 0 0 -20px; border-radius:50%;
+    border:4px solid rgba(255,236,170,.9); box-shadow:0 0 30px rgba(255,214,102,.9), inset 0 0 20px rgba(255,214,102,.7); animation:nr-fin-ring 1.6s ease-out forwards; opacity:0; }
+  #narabe .nr-finale .ring.d2{ animation-delay:.35s; border-color:rgba(255,160,220,.85); }
+  #narabe .nr-finale .ring.d3{ animation-delay:.7s; border-color:rgba(160,210,255,.85); }
+  @keyframes nr-fin-ring{ 0%{ opacity:1; transform:scale(.2); } 100%{ opacity:0; transform:scale(28); } }
+  #narabe .nr-finale .fp{ position:absolute; left:50%; top:45%; font-family:'Hiragino Mincho ProN','Yu Mincho',serif; font-weight:bold; opacity:0;
+    text-shadow:0 0 10px currentColor, 0 0 3px #fff; animation:nr-fin-burst 1.8s cubic-bezier(.1,.8,.3,1) var(--dl) forwards; pointer-events:none; }
+  @keyframes nr-fin-burst{ 0%{ opacity:1; transform:translate(-50%,-50%) scale(.3); } 70%{ opacity:1; }
+    100%{ opacity:0; transform:translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.3) rotate(var(--r)); } }
+  #narabe .nr-finale .cf{ position:absolute; top:-30px; border-radius:2px; opacity:.95; pointer-events:none;
+    animation:nr-fin-fall var(--du) linear var(--dl) infinite; }
+  @keyframes nr-fin-fall{ 0%{ transform:translate(0, 0) rotate(0); } 100%{ transform:translate(var(--sw), 110vh) rotate(720deg); } }
+  #narabe .nr-finale .center{ position:relative; z-index:5; text-align:center; padding:0 16px; }
+  #narabe .nr-finale .boss{ width:min(64vw, 300px); height:min(44vh, 300px); margin:0 auto; display:flex; align-items:flex-end; justify-content:center; font-size:120px;
+    animation:nr-fin-boss 1.1s cubic-bezier(.2,1.5,.4,1) .3s both; }
+  #narabe .nr-finale .boss img{ width:100%; height:100%; object-fit:contain; object-position:center bottom;
+    filter:drop-shadow(0 0 22px rgba(255,236,170,.95)) drop-shadow(0 0 50px rgba(255,180,230,.6)); animation:nr-fin-glow 2s ease-in-out 1.4s infinite; }
+  @keyframes nr-fin-boss{ from{ opacity:0; transform:scale(.3) rotate(-10deg); filter:brightness(4); } to{ opacity:1; transform:none; filter:none; } }
+  @keyframes nr-fin-glow{ 50%{ filter:drop-shadow(0 0 34px rgba(255,248,210,1)) drop-shadow(0 0 70px rgba(160,210,255,.7)); transform:translateY(-6px); } }
+  #narabe .nr-finale .big{ margin-top:10px; font-size:clamp(30px, 7vw, 54px); font-weight:bold; line-height:1.25; letter-spacing:.08em;
+    background:linear-gradient(100deg, #fff6c8 0%, #ffd84a 25%, #fff 40%, #ffb3e6 55%, #ffd84a 70%, #fff6c8 100%); background-size:250% 100%;
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 0 12px rgba(255,214,102,.9)) drop-shadow(0 3px 0 rgba(120,60,0,.6));
+    animation:nr-fin-text .9s cubic-bezier(.2,1.6,.4,1) .9s both, nr-fin-shimmer 2.4s linear 1.8s infinite; }
+  @keyframes nr-fin-text{ from{ opacity:0; transform:scale(2.4); } to{ opacity:1; transform:scale(1); } }
+  @keyframes nr-fin-shimmer{ to{ background-position:-250% 0; } }
+  #narabe .nr-finale .sub{ margin-top:8px; font-size:18px; font-weight:bold; color:#fff3c4; letter-spacing:.15em; text-shadow:0 0 10px rgba(255,214,102,.9);
+    animation:nr-fin-up .6s ease-out 1.6s both; }
+  @keyframes nr-fin-up{ from{ opacity:0; transform:translateY(16px); } }
+  #narabe .nr-finale .tap{ margin-top:18px; font-size:16px; font-weight:bold; color:#fff; text-shadow:0 0 8px rgba(0,0,0,.6); animation:nr-fin-up .5s ease-out 2.7s both, nr-fin-blink 1.4s ease-in-out 3.2s infinite; }
+  @keyframes nr-fin-blink{ 50%{ opacity:.35; } }
+
+  /* 勝負の始まりの登場演出（intro） */
+  #narabe .nr-intro{ position:fixed; inset:0; z-index:35; pointer-events:auto; }
+  #narabe .nr-intro::before{ content:""; position:absolute; inset:0; transition:opacity .6s ease;
+    background:radial-gradient(circle at 50% 40%, rgba(138,115,224,.6) 0%, #1b0f3e 45%, #07031a 100%); animation:nr-in-fade .35s ease-out; }
+  #narabe .nr-intro.shiny::before{ background:radial-gradient(circle at 50% 40%, rgba(255,214,102,.55) 0%, #4a2a10 40%, #120a04 100%); }
+  #narabe .nr-intro.fly::before{ opacity:0; }
+  @keyframes nr-in-fade{ from{ opacity:0; } }
+  #narabe .nr-intro .glow{ position:absolute; left:50%; top:40%; width:min(90vw, 520px); height:min(90vw, 520px); margin:calc(min(90vw, 520px) / -2) 0 0 calc(min(90vw, 520px) / -2);
+    border-radius:50%; background:radial-gradient(circle, rgba(201,167,255,.75), rgba(138,115,224,.25) 40%, transparent 70%);
+    animation:nr-in-glow 1.1s ease-out both; transition:opacity .45s; }
+  #narabe .nr-intro.shiny .glow{ background:radial-gradient(circle, rgba(255,236,170,.85), rgba(255,180,80,.3) 40%, transparent 70%); }
+  #narabe .nr-intro.fly .glow{ opacity:0; }
+  @keyframes nr-in-glow{ from{ transform:scale(.2); opacity:0; } 60%{ opacity:1; } to{ transform:scale(1); } }
+  #narabe .nr-intro .who{ position:fixed; object-fit:contain; object-position:center bottom; z-index:2;
+    filter:drop-shadow(0 0 18px rgba(201,167,255,.95)) drop-shadow(0 0 40px rgba(138,115,224,.6));
+    animation:nr-in-pop .7s cubic-bezier(.2,1.4,.4,1) both;
+    transition:left .7s cubic-bezier(.65,0,.25,1), top .7s cubic-bezier(.65,0,.25,1), width .7s cubic-bezier(.65,0,.25,1), height .7s cubic-bezier(.65,0,.25,1), filter .7s; }
+  #narabe .nr-intro.shiny .who{ filter:drop-shadow(0 0 18px rgba(255,236,170,1)) drop-shadow(0 0 44px rgba(255,180,80,.65)); }
+  #narabe .nr-intro.fly .who{ filter:drop-shadow(0 0 14px rgba(160,100,255,.75)); }
+  #narabe .nr-intro .who.emoji{ display:flex; align-items:center; justify-content:center; font-size:140px; }
+  @keyframes nr-in-pop{ from{ opacity:0; transform:translateY(40px) scale(.7); filter:brightness(3); } }
+  #narabe .nr-intro .txt{ position:fixed; left:0; right:0; text-align:center; z-index:3; transition:opacity .3s, transform .3s; }
+  #narabe .nr-intro.fly .txt{ opacity:0; transform:translateY(16px); }
+  #narabe .nr-intro .stg{ font-size:14px; font-weight:bold; letter-spacing:.4em; color:var(--gold); animation:nr-in-up .4s ease-out .25s both; }
+  #narabe .nr-intro .nm{ font-size:clamp(22px, 5vw, 32px); font-weight:bold; color:#f6eeff; letter-spacing:.12em; text-shadow:0 0 14px rgba(201,167,255,.9);
+    animation:nr-in-up .45s ease-out .35s both; }
+  #narabe .nr-intro.shiny .nm{ color:#fff3c4; text-shadow:0 0 14px rgba(255,214,102,.95); }
+  #narabe .nr-intro .go{ margin-top:4px; font-size:clamp(26px, 6vw, 40px); font-weight:bold; letter-spacing:.15em;
+    background:linear-gradient(180deg, #fffbe8, #f2cf75 60%, #c8902a); -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 0 10px rgba(242,207,117,.8)); animation:nr-in-go .5s cubic-bezier(.2,1.8,.4,1) .55s both; }
+  @keyframes nr-in-up{ from{ opacity:0; transform:translateY(14px); } }
+  @keyframes nr-in-go{ from{ opacity:0; transform:scale(2.2); } }
+  /* ゲーム画面が入ってくる：カードは上から、盤は左から、番人の欄と説明はふわっと */
+  #narabe .nr-layout.nr-enter > *{ opacity:0; }
+  #narabe .nr-layout.nr-enter .nr-card{ transform:translateY(-28px); }
+  #narabe .nr-layout.nr-enter .nr-board{ transform:translateX(-36px); }
+  #narabe .nr-layout.nr-entering > *{ transition:opacity .55s ease-out, transform .6s cubic-bezier(.2,.9,.3,1); }
+  #narabe .nr-layout.nr-entering .nr-board{ transition-delay:.08s; }
+  #narabe .nr-layout.nr-entering .nr-foe{ transition-delay:.15s; }
+  #narabe .nr-layout.nr-entering .nr-rules{ transition-delay:.25s; }
+  /* 名前のぶつかり対策：盤の .pt（線）・.st（石）、ページ全体の .st（手引きの手順）と別の名前にしてある（.fp・.stg） */
+
+  /* 盤の上の言霊（2026-10-18、教員の指示「石ではなく言霊を並べる」）：自分は「言」、番人は「霊」の字を入れる */
+  #narabe .st{ display:flex; align-items:center; justify-content:center; font-family:'Hiragino Mincho ProN','Yu Mincho',serif; font-weight:bold;
+    font-size:clamp(11px, 2.4vw, 19px); line-height:1; }
+  #narabe .st.me{ color:#6a3c00; text-shadow:0 1px 0 rgba(255,255,255,.6); }
+  #narabe .st.foe{ color:#eadcff; text-shadow:0 0 6px rgba(201,167,255,.9); }
+</style>
+</head>
+<body>
+<div id="floatKana"></div>
+<button id="muteBtn" onclick="toggleMute()">🔊</button>
+
+<!-- タイトル -->
+<section class="screen show" id="title"><div class="wrap">
+  <div class="hero">
+    <div class="bannin" id="tiBannin"></div>
+    <h1 class="mincho">言霊並べ</h1>
+    <div class="tag">― 見ぬいて、並べよ ―</div>
+  </div>
+  <div class="case-list" id="caseList"></div>
+  <button class="btn-sub" onclick="backToApp()">知識ドリルDXにもどる</button>
+</div></section>
+
+<!-- 巻の前置き（番人の手引き） -->
+<section class="screen" id="intro"><div class="wrap">
+  <div class="intro-title"><div class="k" id="inK"></div><div class="n mincho" id="inN"></div></div>
+  <div class="scroll"><h3>📜 術をかける順番</h3><ol class="flow" id="inFlow"></ol></div>
+  <button class="btn-main" onclick="startCase()">はじめる</button>
+  <button class="btn-sub" onclick="show('title')">もどる</button>
+</div></section>
+
+<!-- 書庫 -->
+<section class="screen" id="play"><div class="wrap" id="playWrap">
+  <div class="bar">
+    <button onclick="show('title')">✕ やめる</button>
+    <span class="cn" id="plCase"></span>
+    <span class="prog" id="plProg"></span>
+  </div>
+  <!-- 2026-10-17、教員の指示で「📜 手引き」ボタンは削除（ヒントがあれば不要） -->
+  <div class="scene">
+    <div class="lbl" id="plLbl">書 庫 の 一 節</div>
+    <div class="sent mincho" id="plSent"></div>
+  </div>
+  <div class="ask"><div class="mini bannin" id="plMini"></div><div class="t" id="plAsk"></div></div>
+  <div id="plNameSec">
+    <div class="sec-h" id="plSusH">🏷 正体</div>
+    <div class="sus" id="plSus"></div>
+    <button class="btn-main" id="accuseBtn" onclick="accuse()">正体を見ぬく！</button>
+  </div>
+  <button class="btn-sub" id="hintBtn" onclick="openHint()">💡 困ったら：ヒント（術）を見る</button>
+  <div id="plHintSec" hidden>
+    <div class="sec-h">💡 ヒント：術をかけて、文が自然か確かめよう</div>
+    <div class="tools" id="plTools"></div>
+    <div class="evid" id="plEvid"></div>
+  </div>
+  <div class="warn" id="plWarn"></div>
+</div></section>
+
+<!-- 結果 -->
+<section class="screen" id="result"><div class="wrap">
+  <div class="res">
+    <div class="bannin" id="rsBannin"></div>
+    <div class="rank mincho" id="rsRank"></div>
+    <div class="score">★ <b id="rsScore"></b></div>
+    <div class="lv" id="rsLv"></div>
+    <div id="rsNew"></div>
+  </div>
+  <div class="rlist" id="rsList"></div>
+  <div id="rsBtns"></div>
+</div></section>
+
+<!-- 言霊並べの対局画面（2026-10-17〜、教員の指示）：言霊の番人と、盤に言霊を並べあう。一〜四の巻と「すべての棚」で使う。 -->
+<section class="screen" id="narabe"><div class="nr-wrap">
+  <div class="nr-top">
+    <button class="nr-back" onclick="NR.toTitle()" title="書庫の入口（タイトル）へ">✕</button>
+    <h1 class="mincho">すべての盤</h1>
+    <span class="nr-pill">連続正解 <b id="nrStreak">0</b>/5</span><span class="nr-pill" id="nrAllyPill" hidden>🤝 仲間</span>
+  </div>
+  <div class="nr-layout">
+    <div class="nr-card" id="nrCard"></div>
+    <div class="nr-board"><div class="nr-grid" id="nrGrid"></div></div>
+    <aside class="nr-foe" id="nrFoe">
+      <div class="nr-foehead">
+        <div><div class="nr-foename" id="nrFoeName">言霊の番人</div><div class="nr-foestage" id="nrFoeStage"></div></div>
+        <div class="nr-pips" id="nrPips"></div>
+      </div>
+      <div class="nr-say" id="nrSay"></div>
+      <div class="nr-foeimg" id="nrFoeImg"></div>
+    </aside>
+    <div class="nr-rules">
+      <!-- 説明は最小限（教員の指示「冗長な説明はいらない。シンプルに、直感的に」）。5問連続の特別ルールは、あと1問のときに問いの上で知らせる -->
+      <p class="nr-rule">正解すると、言霊を1つ置ける。<b style="color:var(--gold)">5つ並べたら勝ち</b>。</p>
+      <p class="nr-rule">記録 <b id="nrBest" style="color:var(--gold)">-</b></p>
+    </div>
+  </div>
+  <div class="nr-ov" id="nrOv"><div class="nr-sheet" id="nrSheet"></div></div>
+</div></section>
+
+<!-- 番人の手引き（答え合わせ・手引きの表示） -->
+<div class="overlay" id="ov"><div class="sheet" id="ovSheet"></div></div>
+
+<script>
+/* ============================================================
+   棚（巻）のデータ（識別探偵の問題をそのまま引きつぎ、呼び名だけ書庫に合わせた）
+   tools[i]＝術。使うと items[].r[i] = [写し出された文, 成り立つか] が出る。［ ］は置きかえた所。
+   suspects[i]＝正体の札。tools[i] が○になったときの正体。札が術より一枚多い棚は、どれも×なら最後の札。
+   ============================================================ */
+const CASES = [
+{
+  key:"nai", k:"一の巻", name:"「ない」の盤",
+  desc:"打ち消しの助動詞？ 形容詞？ 四つの正体をもつ言霊",
+  word:"ない",
+  talk:"この盤の言霊「ない」は、<b>四つの正体</b>のどれかを持っている。<br>まず「<b>ぬ</b>」の術。だめなら「<b>は</b>」の術。それもだめなら「<b>ある</b>」の術。最後に「<b>ひとつながり</b>」の術で、「ない」を切りはなせるか確かめる。<b>術をかける順番</b>を守るのだ。",
+  suspects:[
+    {n:"打ち消しの助動詞「ない」", k:"「ぬ」に置きかえられる"},
+    {n:"補助形容詞「ない」",       k:"前に「は」を入れられる"},
+    {n:"形容詞「ない」",           k:"「ある」に変えると反対の意味になる"},
+    {n:"形容詞の一部",             k:"「ない」を切りはなすと、前が言葉にならない"},
+  ],
+  tools:[
+    {n:"「ぬ」の術",   d:"「ない」を「ぬ」に置きかえる"},
+    {n:"「は」の術",   d:"「ない」の前に「は」を入れる"},
+    {n:"「ある」の術", d:"「ない」を「ある」に変える"},
+    {n:"「ひとつながり」の術", d:"「ない」を切りはなして、前が言葉として残るか"},
+  ],
+  items:[
+    {s:"今日は雨が降ら[ない]。", a:0, r:[["今日は雨が降ら[ぬ]。",1],["今日は雨が降ら[は]ない。",0],["今日は雨が降ら[ある]。",0],["降ら｜ない →「降ら」は「降る」の形が変わったもの → [切りはなせる]",0]],
+     e:"「降らぬ」と言いかえられるので、打ち消しの助動詞。動詞「降る」の未然形「降ら」についています。"},
+    {s:"弟はまだ起き[ない]。", a:0, r:[["弟はまだ起き[ぬ]。",1],["弟はまだ起き[は]ない。",0],["弟はまだ起き[ある]。",0],["起き｜ない →「起き」は「起きる」の形が変わったもの → [切りはなせる]",0]],
+     e:"「起きぬ」と言えるので打ち消しの助動詞。動詞「起きる」の未然形「起き」についています。"},
+    {s:"教室にはだれもい[ない]。", a:0, r:[["教室にはだれもい[ぬ]。",1],["教室にはだれもい[は]ない。",0],["教室にはだれもい[ある]。",0],["い｜ない →「い」は「いる」の形が変わったもの → [切りはなせる]",0]],
+     e:"「いない」は動詞「いる」＋打ち消しの「ない」。「だれもいぬ」と言えるので助動詞です。「存在しない」という意味でも、「ない」だけで言っているわけではないことに注意。"},
+    {s:"彼はうそをつか[ない]。", a:0, r:[["彼はうそをつか[ぬ]。",1],["彼はうそをつか[は]ない。",0],["彼はうそをつか[ある]。",0],["つか｜ない →「つか」は「つく」の形が変わったもの → [切りはなせる]",0]],
+     e:"「つかぬ」と言いかえられるので打ち消しの助動詞。動詞「つく」の未然形「つか」についています。"},
+    {s:"今朝はそれほど寒く[ない]。", a:1, r:[["今朝はそれほど寒く[ぬ]。",0],["今朝はそれほど寒く[は]ない。",1],["今朝はそれほど寒く[ある]。",1],["寒く｜ない →「寒く」は「寒い」の形が変わったもの → [切りはなせる]",0]],
+     e:"「寒くぬ」とは言えませんが、「寒くはない」と「は」を入れられます。形容詞「寒い」の連用形「寒く」について打ち消す、補助形容詞の「ない」です。"},
+    {s:"この問題は難しく[ない]。", a:1, r:[["この問題は難しく[ぬ]。",0],["この問題は難しく[は]ない。",1],["この問題は難しく[ある]。",1],["難しく｜ない →「難しく」は「難しい」の形が変わったもの → [切りはなせる]",0]],
+     e:"「難しくはない」と「は」を入れられるので補助形容詞。「〜く」の形のあとの「ない」は、たいていこれです。"},
+    {s:"夜の教室は静かで[ない]。", a:1, r:[["夜の教室は静かで[ぬ]。",0],["夜の教室は静かで[は]ない。",1],["夜の教室は静かで[ある]。",1],["静かで｜ない →「静かで」は「静かだ」の形が変わったもの → [切りはなせる]",0]],
+     e:"「静かではない」と「は」を入れられるので補助形容詞。形容動詞「静かだ」の連用形「静かで」についています。"},
+    {s:"財布にお金が[ない]。", a:2, r:[["財布にお金が[ぬ]。",0],["財布にお金が[は]ない。",0],["財布にお金が[ある]。",1],["お金が｜ない →「お金が」で言葉として残る → [切りはなせる]",0]],
+     e:"「ない」だけで「存在しない」という意味をもつ形容詞。「お金がある」と反対の意味の文が作れます。"},
+    {s:"もう時間が[ない]。", a:2, r:[["もう時間が[ぬ]。",0],["もう時間が[は]ない。",0],["もう時間が[ある]。",1],["時間が｜ない →「時間が」で言葉として残る → [切りはなせる]",0]],
+     e:"「時間がある」の反対で、「ない」だけで意味をもつ形容詞。前に動詞や「〜く」がなく、「が」のあとに来ているのも手がかりです。"},
+    {s:"明日は予定が[ない]。", a:2, r:[["明日は予定が[ぬ]。",0],["明日は予定が[は]ない。",0],["明日は予定が[ある]。",1],["予定が｜ない →「予定が」で言葉として残る → [切りはなせる]",0]],
+     e:"「予定がある」の反対を表す形容詞の「ない」です。"},
+    {s:"この店の客は少[ない]。", a:3, r:[["この店の客は少[ぬ]。",0],["この店の客は少[は]ない。",0],["この店の客は少[ある]。",0],["少｜ない →「少」だけでは言葉にならない → [ひとつながり]",1]],
+     e:"「少ない」で一つの形容詞。「少」だけでは言葉にならないので、「ない」を切りはなせません。"},
+    {s:"暗い夜道は危[ない]。", a:3, r:[["暗い夜道は危[ぬ]。",0],["暗い夜道は危[は]ない。",0],["暗い夜道は危[ある]。",0],["危｜ない →「危」だけでは言葉にならない → [ひとつながり]",1]],
+     e:"「危ない」で一つの形容詞。「危」だけでは言葉にならないので、「ない」を切りはなせません。"},
+    {s:"妹の寝顔はあどけ[ない]。", a:3, r:[["妹の寝顔はあどけ[ぬ]。",0],["妹の寝顔はあどけ[は]ない。",0],["妹の寝顔はあどけ[ある]。",0],["あどけ｜ない →「あどけ」という言葉はない → [ひとつながり]",1]],
+     e:"「あどけない」で一つの形容詞。「あどけ」という言葉はないので、形容詞の一部です。"},
+  ]
+},
+{
+  key:"reru", k:"二の巻", name:"「れる・られる」の盤",
+  desc:"受け身・尊敬・自発・可能。意味で正体が変わる言霊",
+  word:"れる・られる",
+  talk:"「れる・られる」の言霊は、<b>意味</b>によって正体が変わる。<br>「<b>だれに</b>」→「<b>お〜になる</b>」→<b>心の動き</b>→「<b>〜ことができる</b>」。この順に術をかけよ。",
+  suspects:[
+    {n:"受け身", k:"「〜に（〜から）される」相手がいる"},
+    {n:"尊敬",   k:"「お〜になる」に置きかえられる"},
+    {n:"自発",   k:"思う・感じる・案じるなど心の動き（自然にそうなる）"},
+    {n:"可能",   k:"「〜ことができる」に置きかえられる"},
+  ],
+  tools:[
+    {n:"「だれに？」の術",  d:"動作をしかけてくる相手がいるか"},
+    {n:"「お〜になる」の術", d:"「お〜になる」の形にする"},
+    {n:"「心の動き」の術",   d:"前の言葉が、思う・感じるなど心の動きか"},
+    {n:"「できる」の術",     d:"「〜ことができる」に置きかえる"},
+  ],
+  items:[
+    {s:"弟に宿題をじゃまさ[れる]。", a:0, r:[["[弟に]宿題をじゃまされる。（相手＝弟）",1],["弟に宿題を[おじゃまになる]。",0],["「じゃまする」は心の動き？ → [ちがう]",0],["弟に宿題をじゃま[することができる]。",0]],
+     e:"「弟に」という、動作をしかけてくる相手がいます。主語（わたし）が動作を受けているので受け身です。"},
+    {s:"犬に手をかま[れる]。", a:0, r:[["[犬に]手をかまれる。（相手＝犬）",1],["犬に手を[おかみになる]。",0],["「かむ」は心の動き？ → [ちがう]",0],["犬に手をかむ[ことができる]。",0]],
+     e:"「犬に」かまれる、と相手がいるので受け身。「〜に〜される」の形が受け身の目印です。"},
+    {s:"みんなに名前を呼ば[れる]。", a:0, r:[["[みんなに]名前を呼ばれる。（相手＝みんな）",1],["みんなに名前を[お呼びになる]。",0],["「呼ぶ」は心の動き？ → [ちがう]",0],["みんなに名前を呼ぶ[ことができる]。",0]],
+     e:"「みんなに」呼ばれる、と相手がいるので受け身です。"},
+    {s:"先生が教室に来[られる]。", a:1, r:[["だれに？ → [相手はいない]",0],["先生が教室に[おいでになる]。",1],["「来る」は心の動き？ → [ちがう]",0],["先生が教室に来る[ことができる]。",0]],
+     e:"「おいでになる（いらっしゃる）」と言いかえられ、先生という目上の人の動作なので尊敬です。"},
+    {s:"校長先生が式で話さ[れる]。", a:1, r:[["だれに？ → [相手はいない]",0],["校長先生が式で[お話しになる]。",1],["「話す」は心の動き？ → [ちがう]",0],["校長先生が式で話す[ことができる]。",0]],
+     e:"「お話しになる」と言いかえられるので尊敬。話しているのは校長先生自身なので、受け身ではありません。"},
+    {s:"お客様が新聞を読ま[れる]。", a:1, r:[["だれに？ → [相手はいない]",0],["お客様が新聞を[お読みになる]。",1],["「読む」は心の動き？ → [ちがう]",0],["お客様が新聞を読む[ことができる]。",0]],
+     e:"「お読みになる」と言いかえられ、お客様の動作を高めているので尊敬です。"},
+    {s:"故郷の母のことが案じ[られる]。", a:2, r:[["だれに？ → [相手はいない]",0],["故郷の母のことが[お案じになる]。",0],["「案じる」＝心配する → [心の動き]",1],["故郷の母のことが案じる[ことができる]。",0]],
+     e:"「案じる（心配する）」は心の動き。自分でそうしようとしなくても、自然に心配になってしまう、という自発です。"},
+    {s:"昔のことが思い出さ[れる]。", a:2, r:[["だれに？ → [相手はいない]",0],["昔のことが[お思い出しになる]。",0],["「思い出す」→ [心の動き]",1],["昔のことが思い出す[ことができる]。",0]],
+     e:"「思い出す」は心の動き。「自然と思い出される」という意味なので自発です。"},
+    {s:"秋の気配が感じ[られる]。", a:2, r:[["だれに？ → [相手はいない]",0],["秋の気配が[お感じになる]。",0],["「感じる」→ [心の動き]",1],["秋の気配が感じる[ことができる]。",0]],
+     e:"「感じる」は心の動き。「自然と感じられる」という意味の自発です。「秋の気配が」の「が」にも注目。"},
+    {s:"ぼくは朝六時に起き[られる]。", a:3, r:[["だれに？ → [相手はいない]",0],["ぼくは朝六時に[お起きになる]。",0],["「起きる」は心の動き？ → [ちがう]",0],["ぼくは朝六時に起きる[ことができる]。",1]],
+     e:"「起きることができる」と言いかえられるので可能。自分の動作に「お〜になる」は使えないので尊敬ではありません。"},
+    {s:"このきのこは食べ[られる]。", a:3, r:[["だれに？ → [相手はいない]",0],["このきのこは[お食べになる]。",0],["「食べる」は心の動き？ → [ちがう]",0],["このきのこは食べる[ことができる]。",1]],
+     e:"「食べることができる」と言いかえられるので可能です。"},
+    {s:"ぼくでも一人で浴衣を着[られる]。", a:3, r:[["だれに？ → [相手はいない]",0],["ぼくでも一人で浴衣を[お召しになる]。",0],["「着る」は心の動き？ → [ちがう]",0],["ぼくでも一人で浴衣を着る[ことができる]。",1]],
+     e:"「着ることができる」と言いかえられるので可能。「着る」のような五段活用でない動詞には、可能の「られる」がつきます。"},
+  ]
+},
+{
+  key:"no", k:"三の巻", name:"「の」の盤",
+  desc:"主語？ 「こと」の代わり？ 小さな言霊ほど手ごわい",
+  word:"の",
+  talk:"小さな言霊「の」にも、<b>四つの正体</b>がある。<br>「<b>が</b>」→「<b>こと・もの</b>」→<b>二つ並べていないか</b>→<b>後ろに名詞が続くか</b>。順に確かめよ。",
+  suspects:[
+    {n:"主語を表す「の」",       k:"「が」に置きかえられる"},
+    {n:"体言の代わりの「の」",   k:"「こと・もの」に置きかえられる"},
+    {n:"並立の「の」",           k:"「〜の〜の」と二つ並べている"},
+    {n:"連体修飾の「の」",       k:"後ろの名詞をくわしくしている"},
+  ],
+  tools:[
+    {n:"「が」の術",       d:"「の」を「が」に置きかえる"},
+    {n:"「こと・もの」の術", d:"「の」を「こと・もの」に置きかえる"},
+    {n:"「ならべ」の術",   d:"「〜の〜の」と二つ並べているか"},
+    {n:"「つなぎ」の術",   d:"「の」のすぐ後ろが名詞か"},
+  ],
+  items:[
+    {s:"雨[の]降る日は家にいる。", a:0, r:[["雨[が]降る日は家にいる。",1],["雨[こと]降る日は家にいる。",0],["二つ並べている？ → [並んでいない]",0],["後ろは「降る」 → [名詞ではない]",0]],
+     e:"「雨が降る日」と言いかえられるので、主語を表す「の」。「降る」のは「雨」です。"},
+    {s:"背[の]高い人が来た。", a:0, r:[["背[が]高い人が来た。",1],["背[こと]高い人が来た。",0],["二つ並べている？ → [並んでいない]",0],["後ろは「高い」 → [名詞ではない]",0]],
+     e:"「背が高い人」と言えるので主語を表す「の」。"},
+    {s:"友達[の]書いた作文を読む。", a:0, r:[["友達[が]書いた作文を読む。",1],["友達[こと]書いた作文を読む。",0],["二つ並べている？ → [並んでいない]",0],["後ろは「書いた」 → [名詞ではない]",0]],
+     e:"「友達が書いた作文」と言えるので主語を表す「の」。書いたのは友達です。"},
+    {s:"絵をかく[の]が好きだ。", a:1, r:[["絵をかく[が]が好きだ。",0],["絵をかく[こと]が好きだ。",1],["二つ並べている？ → [並んでいない]",0],["後ろは「が」 → [名詞ではない]",0]],
+     e:"「絵をかくこと」と言いかえられるので、体言（名詞）の代わりをする「の」です。"},
+    {s:"その赤い[の]をください。", a:1, r:[["その赤い[が]をください。",0],["その赤い[もの]をください。",1],["二つ並べている？ → [並んでいない]",0],["後ろは「を」 → [名詞ではない]",0]],
+     e:"「赤いもの」と言いかえられるので体言の代わりの「の」。"},
+    {s:"本を読む[の]は楽しい。", a:1, r:[["本を読む[が]は楽しい。",0],["本を読む[こと]は楽しい。",1],["二つ並べている？ → [並んでいない]",0],["後ろは「は」 → [名詞ではない]",0]],
+     e:"「本を読むこと」と言いかえられるので体言の代わりの「の」です。"},
+    {s:"行く[の]行かないのと迷う。", a:2, r:[["行く[が]行かないのと迷う。",0],["行く[こと]行かないのと迷う。",0],["「行くの」「行かないの」 → [二つ並べている]",1],["後ろは「行かない」 → [名詞ではない]",0]],
+     e:"「行くの」「行かないの」と二つを並べているので並立の「の」。「〜の〜のと」の形が目印です。"},
+    {s:"やる[の]やらないのと言い合う。", a:2, r:[["やる[が]やらないのと言い合う。",0],["やる[こと]やらないのと言い合う。",0],["「やるの」「やらないの」 → [二つ並べている]",1],["後ろは「やらない」 → [名詞ではない]",0]],
+     e:"二つを並べて言っているので並立の「の」です。"},
+    {s:"寒い[の]暑いのと文句を言う。", a:2, r:[["寒い[が]暑いのと文句を言う。",0],["寒い[こと]暑いのと文句を言う。",0],["「寒いの」「暑いの」 → [二つ並べている]",1],["後ろは「暑い」 → [名詞ではない]",0]],
+     e:"「寒いの」「暑いの」と並べているので並立の「の」。"},
+    {s:"これは姉[の]本だ。", a:3, r:[["これは姉[が]本だ。",0],["これは姉[もの]本だ。",0],["二つ並べている？ → [並んでいない]",0],["後ろは「本」 → [名詞]",1]],
+     e:"「姉の」が後ろの名詞「本」をくわしくしている（だれの本か）ので連体修飾の「の」です。"},
+    {s:"日本[の]首都は東京だ。", a:3, r:[["日本[が]首都は東京だ。",0],["日本[もの]首都は東京だ。",0],["二つ並べている？ → [並んでいない]",0],["後ろは「首都」 → [名詞]",1]],
+     e:"「日本の」が名詞「首都」をくわしくしているので連体修飾の「の」。"},
+    {s:"机の上[の]ノートを取る。", a:3, r:[["机の上[が]ノートを取る。",0],["机の上[もの]ノートを取る。",0],["二つ並べている？ → [並んでいない]",0],["後ろは「ノート」 → [名詞]",1]],
+     e:"「机の上の」が名詞「ノート」をくわしくしているので連体修飾の「の」。どのノートか、を説明しています。"},
+  ]
+},
+{
+  key:"da", k:"四の巻", name:"「だ」の盤",
+  desc:"断定？ 形容動詞？ ほかの言葉にまぎれる言霊",
+  word:"だ",
+  talk:"「だ」の言霊は、<b>ほかの言葉の一部</b>にまぎれこむのが得意だ。<br>「<b>そう・よう</b>」→「<b>な</b>」→「<b>である</b>」→<b>「た」がにごった形か</b>。この順で見ぬけ。",
+  suspects:[
+    {n:"「そうだ・ようだ」の一部", k:"前に「そう」「よう」がついている"},
+    {n:"形容動詞の活用語尾",       k:"「〜な＋名詞」の形にできる"},
+    {n:"断定の助動詞「だ」",       k:"「である」に置きかえられる"},
+    {n:"過去の助動詞「た」",       k:"動詞の「ん・い」のあと（「た」がにごった）"},
+  ],
+  tools:[
+    {n:"「そう・よう」の術", d:"「だ」の前に「そう」「よう」があるか"},
+    {n:"「な」の術",         d:"「な」に変えて名詞につなげる"},
+    {n:"「である」の術",     d:"「だ」を「である」に置きかえる"},
+    {n:"「た」の術",         d:"動詞が「ん・い」に変わった形のあとか"},
+  ],
+  items:[
+    {s:"今にも雨が降りそう[だ]。", a:0, r:[["降り[そう]＋だ",1],["[降りそうな]空",1],["今にも雨が降りそう[である]。",1],["前は「そう」 → [動詞ではない]",0]],
+     e:"「そうだ」で一つの助動詞（様態）。「だ」だけを取り出すことはできません。"},
+    {s:"どうやら外は寒いよう[だ]。", a:0, r:[["寒い[よう]＋だ",1],["[寒いような]日",1],["どうやら外は寒いよう[である]。",1],["前は「よう」 → [動詞ではない]",0]],
+     e:"「ようだ」で一つの助動詞（推定）。「だ」はその一部です。"},
+    {s:"あの子はとても楽しそう[だ]。", a:0, r:[["楽し[そう]＋だ",1],["[楽しそうな]顔",1],["あの子はとても楽しそう[である]。",1],["前は「そう」 → [動詞ではない]",0]],
+     e:"「そうだ」で一つの助動詞（様態）。形容詞「楽しい」の語幹「楽し」についています。"},
+    {s:"この部屋は静か[だ]。", a:1, r:[["前は「静か」 → [そう・ようはない]",0],["[静かな]部屋",1],["この部屋は静か[である]。",1],["「静か」は動詞？ → [ちがう]",0]],
+     e:"「静かな部屋」と言えるので形容動詞「静かだ」の活用語尾。「である」にも置きかえられますが、先に「な」の術で決まります。"},
+    {s:"夜空がきれい[だ]。", a:1, r:[["前は「きれい」 → [そう・ようはない]",0],["[きれいな]夜空",1],["夜空がきれい[である]。",1],["「きれい」は動詞？ → [ちがう]",0]],
+     e:"「きれいな夜空」と言えるので形容動詞「きれいだ」。「い」で終わっていても形容詞ではありません（「きれかった」とは言いません）。"},
+    {s:"彼の態度は立派[だ]。", a:1, r:[["前は「立派」 → [そう・ようはない]",0],["[立派な]態度",1],["彼の態度は立派[である]。",1],["「立派」は動詞？ → [ちがう]",0]],
+     e:"「立派な態度」と言えるので形容動詞「立派だ」の活用語尾です。"},
+    {s:"休日の町はにぎやか[だ]。", a:1, r:[["前は「にぎやか」 → [そう・ようはない]",0],["[にぎやかな]町",1],["休日の町はにぎやか[である]。",1],["「にぎやか」は動詞？ → [ちがう]",0]],
+     e:"「にぎやかな町」と言えるので形容動詞「にぎやかだ」。"},
+    {s:"明日は日曜日[だ]。", a:2, r:[["前は「日曜日」 → [そう・ようはない]",0],["[日曜日な]朝",0],["明日は日曜日[である]。",1],["「日曜日」は動詞？ → [ちがう]",0]],
+     e:"「日曜日な朝」とは言えません。「日曜日である」と言いかえられるので断定の助動詞「だ」。前が名詞のときはこれです。"},
+    {s:"犯人はあの男[だ]。", a:2, r:[["前は「男」 → [そう・ようはない]",0],["[男な]人",0],["犯人はあの男[である]。",1],["「男」は動詞？ → [ちがう]",0]],
+     e:"「あの男である」と言いかえられるので断定の助動詞。名詞「男」についています。"},
+    {s:"この花は桜[だ]。", a:2, r:[["前は「桜」 → [そう・ようはない]",0],["[桜な]木",0],["この花は桜[である]。",1],["「桜」は動詞？ → [ちがう]",0]],
+     e:"「桜である」と言いかえられるので断定の助動詞「だ」です。"},
+    {s:"夏休みに川で泳い[だ]。", a:3, r:[["前は「泳い」 → [そう・ようはない]",0],["[泳いな]人",0],["夏休みに川で泳い[である]。",0],["「泳ぐ」が「泳い」に変わった形 → [泳ぐ＋た]",1]],
+     e:"動詞「泳ぐ」が「泳い」と形を変え（イ音便）、そこに過去の「た」がついて「だ」とにごった形です。"},
+    {s:"公園で一日中遊ん[だ]。", a:3, r:[["前は「遊ん」 → [そう・ようはない]",0],["[遊んな]子",0],["公園で一日中遊ん[である]。",0],["「遊ぶ」が「遊ん」に変わった形 → [遊ぶ＋た]",1]],
+     e:"動詞「遊ぶ」が「遊ん」と形を変え（撥音便）、過去の「た」が「だ」とにごった形です。"},
+    {s:"鳥が空を飛ん[だ]。", a:3, r:[["前は「飛ん」 → [そう・ようはない]",0],["[飛んな]鳥",0],["鳥が空を飛ん[である]。",0],["「飛ぶ」が「飛ん」に変わった形 → [飛ぶ＋た]",1]],
+     e:"「飛ぶ」＋過去の「た」。「ん」のあとなので「だ」とにごっています。"},
+  ]
+},
+];
+
+/* ============================================================
+   終の巻（総合）だけに出す棚（2026-10-12〜、教員の指示「よく聞かれそうな識別を調べ、総合問題にいろいろ入れる」）。
+   extra:true の棚は、書庫の入口には並べない。ほかの棚と同じく、正解 a ＝手引きの順で最初に○になる術。
+   ============================================================ */
+const EXTRA_CASES = [
+{
+  key:"souda", extra:true, k:"終の巻", name:"「そうだ」の盤", word:"そうだ",
+  suspects:[
+    {n:"伝聞の「そうだ」",       k:"「〜ということだ」に置きかえられる"},
+    {n:"様態の「そうだ」",       k:"「〜しそうな様子だ」と言える"},
+  ],
+  tools:[
+    {n:"「ということだ」の術", d:"「そうだ」を「ということだ」に置きかえる"},
+    {n:"「様子」の術",         d:"「そうな様子だ」と言いかえる"},
+  ],
+  items:[
+    {s:"明日は雨が降る[そうだ]。", a:0, r:[["明日は雨が降る[ということだ]。",1],["明日は雨が降る[そうな様子だ]。",0]],
+     e:"「降る」（終止形）についているので伝聞。人から聞いたことを伝えています。"},
+    {s:"天気予報によると、台風が来る[そうだ]。", a:0, r:[["天気予報によると、台風が来る[ということだ]。",1],["天気予報によると、台風が来る[そうな様子だ]。",0]],
+     e:"「天気予報によると」と情報のもとがあり、終止形「来る」についているので伝聞です。"},
+    {s:"あの店のケーキはおいしい[そうだ]。", a:0, r:[["あの店のケーキはおいしい[ということだ]。",1],["あの店のケーキはおいしい[そうな様子だ]。",0]],
+     e:"形容詞の終止形「おいしい」についているので伝聞。「おいしそうだ」（様態）との形のちがいに注意。"},
+    {s:"今にも雨が降り[そうだ]。", a:1, r:[["今にも雨が降り[ということだ]。",0],["今にも雨が降り[そうな様子だ]。",1]],
+     e:"動詞の連用形「降り」についているので様態。目に見える様子から、そうなりそうだと言っています。"},
+    {s:"このケーキはおいし[そうだ]。", a:1, r:[["このケーキはおいし[ということだ]。",0],["このケーキはおいし[そうな様子だ]。",1]],
+     e:"形容詞の語幹「おいし」についているので様態。見た目からそう感じています。"},
+    {s:"弟は退屈[そうだ]。", a:1, r:[["弟は退屈[ということだ]。",0],["弟は退屈[そうな様子だ]。",1]],
+     e:"形容動詞の語幹「退屈」についているので様態です。"},
+    {s:"この古い橋は今にも落ち[そうだ]。", a:1, r:[["この古い橋は今にも落ち[ということだ]。",0],["この古い橋は今にも落ち[そうな様子だ]。",1]],
+     e:"動詞の連用形「落ち」についているので様態。伝聞なら「落ちるそうだ」と終止形につきます。"},
+  ]
+},
+{
+  key:"youda", extra:true, k:"終の巻", name:"「ようだ」の盤", word:"ようだ",
+  suspects:[
+    {n:"例示の「ようだ」",         k:"前に「たとえば」を補える"},
+    {n:"たとえ（比喩）の「ようだ」", k:"前に「まるで」を補える"},
+    {n:"推定の「ようだ」",         k:"前に「どうやら」を補える"},
+  ],
+  tools:[
+    {n:"「たとえば」の術", d:"前に「たとえば」を補う"},
+    {n:"「まるで」の術",   d:"前に「まるで」を補う"},
+    {n:"「どうやら」の術", d:"前に「どうやら」を補う"},
+  ],
+  items:[
+    {s:"山田さんの[ような]まじめな人はめずらしい。", a:0, r:[["[たとえば]山田さんのようなまじめな人はめずらしい。",1],["[まるで]山田さんのようなまじめな人はめずらしい。",0],["[どうやら]山田さんのようなまじめな人はめずらしい。",0]],
+     e:"まじめな人の例として山田さんを挙げているので例示です。"},
+    {s:"東京や大阪の[ような]大都市に住みたい。", a:0, r:[["[たとえば]東京や大阪のような大都市に住みたい。",1],["[まるで]東京や大阪のような大都市に住みたい。",0],["[どうやら]東京や大阪のような大都市に住みたい。",0]],
+     e:"大都市の例として東京や大阪を挙げているので例示です。"},
+    {s:"弟は人形の[ように]じっと動かなかった。", a:1, r:[["[たとえば]弟は人形のようにじっと動かなかった。",0],["弟は[まるで]人形のようにじっと動かなかった。",1],["[どうやら]弟は人形のようにじっと動かなかった。",0]],
+     e:"弟の様子を人形に見立てているので、たとえ（比喩）です。"},
+    {s:"彼の頬は真っ赤で、りんごの[ようだ]。", a:1, r:[["彼の頬は真っ赤で、[たとえば]りんごのようだ。",0],["彼の頬は真っ赤で、[まるで]りんごのようだ。",1],["彼の頬は真っ赤で、[どうやら]りんごのようだ。",0]],
+     e:"頬をりんごに見立てているので、たとえ（比喩）です。"},
+    {s:"夢の[ような]一日だった。", a:1, r:[["[たとえば]夢のような一日だった。",0],["[まるで]夢のような一日だった。",1],["[どうやら]夢のような一日だった。",0]],
+     e:"すばらしい一日を夢に見立てているので、たとえ（比喩）です。"},
+    {s:"空の様子から、明日は雨が降る[ようだ]。", a:2, r:[["空の様子から、[たとえば]明日は雨が降るようだ。",0],["空の様子から、[まるで]明日は雨が降るようだ。",0],["空の様子から、[どうやら]明日は雨が降るようだ。",1]],
+     e:"空の様子を手がかりに判断しているので推定です。"},
+    {s:"兄はもう出かけた[ようだ]。", a:2, r:[["[たとえば]兄はもう出かけたようだ。",0],["[まるで]兄はもう出かけたようだ。",0],["[どうやら]兄はもう出かけたようだ。",1]],
+     e:"はっきりとは分からないが、そう判断しているので推定です。"},
+  ]
+},
+{
+  key:"rashii", extra:true, k:"終の巻", name:"「らしい」の盤", word:"らしい",
+  suspects:[
+    {n:"推定の助動詞「らしい」",           k:"前に「どうやら」を補える"},
+    {n:"形容詞をつくる「らしい」（接尾語）", k:"前に「いかにも」を補える"},
+  ],
+  tools:[
+    {n:"「どうやら」の術", d:"前に「どうやら」を補う"},
+    {n:"「いかにも」の術", d:"前に「いかにも」を補う"},
+  ],
+  items:[
+    {s:"明日は雨が降る[らしい]。", a:0, r:[["[どうやら]明日は雨が降るらしい。",1],["明日は[いかにも]雨が降るらしい。",0]],
+     e:"はっきりしないことを、手がかりから判断しているので推定の助動詞です。"},
+    {s:"犯人はあの男[らしい]。", a:0, r:[["[どうやら]犯人はあの男らしい。",1],["犯人は[いかにも]あの男らしい。",0]],
+     e:"「どうやら」を補えるので推定の助動詞。「男らしい態度」の「らしい」（接尾語）とのちがいに注意。"},
+    {s:"彼は風邪をひいた[らしい]。", a:0, r:[["[どうやら]彼は風邪をひいたらしい。",1],["彼は[いかにも]風邪をひいたらしい。",0]],
+     e:"「どうやら」を補えるので推定の助動詞です。"},
+    {s:"今日は春[らしい]暖かい日だ。", a:1, r:[["[どうやら]今日は春らしい暖かい日だ。",0],["今日は[いかにも]春らしい暖かい日だ。",1]],
+     e:"「春らしい」で「春の特徴がよく出ている」という一つの形容詞。「らしい」は形容詞をつくる接尾語です。"},
+    {s:"彼の男[らしい]態度に感心した。", a:1, r:[["[どうやら]彼の男らしい態度に感心した。",0],["彼の[いかにも]男らしい態度に感心した。",1]],
+     e:"「男らしい」で一つの形容詞。「らしい」は形容詞をつくる接尾語です。"},
+    {s:"妹は子ども[らしい]笑顔を見せた。", a:1, r:[["[どうやら]妹は子どもらしい笑顔を見せた。",0],["妹は[いかにも]子どもらしい笑顔を見せた。",1]],
+     e:"「子どもらしい」で一つの形容詞。「らしい」は形容詞をつくる接尾語です。"},
+  ]
+},
+{
+  key:"ni", extra:true, k:"終の巻", name:"「に」の盤", word:"に",
+  suspects:[
+    {n:"形容動詞の活用語尾",   k:"「な」に変えて名詞につなげられる"},
+    {n:"副詞の一部",           k:"「に」を切りはなすと、前が言葉にならない"},
+    {n:"格助詞「に」",         k:"前が名詞"},
+  ],
+  tools:[
+    {n:"「な」の術",           d:"「に」を「な」に変えて名詞につなげる"},
+    {n:"「ひとつながり」の術", d:"「に」を切りはなして、前が言葉として残るか"},
+    {n:"「名詞」の術",         d:"「に」の前が名詞か"},
+  ],
+  items:[
+    {s:"教室は静か[に]なった。", a:0, r:[["[静かな]教室",1],["静か｜に →「静か」で言葉として残る → [切りはなせる]",0],["前は「静か」 → [名詞ではない]",0]],
+     e:"「静かな教室」と言えるので、形容動詞「静かだ」の連用形の活用語尾です。"},
+    {s:"彼は熱心[に]練習した。", a:0, r:[["[熱心な]練習",1],["熱心｜に →「熱心」で言葉として残る → [切りはなせる]",0],["前は「熱心」 → [名詞ではない]",0]],
+     e:"「熱心な練習」と言えるので、形容動詞「熱心だ」の活用語尾です。"},
+    {s:"花がきれい[に]咲いた。", a:0, r:[["[きれいな]花",1],["きれい｜に →「きれい」で言葉として残る → [切りはなせる]",0],["前は「きれい」 → [名詞ではない]",0]],
+     e:"「きれいな花」と言えるので、形容動詞「きれいだ」の活用語尾です。"},
+    {s:"宿題はすで[に]終わった。", a:1, r:[["[すでな]宿題",0],["すで｜に →「すで」だけでは言葉にならない → [ひとつながり]",1],["前は「すで」 → [名詞ではない]",0]],
+     e:"「すでに」で一つの副詞。「すで」だけでは言葉にならないので、副詞の一部です。"},
+    {s:"特[に]算数が好きだ。", a:1, r:[["[特な]算数",0],["特｜に →「特」だけでは言葉にならない → [ひとつながり]",1],["前は「特」 → [名詞ではない]",0]],
+     e:"「特に」で一つの副詞。「に」を切りはなせないので、副詞の一部です。"},
+    {s:"ただち[に]出発しよう。", a:1, r:[["[ただちな]出発",0],["ただち｜に →「ただち」だけでは言葉にならない → [ひとつながり]",1],["前は「ただち」 → [名詞ではない]",0]],
+     e:"「ただちに」で一つの副詞です。"},
+    {s:"毎朝六時[に]起きる。", a:2, r:[["[六時な]朝",0],["六時｜に →「六時」で言葉として残る → [切りはなせる]",0],["前は「六時」 → [名詞]",1]],
+     e:"名詞「六時」について時を表すので、格助詞「に」です。"},
+    {s:"友達[に]手紙を書く。", a:2, r:[["[友達な]手紙",0],["友達｜に →「友達」で言葉として残る → [切りはなせる]",0],["前は「友達」 → [名詞]",1]],
+     e:"名詞「友達」について相手を表すので、格助詞「に」です。"},
+    {s:"駅[に]向かって歩く。", a:2, r:[["[駅な]道",0],["駅｜に →「駅」で言葉として残る → [切りはなせる]",0],["前は「駅」 → [名詞]",1]],
+     e:"名詞「駅」について行き先を表すので、格助詞「に」です。"},
+  ]
+},
+{
+  key:"de", extra:true, k:"終の巻", name:"「で」の盤", word:"で",
+  suspects:[
+    {n:"接続助詞「て」がにごった形", k:"動詞の「ん・い」のあと"},
+    {n:"形容動詞の活用語尾",         k:"「な」に変えて名詞につなげられる"},
+    {n:"断定の助動詞「だ」",         k:"「だ」にして文を切れる"},
+    {n:"格助詞「で」",               k:"「どこで・何で」と聞ける"},
+  ],
+  tools:[
+    {n:"「て」の術",         d:"前が動詞で、「ん・い」に変わった形か"},
+    {n:"「な」の術",         d:"「で」を「な」に変えて名詞につなげる"},
+    {n:"「だ」の術",         d:"「で」を「だ」にして、文を切る"},
+    {n:"「どこで・何で」の術", d:"「どこで？」「何で？」と聞けるか"},
+  ],
+  items:[
+    {s:"本を読ん[で]寝る。", a:0, r:[["「読ん」は「読む」が「ん」に変わった形 → [読む＋て]",1],["[読んな]本",0],["本を読ん[だ]。",0],["[どこで]寝る？ → 答えにならない",0]],
+     e:"動詞「読む」が「読ん」と形を変え、接続助詞「て」が「で」とにごった形です。"},
+    {s:"急い[で]家に帰った。", a:0, r:[["「急い」は「急ぐ」が「い」に変わった形 → [急ぐ＋て]",1],["[急いな]家",0],["急い[だ]。",0],["[どこで]帰った？ → 答えにならない",0]],
+     e:"動詞「急ぐ」が「急い」と形を変え、「て」が「で」とにごった形です。"},
+    {s:"部屋は静か[で]明るい。", a:1, r:[["「静か」は動詞？ → [ちがう]",0],["[静かな]部屋",1],["部屋は静か[だ]。",1],["[どこで]明るい？ → 答えにならない",0]],
+     e:"「静かな部屋」と言えるので、形容動詞「静かだ」の連用形の活用語尾です。"},
+    {s:"彼は親切[で]やさしい。", a:1, r:[["「親切」は動詞？ → [ちがう]",0],["[親切な]人",1],["彼は親切[だ]。",1],["[どこで]やさしい？ → 答えにならない",0]],
+     e:"「親切な人」と言えるので、形容動詞「親切だ」の活用語尾です。"},
+    {s:"父は医者[で]、母は教師だ。", a:2, r:[["「医者」は動詞？ → [ちがう]",0],["[医者な]人",0],["父は医者[だ]。",1],["[どこで]？ → 答えにならない",0]],
+     e:"「父は医者だ」と文を切れるので、断定の助動詞「だ」の連用形です。"},
+    {s:"今日は日曜日[で]、学校は休みだ。", a:2, r:[["「日曜日」は動詞？ → [ちがう]",0],["[日曜日な]朝",0],["今日は日曜日[だ]。",1],["[どこで]？ → 答えにならない",0]],
+     e:"「今日は日曜日だ」と文を切れるので、断定の助動詞「だ」の連用形です。"},
+    {s:"公園[で]遊ぶ。", a:3, r:[["「公園」は動詞？ → [ちがう]",0],["[公園な]日",0],["公園[だ]。遊ぶ。",0],["[どこで]遊ぶ？ → 公園で",1]],
+     e:"「どこで遊ぶ？」と聞けて場所を表すので、格助詞「で」です。"},
+    {s:"はさみ[で]紙を切る。", a:3, r:[["「はさみ」は動詞？ → [ちがう]",0],["[はさみな]紙",0],["はさみ[だ]。紙を切る。",0],["[何で]切る？ → はさみで",1]],
+     e:"「何で切る？」と聞けて道具を表すので、格助詞「で」です。"},
+    /* 2026-10-17、同じく見た目の手がかり対策：断定の「だ」が二つとも「〜[で]、」だったので、
+       読点のない断定と、読点つきのほかの用法を足す。 */
+    {s:"姉は高校生[で]弟は中学生だ。", a:2, r:[["「高校生」は動詞？ → [ちがう]",0],["[高校生な]人",0],["姉は高校生[だ]。",1],["[どこで]？ → 答えにならない",0]],
+     e:"「姉は高校生だ」と文を切れるので、断定の助動詞「だ」の連用形です。読点（、）がなくても同じです。"},
+    {s:"教室は静か[で]、だれもいない。", a:1, r:[["「静か」は動詞？ → [ちがう]",0],["[静かな]教室",1],["教室は静か[だ]。",1],["[どこで]？ → 答えにならない",0]],
+     e:"「静かな教室」と言えるので、形容動詞「静かだ」の活用語尾です。「静かだ」と文を切ることもできますが、先に「な」の術で決まります。"},
+    {s:"駅前の広場[で]、お祭りが開かれた。", a:3, r:[["「広場」は動詞？ → [ちがう]",0],["[広場な]日",0],["駅前の広場[だ]。お祭りが開かれた。",0],["[どこで]開かれた？ → 広場で",1]],
+     e:"「どこで開かれた？」と聞けて場所を表すので、格助詞「で」です。"},
+    {s:"川で泳い[で]、魚をとった。", a:0, r:[["「泳い」は「泳ぐ」が「い」に変わった形 → [泳ぐ＋て]",1],["[泳いな]魚",0],["川で泳い[だ]。",0],["[どこで]とった？ → 答えにならない",0]],
+     e:"動詞「泳ぐ」が「泳い」と形を変え、接続助詞「て」が「で」とにごった形です。"},
+  ]
+},
+{
+  key:"ga", extra:true, k:"終の巻", name:"「が」の盤", word:"が",
+  suspects:[
+    {n:"接続助詞「が」", k:"「けれど」に置きかえられる"},
+    {n:"格助詞「が」",   k:"主語をつくる"},
+  ],
+  tools:[
+    {n:"「けれど」の術", d:"「が」を「けれど」に置きかえる"},
+    {n:"「主語」の術",   d:"「何が？」と聞いて、主語になっているか"},
+  ],
+  items:[
+    {s:"雨が降った[が]、試合は行われた。", a:0, r:[["雨が降った[けれど]、試合は行われた。",1],["何が？ → [答えにならない]",0]],
+     e:"「けれど」に置きかえられ、前と後ろが逆の内容なので、接続助詞「が」です。"},
+    {s:"よく練習した[が]、負けてしまった。", a:0, r:[["よく練習した[けれど]、負けてしまった。",1],["何が？ → [答えにならない]",0]],
+     e:"「けれど」に置きかえられるので、接続助詞「が」です。"},
+    {s:"急いだ[が]、間に合わなかった。", a:0, r:[["急いだ[けれど]、間に合わなかった。",1],["何が？ → [答えにならない]",0]],
+     e:"「けれど」に置きかえられるので、接続助詞「が」です。前が文の形（急いだ）になっていることにも注目。"},
+    {s:"鳥[が]鳴く。", a:1, r:[["鳥[けれど]鳴く。",0],["何が鳴く？ → [鳥が（主語）]",1]],
+     e:"名詞「鳥」について主語をつくっているので、格助詞「が」です。"},
+    {s:"空[が]青い。", a:1, r:[["空[けれど]青い。",0],["何が青い？ → [空が（主語）]",1]],
+     e:"名詞「空」について主語をつくっているので、格助詞「が」です。"},
+    {s:"花[が]咲いた。", a:1, r:[["花[けれど]咲いた。",0],["何が咲いた？ → [花が（主語）]",1]],
+     e:"名詞「花」について主語をつくっているので、格助詞「が」です。"},
+    /* 2026-10-17、教員の指摘「見た目で明らかに一つだけ違うと答えが分かりやすすぎる」：それまでは接続助詞が
+       すべて「〜た[が]、」の長い文、格助詞がすべて「鳥[が]鳴く。」の短い文で、形だけで見分けられた。
+       読点のない短い接続助詞と、読点つきの長い格助詞（「が、」の形も）を足して、見た目の手がかりを消す。 */
+    {s:"小さい[が]力は強い。", a:0, r:[["小さい[けれど]力は強い。",1],["何が？ → [答えにならない]",0]],
+     e:"「けれど」に置きかえられるので、接続助詞「が」です。読点（、）がなくても、見分け方は同じです。"},
+    {s:"値段は高い[が]味はよい。", a:0, r:[["値段は高い[けれど]味はよい。",1],["何が？ → [答えにならない]",0]],
+     e:"「けれど」に置きかえられ、前と後ろが逆の内容なので、接続助詞「が」です。"},
+    {s:"行きたい[が]時間がない。", a:0, r:[["行きたい[けれど]時間がない。",1],["何が？ → [答えにならない]",0]],
+     e:"「けれど」に置きかえられるので、接続助詞「が」です。前が「行きたい」という文の形になっています。"},
+    {s:"昨日の夜、遠くで犬[が]ほえていた。", a:1, r:[["昨日の夜、遠くで犬[けれど]ほえていた。",0],["何がほえていた？ → [犬が（主語）]",1]],
+     e:"「何がほえていた？」→「犬が」と主語をつくっているので、格助詞「が」です。"},
+    {s:"放課後、みんな[が]教室に集まった。", a:1, r:[["放課後、みんな[けれど]教室に集まった。",0],["だれが集まった？ → [みんなが（主語）]",1]],
+     e:"「だれが集まった？」→「みんなが」と主語をつくっているので、格助詞「が」です。"},
+    {s:"冷たい北風[が]、一晩中ふき続けた。", a:1, r:[["冷たい北風[けれど]、一晩中ふき続けた。",0],["何がふき続けた？ → [北風が（主語）]",1]],
+     e:"すぐ後ろに読点（、）があっても、「何がふき続けた？」→「北風が」と主語をつくっているので、格助詞「が」です。"},
+    {s:"駅前に新しい店[が]できた。", a:1, r:[["駅前に新しい店[けれど]できた。",0],["何ができた？ → [店が（主語）]",1]],
+     e:"「何ができた？」→「店が」と主語をつくっているので、格助詞「が」です。"},
+  ]
+},
+];
+/* もとの4つの棚に足す文例（2026-10-12〜、教員の指示「同じ見分けの問題も、いろいろな文例で」）。
+   術の順番・正解のきまりは、それぞれの棚と同じ（checkDataで確かめる）。 */
+const MORE_ITEMS = {
+  nai:[
+    {s:"まだ答えがわから[ない]。", a:0, r:[["まだ答えがわから[ぬ]。",1],["まだ答えがわから[は]ない。",0],["まだ答えがわから[ある]。",0],["わから｜ない →「わから」は「わかる」の形が変わったもの → [切りはなせる]",0]],
+     e:"「わからぬ」と言いかえられるので、打ち消しの助動詞です。"},
+    {s:"妹は野菜を食べ[ない]。", a:0, r:[["妹は野菜を食べ[ぬ]。",1],["妹は野菜を食べ[は]ない。",0],["妹は野菜を食べ[ある]。",0],["食べ｜ない →「食べ」は「食べる」の形が変わったもの → [切りはなせる]",0]],
+     e:"「食べぬ」と言えるので、打ち消しの助動詞です。"},
+    {s:"バスがなかなか来[ない]。", a:0, r:[["バスがなかなか来[ぬ]。",1],["バスがなかなか来[は]ない。",0],["バスがなかなか来[ある]。",0],["来｜ない →「来（こ）」は「来る」の形が変わったもの → [切りはなせる]",0]],
+     e:"「来ぬ（こぬ）」と言えるので、打ち消しの助動詞。動詞「来る」の未然形「来（こ）」についています。"},
+    {s:"この本はおもしろく[ない]。", a:1, r:[["この本はおもしろく[ぬ]。",0],["この本はおもしろく[は]ない。",1],["この本はおもしろく[ある]。",1],["おもしろく｜ない →「おもしろく」は「おもしろい」の形が変わったもの → [切りはなせる]",0]],
+     e:"「おもしろくはない」と「は」を入れられるので、補助形容詞です。"},
+    {s:"この部屋は広く[ない]。", a:1, r:[["この部屋は広く[ぬ]。",0],["この部屋は広く[は]ない。",1],["この部屋は広く[ある]。",1],["広く｜ない →「広く」は「広い」の形が変わったもの → [切りはなせる]",0]],
+     e:"「広くはない」と言えるので、補助形容詞です。"},
+    {s:"兄は今日、元気で[ない]。", a:1, r:[["兄は今日、元気で[ぬ]。",0],["兄は今日、元気で[は]ない。",1],["兄は今日、元気で[ある]。",1],["元気で｜ない →「元気で」は「元気だ」の形が変わったもの → [切りはなせる]",0]],
+     e:"「元気ではない」と言えるので、補助形容詞。形容動詞「元気だ」の連用形「元気で」についています。"},
+    {s:"この町には駅が[ない]。", a:2, r:[["この町には駅が[ぬ]。",0],["この町には駅が[は]ない。",0],["この町には駅が[ある]。",1],["駅が｜ない →「駅が」で言葉として残る → [切りはなせる]",0]],
+     e:"「駅がある」の反対を表す、形容詞の「ない」です。"},
+    {s:"答えに自信が[ない]。", a:2, r:[["答えに自信が[ぬ]。",0],["答えに自信が[は]ない。",0],["答えに自信が[ある]。",1],["自信が｜ない →「自信が」で言葉として残る → [切りはなせる]",0]],
+     e:"「自信がある」の反対を表す、形容詞の「ない」です。"},
+    {s:"初めての発表で、動きがぎこち[ない]。", a:3, r:[["初めての発表で、動きがぎこち[ぬ]。",0],["初めての発表で、動きがぎこち[は]ない。",0],["初めての発表で、動きがぎこち[ある]。",0],["ぎこち｜ない →「ぎこち」という言葉はない → [ひとつながり]",1]],
+     e:"「ぎこちない」で一つの形容詞。「ない」を切りはなせないので、形容詞の一部です。"},
+  ],
+  reru:[
+    {s:"先生にほめ[られる]。", a:0, r:[["[先生に]ほめられる。（相手＝先生）",1],["先生に[おほめになる]。",0],["「ほめる」は心の動き？ → [ちがう]",0],["先生にほめる[ことができる]。",0]],
+     e:"「先生に」ほめられる、と動作をしかけてくる相手がいるので受け身です。"},
+    {s:"蚊に腕を刺さ[れる]。", a:0, r:[["[蚊に]腕を刺される。（相手＝蚊）",1],["蚊に腕を[お刺しになる]。",0],["「刺す」は心の動き？ → [ちがう]",0],["蚊に腕を刺す[ことができる]。",0]],
+     e:"「蚊に」刺される、と相手がいるので受け身です。"},
+    {s:"母にしから[れる]。", a:0, r:[["[母に]しかられる。（相手＝母）",1],["母に[おしかりになる]。",0],["「しかる」は心の動き？ → [ちがう]",0],["母にしかる[ことができる]。",0]],
+     e:"「母に」しかられる、と相手がいるので受け身です。"},
+    {s:"先生が新しい本を書か[れる]。", a:1, r:[["だれに？ → [相手はいない]",0],["先生が新しい本を[お書きになる]。",1],["「書く」は心の動き？ → [ちがう]",0],["先生が新しい本を書く[ことができる]。",0]],
+     e:"「お書きになる」と言いかえられ、先生の動作を高めているので尊敬です。"},
+    {s:"おばあさまが昔話を聞か[れる]。", a:1, r:[["だれに？ → [相手はいない]",0],["おばあさまが昔話を[お聞きになる]。",1],["「聞く」は心の動き？ → [ちがう]",0],["おばあさまが昔話を聞く[ことができる]。",0]],
+     e:"「お聞きになる」と言いかえられるので尊敬です。"},
+    {s:"先生が花だんに花を植え[られる]。", a:1, r:[["だれに？ → [相手はいない]",0],["先生が花だんに花を[お植えになる]。",1],["「植える」は心の動き？ → [ちがう]",0],["先生が花だんに花を植える[ことができる]。",0]],
+     e:"「お植えになる」と言いかえられるので尊敬です。"},
+    {s:"ふるさとのことがしのば[れる]。", a:2, r:[["だれに？ → [相手はいない]",0],["ふるさとのことが[おしのびになる]。",0],["「しのぶ」＝なつかしく思う → [心の動き]",1],["ふるさとのことがしのぶ[ことができる]。",0]],
+     e:"「しのぶ（なつかしく思い出す）」は心の動き。自然にそう思われる、という自発です。"},
+    {s:"昔のことがなつかしく思わ[れる]。", a:2, r:[["だれに？ → [相手はいない]",0],["昔のことがなつかしく[お思いになる]。",0],["「思う」 → [心の動き]",1],["昔のことがなつかしく思う[ことができる]。",0]],
+     e:"「思う」は心の動き。「自然と思われる」という自発です。"},
+    {s:"友の身が心配さ[れる]。", a:2, r:[["だれに？ → [相手はいない]",0],["友の身が[ご心配になる]。",0],["「心配する」 → [心の動き]",1],["友の身が心配する[ことができる]。",0]],
+     e:"「心配する」は心の動き。自然に心配になる、という自発です。"},
+    {s:"ここからなら富士山が見[られる]。", a:3, r:[["だれに？ → [相手はいない]",0],["ここからなら富士山が[ご覧になる]。",0],["「見る」は心の動き？ → [ちがう]",0],["ここからなら富士山を見る[ことができる]。",1]],
+     e:"「見ることができる」と言いかえられるので可能です。"},
+    {s:"ぼくは明日、八時に来[られる]。", a:3, r:[["だれに？ → [相手はいない]",0],["ぼくは明日、八時に[おいでになる]。",0],["「来る」は心の動き？ → [ちがう]",0],["ぼくは明日、八時に来る[ことができる]。",1]],
+     e:"「来ることができる」と言いかえられるので可能。自分の動作に「おいでになる」は使えません。"},
+    {s:"ぼくでもこの問題は答え[られる]。", a:3, r:[["だれに？ → [相手はいない]",0],["ぼくでもこの問題は[お答えになる]。",0],["「答える」は心の動き？ → [ちがう]",0],["ぼくでもこの問題は答える[ことができる]。",1]],
+     e:"「答えることができる」と言いかえられるので可能です。"},
+  ],
+  no:[
+    {s:"母[の]作った料理はおいしい。", a:0, r:[["母[が]作った料理はおいしい。",1],["母[こと]作った料理はおいしい。",0],["二つ並べている？ → [並んでいない]",0],["後ろは「作った」 → [名詞ではない]",0]],
+     e:"「母が作った料理」と言えるので、主語を表す「の」です。"},
+    {s:"風[の]強い日は外に出ない。", a:0, r:[["風[が]強い日は外に出ない。",1],["風[こと]強い日は外に出ない。",0],["二つ並べている？ → [並んでいない]",0],["後ろは「強い」 → [名詞ではない]",0]],
+     e:"「風が強い日」と言えるので、主語を表す「の」です。"},
+    {s:"雪[の]降る夜は静かだ。", a:0, r:[["雪[が]降る夜は静かだ。",1],["雪[こと]降る夜は静かだ。",0],["二つ並べている？ → [並んでいない]",0],["後ろは「降る」 → [名詞ではない]",0]],
+     e:"「雪が降る夜」と言えるので、主語を表す「の」です。"},
+    {s:"歌う[の]が大好きだ。", a:1, r:[["歌う[が]が大好きだ。",0],["歌う[こと]が大好きだ。",1],["二つ並べている？ → [並んでいない]",0],["後ろは「が」 → [名詞ではない]",0]],
+     e:"「歌うこと」と言いかえられるので、体言の代わりの「の」です。"},
+    {s:"その大きい[の]を取ってください。", a:1, r:[["その大きい[が]を取ってください。",0],["その大きい[もの]を取ってください。",1],["二つ並べている？ → [並んでいない]",0],["後ろは「を」 → [名詞ではない]",0]],
+     e:"「大きいもの」と言いかえられるので、体言の代わりの「の」です。"},
+    {s:"君が書いた[の]はどれですか。", a:1, r:[["君が書いた[が]はどれですか。",0],["君が書いた[もの]はどれですか。",1],["二つ並べている？ → [並んでいない]",0],["後ろは「は」 → [名詞ではない]",0]],
+     e:"「書いたもの」と言いかえられるので、体言の代わりの「の」です。"},
+    {s:"高い[の]安いのと言い合う。", a:2, r:[["高い[が]安いのと言い合う。",0],["高い[もの]安いのと言い合う。",0],["「高いの」「安いの」 → [二つ並べている]",1],["後ろは「安い」 → [名詞ではない]",0]],
+     e:"「高いの」「安いの」と二つを並べているので、並立の「の」です。"},
+    {s:"来る[の]来ないのとさわいでいる。", a:2, r:[["来る[が]来ないのとさわいでいる。",0],["来る[こと]来ないのとさわいでいる。",0],["「来るの」「来ないの」 → [二つ並べている]",1],["後ろは「来ない」 → [名詞ではない]",0]],
+     e:"二つを並べて言っているので、並立の「の」です。"},
+    {s:"これは私[の]かばんだ。", a:3, r:[["これは私[が]かばんだ。",0],["これは私[もの]かばんだ。",0],["二つ並べている？ → [並んでいない]",0],["後ろは「かばん」 → [名詞]",1]],
+     e:"「私の」が名詞「かばん」をくわしくしているので、連体修飾の「の」です。"},
+    {s:"秋[の]空は高く感じる。", a:3, r:[["秋[が]空は高く感じる。",0],["秋[もの]空は高く感じる。",0],["二つ並べている？ → [並んでいない]",0],["後ろは「空」 → [名詞]",1]],
+     e:"「秋の」が名詞「空」をくわしくしているので、連体修飾の「の」です。"},
+    {s:"学校[の]図書館で本を借りた。", a:3, r:[["学校[が]図書館で本を借りた。",0],["学校[もの]図書館で本を借りた。",0],["二つ並べている？ → [並んでいない]",0],["後ろは「図書館」 → [名詞]",1]],
+     e:"「学校の」が名詞「図書館」をくわしくしているので、連体修飾の「の」です。"},
+  ],
+  da:[
+    {s:"雨がもうすぐやみそう[だ]。", a:0, r:[["やみ[そう]＋だ",1],["[やみそうな]空",1],["雨がもうすぐやみそう[である]。",1],["前は「そう」 → [動詞ではない]",0]],
+     e:"「そうだ」で一つの助動詞（様態）。「だ」はその一部です。"},
+    {s:"まるで夢のよう[だ]。", a:0, r:[["夢の[よう]＋だ",1],["[夢のような]一日",1],["まるで夢のよう[である]。",1],["前は「よう」 → [動詞ではない]",0]],
+     e:"「ようだ」で一つの助動詞（たとえ）。「だ」はその一部です。"},
+    {s:"夕方の海はおだやか[だ]。", a:1, r:[["前は「おだやか」 → [そう・ようはない]",0],["[おだやかな]海",1],["夕方の海はおだやか[である]。",1],["「おだやか」は動詞？ → [ちがう]",0]],
+     e:"「おだやかな海」と言えるので、形容動詞「おだやかだ」の活用語尾です。"},
+    {s:"この問題は簡単[だ]。", a:1, r:[["前は「簡単」 → [そう・ようはない]",0],["[簡単な]問題",1],["この問題は簡単[である]。",1],["「簡単」は動詞？ → [ちがう]",0]],
+     e:"「簡単な問題」と言えるので、形容動詞「簡単だ」の活用語尾です。"},
+    {s:"祖母はいつも元気[だ]。", a:1, r:[["前は「元気」 → [そう・ようはない]",0],["[元気な]祖母",1],["祖母はいつも元気[である]。",1],["「元気」は動詞？ → [ちがう]",0]],
+     e:"「元気な祖母」と言えるので、形容動詞「元気だ」の活用語尾です。"},
+    {s:"これはぼくのかばん[だ]。", a:2, r:[["前は「かばん」 → [そう・ようはない]",0],["[かばんな]物",0],["これはぼくのかばん[である]。",1],["「かばん」は動詞？ → [ちがう]",0]],
+     e:"「かばんである」と言いかえられるので、断定の助動詞「だ」です。"},
+    {s:"明日は運動会[だ]。", a:2, r:[["前は「運動会」 → [そう・ようはない]",0],["[運動会な]日",0],["明日は運動会[である]。",1],["「運動会」は動詞？ → [ちがう]",0]],
+     e:"「運動会である」と言いかえられるので、断定の助動詞「だ」です。"},
+    {s:"あの山が富士山[だ]。", a:2, r:[["前は「富士山」 → [そう・ようはない]",0],["[富士山な]景色",0],["あの山が富士山[である]。",1],["「富士山」は動詞？ → [ちがう]",0]],
+     e:"「富士山である」と言いかえられるので、断定の助動詞「だ」です。"},
+    {s:"階段で転ん[だ]。", a:3, r:[["前は「転ん」 → [そう・ようはない]",0],["[転んな]人",0],["階段で転ん[である]。",0],["「転ぶ」が「転ん」に変わった形 → [転ぶ＋た]",1]],
+     e:"動詞「転ぶ」が「転ん」と形を変え、過去の「た」が「だ」とにごった形です。"},
+    {s:"大きな声で叫ん[だ]。", a:3, r:[["前は「叫ん」 → [そう・ようはない]",0],["[叫んな]人",0],["大きな声で叫ん[である]。",0],["「叫ぶ」が「叫ん」に変わった形 → [叫ぶ＋た]",1]],
+     e:"動詞「叫ぶ」が「叫ん」と形を変え、過去の「た」が「だ」とにごった形です。"},
+  ],
+};
+Object.keys(MORE_ITEMS).forEach(k => CASES.find(c => c.key === k).items.push(...MORE_ITEMS[k]));
+const ALL_CASES = CASES.concat(EXTRA_CASES);   // 終の巻（すべての棚）は、この全部の棚から1問ずつ
+/* 終の巻は、2026-10-17〜「言霊並べ」（言霊の番人と五目並べ、NR）。一〜四の巻をすべてクリアすると挑める（教員の指示）。
+   それまでの「すべての棚」（全部の棚から1問ずつ）は、言霊並べの問いがすべての棚から出るので、そちらに引きついだ。 */
+const FINAL = {key:"narabe", k:"終の巻", name:"すべての盤", desc:""};
+
+/* ============================================================
+   番人の絵（本体と同じスプライト）
+   ============================================================ */
+function banninSrc(pose){ return (typeof ENEMY_SPRITES !== "undefined") && ENEMY_SPRITES["me04_" + pose]; }
+function banninHtml(pose){ const s = banninSrc(pose); return s ? `<img src="${s}" alt="言霊の番人">` : `<div class="emoji">👑</div>`; }
+function setBannin(id, pose){ const el = $(id); if(el) el.innerHTML = banninHtml(pose); }
+
+/* ============================================================
+   セーブ・本体への反映
+   ============================================================ */
+const ST_LSKEY = "kokugo_kotodama_shoko_v1";
+function loadSt(){ try{ return JSON.parse(localStorage.getItem(ST_LSKEY) || "{}") || {}; }catch(e){ return {}; } }
+function saveSt(st){ try{ localStorage.setItem(ST_LSKEY, JSON.stringify(st)); }catch(e){} }
+let muted = false;
+try{ muted = localStorage.getItem(ST_LSKEY + "_mute") === "1"; }catch(e){}
+/* 本体（kokugo_app.html）のジャンルレベル：1回目で正しい正体を呼べたら「識別」(shikibetsu)＋1をその場で書き置く。
+   本体がホーム画面を開くときに反映する（mgApplyPendingLevelUps・MG_LVUP_CATS）。まちがいでは下げない。
+   答えるたびに今日の日付も書く（本体のデイリーログイン報酬）。 */
+const MG_PENDING_LVUP_LSKEY = "kokugo_minigame_pending_lvups_v1";
+const MG_PLAYED_LSKEY = "kokugo_mg_played_v1";
+function mgNotePlayed(){
+  try{ const d = new Date(); localStorage.setItem(MG_PLAYED_LSKEY, d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0")); }catch(e){}
+}
+function mgLevelUp(cat){
+  let o = {};
+  try{ o = JSON.parse(localStorage.getItem(MG_PENDING_LVUP_LSKEY)) || {}; }catch(e){ o = {}; }
+  if(!o || typeof o !== "object") o = {};
+  o[cat] = (Number(o[cat]) || 0) + 1;
+  try{ localStorage.setItem(MG_PENDING_LVUP_LSKEY, JSON.stringify(o)); }catch(e){}
+}
+function backToApp(){ location.href = "kokugo_app.html?from=minigame"; }
+
+/* ============================================================
+   効果音
+   ============================================================ */
+let AC = null;
+function ac(){ if(muted) return null; try{ if(!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); if(AC.state === "suspended") AC.resume(); }catch(e){ return null; } return AC; }
+function tone(f, d, type, vol, delay){
+  const a = ac(); if(!a) return;
+  const t = a.currentTime + (delay || 0), o = a.createOscillator(), g = a.createGain();
+  o.type = type || "sine"; o.frequency.setValueAtTime(f, t);
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol || .12, t + .01); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+  o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + d + .05);
+}
+const sfx = {
+  spell(){ tone(880, .18, "triangle", .1); tone(1320, .22, "sine", .06, .06); },
+  pick(){ tone(520, .06, "square", .05); },
+  ok(){ [660, 880, 1100, 1320].forEach((f, i) => tone(f, .25, "triangle", .1, i * .07)); },
+  fanfare(){ [523, 659, 784, 1047].forEach((f, i) => tone(f, .32, "triangle", .12, i * .09)); tone(1568, .7, "sine", .1, .4); tone(1047, .7, "triangle", .08, .4); },
+  stamp(){ tone(140, .18, "square", .12); tone(90, .25, "sine", .14, .02); },
+  ng(){ tone(300, .25, "sawtooth", .07); tone(220, .3, "sawtooth", .06, .1); },
+};
+function toggleMute(){
+  muted = !muted; $("muteBtn").textContent = muted ? "🔇" : "🔊";
+  try{ localStorage.setItem(ST_LSKEY + "_mute", muted ? "1" : "0"); }catch(e){}
+}
+
+/* ============================================================
+   共通
+   ============================================================ */
+function $(id){ return document.getElementById(id); }
+function show(id){
+  document.querySelectorAll(".screen").forEach(s => s.classList.toggle("show", s.id === id));
+  const el = $(id); if(el) el.scrollTop = 0;
+  if(id === "title") renderTitle();
+}
+function shuffle(a){ a = a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function markKage(s){ return s.replace(/\[([^\]]+)\]/g, '<span class="kage">$1</span>'); }
+function markEv(s){ return s.replace(/\[([^\]]+)\]/g, '<mark>$1</mark>'); }
+function caseOf(key){ return ALL_CASES.find(c => c.key === key); }
+function toast(t){ const el = document.createElement("div"); el.className = "toast"; el.textContent = t; document.body.appendChild(el); setTimeout(() => el.remove(), 1900); }
+/* 正しい正体＝術を順にかけて最初に○になったもの。どれも×なら最後の札。 */
+function decisive(c, it){
+  for(let i=0;i<c.tools.length;i++) if(it.r[i][1]) return i;
+  return c.suspects.length - 1;
+}
+function checkData(){
+  ALL_CASES.forEach(c => c.items.forEach(it => {
+    if(it.r.length !== c.tools.length) console.warn("[影の書庫] 術の数が合わない", c.key, it.s);
+    if(decisive(c, it) !== it.a) console.warn("[影の書庫] 正解と術の結果が合わない", c.key, it.s);
+  }));
+}
+checkData();
+(function floatKana(){
+  const box = $("floatKana"), chars = "言霊名真ないのだれる書庫影術".split("");
+  for(let i = 0; i < 16; i++){
+    const s = document.createElement("span");
+    s.textContent = chars[i % chars.length];
+    s.style.left = (Math.random() * 96) + "%";
+    s.style.fontSize = (18 + Math.random() * 30) + "px";
+    s.style.animationDuration = (16 + Math.random() * 18) + "s";
+    s.style.animationDelay = (-Math.random() * 30) + "s";
+    box.appendChild(s);
+  }
+})();
+
+/* ============================================================
+   タイトル
+   ============================================================ */
+const roundSize = key => key === "final" ? ALL_CASES.length : 6;
+function renderTitle(){
+  setBannin("tiBannin", "pose1");
+  const st = loadSt();
+  // 一〜四の巻：6問中5問以上でクリア（CLEAR_MIN）。クリアしたあとも、選べばいつでも復習できる。
+  // 終の巻「言霊並べ」：一〜四をすべてクリアすると挑める（教員の指示）。
+  // 一〜四をすべてクリアしたあとは、終の巻を大きなボタンでいちばん上に出し、一〜四の巻は「復習する」の中にたたむ（教員の指示）。
+  const unlocked = narabeUnlocked(st), left = CASES.filter(c => !caseCleared(st, c.key)).length;
+  const caseBtns = CASES.map(c => {
+    // 一〜四の巻も番人との言霊並べ（2026-10-18〜）。右端は討伐回数
+    const n = (st.kanClears || {})[c.key] || 0;
+    const best = n ? `討伐 ${n}回` : "";
+    const clr = caseCleared(st, c.key) ? `<span class="clr">クリア</span>` : "";
+    return `<button class="case-btn" onclick="openCase('${c.key}')">`
+      + `<span class="num">${c.k.replace("の巻", "")}</span>`
+      + `<span><div class="t mincho">${c.k}　${c.name}${clr}</div>${clr && !unlocked ? `<div class="d">選ぶと復習できる</div>` : ""}</span>`
+      + `<span class="best">${best}</span></button>`;
+  }).join("");
+  const finalBtn = `<button class="case-btn final${unlocked ? " big" : " locked"}" onclick="openCase('${FINAL.key}')">`
+    // 「終の巻」とは表示しない（教員の指示）。名前は「言霊並べ」だけ
+    + `<span class="num">${unlocked ? "盤" : "🔒"}</span>`
+    + `<span><div class="t mincho">${FINAL.name}</div>`
+    + `<div class="d">${unlocked ? "すべての言霊で、番人と最後の勝負！" : `一〜四の巻すべてで番人に勝つと挑める（あと${left}巻）`}</div></span>`
+    // 右端は「第◯段階まで」ではなく討伐回数（3段階すべてに勝った回数、st.narabeClears）を出す（教員の指示）
+    + `<span class="best">${unlocked ? `討伐 ${st.narabeClears || 0}回` + (st.narabeAlly ? "<br>🤝" : "") : ""}</span></button>`;
+  $("caseList").innerHTML = unlocked
+    ? finalBtn + `<details class="review"><summary>📚 一〜四の巻を復習する</summary><div class="review-list">${caseBtns}</div></details>`
+    : caseBtns + finalBtn;
+}
+
+/* ============================================================
+   巻の前置き
+   ============================================================ */
+let cur = null;   // {key, list:[{c,it}], idx, results:[], used:[], sel}
+function openCase(key){
+  if(key === FINAL.key){
+    if(!narabeUnlocked(loadSt())){ toast("一〜四の巻すべてで番人に勝つと挑める"); show("title"); return; }
+    return NR.open();
+  }
+  // 一〜四の巻も、番人との言霊並べ（その棚の問いだけ）。それまでの6問形式・術の手引きの画面は使わない（2026-10-18〜）
+  return NR.open(key);
+  cur = {key};
+  if(key === "final"){
+    $("inK").textContent = FINAL.k; $("inN").textContent = FINAL.name;
+    $("inFlow").innerHTML = ALL_CASES.map(c => `<li><span class="lens">${c.name}</span>　<span class="to">${c.tools.map(t => t.n.replace("の術", "")).join(" → ")}</span></li>`).join("");
+  }else{
+    const c = caseOf(key);
+    $("inK").textContent = c.k; $("inN").textContent = c.name;
+    $("inFlow").innerHTML = flowHtml(c);
+  }
+  show("intro");
+}
+function flowHtml(c){
+  let h = c.tools.map((t,i) => `<li><span class="lens">${t.n}</span>（${t.d}）<br>→ <span class="to">${c.suspects[i].n}</span></li>`).join("");
+  if(c.suspects.length > c.tools.length) h += `<li class="last">どの術でも成り立たなければ <span class="to">${c.suspects[c.suspects.length-1].n}</span>（${c.suspects[c.suspects.length-1].k}）</li>`;
+  return h;
+}
+/* 出題：どの正体も少なくとも一回ずつ出るように選ぶ */
+function pickRound(c, n){
+  const byA = c.suspects.map((_,i) => shuffle(c.items.filter(it => it.a === i)));
+  const out = [];
+  shuffle(byA).forEach(arr => { if(arr.length && out.length < n) out.push(arr.shift()); });
+  const rest = shuffle([].concat(...byA));
+  while(out.length < n && rest.length) out.push(rest.shift());
+  return shuffle(out).map(it => ({c, it}));
+}
+/* ============================================================
+   いろいろな問い（2026-10-17〜、教員の指示：①〜④をいろいろ混ぜて出す）
+     name：正体を呼べ（もとからの形。文 → 正体の札）
+     same：①同じ正体をさがせ（例文と同じ用法の文を4つから）
+     odd ：②仲間はずれをさがせ（4つのうち1つだけ用法がちがう）
+     nat ：③術を見きわめよ（術をかけた文が成り立つか ○×）
+     pick：④正体から文をさがせ（正体の名前 → その用法の文を4つから）
+   どれも今の問題データ（items の s・a・r・e）から自動で組み立てる。作れない形（同じ正体の文が足りない等）は
+   ほかの形にかえ、最後は name にする。1回の棚では、形がなるべくかたよらないよう袋から順に引く。
+   ============================================================ */
+const Q_TYPES = ["name", "same", "odd", "nat", "pick"];
+const Q_LABEL = {name:"書 庫 の 一 節", same:"同 じ 正 体 を さ が せ", odd:"仲 間 は ず れ を さ が せ", nat:"術 を 見 き わ め よ", pick:"正 体 か ら 文 を さ が せ"};
+function itemsByA(c){ const m = c.suspects.map(() => []); c.items.forEach(x => m[x.a].push(x)); return m; }
+// 術の結果が「置きかえた文」になっているものだけ（「だれに？ → …」のような確かめ方は○×の問いにしない）
+function natTools(it){ return it.r.map((_,i) => i).filter(i => !/→/.test(it.r[i][0])); }
+function canType(t, c, it){
+  const by = itemsByA(c), others = by.filter((arr,a) => a !== it.a && arr.length);
+  if(t === "same") return by[it.a].length >= 2 && others.length >= 1;
+  if(t === "odd") return by.some((arr,a) => a !== it.a && arr.length >= 3);
+  if(t === "pick") return others.length >= 1;
+  if(t === "nat") return natTools(it).length > 0;
+  return true;
+}
+// 用法 a 以外の文を n こ。なるべくちがう正体から1つずつ取る
+function otherItems(c, a, n){
+  const by = itemsByA(c).map(arr => shuffle(arr)), out = [];
+  for(let g = 0; g < 10 && out.length < n; g++){
+    const avail = shuffle(by.map((_,i) => i).filter(i => i !== a && by[i].length));
+    if(!avail.length) break;
+    for(const i of avail){ if(out.length >= n) break; out.push(by[i].shift()); }
+  }
+  return out;
+}
+/* 見た目の手がかり対策（2026-10-17、教員の指摘）：答えの文だけ「[〜]、」の形（影のすぐ後ろが読点）になっている／
+   答えの文だけそうなっていない組み合わせは、形だけで当てられてしまうので引き直す（20回までためして、だめならそのまま） */
+const commaAfter = x => /\]、/.test(x.s);
+function giveaway(e){
+  if(!e.opts) return false;
+  const odd = e.opts.filter((x,i) => i !== e.ans).map(commaAfter);
+  return odd.every(v => v === odd[0]) && commaAfter(e.opts[e.ans]) !== odd[0];
+}
+function buildQ(e){
+  for(let g = 0; g < 20; g++){ buildQ1(e); if(!giveaway(e)) return; }
+}
+function buildQ1(e){
+  const {c, it} = e;
+  if(e.type === "same"){
+    const mate = shuffle(c.items.filter(x => x.a === it.a && x !== it))[0];
+    e.opts = shuffle([mate].concat(otherItems(c, it.a, 3))); e.ans = e.opts.indexOf(mate);
+  }else if(e.type === "pick"){
+    e.opts = shuffle([it].concat(otherItems(c, it.a, 3))); e.ans = e.opts.indexOf(it);
+  }else if(e.type === "odd"){
+    const by = itemsByA(c);
+    e.maj = shuffle(by.map((_,a) => a).filter(a => a !== it.a && by[a].length >= 3))[0];
+    e.opts = shuffle([it].concat(shuffle(by[e.maj]).slice(0, 3))); e.ans = e.opts.indexOf(it);
+  }else if(e.type === "nat"){
+    e.tool = shuffle(natTools(it))[0]; e.ans = it.r[e.tool][1] ? 0 : 1;
+  }
+}
+function assignTypes(list){
+  let bag = [];
+  list.forEach(e => {
+    if(!bag.length) bag = shuffle(Q_TYPES);
+    const t = bag.find(x => canType(x, e.c, e.it)) || "name";
+    if(bag.includes(t)) bag.splice(bag.indexOf(t), 1);
+    e.type = t;
+    buildQ(e);
+  });
+  return list;
+}
+// 今の問いの正解（name は正体の札の番号、ほかは選択肢の番号）
+function answerOf(e){ return e.type === "name" ? e.it.a : e.ans; }
+
+function startCase(){
+  cur.list = assignTypes(cur.key === "final" ? shuffle([].concat(...ALL_CASES.map(c => pickRound(c, 1)))) : pickRound(caseOf(cur.key), roundSize(cur.key)));
+  cur.idx = 0; cur.results = [];
+  show("play");
+  renderQ();
+}
+
+/* ============================================================
+   書庫で術をかける
+   ============================================================ */
+/* 2026-10-17〜、教員の指示「術が余計に感じる。ヒント程度の位置づけにして、すぐ答えることもできるように」：
+   正体の札は最初から出ていて、いつでも選んで呼べる。術はヒント（かけると置きかえた文が写し出されるだけ、
+   ○×は出さない）で、使わなくてもよい。以前の「決め手の術を当ててから正体を呼ぶ」二段階はやめた。
+   ★＝正体が正しい（術を使ったかどうかは問わない）。★のときだけ本体「識別」＋1。 */
+function renderQ(){
+  const e = cur.list[cur.idx], {c, it} = e;
+  Object.assign(cur, {used:[], sel:-1});
+  $("plCase").textContent = cur.key === "final" ? `${FINAL.name}（${c.name}）` : `${c.k}　${c.name}`;
+  $("plProg").textContent = (cur.idx + 1) + " / " + cur.list.length;
+  $("plLbl").textContent = Q_LABEL[e.type];
+  setBannin("plMini", "pose2");
+  // 術（ヒント）はふだん隠しておき、「ヒントを見る」を押したときだけ出す（2026-10-17〜、教員の指示）
+  $("plHintSec").hidden = true;
+  $("hintBtn").hidden = e.type === "nat";   // ③は術そのものの問いなので、ヒントは出さない
+  // ヒントの中身：文が一つに決まる問い（name・same）は、その文に術をかけられる。
+  // 文が四つ並ぶ問い（odd・pick）は、術をかける順番の一覧を見せる。
+  $("plTools").innerHTML = (e.type === "odd" || e.type === "pick") ? ""
+    : c.tools.map((t,i) =>
+      `<button class="tool" id="tl${i}" onclick="useTool(${i})"><div class="tn">✨ ${t.n}</div><div class="td">${t.d}</div></button>`).join("");
+  const sentBtn = (x,i) => `<button class="su" id="su${i}" onclick="pickSus(${i})"><div class="sn mincho">${markKage(x.s)}</div></button>`;
+  $("plSus").classList.toggle("one", e.type !== "name");
+  $("plSusH").textContent = e.type === "name" ? "🏷 正体" : e.type === "nat" ? "⚖ 見きわめ" : "📖 言霊を選ぶ";
+  $("accuseBtn").textContent = e.type === "name" ? "正体を見ぬく！" : "これだ！";
+  if(e.type === "name"){
+    $("plSent").innerHTML = markKage(it.s);
+    $("plAsk").innerHTML = "この言霊の正体を選んで呼べ。";
+    $("plSus").innerHTML = c.suspects.map((s,i) =>
+      `<button class="su" id="su${i}" onclick="pickSus(${i})"><div class="sn">${s.n}</div></button>`).join("");
+  }else if(e.type === "same"){
+    $("plSent").innerHTML = markKage(it.s);
+    $("plAsk").innerHTML = "この言霊と<b>同じ正体</b>のものを、下から選べ。";
+    $("plSus").innerHTML = e.opts.map(sentBtn).join("");
+  }else if(e.type === "odd"){
+    $("plSent").innerHTML = `<div class="qname">ひとつだけ、正体のちがう言霊がまじっている</div>`;
+    $("plAsk").innerHTML = "<b>仲間はずれ</b>はどれか。";
+    $("plSus").innerHTML = e.opts.map(sentBtn).join("");
+  }else if(e.type === "pick"){
+    $("plSent").innerHTML = `<div class="qname">${c.suspects[it.a].n}</div>`;
+    $("plAsk").innerHTML = "この正体を持つ言霊はどれか。";
+    $("plSus").innerHTML = e.opts.map(sentBtn).join("");
+  }else if(e.type === "nat"){
+    $("plSent").innerHTML = `<div class="qorig">${markKage(it.s)}</div><div class="qtool">↓ ✨ ${c.tools[e.tool].n}（${c.tools[e.tool].d}）</div><div>${markEv(it.r[e.tool][0])}</div>`;
+    $("plAsk").innerHTML = "術をかけた文は、<b>自然な日本語として成り立つ</b>か。";
+    $("plSus").innerHTML = ["○ 成り立つ（自然）", "× 成り立たない（不自然）"].map((t,i) =>
+      `<button class="su" id="su${i}" onclick="pickSus(${i})"><div class="sn">${t}</div></button>`).join("");
+  }
+  renderEvid();
+  updateAccuse();
+  $("play").scrollTop = 0;
+}
+function useTool(i){
+  if(cur.used.includes(i)) return;
+  cur.used.push(i);
+  $("tl" + i).classList.add("used");
+  sfx.spell();
+  renderEvid();
+  updateAccuse();
+}
+function renderEvid(){
+  const {c, it, type} = cur.list[cur.idx];
+  if(type === "odd" || type === "pick"){
+    $("plEvid").innerHTML = `<div class="scroll" style="margin-top:0"><h3>📜 術をかける順番</h3><ol class="flow">${flowHtml(c)}</ol></div>`;
+    return;
+  }
+  if(!cur.used.length){ $("plEvid").innerHTML = ""; return; }
+  // ヒントなので○×は出さず、置きかえた文を写し出すだけ（自然かどうかは自分で見きわめる）
+  $("plEvid").innerHTML = cur.used.map(i =>
+    `<div class="ev" id="ev${i}"><div class="en">✨ ${c.tools[i].n}</div><div class="et mincho">${markEv(it.r[i][0])}</div></div>`).join("");
+}
+function openHint(){
+  $("hintBtn").hidden = true;
+  $("plHintSec").hidden = false;
+  sfx.pick();
+  const sec = $("plHintSec"); if(sec.scrollIntoView) sec.scrollIntoView({behavior:"smooth", block:"start"});
+}
+function pickSus(i){
+  cur.sel = i; sfx.pick();
+  document.querySelectorAll(".su").forEach((el,j) => el.classList.toggle("sel", j === i));
+  updateAccuse();
+}
+function updateAccuse(){
+  const btn = $("accuseBtn");
+  btn.disabled = cur.sel < 0;
+}
+
+// 要素のまわりに光の粒を飛ばす
+function sparkle(el, n){
+  const r = el.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  for(let k = 0; k < n; k++){
+    const sp = document.createElement("span");
+    sp.className = "spark"; sp.textContent = k % 3 ? "✦" : "✨";
+    sp.style.left = cx + "px"; sp.style.top = cy + "px";
+    document.body.appendChild(sp);
+    const a = Math.random() * Math.PI * 2, d = 50 + Math.random() * 70;
+    if(sp.animate) sp.animate([{transform:"translate(-50%,-50%) scale(.5)", opacity:1},
+      {transform:`translate(calc(-50% + ${Math.cos(a) * d}px), calc(-50% + ${Math.sin(a) * d}px)) scale(1.1)`, opacity:0}],
+      {duration:700 + Math.random() * 300, easing:"ease-out"});
+    setTimeout(() => sp.remove(), 1000);
+  }
+}
+/* 正体を正しく呼んだときの、画面いっぱいの演出。
+   expl（かんたんな解説）を渡すと、演出の下に解説と「次へ」ボタンを出し、読み終えて押すまで待つ
+   （2026-10-17〜、教員の指示：正解のときは手引きの画面をはさまず、そのまま次の問題へ）。
+   expl なしのときは今までどおり、少し待つか（またはタップで）next() を呼ぶ。 */
+function celebrate(name, star, next, expl, goLabel){
+  const el = document.createElement("div");
+  el.className = "celebrate" + (expl ? " with-ex" : "");
+  const chars = "言霊正体✨★✦".split("");
+  let pts = "";
+  for(let k = 0; k < 26; k++){
+    const a = (k / 26) * Math.PI * 2 + Math.random() * .3, d = 140 + Math.random() * 160;
+    pts += `<span class="pt" style="--dx:${Math.round(Math.cos(a) * d)}px; --dy:${Math.round(Math.sin(a) * d)}px; --r:${Math.round(Math.random() * 360)}deg; font-size:${18 + Math.round(Math.random() * 18)}px">${chars[k % chars.length]}</span>`;
+  }
+  el.innerHTML = `<div class="rays"></div>${pts}<div class="bn bannin">${banninHtml("attack")}</div><div class="big">正解！</div><div class="nm">${name}</div>${star ? `<div class="star">★</div>` : ""}`
+    + (expl ? `<div class="ex">${expl}</div><button class="go">${goLabel || "次へ"} ▶</button>` : "");
+  document.body.appendChild(el);
+  sfx.fanfare();
+  let done = false;
+  const end = () => { if(done) return; done = true; el.remove(); next(); };
+  if(expl){
+    // 解説を読む間は閉じない。出た直後の連打で読み飛ばさないよう、少し待ってから押せるようにする
+    const born = Date.now();
+    el.addEventListener("click", () => { if(Date.now() - born > 500) end(); });
+    return;
+  }
+  el.addEventListener("click", end);
+  setTimeout(end, star ? 2000 : 1700);
+}
+
+/* ============================================================
+   正体を呼ぶ → 番人の手引き
+   ============================================================ */
+function accuse(){
+  if(cur.sel < 0) return;
+  const e = cur.list[cur.idx], {c, it} = e;
+  const nameOk = cur.sel === answerOf(e), star = nameOk;
+  cur.results.push({c, it, ok:star, nameOk, type:e.type, hints:cur.used.length, sel:cur.sel});
+  mgNotePlayed();
+  if(star) mgLevelUp("shikibetsu");
+  if(!nameOk) sfx.ng();
+  const d = decisive(c, it);
+  const last = d >= c.tools.length ? c.tools.length - 1 : d;
+  let steps = "";
+  for(let i=0;i<=last;i++){
+    const o = !!it.r[i][1];
+    steps += `<div class="st${o && i === d ? " deci" : ""}"><div class="mk ${o ? "o" : "x"}">${o ? "○" : "×"}</div><div>`
+      + `<div class="sl">${i+1}. ${c.tools[i].n}</div>`
+      + `<div class="stt mincho">${markEv(it.r[i][0])}</div>`
+      + (o ? `<div class="sj">→ ${c.suspects[i].n}</div>` : "") + `</div></div>`;
+  }
+  if(d >= c.tools.length){
+    steps += `<div class="st deci"><div class="mk e">他</div><div><div class="sl">どの術でも成り立たない</div>`
+      + `<div class="sj">→ 正体は「${c.suspects[d].n}」</div></div></div>`;
+  }
+  const isLast = cur.idx + 1 >= cur.list.length;
+  const starLine = star ? `<div class="lvup">★　識別 ＋1</div>` : "";
+  const fb = typeFeedback(e);   // name 以外の問いの、正解の名前・解説・答え合わせ
+  if(fb) $("ovSheet").innerHTML =
+    `<div class="verdict-row"><div class="bannin">${banninHtml("defense")}</div><div>`
+    + `<div class="verdict ng">💨 見ぬけなかった…</div>`
+    + `<div class="truth"><b>${fb.name}</b></div></div></div>`
+    + `<div class="judge-opts">${fb.rows}</div>`
+    + `<div class="expl">${fb.expl}</div>`
+    + `<button class="btn-main" onclick="nextQ()">${isLast ? "結果へ" : "次へ"}</button>`;
+  else $("ovSheet").innerHTML =
+    `<div class="verdict-row"><div class="bannin">${banninHtml(nameOk ? "attack" : "defense")}</div><div>`
+    + `<div class="verdict ${nameOk ? "ok" : "ng"}">${nameOk ? "✨ 正体を見ぬいた！" : "💨 見ぬけなかった…"}</div>`
+    + `<div class="truth"><b>${c.suspects[it.a].n}</b>`
+    + (nameOk ? "" : `<span class="yours">（${c.suspects[cur.sel].n}ではない）</span>`) + `</div></div></div>`
+    + starLine
+    + `<div class="sec-h" style="margin-top:12px">📜 術の順番</div>`
+    + `<div class="steps">${steps}</div>`
+    + `<div class="expl">${it.e}</div>`
+    + `<button class="btn-main" onclick="nextQ()">${isLast ? "結果へ" : "次へ"}</button>`;
+  const showJudge = () => { $("ov").classList.add("show"); $("ovSheet").scrollTop = 0; };
+  if(nameOk){
+    $("plSent").querySelectorAll(".kage").forEach(k => k.classList.add("revealed"));
+    $("accuseBtn").disabled = true;
+    // 正解：演出の中にかんたんな解説を出し、「次へ」でそのまま次の問題へ（手引きの画面ははさまない）
+    setTimeout(() => celebrate(fb ? fb.name : c.suspects[it.a].n, star, nextQ, fb ? fb.expl : it.e, isLast ? "結果へ" : "次の問題へ"), 350);
+  } else {
+    const se = $("plSent"); se.classList.remove("miss"); void se.offsetWidth; se.classList.add("miss");
+    setTimeout(showJudge, 450);
+  }
+}
+/* name 以外の問いの、正解の名前（演出の札に出す）・かんたんな解説・答え合わせの行。name のときは null */
+function typeFeedback(e){
+  const {c, it} = e, U = a => c.suspects[a].n;
+  const optRows = () => e.opts.map((x,i) =>
+    `<div class="jo${i === e.ans ? " ans" : ""}"><span class="mk">${i === e.ans ? "◎" : ""}</span>`
+    + `<span><span class="mincho">${markKage(x.s)}</span><span class="u">→ ${U(x.a)}</span></span></div>`).join("");
+  if(e.type === "same"){
+    const m = e.opts[e.ans];
+    return {name:U(it.a), rows:optRows(), expl:`どちらも<b>${U(it.a)}</b>。<br>${m.e}`};
+  }
+  if(e.type === "odd"){
+    return {name:"仲間はずれ：" + U(it.a), rows:optRows(), expl:`ほかの三つは<b>${U(e.maj)}</b>。<br>${it.e}`};
+  }
+  if(e.type === "pick"){
+    return {name:U(it.a), rows:optRows(), expl:it.e};
+  }
+  if(e.type === "nat"){
+    const ok = !!it.r[e.tool][1], t = c.tools[e.tool];
+    return {name:ok ? "成り立つ" : "成り立たない",
+      rows:`<div class="jo ans"><span class="mk">${ok ? "○" : "×"}</span><span><span class="mincho">${markEv(it.r[e.tool][0])}</span><span class="u">${t.n}</span></span></div>`,
+      expl:`「${t.n}」は${ok ? "きく" : "きかない"}。この言霊の正体は<b>${U(it.a)}</b>。<br>${it.e}`};
+  }
+  return null;
+}
+function nextQ(){
+  $("ov").classList.remove("show");
+  cur.idx++;
+  if(cur.idx >= cur.list.length) finish();
+  else renderQ();
+}
+
+/* ============================================================
+   結果
+   ============================================================ */
+function finish(){
+  const n = cur.results.filter(r => r.ok).length, N = cur.results.length, rate = n / N;
+  const rank = rate === 1 ? ["言霊の守り手", "attack", "見事だ。すべての言霊が、正体をとりもどした。そなたこそ、言霊の守り手だ。"]
+    : rate >= .75 ? ["書庫の司書", "pose1", "よくやった。あと少しで、この盤の言霊をすべて守れる。"]
+    : rate >= .5 ? ["番人の弟子", "pose2", "術の順番を思い出せ。順にかければ、正体はかならず見える。"]
+    : ["言霊の見習い", "defense", "あせるな。まず一つ目の術から、文が自然かどうかを、じっくり確かめるのだ。"];
+  setBannin("rsBannin", rank[1]);
+  $("rsRank").textContent = rank[0];
+  $("rsScore").textContent = n + " / " + N;
+  $("rsLv").textContent = n ? `識別 ＋${n}` : "";
+  const st = loadSt(); st.best = st.best || {}; st.plays = (st.plays || 0) + 1;
+  const prev = st.best[cur.key], isNew = prev == null || n > prev;
+  if(isNew) st.best[cur.key] = n;
+  saveSt(st);
+  $("rsNew").innerHTML = isNew && n > 0 ? '<span class="newbest">最高記録！</span>' : "";
+  $("rsList").innerHTML = cur.results.map(r =>
+    `<div class="ri"><span class="m ${r.ok ? "o" : r.nameOk ? "h" : "x"}">${r.ok ? "★" : r.nameOk ? "△" : "×"}</span>`
+    + `<span class="s mincho">${markKage(r.it.s)}</span>`
+    + `<span class="a">${r.c.suspects[r.it.a].n}</span></div>`).join("");
+  // 結果のボタン：次の書庫（巻の順：ない→れる・られる→の→だ→終の巻）があれば先頭に出す（2026-10-12〜、教員の指示）
+  const order = CASES.map(c => c.key).concat([FINAL.key]), nextKey = order[order.indexOf(cur.key) + 1];
+  const nextCase = nextKey === FINAL.key ? (narabeUnlocked(st) ? FINAL : null) : caseOf(nextKey);
+  $("rsBtns").innerHTML = (nextCase ? `<button class="btn-main" onclick="openCase('${nextKey}')">次の書庫へ</button>` : "")
+    + `<button class="${nextCase ? "btn-sub" : "btn-main"}" onclick="openCase(cur.key)">もう一度この盤へ</button>`
+    + `<button class="btn-sub" onclick="show('title')">書庫の入口へ</button>`;
+  show("result");
+}
+
+/* ============================================================
+   言霊並べ（2026-10-17〜、教員の指示。2026-10-18〜このミニゲーム全体の名前も「言霊並べ」）
+   言霊の番人と9×9の盤で「言霊」を並べあう（五目並べのしくみ）。毎回、識別の問いが1問出て、正解したら自分の言霊を1つ置ける
+   （まちがえたら置けない）。番人も問いに答える扱いで、正答率（第1段階50%・第2段階70%・第3段階90%）で見ぬけたときだけ置く。
+   見ぬけなければ、こちらの手番が続けて回ってくる。先に言霊を5つ並べたほうの勝ち。
+   ことばは「五目・石・打つ」を使わず「言霊を並べる・置く」でそろえる（教員の指示）。盤の上の言霊には、自分は「言」、番人は「霊」の字。
+   ・5問連続で正解すると、その回は2つ続けて置ける（特別ルール）。
+   ・第3段階は色違いの番人（enemy_sprites_shiny_data.js、7MBあるので第3段階に入るときだけ読みこむ）。
+   ・3段階すべてに勝つと、5%の確率で番人が仲間になる。仲間になったら、ミニゲーム一覧へ強制的にもどる。
+     （仲間になった記録はこのページの記録 st.narabeAlly に残すだけ。本体の仲間 st.mbCompanions にはまだつないでいない。）
+   ・正解するたびに、ほかの巻と同じく本体の「識別」に＋1を書き置く（mgLevelUp）。
+   ほかの画面と名前がぶつからないよう、NR の中にまとめる（onclick からは NR.xxx で呼ぶ）。
+   2026-10-18〜、教員の指示で一〜四の巻も同じ「番人と言霊並べ」にした（NR.open(巻のkey)）。
+   ・一〜四の巻：その棚の問いだけが出る。2段階（正答率50%→70%）で、両方勝てばその巻をクリア（討伐回数 st.kanClears[key]）。
+     色違い・仲間はなし。正解ごとの「識別」＋1は同じ。
+   ・すべての棚（key "narabe"）：すべての棚の問い。3段階（第3段階は色違い）で、番人が仲間になるのはここだけ（5%）。
+   ============================================================ */
+const NARABE_KEY = "narabe";
+const CLEAR_MIN = 5;
+/* 巻のクリア：その巻の言霊並べに一度でも勝ちきったら（st.kanClears[key]≧1）。
+   それまでの6問形式で「6問中5問以上」（st.best）だった人も、引きつぎでクリア扱いにする。 */
+function caseCleared(st, key){ return ((st.kanClears || {})[key] || 0) >= 1 || ((st.best || {})[key] || 0) >= CLEAR_MIN; }
+function narabeUnlocked(st){ return CASES.every(c => caseCleared(st, c.key)); }
+
+const NR = (() => {
+  const N = 9, ME = 1, FOE = 2, STREAK_FOR_DOUBLE = 5, ALLY_RATE = 0.05;
+  const DIRS = [[0,1],[1,0],[1,1],[1,-1]];
+  // acc＝番人の正答率（画面には出さない、教員の指示）、sloppy＝いちばん良い手以外を選ぶ確率、missBlock＝こちらの「4」を見のがす確率
+  const LEVELS = [
+    {acc:.5, sloppy:.55, missBlock:.35},   // 第1段階：弱い
+    {acc:.7, sloppy:.35, missBlock:.2},    // 第2段階：少し強い
+    {acc:.9, sloppy:.15, missBlock:.05},   // 第3段階：色違い・強い
+  ];
+  const LEVEL = s => LEVELS[Math.min(s, LEVELS.length) - 1];
+  const isFinal = () => !G || G.key === NARABE_KEY;
+  const lastStage = () => isFinal() ? 3 : 2;   // 一〜四の巻は2段階、すべての棚は3段階
+  const LABEL = {name:"正 体 を 呼 べ", same:"同 じ 正 体 を さ が せ", odd:"仲 間 は ず れ を さ が せ", nat:"術 を 見 き わ め よ", pick:"正 体 か ら 文 を さ が せ"};
+  const SAY = {
+    start:["言霊並べで、そなたの目をためそう。", "言霊を見ぬけねば、盤には置けぬぞ。"],
+    start3:["……これが、わたしの真の姿だ。全力で来るがよい。"],
+    wrong:["見ぬけなかったな。その手番、もらおう。", "迷いは、盤にあらわれるものだ。", "正体を見誤ったか。"],
+    think:["ふむ……この言霊の正体は……", "見ぬいてみせよう……"],
+    miss:["むっ…この言霊、手ごわい…。", "……わたしとしたことが、見誤ったか。", "ほう…今の一手は、ゆずろう。"],
+    move:["ここだ。", "ふむ…ここに置こう。", "さあ、どう受ける？"],
+    three:["わたしの言霊が三つ並んだ。止めねば、どうなるかな？", "道ができてきたぞ。"],
+    four:["あと一手。次に見誤れば、そなたの負けだ。", "わたしの言霊が四つ並んだ。止められるか？"],
+    blocked:["よく見ていたな…。", "ふさがれたか。見事だ。"],
+    meFour:["む…そなたの言霊が四つか。", "なかなか、やる…！"],
+    win:["言霊が五つ並んだ。まだまだ修行が足りぬな。", "わたしの勝ちだ。言霊の声を、もっと聞くのだ。"],
+    lose:["……見事だ。そなたの言霊、たしかに受け取った。", "言霊を五つ並べられたか。わたしの負けだ。"],
+  };
+  const pickSay = k => SAY[k][Math.floor(Math.random() * SAY[k].length)];
+  const idx = (r,c) => r * N + c;
+  const inb = (r,c) => r >= 0 && r < N && c >= 0 && c < N;
+  let G = null;
+
+  /* ---- 色違いの絵：第3段階に入るときだけ読みこむ ---- */
+  let shinyState = typeof ENEMY_SPRITES_SHINY !== "undefined" ? "ok" : "none";
+  function loadShiny(then){
+    if(shinyState === "ok" || shinyState === "fail") return then();
+    if(shinyState === "loading"){ shinyWait.push(then); return; }
+    shinyState = "loading"; shinyWait.push(then);
+    const sc = document.createElement("script");
+    sc.src = "enemy_sprites_shiny_data.js";
+    sc.onload = () => { shinyState = typeof ENEMY_SPRITES_SHINY !== "undefined" ? "ok" : "fail"; shinyWait.splice(0).forEach(f => f()); };
+    sc.onerror = () => { shinyState = "fail"; shinyWait.splice(0).forEach(f => f()); };
+    document.head.appendChild(sc);
+  }
+  const shinyWait = [];
+  function sprite(pose, forceShiny){
+    if((forceShiny || (G && G.stage >= 3)) && typeof ENEMY_SPRITES_SHINY !== "undefined" && ENEMY_SPRITES_SHINY["me04_" + pose]) return ENEMY_SPRITES_SHINY["me04_" + pose];
+    return (typeof ENEMY_SPRITES !== "undefined") && ENEMY_SPRITES["me04_" + pose];
+  }
+  function setFoe(pose, anim){
+    const s = sprite(pose), el = $("nrFoeImg");
+    el.innerHTML = s ? `<img src="${s}" alt="言霊の番人">` : "👑";
+    if(anim){ el.classList.remove("hit", "cast"); void el.offsetWidth; el.classList.add(anim); }
+  }
+  function say(t){ const el = $("nrSay"); el.textContent = t; el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop"); }
+  const snd = {
+    ok(){ [660, 880, 1100].forEach((f, i) => tone(f, .2, "triangle", .1, i * .06)); },
+    ng(){ tone(300, .25, "sawtooth", .07); tone(220, .3, "sawtooth", .06, .1); },
+    put(){ tone(260, .12, "sine", .14); tone(520, .08, "triangle", .05, .02); },
+    foe(){ tone(110, .5, "sawtooth", .07); tone(82, .6, "sine", .1, .05); },
+    over(){ [523, 440, 349, 262].forEach((f, i) => tone(f, .4, "triangle", .1, i * .15)); },
+  };
+
+  /* ---- 問い：ほかの巻と同じ5つの形（canType・buildQ を共用）。棚・形は袋から順に引く ---- */
+  let caseBag = [], typeBag = [], recent = [];
+  function nextEntry(){
+    for(let g = 0; g < 30; g++){
+      if(!caseBag.length) caseBag = shuffle(isFinal() ? ALL_CASES : [caseOf(G.key)]);   // 巻はその棚だけ、「すべての棚」は全部の棚
+      const c = caseBag.pop();
+      // 最近出た文はさける。巻（1つの棚、20問ほど）では、覚えておく数を棚の6割までにする（全部ふさがって出せなくならないように）
+      const free = c.items.filter(x => !recent.includes(x));
+      const it = shuffle(free.length ? free : c.items)[0];
+      if(!it) continue;
+      if(!typeBag.length) typeBag = shuffle(["name", "same", "odd", "nat", "pick"]);
+      const t = typeBag.find(x => canType(x, c, it)) || "name";
+      if(typeBag.includes(t)) typeBag.splice(typeBag.indexOf(t), 1);
+      recent.push(it);
+      const cap = isFinal() ? 30 : Math.max(3, Math.floor(c.items.length * .6));
+      while(recent.length > cap) recent.shift();
+      const e = {c, it, type:t}; buildQ(e);
+      if(e.type === "name") e.ans = it.a;
+      return e;
+    }
+  }
+  function feedback(e){
+    const {c, it} = e, U = a => c.suspects[a].n;
+    if(e.type === "name") return {ans:U(it.a), ex:it.e};
+    if(e.type === "same") return {ans:"同じ正体：" + U(it.a), ex:e.opts[e.ans].e};
+    if(e.type === "odd") return {ans:"仲間はずれ：" + U(it.a), ex:`ほかの三つは<b>${U(e.maj)}</b>。` + it.e};
+    if(e.type === "pick") return {ans:U(it.a), ex:it.e};
+    const ok = !!it.r[e.tool][1];
+    return {ans:ok ? "成り立つ" : "成り立たない", ex:`「${c.tools[e.tool].n}」は${ok ? "きく" : "きかない"}。正体は<b>${U(it.a)}</b>。` + it.e};
+  }
+
+  /* ---- 盤の判定・番人の手 ---- */
+  function lineInfo(b, r, c, d, col){
+    let n = 1, open = 0;
+    for(const s of [1, -1]){
+      let rr = r + d[0]*s, cc = c + d[1]*s;
+      while(inb(rr,cc) && b[idx(rr,cc)] === col){ n++; rr += d[0]*s; cc += d[1]*s; }
+      if(inb(rr,cc) && b[idx(rr,cc)] === 0) open++;
+    }
+    return {n, open};
+  }
+  function winLine(b, p){
+    const col = b[p], r = Math.floor(p / N), c = p % N;
+    for(const d of DIRS){
+      const cells = [p];
+      for(const s of [1, -1]){ let rr = r + d[0]*s, cc = c + d[1]*s; while(inb(rr,cc) && b[idx(rr,cc)] === col){ cells.push(idx(rr,cc)); rr += d[0]*s; cc += d[1]*s; } }
+      if(cells.length >= 5) return cells;
+    }
+    return null;
+  }
+  // その色が次の1手で5つにできるマス（＝「4」の止めどころ）
+  function winningSpots(b, col){
+    const out = [];
+    for(let p = 0; p < N*N; p++){ if(b[p]) continue; b[p] = col; if(winLine(b, p)) out.push(p); b[p] = 0; }
+    return out;
+  }
+  function shapeScore(n, open){
+    if(n >= 5) return 1e6;
+    if(n === 4) return open === 2 ? 5e4 : open === 1 ? 6e3 : 0;
+    if(n === 3) return open === 2 ? 4e3 : open === 1 ? 300 : 0;
+    if(n === 2) return open === 2 ? 200 : open === 1 ? 30 : 0;
+    return open === 2 ? 10 : 2;
+  }
+  function cellScore(b, p, col){
+    const r = Math.floor(p / N), c = p % N;
+    let s = 0;
+    for(const d of DIRS){ const {n, open} = lineInfo(b, r, c, d, col); s += shapeScore(n, open); }
+    return s;
+  }
+  function foeChoose(){
+    const b = G.b, lv = LEVEL(G.stage), empt = [];
+    for(let p = 0; p < N*N; p++) if(!b[p]) empt.push(p);
+    if(!empt.length) return -1;
+    if(b.every(x => !x)) return idx(4,4);
+    const myWin = winningSpots(b, FOE); if(myWin.length) return myWin[0];                                   // 勝てるなら勝つ
+    const block = winningSpots(b, ME); if(block.length && Math.random() >= lv.missBlock) return block[0];  // 相手の「4」は止める（たまに見のがす）
+    const scored = empt.map(p => {
+      const near = [-1,0,1].some(dr => [-1,0,1].some(dc => { const r = Math.floor(p/N)+dr, c = p%N+dc; return inb(r,c) && b[idx(r,c)]; }));
+      return {p, s: near ? cellScore(b, p, FOE) * 1.1 + cellScore(b, p, ME) + Math.random() * 5 : -1};
+    }).sort((x,y) => y.s - x.s);
+    if(Math.random() < lv.sloppy){ const k = Math.min(scored.length, 5); return (scored[1 + Math.floor(Math.random() * (k - 1))] || scored[0]).p; }
+    return scored[0].p;
+  }
+
+  /* ---- 画面 ---- */
+  function renderBoard(){
+    const placing = G.phase === "place";
+    const threats = placing || G.phase === "q" ? new Set(winningSpots(G.b, FOE)) : new Set();
+    $("nrGrid").innerHTML = G.b.map((v,p) => {
+      const r = Math.floor(p / N), c = p % N;
+      let cls = "pt" + (c === 0 ? " l" : "") + (c === N-1 ? " r" : "") + (r === 0 ? " t" : "") + (r === N-1 ? " b" : "");
+      if([idx(2,2), idx(2,6), idx(4,4), idx(6,2), idx(6,6)].includes(p)) cls += " star";
+      if(placing && !v) cls += " can";
+      if(!v && threats.has(p)) cls += " threat";
+      const stone = v ? `<div class="st ${v === ME ? "me" : "foe"}${p === G.last ? " last" : ""}${p === G.fresh ? " put" : ""}${G.winCells && G.winCells.includes(p) ? " win" : ""}">${v === ME ? "言" : "霊"}</div>` : "";
+      return `<div class="${cls}" onclick="NR.placeAt(${p})"><span class="dot"></span>${!v ? `<span class="ghost"></span><span class="ring"></span>` : ""}${stone}</div>`;
+    }).join("");
+    G.fresh = -1;
+  }
+  function renderTop(){
+    const st = loadSt();
+    $("nrStreak").textContent = G.streak;
+    $("nrFoeStage").textContent = `第${G.stage}段階（全${lastStage()}）`;
+    $("nrFoeName").textContent = G.stage >= 3 ? "言霊の番人・真の姿" : "言霊の番人";
+    $("nrFoe").classList.toggle("shiny", G.stage >= 3);
+    $("nrPips").innerHTML = Array.from({length:lastStage()}, (_,i) => `<i class="${i + 1 < G.stage ? "done" : i + 1 === G.stage ? "now" : ""}"></i>`).join("");
+    $("nrBest").textContent = `討伐 ${isFinal() ? (st.narabeClears || 0) : ((st.kanClears || {})[G.key] || 0)}回`;
+    $("nrAllyPill").hidden = !st.narabeAlly;
+    $("nrFoe").classList.toggle("danger", winningSpots(G.b, FOE).length > 0);
+  }
+  function turnLine(){
+    if(winningSpots(G.b, FOE).length) return `<div class="nr-turn danger">⚠ 番人の言霊が4つ並んだ！ 正解して止めないと負け！</div>`;
+    if(G.streak === STREAK_FOR_DOUBLE - 1) return `<div class="nr-turn">★ あと1問で5問連続！ 正解すれば2つ続けて置ける</div>`;
+    return `<div class="nr-turn">あなたの番：正解すれば言霊を置ける</div>`;
+  }
+  function saveBest(stage){ if(!isFinal()) return; const st = loadSt(); if(stage > (st.narabeBest || 0)){ st.narabeBest = stage; saveSt(st); } }
+
+  /* ---- 流れ ---- */
+  function open(key){
+    key = key || NARABE_KEY;
+    show("narabe");
+    G = {key, stage:1, answered:0, correct:0};
+    caseBag = []; recent = [];
+    const c = key === NARABE_KEY ? null : caseOf(key);
+    $("narabe").querySelector(".nr-top h1").textContent = c ? `${c.k}　${c.name}` : "すべての盤";
+    start();
+  }
+  function start(){
+    Object.assign(G, {b:Array(N*N).fill(0), phase:"q", last:-1, fresh:-1, winCells:null, streak:0, extra:0});
+    $("nrOv").classList.remove("show");
+    const go = () => { setFoe("pose1"); say(pickSay(G.stage >= 3 ? "start3" : "start")); renderTop(); askNext(); intro(); };
+    if(G.stage >= 3){ $("nrCard").innerHTML = `<div class="nr-res"><div class="nr-go">番人が真の姿をあらわそうとしている…</div></div>`; loadShiny(go); }
+    else go();
+  }
+  /* 勝負の始まりの登場演出（2026-10-18、教員の指示「中央にキャラが配置され、そこからゲーム画面になめらかに遷移」、約2秒）。
+     ①暗い画面の中央に番人が光をまとって現れ、「第◯段階／言霊の番人／いざ、勝負！」
+     ②番人が右の番人の欄の絵の位置へ飛んでいって収まる（中央の絵の位置・大きさを、本物の絵の位置へ動かす）
+     ③同時に、問いのカードは上から・盤は左から・番人の欄はふわっと入ってくる。
+     ゲーム画面はその裏ですでにでき上がっているので、演出が終わればそのまま遊べる。 */
+  function intro(){
+    const root = $("narabe"), lay = root.querySelector(".nr-layout"), real = $("nrFoeImg");
+    root.querySelectorAll(".nr-intro").forEach(x => x.remove());
+    const shiny = G.stage >= 3, s = sprite("pose1");
+    const ov = document.createElement("div");
+    ov.className = "nr-intro" + (shiny ? " shiny" : "");
+    ov.innerHTML = `<div class="glow"></div>${s ? `<img class="who" src="${s}" alt="">` : `<div class="who emoji">👑</div>`}`
+      + `<div class="txt"><div class="stg">${isFinal() ? "" : caseOf(G.key).k + "　"}第${"一二三"[G.stage - 1]}段階</div>`
+      + `<div class="nm mincho">${shiny ? "言霊の番人・真の姿" : "言霊の番人"}</div><div class="go mincho">いざ、勝負！</div></div>`;
+    root.appendChild(ov);
+    const who = ov.querySelector(".who");
+    const W = Math.min(innerWidth * .62, 340), H = W * 1.05;
+    Object.assign(who.style, {left:(innerWidth - W) / 2 + "px", top:(innerHeight * .4 - H / 2) + "px", width:W + "px", height:H + "px"});
+    ov.querySelector(".txt").style.top = (innerHeight * .4 + H / 2 + 6) + "px";
+    real.style.visibility = "hidden";
+    lay.classList.remove("nr-entering"); lay.classList.add("nr-enter");
+    // 音：光が集まる → 鈴の音
+    [196, 262, 330, 392].forEach((f, i) => tone(f, .5, "sine", .07, i * .07));
+    [1568, 2093].forEach((f, i) => tone(f, .5, "triangle", .06, .45 + i * .08));
+    setTimeout(() => {
+      // 番人を右の欄の絵の位置へ飛ばし、ゲーム画面を入れる
+      const r = real.getBoundingClientRect();
+      ov.classList.add("fly");
+      Object.assign(who.style, {left:r.left + "px", top:r.top + "px", width:r.width + "px", height:r.height + "px"});
+      lay.classList.remove("nr-enter"); void lay.offsetWidth; lay.classList.add("nr-entering");
+      tone(440, .25, "triangle", .07); tone(660, .3, "triangle", .06, .08); tone(880, .35, "sine", .05, .16);
+    }, 1050);
+    setTimeout(() => { real.style.visibility = ""; ov.remove(); }, 1850);
+    setTimeout(() => lay.classList.remove("nr-entering"), 2200);
+  }
+  function askNext(){
+    G.phase = "q";
+    const e = G.q = nextEntry();
+    const {c, it} = e;
+    let head = turnLine() + `<div class="nr-lbl">${LABEL[e.type]}</div>`, opts = "";
+    const sentBtn = (x,i) => `<button class="nr-opt" onclick="NR.answer(${i})">${markKage(x.s)}</button>`;
+    if(e.type === "name"){
+      head += `<div class="nr-sent mincho">${markKage(it.s)}</div><div class="nr-ask">この言霊の正体は？</div>`;
+      opts = `<div class="nr-opts">${c.suspects.map((s,i) => `<button class="nr-opt" onclick="NR.answer(${i})">${s.n}</button>`).join("")}</div>`;
+    }else if(e.type === "same"){
+      head += `<div class="nr-sent mincho">${markKage(it.s)}</div><div class="nr-ask">これと<b>同じ正体</b>のものは？</div>`;
+      opts = `<div class="nr-opts one">${e.opts.map(sentBtn).join("")}</div>`;
+    }else if(e.type === "odd"){
+      head += `<div class="nr-qname mincho">ひとつだけ、正体がちがうのは？</div>`;
+      opts = `<div class="nr-opts one">${e.opts.map(sentBtn).join("")}</div>`;
+    }else if(e.type === "pick"){
+      head += `<div class="nr-qname mincho">${c.suspects[it.a].n}</div><div class="nr-ask">この正体を持つ言霊は？</div>`;
+      opts = `<div class="nr-opts one">${e.opts.map(sentBtn).join("")}</div>`;
+    }else{
+      head += `<div class="nr-qorig mincho">${markKage(it.s)}</div><div class="nr-qtool">↓ ✨ ${c.tools[e.tool].n}（${c.tools[e.tool].d}）</div>`
+        + `<div class="nr-sent mincho">${markEv(it.r[e.tool][0])}</div><div class="nr-ask">術をかけた文は、自然に<b>成り立つ</b>？</div>`;
+      opts = `<div class="nr-opts">${["○ 成り立つ", "× 成り立たない"].map((t,i) => `<button class="nr-opt" onclick="NR.answer(${i})">${t}</button>`).join("")}</div>`;
+    }
+    $("nrCard").innerHTML = head + opts;
+    renderBoard(); renderTop();
+  }
+  function answer(i){
+    if(G.phase !== "q") return;
+    const e = G.q, ok = i === e.ans, fb = feedback(e);
+    G.answered++;
+    mgNotePlayed();
+    document.querySelectorAll("#nrCard .nr-opt").forEach((b,j) => { if(j === e.ans) b.classList.add("right"); else if(j === i) b.classList.add("wrong"); b.disabled = true; });
+    if(ok){
+      G.correct++; G.streak++;
+      mgLevelUp("shikibetsu");   // ほかの巻と同じく、正解で本体の「識別」＋1
+      G.phase = "place";
+      // 特別ルール：5問連続で正解したら、その回は2つ続けて打てる（連続の数はそこで0にもどる）
+      G.extra = 0;
+      if(G.streak >= STREAK_FOR_DOUBLE){ G.extra = 1; G.streak = 0; }
+      snd.ok();
+      if(G.extra){ setFoe("defense", "hit"); say("5問続けて見ぬいたか…！ 言霊を、二つ続けて置くがよい。"); [784, 988, 1175, 1568].forEach((f,i) => tone(f, .25, "triangle", .1, .25 + i * .07)); }
+      setTimeout(() => {
+        $("nrCard").innerHTML = `<div class="nr-res"><div class="nr-big ok">✨ 正解！</div><div class="nr-ans mincho"><b>${fb.ans}</b></div>`
+          + `<div class="nr-ex">${fb.ex}</div>`
+          + (G.extra ? `<div class="nr-go" style="color:#c0841a">★ 5問連続正解！ 言霊を2つ続けて置ける！（1つめ）</div>` : `<div class="nr-go">↓ 言霊を置く場所をタップしよう</div>`) + `</div>`;
+        renderBoard(); renderTop();
+      }, 350);
+    }else{
+      G.streak = 0; G.extra = 0;
+      G.phase = "wrong";
+      snd.ng();
+      setFoe("attack", "cast"); say(pickSay("wrong"));
+      setTimeout(() => {
+        $("nrCard").innerHTML = `<div class="nr-res"><div class="nr-big ng">💨 見ぬけなかった</div><div class="nr-ans mincho">正解は <b>${fb.ans}</b></div>`
+          + `<div class="nr-ex">${fb.ex}</div><button class="nr-btn" onclick="NR.foeTurn()">番人の番へ ▶</button></div>`;
+        renderBoard(); renderTop();
+      }, 400);
+    }
+  }
+  function placeAt(p){
+    if(G.phase !== "place" || G.b[p]) return;
+    const hadThreat = winningSpots(G.b, FOE);
+    G.b[p] = ME; G.last = G.fresh = p;
+    snd.put();
+    const line = winLine(G.b, p);
+    if(line){ G.winCells = line; G.phase = "over"; renderBoard(); return setTimeout(stageWin, 700); }
+    if(hadThreat.includes(p)){ setFoe("defense", "hit"); say(pickSay("blocked")); }
+    else if(winningSpots(G.b, ME).length){ setFoe("defense", "hit"); say(pickSay("meFour")); }
+    if(G.extra > 0){
+      G.extra--;   // 2つめを置く番（番人はまだ置かない）
+      renderBoard(); renderTop();
+      $("nrCard").innerHTML = `<div class="nr-res"><div class="nr-go" style="color:#c0841a">★ もう1つ置ける！（2つめ）</div></div>`;
+      return;
+    }
+    G.phase = "foe";
+    renderBoard(); renderTop();
+    setTimeout(foeTurn, 450);
+  }
+  /* 番人の番：番人も問いに答える扱い。正答率（acc）で見ぬけたときだけ言霊を置く。見ぬけなければ、こちらの番が続く。 */
+  function foeTurn(){
+    if(G.phase !== "foe" && G.phase !== "wrong") return;
+    G.phase = "foe";
+    setFoe("pose2"); say(pickSay("think"));
+    $("nrCard").innerHTML = `<div class="nr-res"><div class="nr-go">番人が言霊を見ぬこうとしている…</div></div>`;
+    setTimeout(() => {
+      if(G.phase !== "foe") return;
+      if(Math.random() >= LEVEL(G.stage).acc){
+        setFoe("defense", "hit"); say(pickSay("miss"));
+        [880, 1175].forEach((f,i) => tone(f, .18, "triangle", .08, i * .08));
+        $("nrCard").innerHTML = `<div class="nr-res"><div class="nr-big ok" style="font-size:20px">番人が見ぬけなかった！</div><div class="nr-go">番人は置けない。もう一度あなたの番！</div></div>`;
+        setTimeout(() => { if(G.phase !== "foe") return; setFoe("pose1"); askNext(); }, 1400);
+        return;
+      }
+      foePlace();
+    }, 900);
+  }
+  function foePlace(){
+    const p = foeChoose();
+    if(p < 0) return draw();
+    G.b[p] = FOE; G.last = G.fresh = p;
+    setFoe("attack", "cast"); snd.foe();
+    const line = winLine(G.b, p);
+    if(line){ G.winCells = line; G.phase = "over"; renderBoard(); say(pickSay("win")); return setTimeout(stageLose, 900); }
+    const r = Math.floor(p / N), c = p % N;
+    const best = Math.max(...DIRS.map(d => { const {n, open} = lineInfo(G.b, r, c, d, FOE); return n + (open === 2 ? .5 : 0); }));
+    say(winningSpots(G.b, FOE).length ? pickSay("four") : best >= 3.5 ? pickSay("three") : pickSay("move"));
+    renderBoard(); renderTop();
+    setTimeout(() => { if(G.phase !== "foe") return; setFoe("pose1"); if(!G.b.includes(0)) return draw(); askNext(); }, 500);
+  }
+  function sheet(html, delay){ $("nrSheet").innerHTML = html; setTimeout(() => $("nrOv").classList.add("show"), delay || 0); }
+  const pic = (pose, extra) => `<div class="nr-pic"${extra || ""}>${sprite(pose) ? `<img src="${sprite(pose)}">` : "👑"}</div>`;
+  function stageWin(){
+    G.phase = "over";
+    setFoe("defeat", "hit"); say(pickSay("lose"));
+    [523, 659, 784, 1047, 1319].forEach((f,i) => tone(f, .3, "triangle", .12, i * .09));
+    saveBest(G.stage + 1);
+    const rate = G.answered ? Math.round(G.correct / G.answered * 100) : 0;
+    if(G.stage < lastStage()){
+      const nextLast = G.stage + 1 === lastStage();
+      sheet(`<h2 class="mincho">言霊が五つ並んだ！ 勝ち！</h2>` + pic("defeat")
+        + `<div class="nr-stat">第${G.stage}段階の番人に勝った。<br>`
+        + (nextLast && isFinal() ? `次は最後の勝負。番人が<b style="color:var(--gold)">真の姿（色違い）</b>で現れる。` : nextLast ? `次は最後の勝負。番人は、もっと深く言霊を見ぬく。` : `次の番人は、もっと深く言霊を見ぬく。`) + `</div>`
+        + `<button class="nr-btn" onclick="NR.nextStage()">第${G.stage + 1}段階へ${nextLast ? "（最後）" : ""}</button>`, 1100);
+      renderTop();
+      return;
+    }
+    if(!isFinal()) return kanClear(rate);
+    // 3段階すべてに勝った：討伐回数を1つ増やし、5%の確率で番人が仲間になる
+    const ally = Math.random() < ALLY_RATE;
+    let clears = 1;
+    { const st = loadSt(); st.narabeClears = clears = (st.narabeClears || 0) + 1; if(ally) st.narabeAlly = true; saveSt(st); }
+    renderTop();
+    // 色違い（真の姿）を倒したときは、全画面のはなやかな演出をはさんでから結果を出す（教員の指示）
+    setTimeout(() => finale(clears, () => sheet(`<h2 class="mincho">すべての勝負に勝った！</h2>` + pic("defeat")
+      + `<div class="nr-stat"><b style="color:var(--gold)">クリア！</b>　討伐 ${clears}回目<br>答えた数 ${G.answered}問　正解 ${G.correct}問（${rate}%）</div>`
+      + `<button class="nr-btn" onclick="NR.allyResult(${ally})">▶</button>`)), 900);
+  }
+  /* 色違いの番人（真の姿）を倒したときの全画面演出（2026-10-17、教員の指示「もっとずっとはなやかに」）。
+     画面のゆれ・白い閃光 → 虹色の光の筋と衝撃波の輪 → 光る色違いの番人 → 言霊・星の粒が飛び散り、紙ふぶきが降る →
+     金色に輝く「真の姿を、打ち破った！」。3秒ほどで「タップして進む」が出て、タップで next()。 */
+  function finale(clears, next){
+    const root = $("narabe");
+    root.classList.remove("nr-shake"); void root.offsetWidth; root.classList.add("nr-shake");
+    const el = document.createElement("div");
+    el.className = "nr-finale";
+    const chars = "言霊真姿★✦✨❖".split(""), cols = ["#fff3b0", "#ffd84a", "#ff9ad5", "#9fd3ff", "#b6ffb0", "#ffffff", "#c9a7ff"];
+    let burst = "";
+    for(let k = 0; k < 64; k++){
+      const a = (k / 64) * Math.PI * 2 + Math.random() * .25, d = 160 + Math.random() * 260;
+      burst += `<span class="fp" style="--dx:${Math.round(Math.cos(a) * d)}px; --dy:${Math.round(Math.sin(a) * d)}px; --r:${Math.round(Math.random() * 720 - 360)}deg;`
+        + ` --dl:${(Math.random() * .5).toFixed(2)}s; color:${cols[k % cols.length]}; font-size:${16 + Math.round(Math.random() * 26)}px">${chars[k % chars.length]}</span>`;
+    }
+    let confetti = "";
+    for(let k = 0; k < 70; k++){
+      confetti += `<i class="cf" style="left:${(Math.random() * 100).toFixed(1)}%; background:${cols[k % cols.length]};`
+        + ` --dl:${(.6 + Math.random() * 3).toFixed(2)}s; --du:${(2.6 + Math.random() * 2.4).toFixed(2)}s; --sw:${Math.round(Math.random() * 120 - 60)}px;`
+        + ` width:${6 + Math.round(Math.random() * 6)}px; height:${10 + Math.round(Math.random() * 10)}px"></i>`;
+    }
+    const s = sprite("defeat", true) || sprite("pose1", true);
+    el.innerHTML = `<div class="fl"></div><div class="rays r1"></div><div class="rays r2"></div>`
+      + `<div class="ring"></div><div class="ring d2"></div><div class="ring d3"></div>`
+      + confetti + burst
+      + `<div class="center">`
+      + `<div class="boss">${s ? `<img src="${s}" alt="言霊の番人・真の姿">` : "👑"}</div>`
+      + `<div class="big mincho">真の姿を、<br>打ち破った！</div>`
+      + `<div class="sub">言霊の番人　討伐 ${clears}回目</div>`
+      + `<div class="tap">タップして進む ▶</div></div>`;
+    root.appendChild(el);
+    // 長めのファンファーレ（上がっていく分散和音 → 和音）
+    [523, 659, 784, 1047, 784, 1047, 1319, 1568].forEach((f, i) => tone(f, .32, "triangle", .12, .15 + i * .11));
+    [1047, 1319, 1568, 2093].forEach(f => tone(f, 1.6, "triangle", .08, 1.1));
+    [262, 392, 523].forEach(f => tone(f, 1.8, "sine", .1, 1.1));
+    for(let k = 0; k < 12; k++) tone(1800 + Math.random() * 1600, .12, "sine", .04, 1.4 + k * .13);   // きらきら
+    const born = Date.now();
+    el.addEventListener("click", () => {
+      if(Date.now() - born < 2600) return;   // 演出の途中では閉じない
+      el.classList.add("out");
+      setTimeout(() => { el.remove(); next(); }, 450);
+    });
+  }
+  /* 一〜四の巻の2段階に勝ちきった：討伐回数を増やす。これで4巻そろったら「すべての棚」が開く。仲間の判定はしない。 */
+  function kanClear(rate){
+    const st = loadSt(), before = narabeUnlocked(st);
+    st.kanClears = st.kanClears || {};
+    const clears = st.kanClears[G.key] = (st.kanClears[G.key] || 0) + 1;
+    saveSt(st);
+    const nowOpen = !before && narabeUnlocked(st);
+    const c = caseOf(G.key), i = CASES.findIndex(x => x.key === G.key), nextCase = CASES[i + 1];
+    // いちばん目立つボタンは「先へ進む」ほう（教員の指示）：すべての棚が開いたらそこへ、次の巻があれば次の巻へ、
+    // 四の巻のあとでまだの巻が残っていれば、その巻へ。「もう一度戦う」は控えめなボタンにする。
+    const todo = CASES.find(x => !caseCleared(st, x.key));
+    const go = nowOpen ? [NARABE_KEY, "すべての盤に挑む"]
+      : nextCase ? [nextCase.key, `次の巻へ（${nextCase.k}）`]
+      : todo ? [todo.key, `まだの巻へ（${todo.k}）`] : null;
+    let btns = go ? `<button class="nr-btn" onclick="NR.open('${go[0]}')">${go[1]}</button>` : "";
+    btns += `<button class="nr-btn${go ? " sub" : ""}" onclick="NR.open('${G.key}')">もう一度戦う</button>`;
+    btns += `<button class="nr-btn sub" onclick="NR.toTitle()">タイトルへもどる</button>`;
+    sheet(`<h2 class="mincho">${c.k}をクリア！</h2>` + pic("defeat")
+      + `<div class="nr-stat"><b style="color:var(--gold)">討伐 ${clears}回目</b>　正解 ${G.correct}/${G.answered}問</div>`
+      + (nowOpen ? `<div class="nr-stat" style="color:var(--gold);font-weight:bold">✨「すべての盤」が開いた！</div>` : "")
+      + btns, 1100);
+    renderTop();
+  }
+  function allyResult(ally){
+    const s = sprite("pose1", true);
+    if(ally){
+      [523, 659, 784, 1047, 1319, 1568].forEach((f,i) => tone(f, .4, "triangle", .12, i * .12));
+      sheet(`<h2 class="mincho">言霊の番人が<br>仲間になった！</h2>`
+        + `<div class="nr-pic" style="width:120px;height:120px">${s ? `<img src="${s}">` : "👑"}</div>`
+        + `<div class="nr-stat" style="color:#f6eedb">「そなたの言霊を見ぬく目、しかと見とどけた。<br>これより、そなたと共に歩もう。」</div>`
+        // 仲間になったら、もう一度戦うことはできず、ミニゲームのトップ画面に強制的にもどす（教員の指示）
+        + `<button class="nr-btn" onclick="backToApp()">ミニゲーム一覧にもどる</button>`);
+    }else{
+      sheet(`<h2 class="mincho">番人は去っていった…</h2>`
+        + `<div class="nr-pic">${s ? `<img src="${s}" style="opacity:.55">` : "👑"}</div>`
+        + `<div class="nr-stat">番人は何か言いたげに、そなたを見つめていた。<br>もう一度勝てば、何かが起こるかもしれない……</div>`
+        // 仲間にならなかったときは、最後の勝負（第3段階）にすぐ再挑戦できる（教員の指示）
+        + `<button class="nr-btn" onclick="NR.again()">もう一度戦う</button>`
+        + `<button class="nr-btn sub" onclick="NR.open()">はじめから遊ぶ</button>`
+        + `<button class="nr-btn sub" onclick="NR.toTitle()">タイトルへもどる</button>`);
+    }
+    renderTop();
+  }
+  function stageLose(){
+    G.phase = "over";
+    snd.over();
+    setFoe("pose2", "cast");
+    const rate = G.answered ? Math.round(G.correct / G.answered * 100) : 0;
+    sheet(`<h2 class="mincho">番人に言霊を五つ並べられた…</h2>` + pic("pose2")
+      + `<div class="nr-stat">とどいた段階：<b style="color:var(--gold)">第${G.stage}段階</b><br>答えた数 ${G.answered}問　正解 ${G.correct}問（${rate}%）</div>`
+      + `<button class="nr-btn" onclick="NR.open('${G.key}')">はじめから挑む</button>`
+      + `<button class="nr-btn sub" onclick="NR.again()">この段階にもう一度挑む</button>`
+      + `<button class="nr-btn sub" onclick="NR.toTitle()">タイトルへもどる</button>`, 1200);
+  }
+  function draw(){
+    G.phase = "over";
+    sheet(`<h2 class="mincho">盤が埋まった</h2><div class="nr-stat">引き分け。もう一度、この段階に挑もう。</div>`
+      + `<button class="nr-btn" onclick="NR.again()">もう一度</button>`);
+  }
+  return {
+    open, answer, placeAt, foeTurn, allyResult,
+    nextStage(){ G.stage++; start(); },
+    again(){ start(); },
+    toTitle(){ $("nrOv").classList.remove("show"); if(G) G.phase = "over"; show("title"); },
+    _G: () => G,   // 確かめ用
+  };
+})();
+
+$("muteBtn").textContent = muted ? "🔇" : "🔊";
+renderTitle();
+</script>
+</body>
+</html>

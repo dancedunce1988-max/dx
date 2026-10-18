@@ -4342,7 +4342,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.23</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.24</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -4366,7 +4366,7 @@
 <script src="kanji_quest_title_data.js"></script>
 <script src="mb_action_button_images.js"></script>
 <!-- menu_title_images.jsは画像を差し替えることがあるので、?v=を変えてブラウザのキャッシュ（GitHub Pagesは10分）に古い画像が残らないようにする（2026-10-03）。画像を変えたら?v=もそのときのバージョンにする。 -->
-<script src="menu_title_images.js?v=12.93"></script>
+<script src="menu_title_images.js?v=13.24"></script>
 <script src="mb_bgm_data.js"></script>
 <script src="dokkai_dungeon_data.js"></script>
 <script>
@@ -4565,7 +4565,7 @@ const STORE_KEY = "kokugoTrainingStats_v5";
    絶対に読み込めないようにする。読み込めてしまうと、古いコードが新しい形式を誤解釈して
    記録を壊し、そのまま上書き保存してしまう危険があるため。
    このアプリを更新するたびに、SAVE_FORMAT_VERSIONを必ず1つ増やすこと。 */
-const SAVE_FORMAT_VERSION = 52;
+const SAVE_FORMAT_VERSION = 53;
 function isSaveFromNewerVersion(st){
   return !!st && typeof st.saveFormatVer === "number" && st.saveFormatVer > SAVE_FORMAT_VERSION;
 }
@@ -12903,7 +12903,8 @@ window.addEventListener("storage", e => {
 });
 /* 表現の魔術道（gihou_madousho.html、2026-10-03〜、試作）は「表現技法」（hyougen）。ほかと違い、まちがいでは下げず、
    正解1問ごとに＋1を、答えるたびにその場で書き足す（途中でやめてもそこまでの分は反映される。教員の指示）。 */
-const MG_LVUP_CATS = ["kanji_shiwake", "keigo", "setsuzokushi", "hyougen"];
+/* 言霊並べ（kotodama_shoko.html、2026-10-12〜）は「識別」（shikibetsu）。正解するたびに＋1、まちがいでは下げない。 */
+const MG_LVUP_CATS = ["kanji_shiwake", "keigo", "setsuzokushi", "hyougen", "shikibetsu"];
 function mgApplyPendingLevelUps(st){
   let raw;
   try{ raw = localStorage.getItem(MG_PENDING_LVUP_LSKEY); }catch(e){ raw = null; }
@@ -20090,6 +20091,7 @@ function showSideQuestMenu(){
   html += tsunagiMenuHtml();
   html += kitsuneMenuHtml();
   html += gihouMenuHtml();
+  html += kotodamaMenuHtml(); // 言霊並べ（2026-10-26解禁。それまでは「新ゲーム～10月26日解禁～」だけ）
   html += `<div class="btn-row" style="justify-content:center; margin-top:10px">
     <button class="btn secondary" onclick="showHome()">戻る</button>
   </div>`;
@@ -20213,7 +20215,9 @@ const KITSUNE_RELEASED = mgReleasedOn(KITSUNE_RELEASE_DATE);
    今度は引き伸ばさず、元の縦横比のまま幅1360pxに縮めて入れている（鉄甲兵はmenu_title_images.jsのtsunagi）。
    鍵のかかったバナーは少し暗くし、右下に「🔒 準備中」と出す。 */
 function mgBannerHtml(key, alt, released, lockLabel, openFn){
-  const img = window.MB_MENU_TITLE_IMAGES && window.MB_MENU_TITLE_IMAGES[key];
+  let img = window.MB_MENU_TITLE_IMAGES && window.MB_MENU_TITLE_IMAGES[key];
+  // 解禁前の絵を、データをのぞいても見られないように入れてあるもの（"enc:"＋base64を逆順、言霊並べ 2026-10-18〜）は、表示するときだけ元にもどす
+  if(img && img.startsWith("enc:")) img = "data:image/png;base64," + img.slice(4).split("").reverse().join("");
   if(!img) return null;
   return `
     <div class="menu-card-img-btn${released ? "" : " mg-banner-locked mg-teaser"}" onclick="${released ? openFn : "mgLockedTap(this)"}">
@@ -20392,6 +20396,27 @@ function gihouMenuHtml(){
     || mgTextCardHtml("🔮", "表現の魔術道", "巧みな表現とは、もはや魔術である", GIHOU_RELEASED, label, "openGihouMadousho()");
 }
 function openGihouMadousho(){ mgGoWithPass("gihou", "gihou_madousho.html"); }
+/* 言霊並べ（kotodama_shoko.html、2026-10-12〜。もとは「言霊の番人と影の書庫」、2026-10-18〜この名前。教員の指示）。
+   言霊の番人と9×9の盤で言霊を並べあう。識別の問い（「ない」「れる・られる」「の」「だ」ほか）に正解すると言霊を1つ置け、
+   先に5つ並べたら勝ち。一〜四の巻（2段階）→ すべての盤（3段階・色違い・5%で番人が仲間に）。本体のセーブには直接触れず、
+   正解ごとに「識別」(shikibetsu)＋1を書き置く（MG_LVUP_CATS）。htmlを直接開くと「このファイルは開けません」（通行証のチェック）。
+   2026-10-18、教員の指示で 2026-10-26 解禁。解禁前は、一覧にバナーも名前も出さず「新ゲーム～10月26日解禁～」とだけ出す。
+   ゲームのページ側も、解禁日より前は（入口から来ても）開けない（kotodama_shoko.html の通行証チェック）。
+   バナー画像（menu_title_images.js の kotodama）は、そのままでは画像として読めない形（"enc:"＋base64を逆順）で入れてあり、
+   mgBannerHtml が表示するときだけ元にもどす（zipのデータをのぞいて、解禁前に絵を見られないように）。 */
+const KOTODAMA_RELEASE_DATE = "2026-10-26";
+const KOTODAMA_RELEASED = mgReleasedOn(KOTODAMA_RELEASE_DATE);
+function kotodamaMenuHtml(){
+  if(!KOTODAMA_RELEASED){
+    return `
+    <div class="card menu-card locked mg-teaser" onclick="mgLockedTap(this)">
+      <div style="flex:1; text-align:center"><h2>新ゲーム～10月26日解禁～</h2></div>
+    </div>`;
+  }
+  return mgBannerHtml("kotodama", "言霊並べ", true, "", "openKotodamaShoko()")
+    || mgTextCardHtml("📜", "言霊並べ", "言霊の正体を見ぬいて、番人と並べあえ。「識別」の勝負", true, "", "openKotodamaShoko()");
+}
+function openKotodamaShoko(){ if(!KOTODAMA_RELEASED) return; mgGoWithPass("kotodama", "kotodama_shoko.html"); }
 /* マッチ（類義語マッチ・対義語マッチ、2026-09-18〜）。ミニゲームとしては「マッチ」という
    ひとつの入口にまとめ、その中に類義語マッチ・対義語マッチの2モードを置く（以前は対義語・
    類義語を別々のミニゲームとして並べていたが、教員の指示でひとつにまとめた）。taigigo/ruigigoの
