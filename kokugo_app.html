@@ -167,6 +167,25 @@
     border-width:4px 5px 4px 0; border-style:solid; border-color:transparent #ff5577 transparent transparent;
   }
   @keyframes newBubblePop{ 0%,100%{transform:scale(1);} 50%{transform:scale(1.12);} }
+  /* 「挑戦しよう！」の吹き出し（ver13.27〜）。カードの右上に、しっぽつきで浮かべる。 */
+  .menu-card.has-challenge{ position:relative; overflow:visible; margin-top:22px; }
+  .challenge-bubble{
+    position:absolute; top:-16px; right:14px; z-index:2; pointer-events:none;
+    font-size:.74rem; font-weight:bold; letter-spacing:.03em; padding:4px 12px; border-radius:99px;
+    background:linear-gradient(135deg,#ff8a3d,#ff4f6d); color:#fff; white-space:nowrap;
+    box-shadow:0 3px 8px rgba(255,79,109,.35);
+    animation:challengeBubbleBounce 1.4s ease-in-out infinite;
+  }
+  .challenge-bubble::after{
+    content:""; position:absolute; bottom:-6px; right:22px;
+    border-width:6px 6px 0 6px; border-style:solid; border-color:#ff5f5f transparent transparent transparent;
+  }
+  @keyframes challengeBubbleBounce{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-4px); } }
+  .challenge-bubble-inline{
+    display:inline-block; margin-left:6px; font-size:.64rem; font-weight:bold; padding:1px 8px; border-radius:99px;
+    background:linear-gradient(135deg,#ff8a3d,#ff4f6d); color:#fff; white-space:nowrap; vertical-align:middle;
+    animation:newBubblePop 1.6s ease-in-out infinite;
+  }
   /* 第8章「体育祭」の組バッジ（2026-07-22〜、教員の指示で組団カラーに変更）。碧組・紅組・黄組は
      既存のテーマカラー（--accent2/--accent/--gold）が偶然にも近い色味だったのでそのまま流用し、
      蒼組（青系）だけ新しい色を追加した。 */
@@ -597,6 +616,83 @@
     mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, #000 65%, transparent 100%);
   }
   .kotonoha-icon-wrap{display:flex; flex-direction:column; align-items:center; flex-shrink:0;}
+  /* 第二形態（ver13.27〜）：画像の背景（枠の余白）を系統色に染め、枠の内側から系統色の光を
+     ゆっくり明滅させる。画像そのものは加工しない（kotonohaForm2WrapLine参照）。 */
+  .kotonoha-form2-frame{
+    position:relative; display:inline-block; line-height:0; border-radius:12px;
+    box-shadow:0 0 12px var(--f2c);
+  }
+  .kotonoha-form2-frame > img{
+    background:radial-gradient(circle at 50% 50%, #fff7e6 30%, var(--f2c) 120%) !important;
+    border-color:var(--f2c) !important;
+  }
+  .kotonoha-form2-frame::after{
+    content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+    box-shadow:inset 0 0 14px 4px var(--f2c);
+    animation:kotonohaForm2Glow 3.2s ease-in-out infinite;
+  }
+  @keyframes kotonohaForm2Glow{ 0%,100%{ opacity:.35; } 50%{ opacity:.85; } }
+  /* 「ことのは図鑑」ボタン（ことのはの画像の下、ver13.27〜）。小さめだが特別感を出すため、
+     金色のグラデーション＋ときどき光が横切る＋右上で星がまたたく。 */
+  .kotonoha-zukan-btn{
+    position:relative; overflow:hidden; margin-top:6px; padding:4px 10px;
+    font:inherit; font-size:.66rem; font-weight:bold; letter-spacing:.02em; white-space:nowrap;
+    color:#5a3a00; cursor:pointer;
+    background:linear-gradient(135deg,#fff6cf 0%,#f5d26b 45%,#e0a92e 100%);
+    border:1px solid #c8901c; border-radius:99px;
+    box-shadow:0 1px 0 rgba(255,255,255,.7) inset, 0 2px 6px rgba(184,134,11,.35);
+  }
+  .kotonoha-zukan-btn::after{
+    content:""; position:absolute; top:0; bottom:0; left:-60%; width:40%; pointer-events:none;
+    background:linear-gradient(100deg, transparent, rgba(255,255,255,.85), transparent);
+    animation:kotonohaZukanShine 3.6s ease-in-out infinite;
+  }
+  @keyframes kotonohaZukanShine{ 0%,55%{ left:-60%; } 85%,100%{ left:130%; } }
+  .kotonoha-zukan-btn-spark{
+    position:absolute; top:-1px; right:3px; font-size:.6rem; color:#fff; text-shadow:0 0 4px #ffcf40;
+    animation:kotonohaZukanTwinkle 1.8s ease-in-out infinite;
+  }
+  @keyframes kotonohaZukanTwinkle{ 0%,100%{ opacity:.2; transform:scale(.7); } 50%{ opacity:1; transform:scale(1.15); } }
+  .kotonoha-zukan-btn:active{ transform:translateY(1px); }
+  .kotonoha-zukan-locked{ margin-top:6px; font-size:.56rem; line-height:1.35; color:var(--sub); text-align:center; max-width:94px; }
+  .story-nobiru-card{ margin:12px 0 6px; background:#f3fbef; border-color:#a8d69a; }
+  .kotonoha-form2-badge{
+    display:inline-block; font-size:.7rem; font-weight:bold; color:#8a5a00; background:#fff3c4;
+    border:1px solid #e0b030; border-radius:99px; padding:1px 10px; margin:3px 0 5px 4px;
+  }
+  /* ことのは図鑑（ver13.27〜） */
+  .kz-gen{ margin-top:18px; }
+  .kz-gen-power{ background:var(--card); border:1px solid var(--line); border-radius:8px; padding:6px 10px; margin:0 0 8px; line-height:1.6; }
+  .kz-gen-sub{ color:var(--sub); font-size:.9em; }
+  .kz-move{ font-size:.74rem; line-height:1.55; background:#fff8e6; border:1px solid #f0d58a; border-radius:8px; padding:5px 8px; margin:2px 0 4px; }
+  .kz-grid{ display:grid; grid-template-columns:1fr; gap:10px; }
+  @media (min-width:720px){ .kz-grid{ grid-template-columns:1fr 1fr; } }
+  .kz-entry{ margin:0; }
+  .kz-head{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px; }
+  .kz-now{ font-size:.66rem; font-weight:bold; color:#fff; background:var(--ok); border-radius:6px; padding:1px 7px; }
+  .kz-form-label{ font-size:.78rem; font-weight:bold; margin:8px 0 4px; }
+  .kz-form-label span{ font-weight:normal; color:var(--sub); }
+  .kz-thumbs{ display:flex; flex-wrap:wrap; gap:3px; }
+  .kz-thumb-cell{ display:flex; flex-direction:column; align-items:center; width:38px; }
+  .kz-thumb-cell span{ font-size:.56rem; color:var(--sub); margin-top:2px; white-space:nowrap; }
+  .kz-thumb{
+    width:36px; height:36px; object-fit:contain; box-sizing:border-box; display:block;
+    background:#efe6da; border:2px solid var(--line); border-radius:7px; cursor:pointer;
+  }
+  .kz-thumb-unknown{ display:flex; align-items:center; justify-content:center; color:var(--sub); font-weight:bold; cursor:default; }
+  .kz-thumb-big{ width:72px; height:72px; cursor:default; flex-shrink:0; }
+  .kz-sil{ opacity:0; transition:opacity .25s; cursor:default; }
+  .kz-sil.kz-sil-ready{ opacity:1; }
+  .kz-mosaic{ filter:blur(2px); }
+  .kz-unseen-body{ display:flex; align-items:center; gap:12px; }
+  .kz-unseen-body .note{ margin:0 0 4px; }
+  .kz-conds{ font-size:.74rem; line-height:1.5; background:var(--bg); border:1px dashed var(--line); border-radius:8px; padding:5px 8px; }
+  .kz-conds-title{ font-weight:bold; margin-bottom:2px; }
+  .kz-cond{ color:var(--sub); }
+  .kz-cond.ok{ color:var(--ok); }
+  .kz-f2-ready{ display:flex; align-items:center; gap:10px; }
+  .kz-f2-ready .note{ margin:0; }
+  .kz-f2-locked{ margin:2px 0 0; }
   .kotonoha-evo-next{font-size:.62rem; color:var(--sub); text-align:center; margin-top:4px; max-width:94px; line-height:1.35;}
   .kotonoha-rebirth-note{background:var(--bg); border:1px dashed var(--line); border-radius:8px; padding:8px 10px; margin-top:10px;}
   .kotonoha-info{flex:1; min-width:0;}
@@ -4349,7 +4445,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.25</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.28</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -4373,7 +4469,7 @@
 <script src="kanji_quest_title_data.js"></script>
 <script src="mb_action_button_images.js"></script>
 <!-- menu_title_images.jsは画像を差し替えることがあるので、?v=を変えてブラウザのキャッシュ（GitHub Pagesは10分）に古い画像が残らないようにする（2026-10-03）。画像を変えたら?v=もそのときのバージョンにする。 -->
-<script src="menu_title_images.js?v=13.24"></script>
+<script src="menu_title_images.js?v=13.26"></script>
 <script src="mb_bgm_data.js"></script>
 <script src="dokkai_dungeon_data.js"></script>
 <script>
@@ -4687,7 +4783,7 @@ function emptyStats(){
   EXTRA_LEVEL_CATS.forEach(k => { cats[k] = {t:0,c:0}; lv[k] = 1; });
   return {cats, q:{}, lv, diffLv, items:{}, usedTreasures:{}, usedStoryRewards:{}, bossPity:{}, bossItemPity:{}, kotonohaOtherRoll:null, bossTickets:0, totalLevelUps:0,
     bonusExp:0, hyakuninBonusExp:0, bunsetsuGiriBonusExp:0, stats:{hp:0, atk:0, def:0, spd:0, luck:0}, kotonohaSeenForms:[], kotonohaDisplayOverride:null, specialMoveUnlocked:false, storyFaceUnlocked:false,
-    kotonohaRebirthUnlocked:false, kotonohaRebirth:null, kotonohaRebirthLinesSeen:[], kotonohaSeigakiMeienUnlocked:false, groupUnlock:{},
+    kotonohaRebirthUnlocked:false, kotonohaRebirth:null, kotonohaRebirthLinesSeen:[], kotonohaZukan:{}, kotonohaSeigakiMeienUnlocked:false, groupUnlock:{},
     kanjiWrite:{totalOk:0, itemHist:{}, levelRecent:{}},
     kanjiWriteElem:{totalOk:0, itemHist:{}, targetLv:1, recent:[]},
     hyakunin:{totalOk:0, itemHist:{}, targetLv:1, recent:[]},
@@ -5333,6 +5429,17 @@ function loadStats(){
         if(!Array.isArray(st.kotonohaRebirthLinesSeen)) st.kotonohaRebirthLinesSeen = [];
         if(st.kotonohaRebirth && !st.kotonohaRebirthLinesSeen.includes(st.kotonohaRebirth.line)){
           st.kotonohaRebirthLinesSeen.push(st.kotonohaRebirth.line);
+        }
+        /* 「ことのは図鑑」（ver13.27〜）の移行。旧セーブには系統ごとの「どこまで育ったか」の記録が
+           無いため、これまでになったことがある系統はすべて「転生ができる段階（青年体）」までは
+           育ったものとして図鑑に登録する（教員の指示、2026-10-18）。今まさに育てている系統は、
+           青年体と今の段階の高い方。第二形態はこの版からの新要素なので、移行時点では誰も未経験。 */
+        if(!st.kotonohaZukan || typeof st.kotonohaZukan !== "object"){
+          st.kotonohaZukan = {};
+          st.kotonohaRebirthLinesSeen.forEach(l => {
+            st.kotonohaZukan[l] = {f1: KOTONOHA_YOUTH_STAGE_IDX, f2: -1};
+          });
+          if(st.kotonohaRebirth) kotonohaZukanRecord(st);
         }
         /* 旧バージョンで「３領域以上バランス型」が固定されていた場合、今の見た目をそのまま引き継ぐ
            （次に進化するタイミングから、新しいランダム抽選のしくみに切りかわる）。 */
@@ -6709,6 +6816,73 @@ function kotonohaAscend2LineUnlocked(st, line){
   }
 }
 const KOTONOHA_ASCEND2_LINES = ["rai", "kiri", "oto", "hyou"];
+/* ================= 第二形態・ことのは図鑑（ver13.27〜、教員の指示 2026-10-18） =================
+   st.kotonohaZukan = {系統: {f1: 第一形態で到達した最高段階, f2: 第二形態で到達した最高段階}}
+   （どちらも0=卵〜6=伝説級、-1=その形態には一度もなっていない）。
+   第二形態になれる条件：①聖輝（光）か冥淵（闇）になったことがある ②その系統で一度でも
+   伝説級になったことがある（第一形態・第二形態のどちらでもよい）。この2つを満たした状態で、
+   もう一度その系統に転生すると第二形態として生まれる（今の系統には転生できないので、
+   伝説級まで育てたあと、いったん別の系統を経由して戻ってくる流れになる）。
+   第二形態は見た目（画像の背景に系統色の光がにじむ）と、第二世代（冥淵）の特徴
+   「まちがえても1回だけなら必殺技ゲージが崩れない」を少年体から持つ
+   （古代龍・未来龍・第4世代の4龍はもともと2回までの猶予があるので、強い方がそのまま残る）。 */
+const KOTONOHA_ZUKAN_GROUPS = [
+  {label:"第一世代", lines:["tensho","engoku","soukai","suishin"]},
+  {label:"第二世代", lines:["seiki","meien"]},
+  {label:"第三世代", lines:["kodai","mirai"]},
+  {label:"第四世代", lines:["rai","kiri","oto","hyou"]},
+  {label:"特別な龍", lines:["shigen"]},
+];
+/* 第二形態の背景ににじませる系統色（伝説級の背景グラデーションの主色に合わせた）。 */
+const KOTONOHA_FORM2_COLOR = {
+  tensho:"#3fc8f0", engoku:"#ff6a3d", soukai:"#2b6fd6", suishin:"#4f9c3a", seiki:"#f2c94c", meien:"#8a5ce0",
+  shigen:"#e05cc8", kodai:"#b8862b", mirai:"#00d5ea", rai:"#f5d000", kiri:"#9fb4c8", oto:"#d65ce0", hyou:"#6fd0ff",
+};
+function kotonohaIsForm2(st){
+  return !!(st.kotonohaRebirth && st.kotonohaRebirth.form === 2);
+}
+function kotonohaZukanEntry(st, line){
+  const z = (st.kotonohaZukan && st.kotonohaZukan[line]) || null;
+  return {f1: z && typeof z.f1 === "number" ? z.f1 : -1, f2: z && typeof z.f2 === "number" ? z.f2 : -1};
+}
+/* 今育てている系統の段階を図鑑に書き込む（高い方を残す）。書き換えがあればtrueを返す
+   （保存は呼び出し元がまとめて行う）。 */
+function kotonohaZukanRecord(st){
+  if(!st.kotonohaRebirth) return false;
+  if(!st.kotonohaZukan || typeof st.kotonohaZukan !== "object") st.kotonohaZukan = {};
+  const line = st.kotonohaRebirth.line;
+  const key = kotonohaIsForm2(st) ? "f2" : "f1";
+  const cur = kotonohaZukanEntry(st, line);
+  const idx = kotonohaRebirthStageIndex(st);
+  if(idx <= cur[key]) return false;
+  cur[key] = idx;
+  st.kotonohaZukan[line] = cur;
+  return true;
+}
+/* 第二形態を持つ系統（教員の指示、2026-10-18：「今のところ第一世代のみに搭載」、
+   2026-10-19：始原龍も追加）。ほかの世代にも広げるときは、ここに系統を足すだけでよい
+   （図鑑・転生・猶予すべてこれを参照）。 */
+const KOTONOHA_FORM2_LINES = ["tensho","engoku","soukai","suishin","shigen"];
+/* 第二形態の条件を1つずつ判定する（図鑑で「あと何が足りないか」を出すためにも使う）。
+   ①光か闇の龍になったことがある ②その龍を伝説級まで育てたことがある
+   ③今の龍（その龍とは別の龍）が伝説級で、そこから転生する（教員の指示、2026-10-19：
+   「形態をバージョンアップさせるには、今の龍が伝説級でないといけない」。古代龍・未来龍と
+   同じく、転生するその瞬間の状態を毎回見る）。 */
+function kotonohaSecondFormChecks(st, line){
+  const seen = st.kotonohaRebirthLinesSeen || [];
+  const z = kotonohaZukanEntry(st, line);
+  const cur = st.kotonohaRebirth;
+  return {
+    lightDark: seen.includes("seiki") || seen.includes("meien"),
+    legendHistory: Math.max(z.f1, z.f2) >= 6,
+    nowLegend: !!cur && cur.line !== line && kotonohaRebirthStageIndex(st) === 6,
+  };
+}
+function kotonohaSecondFormReady(st, line){
+  if(!KOTONOHA_FORM2_LINES.includes(line)) return false;
+  const c = kotonohaSecondFormChecks(st, line);
+  return c.lightDark && c.legendHistory && c.nowLegend;
+}
 function kotonohaEligibleRebirthLines(st){
   const cat = kotonohaBaseCategory(st);
   const currentLine = st.kotonohaRebirth ? st.kotonohaRebirth.line : null;
@@ -6903,9 +7077,10 @@ function kotonohaEvolveStep5(st, toStage){
      （一度アンロックしたら以後は常に解禁済み、2026-08-01〜）。 */
   const justUnlockedLines = !st.kotonohaSeigakiMeienUnlocked && toStage >= KOTONOHA_MATURE_STAGE_IDX;
   if(justUnlockedLines) st.kotonohaSeigakiMeienUnlocked = true;
+  kotonohaZukanRecord(st);
   saveStats(st);
   const toSrc = kotonohaImageSrcForStage(st.kotonohaRebirth.line, toStage);
-  const label = `${KOTONOHA_IMAGE_STAGE_LABEL[toStage]}${KOTONOHA_IMAGE_LINE_LABEL[st.kotonohaRebirth.line]}`;
+  const label = `${KOTONOHA_IMAGE_STAGE_LABEL[toStage]}${KOTONOHA_IMAGE_LINE_LABEL[st.kotonohaRebirth.line]}${kotonohaIsForm2(st) ? "（第二形態）" : ""}`;
   /* 系統別必殺技の名前が段階に応じて変わったとき（少年体到達＝新規解禁も含む）は、
      進化のお祝いに続けて「必殺技が、～になった！」も表示する（教員の指示、2026-08-01〜）。
      始原龍（"shigen"）は固定の技名を持たないため対象外（自然にnullになりスキップされる）。 */
@@ -6923,7 +7098,7 @@ function kotonohaEvolveStep5(st, toStage){
   const el = kotonohaEvolveOverlayEl();
   el.className = "kotonoha-evolve-overlay kotonoha-evolve-clickable";
   el.innerHTML = `
-    ${kotonohaBlurredImgHtml(toSrc, "evolve", "kotonoha-evolve-img kotonoha-evolve-reveal")}
+    ${kotonohaForm2Wrap(st, kotonohaBlurredImgHtml(toSrc, "evolve", "kotonoha-evolve-img kotonoha-evolve-reveal"))}
     <p class="kotonoha-evolve-text kotonoha-evolve-congrats">おめでとう！<br>ことのはが、${esc(label)}に進化した！</p>
     ${moveMsg}
     ${unlockMsg}
@@ -6967,7 +7142,10 @@ function kotonohaDoRebirth(st, chosenLine){
   if(!line) return false;
   if(!Array.isArray(st.kotonohaRebirthLinesSeen)) st.kotonohaRebirthLinesSeen = [];
   if(!st.kotonohaRebirthLinesSeen.includes(line)) st.kotonohaRebirthLinesSeen.push(line);
-  st.kotonohaRebirth = {line, baseXP: kotonohaTotalXP(st), seenStage: 0};
+  kotonohaZukanRecord(st); // 転生で上書きする前に、今の系統がどこまで育ったかを図鑑に残す
+  const form = kotonohaSecondFormReady(st, line) ? 2 : 1;
+  st.kotonohaRebirth = {line, baseXP: kotonohaTotalXP(st), seenStage: 0, form};
+  kotonohaZukanRecord(st);
   saveStats(st);
   return true;
 }
@@ -7017,8 +7195,9 @@ function kotonohaRebirthFxStep4(){
   el.className = "kotonoha-evolve-overlay kotonoha-rebirth-fx kotonoha-evolve-clickable";
   el.innerHTML = `
     ${kotonohaRebirthSparkleHtml()}
-    ${kotonohaBlurredImgHtml(toSrc, "evolve", "kotonoha-evolve-img kotonoha-evolve-reveal kotonoha-rebirth-reveal-img")}
-    <p class="kotonoha-evolve-text kotonoha-evolve-congrats">転生した！<br>「${esc(label)}」として、卵から生まれ変わった！</p>
+    ${kotonohaForm2Wrap(st, kotonohaBlurredImgHtml(toSrc, "evolve", "kotonoha-evolve-img kotonoha-evolve-reveal kotonoha-rebirth-reveal-img"))}
+    <p class="kotonoha-evolve-text kotonoha-evolve-congrats">転生した！<br>「${esc(label)}」${kotonohaIsForm2(st) ? "の第二形態" : ""}として、卵から生まれ変わった！</p>
+    ${kotonohaIsForm2(st) ? `<p class="daily-login-reward">🌟 第二形態：第二世代の力（まちがえても1回までなら必殺技ゲージがリセットされない）を手に入れた！（少年体から）</p>` : ""}
     <button class="btn" onclick="hideKotonohaEvolveOverlay(); kotonohaRebirthFxDone();">つづける</button>`;
 }
 function kotonohaRebirthFxDone(){
@@ -7053,7 +7232,7 @@ const KOTONOHA_LINE_MOVE_MIN_STAGE = 2; // 少年体
    （2回連続でミスして初めてリセットされる、教員の指示、2026-08-08〜）。bossGrade側で
    b.kotonohaGraceMissStreakを管理し、この段階に達した冥淵プレイヤーだけ適用する（同じ
    カウンタを古代龍・未来龍の猶予にも流用している、2026-08-29〜。詳細はbossGrade参照）。 */
-const KOTONOHA_MEIEN_GAUGE_GRACE_STAGE = 4; // 成人体
+const KOTONOHA_MEIEN_GAUGE_GRACE_STAGE = 4; // 成人体（ver13.27〜未使用：世代の力＝kotonohaActiveGenに統一し、少年体から有効になった）
 /* 必殺技ゲージの「猶予」チップ表示（🌑必殺技ゲージは崩れなかった！）の絵文字を、系統ごとに
    変えるための対応表（2026-08-29〜、古代龍・未来龍の追加に合わせて）。未定義の系統は
    呼び出し側で🌑にフォールバックする。 */
@@ -7062,6 +7241,51 @@ const KOTONOHA_GRACE_EMOJI = {meien:"🌑", kodai:"🏛️", mirai:"🚀", rai:"
    （教員の指示、2026-09-16〜：「２回間違っても必殺が打てるのは、この４龍も採用します」）。
    bossGrade側のgraceMissLimit判定（dragonGraceActive）で参照する。 */
 const KOTONOHA_ASCEND2_GRACE_LINES = ["rai", "kiri", "oto", "hyou"];
+/* ================= 世代ごとの力（ver13.27〜、教員の指示 2026-10-19） =================
+   世代が上がるほど、前の世代の力をすべて持ったうえで新しい力が1つずつ増える：
+     第一世代：なし
+     第二世代：まちがえても1回までなら必殺技ゲージがリセットされない
+     第三世代：まちがえても2回までなら必殺技ゲージがリセットされない
+     第四世代：（第三世代の力）＋その対戦で一度必殺技を打つと、次から必殺技に必要なゲージが1つ少なくなる
+               （1回の対戦につき1度だけ。何回打っても減るのは1つまで）
+   第一世代・始原龍の第二形態は、第二世代の力を持つ（kotonohaEffectiveGen）。どの力も、系統別必殺技が
+   使える少年体（kotonohaLineMoveStageOk）から有効。始原龍はどの世代にも入らない特別な龍なので、
+   世代の力は持たない（六道の力で他の系統の技を借りるのが特徴）。 */
+const KOTONOHA_LINE_GEN = {
+  tensho:1, engoku:1, soukai:1, suishin:1, seiki:2, meien:2, kodai:3, mirai:3, rai:4, kiri:4, oto:4, hyou:4,
+};
+const KOTONOHA_GEN_POWER_TEXT = {
+  1: "なし",
+  2: "まちがえても1回までなら、必殺技ゲージがリセットされない",
+  3: "まちがえても2回までなら、必殺技ゲージがリセットされない",
+  4: "その対戦で一度必殺技を打つと、次から必殺技に必要なゲージが1つ少なくなる（2回目以降の必殺技が速く打てる）",
+};
+function kotonohaEffectiveGen(st){
+  if(!st.kotonohaRebirth) return 0;
+  const line = st.kotonohaRebirth.line;
+  const gen = KOTONOHA_LINE_GEN[line] || 0;
+  return kotonohaIsForm2(st) ? Math.max(gen, 2) : gen; // 第二形態（第一世代・始原龍）は第二世代の力を持つ
+}
+/* 今使える世代の力の世代（少年体未満は0＝まだ何も使えない）。 */
+function kotonohaActiveGen(st){
+  return kotonohaLineMoveStageOk(st) ? kotonohaEffectiveGen(st) : 0;
+}
+/* 第四世代の力：この対戦で一度でも必殺技を打っていれば、必要ゲージを1つ減らす（1未満にはしない）。 */
+function kotonohaGaugeDiscount(st){
+  return (kotonohaActiveGen(st) >= 4 && bossBattle && bossBattle.kotonohaFinisherUsedOnce) ? 1 : 0;
+}
+function kotonohaBaseGaugeRequired(st){
+  return Math.max(1, FINISHER_GAUGE_MAX - kotonohaGaugeDiscount(st));
+}
+/* 世代の力の一覧（ホームのカード・図鑑の説明用）。前の世代の力も含めて、持っている力をすべて返す。 */
+function kotonohaGenPowerList(gen){
+  if(gen <= 1) return [];
+  const list = [];
+  if(gen === 2) list.push(KOTONOHA_GEN_POWER_TEXT[2]);
+  if(gen >= 3) list.push(KOTONOHA_GEN_POWER_TEXT[3]);
+  if(gen >= 4) list.push(KOTONOHA_GEN_POWER_TEXT[4]);
+  return list;
+}
 function kotonohaLineMoveT(stageIdx){
   return Math.max(0, Math.min(1, (stageIdx - KOTONOHA_LINE_MOVE_MIN_STAGE) / 4));
 }
@@ -7179,7 +7403,7 @@ const KOTONOHA_LINE_MOVES = {
   },
   meien: {
     names:["深淵の守り","冥府の守り","幽玄の盾","常闇の鉄壁","冥淵絶闇・不滅の盾"],
-    desc:"発動するたびに、次の発動の威力が200%（技の基礎威力の2倍ぶん）ずつ上乗せされていく（上限なし）。成人体からは、まちがえても1回だけなら必殺技ゲージが崩れない（2回連続でまちがえるとリセット）",
+    desc:"発動するたびに、次の発動の威力が200%（技の基礎威力の2倍ぶん）ずつ上乗せされていく（上限なし）",
     /* 防御力バフ方式（buffPerStack）から、発動回数に応じて威力そのものが際限なく伸びる方式に変更
        （教員の指示、2026-08-02〜：「少年体なら3倍→2回目4倍→3回目5倍…、伝説級は初めから5倍で
        そこからさらに上がる」）。1.0＝moveMultに+1ずつ、という意味でpowerGrowthPerUseという名前
@@ -7198,7 +7422,7 @@ const KOTONOHA_LINE_MOVES = {
      カーブ（3〜5倍）。 */
   kodai: {
     names:["太古の目覚め","古代の咆哮","悠久の顕現","太古龍の覇道","古代龍絶技・輪廻転生"],
-    desc:"発動しておくと、そのボス戦中にHPが0になっても「古代龍」が復活を果たしてHPが回復する（回復率は少年体でひかえめ、伝説級で100%。伝説級だけは2回打つと2回ぶんストックできる）。復活するたびに、攻撃力がそのボス戦の間だけ2倍になり（重ねがけ、1回目で2倍・2回目で4倍・3回目で8倍…）、この倍率は必殺技のダメージにも乗る。まちがえても2回連続までなら必殺技ゲージは崩れない",
+    desc:"発動しておくと、そのボス戦中にHPが0になっても「古代龍」が復活を果たしてHPが回復する（回復率は少年体でひかえめ、伝説級で100%。伝説級だけは2回打つと2回ぶんストックできる）。復活するたびに、攻撃力がそのボス戦の間だけ2倍になり（重ねがけ、1回目で2倍・2回目で4倍・3回目で8倍…）、この倍率は必殺技のダメージにも乗る",
     powerMult: kotonohaLinePower,
     revivePct: t => KODAI_REVIVE_PCT[Math.round(t*4)],
   },
@@ -7209,20 +7433,20 @@ const KOTONOHA_LINE_MOVES = {
      （＝打てば打つほど次の必殺技もさらに強くなる）。 */
   mirai: {
     names:["未来への胎動","近未来の加速","次元を超える力","未来龍の覚醒","未来龍絶技・超進化"],
-    desc:"発動するたびに、自分の全ステータスがそのボス戦の間だけ倍化する（重ねがけ・永続、上限なし）。倍率は少年体でひかえめ、伝説級で3倍。まちがえても2回連続までなら必殺技ゲージは崩れない",
+    desc:"発動するたびに、自分の全ステータスがそのボス戦の間だけ倍化する（重ねがけ・永続、上限なし）。倍率は少年体でひかえめ、伝説級で3倍",
     powerMult: kotonohaLinePower,
     statMultPerUse: t => MIRAI_STAT_MULT[Math.round(t*4)],
   },
   rai: {
     names:["感電の一撃","雷光の一撃","迅雷の連鎖","紫電の裁き","雷龍絶技・感電"],
-    desc:"発動するたびに、確率でボスの次の行動を1ターン封じる（少年体35%〜伝説級75%）。さらに発動のたびに自分の通常攻撃力が倍化する（重ねがけ・永続、上限なし）。まちがえても2回連続までなら必殺技ゲージは崩れない",
+    desc:"発動するたびに、確率でボスの次の行動を1ターン封じる（少年体35%〜伝説級75%）。さらに発動のたびに自分の通常攻撃力が倍化する（重ねがけ・永続、上限なし）",
     powerMult: kotonohaLinePower,
     paralyzeChance: t => RAI_PARALYZE_CHANCE[Math.round(t*4)],
     atkMultPerUse: t => RAI_ATK_MULT[Math.round(t*4)],
   },
   hyou: {
     names:["凍結の一撃","氷結の一撃","氷牙の一閃","絶対零度","氷龍絶技・凍結"],
-    desc:"命中させるたびにボスの防御力を縮めていく（重ねがけ・永続、上限なし）。さらに発動するたびに相手を氷漬けにして数ターン行動不能にする（毎ターン一定確率で氷がとける）。まちがえても2回連続までなら必殺技ゲージは崩れない",
+    desc:"命中させるたびにボスの防御力を縮めていく（重ねがけ・永続、上限なし）。さらに発動するたびに相手を氷漬けにして数ターン行動不能にする（毎ターン一定確率で氷がとける）",
     powerMult: kotonohaLinePower,
     defShredPct: t => HYOU_DEF_SHRED_PCT[Math.round(t*4)],
     /* 「氷漬けになって動けない」効果（2026-09-24〜、教員の指示）。土のドラゴン＝翠森「眠りの胞子」
@@ -7232,13 +7456,13 @@ const KOTONOHA_LINE_MOVES = {
   },
   kiri: {
     names:["幻惑の霧","深霧の帳","幻夢の霧衣","千里霧中","霧龍絶技・幻惑"],
-    desc:"発動するたびに、ボスの攻撃を見切って回避しやすくなる（重ねがけ・永続、上限なし）。まちがえても2回連続までなら必殺技ゲージは崩れない",
+    desc:"発動するたびに、ボスの攻撃を見切って回避しやすくなる（重ねがけ・永続、上限なし）",
     powerMult: kotonohaLinePower,
     evadeBonusPerUse: t => KIRI_EVADE_PCT_PER_USE[Math.round(t*4)],
   },
   oto: {
     names:["共鳴の音色","共鳴の旋律","共鳴の協奏","共鳴の交響","音龍絶技・共鳴"],
-    desc:"必殺技ゲージに必要な問題数が短い（伝説級では1問）。まちがえても2回連続までなら必殺技ゲージは崩れない",
+    desc:"必殺技ゲージに必要な問題数が短い（伝説級では1問）",
     powerMult: kotonohaLinePower,
     gaugeMax: t => OTO_GAUGE_STAGE[Math.round(t*4)],
   },
@@ -7275,8 +7499,8 @@ function kotonohaLineGaugeRequired(st){
   if(!kotonohaLineMoveStageOk(st)) return FINISHER_GAUGE_MAX;
   const line = st.kotonohaRebirth.line;
   const def = line === "shigen" ? null : KOTONOHA_LINE_MOVES[line];
-  if(def && def.gaugeMax) return def.gaugeMax(kotonohaLineMoveT(kotonohaRebirthStageIndex(st)));
-  return FINISHER_GAUGE_MAX;
+  const base = (def && def.gaugeMax) ? def.gaugeMax(kotonohaLineMoveT(kotonohaRebirthStageIndex(st))) : FINISHER_GAUGE_MAX;
+  return Math.max(1, base - kotonohaGaugeDiscount(st));
 }
 /* 今のボス戦で実際に使う必殺技。教員の指示（2026-07-31〜）で、系統別必殺技と既存の言霊一閃
    （またはあくび）は排他ではなく「発動のたびにどちらを打つか選べる」仕様に変更した。
@@ -7354,6 +7578,7 @@ function kotonohaCardHtml(st){
      唯一の見た目なので、overrideがメイン表示を差し替える既存の挙動を維持する。 */
   const rebirthActive = !!st.kotonohaRebirth;
   const rIdx = rebirthActive ? kotonohaRebirthStageIndex(st) : -1;
+  if(rebirthActive && kotonohaZukanRecord(st)) saveStats(st);
   let rebirthEvoHtml = "";
   if(rebirthActive){
     const gainedNow = Math.max(0, kotonohaTotalXP(st) - st.kotonohaRebirth.baseXP);
@@ -7363,7 +7588,7 @@ function kotonohaCardHtml(st){
       : `<div class="kotonoha-evo-next">次の進化まで<br>あと${nextXP - gainedNow}</div>`;
   }
   const iconHtml = rebirthActive
-    ? `<div class="kotonoha-icon-wrap">${kotonohaBlurredImgHtml(kotonohaRebirthImageSrc(st), "icon", "kotonoha-icon kotonoha-icon-img", `onclick="showKotonohaFormPicker()" alt="${esc(KOTONOHA_IMAGE_LINE_LABEL[st.kotonohaRebirth.line])}"`)}${rebirthEvoHtml}</div>`
+    ? `<div class="kotonoha-icon-wrap">${kotonohaForm2Wrap(st, kotonohaBlurredImgHtml(kotonohaRebirthImageSrc(st), "icon", "kotonoha-icon kotonoha-icon-img", `onclick="showKotonohaFormPicker()" alt="${esc(KOTONOHA_IMAGE_LINE_LABEL[st.kotonohaRebirth.line])}"`))}${rebirthEvoHtml}${kotonohaZukanUnlocked(st) ? `<button class="kotonoha-zukan-btn" onclick="showKotonohaZukan()"><span class="kotonoha-zukan-btn-spark">✦</span>📖 ことのは図鑑</button>` : `<span class="kotonoha-zukan-locked">🔒 図鑑は<br>第二部 第4章で解放</span>`}</div>`
     : `<div class="kotonoha-icon ${typeClass}${override ? ' kotonoha-overridden' : ''}" onclick="showKotonohaFormPicker()">${disp.icon}</div>`;
   /* 「ことのはの称号」バッジ（旧「すがた」）。既存の分野レベルごとの「称号」（TITLES/titleOf、
      同じホーム画面内のshogo-badge）と混同しないよう、必ず「ことのはの称号」と明示する。 */
@@ -7376,11 +7601,17 @@ function kotonohaCardHtml(st){
     ? `<p class="note">⚡ 必殺技を解放するには、ストーリー「第3章」をクリアしてください。</p>` : "";
   let rebirthNameHtml = "", rebirthMoveHtml = "";
   if(rebirthActive){
-    rebirthNameHtml = `<span class="kotonoha-stage${rIdx===6?' final':''}">${esc(KOTONOHA_IMAGE_STAGE_LABEL[rIdx])}</span><span class="kotonoha-type">${esc(KOTONOHA_IMAGE_LINE_LABEL[st.kotonohaRebirth.line])}</span>${shogoBadge}`;
+    rebirthNameHtml = `<span class="kotonoha-stage${rIdx===6?' final':''}">${esc(KOTONOHA_IMAGE_STAGE_LABEL[rIdx])}</span><span class="kotonoha-type">${esc(KOTONOHA_IMAGE_LINE_LABEL[st.kotonohaRebirth.line])}</span>${kotonohaIsForm2(st) ? `<span class="kotonoha-form2-badge">🌟第二形態</span>` : ""}${shogoBadge}`;
     const lm = kotonohaActiveLineMove(st);
     rebirthMoveHtml = lm
       ? `<p class="note">⚡必殺技「${esc(lm.name)}」：${esc(lm.def.desc)}</p>`
       : "";
+    const effGen = kotonohaEffectiveGen(st);
+    const powers = kotonohaGenPowerList(effGen);
+    if(powers.length > 0){
+      const head = (kotonohaIsForm2(st) && effGen === 2) ? `🌟第二形態（第二世代の力）` : `🧬第${["","一","二","三","四"][effGen]}世代の力`;
+      rebirthMoveHtml += `<p class="note">${head}${kotonohaLineMoveStageOk(st) ? "" : "（少年体から）"}：${powers.map(esc).join("／")}</p>`;
+    }
   }
   const rebirthSection = kotonohaRebirthSectionHtml(st);
   return `
@@ -7401,6 +7632,7 @@ function kotonohaCardHtml(st){
         ${statusTable}
         <div class="btn-row" style="margin-top:8px; align-items:center">
           <button class="btn inline secondary" onclick="showStatusAllocation()">💪 ステータス調整</button>
+          ${kotonohaZukanUnlocked(st) && !st.kotonohaRebirth ? `<button class="btn inline secondary" onclick="showKotonohaZukan()">📖 ことのは図鑑</button>` : ""}
           ${(st.stockXp||0) > 0 ? `<button class="btn inline secondary" onclick="showStockXpConvert()">経験値に変える</button>` : ""}
           <span class="shogo-badge" style="background:var(--ok)">🈶 ストック経験値：${st.stockXp||0}</span>
         </div>
@@ -7484,6 +7716,249 @@ function showKotonohaFormPicker(){
   html += `<button class="btn secondary" onclick="showHome()">ホームへ</button>`;
   screen.innerHTML = html;
 }
+/* 第二形態の見た目（画像の背景に系統色の光がにじむ）。龍の画像の多くは背景まで描き込まれた
+   不透過の絵なので、画像そのものは加工せず、枠（imgの余白＝背景）の色と、枠の内側から
+   にじむ光（::after）で変化をつける。 */
+function kotonohaForm2WrapLine(line, imgHtml){
+  return `<span class="kotonoha-form2-frame" style="--f2c:${KOTONOHA_FORM2_COLOR[line] || "#f2c94c"}">${imgHtml}</span>`;
+}
+function kotonohaForm2Wrap(st, imgHtml){
+  return kotonohaIsForm2(st) ? kotonohaForm2WrapLine(st.kotonohaRebirth.line, imgHtml) : imgHtml;
+}
+/* ---------- ことのは図鑑のシルエット ----------
+   まだなったことがない龍は幼体の絵をシルエットにして見せる（次になれる可能性がある龍＝
+   kotonohaEligibleRebirthLinesに入っている龍はくっきりしたシルエット、それ以外はモザイク＋ぼかし）。
+   絵の縁から「背景と同じ色」の部分を塗りつぶし判定して背景を抜き、残った龍の部分を黒く塗る。
+   第4世代のように背景まで描き込まれていて抜けない絵は、全体を暗く沈めた影絵で代用する。
+   本物の絵が一瞬でも見えないよう、imgには最初srcを入れず、作り終えてから差し込む。 */
+const _kotonohaSilCache = {};
+function kotonohaBgMask(px, w, h){
+  const cs = [0, (w-1)*4, (h-1)*w*4, ((h-1)*w + w-1)*4].filter(i => px[i+3] > 20);
+  const bg = cs.length ? [0,1,2].map(k => cs.reduce((a,i)=>a+px[i+k],0)/cs.length) : [239,230,218];
+  const isBg = i => px[i*4+3] < 20 || (Math.abs(px[i*4]-bg[0]) + Math.abs(px[i*4+1]-bg[1]) + Math.abs(px[i*4+2]-bg[2])) < 60;
+  const mask = new Uint8Array(w*h);
+  const stack = [];
+  for(let x=0;x<w;x++){ stack.push(x, (h-1)*w + x); }
+  for(let y=0;y<h;y++){ stack.push(y*w, y*w + w-1); }
+  let count = 0;
+  while(stack.length){
+    const i = stack.pop();
+    if(mask[i] || !isBg(i)) continue;
+    mask[i] = 1; count++;
+    const x = i % w, y = (i - x) / w;
+    if(x > 0) stack.push(i-1);
+    if(x < w-1) stack.push(i+1);
+    if(y > 0) stack.push(i-w);
+    if(y < h-1) stack.push(i+w);
+  }
+  return count / (w*h) >= 0.12 ? mask : null; // 背景がほとんど抜けない＝背景まで描き込まれた絵
+}
+function kotonohaMakeSilhouette(line, mosaic, cb){
+  const key = line + (mosaic ? ":m" : ":s");
+  if(_kotonohaSilCache[key]){ cb(_kotonohaSilCache[key]); return; }
+  const src = kotonohaImageSrcForStage(line, 1);
+  if(!src) return;
+  const im = new Image();
+  im.onload = () => {
+    const w = im.naturalWidth, h = im.naturalHeight;
+    const c = document.createElement("canvas");
+    c.width = w; c.height = h;
+    const g = c.getContext("2d");
+    g.drawImage(im, 0, 0);
+    const d = g.getImageData(0, 0, w, h), px = d.data;
+    const mask = kotonohaBgMask(px, w, h);
+    for(let i=0;i<w*h;i++){
+      const o = i*4;
+      if(mask){
+        if(mask[i]){ px[o+3] = 0; }
+        else{ px[o] = 46; px[o+1] = 40; px[o+2] = 58; px[o+3] = 255; }
+      }else{
+        const lum = (px[o]*0.3 + px[o+1]*0.59 + px[o+2]*0.11) * 0.22;
+        px[o] = lum + 20; px[o+1] = lum + 16; px[o+2] = lum + 30;
+      }
+    }
+    g.putImageData(d, 0, 0);
+    let out = c;
+    if(mosaic){
+      const sw = 12, sh = Math.max(1, Math.round(h * sw / w));
+      const small = document.createElement("canvas");
+      small.width = sw; small.height = sh;
+      small.getContext("2d").drawImage(c, 0, 0, sw, sh);
+      out = document.createElement("canvas");
+      out.width = w; out.height = h;
+      const og = out.getContext("2d");
+      og.imageSmoothingEnabled = false;
+      og.drawImage(small, 0, 0, w, h);
+    }
+    _kotonohaSilCache[key] = out.toDataURL("image/png");
+    cb(_kotonohaSilCache[key]);
+  };
+  im.src = src;
+}
+function kotonohaApplySilhouettes(root){
+  root.querySelectorAll("img[data-ksil]").forEach(img => {
+    const [line, mode] = img.getAttribute("data-ksil").split(":");
+    kotonohaMakeSilhouette(line, mode === "m", url => { img.src = url; img.classList.add("kz-sil-ready"); });
+  });
+}
+/* ---------- ことのは図鑑（ver13.27〜） ----------
+   なったことのある龍は、第一形態・第二形態それぞれで到達した段階までの絵を並べて見せる
+   （まだ到達していない段階は「？」）。まだなったことがない龍は幼体のシルエットだけを出す。 */
+/* 図鑑に出す、系統ごとの必殺技のかんたんな説明（教員の指示、2026-10-19）。
+   くわしい数値はKOTONOHA_LINE_MOVESのdescが正。ここは中学生向けの一言だけ。 */
+const KOTONOHA_ZUKAN_MOVE_SUMMARY = {
+  tensho:"少ない連続正解で打てる（少年体4問→伝説級3問）。そのぶん威力はひかえめ",
+  engoku:"当てると火傷を負わせ、毎ターン追加ダメージ。重ねるほど火傷が強くなる",
+  soukai:"与えたダメージの一部で、自分のHPを回復する",
+  suishin:"相手を眠らせて、数ターン動けなくする",
+  seiki:"打つたびに、通常攻撃の攻撃力が倍になっていく（重ねがけ）",
+  meien:"打つたびに、次の必殺技の威力がどんどん上がっていく",
+  kodai:"打っておくと、HPが0になっても一度だけ復活できる",
+  mirai:"打つたびに、すべてのステータスが倍になっていく（重ねがけ）",
+  rai:"確率でボスをしびれさせ、1ターン動きを封じる。攻撃力も上がっていく",
+  kiri:"打つたびに、ボスの攻撃をよけやすくなっていく",
+  oto:"必殺技に必要な連続正解がとても少ない（伝説級は1問）",
+  hyou:"ボスの防御力をけずり、氷漬けにして数ターン動けなくする",
+  shigen:"打つたびに、ほかの12の龍の必殺技からランダムで1つを借りて打つ",
+};
+function kotonohaZukanMoveHtml(line){
+  const def = KOTONOHA_LINE_MOVES[line];
+  const names = def && def.names ? `「${esc(def.names[0])}」→（伝説級）「${esc(def.names[def.names.length-1])}」` : "「六道の力」";
+  return `<div class="kz-move"><div><b>⚡必殺技</b> ${names}</div><div>${esc(KOTONOHA_ZUKAN_MOVE_SUMMARY[line] || "")}</div></div>`;
+}
+function kotonohaZukanThumbs(line, maxIdx, form2){
+  let html = "";
+  for(let i=0;i<KOTONOHA_IMAGE_STAGE_LABEL.length;i++){
+    const src = i <= maxIdx ? kotonohaImageSrcForStage(line, i) : null;
+    if(src){
+      const img = `<img class="kz-thumb" src="${src}" alt="${esc(KOTONOHA_IMAGE_LINE_LABEL[line] + "　" + KOTONOHA_IMAGE_STAGE_LABEL[i] + (form2 ? "（第二形態）" : ""))}" onclick="kotonohaZukanZoom(this)">`;
+      html += `<div class="kz-thumb-cell">${form2 ? kotonohaForm2WrapLine(line, img) : img}<span>${esc(KOTONOHA_IMAGE_STAGE_LABEL[i])}</span></div>`;
+    }else{
+      html += `<div class="kz-thumb-cell"><div class="kz-thumb kz-thumb-unknown">？</div><span>${esc(KOTONOHA_IMAGE_STAGE_LABEL[i])}</span></div>`;
+    }
+  }
+  return `<div class="kz-thumbs">${html}</div>`;
+}
+/* まだ出会っていない龍の「出る条件」（教員の指示、2026-10-18）。判定そのものは転生の抽選側
+   （kotonohaEligibleRebirthLines・kotonohaAscendLinesUnlocked・kotonohaAscend2LineUnlocked）が
+   正で、ここは生徒向けの説明文と、いま達成できているかの印（ok）だけを返す。 */
+function kotonohaZukanUnlockConds(st, line){
+  const seen = st.kotonohaRebirthLinesSeen || [];
+  const lv = st.lv || {};
+  const g = k => lv[k] || 1;
+  const lvCond = (label, keys) => {
+    const sum = keys.reduce((a,k) => a + g(k), 0);
+    return {text:`${label}のレベル${keys.length > 1 ? "の合計" : ""}が1000以上（今：${sum}）`, ok: sum >= 1000};
+  };
+  const sawAncient = {text:"古代龍か未来龍になったことがある", ok: seen.includes("kodai") || seen.includes("mirai")};
+  switch(line){
+    case "tensho": case "engoku": case "soukai": case "suishin":
+      return [{text:"条件なし（転生すると、ランダムで出会える）", ok:true}];
+    case "seiki": case "meien":
+      return [{text:"転生した龍のどれかを「成熟体」まで育てる", ok: !!st.kotonohaSeigakiMeienUnlocked}];
+    case "shigen":
+      return [{text:"すべての分野のレベルを、バランスよく育てる（どの分野も平均の±20%以内）", ok: kotonohaBaseCategory(st) === 4},
+              {text:"その状態で転生すると、40%の確率で出会える", ok: kotonohaBaseCategory(st) === 4}];
+    case "kodai": case "mirai":
+      return [{text:"光か闇の龍になったことがある", ok: seen.includes("seiki") || seen.includes("meien")},
+              {text:"別の龍を「伝説級」まで育て、伝説級のまま転生する", ok: !!st.kotonohaRebirth && kotonohaRebirthStageIndex(st) === 6}];
+    case "oto":  return [sawAncient, lvCond("「小学校で習う漢字」", ["kws_elem"])];
+    case "rai":  return [sawAncient, lvCond("「高校入試頻出漢字200」", ["kws_exam"])];
+    case "kiri": return [sawAncient, lvCond("「漢字を書く」3ジャンル", ["kws_exam","kws_elem","kws_chugaku"])];
+    case "hyou": return [sawAncient, lvCond("表現技法・ことわざ・慣用句・四字熟語", ["hyougen","kotowaza","kanyoku","yoji"])];
+    default: return [];
+  }
+}
+/* 「ことのは図鑑」は、ストーリー第二部・第4章「ことのは図鑑」をクリアすると解放される
+   （ver13.27〜、教員の指示）。 */
+function kotonohaZukanUnlocked(st){
+  return !!st.kotonohaZukanUnlocked || !!(st.story && st.story.completedChapters && st.story.completedChapters.includes("p2ch4"));
+}
+function showKotonohaZukan(){
+  const st = loadStats();
+  if(!kotonohaZukanUnlocked(st)){ showHome(); return; }
+  if(kotonohaZukanRecord(st)) saveStats(st);
+  const eligible = kotonohaEligibleRebirthLines(st);
+  const seenAll = st.kotonohaRebirthLinesSeen || [];
+  const curLine = st.kotonohaRebirth ? st.kotonohaRebirth.line : null;
+  const allLines = KOTONOHA_ZUKAN_GROUPS.flatMap(g => g.lines).filter(kotonohaImagesReady);
+  const seenCount = allLines.filter(l => seenAll.includes(l)).length;
+  const form2Lines = allLines.filter(l => KOTONOHA_FORM2_LINES.includes(l));
+  const form2Count = form2Lines.filter(l => kotonohaZukanEntry(st, l).f2 >= 0).length;
+  let html = `<div class="card">
+      <h3 class="section">📖 ことのは図鑑</h3>
+      <p class="note">出会った龍：<b>${seenCount}</b> / ${allLines.length}種類　　第二形態：<b>${form2Count}</b> / ${form2Lines.length}種類</p>
+      <p class="note">・なったことのある龍は、育った段階まで絵が見られます（絵をタップすると大きく見られます）。必殺技の特徴も、なったことのある龍だけ見られます。<br>・くっきりした影の龍は、次の転生でなれるかもしれない龍です。<br>・ぼやけた影の龍は、まだ条件をクリアしていない龍です。<br>・🌟第二形態（第一世代の龍と始原龍だけ）：光か闇の龍になったことがあり、伝説級まで育てたことがある龍に、別の龍の伝説級からもう一度転生すると、第二形態になれます。第二形態になると、第二世代の力が加わります。<br>・🧬世代の力は、少年体まで育てると使えます。世代が上がるほど、前の世代の力をすべて持ったうえで新しい力が加わります。</p>
+    </div>`;
+  KOTONOHA_ZUKAN_GROUPS.forEach(group => {
+    const lines = group.lines.filter(kotonohaImagesReady);
+    if(lines.length === 0) return;
+    const genNo = KOTONOHA_LINE_GEN[lines[0]];
+    let genNote = "";
+    if(genNo){
+      const powers = kotonohaGenPowerList(genNo);
+      genNote = `<p class="note kz-gen-power">🧬 世代の力：${powers.length ? powers.map(esc).join("<br>＋") : "なし"}${genNo >= 3 ? `<br><span class="kz-gen-sub">（前の世代の力も、すべて持っている）</span>` : ""}${genNo === 1 ? `<br>🌟 第二形態になると、第二世代の力（${esc(KOTONOHA_GEN_POWER_TEXT[2])}）が加わる` : ""}</p>`;
+    }else{
+      genNote = `<p class="note kz-gen-power">🧬 世代の力：なし（どの世代にも入らない特別な龍。必殺技「六道の力」で、ほかの龍の技を借りて戦う）<br>🌟 第二形態になると、第二世代の力（${esc(KOTONOHA_GEN_POWER_TEXT[2])}）が加わる</p>`;
+    }
+    html += `<h3 class="section kz-gen">${esc(group.label)}</h3>${genNote}<div class="kz-grid">`;
+    lines.forEach(line => {
+      const label = KOTONOHA_IMAGE_LINE_LABEL[line];
+      if(seenAll.includes(line)){
+        const z = kotonohaZukanEntry(st, line);
+        const f1 = Math.max(0, z.f1);
+        const nowTag = line === curLine ? `<span class="kz-now">${kotonohaIsForm2(st) ? "第二形態を" : ""}育成中</span>` : "";
+        let f2Html;
+        if(z.f2 >= 0){
+          f2Html = kotonohaZukanThumbs(line, z.f2, true);
+        }else if(kotonohaSecondFormReady(st, line)){
+          f2Html = `<div class="kz-f2-ready">${kotonohaForm2WrapLine(line, `<img class="kz-thumb kz-sil" data-ksil="${line}:s" alt="">`)}<p class="note">次にこの龍へ転生すると、第二形態になれる！</p></div>`;
+        }else{
+          const c = kotonohaSecondFormChecks(st, line);
+          const conds = [
+            {text:"光か闇の龍になったことがある", ok:c.lightDark},
+            {text:"この龍を伝説級まで育てたことがある", ok:c.legendHistory},
+            {text: line === curLine ? "別の龍に転生して伝説級まで育て、そこからこの龍に転生する" : "今の龍を伝説級まで育ててから、この龍に転生する", ok:c.nowLegend},
+          ];
+          f2Html = `<div class="kz-conds"><div class="kz-conds-title">🔒 第二形態になる条件</div>${conds.map(x => `<div class="kz-cond${x.ok ? " ok" : ""}">${x.ok ? "✅" : "⬜"} ${esc(x.text)}</div>`).join("")}</div>`;
+        }
+        html += `<div class="card kz-entry">
+            <div class="kz-head"><b>${esc(label)}</b>${nowTag}</div>
+            ${kotonohaZukanMoveHtml(line)}
+            <div class="kz-form-label">第一形態<span>（最高：${esc(KOTONOHA_IMAGE_STAGE_LABEL[f1])}）</span></div>
+            ${kotonohaZukanThumbs(line, f1, false)}
+            ${KOTONOHA_FORM2_LINES.includes(line) ? `<div class="kz-form-label">🌟第二形態${z.f2 >= 0 ? `<span>（最高：${esc(KOTONOHA_IMAGE_STAGE_LABEL[z.f2])}）</span>` : ""}</div>
+            ${f2Html}` : ""}
+          </div>`;
+      }else{
+        const canBe = eligible.includes(line);
+        html += `<div class="card kz-entry kz-unseen">
+            <div class="kz-unseen-body">
+              <img class="kz-thumb kz-thumb-big kz-sil${canBe ? "" : " kz-mosaic"}" data-ksil="${line}:${canBe ? "s" : "m"}" alt="">
+              <div><div class="kz-head"><b>？？？</b></div>
+              <p class="note">${canBe ? "✨ 次の転生で、なれるかもしれない龍" : "まだ出会っていない龍"}</p>
+              <div class="kz-conds"><div class="kz-conds-title">出る条件</div>${kotonohaZukanUnlockConds(st, line).map(c => `<div class="kz-cond${c.ok ? " ok" : ""}">${c.ok ? "✅" : "⬜"} ${esc(c.text)}</div>`).join("")}</div></div>
+            </div>
+          </div>`;
+      }
+    });
+    html += `</div>`;
+  });
+  html += `<button class="btn secondary" onclick="showHome()">ホームへ</button>`;
+  screen.innerHTML = html;
+  window.scrollTo(0, 0);
+  kotonohaApplySilhouettes(screen);
+}
+function kotonohaZukanZoom(img){
+  const el = kotonohaEvolveOverlayEl();
+  el.className = "kotonoha-evolve-overlay kotonoha-evolve-clickable";
+  const frame = img.closest(".kotonoha-form2-frame");
+  const big = `<img class="kotonoha-evolve-img" src="${img.src}" alt="">`;
+  el.innerHTML = `
+    ${frame ? `<span class="kotonoha-form2-frame" style="${frame.getAttribute("style")}">${big}</span>` : big}
+    <p class="kotonoha-evolve-text">${esc(img.alt || "")}</p>
+    <button class="btn" onclick="hideKotonohaEvolveOverlay()">とじる</button>`;
+}
 function setKotonohaDisplay(key){
   const st = loadStats();
   st.kotonohaDisplayOverride = key || null;
@@ -7516,6 +7991,7 @@ function showKotonohaRebirthConfirm(){
   const ruleLines = [];
   if(currentLineLabel) ruleLines.push(`🚫 今の系統「${esc(currentLineLabel)}」には転生しません。`);
   if(seenLines.length > 0) ruleLines.push(`✅ これまでになったことがある系統は、下の一覧から選んで転生できます。`);
+  ruleLines.push(`🌟 光か闇の龍になったことがあり、伝説級まで育てたことがある第一世代の龍（天翔・焔獄・蒼海・翠森）か始原龍に、今の龍が伝説級の状態でもう一度転生すると、「第二形態」として生まれます。`);
   /* 2026-08-29〜、教員の指示で文言を変更。古代龍・未来龍のような条件付きライン
      （kotonohaAscendLinesUnlocked）の存在を、この画面でも一言注意喚起する。 */
   ruleLines.push(`🎲 「おまかせで転生する」と、まだなったことがない系統を優先してランダムで転生します※一部の龍は、条件をクリアしないと転生しないので注意してください※`);
@@ -7562,7 +8038,7 @@ function showKotonohaRebirthConfirm(){
     ${seenLines.map(line => `
       <div class="card menu-card" onclick="kotonohaRebirthConfirmed('${line}')">
         <div class="menu-icon menu-icon-egg">${kotonohaBlurredImgHtml(kotonohaImageSrcForStage(line,0), "icon", "kotonoha-icon kotonoha-icon-img kotonoha-icon-noframe", `alt="${esc(KOTONOHA_IMAGE_LINE_LABEL[line])}"`)}</div>
-        <div><h2>${esc(KOTONOHA_IMAGE_LINE_LABEL[line])}に転生する</h2></div>
+        <div><h2>${esc(KOTONOHA_IMAGE_LINE_LABEL[line])}に転生する</h2>${kotonohaSecondFormReady(st, line) ? `<p class="note">🌟 第二形態として生まれます</p>` : ""}</div>
       </div>`).join("")}
     <div class="btn-row"><button class="btn secondary" onclick="showHome()">やめる</button></div>` : ""}`;
 }
@@ -7780,6 +8256,8 @@ function showHome(){
   const st = loadStats();
   mgSyncFromMinigames(st);   // ミニゲームで上がったジャンルレベル・今日答えたことによるログイン報酬を反映（ほかの表示より先に。新しいプレイヤーでも通るよう、ここでも呼ぶ）
   if(st.pendingDailyLoginStamp){ showDailyLoginStampOverlay(st); return; }
+  if(storyCheckNobiruReturn(st)) return; // ストーリーのnobiru beatから戻ってきたら、物語の続きへ
+  if(storyCheckShootingReturn(st)) return; // ストーリー戦のボキャブラ・シューティング（大画面版）をクリアして戻ってきたら、物語の続きへ
   /* のびる読解（別ページ、nobiru/engine.js）から「一日一読、読み終わりました」の合図が
      来ていれば、ストック経験値を加算してから一度だけお知らせを見せる（教員の指示、
      2026-09-23〜）。ddCheckNobiruPendingReward内でst保存済みなので、ここでは表示だけ。 */
@@ -7787,7 +8265,7 @@ function showHome(){
   if(nobiruReward){
     screen.innerHTML = `
       <div class="card">
-        <h3 class="section" style="margin-top:0">📅 一日一読　読解quest、はじめての正解！</h3>
+        <h3 class="section" style="margin-top:0">${nobiruReward.viaDaily ? "📅 一日一読　読解quest、はじめての正解！" : "🌱 のびる読解、はじめての読了！"}</h3>
         <p class="result-msg">「${esc(nobiruReward.title)}」で、${nobiruReward.gained > 0 ? `ストック経験値 ＋${nobiruReward.gained} を獲得しました！` : "今回はストック経験値の獲得はありませんでした。"}</p>
         <div class="btn-row"><button class="btn" onclick="showHome()">つづける</button></div>
       </div>`;
@@ -12902,16 +13380,59 @@ function mgSyncFromMinigames(st){
   mgSyncing = true;
   try{
     const applied = mgApplyPendingLevelUps(st); // レベルが変わったときは中で保存済み
+    mgApplyPendingAllies(st);                   // 仲間が増えた・絆が深まったときは中で保存済み
     if(mgCheckPlayedLogin(st)) saveStats(st); // ログイン報酬が成立したら必ず保存（レベル反映の保存のあとでも）
   }finally{ mgSyncing = false; }
 }
 window.addEventListener("storage", e => {
-  if(e.key === MG_PENDING_LVUP_LSKEY || e.key === MG_PLAYED_LSKEY){ try{ loadStats(); }catch(err){} }
+  if(e.key === MG_PENDING_LVUP_LSKEY || e.key === MG_PENDING_ALLY_LSKEY || e.key === MG_PLAYED_LSKEY){ try{ loadStats(); }catch(err){} }
 });
 /* 表現の魔術道（gihou_madousho.html、2026-10-03〜、試作）は「表現技法」（hyougen）。ほかと違い、まちがいでは下げず、
    正解1問ごとに＋1を、答えるたびにその場で書き足す（途中でやめてもそこまでの分は反映される。教員の指示）。 */
+/* 大熊猫の竹林わたり（panda_chikurin.html、2026-10-05〜、試作）は「読む順タップ」（kanbun_yj）・「返り点をつける」（kanbun_kt）。
+   どちらもEXTRA_LEVEL_CATS（CAT_KEYSの外）だが、st.lvに必ずあるので同じ形で上げられる。表現の魔術道と同じく、まちがいでは下げない。 */
 /* 言霊並べ（kotodama_shoko.html、2026-10-12〜）は「識別」（shikibetsu）。正解するたびに＋1、まちがいでは下げない。 */
-const MG_LVUP_CATS = ["kanji_shiwake", "keigo", "setsuzokushi", "hyougen", "shikibetsu"];
+/* 別ページのミニゲームで仲間になった者の書き置き（2026-10-18〜、教員の指示）。
+   大熊猫の竹林わたり（panda_chikurin.html）でマスターパンダに勝つと、1%で漢字Questの「大熊猫」(ub02)が仲間になる。
+   {ub02:当たった回数, ub02_shiny:1（色違いを見つけた）}。書けるのは MG_ALLY_IDS だけ。1回目＝仲間に（Lv.1）、それ以降は1回ごとにLv.＋1（MB_PARTNER_MAX_LEVELまで）。
+   漢字Questで仲間になったときと同じく、パートナーの枠が空いていれば自動で入れる。読み取った時点でキーは消す。 */
+const MG_PENDING_ALLY_LSKEY = "kokugo_minigame_pending_allies_v1";
+const MG_ALLY_IDS = ["ub02"];
+function mgApplyPendingAllies(st){
+  let raw;
+  try{ raw = localStorage.getItem(MG_PENDING_ALLY_LSKEY); }catch(e){ raw = null; }
+  if(!raw) return false;
+  try{ localStorage.removeItem(MG_PENDING_ALLY_LSKEY); }catch(e){}
+  let info;
+  try{ info = JSON.parse(raw); }catch(e){ info = null; }
+  if(!info || typeof info !== "object") return false;
+  if(!Array.isArray(st.mbCompanions)) st.mbCompanions = [];
+  if(!st.mbCompanionLevels || typeof st.mbCompanionLevels !== "object") st.mbCompanionLevels = {};
+  let changed = false;
+  MG_ALLY_IDS.forEach(id => {
+    const n = Math.max(0, Math.min(MB_PARTNER_MAX_LEVEL, Math.trunc(Number(info[id]) || 0)));
+    for(let i = 0; i < n; i++){
+      if(!st.mbCompanions.includes(id)){
+        st.mbCompanions.push(id);
+        st.mbCompanionLevels[id] = 1;
+        if(!st.mbActivePartner) st.mbActivePartner = id;
+        else if(!st.mbActivePartner2) st.mbActivePartner2 = id;
+        changed = true;
+      } else if(mbCompanionLevel(st, id) < MB_PARTNER_MAX_LEVEL){
+        st.mbCompanionLevels[id] = mbCompanionLevel(st, id) + 1;
+        changed = true;
+      }
+    }
+  });
+  // 色違いの発見（ミニゲームの「金色の桃仙老師」に勝ったとき、2026-10-18〜）。{ub02_shiny:1}
+  if(!st.mbCompanionShiny || typeof st.mbCompanionShiny !== "object") st.mbCompanionShiny = {};
+  MG_ALLY_IDS.forEach(id => {
+    if(info[id + "_shiny"] && st.mbCompanions.includes(id) && !st.mbCompanionShiny[id]){ st.mbCompanionShiny[id] = true; changed = true; }
+  });
+  if(changed) saveStats(st);
+  return changed;
+}
+const MG_LVUP_CATS = ["kanji_shiwake", "keigo", "setsuzokushi", "hyougen", "kanbun_yj", "kanbun_kt", "shikibetsu"];
 function mgApplyPendingLevelUps(st){
   let raw;
   try{ raw = localStorage.getItem(MG_PENDING_LVUP_LSKEY); }catch(e){ raw = null; }
@@ -13061,6 +13582,10 @@ const NOBIRU_TEXTS = [
   { key:"madobenoe", title:"窓辺の絵【小説】", desc:"友梨の絵と比べて落ち込む陽菜。コンクール直前、自分の絵を描き直そうとするが。", cat:"文学", ddPublishDate:"2026-10-01" },
   { key:"nekomata", title:"猫また【古文】", desc:"『徒然草』より。人を食う「猫また」の噂に怯える法師。夜道で足もとに飛びついてきたものの正体は。", cat:"古文", ddPublishDate:"2026-11-16" },
   { key:"kaiyorihajimeyo", title:"隗より始めよ【漢文】", desc:"『十八史略』より。まず自分を厚遇せよと説いた郭隗。「死馬の骨」のたとえ話とともに、天下の賢者が集まる。", cat:"漢文", ddPublishDate:"2026-11-17" },
+  /* ストーリー第二部・第4章「ことのは図鑑」専用（ver13.27〜）。storyOnly:true＝ふだんの
+     「のびる読解」一覧（ddShowLevelSelect）には出さず、ストーリーのnobiru beatからだけ開く
+     （問題チェックモードには出る）。 */
+  { key:"koewokasaneru", title:"声を重ねる【説明文】", desc:"文化祭の合唱練習。「もっと大きな声で」は本当に正しいのか。声を重ねることの意味を説明する。", cat:"説明", storyOnly:true },
   { key:"mienaishigoto", title:"見えない仕事【論説文】", desc:"清掃当番が誰もいなかった日の教室から、うまくいっているほど気づかれない仕事について論じる。", cat:"説明", ddPublishDate:"2026-09-30" },
   { key:"ienakattahitokoto", title:"言えなかった一言【小説】", desc:"けんか以来、口をきいていない美月と遥。文化祭の準備で同じ班になり、二人の距離は。", cat:"文学", ddPublishDate:"2026-10-05" },
   { key:"yoshihide", title:"絵仏師良秀【古文】", desc:"『宇治拾遺物語』より。自分の家が燃えるのを見て、なぜか喜ぶ絵仏師。その理由とは。", cat:"古文", ddPublishDate:"2026-11-20" },
@@ -13230,8 +13755,10 @@ function nobiruIsUnlocked(t){
 // viaCheck:true＝「問題チェックモード」経由（教員の指示、2026-09-27〜。ddShowNobiruCheckMode
 // 参照）。engine.js側が?viaCheck=1を読み取り、経験値の合図（DD_PENDING_REWARD_LSKEY）を
 // いっさい書かない＝このモードで解いても経験値には絶対にならない。
-function ddOpenNobiru(key, viaDaily, viaCheck){
-  location.href = "nobiru/" + key + ".html" + (viaCheck ? "?viaCheck=1" : viaDaily ? "?viaDaily=1" : "");
+// viaStory:true＝ストーリーのnobiru beat経由（ver13.27〜、storyStartNobiru参照）。読み終わると
+// engine.jsが合図を書き置き、本体に戻ったときにストーリーの続きから再開する。
+function ddOpenNobiru(key, viaDaily, viaCheck, viaStory){
+  location.href = "nobiru/" + key + ".html" + (viaCheck ? "?viaCheck=1" : viaDaily ? "?viaDaily=1" : viaStory ? "?viaStory=1" : "");
 }
 /* 「問題チェックモード」（教員の指示、2026-09-27〜）。読解Quest入口画面（ddShowLevelSelect）
    で「dokkaichekku」と連続入力すると発動する、管理者用の裏メニュー。NOBIRU_TEXTSに
@@ -13295,7 +13822,7 @@ function ddShowLevelSelect(){
      並び順＝一日一読で公開していく順なので、公開が進むごとに「一番上のロック中」が
      1つずつ後ろにずれていき、見える範囲がちょうど1つずつ増えていく。 */
   NOBIRU_CATS.forEach(cat => {
-    const items = NOBIRU_TEXTS.filter(t => t.cat === cat.key);
+    const items = NOBIRU_TEXTS.filter(t => t.cat === cat.key && !t.storyOnly);
     if(!items.length) return;
     html += `<h3 class="section" style="margin-top:14px">${cat.icon} ${esc(cat.label)}</h3>`;
     let lockedShown = false;
@@ -16515,7 +17042,8 @@ function bossFinisherBarHtml(){
   const lineOk = kotonohaLineMoveStageOk(st);
   const lineReq = lineOk ? kotonohaLineGaugeRequired(st) : null;
   const lineReady = lineOk && gauge >= lineReq;
-  const baseReady = gauge >= FINISHER_GAUGE_MAX;
+  const baseReq = kotonohaBaseGaugeRequired(st);
+  const baseReady = gauge >= baseReq;
   let buttons = "";
   if(lineReady){
     buttons += `<button class="btn inline finisher-btn" onclick="bossUseFinisher(true)">⚡${esc(kotonohaLineMoveDisplayName(st))}！</button>`;
@@ -16523,7 +17051,7 @@ function bossFinisherBarHtml(){
   if(baseReady){
     buttons += `<button class="btn inline finisher-btn secondary" onclick="bossUseFinisher(false)">⚡${esc(finisherMoveName(st))}！</button>`;
   }
-  const nextGoal = lineOk ? Math.min(lineReq, FINISHER_GAUGE_MAX) : FINISHER_GAUGE_MAX;
+  const nextGoal = lineOk ? Math.min(lineReq, baseReq) : baseReq;
   const note = buttons ? "" : `<span class="note" style="margin:0">（あと${nextGoal - gauge}問連続正解）</span>`;
   return `
     <div class="finisher-bar">
@@ -16589,7 +17117,7 @@ function bossUseFinisher(useLine){
   const st = loadStats();
   if(!st.specialMoveUnlocked && !st.kotonohaRebirth) return; // bossFinisherBarHtmlと同じ条件に揃える
   const lineOk = useLine && kotonohaLineMoveStageOk(st);
-  const required = lineOk ? kotonohaLineGaugeRequired(st) : FINISHER_GAUGE_MAX;
+  const required = lineOk ? kotonohaLineGaugeRequired(st) : kotonohaBaseGaugeRequired(st);
   if((b.finisherGauge||0) < required) return;
   b.kotonohaFinisherUseLine = lineOk;
   /* 始原龍（全領域バランス型、type4）専用：六つの力を統合した存在という設定どおり、
@@ -16644,6 +17172,7 @@ function bossResolveFinisher(){
   const st = loadStats();
   const lm = kotonohaActiveLineMove(st);
   b.finisherGauge = 0;
+  b.kotonohaFinisherUsedOnce = true; // 第四世代の力（kotonohaGaugeDiscount）の判定用
   b.kotonohaFinisherUseLine = false; // 選択状態をリセット（次にゲージが満タンになるまでは言霊一閃側の表示に戻す）
   const ps = bossEffStats(st);
   let dealt = randInt(BOSS_PLAYER_DMG[0], BOSS_PLAYER_DMG[1]) + ps.atk * STAT_ATK_PER_POINT
@@ -17191,9 +17720,11 @@ function bossGrade(ok, chosenOrig, typed, timedOut){
     // 自体は共通のkotonohaGraceMissStreakを使い回し、しきい値だけラインごとに変える。
     b.correctStreak = 0;
     const line = st.kotonohaRebirth && st.kotonohaRebirth.line;
-    const meienGraceActive = line === "meien" && kotonohaRebirthStageIndex(st) >= KOTONOHA_MEIEN_GAUGE_GRACE_STAGE;
-    const dragonGraceActive = (line === "kodai" || line === "mirai" || KOTONOHA_ASCEND2_GRACE_LINES.includes(line)) && kotonohaLineMoveStageOk(st);
-    const graceMissLimit = meienGraceActive ? 2 : dragonGraceActive ? 3 : 0; // この回数連続でミスするとリセット
+    // 【ver13.27〜】世代ごとの力（KOTONOHA_LINE_GEN）に整理した：第二世代（聖輝・冥淵、
+    // 第一世代の第二形態）は1回まで、第三世代以上は2回までのミスを許す。どれも少年体から有効
+    // （以前は冥淵だけ成人体から、聖輝は猶予なしだった）。
+    const activeGen = kotonohaActiveGen(st);
+    const graceMissLimit = activeGen >= 3 ? 3 : activeGen === 2 ? 2 : 0; // この回数連続でミスするとリセット
     if(graceMissLimit > 0){
       b.kotonohaGraceMissStreak = (b.kotonohaGraceMissStreak||0) + 1;
       if(b.kotonohaGraceMissStreak >= graceMissLimit){
@@ -18589,6 +19120,11 @@ function bootApp(){
     if(fromParam === 'minigame') showSideQuestMenu();
     return;
   }
+  /* ストーリーのnobiru beat（のびる読解）を読み終えて戻ってきたときも、プロローグは出さずに
+     すぐshowHome（→storyCheckNobiruReturnで物語の続き）へ進む（ver13.27〜）。 */
+  let storyNobiruBack = null;
+  try{ storyNobiruBack = localStorage.getItem(STORY_NOBIRU_DONE_LSKEY); }catch(e){}
+  if(storyNobiruBack){ showHome(); return; }
   showPrologue(showHome);
 }
 
@@ -19885,6 +20421,48 @@ const STORY_PART2_CHAPTERS = {
         "text": "うん、二人ともよくがんばったね。新人戦、応援してるよ。"
       }
     ]
+  },
+  /* 第4章「ことのは図鑑」（ver13.27〜、教員の指示 2026-10-19）。文化祭の合唱練習の場面から、
+     花子が「この問題を解いたら打ち合わせに行く」ことになり、のびる読解（説明文「声を重ねる」、
+     nobiru/texts/koewokasaneru.js、この章専用）を一題読む（nobiru beat）。読み終わると
+     ストーリーの続きに戻り（storyCheckNobiruReturn）、章クリアで「ことのは図鑑」が解放される
+     （storyChapterEnd・kotonohaZukanUnlocked参照）。 */
+  "p2ch4": {
+    "title": "第4章「ことのは図鑑」",
+    "epilogue": "「図鑑は、ホーム画面のぼくのカードから開けるよ。これから出会う姿も、いっしょに全部のページをうめていこうね。」",
+    "beats": [
+      {"type": "line", "text": "文化祭まで、あと三週間。放課後の音楽室に、クラスのみんなが集まっていた。"},
+      {"type": "line", "speaker": "花子", "text": "さあ、今日から合唱練習スタートだよ！　優勝めざして、がんばろうね。"},
+      {"type": "line", "speaker": "太郎", "text": "まかせとけ！　おれ、だれよりも大きな声で歌うからさ！"},
+      {"type": "line", "speaker": "ことのは", "text": "やる気まんまんだね。でも、合唱って、大きな声を出せばいいだけなのかな？"},
+      {"type": "choice", "flagKey": "p2c4Voice", "text": "ことのはの問いかけに、どう答える？",
+        "options": [
+          {"label": "「大きい声のほうが、きっと迫力が出るよ」", "value": "big"},
+          {"label": "「うーん、それだけじゃない気がする」", "value": "unsure"}
+        ]},
+      {"type": "line", "speaker": "ことのは", "text": "大きさよりも大事なことが、あるらしいんだ。",
+        "variants": [
+          {"flag": "p2c4Voice", "value": "big", "text": "迫力は大事だね。でも、声がぶつかり合うと、かえって聞きにくくなることもあるらしいんだ。"},
+          {"flag": "p2c4Voice", "value": "unsure", "text": "いいところに気づいたね。実は、声の大きさよりも大事なことがあるらしいんだ。"}
+        ]},
+      {"type": "line", "text": "そのとき、校内放送が流れた。"},
+      {"type": "line", "speaker": "放送", "text": "「文化祭実行委員は、至急、生徒会室に集まってください。くり返します……」"},
+      {"type": "line", "speaker": "花子", "text": "あっ、実行委員の打ち合わせだ！　行かなくちゃ……。"},
+      {"type": "line", "speaker": "花子", "text": "でも、音楽の先生から、合唱についての文章のプリントをもらってたんだ。練習の前に読んで、問題に答えておくように、って。"},
+      {"type": "line", "speaker": "花子", "text": "よし、決めた。この問題を解いたら、打ち合わせに行く！　いっしょに解いてくれる？"},
+      {"type": "line", "speaker": "太郎", "text": "おう、さっさと片づけて、花子を送り出そうぜ。"},
+      {"type": "line", "speaker": "ことのは", "text": "それなら、段落ごとに文章がのびていく「のびる読解」で読んでみよう。筆者が何を言いたいのか、一段落ずつ確かめていくんだ。"},
+      {"type": "nobiru", "key": "koewokasaneru", "text": "合唱についての説明文を読んで、問題に答えよう。全部の問題に答えると、ストーリーの続きにもどるよ。"},
+      {"type": "line", "text": "最後の問題に答え終えると、花子はプリントを胸にかかえて立ち上がった。"},
+      {"type": "line", "speaker": "花子", "text": "なるほどね。大きな声を出すだけじゃなくて、まわりの声を聞いて、重ねていくのが大事なんだ。"},
+      {"type": "line", "speaker": "太郎", "text": "「耳で歌いなさい」かあ……。おれ、自分の声しか聞いてなかったかも。"},
+      {"type": "line", "speaker": "花子", "text": "ありがとう！　じゃあ、打ち合わせに行ってくるね。練習、先に始めてて！"},
+      {"type": "line", "text": "花子が音楽室を飛び出していくと、ことのはが、ぽつりとつぶやいた。"},
+      {"type": "line", "speaker": "ことのは", "text": "一人ひとりの声が重なって、一つの響きになる、か……。"},
+      {"type": "line", "speaker": "ことのは", "text": "ぼくもね、これまでいろんな姿に生まれ変わってきたでしょう？　その一つ一つが重なって、今のぼくがいるんだと思うんだ。"},
+      {"type": "line", "speaker": "ことのは", "text": "だから、これまでに出会った姿を、全部書き残しておきたくなったよ。名前は……そうだ、「ことのは図鑑」にしよう！"},
+      {"type": "line", "speaker": "太郎", "text": "いいじゃん！　まだ出会っていない龍も、いつか全部うめてやろうぜ。"}
+    ]
   }
 };
 
@@ -20033,9 +20611,23 @@ function isNewBadgeActive(){
 function newBadgeHtml(){
   return isNewBadgeActive() ? `<span class="new-bubble">NEW</span>` : "";
 }
+/* 「挑戦しよう！」の吹き出し（ver13.27〜、教員の指示）。挑戦できる（解放済み）のに、まだ
+   クリアしていない章があるときに出す。part：'1'＝第一部、'2'＝第二部、省略＝どちらか。 */
+function storyChallengeKeys(st, part){
+  const sp = storyProgress(st);
+  const keys = [];
+  if(part !== '2') Object.keys(STORY_CHAPTERS).forEach(k => keys.push(k));
+  if(part !== '1') Object.keys(STORY_PART2_CHAPTERS).forEach(k => keys.push(k));
+  return keys.filter(k => storyChapterUnlocked(k, st) && !sp.completedChapters.includes(k));
+}
+function storyChallengeBubbleHtml(inline){
+  return `<span class="${inline ? "challenge-bubble-inline" : "challenge-bubble"}">挑戦しよう！</span>`;
+}
 function storyEntryHtml(st){
+  const challenge = storyChallengeKeys(st).length > 0;
   return `
-    <div class="card menu-card story-btn" onclick="showMainStoryMenu()">
+    <div class="card menu-card story-btn${challenge ? " has-challenge" : ""}" onclick="showMainStoryMenu()">
+      ${challenge ? storyChallengeBubbleHtml(false) : ""}
       <div class="menu-icon">📖</div>
       <div><h2>ストーリーモード${newBadgeHtml()}</h2>
       <p>ことのはと一緒に、中学校生活を歩む物語</p></div>
@@ -20065,8 +20657,8 @@ function showMainStoryMenu(part){
   if(part) storyMenuPart = part;
   const st = loadStats();
   let html = `<div class="btn-row" style="justify-content:center; margin-bottom:10px">
-    <button class="btn ${storyMenuPart==='1' ? '' : 'secondary'}" onclick="showMainStoryMenu('1')">📖 第一部</button>
-    <button class="btn ${storyMenuPart==='2' ? '' : 'secondary'}" onclick="showMainStoryMenu('2')">📖 第二部${newBadgeHtml()}</button>
+    <button class="btn ${storyMenuPart==='1' ? '' : 'secondary'}" onclick="showMainStoryMenu('1')">📖 第一部${storyChallengeKeys(st, '1').length ? storyChallengeBubbleHtml(true) : ""}</button>
+    <button class="btn ${storyMenuPart==='2' ? '' : 'secondary'}" onclick="showMainStoryMenu('2')">📖 第二部${newBadgeHtml()}${storyChallengeKeys(st, '2').length ? storyChallengeBubbleHtml(true) : ""}</button>
   </div>`;
   if(storyMenuPart === '2'){
     /* 第二部（2026-09-29〜、教員の指示：「第一部をクリアしなくても、第二部はあけられるように
@@ -20100,6 +20692,7 @@ function showSideQuestMenu(){
   html += kitsuneMenuHtml();
   html += gihouMenuHtml();
   html += kotodamaMenuHtml(); // 言霊並べ（2026-10-26解禁。それまでは「新ゲーム～10月26日解禁～」だけ）
+  html += pandaMenuHtml();    // 大熊猫の竹林わたり（2026-11-11解禁。それまでは「新ゲーム～11月11日解禁～」だけ）
   html += `</div>`;   // .mg-grid ここまで
   html += `<div class="btn-row" style="justify-content:center; margin-top:10px">
     <button class="btn secondary" onclick="showHome()">戻る</button>
@@ -20345,9 +20938,13 @@ const VS_PENDING_LSKEY = "kokugo_vs_pending_v1";
 /* GitHub Pagesはページをブラウザに最大10分保存させる（Cache-Control: max-age=600）ため、本体は新しい版なのに
    移った先の大画面版だけ古いまま、ということが起きた（2026-10-03、ver12.95で教員の指摘）。ヘッダーの版番号を
    ?v= に付けて、版が変わるたびに別のURLとして読み直させる（zip作成時の書き換えのため、ファイル名の文字列は分けたままにする）。 */
-function openVocabShooter(){
+/* storyGoal：ストーリー第二部のボス戦から開くときの目標の出題レベル番号（2026-10-19〜、storyStartShootingWide参照）。 */
+function openVocabShooter(storyGoal){
   const ver = ((document.querySelector(".ver-tag") || {}).textContent || "").replace(/[^0-9.]/g, "");
-  mgGoWithPass("vocab", "vocab_shooter.html" + (ver ? "?v=" + ver : ""));
+  const qs = [];
+  if(ver) qs.push("v=" + ver);
+  if(storyGoal != null) qs.push("story=" + storyGoal);
+  mgGoWithPass("vocab", "vocab_shooter.html" + (qs.length ? "?" + qs.join("&") : ""));
 }
 function vsApplyPendingResults(){
   let raw;
@@ -20405,6 +21002,26 @@ function gihouMenuHtml(){
     || mgTextCardHtml("🔮", "表現の魔術道", "巧みな表現とは、もはや魔術である", GIHOU_RELEASED, label, "openGihouMadousho()");
 }
 function openGihouMadousho(){ mgGoWithPass("gihou", "gihou_madousho.html"); }
+/* 大熊猫の竹林わたり（panda_chikurin.html、2026-10-05〜、試作）。「読む順タップ」と「返り点をつける」を同じ白文の
+   2問セットにしたミニゲーム（教員の指示：読む順→返り点の順）。漢字Questの大熊猫(ub02)が、竹の節に見立てた字を
+   読む順に跳んでいく。①ミスなし＝kanbun_yj＋1、②1回目で成功＝kanbun_kt＋1を書き置く（MG_LVUP_CATS参照）。
+   バナーは menu_title_images.js の panda（2026-10-18、教員の画像をトリミング）。入れる裏コードは作らない（教員の指示）。 */
+/* 2026-10-18、教員の指示で 2026-11-11 解禁。解禁前は、一覧に名前も説明も出さず「新ゲーム～11月11日解禁～」とだけ出す（言霊並べと同じ）。
+   ゲームのページ側も、解禁日より前は（入口から来ても）開けない（panda_chikurin.html の通行証チェック）。
+   パンダの絵（panda_chikurin_sprites_data.js・panda_master_sprites_data.js）は "enc:"＋base64逆順で入れてあり、ゲームのページが表示するときだけもどす。 */
+const PANDA_RELEASE_DATE = "2026-11-11";
+const PANDA_RELEASED = mgReleasedOn(PANDA_RELEASE_DATE);
+function pandaMenuHtml(){
+  if(!PANDA_RELEASED){
+    return `
+    <div class="card menu-card locked mg-teaser" onclick="mgLockedTap(this)">
+      <div style="flex:1; text-align:center"><h2>新ゲーム～11月11日解禁～</h2></div>
+    </div>`;
+  }
+  return mgBannerHtml("panda", "大熊猫の竹林わたり", true, "", "openPandaChikurin()")
+    || mgTextCardHtml("🐼", "大熊猫の竹林わたり", "読む順にたどって、返り点をつける。竹の節をわたる漢文の道", true, "", "openPandaChikurin()");
+}
+function openPandaChikurin(){ if(!PANDA_RELEASED) return; mgGoWithPass("panda", "panda_chikurin.html"); }
 /* 言霊並べ（kotodama_shoko.html、2026-10-12〜。もとは「言霊の番人と影の書庫」、2026-10-18〜この名前。教員の指示）。
    言霊の番人と9×9の盤で言霊を並べあう。識別の問い（「ない」「れる・られる」「の」「だ」ほか）に正解すると言霊を1つ置け、
    先に5つ並べたら勝ち。一〜四の巻（2段階）→ すべての盤（3段階・色違い・5%で番人が仲間に）。本体のセーブには直接触れず、
@@ -20948,7 +21565,8 @@ function storyChapterButtonHtml(key, st){
   const badge = inProgress ? "つづきから" : "はじめから";
   const sub = inProgress ? "続きから読み進めよう" : "タップして読みはじめる";
   return `
-    <div class="card menu-card" onclick="startStoryMode('${key}')">
+    <div class="card menu-card has-challenge" onclick="startStoryMode('${key}')">
+      ${storyChallengeBubbleHtml(false)}
       <div class="menu-icon">📖</div>
       <div><h2>${esc(chapter.title)}</h2><p>${esc(sub)}</p>${rateNote}${comboNote}</div>
       <div class="right"><span class="shogo-badge">${esc(badge)}</span></div>
@@ -21003,7 +21621,8 @@ function storyPart2ChapterButtonHtml(key, st){
   const badge = inProgress ? "つづきから" : "はじめから";
   const sub = inProgress ? "続きから読み進めよう" : "タップして読みはじめる";
   return `
-    <div class="card menu-card" onclick="startStoryMode('${key}')">
+    <div class="card menu-card has-challenge" onclick="startStoryMode('${key}')">
+      ${storyChallengeBubbleHtml(false)}
       <div class="menu-icon">📖</div>
       <div><h2>${esc(chapter.title)}</h2><p>${esc(sub)}</p>${rateNote}</div>
       <div class="right"><span class="shogo-badge">${esc(badge)}</span></div>
@@ -21099,7 +21718,60 @@ function storyRenderBeat(){
   else if(beat.type === "yomunoda") storyRenderYomunoDa(beat, sp.beatIdx);
   else if(beat.type === "kotonohaRebirthReveal") storyRenderKotonohaRebirthReveal();
   else if(beat.type === "speedMatch") storyRenderSpeedMatch(beat, sp.beatIdx);
+  else if(beat.type === "nobiru") storyRenderNobiru(beat);
   else showHome();
+}
+/* nobiru beat（ver13.27〜）：のびる読解（別ページ nobiru/<key>.html）を一題読ませる。
+   のびる読解は本体から切り離された別ページなので、①開く前にst.story.pendingNobiruへ
+   「どの章のどのbeatから行ったか」を保存し、②読み終わるとengine.jsが合図
+   （STORY_NOBIRU_DONE_LSKEY）を書き置き、③本体に戻ったとき（showHome→
+   storyCheckNobiruReturn）にその合図を見て、次のbeatから再開する。
+   途中で戻った場合は合図が無いので、章の「つづきから」でこのbeatをもう一度表示する。 */
+const STORY_NOBIRU_DONE_LSKEY = "story_nobiru_done_v1";
+function storyRenderNobiru(beat){
+  const t = NOBIRU_TEXTS.find(x => x.key === beat.key);
+  screen.innerHTML = `
+    <div class="card story-scene">
+      <div class="story-speaker">🌱 のびる読解</div>
+      <p class="story-text">${esc(beat.text || "")}</p>
+      <div class="card menu-card story-nobiru-card" onclick="storyStartNobiru()">
+        <div class="menu-icon">🌱</div>
+        <div><h2>伸びる読解「${esc(t ? t.title : beat.key)}」</h2><p>${esc(t ? t.desc : "")}</p></div>
+      </div>
+      <p class="note">読み終わったら「ストーリーの続きへ」を押すと、物語の続きにもどります。</p>
+    </div>
+    ${storyFooterHtml()}`;
+}
+function storyStartNobiru(){
+  const st = loadStats();
+  const sp = storyProgress(st);
+  const chapter = storyChapterDef(sp.chapter);
+  const beat = chapter && chapter.beats[sp.beatIdx];
+  if(!beat || beat.type !== "nobiru"){ storyRenderBeat(); return; }
+  sp.pendingNobiru = {chapter: sp.chapter, beatIdx: sp.beatIdx, key: beat.key};
+  saveStats(st);
+  try{ localStorage.removeItem(STORY_NOBIRU_DONE_LSKEY); }catch(e){}
+  ddOpenNobiru(beat.key, false, false, true);
+}
+/* showHomeの入口で呼ぶ。読み終わりの合図があり、それが今待っているnobiru beatの教材なら、
+   ストーリーの次のbeatから再開してtrueを返す（呼び出し側はそのままreturnする）。 */
+function storyCheckNobiruReturn(st){
+  let raw = null;
+  try{ raw = localStorage.getItem(STORY_NOBIRU_DONE_LSKEY); }catch(e){}
+  if(!raw) return false;
+  try{ localStorage.removeItem(STORY_NOBIRU_DONE_LSKEY); }catch(e){}
+  let info = null;
+  try{ info = JSON.parse(raw); }catch(e){}
+  const sp = storyProgress(st);
+  const pend = sp.pendingNobiru;
+  if(!pend || !info || info.textKey !== pend.key) return false;
+  delete sp.pendingNobiru;
+  sp.chapter = pend.chapter;
+  sp.beatIdx = pend.beatIdx + 1;
+  saveStats(st);
+  storyRun = storyFreshRun();
+  storyRenderBeat();
+  return true;
 }
 function storyFooterHtml(){
   return `<div class="btn-row" style="justify-content:center; margin-top:6px">
@@ -22646,7 +23318,59 @@ function vsComputeCanvasSize(){
   if(window.innerWidth >= 700){ VS_W = 400; VS_H = 700; }
   else{ VS_W = 340; VS_H = 600; }
 }
+/* ストーリー戦（storyGoalLevelIndexつきのshooting beat）は、2026-10-19〜、教員の指示で大画面版（vocab_shooter.html?story=N）で遊ぶ
+   （「画面が小さくてやりにくい」）。ルールは同じ。nobiru beatと同じく、①開く前にst.story.pendingShootingへ
+   「どの章のどのbeatから行ったか」を保存し、②クリアすると大画面版が合図（STORY_SHOOT_DONE_LSKEY）を書き置き、
+   ③本体に戻ったとき（showHome→storyCheckShootingReturn）にその合図を見て、次のbeatから再開する。
+   途中で戻った場合は合図が無いので、章の「つづきから」でこのbeatをもう一度表示する。
+   本体内の版のストーリー戦の処理（vsHitOrbのroundMissed・vsLoseLife・vsStoryForceClear）は、念のため残してある。 */
+const STORY_SHOOT_DONE_LSKEY = "story_shooting_done_v1";
+function storyRenderShootingWide(beat){
+  screen.innerHTML = `
+    <div class="card story-scene">
+      <div class="story-speaker">🚀 ボキャブラ・シューティング</div>
+      <div class="card menu-card story-nobiru-card" onclick="storyStartShootingWide()">
+        <div class="menu-icon">🚀</div>
+        <div><h2>ボキャブラ・シューティング（特別ルール）</h2><p>大きな画面で挑戦しよう！　${esc(VS_LEVEL_NAMES[beat.storyGoalLevelIndex] || "")}に到達したらクリア</p></div>
+        <div class="right"><span class="shogo-badge">挑戦する</span></div>
+      </div>
+      <p class="note">クリアしたら「ストーリーの続きへ」を押すと、物語の続きにもどります。</p>
+    </div>
+    ${storyFooterHtml()}`;
+}
+function storyStartShootingWide(){
+  const st = loadStats();
+  const sp = storyProgress(st);
+  const chapter = storyChapterDef(sp.chapter);
+  const beat = chapter && chapter.beats[sp.beatIdx];
+  if(!beat || beat.type !== "shooting" || beat.storyGoalLevelIndex == null){ storyRenderBeat(); return; }
+  sp.pendingShooting = {chapter: sp.chapter, beatIdx: sp.beatIdx, goal: beat.storyGoalLevelIndex};
+  saveStats(st);
+  try{ localStorage.removeItem(STORY_SHOOT_DONE_LSKEY); }catch(e){}
+  openVocabShooter(beat.storyGoalLevelIndex);
+}
+/* showHomeの入口で呼ぶ。クリアの合図があり、それが今待っているストーリー戦の目標と同じなら、
+   ストーリーの次のbeatから再開してtrueを返す（呼び出し側はそのままreturnする）。 */
+function storyCheckShootingReturn(st){
+  let raw = null;
+  try{ raw = localStorage.getItem(STORY_SHOOT_DONE_LSKEY); }catch(e){}
+  if(!raw) return false;
+  try{ localStorage.removeItem(STORY_SHOOT_DONE_LSKEY); }catch(e){}
+  let info = null;
+  try{ info = JSON.parse(raw); }catch(e){}
+  const sp = storyProgress(st);
+  const pend = sp.pendingShooting;
+  if(!pend || !info || info.goal !== pend.goal) return false;
+  delete sp.pendingShooting;
+  sp.chapter = pend.chapter;
+  sp.beatIdx = pend.beatIdx + 1;
+  saveStats(st);
+  storyRun = storyFreshRun();
+  storyRenderBeat();
+  return true;
+}
 function storyRenderShooting(beat, idx){
+  if(beat.storyGoalLevelIndex != null){ storyRenderShootingWide(beat); return; }
   if(storyRun.shootBeatIdx !== idx){
     storyRun.shootBeatIdx = idx;
     storyRun.shoot = { cat: beat.cat || "goi", phase:"ready" };
@@ -23749,6 +24473,12 @@ function storyChapterEnd(){
     st.items[STORY_PART2_OMAMORI_ITEM] = (st.items[STORY_PART2_OMAMORI_ITEM]||0) + 1;
     unlockedOmamori = true;
   }
+  /* 第二部・第4章クリアで「ことのは図鑑」を解放する（ver13.27〜、教員の指示）。一度きりの宣言。 */
+  let unlockedZukan = false;
+  if(sp.chapter === "p2ch4" && !st.kotonohaZukanUnlocked){
+    st.kotonohaZukanUnlocked = true;
+    unlockedZukan = true;
+  }
   saveStats(st);
   const pronoun = sp.chapter === "ch1" ? STORY_PRONOUN_LABELS[sp.flags.pronoun] : null;
   const pronounNote = pronoun ? `<p class="note">✨ 一人称が、「${esc(pronoun)}」に設定されました！</p>` : "";
@@ -23774,6 +24504,9 @@ function storyChapterEnd(){
         ? `<p class="note">🔁 ことのはの「転生」が解放された！　これからは、ホーム画面からいつでも卵の姿に立ち返って育て直せる。</p>`
         : `<p class="note">🔁 ことのはの「転生」を解放した！<br>分野のバランスが整えば、ホーム画面から卵の姿に戻って育て直せるようになる。</p>`)
     : "";
+  const zukanNote = unlockedZukan
+    ? `<p class="note finisher-unlock-note">📖「ことのは図鑑」が解放された！　ホーム画面の、ことのはのカードから開ける。これまでになった龍の姿や、まだ出会っていない龍の影を見ることができる。</p>`
+    : "";
   const omamoriNote = unlockedOmamori
     ? `<p class="note">🎁 【${esc(STORY_PART2_OMAMORI_ITEM)}】を手に入れた！　とても特別な力が宿っている気がする……。</p>`
     : "";
@@ -23789,6 +24522,7 @@ function storyChapterEnd(){
       ${faceNote}
       ${rebirthNote}
       ${omamoriNote}
+      ${zukanNote}
       <div class="btn-row" style="justify-content:center">
         <button class="btn" onclick="showHome()">ホームへ</button>
         <button class="btn secondary" onclick="storyReplayChapter()">もう一度プレイする</button>

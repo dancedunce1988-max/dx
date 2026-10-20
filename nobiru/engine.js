@@ -28,6 +28,12 @@ const VIA_DAILY = new URLSearchParams(location.search).get("viaDaily") === "1";
    加えるとヒントになってしまうため）。 */
 const VIA_CHECK = new URLSearchParams(location.search).get("viaCheck") === "1";
 const DD_PENDING_REWARD_LSKEY = "dd_daily_pending_reward_v1";
+/* ストーリーモード（nobiru beat、ver13.27〜）から ?viaStory=1 付きで開かれたかどうか。
+   読み終わったとき（finish()）に、専用の合図（STORY_NOBIRU_DONE_LSKEY）を書き置く。
+   kokugo_app.html側（storyCheckNobiruReturn）がこれを読み、ストーリーの続きから再開する。
+   経験値の合図（DD_PENDING_REWARD_LSKEY）は、ふつうの読解と同じく書く（半額）。 */
+const VIA_STORY = new URLSearchParams(location.search).get("viaStory") === "1";
+const STORY_NOBIRU_DONE_LSKEY = "story_nobiru_done_v1";
 /* この教材が、以前すでにストック経験値を受け取り済みかどうか（2026-09-23〜、教員の指示：
    「2回目以降は経験値を獲得できないので、獲得していない経験値についてはポップアップ等で
    表示しないように」）。kokugo_app.html側がst.nobiruRewardGivenのキー一覧をそのまま
@@ -634,6 +640,11 @@ function finish(){
       localStorage.setItem(DD_PENDING_REWARD_LSKEY, JSON.stringify({ textKey: TEXT_KEY, totalXp, viaDaily: VIA_DAILY, ts: Date.now() }));
     }catch(e){ /* privateモード等で保存できない場合は、合図なしで続行する */ }
   }
+  if(VIA_STORY){
+    try{
+      localStorage.setItem(STORY_NOBIRU_DONE_LSKEY, JSON.stringify({ textKey: TEXT_KEY, ts: Date.now() }));
+    }catch(e){}
+  }
   const clean = record.filter(r => r.miss === 0).length;
   const miss = record.reduce((n, r) => n + r.miss, 0);
   const rows = record.map((r, i) => `<tr><td>設問${kanjiNum(i + 1)}</td><td>${r.miss === 0 ? "○" : "誤答" + r.miss + "回"}</td></tr>`).join("");
@@ -657,7 +668,7 @@ function finish(){
       <table>${rows}</table>
       <p>本文はすべて出そろっています。「構造図」で全体のつながりを見てから、もう一度通して読んでみてください。</p>
       <button class="again ui" onclick="location.reload()">はじめからやり直す</button>
-      <button class="again ui" onclick="location.href='../kokugo_app.html'">ホーム画面に戻る</button>
+      <button class="again ui${VIA_STORY ? " daily-end" : ""}" onclick="location.href='../kokugo_app.html'">${VIA_STORY ? "ストーリーの続きへ" : "ホーム画面に戻る"}</button>
       ${VIA_DAILY ? `<button class="again ui daily-end" onclick="location.href='../kokugo_app.html'">一日一読を終える</button>` : ""}
     </div>`;
   $("paneQ").scrollTo({ top: 0, behavior: "smooth" });

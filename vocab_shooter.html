@@ -28,7 +28,11 @@
      （kokugo_app.htmlのvsApplyPendingResults参照）。正誤は答えるたびに書くので、途中でやめてもそこまでの分は反映される
      （得点・自己ベストは本体内の版と同じく、ゲームオーバーまで遊んだときだけ）。
      問題は本体と同じ kokugo_data.js の「語彙」(goi)のうち vsLv(1〜8) が付いたもの。読み仮名表 VS_WORD_YOMI は
-     kokugo_app.html からの写し（本採用するときは共通のjsファイルに切り出す）。 -->
+     kokugo_app.html からの写し（本採用するときは共通のjsファイルに切り出す）。
+     2026-10-19〜、教員の指示で、ストーリー第二部のボス戦（shooting beatのstoryGoalLevelIndex）もこのページで遊ぶ
+     （?story=<目標の出題レベル番号、0始まり>で開く、kokugo_app.htmlのstoryStartShootingWide参照）。ルールは本体内の版のストーリー戦と同じ：
+     ライフが減らない／誤答オーブに当てた問題は、正解を撃っても得点・記録にならない（ノーカウント）／目標レベルに届いたら即クリア
+     （得点・自己ベストは記録しない）。クリアすると localStorage の STORY_SHOOT_DONE_LSKEY に合図を書き置き、本体に戻ると物語の続きへ進む。 -->
 <script src="kokugo_data.js"></script>
 <style>
   :root{
@@ -173,6 +177,13 @@
 const $ = id => document.getElementById(id);
 const STORE_KEY = "kokugoTrainingStats_v5";      // 本体のセーブ（読むだけ）
 const VS_PENDING_LSKEY = "kokugo_vs_pending_v1";  // 本体への書き置き
+const STORY_SHOOT_DONE_LSKEY = "story_shooting_done_v1"; // ストーリー戦をクリアした合図（本体のstoryCheckShootingReturnが読む）
+/* ストーリー戦のときだけ、目標の出題レベル番号（0始まり）。ミニゲーム一覧から来たときはnull。 */
+const STORY_GOAL = (() => {
+  let v = null;
+  try{ v = new URLSearchParams(location.search).get("story"); }catch(e){}
+  return v != null && /^[0-9]$/.test(v) ? Math.min(7, Number(v)) : null;
+})();
 const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function markQuestionHtml(q){
   return String(q).split(/(《[^》]*》)/).map(part => {
@@ -358,6 +369,7 @@ function pickNextItem(){
   G.usedWords.push(idx);
   const it = pool[idx];
   G.currentItem = it;
+  G.roundMissed = false; // ストーリー戦のノーカウント判定用（hitOrb参照）。問題が変わるたびに戻す
   G.currentOrder = shuffledOrder(it.c.length);
   G.spawnedForItem = false;
   G.bullets = [];
@@ -500,6 +512,15 @@ function recordWrong(){ const it = G.currentItem; if(it) G.wrongWords[it.q] = it
 function hitOrb(o){
   o.hit = true; o.gone = true;
   if(o.correct){
+    /* ストーリー戦：同じ問題で誤答オーブに当てていたら、正解を撃っても得点・記録にならない（本体内の版と同じ） */
+    if(STORY_GOAL != null && G.roundMissed){
+      particles(o.x,o.y,'#8899cc',10);
+      popup(o.x,o.y,'ノーカウント','#8899cc');
+      G.orbs.forEach(x => { if(!x.hit){ x.hit = true; x.gone = true; } });
+      G.bullets = [];
+      updateHud();
+      return;
+    }
     pushPending(o => o.ans.push([G.currentItem.q, 1, Date.now() - G.itemShownAt]));
     G.combo++;
     const gain = 10 + G.combo*2;
@@ -516,6 +537,7 @@ function hitOrb(o){
       if(G.correctSinceLevelUp >= VS_CORRECT_PER_LEVEL){
         G.correctSinceLevelUp = 0; G.levelIndex++; G.usedWords = [];
         showBanner(`レベル${G.levelIndex+1} 〜${VS_LEVEL_NAMES[G.levelIndex]}〜`);
+        if(STORY_GOAL != null && G.levelIndex >= STORY_GOAL){ storyClear(); return; }
       }
     }
     G.correctSinceSpeedUp++;
@@ -524,6 +546,7 @@ function hitOrb(o){
       popup(W/2, H/2, 'スピードアップ!', '#ff9dc0');
     }
   }else{
+    if(STORY_GOAL != null) G.roundMissed = true;
     G.combo = 0;
     particles(o.x,o.y,'#ff5577',14);
     popup(o.x,o.y,'ちがう!', '#ff5577');
@@ -534,6 +557,7 @@ function hitOrb(o){
   updateHud();
 }
 function loseLife(){
+  if(STORY_GOAL != null) return; // ストーリー戦はライフが減らない（ゲームオーバーにならない）
   G.lives--; G.shakeTime = 12;
   const before = G.orbFallSpeed;
   G.orbFallSpeed = Math.max(VS_BASE_SPEED, G.orbFallSpeed - VS_SPEEDUP_STEP*2);
@@ -743,9 +767,11 @@ function showTitle(){
     <ul class="how">
       <li><b>移動</b>　<span class="kbd">1</span>〜<span class="kbd">4</span> でそのレーンへ／<span class="kbd">←</span><span class="kbd">→</span>／画面をドラッグ</li>
       <li><b>発射</b>　<span class="kbd">Space</span> か <span class="kbd">Enter</span> を押している間、連射（タブレットはSHOOTボタン）</li>
-      <li><b>ミス</b>　まちがった意味に当てたり、正解を撃ちもらすと❤が減る</li>
+      ${STORY_GOAL != null
+        ? `<li><b>特別ルール</b>　ライフが減ってもゲームオーバーにならない。<b>${esc(VS_LEVEL_NAMES[STORY_GOAL])}</b>に到達したらクリア！　ただし、まちがった意味を一度撃つと、その問題はもう点数にならない</li>`
+        : `<li><b>ミス</b>　まちがった意味に当てたり、正解を撃ちもらすと❤が減る</li>`}
     </ul>
-    <p class="best-line">自己ベスト <b>${best}</b> 点</p>
+    ${STORY_GOAL != null ? `` : `<p class="best-line">自己ベスト <b>${best}</b> 点</p>`}
     <div class="btns">
       <button class="btn" onclick="startGame()">スタート</button>
       <button class="btn secondary" onclick="goBack()">戻る</button>
@@ -762,7 +788,7 @@ function endGame(){
   const isNew = G.score > 0 && G.score > prev;
   const newTier = Math.floor(G.score / 100);
   const xp = isNew && newTier > sv.tier ? (newTier - sv.tier) * 10 : 0;
-  if(G.score > 0) pushPending(o => o.scores.push(G.score));
+  if(G.score > 0 && STORY_GOAL == null) pushPending(o => o.scores.push(G.score));
   const wrong = Object.entries(G.wrongWords);
   $("box").innerHTML = `
     ${isNew ? `<div class="newbest">🎉 自己ベスト更新！ 🎉</div>` : ``}
@@ -777,7 +803,24 @@ function endGame(){
     ${wrong.length ? `<div class="wrong"><p class="ttl">まちがえた言葉（${wrong.length}）</p>${wrong.map(([q,m]) => `<div class="it"><span class="q">${esc(q)}</span>${esc(m)}</div>`).join("")}</div>` : ``}`;
   $("overlay").hidden = false;
 }
-function goBack(){ location.href = "kokugo_app.html?from=minigame"; }
+/* ストーリー戦で目標レベルに届いたとき（本体内の版のvsStoryForceClearと同じく、得点・自己ベストは記録しない）。
+   合図はこの時点で書いておく（ボタンを押さずにタブを閉じても、次に本体を開いたときに物語が進むように）。 */
+function storyClear(){
+  cancelAnimationFrame(rafId);
+  G.phase = 'storyclear'; G.isFiring = false;
+  try{ localStorage.setItem(STORY_SHOOT_DONE_LSKEY, JSON.stringify({goal: STORY_GOAL, at: Date.now()})); }catch(e){}
+  render();
+  $("box").innerHTML = `
+    <div class="newbest">🎉 ${esc(VS_LEVEL_NAMES[G.levelIndex])}到達！ 🎉</div>
+    <div class="big">クリア達成！</div>
+    <div class="btns">
+      <button class="btn" onclick="goBack()">ストーリーの続きへ</button>
+    </div>`;
+  $("overlay").hidden = false;
+}
+/* 戻り先：ミニゲーム一覧から来たときは一覧へ、ストーリー戦のときはホームへ（物語の続きは本体のshowHomeが判断する）。
+   zip作成時の書き換え（make_dist_zip.py）は、引用符つきのファイル名の文字列を1か所だけ想定しているので、分けて書かない。 */
+function goBack(){ location.href = "kokugo_app.html?from=" + (STORY_GOAL != null ? "minigame_home" : "minigame"); }
 
 /* ===== 操作 ===== */
 const field = $("field");
@@ -798,7 +841,7 @@ window.addEventListener('mouseup', () => { if(G) G.isFiring = false; });
 window.addEventListener('keydown', e => {
   if(!G || G.phase !== 'playing'){
     // スタート・結果の画面では、Enterで始める（押しっぱなしの連射キーで、結果画面をすぐ飛ばさないようにrepeatは無視）
-    if(e.key === 'Enter' && !e.repeat && !$("overlay").hidden){ e.preventDefault(); startGame(); }
+    if(e.key === 'Enter' && !e.repeat && !$("overlay").hidden){ e.preventDefault(); if(G && G.phase === 'storyclear') goBack(); else startGame(); }
     return;
   }
   if(e.code === 'Space' || e.key === 'Enter'){ e.preventDefault(); G.isFiring = true; }
