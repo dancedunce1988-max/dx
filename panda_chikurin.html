@@ -19,6 +19,7 @@
 </script>
 <!--PASS_CHECK_END-->
 <title>大熊猫の竹林わたり</title>
+<script src="daily_minigame.js?v=13.68"></script><!-- 今日のミニゲーム（?daily=1で開いたときだけ動く） -->
 <!-- 知識ドリルDXのミニゲーム「大熊猫の竹林わたり」（2026-10-05〜、試作）。
      「読む順タップ」と「返り点をつける」のミニゲーム（教員の指示：読む順→返り点の順）。
      はじめは1つの文で①②を続けるセット形式だったが、教員の指示（2026-10-05：「同じ問題で続けて聞かれると嫌気がさす」
@@ -84,6 +85,29 @@
   #title .hero .tag{ color:var(--sub); font-size:13px; margin-top:4px; }
   #titlePanda img{ height:150px; filter:drop-shadow(0 6px 10px rgba(0,0,0,.4)); }
   #titlePanda .emoji{ font-size:100px; }
+  /* パンダにさわると反応する（2026-11-08、教員の指示）。ホームのパンダはボタンのように押せる */
+  #titlePanda{ display:inline-block; cursor:pointer; transition:transform .25s ease-out; -webkit-tap-highlight-color:transparent; user-select:none; touch-action:manipulation; }
+  #titlePanda img, #titlePanda .emoji{ display:block; transform-origin:50% 90%; }
+  /* ポーズで絵の幅が変わる（151〜212px）ので、箱の幅と高さを固定して絵は真ん中に置く。吹き出しはこの箱の右に出す
+     （2026-11-08、教員の報告「吹き出しがパンダの体を隠すことがある」：ポーズを変えた直後は絵がまだ読みこまれておらず、幅0で測っていた） */
+  #titlePanda{ width:212px; height:150px; vertical-align:top; }
+  #titlePanda img{ margin:0 auto; max-width:100%; object-fit:contain; }
+  #titlePanda .emoji{ text-align:center; line-height:150px; }
+  @media (max-width:420px){ #titlePanda{ width:156px; height:110px; } #titlePanda img{ height:110px; } #titlePanda .emoji{ font-size:72px; line-height:110px; } }
+  #panda img, #panda .emoji, #flowPanda img, #flowPanda .emoji{ transform-origin:50% 90%; }
+  .p-say{ position:fixed; z-index:120; pointer-events:none; max-width:min(300px, 86vw); padding:8px 12px; border-radius:14px;
+    background:var(--paper); color:var(--ink); font-size:14px; font-weight:bold; line-height:1.5; text-align:center;
+    box-shadow:0 4px 12px rgba(0,0,0,.4); transform:translate(-50%, -100%); }
+  .p-say::after{ content:""; position:absolute; left:50%; bottom:-8px; margin-left:-8px; border:8px solid transparent; border-bottom:none; border-top-color:var(--paper); }
+  .p-say.below{ transform:translate(-50%, 0); }
+  .p-say.below::after{ bottom:auto; top:-8px; border:8px solid transparent; border-top:none; border-bottom-color:var(--paper); }
+  .p-say small{ display:block; font-size:11.5px; font-weight:normal; opacity:.8; }
+  .p-say.small{ font-size:12.5px; padding:5px 10px; }
+  /* ホームの吹き出し（パンダの右・次のタップまで残る。2026-11-08、教員の指示） */
+  .p-say.side{ position:absolute; transform:none; max-width:none; text-align:left; font-weight:normal; font-size:13.5px; line-height:1.65; padding:9px 13px 10px; }
+  .p-say.side::after{ left:-8px; top:26px; bottom:auto; margin-left:0; border:8px solid transparent; border-left:none; border-right-color:var(--paper); }
+  .p-say.side.over::after{ display:none; }
+  .p-say .say-h{ display:block; font-weight:bold; font-size:12px; color:#7a5a22; margin-bottom:2px; }
   .climb-now{ font-size:12px; color:var(--sub); margin-top:3px; line-height:1.5; }
   .climb-now b{ color:var(--text); }
   .climb-btn{ margin-top:6px; padding:4px 12px; border-radius:999px; border:1px solid var(--gold); background:rgba(255,215,107,.12); color:var(--gold); font-size:12px; font-family:inherit; cursor:pointer; }
@@ -146,6 +170,8 @@
     min-height:48px; box-shadow:0 3px 0 rgba(0,0,0,.25);
   }
   .bubble[hidden]{ display:none; }
+  .bubble.keep{ min-height:70px; box-sizing:border-box; }   /* 「つける」竹林：2行分の場所をいつもとっておく */
+  .bubble.blank{ visibility:hidden; }
   .bubble b{ color:#7a2d00; }
   .bubble.bad{ background:#ffe1dc; }
   .bubble.good{ background:#e3f7d6; }
@@ -271,10 +297,15 @@
     box-shadow:0 3px 0 rgba(0,0,0,.25), 0 6px 14px rgba(0,0,0,.25); display:flex; align-items:baseline; gap:10px; }
   .kudashi[hidden]{ display:none; }   /* display:flex が hidden 属性に勝ってしまうのを防ぐ */
   .kudashi .lb{ flex:0 0 auto; font-size:11px; color:#6c5b3a; writing-mode:vertical-rl; letter-spacing:.1em; align-self:center; }
-  .kudashi .tx{ font-size:22px; line-height:1.9; font-weight:bold; letter-spacing:.04em; }
+  .kudashi .tx{ font-size:22px; line-height:1.9; font-weight:bold; letter-spacing:.04em; white-space:nowrap; }   /* 書き下し文は一行（2026-11-07） */
   .kudashi.reveal{ animation:scrollOpen .5s ease-out; }
   @keyframes scrollOpen{ from{ transform:scaleY(.2); opacity:0 } to{ transform:scaleY(1); opacity:1 } }
   .kudashi rt{ font-size:.55em; color:#6c5b3a; }
+  /* 縦書きの短冊（「つける」竹林） */
+  .kudashi.vert{ position:relative; top:0; flex:0 0 auto; align-self:flex-start; z-index:4; margin:0; display:block; writing-mode:vertical-rl; padding:10px 6px 10px 8px; border-radius:10px;
+    box-shadow:0 4px 12px rgba(0,0,0,.35), inset 0 0 0 2px rgba(108,91,58,.25); overflow:hidden; }
+  .kudashi.vert .lb{ display:block; writing-mode:vertical-rl; font-size:11px; letter-spacing:.15em; margin:0 0 0 6px; padding-left:4px; border-left:1px dashed rgba(108,91,58,.45); }
+  .kudashi.vert .tx{ font-size:21px; line-height:1.55; letter-spacing:.08em; }
 
   .tray{ display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:10px; }
   .chip{
@@ -317,6 +348,7 @@
   .scatter.side{ position:absolute; left:0; top:0; right:0; bottom:0; height:auto; background:none; border:none; pointer-events:none; z-index:5; }
   .scatter.side .chip{ pointer-events:auto; }
   .field.shift{ justify-content:flex-end; }
+  .field.shiftL{ justify-content:flex-start; }
   /* 返り点の札＝竹札（ひもを通す穴つき）。パンダが竹を降りる順を決める「道しるべ」として節にかける */
   .scatter .chip{ position:absolute; touch-action:none; cursor:grab; transform-origin:50% 7px; rotate:var(--r, 0deg);
     animation:var(--sway);
@@ -350,6 +382,165 @@
   .slot.none{ visibility:hidden; }
   .spark{ position:fixed; z-index:85; pointer-events:none; font-size:16px; }
   /* =========== 天竹峰の試練（マスターパンダに挑戦、2026-10-08〜） =========== */
+  /* 初心者用ボタン（タイトルの左上、2026-11-07） */
+  .beg-btn{ position:fixed; left:10px; top:10px; z-index:50; display:flex; align-items:center; gap:8px; padding:7px 12px 7px 10px; border-radius:14px;
+    font:inherit; color:#fff; cursor:pointer; border:2px solid rgba(255,255,255,.3); background:rgba(0,0,0,.45); box-shadow:0 3px 10px rgba(0,0,0,.35); }
+  .beg-btn .bb-ic{ font-size:22px; filter:grayscale(1) opacity(.6); }
+  .beg-btn .bb-t{ display:flex; flex-direction:column; font-weight:bold; font-size:14px; line-height:1.2; text-align:left; }
+  .beg-btn .bb-t small{ font-size:10px; font-weight:normal; color:rgba(255,255,255,.75); }
+  .beg-btn .bb-sw{ position:relative; width:38px; height:22px; border-radius:999px; background:rgba(255,255,255,.25); transition:background .2s; }
+  .beg-btn .bb-sw i{ position:absolute; left:3px; top:3px; width:16px; height:16px; border-radius:50%; background:#fff; transition:left .2s; }
+  .beg-btn.on{ background:linear-gradient(135deg,#2e7d32,#1b5e20); border-color:#ffeb3b; }
+  .beg-btn.on .bb-ic{ filter:none; }
+  .beg-btn.on .bb-sw{ background:#ffeb3b; }
+  .beg-btn.on .bb-sw i{ left:19px; }
+  .beg-toast{ position:fixed; left:50%; top:64px; transform:translateX(-50%); z-index:60; background:rgba(20,40,20,.95); color:#fff; padding:10px 18px;
+    border-radius:12px; border:2px solid #ffeb3b; font-size:14px; font-weight:bold; box-shadow:0 6px 18px rgba(0,0,0,.4); transition:opacity .5s; max-width:90vw; text-align:center; }
+  .beg-toast.out{ opacity:0; }
+  @media (max-width:520px){ .beg-btn{ padding:5px 9px; } .beg-btn .bb-t small{ display:none; } }
+  /* 初心者用で師匠に勝ったときのお祝い */
+  #begWin{ position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center; overflow:hidden; cursor:pointer;
+    background:radial-gradient(circle at 50% 40%, rgb(90,30,70), rgb(8,4,14)); opacity:0; transition:opacity .5s; }
+  #begWin.on{ opacity:1; }
+  #begWin.out{ opacity:0; }
+  #begWin .bw-rays{ position:absolute; left:50%; top:40%; width:260vmax; height:260vmax; margin:-130vmax 0 0 -130vmax; opacity:.22;
+    background:repeating-conic-gradient(from 0deg,#ffd76b 0 7deg,transparent 7deg 20deg); animation:bwSpin 14s linear infinite; }
+  #begWin .bw-conf{ position:absolute; inset:0; pointer-events:none; }
+  #begWin .bw-conf i{ position:absolute; top:-20px; width:9px; height:15px; border-radius:2px; animation:bwFall var(--du) var(--dl) linear infinite; }
+  #begWin .bw-in{ position:relative; display:flex; flex-direction:column; align-items:center; gap:8px; padding:16px; max-width:560px; text-align:center; }
+  #begWin .bw-big{ font-size:clamp(54px,15vw,110px); font-weight:900; color:#fff7c2; letter-spacing:.06em;
+    text-shadow:0 0 20px #ffd76b, 0 0 50px #ff9cc8, 0 6px 0 #8a4b00; animation:bwBig 1s cubic-bezier(.15,1.5,.4,1) both; }
+  #begWin .bw-fig{ width:150px; height:150px; animation:bwFig .8s .7s both; }
+  #begWin .bw-fig img{ max-width:100%; max-height:100%; }
+  #begWin .bw-say{ color:#ffe2ef; font-size:15px; animation:bwUp .6s 1.1s both; }
+  #begWin .bw-cert{ margin-top:6px; padding:14px 22px; border-radius:10px; color:#3a2306; background:linear-gradient(170deg,#fffaf0,#ffe9b0);
+    border:4px double #b8860b; box-shadow:0 0 0 4px #ffd76b, 0 10px 30px rgba(0,0,0,.5), 0 0 40px rgba(255,215,107,.5); animation:bwCert .8s 1.6s cubic-bezier(.2,1.4,.4,1) both; }
+  #begWin .bw-cert-h{ font-size:22px; font-weight:900; letter-spacing:.2em; color:#8a4b00; }
+  #begWin .bw-cert-b{ margin:8px 0 6px; font-size:15px; line-height:1.7; }
+  #begWin .bw-cert-s{ font-size:13px; color:#a0522d; font-weight:bold; }
+  #begWin .bw-cert-f{ margin-top:6px; text-align:right; font-size:14px; color:#6d4c41; }
+  #begWin .bw-next{ color:#c8f5b0; font-size:13px; animation:bwUp .6s 2.3s both; }
+  #begWin .bw-tap{ color:#ccc; font-size:13px; animation:bwUp .6s 2.6s both, bwBlink 1.2s 3.2s infinite; }
+  @keyframes bwSpin{ to{ transform:rotate(360deg) } }
+  @keyframes bwFall{ to{ transform:translate(var(--sw),110vh) rotate(720deg) } }
+  @keyframes bwBig{ 0%{ transform:scale(3.5) rotate(-10deg); opacity:0 } 60%{ transform:scale(.92) rotate(2deg); opacity:1 } 100%{ transform:none; opacity:1 } }
+  @keyframes bwFig{ 0%{ transform:translateY(30px); opacity:0 } 100%{ transform:none; opacity:1 } }
+  @keyframes bwUp{ 0%{ transform:translateY(12px); opacity:0 } 100%{ transform:none; opacity:1 } }
+  @keyframes bwCert{ 0%{ transform:scale(.3) rotate(-6deg); opacity:0 } 100%{ transform:none; opacity:1 } }
+  @keyframes bwBlink{ 0%,100%{ opacity:1 } 50%{ opacity:.4 } }
+  /* お祝いの画面（初心者モード全問クリア・師匠への挑戦の解放、2026-11-07）。#begWin と同じ部品（.bw-*）も使う */
+  .celeb{ position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center; overflow:hidden; cursor:pointer;
+    background:radial-gradient(circle at 50% 40%, rgb(30,80,40), rgb(5,14,8)); opacity:0; transition:opacity .5s; }
+  .celeb.on{ opacity:1; }
+  .celeb.out{ opacity:0; }
+  .celeb .bw-rays{ position:absolute; left:50%; top:40%; width:260vmax; height:260vmax; margin:-130vmax 0 0 -130vmax; opacity:.22;
+    background:repeating-conic-gradient(from 0deg,#ffd76b 0 7deg,transparent 7deg 20deg); animation:bwSpin 14s linear infinite; }
+  .celeb .bw-conf{ position:absolute; inset:0; pointer-events:none; }
+  .celeb .bw-conf i{ position:absolute; top:-20px; width:9px; height:15px; border-radius:2px; animation:bwFall var(--du) var(--dl) linear infinite; }
+  .celeb .bw-in{ position:relative; display:flex; flex-direction:column; align-items:center; gap:8px; padding:16px; max-width:600px; text-align:center; }
+  .celeb .bw-say{ color:#ffe2ef; font-size:15px; }
+  .celeb .bw-next{ color:#c8f5b0; font-size:14px; }
+  .celeb .bw-tap{ color:#ccc; font-size:13px; animation:bwBlink 1.2s infinite; }
+  #chapCeleb .cs-ch{ font-size:18px; font-weight:bold; color:#e4ffcf; padding:3px 14px; border-radius:999px; background:rgba(0,0,0,.35); animation:bwUp .5s both; }
+  #chapCeleb .cs-big{ font-size:clamp(40px,10vw,76px); line-height:1.15; font-weight:900; color:#fff7c2;
+    text-shadow:0 0 18px #ffd76b, 0 0 40px #9fd47a, 0 5px 0 #6b4a00; animation:bwBig 1s .2s cubic-bezier(.15,1.5,.4,1) both; }
+  #chapCeleb .cs-stamps{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin:4px 0; }
+  #chapCeleb .cs-stamp{ display:flex; flex-direction:column; align-items:center; gap:2px; padding:8px 12px; border-radius:12px; min-width:110px;
+    background:linear-gradient(170deg,#fffaf0,#ffe9b0); color:#3a2306; border:3px solid #c0392b; box-shadow:0 4px 12px rgba(0,0,0,.4);
+    animation:csStamp .45s cubic-bezier(.2,1.6,.4,1) both; }
+  #chapCeleb .cs-stamp b{ font-size:14px; }
+  #chapCeleb .cs-stamp span{ font-size:13px; font-weight:bold; color:#c0392b; }
+  #chapCeleb .cs-fig{ width:120px; height:120px; animation:bwFig .6s 2.6s both, ccBob 1.2s 3.2s ease-in-out infinite; }
+  #chapCeleb .cs-fig img{ max-width:100%; max-height:100%; }
+  #chapCeleb .bw-next{ animation:bwUp .6s 3s both; }
+  #chapCeleb .bw-tap{ animation:bwUp .6s 3.2s both, bwBlink 1.2s 3.8s infinite; }
+  @keyframes csStamp{ 0%{ transform:scale(2.6) rotate(-12deg); opacity:0 } 70%{ transform:scale(.94) rotate(2deg); opacity:1 } 100%{ transform:rotate(-2deg) } }
+  #masterCeleb{ background:radial-gradient(circle at 50% 45%, rgb(40,16,40), rgb(4,2,8)); }
+  #masterCeleb.shake .bw-in{ animation:muShake .5s linear 3; }
+  #masterCeleb .mu-glow{ position:absolute; left:50%; top:42%; width:70vmin; height:70vmin; margin:-35vmin 0 0 -35vmin; border-radius:50%;
+    background:radial-gradient(circle, rgba(255,190,225,.55), transparent 65%); opacity:0; transition:opacity 1.2s; }
+  #masterCeleb .mu-beam{ position:absolute; left:50%; top:0; bottom:0; width:0; margin-left:0; background:linear-gradient(90deg,transparent,rgba(255,240,200,.4),transparent);
+    transition:width 1s ease-out, margin-left 1s ease-out; }
+  #masterCeleb.reveal .mu-glow{ opacity:1; }
+  #masterCeleb.reveal .mu-beam{ width:46vmin; margin-left:-23vmin; }
+  #masterCeleb .mu-lead{ font-size:clamp(20px,5vw,30px); color:#ffd1e6; letter-spacing:.12em; animation:bwUp .8s .3s both; }
+  #masterCeleb .mu-fig{ width:180px; height:180px; filter:brightness(0) drop-shadow(0 0 10px rgba(255,150,200,.5)); transition:filter 1.4s ease; }
+  #masterCeleb .mu-fig img{ max-width:100%; max-height:100%; }
+  #masterCeleb.reveal .mu-fig{ filter:brightness(1) drop-shadow(0 0 24px rgba(255,190,225,.9)); animation:ccBob 2.4s 1.4s ease-in-out infinite; }
+  #masterCeleb .mu-name, #masterCeleb .mu-big, #masterCeleb .mu-say, #masterCeleb .mu-next, #masterCeleb .mu-tap{ opacity:0; }
+  #masterCeleb.reveal .mu-name{ animation:bwUp .6s 1s both; font-size:16px; color:#ffe2ef; }
+  #masterCeleb.reveal .mu-big{ animation:bwBig 1s 1.3s cubic-bezier(.15,1.5,.4,1) both; font-size:clamp(30px,7.5vw,56px); line-height:1.2; font-weight:900; color:#fff7c2;
+    text-shadow:0 0 18px #ff9cc8, 0 0 44px #ffd76b, 0 5px 0 #6b1d48; }
+  #masterCeleb.reveal .mu-say{ animation:bwUp .6s 2s both; }
+  #masterCeleb.reveal .mu-next{ animation:bwUp .6s 2.3s both; color:#ffe8a8; }
+  #masterCeleb.reveal .mu-tap{ animation:bwUp .6s 2.6s both, bwBlink 1.2s 3.2s infinite; }
+  @keyframes muShake{ 0%,100%{ transform:none } 25%{ transform:translate(-6px,3px) } 50%{ transform:translate(5px,-4px) } 75%{ transform:translate(-3px,-2px) } }
+  /* 「大熊猫師匠と競走」のカード（2026-11-07、教員の指示） */
+  .master-card{ position:relative; overflow:hidden; display:flex; align-items:center; gap:14px; width:100%; padding:14px 18px; text-align:left;
+    border-radius:20px; cursor:pointer; color:var(--text); font:inherit; border:2px solid #ffc1dc;
+    background:radial-gradient(circle at 18% 50%, rgba(255,214,235,.35), transparent 45%), linear-gradient(135deg,#8e2c5c 0%,#5a1f4a 45%,#3a1736 100%);
+    box-shadow:0 0 0 3px rgba(255,215,107,.55), 0 8px 22px rgba(0,0,0,.45), 0 0 26px rgba(255,150,200,.25), inset 0 1px 0 rgba(255,255,255,.25);
+    transition:transform .15s, box-shadow .15s; }
+  .master-card:not(.locked):hover{ transform:translateY(-3px); box-shadow:0 0 0 3px rgba(255,215,107,.8), 0 12px 26px rgba(0,0,0,.5), 0 0 34px rgba(255,150,200,.4), inset 0 1px 0 rgba(255,255,255,.3); }
+  .master-card:active{ transform:translateY(1px) scale(.99); }
+  .master-card .mc-fig{ position:relative; flex:none; width:118px; height:118px; display:flex; align-items:center; justify-content:center;
+    filter:drop-shadow(0 0 14px rgba(255,190,225,.7)); animation:ccBob 3s ease-in-out infinite; z-index:1; }
+  .master-card .mc-fig img{ max-width:100%; max-height:100%; }
+  .master-card .mc-fig .emoji{ font-size:70px; }
+  .master-card .mc-body{ position:relative; z-index:1; display:flex; flex-direction:column; align-items:flex-start; gap:4px; min-width:0; }
+  .master-card .mc-tag{ font-size:12px; font-weight:bold; letter-spacing:.12em; padding:2px 10px; border-radius:999px; background:rgba(0,0,0,.3); color:#ffd1e6; }
+  .master-card .mc-name{ font-size:26px; font-weight:900; letter-spacing:.04em; color:#ffe2ef; text-shadow:0 2px 0 rgba(0,0,0,.4), 0 0 16px rgba(255,170,210,.6); }
+  .master-card .mc-desc{ font-size:12px; color:rgba(255,236,245,.88); }
+  .master-card .mc-rec{ display:flex; flex-wrap:wrap; gap:6px; margin-top:2px; }
+  .master-card .mc-chip{ font-size:12px; padding:2px 9px; border-radius:999px; background:rgba(255,255,255,.12); color:#ffe8a8; border:1px solid rgba(255,215,107,.4); }
+  .master-card .mc-chip.gold{ background:linear-gradient(90deg,#ffe48a,#ffb44d); color:#3a2306; font-weight:bold; }
+  .master-card .mc-go{ margin-top:6px; padding:7px 22px; border-radius:999px; font-weight:bold; font-size:15px; color:#4a0f2c;
+    background:linear-gradient(180deg,#ffe0ee,#ff9cc8); box-shadow:0 3px 0 #a3386d; animation:mcPulse 1.8s ease-in-out infinite; }
+  .master-card .mc-petals{ position:absolute; inset:0; pointer-events:none; }
+  .master-card .mc-petals i{ position:absolute; top:-14px; width:10px; height:8px; border-radius:60% 0 60% 0; background:#ffc4dd; opacity:.85;
+    animation:mcPetal linear infinite; }
+  .master-card.locked{ cursor:default; border-color:rgba(255,255,255,.25); box-shadow:0 6px 16px rgba(0,0,0,.4);
+    background:linear-gradient(135deg,#3b3340,#2a2430); }
+  .master-card.locked .mc-fig{ filter:brightness(0) opacity(.55); animation:none; }
+  .master-card .mc-lock{ position:absolute; left:18px; top:50%; width:118px; margin-top:-22px; text-align:center; font-size:34px; z-index:2; }
+  @media (max-width:520px){ .master-card .mc-lock{ left:12px; width:88px } }
+  .master-card.locked .mc-name{ color:#d9d2dc; text-shadow:none; }
+  .master-card.locked .mc-tag{ color:#cfc6d4; }
+  .master-card .mc-prog{ display:flex; flex-direction:column; gap:4px; margin-top:4px; font-size:12px; color:var(--gold); }
+  .master-card .mc-p{ display:flex; align-items:center; gap:8px; }
+  .master-card .mc-pl{ min-width:7.5em; }
+  @keyframes mcPulse{ 0%,100%{ filter:brightness(1) } 50%{ filter:brightness(1.12) } }
+  @keyframes mcPetal{ 0%{ transform:translate(0,0) rotate(0) } 100%{ transform:translate(-40px,190px) rotate(540deg) } }
+  @media (max-width:520px){ .master-card{ padding:12px; gap:10px } .master-card .mc-fig{ width:88px; height:88px } .master-card .mc-name{ font-size:21px } }
+  /* 二つの竹林のカード（2026-11-07、教員の指示：どちらも魅力的に） */
+  .chap-cards{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:520px){ .chap-cards{ grid-template-columns:1fr; } }
+  .chap-card{ position:relative; overflow:hidden; display:flex; flex-direction:column; align-items:center; text-align:center; gap:4px;
+    padding:14px 12px 14px; border-radius:18px; cursor:pointer; color:var(--text); font:inherit; border:2px solid rgba(255,255,255,.22);
+    box-shadow:0 6px 18px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.2); transition:transform .15s, box-shadow .15s; }
+  .chap-card:hover{ transform:translateY(-3px); box-shadow:0 10px 24px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.25); }
+  .chap-card:active{ transform:translateY(1px) scale(.99); }
+  .chap-card.yj{ background:repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 3px, transparent 3px 46px), linear-gradient(160deg,#4f9a3c,#22562a 60%,#173a22); border-color:#a8e07f; }
+  .chap-card.kt{ background:repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 3px, transparent 3px 46px), linear-gradient(160deg,#2f7d74,#1d4f52 60%,#14323a); border-color:#ffd76b; }
+  .chap-card .cc-mark{ position:absolute; right:-6px; top:-14px; font-size:110px; line-height:1; font-weight:900; opacity:.12; pointer-events:none; }
+  .chap-card .cc-panda{ width:96px; height:96px; display:flex; align-items:center; justify-content:center; filter:drop-shadow(0 4px 6px rgba(0,0,0,.4)); animation:ccBob 2.6s ease-in-out infinite; }
+  .chap-card.kt .cc-panda{ animation-delay:-1.3s; }
+  .chap-card .cc-panda img{ max-width:100%; max-height:100%; }
+  .chap-card .cc-panda .emoji{ font-size:60px; }
+  .chap-card .cc-sub{ font-size:12px; font-weight:bold; letter-spacing:.1em; padding:2px 10px; border-radius:999px; background:rgba(0,0,0,.28); color:#e8f5d8; }
+  .chap-card.kt .cc-sub{ color:#ffe9a8; }
+  .chap-card .cc-name{ font-size:24px; font-weight:900; letter-spacing:.04em; text-shadow:0 2px 0 rgba(0,0,0,.35); }
+  .chap-card.yj .cc-name{ color:#e4ffcf; }
+  .chap-card.kt .cc-name{ color:#ffe48a; }
+  .chap-card .cc-desc{ font-size:12px; line-height:1.6; color:rgba(244,246,238,.85); min-height:3.2em; }
+  .chap-card .cc-prog{ display:flex; align-items:center; gap:8px; font-size:12px; color:var(--gold); margin-top:2px; }
+  .chap-card .cc-bar, .master-card .cc-bar{ width:90px; height:8px; border-radius:999px; background:rgba(0,0,0,.35); overflow:hidden; }
+  .chap-card .cc-bar i, .master-card .cc-bar i{ display:block; height:100%; background:linear-gradient(90deg,#ffe48a,#ffb44d); }
+  .chap-card .cc-next{ font-size:11px; color:var(--sub); }
+  .chap-card .cc-go{ margin-top:6px; padding:6px 18px; border-radius:999px; font-weight:bold; font-size:14px; color:#2a1a04;
+    background:linear-gradient(180deg,#ffe48a,#ffb44d); box-shadow:0 3px 0 #a86a12; }
+  @keyframes ccBob{ 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(-6px) } }
+  #chapList{ display:flex; flex-direction:column; gap:12px; }
   .stage.chap.master{ border-color:#f3a6c8; background:linear-gradient(135deg, rgba(243,166,200,.22), rgba(255,215,107,.12)); }
   .stage.chap.master .nm{ color:#ffd1e6; }
   .stage.chap.master.locked{ opacity:.55; }
@@ -397,6 +588,29 @@
     font-size:22px; font-weight:bold; color:#fff; text-shadow:0 3px 0 rgba(0,0,0,.5), 0 0 14px rgba(243,166,200,.9); }
   .m-pen{ position:fixed; z-index:90; pointer-events:none; font-weight:bold; color:#ff8a8a; font-size:20px; text-shadow:0 2px 0 rgba(0,0,0,.5); }
   .m-kudashi{ background:var(--paper); color:var(--ink); border-radius:12px; padding:6px 12px; font-size:20px; font-weight:bold; line-height:1.9; min-height:44px; }
+  /* 書き下し文は竹の左どなりに縦書き（2026-11-07）。.m-play で横にならべる */
+  .m-play{ display:flex; justify-content:center; align-items:flex-start; gap:14px; }
+  .m-play .m-kudashi{ flex:none; writing-mode:vertical-rl; min-height:0; padding:10px 6px 10px 8px; font-size:20px; line-height:1.55; letter-spacing:.08em;
+    box-shadow:0 4px 12px rgba(0,0,0,.35), inset 0 0 0 2px rgba(108,91,58,.25); margin-top:4px; }
+  .m-play .m-kudashi:empty{ display:none; }
+  .m-play .m-field{ flex:0 1 auto; }
+  /* 札・選択肢は竹の横（右手用＝右、左手用＝左）に、たての列で */
+  .m-play .m-choices{ flex:none; margin-top:4px; display:grid; grid-template-columns:repeat(2, auto); align-content:start; gap:8px; }
+  .m-play .m-choices > .m-hang-row{ grid-column:1 / -1; }
+  .m-play .m-choices:empty{ display:none; }
+  .m-play .m-choices .scatter.m-hang-row{ display:grid; grid-template-columns:repeat(2, auto); gap:10px; padding:4px; min-height:0; }
+  body.lefty .m-play .m-kudashi{ order:3; }
+  body.lefty .m-play .m-choices{ order:-1; }
+  /* 利き手の切りかえボタン（初心者用ボタンの下） */
+  .hand-btn{ display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:999px; font:inherit; font-size:13px; font-weight:bold;
+    color:#fff; cursor:pointer; border:2px solid rgba(255,255,255,.3); background:rgba(0,0,0,.35); white-space:nowrap; }
+  .hud .hand-btn{ margin-left:6px; }
+  .hand-btn[hidden]{ display:none; }
+  .hand-btn .hb-ic{ font-size:20px; }
+  .hand-btn .hb-t{ display:flex; flex-direction:column; font-weight:bold; font-size:13px; line-height:1.2; text-align:left; }
+  .hand-btn .hb-t small{ font-size:10px; font-weight:normal; color:rgba(255,255,255,.75); }
+  .hand-btn.on{ border-color:#7ec8f8; background:linear-gradient(135deg,#1e5a8a,#123a5c); }
+  @media (max-width:520px){ .hand-btn{ padding:4px 9px; font-size:12px; } }
   .m-kudashi rt{ font-size:.5em; color:#6c5b3a; }
   .m-ask{ text-align:center; font-size:14px; margin:8px 0 4px; color:#ffe9a8; font-weight:bold; }
   .m-field{ display:flex; justify-content:center; gap:8px; min-height:220px; align-items:flex-start; }
@@ -468,6 +682,7 @@
   .m-field{ position:relative; }
   .scatter.m-hang-row{ height:auto; min-height:70px; display:flex; flex-wrap:wrap; justify-content:center; gap:12px; padding:10px; background:none; border:none; }
   .scatter.m-hang-row .chip{ position:relative; }
+  .scatter.m-hang-row .chip.used{ visibility:hidden; pointer-events:none; }
   /* カットイン（必殺・術の演出） */
   .m-cutin{ position:fixed; inset:0; z-index:97; pointer-events:none; display:flex; align-items:center; justify-content:center; }
   .m-cutin .band{ position:absolute; left:0; right:0; top:28%; height:44%; transform-origin:50% 50%; }
@@ -487,13 +702,9 @@
   .m-cutin .next{ animation:nextIn .3s .55s forwards, askPulse 1.1s 1s ease-in-out infinite; }
   .m-cutin .nt{ display:inline-block; font-size:13px; margin-top:8px; padding:3px 10px; border-radius:10px; background:rgba(0,0,0,.4); }
   /* 大目隠しの術：巨大な老師が居座る */
-  /* 影パンダ（自己ベスト）のレーン */
   .m-race{ height:100px; }
   .m-race .lane.c{ top:86px; }
-  .m-race .who.ghost{ top:68px; width:28px; height:28px; margin-left:-14px; opacity:.45; filter:grayscale(.4) drop-shadow(0 0 4px #9fd4ff); transition:left .25s linear; }
-  .m-race .who.ghost[hidden]{ display:none; }
   .m-race .lname{ position:absolute; right:30px; font-size:10px; color:rgba(255,255,255,.55); }
-  .m-near{ text-align:center; font-size:12px; color:#cfe7ff; min-height:16px; margin-bottom:4px; }
   /* 2026-10-18〜：二本の竹の競走（左＝自分、右＝師匠）。--seg は1節ぶんの長さ（竹の節の線をそろえる） */
   /* 問題の左右に竹を置く3列（左＝自分の竹／中＝問題／右＝師匠の竹）。竹は画面の高さに合わせ、スクロールしても貼りつく（sticky） */
   #master .m-wrap{ --ah:calc(100dvh - 64px); --ph:50px; --seg:calc((var(--ah) - var(--ph)) / 20);
@@ -511,9 +722,6 @@
   .m-pole .who .emoji{ font-size:34px; text-align:center; }
   .m-pole.foe .who img{ transform:scaleX(-1); }   /* 師匠は自分のほうを向く */
   .m-pole .who.me.lead img{ filter:drop-shadow(0 0 8px #ffe36b); }
-  /* 影パンダは自分のパンダのうしろ、少し左にずらして重ならないようにする */
-  .m-pole .who.ghost{ margin-left:calc(var(--ph) / -2 - 18px); z-index:1; opacity:.38; filter:grayscale(.5) drop-shadow(0 0 5px #9fd4ff); transition:bottom .9s ease-out; }
-  .m-pole .who.ghost[hidden]{ display:none; }
   .m-pole .who.climb{ animation:mClimb .75s ease-out; }
   .m-pole .who.fall{ transition:bottom .6s ease-in; animation:mFall .6s ease-in; }
   @keyframes mClimb{ 0%,100%{ rotate:0deg } 25%{ rotate:-10deg } 50%{ rotate:8deg } 75%{ rotate:-5deg } }
@@ -523,7 +731,7 @@
   .m-score{ display:flex; align-items:center; gap:14px; }
   .m-score .vs small{ display:block; font-size:10px; font-weight:normal; margin-top:2px; }
   .m-sub{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
-  .m-sub .m-zone, .m-sub .m-near{ height:auto; min-height:0; margin:0; }
+  .m-sub .m-zone{ height:auto; min-height:0; margin:0; }
   .m-score .s{ display:flex; flex-direction:column; align-items:center; font-size:13px; line-height:1.1; }
   .m-score .s b{ font-size:34px; color:var(--gold); font-variant-numeric:tabular-nums; }
   .m-score .s.foe b{ color:#ffb3d1; }
@@ -537,7 +745,7 @@
   .m-choices .chip.right{ border-color:#6fe39a; box-shadow:0 0 0 3px rgba(111,227,154,.45); }
   .m-gain.bad{ color:#ff8a8a; }
   @media (max-width:480px){ #master .m-wrap{ --ph:38px; grid-template-columns:46px minmax(0, 1fr) 46px; gap:4px; padding-left:6px; padding-right:6px; }
-    .m-pole .who.ghost{ margin-left:calc(var(--ph) / -2 - 10px); } .m-score .s b{ font-size:26px; } }
+    .m-score .s b{ font-size:26px; } }
   .m-peachtag{ text-align:center; font-weight:bold; color:#5a1630; background:linear-gradient(90deg, #f7b6cf, #ffe3ee, #f7b6cf); border-radius:12px; padding:3px 0; margin:4px 0; }
   .m-peachtag[hidden]{ display:none; }
   .m-streak{ display:flex; gap:14px; justify-content:center; font-size:12px; color:var(--sub); letter-spacing:.02em; }
@@ -653,6 +861,7 @@
 
 <!-- タイトル -->
 <section class="screen" id="title">
+  <button id="begBtn" class="beg-btn" onclick="toggleBeginner()" title="初心者用：レ点・一二点の竹林だけ"></button>
   <div class="wrap">
     <div class="hero">
       <div id="titlePanda"></div>
@@ -671,7 +880,7 @@
 <!-- これまで登った笹：高さくらべ（2026-10-12〜、2026-10-18に竹→笹） -->
 <section class="screen" id="climb">
   <div class="wrap">
-    <h2 class="chapter-h mincho" style="text-align:center">📏 高さくらべ<small>笹を1本手に入れるごとに、その笹を登る。レ・一二の竹林は1本50cm／ほかの竹林は1m／大熊猫師匠との競走では2〜5m</small></h2>
+    <h2 class="chapter-h mincho" style="text-align:center">📏 高さくらべ<small>笹を手に入れるほど、高く登れる</small></h2>
     <div class="climb-sum" id="climbSum"></div>
     <div class="climb-list" id="climbList"></div>
     <div class="btn-row"><button class="btn sub" onclick="showTitle()">もどる</button></div>
@@ -685,10 +894,9 @@
     <div class="portrait" id="miPortrait"></div>
     <div class="m-story" id="miStory"></div>
     <!-- 2026-10-18〜、時間制限なしの「正解率で勝負する競走」にした（教員の指示）。説明は短く3行だけ -->
-    <div class="m-rules">🌸 先に<b>20節</b>登ったほうが勝ち。正解すると<b>2〜4m</b>登る。<br>
-      ⏳ 時間制限はない。まちがえると、その問題では登れない。一問ずつじっくり。<br>
-      ⛰ <b>難所</b>：正解すると師匠に笹嵐、まちがえると自分が落ちる。<br>
-      🔥 <b>5問連続正解</b>で、笹の技スロットが回る。師匠も5問連続正解で技を出してくる。</div>
+    <div class="m-rules">🌸 先に<b>20節</b>登ったら勝ち。正解すると登れる。<br>
+      ⛰ <b>難所</b>：正解で師匠に笹嵐／まちがえると落ちる。<br>
+      🔥 <b>5問連続正解</b>で技が出る。</div>
     <div class="btn-row">
       <button class="btn gold" onclick="masterStart()">🌸 挑戦する</button>
       <button class="btn sub" onclick="showTitle()">もどる</button>
@@ -699,23 +907,21 @@
 <!-- 天竹峰の試練：挑戦中 -->
 <section class="screen" id="master">
   <!-- 2026-10-18〜：問題の左に自分、右に師匠の竹（教員の指示「縦が長くなると、スクロールしないと見えない」）。
-       竹は画面の高さいっぱいで、問題を下へスクロールしても左右に貼りついて見える。自分の竹には影パンダ（自己ベスト） -->
+       竹は画面の高さいっぱいで、問題を下へスクロールしても左右に貼りついて見える。（影パンダは2026-11-08に廃止） -->
   <div class="wrap m-wrap">
-    <div class="m-pole me"><span class="top">🌸</span><span class="who ghost" id="mWhoG" hidden></span><span class="who me" id="mWhoMe"></span><span class="pn">じぶん</span></div>
+    <div class="m-pole me"><span class="top">🌸</span><span class="who me" id="mWhoMe"></span><span class="pn">じぶん</span></div>
     <div class="m-center">
       <div class="m-mid">
         <div class="m-score"><span class="s me"><b id="mMe">0</b>節<small id="mMeM">0m</small></span><span class="vs">VS<small>先に20節</small></span><span class="s foe"><b id="mFoe">0</b>節<small id="mFoeM">0m</small></span></div>
         <div class="m-streak" id="mStreak"></div>
-        <div class="m-sub"><span class="m-zone" id="mZone"></span><span class="m-near" id="mNear"></span></div>
+        <div class="m-sub"><span class="m-zone" id="mZone"></span></div>
       </div>
       <div class="m-fx" id="mFx"></div>
       <div class="m-goldtag" id="mGoldTag" hidden>⛰ 難所！ 正解で師匠に笹嵐／まちがえると2m落ちる</div>
       <div class="m-peachtag" id="mPeachTag" hidden>🍑 桃の実！ 正解すると、さらに＋2m</div>
-      <div class="m-kudashi mincho" id="mKudashi"></div>
       <div class="m-ask" id="mAsk"></div>
-      <div class="m-field" id="mField"></div>
-      <div class="m-choices" id="mChoices"></div>
-      <div class="btn-row"><button class="btn sub" onclick="masterQuit()">やめる</button></div>
+      <div class="m-play"><div class="m-kudashi mincho" id="mKudashi"></div><div class="m-field" id="mField"></div><div class="m-choices" id="mChoices"></div></div>
+      <div class="btn-row"><button class="hand-btn" id="handBtnM" onclick="toggleHand()"></button><button class="btn sub" onclick="masterQuit()">やめる</button></div>
     </div>
     <div class="m-pole foe"><span class="top">🌸</span><span class="who master" id="mWhoM"></span><span class="pn">師匠</span></div>
   </div>
@@ -754,7 +960,7 @@
 <!-- ゲーム -->
 <section class="screen" id="game">
   <div class="wrap">
-    <div class="hud"><span class="nm" id="hudName"></span><span class="pg" id="hudProg"></span><span class="sasa" id="hudSasa"></span></div>
+    <div class="hud"><span class="nm" id="hudName"></span><span class="pg" id="hudProg"></span><span class="sasa" id="hudSasa"></span><button class="hand-btn" id="handBtnG" onclick="toggleHand()" hidden></button></div>
     <div class="steps"><div class="on" id="chapTab"></div></div>
     <div class="bubble" id="bubble"></div>
     <div class="hint" id="hintBox" hidden></div>
@@ -1229,6 +1435,307 @@ const KT_PROBLEMS = [
     chars:[{ch:"故"},{ch:"人"},{ch:"西",ok:"にし",okuri:"ノカタ"},{ch:"辞",mark:"二",ok:"じ",okuri:"シ"},{ch:"黄"},{ch:"鶴"},{ch:"楼",mark:"一",okuri:"ヲ"}],
     order:[0,1,2,4,5,6,3], kudashi:"故人(こじん)西(にし)のかた黄鶴楼(こうかくろう)を辞(じ)し",
     note:"【漢詩】李白「黄鶴楼にて孟浩然の広陵に之くを送る」（七言絶句）。旅立つ先輩の詩人・孟浩然を黄鶴楼で見送り、長江を下っていく舟を見えなくなるまで見つめる詩。第一句。「辞」は「黄鶴楼」の三字をへだてて返る＝一二点。", src:"李白「黄鶴楼送孟浩然之広陵」"
+  },
+  /* 2026-11-07、教員の指示「今と同じ難易度のレ点のみ・一二点のみ・レ点と一二点のみの問題を20問ずつ。実際にある漢文、置き字なし」で追加（教員の確認待ち） */
+  { lv:"ついか・レ点1　陶淵明「雑詩」（歳月不待人）", white:"歳月不待人",
+    chars:[{ch:"歳"},{ch:"月"},{ch:"不",mark:"レ",ok:"ず"},{ch:"待",mark:"レ",ok:"ま",okuri:"タ"},{ch:"人",okuri:"ヲ"}],
+    order:[0, 1, 4, 3, 2], kudashi:"歳月(さいげつ)人(ひと)を待(ま)たず",
+    note:"陶淵明の詩の一句。時は人を待ってくれない。レ点が2つ続き、人を→待た→ず、と下から一字ずつ返る。", src:"陶淵明「雑詩」"
+  },
+  { lv:"ついか・レ点2　「偶成」（少年易老）", white:"少年易老",
+    chars:[{ch:"少"},{ch:"年"},{ch:"易",mark:"レ",ok:"やす",okuri:"ク"},{ch:"老",ok:"お",okuri:"イ"}],
+    order:[0, 1, 3, 2], kudashi:"少年(しょうねん)老(お)い易(やす)く",
+    note:"「偶成」（朱熹の作と伝わる）の一句。「易」（やすし）はレ点で、「老」を読んでから返る。", src:"「偶成」"
+  },
+  { lv:"ついか・レ点3　「偶成」（学難成）", white:"学難成",
+    chars:[{ch:"学"},{ch:"難",mark:"レ",ok:"がた",okuri:"シ"},{ch:"成",ok:"な",okuri:"リ"}],
+    order:[0, 2, 1], kudashi:"学(がく)成(な)り難(がた)し",
+    note:"「少年老い易く学成り難し」の後半。「難」（がたし）は、下の字を読んでから返る。", src:"「偶成」"
+  },
+  { lv:"ついか・レ点4　「偶成」（一寸光陰不可軽）", white:"一寸光陰不可軽",
+    chars:[{ch:"一"},{ch:"寸",okuri:"ノ"},{ch:"光"},{ch:"陰"},{ch:"不",mark:"レ",ok:"ず"},{ch:"可",mark:"レ",ok:"べから"},{ch:"軽",ok:"かろ",okuri:"ンズ"}],
+    order:[0, 1, 2, 3, 6, 5, 4], kudashi:"一寸(いっすん)の光陰(こういん)軽(かろ)んずべからず",
+    note:"「偶成」の一句。わずかな時間もむだにしてはいけない。「不可」はレ点が2つ続く形。軽んず→べから→ず、と下から返る。", src:"「偶成」"
+  },
+  { lv:"ついか・レ点5　論語（剛毅木訥近仁）", white:"剛毅木訥近仁",
+    chars:[{ch:"剛"},{ch:"毅"},{ch:"木"},{ch:"訥",okuri:"ハ"},{ch:"近",mark:"レ",ok:"ちか",okuri:"シ"},{ch:"仁",okuri:"ニ"}],
+    order:[0, 1, 2, 3, 5, 4], kudashi:"剛毅木訥(ごうきぼくとつ)は仁(じん)に近(ちか)し",
+    note:"論語の一節。飾り気がなく口数の少ない人は、仁に近い。「近」はレ点で「仁」から返る。", src:"論語"
+  },
+  { lv:"ついか・レ点6　論語（民無信不立）", white:"民無信不立",
+    chars:[{ch:"民"},{ch:"無",mark:"レ",ok:"な",okuri:"クンバ"},{ch:"信"},{ch:"不",mark:"レ",ok:"ず"},{ch:"立",ok:"た",okuri:"タ"}],
+    order:[0, 2, 1, 4, 3], kudashi:"民(たみ)信(しん)無(な)くんば立(た)たず",
+    note:"論語の一節。人々に信頼がなければ、国は成り立たない。レ点が2か所、それぞれ一字ずつ返る。", src:"論語"
+  },
+  { lv:"ついか・レ点7　論語（見利思義）", white:"見利思義",
+    chars:[{ch:"見",mark:"レ",okuri:"テハ"},{ch:"利",okuri:"ヲ"},{ch:"思",mark:"レ",ok:"おも",okuri:"フ"},{ch:"義",okuri:"ヲ"}],
+    order:[1, 0, 3, 2], kudashi:"利(り)を見(み)ては義(ぎ)を思(おも)ふ",
+    note:"論語の一節。もうけ話を前にしたら、それが正しいかを考える。レ点が2か所。", src:"論語"
+  },
+  { lv:"ついか・レ点8　論語（知者不惑）", white:"知者不惑",
+    chars:[{ch:"知"},{ch:"者",okuri:"ハ"},{ch:"不",mark:"レ",ok:"ず"},{ch:"惑",ok:"まど",okuri:"ハ"}],
+    order:[0, 1, 3, 2], kudashi:"知者(ちしゃ)は惑(まど)はず",
+    note:"論語「知者は惑はず、仁者は憂へず、勇者は懼れず」の一句。「不」（ず）は、下の字を読んでから返る。", src:"論語"
+  },
+  { lv:"ついか・レ点9　十八史略（臥薪嘗胆）", white:"臥薪嘗胆",
+    chars:[{ch:"臥",mark:"レ",ok:"ふ",okuri:"シ"},{ch:"薪",ok:"たきぎ",okuri:"ニ"},{ch:"嘗",mark:"レ",ok:"な",okuri:"ム"},{ch:"胆",ok:"きも",okuri:"ヲ"}],
+    order:[1, 0, 3, 2], kudashi:"薪(たきぎ)に臥(ふ)し胆(きも)を嘗(な)む",
+    note:"故事成語「臥薪嘗胆」。かたきを討つため、薪の上に寝て苦い胆をなめ、くやしさを忘れなかった。レ点が2か所。", src:"十八史略"
+  },
+  { lv:"ついか・レ点10　歴代名画記（画竜点睛）", white:"画竜点睛",
+    chars:[{ch:"画",mark:"レ",ok:"えが",okuri:"キテ"},{ch:"竜",okuri:"ヲ"},{ch:"点",mark:"レ",okuri:"ズ"},{ch:"睛",ok:"せい",okuri:"ヲ"}],
+    order:[1, 0, 3, 2], kudashi:"竜(りゅう)を画(えが)きて睛(せい)を点(てん)ず",
+    note:"故事成語「画竜点睛」。竜の絵に最後にひとみを描き入れたら、竜が天に昇ったという話から。レ点が2か所。", src:"歴代名画記"
+  },
+  { lv:"ついか・レ点11　書経（有備無患）", white:"有備無患",
+    chars:[{ch:"有",mark:"レ",okuri:"レバ"},{ch:"備",ok:"そな",okuri:"ヘ"},{ch:"無",mark:"レ",okuri:"シ"},{ch:"患",ok:"うれ",okuri:"ヒ"}],
+    order:[1, 0, 3, 2], kudashi:"備(そな)へ有(あ)れば患(うれ)ひ無(な)し",
+    note:"「備えあれば憂いなし」のもとになったことば。レ点が2か所。", src:"書経"
+  },
+  { lv:"ついか・レ点12　杜甫「春望」（渾欲不勝簪）", white:"渾欲不勝簪",
+    chars:[{ch:"渾",ok:"す",okuri:"ベテ"},{ch:"欲",mark:"レ",ok:"ほっ",okuri:"ス"},{ch:"不",mark:"レ",ok:"ざ",okuri:"ラント"},{ch:"勝",mark:"レ",ok:"た",okuri:"ヘ"},{ch:"簪",ok:"しん",okuri:"ニ"}],
+    order:[0, 4, 3, 2, 1], kudashi:"渾(す)べて簪(しん)に勝(た)へざらんと欲(ほっ)す",
+    note:"杜甫「春望」の結びの句。髪が薄くなり、かんざしもさせなくなりそうだ。レ点が3つ続き、簪に→勝へ→ざらん→と欲す、と下から一字ずつ返る。", src:"杜甫「春望」"
+  },
+  { lv:"ついか・レ点13　王維「竹里館」（深林人不知）", white:"深林人不知",
+    chars:[{ch:"深"},{ch:"林"},{ch:"人"},{ch:"不",mark:"レ",ok:"ず"},{ch:"知",okuri:"ラ"}],
+    order:[0, 1, 2, 4, 3], kudashi:"深林(しんりん)人(ひと)知(し)らず",
+    note:"王維「竹里館」の一句。奥深い竹林にいる自分のことを、人は知らない。「不」はレ点で「知」から返る。", src:"王維「竹里館」"
+  },
+  { lv:"ついか・レ点14　王之渙「登鸛鵲楼」（白日依山尽）", white:"白日依山尽",
+    chars:[{ch:"白"},{ch:"日"},{ch:"依",mark:"レ",ok:"よ",okuri:"リテ"},{ch:"山",okuri:"ニ"},{ch:"尽",ok:"つ",okuri:"キ"}],
+    order:[0, 1, 3, 2, 4], kudashi:"白日(はくじつ)山(やま)に依(よ)りて尽(つ)き",
+    note:"王之渙「鸛鵲楼に登る」の第一句。輝く太陽が山に沿って沈んでいく。「依」はレ点で「山」から返る。「尽」はそのまま読む。", src:"王之渙「登鸛鵲楼」"
+  },
+  { lv:"ついか・レ点15　王之渙「登鸛鵲楼」（黄河入海流）", white:"黄河入海流",
+    chars:[{ch:"黄"},{ch:"河"},{ch:"入",mark:"レ",okuri:"リテ"},{ch:"海",okuri:"ニ"},{ch:"流",okuri:"ル"}],
+    order:[0, 1, 3, 2, 4], kudashi:"黄河(こうが)海(うみ)に入(い)りて流(なが)る",
+    note:"同じ詩の第二句。黄河が海へ流れこんでいく。「入」はレ点で「海」から返る。", src:"王之渙「登鸛鵲楼」"
+  },
+  { lv:"ついか・レ点16　史記（忠言逆耳）", white:"忠言逆耳",
+    chars:[{ch:"忠"},{ch:"言",okuri:"ハ"},{ch:"逆",mark:"レ",ok:"さか",okuri:"ラフ"},{ch:"耳",okuri:"ニ"}],
+    order:[0, 1, 3, 2], kudashi:"忠言(ちゅうげん)は耳(みみ)に逆(さか)らふ",
+    note:"「良薬は口に苦し」と対になることば。まごころからの忠告は、聞きづらい。「逆」はレ点で「耳」から返る。", src:"史記"
+  },
+  { lv:"ついか・レ点17　傅玄「口銘」（病従口入）", white:"病従口入",
+    chars:[{ch:"病",okuri:"ハ"},{ch:"従",mark:"レ",ok:"よ",okuri:"リ"},{ch:"口"},{ch:"入",okuri:"ル"}],
+    order:[0, 2, 1, 3], kudashi:"病(やまい)は口(くち)より入(い)る",
+    note:"「病は口より入り、禍は口より出づ」の前半。「従」（より）はレ点で「口」から返る。", src:"傅玄「口銘」"
+  },
+  { lv:"ついか・レ点18　老子（上善如水）", white:"上善如水",
+    chars:[{ch:"上"},{ch:"善",okuri:"ハ"},{ch:"如",mark:"レ",ok:"ごと",okuri:"シ"},{ch:"水",okuri:"ノ"}],
+    order:[0, 1, 3, 2], kudashi:"上善(じょうぜん)は水(みず)の如(ごと)し",
+    note:"老子のことば。最高の善は水のようなものだ。「如」（ごとし）はレ点で「水」から返る。", src:"老子"
+  },
+  { lv:"ついか・レ点19　孟子（愛人者人恒愛之）", white:"愛人者人恒愛之",
+    chars:[{ch:"愛",mark:"レ",okuri:"スル"},{ch:"人",okuri:"ヲ"},{ch:"者",okuri:"ハ"},{ch:"人"},{ch:"恒",ok:"つね",okuri:"ニ"},{ch:"愛",mark:"レ",okuri:"ス"},{ch:"之",ok:"これ",okuri:"ヲ"}],
+    order:[1, 0, 2, 3, 4, 6, 5], kudashi:"人(ひと)を愛(あい)する者(もの)は人(ひと)恒(つね)に之(これ)を愛(あい)す",
+    note:"孟子のことば。人を愛する者は、いつも人から愛される。レ点が2か所。", src:"孟子"
+  },
+  { lv:"ついか・レ点20　論語（不憤不啓）", white:"不憤不啓",
+    chars:[{ch:"不",mark:"レ",ok:"ず",okuri:"ンバ"},{ch:"憤",okuri:"セ"},{ch:"不",mark:"レ",ok:"ず"},{ch:"啓",okuri:"セ"}],
+    order:[1, 0, 3, 2], kudashi:"憤(ふん)せずんば啓(けい)せず",
+    note:"論語の一節。自分から知りたいと燃えていない者には、教えない。レ点が2か所。", src:"論語"
+  },
+  { lv:"ついか・一二点1　論語（吾日三省吾身）", white:"吾日三省吾身",
+    chars:[{ch:"吾"},{ch:"日",okuri:"ニ"},{ch:"三",ok:"み",okuri:"タビ"},{ch:"省",mark:"二",ok:"かえり",okuri:"ミル"},{ch:"吾",okuri:"ガ"},{ch:"身",mark:"一",okuri:"ヲ"}],
+    order:[0, 1, 2, 4, 5, 3], kudashi:"吾(われ)日(ひ)に三(み)たび吾(わ)が身(み)を省(かえり)みる",
+    note:"論語の一節。わたしは毎日何度も自分をふり返る。「省」は「吾身」の二字をへだてて返る＝一二点。", src:"論語"
+  },
+  { lv:"ついか・一二点2　論語（人無遠慮）", white:"人無遠慮",
+    chars:[{ch:"人"},{ch:"無",mark:"二",ok:"な",okuri:"ケレバ"},{ch:"遠",okuri:"キ"},{ch:"慮",mark:"一",ok:"おもんぱか",okuri:"リ"}],
+    order:[0, 2, 3, 1], kudashi:"人(ひと)遠(とお)き慮(おもんぱか)り無(な)ければ",
+    note:"論語「人遠き慮り無ければ、必ず近き憂ひ有り」の前半。「無」は「遠慮」の二字をへだてて返る＝一二点。", src:"論語"
+  },
+  { lv:"ついか・一二点3　論語（必有近憂）", white:"必有近憂",
+    chars:[{ch:"必",okuri:"ズ"},{ch:"有",mark:"二",okuri:"リ"},{ch:"近",okuri:"キ"},{ch:"憂",mark:"一",ok:"うれ",okuri:"ヒ"}],
+    order:[0, 2, 3, 1], kudashi:"必(かなら)ず近(ちか)き憂(うれ)ひ有(あ)り",
+    note:"同じ文の後半。先のことを考えないと、すぐに心配ごとが起こる。「有」は「近憂」の二字をへだてて返る＝一二点。", src:"論語"
+  },
+  { lv:"ついか・一二点4　論語（三人行必有我師）", white:"三人行必有我師",
+    chars:[{ch:"三"},{ch:"人"},{ch:"行",ok:"おこな",okuri:"ヘバ"},{ch:"必",okuri:"ズ"},{ch:"有",mark:"二",okuri:"リ"},{ch:"我",okuri:"ガ"},{ch:"師",mark:"一"}],
+    order:[0, 1, 2, 3, 5, 6, 4], kudashi:"三人(さんにん)行(おこな)へば必(かなら)ず我(わ)が師(し)有(あ)り",
+    note:"論語の一節。三人で何かをすれば、その中にきっと自分の先生となる人がいる。「有」は「我師」の二字をへだてて返る＝一二点。", src:"論語"
+  },
+  { lv:"ついか・一二点5　論語（父母在不遠遊）", white:"父母在不遠遊",
+    chars:[{ch:"父"},{ch:"母"},{ch:"在",ok:"いま",okuri:"セバ"},{ch:"不",mark:"二",ok:"ず"},{ch:"遠",okuri:"ク"},{ch:"遊",mark:"一",okuri:"バ"}],
+    order:[0, 1, 2, 4, 5, 3], kudashi:"父母(ふぼ)在(いま)せば遠(とお)く遊(あそ)ばず",
+    note:"論語の一節。父母が生きているうちは、遠くへ出かけない。「不」は「遠遊」の二字をへだてて返る＝一二点。", src:"論語"
+  },
+  { lv:"ついか・一二点6　李白「静夜思」（床前看月光）", white:"床前看月光",
+    chars:[{ch:"床"},{ch:"前"},{ch:"看",mark:"二",ok:"み",okuri:"ル"},{ch:"月"},{ch:"光",mark:"一",okuri:"ヲ"}],
+    order:[0, 1, 3, 4, 2], kudashi:"床前(しょうぜん)月光(げっこう)を看(み)る",
+    note:"李白「静夜思」の第一句。寝台の前で月の光を見る。「看」は「月光」の二字をへだてて返る＝一二点。", src:"李白「静夜思」"
+  },
+  { lv:"ついか・一二点7　杜甫「春望」（烽火連三月）", white:"烽火連三月",
+    chars:[{ch:"烽"},{ch:"火"},{ch:"連",mark:"二",ok:"つら",okuri:"ナリ"},{ch:"三"},{ch:"月",mark:"一",okuri:"ニ"}],
+    order:[0, 1, 3, 4, 2], kudashi:"烽火(ほうか)三月(さんげつ)に連(つら)なり",
+    note:"杜甫「春望」の第五句。戦いののろしが三か月も続いている。「連」は「三月」の二字をへだてて返る＝一二点。", src:"杜甫「春望」"
+  },
+  { lv:"ついか・一二点8　杜甫「春望」（家書抵万金）", white:"家書抵万金",
+    chars:[{ch:"家"},{ch:"書"},{ch:"抵",mark:"二",ok:"あ",okuri:"タル"},{ch:"万"},{ch:"金",mark:"一",okuri:"ニ"}],
+    order:[0, 1, 3, 4, 2], kudashi:"家書(かしょ)万金(ばんきん)に抵(あ)たる",
+    note:"「春望」の第六句。家族からの手紙は大金に値する。「抵」は「万金」の二字をへだてて返る＝一二点。", src:"杜甫「春望」"
+  },
+  { lv:"ついか・一二点9　李白「黄鶴楼送孟浩然之広陵」（唯見長江天際流）", white:"唯見長江天際流",
+    chars:[{ch:"唯",ok:"た",okuri:"ダ"},{ch:"見",mark:"二",okuri:"ル"},{ch:"長"},{ch:"江",okuri:"ノ"},{ch:"天"},{ch:"際",okuri:"ニ"},{ch:"流",mark:"一",okuri:"ルルヲ"}],
+    order:[0, 2, 3, 4, 5, 6, 1], kudashi:"唯(た)だ見(み)る長江(ちょうこう)の天際(てんさい)に流(なが)るるを",
+    note:"李白「黄鶴楼にて孟浩然の広陵に之くを送る」の結句。ただ長江が空の果てへ流れていくのが見える。「見」は下の五字をへだてて「流」から返る＝一二点。", src:"李白「黄鶴楼送孟浩然之広陵」"
+  },
+  { lv:"ついか・一二点10　李白「黄鶴楼送孟浩然之広陵」（煙花三月下揚州）", white:"煙花三月下揚州",
+    chars:[{ch:"煙"},{ch:"花"},{ch:"三"},{ch:"月"},{ch:"下",mark:"二",ok:"くだ",okuri:"ル"},{ch:"揚"},{ch:"州",mark:"一",okuri:"ニ"}],
+    order:[0, 1, 2, 3, 5, 6, 4], kudashi:"煙花(えんか)三月(さんがつ)揚州(ようしゅう)に下(くだ)る",
+    note:"同じ詩の第二句。春がすみの三月、友は揚州へ下っていく。「下」は「揚州」の二字をへだてて返る＝一二点。", src:"李白「黄鶴楼送孟浩然之広陵」"
+  },
+  { lv:"ついか・一二点11　王維「送元二使安西」（西出陽関無故人）", white:"西出陽関無故人",
+    chars:[{ch:"西",ok:"にし",okuri:"ノカタ"},{ch:"出",mark:"二",ok:"い",okuri:"ヅレバ"},{ch:"陽"},{ch:"関",mark:"一",okuri:"ヲ"},{ch:"無",mark:"二",ok:"な",okuri:"カラン"},{ch:"故"},{ch:"人",mark:"一"}],
+    order:[0, 2, 3, 1, 5, 6, 4], kudashi:"西(にし)のかた陽関(ようかん)を出(い)づれば故人(こじん)無(な)からん",
+    note:"王維「元二の安西に使ひするを送る」の結句。一二点の組が2つ、順に出てくる。前の組を読み終えてから、次の組へ進む。", src:"王維「送元二使安西」"
+  },
+  { lv:"ついか・一二点12　王維「送元二使安西」（渭城朝雨浥軽塵）", white:"渭城朝雨浥軽塵",
+    chars:[{ch:"渭"},{ch:"城",okuri:"ノ"},{ch:"朝"},{ch:"雨"},{ch:"浥",mark:"二",ok:"うるお",okuri:"ス"},{ch:"軽"},{ch:"塵",mark:"一",okuri:"ヲ"}],
+    order:[0, 1, 2, 3, 5, 6, 4], kudashi:"渭城(いじょう)の朝雨(ちょうう)軽塵(けいじん)を浥(うるお)す",
+    note:"同じ詩の第一句。朝の雨が、町の軽い土ぼこりをしっとりぬらす。「浥」は「軽塵」の二字をへだてて返る＝一二点。", src:"王維「送元二使安西」"
+  },
+  { lv:"ついか・一二点13　杜牧「山行」（遠上寒山石径斜）", white:"遠上寒山石径斜",
+    chars:[{ch:"遠",okuri:"ク"},{ch:"上",mark:"二",ok:"のぼ",okuri:"レバ"},{ch:"寒"},{ch:"山",mark:"一",okuri:"ニ"},{ch:"石"},{ch:"径"},{ch:"斜",ok:"なな",okuri:"メナリ"}],
+    order:[0, 2, 3, 1, 4, 5, 6], kudashi:"遠(とお)く寒山(かんざん)に上(のぼ)れば石径(せきけい)斜(なな)めなり",
+    note:"杜牧「山行」の第一句。「上」は「寒山」の二字をへだてて返る＝一二点。「石径斜めなり」は語順のまま読む。", src:"杜牧「山行」"
+  },
+  { lv:"ついか・一二点14　杜牧「山行」（白雲生処有人家）", white:"白雲生処有人家",
+    chars:[{ch:"白"},{ch:"雲"},{ch:"生",okuri:"ズル"},{ch:"処",ok:"ところ"},{ch:"有",mark:"二",okuri:"リ"},{ch:"人"},{ch:"家",mark:"一"}],
+    order:[0, 1, 2, 3, 5, 6, 4], kudashi:"白雲(はくうん)生(しょう)ずる処(ところ)人家(じんか)有(あ)り",
+    note:"「山行」の第二句。白い雲がわき出るあたりに人家がある。「有」は「人家」の二字をへだてて返る＝一二点。", src:"杜牧「山行」"
+  },
+  { lv:"ついか・一二点15　史記（寧為鶏口）", white:"寧為鶏口",
+    chars:[{ch:"寧",ok:"むし",okuri:"ロ"},{ch:"為",mark:"二",ok:"な",okuri:"ルトモ"},{ch:"鶏"},{ch:"口",mark:"一",okuri:"ト"}],
+    order:[0, 2, 3, 1], kudashi:"寧(むし)ろ鶏口(けいこう)と為(な)るとも",
+    note:"故事成語「鶏口牛後」。大きな集団のしりにつくより、小さな集団の頭になれ。「為」は「鶏口」の二字をへだてて返る＝一二点。", src:"史記"
+  },
+  { lv:"ついか・一二点16　李白「秋浦歌」（何処得秋霜）", white:"何処得秋霜",
+    chars:[{ch:"何",ok:"いず",okuri:"レノ"},{ch:"処",ok:"ところ",okuri:"ニカ"},{ch:"得",mark:"二",ok:"え",okuri:"タル"},{ch:"秋"},{ch:"霜",mark:"一",okuri:"ヲ"}],
+    order:[0, 1, 3, 4, 2], kudashi:"何(いず)れの処(ところ)にか秋霜(しゅうそう)を得(え)たる",
+    note:"李白「秋浦の歌」の一句。鏡に映る白髪を霜にたとえている。「得」は「秋霜」の二字をへだてて返る＝一二点。", src:"李白「秋浦歌」"
+  },
+  { lv:"ついか・一二点17　韓愈「雑説」（伯楽不常有）", white:"伯楽不常有",
+    chars:[{ch:"伯"},{ch:"楽",okuri:"ハ"},{ch:"不",mark:"二",ok:"ず"},{ch:"常",ok:"つね",okuri:"ニハ"},{ch:"有",mark:"一",okuri:"ラ"}],
+    order:[0, 1, 3, 4, 2], kudashi:"伯楽(はくらく)は常(つね)には有(あ)らず",
+    note:"韓愈「雑説」の一節。名馬を見分ける伯楽は、いつもいるわけではない。「不」は「常有」の二字をへだてて返る＝一二点。", src:"韓愈「雑説」"
+  },
+  { lv:"ついか・一二点18　韓愈「雑説」（世有伯楽）", white:"世有伯楽",
+    chars:[{ch:"世",okuri:"ニ"},{ch:"有",mark:"二",okuri:"リ"},{ch:"伯"},{ch:"楽",mark:"一"}],
+    order:[0, 2, 3, 1], kudashi:"世(よ)に伯楽(はくらく)有(あ)り",
+    note:"「雑説」の書き出し。「有」は「伯楽」の二字をへだてて返る＝一二点。", src:"韓愈「雑説」"
+  },
+  { lv:"ついか・一二点19　韓愈「雑説」（然後有千里馬）", white:"然後有千里馬",
+    chars:[{ch:"然",ok:"しか",okuri:"ル"},{ch:"後",ok:"のち",okuri:"ニ"},{ch:"有",mark:"二",okuri:"リ"},{ch:"千"},{ch:"里",okuri:"ノ"},{ch:"馬",mark:"一"}],
+    order:[0, 1, 3, 4, 5, 2], kudashi:"然(しか)る後(のち)に千里(せんり)の馬(うま)有(あ)り",
+    note:"「雑説」の一節。伯楽がいてこそ、千里を走る名馬が見いだされる。「有」は「千里馬」の三字をへだてて返る＝一二点。", src:"韓愈「雑説」"
+  },
+  { lv:"ついか・一二点20　張継「楓橋夜泊」（夜半鐘声到客船）", white:"夜半鐘声到客船",
+    chars:[{ch:"夜"},{ch:"半",okuri:"ノ"},{ch:"鐘"},{ch:"声"},{ch:"到",mark:"二",ok:"いた",okuri:"ル"},{ch:"客"},{ch:"船",mark:"一",okuri:"ニ"}],
+    order:[0, 1, 2, 3, 5, 6, 4], kudashi:"夜半(やはん)の鐘声(しょうせい)客船(かくせん)に到(いた)る",
+    note:"張継「楓橋夜泊」の結句。真夜中の鐘の音が、旅の舟まで届く。「到」は「客船」の二字をへだてて返る＝一二点。", src:"張継「楓橋夜泊」"
+  },
+  { lv:"ついか・レ点と一二点1　後漢書（不入虎穴）", white:"不入虎穴",
+    chars:[{ch:"不",mark:"レ",ok:"ず",okuri:"ンバ"},{ch:"入",mark:"二",okuri:"ラ"},{ch:"虎"},{ch:"穴",mark:"一",okuri:"ニ"}],
+    order:[2, 3, 1, 0], kudashi:"虎穴(こけつ)に入(い)らずんば",
+    note:"『後漢書』のことば「虎穴に入らずんば、虎子を得ず」の前半。虎穴に→入ら→ずんば、と一二点で返ったあと、レ点でさらに一字返る。", src:"後漢書"
+  },
+  { lv:"ついか・レ点と一二点2　後漢書（不得虎子）", white:"不得虎子",
+    chars:[{ch:"不",mark:"レ",ok:"ず"},{ch:"得",mark:"二",ok:"え"},{ch:"虎"},{ch:"子",mark:"一",okuri:"ヲ"}],
+    order:[2, 3, 1, 0], kudashi:"虎子(こし)を得(え)ず",
+    note:"同じことばの後半。危険をおかさなければ、大きな成果は得られない。一二点で返ったあと、レ点でさらに一字返る。", src:"後漢書"
+  },
+  { lv:"ついか・レ点と一二点3　論語（不恥下問）", white:"不恥下問",
+    chars:[{ch:"不",mark:"レ",ok:"ず"},{ch:"恥",mark:"二",ok:"は",okuri:"ヂ"},{ch:"下"},{ch:"問",mark:"一",okuri:"ヲ"}],
+    order:[2, 3, 1, 0], kudashi:"下問(かもん)を恥(は)ぢず",
+    note:"論語の一節。目下の人にたずねることを恥ずかしがらない。下問を→恥ぢ→ず、と一二点で返ったあと、レ点でさらに一字返る。", src:"論語"
+  },
+  { lv:"ついか・レ点と一二点4　論語（不在其位）", white:"不在其位",
+    chars:[{ch:"不",mark:"レ",ok:"ざ",okuri:"レバ"},{ch:"在",mark:"二",okuri:"ラ"},{ch:"其",ok:"そ",okuri:"ノ"},{ch:"位",mark:"一",ok:"くらい",okuri:"ニ"}],
+    order:[2, 3, 1, 0], kudashi:"其(そ)の位(くらい)に在(あ)らざれば",
+    note:"論語「其の位に在らざれば、其の政を謀らず」の前半。一二点で返ったあと、レ点でさらに一字返る。", src:"論語"
+  },
+  { lv:"ついか・レ点と一二点5　論語（不謀其政）", white:"不謀其政",
+    chars:[{ch:"不",mark:"レ",ok:"ず"},{ch:"謀",mark:"二",ok:"はか",okuri:"ラ"},{ch:"其",ok:"そ",okuri:"ノ"},{ch:"政",mark:"一",ok:"まつりごと",okuri:"ヲ"}],
+    order:[2, 3, 1, 0], kudashi:"其(そ)の政(まつりごと)を謀(はか)らず",
+    note:"同じ文の後半。その地位にいないなら、その仕事に口を出さない。一二点で返ったあと、レ点でさらに一字返る。", src:"論語"
+  },
+  { lv:"ついか・レ点と一二点6　史記（無為牛後）", white:"無為牛後",
+    chars:[{ch:"無",mark:"レ",ok:"な",okuri:"カレ"},{ch:"為",mark:"二",ok:"な",okuri:"ル"},{ch:"牛"},{ch:"後",mark:"一",okuri:"ト"}],
+    order:[2, 3, 1, 0], kudashi:"牛後(ぎゅうご)と為(な)る無(な)かれ",
+    note:"「寧ろ鶏口と為るとも、牛後と為る無かれ」の後半。「無かれ」は「～するな」という禁止。一二点で返ったあと、レ点でさらに一字返る。", src:"史記"
+  },
+  { lv:"ついか・レ点と一二点7　孟子（天時不如地利）", white:"天時不如地利",
+    chars:[{ch:"天",okuri:"ノ"},{ch:"時",okuri:"ハ"},{ch:"不",mark:"レ",ok:"ず"},{ch:"如",mark:"二",ok:"し",okuri:"カ"},{ch:"地",okuri:"ノ"},{ch:"利",mark:"一",okuri:"ニ"}],
+    order:[0, 1, 4, 5, 3, 2], kudashi:"天(てん)の時(とき)は地(ち)の利(り)に如(し)かず",
+    note:"孟子のことば。天候などのよい時機も、地形の有利さにはかなわない。「如」は一二点、「不」はレ点。地の利に→如か→ず、と返る。", src:"孟子"
+  },
+  { lv:"ついか・レ点と一二点8　孟子（地利不如人和）", white:"地利不如人和",
+    chars:[{ch:"地",okuri:"ノ"},{ch:"利",okuri:"ハ"},{ch:"不",mark:"レ",ok:"ず"},{ch:"如",mark:"二",ok:"し",okuri:"カ"},{ch:"人",okuri:"ノ"},{ch:"和",mark:"一",okuri:"ニ"}],
+    order:[0, 1, 4, 5, 3, 2], kudashi:"地(ち)の利(り)は人(ひと)の和(わ)に如(し)かず",
+    note:"同じ文の続き。地形の有利さも、人の心がまとまっていることにはかなわない。前の問題と同じ形。", src:"孟子"
+  },
+  { lv:"ついか・レ点と一二点9　詩経（一日不見如三秋）", white:"一日不見如三秋",
+    chars:[{ch:"一"},{ch:"日"},{ch:"不",mark:"レ",ok:"ざ",okuri:"レバ"},{ch:"見",ok:"み"},{ch:"如",mark:"二",ok:"ごと",okuri:"シ"},{ch:"三"},{ch:"秋",mark:"一",okuri:"ノ"}],
+    order:[0, 1, 3, 2, 5, 6, 4], kudashi:"一日(いちじつ)見(み)ざれば三秋(さんしゅう)の如(ごと)し",
+    note:"『詩経』の詩から。一日会わないだけで、三年もたったように感じる。前半はレ点、後半は一二点。", src:"詩経"
+  },
+  { lv:"ついか・レ点と一二点10　蘇軾「春夜」（花有清香月有陰）", white:"花有清香月有陰",
+    chars:[{ch:"花",okuri:"ニ"},{ch:"有",mark:"二",okuri:"リ"},{ch:"清"},{ch:"香",mark:"一"},{ch:"月",okuri:"ニ"},{ch:"有",mark:"レ",okuri:"リ"},{ch:"陰",ok:"かげ"}],
+    order:[0, 2, 3, 1, 4, 6, 5], kudashi:"花(はな)に清香(せいこう)有(あ)り月(つき)に陰(かげ)有(あ)り",
+    note:"蘇軾「春夜」の第二句。花には清らかな香り、月にはおぼろな影。前半は二字をへだてて返る＝一二点、後半は一字だけ返る＝レ点。", src:"蘇軾「春夜」"
+  },
+  { lv:"ついか・レ点と一二点11　王翰「涼州詞」（酔臥沙場君莫笑）", white:"酔臥沙場君莫笑",
+    chars:[{ch:"酔",ok:"よ",okuri:"ヒテ"},{ch:"臥",mark:"二",ok:"ふ",okuri:"ストモ"},{ch:"沙"},{ch:"場",mark:"一",okuri:"ニ"},{ch:"君"},{ch:"莫",mark:"レ",ok:"な",okuri:"カレ"},{ch:"笑",ok:"わら",okuri:"フコト"}],
+    order:[0, 2, 3, 1, 4, 6, 5], kudashi:"酔(よ)ひて沙場(さじょう)に臥(ふ)すとも君(きみ)笑(わら)ふこと莫(な)かれ",
+    note:"王翰「涼州詞」の第三句。「臥」は「沙場」の二字をへだてて返る＝一二点。「莫」（なかれ）はレ点で「笑」から返る。", src:"王翰「涼州詞」"
+  },
+  { lv:"ついか・レ点と一二点12　蘇軾「題西林壁」（不識廬山真面目）", white:"不識廬山真面目",
+    chars:[{ch:"不",mark:"レ",ok:"ざ",okuri:"ルハ"},{ch:"識",mark:"二",ok:"し",okuri:"ラ"},{ch:"廬"},{ch:"山",okuri:"ノ"},{ch:"真"},{ch:"面"},{ch:"目",mark:"一",okuri:"ヲ"}],
+    order:[2, 3, 4, 5, 6, 1, 0], kudashi:"廬山(ろざん)の真面目(しんめんもく)を識(し)らざるは",
+    note:"蘇軾「西林の壁に題す」の一句。「識」は「廬山真面目」の五字をへだてて返る＝一二点。そのあと「不」がレ点でさらに一字返る。", src:"蘇軾「題西林壁」"
+  },
+  { lv:"ついか・レ点と一二点13　論語（不学詩無以言）", white:"不学詩無以言",
+    chars:[{ch:"不",mark:"レ",ok:"ず",okuri:"ンバ"},{ch:"学",mark:"レ",ok:"まな",okuri:"バ"},{ch:"詩",okuri:"ヲ"},{ch:"無",mark:"二",ok:"な",okuri:"シ"},{ch:"以",ok:"もっ",okuri:"テ"},{ch:"言",mark:"一",ok:"い",okuri:"フ"}],
+    order:[2, 1, 0, 4, 5, 3], kudashi:"詩(し)を学(まな)ばずんば以(もっ)て言(い)ふ無(な)し",
+    note:"論語の一節。詩を学ばなければ、うまく話すことができない。前半はレ点が2つ続き、後半は一二点。", src:"論語"
+  },
+  { lv:"ついか・レ点と一二点14　論語（不学礼無以立）", white:"不学礼無以立",
+    chars:[{ch:"不",mark:"レ",ok:"ず",okuri:"ンバ"},{ch:"学",mark:"レ",ok:"まな",okuri:"バ"},{ch:"礼",okuri:"ヲ"},{ch:"無",mark:"二",ok:"な",okuri:"シ"},{ch:"以",ok:"もっ",okuri:"テ"},{ch:"立",mark:"一",ok:"た",okuri:"ツ"}],
+    order:[2, 1, 0, 4, 5, 3], kudashi:"礼(れい)を学(まな)ばずんば以(もっ)て立(た)つ無(な)し",
+    note:"論語の一節。礼を学ばなければ、世の中で自立できない。前の問題と同じ形。", src:"論語"
+  },
+  { lv:"ついか・レ点と一二点15　史記（沛公欲王関中）", white:"沛公欲王関中",
+    chars:[{ch:"沛"},{ch:"公"},{ch:"欲",mark:"レ",ok:"ほっ",okuri:"ス"},{ch:"王",mark:"二",ok:"おう",okuri:"タラント"},{ch:"関"},{ch:"中",mark:"一",okuri:"ニ"}],
+    order:[0, 1, 4, 5, 3, 2], kudashi:"沛公(はいこう)関中(かんちゅう)に王(おう)たらんと欲(ほっ)す",
+    note:"『史記』「鴻門の会」の一節。「王」は「関中」の二字をへだてて返る＝一二点。そのあと「欲」がレ点でさらに一字返る。", src:"史記"
+  },
+  { lv:"ついか・レ点と一二点16　孟子（不違農時）", white:"不違農時",
+    chars:[{ch:"不",mark:"レ",ok:"ざ",okuri:"レバ"},{ch:"違",mark:"二",ok:"たが",okuri:"ハ"},{ch:"農"},{ch:"時",mark:"一",okuri:"ニ"}],
+    order:[2, 3, 1, 0], kudashi:"農時(のうじ)に違(たが)はざれば",
+    note:"孟子のことば。農作業の時期をじゃましなければ（穀物は食べきれないほどとれる）。一二点で返ったあと、レ点でさらに一字返る。", src:"孟子"
+  },
+  { lv:"ついか・レ点と一二点17　孟子（斧斤以時入山林）", white:"斧斤以時入山林",
+    chars:[{ch:"斧"},{ch:"斤"},{ch:"以",mark:"レ",ok:"もっ",okuri:"テ"},{ch:"時",okuri:"ヲ"},{ch:"入",mark:"二",ok:"い",okuri:"ラバ"},{ch:"山"},{ch:"林",mark:"一",okuri:"ニ"}],
+    order:[0, 1, 3, 2, 5, 6, 4], kudashi:"斧斤(ふきん)時(とき)を以(もっ)て山林(さんりん)に入(い)らば",
+    note:"孟子のことば。おのを持って山林に入るのを、決まった時期だけにすれば（材木は使いきれないほどになる）。前半はレ点、後半は一二点。", src:"孟子"
+  },
+  { lv:"ついか・レ点と一二点18　韓非子（兎不可復得）", white:"兎不可復得",
+    chars:[{ch:"兎"},{ch:"不",mark:"レ",ok:"ず"},{ch:"可",mark:"二",ok:"べから"},{ch:"復",ok:"ま",okuri:"タ"},{ch:"得",mark:"一",ok:"う"}],
+    order:[0, 3, 4, 2, 1], kudashi:"兎(うさぎ)復(ま)た得(う)べからず",
+    note:"故事成語「守株」の話の一節。うさぎは二度と手に入らなかった。「可」は「復得」の二字をへだてて返る＝一二点。そのあと「不」がレ点でさらに一字返る。", src:"韓非子"
+  },
+  { lv:"ついか・レ点と一二点19　荀子（不積小流）", white:"不積小流",
+    chars:[{ch:"不",mark:"レ",ok:"ざ",okuri:"レバ"},{ch:"積",mark:"二",ok:"つ",okuri:"マ"},{ch:"小"},{ch:"流",mark:"一",okuri:"ヲ"}],
+    order:[2, 3, 1, 0], kudashi:"小流(しょうりゅう)を積(つ)まざれば",
+    note:"荀子「勧学」のことば。小さな流れを集めなければ（大河や海にはならない）。一二点で返ったあと、レ点でさらに一字返る。", src:"荀子"
+  },
+  { lv:"ついか・レ点と一二点20　荀子（不登高山）", white:"不登高山",
+    chars:[{ch:"不",mark:"レ",ok:"ざ",okuri:"レバ"},{ch:"登",mark:"二",ok:"のぼ",okuri:"ラ"},{ch:"高"},{ch:"山",mark:"一",okuri:"ニ"}],
+    order:[2, 3, 1, 0], kudashi:"高山(こうざん)に登(のぼ)らざれば",
+    note:"荀子「勧学」の一節「高山に登らざれば、天の高きを知らざるなり」の前半。一二点で返ったあと、レ点でさらに一字返る。", src:"荀子"
   }
 ];
 
@@ -1242,34 +1749,97 @@ const noOki = idx => idx.filter(i => !hasOki(i));
    五＝置き字の竹林：置き字の入った問題を全部集める（いちばん難しいところなので、置き字だけに焦点を当てる）。
    六＝まじりあう竹林（最後）：もとの五・六・七の竹林（総合・論語・名言・漢詩）から、置き字の入っていない問題。 */
 const ALL_IDX = range(0, KT_PROBLEMS.length - 1);
-const STAGES = [
-  {id:1, no:"一", name:"レの竹林", sub:"レ点の道", idx:noOki(range(0, 16).concat([39]))},
-  {id:2, no:"二", name:"一二の竹林", sub:"一・二点の道", idx:noOki(range(17, 27))},
-  {id:3, no:"三", name:"一レの竹林", sub:"一レ点の道", idx:noOki(range(28, 33))},
-  {id:4, no:"四", name:"上下の竹林", sub:"上・下点の道", idx:noOki(range(34, 38))},
-  {id:5, no:"五", name:"置き字の竹林", sub:"置き字の道（而・於・焉・矣は読まない字）", idx:ALL_IDX.filter(hasOki)},
-  {id:6, no:"六", name:"まじりあう竹林", sub:"まじりあう道（論語・孟子・故事成語・漢詩）", idx:noOki(range(40, KT_PROBLEMS.length - 1))},
+/* 2026-11-07、教員の指示「レ点・一二点の問題数が少ない」：総合・論語・名言・漢詩（40番以降）のうち、置き字がなく、
+   返り点がレ点だけの問題をレの竹林へ、一点・二点だけの問題を一二の竹林へ足す（一レ点・三点・上下点の入った問題は入れない）。
+   まじりあう竹林にも、そのまま残る。 */
+const marksOf = i => KT_PROBLEMS[i].chars.map(c => c.mark).filter(Boolean);
+const onlyMarks = set => i => { const ms = marksOf(i); return ms.length > 0 && ms.every(m => set.includes(m)); };
+const EXTRA_RE = noOki(range(40, KT_PROBLEMS.length - 1)).filter(onlyMarks(["レ"]));
+const EXTRA_12 = noOki(range(40, KT_PROBLEMS.length - 1)).filter(onlyMarks(["一", "二", "三"]));
+const STAGES_ALL = [
+  {id:1, no:"一", name:"レの竹林", sub:"レ点の道", idx:noOki(range(0, 16).concat([39])).concat(EXTRA_RE)},
+  {id:2, no:"二", name:"一二の竹林", sub:"一・二点の道", idx:noOki(range(17, 27)).concat(EXTRA_12)},   // 三点の「王必使民治其国」(27)もふくむ（2026-11-07、教員の指示で一度はずしたが、もどした）
+  /* 2026-11-07、教員の指示：初心者用の3つ目＝レ点と一二点だけがまじった問題（一レ点は出さない）。ふつうのときにも出す。
+     KT_PROBLEMS のうち、印がレ・一・二だけで両方そろい、置き字のない6問（百聞不如一見・無道人之短・欲窮千里目・有朋自遠方来・挙頭望山月・低頭思故郷）。
+     まじりあう竹林にも、そのまま入っている。 */
+  {id:7, no:"三", name:"レ・一二の竹林", sub:"レ点と一・二点がまじる道", idx:noOki(range(40, KT_PROBLEMS.length - 1)).filter(i => onlyMarks(["レ", "一", "二"])(i) && marksOf(i).includes("レ") && marksOf(i).some(m => m !== "レ"))},
+  {id:3, no:"四", name:"一レの竹林", sub:"一レ点の道", idx:noOki(range(28, 33))},
+  {id:4, no:"五", name:"上下の竹林", sub:"上・下点の道", idx:noOki(range(34, 38))},
+  {id:5, no:"六", name:"置き字の竹林", sub:"置き字の道（而・於・焉・矣は読まない字）", idx:ALL_IDX.filter(hasOki)},
+  {id:6, no:"七", name:"まじりあう竹林", sub:"まじりあう道（論語・孟子・故事成語・漢詩）", idx:noOki(range(40, KT_PROBLEMS.length - 1))},
 ];
+/* 初心者用（2026-11-07、教員の指示：一年生のうちは「レ点」と「一二点」だけ分かればよい）。
+   ふだん（はじめて）は初心者用＝レの竹林・一二の竹林だけ。STAGES は今のモードで使う竹林で、applyLevelMode() が入れかえる。
+   竹林の開き方・次の竹林・二つの竹林の全部クリア・師匠の鍵・今日のミニゲームの始め方は、みな STAGES を見るので、自動でそろう。
+   師匠との競走も、初心者用ではレ点・一二点の問題だけ（BEGINNER_IDX）。登った笹の高さは師匠戦の分が1/3（climbOne の masterB）。
+   師匠の記録（勝ち数・金色の師匠など）は、初心者用（sv.masterB）とふつう（sv.master）で別。 */
+const BEGINNER_STAGE_IDS = [1, 2, 7];
+const BEGINNER_MARKS = new Set(["レ", "一", "二", "三"]);   // 初心者用で出してよい返り点（一二点の三点はふくむ。2026-11-07、教員の指示で一度はずしてもどした）   // レの竹林・一二の竹林・レ・一二の竹林
+const BEGINNER_IDX = new Set(STAGES_ALL.filter(s => BEGINNER_STAGE_IDS.includes(s.id)).flatMap(s => s.idx));
+let STAGES = STAGES_ALL;
+/* 利き手（2026-11-07、教員の指示）：ふつう（右手用）は「書き下し文は竹の左、札は竹の右」。右手で札を動かしやすいように。
+   左手用は左右を入れかえて「書き下し文は竹の右、札は竹の左」。sv.hand="L" のとき左手用。body.lefty で見た目を切りかえる。 */
+function isLefty(sv){ return (sv || loadSave()).hand === "L"; }
+function applyHand(){ document.body.classList.toggle("lefty", isLefty()); if(typeof refreshHandBtns === "function") refreshHandBtns(); }
+/* 利き手のボタンは、ゲーム中（「つける」竹林の#game、師匠戦の#master）に置く（2026-11-07、教員の指示）。押したらその場で並べなおす */
+function handBtnHtml(){ return isLefty() ? "🤚 左手用（札は左）" : "✋ 右手用（札は右）"; }
+function refreshHandBtns(){
+  ["handBtnG", "handBtnM"].forEach(id => { const b = $(id); if(b){ b.textContent = handBtnHtml(); b.classList.toggle("on", isLefty()); } });
+  const g = $("handBtnG"); if(g) g.hidden = !(G && G.mode === "kt");
+}
+function toggleHand(){
+  const sv = loadSave();
+  sv.hand = isLefty(sv) ? "R" : "L";
+  saveSave(sv);
+  applyHand();
+  refreshHandBtns();
+  // 「つける」竹林の途中なら、短冊と札をその場で反対側へ（置いた札・はずれの札の状態はそのまま）
+  if(G && G.mode === "kt" && $("game").classList.contains("show")){
+    placeKudashi();
+    if(G.fmt === "drag" && !G.done && G.chips){ G.chipSide = null; G.chipSpots = null; G.chipPos = {}; renderScatter(); }
+  }
+  begToast(sv.hand === "L" ? "🤚 左手用（札は左）" : "✋ 右手用（札は右）");
+}
+function isBeginner(sv){ return (sv || loadSave()).beginner !== false; }
+function applyLevelMode(){ STAGES = isBeginner() ? STAGES_ALL.filter(s => BEGINNER_STAGE_IDS.includes(s.id)) : STAGES_ALL; }
+function toggleBeginner(){
+  const sv = loadSave();
+  sv.beginner = !isBeginner(sv);
+  saveSave(sv);
+  applyLevelMode();
+  showTitle();
+  begToast(sv.beginner ? "🔰 初心者用：レ点・一二点だけ" : "初心者用オフ：すべての竹林");
+}
+function begToast(text){
+  const el = document.createElement("div");
+  el.className = "beg-toast"; el.textContent = text;
+  document.body.appendChild(el);
+  setTimeout(() => el.classList.add("out"), 2600);
+  setTimeout(() => el.remove(), 3100);
+}
 const QUESTIONS_PER_RUN = 5;
 // 2026-10-12〜、教員の指示「冗長」で竹林えらびの下の長い遊び方説明（howto）を削除。章名の下の一行説明（desc）だけ残す
 const CHAPTERS = [
-  {mode:"yj", name:"流れる竹林", icon:"🎋", desc:"流れてくる竹を、読む順に次々タップ"},
-  {mode:"kt", name:"返り点をつける", icon:"🐼", desc:"返り点の札を節にかけて、パンダの降りる道をつくる"},
+  {mode:"yj", name:"「読む」竹林", icon:"🎋", desc:"流れてくる竹を、読む順にタップ", pose:"jump", mark:"読", sub:"読む順にたどる"},   // 2026-11-07、教員の指示で「流れる竹林」から改名
+  {mode:"kt", name:"「つける」竹林", icon:"🐼", desc:"返り点の札を、正しい字に置く", pose:"eat", mark:"レ", sub:"返り点をつける"},   // 2026-11-07、教員の指示で「返り点をつける」から改名
 ];
 const chapterOf = mode => CHAPTERS.find(c => c.mode === mode);
 const runSize = stage => Math.min(QUESTIONS_PER_RUN, stage.idx.length);
 /* 2026-10-12〜、教員の指示：章ごとに竹林を一つずつクリアして次を開く。両方の章を全部クリアするとマスターパンダの鍵が開く。
-   クリアの基準：第一章（流れる竹林）＝FLOW_GOAL本わたりきる（途中でライフがつきたらクリアではない）。
+   クリアの基準：第一章（流れる竹林）＝FLOW_GOAL本わたりきるか、★（ミスなし）がKT_CLEAR_RATE以上（10本中6本。2026-11-09〜）。
    第二章（返り点をつける）＝出た問題のうち、1回目で成功（★）がKT_CLEAR_RATE以上（5問なら★3つ）。
    記録はsv.stageClear（以前のsv.cleared.yjは「最後まで遊んだ」だけで付いていたので、使わない）。 */
 const KT_CLEAR_RATE = 0.6;
 const ktClearStars = stage => Math.ceil(runSize(stage) * KT_CLEAR_RATE);
+// 「読む」竹林も、10本中★（ミスなし）6本＝5問中3問の割合でクリア（2026-11-09、教員の指示）。10本わたりきってもクリア（これまでどおり）
+const flowClearStars = () => Math.ceil(FLOW_GOAL * KT_CLEAR_RATE);
 const stageCleared = (sv, mode, id) => !!sv.stageClear[mode][id];
-const stageOpen = (sv, mode, id) => id === STAGES[0].id || stageCleared(sv, mode, id - 1);
+const stageAt = (id, d) => { const i = STAGES.findIndex(s => s.id === id); return i < 0 ? undefined : STAGES[i + d]; };   // d＝-1で前、+1で次
+const stageOpen = (sv, mode, id) => id === STAGES[0].id || (stageAt(id, -1) && stageCleared(sv, mode, stageAt(id, -1).id));
 const chapterCleared = (sv, mode) => STAGES.every(s => stageCleared(sv, mode, s.id));
 /* 結果画面のボタン。この竹林をクリアしていて次の竹林があれば「次の竹林へ」を先頭に出す（2026-10-12〜、教員の指示） */
 function resultBtnsHtml(sv, mode, id){
-  const next = STAGES.find(s => s.id === id + 1);
+  const next = stageAt(id, 1);
   const canNext = next && stageCleared(sv, mode, id);
   return (canNext ? `<button class="btn gold" onclick="startStage('${mode}', ${next.id})">次の竹林へ</button>` : "")
     + `<button class="btn${canNext ? "" : " gold"}" onclick="startStage('${mode}', ${id}, true)">もう一度</button>`
@@ -1280,9 +1850,15 @@ function markStageClear(sv, mode, id){
   if(stageCleared(sv, mode, id)) return "";
   const before = masterUnlocked(sv);
   sv.stageClear[mode][id] = true;
-  const next = STAGES.find(s => s.id === id + 1);
-  let msg = next ? `<br>🔓 ${esc(next.name)}が開いた！` : `<br>🏆 「${esc(chapterOf(mode).name)}」を全部クリア！`;
-  if(!before && masterUnlocked(sv)) msg += `<br>🌸 大熊猫師匠と競走できるようになった！`;
+  const next = stageAt(id, 1);
+  let msg = next ? `<br>🔓 ${esc(next.name)}が開いた！` : `<br>🏆 ${esc(chapterOf(mode).name)}を全部クリア！`;
+  const nowMaster = !before && masterUnlocked(sv);
+  if(nowMaster) msg += `<br>🌸 大熊猫師匠と競走できるようになった！`;
+  // 結果画面が出たあとに、大きなお祝いを順に見せる（2026-11-07、教員の指示）
+  const q = [];
+  if(isBeginner(sv) && chapterCleared(sv, mode)) q.push(done => begChapterCeleb(mode, done));
+  if(nowMaster) q.push(done => masterUnlockCeleb(done));
+  if(q.length) setTimeout(() => celebQueue(q), 900);
   return msg;
 }
 
@@ -1297,8 +1873,9 @@ function markStageClear(sv, mode, id){
    ===================================================================== */
 const CLIMB_STEP = {easy:0.5, normal:1, master:[2, 5]};
 const CLIMB_VER = 2;   // 笹1本＝0.5m（マスター1m）にした版。これより古いセーブは loadSave で数えなおす
-const climbKind = stageId => stageId <= 2 ? "easy" : "normal";   // 竹林の番号から
+const climbKind = stageId => BEGINNER_STAGE_IDS.includes(stageId) ? "easy" : "normal";   // 初心者用の3つの竹林は0.5m
 const climbOne = kind => {
+  if(kind === "masterB") return Math.round(climbOne("master") / 3 * 10) / 10;   // 初心者用の師匠戦は1/3（0.1mきざみ）
   const v = CLIMB_STEP[kind] || CLIMB_STEP.normal;
   if(!Array.isArray(v)) return v;
   return v[0] + Math.floor(Math.random() * ((v[1] - v[0]) * 2 + 1)) / 2;   // 0.5m きざみ
@@ -1378,9 +1955,10 @@ const climbNext = m => CLIMB_MARKS.find(c => c.m > m);
 // いまどこまで登ったかの一言（タイトル用）
 function climbNowHtml(m){
   const last = climbPassed(m).pop(), next = climbNext(m);
-  if(!last) return `まだ地面の上。${next ? `まずは${next.i} ${esc(next.n)}（${esc(next.d)}）をめざそう` : ""}`;
+  // まだ届いていない目印は、何の高さかを隠す（2026-11-07、教員の指示）
+  if(!last) return `まだ地面の上。${next ? `最初の目印まで あと${fmtM(next.m - m)}` : ""}`;
   if(!next) return `${last.i} <b>${esc(last.n)}</b><br><span class="climb-x">${esc(last.x)}</span>`;
-  return `${last.i} <b>${esc(last.n)}</b>（${esc(last.d)}）をこえた！<br><span class="climb-x">${esc(last.x)}</span><br>次は ${next.i} ${esc(next.n)}まで あと${fmtM(next.m - m)}`;
+  return `${last.i} <b>${esc(last.n)}</b>（${esc(last.d)}）をこえた！<br><span class="climb-x">${esc(last.x)}</span><br>次の目印まで あと${fmtM(next.m - m)}`;
 }
 // 結果画面用：今回登った高さと、こえた目印
 function climbGainHtml(m0, m1){
@@ -1393,11 +1971,11 @@ function climbGainHtml(m0, m1){
 let climbAtStart = 0;   // 1回分を始めたときの高さ（結果画面で、今回こえた目印を出す）
 /* 高さくらべで見せる目印（2026-10-12〜、教員の指示）：はじめは岩手山（CLIMB_OPEN_TO）までだけ。
    岩手山をこえたら、いまの高さまでの目印と「次の目印」1つだけを見せ、それより上はかくす（雲の行を1つ出す）。 */
-const CLIMB_OPEN_TO = 2038;
+/* 2026-11-08、教員の指示「目標が高すぎてやる気が出ないかもしれない」：高さにかかわらず、まだ届いていない目印は2つ先までだけ見せる */
+const CLIMB_AHEAD = 2;
 function climbVisible(m){
-  if(m < CLIMB_OPEN_TO) return CLIMB_MARKS.filter(c => c.m <= CLIMB_OPEN_TO);
-  const next = climbNext(m);
-  return CLIMB_MARKS.filter(c => c.m <= m || c === next);
+  const ahead = CLIMB_MARKS.filter(c => c.m > m).slice(0, CLIMB_AHEAD);
+  return CLIMB_MARKS.filter(c => c.m <= m || ahead.includes(c));
 }
 function showClimb(){
   const sv = loadSave(), m = sv.climbM || 0;
@@ -1409,7 +1987,10 @@ function showClimb(){
   for(let k = vis.length - 1; k >= 0; k--){
     const c = vis[k];
     if(!here && c.m <= m){ rows += hereRow; here = true; }
-    rows += `<div class="cl-row${c.m <= m ? " got" : ""}${c.m >= 100000 ? " space" : ""}"><span class="cl-i">${c.i}</span><span class="cl-n">${esc(c.n)}<small>${esc(c.x)}</small></span><span class="cl-d">${esc(c.d)}${c.m <= m ? " ✅" : ""}</span></div>`;
+    // まだ届いていない目印は、何の高さかを隠して「？？？」にする（高さと、あと何mかだけ見せる。2026-11-07、教員の指示）
+    rows += c.m <= m
+      ? `<div class="cl-row got${c.m >= 100000 ? " space" : ""}"><span class="cl-i">${c.i}</span><span class="cl-n">${esc(c.n)}<small>${esc(c.x)}</small></span><span class="cl-d">${esc(c.d)} ✅</span></div>`
+      : `<div class="cl-row secret"><span class="cl-i">❔</span><span class="cl-n">？？？<small>あと${fmtM(c.m - m)}</small></span><span class="cl-d">${fmtM(c.m)}</span></div>`;
   }
   if(!here) rows += hereRow;
   $("climbList").innerHTML = rows + `<div class="cl-row ground"><span class="cl-i">🌱</span><span class="cl-n">地面</span><span class="cl-d">0m</span></div>`;
@@ -1430,11 +2011,15 @@ function showClimb(){
 }
 
 const PC_LSKEY = "panda_chikurin_v1";
+/* 2026-11-07、教員の指示：初心者用を入れたので、途中までやっている人も最初から経験できるよう、この竹林わたりの記録を一度だけ初めからにする。
+   （本体の漢字Questの大熊猫の仲間・本体のジャンルレベルは消さない）。もう一度初めからにするときは、この番号を上げる。 */
+const PC_RESET_VER = 2;   // 2026-11-07：1＝初心者用を入れたとき、2＝レ・一二の竹林を足したとき（教員の指示「改めて、どうなっているか見たい」）
 // 保存：{sasa:笹の合計, best:{yj:{竹林id:★}, kt:{…}}, stageClear:{yj:{竹林id:true}, kt:{…}}}（古いcleared.yjは残っていても使わない）
 function loadSave(){
   let s;
   try{ s = JSON.parse(localStorage.getItem(PC_LSKEY)) || {}; }catch(e){ s = {}; }
   if(!s || typeof s !== "object") s = {};
+  if(s.resetV !== PC_RESET_VER){ s = {resetV:PC_RESET_VER, beginner:true}; saveSave(s); }
   if(!s.best || typeof s.best !== "object" || !s.best.yj) s.best = {yj:{}, kt:{}};   // 章に分ける前の試作の記録（best[竹林id]）は捨てる
   if(!s.best.kt) s.best.kt = {};
   if(!s.stageClear || typeof s.stageClear !== "object") s.stageClear = {};
@@ -1505,7 +2090,23 @@ function masterAllyRoll(golden){
 function mgNotePlayed(){
   try{ const d = new Date(); localStorage.setItem(MG_PLAYED_LSKEY, d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0")); }catch(e){}
 }
+/* イベント経験値の書き置き（2026-10-29〜、教員の指示）：正解1問ごとに {"panda@答えた日付": 正解数} を書き足す。
+   その日にこのゲームのイベントが開催中かどうかは本体（kokugo_app.htmlのmgApplyPendingEventXp）が決める。 */
+const MG_PENDING_EVENT_LSKEY = 'kokugo_minigame_pending_event_v1';
+function mgAddEventCorrect(){
+  try{
+    let o = null;
+    try{ o = JSON.parse(localStorage.getItem(MG_PENDING_EVENT_LSKEY)); }catch(e){}
+    if(!o || typeof o !== 'object') o = {};
+    const d = new Date();
+    const key = 'panda@' + d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    o[key] = (Number(o[key]) || 0) + 1;
+    localStorage.setItem(MG_PENDING_EVENT_LSKEY, JSON.stringify(o));
+  }catch(e){}
+}
+// ジャンルレベルが上がる正解（1回目でミスなく読めた・師匠との競走で正解）のたびに呼ばれるので、イベントの「正解」もここで数える
 function mgLevelUp(cat){
+  mgAddEventCorrect();
   let o = {};
   try{ o = JSON.parse(localStorage.getItem(MG_PENDING_LVUP_LSKEY)) || {}; }catch(e){ o = {}; }
   if(!o || typeof o !== "object") o = {};
@@ -1556,7 +2157,7 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function shuffle(a){ a = a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
-function show(id){ document.querySelectorAll(".screen").forEach(s => s.classList.toggle("show", s.id === id)); }
+function show(id){ document.querySelectorAll(".screen").forEach(s => s.classList.toggle("show", s.id === id)); if(typeof clearPandaSay === "function") clearPandaSay(); }
 function backToApp(){ location.href = "kokugo_app.html?from=minigame"; }
 /* eat／jump／fall は、このゲーム専用の絵（panda_chikurin_sprites_data.js、2026-10-05に教員が追加）。
    読み込めなかったときは、漢字Questの大熊猫の近い絵で代用する。 */
@@ -1700,6 +2301,7 @@ const sfx = {
   ok(){ tone(660, .12, "sine", .18); tone(990, .2, "sine", .18, .1); },
   clear(){ [523, 659, 784, 1047].forEach((f, i) => tone(f, .25, "triangle", .16, i * .11)); },
   wind(){ tone(240, .5, "sine", .05, 0, 520); tone(330, .45, "triangle", .03, .08, 180); },
+  poke(){ tone(700 + Math.random() * 300, .08, "sine", .1, 0, 1200); },
 };
 function toggleMute(){
   muted = !muted; $("muteBtn").textContent = muted ? "🔇" : "🔊";
@@ -1714,22 +2316,33 @@ function toggleMute(){
 let curMode = "yj";
 function showTitle(){
   document.body.classList.remove("goldm");
+  applyLevelMode();
+  applyHand();
+  { const b = isBeginner(), bb = $("begBtn");
+    bb.classList.toggle("on", b);
+    bb.innerHTML = `<span class="bb-ic">🔰</span><span class="bb-t">初心者用<small>${b ? "レ点・一二点だけ" : "オフ（すべての竹林）"}</small></span><span class="bb-sw"><i></i></span>`; }
   $("titlePanda").innerHTML = pandaHtml("pose1");
   const sv = loadSave();
   const cm = sv.climbM || 0;
   $("sasaTotal").innerHTML = `🎋 これまで登った笹：<b>${sv.sasa || 0}本</b>（${fmtM(cm)}）`
     + `<div class="climb-now">${climbNowHtml(cm)}</div><button class="climb-btn" onclick="showClimb()">📏 高さくらべ</button>`;
-  // マスターパンダは第一章の上に置く（2026-10-12〜、教員の指示）
-  const chaps = CHAPTERS.map(ch => `<button class="stage chap" onclick="showStages('${ch.mode}')">
-      <span class="no">${ch.icon}</span>
-      <span><div class="nm mincho">${esc(ch.name)}</div><div class="ds">${esc(ch.desc)}</div></span></button>`).join("");
-  /* マスターパンダに挑戦できるようになったら、二つの章は一つのボタンにたたむ（2026-10-18、教員の指示）。
-     押すと開いて二つの章が出る。開いたかどうかは覚えない（タイトルにもどるたびにたたんだ形） */
-  $("chapList").innerHTML = masterTitleHtml(sv) + (masterUnlocked(sv)
-    ? `<details class="chap-fold"><summary class="stage chap"><span class="no">🎋</span>
-        <span><div class="nm mincho">竹林をわたる</div><div class="ds">${CHAPTERS.map(ch => esc(ch.name)).join("・")}</div></span><span class="arrow">▼</span></summary>
-        <div class="chap-in">${chaps}</div></details>`
-    : chaps);
+  /* タイトル（2026-11-07、教員の指示）：いちばん上に「大熊猫師匠と競走」、その下に二つの竹林を、どちらも魅力的に大きなカードで並べる。
+     以前の「竹林をわたる ▼」にたたむ形（2026-10-18〜）はやめた。 */
+  const chaps = CHAPTERS.map(ch => {
+    const n = STAGES.filter(s => stageCleared(sv, ch.mode, s.id)).length, all = n === STAGES.length;
+    const next = STAGES.find(s => !stageCleared(sv, ch.mode, s.id));
+    return `<button class="chap-card ${ch.mode}" onclick="showStages('${ch.mode}')">
+      <span class="cc-mark mincho" aria-hidden="true">${ch.mark}</span>
+      <span class="cc-panda">${pandaHtml(ch.pose)}</span>
+      <span class="cc-sub">${esc(ch.sub)}</span>
+      <span class="cc-name mincho">${esc(ch.name)}</span>
+      <span class="cc-desc">${esc(ch.desc)}</span>
+      <span class="cc-prog"><span class="cc-bar"><i style="width:${Math.round(n / STAGES.length * 100)}%"></i></span>${all ? "🏆 全部クリア" : `クリア ${n}／${STAGES.length}`}</span>
+      ${!all && next ? `<span class="cc-next">つぎは ${esc(next.name)}</span>` : ""}
+      <span class="cc-go">竹林へ ▶</span>
+    </button>`;
+  }).join("");
+  $("chapList").innerHTML = masterTitleHtml(sv) + `<div class="chap-cards">${chaps}</div>`;
   show("title");
 }
 function showStages(mode){
@@ -1743,7 +2356,7 @@ function showStages(mode){
     const best = sv.best[mode][s.id];
     const max = mode === "yj" ? FLOW_GOAL : runSize(s);
     const mk = (isNext ? "" : "✅ クリア<br>") + (best != null ? `最高 ★${best}／${max}` : "");
-    const ds = mode === "yj" ? `${esc(s.sub)}（${FLOW_GOAL}本わたりきればクリア）` : `${esc(s.sub)}（${max}問中★${ktClearStars(s)}つでクリア）`;
+    const ds = mode === "yj" ? `${esc(s.sub)}（${FLOW_GOAL}本中★${flowClearStars()}つでクリア）` : `${esc(s.sub)}（${max}問中★${ktClearStars(s)}つでクリア）`;
     return `<button class="stage${isNext ? " next" : ""}" onclick="startStage('${mode}', ${s.id})">
       ${isNext ? `<span class="ask-bubble">挑戦しよう！</span>` : ""}<span class="no mincho">${s.no}</span>
       <span><div class="nm">${esc(s.name)}</div><div class="ds">${ds}</div></span>
@@ -1785,17 +2398,20 @@ function makeRun(mode, stage){
 // noDemo＝お手本を見せずにすぐ始める（結果画面の「もう一度」、お手本の「やってみる！」「とばす」）
 function startStage(mode, id, noDemo){
   curMode = mode;
-  const stage = STAGES.find(s => s.id === id);
+  const stage = STAGES_ALL.find(s => s.id === id);
   if(!noDemo && STAGE_DEMO[id]){ startDemo(mode, stage); return; }
   if(G) G.gen++;
   climbAtStart = loadSave().climbM || 0;
   if(mode === "yj"){ startFlow(stage); return; }
-  G = {mode, stage, list:makeRun(mode, stage), k:0, results:[], sasa:0, gen:0};
+  // gen は前の G から続けて数える（0から数え直すと、札の置き場 #scatter の「前の問題の札を消す」判定がすり抜け、
+  // 前の問題の札が残って正解の札が出ないことがあった。2026-11-09、教員の報告で修正）
+  G = {mode, stage, list:makeRun(mode, stage), k:0, results:[], sasa:0, gen:(G ? G.gen : 0) + 1};
   startQ();
 }
 function curP(){ return (M && M.p) ? M.p : KT_PROBLEMS[G.list[G.k].idx]; }
 const correctMarks = p => p.chars.map(c => c.mark || "");
 function startQ(){
+  refreshHandBtns();
   const it = G.list[G.k], p = curP(), ch = chapterOf(G.mode);
   Object.assign(G, {
     fmt:it.fmt, miss:0, tries:0, done:false, star:false, busy:false, hopQ:null, gen:G.gen + 1,
@@ -1810,7 +2426,8 @@ function startQ(){
   $("kudashi").classList.remove("reveal"); $("kudashi").style.visibility = "";
   $("bubble").style.minHeight = "";   // お手本で固定した吹き出しの高さをもどす
   $("demoCtl").hidden = true; $("demoCtl").innerHTML = ""; $("game").classList.remove("demo-on");
-  $("kudashi").hidden = G.mode === "yj";   // 第一章は書き下し文を最後まで見せない／第二章はめあてとして最初から見せる
+  $("kudashi").hidden = G.mode === "yj";
+  placeKudashi();   // 第一章は書き下し文を最後まで見せない／第二章はめあてとして最初から見せる
   $("setStars").innerHTML = "";
   hideTray(); $("opts").hidden = true; $("scatter").hidden = true; G.chipPos = null;
   document.querySelector("#game .field").classList.remove("shift");
@@ -1828,8 +2445,21 @@ function markOki(){
 }
 function updateSasa(){ $("hudSasa").textContent = `🎋 ${G.sasa}`; }
 // 空のことばを渡すと吹き出しごと隠す（「返り点を置く」のはじめは、説明の吹き出しを出さない）
-function say(html, cls){ const b = $("bubble"); b.innerHTML = html; b.className = "bubble" + (cls ? " " + cls : ""); b.hidden = !html; }
-function showHint(){ $("hintBox").textContent = "💡 " + curP().note; $("hintBox").hidden = false; }
+function say(html, cls){
+  const b = $("bubble"); b.innerHTML = html; b.className = "bubble" + (cls ? " " + cls : "");
+  // 「つける」竹林（お手本でないとき）は、空でも場所をとったまま見えなくするだけ（ぐらつかないように）
+  const keep = !!(G && G.mode === "kt" && !G.demo);
+  b.classList.toggle("keep", keep);
+  b.classList.toggle("blank", keep && !html);
+  b.hidden = !html && !keep;
+}
+// ヒント：「つける」竹林では竹の下に出す（竹の上に出すと竹が下へずれて、画面がぐらつくため。2026-11-07）。お手本の手順札は竹の上のまま
+function placeHintBox(below){
+  const hb = $("hintBox"), field = document.querySelector("#game .field");
+  if(below){ if(field.nextElementSibling !== hb) field.after(hb); hb.classList.add("below"); }
+  else { const kd = $("kudashi"), ref = field.previousElementSibling === kd ? kd : field; if(ref.previousElementSibling !== hb) ref.before(hb); hb.classList.remove("below"); }
+}
+function showHint(){ placeHintBox(!!(G && G.mode === "kt" && !G.demo)); $("hintBox").textContent = "💡 " + curP().note; $("hintBox").hidden = false; }
 function shakeEl(el){ if(!el) return; el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake"); }
 
 /* 1問の終わり（どの聞き方も共通）。ok＝1回目でまちがえずに答えられた */
@@ -1841,7 +2471,7 @@ function finishQ(ok, html){
   $("scatter").hidden = true; G.sel = null;
   $("stalk").querySelectorAll(".cell").forEach(c => c.classList.remove("ask", "tappable"));
   markOki();
-  if($("kudashi").hidden){ $("kudashi").hidden = false; $("kudashi").classList.add("reveal"); }
+  if($("kudashi").hidden){ $("kudashi").hidden = false; $("kudashi").classList.add("reveal"); fitHorizKudashi(); }
   if(ok){
     G.star = true; addSasa(); mgLevelUp(G.mode === "yj" ? "kanbun_yj" : "kanbun_kt"); sfx.clear(); leafBurst(); setPose("eat");
     say(html + "<br>笹を1本ゲット🎋", "good");
@@ -1907,7 +2537,18 @@ function onTapChar(i){
 function onTapSlot(i){
   if(G.done || G.busy) return;
   if(G.fmt === "place") placeDrop(i);
-  else if(G.fmt === "drag" && G.sel != null) dragJudge(G.sel, i);
+  else if(G.fmt === "drag"){
+    if(G.sel != null){ dragJudge(G.sel, i); return; }
+    // 「付けたい場所」を先にタップしてから札を選ぶこともできる（2026-11-07、教員の指示）。もう一度タップで外す
+    const sl = $("stalk").querySelector(`.slot[data-slot="${i}"]`);
+    if(!sl || G.marks[i] || sl.classList.contains("none") || sl.classList.contains("static")) return;
+    setSelSlot(G.selSlot === i ? null : i); sfx.place();
+  }
+}
+function setSelSlot(i){
+  G.selSlot = i;
+  $("stalk").querySelectorAll(".slot.focus").forEach(s => s.classList.remove("focus"));
+  if(i != null){ const sl = $("stalk").querySelector(`.slot[data-slot="${i}"]`); if(sl) sl.classList.add("focus"); }
 }
 
 /* ---------- カード（返り点・数字）のトレー ---------- */
@@ -1922,7 +2563,7 @@ function hideTray(){ $("tray").hidden = true; $("trayNote").hidden = true; }
 function palette(){ return KT_BASELINE_MARKS.concat(curP().extra || []); }
 // 「ひとつだけ」「まちがいさがし」で選べるカード。一レ点は、その文にあってもなくても最初から1枚のカードとして入れる
 // （2026-10-06、教員の指示。以前は一レ点のある文だけに出していたので、カードを見ただけで答えの手がかりになっていた）
-function pickPalette(){ const a = palette(); a.push("一レ"); return a; }
+function pickPalette(){ const a = palette(); a.push("一レ"); return isBeginner() ? a.filter(m => ["レ", "一", "二"].includes(m)) : a; }   // 初心者用は、まだ習わない一レ・上下などを札に出さない（2026-11-07）
 
 /* =====================================================================
    パンダのお手本（2026-10-12〜、教員の指示）
@@ -1942,12 +2583,16 @@ const STAGE_DEMO = {
                     "一・二点を先に読み終えてから、上点の字を読んで、下点の字へ返るよ。"]},
   5:{idx:7, intro:["<b>置き字</b>は、書いてあっても<b>読まない字</b>。「而・於・焉・矣」などがあるよ。",
                    "読まないけれど、前後のつながりや気持ちを表している。その意味は、まわりの字の送り仮名に表れるよ。下の一覧を見てね。"], okiList:true},
+  7:{idx:40, intro:["ここでは、<b>レ点と一・二点がいっしょに</b>出てくる。",
+                    "一字だけ上へ返るならレ点、二字以上はなれた上へ返るなら一・二点。どちらの返り方かを、一つずつ見分けよう。"]},
   6:{idx:40, intro:["ここでは、<b>これまでの返り点がまじって</b>出てくる。",
                     "きまりは同じ。上から読んで、返り点のある字は後回し。条件がそろったら返って読む。一つずつ落ち着いて見ていこう。"]},
 };
 /* 「返り点をつける」のお手本の intro（2026-10-18、教員の指示：読み方の説明ではなく、「どう考えれば返り点をつけられるか」の
    視点で作り直す）。手順は ①書き下し文から読む順に番号 ②番号が上へもどる所をさがす ③もどる幅で返り点を決める ④たしかめる。 */
 const KT_DEMO_INTRO = {
+  7:["一つの文に、<b>レ点と一・二点の両方</b>が出てくるよ。",
+     "読む順がもどるところを一つずつ見て、<b>一字だけ</b>もどるならレ点、<b>二字以上</b>もどるなら一・二点をつけよう。"],
   1:["返り点をつけるときは、まず<b>書き下し文で読む順</b>をたしかめるよ。",
      "読む順が<b>一字だけ上へもどる</b>ところを見つけたら、もどった先の字に<b>レ点</b>をつける。"],
   2:["読む順が<b>二字以上はなれて上へもどる</b>ところには、<b>一・二点</b>をつけるよ。",
@@ -2094,6 +2739,7 @@ function lockBubble(lines, cls){
   b.style.minHeight = h + "px";
 }
 function startDemo(mode, stage){
+  setTimeout(refreshHandBtns, 0);   // 利き手のボタンは「つける」竹林のときだけ
   const d = STAGE_DEMO[stage.id], ch = chapterOf(mode);
   G = {mode, stage, list:[{idx:d.idx, fmt:"demo"}], k:0, results:[], sasa:0, gen:(G ? G.gen : 0) + 1, demo:true,
        fmt:"demo", busy:true, done:false, walking:false, skip:false, slots:false, slotLock:false,
@@ -2107,11 +2753,13 @@ function startDemo(mode, stage){
   $("chapTab").textContent = `${ch.icon} ${ch.name}　―　🐼 パンダのお手本`;
   // 手順の札と置き字の一覧は、はじめから出しておく（途中で出すと下の竹がずれるため）
   const guide = (mode === "kt" ? ktGuideHtml(0) : "") + (d.okiList ? okiListHtml() : "");
+  placeHintBox(false);
   $("hintBox").innerHTML = guide; $("hintBox").hidden = !guide;
   $("kudashiTx").innerHTML = ruby(p.kudashi);
   // 書き下し文：「返り点をつける」はめあてとして最初から見せる。流れる竹林は最後に見せるが、場所だけは先にとっておく
   $("kudashi").classList.remove("reveal"); $("kudashi").hidden = false;
   $("kudashi").style.visibility = mode === "kt" ? "" : "hidden";
+  requestAnimationFrame(placeKudashi);
   $("setStars").innerHTML = "";
   hideTray(); $("opts").hidden = true; $("scatter").hidden = true; G.chipPos = null;
   document.querySelector("#game .field").classList.remove("shift");
@@ -2267,25 +2915,36 @@ document.addEventListener("keydown", e => {
 
 /* ---------- パンダと足あと ---------- */
 let pandaY = 0, pandaPose = "";
+const pandaTopRoom = () => Math.round(G.v.h * 1.3);   // 竹の上にあける、パンダが待つためのすき間
+let pandaXNow = 0;   // いまのパンダの横の位置（竹の上で待っているときと、右の道を跳んでいるときでちがう）
 function layoutGrove(){
-  const v = G.v, st = $("stalk"), w = v.colL + v.colW + v.anW + Math.round(v.h * 1.6), h = st.offsetHeight + 6;
+  const v = G.v, st = $("stalk"), top = pandaTopRoom();
+  st.style.marginTop = top + "px";
+  const w = v.colL + v.colW + v.anW + 8, h = st.offsetHeight + 6 + top;
   $("grove").style.width = w + "px"; $("grove").style.height = h + "px";
-  const svg = $("trail"); svg.setAttribute("width", w); svg.setAttribute("height", h); svg.innerHTML = "";
+  const sw = w + Math.round(v.h * 1.6);   // 足あとの線は、竹のまとまりの右へはみ出して描く
+  const svg = $("trail"); svg.setAttribute("width", sw); svg.setAttribute("height", h); svg.style.overflow = "visible"; svg.innerHTML = "";
   const pd = $("panda"); pd.style.width = Math.round(v.h * 1.25) + "px";
+  if(kudashiVertOn()) placeKudashi();
 }
+// 竹の上で待つときの横の位置：竹（字の列）のまん中
+function pandaRestX(){ const v = G.v, pw = $("panda").offsetWidth || Math.round(v.h * 1.25); return Math.round(v.colL + v.colW / 2 - pw / 2); }
 // 足あとの線とパンダは、送り仮名の列（anW）のさらに外側を通す（送り仮名に重ならないように）
 function trailX(){ const v = G.v; return v.colL + v.colW + v.anW; }
 function pandaX(){ return trailX() + Math.round(G.v.h * .2); }
-function nodeY(i){ const c = cellEl(i); return c.offsetTop + c.offsetHeight / 2; }
-function startY(){ return G.v.h / 2; }
+// 字のまん中の高さ（#grove から測る）。竹の上にパンダのすき間をあけたので、竹（#stalk）の位置も足す（2026-11-07修正：パンダが字より上にずれていた）
+function nodeY(i){ const c = cellEl(i); return $("stalk").offsetTop + c.offsetTop + c.offsetHeight / 2; }
+// 竹の上で待つときのたての位置：パンダの足が竹のてっぺんのすぐ上に来るように（字にかぶらない）
+function startY(){ const pd = $("panda"), ph = pd.offsetHeight || Math.round(G.v.h * 1.25); return $("stalk").offsetTop - 4 - ph * .38; }
 function setPose(pose){ if(pose === pandaPose) return; pandaPose = pose; $("panda").innerHTML = pandaHtml(pose); }
 function pandaTransform(x, y, s){ const pd = $("panda"); const ph = pd.offsetHeight || G.v.h; return `translate(${x}px, ${y - ph * .62}px) scale(${s || 1})`; }
 function placePandaAtStart(){
   setPose("pose1");
   pandaY = startY();
+  pandaXNow = pandaRestX();
   const pd = $("panda");
   pd.getAnimations().forEach(a => a.cancel());
-  pd.style.transform = pandaTransform(pandaX(), pandaY);
+  pd.style.transform = pandaTransform(pandaXNow, pandaY);
   $("trail").innerHTML = "";
 }
 /* 第二章のパンダの歩く速さ（2026-10-06、教員の指示「もう少しテンポよく」：約2倍速に。もとは 330／520／250／60ms）。
@@ -2296,17 +2955,17 @@ function walkEnd(){ G.walking = false; G.skip = false; }
 const walkWait = ms => G.skip ? Promise.resolve() : sleep(ms);
 // 節iへ跳ぶ。上へ戻るとき（返って読む）は大きく弧を描き、足あとの線の色も変える
 function hopTo(i){
-  const x = pandaX(), y0 = pandaY, y1 = nodeY(i), back = y1 < y0 - 1;
+  const x0 = pandaXNow, x = pandaX(), y0 = pandaY, y1 = nodeY(i), back = y1 < y0 - 1;
   const bulge = back ? G.v.h * 1.1 : G.v.h * .45, lift = back ? 0 : G.v.h * .25;
   const pd = $("panda");
   const a = pd.animate([
-    {transform:pandaTransform(x, y0)},
-    {transform:pandaTransform(x + bulge, (y0 + y1) / 2 - lift, 1.08), offset:.5},
+    {transform:pandaTransform(x0, y0)},
+    {transform:pandaTransform(Math.max(x0, x) + bulge, (y0 + y1) / 2 - lift, 1.08), offset:.5},
     {transform:pandaTransform(x, y1)},
   ], {duration: G.skip ? 1 : (back ? HOP_BACK_MS : HOP_MS), easing:"ease-in-out", fill:"forwards"});
   setPose("jump"); if(!G.skip){ if(back) sfx.back(); else sfx.hop(); }
   drawTrail(y0, y1, back);
-  pandaY = y1;
+  pandaY = y1; pandaXNow = x;
   return a.finished.then(() => { pd.style.transform = pandaTransform(x, y1); a.cancel(); if(pandaPose === "jump") setPose("pose1"); }).catch(() => {});
 }
 function drawTrail(y0, y1, back){
@@ -2345,11 +3004,12 @@ document.getElementById("game").addEventListener("pointerdown", () => { if(G && 
 function pandaFlinch(pose, ms){
   setPose(pose);
   const pd = $("panda");
-  pd.animate([{transform:pandaTransform(pandaX(), pandaY)}, {transform:pandaTransform(pandaX() + 6, pandaY)}, {transform:pandaTransform(pandaX() - 6, pandaY)}, {transform:pandaTransform(pandaX(), pandaY)}], {duration:300});
+  const px = pandaXNow;
+  pd.animate([{transform:pandaTransform(px, pandaY)}, {transform:pandaTransform(px + 6, pandaY)}, {transform:pandaTransform(px - 6, pandaY)}, {transform:pandaTransform(px, pandaY)}], {duration:300});
   setTimeout(() => { if(pandaPose === pose) setPose("pose1"); }, ms || 600);
 }
 function leafBurst(){
-  const g = $("grove").getBoundingClientRect(), cx = g.left + pandaX() + 20, cy = g.top + pandaY;
+  const g = $("grove").getBoundingClientRect(), cx = g.left + pandaXNow + 20, cy = g.top + pandaY;
   for(let i = 0; i < 12; i++){
     const el = document.createElement("div");
     el.className = "leaf"; el.textContent = i % 3 ? "🍃" : "🎋";
@@ -2357,6 +3017,262 @@ function leafBurst(){
     document.body.appendChild(el);
     const ang = Math.random() * Math.PI * 2, d = 60 + Math.random() * 90;
     el.animate([{transform:"translate(0,0) rotate(0)", opacity:1}, {transform:`translate(${Math.cos(ang) * d}px, ${Math.sin(ang) * d - 40}px) rotate(${Math.random() * 360}deg)`, opacity:0}], {duration:1100 + Math.random() * 500, easing:"ease-out"}).finished.then(() => el.remove());
+  }
+}
+
+/* =====================================================================
+   パンダにさわると反応する（2026-11-08、教員の指示）
+   ・「つける」竹林・「流れる」竹林：パンダを押すと、ぴょんと跳ねたり首をかしげたりして、ときどき一言しゃべる。
+     ゲームの操作をじゃましないように、パンダの絵は押せないまま（下の竹や札も押せる）にして、押した場所がパンダの上かどうかで判定する。
+     動かすのは中の絵だけ（外側の箱は歩く・登る位置の計算に使っているので触らない）。
+   ・ホーム：いろいろな動きをして、ときどき今日の運勢やラッキーアイテムを「でまかせ」でしゃべる。
+   ===================================================================== */
+const pickRand = a => a[Math.floor(Math.random() * a.length)];
+const POKE_ANIMS = {
+  jump:   [{transform:"none"}, {transform:"translateY(4px) scale(1.12,.86)", offset:.15}, {transform:"translateY(-34px) scale(.92,1.1)", offset:.45}, {transform:"translateY(3px) scale(1.1,.9)", offset:.8}, {transform:"none"}],
+  spin:   [{transform:"none"}, {transform:"rotate(360deg)"}],
+  wiggle: [{transform:"none"}, {transform:"rotate(-12deg)"}, {transform:"rotate(12deg)"}, {transform:"rotate(-9deg)"}, {transform:"rotate(9deg)"}, {transform:"none"}],
+  squash: [{transform:"none"}, {transform:"scale(1.25,.75)", offset:.3}, {transform:"scale(.9,1.12)", offset:.65}, {transform:"none"}],
+  tilt:   [{transform:"none"}, {transform:"rotate(-18deg)", offset:.3}, {transform:"rotate(-18deg)", offset:.7}, {transform:"none"}],
+  shiver: [{transform:"none"}, {transform:"translateX(-4px)"}, {transform:"translateX(4px)"}, {transform:"translateX(-4px)"}, {transform:"translateX(4px)"}, {transform:"translateX(-2px)"}, {transform:"none"}],
+  flip:   [{transform:"none"}, {transform:"scaleX(-1)", offset:.25}, {transform:"scaleX(-1)", offset:.75}, {transform:"none"}],
+  dance:  [{transform:"none"}, {transform:"translateX(-10px) rotate(-10deg)"}, {transform:"translateY(-12px)"}, {transform:"translateX(10px) rotate(10deg)"}, {transform:"translateY(-12px)"}, {transform:"translateX(-10px) rotate(-10deg)"}, {transform:"none"}],
+};
+const POKE_MS = {jump:650, spin:700, wiggle:600, squash:450, tilt:900, shiver:450, flip:1000, dance:1300};
+function pokeAnim(el, kind){
+  if(!el || !el.animate) return;
+  el.getAnimations().forEach(a => a.cancel());
+  el.animate(POKE_ANIMS[kind], {duration:POKE_MS[kind], easing:"ease-out"});
+}
+// 吹き出し（画面に固定。ページの大きさは変えない）。同じ持ち主の吹き出しは1つだけ
+const pSayEls = {};
+function pandaSay(owner, el, html, ms, small){
+  if(pSayEls[owner]){ pSayEls[owner].remove(); delete pSayEls[owner]; }
+  if(!el) return;
+  const r = el.getBoundingClientRect(), b = document.createElement("div");
+  b.className = "p-say" + (small ? " small" : ""); b.innerHTML = html;
+  document.body.appendChild(b);
+  const half = b.offsetWidth / 2, x = Math.max(half + 6, Math.min(window.innerWidth - half - 6, r.left + r.width / 2));
+  // 上に場所がないとき（ホームのパンダは画面のいちばん上）は、パンダの下に出す
+  const below = r.top - 6 < b.offsetHeight + 6;
+  b.classList.toggle("below", below);
+  b.style.left = x + "px"; b.style.top = (below ? r.bottom + 4 : r.top - 6) + "px";
+  pSayEls[owner] = b;
+  const ty = below ? "0" : "-100%";
+  b.animate([{opacity:0, transform:`translate(-50%, ${ty}) scale(.8)`}, {opacity:1, transform:`translate(-50%, ${ty}) scale(1)`}], {duration:180, easing:"ease-out"});
+  setTimeout(() => {
+    if(pSayEls[owner] !== b) return;
+    b.animate([{opacity:1}, {opacity:0}], {duration:250}).finished.then(() => { b.remove(); if(pSayEls[owner] === b) delete pSayEls[owner]; });
+  }, ms || 2200);
+}
+// 画面が切りかわったら吹き出しを消す
+function clearPandaSay(){ const had = !!pSayEls.home; Object.keys(pSayEls).forEach(k => { pSayEls[k].remove(); delete pSayEls[k]; }); if(had) resetHomePanda(); }
+
+/* --- 竹林の中のパンダ（「つける」＝#panda、「流れる」＝#flowPanda） --- */
+const POKE_LINES_PLAY = ["ん？", "くすぐったい！", "がんばって！", "いっしょにわたろう！", "笹、ほしいな…", "返り点は道しるべだよ", "下の字から返るんだよ",
+  "ぼくは押すものじゃないよ〜", "じっくりでいいよ", "おなかすいた…", "ふふっ", "よそ見しないで〜", "どこから読む？", "その調子！"];
+let pokeLast = 0, pokeCount = 0;
+document.addEventListener("pointerdown", e => {
+  const scr = document.querySelector(".screen.show"), id = scr && {game:"panda", flow:"flowPanda"}[scr.id];
+  if(!id) return;
+  const box = $(id), img = box && box.firstElementChild;
+  if(!img) return;
+  const r = img.getBoundingClientRect();
+  if(!r.width || e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) return;
+  const now = Date.now();
+  if(now - pokeLast < 350) return;
+  pokeCount = now - pokeLast < 1500 ? pokeCount + 1 : 1;
+  pokeLast = now;
+  sfx.poke();
+  if(pokeCount >= 6){ pokeCount = 0; pokeAnim(img, "spin"); pandaSay("play", img, "目が回る〜", 1500, true); return; }
+  pokeAnim(img, pickRand(["jump", "wiggle", "squash", "tilt", "shiver", "flip"]));
+  if(Math.random() < .45) pandaSay("play", img, esc(pickRand(POKE_LINES_PLAY)), 1600, true);
+}, true);
+
+/* --- ホームのパンダ --- */
+/* しゃべるのは、漢文・昔の中国にかかわる雑学（うわさ話ふう）。2026-11-08、教員の指示：
+   ・吹き出しはパンダの右に出す（タイトルの文字にかぶらないように）
+   ・すぐ消えると読めないので、次にパンダをタップするまで消さない
+   ・中身は約100種類。言い伝え・諸説あるものは「伝説」「〜という説」と言わせる。
+   同じ話が続かないよう、全部を一回ずつ話し終えるまで同じ話はしない（ページを開き直すとまた混ぜなおす） */
+const HOME_TRIVIA = [
+  "ねえ、知ってる？「推敲」は、唐の詩人・賈島が「推す」と「敲く」のどっちがいいか悩みながら歩いていて、えらい人・韓愈の行列にぶつかった話から生まれた言葉なんだって。",
+  "「蛇足」の話、知ってる？ 蛇の絵をいちばんに描き終えた人が、調子にのって足まで描いたら「それは蛇じゃない」と言われて、ごほうびのお酒を取られちゃったんだって。",
+  "「矛盾」はね、どんな盾も突き通す矛と、どんな矛も防ぐ盾を売っていた楚の商人の話。「その矛でその盾を突いたら？」と聞かれて、答えられなかったらしいよ。",
+  "昔、杞の国の人が「天が落ちてきたらどうしよう」と心配して、ごはんものどを通らなかったんだって。いらない心配を「杞憂」って言うのは、ここから来てるんだ。",
+  "「漁夫の利」はね、シギとハマグリがけんかして、くちばしをはさんだままはなれないうちに、通りかかった漁師が両方つかまえちゃった話なんだって。",
+  "「五十歩百歩」は孟子のたとえ話。戦場で五十歩逃げた兵が、百歩逃げた兵を「臆病者」と笑ったんだって。……でも、逃げたのは同じだよね。",
+  "「守株」の農夫は、ウサギが切り株にぶつかって死んだのを見て、畑仕事をやめて毎日切り株を見張ったんだって。ウサギは二度と来なかったらしいよ。",
+  "「助長」のもとの話、知ってる？ 苗を早く育てたくて、一本ずつ引っぱった人がいたんだって。次の日、苗は全部かれてたらしい……。もとは「よけいなお世話」の意味なんだ。",
+  "「朝三暮四」はね、サルに「木の実を朝三つ、夕方四つ」と言ったら怒って、「朝四つ、夕方三つ」と言ったら大喜びした話なんだって。合計は同じなのにね。",
+  "「四面楚歌」は、項羽が敵に囲まれた夜、まわりじゅうから故郷・楚の歌が聞こえてきて「楚の人まで敵についたのか」とがっかりした話なんだって。",
+  "「背水の陣」は、漢の韓信が、わざと川を背にして陣をしいた話。逃げ場がないから、兵士たちが必死に戦って勝ったんだって。",
+  "「臥薪嘗胆」の「臥薪」は、たきぎの上に寝ること。「嘗胆」は、苦い胆をなめること。呉と越の王さまが、くやしさを忘れないためにしたんだって。",
+  "「破天荒」の本当の意味は「豪快」じゃないんだって。科挙の合格者が出なくて「天荒」と呼ばれた土地から、初めて合格者が出た話から、「だれもしなかったことを初めてする」意味なんだ。",
+  "ここだけの話、「完璧」の「璧」は「壁」じゃないよ。「璧」は宝物の玉のこと。藺相如が、宝の玉を無事に持ち帰った話から生まれた言葉なんだって。",
+  "「登竜門」の「竜門」は、黄河の流れがすごく急なところ。ここを登りきったコイは竜になる、と言われていたんだって。",
+  "「白眉」はね、蜀の馬さん五人兄弟のうち、眉に白い毛があった馬良がいちばん優秀だったことから、「いちばんすぐれたもの」の意味になったんだって。",
+  "「圧巻」の「巻」は、科挙の答案のこと。いちばんよくできた答案を、ほかの答案のいちばん上にのせたことから生まれた言葉らしいよ。",
+  "「杜撰」は、宋の杜黙という人の詩が、詩のきまりに合っていないことが多かったから生まれた言葉、という説があるんだって。杜さん、ちょっとかわいそう……。",
+  "竜のあごの下には、一枚だけ逆さに生えたうろこがあって、そこにさわると竜はものすごく怒るんだって。これが「逆鱗にふれる」。",
+  "夏目漱石の「漱石」は、「石に枕し流れに漱ぐ」を「石に漱ぎ流れに枕す」と言いまちがえて、へりくつで言い張った人の話から取ったんだって。負けずぎらいって意味らしいよ。",
+  "「呉越同舟」はね、仲の悪い呉の人と越の人でも、同じ舟で嵐にあえば助け合う、という『孫子』の話なんだって。",
+  "「虎の威を借る狐」の狐は、「わたしは天の神さまの使いだよ。うしろについてきてごらん」と虎をだましたんだって。動物たちは、本当は虎を見て逃げたのにね。",
+  "「人間万事塞翁が馬」の「人間」は、「にんげん」じゃなくて「じんかん」と読んで、「世の中」っていう意味なんだって。",
+  "『論語』は、孔子が自分で書いた本じゃないんだって。孔子が亡くなったあと、弟子たちが先生の言葉をまとめた本なんだ。",
+  "うわさによると、孔子はとても背が高くて「長人（のっぽさん）」と呼ばれていたらしいよ。『史記』には九尺六寸とあって、2mくらいという説もあるんだって。",
+  "孔子には、弟子が三千人もいたんだって！ その中で、とくにすぐれた弟子は七十人ほどだったらしいよ。",
+  "30歳を「而立」、40歳を「不惑」と言うのは、『論語』の「三十にして立つ。四十にして惑はず」から来てるんだ。50歳は「知命」、60歳は「耳順」なんだって。",
+  "「子曰く」の「子」は、子どもじゃなくて「先生」っていう意味なんだって。『論語』では、孔子先生のことなんだ。",
+  "孔子の本当の名前は「孔丘」なんだって。「孔子」は「孔先生」っていう呼び方なんだ。",
+  "「故きを温ねて新しきを知る」――「温故知新」も『論語』の言葉なんだって。昔のことを学び直すと、新しい発見があるってこと。",
+  "李白は「詩仙」、杜甫は「詩聖」って呼ばれてるんだ。自由な李白と、まじめな杜甫。ふたりは実際に出会って、いっしょに旅をしたこともあるんだって。",
+  "これは伝説なんだけど、李白は舟の上でお酒によって、水にうつった月をつかまえようとして落ちてしまった……という話があるんだって。",
+  "李白の「白髪三千丈」、三千丈ってどのくらいか知ってる？ なんと約9km！ もちろん大げさに言ってるんだよ。悲しみの深さを表してるんだって。",
+  "「春眠暁を覚えず」の孟浩然は、役人になる試験に受からなかったんだって。そのぶん、自然をうたう詩の名人になったらしいよ。",
+  "白居易は、詩を作るとおばあさんに読んで聞かせて、わかってもらえるまで直した……という伝説があるんだって。だから白居易の詩はわかりやすいらしいよ。",
+  "白居易の詩は、平安時代の日本で大人気だったんだって。清少納言の「香炉峰の雪」の話も、白居易の詩を知っていたからこそできた返しなんだ。",
+  "『源氏物語』のはじまりの「桐壺」は、白居易の「長恨歌」（玄宗皇帝と楊貴妃の物語）をお手本にしている、と言われてるんだって。",
+  "楊貴妃は、ライチが大好きだったんだって。遠い南の土地から、早馬で運ばせたらしいよ。杜牧の詩にも、その話が出てくるんだ。",
+  "遣唐使の阿倍仲麻呂は、唐の役人になって、李白や王維とも友だちだったんだって。でも、とうとう日本には帰れなかったらしい……。",
+  "王維は、詩人で画家でもあったんだって。「詩の中に絵があり、絵の中に詩がある」とほめられたらしいよ。",
+  "カタカナは、漢文を読むときに、漢字の横に小さくメモするために、漢字の一部を取って作られたんだって。「イ」は「伊」の左側なんだ。",
+  "ここだけの話、もともとの漢文には、返り点も送り仮名もないんだって。漢字だけの文を「白文」って言うんだ。返り点は、日本人が読むためのくふうなんだよ。",
+  "返り点の一二点は三、四……と増やせるし、上下点でも足りないときは「甲乙丙丁」、さらに「天地人」まであるんだって。そんなに返る文、ちょっと読みたくないね……。",
+  "平安時代のお坊さんや学者は、漢字の四すみなどに点を打って「ヲ」や「コト」などを表したんだって。これが「ヲコト点」。点の並びの読み方から「てにをは」という言葉が生まれた、という説もあるよ。",
+  "『日本書紀』は、全部漢文で書かれてるんだって。昔の日本では、正式な文章は漢文で書くのがふつうだったんだ。",
+  "「科挙」っていう役人の試験は、なんと約1300年も続いたんだって。合格するのは、ものすごくたいへんだったらしいよ。",
+  "科挙の試験では、小さな個室に何日も閉じこもって答案を書いたんだって。ごはんも、その中で食べたらしいよ。",
+  "うわさによると、科挙では、下着にびっしり文字を書いてカンニングしようとした人もいたんだって。そういう服が、今も博物館に残ってるらしいよ。",
+  "科挙でいちばんの成績の人は「状元」って呼ばれたんだって。今でも中国では、試験で一番の人をこう呼ぶことがあるらしいよ。",
+  "紙を使いやすく改良したのは、後漢の蔡倫という人だと言われてるんだって。それまでは、竹や木の札に字を書いてたんだ。竹、えらい！",
+  "昔の中国では、細長い竹の札に字を書いて、ひもでつないで本にしてたんだって。これが「竹簡」。「冊」っていう字は、札をひもでつないだ形なんだよ。",
+  "漢字のご先祖さま「甲骨文字」は、カメのこうらや牛の骨にきざんだ占いの文字なんだって。薬として売られていた「竜骨」から見つかった……という話もあるよ。",
+  "秦の始皇帝は、国ごとにちがっていた文字の形をそろえたんだって。お金や、ものさしの長さもそろえたらしいよ。",
+  "始皇帝は、不老不死の薬をさがしに、徐福という人を東の海へ送ったんだって。日本のあちこちに「徐福が来た」という伝説が残ってるらしいよ。",
+  "「万里の長城は宇宙から見える」っていう話、じつは肉眼ではほとんど見えないらしいよ。長いけど、幅がせまいからなんだって。",
+  "『三国志』には、歴史の本の『三国志』と、小説の『三国志演義』があるんだって。孔明の大活躍は、小説でかなり盛られてるらしいよ。",
+  "劉備は、孔明を仲間にするために、三回も家をたずねたんだって。これが「三顧の礼」。",
+  "劉備は「わたしに孔明がいるのは、魚に水があるようなものだ」と言ったんだって。これが「水魚の交わり」。",
+  "「泣いて馬謖を斬る」は、孔明が、かわいがっていた部下でも、命令にそむいて負けたので、泣く泣く罰した話なんだって。",
+  "「死せる孔明、生ける仲達を走らす」――亡くなった孔明の軍が反撃するそぶりを見せたら、敵の司馬仲達があわてて逃げたんだって。",
+  "横浜中華街などにある「関帝廟」には、三国志の関羽がまつられてるんだ。関羽は、なんと商売の神さまなんだって。",
+  "竹は、さいしょの節を割ると、あとはスパーンと割れていくよね。だから、勢いがすごいことを「破竹の勢い」って言うんだって。竹のことなら、まかせて！",
+  "「竹馬の友」は、竹馬でいっしょに遊んだ幼なじみのこと。晋の時代の話から来てるんだって。",
+  "「竹林の七賢」は、竹林に集まって、お酒を飲んだり語り合ったりした七人の人たちなんだって。竹林、いいところだよね。",
+  "「胸に成竹あり」っていう言葉があるんだって。竹の絵の名人は、描く前から心の中で竹ができあがってたらしいよ。返り点も、つける前に道が見えるといいね！",
+  "ここだけの話、「笹」は日本で作られた漢字（国字）なんだって。もともと中国にはない字なんだ。「峠」や「畑」も国字だよ。",
+  "パンダは中国語で「大熊猫」。熊みたいな猫……いや、ぼくは猫じゃないよ？",
+  "うわさによると、「パンダ」という名前は、もともとレッサーパンダのことだったんだって。ぼくたちは、あとから「ジャイアントパンダ」になったらしい……。",
+  "「切磋琢磨」は、骨や角を切ってみがき、玉や石を打ってみがくこと。もとは『詩経』という、すごく古い詩の本の言葉なんだって。",
+  "「青は藍より出でて藍より青し」は『荀子』の言葉。弟子が先生よりすぐれることを「出藍の誉れ」って言うんだ。きみも師匠をこえられるかな？",
+  "「蛍雪の功」はね、まずしくて灯りの油が買えない人が、蛍の光や雪明かりで勉強した話なんだって。卒業式の「蛍の光、窓の雪」も、この話から来てるんだ。",
+  "「鶏口となるも牛後となるなかれ」は、大きな集団のしっぽより、小さな集団の頭になれ、という意味。蘇秦という人が王さまを説得した言葉なんだって。",
+  "「百聞は一見に如かず」は、漢の将軍・趙充国の言葉なんだって。百回聞くより、一回見たほうがよくわかるってこと。",
+  "「画竜点睛」の画家は、竜の絵にひとみを描き入れたら、竜が本当に天にのぼっていったんだって！ 「睛」は「晴」じゃなくて、目へんだよ。",
+  "「井の中の蛙大海を知らず」には「されど空の深さを知る」っていう続きがある……と思ってない？ じつはそれ、後から日本で付け足されたものなんだって。",
+  "『荘子』に出てくる料理の名人「庖丁」は、牛をさばくのがものすごく上手だったんだって。「包丁」という言葉は、ここから来ているという説があるよ。",
+  "『荘子』の「胡蝶の夢」は、チョウになった夢を見た荘子が、「自分がチョウの夢を見たのか、チョウが自分の夢を見ているのか」と考えた話なんだって。",
+  "「大器晩成」は『老子』の言葉。大きな器は、できあがるのに時間がかかる。ゆっくり育つ人ほど大物になる、ってことなんだって。",
+  "「覆水盆に返らず」は、太公望が、出ていった奥さんに「こぼした水をお盆にもどせたら、よりをもどそう」と言った話なんだって。",
+  "釣りが好きな人を「太公望」って言うのは、呂尚という人が釣りをしているところを、周の王さまに見いだされたからなんだって。",
+  "「折檻」は、もとは「きつくしかる」って意味じゃなかったんだって。漢の朱雲という人が命がけで皇帝に意見して、しがみついていた手すり（檻）が折れた話から来てるんだ。",
+  "「天高く馬肥ゆる秋」は、もとは「秋になると、北の騎馬民族が太った馬で攻めてくるから気をつけろ」という意味だったらしいよ。ちょっとこわい……。",
+  "「酒池肉林」は、殷の紂王が、池をお酒で満たして、肉を林みたいにつるした話から来てるんだって。ぜいたくすぎるね。",
+  "「鴻門の会」で命をねらわれた劉邦は、トイレに行くふりをして、こっそり逃げ出したんだって。その劉邦が、のちの漢の皇帝だよ。",
+  "『史記』を書いた司馬遷は、重い罰を受けても、父との約束を守って書き続けたんだって。その本が、二千年以上も読まれてるんだ。",
+  "「春秋時代」っていう名前は、孔子がまとめたとされる歴史の本『春秋』から来てるんだって。",
+  "中国の「戦国時代」は『戦国策』っていう本の名前から来てるんだって。日本の「戦国時代」は、それをまねた呼び方なんだ。",
+  "元号の「平成」は『史記』と『書経』、「昭和」は『書経』の言葉から選ばれたんだって。漢文は、日本の元号にも使われてるんだ。",
+  "「令和」は『万葉集』から選ばれた元号。でも、そのもとの文は漢文で書かれていて、さらに中国の張衡という人の文章をふまえている、と言われてるんだって。",
+  "元号のはじまりは、中国・前漢の武帝の「建元」なんだって。今も元号を使い続けているのは日本だけ、と言われてるらしいよ。",
+  "60歳を「還暦」って言うのは、十干と十二支の組み合わせが60年でひとまわりして、生まれた年の干支にもどるからなんだって。",
+  "漢和辞典の部首が214種類なのは、清の時代の『康熙字典』という辞書にならっているからなんだって。その辞書には、約4万7千字ものっているらしいよ。",
+  "「刎頸の交わり」は、「この人のためなら首をはねられてもいい」というくらいの友情のこと。廉頗と藺相如の話なんだって。",
+  "「李下に冠を正さず」は、スモモの木の下で冠を直すと、実をとってるとうたがわれるから、やめておけ、という意味なんだって。",
+  "「虎穴に入らずんば虎子を得ず」は、後漢の班超という人が、少ない仲間で敵にいどむときに言った言葉なんだって。",
+  "「水清ければ魚棲まず」っていう言葉があるんだって。きれいすぎる水には、魚がかくれる場所もえさもない。ほどほどが大事ってことらしいよ。",
+  "杜甫の「国破れて山河在り」は、松尾芭蕉が『おくのほそ道』の平泉の場面で引用してるんだって。漢詩は、日本の俳句にもつながってるんだ。",
+  "王羲之は「書聖」と呼ばれる字の名人。いちばんの名作「蘭亭序」は、唐の皇帝が大好きすぎて、自分のお墓にいっしょにうめさせた、と言われてるんだって。",
+  "漢詩の「絶句」は4行、「律詩」は8行なんだって。1行が5字なら「五言」、7字なら「七言」。「五言絶句」なら、全部でたった20字！",
+  "漢詩は、決まった行の最後で「韻」をふむんだって。ひびきの似た字をそろえると、声に出したとき気持ちいいんだ。ラップみたいだね！",
+  "「未」は「いまだ〜ず」と、一つの字を二回読む「再読文字」なんだって。一字で二回読める、おトクな字だね。",
+  "『論語』のいちばん最初は「学びて時に之を習ふ、亦説ばしからずや」なんだって。学んだことをくり返し練習するのは楽しいよね、っていう意味なんだ。"
+];
+let triviaDeck = [];
+function nextTrivia(){
+  if(!triviaDeck.length) triviaDeck = shuffle(HOME_TRIVIA.map((_, i) => i));
+  return HOME_TRIVIA[triviaDeck.pop()];
+}
+const HOME_ACTS = [
+  {a:"jump", pose:"jump"}, {a:"spin"}, {a:"wiggle"}, {a:"squash"}, {a:"dance", pose:"pose2"}, {a:"flip"},
+  {a:"tilt"}, {a:"squash", pose:"eat", leaf:true}, {a:"shiver", pose:"defense"}, {a:"jump", pose:"attack"},
+];
+// ホームの吹き出し：パンダの右。ページといっしょにスクロールする（position:absolute）。次のタップまで消さない
+/* 狭い画面（iPadの縦・スマホ）では、しゃべっている間だけパンダを左へ寄せて、右に吹き出しの場所をあける。
+   それでも吹き出しがタイトルの文字にかかるときは、そのぶんだけタイトルを下へずらす（吹き出しを消すと元にもどる） */
+function resetHomePanda(){ const box = $("titlePanda"); box.style.transform = ""; box.style.marginBottom = ""; }
+function homeSay(box, html){
+  if(pSayEls.home){ pSayEls.home.remove(); delete pSayEls.home; }
+  if(!html){ resetHomePanda(); return; }
+  const img = box.firstElementChild || box, b = document.createElement("div");
+  b.className = "p-say side"; b.innerHTML = html;
+  document.body.appendChild(b);
+  const vw = document.documentElement.clientWidth;
+  // パンダのもとの位置（寄せる前・タイトルを下げる前）を測る。絵は跳ねる動きの途中なので、外側の箱で測る
+  const prevT = box.style.transform;
+  box.style.transition = "none"; box.style.transform = ""; box.style.marginBottom = "";
+  const r0 = box.getBoundingClientRect(), left0 = r0.left, right0 = r0.right;
+  box.style.transform = prevT; void box.offsetWidth; box.style.transition = "";
+  const WANT = 300;
+  let dx = 0;
+  if(vw - right0 - 18 < WANT){ dx = Math.max(Math.min(0, 8 - left0), (vw - 18 - WANT) - right0); dx = Math.min(0, dx); }
+  box.style.transform = dx ? `translateX(${Math.round(dx)}px)` : "";
+  const right = right0 + dx, room = vw - right - 18;
+  let w, left;
+  // いつもパンダの右に出す（パンダにはかぶせない）。場所がせまいときは細長くなり、そのぶんタイトルを下げる
+  w = Math.max(110, Math.min(320, room)); left = right + 12;
+  b.style.width = w + "px";
+  b.style.left = (left + window.scrollX) + "px";
+  b.style.top = (r0.top + window.scrollY + Math.max(0, r0.height * .08)) + "px";
+  pSayEls.home = b;
+  // タイトルの文字にかかるなら、タイトルを下げる
+  const h1 = document.querySelector("#title .hero h1");
+  if(h1){
+    const rg = document.createRange(); rg.selectNodeContents(h1);
+    const tr = rg.getBoundingClientRect(), br = b.getBoundingClientRect();
+    if(br.bottom + 6 > tr.top && br.left < tr.right && br.right > tr.left) box.style.marginBottom = Math.ceil(br.bottom + 6 - tr.top) + "px";
+  }
+  b.animate([{opacity:0, transform:"translateX(-8px) scale(.9)"}, {opacity:1, transform:"none"}], {duration:180, easing:"ease-out"});
+}
+window.addEventListener("resize", () => { if(pSayEls.home){ pSayEls.home.remove(); delete pSayEls.home; resetHomePanda(); } });
+let homeLast = 0, homeCount = 0, homePoseTimer = 0;
+$("titlePanda").addEventListener("click", () => {
+  const box = $("titlePanda"), now = Date.now();
+  homeCount = now - homeLast < 1500 ? homeCount + 1 : 1;
+  homeLast = now;
+  sfx.poke();
+  const setP = pose => { box.innerHTML = pandaHtml(pose); return box.firstElementChild; };
+  clearTimeout(homePoseTimer);
+  let act = pickRand(HOME_ACTS), line = null;
+  if(homeCount >= 7){ homeCount = 0; act = {a:"spin", pose:"fall"}; line = "目が回る〜！<small>やさしくさわってね。</small>"; }
+  const img = setP(act.pose || "pose1");
+  pokeAnim(img, act.a);
+  if(act.pose) homePoseTimer = setTimeout(() => setP("pose1"), POKE_MS[act.a] + 500);
+  if(act.leaf) leafBurstAt(img);
+  // タップすると前の話は消える。だいたい3回に2回、新しい雑学をしゃべる
+  if(!line && Math.random() < .65) line = `<span class="say-h">🐼 ねえ、知ってる？</span>${esc(nextTrivia())}`;
+  homeSay(box, line);
+});
+function leafBurstAt(el){
+  const r = el.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  for(let i = 0; i < 7; i++){
+    const lf = document.createElement("div");
+    lf.className = "leaf"; lf.textContent = i % 2 ? "🍃" : "🎋";
+    lf.style.left = cx + "px"; lf.style.top = cy + "px";
+    document.body.appendChild(lf);
+    const ang = Math.random() * Math.PI * 2, d = 40 + Math.random() * 50;
+    lf.animate([{transform:"translate(0,0)", opacity:1}, {transform:`translate(${Math.cos(ang) * d}px, ${Math.sin(ang) * d - 30}px) rotate(${Math.random() * 360}deg)`, opacity:0}], {duration:900 + Math.random() * 400, easing:"ease-out"}).finished.then(() => lf.remove());
   }
 }
 
@@ -2602,7 +3518,8 @@ function flowResult(){
   const isBest = prev == null || F.perfect > prev;
   if(isBest) sv.best.yj[id] = F.perfect;
   const all = F.done >= FLOW_GOAL && F.lives > 0;
-  const clearMsg = all ? markStageClear(sv, "yj", id) : "";
+  const clearMsg = (all || F.perfect >= flowClearStars()) ? markStageClear(sv, "yj", id)
+    : `<br>★${flowClearStars()}つでクリア。もう一度挑戦しよう`;
   saveSave(sv);
   $("resPanda").innerHTML = pandaHtml(F.perfect === FLOW_GOAL ? "eat" : all ? "pose1" : "fall");
   $("resTitle").textContent = `${F.stage.name}　` + (all ? `${FLOW_GOAL}本わたりきった！` : `${F.done}本目でライフがつきた`);
@@ -2624,7 +3541,7 @@ async function walkMarks(){
   G.busy = true; setActions();
   $("stalk").querySelectorAll(".cell").forEach(c => c.classList.remove("diff", "slip"));
   placePandaAtStart();
-  say("パンダが歩きだしたよ……（タップで先まで飛ばせる）");
+  say("");
   walkBegin();
   await walkWait(WALK_START_MS);
   const path = orderFromMarks(p.chars, G.marks);
@@ -2665,7 +3582,7 @@ async function ktTry(){
   const ok = await walkMarks();
   if(gen !== G.gen) return false;
   if(ok){
-    finishQ(G.tries === 1 && G.miss === 0, G.tries === 1 && G.miss === 0 ? "ぴょーん！ 1回で竹林をわたりきった！" : `わたりきった！（1回目ではなかったので、笹はおあずけ）`);
+    finishQ(G.tries === 1 && G.miss === 0, G.tries === 1 && G.miss === 0 ? "ぴょーん！ 1回でわたりきった！" : `わたりきった！（1回目ではないので、笹はなし）`);
     return true;
   }
   if(G.tries >= 2) showHint();
@@ -2811,9 +3728,10 @@ function dragDecoys(need){
 }
 function startDrag(){
   const p = curP();
-  G.marks = new Array(p.chars.length).fill(""); G.slots = true; G.sel = null; G.chipPos = {}; G.chipSpots = null; G.chipSide = null; G.arcsShown = [];
+  G.marks = new Array(p.chars.length).fill(""); G.slots = true; G.sel = null; G.selSlot = null; G.chipPos = {}; G.chipSpots = null; G.chipSide = null; G.arcsShown = [];
   const need = p.chars.map(c => c.mark).filter(Boolean);
   G.chips = shuffle(need.concat(dragDecoys(need))).map((v, k) => ({k, v, used:false}));
+  { const box = $("scatter"); box.innerHTML = ""; delete box.dataset.gen; }   // 前の問題の札は必ず外す（札は番号 k で使い回すので、残ると中身がちがう札になる）
   drawAll().then(() => { if(G.fmt === "drag" && !G.done){ renderScatter(); startWind(); } });
   say("");   // 2026-10-07、教員の指示：はじめの説明の吹き出しは出さない（遊び方は竹林えらびの画面に書いてある）
   setActions();
@@ -2822,10 +3740,80 @@ function startDrag(){
    竹（#grove）の左右の空きに、ゆるい格子で並べて少しずらし・傾ける。左右の空きに収まりきらない狭い画面のときだけ、
    これまでどおり竹の下の箱に散らばらせる。一度決めた場所（G.chipPos）は、ほかの札をかけたあとも動かさない。 */
 const CHIP_W = 48, CHIP_H = 54;
+/* 「つける」竹林の書き下し文は、竹の横（左）に縦書きの短冊で出す（2026-11-07、教員の指示「竹の横に縦書きで書いてあった方がやりやすい」）。
+   白文の竹と同じ向き（縦）で読みくらべられるように。#kudashi を .field の中へ移して、竹（#grove）の左どなりに置く。
+   長い書き下し文は、竹の高さで折り返して2行・3行になる（左へのびる）。散らばる札は、この短冊をよけて置く（scatterSpots）。
+   「読む」竹林（お手本で最後に見せるとき）は、これまでどおり上の横書き。 */
+function fitVertKudashi(box, txEl, H){
+  const c = txEl.cloneNode(true);
+  c.querySelectorAll("rt, rp").forEach(e => e.remove());
+  const n = Math.max(1, c.textContent.replace(/\s/g, "").length);
+  const H1 = Math.max(H, Math.min(640, Math.ceil(n * 16 * 1.09 + 26)));   // 16pxで一行に入る長さまでは、竹より長くしてよい
+  const fs = Math.max(14, Math.min(21, Math.floor((H1 - 26) / (n * 1.09))));   // 1.09＝字の高さ＋字間(.08em)
+  txEl.style.fontSize = fs + "px";
+  box.style.maxHeight = Math.max(H1, 160) + "px";
+  // 縦書きは高さを決めないと早めに折り返すので、一行に入る長さを高さにする（入らない長い文だけ、この高さで折り返す）
+  box.style.height = Math.min(Math.max(H1, 160), Math.ceil(n * fs * 1.09 + 30)) + "px";
+}
+// 横書きの書き下し文が一行に入らないときは、入るまで字を小さくする（最小14px）
+function fitHorizKudashi(){
+  const kd = $("kudashi"), tx = $("kudashiTx");
+  if(!kd || kd.classList.contains("vert") || kd.hidden) return;
+  tx.style.fontSize = "";
+  const avail = kd.clientWidth - (tx.offsetLeft - kd.offsetLeft) - 14;
+  for(let fs = 22; fs > 14 && tx.scrollWidth > avail; fs--) tx.style.fontSize = (fs - 1) + "px";
+}
+function kudashiVertOn(){ return !!(G && G.mode === "kt"); }
+function placeKudashi(){
+  const kd = $("kudashi"), field = document.querySelector("#game .field");
+  if(!kd || !field) return;
+  if(!kudashiVertOn()){
+    if(kd.classList.contains("vert")){ kd.classList.remove("vert"); kd.style.maxHeight = ""; kd.style.height = ""; kd.style.marginTop = ""; $("kudashiTx").style.fontSize = ""; field.parentNode.insertBefore(kd, field); }
+    fitHorizKudashi();
+    return;
+  }
+  kd.classList.add("vert");
+  // 右手用：短冊 → 竹（札は右）／左手用：竹 → 短冊（札は左）。.field の横ならびの中に入れる
+  const grove = $("grove");
+  if(isLefty()){ if(grove.nextSibling !== kd) grove.after(kd); }
+  else if(grove.previousSibling !== kd) grove.before(kd);
+  kd.style.marginTop = $("stalk").offsetTop + "px";
+  // 「つける」竹林の書き下し文（2026-11-07、教員の指示）：竹より長い場合を除いて、一行で書く。字の大きさは21pxのまま
+  // 一行の長さは、文字数からの見積もりではなく実際に測る（読み仮名が長い字は、その分だけ幅をとるため。見積もりでは足りずに折り返していた）
+  const tx = $("kudashiTx"), H = $("stalk").offsetHeight;   // 竹がのびるアニメーションの途中でも、本当の長さで測る
+  tx.style.fontSize = "21px";
+  kd.style.maxHeight = "";
+  kd.style.height = "4000px";
+  const rg = document.createRange(); rg.selectNodeContents(tx);
+  const cs = getComputedStyle(kd);
+  // 短冊が開くアニメーション（scaleY）の途中でも正しく測れるように、見た目の縮みの割合で戻す
+  const kr = kd.getBoundingClientRect().height, sc = kr > 0 ? kd.offsetHeight / kr : 1;
+  let len = rg.getBoundingClientRect().height * sc;
+  if(!(len > 0)){ const c = tx.cloneNode(true); c.querySelectorAll("rt, rp").forEach(e => e.remove()); len = Math.max(1, c.textContent.replace(/\s/g, "").length) * 21 * 1.3; }   // 見えていなくて測れないときの見積もり（多め）
+  const need = Math.ceil(len + (parseFloat(cs.paddingTop) || 10) + (parseFloat(cs.paddingBottom) || 10) + 8);
+  kd.style.height = need + "px";   // 竹より長くても、必ず一行で書く（2026-11-07、教員の指示「書き下し文は全て一行」）
+}
+// 竹の長さが変わったら（問題が変わって字の数がかわったときなど）、書き下し文の長さを測りなおす。
+// 短冊の幅（一行か二行か）が変わったときは、札も並べなおす（置いた札・はずれの札の状態はそのまま）
+if(window.ResizeObserver) new ResizeObserver(() => {
+  if(!kudashiVertOn() || !$("game").classList.contains("show")) return;
+  const kd = $("kudashi"), w0 = kd.offsetWidth;
+  placeKudashi();
+  if(kd.offsetWidth !== w0 && G.fmt === "drag" && !G.done && G.chips){ G.chipSide = null; G.chipSpots = null; G.chipPos = {}; renderScatter(); }
+}).observe($("stalk"));
+// 竹と短冊をあわせた範囲（札はこの外の、利き手の側に置く）
+function groupRect(field){
+  const fr = field.getBoundingClientRect(), gr = $("grove").getBoundingClientRect(), kd = $("kudashi");
+  let l = gr.left, r = gr.right;
+  if(kd && kd.classList.contains("vert") && !kd.hidden && kd.parentNode === field){ const k = kd.getBoundingClientRect(); l = Math.min(l, k.left); r = Math.max(r, k.right); }
+  return {l:l - fr.left, r:r - fr.left};
+}
 function scatterSpots(n){
   const field = document.querySelector("#game .field"), fr = field.getBoundingClientRect(), gr = $("grove").getBoundingClientRect();
   const H = Math.max(gr.height, CHIP_H * 2), top = gr.top - fr.top;
-  const zones = [{x0:0, x1:gr.left - fr.left - 6}, {x0:gr.right - fr.left + 6, x1:fr.width}];
+  // 札は利き手の側だけに置く（右手用＝竹の右、左手用＝竹の左。2026-11-07、教員の指示）
+  const g = groupRect(field);
+  const zones = isLefty() ? [{x0:0, x1:g.l - 6}] : [{x0:g.r + 6, x1:fr.width}];
   const rowH = 64, rows = Math.max(1, Math.floor((H - 6) / rowH)), sides = [];
   zones.forEach(z => {
     const zw = z.x1 - z.x0; if(zw < CHIP_W + 4) { sides.push([]); return; }
@@ -2837,7 +3825,7 @@ function scatterSpots(n){
   });
   // 左右がかたよらないように、交互に取り出す
   const out = [];
-  for(let t = 0; out.length < n && (sides[0].length || sides[1].length); t++){ const sd = sides[t % 2]; if(sd.length) out.push(sd.pop()); }
+  for(let t = 0; out.length < n && sides.some(s => s.length); t++){ const sd = sides[t % sides.length]; if(sd.length) out.push(sd.pop()); }
   return out.length >= n ? out : null;
 }
 function renderScatter(){
@@ -2847,9 +3835,11 @@ function renderScatter(){
     box.classList.add("side");
     // まず竹を真ん中に置いて左右に収まるか見る。収まらない狭い画面（スマホなど）は、竹を右へ寄せて左側にまとめて置く
     const field = document.querySelector("#game .field");
-    field.classList.remove("shift");
+    const shiftCls = isLefty() ? "shift" : "shiftL";
+    field.classList.remove("shift", "shiftL");
+    placeKudashi();
     let spots = scatterSpots(G.chips.length);
-    if(!spots){ field.classList.add("shift"); spots = scatterSpots(G.chips.length); if(!spots) field.classList.remove("shift"); }
+    if(!spots){ field.classList.add(shiftCls); spots = scatterSpots(G.chips.length); if(!spots) field.classList.remove(shiftCls); }
     G.chipSide = !!spots;
     G.chipPos = {};
     if(spots) G.chips.forEach((c, j) => G.chipPos[c.k] = {x:spots[j].x, y:spots[j].y, r:Math.round(Math.random() * 30 - 15)});
@@ -2913,7 +3903,8 @@ function dragStart(e, el){
   const up = ev => {
     window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); window.removeEventListener("pointercancel", up);
     if(hot) hot.classList.remove("hot");
-    if(!moved){   // タップ：カードを選ぶ（もう一度タップで外す）
+    if(!moved){   // タップ：カードを選ぶ（もう一度タップで外す）。先に場所を選んであれば、そこへ置く
+      if(G.selSlot != null){ const i = G.selSlot; setSelSlot(null); dragJudge(k, i); return; }
       G.sel = G.sel === k ? null : k; sfx.place();
       $("scatter").querySelectorAll(".chip").forEach(c => c.classList.toggle("sel", +c.dataset.k === G.sel));
       return;
@@ -3034,7 +4025,7 @@ async function dragJudge(k, i){
   const p = curP(), chip = G.chips.find(c => c.k === k);
   if(!chip || chip.used || G.marks[i] || p.chars[i].oki) return;
   mgNotePlayed();
-  G.sel = null;
+  G.sel = null; if(G.selSlot != null) setSelSlot(null);
   if((p.chars[i].mark || "") !== chip.v){
     G.miss++;
     sfx.ng(); pandaFlinch("defense");
@@ -3042,7 +4033,7 @@ async function dragJudge(k, i){
     if(sl){ sl.classList.remove("wrong"); void sl.offsetWidth; sl.classList.add("wrong"); setTimeout(() => sl.classList.remove("wrong"), 450); }
     const ce = $("scatter").querySelector(`.chip[data-k="${k}"]`);
     if(ce){ ce.classList.remove("sel", "home"); void ce.offsetWidth; ce.classList.add("home"); }
-    say(`「${esc(p.chars[i].ch)}」の下には、その返り点は入らないよ。` + (G.miss >= 2 ? "（ヒントも見てね）" : ""), "bad");
+    say(`ちがうよ。` + (G.miss >= 2 ? "下のヒントを見てね。" : ""), "bad");   // 場所を先に選んだときもあるので「そこじゃない」とは言わない
     if(G.miss >= 2) showHint();
     setActions();
     return;
@@ -3056,16 +4047,17 @@ async function dragJudge(k, i){
   renderScatter();
   const newArcs = drawReturnArcs();
   const left = p.chars.filter((c, j) => c.mark && !G.marks[j]).length;
-  const road = newArcs.length ? `「${newArcs.map(([a, b]) => `${esc(p.chars[a].ch)}→${esc(p.chars[b].ch)}`).join("」「")}」へもどる道ができた！` : "札がかかった！";
-  if(left > 0){ say(`ぴたっ！ ${road}　あと<b>${left}</b>枚。`, "good"); return; }
+  // 「どこからどこへ返るか」は、返り点の理解に役立つので残す
+  const road = newArcs.length ? `「${newArcs.map(([a, b]) => `${esc(p.chars[a].ch)}→${esc(p.chars[b].ch)}`).join("」「")}」と返る` : "";
+  if(left > 0){ say(`ぴたっ！ ${road ? road + "　" : ""}あと<b>${left}</b>枚`, "good"); return; }
   // 全部置けた → 完成！ パンダがわたる
   const gen = G.gen;
   $("scatter").hidden = true;
-  say("完成！ 道しるべのとおりに、パンダが降りていくよ……（タップで先まで飛ばせる）", "good");
+  say("完成！", "good");
   G.busy = true; setActions();
   await walkPath(p.order, true);
   if(gen !== G.gen) return;
-  finishQ(G.miss === 0, G.miss === 0 ? "完成！ ミスなしで道しるべをかけて、パンダは正しい順に降りきった！" : "完成！ パンダは正しい順に降りきった！（まちがいがあったので、笹はおあずけ）");
+  finishQ(G.miss === 0, G.miss === 0 ? "ミスなしで完成！" : "完成！（ミスがあったので、笹はなし）");
 }
 
 /* =====================================================================
@@ -3142,11 +4134,11 @@ function showResult(){
      こちらの技（SASA_SKILLS）：笹嵐（師匠を3〜6m落とす）／笹身（5ターン、師匠の術と笹嵐を
      受け流す。術の演出のあとに「笹身で防いだ！」）／笹団子（3ターン、正解すると4m登れる）／笹濁り（3ターン、師匠の正答率が半分）。
    ・見せ方（教員の指示）：左に自分のパンダ、右に師匠（大熊猫の色違い＝桃仙老師）が、それぞれの竹を登っていく。
-     自分の竹には、自己ベストの登り方を1問ごとに再現する「影パンダ」（半透明）を重ねる。
+     （自己ベストを再現する「影パンダ」は、2026-11-08、教員の指示で廃止。古いセーブの sv.master.ghost は masterEnd で消す）
    ・はじめて勝つと弟子と認められる。勝つたび1%で大熊猫が仲間に（masterAllyRoll）。
    ・5%で「金色の桃仙老師」が現れる（M.golden、body.goldm）。勝てば40%で大熊猫が仲間に、仲間になったときの5%で色違いも見つかる。
    ・保存：sv.master = {plays:挑戦回数, won:一度でも勝ったか, wins:勝った回数, bestAcc:勝ったときの最高正答率, legend:伝説（まちがいなしで勝つ）,
-     ghost:{win, qs, m, trace:[1問ごとの自分の高さ]}（影パンダ）, golden:次の相手が金色か（最後まで戦うまで引き直さない。途中でやめたら false）}。古い best・trace（60秒の版）は使わない。
+     golden:次の相手が金色か（最後まで戦うまで引き直さない。途中でやめたら false）}。古い best・trace（60秒の版）は使わない。
    ===================================================================== */
 /* バランス（2026-10-18、教員の指示「正答率100%なら100%勝てる、70%なら60%くらい勝てる」）：
    scratchpad の race_sim.js（このルールの写し）で4万回ずつ試して決めた。結果（勝率／問題数の平均）：
@@ -3201,18 +4193,42 @@ const masterImg = pose => { const s = masterSrc(pose); return s ? `<img src="${s
 const rankOf = n => MASTER_RANKS.filter(r => n >= r.n).pop();
 const zoneIdx = n => MASTER_ZONES.filter(z => n >= z.n).length - 1;
 // 「色違いの毛並みで遊ぶ」（sv.master.shiny）は 2026-10-18 に教員の指示「大して面白くない」で機能ごと削除。古いセーブの shiny は使わない
-function masterSave(sv){ if(!sv.master || typeof sv.master !== "object") sv.master = {plays:0, won:false, wins:0, bestAcc:0, legend:false}; return sv.master; }
+function masterSave(sv){ const k = isBeginner(sv) ? "masterB" : "master"; if(!sv[k] || typeof sv[k] !== "object") sv[k] = {plays:0, won:false, wins:0, bestAcc:0, legend:false}; return sv[k]; }
 // 2026-10-12〜、両方の章の竹林を全部クリアしたら挑戦できる（以前は最後の竹林を一度遊べばよかった）
 function masterUnlocked(sv){ return CHAPTERS.every(ch => chapterCleared(sv, ch.mode)); }
+/* タイトルの「大熊猫師匠と競走」（2026-11-07、教員の指示：二つの竹林のカードのように、もっと魅力的に）。
+   桃色と金の大きなカード：師匠の絵・舞い散る桃の花びら・天竹峰の札・これまでの記録・「勝負する ▶」。鍵がかかっている間は、
+   師匠のシルエットと、二つの竹林の進み具合を見せる。 */
 function masterTitleHtml(sv){
   const m = masterSave(sv);
+  const petals = Array.from({length:9}, (_, i) => `<i style="left:${6 + i * 11}%;animation-delay:${(i * .73) % 5}s;animation-duration:${5 + (i % 3)}s"></i>`).join("");
   if(!masterUnlocked(sv)){
-    const left = CHAPTERS.map(ch => `${ch.icon} ${STAGES.filter(s => stageCleared(sv, ch.mode, s.id)).length}／${STAGES.length}`).join("　");
-    return `<button class="stage chap master locked" onclick="lockedTap(this)">
-      <span class="no">🔒</span><span><div class="nm mincho">大熊猫師匠と競走</div><div class="ds">「${CHAPTERS.map(ch => esc(ch.name)).join("」と「")}」の竹林を全部クリアすると開く（${left}）</div></span></button>`;
+    const prog = CHAPTERS.map(ch => {
+      const n = STAGES.filter(s => stageCleared(sv, ch.mode, s.id)).length;
+      return `<span class="mc-p"><span class="mc-pl">${esc(ch.name)}</span><span class="cc-bar"><i style="width:${Math.round(n / STAGES.length * 100)}%"></i></span>${n}／${STAGES.length}</span>`;
+    }).join("");
+    return `<button class="master-card locked" onclick="lockedTap(this)">
+      <span class="mc-fig">${masterImg("pose1")}</span><span class="mc-lock">🔒</span>
+      <span class="mc-body">
+        <span class="mc-tag">天竹峰の試練</span>
+        <span class="mc-name mincho">大熊猫師匠と競走</span>
+        <span class="mc-desc">二つの竹林を全部クリアで挑戦できる</span>
+        <span class="mc-prog">${prog}</span>
+      </span></button>`;
   }
-  return `<button class="stage chap master" onclick="showMasterIntro()">
-      <span class="no">🌸</span><span><div class="nm mincho">大熊猫師匠と競走</div><div class="ds">天竹峰の試練　先に${MASTER_GOAL_SETSU}節登ったほうが勝ち${m.wins ? `（${m.wins}勝・最高正答率${m.bestAcc || 0}%）` : ""}</div></span></button>`;
+  const rec = m.wins
+    ? `<span class="mc-chip">🏆 ${m.wins}勝</span><span class="mc-chip">🎯 最高正答率 ${m.bestAcc || 0}%</span>${m.legend ? `<span class="mc-chip gold">✨ 伝説</span>` : ""}`
+    : `<span class="mc-chip">まだ勝ったことがない……</span>`;
+  return `<button class="master-card" onclick="showMasterIntro()">
+      <span class="mc-petals" aria-hidden="true">${petals}</span>
+      <span class="mc-fig">${masterImg("pose1")}</span>
+      <span class="mc-body">
+        <span class="mc-tag">🌸 天竹峰の試練 🌸</span>
+        <span class="mc-name mincho">大熊猫師匠と競走</span>
+        <span class="mc-desc">先に${MASTER_GOAL_SETSU}節登ったら勝ち！</span>
+        <span class="mc-rec">${rec}</span>
+        <span class="mc-go">勝負する ▶</span>
+      </span></button>`;
 }
 function showMasterIntro(){
   document.body.classList.remove("goldm");
@@ -3220,8 +4236,7 @@ function showMasterIntro(){
   $("miPortrait").innerHTML = masterImg("pose1");
   $("miStory").innerHTML = m.plays
     ? `<b>桃仙老師</b>「また来たか。${m.wins ? `これまで${m.wins}勝じゃな。` : ""}${m.won ? "弟子といえど、手かげんはせんぞ。" : "難所を越えて、わしを落としてみよ。"}」`
-    : `竹林のずっと奥に、雲をつきぬけて天までのびる大竹「<b>天竹（てんちく）</b>」がある。そのいただきには、桃の花がさきみだれる<b>桃源郷</b>が広がり、返り点をきわめた<b>大熊猫師匠・桃仙（とうせん）老師</b>が住んでいるという。<br>`
-    + `<b>桃仙老師</b>「よくぞここまで来た。返り点は、竹を正しい順に登りおりするための道しるべじゃ。わしと天竹登りで勝負せい。わしは術も使うぞ。勝てたら、<b>弟子</b>と認めよう」`;
+    : `<b>桃仙（とうせん）老師</b>「よくぞ来た。わしと天竹登りで勝負じゃ。勝てたら<b>弟子</b>と認めよう」`;
   show("masterIntro"); window.scrollTo(0, 0);
 }
 
@@ -3245,9 +4260,11 @@ function masterPick(){
   // 難所はむずかしい文（むずかしさ4以上）から。霧隠れのあとは、書き下し文がなくても解ける「読む順タップ」だけ
   const tier = M.hard ? 3 : masterTier();
   const inTier = p => { const d = masterDiff(p); return tier === 0 ? masterBasic(p) : tier === 1 ? d >= 3 && d <= 5 : tier === 3 ? d >= 4 : true; };
-  let pool = KT_PROBLEMS.filter(p => inTier(p) && !M.recent.includes(p.white));
-  if(!pool.length) pool = KT_PROBLEMS.filter(inTier);
-  if(!pool.length) pool = KT_PROBLEMS.filter(p => !M.recent.includes(p.white));
+  const base = isBeginner() ? KT_PROBLEMS.filter((p, i) => BEGINNER_IDX.has(i)) : KT_PROBLEMS;   // 初心者用はレ点・一二点の問題だけ
+  let pool = base.filter(p => inTier(p) && !M.recent.includes(p.white));
+  if(!pool.length) pool = base.filter(inTier);
+  if(!pool.length) pool = base.filter(p => !M.recent.includes(p.white));
+  if(!pool.length) pool = base;
   const p = pool[Math.floor(Math.random() * pool.length)];
   M.recent.push(p.white); if(M.recent.length > 12) M.recent.shift();
   const fmts = (M.fog || M.mNigori > 0) ? MASTER_FMTS.filter(f => f[0] === "tap") : MASTER_FMTS;
@@ -3259,8 +4276,11 @@ function masterPick(){
 function pickOne(items, w){ let r = Math.random() * w.reduce((a, b) => a + b, 0); for(let i = 0; i < items.length; i++){ r -= w[i]; if(r < 0) return items[i]; } return items[items.length - 1]; }
 /* 竹の大きさ（2026-10-08、教員の指示「問題が小さくて読みにくい」）：画面の高さ（竹全体が1画面に収まる）と、
    横幅（「正しい竹は？」で並べても収まる）の両方から、収まるいちばん大きな字の高さを決める（34〜68px）。 */
-function mSize(n, cols){
-  const W = $("mField").clientWidth || Math.min(528, window.innerWidth - 32);
+function mSize(n, cols, side){
+  // 使える横幅は、竹・書き下し文・札を並べる列（.m-play）全体から測る（2026-11-07修正：#mField の幅は前の問題の竹の幅のままなので、
+  // それで測ると竹がどんどん小さくなっていた）。書き下し文の短冊（約90px）と、横に札が並ぶ形ではその列（約150px）の分を引く
+  const play = $("mField").parentNode, PW = (play && play.clientWidth) || Math.min(568, window.innerWidth - 32);
+  const W = Math.max(120, PW - 90 - (side ? 150 : 0) - 28);
   const byH = Math.floor(Math.max(240, window.innerHeight - 400) / (n + .4));
   const byW = Math.floor((W / cols - 16) / 1.55);
   const mh = Math.max(cols > 3 ? 24 : 34, Math.min(68, byH, byW));
@@ -3268,7 +4288,7 @@ function mSize(n, cols){
 }
 // 縦の竹（字の列）。marks＝表示する返り点、opt.q＝「？」にする字、opt.tap＝字をタップできる、opt.slots＝札を置くマスを出す
 function mColHtml(p, marks, opt){
-  const n = p.chars.length, z = mSize(n, opt.cols || 1);
+  const n = p.chars.length, z = mSize(n, opt.cols || 1, opt.q != null || opt.slots);
   const cells = p.chars.map((c, i) => {
     const m = marks[i] || "";
     let mk = m ? markInner(m) : "";
@@ -3307,15 +4327,17 @@ function masterQ(){
     M.q = marked[Math.floor(Math.random() * marked.length)];
     $("mAsk").textContent = "🏷 ？に入る返り点は？";
     $("mField").innerHTML = mColHtml(p, marks, {q:M.q});
-    const right = marks[M.q], all = ["レ", "一", "二", "三", "上", "下", "一レ", "上レ"];
+    const right = marks[M.q], all = ["レ", "一", "二", "三", "上", "下", "一レ", "上レ"].filter(m => !isBeginner() || BEGINNER_MARKS.has(m));
     const near = {"レ":["一","二","一レ"], "一":["二","レ","上"], "二":["一","三","レ"], "三":["二","一","上"], "上":["下","一","二"], "下":["上","二","一"], "一レ":["レ","一","二"], "上レ":["上","レ","一レ"]}[right] || all;
     const k = more ? 7 : 3;
-    const wrong = shuffle(near.filter(m => m !== right)).concat(shuffle(all.filter(m => m !== right && !near.includes(m)))).slice(0, k);
+    const wrong = shuffle(near.filter(m => m !== right && (!isBeginner() || BEGINNER_MARKS.has(m)))).concat(shuffle(all.filter(m => m !== right && !near.includes(m)))).slice(0, k);
     $("mChoices").innerHTML = shuffle([right].concat(wrong)).map(v => chipBtn(v)).join("");
     $("mChoices").querySelectorAll(".chip").forEach(el => el.addEventListener("click", () => masterOne(el)));
   } else if(fmt === "pick"){
     $("mAsk").textContent = "🎋 書き下し文のとおりに読める竹は？";
-    const wrong = chooseDistractors(p).slice(0, more ? 3 : 2);
+    let cand = chooseDistractors(p);
+    if(isBeginner()){ const ok = cand.filter(ms => ms.every(m => !m || BEGINNER_MARKS.has(m))); if(ok.length >= 2) cand = ok; }   // 初心者用は、習っていない返り点の竹を出さない
+    const wrong = cand.slice(0, more ? 3 : 2);
     M.opts = shuffle([marks].concat(wrong));
     $("mField").innerHTML = M.opts.map((m, k) => mColHtml(p, m, {cols:M.opts.length, cls:"pick", k})).join("");
     $("mField").querySelectorAll(".m-col.pick").forEach(el => el.addEventListener("click", () => masterPickOpt(el)));
@@ -3323,12 +4345,31 @@ function masterQ(){
     // 本編「返り点をつける」の形：要る札と、まぎらわしい札をまぜて並べ、節のマスへ置く
     $("mAsk").textContent = "🏷 返り点の札を、節のマスへ置こう";
     $("mField").innerHTML = mColHtml(p, new Array(p.chars.length).fill(""), {slots:true});
-    const need = marks.filter(Boolean), pal = ["レ", "一", "二", "上", "下", "一レ"];
+    const need = marks.filter(Boolean), pal = ["レ", "一", "二", "上", "下", "一レ"].filter(m => !isBeginner() || BEGINNER_MARKS.has(m));
     const deco = shuffle(pal.filter(m => !need.includes(m))).slice(0, more ? 5 : 2);
     M.chips = shuffle(need.concat(deco)).map((v, k) => ({k, v, used:false}));
     masterHang();
     $("mField").querySelectorAll(".m-slot").forEach(el => el.addEventListener("click", () => { if(M && M.sel != null) masterPlace(M.sel, +el.dataset.i); }));
   }
+  mFitKudashi();
+  // 札の列の幅は、その問題のあいだ変えない（2026-11-07、教員の指示「答えると少し画面が動く」：札を置くと列が細くなり、
+  // 横ならび全体が真ん中にそろえ直されて、竹と書き下し文が横にずれていた）
+  const mc = $("mChoices"); mc.style.minWidth = ""; mc.style.minHeight = "";
+  if(mc.firstElementChild){ mc.style.minWidth = mc.offsetWidth + "px"; mc.style.minHeight = mc.offsetHeight + "px"; }
+}
+// 縦書きの書き下し文は、竹の高さで折り返す（長い文は2行・3行になって左へのびる）
+function mFitKudashi(){
+  const col = $("mField").querySelector(".m-col");
+  const kd = $("mKudashi");
+  if(col){
+    // 書き下し文は、竹より長くても必ず一行で書く（2026-11-07、教員の指示「書き下し文は全て一行」）。長さは実際に測る（読み仮名の長い字は幅をとるため）
+    kd.style.fontSize = ""; kd.style.maxHeight = ""; kd.style.height = "4000px";
+    const rg = document.createRange(); rg.selectNodeContents(kd);
+    const kr = kd.getBoundingClientRect().height, sc = kr > 0 ? kd.offsetHeight / kr : 1;
+    const cs = getComputedStyle(kd);
+    kd.style.height = Math.ceil(rg.getBoundingClientRect().height * sc + (parseFloat(cs.paddingTop) || 10) + (parseFloat(cs.paddingBottom) || 10) + 8) + "px";
+  } else { kd.style.maxHeight = ""; kd.style.height = ""; kd.style.fontSize = ""; }
+  $("mChoices").style.setProperty("--colh", (col ? Math.max(200, col.offsetHeight) : 420) + "px");
 }
 function masterTap(i){
   if(!M || M.over || M.busy || M.fmt !== "tap") return;
@@ -3373,11 +4414,8 @@ function masterHang(){
   const spots = [];
   for(let t = 0; spots.length < M.chips.length && (sides[0].length || sides[1].length); t++){ const sd = sides[t % 2]; if(sd.length) spots.push(sd.pop()); }
   const tag = (c, pos) => `<button class="chip" data-k="${c.k}" data-v="${esc(c.v)}" style="${pos ? `left:${pos.x}px; top:${pos.y}px; ` : ""}--r:${Math.round(Math.random() * 24 - 12)}deg; --sd:${(3 + Math.random() * 1.6).toFixed(2)}s; --sdl:${(-Math.random() * 4).toFixed(2)}s; --td:${(2.2 + Math.random() * 1.4).toFixed(2)}s; --tdl:${(-Math.random() * 3).toFixed(2)}s">${markInner(c.v)}</button>`;
-  if(spots.length >= M.chips.length){
-    field.insertAdjacentHTML("beforeend", `<div class="scatter side" id="mHang">${M.chips.map((c, j) => tag(c, spots[j])).join("")}</div>`);
-  } else {
-    $("mChoices").innerHTML = `<div class="scatter m-hang-row" id="mHang">${M.chips.map(c => tag(c, null)).join("")}</div>`;
-  }
+  // 札は、竹の横（利き手の側）の列にならべる（2026-11-07、教員の指示）。.m-play の中の #mChoices
+  $("mChoices").innerHTML = `<div class="scatter m-hang-row" id="mHang">${M.chips.map(c => tag(c, null)).join("")}</div>`;
   $("mHang").querySelectorAll(".chip").forEach(el => el.addEventListener("pointerdown", e => masterChipDown(e, el)));
 }
 function masterChipDown(e, el){
@@ -3415,7 +4453,8 @@ function masterPlace(k, i){
   const btn = $("mHang") && $("mHang").querySelector(`.chip[data-k="${k}"]`);
   if(btn) btn.classList.remove("sel");
   if((M.p.chars[i].mark || "") !== chip.v){ slot.classList.remove("wrong"); void slot.offsetWidth; slot.classList.add("wrong"); masterMiss(slot); return; }
-  chip.used = true; if(btn) btn.remove();
+  // 札の列から消すと、うしろの札が詰めて動き「ぐらつく」ので、場所は残したまま見えなくする（2026-11-08、教員の報告）
+  chip.used = true; if(btn){ btn.classList.add("used"); btn.disabled = true; }
   slot.classList.add("filled", "pop"); slot.innerHTML = markInner(chip.v);
   sfx.place();
   if(M.p.chars.every((c, j) => !c.mark || $("mField").querySelector(`.m-slot[data-i="${j}"]`).classList.contains("filled"))) masterSolved();
@@ -3602,7 +4641,7 @@ function cutIn(o){
   el.className = "m-cutin " + (o.me ? "me" : "foe") + (o.tap ? " tap" : "");
   el.innerHTML = `<div class="band"></div><div class="who">${o.me ? pandaHtml("eat") : masterImg("attack")}</div>
     <div class="txt"><div class="tt mincho">${esc(o.title)}</div><div class="ln">${o.me ? "" : "桃仙老師「"}${esc(o.line)}${o.me ? "" : "」"}</div>${o.note ? `<div class="nt">${esc(o.note)}</div>` : ""}</div>
-    ${o.tap ? `<div class="next">タップで進む ▶</div>` : ""}`;
+`;
   document.body.appendChild(el);
   if(o.me) sfx.clear(); else { sfx.wind(); setTimeout(() => sfx.ng(), 300); }
   const dir = o.me ? -1 : 1, band = el.querySelector(".band"), who = el.querySelector(".who"), txt = el.querySelector(".txt");
@@ -3620,20 +4659,22 @@ function cutIn(o){
     txt.animate([{opacity:1}, {opacity:0}], {duration:CUTIN_OUT_MS, fill:"forwards"});
     return new Promise(r => setTimeout(() => { el.remove(); if(M){ M.cutin = false; M.freezeUntil = performance.now(); } r(); }, CUTIN_OUT_MS));
   };
-  if(o.tap) return new Promise(r => {
-    // 入りきってから受けつける（入ってくる途中の連打で、すぐ消えないように）
-    setTimeout(() => el.addEventListener("pointerdown", e => { e.preventDefault(); sfx.hop(); leave().then(r); }, {once:true}), CUTIN_IN_MS);
+  // 2026-11-07、教員の指示「笹嵐のとき、タップして進む必要はない。勝手に進んで」：自分の技も、時間がたてば自動で去る
+  // （入りきったあとにタップすれば、少し早く進める）
+  return new Promise(r => {
+    let gone = false;
+    const go = () => { if(gone) return; gone = true; leave().then(r); };
+    setTimeout(go, CUTIN_MS - CUTIN_OUT_MS);
+    if(o.tap) setTimeout(() => el.addEventListener("pointerdown", e => { e.preventDefault(); go(); }, {once:true}), CUTIN_IN_MS);
   });
-  return new Promise(r => setTimeout(() => leave().then(r), CUTIN_MS - CUTIN_OUT_MS));
 }
 
 /* ---------- 二本の竹（左＝自分、右＝師匠）と登る演出 ---------- */
 // 竹の上での高さ（下＝地面、上＝いただき）。--ph はパンダの大きさ
 const poleBottom = m => `calc((100% - var(--ph)) * ${Math.max(0, Math.min(1, m / MASTER_GOAL_M))})`;
-const ghostAt = qs => M.ghost ? (M.ghost.trace[Math.min(qs, M.ghost.trace.length) - 1] || 0) : 0;
-// who：me＝自分／foe＝師匠／ghost＝影パンダ。kind：climb＝登る／fall＝落ちる（絵も一瞬かえる）
+// who：me＝自分／foe＝師匠。kind：climb＝登る／fall＝落ちる（絵も一瞬かえる）
 function masterMove(who, m, kind){
-  const id = who === "me" ? "mWhoMe" : who === "ghost" ? "mWhoG" : "mWhoM", el = $(id);
+  const id = who === "me" ? "mWhoMe" : "mWhoM", el = $(id);
   if(!el) return;
   el.style.bottom = poleBottom(m);
   if(!kind) return;
@@ -3668,11 +4709,6 @@ function masterHud(){
   // 連続正解（5で技／師匠の笹嵐）
   const fire = n => "🔥".repeat(n) + "・".repeat(Math.max(0, STREAK_SKILL - n));
   $("mStreak").innerHTML = `<span>じぶん ${fire(M.streak)}</span><span>師匠 ${fire(M.mStreak)}</span>`;
-  // 影パンダ（自己ベスト）との差
-  if(M.ghost){
-    const d = M.me - ghostAt(M.qs);
-    $("mNear").textContent = !M.qs ? "👻 影＝自己ベストの登り方" : d > 0 ? `👻 影に ${fmtM(d)} リード` : d < 0 ? `👻 影に ${fmtM(-d)} おくれ` : "👻 影とならんだ";
-  } else $("mNear").textContent = "";
 }
 /* 1問の決着：自分が登る（難所なら笹嵐／すべり落ちる）→ 師匠が登る → ゴールの判定 → ときどき術 → 次の問題 */
 async function masterResolve(ok){
@@ -3708,8 +4744,6 @@ async function masterResolve(ok){
       floatAt($("mWhoMe"), `−${HARD_SLIP}m`, true); masterFlash("難所で足をすべらせた！");
     }
   }
-  if(M.ghost) masterMove("ghost", ghostAt(M.qs));
-  M.trace.push(M.me);
   masterHud(); masterFx();
   if(M.me >= MASTER_GOAL_M){ await sleep(900); if(alive()) masterEnd(true); return; }
   // 5問連続正解：技をえらぶ
@@ -3758,10 +4792,8 @@ async function masterResolve(ok){
 function masterStart(){
   const gen = (G && G.gen || 0) + 1;
   G = {gen, mode:"master"};   // ほかの章の動きを止める
-  const gh = masterSave(loadSave()).ghost;
   M = {me:0, mp:0, qs:0, correct:0, miss:0, mQs:0, mCorrect:0, recent:[], fmts:[], kinds:{kanbun_yj:0, kanbun_kt:0}, over:false, busy:true, p:null,
-       more:0, moreNow:false, fog:false, fogNow:false, weight:false, weightNow:false, shake:false, shakeNow:false, peach:false, streak:0, mStreak:0, mi:0, dango:0, nigori:0, mMi:0, mDango:0, mNigori:0, hard:false, lastHard:false, lastAtk:false, cutin:false, freezeUntil:0,
-       trace:[], ghost:(gh && Array.isArray(gh.trace) && gh.trace.length) ? gh : null};
+       more:0, moreNow:false, fog:false, fogNow:false, weight:false, weightNow:false, shake:false, shakeNow:false, peach:false, streak:0, mStreak:0, mi:0, dango:0, nigori:0, mMi:0, mDango:0, mNigori:0, hard:false, lastHard:false, lastAtk:false, cutin:false, freezeUntil:0};
   /* 金色かどうかは、勝つまで抽選し直さない（2026-10-18、教員の指示：「金色が出るまで【やめる】と【挑戦】を繰り返す」のを防ぐ）。
      抽選の結果を sv.master.golden に残し、やめても・負けても・開き直しても同じ相手。勝ったとき（masterEnd）だけ消して次で引き直す */
   { const sv = loadSave(), ms = masterSave(sv);
@@ -3775,8 +4807,7 @@ function masterStart(){
   mgNotePlayed();
   show("master"); $("master").scrollTop = 0;
   $("mWhoMe").innerHTML = pandaHtml("pose1"); $("mWhoM").innerHTML = masterImg("pose1");
-  $("mWhoG").innerHTML = pandaHtml("pose1"); $("mWhoG").hidden = !M.ghost;
-  ["me", "foe", "ghost"].forEach(w => masterMove(w, 0));
+  ["me", "foe"].forEach(w => masterMove(w, 0));
   masterHud(); masterFx();
   $("mGoldTag").hidden = true; $("mPeachTag").hidden = true; $("mField").classList.remove("gold");
   $("mKudashi").innerHTML = ""; $("mKudashi").classList.remove("fog"); $("mAsk").textContent = ""; $("mField").innerHTML = ""; $("mChoices").innerHTML = "";
@@ -3804,7 +4835,7 @@ function masterEnd(win){
   M.over = true;
   const n = Math.min(MASTER_GOAL_SETSU, setsuOf(M.me)), mfin = Math.min(MASTER_GOAL_SETSU, setsuOf(M.mp));
   const acc = M.qs ? Math.round(M.correct / M.qs * 100) : 0;
-  const sv = loadSave(), m = masterSave(sv);
+  const sv = loadSave(), m = masterSave(sv), beginnerRun = isBeginner(sv);
   const legend = win && M.miss === 0, rank = legend ? MASTER_LEGEND : rankOf(n);
   const firstWin = win && !m.won, firstLegend = legend && !m.legend;
   m.plays = (m.plays || 0) + 1;
@@ -3815,15 +4846,13 @@ function masterEnd(win){
   else m.golden = Math.random() < GOLDEN_LOSE_RATE;
   if(win){ m.won = true; m.wins = (m.wins || 0) + 1; if(acc > (m.bestAcc || 0)){ m.bestAcc = acc; newBest = true; } }
   if(firstLegend) m.legend = true;
-  // 影パンダ：勝ったなら少ない問題数で勝てたほう、勝てていないなら高く登れたほうを自己ベストとして残す
-  const g = m.ghost, better = !g || (win && (!g.win || M.qs < g.qs)) || (!win && !g.win && M.me > g.m);
-  if(better) m.ghost = {win, qs:M.qs, m:M.me, trace:M.trace};
+  delete m.ghost;   // 影パンダは廃止（2026-11-08）。古いセーブに残っている記録を消す
   const golden = M.golden;
   // 勝ったときだけ抽選：ふだんは1%、金色の師匠なら50%（そのうち10%は色違いも）。2回目からは絆が深まる
   const ally = win ? masterAllyRoll(golden) : {lv:0, shiny:false}, allyLv = ally.lv;
   const sasa = Math.floor(M.correct / 3);
   const climb0 = sv.climbM || 0;
-  climbAdd(sv, sasa, "master");
+  climbAdd(sv, sasa, beginnerRun ? "masterB" : "master");
   saveSave(sv);
   // レベルアップは正解するたびに書き置き済み（masterSolved）。結果の文には、今回上がった合計だけを出す
   const ups = ["kanbun_yj", "kanbun_kt"].filter(cat => M.kinds[cat]).map(cat => `「${MG_GENRE_NAME[cat]}」＋${M.kinds[cat]}`);
@@ -3831,8 +4860,7 @@ function masterEnd(win){
   $("mrPortrait").innerHTML = masterImg(win ? "defeat" : mfin - n <= 2 ? "defense" : "attack");
   $("mrBig").innerHTML = `${n}節 <span class="vs">VS</span> <span class="foe">${mfin}節</span>`;
   $("mrRank").textContent = (win ? (golden ? "✨ 金色の老師に勝ち！　" : "🌸 勝ち！　") : "負け……　") + `段位「${rank.t}」`;
-  $("mrNew").textContent = `正答率 ${acc}%（${M.correct}／${M.qs}問）` + (newBest ? "　🎉 自己ベスト！" : m.bestAcc ? `　勝ったときの最高 ${m.bestAcc}%` : "")
-    + (better && M.qs ? "　👻 影パンダを更新" : "");
+  $("mrNew").textContent = `正答率 ${acc}%（${M.correct}／${M.qs}問）` + (newBest ? "　🎉 自己ベスト！" : m.bestAcc ? `　勝ったときの最高 ${m.bestAcc}%` : "");
   const sayWin = "見事！ わしより先に登りきるとは。今日からおぬしは、わしの弟子じゃ。";
   const sayLose = mfin - n <= 3 ? "あと少しじゃったな。難所を越えて、わしを落とすのじゃ。" : "わしの背中は、まだ遠いのう。一問ずつ、じっくり解くのじゃ。";
   $("mrSay").innerHTML = `<b>桃仙老師</b>「${esc(win ? sayWin : sayLose)}${esc(rank.say)}」`
@@ -3848,6 +4876,98 @@ function masterEnd(win){
   M = null;
   show("masterResult"); window.scrollTo(0, 0);
   if(win) petals();
+  if(win && beginnerRun) begVictory(m.wins, firstWin, legend);   // 初心者用で勝った：達成感のある大きなお祝い
+}
+/* お祝いを順番に見せる（一つ閉じたら次）。fn は「閉じたら呼ぶ関数」を受け取る */
+function celebQueue(list){
+  const next = () => { const f = list.shift(); if(f) f(next); };
+  next();
+}
+// お祝いの画面の共通部分：タップで閉じる（出てすぐは閉じない）、10秒たったら自動で閉じる
+function celebShell(id, html, onDone, minMs){
+  const el = document.createElement("div");
+  el.id = id; el.className = "celeb";
+  el.innerHTML = html;
+  document.body.appendChild(el);
+  void el.offsetWidth; el.classList.add("on");
+  const born = Date.now();
+  let closed = false;
+  const close = () => { if(closed) return; closed = true; el.classList.add("out"); setTimeout(() => { el.remove(); if(onDone) onDone(); }, 500); };
+  el.addEventListener("click", () => { if(Date.now() - born >= (minMs || 2500)) close(); });
+  setTimeout(close, 12000);
+  return el;
+}
+const celebConf = n => {
+  const cols = ["#ffd76b", "#ff9cc8", "#9fd47a", "#7ec8f8", "#ffffff", "#ffb44d"];
+  return Array.from({length:n}, (_, k) =>
+    `<i style="left:${(Math.random() * 100).toFixed(1)}%;background:${cols[k % cols.length]};--dl:${(Math.random() * 2.5).toFixed(2)}s;--du:${(2.6 + Math.random() * 2).toFixed(2)}s;--sw:${Math.round(Math.random() * 140 - 70)}px"></i>`).join("");
+};
+/* 初心者用の3つの竹林を全部クリア（章ごと：「読む」竹林／「つける」竹林）。
+   「初心者モード 全問クリア！」→ 3つの竹林のスタンプが一つずつ押される → パンダが跳ねる → 次の目あて。 */
+function begChapterCeleb(mode, onDone){
+  const ch = chapterOf(mode), sv = loadSave();
+  const other = CHAPTERS.find(c => c.mode !== mode), otherDone = other && chapterCleared(sv, other.mode);
+  const stamps = STAGES.map((s, i) => `<div class="cs-stamp" style="animation-delay:${1.3 + i * .45}s"><b>${esc(s.name)}</b><span>✔ クリア</span></div>`).join("");
+  celebShell("chapCeleb", `<div class="bw-rays"></div><div class="bw-conf">${celebConf(70)}</div>
+    <div class="bw-in">
+      <div class="cs-ch mincho">${ch.icon} ${esc(ch.name)}</div>
+      <div class="cs-big mincho">初心者モード<br>全問クリア！</div>
+      <div class="cs-stamps">${stamps}</div>
+      <div class="cs-fig">${pandaHtml("jump")}</div>
+      <div class="bw-next">${otherDone ? "……天竹峰のほうから、何か聞こえる……？"
+        : `次は「${esc(other.name)}」へ！`}</div>
+      <div class="bw-tap">タップして進む ▶</div>
+    </div>`, onDone, 3000);
+  try{ sfx.clear(); }catch(e){}
+  [1300, 1750, 2200].forEach((ms, i) => setTimeout(() => { try{ sfx.place(); }catch(e){} }, ms));
+  setTimeout(() => { try{ sfx.clear(); }catch(e){} petals(); }, 2700);
+}
+/* 大熊猫師匠への挑戦が解放された：地ひびき → 暗い中に師匠の影 → 光の柱がのびて、影に色がつく → 桃の花びら → 「挑戦が解放された！」 */
+function masterUnlockCeleb(onDone){
+  const el = celebShell("masterCeleb", `<div class="mu-glow"></div><div class="mu-beam"></div>
+    <div class="bw-in">
+      <div class="mu-lead mincho">天竹峰の扉が、ひらく……</div>
+      <div class="mu-fig">${masterImg("pose1")}</div>
+      <div class="mu-name mincho">大熊猫師匠・桃仙老師</div>
+      <div class="mu-big mincho">師匠への挑戦が<br>解放された！</div>
+      <div class="bw-say mu-say"><b>桃仙老師</b>「よくぞここまで来た。わしと天竹登りで勝負じゃ！」</div>
+      
+      <div class="bw-tap mu-tap">タップして進む ▶</div>
+    </div>`, onDone, 5200);
+  try{ sfx.wind(); }catch(e){}
+  setTimeout(() => { el.classList.add("shake"); try{ sfx.wind(); }catch(e){} }, 900);
+  setTimeout(() => { el.classList.add("reveal"); try{ sfx.clear(); }catch(e){} }, 2600);
+  setTimeout(() => { petals(); try{ sfx.clear(); }catch(e){} }, 3400);
+}
+/* 初心者用で師匠に勝ったときのお祝い（2026-11-07、教員の指示「勝てば、十分な達成感が得られるような演出」）。
+   暗転 →「勝利！！」が光って飛びこむ → 負けをみとめた師匠 → 金の修了証（レ点・一二点 修得）→ 紙ふぶきと桃の花びら。
+   タップで閉じて、ふつうの結果画面へ。 */
+function begVictory(wins, firstWin, legend){
+  const el = document.createElement("div");
+  el.id = "begWin";
+  const cols = ["#ffd76b", "#ff9cc8", "#9fd47a", "#7ec8f8", "#ffffff", "#ffb44d"];
+  const conf = Array.from({length:80}, (_, k) =>
+    `<i style="left:${(Math.random() * 100).toFixed(1)}%;background:${cols[k % cols.length]};--dl:${(Math.random() * 2.5).toFixed(2)}s;--du:${(2.6 + Math.random() * 2).toFixed(2)}s;--sw:${Math.round(Math.random() * 140 - 70)}px"></i>`).join("");
+  el.innerHTML = `<div class="bw-rays"></div><div class="bw-conf">${conf}</div>
+    <div class="bw-in">
+      <div class="bw-big mincho">勝利！！</div>
+      <div class="bw-fig">${masterImg("pose2")}</div>
+      <div class="bw-say"><b>桃仙老師</b>「見事じゃ……！ レ点と一二点、しかと身につけたな。」</div>
+      <div class="bw-cert">
+        <div class="bw-cert-h mincho">🔰 修 了 証 🔰</div>
+        <div class="bw-cert-b">あなたは <b>レ点</b>・<b>一二点</b> を修得し、<br>大熊猫師匠との競走に勝利しました。</div>
+        <div class="bw-cert-s">${firstWin ? "はじめての勝利" : `${wins}回目の勝利`}${legend ? "　✨まちがいなし" : ""}</div>
+        <div class="bw-cert-f mincho">天竹峰　桃仙老師</div>
+      </div>
+      <div class="bw-next">次は「🔰 初心者用」をはずして挑戦！</div>
+      <div class="bw-tap">タップして進む ▶</div>
+    </div>`;
+  document.body.appendChild(el);
+  void el.offsetWidth; el.classList.add("on");
+  try{ sfx.clear(); setTimeout(() => sfx.clear(), 900); setTimeout(() => sfx.clear(), 1700); }catch(e){}
+  setTimeout(() => petals(), 1200);
+  const born = Date.now();
+  el.addEventListener("click", () => { if(Date.now() - born < 2500) return; el.classList.add("out"); setTimeout(() => el.remove(), 500); });
 }
 function petals(){
   for(let i = 0; i < 24; i++){
@@ -3868,13 +4988,30 @@ window.addEventListener("resize", () => {
   renderStalk();
   if(G.mode === "kt" || G.done) markOki();
   layoutGrove();
-  pandaY = startY();
-  $("panda").style.transform = pandaTransform(pandaX(), pandaY);
+  placeKudashi();
+  pandaY = startY(); pandaXNow = pandaRestX();
+  $("panda").style.transform = pandaTransform(pandaXNow, pandaY);
   if(G.fmt === "drag" && !G.done){ G.chipSide = null; G.chipSpots = null; G.chipPos = {}; renderScatter(); drawReturnArcs(); }
 });
 
 $("muteBtn").textContent = muted ? "🔇" : "🔊";
+applyHand();
 showTitle();
+// 今日のミニゲーム（2026-11-06〜）：?daily=1で開いたときは、最後の挑戦をいきなり始め、1回終わったら本体へもどる（daily_minigame.js）
+// どこから始めるか：師匠と競走できれば師匠戦。まだなら、まだクリアしていない章の、開いているいちばん上の竹林
+function dailyPandaPlan(){
+  const sv = loadSave();
+  if(masterUnlocked(sv)) return {master:true};
+  const c = CHAPTERS.filter(ch => !chapterCleared(sv, ch.mode)).map(ch => ({mode:ch.mode, id:Math.max(...STAGES.filter(s => stageOpen(sv, ch.mode, s.id)).map(s => s.id))}));
+  c.sort((a, b) => b.id - a.id);
+  return c[0];
+}
+dailyMgPage("kokugo_app.html?from=daily", () => {
+  const plan = dailyPandaPlan();
+  if(plan.master){ masterStart(); return; }
+  startStage(plan.mode, plan.id);
+}, {ends:["flowResult", "showResult", "masterEnd"], quits:["quitStage", "masterQuit"],
+    ownCountdown: () => { const plan = dailyPandaPlan(); return !!(plan.master || plan.mode === "yj"); }});   // 師匠戦・流れる竹林は、もとからカウントダウンがある
 </script>
 </body>
 </html>

@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>表現の魔術道</title>
+<script src="daily_minigame.js?v=13.68"></script><!-- 今日のミニゲーム（?daily=1で開いたときだけ動く） -->
 <!-- 通行証のチェック（2026-10-04〜、β版としてミニゲーム一覧に入れたとき、教員の指示）：知識ドリルDXの入口
      （kokugo_app.htmlのmgGoWithPass）を通らずに直接開いたときは「このファイルは開けません」とだけ表示し、ゲームを動かさない（2026-10-04〜、教員の指示。以前は本体へ戻していた）。
      sessionStorageが使えないときは、確かめようがないのでそのまま開く。 -->
@@ -1142,6 +1143,20 @@ function dragonAchv(){
    九尾・炎狼ランと同じキー（kokugo_app.htmlのmgApplyPendingLevelUps）に、答えるたびに書き足す。本体の経験値は
    ジャンルレベルから計算されるので、レベルが上がればそのぶん経験値も増える。本体のセーブには直接触れない。
    まちがえたときも＋0で書き、答えた日付（_played）を残す＝本体のデイリーログイン報酬の成立に使う（2026-10-04〜）。 */
+/* イベント経験値の書き置き（2026-10-29〜、教員の指示）：正解1問ごとに {"gihou@答えた日付": 正解数} を書き足す。
+   その日にこのゲームのイベントが開催中かどうかは本体（kokugo_app.htmlのmgApplyPendingEventXp）が決める。 */
+const MG_PENDING_EVENT_LSKEY = 'kokugo_minigame_pending_event_v1';
+function mgAddEventCorrect(){
+  try{
+    let o = null;
+    try{ o = JSON.parse(localStorage.getItem(MG_PENDING_EVENT_LSKEY)); }catch(e){}
+    if(!o || typeof o !== 'object') o = {};
+    const d = new Date();
+    const key = 'gihou@' + d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    o[key] = (Number(o[key]) || 0) + 1;
+    localStorage.setItem(MG_PENDING_EVENT_LSKEY, JSON.stringify(o));
+  }catch(e){}
+}
 const MG_PENDING_LVUP_LSKEY = 'kokugo_minigame_pending_lvups_v1';
 function mgAddGenreLevel(n){
   try{
@@ -1612,6 +1627,7 @@ function answer(t, el){
 async function onCorrect(cur, el, prog){
   G.correct++; G.combo++; G.maxCombo = Math.max(G.maxCombo, G.combo);
   mgAddGenreLevel(1);
+  mgAddEventCorrect();
   renderGenreLv(true);
   let dmg = cur.kind === 'barrier' ? 30 : 15;
   dmg += Math.min(G.combo - 1, 5) * 2;
@@ -2022,6 +2038,8 @@ document.addEventListener('keydown', e => {
 document.addEventListener('visibilitychange', () => { if(document.hidden && G && !G.over && !G.busy && !G.paused) togglePause(); });
 
 showTitle();
+// 今日のミニゲーム（2026-11-06〜）：?daily=1で開いたときは、最後の挑戦をいきなり始め、1回終わったら本体へもどる（daily_minigame.js）
+dailyMgPage('kokugo_app.html?from=daily', () => { ['bHome', 'bMgList', 'bQuitYes'].forEach(id => { if($(id)) $(id).onclick = dailyMgQuit; }); startRun(); }, {ends:['endRun']});
 </script>
 </body>
 </html>

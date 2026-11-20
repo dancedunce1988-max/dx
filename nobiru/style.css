@@ -449,3 +449,43 @@ body.hardmode .cap{display:none;}
 .xpTotal{font-size:11px;color:var(--ink-soft);margin-left:auto;}
 .xpTotal b{color:var(--moss);font-size:13px;}
 .xp-compare{font-size:11.5px;color:var(--ink-soft);margin:2px 0 0;}
+
+/* ---- 並べ読み／対応読み（2026-11-11〜、古文・漢文教材だけ。engine.jsのrenderTaiou参照） ----
+   既定＝並べ読み（.sbs：左に本文#textWrap、右に段落ごとの訳#trCol）。
+   「対応読み」（body.v-taiou）＝段落ごとに左右をそろえ、同じ文を同じ色で塗る#taiou。 */
+body.has-tr .pane-text .inner{max-width:1060px;}
+.sbs{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;align-items:start;}
+.sbs-head{grid-column:1 / -1;display:grid;grid-template-columns:1fr 1fr;gap:16px;
+  font-size:11px;letter-spacing:.12em;color:var(--ph);border-bottom:1px solid var(--hair);padding:0 2px 3px;}
+.sbs-head span:last-child, .taiou-head span:last-child{color:var(--moss);}
+#trCol{font-size:calc(var(--fs) * .88);line-height:1.9;color:#3a4441;
+  font-family:"Hiragino Kaku Gothic ProN","Yu Gothic","Noto Sans JP",sans-serif;
+  border-left:2px solid var(--moss-pale);padding-left:12px;}
+.trcol-para{margin:0 0 .7em;text-indent:1em;}
+#taiou{display:none;}
+body.v-taiou #taiou{display:block;}
+body.v-taiou .sbs{display:none;}
+.taiou-head{display:grid;grid-template-columns:1fr 1fr;gap:16px;
+  font-size:11px;letter-spacing:.1em;color:var(--ph);
+  border-bottom:1px solid var(--hair);padding:10px 2px 3px;margin-top:4px;}
+.taiou-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;padding:8px 2px 10px;}
+.taiou-src{font-size:var(--fs);line-height:var(--lh);text-indent:1em;}
+.taiou-tr{font-size:calc(var(--fs) * .88);line-height:1.9;color:#3a4441;text-indent:1em;
+  font-family:"Hiragino Kaku Gothic ProN","Yu Gothic","Noto Sans JP",sans-serif;
+  border-left:2px solid var(--moss-pale);padding-left:12px;}
+.ts{cursor:pointer;border-radius:3px;transition:background .12s, box-shadow .12s;
+  -webkit-box-decoration-break:clone;box-decoration-break:clone;padding:1px 0;}
+.ts.k0{background:#fbf1d6;}
+.ts.k1{background:#e3eef4;}
+.ts.k2{background:#f6e3e6;}
+.ts.k3{background:#e4f0e0;}
+.ts.hit{background:#ffe27a;box-shadow:0 0 0 2px #e0b400;}
+.tblank{display:inline-block;min-width:4.5em;text-align:center;color:var(--stone);text-indent:0;
+  border-bottom:1.5px solid var(--stone);margin:0 2px;letter-spacing:.05em;}
+.tblank.now{color:#fff;background:var(--moss);border-color:var(--moss);border-radius:2px;padding:0 4px;}
+.tblank-all{display:inline;min-width:0;border:0;font-style:italic;font-size:.92em;}
+.tblank-all.now{color:var(--moss);background:none;padding:0;font-weight:bold;}
+@media (max-width:480px){
+  .sbs, .sbs-head, .taiou-row, .taiou-head{column-gap:8px;}
+  #trCol, .taiou-tr{padding-left:6px;}
+}

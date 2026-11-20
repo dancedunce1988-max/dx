@@ -19,6 +19,7 @@
 </script>
 <!--PASS_CHECK_END-->
 <title>言霊並べ</title>
+<script src="daily_minigame.js?v=13.68"></script><!-- 今日のミニゲーム（?daily=1で開いたときだけ動く） -->
 <!-- 知識ドリルDXのミニゲーム「言霊の番人と影の書庫」（2026-10-12〜、試作。教員の指示で「識別探偵」を言霊の番人(me04)をモチーフに作り直した）。
      言葉の書庫で、同じ姿をした言葉（「ない」「れる・られる」「の」「だ」）の言霊が正体（本当の名前＝用法）を忘れて「影」になった。
      番人の弟子として「術」（置きかえ・確かめの手順）をかけ、写し出された文が自然か不自然かを自分で見きわめて、正体の札を選んで呼ぶ。
@@ -2078,6 +2079,7 @@ const NR = (() => {
       + (nowOpen ? `<div class="nr-stat" style="color:var(--gold);font-weight:bold">✨「すべての盤」が開いた！</div>` : "")
       + btns, 1100);
     renderTop();
+    dailyMgEnd(2000);   // 今日のミニゲーム：巻をクリアしたらここで終わり
   }
   function allyResult(ally){
     const s = sprite("pose1", true);
@@ -2109,6 +2111,7 @@ const NR = (() => {
       + `<button class="nr-btn" onclick="NR.open('${G.key}')">はじめから挑む</button>`
       + `<button class="nr-btn sub" onclick="NR.again()">この段階にもう一度挑む</button>`
       + `<button class="nr-btn sub" onclick="NR.toTitle()">タイトルへもどる</button>`, 1200);
+    dailyMgEnd(2000);   // 今日のミニゲーム：負けたらここで終わり
   }
   function draw(){
     G.phase = "over";
@@ -2126,6 +2129,12 @@ const NR = (() => {
 
 $("muteBtn").textContent = muted ? "🔇" : "🔊";
 renderTitle();
+// 今日のミニゲーム（2026-11-06〜）：?daily=1で開いたときは、最後の挑戦をいきなり始め、1回終わったら本体へもどる（daily_minigame.js）
+dailyMgPage("kokugo_app.html?from=daily", () => {
+  ["toTitle", "allyResult"].forEach(n => { const f = NR[n]; NR[n] = function(){ const r = f.apply(NR, arguments); if(n === "toTitle") dailyMgEnd(300, true); else dailyMgEnd(); return r; }; });
+  const st = loadSt();
+  if(narabeUnlocked(st)) NR.open(); else { const c = CASES.find(x => !caseCleared(st, x.key)) || CASES[0]; NR.open(c.key); }
+});
 </script>
 </body>
 </html>

@@ -215,7 +215,8 @@ function revealPara(i){
   $("prog").textContent = `第${kanjiNum(i + 1)}段落まで／全${kanjiNum(PARAS.length)}段落`;
   buildMap();
   renderFullTr();
-  p.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  renderTaiou();
+  if(!document.body.classList.contains("v-taiou")) p.scrollIntoView({ behavior: "smooth", block: "nearest" });
   scheduleDemRedraw();
   updateAheadBtn();
 }
@@ -264,6 +265,157 @@ function renderFullTr(){
       + `</div>`;
   }
   list.innerHTML = html || `<p class="words-empty ui">まだ表示できる訳がありません。</p>`;
+}
+
+/* ---- 並べ読み／対応読み（2026-11-11〜、教員の指示） ----
+   古文・漢文教材（fullTrShowsU:true＝trを持つ教材）だけの表示。
+   ・ふだん（既定）＝「並べ読み」：本文（原文。#textWrapそのもの＝語釈・指示語・設問の傍線部も従来どおり）の
+     右に、現代語訳を段落ごとにひと続きで並べる。文ごとに細かく区切らないので、
+     「原文のどこが訳のどこに当たるか」は生徒が自分で考えて読む。
+   ・「対応読み」ボタン＝段落ごとに左右の高さをそろえ、同じ文どうしを同じ色で塗る。
+     文をタップすると、その文と対応する訳（または原文）が強く光る。
+   訳は、本文に表示されている段落（先読み分も含む）はすべて出す。ただし、まだ答えていない設問
+   （今の設問と、このあと出る設問）の傍線部にあたる訳の部分だけは「（　Ａ　）」の空欄にし、答えると埋まる。
+   どこが傍線部の訳かは教材データの meta.uTr（{記号: trの中の文字列}）で指定する。uTrに無い／
+   trの中に見つからないときは、安全側に倒して、その文の訳ごと伏せる。 */
+const TAIOU_ENABLED = hasTranslations && FULLTR_SHOWS_U;
+const U_TR = TEXT.meta.uTr || {};
+let taiouEl = null, taiouBtn = null, sbsEl = null, trColEl = null;
+const solvedU = new Set(); // 正解した設問の傍線部（「本文を先へ進める」を押す前でも、正解した瞬間に空欄を埋める）
+function pendingUMarkers(){
+  const set = new Set();
+  if(finished) return set;
+  const last = PARAS.length - 1;
+  PARAS.forEach((para, i) => {
+    if(para.q && i < last && i >= stage) (para.q.u || []).forEach(k => set.add(k));
+  });
+  const fq = PARAS[last].qs || [];
+  fq.slice(stage >= last ? finalIdx : 0).forEach(q => (q.u || []).forEach(k => set.add(k)));
+  solvedU.forEach(k => set.delete(k));
+  return set;
+}
+function currentUMarkers(){
+  return new Set(Array.from(document.querySelectorAll("#text .sp.u.now")).map(e => e.dataset.u));
+}
+function uMarkersIn(t){
+  return Array.from(String(t).matchAll(/\|u:([^|}]+)/g)).map(m => m[1]);
+}
+function taiouTrHtml(sent, pending, current){
+  const marks = uMarkersIn(sent.t).filter(k => pending.has(k));
+  if(!marks.length) return escHtml(sent.tr);
+  // 空欄にする範囲をtrの中で探し、位置の順に並べて置きかえる
+  const spans = [];
+  for(const k of marks){
+    const sub = U_TR[k];
+    const at = sub ? sent.tr.indexOf(sub) : -1;
+    if(at < 0) return `<span class="tblank tblank-all${current.has(k) ? " now" : ""}">（傍線部${escHtml(k)}をふくむ文の訳は、設問に答えると出ます）</span>`;
+    spans.push({ at, end: at + sub.length, k });
+  }
+  spans.sort((a, b) => a.at - b.at);
+  let html = "", pos = 0;
+  for(const s of spans){
+    if(s.at < pos) continue; // 重なりは先の空欄にまとめる
+    html += escHtml(sent.tr.slice(pos, s.at))
+      + `<span class="tblank${current.has(s.k) ? " now" : ""}">（　${escHtml(s.k)}　）</span>`;
+    pos = s.end;
+  }
+  return html + escHtml(sent.tr.slice(pos));
+}
+/* 並べ読み（既定）の右側：段落ごとに、訳の文をひと続きに並べる（文ごとには区切らない） */
+function renderTrCol(pending, current){
+  if(!trColEl) return;
+  let html = "";
+  for(let i = 0; i <= maxRevealedIdx && i < PARAS.length; i++){
+    const body = PARAS[i].s.filter(sent => sent.tr).map(sent => taiouTrHtml(sent, pending, current)).join("");
+    html += `<p class="trcol-para">${body}</p>`;
+  }
+  trColEl.innerHTML = html;
+}
+/* 対応読み：段落ごとに左右をそろえ、同じ文どうしを同じ色にする */
+function renderTaiouAligned(pending, current){
+  if(!taiouEl) return;
+  taiouEl.innerHTML = "";
+  for(let i = 0; i <= maxRevealedIdx && i < PARAS.length; i++){
+    const head = document.createElement("div");
+    head.className = "taiou-head ui";
+    head.innerHTML = `<span>第${kanjiNum(i + 1)}段落　原文</span><span>現代語訳</span>`;
+    taiouEl.appendChild(head);
+    const row = document.createElement("div");
+    row.className = "taiou-row";
+    const L = document.createElement("div");
+    L.className = "taiou-src";
+    const R = document.createElement("div");
+    R.className = "taiou-tr";
+    PARAS[i].s.forEach((sent, si) => {
+      const key = i + "-" + si, tint = "k" + (si % 4);
+      const ls = document.createElement("span");
+      ls.className = "s ts " + tint;
+      ls.dataset.k = key;
+      if(sent.r) ls.dataset.r = sent.r;
+      parseInto(sent.t, ls);
+      ls.querySelectorAll("[id]").forEach(e => e.removeAttribute("id")); // 指し先(t:)のidが本文側と重ならないように
+      ls.querySelectorAll(".sp.u").forEach(e => { if(current.has(e.dataset.u)) e.classList.add("now"); });
+      L.appendChild(ls);
+      if(sent.tr){
+        const rs = document.createElement("span");
+        rs.className = "ts " + tint;
+        rs.dataset.k = key;
+        rs.innerHTML = taiouTrHtml(sent, pending, current);
+        R.appendChild(rs);
+      }
+    });
+    row.append(L, R);
+    taiouEl.appendChild(row);
+  }
+  taiouEl.querySelectorAll(".ts").forEach(el => {
+    el.onclick = () => {
+      const k = el.dataset.k, was = el.classList.contains("hit");
+      taiouEl.querySelectorAll(".ts.hit").forEach(e => e.classList.remove("hit"));
+      if(!was) taiouEl.querySelectorAll(`.ts[data-k="${k}"]`).forEach(e => e.classList.add("hit"));
+    };
+  });
+}
+function renderTaiou(){
+  if(!TAIOU_ENABLED) return;
+  const pending = pendingUMarkers(), current = currentUMarkers();
+  renderTrCol(pending, current);
+  if(document.body.classList.contains("v-taiou")) renderTaiouAligned(pending, current);
+}
+function setTaiou(on){
+  document.body.classList.toggle("v-taiou", on);
+  taiouBtn.classList.toggle("on", on);
+  const lg = $("legend");
+  if(on){
+    if($("map").classList.contains("on")) $("b-map").click(); // 構造図と同時には出さない
+    lg.innerHTML = "段落ごとに左右をそろえました。<b>同じ色どうし</b>が対応する文です。文をタップすると、その組が光ります。<b>（　Ａ　）</b>は、答えると埋まります。";
+    lg.classList.add("on");
+  } else {
+    setLegend();
+  }
+  renderTaiou();
+}
+if(TAIOU_ENABLED){
+  document.body.classList.add("has-tr");
+  const tw = $("textWrap");
+  if(tw && tw.parentNode){
+    sbsEl = document.createElement("div");
+    sbsEl.className = "sbs";
+    sbsEl.innerHTML = `<div class="sbs-head ui"><span>原文</span><span>現代語訳</span></div>`;
+    tw.parentNode.insertBefore(sbsEl, tw);
+    sbsEl.appendChild(tw);
+    trColEl = document.createElement("div");
+    trColEl.id = "trCol";
+    sbsEl.appendChild(trColEl);
+    taiouEl = document.createElement("div");
+    taiouEl.id = "taiou";
+    sbsEl.parentNode.insertBefore(taiouEl, sbsEl.nextSibling);
+  }
+  taiouBtn = document.createElement("button");
+  taiouBtn.id = "b-taiou";
+  taiouBtn.textContent = "対応読み";
+  const gap = document.querySelector(".tools .gap");
+  if(gap && gap.parentNode) gap.parentNode.insertBefore(taiouBtn, gap);
+  taiouBtn.onclick = () => setTaiou(!document.body.classList.contains("v-taiou"));
 }
 
 /* ---- 構造図 ---- */
@@ -361,8 +513,9 @@ views.forEach(([bid, cls]) => {
 });
 $("b-map").onclick = () => {
   const on = $("map").classList.toggle("on");
+  if(on && taiouBtn && document.body.classList.contains("v-taiou")) setTaiou(false); // 対応読みと同時には出さない
   $("b-map").classList.toggle("on", on);
-  $("text").style.display = on ? "none" : "";
+  (sbsEl || $("text")).style.display = on ? "none" : "";
   $("legend").style.display = on ? "none" : "";
 };
 $("b-small").onclick = () => bump(-0.8);
@@ -543,6 +696,7 @@ function showQuestion(q, onClear){
           b.classList.add("right");
           [...ul.children].forEach(x => x.disabled = true);
           rec.done = true; paintMarks();
+          (q.u || []).forEach(k => solvedU.add(k)); renderTaiou(); // 対応読みの空欄をすぐ埋める
           consecutiveWrong = 0;
           fb.className = "fb ok"; fb.innerHTML = "";
           /* 経験値（2026-09-19〜）。1回目で正解＝10、以後誤答1回につき2ずつ減る。
@@ -609,6 +763,7 @@ function showQuestion(q, onClear){
   shuffleOrder();
   renderChoices();
   z.append(h, p, ul, fb);
+  renderTaiou(); // 対応読み：答えた設問の空欄を埋め、今の設問の傍線部を空欄にし直す
   $("paneQ").scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -616,6 +771,9 @@ function step(){
   const total = PARAS.length;
   if(stage < total - 1){
     revealPara(stage);
+    // 設問の無い段落（例：高名の木登りの第一段落）は、読ませるだけで次の段落へ進む
+    // （以前はshowQuestion(undefined)で止まり、その教材が最初から先へ進めなかった、2026-11-11修正）
+    if(!PARAS[stage].q){ stage++; step(); return; }
     showQuestion(PARAS[stage].q, () => { stage++; step(); });
   } else {
     if(finalIdx === 0) revealPara(total - 1);
@@ -629,6 +787,7 @@ function step(){
 function finish(){
   finished = true;
   updateQGauge(TOTAL_Q);
+  renderTaiou(); // 読み終えたら、対応読みの空欄をすべて埋める
   /* 「一日一読」への合図（2026-09-23〜）。kokugo_app.htmlのst（本体セーブ）には触れず、
      専用のlocalStorageキーに書き置くだけ。ホーム画面（ddCheckNobiruPendingReward）が
      次に開かれたときに読み取り、初めての合図であればストック経験値に変換する。
