@@ -4668,11 +4668,36 @@
 @keyframes matchStickPop{ 0%{transform:scale(.2); opacity:0;} 60%{transform:scale(1.2); opacity:1;} 100%{transform:scale(1);} }
   .expl-link{display:inline-block;margin-top:4px;color:var(--accent2);font-weight:bold;word-break:break-all}
 </style>
+<style>
+/* ===== スマホ表示の調整（2026-11-21〜、教員の指示「パソコン版は今のまま、スマホでパートナーの表示などが重なって見づらい」）=====
+   幅560px以下だけに効かせる。パソコンの見た目は変えない。 */
+@media (max-width:560px){
+  /* ホーム「ことのは」カード：右上のパートナーが見出し・組の札に重なっていた → 見出しの上に1行で並べる */
+  .kotonoha-card .mb-partner-badges{ position:static; justify-content:flex-end; margin:-4px -4px 6px 0; }
+  /* 左の絵の列のせいで右の欄が細くなり、文字が1〜2字ずつ折り返していた → 絵を上、くわしい欄を下に */
+  .kotonoha-card .kotonoha-row{ flex-direction:column; align-items:stretch; gap:10px; }
+  .kotonoha-card .kotonoha-icon-wrap{ align-self:center; }
+  .kotonoha-card .btn-row{ flex-wrap:wrap; gap:8px; }
+  .kotonoha-card .sxb-go{ white-space:nowrap; }
+  /* 今日のミニゲーム（風船・くす玉・宝箱）：画面の右下で、カードやボタンを大きくかくしていた → 小さく、端に寄せる */
+  /* （#dailyMgBalloon の元の指定はファイルの後ろにあり、浮く動きにtransformを使っているので、bodyで強めてzoomで縮める） */
+  body #dailyMgBalloon, body #dailyMgBalloon.dmg-k-kusu{ right:2px; bottom:14px; zoom:.66; }
+  /* ボス戦ステータスの割りふり：－100〜＋100の6つのボタンが1行に入りきらず、画面の右にはみ出していた */
+  .status-row-ctrl{ display:grid; grid-template-columns:repeat(3,1fr) auto repeat(3,1fr); gap:4px; width:100%; flex-shrink:1; }
+  .status-row-ctrl .stat-step-btn{ padding:8px 0; min-width:0; font-size:.76rem; }
+  .status-row-info{ min-width:0; }
+  /* 漢字の書き取り：左の「一画戻す・全部消す」と部首の欄が画面の左にはみ出していた
+     （書くマスの大きさは kwsLoadKanji で calc(100vw - 124px) までに。左右の余白をボタンの幅に合わせる） */
+  .kws-sideRadical{ width:30px; font-size:.62rem; }
+  .kws-stageRow{ padding:0 26px 44px 60px; }
+  .kws-mainCol{ min-width:0; max-width:100%; }
+}
+</style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.93</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.95</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -5018,6 +5043,33 @@ function auditRebirthSeeds(st){
   return true;
 }
 let memStats = null;
+/* ===== 古い記録での上書き防止（2026-11-21〜、教員の指示「魔術ステータスを100にしたのに1問で0に戻った」への対策） =====
+   ミニゲーム側はmg_save_guard.jsで守る。本体も、別のタブで開いた本体が記録を書きかえたあと、こちらのタブが
+   それより前にloadStats()で読んだstを保存すると、相手の変更を古い中身で消してしまう。
+   storageイベント（ほかのタブ・ページが書いたときだけ届く）で「よそで書きかわった回数」storeExtGenを数え、
+   loadStats()で読んだstにはその時点の回数を覚えさせる（stLoadedGen）。saveStatsは、よそで書きかわる前に
+   読んだstなら保存せず、ページを読み込み直して最新の記録から続ける。loadStats()を通っていないst
+   （記録の読み込み・リセットで作ったもの）はこれまでどおり保存する。 */
+let storeExtGen = 0;
+const stLoadedGen = new WeakMap();
+let storeStaleReloading = false;
+function storeStaleReload(){
+  if(storeStaleReloading) return;
+  storeStaleReloading = true;
+  const go = () => { try{ location.reload(); }catch(e){} };
+  if(document.visibilityState === "hidden"){
+    document.addEventListener("visibilitychange", function f(){ if(document.visibilityState !== "hidden"){ document.removeEventListener("visibilitychange", f); go(); } });
+  }else{
+    alert("ほかの画面で記録が新しくなっていたので、最新の記録を読み込み直します。");
+    go();
+  }
+}
+window.addEventListener("storage", e => {
+  if(e.storageArea && e.storageArea !== localStorage) return;
+  if(e.key === STORE_KEY || e.key === null) storeExtGen++;
+});
+// ブラウザの「戻る／進む」で前の画面がそのまま出てきたら、中の記録が古いかもしれないので読み込み直す
+window.addEventListener("pageshow", e => { if(e.persisted){ try{ location.reload(); }catch(err){} } });
 /* ===== 記録の「守り」（2026-11-09〜、教員の指示「データが残っているはずなのに経験値0になる」への対策） =====
    A. 読み込み失敗の保護：以前のloadStatsは、途中のマイグレーション等で1か所でも例外が出ると黙って
       emptyStats()を返していた。その状態で1問でも解くとsaveStatsが本物の記録を0の記録で上書きしてしまう。
@@ -5636,6 +5688,7 @@ function loadStats(){
     s = localStorage.getItem(STORE_KEY);
     if(s){
       const st = JSON.parse(s);
+      if(st && typeof st === "object") stLoadedGen.set(st, storeExtGen);   // いつの時点の記録か（saveStatsの上書き防止）
       if(st && st.cats && st.q && st.lv){
         CAT_KEYS.concat(["dokkai"]).forEach(k => {
           if(!st.cats[k]) st.cats[k] = {t:0,c:0};
@@ -6014,6 +6067,8 @@ function loadStats(){
 }
 function saveStats(st){
   if(statsLoadError) return; // 読み込めなかった本物の記録を上書きしない（importData・resetStatsは解除してから呼ぶ）
+  if(storeStaleReloading) return;
+  { const g = stLoadedGen.get(st); if(g !== undefined && g < storeExtGen){ storeStaleReload(); return; } } // よそで書きかわる前に読んだstは保存しない
   st.saveFormatVer = SAVE_FORMAT_VERSION;
   try{ st.seedSeal = makeSeedSeal(st); }catch(e){} // 転生の種の封印（auditRebirthSeeds参照）
   memStats = st;
@@ -6024,6 +6079,7 @@ function saveStats(st){
     // 容量不足のときは、自動バックアップを消して本体の保存をやり直す
     try{ localStorage.removeItem(STATS_BACKUP_KEY); localStorage.removeItem(STATS_BACKUP_META_KEY); localStorage.setItem(STORE_KEY, json); }catch(_){ return; }
   }
+  stLoadedGen.set(st, storeExtGen);   // 保存した中身＝今の記録
   statsBackupMaybe(st, json);
 }
 function qKey(cat, qText){
@@ -12255,7 +12311,7 @@ function kwsLoadKanji(id){
   // 縦に2マス積んで見せるのではなく、1文字目→2文字目の順に同じマスを書き直す。
   kwsCanvas.width = KWS_CHAR_CELL_PX;
   kwsCanvas.height = KWS_CHAR_CELL_PX;
-  kwsStageEl.style.width = `min(90vw, ${KWS_STAGE_MAX_WIDTH_PX}px)`;
+  kwsStageEl.style.width = `min(90vw, calc(100vw - 124px), ${KWS_STAGE_MAX_WIDTH_PX}px)`; // スマホでは左右のボタンが画面からはみ出さない大きさに（2026-11-21）
   kwsStageEl.style.aspectRatio = '1 / 1';
 
   kwsRenderPerCharButtons(kwsRadicalsFor(id));
@@ -16042,7 +16098,7 @@ function cmShowKwsQuestion(entry){
   cmKwsCanvasEl.width = KWS_CHAR_CELL_PX;
   cmKwsCanvasEl.height = KWS_CHAR_CELL_PX;
   const cmKwsStageEl = document.getElementById('cmKwsStage');
-  cmKwsStageEl.style.width = `min(90vw, ${KWS_STAGE_MAX_WIDTH_PX}px)`;
+  cmKwsStageEl.style.width = `min(90vw, calc(100vw - 124px), ${KWS_STAGE_MAX_WIDTH_PX}px)`;
   cmKwsStageEl.style.aspectRatio = '1 / 1'; // 幅しか指定しないとcanvasの高さが0に潰れるため（kws/mbと同じ設計）
   cmKwsWireCanvas();
   cmKwsRenderSentence(entry);
@@ -20018,6 +20074,7 @@ function showAdminRecovery(){
   statsLoadError = null; // 読み込みエラー中でも中身を見られるように（保存はこの画面の操作からだけ）
   const st = loadStats();
   adminStSnap = JSON.stringify(st);
+  adminMgSnapAtOpen = mgSnapshot();
   window.scrollTo(0,0);
   const xp = kotonohaTotalXP(st);
   const f = kotonohaForm(st);
@@ -20731,7 +20788,23 @@ function adminApplyGameForms(writes, jsonEdited, notes){
     writes[gf.key] = JSON.stringify(o);
   });
 }
+/* 管理者画面を出したあとに、別のタブ・ページでゲームが遊ばれて記録が変わっていたら、画面の古い数字で上書きしない
+   （2026-11-21〜）。変わったゲームの名前を出して、最新の記録で画面を出し直す。 */
+let adminMgSnapAtOpen = null;
+function adminMgChangedSinceOpen(){
+  if(!adminMgSnapAtOpen) return [];
+  const now = mgSnapshot();
+  return MG_SAVE_KEYS.filter(({key}) => (now[key] == null ? null : now[key]) !== (adminMgSnapAtOpen[key] == null ? null : adminMgSnapAtOpen[key]))
+    .map(m => m.label);
+}
 function adminSaveMinigames(){
+  const moved = adminMgChangedSinceOpen();
+  if(moved.length){
+    alert("この画面を開いたあとに、次のゲームの記録が変わりました（ほかのタブなどで遊んだため）。\n・" + moved.join("\n・")
+      + "\n\n古い数字で上書きしないよう、最新の記録で画面を出し直します。もう一度直してから保存してください。");
+    adminReopen();
+    return;
+  }
   const before = mgSnapshot();
   const notes = [];   // 自動で合わせたこと
   const writes = {};      // key → 文字列（nullなら消す）
@@ -24334,7 +24407,9 @@ function kotodamaMenuHtml(){
    ミニゲーム一覧の画面でキーボードから「daruma」と打つと、演出（暗転→だるまが浮かぶ→問いかけ4つ→白くはじける）のあと
    一覧の中に本物のバナー（daruma、"enc:"で隠してある）がふわっと現れ、その端末ではそれ以後ずっと遊べる（DARUMA_UNLOCK_LSKEY）。 */
 const DARUMA_UNLOCK_LSKEY = "kokugo_daruma_unlocked_v1";
-function darumaUnlocked(){ try{ return localStorage.getItem(DARUMA_UNLOCK_LSKEY) === "1"; }catch(e){ return false; } }
+/* 2026-11-21、教員の指示「ダルマは解放している状態に」：スマホでは「daruma」と打てず解禁できなかったので、
+   どの端末でも最初から解禁ずみにする（隠しコマンドの演出・DARUMA_UNLOCK_LSKEYの記録は残すが、もう使わない）。 */
+function darumaUnlocked(){ return true; }
 function darumaMenuHtml(){
   if(darumaUnlocked()){
     return mgBannerHtml("daruma", "叩け！文節だるま落とし", true, "", "openDarumaOtoshi()")
