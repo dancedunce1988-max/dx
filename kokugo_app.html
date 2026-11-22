@@ -1585,6 +1585,11 @@
   .prologue-text{color:#f5f1e6; font-size:1.15rem; line-height:1.9; max-width:480px; white-space:pre-line; opacity:0; animation:prologueRise .7s ease forwards .25s;}
   .prologue-hint{position:absolute; bottom:26px; color:#c9c2a8; font-size:.78rem; opacity:0; animation:prologueRise .7s ease forwards .9s;}
   .prologue-skip{position:absolute; top:18px; right:20px; color:#c9c2a8; font-size:.78rem; text-decoration:underline; padding:4px;}
+  /* 無垢龍の卵（2026-11-22〜）：オープニングとストーリー第1章に表示 */
+  .prologue-egg{width:120px; height:auto; margin-bottom:18px; opacity:0; filter:drop-shadow(0 0 16px rgba(255,236,170,.35));
+    animation:prologueRise .7s ease forwards .1s, mukuEggWobble 2.6s ease-in-out 1.2s infinite;}
+  .story-egg-img{display:block; width:110px; height:auto; margin:0 auto 10px; animation:mukuEggWobble 2.6s ease-in-out .6s infinite;}
+  @keyframes mukuEggWobble{0%,70%,100%{transform:rotate(0)} 76%{transform:rotate(-5deg)} 84%{transform:rotate(4deg)} 92%{transform:rotate(-2deg)}}
   @keyframes prologueFadeIn{from{opacity:0} to{opacity:1}}
   @keyframes prologueRise{from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:translateY(0)}}
   /* ===== ストーリーモード（削除する場合はこのブロックとJS内の「ストーリーモード」ブロックを削除するだけでよい） ===== */
@@ -4697,7 +4702,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.95</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver13.96</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -5274,7 +5279,7 @@ function emptyStats(){
   EXTRA_LEVEL_CATS.forEach(k => { cats[k] = {t:0,c:0}; lv[k] = 1; });
   return {cats, q:{}, lv, diffLv, items:{}, usedTreasures:{}, usedStoryRewards:{}, bossPity:{}, bossItemPity:{}, kotonohaOtherRoll:null, bossTickets:0, totalLevelUps:0,
     bonusExp:0, hyakuninBonusExp:0, bunsetsuGiriBonusExp:0, stats:{hp:0, atk:0, def:0, spd:0, luck:0}, kotonohaSeenForms:[], kotonohaDisplayOverride:null, specialMoveUnlocked:false, storyFaceUnlocked:false,
-    kotonohaRebirthUnlocked:false, kotonohaRebirth:null, kotonohaRebirthLinesSeen:[], kotonohaZukan:{}, kotonohaSeigakiMeienUnlocked:false, groupUnlock:{},
+    kotonohaRebirthUnlocked:false, kotonohaRebirth:null, kotonohaRebirthLinesSeen:[], kotonohaZukan:{}, kotonohaMuku:{seenStage:0}, kotonohaSeigakiMeienUnlocked:false, groupUnlock:{},
     kanjiWrite:{totalOk:0, itemHist:{}, levelRecent:{}},
     kanjiWriteElem:{totalOk:0, itemHist:{}, targetLv:1, recent:[]},
     hyakunin:{totalOk:0, itemHist:{}, targetLv:1, recent:[]},
@@ -5682,6 +5687,7 @@ function detectSaveTampering(st){
 
   return {tampered: reasons.length > 0, reasons};
 }
+let kotonohaMukuMigratePending = false;
 function loadStats(){
   let s = null;
   try{
@@ -6025,6 +6031,22 @@ function loadStats(){
           });
           if(st.kotonohaRebirth) kotonohaZukanRecord(st);
         }
+        /* 無垢龍（2026-11-22〜、教員の指示）の移行。属性の龍になったことがある生徒は無垢龍を
+           青年体まで図鑑に登録（今の龍はそのまま）。まだ転生していない生徒は、今の経験値に合った
+           段階の無垢龍になり、そこまでを登録する。seenStageを0にしておくので、次にホームを開いたとき
+           一度だけ「今の段階の無垢龍に進化した！」の演出が入る。 */
+        if(!st.kotonohaMuku || typeof st.kotonohaMuku !== "object"){
+          st.kotonohaMuku = {seenStage: 0};
+          kotonohaMukuMigratePending = true; // 下の監査のあとで保存する（移行結果をセーブデータに残す）
+          if(st.kotonohaRebirth || st.kotonohaRebirthLinesSeen.length > 0){
+            const mz = kotonohaZukanEntry(st, "muku");
+            mz.f1 = Math.max(mz.f1, KOTONOHA_YOUTH_STAGE_IDX);
+            st.kotonohaZukan.muku = mz;
+            st.kotonohaMuku.seenStage = KOTONOHA_IMAGE_STAGE_KEYS.length - 1;
+          }else{
+            kotonohaMukuZukanRecord(st);
+          }
+        }
         /* 旧バージョンで「３領域以上バランス型」が固定されていた場合、今の見た目をそのまま引き継ぐ
            （次に進化するタイミングから、新しいランダム抽選のしくみに切りかわる）。 */
         if(!st.kotonohaOtherRoll && KOTONOHA_OTHER_TYPES.includes(st.kotonohaBranch)){
@@ -6054,6 +6076,7 @@ function loadStats(){
            ミニゲーム経由のログイン報酬（mgSyncFromMinigames）より前に見る。 */
         if(typeof st.seedUsed !== "number") st.seedUsed = 0;
         if(auditRebirthSeeds(st)) saveStats(st);
+        if(kotonohaMukuMigratePending){ kotonohaMukuMigratePending = false; saveStats(st); } // 無垢龍の移行（2026-11-22〜）を保存
         mgSyncFromMinigames(st); // 別ページのミニゲームのジャンルレベル・ログイン報酬をすぐ取りこむ
         return st;
       }
@@ -7382,6 +7405,7 @@ const KOTONOHA_IMAGE_LINE_LABEL = {
   /* 古代龍・未来龍のさらに次の系統（2026-09-17〜、教員の指示で解禁条件が確定。
      KOTONOHA_ASCEND2_LINES／kotonohaAscend2LineUnlocked参照）。 */
   rai:"雷龍", kiri:"霧龍", oto:"音龍", hyou:"氷龍",
+  muku:"無垢龍", // 無能力のことのは＝初転生(第9章)までの姿（2026-11-22〜）。転生先の候補には入らない
 };
 const KOTONOHA_IMAGE_STAGE_KEYS = ["1_tamago","2_youtai","3_shounentai","4_seinentai","5_seijintai","6_seijukutai","7_densetsu"];
 const KOTONOHA_IMAGE_STAGE_LABEL = ["卵","幼体","少年体","青年体","成人体","成熟体","伝説級"];
@@ -7502,7 +7526,7 @@ function kotonohaZukanEntry(st, line){
 /* 今育てている系統の段階を図鑑に書き込む（高い方を残す）。書き換えがあればtrueを返す
    （保存は呼び出し元がまとめて行う）。 */
 function kotonohaZukanRecord(st){
-  if(!st.kotonohaRebirth) return false;
+  if(!st.kotonohaRebirth) return kotonohaMukuZukanRecord(st); // 未転生＝無垢龍を記録
   if(!st.kotonohaZukan || typeof st.kotonohaZukan !== "object") st.kotonohaZukan = {};
   const line = st.kotonohaRebirth.line;
   const key = "f" + kotonohaFormNo(st);
@@ -7649,6 +7673,37 @@ function kotonohaRebirthImageSrc(st){
   const key = `${st.kotonohaRebirth.line}_${KOTONOHA_IMAGE_STAGE_KEYS[idx]}`;
   return (typeof KOTONOHA_EVOLUTION_IMAGES !== "undefined" && KOTONOHA_EVOLUTION_IMAGES[key]) || null;
 }
+/* 無垢龍（無能力のことのは、2026-11-22〜）の卵。オープニング・ホームの「ことばのたまご」・
+   ストーリー第1章で使う。 */
+function mukuEggSrc(){ return kotonohaImageSrcForStage("muku", 0); }
+/* 無垢龍（2026-11-22〜、教員の指示）。まだ一度も転生していない（st.kotonohaRebirthがnull）ことのはは、
+   絵文字ではなく無垢龍のイラストで、転生後の龍と同じ速さ（KOTONOHA_REBIRTH_STAGE_XP、経験値0から）
+   で卵→伝説級へ育つ。絵文字の進化ライン（KOTONOHA_LINES）は「称号」としてそのまま残す。
+   「転生済みか」を見ている既存の判定（必殺技・転生ボタン・世代の力など）を狂わせないよう、
+   st.kotonohaRebirthは使わず、進化演出の既読段階だけst.kotonohaMuku.seenStageに持つ。 */
+function kotonohaMukuActive(st){ return !st.kotonohaRebirth && kotonohaImagesReady("muku"); }
+function kotonohaMukuStageIndex(st){
+  const xp = kotonohaTotalXP(st);
+  let idx = 0;
+  KOTONOHA_REBIRTH_STAGE_XP.forEach((th,i) => { if(xp >= th) idx = i; });
+  return idx;
+}
+function kotonohaMukuImageSrc(st){ return kotonohaImageSrcForStage("muku", kotonohaMukuStageIndex(st)); }
+function kotonohaMukuState(st){
+  if(!st.kotonohaMuku || typeof st.kotonohaMuku !== "object") st.kotonohaMuku = {seenStage:0};
+  return st.kotonohaMuku;
+}
+/* 無垢龍の図鑑記録（f1だけ）。書き換えがあればtrue（保存は呼び出し元）。 */
+function kotonohaMukuZukanRecord(st){
+  if(!kotonohaMukuActive(st)) return false;
+  if(!st.kotonohaZukan || typeof st.kotonohaZukan !== "object") st.kotonohaZukan = {};
+  const cur = kotonohaZukanEntry(st, "muku");
+  const idx = kotonohaMukuStageIndex(st);
+  if(idx <= cur.f1) return false;
+  cur.f1 = idx;
+  st.kotonohaZukan.muku = cur;
+  return true;
+}
 function kotonohaImageSrcForStage(line, idx){
   const key = `${line}_${KOTONOHA_IMAGE_STAGE_KEYS[idx]}`;
   return (typeof KOTONOHA_EVOLUTION_IMAGES !== "undefined" && KOTONOHA_EVOLUTION_IMAGES[key]) || null;
@@ -7670,6 +7725,7 @@ function kotonohaBlurredImgHtml(src, variant, imgClass, imgAttrs){
    document.body直下の専用オーバーレイ（既存の必殺技演出=finisher-overlayと同じ手法）を使い、
    screen.innerHTMLの作り直しには一切巻き込まれない。 */
 function kotonohaHasPendingEvolveCutscene(st){
+  if(kotonohaMukuActive(st)) return kotonohaMukuStageIndex(st) > (kotonohaMukuState(st).seenStage||0);
   return !!(st.kotonohaRebirth && kotonohaRebirthStageIndex(st) > (st.kotonohaRebirth.seenStage||0));
 }
 /* 一領域特化・二領域特化型でも転生できるようにした変更（2026-08-19〜）で、それ以前に
@@ -7701,9 +7757,10 @@ function hideKotonohaEvolveOverlay(){
    （教員の指示、2026-08-01〜：問題の途中でも進化演出に割り込ませ、終わったら元の流れに戻す）。 */
 function showKotonohaEvolveCutscene(st, onDone){
   window._kotonohaEvolveOnDone = onDone || null;
-  const fromStage = (st.kotonohaRebirth && st.kotonohaRebirth.seenStage) || 0;
-  const toStage = kotonohaRebirthStageIndex(st);
-  const line = st.kotonohaRebirth.line;
+  const muku = kotonohaMukuActive(st);
+  const fromStage = muku ? (kotonohaMukuState(st).seenStage||0) : ((st.kotonohaRebirth && st.kotonohaRebirth.seenStage) || 0);
+  const toStage = muku ? kotonohaMukuStageIndex(st) : kotonohaRebirthStageIndex(st);
+  const line = muku ? "muku" : st.kotonohaRebirth.line;
   const fromSrc = kotonohaImageSrcForStage(line, fromStage);
   const el = kotonohaEvolveOverlayEl();
   el.className = "kotonoha-evolve-overlay";
@@ -7751,27 +7808,30 @@ function storyRenderKotonohaRebirthReveal(){
   const st = loadStats();
   const sp = storyProgress(st);
   const fromIcon = kotonohaForm(st).icon;
+  const fromSrc = kotonohaMukuActive(st) ? kotonohaMukuImageSrc(st) : null;
   const success = st.kotonohaRebirth ? false : kotonohaDoRebirth(st);
   sp.flags.ch9RebirthDone = success ? "yes" : "no";
   saveStats(st);
   if(!success){ storyAdvance(); return; }
-  kotonohaRebirthFxSequence(st, null, fromIcon, storyAdvance);
+  kotonohaRebirthFxSequence(st, fromSrc, fromIcon, storyAdvance);
 }
 function kotonohaEvolveStep5(st, toStage){
-  const fromStage = st.kotonohaRebirth.seenStage || 0;
-  st.kotonohaRebirth.seenStage = toStage;
+  const muku = kotonohaMukuActive(st);
+  const fromStage = (muku ? kotonohaMukuState(st).seenStage : st.kotonohaRebirth.seenStage) || 0;
+  if(muku) kotonohaMukuState(st).seenStage = toStage; else st.kotonohaRebirth.seenStage = toStage;
   /* いずれかの転生先が「成熟体」に到達したら、「聖輝」「冥淵」を初めてアンロックする
-     （一度アンロックしたら以後は常に解禁済み、2026-08-01〜）。 */
-  const justUnlockedLines = !st.kotonohaSeigakiMeienUnlocked && toStage >= KOTONOHA_MATURE_STAGE_IDX;
+     （一度アンロックしたら以後は常に解禁済み、2026-08-01〜）。無垢龍は転生先ではないので対象外。 */
+  const justUnlockedLines = !muku && !st.kotonohaSeigakiMeienUnlocked && toStage >= KOTONOHA_MATURE_STAGE_IDX;
   if(justUnlockedLines) st.kotonohaSeigakiMeienUnlocked = true;
   kotonohaZukanRecord(st);
   saveStats(st);
-  const toSrc = kotonohaImageSrcForStage(st.kotonohaRebirth.line, toStage);
-  const label = `${KOTONOHA_IMAGE_STAGE_LABEL[toStage]}${KOTONOHA_IMAGE_LINE_LABEL[st.kotonohaRebirth.line]}${kotonohaIsForm2(st) ? `（${KOTONOHA_FORM_LABEL[kotonohaFormNo(st)]}）` : ""}`;
+  const evoLine = muku ? "muku" : st.kotonohaRebirth.line;
+  const toSrc = kotonohaImageSrcForStage(evoLine, toStage);
+  const label = `${KOTONOHA_IMAGE_STAGE_LABEL[toStage]}${KOTONOHA_IMAGE_LINE_LABEL[evoLine]}${kotonohaIsForm2(st) ? `（${KOTONOHA_FORM_LABEL[kotonohaFormNo(st)]}）` : ""}`;
   /* 系統別必殺技の名前が段階に応じて変わったとき（少年体到達＝新規解禁も含む）は、
      進化のお祝いに続けて「必殺技が、～になった！」も表示する（教員の指示、2026-08-01〜）。
      始原龍（"shigen"）は固定の技名を持たないため対象外（自然にnullになりスキップされる）。 */
-  const line = st.kotonohaRebirth.line;
+  const line = evoLine;
   const oldMoveName = kotonohaLineMoveNameForStage(line, fromStage);
   const newMoveName = kotonohaLineMoveNameForStage(line, toStage);
   let moveMsg = "";
@@ -8236,7 +8296,7 @@ function kotonohaCardHtml(st){
      「進化」という言葉は転生後のイラスト成長（showKotonohaEvolveCutscene）の方に譲る
      （教員の指示、2026-08-01〜：進化と概念を分けるため）。 */
   const progressNote = next
-    ? (st.kotonohaRebirth ? `次の称号獲得まで、あと経験値${next - f.total}` : `つぎの進化まで、あと経験値${next - f.total}`)
+    ? ((st.kotonohaRebirth || kotonohaMukuActive(st)) ? `次の称号獲得まで、あと経験値${next - f.total}` : `つぎの進化まで、あと経験値${next - f.total}`)
     : "最終形態に到達している";
   const typeTag = f.type ? `<span class="kotonoha-type">${esc(KOTONOHA_TYPE_LABEL[f.type])}</span>` : "";
   const typeClass = disp.type ? `kotonoha-type${disp.type}` : "kotonoha-egg";
@@ -8281,7 +8341,7 @@ function kotonohaCardHtml(st){
      唯一の見た目なので、overrideがメイン表示を差し替える既存の挙動を維持する。 */
   const rebirthActive = !!st.kotonohaRebirth;
   const rIdx = rebirthActive ? kotonohaRebirthStageIndex(st) : -1;
-  if(rebirthActive && kotonohaZukanRecord(st)) saveStats(st);
+  if(kotonohaZukanRecord(st)) saveStats(st); // 未転生なら無垢龍の段階を記録
   let rebirthEvoHtml = "";
   if(rebirthActive){
     const gainedNow = Math.max(0, kotonohaTotalXP(st) - st.kotonohaRebirth.baseXP);
@@ -8292,7 +8352,15 @@ function kotonohaCardHtml(st){
   }
   const iconHtml = rebirthActive
     ? `<div class="kotonoha-icon-wrap">${kotonohaForm2Wrap(st, kotonohaBlurredImgHtml(kotonohaRebirthImageSrc(st), "icon", "kotonoha-icon kotonoha-icon-img", `onclick="showKotonohaFormPicker()" alt="${esc(KOTONOHA_IMAGE_LINE_LABEL[st.kotonohaRebirth.line])}"`))}${rebirthEvoHtml}${kotonohaZukanUnlocked(st) ? `<button class="kotonoha-zukan-btn" onclick="showKotonohaZukan()"><span class="kotonoha-zukan-btn-spark">✦</span>📖 ことのは図鑑</button>` : `<span class="kotonoha-zukan-locked">🔒 図鑑は<br>第二部 第4章で解放</span>`}</div>`
-    : `<div class="kotonoha-icon ${typeClass}${override ? ' kotonoha-overridden' : ''}" onclick="showKotonohaFormPicker()">${disp.icon}</div>`;
+    : kotonohaMukuActive(st)
+      ? (() => {
+          const mIdx = kotonohaMukuStageIndex(st);
+          const mNext = KOTONOHA_REBIRTH_STAGE_XP[mIdx + 1];
+          const evo = mIdx === 6 ? `<div class="kotonoha-evo-next">最終進化系です</div>`
+            : `<div class="kotonoha-evo-next">次の進化まで<br>あと${mNext - kotonohaTotalXP(st)}</div>`;
+          return `<div class="kotonoha-icon-wrap">${kotonohaBlurredImgHtml(kotonohaMukuImageSrc(st), "icon", "kotonoha-icon kotonoha-icon-img", `onclick="showKotonohaFormPicker()" alt="${esc(KOTONOHA_IMAGE_STAGE_LABEL[mIdx] + KOTONOHA_IMAGE_LINE_LABEL.muku)}"`)}${evo}</div>`;
+        })()
+      : `<div class="kotonoha-icon ${typeClass}${override ? ' kotonoha-overridden' : ''}" onclick="showKotonohaFormPicker()">${disp.icon}</div>`;
   /* 「ことのはの称号」バッジ（旧「すがた」）。既存の分野レベルごとの「称号」（TITLES/titleOf、
      同じホーム画面内のshogo-badge）と混同しないよう、必ず「ことのはの称号」と明示する。 */
   const shogoBadge = override ? `<span class="kotonoha-shogo-badge">🎖️ ${esc(disp.name)}</span>` : "";
@@ -8616,6 +8684,16 @@ function showKotonohaZukan(){
       <p class="note">出会った龍：<b>${seenCount}</b> / ${allLines.length}種類　　第二形態：<b>${form2Count}</b> / ${form2Lines.length}種類${form3Open ? `　　第三形態：<b>${form3Count}</b> / ${form3Lines.length}種類` : ""}</p>
       <p class="note">${form3Open ? "🌟第二形態・🌈第三形態になると、世代の力が1つずつ上がる。" : "🌟第二形態になると、世代の力が1つ上がる。"}<br>🧬世代の力は、少年体から使える。</p>
     </div>`;
+  if(kotonohaImagesReady("muku")){
+    const mz = kotonohaZukanEntry(st, "muku");
+    html += `<h3 class="section kz-gen">はじまりの龍</h3>
+      <div class="kz-grid"><div class="card kz-entry">
+        <div class="kz-head"><b>${esc(KOTONOHA_IMAGE_LINE_LABEL.muku)}</b>${!st.kotonohaRebirth ? `<span class="kz-now">育成中</span>` : ""}</div>
+        <p class="note kz-gen-power">何の力も持たない、はじまりの姿。</p>
+        <div class="kz-form-label">第一形態<span>（最高：${esc(KOTONOHA_IMAGE_STAGE_LABEL[Math.max(0, mz.f1)])}）</span></div>
+        ${kotonohaZukanThumbs("muku", Math.max(0, mz.f1), false)}
+      </div></div>`;
+  }
   KOTONOHA_ZUKAN_GROUPS.forEach(group => {
     const lines = group.lines.filter(kotonohaImagesReady);
     if(lines.length === 0) return;
@@ -8758,7 +8836,7 @@ function showKotonohaRebirthConfirm(){
      満たしていないだけなのか、で表示を出し分ける。①は「実装済みの系統数」と「経験済み系統数」の
      単純な比較で判定できる（kotonohaImagesReadyで画像が無い＝未実装の系統は数えない）。 */
   if(kotonohaUnseenRebirthLines(st).length === 0){
-    const totalImplemented = Object.keys(KOTONOHA_IMAGE_LINE_LABEL).filter(kotonohaImagesReady).length;
+    const totalImplemented = Object.keys(KOTONOHA_IMAGE_LINE_LABEL).filter(l => l !== "muku" && kotonohaImagesReady(l)).length;
     const seenCount = (st.kotonohaRebirthLinesSeen || []).length;
     ruleLines.push(seenCount >= totalImplemented
       ? `🎉 現在実装している全ての卵を経験しました。`
@@ -8816,7 +8894,7 @@ function kotonohaRebirthConfirmed(chosenLine){
     st.items[REBIRTH_SEED_ITEM]--;
     st.seedUsed = (st.seedUsed||0) + 1; // 使った数（auditRebirthSeedsの上限計算に使う）
   }
-  const fromSrc = wasAlready ? kotonohaRebirthImageSrc(st) : null;
+  const fromSrc = wasAlready ? kotonohaRebirthImageSrc(st) : (kotonohaMukuActive(st) ? kotonohaMukuImageSrc(st) : null);
   const fromIcon = wasAlready ? null : kotonohaForm(st).icon;
   if(!kotonohaDoRebirth(st, chosenLine)){ showHome(); return; }
   kotonohaRebirthFxSequence(st, fromSrc, fromIcon, null);
@@ -21042,7 +21120,7 @@ function adminSaveEdits(){
     try{ if(kotonohaZukanRecord(st)) notes.push("図鑑に、いまの龍の段階を書きこみました"); }catch(e){}
   }
   // 聖輝・冥淵は、どれかの龍が成熟体になったことがあれば解禁（kotonohaEvolveStep5と同じ条件）
-  if(!st.kotonohaSeigakiMeienUnlocked && Object.values(st.kotonohaZukan || {}).some(z => z && Math.max(z.f1 ?? -1, z.f2 ?? -1, z.f3 ?? -1) >= KOTONOHA_MATURE_STAGE_IDX)){
+  if(!st.kotonohaSeigakiMeienUnlocked && Object.entries(st.kotonohaZukan || {}).some(([zl, z]) => zl !== "muku" && z && Math.max(z.f1 ?? -1, z.f2 ?? -1, z.f3 ?? -1) >= KOTONOHA_MATURE_STAGE_IDX)){
     st.kotonohaSeigakiMeienUnlocked = true; notes.push("成熟体になった龍がいるので、聖輝龍・冥淵龍を解禁しました");
   }
   // 保存前に不正判定にかけて、引っかかるなら確認する
@@ -21135,7 +21213,7 @@ function adminImportFile(input){
    しつこくならないよう、セリフは短く・少なくしてある。
    2026-10-01、「オープニングが長い」との教員の指示で、この一文だけにした（ワンタップですぐ開く。1枚だけのときはスキップも出さない）。 */
 const PROLOGUE_STEPS = [
-  {text:"言葉の力が、\nきっとあなたの人生を豊かにする"},
+  {text:"言葉の力が、\nきっとあなたの人生を豊かにする", mukuEgg:true},
 ];
 let prologueIdx = 0;
 let prologueOnDone = null;
@@ -21154,6 +21232,7 @@ function renderPrologueStep(){
   prologueEl.onclick = advancePrologue;
   prologueEl.innerHTML = `
     ${step.icon ? `<div class="prologue-icon">${step.icon}</div>` : ""}
+    ${step.mukuEgg && mukuEggSrc() ? `<img class="prologue-egg" src="${mukuEggSrc()}" alt="">` : ""}
     <p class="prologue-text">${step.text}</p>
     ${PROLOGUE_STEPS.length > 1 ? `<span class="prologue-skip" onclick="event.stopPropagation(); finishPrologue();">スキップ</span>` : ""}
     <p class="prologue-hint">${isLast ? "タップしてはじめる" : "タップしてすすむ"}</p>`;
@@ -21879,18 +21958,28 @@ const STORY_CHAPTERS = {
     beats: [
       {type:"line", text:"入学式まで、あと一週間。\n春休み最後の週がはじまった。"},
       {type:"line", text:"新しい制服や教科書が入った箱が、今日、家に届いた。"},
-      {type:"line", text:"荷物を整理していると――\n箱の隅に、見覚えのない小さな卵が紛れ込んでいるのに気づいた。"},
-      {type:"choice", flagKey:"eggReaction", text:"卵に、どうする？", options:[
-        {label:"そっと持ち上げてみる", value:"gentle"},
+      /* 2026-11-22〜：ことのははストーリーを読まなくても問題を解けば育つので、
+         この場面は「今の姿のまま」やってくる（kotonohaShape＝卵/孵化済みで出し分け、
+         storyResolveText参照）。卵は第1章の中では孵化しない。 */
+      {type:"line", mukuEgg:true, text:"荷物を整理していると――\n箱の隅に、見覚えのない小さな卵が紛れ込んでいるのに気づいた。", variants:[
+        {flag:"kotonohaShape", value:"hatched", text:"荷物を整理していると――\n箱の隅から、見覚えのない不思議な生き物が、ちょこんと顔をのぞかせているのに気づいた。"},
+      ]},
+      {type:"choice", flagKey:"eggReaction", text:"どうする？", options:[
+        {label:"そっと手をのばしてみる", value:"gentle"},
         {label:"しばらく様子を見てみる", value:"cautious"},
       ]},
-      {type:"line", text:"卵が、ほのかに光りはじめた。\nやがて殻が割れて――小さな生き物が、そっと顔をのぞかせる。", variants:[
-        {flag:"eggReaction", value:"gentle", text:"そっと両手で包むと、卵はほんのり温かかった。\n手のひらの中で、ふわりと光りはじめる。\nやがて殻が割れて――小さな生き物が、そっと顔をのぞかせる。"},
-        {flag:"eggReaction", value:"cautious", text:"しばらくじっと見つめていると、卵はひとりでにふるえはじめた。\n息をひそめて見守っていると、ほのかに光りだす。\nやがて殻が割れて――小さな生き物が、そっと顔をのぞかせる。"},
+      {type:"line", mukuEgg:true, text:"そっと両手で包むと、卵はほんのり温かかった。\n耳をすますと――殻の内側から、小さな声が聞こえてきた。", variants:[
+        {when:{eggReaction:"gentle", kotonohaShape:"egg"}, text:"そっと両手で包むと、卵はほんのり温かかった。\n耳をすますと――殻の内側から、小さな声が聞こえてきた。"},
+        {when:{eggReaction:"cautious", kotonohaShape:"egg"}, text:"しばらくじっと見つめていると、卵が、ことり、と小さくゆれた。\n息をひそめて見守っていると――殻の内側から、小さな声が聞こえてきた。"},
+        {when:{eggReaction:"gentle", kotonohaShape:"hatched"}, text:"そっと手をのばすと、その生き物は、ためらうことなく手のひらに乗ってきた。\nそして、まっすぐにこちらを見上げる。"},
+        {when:{eggReaction:"cautious", kotonohaShape:"hatched"}, text:"しばらく様子を見ていると、その生き物のほうから、とことこと近づいてきた。\nそして、まっすぐにこちらを見上げる。"},
       ]},
       {type:"line", speaker:"ことのは", text:"……見つけた。\nぼくを、育ててくれる人。"},
-      {type:"line", speaker:"ことのは", text:"ぼくは、【ことのは】。\n君がこれから紡ぐ、たくさんの言葉から生まれたんだ。"},
-      {type:"line", speaker:"ことのは", text:"言葉の力が、少しずつ失われていく時代だから……\nぼくは、ずっと誰かを待ってた。"},
+      {type:"line", speaker:"ことのは", text:"ぼくは、【ことのは】。\nまだ卵のままだけど……君がこれから紡ぐ、たくさんの言葉を栄養にして、少しずつ大きくなっていくんだ。", variants:[
+        {flag:"kotonohaShape", value:"hatched", text:"ぼくは、【ことのは】。\n君がもう解いてくれた問題の言葉……あれがぼくの栄養になって、卵から、ここまで大きくなれたんだ。"},
+      ]},
+      {type:"line", speaker:"ことのは", text:"でも、ぼくには、まだ何の力もない。\n火も、水も、風も……どんな色の力も持っていないんだ。"},
+      {type:"line", speaker:"ことのは", text:"言葉の力が、少しずつ失われていく時代だから……\nそれでも、ぼくは、ずっと誰かを待ってた。"},
       {type:"choice", flagKey:"greeting", text:"ことのはに、なんて声をかける？", options:[
         {label:"「よろしく、ことのは」", value:"warm"},
         {label:"「……本当に喋ってるの?」", value:"surprised"},
@@ -22083,7 +22172,9 @@ const STORY_CHAPTERS = {
         {flag:"favoriteSubject", value:"bunpou", text:"言葉のきまりが得意なきみの校正、すごく頼りになったよ。言葉は、見直して、ととのえて、はじめて誰かに届くんだね。"},
       ]},
       {type:"line", text:"完成した学級新聞は、廊下の掲示板に貼り出された。\n通りかかった他のクラスの生徒たちも、足を止めて読んでくれている。"},
-      {type:"line", speaker:"ことのは", text:"あれ……なんだか、特別な力が湧き上がってきた気がする…"},
+      {type:"line", speaker:"ことのは", text:"あれ……何の力もないはずのぼくに、なんだか、特別な力が湧き上がってきた気がする…\nきみと一緒に、言葉を届けたからかな。", variants:[
+        {flag:"kotonohaAwakened", value:"yes", text:"あれ……なんだか、特別な力が湧き上がってきた気がする…\nきみと一緒に、言葉を届けたからかな。"},
+      ]},
       {type:"line", speaker:"ことのは", text:"今なら、必殺技が打てる気がする"},
       {type:"choice", flagKey:"finisherMoveChoice", text:"必殺技の名前をどうする？", options:[
         {label:"言霊一閃（ことだまいっせん）", value:"kotodama"},
@@ -22371,7 +22462,10 @@ const STORY_CHAPTERS = {
       {type:"line", text:"表紙には「言葉の精霊について」と書かれている。ページをめくると、聞き覚えのある名前が目に飛び込んできた。"},
       {type:"line", text:"――ことのは。"},
       {type:"line", speaker:"ことのは", text:"え……？　ぼくの名前が、書いてある……？"},
-      {type:"line", text:"本にはこうあった。「言葉そのものから生まれた精霊は、言葉の最小の単位を見きわめる者との絆によって、真の姿へと近づいていく」"},
+      {type:"line", text:"本にはこうあった。「言葉そのものから生まれた精霊は、はじめ、何の色も持たぬ『無垢（むく）』の姿で生まれる。そして、言葉の最小の単位を見きわめる者との絆によって、己の属性に目覚め、真の姿へと近づいていく」"},
+      {type:"line", speaker:"ことのは", text:"『無垢』……。\nぼくに、まだ何の力もないのは、そういうことだったんだ。", variants:[
+        {flag:"kotonohaAwakened", value:"yes", text:"『無垢』……。\nむかしのぼくに、何の力もなかったのは、そういうことだったんだ。"},
+      ]},
       {type:"choice", flagKey:"ch9Reaction", text:"この本を読んで、どう思う？", options:[
         {label:"ことのはの正体に近づけそうで、わくわくする", value:"excited"},
         {label:"ちょっと不思議で、少し怖い気もする", value:"nervous"},
@@ -22382,7 +22476,7 @@ const STORY_CHAPTERS = {
       ]},
       {type:"line", speaker:"花子", text:"「え、それってつまり……ことのはが、もっとすごい姿になるかもしれないってこと？」"},
       {type:"line", speaker:"太郎", text:"「おお、なんかロマンあるな！　自由研究、めちゃくちゃおもしろくなってきたじゃん」"},
-      {type:"line", speaker:"ことのは", text:"試してみたい。ぼくの、本当の姿……。単語の見きわめ、試されているのかもしれない。"},
+      {type:"line", speaker:"ことのは", text:"試してみたい。ぼくだけの力、ぼくの本当の姿……。単語の見きわめ、試されているのかもしれない。"},
       {type:"line", text:"本の最後のページに、小さな試練が記されていた。「正しく言葉の最小の単位（単語）を見きわめられるか、試されよ」"},
       /* サ変活用や、助動詞が連続して切れ方が特殊になる問題は難しすぎるとの指摘を受け、
          基本的な問題だけに限定した（教員の指示、2026-08-19〜）。教員が実際に全問リストを
@@ -22391,24 +22485,24 @@ const STORY_CHAPTERS = {
          だけで、通常の識別ジャンルの練習では引き続き出題される）。 */
       {type:"battle", cat:"shikibetsu", filterS:"正しく単語で区切られているのはどれか", filterTag:"basic", boss:"wordSpiritTrial"},
       {type:"line", text:"最後の問題に正解した瞬間、ことのはの体が、淡い光に包まれた。"},
-      {type:"line", speaker:"ことのは", text:"……あれ？　なんだか、体の奥から、力があふれてくるみたいだ。"},
+      {type:"line", speaker:"ことのは", text:"……あれ？　なんだか、体の奥から、ぼくだけの力があふれてくるみたいだ。"},
       /* ここで実際にkotonohaDoRebirth()を実行し、揺れ→明転→新しい卵の絵、という演出を挟む
          （storyRenderKotonohaRebirthReveal参照）。今の育ち方が転生の条件（3+バランス型の
          6系統のいずれか）を満たしていないと何も起きず、その結果はsp.flags.ch9RebirthDoneに
          記録され、直後の2つのlineビートがvariantsで文面を出し分ける。 */
       {type:"kotonohaRebirthReveal"},
-      {type:"line", text:"光がやむと、ことのはの姿は、卵のように丸く、やわらかな輝きをたたえていた。", variants:[
-        {flag:"ch9RebirthDone", value:"no", text:"光がやんでも、ことのはの姿はまだ卵にはならなかった。けれど、たしかに何かが変わろうとしている気配だけは、はっきりと感じられた。"},
+      {type:"line", text:"光がやむと、ことのはは、新しい色をまとった卵の姿になっていた。\n――無垢だったことのはが、自分だけの属性に目覚めたのだ。", variants:[
+        {flag:"ch9RebirthDone", value:"no", text:"光がやんでも、ことのはの姿は変わらなかった。\nけれど、その体には、すでに目覚めた属性の力が、しっかりと宿っているのが感じられた。"},
       ]},
-      {type:"line", speaker:"ことのは", text:"ぼく、変わっていけるみたいなんだ。きみと過ごしてきた時間が、ぼくを深いところから変えてくれる。――これからは、卵の姿から、何度でも新しい姿に生まれ変わっていけるようになったよ。", variants:[
-        {flag:"ch9RebirthDone", value:"no", text:"ぼく、これから変わっていけるようになるみたいなんだ。まだ卵にはなれていないみたいだけど……いつかその時が来たら、卵の姿から何度でも生まれ変わっていけるようになるはずだよ。"},
-        {flag:"favoriteSubject", value:"kanji", text:"ぼく、変わっていけるみたいなんだ。漢字が得意なきみが、一字一字ことばを見つめてくれたからかな。――これからは、卵の姿から、何度でも新しい姿に生まれ変わっていけるようになったよ。"},
-        {flag:"favoriteSubject", value:"dokkai", text:"ぼく、変わっていけるみたいなんだ。文章を読むのが得意なきみが、ぼくの中の物語を読み取ってくれたからかな。――これからは、卵の姿から、何度でも新しい姿に生まれ変わっていけるようになったよ。"},
-        {flag:"favoriteSubject", value:"bunpou", text:"ぼく、変わっていけるみたいなんだ。言葉のきまりが得意なきみが、ぼくの仕組みを解き明かしてくれたからかな。――これからは、卵の姿から、何度でも新しい姿に生まれ変わっていけるようになったよ。"},
+      {type:"line", speaker:"ことのは", text:"ぼく、目覚めたみたいなんだ。何の力もなかったぼくに、ぼくだけの属性が宿った。――これからは、卵の姿から、何度でも新しい姿に生まれ変わっていけるよ。", variants:[
+        {flag:"ch9RebirthDone", value:"no", text:"ぼくの力は、もうとっくに目覚めていたみたい。きみと過ごしてきた時間が、ちゃんとぼくの中に残っているんだね。――これからも、卵の姿から、何度でも新しい姿に生まれ変わっていけるよ。"},
+        {flag:"favoriteSubject", value:"kanji", text:"ぼく、目覚めたみたいなんだ。漢字が得意なきみが、一字一字ことばを見つめてくれたからかな。何の力もなかったぼくに、ぼくだけの属性が宿った。――これからは、卵の姿から、何度でも新しい姿に生まれ変わっていけるよ。"},
+        {flag:"favoriteSubject", value:"dokkai", text:"ぼく、目覚めたみたいなんだ。文章を読むのが得意なきみが、ぼくの中の物語を読み取ってくれたからかな。何の力もなかったぼくに、ぼくだけの属性が宿った。――これからは、卵の姿から、何度でも新しい姿に生まれ変わっていけるよ。"},
+        {flag:"favoriteSubject", value:"bunpou", text:"ぼく、目覚めたみたいなんだ。言葉のきまりが得意なきみが、ぼくの仕組みを解き明かしてくれたからかな。何の力もなかったぼくに、ぼくだけの属性が宿った。――これからは、卵の姿から、何度でも新しい姿に生まれ変わっていけるよ。"},
       ]},
       {type:"line", text:"自由研究のまとめには、こう書いた。「言葉は、文節から単語へ、どんどん小さな単位に分けられる。そして、ことばそのものからも、新しい何かが生まれることがある」"},
     ],
-    epilogue: "2学期が始まり、夏休みの自由研究発表会が開かれた。\n\nことのはの正体に近づいた研究は、クラスのみんなの注目を集めた。\n\nそして、ことのはは今、卵の姿から、新しい進化を始めようとしている。",
+    epilogue: "2学期が始まり、夏休みの自由研究発表会が開かれた。\n\nことのはの正体に近づいた研究は、クラスのみんなの注目を集めた。\n\nそして、属性に目覚めたことのはは今、新しい卵の姿から、もう一度育ちはじめようとしている。",
   },
 };
 
@@ -22582,7 +22676,10 @@ const STORY_PART2_CHAPTERS = {
       {
         "type": "line",
         "speaker": "ことのは",
-        "text": "わあ、おいしそう。……ねえ、それ少し分けてもらえたりする？"
+        "text": "わあ、おいしそう。……ねえ、それ少し分けてもらえたりする？",
+        "variants": [
+          {"flag": "kotonohaShape", "value": "egg", "text": "わあ、おいしそう。……ぼく、まだ卵だけど、それ少し分けてもらえたりする？"}
+        ]
       },
       {
         "type": "choice",
@@ -22870,8 +22967,13 @@ const STORY_PART2_CHAPTERS = {
       {"type": "line", "speaker": "花子", "text": "ありがとう！　じゃあ、打ち合わせに行ってくるね。練習、先に始めてて！"},
       {"type": "line", "text": "花子が音楽室を飛び出していくと、ことのはが、ぽつりとつぶやいた。"},
       {"type": "line", "speaker": "ことのは", "text": "一人ひとりの声が重なって、一つの響きになる、か……。"},
-      {"type": "line", "speaker": "ことのは", "text": "ぼくもね、これまでいろんな姿に生まれ変わってきたでしょう？　その一つ一つが重なって、今のぼくがいるんだと思うんだ。"},
-      {"type": "line", "speaker": "ことのは", "text": "だから、これまでに出会った姿を、全部書き残しておきたくなったよ。名前は……そうだ、「ことのは図鑑」にしよう！"},
+      {"type": "line", "speaker": "ことのは", "text": "ぼくもね、これまでいろんな姿に生まれ変わってきたでしょう？　その一つ一つが重なって、今のぼくがいるんだと思うんだ。", "variants": [
+        {"when": {"kotonohaAwakened": "no", "kotonohaShape": "egg"}, "text": "ぼくはまだ卵だけど……これから、いろんな姿になっていくんだと思う。その一つ一つが重なって、ぼくになっていくんだね。"},
+        {"when": {"kotonohaAwakened": "no", "kotonohaShape": "hatched"}, "text": "ぼくもね、卵から少しずつ、いろんな姿になってきたでしょう？　その一つ一つが重なって、今のぼくがいるんだと思うんだ。"}
+      ]},
+      {"type": "line", "speaker": "ことのは", "text": "だから、これまでに出会った姿を、全部書き残しておきたくなったよ。名前は……そうだ、「ことのは図鑑」にしよう！", "variants": [
+        {"when": {"kotonohaAwakened": "no", "kotonohaShape": "egg"}, "text": "だから、これから出会う姿を、全部書き残していきたいな。名前は……そうだ、「ことのは図鑑」にしよう！"}
+      ]},
       {"type": "line", "speaker": "太郎", "text": "いいじゃん！　まだ出会っていない龍も、いつか全部うめてやろうぜ。"}
     ]
   }
@@ -25256,9 +25358,28 @@ function storyFooterHtml(){
 /* beat.variantsは[{flag, value, text}, ...]の配列。sp.flags[flag]===valueに
    最初にマッチしたものの文面を使い、どれにも一致しなければbeat.textにフォールバックする。
    選択肢の直後のセリフを、選んだ内容に応じて少しずつ変える仕組み。 */
+/* 2026-11-22〜（教員の指示「ことのははストーリーをしなくても問題を解けば孵化するので、
+   卵でもほかの姿でも、その状態で主人公のもとにやってくる」）：
+   ・"kotonohaShape"は保存されたフラグではなく、その場のことのはの姿から求める疑似フラグ
+     （"egg"＝卵／"hatched"＝孵化済み）。第1章の出会いの場面の出し分けに使う。
+   ・variantに when:{flagA:"x", flagB:"y"} を書くと、すべて一致したときだけ採用する
+     （選択肢×姿のような組み合わせの出し分け用。従来のflag/value形式もそのまま使える）。 */
+function kotonohaShapeNow(st){
+  if(st.kotonohaRebirth) return kotonohaRebirthStageIndex(st) === 0 ? "egg" : "hatched";
+  return kotonohaMukuStageIndex(st) === 0 ? "egg" : "hatched"; // 未転生＝無垢龍の段階
+}
+function storyFlagValue(sp, name){
+  if(name === "kotonohaShape") return kotonohaShapeNow(loadStats());
+  if(name === "kotonohaAwakened") return loadStats().kotonohaRebirth ? "yes" : "no"; // 属性に目覚めたか（＝転生済み）
+  return sp.flags[name];
+}
+function storyVariantMatches(v, sp){
+  if(v.when) return Object.keys(v.when).every(k => storyFlagValue(sp, k) === v.when[k]);
+  return storyFlagValue(sp, v.flag) === v.value;
+}
 function storyResolveText(beat, sp){
   if(beat.variants){
-    const hit = beat.variants.find(v => sp.flags[v.flag] === v.value);
+    const hit = beat.variants.find(v => storyVariantMatches(v, sp));
     if(hit) return hit.text;
   }
   return beat.text;
@@ -25279,6 +25400,8 @@ function storyFaceIconHtml(speaker){
     if(st.kotonohaRebirth){
       const src = kotonohaRebirthImageSrc(st);
       if(src) return `<img class="story-face" src="${src}" alt="ことのは">`;
+    }else if(kotonohaMukuActive(st)){
+      return `<img class="story-face" src="${kotonohaMukuImageSrc(st)}" alt="ことのは">`;
     }
     return `<div class="story-face story-face-emoji">${kotonohaForm(st).icon}</div>`;
   }
@@ -25291,6 +25414,7 @@ function storyFaceIconHtml(speaker){
 function storyRenderLine(beat, sp){
   screen.innerHTML = `
     <div class="card story-scene">
+      ${beat.mukuEgg && storyFlagValue(sp, "kotonohaAwakened") === "no" && storyFlagValue(sp, "kotonohaShape") === "egg" && mukuEggSrc() ? `<img class="story-egg-img" src="${mukuEggSrc()}" alt="">` : ""}
       ${beat.speaker ? `${storyFaceIconHtml(beat.speaker)}<div class="story-speaker">${esc(beat.speaker)}</div>` : ""}
       <p class="story-text">${esc(storyResolveText(beat, sp))}</p>
       <div class="btn-row" style="justify-content:center">
