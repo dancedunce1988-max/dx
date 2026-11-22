@@ -148,6 +148,7 @@
   .note{ font-size:12px; color:var(--sub); }
   mark.tech-mark{ background:none; color:var(--gold); }
 </style>
+<script src="jp_wrap.js?v=13.97"></script><!-- スマホ幅のとき、日本語を文節の切れ目で折り返す（2026-11-22〜） -->
 </head>
 <body>
 <div id="app">
@@ -416,6 +417,22 @@ function spawnOrbs(){
 }
 function wrapLines(text, maxWidth){
   const lines = []; let cur = '';
+  /* スマホ幅では、札の中の意味を文節の切れ目で折り返す（「起こ／らない」のような割れを防ぐ、2026-11-22〜。jp_wrap.js）。
+     1つの文節だけで幅を超えるときは、その文節だけ1文字ずつ折り返す。パソコンの幅ではnullが返り、これまでどおり。 */
+  const ph = window.jpWrapPhrases ? window.jpWrapPhrases(text) : null;
+  if(ph){
+    for(const p of ph){
+      const t = cur + p;
+      if(ctx.measureText(t).width <= maxWidth){ cur = t; continue; }
+      if(cur !== '' && ctx.measureText(p).width <= maxWidth){ lines.push(cur); cur = p; continue; }
+      for(const ch of p){
+        const u = cur + ch;
+        if(ctx.measureText(u).width > maxWidth && cur !== ''){ lines.push(cur); cur = ch; } else cur = u;
+      }
+    }
+    if(cur) lines.push(cur);
+    return lines;
+  }
   for(const ch of String(text)){
     const t = cur + ch;
     if(ctx.measureText(t).width > maxWidth && cur !== ''){ lines.push(cur); cur = ch; } else cur = t;
