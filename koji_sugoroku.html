@@ -827,7 +827,14 @@
   @keyframes tick{0%{opacity:0;transform:translate(-50%,-6px)}12%{opacity:1;transform:translate(-50%,0)}85%{opacity:1}100%{opacity:0}}
   .banner{top:56%;}
   #modal{padding-top:80px;align-items:flex-start;}
-  #modalBody{max-height:calc(100vh - 96px);}
+  #modalBody{max-height:calc(100vh - 96px);max-height:calc(100dvh - 96px);overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}
+  /* スマホ（2026-11-22、教員の指示）：解説の画面がスクロールできず「次へ」に進めなかった。
+     スマホのブラウザは下のツールバーが出ていても 100vh を画面いっぱいとして計算するので、カードの下が画面の外に隠れていた。
+     → スマホでは、カードの高さを決めず、暗い背景（#modal）ごと上下にスクロールできるようにする。 */
+  @media (max-width:700px), (pointer:coarse){
+    #modal{padding:64px 8px 32px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}
+    #modalBody{max-height:none;overflow:visible;margin-bottom:auto;}
+  }
   .arena .hpwrap .gimmick{position:static;display:inline-block;margin-top:6px;max-width:none;font-size:.78rem;font-weight:normal;}
   .bubble{left:auto;right:12px;top:auto;bottom:70px;max-width:40%;transform-origin:100% 100%;}
   .bubble::after{left:auto;right:24px;top:100%;border-right-color:transparent;border-top-color:#fff;}
@@ -1446,7 +1453,7 @@ new MutationObserver(ms => ms.forEach(m => {
 })).observe(document.documentElement, { childList:true, subtree:true, characterData:true });
 function toast(msg, ms){ const t = $('#toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = 'none', ms || 1600); }
 function bigMessage(msg){ const el = document.createElement('div'); el.className = 'bigmsg'; el.textContent = msg; document.body.appendChild(el); setTimeout(() => el.remove(), 3200); }
-function openModal(html){ $('#modalBody').innerHTML = html; $('#modal').classList.add('show'); $('#modalBody').scrollTop = 0; }
+function openModal(html){ $('#modalBody').innerHTML = html; $('#modal').classList.add('show'); $('#modalBody').scrollTop = 0; $('#modal').scrollTop = 0; }
 function closeModal(){ $('#modal').classList.remove('show'); $('#modalBody').innerHTML = ''; }
 function confetti(n){
   const colors = ['#ffd54f','#ff7043','#66bb6a','#42a5f5','#ab47bc','#ec407a'];
