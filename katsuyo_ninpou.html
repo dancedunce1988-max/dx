@@ -469,6 +469,20 @@
   .td{display:inline-block;width:13px;height:13px;border-radius:50%;border:2px solid #8c6a3a;background:#fff}
   .td.on{background:#3ecf7a;border-color:#1f7a3f}
   .td.ng{background:#e0675f;border-color:#a12a20}
+  /* 萬屋（町家とのれん） */
+  .machiya{position:relative;display:inline-block;width:56px;height:50px}
+  .mroof{position:absolute;left:-4px;right:-4px;top:0;height:18px;background:linear-gradient(180deg,#5a5f6b,#3b3f48);clip-path:polygon(10% 0,90% 0,100% 100%,0 100%);
+    box-shadow:0 2px 0 #2a2d33}
+  .mbody{position:absolute;left:4px;right:4px;top:17px;bottom:0;background:repeating-linear-gradient(90deg,#8b5a2b 0 5px,#7a4c22 5px 7px);border:2px solid #4b2e12;border-top:none}
+  .mnoren{position:absolute;left:6px;right:6px;top:0;height:20px;background:#2d3f73;color:#fff;font-size:13px;font-weight:bold;display:flex;align-items:center;justify-content:center;
+    font-family:serif;clip-path:polygon(0 0,100% 0,100% 100%,68% 100%,66% 55%,34% 55%,32% 100%,0 100%)}
+  .noren-head{display:flex;justify-content:center;gap:4px;margin:-4px 0 10px}
+  .noren-head span{width:52px;height:64px;background:linear-gradient(180deg,#2d3f73,#22325e);color:#fff;font-family:serif;font-size:30px;font-weight:bold;
+    display:flex;align-items:center;justify-content:center;border-radius:0 0 4px 4px;box-shadow:0 3px 0 rgba(0,0,0,.25)}
+  .pbody.shopwood{background:linear-gradient(180deg,#f1e0bd,#e2c99a),repeating-linear-gradient(0deg,transparent 0 46px,rgba(110,70,30,.12) 46px 48px)}
+  .shopwood .eqrow{background:#fbf2df;border-color:#b88a52;box-shadow:0 2px 0 #c9a46a}
+  .shopwood .tabs button{background:#f6ead2;border-color:#6b4a24}
+  .shopwood .tabs button.on{background:#6b4a24}
   /* 茶屋の団子づくり */
   .dgguide{background:#fff3e6;border:1px dashed #d8a07a;border-radius:10px;padding:6px 10px;font-size:13px;line-height:1.9;margin:8px 0}
   .dg-p{color:#d6457a;font-weight:bold}.dg-g{color:#3f8f3a;font-weight:bold}
@@ -1699,7 +1713,7 @@ const PLACES = {
   castle:   {name:"城（任務所）", icon:"🏯", x:50, y:13, open:() => showCastle()},
   dojo:     {name:"道場",         icon:"🥋", x:18, y:36, open:() => showDojo()},
   terakoya: {name:"寺子屋",       icon:"📚", x:82, y:36, open:() => showTerakoya()},
-  shop:     {name:"よろず屋",     icon:"🏪", x:20, y:66, open:() => showShop()},
+  shop:     {name:"萬屋",         icon:`<span class="machiya"><span class="mroof"></span><span class="mbody"><span class="mnoren">萬</span></span></span>`, x:20, y:66, open:() => showShop()},   // 町家とのれん（2026-11-23、教員の指示：現代風の絵をやめる）
   chaya:    {name:"茶屋",         icon:"🍡", x:80, y:66, open:() => showChaya()},
   home:     {name:"自宅（長屋）", icon:"🏠", x:50, y:86, open:() => showHome()},
   gate:     {name:"里の門（外へ）", icon:"⛩️", x:84, y:89, open:() => goOutside()},
@@ -1724,7 +1738,7 @@ function showVillage(){
     const ns = nextStory();
     const storyHere = (id === "terakoya" && ns === "jo") || (id === "gate" && ns && ns !== "jo");
     const alert = storyHere ? `<span class="vbadge story">📜</span><span class="vtarget">▼ここ</span>` : id === "home" && free > 0 ? `<span class="vbadge">✨</span>` : "";
-    html += `<div class="vplace${isSoon ? " soon" : ""}" data-id="${id}" style="left:${p.x}%;top:${p.y}%"><div class="vicon">${p.icon}${alert}</div><div class="vname">${p.name}${id === "dojo" && ninjaInfo().lv < DOJO_LV ? `<small>Lv${DOJO_LV}〜</small>` : ""}${isSoon ? "<small>準備中</small>" : ""}</div></div>`;
+    html += `<div class="vplace${isSoon ? " soon" : ""}" data-id="${id}" style="left:${p.x}%;top:${p.y}%"><div class="vicon">${p.icon}${alert}</div><div class="vname">${p.name}${id === "dojo" && !dojoOpen() ? `<small>全クリ後</small>` : ""}${isSoon ? "<small>準備中</small>" : ""}</div></div>`;
   });
   html += `<div class="vtoken" id="vtoken">${pic("hero")}</div>`;
   map.innerHTML = html;
@@ -1804,6 +1818,7 @@ let PANEL_BACK = null;
 function panelBack(){ const f = PANEL_BACK; PANEL_BACK = null; f ? f() : showVillage(); }
 function openHomeHere(){ PANEL_BACK = resumeField; showHome(); }   // 外にいても、装備とステータスはいつでも
 function panel(title, html){
+  $("pBody").classList.remove("shopwood");
   $("pBack").textContent = PANEL_BACK ? "◀ 外へもどる" : "◀ 村へ";
   $("pTitle").textContent = title;
   $("pBody").innerHTML = html;
@@ -2009,7 +2024,7 @@ function showShop(tab){
   const t = curTier();
   const talk = SHOP_TAB === "eq" ? `今の${TIER[t].name}向けの品と、少し上の品をそろえてるよ。品は毎日入れかわるからね。`
     : SHOP_TAB === "bag" ? "任務の前には団子と煙玉を忘れずにね。" : "いらない物は買い取るよ。ただし、買った値段の半分だけどね。";
-  let html = `<div class="npc-line"><span class="npc">👩‍🦳</span><div>よろず屋のおかみ「いらっしゃい！ ${talk}」</div></div>
+  let html = `<div class="npc-line"><span class="npc">👩‍🦳</span><div>萬屋のおかみ「いらっしゃい！ ${talk}」</div></div>
     <div class="tabs"><button class="${SHOP_TAB === "eq" ? "on" : ""}" onclick="showShop('eq')">装備</button><button class="${SHOP_TAB === "bag" ? "on" : ""}" onclick="showShop('bag')">道具</button><button class="${SHOP_TAB === "sell" ? "on" : ""}" onclick="showShop('sell')">売る</button>
     <span class="purse">💰 ${SAVE.ryo}両</span></div>`;
   if(SHOP_TAB === "eq"){
@@ -2033,7 +2048,8 @@ function showShop(tab){
     html += Object.entries(BAG).map(([id, b]) => `<div class="eqrow"><span class="eqicon">${b.icon}</span><span class="eqname">${b.name}<small>持っている：${SAVE.bag[id] || 0}</small></span>
       <div class="eqst">1つ${Math.floor(b.price / 2)}両</div><button class="btn mini sell" ${(SAVE.bag[id] || 0) ? "" : "disabled"} onclick="sellBag('${id}')">売る</button></div>`).join("");
   }
-  panel("🏪 よろず屋", html);
+  panel("🏮 萬屋", `<div class="noren-head"><span>萬</span><span>屋</span></div>` + html);
+  $("pBody").classList.add("shopwood");
 }
 function sellEq(id){
   const it = EQUIP[id]; if(!it || !SAVE.inv[id] || Object.values(SAVE.equip).includes(id)) return;
@@ -2221,7 +2237,8 @@ function showZukan(){
    ・相手がまちがえたら、そのまま答えられる。こちらがまちがえると反撃を受ける。
    ・はじめて勝ったときだけ、両と品（道場だけの装備など）がもらえる。再戦は少しの両と経験値。
    ===================================================================== */
-const DOJO_LV = 8;
+const DOJO_LV = 8;   // （旧：Lv8から入門。2026-11-23、教員の指示で「全部クリアしてから」に変更）
+const dojoOpen = () => chCleared("gai2");
 const DOJO = [
   {id:"taro",  name:"門下生・太郎",   icon:"🧒", lv:8,  think:9,   acc:.6,  hp:180, atk:16, def:6,  res:6,  ryo:300,  item:"dojo_tenugui", talk:"よろしくお願いします！ 手加減はしませんよ！"},
   {id:"hana",  name:"門下生・花",     icon:"👧", lv:10, think:8,   acc:.7,  hp:220, atk:20, def:8,  res:10, ryo:450,  item:"dojo_gi",      talk:"太郎に勝ったのね。でも、わたしは速いわよ。"},
@@ -2233,12 +2250,17 @@ const DOJO = [
 function dojoBeaten(id){ return !!(SAVE.dojo && SAVE.dojo[id]); }
 function showDojo(){
   const ni = ninjaInfo();
-  let html = `<div class="npc-line"><span class="npc">🥷</span><div>道場主・鉄斎「${ni.lv < DOJO_LV ? `まだ早い！ 忍者Lv${DOJO_LV}になったら、入門を許そう。外で野良忍者ときたえてくるのじゃ。` : "よう来た。ここでは早押しの勝負じゃ。相手より先に、正しく答えよ！"}」</div></div>
+  if(!dojoOpen()){
+    panel("🥋 道場", `<div class="npc-line"><span class="npc">🥷</span><div>道場主・鉄斎「ここは、言葉の変化の術を<b>すべて</b>修めた者だけが入れる道場じゃ。<br>動詞も、形容詞も、形容動詞も――旅を終えてから来るがよい。」</div></div>
+      <p class="note-dark">🔒 外伝（外二の章）までの物語をすべて終えると、道場に入れる。道場では、すべてのジャンルから出題される。</p>`);
+    return;
+  }
+  let html = `<div class="npc-line"><span class="npc">🥷</span><div>道場主・鉄斎「${false ? `まだ早い！ 忍者Lv${DOJO_LV}になったら、入門を許そう。外で野良忍者ときたえてくるのじゃ。` : "よう来た、旅を終えた者よ。ここでは<b>すべての術</b>から出題する、早押しの勝負じゃ。相手より先に、正しく答えよ！"}」</div></div>
     <p class="note-dark">⚡ 早押し対決：相手は決まった時間で答えてくる。先に正解すれば攻撃、先に答えられると攻撃を受ける。<br>はじめて勝つと、道場だけの品がもらえる。</p>`;
   DOJO.forEach((d, i) => {
     const prevOk = i === 0 || dojoBeaten(DOJO[i - 1].id);
     if(d.hidden && !prevOk){ html += `<div class="qcard locked"><div class="qicon">❔</div><div class="qtx"><b>？？？</b><small>だれかが、奥で待っている……</small></div></div>`; return; }
-    const beaten = dojoBeaten(d.id), lvOk = ni.lv >= d.lv && ni.lv >= DOJO_LV, can = lvOk && prevOk;
+    const beaten = dojoBeaten(d.id), lvOk = true, can = prevOk;
     const it = EQUIP[d.item];
     html += `<div class="qcard${can ? "" : " locked"}">
       <div class="qicon">${d.icon}</div>
@@ -3504,8 +3526,9 @@ function startBattle(cfg){
   fxResize();
   PLAY.turn = 0; PLAY.stolen = 0; PLAY.fled = false;
   PLAY.elem = SAVE.elem || "";
-  if(cfg.mode === "shinken"){   // 真剣勝負：ステータス・装備・忍術・道具・ヒントなし。問題は全部の章からまぜて
+  if(cfg.mode === "shinken")   // 真剣勝負：ステータス・装備・忍術・道具・ヒントなし
     Object.assign(PLAY, {hp:cfg.sk.lives, maxHp:cfg.sk.lives, jutsu:[], guard:0, hints:0, crit:0, elem:"", timeBase:cfg.time, times:[]});
+  if(cfg.mode === "shinken" || cfg.mode === "dojo"){   // 道場は、全ジャンル（すべての章）からまぜて出題
     PLAY.qs = arrangeNoRepeat(shuffle([].concat(...["ichi", "ni", "san", "shi", "tsui", "gai1", "gai2"].map(id => makeQuestions(CHAPTERS[chIndex(id)])))), RECENT_Q);
   }   // この戦いの得意属性（「属性がえし」で変わる。戦いが終わればもとにもどる）
   PLAY.xpM = cfg.mode === "wild" && FIELD ? wildXpMult(FIELD.f, cfg.lv).m : 1;
@@ -4353,7 +4376,7 @@ if(!SAVE.introSeen){
   playStory([
     ["nar", "ここは山奥の忍びの里、<span class=em>変化の里</span>。"],
     ["shisho", "目が覚めたか、見習いよ。今日からおぬしも、この里の忍じゃ。"],
-    ["shisho", "里には<span class=em>城・道場・寺子屋・よろず屋・茶屋</span>がある。行きたい場所をタップすれば、歩いて行けるぞ。"],
+    ["shisho", "里には<span class=em>城・道場・寺子屋・萬屋・茶屋</span>がある。行きたい場所をタップすれば、歩いて行けるぞ。"],
     ["shisho", "<span class=em>城</span>では任務がもらえる。<span class=em>里の門</span>から外へ出れば、野良忍者との勝負もある。両や装備を集め、強い忍をめざすのじゃ。"],
     ["shisho", "おぬしの力は、言葉の<span class=em>【活用】</span>をどれだけ身につけたかで決まる。学べば学ぶほど強くなる。"],
     ["shisho", "……じゃが、今はそれどころではない。大変なことが起きたのじゃ。<span class=em>寺子屋</span>へ来てくれ。"],
