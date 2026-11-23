@@ -509,6 +509,12 @@
   .dg-bubble{flex:1;min-width:180px;background:#fff;border:2px solid #b08d55;border-radius:14px;padding:6px 10px;font-size:17px;line-height:1.6;position:relative}
   .dg-bubble small{display:block;font-size:12px;color:var(--ink2)}
   .dg-bubble rt{font-size:.5em}
+  .dg-order{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:#2d3f73;color:#fff;border-radius:10px;padding:4px 8px;margin-top:4px}
+  .dg-ofrom{font-size:18px;font-weight:bold}
+  .dg-ofrom rt{font-size:.5em;color:#cfd6ea}
+  .dg-oarrow{color:#ffd23f}
+  .dg-oform{font-size:24px;font-weight:bold;color:#2d3f73;background:#ffd23f;border-radius:8px;padding:0 12px;letter-spacing:.1em;animation:pop 1.4s infinite}
+  .dg-onote{font-size:12px;color:#cfd6ea}
   .dg-pat{width:100%;height:7px;background:rgba(0,0,0,.15);border-radius:99px;overflow:hidden}
   .dg-pat i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#3ecf7a,#a6f06b)}
   .dg-pat i.low{background:linear-gradient(90deg,#e0362b,#ff8a5c)}
@@ -524,7 +530,7 @@
   .dgtray{margin-top:10px}
   .dglabel{font-size:13px;margin-bottom:4px}
   .dgballs{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
-  .dgballs .dg-ball{width:52px;height:52px;font-size:16px}
+  .dgballs .dg-ball{width:auto;min-width:52px;height:52px;font-size:16px;padding:0 10px;border-radius:26px;white-space:nowrap}
   .dgballs .dg-ball:disabled{opacity:.35;cursor:default}
   #dgFb{margin-top:8px}
   /* エンディング */
@@ -2646,35 +2652,50 @@ const DANGO_LEVELS = [
   {id:"adjv",  name:"形容動詞まぜ団子", icon:"🍙", need:"gai2", needName:"外二の章", desc:"静かだ・きれいだ…と形容詞をまぜて", kind:"adjv", time:28},
 ];
 const DANGO_N = 8;
-const V_FOL_TRAY = ["ない", "う", "よう", "ます", "た", "だ", "。", "とき", "ば", "！"];
-const A_FOL_TRAY = ["う", "た", "なる", "ない", "て", "。", "とき", "ば"];
-const AV_FOL_TRAY = ["う", "た", "ない", "ある", "なる", "。", "とき", "ば"];
-// 語（本体＝語幹・その語の作り方）を選ぶ
+/* 2026-11-23、教員の指示で作り直し：
+   ・正解が1本だけになるように。注文ごとに「ねらいの形」（活用語尾＋合言葉）を1つ決め、緑の団子の中には、
+     注文の活用形の合言葉を、その1つしか入れない（例：未然形の注文で「ない」が入っていれば「う／よう」は入れない）。
+   ・合言葉の種類をふやした（終止形：。・から・けれど／連体形：とき・こと・ので／連用形：ます・ながら・たい・た・て・たら …）。
+   ・何形にしたいかを、大きな注文札で見せる。 */
+// 活用形（conjのキー）ごとの合言葉の候補
+function vFolsOf(v, k){
+  const dak = v.t === "godan" && !v.iku && "ぐぬぶむ".includes(v.w.slice(-1));
+  return {mizen:["ない"], mizenU:[v.t === "godan" ? "う" : "よう"], renyo:["ます", "ながら", "たい"],
+    onbin:dak ? ["だ", "で", "だら"] : ["た", "て", "たら"], shushi:["。", "から", "けれど"], rentai:["とき", "こと", "ので"],
+    katei:["ば"], meirei:["！"]}[k];
+}
+const A_FOLS = {mizenU:["う"], onbin:["た", "たら"], renyo:["なる", "ない", "て"], shushi:["。", "から", "けれど"], rentai:["とき", "こと", "ので"], katei:["ば"]};
+const AV_FOLS = {mizenU:["う"], onbin:["た", "たら"], renyo:["ない", "ある"], renyo2:["なる"], shushi:["。", "から", "けれど"], rentai:["とき", "こと", "ので"], katei:["ば"]};
+// 語（本体＝語幹）と、活用形ごとの「活用語尾」「合言葉の候補」
 function dangoWord(lv){
   if(lv.kind === "verb"){
     const pool = lv.id === "godan" ? V_GODAN
       : [...V_GODAN, ...V_KAMI.filter(v => v.w.length >= 3), ...V_SHIMO.filter(v => v.w.length >= 3), ...V_SA.filter(v => v.w.length > 2)];
     const v = pick(pool);
     const stem = v.t === "godan" ? v.w.slice(0, -1) : v.w.slice(0, -2);
-    // 活用形ごとの「活用語尾＋合言葉」の正しい組み合わせ
-    const folOf = f => f === "mizen" ? ["ない"] : f === "mizenU" ? [v.t === "godan" ? "う" : "よう"] : f === "renyo" ? ["ます"]
-      : f === "onbin" ? [v.t === "godan" && !v.iku && "ぐぬぶむ".includes(v.w.slice(-1)) ? "だ" : "た"] : f === "shushi" ? ["。"]
-      : f === "rentai" ? ["とき"] : f === "katei" ? ["ば"] : ["！"];
-    const pairs = ["mizen", "mizenU", "renyo", "onbin", "shushi", "rentai", "katei", "meirei"].map(f => ({name:FORM_NAME[f], e:conj(v, f).slice(stem.length), fol:folOf(f)}));
-    return {v, stem, pairs, forms:FORM_LIST, folTray:V_FOL_TRAY, hint:FORM_HINT, row:v.t === "godan" ? [...ROW[v.w.slice(-1)], ONBIN[v.w.slice(-1)]] : []};
+    const forms = ["mizen", "mizenU", "renyo", "onbin", "shushi", "rentai", "katei", "meirei"].map(k => ({k, name:FORM_NAME[k], e:conj(v, k).slice(stem.length), fols:vFolsOf(v, k)}));
+    return {v, stem, forms, hint:FORM_HINT, row:v.t === "godan" ? [...ROW[v.w.slice(-1)], ONBIN[v.w.slice(-1)]] : []};
   }
   const useAdjv = lv.kind === "adjv" && Math.random() < .65;
-  const v = pick(useAdjv ? ADJV : ADJ), FS = useAdjv ? ADJV_FORMS : ADJ_FORMS;
-  return {v, stem:aStem(v), pairs:FS.map(F => ({name:F.name, e:F.e, fol:F.fol})), forms:A_FORM_LIST, folTray:useAdjv ? AV_FOL_TRAY : A_FOL_TRAY, hint:A_HINT, row:[]};
+  const v = pick(useAdjv ? ADJV : ADJ), FS = useAdjv ? ADJV_FORMS : ADJ_FORMS, FL = useAdjv ? AV_FOLS : A_FOLS;
+  return {v, stem:aStem(v), forms:FS.map(F => ({k:F.k, name:F.name, e:F.e, fols:FL[F.k]})), hint:A_HINT, row:[]};
 }
 function makeDangoOrder(lv, n){
-  const W = dangoWord(lv), name = pick(W.forms);
-  const okPairs = W.pairs.filter(p => p.name === name);
-  const endings = [...new Set(W.pairs.map(p => p.e).concat(W.row))];
+  const W = dangoWord(lv);
+  const name = pick([...new Set(W.forms.map(f => f.name))]);
+  // ねらいの形（活用語尾＋合言葉）を1つ決める
+  const tf = pick(W.forms.filter(f => f.name === name)), tfol = pick(tf.fols);
+  // 注文の活用形の合言葉は、ねらいの1つだけ。ほかの活用形の合言葉は、まどわし（入れても不正解になる）として入れる
+  const sameForm = new Set(W.forms.filter(f => f.name === name).flatMap(f => f.fols));
+  const others = [...new Set(W.forms.filter(f => f.name !== name).flatMap(f => f.fols))].filter(x => !sameForm.has(x));
+  const folTray = shuffle([tfol].concat(shuffle(others).slice(0, 7)));
+  const endings = [...new Set(W.forms.map(f => f.e).concat(W.row))];
   const extra = shuffle(["か", "け", "れ", "さ", "ろ", "い", "な", "く"].filter(x => !endings.includes(x))).slice(0, Math.max(0, 6 - endings.length));
-  return {W, name, okPairs, endTray:shuffle(endings.concat(extra)), folTray:shuffle(W.folTray.slice()),
+  return {W, name, target:{e:tf.e, fol:tfol}, endTray:shuffle(endings.concat(extra)), folTray,
     guest:pick(["👵", "👴", "🧑‍🌾", "👨‍🎓", "👩", "🧒", "🧔", "👘", "🧳", "🥷"]), hint:n < 3 && lv.id === DANGO_LEVELS[0].id};
 }
+// 組み合わせが、その活用形として正しいか（緑の団子には、注文の形の合言葉が1つしかないので、正解は1本だけ）
+function dangoIsRight(o, e, f){ return o.W.forms.some(F => F.name === o.name && F.e === e && F.fols.includes(f)); }
 let DG = null, DG_T = null;
 function showChaya(){
   const best = (SAVE.chaya || {}).best || {};
@@ -2715,6 +2736,7 @@ function renderDango(){
   $("dgHud").innerHTML = `<span>${DG.lv.icon} ${DG.lv.name}</span><span>お客 ${DG.n + 1} / ${DANGO_N}</span><span>💰 ${DG.coins}両${DG.streak >= 2 ? `　🔥${DG.streak}連続` : ""}</span>`;
   $("dgGuest").innerHTML = `<div class="dg-face" id="dgFace">${o.guest}</div>
     <div class="dg-bubble">「${rubyHtml(W.v)}」を、<b>${o.name}</b>で一本！${o.hint ? `<small>（${o.name}の合言葉：${W.hint[o.name]}）</small>` : ""}</div>
+    <div class="dg-order"><span class="dg-ofrom">${rubyHtml(W.v)}</span><span class="dg-oarrow">➡</span><span class="dg-oform">${o.name}</span><span class="dg-onote">にしてください</span></div>
     <div class="dg-pat"><i id="dgPat"></i></div>`;
   const slot = (cls, txt, i) => `<span class="dg-ball ${cls}${txt ? "" : " empty"}" ${i != null && txt ? `onclick="dangoUndo(${i})"` : ""}>${txt ? esc(txt) : ""}</span>`;
   $("dgSkewer").innerHTML = `<div class="dg-stick"></div>${slot("w", W.stem || "（なし）")}${slot("p", DG.sk[0], 0)}${slot("g", DG.sk[1], 1)}`;
@@ -2729,8 +2751,8 @@ async function serveDango(timeout){
   if(!DG || DG.lock) return;
   DG.lock = true; clearInterval(DG_T);
   const o = DG.order, [e, f] = DG.sk;
-  const right = !timeout && o.okPairs.some(p => p.e === e && p.fol.includes(f));
-  const fb = $("dgFb"), sample = o.okPairs.map(p => `「${esc(o.W.stem)}<b>${esc(p.e)}</b>${esc(p.fol[0])}」`).join("・");
+  const right = !timeout && dangoIsRight(o, e, f);
+  const fb = $("dgFb"), sample = `「${esc(o.W.stem)}<b>${esc(o.target.e)}</b>${esc(o.target.fol)}」`;
   if(right){
     const left = Math.max(0, DG.limit - (Date.now() - DG.t0) / 1000);
     DG.streak++; DG.ok++;
@@ -2747,9 +2769,17 @@ async function serveDango(timeout){
     DG.streak = 0; DG.ng++; mgWrong();
     sfx.ng(); $("dgFace").textContent = timeout ? "😤" : "🤔";
     fb.className = "feedback ng show";
-    fb.innerHTML = `${timeout ? "⌛ 待ちくたびれて帰ってしまった……" : "❌ 「ちょっと、ちがうみたい……」"}<br>${o.name}は ${sample}。合言葉は「${o.W.hint[o.name]}」。
+    const why = !timeout && e && f ? dangoWhy(o, e, f) : "";
+    fb.innerHTML = `${timeout ? "⌛ 待ちくたびれて帰ってしまった……" : "❌ 「ちょっと、ちがうみたい……」"}<br>${why}正解は ${sample}（${o.name}）。
       <div class="btn-row" style="margin-top:8px"><button class="btn sub" onclick="DG.n++; nextDango()">次のお客さん</button></div>`;
   }
+}
+// まちがえた団子が、何の形だったか（あれば）
+function dangoWhy(o, e, f){
+  const hit = o.W.forms.find(F => F.e === e && F.fols.includes(f));
+  if(hit) return `「${esc(o.W.stem + e + f)}」は<b>${hit.name}</b>。注文は<b>${o.name}</b>だよ。<br>`;
+  if(o.W.forms.some(F => F.name === o.name && F.e === e)) return `活用語尾「${esc(e)}」は合っている。合言葉がちがうよ。<br>`;
+  return "";
 }
 function quitDango(){
   if(!confirm("お店を閉めますか？（ここまでのお代はもらえます）")) return;
