@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<!-- 通行証のチェック（つなぎ橋・九尾と同じ）：知識ドリルDXの入口（kokugo_app.htmlのmgGoWithPass）を通らずに
+     直接開いたときは「このファイルは開けません」とだけ表示し、ゲームを動かさない。sessionStorageが使えないときはそのまま開く。 -->
+<!--PASS_CHECK_BEGIN-->
+<script>
+(function(){
+  var ok = true;
+  try{ ok = !!(JSON.parse(sessionStorage.getItem("kokugo_mg_pass_v1") || "{}")["ninpou"]); }catch(e){ ok = true; }
+  if(!ok){ document.write('<style>html,body{margin:0;height:100%;background:#1d1f38;color:#fff;font-family:sans-serif}body{display:flex;align-items:center;justify-content:center}</style></head><body><p style="font-size:22px;font-weight:bold">このファイルは開けません</p><plaintext style="display:none">'); }
+})();
+</script>
+<!--PASS_CHECK_END-->
+<title>変化の里 ～活用忍法帖～</title>
+<script src="mg_save_guard.js?v=13.94" data-keys="katsuyo_ninpou_v1"></script><!-- ほかの画面で記録が変わったら読み込み直し、古い記録で上書きしない -->
+<script src="jp_wrap.js?v=13.97"></script><!-- スマホ幅のとき、日本語を文節の切れ目で折り返す -->
+<!-- 知識ドリルDXのミニゲーム「変化の里 ～活用忍法帖～」（2026-11-23〜、試作）。
+     用言の活用を、忍者の「変化の術」の物語の中で、章ごとに一段ずつ身につける。
+       序 変化の術       … 語幹（本体）と活用語尾（変装）。「書＿ない」に合う変装札を選ぶ
+       一 六つの合言葉   … 後ろに続く言葉（合言葉）から活用形（術）を見分ける
+       二 流派を見抜け   … 「ない」の煙玉で正体（ないの直前の音の段）を見て、活用の種類（流派）を当てる
+       三 偽忍者の襲来   … 一段に見える五段（切る・帰る・要る…）を、煙玉なし（3つだけ）で見破る
+       四〜終            … 準備中（活用表の復元・形容詞と形容動詞・文中での識別）
+     問題はこのページの中で、動詞の一覧と活用の規則から自動で作る（何度遊んでも尽きない）。
+     本体のセーブデータ(st)には直接触れず、このページ専用のlocalStorageキー(NP_LSKEY)を使う。
+     正誤は「動詞の活用」（doushi_katsuyo）ジャンルのレベルに反映する（つなぎ橋の練習の谷と同じ数え方：
+     正解2つ＝＋1、まちがい2つ＝−1、1回の差し引きがマイナスなら0）。
+     絵は NP_IMG にdata URLを入れれば差し替わる（入っていないときは絵文字で代用）。 -->
+<style>
+  :root{
+    --night1:#141a2e; --night2:#26304f; --night3:#3d2f4f;
+    --paper:#f6ecd2; --paper2:#e8d6aa; --ink:#2b1d0e; --ink2:#6b5233;
+    --red:#c8372d; --gold:#f2c14e; --ok:#4fbf7a; --ng:#e25b52; --blue:#4c7bd9;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%}
+  body{font-family:"Hiragino Maru Gothic ProN","BIZ UDPGothic","Yu Gothic",sans-serif;color:#fff;
+    background:radial-gradient(ellipse at 50% 0%,#3b4a7a 0%,var(--night2) 40%,var(--night1) 100%);
+    background-attachment:fixed;overflow-x:hidden;user-select:none;-webkit-user-select:none}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;
+    background:
+      radial-gradient(circle at 82% 12%,rgba(255,244,200,.9) 0 26px,rgba(255,244,200,.15) 27px 60px,transparent 61px),
+      linear-gradient(to top,#0b0f1c 0 60px,transparent 60px);
+    opacity:.35}
+  .wrap{position:relative;max-width:720px;margin:0 auto;padding:12px 12px 40px;min-height:100%}
+  .screen{display:none}
+  .screen.show{display:block;animation:fadeIn .35s ease both}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  button{font-family:inherit;cursor:pointer}
+  .btn{border:none;border-radius:12px;padding:12px 22px;font-size:17px;font-weight:bold;color:#fff;
+    background:linear-gradient(180deg,#d8463a,#a92a22);box-shadow:0 4px 0 #6f1813,0 6px 12px rgba(0,0,0,.35)}
+  .btn:active{transform:translateY(3px);box-shadow:0 1px 0 #6f1813}
+  .btn.sub{background:linear-gradient(180deg,#5a6584,#3c4562);box-shadow:0 4px 0 #232a40,0 6px 12px rgba(0,0,0,.35)}
+  .btn-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+  .topbar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+  .iconbtn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:10px;padding:6px 12px;font-size:14px}
+
+  /* タイトル */
+  .title-box{text-align:center;margin:18px 0 16px}
+  .title-box .sub{font-size:14px;letter-spacing:.3em;color:var(--gold)}
+  .title-box h1{margin:6px 0 4px;font-size:clamp(30px,8vw,46px);letter-spacing:.08em;
+    text-shadow:0 3px 0 #000,0 0 18px rgba(242,193,78,.45)}
+  .title-box .h1sub{font-size:16px;color:#e9dfc3}
+  .title-hero{font-size:64px;margin-top:6px}
+  .title-hero img{height:120px}
+  .ch-list{display:grid;gap:10px}
+  .ch-card{display:flex;align-items:center;gap:12px;background:linear-gradient(180deg,var(--paper),var(--paper2));
+    color:var(--ink);border-radius:14px;padding:12px 14px;box-shadow:0 4px 0 #8c7347,0 8px 14px rgba(0,0,0,.35);cursor:pointer}
+  .ch-card .no{flex:0 0 52px;height:52px;border-radius:50%;background:var(--red);color:#fff;display:flex;align-items:center;justify-content:center;
+    font-size:22px;font-weight:bold;box-shadow:inset 0 -3px 0 rgba(0,0,0,.25)}
+  .ch-card .tx{flex:1;min-width:0}
+  .ch-card h3{margin:0 0 2px;font-size:18px}
+  .ch-card p{margin:0;font-size:13px;color:var(--ink2)}
+  .ch-card .st{font-size:18px;letter-spacing:2px;color:#c8902a;white-space:nowrap}
+  .ch-card.locked{filter:grayscale(.9) brightness(.7);cursor:default}
+  .ch-card.locked .no{background:#666}
+  .note{font-size:13px;color:#cfd6ea;text-align:center;margin-top:12px;line-height:1.6}
+
+  /* 物語 */
+  .stage{position:relative;height:min(46vh,320px);border-radius:16px;overflow:hidden;
+    background:linear-gradient(180deg,#2b3963,#1c2440 70%,#2a2016 70%,#1a140d);box-shadow:inset 0 0 40px rgba(0,0,0,.5)}
+  .stage .bgimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .stage .actor{position:absolute;bottom:22%;font-size:84px;line-height:1;transition:transform .3s, opacity .3s;filter:drop-shadow(0 6px 6px rgba(0,0,0,.5))}
+  .stage .actor img{height:150px;display:block}
+  .stage .actor.left{left:8%}
+  .stage .actor.right{right:8%}
+  .stage .actor.dim{opacity:.45;transform:scale(.92)}
+  .stage .actor.shake{animation:shake .4s}
+  @keyframes shake{0%,100%{transform:none}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+  .dlg{margin-top:10px;background:rgba(10,12,24,.88);border:2px solid var(--gold);border-radius:14px;padding:12px 16px 26px;min-height:120px;position:relative;cursor:pointer}
+  .dlg .who{display:inline-block;background:var(--gold);color:var(--ink);font-weight:bold;font-size:14px;padding:2px 12px;border-radius:999px;margin-bottom:6px}
+  .dlg .txt{font-size:18px;line-height:1.75}
+  .dlg .next{position:absolute;right:14px;bottom:6px;font-size:13px;color:var(--gold);animation:blink 1s infinite}
+  @keyframes blink{50%{opacity:.2}}
+  .em{color:var(--gold);font-weight:bold}
+  .skip{position:absolute;top:8px;right:8px;z-index:2}
+
+  /* 巻物（まとめ） */
+  .scroll{background:linear-gradient(90deg,#c9a66b 0 14px,var(--paper) 14px calc(100% - 14px),#c9a66b calc(100% - 14px));
+    color:var(--ink);border-radius:8px;padding:18px 28px;box-shadow:0 8px 18px rgba(0,0,0,.45);line-height:1.7}
+  .scroll h2{margin:0 0 8px;text-align:center;font-size:22px;color:var(--red);letter-spacing:.1em}
+  .scroll table{border-collapse:collapse;margin:8px auto;font-size:16px}
+  .scroll td,.scroll th{border:1px solid #b79c6c;padding:4px 10px;text-align:center}
+  .scroll th{background:#ead9b0}
+  .scroll .big{font-size:26px;text-align:center;margin:6px 0}
+  .scroll .stem{color:var(--blue);font-weight:bold}
+  .scroll .end{color:var(--red);font-weight:bold}
+  .chant{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:10px 0}
+  .chant span{background:var(--red);color:#fff;border-radius:8px;padding:6px 10px;font-weight:bold;font-size:18px;animation:pop 1.8s infinite}
+  @keyframes pop{0%,100%{transform:none}10%{transform:scale(1.18)}}
+
+  /* 修行（プレイ） */
+  .hud{display:flex;justify-content:space-between;align-items:center;font-size:15px;margin-bottom:6px;gap:6px;flex-wrap:wrap}
+  .hud .life{font-size:20px;letter-spacing:2px}
+  .hud .combo{color:var(--gold);font-weight:bold;min-width:70px;text-align:right}
+  .bar{height:6px;background:rgba(255,255,255,.15);border-radius:99px;overflow:hidden;margin-bottom:8px}
+  .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),#ff8b5c);transition:width .3s}
+  .arena{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(0,0,0,.25));border:1px solid rgba(255,255,255,.18);
+    border-radius:16px;padding:14px 12px;text-align:center;min-height:210px}
+  .arena .foe{font-size:64px;line-height:1;margin-bottom:4px;transition:transform .25s,opacity .25s}
+  .arena .foe img{height:110px}
+  .arena .foe.hit{animation:hit .5s}
+  @keyframes hit{0%{transform:none}30%{transform:translateX(16px) rotate(8deg);opacity:.5}100%{transform:none;opacity:1}}
+  .arena .prompt{font-size:14px;color:#cfd6ea;margin-bottom:6px}
+  .qword{font-size:clamp(30px,8vw,44px);font-weight:bold;letter-spacing:.04em;margin:4px 0}
+  .qword rt{font-size:.38em;color:#cfd6ea}
+  .qword .blank{display:inline-block;min-width:1.2em;border-bottom:4px solid var(--gold);color:var(--gold)}
+  .qword .fol{color:#9fd3ff}
+  .qword .sound{color:var(--gold);text-decoration:underline;text-underline-offset:6px}
+  .smoke{display:inline-block;margin-top:6px;font-size:22px;padding:4px 14px;border-radius:12px;background:rgba(255,255,255,.1)}
+  .smoke.show{animation:smoke .6s ease both}
+  @keyframes smoke{0%{opacity:0;filter:blur(8px);transform:scale(1.4)}100%{opacity:1;filter:none;transform:none}}
+  .choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:8px;margin-top:12px}
+  .choice{border:none;border-radius:12px;padding:14px 6px;font-size:19px;font-weight:bold;color:var(--ink);
+    background:linear-gradient(180deg,var(--paper),var(--paper2));box-shadow:0 4px 0 #8c7347}
+  .choice:active{transform:translateY(3px);box-shadow:0 1px 0 #8c7347}
+  .choice.fuda{font-size:28px;writing-mode:vertical-rl;padding:14px 0;min-height:86px;justify-self:center;width:64px;
+    background:linear-gradient(180deg,#fff9e6,#f0dca6);border:2px solid #c8372d}
+  .choice.ok{background:linear-gradient(180deg,#bff0cf,#79d39c)}
+  .choice.ng{background:linear-gradient(180deg,#ffc9c4,#f08b82)}
+  .choice:disabled{opacity:.85}
+  .choice small{display:block;font-size:11px;font-weight:normal;color:var(--ink2)}
+  .tools{display:flex;justify-content:center;gap:8px;margin-top:10px}
+  .feedback{margin-top:10px;border-radius:12px;padding:10px 14px;font-size:15px;line-height:2.1;text-align:left;display:none}
+  .feedback.show{display:block;animation:fadeIn .25s both}
+  .feedback.ok{background:rgba(79,191,122,.18);border:1px solid var(--ok)}
+  .feedback.ng{background:rgba(226,91,82,.18);border:1px solid var(--ng)}
+  .feedback b{color:var(--gold)}
+  .flash{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);font-size:44px;font-weight:bold;pointer-events:none;z-index:50;
+    text-shadow:0 3px 0 #000;opacity:0}
+  .flash.go{animation:flash .8s ease both}
+  @keyframes flash{0%{opacity:0;transform:translate(-50%,-30%) scale(.6)}25%{opacity:1;transform:translate(-50%,-50%) scale(1.1)}100%{opacity:0;transform:translate(-50%,-80%) scale(1)}}
+
+  /* 結果 */
+  .result{text-align:center}
+  .result h2{font-size:30px;margin:10px 0}
+  .result .stars{font-size:44px;letter-spacing:6px;color:var(--gold);text-shadow:0 2px 0 #000}
+  .result .stat{font-size:16px;line-height:1.9}
+  .lvup-toast{position:fixed;left:50%;top:10px;transform:translateX(-50%) translateY(-120%);background:#2f7a4c;color:#fff;border-radius:999px;
+    padding:6px 16px;font-size:14px;z-index:60;transition:transform .3s;box-shadow:0 4px 12px rgba(0,0,0,.35);white-space:nowrap}
+  .lvup-toast.down{background:#8a3a34}
+  .lvup-toast.show{animation:toast 2.2s ease both}
+  @keyframes toast{0%{transform:translateX(-50%) translateY(-120%)}12%,80%{transform:translateX(-50%) translateY(0)}100%{transform:translateX(-50%) translateY(-120%)}}
+  .lvup-toast b{margin:0 6px}
+  @media (max-width:480px){
+    .dlg .txt{font-size:16px}
+    .stage .actor{font-size:64px}
+    .stage .actor img{height:110px}
+    .scroll{padding:14px 20px}
+    .scroll table{font-size:14px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- タイトル・章選び -->
+  <section id="sTitle" class="screen">
+    <div class="topbar">
+      <button class="iconbtn" onclick="backToApp()">◀ ミニゲーム一覧へ</button>
+      <button class="iconbtn" id="muteBtn" onclick="toggleMute()">🔊</button>
+    </div>
+    <div class="title-box">
+      <div class="sub">知識ドリルDX 外伝</div>
+      <h1>変化の里</h1>
+      <div class="h1sub">～ 活用忍法帖 ～</div>
+      <div class="title-hero" id="titleHero"></div>
+    </div>
+    <div class="ch-list" id="chList"></div>
+    <p class="note">前の章をクリアすると、次の章が解放されます。<br>正解すると「動詞の活用」のレベルが上がります。</p>
+  </section>
+
+  <!-- 物語 -->
+  <section id="sStory" class="screen">
+    <div class="stage" id="stage">
+      <button class="iconbtn skip" onclick="storySkip()">とばす ▶▶</button>
+      <div class="actor left" id="actL"></div>
+      <div class="actor right" id="actR"></div>
+    </div>
+    <div class="dlg" id="dlg" onclick="storyNext()">
+      <div class="who" id="dlgWho"></div>
+      <div class="txt" id="dlgTxt"></div>
+      <div class="next">▼ タップで次へ</div>
+    </div>
+  </section>
+
+  <!-- 巻物（まとめ） -->
+  <section id="sLesson" class="screen">
+    <div class="scroll" id="lessonBody"></div>
+    <div class="btn-row"><button class="btn" onclick="startPlay()">修行を始める</button></div>
+  </section>
+
+  <!-- 修行 -->
+  <section id="sPlay" class="screen">
+    <div class="hud">
+      <span id="hudName"></span>
+      <span class="life" id="hudLife"></span>
+      <span class="combo" id="hudCombo"></span>
+    </div>
+    <div class="bar"><i id="hudBar"></i></div>
+    <div class="arena">
+      <div class="foe" id="foe"></div>
+      <div class="prompt" id="qPrompt"></div>
+      <div class="qword" id="qWord"></div>
+      <div id="qExtra"></div>
+      <div class="choices" id="qChoices"></div>
+      <div class="tools" id="qTools"></div>
+      <div class="feedback" id="qFb"></div>
+    </div>
+    <div class="btn-row"><button class="iconbtn" onclick="quitPlay()">修行をやめる</button></div>
+  </section>
+
+  <!-- 結果 -->
+  <section id="sResult" class="screen">
+    <div class="result" id="resultBody"></div>
+  </section>
+</div>
+<div class="flash" id="flash"></div>
+
+<script>
+/* =====================================================================
+   絵（教員が用意したらここにdata URLを入れる。空なら絵文字で代用）
+   ===================================================================== */
+const NP_IMG = {
+  hero:    "",   // 主人公（見習い忍者）
+  shisho:  "",   // 師匠・変化斎
+  sekka:   "",   // 敵の頭領・石化丸
+  minion:  "",   // 石化丸の手下（修行の相手）
+  fake:    "",   // 偽忍者（三の章の相手）
+  bg:      "",   // 物語の背景（夜の忍びの里）
+};
+const NP_EMOJI = {hero:"🥷", shisho:"👴", sekka:"🗿", minion:"👤", fake:"🎭", word:"📜"};
+function pic(key){
+  const src = NP_IMG[key];
+  return src ? `<img src="${src}" alt="">` : (NP_EMOJI[key] || "");
+}
+
+/* =====================================================================
+   小道具
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function shuffle(a){ a = a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+const pick = a => a[Math.floor(Math.random()*a.length)];
+function show(id){ document.querySelectorAll(".screen").forEach(s => s.classList.toggle("show", s.id === id)); window.scrollTo(0,0); }
+function backToApp(){ mgFlush(); location.href = "kokugo_app.html?from=minigame"; }
+function flash(text, color){
+  const el = $("flash"); el.textContent = text; el.style.color = color || "#fff";
+  el.classList.remove("go"); void el.offsetWidth; el.classList.add("go");
+}
+
+/* =====================================================================
+   記録
+   ===================================================================== */
+const NP_LSKEY = "katsuyo_ninpou_v1";
+function loadSave(){ try{ const o = JSON.parse(localStorage.getItem(NP_LSKEY)); return o && typeof o === "object" ? o : {}; }catch(e){ return {}; } }
+function saveSave(s){ try{ localStorage.setItem(NP_LSKEY, JSON.stringify(s)); }catch(e){} }
+let SAVE = loadSave();
+if(!SAVE.stars) SAVE.stars = {};     // 章id → 最高の星の数（0〜3）
+if(!SAVE.seen) SAVE.seen = {};       // 章id → 物語を一度見たか
+
+/* =====================================================================
+   本体（kokugo_app.html）のジャンルレベルへの反映（つなぎ橋の練習の谷と同じしくみ・数え方）
+   ===================================================================== */
+const MG_CAT = "doushi_katsuyo", MG_GENRE = "動詞の活用";
+const MG_PENDING_LVUP_LSKEY = "kokugo_minigame_pending_lvups_v1";
+const MG_PLAYED_LSKEY = "kokugo_mg_played_v1";
+let MGS = null;
+const mgNet = () => !MGS ? 0 : Math.max(0, Math.floor(MGS.ok / 2) - Math.floor(MGS.ng / 2));
+const mgSigned = n => n > 0 ? "+" + n : n < 0 ? "−" + (-n) : "±0";
+function mgStart(){ mgFlush(); MGS = {ok:0, ng:0, sent:0}; }
+function mgNotePlayed(){
+  try{ const d = new Date(); localStorage.setItem(MG_PLAYED_LSKEY, d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0")); }catch(e){}
+}
+function mgWritePending(n){
+  if(!n) return;
+  let o = {};
+  try{ o = JSON.parse(localStorage.getItem(MG_PENDING_LVUP_LSKEY)) || {}; }catch(e){ o = {}; }
+  if(!o || typeof o !== "object") o = {};
+  o[MG_CAT] = (Number(o[MG_CAT]) || 0) + n;
+  try{ localStorage.setItem(MG_PENDING_LVUP_LSKEY, JSON.stringify(o)); }catch(e){}
+}
+function mgSyncUp(){ if(!MGS) return; const n = mgNet(); if(n > MGS.sent){ mgWritePending(n - MGS.sent); MGS.sent = n; } }
+function mgFlush(){
+  if(!MGS) return null;
+  const r = {ok:MGS.ok, ng:MGS.ng, net:mgNet()};
+  const sent = MGS.sent; MGS = null;
+  mgWritePending(r.net - sent);
+  return r;
+}
+function mgCorrect(){ if(!MGS) return; const b = mgNet(); MGS.ok++; const a = mgNet(); if(a !== b) showLvupToast(a - b); mgNotePlayed(); mgSyncUp(); }
+function mgWrong(){ if(!MGS) return; const b = mgNet(); MGS.ng++; const a = mgNet(); if(a !== b) showLvupToast(a - b); mgNotePlayed(); }
+window.addEventListener("pagehide", mgFlush);
+function showLvupToast(d){
+  let el = $("lvupToast");
+  if(!el){ el = document.createElement("div"); el.id = "lvupToast"; el.className = "lvup-toast"; document.body.appendChild(el); }
+  el.innerHTML = `${MG_GENRE}ジャンル<b>${d > 0 ? "1レベルUP" : "1レベルDOWN"}</b>（今回 ${mgSigned(mgNet())}）`;
+  el.classList.toggle("down", d < 0);
+  el.classList.remove("show"); void el.offsetWidth; el.classList.add("show");
+}
+
+/* =====================================================================
+   効果音
+   ===================================================================== */
+let actx = null, muted = false;
+try{ muted = localStorage.getItem(NP_LSKEY + "_mute") === "1"; }catch(e){}
+function updateMuteBtn(){ $("muteBtn").textContent = muted ? "🔇" : "🔊"; }
+function toggleMute(){ muted = !muted; try{ localStorage.setItem(NP_LSKEY + "_mute", muted ? "1" : "0"); }catch(e){} updateMuteBtn(); }
+function tone(freq, dur, type, vol, when){
+  if(muted) return;
+  try{
+    if(!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    const t = actx.currentTime + (when || 0);
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || "square"; o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(vol || .08, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + dur + .02);
+  }catch(e){}
+}
+const sfx = {
+  ok(){ tone(880,.09,"square",.07); tone(1320,.14,"square",.07,.08); },
+  ng(){ tone(220,.25,"sawtooth",.07); },
+  smoke(){ tone(300,.3,"triangle",.06); tone(180,.3,"triangle",.05,.05); },
+  clear(){ [523,659,784,1046].forEach((f,i) => tone(f,.18,"square",.07,i*.12)); },
+  tap(){ tone(660,.04,"square",.04); },
+};
+
+/* =====================================================================
+   動詞と活用の規則
+   t: godan / kami / shimo / ka / sa
+   r: 漢字の読み（ふりがな用。同じかなで別の動詞があるものには必ず付ける）
+   y: 一段で、語幹の最後が漢字1字のとき、その音（「ない」の直前の音）
+   ===================================================================== */
+const ROW = {"く":"かきくけこ","ぐ":"がぎぐげご","す":"さしすせそ","つ":"たちつてと","ぬ":"なにぬねの","ぶ":"ばびぶべぼ","む":"まみむめも","る":"らりるれろ","う":"わいうえお"};
+const ONBIN = {"く":"い","ぐ":"い","す":"し","つ":"っ","る":"っ","う":"っ","ぬ":"ん","ぶ":"ん","む":"ん"};
+const DAN = {};
+["あかがさざただなはばぱまやらわ","いきぎしじちぢにひびぴみり","うくぐすずつづぬふぶぷむゆる","えけげせぜてでねへべぺめれ","おこごそぞとどのほぼぽもよろを"]
+  .forEach((s,i) => [...s].forEach(c => DAN[c] = "アイウエオ"[i]));
+const TYPE_NAME = {godan:"五段活用", kami:"上一段活用", shimo:"下一段活用", ka:"カ行変格活用", sa:"サ行変格活用"};
+const RYUHA = {godan:"五段流", kami:"上一段流", shimo:"下一段流", ka:"カ変の一族", sa:"サ変の一族"};
+
+// 序・一で使う五段（語幹がはっきりしているもの）
+const V_GODAN = [
+  {w:"書く"},{w:"読む"},{w:"話す"},{w:"待つ"},{w:"遊ぶ"},{w:"泳ぐ"},{w:"歌う"},{w:"作る"},{w:"歩く"},{w:"飛ぶ"},
+  {w:"休む"},{w:"押す"},{w:"立つ"},{w:"笑う"},{w:"急ぐ"},{w:"送る"},{w:"選ぶ"},{w:"進む"},{w:"働く"},{w:"返す"},
+  {w:"持つ"},{w:"使う"},{w:"守る"},{w:"呼ぶ"},{w:"包む"},{w:"習う"},{w:"行く", iku:true},
+].map(v => ({...v, t:"godan"}));
+const V_KAMI = [
+  {w:"起きる"},{w:"生きる"},{w:"落ちる"},{w:"借りる"},{w:"降りる"},{w:"浴びる"},{w:"伸びる"},{w:"過ぎる"},{w:"閉じる"},{w:"信じる"},
+  {w:"見る", r:"み", y:"み"},{w:"着る", r:"き", y:"き"},{w:"似る", r:"に", y:"に"},{w:"居る", r:"い", y:"い"},{w:"用いる"},
+].map(v => ({...v, t:"kami"}));
+const V_SHIMO = [
+  {w:"食べる"},{w:"考える"},{w:"投げる"},{w:"教える"},{w:"答える"},{w:"受ける"},{w:"決める"},{w:"集める"},{w:"忘れる"},{w:"調べる"},
+  {w:"続ける"},{w:"捨てる"},{w:"植える"},{w:"見せる"},{w:"変える", r:"か"},
+  {w:"寝る", r:"ね", y:"ね"},{w:"出る", r:"で", y:"で"},{w:"得る", r:"え", y:"え"},{w:"経る", r:"へ", y:"へ"},
+].map(v => ({...v, t:"shimo"}));
+const V_KA = [{w:"来る", r:"く", t:"ka"}];
+const V_SA = [{w:"する", t:"sa"},{w:"勉強する", t:"sa"},{w:"運動する", t:"sa"},{w:"練習する", t:"sa"}];
+// 三の章の偽忍者：「〜iる・〜eる」で一段に見えるのに、中身は五段
+const V_FAKE = [
+  {w:"切る", r:"き", pair:"着る"},{w:"帰る", r:"かえ", pair:"変える"},{w:"要る", r:"い", pair:"居る"},{w:"練る", r:"ね", pair:"寝る"},
+  {w:"減る", r:"へ", pair:"経る"},{w:"走る", r:"はし"},{w:"入る", r:"はい"},{w:"知る", r:"し"},{w:"蹴る", r:"け"},
+  {w:"滑る", r:"すべ"},{w:"散る", r:"ち"},{w:"照る", r:"て"},{w:"握る", r:"にぎ"},{w:"限る", r:"かぎ"},{w:"焦る", r:"あせ"},
+].map(v => ({...v, t:"godan", fake:true}));
+
+// 表示用（ふりがな付き）。漢字の部分にだけルビをふる
+function rubyHtml(v, text){
+  text = text == null ? v.w : text;
+  if(!v.r) return esc(text);
+  const m = text.match(/^([一-鿿々]+)(.*)$/);
+  return m ? `<ruby>${esc(m[1])}<rt>${esc(v.r)}</rt></ruby>${esc(m[2])}` : esc(text);
+}
+
+/* 活用形を作る。返り値は文字列（カ変は「来」に読みを付けて返す）。
+   form: mizen / mizenU（う・よう） / renyo / onbin（た・て） / shushi / rentai / katei / meirei */
+function conj(v, form){
+  if(v.t === "godan"){
+    const stem = v.w.slice(0, -1), last = v.w.slice(-1), row = ROW[last];
+    switch(form){
+      case "mizen":  return stem + row[0];
+      case "mizenU": return stem + row[4];
+      case "renyo":  return stem + row[1];
+      case "onbin":  return stem + (v.iku ? "っ" : ONBIN[last]);
+      case "shushi": case "rentai": return v.w;
+      case "katei": case "meirei": return stem + row[3];
+    }
+  }
+  if(v.t === "kami" || v.t === "shimo"){
+    const base = v.w.slice(0, -1);
+    switch(form){
+      case "mizen": case "mizenU": case "renyo": case "onbin": return base;
+      case "shushi": case "rentai": return v.w;
+      case "katei": return base + "れ";
+      case "meirei": return base + "ろ";
+    }
+  }
+  if(v.t === "ka"){
+    return {mizen:"来(こ)", mizenU:"来(こ)", renyo:"来(き)", onbin:"来(き)", shushi:"来る(くる)", rentai:"来る(くる)", katei:"来れ(くれ)", meirei:"来い(こい)"}[form];
+  }
+  if(v.t === "sa"){
+    const pre = v.w.slice(0, -2);
+    return pre + {mizen:"し", mizenU:"し", renyo:"し", onbin:"し", shushi:"する", rentai:"する", katei:"すれ", meirei:"しろ"}[form];
+  }
+}
+// 「来(こ)」→ ルビ付きhtml
+function formHtml(v, s){
+  const m = s.match(/^(.+?)\((.+)\)$/);
+  if(m){ // カ変：「来(こ)」「来る(くる)」「来い(こい)」
+    const kanji = m[1][0], okuri = m[1].slice(1), yomi = m[2];
+    return `<ruby>${kanji}<rt>${esc(yomi.slice(0, yomi.length - okuri.length))}</rt></ruby>${esc(okuri)}`;
+  }
+  // ふりがなが必要な動詞は、活用しても漢字の読みは同じ
+  return rubyHtml(v, s);
+}
+// 後ろに続く言葉（合言葉）
+function followOf(v, form){
+  if(form === "mizenU") return (v.t === "godan") ? "う" : "よう";
+  if(form === "onbin"){
+    if(v.t === "godan" && !v.iku && "ぐぬぶむ".includes(v.w.slice(-1))) return pick(["だ","で"]);
+    return pick(["た","て"]);
+  }
+  return {mizen:"ない", renyo:"ます", shushi:"。", rentai:pick(["とき","こと"]), katei:"ば", meirei:"！"}[form];
+}
+const FORM_NAME = {mizen:"未然形", mizenU:"未然形", renyo:"連用形", onbin:"連用形", shushi:"終止形", rentai:"連体形", katei:"仮定形", meirei:"命令形"};
+const FORM_LIST = ["未然形","連用形","終止形","連体形","仮定形","命令形"];
+const FORM_HINT = {"未然形":"ない・う・よう", "連用形":"ます・た・て", "終止形":"。（言い切り）", "連体形":"とき・こと", "仮定形":"ば", "命令形":"！（命令）"};
+
+// 「ない」をつけた形と、その直前の音
+function naiInfo(v){
+  if(v.t === "ka") return {stemHtml:`<ruby>来<rt>こ</rt></ruby>`, sound:"こ", dan:"オ"};
+  if(v.t === "sa"){ const pre = v.w.slice(0, -2); return {stemHtml:esc(pre) + `<span class="sound">し</span>`, sound:"し", dan:"イ"}; }
+  const m = conj(v, "mizen");
+  let sound = m.slice(-1), html;
+  if(v.y){ sound = v.y; html = `<span class="sound"><ruby>${esc(m)}<rt>${esc(v.y)}</rt></ruby></span>`; }
+  else if(v.r && /[一-鿿]/.test(m.slice(-1))){ sound = v.r.slice(-1); html = `<span class="sound">${rubyHtml(v, m)}</span>`; }
+  else html = rubyHtml(v, m.slice(0, -1)) + `<span class="sound">${esc(sound)}</span>`;
+  return {stemHtml:html, sound, dan:DAN[sound] || "?"};
+}
+function typeExplain(v){
+  const n = naiInfo(v);
+  if(v.t === "ka") return `「来る」は<b>カ行変格活用</b>。カ変は「来る」1語だけなので、覚えてしまおう。`;
+  if(v.t === "sa") return `「する」「〜する」は<b>サ行変格活用</b>。「しない」の「し」はイ段だけど、上一段ではない！ サ変は覚えておこう。`;
+  const ruby = rubyHtml(v);
+  let s = `「${ruby}」に「ない」をつけると「${n.stemHtml}ない」。「ない」の直前の「${esc(n.sound)}」は<b>${n.dan}段</b> → <b>${TYPE_NAME[v.t]}</b>。`;
+  if(v.fake){
+    s += `<br>「る」で終わっていても、見た目にだまされないこと！`;
+    if(v.pair){ const p = [...V_KAMI, ...V_SHIMO].find(x => x.w === v.pair); if(p) s += `（同じ読みの「${rubyHtml(p)}」は「${naiInfo(p).stemHtml}ない」で${TYPE_NAME[p.t]}）`; }
+  }
+  return s;
+}
+
+/* =====================================================================
+   章
+   ===================================================================== */
+const S = {shisho:"変化斎", hero:"あなた", sekka:"石化丸", minion:"手下", fake:"偽忍者", nar:""};
+const CHAPTERS = [
+  {id:"jo", no:"序", name:"変化の術", desc:"語幹と活用語尾を知る", n:8, life:3,
+   intro:[
+    ["nar", "ここは山奥の忍びの里。言葉たちが「変化の術」で姿を変えて暮らす、ふしぎな里。"],
+    ["shisho", "よく来たな、見習いよ。わしは<span class=em>変化斎（へんげさい）</span>。この里で、言葉に変化の術を教えておる。"],
+    ["shisho", "言葉はな、後ろに続く言葉に合わせて姿を変える。「書く」は「書<span class=em>か</span>ない」「書<span class=em>き</span>ます」「書<span class=em>け</span>ば」……と変わるじゃろう。"],
+    ["shisho", "このように形が変わることを<span class=em>【活用】</span>という。"],
+    ["sekka", "ふはははは！ 里の秘伝の巻物は、この<span class=em>石化丸（せっかまる）</span>がいただいた！", "shake"],
+    ["sekka", "言葉どもよ、石のように固まるがいい！ 二度と変化できぬようにな！"],
+    ["shisho", "しまった……！ 言葉たちが、変化の術を忘れてしまった。"],
+    ["shisho", "見習いよ、まずは固まってしまった言葉に、正しい<span class=em>変装札</span>をつけて、元に戻してやるのじゃ。"],
+   ],
+   lesson:`<h2>巻物・其の序　本体と変装</h2>
+    <div class="big"><span class="stem">書</span><span class="end">く</span></div>
+    <p>変化しても<b>変わらない部分</b>＝本体　→　<span class="stem">語幹（ごかん）</span><br>
+       後ろの言葉によって<b>変わる部分</b>＝変装　→　<span class="end">活用語尾（かつようごび）</span></p>
+    <table><tr><th>本体</th><th>変装札</th><th>後ろの言葉</th></tr>
+      <tr><td class="stem">書</td><td class="end">か</td><td>ない</td></tr>
+      <tr><td class="stem">書</td><td class="end">き</td><td>ます</td></tr>
+      <tr><td class="stem">書</td><td class="end">く</td><td>。</td></tr>
+      <tr><td class="stem">書</td><td class="end">け</td><td>ば</td></tr>
+      <tr><td class="stem">書</td><td class="end">こ</td><td>う</td></tr></table>
+    <p>声に出して、自然に聞こえる札を選ぼう。</p>`,
+   outro:[
+    ["shisho", "見事じゃ！ 変わらない「書」が<span class=em>語幹</span>、変わる「か・き・く・け・こ」が<span class=em>活用語尾</span>じゃ。"],
+    ["shisho", "じゃが、石化丸の手下が里に入りこんでおる。次は変化の<span class=em>六つの術</span>を身につけるのじゃ。"],
+   ]},
+  {id:"ichi", no:"一", name:"六つの合言葉", desc:"後ろの言葉で活用形を見分ける", n:14, life:3,
+   intro:[
+    ["shisho", "変化の術には<span class=em>六つの型</span>がある。これを<span class=em>【活用形】</span>という。"],
+    ["shisho", "どの型になるかは、すぐ後ろに来る言葉――<span class=em>合言葉</span>で決まるのじゃ。"],
+    ["minion", "ケケケ！ 合言葉を間違えたら、術は発動せんぞ！", "shake"],
+    ["shisho", "まずは合言葉を体で覚えよ。「ない・ます・。・とき・ば・！」じゃ！"],
+   ],
+   lesson:`<h2>巻物・其の一　六つの術と合言葉</h2>
+    <div class="chant"><span>ない</span><span>ます</span><span>。</span><span>とき</span><span>ば</span><span>！</span></div>
+    <table><tr><th>術（活用形）</th><th>合言葉</th><th>例</th></tr>
+      <tr><td>未然形</td><td>ない・う／よう</td><td>書か<b>ない</b>・書こ<b>う</b></td></tr>
+      <tr><td>連用形</td><td>ます・た・て</td><td>書き<b>ます</b>・書い<b>た</b></td></tr>
+      <tr><td>終止形</td><td>。（言い切り）</td><td>書く<b>。</b></td></tr>
+      <tr><td>連体形</td><td>とき・こと</td><td>書く<b>とき</b></td></tr>
+      <tr><td>仮定形</td><td>ば</td><td>書け<b>ば</b></td></tr>
+      <tr><td>命令形</td><td>！（命令）</td><td>書け<b>！</b></td></tr></table>
+    <p>「書く。」と「書くとき」、「書けば」と「書け！」は<b>形が同じ</b>。<br>見分けるカギは、いつも<b>すぐ後ろの言葉</b>じゃ。</p>`,
+   outro:[
+    ["minion", "ぐぬぬ……合言葉が通じるとは……！"],
+    ["shisho", "よくやった。六つの術は、後ろの言葉を見れば必ず見分けられる。忘れるでないぞ。"],
+    ["sekka", "フン、だが手下どもは<span class=em>里の者に化けて</span>紛れこんでおる。正体を見抜けるかな？", "shake"],
+   ]},
+  {id:"ni", no:"二", name:"流派を見抜け", desc:"「ない」の煙玉で活用の種類を当てる", n:12, life:3,
+   intro:[
+    ["shisho", "忍者にはそれぞれ<span class=em>流派</span>がある。言葉の世界では、これを<span class=em>【活用の種類】</span>という。"],
+    ["shisho", "化けた手下を見抜くには、この<span class=em>「ない」の煙玉</span>を投げるのじゃ。"],
+    ["shisho", "「ない」をつけたとき、<span class=em>「ない」のすぐ前の音</span>が何段かで、流派がわかる。"],
+    ["shisho", "ただし<span class=em>「来る」</span>と<span class=em>「する」</span>の一族だけは特別じゃ。こやつらは覚えてしまえ。"],
+   ],
+   lesson:`<h2>巻物・其の二　五つの流派</h2>
+    <p style="text-align:center">言葉に「<b>ない</b>」をつけて、<b>「ない」の直前の音</b>を見る</p>
+    <table><tr><th>直前の音</th><th>流派（活用の種類）</th><th>例</th></tr>
+      <tr><td>ア段</td><td>五段活用</td><td>書<b>か</b>ない</td></tr>
+      <tr><td>イ段</td><td>上一段活用</td><td>起<b>き</b>ない</td></tr>
+      <tr><td>エ段</td><td>下一段活用</td><td>食<b>べ</b>ない</td></tr>
+      <tr><td colspan="2">カ行変格活用</td><td>来る（1語だけ）</td></tr>
+      <tr><td colspan="2">サ行変格活用</td><td>する・〜する</td></tr></table>
+    <p>この章では、煙玉が自動で投げられる。<br>光った音をよく見て、流派を当てよう。</p>`,
+   outro:[
+    ["shisho", "見事な目じゃ。ア段は五段、イ段は上一段、エ段は下一段。そして来るとするは覚える。"],
+    ["sekka", "ほう……ならば、これはどうだ。見た目だけでは決して見抜けぬ、<span class=em>偽忍者</span>どもよ！", "shake"],
+   ]},
+  {id:"san", no:"三", name:"偽忍者の襲来", desc:"一段に見える五段を見破る", n:12, life:3, smoke:3,
+   intro:[
+    ["fake", "ワタシは「切る」。「着る」と同じ読みだから、上一段流に決まってるでしょう？"],
+    ["shisho", "だまされるな！ <span class=em>「〜iる」「〜eる」で終わっていても、五段流のこともある</span>のじゃ。"],
+    ["shisho", "この章では煙玉は<span class=em>3つだけ</span>。頭の中で「ない」をつけて見抜け。どうしても迷ったら煙玉を使うのじゃ。"],
+   ],
+   lesson:`<h2>巻物・其の三　偽忍者の見破り方</h2>
+    <table><tr><th>見た目</th><th>「ない」をつけると</th><th>流派</th></tr>
+      <tr><td><ruby>着<rt>き</rt></ruby>る</td><td>着<b>（き）</b>ない</td><td>上一段</td></tr>
+      <tr><td><ruby>切<rt>き</rt></ruby>る</td><td>切<b>ら</b>ない</td><td>五段</td></tr>
+      <tr><td><ruby>変<rt>か</rt></ruby>える</td><td>変<b>え</b>ない</td><td>下一段</td></tr>
+      <tr><td><ruby>帰<rt>かえ</rt></ruby>る</td><td>帰<b>ら</b>ない</td><td>五段</td></tr></table>
+    <p>読みが同じでも、流派はちがう！<br><b>見た目で決めず、必ず「ない」をつけて確かめる。</b></p>`,
+   outro:[
+    ["fake", "ば、ばれた……！ 退散！", "shake"],
+    ["shisho", "見事じゃ、見習いよ。もう一人前の目を持っておる。"],
+    ["sekka", "くっ……今日のところは引いてやる。だが巻物はまだ我が手にある。破れた<span class=em>活用表</span>を、元に戻せるものならやってみよ！"],
+    ["nar", "―― 四の章「巻物の復元」につづく（準備中）――"],
+   ]},
+  {id:"shi", no:"四", name:"巻物の復元", desc:"活用表を自分で作る（準備中）", soon:true},
+  {id:"go", no:"五", name:"異国の術者", desc:"形容詞・形容動詞（準備中）", soon:true},
+  {id:"tsui", no:"終", name:"城での決戦", desc:"文の中で活用形を見抜く（準備中）", soon:true},
+];
+const chIndex = id => CHAPTERS.findIndex(c => c.id === id);
+function chUnlocked(i){ return i === 0 || (SAVE.stars[CHAPTERS[i-1].id] || 0) > 0; }
+
+/* =====================================================================
+   タイトル
+   ===================================================================== */
+function showTitle(){
+  $("titleHero").innerHTML = pic("hero");
+  $("chList").innerHTML = CHAPTERS.map((c, i) => {
+    const locked = c.soon || !chUnlocked(i);
+    const st = SAVE.stars[c.id] || 0;
+    const stars = c.soon ? "準備中" : locked ? "🔒" : "★".repeat(st) + "☆".repeat(3 - st);
+    return `<div class="ch-card${locked ? " locked" : ""}" ${locked ? "" : `onclick="openChapter('${c.id}')"`}>
+      <div class="no">${c.no}</div>
+      <div class="tx"><h3>${esc(c.name)}</h3><p>${esc(c.desc)}</p></div>
+      <div class="st">${stars}</div></div>`;
+  }).join("");
+  show("sTitle");
+}
+
+/* =====================================================================
+   物語
+   ===================================================================== */
+let STORY = null;
+function openChapter(id){
+  sfx.tap();
+  const ch = CHAPTERS[chIndex(id)];
+  CUR = ch;
+  playStory(ch.intro, () => { SAVE.seen[ch.id] = 1; saveSave(SAVE); showLesson(ch); });
+}
+function playStory(lines, done){
+  STORY = {lines, i:0, done};
+  const stage = $("stage");
+  stage.querySelectorAll(".bgimg").forEach(e => e.remove());
+  if(NP_IMG.bg) stage.insertAdjacentHTML("afterbegin", `<img class="bgimg" src="${NP_IMG.bg}" alt="">`);
+  show("sStory");
+  renderStory();
+}
+function renderStory(){
+  const [who, text, fx] = STORY.lines[STORY.i];
+  const left = $("actL"), right = $("actR");
+  // 左は主人公か師匠、右は敵。話している側を明るくする
+  const enemy = ["sekka","minion","fake"].includes(who);
+  left.innerHTML = pic(who === "hero" ? "hero" : "shisho");
+  if(enemy) right.innerHTML = pic(who);
+  else if(!right.innerHTML) right.innerHTML = pic("hero");
+  left.classList.toggle("dim", enemy || who === "nar");
+  right.classList.toggle("dim", !enemy);
+  [left, right].forEach(a => a.classList.remove("shake"));
+  if(fx === "shake"){ void right.offsetWidth; right.classList.add("shake"); sfx.ng(); }
+  $("dlgWho").textContent = S[who] || "";
+  $("dlgWho").style.display = S[who] ? "" : "none";
+  $("dlgTxt").innerHTML = text;
+}
+function storyNext(){
+  if(!STORY) return;
+  sfx.tap();
+  STORY.i++;
+  if(STORY.i >= STORY.lines.length){ const d = STORY.done; STORY = null; $("actR").innerHTML = ""; d(); return; }
+  renderStory();
+}
+function storySkip(){ if(!STORY) return; const d = STORY.done; STORY = null; $("actR").innerHTML = ""; d(); }
+
+function showLesson(ch){ $("lessonBody").innerHTML = ch.lesson; show("sLesson"); }
+
+/* =====================================================================
+   問題づくり
+   ===================================================================== */
+let CUR = null, PLAY = null;
+function makeQuestions(ch){
+  const qs = [];
+  if(ch.id === "jo"){
+    // 五段の「本体＋＿＋後ろの言葉」に合う変装札を選ぶ。札は同じ行の5つ
+    const forms = shuffle(["mizen","mizenU","renyo","shushi","rentai","katei","meirei","mizen"]);
+    const verbs = shuffle(V_GODAN.filter(v => !v.iku));
+    for(let i = 0; i < ch.n; i++){
+      const v = i === 0 ? V_GODAN[0] : verbs[i], f = forms[i % forms.length];
+      const stem = v.w.slice(0, -1), row = ROW[v.w.slice(-1)];
+      const ans = conj(v, f).slice(-1);
+      qs.push({kind:"fuda", v, stem, fol:followOf(v, f), ans, choices:[...row], form:f});
+    }
+  }else if(ch.id === "ichi"){
+    // 最初の4問は合言葉だけ、そのあとは「活用した形＋合言葉」
+    const pool = [...V_GODAN, ...V_KAMI, ...V_SHIMO, ...V_KA, ...V_SA];
+    const forms = ["mizen","mizenU","renyo","onbin","shushi","rentai","katei","meirei"];
+    let fs = shuffle(forms.concat(forms));
+    for(let i = 0; i < ch.n; i++){
+      if(i < 4){
+        const f = shuffle(["mizen","renyo","shushi","rentai","katei","meirei"])[0];
+        const v = V_GODAN[0];
+        qs.push({kind:"form", only:true, v, f, fol:followOf(v, f), ans:FORM_NAME[f]});
+      }else{
+        const f = fs.pop(), v = pick(i < 9 ? V_GODAN : pool);
+        qs.push({kind:"form", v, f, word:conj(v, f), fol:followOf(v, f), ans:FORM_NAME[f]});
+      }
+    }
+    // 合言葉だけの4問は、6つの術のうち4つを重ならないように
+    const four = shuffle(["mizen","renyo","shushi","rentai","katei","meirei"]).slice(0, 4);
+    four.forEach((f, i) => { qs[i].f = f; qs[i].fol = followOf(qs[i].v, f); qs[i].ans = FORM_NAME[f]; });
+  }else if(ch.id === "ni"){
+    // 五段4・上一段3・下一段3・カ変1・サ変1（偽忍者はまだ出さない）
+    const take = (arr, k) => shuffle(arr).slice(0, k);
+    const vs = shuffle([...take(V_GODAN, 4), ...take(V_KAMI, 3), ...take(V_SHIMO, 3), ...V_KA, pick(V_SA)]);
+    vs.slice(0, ch.n).forEach(v => qs.push({kind:"type", v, ans:v.t, autoSmoke:true}));
+  }else if(ch.id === "san"){
+    // 偽忍者6・本物の一段4（同じ読みの組を優先）・カ変かサ変1・ふつうの五段1
+    const fakes = shuffle(V_FAKE).slice(0, 6);
+    const pairs = fakes.map(f => f.pair).filter(Boolean).map(w => [...V_KAMI, ...V_SHIMO].find(x => x.w === w));
+    const others = shuffle([...V_KAMI, ...V_SHIMO].filter(v => !pairs.includes(v)));
+    const ichidan = pairs.concat(others).slice(0, 4);
+    const vs = shuffle([...fakes, ...ichidan, pick([...V_KA, ...V_SA]), pick(V_GODAN)]);
+    vs.slice(0, ch.n).forEach(v => qs.push({kind:"type", v, ans:v.t, autoSmoke:false}));
+  }
+  return qs;
+}
+
+/* =====================================================================
+   修行
+   ===================================================================== */
+function startPlay(){
+  const ch = CUR;
+  PLAY = {ch, qs:makeQuestions(ch), i:0, life:ch.life, ok:0, ng:0, combo:0, maxCombo:0, smoke:ch.smoke || 0, lock:false, wrongList:[]};
+  mgStart();
+  $("hudName").textContent = `${ch.no}　${ch.name}`;
+  show("sPlay");
+  renderQ();
+}
+function renderHud(){
+  const p = PLAY;
+  $("hudLife").textContent = "❤️".repeat(p.life) + "🖤".repeat(Math.max(0, p.ch.life - p.life));
+  $("hudCombo").textContent = p.combo >= 2 ? `${p.combo}連続！` : "";
+  $("hudBar").style.width = (p.i / p.qs.length * 100) + "%";
+}
+function renderQ(){
+  const p = PLAY, q = p.qs[p.i];
+  p.lock = false;
+  renderHud();
+  const fb = $("qFb"); fb.className = "feedback"; fb.innerHTML = "";
+  $("qExtra").innerHTML = ""; $("qTools").innerHTML = "";
+  const foeKey = q.kind === "type" ? (q.v.fake || p.ch.id === "san" ? "fake" : "minion") : "word";
+  const foe = $("foe"); foe.innerHTML = pic(foeKey); foe.classList.remove("hit");
+  let choicesHtml = "";
+  if(q.kind === "fuda"){
+    $("qPrompt").textContent = "固まった言葉に、合う変装札をつけよう";
+    $("qWord").innerHTML = `<span class="stem">${esc(q.stem)}</span><span class="blank">？</span><span class="fol">${esc(q.fol)}</span>`;
+    choicesHtml = q.choices.map(c => `<button class="choice fuda" data-a="${c}">${c}</button>`).join("");
+  }else if(q.kind === "form"){
+    if(q.only){
+      $("qPrompt").textContent = "この合言葉で発動する術は？";
+      $("qWord").innerHTML = `〜<span class="fol">${esc(q.fol)}</span>`;
+    }else{
+      $("qPrompt").textContent = "下線の言葉は、何形の術？";
+      $("qWord").innerHTML = `<span style="text-decoration:underline;text-underline-offset:8px">${formHtml(q.v, q.word)}</span><span class="fol">${esc(q.fol)}</span>`;
+    }
+    choicesHtml = FORM_LIST.map(f => `<button class="choice" data-a="${f}">${f}<small>${FORM_HINT[f]}</small></button>`).join("");
+  }else if(q.kind === "type"){
+    $("qPrompt").textContent = q.autoSmoke ? "煙玉で正体をあばけ！ この忍者の流派は？" : "この忍者の流派は？（見た目にだまされるな）";
+    $("qWord").innerHTML = rubyHtml(q.v);
+    choicesHtml = ["godan","kami","shimo","ka","sa"].map(t => `<button class="choice" data-a="${t}">${RYUHA[t]}<small>${TYPE_NAME[t]}</small></button>`).join("");
+    if(q.autoSmoke) setTimeout(() => { if(PLAY && PLAY.qs[PLAY.i] === q && !p.lock) throwSmoke(q, false); }, 500);
+    else if(p.smoke > 0) $("qTools").innerHTML = `<button class="iconbtn" onclick="useSmoke()">💨 煙玉を使う（のこり${p.smoke}）</button>`;
+  }
+  $("qChoices").innerHTML = choicesHtml;
+  $("qChoices").querySelectorAll(".choice").forEach(b => b.onclick = () => answer(b));
+}
+function throwSmoke(q, used){
+  if(q.smoked) return;
+  q.smoked = true; sfx.smoke();
+  const n = naiInfo(q.v);
+  $("qExtra").innerHTML = `<div class="smoke show">💨 ${n.stemHtml}<span class="fol">ない</span></div>`;
+  if(used) $("qTools").innerHTML = "";
+}
+function useSmoke(){
+  const p = PLAY, q = p.qs[p.i];
+  if(!p || p.lock || q.smoked || p.smoke <= 0) return;
+  p.smoke--; throwSmoke(q, true);
+}
+function explain(q){
+  if(q.kind === "fuda"){
+    return `「<b>${esc(q.stem)}${esc(q.ans)}</b>${esc(q.fol)}」が正しい形。変わらない「${esc(q.stem)}」が語幹、変わる「${esc(q.ans)}」が活用語尾。`;
+  }
+  if(q.kind === "form"){
+    const f = q.ans;
+    return `合言葉「${esc(q.fol)}」が続くのは<b>${f}</b>（${FORM_HINT[f]}）。${q.only ? "" : "形だけでなく、すぐ後ろの言葉で決まる。"}`;
+  }
+  return typeExplain(q.v);
+}
+async function answer(btn){
+  const p = PLAY; if(!p || p.lock) return;
+  p.lock = true;
+  const q = p.qs[p.i], a = btn.dataset.a, right = a === q.ans;
+  $("qChoices").querySelectorAll(".choice").forEach(b => { b.disabled = true; if(b.dataset.a === q.ans) b.classList.add("ok"); });
+  if(q.kind === "type") throwSmoke(q, true);   // 答えたあとは、必ず正体（「ない」の形）を見せる
+  const fb = $("qFb");
+  if(right){
+    p.ok++; p.combo++; p.maxCombo = Math.max(p.maxCombo, p.combo);
+    sfx.ok(); mgCorrect();
+    $("foe").classList.add("hit");
+    flash(p.combo >= 3 ? `${p.combo}連続！` : "見事！", "#ffe08a");
+    fb.className = "feedback ok show"; fb.innerHTML = "⭕ " + explain(q);
+    renderHud();
+    await sleep(q.kind === "type" ? 1700 : 1100);
+    nextQ();
+  }else{
+    p.ng++; p.combo = 0; p.life--;
+    btn.classList.add("ng");
+    sfx.ng(); mgWrong();
+    flash("うっ！", "#ff9a92");
+    p.wrongList.push(q);
+    fb.className = "feedback ng show";
+    fb.innerHTML = "❌ " + explain(q) + `<div class="btn-row" style="margin-top:8px"><button class="btn sub" onclick="nextQ()">わかった</button></div>`;
+    renderHud();
+  }
+}
+function nextQ(){
+  const p = PLAY; if(!p) return;
+  if(p.life <= 0){ finish(false); return; }
+  p.i++;
+  if(p.i >= p.qs.length){ finish(true); return; }
+  renderQ();
+}
+function quitPlay(){
+  if(!PLAY) return;
+  if(!confirm("修行をやめて、章選びにもどりますか？")) return;
+  PLAY = null; mgFlush(); showTitle();
+}
+function finish(clear){
+  const p = PLAY; PLAY = null;
+  const r = mgFlush() || {net:0};
+  const ch = p.ch;
+  let stars = 0;
+  if(clear){ stars = p.ng === 0 ? 3 : p.ng === 1 ? 2 : 1; }
+  const prev = SAVE.stars[ch.id] || 0;
+  const firstClear = clear && prev === 0;
+  if(stars > prev){ SAVE.stars[ch.id] = stars; saveSave(SAVE); }
+  const body = clear
+    ? `<h2>🎉 ${esc(ch.no)}の章 クリア！</h2><div class="stars">${"★".repeat(stars)}${"☆".repeat(3 - stars)}</div>`
+    : `<h2>💥 修行失敗……</h2><p>命がつきてしまった。巻物を読み直して、もう一度挑もう！</p>`;
+  const wrongs = p.wrongList.length
+    ? `<div class="scroll" style="margin-top:12px;text-align:left"><h2 style="font-size:18px">ふりかえり</h2>${p.wrongList.map(q => `<p>・${explain(q)}</p>`).join("")}</div>` : "";
+  $("resultBody").innerHTML = `${body}
+    <div class="stat">正解 ${p.ok}　まちがい ${p.ng}　最大 ${p.maxCombo}連続<br>「${MG_GENRE}」レベル ${mgSigned(r.net)}</div>
+    ${wrongs}
+    <div class="btn-row" id="resultBtns">
+      ${clear ? `<button class="btn" onclick="afterClear('${ch.id}', ${firstClear})">つづきへ</button>` : ""}
+      <button class="btn sub" onclick="retry()">もう一度</button>
+      ${clear ? "" : `<button class="btn sub" onclick="showLesson(CUR)">巻物を読み直す</button>`}
+      <button class="btn sub" onclick="showTitle()">章選びへ</button>
+    </div>`;
+  if(clear) sfx.clear();
+  show("sResult");
+}
+function retry(){ startPlay(); }
+function afterClear(id, first){
+  const ch = CHAPTERS[chIndex(id)];
+  // 物語の続き（クリア後の話）は毎回見られる。とばすボタンもある
+  playStory(ch.outro, showTitle);
+}
+
+/* =====================================================================
+   はじめ
+   ===================================================================== */
+updateMuteBtn();
+showTitle();
+</script>
+</body>
+</html>

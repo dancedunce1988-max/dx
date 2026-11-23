@@ -14461,7 +14461,7 @@ function mgApplyPendingEventXp(st){
 }
 /* だるま落とし〜文の成分〜（ミニゲーム試作/だるま落とし/daruma_kokkaku.html、2026-11-03〜試作）は「文の成分・文節相互の関係」
    （bunsetsu_kankei）。塔を1本完成させるたびに＋1、まちがいでは下げない（教員の指示）。 */
-const MG_LVUP_CATS = ["kanji_shiwake", "keigo", "setsuzokushi", "hyougen", "kanbun_yj", "kanbun_kt", "shikibetsu", "bunsetsu_kankei", "koji"];   // koji：故事成語すごろく（正解1問ごとに＋1、2026-11-15〜）
+const MG_LVUP_CATS = ["kanji_shiwake", "keigo", "setsuzokushi", "hyougen", "kanbun_yj", "kanbun_kt", "shikibetsu", "bunsetsu_kankei", "koji", "doushi_katsuyo"];   // doushi_katsuyo：変化の里（2026-11-23〜、試作）／koji：故事成語すごろく（正解1問ごとに＋1、2026-11-15〜）
 function mgApplyPendingLevelUps(st){
   let raw;
   try{ raw = localStorage.getItem(MG_PENDING_LVUP_LSKEY); }catch(e){ raw = null; }
@@ -19741,6 +19741,7 @@ const MG_SAVE_KEYS = [
   {key:"kokugo_kotodama_shoko_v1",  label:"言霊並べ"},
   {key:"panda_chikurin_v1",         label:"大熊猫の竹林わたり"},
   {key:"koji_sugoroku_v1",          label:"濃い！鯉！来い！"},
+  {key:"katsuyo_ninpou_v1",         label:"変化の里 ～活用忍法帖～"},
   {key:"kokugoBattleStats_v1",      label:"⚔️ 二人対戦の記録"},
   {key:"nobiru_records_v1",         label:"伸びる読解（前回との比較の記録）"},   // nobiru/records.js。本体の記録(st)の外にあるので一緒に引きつぐ   // ミニゲームではないが、本体の記録(st)の外にあるので一緒に引きつぐ（2026-11-19、教員の指示）
   // 設定・旧版の記録・今日のミニゲーム（sub）
@@ -19750,6 +19751,7 @@ const MG_SAVE_KEYS = [
   {key:"kokugo_kotodama_shoko_v1_mute",   label:"言霊並べ（音を消す）", sub:true},
   {key:"panda_chikurin_v1_mute",          label:"竹林わたり（音を消す）", sub:true},
   {key:"panda_chikurin_v1_demoAuto",      label:"竹林わたり（お手本の自動／手動）", sub:true},
+  {key:"katsuyo_ninpou_v1_mute",          label:"変化の里（音を消す）", sub:true},
   {key:"koji_sugoroku_sound",             label:"濃い！鯉！来い！（効果音）", sub:true},
   {key:"kokugo_daily_minigame_v1",        label:"今日のミニゲーム（1日1回の済み・途中）", sub:true},
 ];
@@ -20362,6 +20364,7 @@ function adminMgSummary(key, raw){
     case "kokugo_kotodama_shoko_v1": return `巻のクリア ${Object.values(o.kanClears||{}).filter(v => v > 0).length}・挑戦 ${o.plays||0}回`;
     case "panda_chikurin_v1": return `踏破 ${n((o.stageClear||{}).yj) + n((o.stageClear||{}).kt)}か所・笹 ${o.sasa||0}本`;
     case "koji_sugoroku_v1": return `ゴール ${o.clears||0}回・倒したボス ${Object.values(o.defeated||{}).filter(v => v > 0).length}体・赤 ${(o.redOwned||[]).length}色`;
+    case "katsuyo_ninpou_v1": return `クリア ${Object.values(o.stars||{}).filter(v => v > 0).length}章・星 ${Object.values(o.stars||{}).reduce((a, v) => a + (Number(v)||0), 0)}個`;
     case "kokugoBattleStats_v1": return `対戦 ${o.plays||0}回`;
     case "nobiru_records_v1": return `${n(o)}教材`;
   }
@@ -23241,6 +23244,7 @@ function showSideQuestMenu(){
   html += kotodamaMenuHtml(); // 言霊並べ（2026-10-26解禁。それまでは「新ゲーム～10月26日解禁～」だけ）
   html += pandaMenuHtml();    // 大熊猫の竹林わたり（2026-11-11解禁。それまでは「新ゲーム～11月11日解禁～」だけ）
   html += koiMenuHtml();      // 濃い！鯉！来い！ ～ここが登竜門～（故事成語すごろく、2026-11-15〜）
+  html += ninpouMenuHtml();   // 変化の里 ～活用忍法帖～（動詞の活用、2026-11-23〜、試作）
   html += `</div>`;   // .mg-grid ここまで
   html += `<div class="btn-row" style="justify-content:center; margin-top:10px">
     <button class="btn secondary" onclick="showHome()">戻る</button>
@@ -23595,6 +23599,18 @@ function koiMenuHtml(){
   return mgBannerHtml("koi", "濃い！鯉！来い！ ～ここが登竜門～", true, "", "openKoiSugoroku()")
     || mgTextCardHtml("🐟", "濃い！鯉！来い！", "故事成語のすごろく。竜門の滝をのぼって竜になれ！", true, "", "openKoiSugoroku()");
 }
+/* 変化の里 ～活用忍法帖～（katsuyo_ninpou.html、2026-11-23〜、試作）。見習い忍者が師匠・変化斎のもとで
+   「変化の術」（用言の活用）を章ごとに身につける物語仕立てのゲーム。序〜三の章（語幹と活用語尾・活用形・活用の種類・
+   一段に見える五段）まで。正誤は「動詞の活用」（doushi_katsuyo）ジャンルのレベルに書き置く（MG_LVUP_CATS）。
+   htmlを直接開くと「このファイルは開けません」（通行証 "ninpou"）。バナー画像ができたら menu_title_images.js に "ninpou" で入れる。 */
+const NINPOU_RELEASE_DATE = "2026-11-23";
+const NINPOU_RELEASED = mgReleasedOn(NINPOU_RELEASE_DATE);
+function ninpouMenuHtml(){
+  const label = mgReleaseLabel(NINPOU_RELEASE_DATE);
+  return mgBannerHtml("ninpou", "変化の里 ～活用忍法帖～", NINPOU_RELEASED, label, "openKatsuyoNinpou()")
+    || mgTextCardHtml("🥷", "変化の里 ～活用忍法帖～", "見習い忍者になって「変化の術」＝活用を身につけよう（試作）", NINPOU_RELEASED, label, "openKatsuyoNinpou()");
+}
+function openKatsuyoNinpou(){ if(!NINPOU_RELEASED) return; mgGoWithPass("ninpou", "katsuyo_ninpou.html"); }
 function openKoiSugoroku(){ if(!koiOpen()) return; mgGoWithPass("koi", "koji_sugoroku.html"); }
 // ミニゲーム一覧の画面で「touryumon」と打つと解禁（入力欄に打っているときは数えない）。竹林わたりと同じく、白い幕のあとバナーがふわっと現れる。
 let koiKeyBuf = "";
