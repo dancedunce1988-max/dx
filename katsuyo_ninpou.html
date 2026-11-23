@@ -378,6 +378,9 @@
   .bxnext.soon{color:#b3261e;font-weight:bold}
   .cpubar{height:6px;background:#ddd2b8;border-radius:99px;overflow:hidden;margin-top:2px}
   .cpubar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#f2c14e,#e0362b)}
+  .afftag{font-size:10px;border-radius:999px;padding:0 6px;font-weight:bold}
+  .afftag.good{background:#ffd23f;color:#3a2000}
+  .afftag.bad{background:#9aa3ad;color:#fff}
   .streak{display:inline-block;border-radius:999px;padding:1px 10px;font-size:13px;font-weight:bold;color:#fff}
   .streak.s1{background:linear-gradient(135deg,#ff8a3d,#ffb347)}
   .streak.s2{background:linear-gradient(135deg,#ff4d2e,#ff9a3d);animation:pop 1s infinite}
@@ -1189,6 +1192,9 @@ const ELEM = {
 };
 const elemTag = e => e ? `<span class="etag e-${e}">${ELEM[e].icon}${ELEM[e].name}</span>` : `<span class="etag">無</span>`;
 function affinity(a, d){ if(!a || !d) return 1; if(ELEM[a].beats === d) return 2; if(ELEM[d].beats === a) return .5; return 1; }
+/* ふつうの攻撃・守りにも、少しだけ相性（2026-11-23、教員の指示）。術よりひかえめに ±15%。
+   自分の得意属性が相手に強い → こちらの攻撃×1.15・受けるダメージ×0.85。弱い → 攻撃×0.85・受けるダメージ×1.15。 */
+const normalAff = (myElem, foeElem) => { const a = affinity(myElem, foeElem); return a > 1 ? 1.15 : a < 1 ? .85 : 1; };
 const defAffinity = (foeElem, myElem) => { const a = affinity(foeElem, myElem); return a > 1 ? 1.5 : a < 1 ? .6 : 1; };
 
 /* ---------- 忍術（必殺技） ----------
@@ -1811,7 +1817,7 @@ function showHome(){
     <div class="bstats" id="hBstats">HP <b>${b.maxHp}</b>　攻撃力 <b>${b.atk}</b>　受けるダメージ：ふつう<b>${takenPct(b.def)}%</b>・術<b>${takenPct(b.res)}%</b>　忍術 <b>${b.nin}</b>${b.time ? `　時間 <b>+${b.time}秒</b>` : ""}${b.hints ? `　煙玉 <b>+${b.hints}</b>` : ""}${b.crit ? `　会心 <b>${b.crit}%</b>` : ""}${b.guard ? `　無効 <b>${b.guard}回</b>` : ""}${b.ryo ? `　両 <b>+${b.ryo}%</b>` : ""}</div>
     <h3 class="sec">得意属性</h3>
     <div class="elems">${[["", "なし"], ["fire"], ["water"], ["wood"]].map(([e, n]) => `<button class="ebtn${(SAVE.elem || "") === e ? " on" : ""} ${e ? "e-" + e : ""}" onclick="setElem('${e}')">${e ? ELEM[e].icon + ELEM[e].name : n}</button>`).join("")}</div>
-    <p class="note-dark">🔥火は🍃木に強く、🍃木は💧水に強く、💧水は🔥火に強い。<br>得意属性と同じ属性の術は1.25倍。敵の術は、得意属性に強い属性だと1.5倍、弱い属性だと0.6倍のダメージ。行き先の敵に合わせて選ぼう。</p>
+    <p class="note-dark">🔥火は🍃木に強く、🍃木は💧水に強く、💧水は🔥火に強い。<br>得意属性と同じ属性の術は1.25倍。ふつうの攻撃と守りも、相手に強い属性なら少し有利（攻撃×1.15・受けるダメージ×0.85）、弱い属性なら少し不利。敵の術は、得意属性に強い属性だと1.5倍、弱い属性だと0.6倍のダメージ。行き先の敵に合わせて選ぼう。</p>
     <h3 class="sec">忍術（必殺技）</h3><div class="jlist" id="hJutsu">${jutsuListHtml(b)}</div>
     <p class="note-dark">⚡ 早く答えるほど攻撃が強い：2秒以内×1.5・4秒以内×1.3・6秒以内×1.15。</p>
     <p class="note-dark">🔥 戦いの中で連続で正解すると、攻撃力が1連続ごとに＋10%（最大×2.0）。まちがえたり、戦いが終わったりすると、もとにもどる。</p>
@@ -2848,7 +2854,9 @@ function renderPBox(){
     $("pBox").innerHTML = `<div class="bxname">あなた<span class="bxlv">Lv${ninjaInfo().lv}</span></div><div class="bxnum">正解 ${p.ok}・まちがい ${p.ng}</div><div class="bxexp">獲得予定 <b>+${p.xpGot}</b> EXP</div>`;
     return;
   }
-  $("pBox").innerHTML = `<div class="bxname">あなた ${p.elem ? elemTag(p.elem) : ""}<span class="bxlv">Lv${ninjaInfo().lv}</span></div>
+  const na = normalAff(p.elem, p.foe.elem);
+  const affTag = na > 1 ? `<span class="afftag good">相性◎</span>` : na < 1 ? `<span class="afftag bad">相性△</span>` : "";
+  $("pBox").innerHTML = `<div class="bxname">あなた ${p.elem ? elemTag(p.elem) : ""}${affTag}<span class="bxlv">Lv${ninjaInfo().lv}</span></div>
     <div class="bxhp"><span class="bxhpl">HP</span><span class="bxbar${col}"><i style="width:${r * 100}%"></i></span></div>
     <div class="bxnum">${Math.max(0, p.hp)} / ${p.maxHp}</div>
     ${p.cfg.mode === "quick" ? "" : `<div class="bxexp">獲得予定 <b>+${p.cfg.mode === "wild" ? Math.round(p.xpGot * p.xpM) : p.xpGot}</b> EXP${p.cfg.mode === "wild" && p.xpM !== 1 ? `（×${p.xpM.toFixed(2).replace(/0$/, "")}）` : ""}</div>`}`;
@@ -2929,7 +2937,7 @@ function foeAttack(mult){
   }
   else{
     fxEnemyHit(null);
-    const d = takenDamage(p.foe.atk, p.def, mult);
+    const d = takenDamage(p.foe.atk * normalAff(p.foe.elem, p.elem), p.def, mult);
     p.hp -= d; dmgPop(`${mult > 1 ? "反撃 " : ""}−${d}`, "#ff8a80", "pBox");
     const h = $("pBox"); h.classList.remove("hurt"); void h.offsetWidth; h.classList.add("hurt");
     tone(160, .2, "sawtooth", .07);
@@ -3057,7 +3065,8 @@ async function answer(btn){
     const crit = Math.random() * 100 < p.crit;
     const dodged = hasAb(p.foe, "dodge") && Math.random() < .18;   // 能力【かわす】
     const sec = (Date.now() - (p.qStart || Date.now())) / 1000, spd = speedMul(sec);
-    const dmg = dodged ? 0 : hitDamage(Math.round(p.atk * (crit ? 2 : 1) * streakMul() * spd), p.foe, crit, (spd - 1) * .1);
+    const na = normalAff(p.elem, p.foe.elem);
+    const dmg = dodged ? 0 : hitDamage(Math.round(p.atk * (crit ? 2 : 1) * streakMul() * spd * na), p.foe, crit, (spd - 1) * .1);
     if(spd > 1 && !isPrac(p.cfg.mode) && !dodged) setTimeout(() => dmgPop(`⚡はやい！ ×${spd}（${sec.toFixed(1)}秒）`, "#9fe8ff", "pBox"), 120);
     p.foe.hp -= dmg; p.dmgDealt += dmg;
     if(!isPrac(p.cfg.mode)){ if(dodged){ const f = foeC(); burst(f.x, f.y, 8, {sp0:60, sp1:160, p:() => ({ch:"💨", size:rnd(16, 24)})}); } else { fxSlash(crit); tone(crit ? 1200 : 900, .06, "square", .05, .02); } }
