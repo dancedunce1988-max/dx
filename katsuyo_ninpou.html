@@ -895,7 +895,7 @@ const STATS = [
 
 /* ---------- 忍術（必殺技） ----------
    正解するたびに術ゲージが1たまり、JUTSU_MAX で満タン。満タンのとき、覚えている術を1つ使える（ゲージは0に戻る）。
-   術は「忍術」のステータスがしきい値（need）に届くと覚える。威力も「忍術」で上がる。 */
+   術は「忍術」のステータスがしきい値（need）以上のときだけ使える（下げると使えなくなる）。威力も「忍術」で上がる。 */
 const JUTSU_MAX = 3;
 const JUTSU = [
   {id:"katon",   name:"火遁・炎の術",     icon:"🔥", need:0,  text:b => `敵に大ダメージ（${b.atk * 2 + b.nin * 3}）`},
@@ -904,6 +904,12 @@ const JUTSU = [
   {id:"raiton",  name:"雷遁・稲妻落とし", icon:"⚡", need:50, text:b => `敵に特大ダメージ（${b.atk * 3 + b.nin * 5}）`},
 ];
 const jutsuKnown = nin => JUTSU.filter(j => nin >= j.need);
+// 自宅の忍術の欄。「忍術」が足りない術は使えない（覚えたままにはならない。2026-11-23、教員の指示）
+function jutsuListHtml(b){
+  return JUTSU.map(j => b.nin >= j.need
+    ? `<div class="jrow"><span class="jic">${j.icon}</span><b>${j.name}</b><small>${j.text(b)}</small></div>`
+    : `<div class="jrow locked"><span class="jic">🔒</span><b>${j.need ? "？？？" : j.name}</b><small>忍術${j.need}以上で使える</small></div>`).join("");
+}
 
 /* ---------- 装備 ---------- */
 const SLOTS = [
@@ -1272,10 +1278,8 @@ function showHome(){
   });
   html += `</div><div class="btn-row" style="margin-top:6px"><button class="iconbtn dark" onclick="resetAlloc()">振り直す</button></div>
     <div class="bstats" id="hBstats">HP <b>${b.maxHp}</b>　攻撃 <b>${b.atk}</b>　守り <b>${b.def}</b>　忍術 <b>${b.nin}</b>${b.time ? `　時間 <b>+${b.time}秒</b>` : ""}${b.hints ? `　煙玉 <b>+${b.hints}</b>` : ""}${b.crit ? `　会心 <b>${b.crit}%</b>` : ""}${b.guard ? `　無効 <b>${b.guard}回</b>` : ""}${b.ryo ? `　両 <b>+${b.ryo}%</b>` : ""}</div>
-    <h3 class="sec">忍術（必殺技）</h3><div class="jlist">${JUTSU.map(j => b.nin >= j.need
-      ? `<div class="jrow"><span class="jic">${j.icon}</span><b>${j.name}</b><small>${j.text(b)}</small></div>`
-      : `<div class="jrow locked"><span class="jic">🔒</span><b>？？？</b><small>忍術${j.need}で覚える</small></div>`).join("")}</div>
-    <p class="note-dark">任務中、正解${JUTSU_MAX}回で術ゲージが満タンになり、術を使える。</p>
+    <h3 class="sec">忍術（必殺技）</h3><div class="jlist" id="hJutsu">${jutsuListHtml(b)}</div>
+    <p class="note-dark">任務中、正解${JUTSU_MAX}回で術ゲージが満タンになり、術を使える。<br>使える術は、そのときの「忍術」の値で決まる（下げると使えなくなる）。</p>
     <h3 class="sec">装備</h3><div class="slots">`;
   SLOTS.forEach(sl => {
     const it = EQUIP[SAVE.equip[sl.id]];
@@ -1309,6 +1313,7 @@ function refreshHomeNumbers(){
     const a = SAVE.alloc[btn.dataset.st] || 0;
     btn.disabled = +btn.dataset.d > 0 ? free <= 0 : a <= 0;
   });
+  const jl = $("hJutsu"); if(jl) jl.innerHTML = jutsuListHtml(b);   // 押し続けている間も、使える術をその場で変える
   const bs = $("hBstats");
   if(bs) bs.innerHTML = `HP <b>${b.maxHp}</b>　攻撃 <b>${b.atk}</b>　守り <b>${b.def}</b>　忍術 <b>${b.nin}</b>${b.time ? `　時間 <b>+${b.time}秒</b>` : ""}${b.hints ? `　煙玉 <b>+${b.hints}</b>` : ""}${b.crit ? `　会心 <b>${b.crit}%</b>` : ""}${b.guard ? `　無効 <b>${b.guard}回</b>` : ""}${b.ryo ? `　両 <b>+${b.ryo}%</b>` : ""}`;
 }
