@@ -222,7 +222,6 @@
     border:2px solid #6b4f2a;border-radius:12px;padding:5px 9px;box-shadow:0 3px 6px rgba(0,0,0,.3);animation:vbin .2s both;pointer-events:none}
   @keyframes vbin{from{opacity:0}to{opacity:1}}
   .vbubble::after{content:"";position:absolute;left:var(--tail,50%);bottom:-8px;transform:translateX(-50%);border:7px solid transparent;border-bottom:0;border-top-color:#6b4f2a}
-  .vbubble.rare{background:#fff6d6;border-color:#c8902a;font-weight:bold}
   .makyo-gate{display:inline-block;animation:mkspin 2.4s linear infinite;filter:drop-shadow(0 0 6px #c08bff)}
   @keyframes mkspin{to{transform:rotate(360deg)}}
   .jutsu-fx.foe .jfx-nm{color:#e0b8ff;text-shadow:0 0 12px #6a2a9a,0 2px 0 #000}
@@ -1155,6 +1154,12 @@ function followOf(v, form){
 }
 const FORM_NAME = {mizen:"未然形", mizenU:"未然形", renyo:"連用形", onbin:"連用形", shushi:"終止形", rentai:"連体形", katei:"仮定形", meirei:"命令形"};
 const FORM_LIST = ["未然形","連用形","終止形","連体形","仮定形","命令形"];
+/* 答えのボタンの合言葉（「た・ます」など）を出さない戦い（2026-11-24、教員の指示：「ある程度強いボスからはなくす」）。
+   動詞の最後（終の章）のボスと、それより強い相手（道場・隠居の家・魔境）。外伝（形容詞・形容動詞）のボスは初めて習う内容なので出す。 */
+function formHintOff(){
+  const c = typeof PLAY !== "undefined" && PLAY && PLAY.cfg; if(!c) return false;
+  return c.mode === "dojo" || c.mode === "legend" || (c.mode === "story" && c.ch && c.ch.id === "tsui") || (c.mode === "wild" && !!(c.foe && c.foe.makyo));
+}
 const FORM_HINT = {"未然形":"ない・よう", "連用形":"た・ます", "終止形":"。（言い切り）", "連体形":"とき", "仮定形":"ば", "命令形":"！（命令）"};
 
 // 「ない」をつけた形と、その直前の音
@@ -1856,7 +1861,7 @@ function villageTalk(el){
   const map = $("village");
   map.querySelectorAll(".vbubble").forEach(b => b.remove());
   const b = document.createElement("div");
-  b.className = "vbubble" + (rare ? " rare" : "");
+  b.className = "vbubble";   // 特別な一言も、ほかの吹き出しと同じ見た目（2026-11-24、教員の指示：「.rare」は店の札の白文字と名前がぶつかり読めなかった）
   b.innerHTML = esc(t);
   // 吹き出しが地図からはみ出さないよう、横の位置をおさえる（しっぽは飾りの真上に）
   const x = parseFloat(el.style.left), bx = Math.max(32, Math.min(68, x));
@@ -3352,7 +3357,8 @@ function renderQ(){
   }else if(q.kind === "aform"){
     $("qPrompt").textContent = q.only ? `${q.adjv ? "形容動詞" : "形容詞"}に、この合言葉がつくと何形？` : "下線の言葉は、何形？";
     $("qWord").innerHTML = q.only ? `〜<span class="fol">${esc(q.fol)}</span>` : `<span style="text-decoration:underline;text-underline-offset:8px">${rubyHtml(q.v, q.word)}</span><span class="fol">${esc(q.fol)}</span>`;
-    choicesHtml = q.choices.map(f => `<button class="choice" data-a="${f}">${f}<small>${A_HINT[f]}</small></button>`).join("");
+    const hint = !formHintOff();
+    choicesHtml = q.choices.map(f => `<button class="choice" data-a="${f}">${f}${hint ? `<small>${A_HINT[f]}</small>` : ""}</button>`).join("");
   }else if(q.kind === "pos"){
     $("qPrompt").textContent = q.phrase ? "下線の言葉の品詞は？（名詞の前の形を見よう）" : "この言葉の品詞は？（言い切りの形を見よう）";
     $("qWord").innerHTML = `<span style="text-decoration:underline;text-underline-offset:8px">${rubyHtml(q.v, q.v.w)}</span>${esc(q.k || "")}`;
@@ -3370,7 +3376,8 @@ function renderQ(){
       $("qPrompt").textContent = "下線の言葉は、何形の術？";
       $("qWord").innerHTML = `<span style="text-decoration:underline;text-underline-offset:8px">${formHtml(q.v, q.word)}</span><span class="fol">${esc(q.fol)}</span>`;
     }
-    choicesHtml = (q.choices || FORM_LIST).map(f => `<button class="choice" data-a="${f}">${f}<small>${FORM_HINT[f]}</small></button>`).join("");
+    const hint = !formHintOff();
+    choicesHtml = (q.choices || FORM_LIST).map(f => `<button class="choice" data-a="${f}">${f}${hint ? `<small>${FORM_HINT[f]}</small>` : ""}</button>`).join("");
   }else if(q.kind === "table"){
     const boss = q.f === "onbin" && q.v.t === "godan";
     $("qPrompt").innerHTML = (boss ? `<span class="boss-tag">中ボス：音便の結界</span><br>` : "") + `破れた「？」に入る形は？（${TYPE_NAME[q.v.t]}）`;
