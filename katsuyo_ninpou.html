@@ -253,6 +253,8 @@
   .eqrow > .btn, .eqrow > .owned{grid-area:bt}
   .eqicon{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;border:3px solid #aaa;background:#fff;font-size:22px}
   .eqicon.empty{color:#bbb;border-style:dashed}
+  .eqok{margin-top:3px;font-weight:bold;color:#1f7a3f;font-size:13px}
+  .eqng{margin-top:3px;font-size:12px;color:#a12a20;background:#fdecea;border-radius:8px;padding:3px 7px;line-height:1.6}
   .owned{font-size:12px;color:#2f7a4c;font-weight:bold;white-space:nowrap}
   .rare{margin-left:6px;font-size:11px;background:#e0a91b;color:#fff;border-radius:999px;padding:0 6px}
   .ninja-card{display:flex;gap:12px;align-items:center;background:#2b2140;color:#fff;border-radius:14px;padding:10px 12px}
@@ -1141,17 +1143,34 @@ function hitDamage(raw, foe, crit){
 }
 const takenDamage = (atk, def, mult) => Math.max(1, Math.round(atk * (mult || 1) * 40 / (40 + def * 3)));
 const takenPct = def => Math.round(4000 / (40 + def * 3));
-function canEquip(it){
-  const ni = ninjaInfo(), s = statTotals();
-  if(ni.lv < it.req.lv) return `忍者Lv${it.req.lv}（${TIER[it.tier].name}）から`;
+/* 装備できるかどうかと、足りないもの（2026-11-23、教員の指示：「萬屋では、装備できるかできないかはっきり書き、
+   ステータスが後どれくらいで装備できるかも示して」）。足りない条件をすべて返す。 */
+function equipCheck(it){
+  const ni = ninjaInfo(), s = statTotals(), lacks = [];
+  if(ni.lv < it.req.lv){
+    let xp = 0; for(let l = ni.lv; l < it.req.lv; l++) xp += xpForNext(l);
+    xp -= ni.xpIn;
+    lacks.push({kind:"lv", text:`忍者Lv あと${it.req.lv - ni.lv}（Lv${it.req.lv}が必要・今Lv${ni.lv}／経験値あと${xp}）`});
+  }
   if(it.req.stat){
     // 着けかえる前の自分のステータス（その部位の装備ぶんは引く）で判定
     for(const [k, v] of Object.entries(it.req.stat)){
       const cur = s[k] - (EQUIP[SAVE.equip[it.slot]] ? (EQUIP[SAVE.equip[it.slot]].st[k] || 0) : 0);
-      if(cur < v) return `${STATS.find(x => x.id === k).name}${v}以上が必要`;
+      if(cur < v) lacks.push({kind:"stat", stat:k, diff:v - cur, text:`${STATS.find(x => x.id === k).name} あと${v - cur}（${v}が必要・今${cur}）`});
     }
   }
-  return "";
+  return {ok:!lacks.length, lacks};
+}
+function canEquip(it){ const c = equipCheck(it); return c.ok ? "" : c.lacks.map(l => l.text).join("／"); }
+// 「装備できる／できない」の表示
+function equipBadge(it){
+  const c = equipCheck(it);
+  if(c.ok) return `<div class="eqok">✅ 今すぐ装備できる</div>`;
+  const free = ninjaInfo().points - allocSpent();
+  const statNeed = c.lacks.filter(l => l.kind === "stat").reduce((a, l) => a + l.diff, 0);
+  const tip = c.lacks.every(l => l.kind === "stat") && free >= statNeed ? `<br>💡 のこりの忍術ポイント（${free}）を振れば装備できる！`
+    : c.lacks.some(l => l.kind === "lv") ? "<br>💡 任務や野良忍者との戦いで経験値をためよう" : "<br>💡 忍術ポイントを振るか、ほかの装備で上げよう";
+  return `<div class="eqng">❌ まだ装備できない<br>${c.lacks.map(l => "・" + l.text).join("<br>")}${tip}</div>`;
 }
 function stText(it){
   const a = Object.entries(it.st).map(([k, v]) => `${STATS.find(s => s.id === k).name}+${v}`);
@@ -1367,7 +1386,7 @@ function showShop(tab){
     html += shopStock().map(it => {
       const owned = SAVE.inv[it.id], price = priceOf(it), rare = !it.src.includes("shop");
       return `<div class="eqrow">${itemChip(it, rare ? `<span class="rare">掘り出し物</span>` : "")}
-        <div class="eqst">${esc(SLOTS.find(s => slotKind(s.id) === it.slot).name.replace(/①|②/, ""))}｜${stText(it)}${it.req.lv > 1 ? `<br>着られる：忍者Lv${it.req.lv}〜` : ""}</div>
+        <div class="eqst">${esc(SLOTS.find(s => slotKind(s.id) === it.slot).name.replace(/①|②/, ""))}｜${stText(it)}<br>条件：忍者Lv${it.req.lv}〜${it.req.stat ? "・" + Object.entries(it.req.stat).map(([k, v]) => `${STATS.find(x => x.id === k).name}${v}以上`).join("・") : ""}${equipBadge(it)}</div>
         ${owned ? `<span class="owned">持っている</span>` : `<button class="btn mini" ${SAVE.ryo < price ? "disabled" : ""} onclick="buyEq('${it.id}')">${price}両</button>`}</div>`;
     }).join("");
   }else{
@@ -1382,7 +1401,7 @@ function buyEq(id){
   SAVE.ryo -= price; SAVE.inv[id] = 1; saveSave(SAVE);
   sfx.clear();
   const why = canEquip(it);
-  modal(`<div class="big">${it.icon}</div><h3>${esc(it.name)}を買った！</h3><p>${stText(it)}</p>${why ? `<p class="lockmsg">${why}</p>` : ""}`,
+  modal(`<div class="big">${it.icon}</div><h3>${esc(it.name)}を買った！</h3><p>${stText(it)}</p>${equipBadge(it)}`,
     why ? [["もどる", () => { closeModal(); showShop(); }]] : [["すぐ着ける", () => { equipItem(id); closeModal(); showShop(); }], ["あとで", () => { closeModal(); showShop(); }]]);
 }
 function buyBag(id){
@@ -1512,7 +1531,7 @@ function pickSlot(slotId){
   if(!owned.length) html += `<p>まだ持っていない。店や任務で手に入れよう。</p>`;
   html += owned.map(it => {
     const why = canEquip(it), on = cur === it.id, dup = other === it.id;
-    return `<div class="eqrow">${itemChip(it)}<div class="eqst">${stText(it)}${why ? `<br><span class="lockmsg">${why}</span>` : ""}</div>
+    return `<div class="eqrow">${itemChip(it)}<div class="eqst">${stText(it)}${on || dup ? "" : equipBadge(it)}</div>
       ${on ? `<span class="owned">装備中</span>` : dup ? `<span class="owned">もう一方に装備中</span>` : why ? "" : `<button class="btn mini" onclick="equipItem('${it.id}','${slotId}');closeModal();showHome()">着ける</button>`}</div>`;
   }).join("");
   modal(html, (cur ? [["はずす", () => { delete SAVE.equip[slotId]; saveSave(SAVE); closeModal(); showHome(); }]] : []).concat([["とじる", closeModal]]));
