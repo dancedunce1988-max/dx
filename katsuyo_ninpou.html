@@ -835,6 +835,10 @@ const NP_LSKEY = "katsuyo_ninpou_v1";
 function loadSave(){ try{ const o = JSON.parse(localStorage.getItem(NP_LSKEY)); return o && typeof o === "object" ? o : {}; }catch(e){ return {}; } }
 function saveSave(s){ try{ localStorage.setItem(NP_LSKEY, JSON.stringify(s)); }catch(e){} }
 let SAVE = loadSave();
+// 旧「真剣勝負」の品（2026-11-23に削除）が残っていたら片づける
+if(SAVE.inv) delete SAVE.inv.rin_kanzashi;
+if(SAVE.got) delete SAVE.got.rin_kanzashi;
+if(SAVE.equip) Object.keys(SAVE.equip).forEach(k => { if(SAVE.equip[k] === "rin_kanzashi") delete SAVE.equip[k]; });
 if(!SAVE.stars) SAVE.stars = {};     // 章id → 最高の星の数（0〜3）
 if(!SAVE.seen) SAVE.seen = {};       // 章id → 物語を一度見たか
 
@@ -1567,7 +1571,6 @@ const GOLD_RARES = ["rare_kinsuzu", "rare_tengu", "rare_kakuremino", "acc_neko"]
   ["dojo_tenugui", "head",  1, "道場の手ぬぐい", "🧻", {nin:3, def:2},  {time:2}],
   ["dojo_gi",      "body",  2, "道場着",         "🥋", {hp:7, def:4},   {guard:1}],
   ["dojo_kote",    "arm",   2, "師範代の籠手",   "🦾", {def:7, atk:3},  {crit:5}],
-  ["rin_kanzashi", "acc",   4, "お凛のかんざし", "🪮", {atk:10, nin:10, res:6}, {crit:15, time:3}],
   ["legend_ougi",  "acc",   4, "初代の扇",       "🪭", {atk:12, nin:12, res:8}, {crit:20, time:3}],
 ].forEach(([id, slot, t, name, icon, st, eff]) => EQUIP[id] = {id, slot, tier:t, name, icon, st, eff, req:{lv:TIER[t].lv}, src:["dojo"]});
 Object.assign(EQUIP.waist2.eff, {hint:1});
@@ -1766,7 +1769,7 @@ function showVillage(){
     const isSoon = false;
     const ns = nextStory();
     const storyHere = (id === "terakoya" && ns === "jo") || (id === "gate" && ns && ns !== "jo");
-    const alert = storyHere ? `<span class="vbadge story">📜</span><span class="vtarget">▼ここ</span>` : id === "home" && free > 0 ? `<span class="vbadge">✨</span>` : "";
+    const alert = storyHere ? `<span class="vbadge story">📜</span><span class="vtarget">▼ここ</span>` : "";
     html += `<div class="vplace${isSoon ? " soon" : ""}${id === "hermit" && !SAVE.hermitMet ? " glow" : ""}" data-id="${id}" style="left:${p.x}%;top:${p.y}%"><div class="vicon">${p.icon}${alert}</div><div class="vname">${p.name}${id === "dojo" && !dojoOpen() ? `<small>全クリ後</small>` : ""}${isSoon ? "<small>準備中</small>" : ""}</div></div>`;
   });
   html += `<div class="vtoken" id="vtoken">${pic("hero")}</div>`;
@@ -2087,16 +2090,36 @@ function shopStock(){
   return need.concat(rest, up);
 }
 const priceOf = it => EQ_VALUE[it.tier];
+/* 安売り（2026-11-23、教員の指示：「下位装備を図鑑に登録できるように、買えるようにする」）
+   今の段位より下の段階の、店の品（持っていない物）を、半額で並べる。売るときも半額なので、もうけは出ない。 */
+const salePrice = it => Math.floor(EQ_VALUE[it.tier] / 2);
+function saleStock(){
+  const t = shopTier();
+  return Object.values(EQUIP).filter(it => it.tier < t && it.src.includes("shop") && !SAVE.inv[it.id])
+    .sort((a, b) => a.tier - b.tier || SLOTS.findIndex(s => slotKind(s.id) === a.slot) - SLOTS.findIndex(s => slotKind(s.id) === b.slot));
+}
 function showShop(tab){
   if(tab) SHOP_TAB = tab;
   const t = shopTier();
-  const talk = SHOP_TAB === "eq" ? `今の${TIER[t].name}向けの品と、少し上の品をそろえてるよ。品は毎日入れかわるからね。`
+  const talk = SHOP_TAB === "sale" ? "下の段階の品を、半額で出してるよ。図鑑をうめたい人向けだね。" : SHOP_TAB === "eq" ? `今の${TIER[t].name}向けの品と、少し上の品をそろえてるよ。品は毎日入れかわるからね。`
     : SHOP_TAB === "bag" ? "任務の前には団子と煙玉を忘れずにね。" : "いらない物は買い取るよ。ただし、買った値段の半分だけどね。";
   let html = `<div class="npc-line"><span class="npc">👩‍🦳</span><div>萬屋のおかみ「いらっしゃい！ ${talk}」</div></div>
-    <div class="tabs"><button class="${SHOP_TAB === "eq" ? "on" : ""}" onclick="showShop('eq')">装備</button><button class="${SHOP_TAB === "bag" ? "on" : ""}" onclick="showShop('bag')">道具</button><button class="${SHOP_TAB === "sell" ? "on" : ""}" onclick="showShop('sell')">売る</button>
+    <div class="tabs"><button class="${SHOP_TAB === "eq" || SHOP_TAB === "sale" ? "on" : ""}" onclick="showShop('eq')">装備</button><button class="${SHOP_TAB === "bag" ? "on" : ""}" onclick="showShop('bag')">道具</button><button class="${SHOP_TAB === "sell" ? "on" : ""}" onclick="showShop('sell')">売る</button>
     <span class="purse">💰 ${SAVE.ryo}両</span></div>`;
-  if(SHOP_TAB === "eq"){
+  if(SHOP_TAB === "sale"){
+    const list = saleStock();
+    html += `<div class="btn-row" style="margin:4px 0 8px"><button class="iconbtn dark" onclick="showShop('eq')">◀ ふつうの品にもどる</button></div>
+      <p class="note-dark">🏷️ 安売り：今より下の段階の品が<b>半額</b>。買うと装備図鑑に登録される（売るときも半額）。</p>`;
+    if(!list.length) html += `<p class="note-dark">安売りの品は、もう全部持っているようだね。</p>`;
+    html += list.map(it => {
+      const price = salePrice(it), newDex = !(SAVE.got && SAVE.got[it.id]);
+      return `<div class="eqrow">${itemChip(it, newDex ? `<span class="rare lack">図鑑に未登録</span>` : "")}
+        <div class="eqst">${esc(SLOTS.find(s => slotKind(s.id) === it.slot).name.replace(/①|②/, ""))}｜${stText(it)}</div>
+        <button class="btn mini" ${SAVE.ryo < price ? "disabled" : ""} onclick="buyEq('${it.id}',1)"><s style="opacity:.6;font-size:11px">${priceOf(it)}</s> ${price}両</button></div>`;
+    }).join("");
+  }else if(SHOP_TAB === "eq"){
     const list = shopStock();
+    if(t > 0) html += `<div class="btn-row" style="margin:4px 0 8px"><button class="iconbtn dark" onclick="showShop('sale')">🏷️ 安売りの商品を見る${saleStock().length ? `（${saleStock().length}）` : ""}</button></div>`;
     if(!list.length) html += `<p class="note-dark">今日の品はもう全部持っているようだね。また明日おいで。</p>`;
     html += list.map(it => {
       const price = priceOf(it), up = it.tier > t, lack = !up && it.slot !== "acc" && slotNeedsGear(it.slot, t);
@@ -2129,8 +2152,8 @@ function sellBag(id){
   if(!(SAVE.bag[id] > 0)) return;
   SAVE.bag[id]--; SAVE.ryo += Math.floor(BAG[id].price / 2); saveSave(SAVE); sfx.tap(); showShop("sell");
 }
-function buyEq(id){
-  const it = EQUIP[id], price = priceOf(it);
+function buyEq(id, sale){
+  const it = EQUIP[id], price = sale ? salePrice(it) : priceOf(it);
   if(SAVE.inv[id] || SAVE.ryo < price) return;
   SAVE.ryo -= price; addItem(id); saveSave(SAVE);
   sfx.clear();
@@ -2354,7 +2377,7 @@ function startDojo(id){
 let CPU_T = null;
 function scheduleCpu(){
   clearTimeout(CPU_T);
-  const p = PLAY; if(!p || (p.cfg.mode !== "dojo" && p.cfg.mode !== "shinken")) return;
+  const p = PLAY; if(!p || p.cfg.mode !== "dojo") return;
   const cpu = p.foe.cpu, q = p.qs[p.i];
   const extra = q.kind === "table" || q.kind === "sform" || q.kind === "stype" ? 2 : 0;
   const ms = (cpu.think + extra) * rnd(.75, 1.25) * 1000;
@@ -2823,87 +2846,15 @@ function finishDango(){
   show("sResult");
 }
 
-/* =====================================================================
-   真剣勝負（2026-11-23、教員の指示：「全クリのあと、ステータスや装備、忍術を使えない勝負をする相手と戦えるように。
-   師範代、師範、師範の妻の順に強くなる。師範の妻は、全問正解を素早くしていかないと勝てない感じに」）
-   ・外伝（外二の章）をクリアすると、道場に「真剣勝負」が開く。前の相手に勝つと、次の相手に挑める。
-   ・ステータス・装備・忍術・道具・ヒントは、いっさい使えない。純粋な早押しの取り合い：
-     同じ問題を、先に正しく答えた方が「1本」。先に決まった本数を取った方の勝ち。
-     相手に先に答えられる・まちがえる・時間切れ → こちらの「命」が1つ減る。命がつきたら負け。
-   ・師範の妻は、命1つ・10本先取・約2.8秒で必ず正解してくる → 全問を素早く正解し続けないと勝てない。
-   ===================================================================== */
-const SHINKEN = [
-  {id:"sk_go",     name:"師範代・剛",     icon:"💪", think:5.0, acc:.85, need:7,  lives:3, ryo:3000, title:"真剣 初段",
-   talk:"ほう、外伝まで終えたか。だが、装備も術もない、まっさらな腕で勝負だ！"},
-  {id:"sk_tessai", name:"師範・鉄斎",     icon:"🥷", think:3.8, acc:.93, need:8,  lives:2, ryo:6000, title:"真剣 師範代格",
-   talk:"道具に頼らぬ、まことの力を見せてみよ。わしは手かげんせんぞ。"},
-  {id:"sk_rin",    name:"師範の妻・お凛", icon:"👘", think:2.8, acc:1,   need:10, lives:1, ryo:10000, title:"真剣 免許皆伝", item:"rin_kanzashi",
-   talk:"うちの人に勝ったのね。……では、わたしがお相手を。一度でもまちがえたら、そこでおしまいですよ。"},
-];
+// 勝った記録（SAVE.shinken に、隠居の家の相手ごとに入る。旧「真剣勝負」は2026-11-23に削除）
 const skBeaten = id => !!(SAVE.shinken && SAVE.shinken[id]);
-function shinkenHtml(){
-  if(!chCleared("gai2")) return `<h3 class="sec">⚔️ 真剣勝負</h3><div class="qcard locked"><div class="qicon">🔒</div><div class="qtx"><b>？？？</b><small>外伝をすべて終えた者だけが挑める、と言われている……</small></div></div>`;
-  let h = `<h3 class="sec">⚔️ 真剣勝負</h3><p class="note-dark">ステータス・装備・忍術・道具は使えない。<b>同じ問題を、先に正しく答えた方が1本</b>。先に決まった本数を取れば勝ち。相手に先をこされる・まちがえる・時間切れで「命」が減る。</p>`;
-  SHINKEN.forEach((d, i) => {
-    const prev = i === 0 || skBeaten(SHINKEN[i - 1].id), b = (SAVE.shinken || {})[d.id];
-    h += `<div class="qcard${prev ? "" : " locked"}"><div class="qicon">${d.icon}</div>
-      <div class="qtx"><b>${b ? "✅ " : ""}${esc(d.name)}</b><small>${d.need}本先取・命${d.lives}・相手は約${d.think}秒で答える（正答率${Math.round(d.acc * 100)}%）</small>
-        <small>${b ? `勝った回数 ${b.wins}${b.avg ? `・いちばん速い平均 ${b.avg.toFixed(2)}秒` : ""}` : `初勝利：💰${d.ryo}両・称号「${d.title}」${d.item ? `・${EQUIP[d.item].icon}${EQUIP[d.item].name}` : ""}`}</small></div>
-      ${prev ? `<button class="btn mini" onclick="startShinken('${d.id}')">${b ? "再戦" : "挑む"}</button>` : `<span class="lockmsg">前の相手に勝ってから</span>`}</div>`;
-  });
-  const t = (SAVE.shinken || {}).title;
-  if(t) h += `<p class="note-dark">🏅 いまの称号：<b>${t}</b></p>`;
-  return h;
-}
-function startShinken(id){
-  const d = SHINKEN.find(x => x.id === id);
-  sfx.tap();
-  modal(`<div class="enc-ic">${d.icon}</div><h3>真剣勝負　${esc(d.name)}</h3><p>「${esc(d.talk)}」</p>
-    <p style="font-size:13px">${d.need}本先取・あなたの命${d.lives}<br>相手は約${d.think}秒で答えてくる（正答率${Math.round(d.acc * 100)}%）<br>ステータス・装備・忍術・道具・ヒントは使えない</p>`,
-    [["いざ、勝負！", () => { closeModal();
-      startBattle({mode:"shinken", sk:d, ch:CHAPTERS[chIndex(pick(["ichi", "ni", "san", "shi", "tsui", "gai1", "gai2"]))],
-        foe:{icon:d.icon, name:d.name, hp:d.need, atk:0, def:0, res:0, elem:"", every:999, cpu:{think:d.think, acc:d.acc}}, time:20, ryo:0, xp:10, lv:"？"}); }],
-     ["やめる", closeModal]]);
-}
-function finishShinken(p, win, r){
-  const d = p.cfg.sk;
-  SAVE.shinken = SAVE.shinken || {};
-  const avg = p.times && p.times.length ? p.times.reduce((a, b) => a + b, 0) / p.times.length : 0;
-  let body, rewards = [];
-  if(win){
-    const rec = SAVE.shinken[d.id] || {wins:0}, first = !rec.wins;
-    rec.wins++; if(avg && (!rec.avg || avg < rec.avg)) rec.avg = avg;
-    SAVE.shinken[d.id] = rec;
-    if(first){
-      SAVE.ryo += d.ryo; rewards.push(`💰 ${d.ryo}両`); rewards.push(`🏅 称号「${d.title}」`); SAVE.shinken.title = d.title;
-      if(d.item && !SAVE.inv[d.item]){ addItem(d.item); rewards.push(`<b class="hiho-get">${EQUIP[d.item].icon} ${EQUIP[d.item].name}</b>`); }
-    }
-    XP_AWARD = awardXp(p.xpGot + 50); XP_NOTE = "1本ごとの分＋勝利のボーナス50";
-    saveSave(SAVE); sfx.clear();
-    const list = d.home ? LEGENDS : SHINKEN, next = list[list.indexOf(d) + 1];
-    body = `<div class="enc-ic">${d.icon}</div><h2>🎉 真剣勝負、${esc(d.name)}に勝った！</h2>
-      <p>${d.id === "sk_rin" ? "お凛「……おみごと。あなたの速さと正しさ、本物ね。」"
-        : d.id === "lg_ouna" ? "媼「……まあ。わたしより速い子がいるなんて。」<br>翁「わっはっは！ これで、おぬしが本当の<b>天下一</b>じゃ！」"
-        : d.id === "lg_okina" ? "翁「……ふむ、まいった。じゃが、ばあさんはわしより速いぞ。」" : first && next ? `次は「${esc(next.name)}」が待っている。` : ""}</p>`;
-  }else{
-    XP_AWARD = awardXp(Math.floor(p.xpGot / 2)); XP_NOTE = "負けたので、取った本数の分の半分";
-    body = `<div class="enc-ic">${d.icon}</div><h2>💥 ${esc(d.name)}に負けた……</h2><p>${p.foe.max - Math.max(0, p.foe.hp)}本 / ${d.need}本 取った。もう一度、速く・正しく！</p>`;
-  }
-  $("resultBody").innerHTML = `${body}
-    ${rewards.length ? `<div class="rewards"><b>手に入れた</b>${rewards.map(x => `<span>${x}</span>`).join("")}</div>` : ""}
-    ${xpResultHtml(XP_AWARD, XP_NOTE)}
-    <div class="stat">取った本数 ${p.foe.max - Math.max(0, p.foe.hp)} / ${d.need}　先をこされた ${p.cpuWins || 0}回　まちがい ${p.ng}<br>${avg ? `正解までの平均 ${avg.toFixed(2)}秒` : ""}<br>「${MG_GENRE}」レベル ${mgSigned(r.net)}</div>
-    <div class="btn-row" id="resultBtns"><button class="btn" onclick="startShinken('${d.id}')">もう一度</button><button class="btn sub" onclick="${d.home ? "showHermitMenu()" : "showDojo()"}">${d.home ? "隠居の家へもどる" : "道場へもどる"}</button></div>`;
-  show("sResult");
-  animateXp(XP_AWARD);
-}
 
 /* =====================================================================
    隠居の家（2026-11-23、教員の指示）
    道場の影の師範に（はじめて）勝つと、会話の場面。「これで君が世界最強だ……と言いたいところだが、実は違う」
    → 道場の外にもっと強い方がいる → 特別な札「影の認め札」を受け取る → 村の右上の家が光り出す。
    札を持ってその家をタップすると、引退した初代の道場主夫婦が出てきて、勝負を受けてくれる。
-   勝負は真剣勝負と同じ（装備・ステータス・術・道具・ヒントはいっさい関係ない、本当の実力勝負）で、もっと速い。
+   装備・ステータス・術・道具・ヒントはいっさい関係ない、本当の実力勝負。
    ===================================================================== */
 const hermitOpen = () => !!(SAVE.keyItems && SAVE.keyItems.kage);
 /* 隠居の家の3人（2026-11-23、教員の指示で作り直し）。相手と競うのではなく、10問を、1問ごとの短い制限時間で解く。
@@ -3389,14 +3340,14 @@ function renderQ(){
     // 光るヒント（「ない」の形）は、5秒たってから出す（2026-11-23、教員の指示：「出てくるのが早すぎる」）
     const show = q.nai === "hlDan" ? () => throwSmoke(q, false, false, true) : q.nai === "hl" ? () => throwSmoke(q, false)
       : q.nai === "plain" ? () => throwSmoke(q, false, true) : q.autoSmoke ? () => throwSmoke(q, false) : null;
-    if(show && p.cfg.mode !== "shinken" && p.cfg.mode !== "legend") delayHint(q, show);
+    if(show && p.cfg.mode !== "legend") delayHint(q, show);
   }
   $("qChoices").innerHTML = choicesHtml;
   $("qChoices").querySelectorAll(".choice").forEach(b => b.onclick = () => answer(b));
   scheduleCpu();
   if(q.nai === "hint" && p.cfg.mode !== "legend") $("qTools").innerHTML = `<button class="iconbtn" onclick="naiHint()">💨 「ない」をつけてみる</button>`;
   else if(p.cfg.mode === "train" || q.nai) $("qTools").innerHTML = "";
-  else if(p.cfg.mode === "shinken" || p.cfg.mode === "legend") $("qTools").innerHTML = "";
+  else if(p.cfg.mode === "legend") $("qTools").innerHTML = "";
   else if(!(q.kind === "type" && q.autoSmoke)) $("qTools").innerHTML = hintBtnHtml();
   startTimer();
 }
@@ -3740,32 +3691,30 @@ function startBattle(cfg){
   if(cfg.mode === "quick") PLAY.qs = [PLAY.qs[0]];
   if(cfg.mode === "train"){ PLAY.foe.icon = pic("shisho"); PLAY.qs = [freshGen(cfg.drill.gen)]; }
   mgStart();
-  $("quitBtn").textContent = cfg.mode === "wild" ? "🏃 逃げる" : cfg.mode === "dojo" || cfg.mode === "shinken" || cfg.mode === "legend" ? "勝負をやめる" : cfg.mode === "train" ? "修行をやめる" : "任務をやめる";
+  $("quitBtn").textContent = cfg.mode === "wild" ? "🏃 逃げる" : cfg.mode === "dojo" || cfg.mode === "legend" ? "勝負をやめる" : cfg.mode === "train" ? "修行をやめる" : "任務をやめる";
   // 舞台の背景：外なら地方の色、物語は夕焼け、任務は城の庭、練習は寺子屋
   const F = cfg.mode === "wild" && FIELD ? FIELDS[FIELD.f] : null;
   $("bStage").style.background = F ? `linear-gradient(180deg,#bfe6ff 0%,#e8f6ff 38%,${F.grass} 39%,${F.bg} 100%)`
     : cfg.mode === "story" ? "linear-gradient(180deg,#2b1446 0%,#a83a3a 40%,#e9874a 55%,#4a3a2a 56%,#2b2016 100%)"
     : cfg.mode === "legend" ? "linear-gradient(180deg,#3a2a1a 0%,#6b4a2a 45%,#c9a66b 46%,#8b6a3a 100%)"
-    : cfg.mode === "dojo" || cfg.mode === "shinken" ? "repeating-linear-gradient(90deg,#c9a66b 0 38px,#b8925a 38px 40px),linear-gradient(180deg,#6b4a2a,#3a2716)"
+    : cfg.mode === "dojo" ? "repeating-linear-gradient(90deg,#c9a66b 0 38px,#b8925a 38px 40px),linear-gradient(180deg,#6b4a2a,#3a2716)"
     : cfg.mode === "quest" ? "linear-gradient(180deg,#5d6ea8 0%,#b9c3e6 45%,#c9b38a 46%,#9c8660 100%)"
     : "linear-gradient(180deg,#f3e3c0 0%,#f3e3c0 50%,#c9a66b 51%,#a8844a 100%)";
   $("bHero").innerHTML = pic("hero");
   fxResize();
   PLAY.turn = 0; PLAY.stolen = 0; PLAY.fled = false;
   PLAY.elem = SAVE.elem || "";
-  if(cfg.mode === "shinken")   // 真剣勝負：ステータス・装備・忍術・道具・ヒントなし
-    Object.assign(PLAY, {hp:cfg.sk.lives, maxHp:cfg.sk.lives, jutsu:[], guard:0, hints:0, crit:0, elem:"", timeBase:cfg.time, times:[]});
   if(cfg.mode === "legend"){   // 隠居の家：ステータスなし・10問・短い制限時間。読むのに時間のかかる問題（活用表・文の中）は出さない
     Object.assign(PLAY, {hp:1, maxHp:1, jutsu:[], guard:0, hints:0, crit:0, elem:"", timeBase:cfg.time, legend:{done:0, ok:0, miss:0}});
     const fast = q => ["form", "type", "aform", "pos", "fuda", "dan"].includes(q.kind);
     PLAY.qs = arrangeNoRepeat(shuffle([].concat(...["ichi", "ni", "san", "gai1", "gai2", "ichi", "ni", "san", "gai1", "gai2"].map(id => makeQuestions(CHAPTERS[chIndex(id)])))).filter(fast), RECENT_Q);
   }
-  if(cfg.mode === "shinken" || cfg.mode === "dojo"){   // 道場は、全ジャンル（すべての章）からまぜて出題
+  if(cfg.mode === "dojo"){   // 道場は、全ジャンル（すべての章）からまぜて出題
     PLAY.qs = arrangeNoRepeat(shuffle([].concat(...["ichi", "ni", "san", "shi", "tsui", "gai1", "gai2"].map(id => makeQuestions(CHAPTERS[chIndex(id)])))), RECENT_Q);
   }   // この戦いの得意属性（「属性がえし」で変わる。戦いが終わればもとにもどる）
   PLAY.xpM = cfg.mode === "wild" && FIELD ? wildXpMult(FIELD.f, cfg.lv).m : 1;
   STREAK = 0;   // 連続正解は、戦いごとに数えなおす
-  $("hudName").textContent = cfg.mode === "legend" ? `🏡 隠居の家　${cfg.foe.name}` : cfg.mode === "shinken" ? `⚔️ 真剣勝負　${cfg.foe.name}` : cfg.mode === "train" ? `🎯 修行 ${stepNo()}：${cfg.drill.title}` : cfg.mode === "dojo" ? `🥋 道場　${cfg.foe.name}` : cfg.mode === "wild" ? `${cfg.foe.special ? "✨ 名のある忍" : cfg.foe.golden ? "✨ 金色の" : "🌿 野良忍者"} ${cfg.foe.name} Lv${cfg.lv}` : cfg.mode === "story" ? `📜 ${ch.no}の章「${ch.name}」` : cfg.mode === "quest" ? `⚔️【${cfg.rank}】${QTYPES.find(x => x.ch === ch.id).name}` : `🎯 1問練習（${ch.no}の章）`;
+  $("hudName").textContent = cfg.mode === "legend" ? `🏡 隠居の家　${cfg.foe.name}` : cfg.mode === "train" ? `🎯 修行 ${stepNo()}：${cfg.drill.title}` : cfg.mode === "dojo" ? `🥋 道場　${cfg.foe.name}` : cfg.mode === "wild" ? `${cfg.foe.special ? "✨ 名のある忍" : cfg.foe.golden ? "✨ 金色の" : "🌿 野良忍者"} ${cfg.foe.name} Lv${cfg.lv}` : cfg.mode === "story" ? `📜 ${ch.no}の章「${ch.name}」` : cfg.mode === "quest" ? `⚔️【${cfg.rank}】${QTYPES.find(x => x.ch === ch.id).name}` : `🎯 1問練習（${ch.no}の章）`;
   show("sPlay");
   renderQ();
 }
@@ -3783,12 +3732,6 @@ function renderPBox(){
       <div class="bxexp">${d.need >= LEGEND_N ? "まちがい 0回まで" : `あと${Math.max(0, left)}回までまちがえてよい`}</div>`;
     return;
   }
-  if(p.cfg.mode === "shinken"){
-    $("pBox").innerHTML = `<div class="bxname">あなた<span class="bxlv">真剣勝負</span></div>
-      <div class="bxnum">命 ${"❤️".repeat(Math.max(0, p.hp))}${"🖤".repeat(Math.max(0, p.maxHp - p.hp))}</div>
-      <div class="bxexp">取った本数 <b>${p.foe.max - Math.max(0, p.foe.hp)} / ${p.foe.max}</b></div>`;
-    return;
-  }
   const na = normalAff(p.elem, p.foe.elem);
   const affTag = na > 1 ? `<span class="afftag good">相性◎</span>` : na < 1 ? `<span class="afftag bad">相性△</span>` : "";
   $("pBox").innerHTML = `<div class="bxname">あなた ${p.elem ? elemTag(p.elem) : ""}${affTag}<span class="bxlv">Lv${ninjaInfo().lv}</span></div>
@@ -3800,13 +3743,13 @@ function renderHud(){
   const p = PLAY;
   renderPBox();
   const sm = streakMul();
-  $("hudCombo").innerHTML = STREAK >= 2 ? `<span class="streak s${STREAK >= 11 ? 3 : STREAK >= 6 ? 2 : 1}">🔥${STREAK}連続${p.cfg.mode === "shinken" ? "" : `　攻撃×${sm.toFixed(1)}`}</span>` : "";
+  $("hudCombo").innerHTML = STREAK >= 2 ? `<span class="streak s${STREAK >= 11 ? 3 : STREAK >= 6 ? 2 : 1}">🔥${STREAK}連続　攻撃×${sm.toFixed(1)}</span>` : "";
   const hero = $("bHero"); if(hero){ hero.classList.toggle("aura1", STREAK >= 3 && STREAK < 6); hero.classList.toggle("aura2", STREAK >= 6 && STREAK < 11); hero.classList.toggle("aura3", STREAK >= 11); }
   const bag = SAVE.bag.dango || 0;
-  $("hudItems").innerHTML = isPrac(p.cfg.mode) || p.cfg.mode === "shinken" || p.cfg.mode === "legend" ? "" :
+  $("hudItems").innerHTML = isPrac(p.cfg.mode) || p.cfg.mode === "legend" ? "" :
     `<button class="iconbtn" ${bag && !p.lock ? "" : "disabled"} onclick="useDango()">🍡×${bag}</button>`;
   const gmax = jutsuMax(p.nin), full = p.gauge >= gmax;
-  $("hudJutsu").innerHTML = isPrac(p.cfg.mode) || p.cfg.mode === "shinken" || p.cfg.mode === "legend" ? "" :
+  $("hudJutsu").innerHTML = isPrac(p.cfg.mode) || p.cfg.mode === "legend" ? "" :
     `<span class="jgauge${full ? " full" : ""}">術 ${"●".repeat(Math.min(p.gauge, gmax))}${"○".repeat(Math.max(0, gmax - p.gauge))}</span>` +
     (full ? p.jutsu.filter(j => j.kind !== "elem" || (p.foe.elem && !(p.elem && ELEM[p.elem].beats === p.foe.elem))).map(j => { const a = j.kind === "atk" ? affinity(j.elem, p.foe.elem) : 1;
       return `<button class="jbtn${a > 1 ? " good" : a < 1 ? " bad" : ""}" ${p.lock ? "disabled" : ""} onclick="useJutsu('${j.id}')">${j.icon} ${j.name}${a > 1 ? " ◎" : a < 1 ? " △" : ""}</button>`; }).join("") : "");
@@ -3856,10 +3799,6 @@ async function foeAfterTurn(){
 }
 function foeAttack(mult){
   const p = PLAY; if(!p) return;
-  if(p.cfg.mode === "shinken"){   // 真剣勝負：命が1つ減るだけ（守りも分身もない）
-    p.hp -= 1; fxEnemyHit(null); dmgPop("命 −1", "#ff8a80", "pBox");
-    tone(160, .2, "sawtooth", .07); refreshFoe(); renderHud(); return;
-  }
   p.charge = 0;
   if(hasAb(p.foe, "rage") && p.foe.hp < p.foe.max / 2){ mult *= 1.5; if(!p.raged){ p.raged = true; dmgPop("怒った！", "#ff5c5c", "foe"); } }   // 能力【怒り】
   // 属性を持つ敵は、jEvery回に1回（ふつうは3回に1回）術で攻撃してくる。術は結界で、ふつうの攻撃は守りで減らす
@@ -3927,11 +3866,6 @@ function eboxHtml(){
     return `<div class="bxname">${esc(f.name)}<span class="bxlv">1問${d.limit}秒</span></div>
       <div class="bxsub">${legendRule(d)}</div>
       <div class="bxnext soon">勝ちまで あと<b>${Math.max(0, d.need - L.ok)}</b>問正解</div>`;
-  }
-  if(PLAY.cfg.mode === "shinken"){
-    return `<div class="bxname">${esc(f.name)}<span class="bxlv">${f.max}本先取</span></div>
-      <div class="bxsub">先に答えた方が1本。あと<b>${Math.max(0, f.hp)}本</b>取れば勝ち</div>
-      <div class="bxnext soon">⚡ 考え中…（約${f.cpu.think}秒）</div><div class="cpubar"><i id="cpuFill"></i></div>`;
   }
   if(PLAY.cfg.mode === "dojo"){
     const r0 = Math.max(0, f.hp / f.max), c0 = r0 > .5 ? "" : r0 > .2 ? " mid" : " low";
@@ -4018,17 +3952,6 @@ async function answer(btn){
     STREAK++;
     p.gauge = Math.min(jutsuMax(p.nin), p.gauge + 1);
     sfx.ok(); mgCorrect();
-    if(p.cfg.mode === "shinken"){   // 先に正解 → 1本
-      const sec = (Date.now() - (p.qStart || Date.now())) / 1000;
-      p.times.push(sec); p.foe.hp -= 1; p.xpGot += p.cfg.xp;
-      fxSlash(sec < 2); tone(sec < 2 ? 1200 : 900, .08, "square", .05);
-      refreshFoe(); $("foe").classList.remove("hit"); void $("foe").offsetWidth; $("foe").classList.add("hit");
-      dmgPop(`1本！（${sec.toFixed(1)}秒）`, "#ffe08a", "foe");
-      fb.className = "feedback ok show"; fb.innerHTML = "⭕ " + explain(q);
-      renderHud();
-      await sleep(q.kind === "type" ? 1200 : 900);
-      nextQ(); return;
-    }
     const crit = Math.random() * 100 < p.crit;
     const dodged = hasAb(p.foe, "dodge") && Math.random() < .18;   // 能力【かわす】
     const sec = (Date.now() - (p.qStart || Date.now())) / 1000, spd = speedMul(sec);
@@ -4097,10 +4020,9 @@ function quitPlay(){
     if(!confirm("勝負をやめて、隠居の家にもどりますか？")) return;
     stopTimer(); PLAY = null; mgFlush(); showHermitMenu(); return;
   }
-  if(PLAY.cfg.mode === "dojo" || PLAY.cfg.mode === "shinken"){
+  if(PLAY.cfg.mode === "dojo"){
     if(!confirm("勝負をやめて、道場にもどりますか？")) return;
-    const home = PLAY.cfg.sk && PLAY.cfg.sk.home;
-    stopTimer(); clearTimeout(CPU_T); PLAY = null; mgFlush(); home ? showHermitMenu() : showDojo(); return;
+    stopTimer(); clearTimeout(CPU_T); PLAY = null; mgFlush(); showDojo(); return;
   }
   if(PLAY.cfg.mode === "wild"){   // 野良忍者からは、いつでも逃げられる
     stopTimer(); PLAY = null; mgFlush(); resumeField(); FIELD.safe = 4; fieldMsg("🏃 うまく逃げた……"); return;
@@ -4129,7 +4051,6 @@ function finish(win){
   }
   if(cfg.mode === "wild") return finishWild(p, win, r);
   if(cfg.mode === "dojo") return finishDojo(p, win, r);
-  if(cfg.mode === "shinken") return finishShinken(p, win, r);
   if(cfg.mode === "legend") return finishLegend(p, win, r);
   if(win){
     const bonus = 1 + battleStats().ryo / 100;
