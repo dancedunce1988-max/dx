@@ -217,12 +217,12 @@
   .token img{width:48px;height:48px;object-fit:contain}
   .token.hop{animation:hop .3s ease}
   @keyframes hop{50%{transform:translateY(-18px)}}
-  .dice-bar{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:12px;flex-wrap:wrap}
-  .dice{width:56px;height:56px;border-radius:12px;background:#fff;color:var(--ink);font-size:32px;font-weight:bold;display:flex;align-items:center;justify-content:center;
-    box-shadow:0 4px 0 #999,0 6px 10px rgba(0,0,0,.35)}
-  .dice.roll{animation:roll .5s linear infinite}
-  @keyframes roll{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
-  .dice-msg{font-size:15px;color:#ffe08a;min-height:1.4em;text-align:center}
+  .walk-bar{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:12px;flex-wrap:wrap;min-height:56px}
+  .walk-msg{font-size:15px;color:#ffe08a;min-height:1.4em;text-align:center}
+  .node.next{animation:nextpulse 1.1s ease-in-out infinite;border-color:#ffd23f;cursor:pointer}
+  @keyframes nextpulse{0%,100%{transform:scale(1);box-shadow:0 3px 0 #8a6b3b,0 0 0 0 rgba(255,210,63,.9)}50%{transform:scale(1.12);box-shadow:0 3px 0 #8a6b3b,0 0 0 10px rgba(255,210,63,0)}}
+  .node.next::after{content:"👆";position:absolute;right:-14px;bottom:-12px;font-size:20px;animation:tapme 1.1s ease-in-out infinite}
+  @keyframes tapme{50%{transform:translate(-3px,-4px)}}
   .modal{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:16px}
   .modal.show{display:flex;animation:fadeIn .25s both}
   .modal-box{max-width:460px;width:100%;max-height:90vh;overflow:auto;background:linear-gradient(180deg,var(--paper),var(--paper2));color:var(--ink);border-radius:16px;padding:18px;
@@ -276,13 +276,12 @@
     </div>
     <div class="map-head"><button class="iconbtn" id="itemBtn" onclick="showItems()">🎒 忍具</button><span>めざせ、石化丸の城！</span></div>
     <div class="map-view" id="mapView"><div class="map" id="map"></div></div>
-    <div class="dice-bar">
-      <div class="dice" id="dice">🎲</div>
-      <div class="dice-msg" id="diceMsg"></div>
-      <button class="btn" id="diceBtn" onclick="rollDice()">サイコロをふる</button>
+    <div class="walk-bar">
+      <div class="walk-msg" id="walkMsg"></div>
+      <button class="btn" id="walkBtn"></button>
     </div>
-    <p class="note">サイコロ（1〜3）をふって、霧の向こうの城をめざそう！<br>
-      ⛩️関所（章）をクリアすると霧が晴れて、次の地方が現れる。分かれ道はどちらへ進むか選べる。<br>
+    <p class="note">光っているマス👆をタップして、霧の向こうの城をめざそう！<br>
+      ⛩️関所（章）をクリアすると霧が晴れて、次の地方が現れる。分かれ道は、進みたい方のマスをタップ。<br>
       正解すると「動詞の活用」のレベルが上がります。</p>
   </section>
 
@@ -784,8 +783,9 @@ const chIndex = id => CHAPTERS.findIndex(c => c.id === id);
    ・まだ行けない地方は霧に包まれている。前の地方の関所（章）をクリアすると、霧が晴れて次の地方が現れる。
    ・関所を出ると道が二つに分かれる。左右どちらへ進むかは自分で選ぶ（宝箱の道／巻物の道）。
      選ばなかった道のマスは取りに戻れない（次に遊ぶ人の楽しみに……ではなく、選ぶ意味を持たせるため）。
-   ・マス：📜巻物＝師匠のおさらい／⚡腕だめし＝1問（正解で1マス進む）／🎁宝箱＝忍具（通りすがりでも拾える）／⛩️関所＝章。
-   ・サイコロは1〜3。いる場所は SAVE.node、通ったマスは SAVE.visited、拾った忍具は SAVE.items、
+   ・マス：📜巻物＝師匠のおさらい／⚡腕だめし＝1問／🎁宝箱＝忍具（通りすがりでも拾える）／⛩️関所＝章。
+   ・2026-11-23、教員の指示（「さいころとかいらない」）でサイコロはやめ、光っている次のマスをタップして1マスずつ進む形にした。
+   ・いる場所は SAVE.node、通ったマスは SAVE.visited、拾った忍具は SAVE.items、
      晴れた地方の数は SAVE.revealed（増えたときだけ霧が晴れる演出をする）。
    ===================================================================== */
 const BAND = 360;   // 1つの地方の高さ(px)
@@ -847,7 +847,6 @@ const NODES = {};
   add("g6", "ch", 6, 50, .55, {ch:"go"});
   NODES.g5.next = ["g6"];
 })();
-const DICE_FACE = ["","⚀","⚁","⚂"];
 const chCleared = id => (SAVE.stars[id] || 0) > 0;
 // 晴れている地方の数（里は最初から。関所 g(i) をクリアすると地方 i+1 が晴れる）
 function revealedCount(){
@@ -908,13 +907,14 @@ function showTitle(){
   html += `<div class="token" id="token">${pic("hero")}</div>`;
   map.innerHTML = html;
   map.querySelectorAll(".node").forEach(e => e.onclick = () => tapNode(e.dataset.id));
+  if(revealedCount() <= SAVE.revealed) nextIds().forEach(id => { const e = map.querySelector(`.node[data-id="${id}"]`); if(e) e.classList.add("next"); });
   $("itemBtn").textContent = `🎒 忍具 ${Object.keys(SAVE.items).length}/${ITEMS.length}`;
   show("sTitle");
   placeToken(false);
   requestAnimationFrame(() => followToken(false));
   // 霧が晴れる演出が残っていたら、終わるまでサイコロを止める（すぐふると、霧の中へ進んでしまうため）
   if(revealedCount() > SAVE.revealed){ BUSY = true; setTimeout(() => { BUSY = false; revealNext(); }, 500); }
-  updateDiceBar();
+  updateWalkBar();
 }
 function roadSvg(){
   let s = "";
@@ -942,7 +942,7 @@ async function revealNext(){
   if(BUSY) return;
   const target = revealedCount();
   if(SAVE.revealed >= target) return;
-  BUSY = true; updateDiceBar();
+  BUSY = true; updateWalkBar();
   const i = SAVE.revealed;
   const fog = $("map").querySelector(`.fog[data-area="${i}"]`);
   const top = (AREAS.length - 1 - i) * BAND;
@@ -954,69 +954,45 @@ async function revealNext(){
   await sleep(1300);
   if(fog) fog.remove();
   SAVE.revealed = i + 1; saveSave(SAVE);
-  BUSY = false; updateDiceBar();
+  BUSY = false; updateWalkBar();
   const a = AREAS[i];
   await new Promise(res => modal(`<div class="big">🗺️</div><h3>新たな地が現れた！</h3><p style="font-size:20px"><b>${i === 6 ? "外伝　" : ""}${esc(a.name)}</b></p>` +
     (i === 6 ? `<p>海の向こうの術者の話は、準備中じゃ。</p>` : `<p>道は二つに分かれておる。どちらへ進むかは、おぬし次第じゃ。</p>`), [["進む", () => { closeModal(); res(); }]]));
   followToken(true);
   if(SAVE.revealed < revealedCount()) revealNext();
+  else showTitle();
 }
-function updateDiceBar(msg){
-  const n = NODES[SAVE.node], btn = $("diceBtn");
+function updateWalkBar(msg){
+  const n = NODES[SAVE.node], btn = $("walkBtn");
   let m = msg || "";
-  if(n.k === "ch" && CHAPTERS[chIndex(n.ch)].soon){ btn.style.display = "none"; m = m || "ここから先は外伝（準備中）。次の旅を待て！"; }
-  else if(n.k === "ch" && !chCleared(n.ch)){ btn.style.display = ""; btn.textContent = `${CHAPTERS[chIndex(n.ch)].no}の章に挑戦する`; btn.onclick = () => openChapter(n.ch); m = m || "関所に着いた！ 章をクリアすると霧が晴れる"; }
-  else { btn.style.display = ""; btn.textContent = "サイコロをふる"; btn.onclick = rollDice; }
-  $("diceMsg").innerHTML = m;
+  btn.style.display = "none";
+  if(n.k === "ch" && CHAPTERS[chIndex(n.ch)].soon){ m = m || "ここから先は外伝（準備中）。次の旅を待て！"; }
+  else if(n.k === "ch" && !chCleared(n.ch)){
+    btn.style.display = ""; btn.textContent = `${CHAPTERS[chIndex(n.ch)].no}の章に挑戦する`; btn.onclick = () => openChapter(n.ch);
+    m = m || "関所に着いた！ 章をクリアすると霧が晴れる";
+  }
+  else if(n.next.length > 1) m = m || "分かれ道だ！ 進みたい方のマス👆をタップしよう";
+  else m = m || "光っているマス👆をタップして進もう";
+  $("walkMsg").innerHTML = m;
   btn.disabled = BUSY;
 }
-async function rollDice(){
+// 次に進めるマス（まだクリアしていない関所にいるときは、どこへも進めない）
+function nextIds(){
+  const cur = NODES[SAVE.node];
+  if(cur.k === "ch" && !chCleared(cur.ch)) return [];
+  return cur.next.filter(id => NODES[id].area < SAVE.revealed);
+}
+async function stepTo(id){
   if(BUSY) return;
-  BUSY = true; updateDiceBar("");
-  const d = $("dice"); d.classList.add("roll");
-  for(let k = 0; k < 8; k++){ d.textContent = DICE_FACE[1 + k % 3]; sfx.tap(); await sleep(70); }
-  const n = 1 + Math.floor(Math.random() * 3);
-  d.classList.remove("roll"); d.textContent = n;
-  await sleep(350);
-  const r = await walk(n);
+  BUSY = true; updateWalkBar("");
+  SAVE.node = id; SAVE.visited[id] = 1; saveSave(SAVE);
+  $("map").querySelectorAll(".node.next").forEach(e => e.classList.remove("next"));
+  placeToken(true); followToken(true);
+  tone(660, .08, "square", .05); tone(880, .08, "square", .04, .1);
+  await sleep(420);
   BUSY = false;
   showTitle();
-  updateDiceBar(r.stopped && r.left > 0 ? `${n}が出たが、関所で止まった！` : "");
-  land(SAVE.node);
-}
-// 道の分かれ目で、どちらへ進むか選ぶ
-function routeHint(id){
-  let n = NODES[id];
-  const kinds = [];
-  while(n && n.k !== "ch"){ kinds.push(n); n = NODES[n.next[0]]; }
-  if(kinds.some(k => k.k === "treasure" && !SAVE.items[k.item])) return "何かがキラリと光っている……（宝の気配）";
-  if(kinds.some(k => k.k === "tip")) return "師匠の巻物が落ちていそうだ";
-  return "静かな道";
-}
-function chooseRoute(n){
-  const opts = n.next.map(id => NODES[id]).sort((a, b) => a.x - b.x);
-  return new Promise(res => modal(`<div class="big">🔀</div><h3>分かれ道だ！</h3><p>どちらへ進む？</p>` +
-    opts.map((o, k) => `<p style="margin:4px 0;font-size:14px">${k ? "➡️ 右" : "⬅️ 左"}：${routeHint(o.id)}</p>`).join(""),
-    opts.map((o, k) => [k ? "右の道へ ➡️" : "⬅️ 左の道へ", () => { closeModal(); res(o.id); }])));
-}
-// n マス歩く。まだクリアしていない関所に着いたら止まる。通りすがりの宝箱も拾う
-async function walk(n){
-  let left = n, stopped = false;
-  while(left > 0){
-    const cur = NODES[SAVE.node];
-    if(cur.k === "ch" && !chCleared(cur.ch)){ stopped = true; break; }
-    if(!cur.next.length){ stopped = true; break; }
-    const nextId = cur.next.length > 1 ? await chooseRoute(cur) : cur.next[0];
-    SAVE.node = nextId; SAVE.visited[nextId] = 1; saveSave(SAVE);
-    left--;
-    placeToken(true); followToken(true);
-    tone(520 + left * 60, .08, "square", .05);
-    await sleep(380);
-    const nn = NODES[nextId];
-    if(nn.k === "treasure" && !SAVE.items[nn.item] && left > 0) await openTreasure(nn, true);
-    if(nn.k === "ch" && !chCleared(nn.ch)){ stopped = true; break; }
-  }
-  return {stopped, left};
+  land(id);
 }
 function openTreasure(n, passing){
   const it = ITEMS[n.item];
@@ -1046,9 +1022,10 @@ function land(id){
 function tapNode(id){
   if(BUSY) return;
   const n = NODES[id], e = $("map").querySelector(`.node[data-id="${id}"]`);
+  if(nextIds().includes(id)) return stepTo(id);
   if(!isVisited(id)){
     if(e){ e.classList.remove("shake"); void e.offsetWidth; e.classList.add("shake"); }
-    $("diceMsg").textContent = n.area >= SAVE.revealed ? "霧に包まれていて、よく見えない……" : "まだそこへは行っていない。サイコロをふって進もう！";
+    $("walkMsg").textContent = n.area >= SAVE.revealed ? "霧に包まれていて、よく見えない……" : "まだそこへは行けない。光っているマス👆から1マスずつ進もう！";
     return;
   }
   sfx.tap();
@@ -1072,38 +1049,26 @@ function closeModal(){ $("modal").classList.remove("show"); }
 function showTip(k){
   modal(`<div class="big">📜</div><span class="who">師匠・変化斎</span><p>${TIPS[k]}</p>`, [["わかった", closeModal]]);
 }
-// 腕だめし：その地方の手前の関所（章）から1問。正解で1マス進める（関所はこえない）
+// 腕だめし：その地方の手前の関所（章）から1問
 function showQuizSquare(n, again){
   const ch = CHAPTERS[Math.max(0, n.area - 1)];
-  modal(`<div class="big">⚡</div><h3>腕だめし！</h3><p>「${ch.no}　${esc(ch.name)}」から1問。${again ? "" : "<br>正解すると、1マス進める！"}</p>`,
-    [["挑む", () => { closeModal(); startQuick(ch, !again); }], ["やめる", closeModal]]);
+  modal(`<div class="big">⚡</div><h3>腕だめし！</h3><p>「${ch.no}　${esc(ch.name)}」から1問。</p>`,
+    [["挑む", () => { closeModal(); startQuick(ch); }], ["やめる", closeModal]]);
 }
-function startQuick(ch, bonus){
+function startQuick(ch){
   CUR = ch;
   const q = pick(makeQuestions(ch));
-  PLAY = {ch, quick:true, bonus, qs:[q], i:0, life:1, ok:0, ng:0, combo:0, maxCombo:0, smoke:0, lock:false, wrongList:[]};
+  PLAY = {ch, quick:true, qs:[q], i:0, life:1, ok:0, ng:0, combo:0, maxCombo:0, smoke:0, lock:false, wrongList:[]};
   mgStart();
   $("hudName").textContent = `⚡ 腕だめし（${ch.no}の章）`;
   show("sPlay");
   renderQ();
 }
-async function finishQuick(p, clear){
+function finishQuick(p, clear){
   mgFlush();
   showTitle();
-  if(clear){
-    sfx.clear();
-    if(p.bonus){
-      flash("1マス進む！", "#ffe08a");
-      BUSY = true; updateDiceBar();
-      await sleep(600);
-      await walk(1);
-      BUSY = false;
-      showTitle();
-      const n = NODES[SAVE.node];
-      if((n.k === "ch" && !chCleared(n.ch)) || (n.k === "treasure" && !SAVE.items[n.item])) land(SAVE.node);
-      else updateDiceBar("腕だめし成功！ 1マス進んだ");
-    }else updateDiceBar("腕だめし成功！");
-  }else updateDiceBar("腕だめしは失敗……。次の機会に！");
+  if(clear){ sfx.clear(); flash("見事！", "#ffe08a"); updateWalkBar("腕だめし成功！"); }
+  else updateWalkBar("腕だめしは失敗……。巻物を読み返してみよう");
 }
 
 /* =====================================================================
