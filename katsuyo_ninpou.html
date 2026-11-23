@@ -403,6 +403,7 @@
   .bxnext.soon{color:#b3261e;font-weight:bold}
   .cpubar{height:6px;background:#ddd2b8;border-radius:99px;overflow:hidden;margin-top:2px}
   .cpubar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#f2c14e,#e0362b)}
+  .weaktag{background:#ffd23f;color:#3a2000;border-radius:999px;padding:0 6px;font-weight:bold}
   .afftag{font-size:10px;border-radius:999px;padding:0 6px;font-weight:bold}
   .afftag.good{background:#ffd23f;color:#3a2000}
   .afftag.bad{background:#9aa3ad;color:#fff}
@@ -1663,6 +1664,7 @@ function battleStats(){
 function jutsuHit(power, aff, foe){
   const raw = Math.round(power * aff);
   const d = Math.max(Math.ceil(raw * .1), raw - (foe.res || 0));
+  if(noCap(foe)) return Math.max(1, d);
   return Math.max(1, Math.min(d, Math.ceil(foe.max * (aff > 1 ? .45 : .3))));
 }
 /* 連続正解（2026-11-23、教員の指示：「連続で正解している場合は、徐々に攻撃力を高められるように」）
@@ -1676,8 +1678,12 @@ const streakCap = () => .15 + Math.min(Math.max(STREAK - 1, 0), 10) * .02;
 /* 早さのボーナス（2026-11-23、教員の指示：「早く答えれば答えるほど攻撃力が高くなるように」）
    問題が出てから答えるまで 2秒以内×1.5、4秒以内×1.3、6秒以内×1.15。1回の上限も少し上がる（最大＋5%）。 */
 const speedMul = sec => sec <= 2 ? 1.5 : sec <= 4 ? 1.3 : sec <= 6 ? 1.15 : 1;
+/* 格下の野良忍者（自分よりLvが低い）には、1回のダメージの上限をかけない（2026-11-23、教員の指示）。
+   攻撃力が十分なら1発で倒せる＝強くなった手ごたえ。最前線の相手・ボス・任務・道場には、今までどおり上限がある。 */
+function noCap(foe){ return !!PLAY && PLAY.cfg.mode === "wild" && foe.lv != null && foe.lv < ninjaInfo().lv; }
 function hitDamage(raw, foe, crit, extraCap){
   const d = Math.max(Math.ceil(raw * .1), raw - (foe.def || 0));   // 守りの固い敵には、最低1割しか通らない
+  if(noCap(foe)) return Math.max(1, d);
   return Math.max(1, Math.min(d, Math.ceil(foe.max * (streakCap() + (crit ? .05 : 0) + (extraCap || 0)))));
 }
 const takenDamage = (atk, def, mult) => Math.max(1, Math.round(atk * (mult || 1) * 40 / (40 + def * 3)));
@@ -3939,7 +3945,7 @@ function eboxHtml(){
   const r = Math.max(0, f.hp / f.max), col = r > .5 ? "" : r > .2 ? " mid" : " low";
   return `<div class="bxname">${esc(f.name)} ${elemTag(f.elem)}${PLAY.cfg.lv ? `<span class="bxlv">Lv${PLAY.cfg.lv}</span>` : ""}</div>
     <div class="bxhp"><span class="bxhpl">HP</span><span class="bxbar${col}"><i style="width:${r * 100}%"></i></span></div>
-    <div class="bxsub">守り${f.def || 0}・結界${f.res || 0}</div>
+    <div class="bxsub">守り${f.def || 0}・結界${f.res || 0}${noCap(f) ? `　<span class="weaktag">格下：一撃あり</span>` : ""}</div>
     <div class="bxnext${left === 1 ? " soon" : ""}">${left === 1 ? `⚠️ 次の問題のあと${kind}攻撃！` : `あと${left}問で${kind}攻撃`}</div>`;
 }
 function refreshFoe(){ $("foe").innerHTML = foeHtml(); $("eBox").innerHTML = eboxHtml(); $("eBox").style.display = PLAY.cfg.mode === "quick" ? "none" : ""; }
@@ -4029,7 +4035,9 @@ async function answer(btn){
     const na = normalAff(p.elem, p.foe.elem);
     const dmg = dodged ? 0 : hitDamage(Math.round(p.atk * (crit ? 2 : 1) * streakMul() * spd * na), p.foe, crit, (spd - 1) * .1);
     if(spd > 1 && !isPrac(p.cfg.mode) && !dodged) setTimeout(() => dmgPop(`⚡はやい！ ×${spd}（${sec.toFixed(1)}秒）`, "#9fe8ff", "pBox"), 120);
+    const oneHit = p.foe.hp === p.foe.max && dmg >= p.foe.hp;
     p.foe.hp -= dmg; p.dmgDealt += dmg;
+    if(oneHit && p.cfg.mode === "wild") setTimeout(() => flash("一撃！", "#ffd23f"), 150);
     if(!isPrac(p.cfg.mode)){ if(dodged){ const f = foeC(); burst(f.x, f.y, 8, {sp0:60, sp1:160, p:() => ({ch:"💨", size:rnd(16, 24)})}); } else { fxSlash(crit); tone(crit ? 1200 : 900, .06, "square", .05, .02); } }
     const xp = p.cfg.xp || 1; p.xpGot += xp;   // 獲得予定（倒したときにまとめて入る）
     if(!isPrac(p.cfg.mode)) setTimeout(() => dmgPop(`+${xp} EXP`, "#9fe8ff", "pBox"), 250);
