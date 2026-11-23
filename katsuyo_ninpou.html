@@ -257,6 +257,9 @@
   .fhero.step{animation:hopstep .14s}
   @keyframes hopstep{50%{margin-top:-4px}}
   .fmsg{text-align:center;color:#ffe08a;font-size:14px;margin:8px 0 4px;min-height:1.4em}
+  .xpbadge{display:block;font-size:12px;font-weight:bold;border-radius:8px;padding:2px 8px;margin-bottom:4px}
+  .xpbadge.front{background:linear-gradient(135deg,#ff7a2e,#ffb347);color:#3a1600}
+  .xpbadge.low{background:rgba(255,255,255,.12);color:#cfd6ea;font-weight:normal}
   .pts-mini{margin-left:6px;background:#ffd23f;color:#3a2000;border-radius:999px;padding:0 7px;font-size:12px;font-weight:bold}
   .fpad{display:flex;flex-direction:column;align-items:center;gap:4px}
   .fpad > div{display:flex;gap:56px}
@@ -2805,6 +2808,7 @@ function startBattle(cfg){
   $("bHero").innerHTML = pic("hero");
   fxResize();
   PLAY.turn = 0; PLAY.stolen = 0; PLAY.fled = false;
+  PLAY.xpM = cfg.mode === "wild" && FIELD ? wildXpMult(FIELD.f, cfg.lv).m : 1;
   STREAK = 0;   // 連続正解は、戦いごとに数えなおす
   $("hudName").textContent = cfg.mode === "train" ? `🎯 修行 ${stepNo()}：${cfg.drill.title}` : cfg.mode === "dojo" ? `🥋 道場　${cfg.foe.name}` : cfg.mode === "wild" ? `${cfg.foe.special ? "✨ 名のある忍" : cfg.foe.golden ? "✨ 金色の" : "🌿 野良忍者"} ${cfg.foe.name} Lv${cfg.lv}` : cfg.mode === "story" ? `📜 ${ch.no}の章「${ch.name}」` : cfg.mode === "quest" ? `⚔️【${cfg.rank}】${QTYPES.find(x => x.ch === ch.id).name}` : `🎯 1問練習（${ch.no}の章）`;
   show("sPlay");
@@ -2820,7 +2824,7 @@ function renderPBox(){
   $("pBox").innerHTML = `<div class="bxname">あなた ${SAVE.elem ? elemTag(SAVE.elem) : ""}<span class="bxlv">Lv${ninjaInfo().lv}</span></div>
     <div class="bxhp"><span class="bxhpl">HP</span><span class="bxbar${col}"><i style="width:${r * 100}%"></i></span></div>
     <div class="bxnum">${Math.max(0, p.hp)} / ${p.maxHp}</div>
-    ${p.cfg.mode === "quick" ? "" : `<div class="bxexp">獲得予定 <b>+${p.xpGot}</b> EXP</div>`}`;
+    ${p.cfg.mode === "quick" ? "" : `<div class="bxexp">獲得予定 <b>+${p.cfg.mode === "wild" ? Math.round(p.xpGot * p.xpM) : p.xpGot}</b> EXP${p.cfg.mode === "wild" && p.xpM !== 1 ? `（×${p.xpM.toFixed(2).replace(/0$/, "")}）` : ""}</div>`}`;
 }
 function renderHud(){
   const p = PLAY;
@@ -3187,17 +3191,19 @@ function finishWild(p, win, r){
     if(Math.random() < (foe.special || foe.golden ? .6 : .12)){ const d = wildDrop(foe.lv); if(d){ addItem(d.id); rewards.push(`${d.icon} ${d.name}（${TIER[d.tier].name}）`); } }
     if(Math.random() < .25 || foe.special || foe.golden){ const k = pick(Object.keys(BAG)); const n = foe.special || foe.golden ? 2 : 1; SAVE.bag[k] = (SAVE.bag[k] || 0) + n; rewards.push(`${BAG[k].icon} ${BAG[k].name}${n > 1 ? "×" + n : ""}`); }
     const xp = wildXp(foe.lv) * mul.xp; p.xpGot += xp;
-    XP_AWARD = awardXp(p.xpGot); XP_NOTE = `正解の分＋たおしたボーナス${xp}`;
+    const XM = FIELD ? wildXpMult(FIELD.f, foe.lv) : {m:1, parts:[]};
+    if(FIELD && FIELD.f === frontField()){ SAVE.pioneer = SAVE.pioneer || {}; SAVE.pioneer[FIELD.f] = (SAVE.pioneer[FIELD.f] || 0) + 1; saveSave(SAVE); }
+    XP_AWARD = awardXp(Math.round(p.xpGot * XM.m)); XP_NOTE = `正解の分＋たおしたボーナス${xp}${XM.parts.length ? `（${XM.parts.join("・")}）` : ""}`;
     if(rareGot) setTimeout(() => { const fl = $("specialFx"); fl.classList.remove("go"); void fl.offsetWidth; fl.classList.add("go"); [784, 988, 1175, 1568].forEach((f, i) => tone(f, .16, "triangle", .07, i * .1)); }, 300);
     SAVE.dex[foe.kind].beat++;
     saveSave(SAVE); sfx.clear();
     body = `<div class="enc-ic${foe.special ? " sp" : ""}${foe.golden ? " gold" : ""}">${w.icon}</div><h2>🎉 ${esc(foe.name)}（Lv${foe.lv}）をたおした！</h2>${foe.special ? `<p>「${esc(w.title)}」に勝った！ 里でうわさになるだろう。</p>` : ""}`;
   }else if(win === "fled"){
     body = `<div class="enc-ic">💨</div><h2>${esc(w.name)}に逃げられた……</h2><p>${p.stolen ? `盗まれた${p.stolen}両は戻らなかった。` : ""}次は早めに倒そう！</p>`;
-    XP_AWARD = awardXp(Math.floor(p.xpGot / 2)); XP_NOTE = "逃げられたので、正解の分の半分";
+    XP_AWARD = awardXp(Math.floor(p.xpGot * (FIELD ? wildXpMult(FIELD.f, foe.lv).m : 1) / 2)); XP_NOTE = "逃げられたので、正解の分の半分";
   }else{
     body = `<h2>💥 気を失った……</h2><p>${esc(w.name)}（Lv${foe.lv}）に負けてしまった。<br>通りがかりの村人が、里まで運んでくれた。</p>`;
-    XP_AWARD = awardXp(Math.floor(p.xpGot / 2)); XP_NOTE = "負けたので、正解の分の半分";
+    XP_AWARD = awardXp(Math.floor(p.xpGot * (FIELD ? wildXpMult(FIELD.f, foe.lv).m : 1) / 2)); XP_NOTE = "負けたので、正解の分の半分";
   }
   const ni = ninjaInfo(), lvUp = ni.lv - p.lv0;
   $("resultBody").innerHTML = `${body}
@@ -3306,6 +3312,42 @@ function makeWild(kind, lv){
   return f;
 }
 const wildXp = lv => 3 + lv * 2;
+/* 新しい地方ほど経験値が入りやすい（2026-11-23、教員の指示：「新しいマップが開いたら、そこで修行すると経験値が上がりやすく」）
+   野良忍者の経験値（正解の分＋たおしたボーナス）に、次の3つをかける：
+   ・最前線：いま物語で向かっている地方（FRONT）。地方ごとに 里の外れ〜霧の川辺×1.0・岩山×1.3・影の森×1.6
+   ・開拓ボーナス：最前線の地方での、はじめの5勝は×1.5
+   ・Lv差：相手が自分より高いと1Lvごとに＋5%（最大＋25%）、低いと1Lvごとに−15%（最小×0.1）→ 古い地方でかせぎにくい
+   シミュレーション（正答率85%・1戦約7問正解）で、各地方に入ったLvから、その地方のボスのめやすLvまで
+   およそ 2・4・4・5・6勝（今までは 3・6・7・12・16勝）。後半ほど長くなる、を平らにし、新しい地方へ進むほど得をするようにした。 */
+const FRONT_MUL = [1, 1, 1, 1.3, 1.6], PIONEER_WINS = 5, PIONEER_MUL = 1.5;
+function frontField(){
+  const ns = nextStory();
+  if(!ns) return FIELDS.length - 1;
+  return ns === "jo" ? 0 : FIELD_STORY.indexOf(ns);
+}
+function wildXpMult(fi, foeLv){
+  const plv = ninjaInfo().lv, gap = foeLv - plv, parts = [];
+  const gapM = gap >= 0 ? 1 + Math.min(gap, 5) * .05 : Math.max(.1, 1 + gap * .15);
+  let m = gapM;
+  if(gap !== 0) parts.push(`Lv差×${gapM.toFixed(2).replace(/0$/, "")}`);
+  if(fi === frontField()){
+    if(FRONT_MUL[fi] > 1){ m *= FRONT_MUL[fi]; parts.push(`最前線×${FRONT_MUL[fi]}`); }
+    if(((SAVE.pioneer || {})[fi] || 0) < PIONEER_WINS){ m *= PIONEER_MUL; parts.push(`開拓×${PIONEER_MUL}`); }
+  }
+  return {m, parts};
+}
+// 外の画面に出す、その地方の経験値のようす
+function fieldXpBadge(fi){
+  const front = fi === frontField(), left = PIONEER_WINS - ((SAVE.pioneer || {})[fi] || 0);
+  if(front){
+    const bits = [];
+    if(left > 0) bits.push(`開拓ボーナス×${PIONEER_MUL}（あと${left}勝）`);
+    if(FRONT_MUL[fi] > 1) bits.push(`最前線×${FRONT_MUL[fi]}`);
+    return bits.length ? `<span class="xpbadge front">🔥 経験値アップ：${bits.join("・")}</span>` : "";
+  }
+  const F = FIELDS[fi], lv = ninjaInfo().lv;
+  return lv > F.lv[1] ? `<span class="xpbadge low">この地方の相手は弱く、経験値は少なめ</span>` : "";
+}
 const abList = w => w.abs || (w.ab ? [w.ab] : []);
 const hasAb = (foe, a) => !!foe.abs && foe.abs.includes(a);
 const abText = w => abList(w).map(a => `<b>【${ABILITY[a].name}】</b>${ABILITY[a].text}`).join("<br>");
@@ -3369,7 +3411,7 @@ function showField(){
   g.querySelectorAll(".ft").forEach(e => e.onclick = () => tapTile(+e.dataset.x, +e.dataset.y));
   placeFHero();
   $("fRyo").innerHTML = `💰${SAVE.ryo}両　Lv${ninjaInfo().lv}`;
-  $("fGoal").innerHTML = questCardHtml(true);
+  $("fGoal").innerHTML = fieldXpBadge(FIELD.f) + questCardHtml(true);
   const free = ninjaInfo().points - allocSpent();
   $("fHomeBtn").innerHTML = `🎒 装備・ステータス${free > 0 ? `<span class="pts-mini">✨${free}</span>` : ""}`;
   show("sField");
