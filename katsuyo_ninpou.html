@@ -208,6 +208,15 @@
   .ftarget{position:absolute;left:50%;top:-14px;transform:translateX(-50%);color:#e0362b;font-weight:bold;font-size:16px;text-shadow:0 0 4px #fff;animation:bob .8s ease-in-out infinite}
   .ft{position:relative}
   .ft.goexit{box-shadow:inset 0 0 0 3px #ffd23f}
+  .vdeco.vtalk{pointer-events:auto;cursor:pointer;z-index:2}
+  .vdeco.vtalk:active{transform:translate(-50%,-50%) scale(.9)}
+  .vdeco.hop1{animation:hop1 .4s}
+  @keyframes hop1{50%{margin-top:-10px}}
+  .vbubble{position:absolute;z-index:6;transform:translate(-50%,calc(-100% - 22px));max-width:62%;width:max-content;background:#fff;color:var(--ink);font-size:12px;line-height:1.5;
+    border:2px solid #6b4f2a;border-radius:12px;padding:5px 9px;box-shadow:0 3px 6px rgba(0,0,0,.3);animation:vbin .2s both;pointer-events:none}
+  @keyframes vbin{from{opacity:0}to{opacity:1}}
+  .vbubble::after{content:"";position:absolute;left:var(--tail,50%);bottom:-8px;transform:translateX(-50%);border:7px solid transparent;border-bottom:0;border-top-color:#6b4f2a}
+  .vbubble.rare{background:#fff6d6;border-color:#c8902a;font-weight:bold}
   .vplace.glow .vicon{animation:hglow 1.4s ease-in-out infinite}
   @keyframes hglow{0%,100%{filter:drop-shadow(0 0 6px #ffd23f) drop-shadow(0 4px 3px rgba(0,0,0,.35))}50%{filter:drop-shadow(0 0 22px #ffd23f) drop-shadow(0 0 40px #fff6a0)}}
   .vplace.glow .vname::after{content:" ✨";}
@@ -1737,8 +1746,8 @@ function showVillage(){
   const map = $("village");
   let html = `<svg class="vroads" viewBox="0 0 100 100" preserveAspectRatio="none">` +
     Object.values(PLACES).map(p => `<path d="M${PLAZA.x},${PLAZA.y} Q${(PLAZA.x + p.x) / 2},${p.y} ${p.x},${p.y}"/>`).join("") + `</svg>`;
-  [["🌳",6,10],["🌲",94,12],["🌳",8,90],["🌸",94,78],["🏠",32,22],...(hermitOpen() ? [] : [["🏠",68,22]]),["🌾",34,88],["🌾",66,90],["⛲",50,50],["🐓",62,58],["🌳",4,52],["🌲",96,50]]
-    .forEach(([e, x, y]) => html += `<span class="vdeco" style="left:${x}%;top:${y}%">${e}</span>`);
+  [["🌳",6,10],["🌲",94,12],["🌳",8,90],["🌸",94,78],["🏠",32,22,"houseL"],...(hermitOpen() ? [] : [["🏠",68,22,"houseR"]]),["🌾",34,88],["🌾",66,90],["⛲",50,50],["🐓",62,58,"tori"],["🌳",4,52],["🌲",96,50]]
+    .forEach(([e, x, y, talk]) => html += `<span class="vdeco${talk ? " vtalk" : ""}" style="left:${x}%;top:${y}%"${talk ? ` data-talk="${talk}"` : ""}>${e}</span>`);
   Object.entries(PLACES).forEach(([id, p]) => {
     if(p.hidden && !(id === "hermit" && hermitOpen())) return;
     const isSoon = false;
@@ -1750,11 +1759,40 @@ function showVillage(){
   html += `<div class="vtoken" id="vtoken">${pic("hero")}</div>`;
   map.innerHTML = html;
   map.querySelectorAll(".vplace").forEach(e => e.onclick = () => goPlace(e.dataset.id));
+  map.querySelectorAll(".vtalk").forEach(e => e.onclick = () => villageTalk(e));
   const here = PLACES[SAVE.here] || PLACES.home;
   placeVToken(here.x, here.y, false);
   $("vGoal").innerHTML = questCardHtml(false) + `<div class="qc-btns">${questInfo() ? `<button class="btn mini" onclick="goQuest()">▶ 目的地へ行く</button>` : ""}<button class="iconbtn dark" onclick="showQuestLog()">📜 クエスト一覧</button></div>`;
   $("vMsg").innerHTML = reset ? "レベルが下がったので、忍術ポイントを振り直しにしました。自宅で振り分けよう。" : villageHint(ni, free);
   show("sVillage");
+}
+/* 村の飾りに話しかける（2026-11-23、教員の指示）。左上の家・右上の家・鶏。それぞれ5つの返事から1つ。
+   右上の家（隠居の家になる前）は、100回に1回、昔は強かったが引退したことをほのめかす。 */
+const VTALK = {
+  houseL:["今日はいい天気だねえ。洗濯物がよくかわくよ。", "うちの子も、寺子屋で活用を習っているんだよ。", "おや、忍者さん。お団子なら茶屋がおいしいよ。",
+          "「書かない、書きます、書く…」って、うちの子が寝言で言ってたよ。", "夜は戸じまりをしっかりね。野良忍者が出るからさ。"],
+  houseR:["……はい、どなた？ ああ、通りすがりの方ね。", "ごめんなさいね、おじいさんは今、お昼寝中なの。", "庭の柿が、そろそろ食べごろなのよ。",
+          "わしらは、のんびり暮らしておるだけの、ただの年寄りじゃよ。", "道場のかけ声が、ここまで聞こえてくるのう。元気でよい。"],
+  houseRrare:"……ふふ。わしらも昔は、あの道場で、だれにも負けなんだものよ。……いや、なんでもない。もう引退した身じゃ。",
+  tori:["コケッ。", "コケコッコー！", "コッ、コッ、コッ……（地面をつついている）", "コケ？（首をかしげている）", "バサバサッ！（羽をばたつかせた）"],
+};
+function villageTalk(el){
+  const key = el.dataset.talk;
+  let t = pick(VTALK[key]), rare = false;
+  if(key === "houseR" && Math.random() < .01){ t = VTALK.houseRrare; rare = true; }
+  const map = $("village");
+  map.querySelectorAll(".vbubble").forEach(b => b.remove());
+  const b = document.createElement("div");
+  b.className = "vbubble" + (rare ? " rare" : "");
+  b.innerHTML = esc(t);
+  // 吹き出しが地図からはみ出さないよう、横の位置をおさえる（しっぽは飾りの真上に）
+  const x = parseFloat(el.style.left), bx = Math.max(32, Math.min(68, x));
+  b.style.left = bx + "%"; b.style.top = el.style.top;
+  b.style.setProperty("--tail", `calc(50% + ${(x - bx) / 62 * 100}%)`);
+  map.appendChild(b);
+  if(key === "tori"){ el.classList.remove("hop1"); void el.offsetWidth; el.classList.add("hop1"); tone(1300, .05, "square", .04); tone(1600, .05, "square", .03, .08); }
+  else tone(rare ? 440 : 700, .06, "triangle", .04);
+  setTimeout(() => b.remove(), rare ? 6000 : 2800);
 }
 function villageHint(ni, free){
   if(!chCleared("jo")) return "まずは📚寺子屋へ行って、師匠の話を聞こう！";
