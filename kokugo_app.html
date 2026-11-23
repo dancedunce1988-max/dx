@@ -4732,7 +4732,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver14.46</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver14.47</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -20093,11 +20093,20 @@ function adminZukanHtml(st){
     return `<tr><td style="white-space:nowrap">${img}<b>${esc(KOTONOHA_IMAGE_LINE_LABEL[line] || line)}</b>${line === cur ? ` <span class="adm-sum">いま</span>` : ""}</td>
       <td>${sel("f1", true)}</td><td>${sel("f2", KOTONOHA_FORM2_LINES.includes(line))}</td><td>${sel("f3", KOTONOHA_FORM3_LINES.includes(line))}</td></tr>`;
   }).join("")).join("");
+  // 無垢龍（はじまりの龍、2026-11-22〜）：第一形態だけ。出会った数には数えない（ことのは図鑑の画面と同じ）
+  let mukuRow = "";
+  if(kotonohaImagesReady("muku")){
+    const m = kotonohaZukanEntry(st, "muku");
+    const msrc = m.f1 >= 0 ? kotonohaImageSrcForStage("muku", m.f1) : null;
+    mukuRow = `<tr><th colspan="4" style="background:#f6f2ea;font-size:.8rem">はじまりの龍</th></tr>
+      <tr><td style="white-space:nowrap">${msrc ? `<img src="${msrc}" alt="">` : `<span class="q">？</span>`}<b>${esc(KOTONOHA_IMAGE_LINE_LABEL.muku || "無垢龍")}</b>${!st.kotonohaRebirth ? ` <span class="adm-sum">いま</span>` : ""}</td>
+      <td><label class="adm-cell"><select id="adm_zk_f1_muku">${opts(m.f1)}</select></label></td><td><span class="note">（なし）</span></td><td><span class="note">（なし）</span></td></tr>`;
+  }
   const total = KOTONOHA_ZUKAN_GROUPS.reduce((s,g) => s + g.lines.length, 0);
   return adminSec("📖", "ことのは図鑑（なったことのある龍）", `${seenN}/${total}体`,
     `<p class="note" style="margin:0 0 4px">形態ごとに「いちばん育った姿」を選びます。「－」は、その形態にはなったことがない。</p>`
     + adminQuickBtns([["全部の龍を 第一形態・伝説級に","adminSetSelects('adm_zk_f1_',6)"],["第二・第三形態も 伝説級に","adminSetSelects('adm_zk_',6)"],["図鑑を空にする","adminSetSelects('adm_zk_',-1)"]])
-    + `<table class="adm-zk" style="width:100%;border-collapse:collapse;font-size:.85rem"><tr><th>龍</th><th>第一形態</th><th>🌟 第二形態</th><th>🌈 第三形態</th></tr>${rows}</table>
+    + `<table class="adm-zk" style="width:100%;border-collapse:collapse;font-size:.85rem"><tr><th>龍</th><th>第一形態</th><th>🌟 第二形態</th><th>🌈 第三形態</th></tr>${mukuRow}${rows}</table>
        <p class="note">いま育てている龍は、今の段階より下にはできません（保存のときに今の段階まで自動でもどります）。</p>`);
 }
 // 図鑑の入力を st に反映（adminSaveEditsから）
@@ -20115,6 +20124,12 @@ function adminApplyZukan(st){
     if(any && i < 0) st.kotonohaRebirthLinesSeen.push(line);
     if(!any && i >= 0 && line !== cur) st.kotonohaRebirthLinesSeen.splice(i, 1);
   }));
+  // 無垢龍（第一形態だけ。転生した龍の一覧 kotonohaRebirthLinesSeen には入れない）
+  const mEl = document.getElementById("adm_zk_f1_muku");
+  if(mEl){
+    const v = Number(mEl.value);
+    if(v >= 0) st.kotonohaZukan.muku = {f1: v, f2: -1, f3: -1}; else delete st.kotonohaZukan.muku;
+  }
 }
 
 /* ファイルから戻す前の確認画面：何が入っているかを見せ、戻すものを選ぶ（本体だけ・ミニゲームだけも可） */
@@ -21152,6 +21167,8 @@ function adminSaveEdits(){
     if(!st.kotonohaRebirthLinesSeen.includes(line)) st.kotonohaRebirthLinesSeen.push(line);
     try{ if(kotonohaZukanRecord(st)) notes.push("図鑑に、いまの龍の段階を書きこみました"); }catch(e){}
   }
+  // まだ転生していない（無垢龍を育てている）ときは、無垢龍の今の段階より下にはしない
+  try{ if(!st.kotonohaRebirth && kotonohaMukuZukanRecord(st)) notes.push("図鑑の無垢龍を、いま育てている段階までもどしました"); }catch(e){}
   // 聖輝・冥淵は、どれかの龍が成熟体になったことがあれば解禁（kotonohaEvolveStep5と同じ条件）
   if(!st.kotonohaSeigakiMeienUnlocked && Object.entries(st.kotonohaZukan || {}).some(([zl, z]) => zl !== "muku" && z && Math.max(z.f1 ?? -1, z.f2 ?? -1, z.f3 ?? -1) >= KOTONOHA_MATURE_STAGE_IDX)){
     st.kotonohaSeigakiMeienUnlocked = true; notes.push("成熟体になった龍がいるので、聖輝龍・冥淵龍を解禁しました");
