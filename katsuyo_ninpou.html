@@ -350,6 +350,14 @@
   .bxnext.soon{color:#b3261e;font-weight:bold}
   .cpubar{height:6px;background:#ddd2b8;border-radius:99px;overflow:hidden;margin-top:2px}
   .cpubar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#f2c14e,#e0362b)}
+  .streak{display:inline-block;border-radius:999px;padding:1px 10px;font-size:13px;font-weight:bold;color:#fff}
+  .streak.s1{background:linear-gradient(135deg,#ff8a3d,#ffb347)}
+  .streak.s2{background:linear-gradient(135deg,#ff4d2e,#ff9a3d);animation:pop 1s infinite}
+  .streak.s3{background:linear-gradient(135deg,#d12bff,#ff4d2e,#ffd23f);animation:pop .7s infinite;box-shadow:0 0 12px #ff8a3d}
+  .bhero.aura1{filter:drop-shadow(0 0 8px #ffb347) drop-shadow(0 5px 4px rgba(0,0,0,.4))}
+  .bhero.aura2{filter:drop-shadow(0 0 12px #ff5a2e) drop-shadow(0 0 22px #ffb347)}
+  .bhero.aura3{filter:drop-shadow(0 0 14px #d12bff) drop-shadow(0 0 26px #ffd23f);animation:auraP 1s infinite}
+  @keyframes auraP{50%{transform:scaleX(-1) scale(1.06)}}
   .pbox.hurt{animation:shake .35s}
   .ebox .etag,.pbox .etag{font-size:10px}
   .xpbox{background:rgba(0,0,0,.3);border:1px solid #6ad1ff;border-radius:12px;padding:8px 12px;margin:8px auto;max-width:360px}
@@ -422,6 +430,9 @@
   .xpbar{display:inline-block;vertical-align:middle;width:90px;height:7px;margin-left:6px;background:rgba(255,255,255,.2);border-radius:99px;overflow:hidden}
   .xpbar i{display:block;height:100%;background:linear-gradient(90deg,#6ad1ff,#9ff0b8)}
   .lvup-toast.ninja{top:44px;background:#5b3fa0}
+  #lvupToast{top:auto;bottom:8px;font-size:12px;padding:3px 12px;opacity:.92;transform:translateX(-50%) translateY(140%)}
+  #lvupToast.show{animation:toastB 1.6s ease both}
+  @keyframes toastB{0%{transform:translateX(-50%) translateY(140%)}12%,78%{transform:translateX(-50%) translateY(0)}100%{transform:translateX(-50%) translateY(140%)}}
   .hud3{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:6px;min-height:30px}
   .jgauge{font-size:14px;color:#ffb347;letter-spacing:1px;font-weight:bold}
   .jgauge.full{color:#ffd23f;text-shadow:0 0 8px #ff8c1a;animation:pop 1s infinite}
@@ -623,13 +634,14 @@ if(!SAVE.stars) SAVE.stars = {};     // 章id → 最高の星の数（0〜3）
 if(!SAVE.seen) SAVE.seen = {};       // 章id → 物語を一度見たか
 
 /* =====================================================================
-   本体（kokugo_app.html）のジャンルレベルへの反映（つなぎ橋の練習の谷と同じしくみ・数え方）
+   本体（kokugo_app.html）のジャンルレベルへの反映
+   2026-11-23、教員の指示で数え方を変えた：「1問正解するごとに、ジャンルレベルが1つずつ上がる」（まちがえても下がらない）。
    ===================================================================== */
 const MG_CAT = "doushi_katsuyo", MG_GENRE = "動詞の活用";
 const MG_PENDING_LVUP_LSKEY = "kokugo_minigame_pending_lvups_v1";
 const MG_PLAYED_LSKEY = "kokugo_mg_played_v1";
 let MGS = null;
-const mgNet = () => !MGS ? 0 : Math.max(0, Math.floor(MGS.ok / 2) - Math.floor(MGS.ng / 2));
+const mgNet = () => !MGS ? 0 : MGS.ok;
 const mgSigned = n => n > 0 ? "+" + n : n < 0 ? "−" + (-n) : "±0";
 function mgStart(){ mgFlush(); MGS = {ok:0, ng:0, sent:0}; }
 function mgNotePlayed(){
@@ -657,7 +669,7 @@ window.addEventListener("pagehide", mgFlush);
 function showLvupToast(d){
   let el = $("lvupToast");
   if(!el){ el = document.createElement("div"); el.id = "lvupToast"; el.className = "lvup-toast"; document.body.appendChild(el); }
-  el.innerHTML = `${MG_GENRE}ジャンル<b>${d > 0 ? "1レベルUP" : "1レベルDOWN"}</b>（今回 ${mgSigned(mgNet())}）`;
+  el.innerHTML = `📘 ${MG_GENRE} Lv<b>+1</b>（今回 ${mgSigned(mgNet())}）`;   // 毎問出るので、画面の下に小さく
   el.classList.toggle("down", d < 0);
   el.classList.remove("show"); void el.offsetWidth; el.classList.add("show");
 }
@@ -1316,9 +1328,16 @@ function jutsuHit(power, aff, foe){
   const d = Math.max(Math.ceil(raw * .1), raw - (foe.res || 0));
   return Math.max(1, Math.min(d, Math.ceil(foe.max * (aff > 1 ? .45 : .3))));
 }
+/* 連続正解（2026-11-23、教員の指示：「連続で正解している場合は、徐々に攻撃力を高められるように」）
+   STREAK は戦いをまたいで続き、まちがえる（時間切れをふくむ）と0にもどる。
+   攻撃力は 1連続ごとに＋10%（最大×2.0＝11連続）。1回で与えられるダメージの上限も、1連続ごとに＋2%（15%→最大35%）。
+   → よく正解する人ほど早く倒せ、経験値も早くたまる。 */
+let STREAK = 0;
+const streakMul = () => 1 + Math.min(Math.max(STREAK - 1, 0), 10) * .1;
+const streakCap = () => .15 + Math.min(Math.max(STREAK - 1, 0), 10) * .02;
 function hitDamage(raw, foe, crit){
   const d = Math.max(Math.ceil(raw * .1), raw - (foe.def || 0));   // 守りの固い敵には、最低1割しか通らない
-  return Math.max(1, Math.min(d, Math.ceil(foe.max * (crit ? .2 : .15))));
+  return Math.max(1, Math.min(d, Math.ceil(foe.max * (streakCap() + (crit ? .05 : 0)))));
 }
 const takenDamage = (atk, def, mult) => Math.max(1, Math.round(atk * (mult || 1) * 40 / (40 + def * 3)));
 const takenPct = def => Math.round(4000 / (40 + def * 3));
@@ -1719,6 +1738,7 @@ function showHome(){
     <div class="elems">${[["", "なし"], ["fire"], ["water"], ["wood"]].map(([e, n]) => `<button class="ebtn${(SAVE.elem || "") === e ? " on" : ""} ${e ? "e-" + e : ""}" onclick="setElem('${e}')">${e ? ELEM[e].icon + ELEM[e].name : n}</button>`).join("")}</div>
     <p class="note-dark">🔥火は🍃木に強く、🍃木は💧水に強く、💧水は🔥火に強い。<br>得意属性と同じ属性の術は1.25倍。敵の術は、得意属性に強い属性だと1.5倍、弱い属性だと0.6倍のダメージ。行き先の敵に合わせて選ぼう。</p>
     <h3 class="sec">忍術（必殺技）</h3><div class="jlist" id="hJutsu">${jutsuListHtml(b)}</div>
+    <p class="note-dark">🔥 連続で正解すると、攻撃力が1連続ごとに＋10%（最大×2.0）。まちがえると、もとにもどる。</p>
     <p class="note-dark">任務中、正解${JUTSU_MAX}回（忍術30以上なら2回）で術ゲージが満タンになり、術を使える。<br>使える術は、そのときの「忍術」の値で決まる（下げると使えなくなる）。</p>
     <h3 class="sec">装備</h3><div class="slots">`;
   SLOTS.forEach(sl => {
@@ -2495,7 +2515,9 @@ function renderPBox(){
 function renderHud(){
   const p = PLAY;
   renderPBox();
-  $("hudCombo").textContent = p.combo >= 2 ? `${p.combo}連続！` : "";
+  const sm = streakMul();
+  $("hudCombo").innerHTML = STREAK >= 2 ? `<span class="streak s${STREAK >= 11 ? 3 : STREAK >= 6 ? 2 : 1}">🔥${STREAK}連続　攻撃×${sm.toFixed(1)}</span>` : "";
+  const hero = $("bHero"); if(hero){ hero.classList.toggle("aura1", STREAK >= 3 && STREAK < 6); hero.classList.toggle("aura2", STREAK >= 6 && STREAK < 11); hero.classList.toggle("aura3", STREAK >= 11); }
   const bag = SAVE.bag.dango || 0;
   $("hudItems").innerHTML = p.cfg.mode === "quick" ? "" :
     `<button class="iconbtn" ${bag && !p.lock ? "" : "disabled"} onclick="useDango()">🍡×${bag}</button>`;
@@ -2654,18 +2676,20 @@ async function answer(btn){
   const fb = $("qFb");
   if(right){
     p.ok++; p.combo++; p.maxCombo = Math.max(p.maxCombo, p.combo);
+    STREAK++;
     p.gauge = Math.min(jutsuMax(p.nin), p.gauge + 1);
     sfx.ok(); mgCorrect();
     const crit = Math.random() * 100 < p.crit;
     const dodged = hasAb(p.foe, "dodge") && Math.random() < .18;   // 能力【かわす】
-    const dmg = dodged ? 0 : hitDamage(Math.round(p.atk * (crit ? 2 : 1) * (1 + Math.min(p.combo - 1, 5) * .05)), p.foe, crit);
+    const dmg = dodged ? 0 : hitDamage(Math.round(p.atk * (crit ? 2 : 1) * streakMul()), p.foe, crit);
     p.foe.hp -= dmg; p.dmgDealt += dmg;
     if(p.cfg.mode !== "quick"){ if(dodged){ const f = foeC(); burst(f.x, f.y, 8, {sp0:60, sp1:160, p:() => ({ch:"💨", size:rnd(16, 24)})}); } else { fxSlash(crit); tone(crit ? 1200 : 900, .06, "square", .05, .02); } }
     const xp = p.cfg.xp || 1; p.xpGot += xp;   // 獲得予定（倒したときにまとめて入る）
     if(p.cfg.mode !== "quick") setTimeout(() => dmgPop(`+${xp} EXP`, "#9fe8ff", "pBox"), 250);
     refreshFoe(); $("foe").classList.remove("hit"); void $("foe").offsetWidth; $("foe").classList.add("hit");
     if(p.cfg.mode !== "quick") dmgPop(dodged ? "かわされた！" : `${crit ? "会心！" : ""}−${dmg}`, dodged ? "#9fd3ff" : crit ? "#ffd23f" : "#fff", "foe");
-    flash(crit ? "会心の一撃！" : p.combo >= 3 ? `${p.combo}連続！` : "見事！", "#ffe08a");
+    flash(crit ? "会心の一撃！" : STREAK >= 3 ? `${STREAK}連続！ 攻撃×${streakMul().toFixed(1)}` : "見事！", "#ffe08a");
+    if(STREAK === 3 || STREAK === 6 || STREAK === 11) [784, 988, 1175].forEach((f, k) => tone(f, .1, "square", .05, k * .07));
     fb.className = "feedback ok show"; fb.innerHTML = "⭕ " + explain(q);
     renderHud();
     // 敵が生きていれば、決まった間（every）ごとに攻撃してくる
@@ -2679,6 +2703,8 @@ async function answer(btn){
     nextQ();
   }else{
     p.ng++; p.combo = 0;
+    if(STREAK >= 3) setTimeout(() => dmgPop(`${STREAK}連続がとぎれた…`, "#cfd6ea", "pBox"), 300);
+    STREAK = 0;
     if(btn) btn.classList.add("ng");
     sfx.ng(); mgWrong();
     if(p.cfg.mode !== "quick"){
