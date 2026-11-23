@@ -257,6 +257,7 @@
   .fhero.step{animation:hopstep .14s}
   @keyframes hopstep{50%{margin-top:-4px}}
   .fmsg{text-align:center;color:#ffe08a;font-size:14px;margin:8px 0 4px;min-height:1.4em}
+  .pts-mini{margin-left:6px;background:#ffd23f;color:#3a2000;border-radius:999px;padding:0 7px;font-size:12px;font-weight:bold}
   .fpad{display:flex;flex-direction:column;align-items:center;gap:4px}
   .fpad > div{display:flex;gap:56px}
   .dpad{width:56px;height:44px;font-size:20px;touch-action:none;user-select:none}
@@ -438,6 +439,7 @@
   .danq{font-size:64px;color:var(--gold)}
   .danhint{font-size:12px;color:#cfd6ea;margin-bottom:4px}
   .soundplain{color:inherit}
+  .danbadge{display:inline-block;margin-top:4px;background:#ffd23f;color:#3a2000;border-radius:10px;padding:2px 10px;font-size:14px}
   .smoke .sound{color:#ffd23f;text-decoration:underline;text-decoration-thickness:3px;text-underline-offset:5px;font-weight:bold;text-shadow:0 0 8px rgba(255,210,63,.8)}
   .khl{background:#ffd23f;color:#3a2000;border-radius:4px;padding:0 3px;animation:pop 1.2s infinite}
   .tdots{display:inline-flex;gap:4px;margin-top:2px}
@@ -549,7 +551,7 @@
 
   <!-- 建物の中（城・店・自宅・寺子屋） -->
   <section id="sPanel" class="screen">
-    <div class="topbar"><button class="iconbtn" onclick="showVillage()">◀ 村へ</button><span class="ptitle" id="pTitle"></span><span></span></div>
+    <div class="topbar"><button class="iconbtn" id="pBack" onclick="panelBack()">◀ 村へ</button><span class="ptitle" id="pTitle"></span><span></span></div>
     <div class="pbody" id="pBody"></div>
   </section>
 
@@ -563,6 +565,7 @@
     <div class="fgrid" id="fGrid"></div>
     <div class="fmsg" id="fMsg"></div>
     <div class="qcard-main fgoal" id="fGoal"></div>
+    <div class="btn-row" style="margin:4px 0"><button class="iconbtn" id="fHomeBtn" onclick="openHomeHere()">🎒 装備・ステータス</button></div>
     <div class="fpad">
       <button class="iconbtn dpad" data-dx="0" data-dy="-1">▲</button>
       <div><button class="iconbtn dpad" data-dx="-1" data-dy="0">◀</button><button class="iconbtn dpad" data-dx="1" data-dy="0">▶</button></div>
@@ -1437,6 +1440,7 @@ const PLACES = {
 const PLAZA = {x:50, y:50};
 let WALKING = false;
 function showVillage(){
+  PANEL_BACK = null;
   const ni = ninjaInfo();
   const reset = checkAlloc();
   const free = ni.points - allocSpent();
@@ -1509,7 +1513,12 @@ function modal(html, btns){
   $("modal").classList.add("show");
 }
 function closeModal(){ $("modal").classList.remove("show"); }
+// 建物の中の画面。PANEL_BACK があればそこへもどる（外から自宅の画面を開いたとき）
+let PANEL_BACK = null;
+function panelBack(){ const f = PANEL_BACK; PANEL_BACK = null; f ? f() : showVillage(); }
+function openHomeHere(){ PANEL_BACK = resumeField; showHome(); }   // 外にいても、装備とステータスはいつでも
 function panel(title, html){
+  $("pBack").textContent = PANEL_BACK ? "◀ 外へもどる" : "◀ 村へ";
   $("pTitle").textContent = title;
   $("pBody").innerHTML = html;
   show("sPanel");
@@ -2033,6 +2042,9 @@ const TRAIN_N = 0, TRAIN_NEED = 0;   // （旧：8問中6問。段階式にな�
 /* ---------- 出題の部品 ---------- */
 const DAN_ROWS = {ア:"あかさたなはまやらわがざだばぱ", イ:"いきしちにひみりぎじぢびぴ", ウ:"うくすつぬふむゆるぐずづぶぷ", エ:"えけせてねへめれげぜでべぺ", オ:"おこそとのほもよろをごぞどぼぽ"};
 const danOf = k => Object.keys(DAN_ROWS).find(d => DAN_ROWS[d].includes(k));
+// 段の仲間（にごらない音だけ）を「あ・か・さ…」の形で
+const DAN_SEION = {ア:10, イ:8, ウ:9, エ:8, オ:10};
+const danList = d => (DAN_ROWS[d] || "").slice(0, DAN_SEION[d] || 0).split("").join("・");
 const typePool = types => shuffle([].concat(
   types.includes("godan") ? V_GODAN : [], types.includes("kami") ? V_KAMI : [], types.includes("shimo") ? V_SHIMO : [],
   types.includes("ka") ? V_KA : [], types.includes("sa") ? V_SA : [], types.includes("fake") ? V_FAKE : []));
@@ -2091,7 +2103,9 @@ const TRAIN_PLAN = {
       `その音が、あいうえおの<b>どの段</b>かを見る。<br><table class="dantable"><tr><th>ア段</th><td>あ か さ た な は ま や ら わ</td></tr><tr><th>イ段</th><td>い き し ち に ひ み り</td></tr><tr><th>エ段</th><td>え け せ て ね へ め れ</td></tr></table>にごった音（が・ぎ・げ…）も同じ段じゃ。まずは音の段に慣れよう。`]},
     {kind:"drill", title:"音の段", desc:"この音は、何段？（あいうえおの、どの段の仲間か）", goal:winGoal(4, 4), gen:genDan},
     {kind:"talk", title:"「ない」で見分ける", pages:[
-      `段が分かれば、あとは簡単じゃ。<br><b>ア段 → 五段活用</b>（書<b class="sound">か</b>ない）<br><b>イ段 → 上一段活用</b>（起<b class="sound">き</b>ない）<br><b>エ段 → 下一段活用</b>（食<b class="sound">べ</b>ない）<br>しばらくは、わしが「ない」をつけて、音を光らせてやろう。`]},
+      `段が分かれば、あとは簡単じゃ。<br><b>ア段 → 五段活用</b>（書<b class="sound">か</b>ない）<br><b>イ段 → 上一段活用</b>（起<b class="sound">き</b>ない）<br><b>エ段 → 下一段活用</b>（食<b class="sound">べ</b>ない）<br>はじめは、わしが「ない」をつけて、音を光らせ、<b>何段か</b>も教えてやろう。だんだん手がかりを減らしていくぞ。`]},
+    {kind:"drill", title:"光った音と段で見分ける", desc:"光った音が何段かを見て、流派を選ぼう（ア段→五段・イ段→上一段・エ段→下一段）", goal:winGoal(4, 4), gen:() => genType(["godan", "kami", "shimo"], "hlDan")},
+    {kind:"talk", title:"段は自分で", pages:[`次は、何段かは言わんぞ。光った音が、あいうえおのどの段か、自分で考えるのじゃ。`]},
     {kind:"drill", title:"光った音で見分ける", desc:"「ない」の前の光った音の段を見て、流派を選ぼう", goal:winGoal(4, 4), gen:() => genType(["godan", "kami", "shimo"], "hl")},
     {kind:"talk", title:"自分で音を見つける", pages:[`次は、音を光らせんぞ。「ない」のすぐ前の音を、自分で見つけるのじゃ。`]},
     {kind:"drill", title:"自分で音を見つける", desc:"「ない」のすぐ前の音を見つけて、流派を選ぼう", goal:winGoal(4, 4), gen:() => genType(["godan", "kami", "shimo"], "plain")},
@@ -2194,7 +2208,7 @@ async function trainNext(p){
     runStep();
     return;
   }
-  p.i++; p.qs.push(TR.steps[TR.si].gen()); renderQ();
+  p.i++; p.qs.push(freshGen(TR.steps[TR.si].gen)); renderQ();
 }
 function trainDone(){
   SAVE.trained = SAVE.trained || {}; SAVE.trained[TR.ch] = true;
@@ -2397,6 +2411,7 @@ function makeQuestions(ch){
    ===================================================================== */
 function renderQ(){
   const p = PLAY, q = p.qs[p.i];
+  noteShown(q);
   p.lock = false;
   renderHud();
   const fb = $("qFb"); fb.className = "feedback"; fb.innerHTML = "";
@@ -2442,11 +2457,12 @@ function renderQ(){
     $("qWord").innerHTML = `<div class="sent">${sentHtml(q.x.s)}</div>`;
     choicesHtml = ["godan","kami","shimo","ka","sa"].map(t => `<button class="choice" data-a="${t}">${RYUHA[t]}<small>${TYPE_NAME[t]}</small></button>`).join("");
   }else if(q.kind === "type"){
-    $("qPrompt").textContent = q.nai === "hl" ? "「ない」の前の光った音を見て、流派を選ぼう" : q.nai === "plain" ? "「ない」のすぐ前の音を見つけて、流派を選ぼう"
+    $("qPrompt").textContent = q.nai === "hlDan" ? "光った音が何段かを見て、流派を選ぼう" : q.nai === "hl" ? "「ない」の前の光った音を見て、流派を選ぼう" : q.nai === "plain" ? "「ない」のすぐ前の音を見つけて、流派を選ぼう"
       : q.nai === "hint" ? "頭の中で「ない」をつけて、流派を選ぼう" : q.autoSmoke ? "煙玉で正体をあばけ！ この忍者の流派は？" : "この忍者の流派は？（見た目にだまされるな）";
     $("qWord").innerHTML = rubyHtml(q.v);
     choicesHtml = (q.types || ["godan","kami","shimo","ka","sa"]).map(t => `<button class="choice" data-a="${t}">${RYUHA[t]}<small>${TYPE_NAME[t]}</small></button>`).join("");
-    if(q.nai === "hl") throwSmoke(q, false);
+    if(q.nai === "hlDan") throwSmoke(q, false, false, true);
+    else if(q.nai === "hl") throwSmoke(q, false);
     else if(q.nai === "plain") throwSmoke(q, false, true);
     else if(q.autoSmoke) setTimeout(() => { if(PLAY && PLAY.qs[PLAY.i] === q && !p.lock) throwSmoke(q, false); }, 500);
   }
@@ -2459,17 +2475,18 @@ function renderQ(){
   startTimer();
 }
 // 「ない」をつけた形を見せる。plain＝直前の音を光らせない
-function throwSmoke(q, used, plain){
+function throwSmoke(q, used, plain, withDan){
   if(q.smoked) return;
   q.smoked = true; sfx.smoke();
   const n = naiInfo(q.v);
   const html = plain ? n.stemHtml.replace(/class="sound"/g, 'class="soundplain"') : n.stemHtml;
-  $("qExtra").innerHTML = `<div class="smoke show">💨 ${html}<span class="fol">ない</span></div>`;
+  const dan = withDan ? `<div class="danbadge">「${esc(n.sound)}」は <b>${n.dan}段</b>（${esc(danList(n.dan))}の仲間）</div>` : "";
+  $("qExtra").innerHTML = `<div class="smoke show">💨 ${html}<span class="fol">ない</span></div>${dan}`;
   if(used) $("qTools").innerHTML = "";
 }
 function naiHint(){ const p = PLAY; if(!p || p.lock) return; throwSmoke(p.qs[p.i], true, true); }
 function explain(q){
-  if(q.kind === "dan") return `「${esc(q.k)}」は「${DAN_ROWS[danOf(q.k)].slice(0, 10).split("").join("・")}」の仲間 → <b>${danOf(q.k)}段</b>。`;
+  if(q.kind === "dan") return `「${esc(q.k)}」は「${danList(danOf(q.k))}」の仲間 → <b>${danOf(q.k)}段</b>。`;
   if(q.kind === "fuda"){
     return `「<b>${esc(q.stem)}${esc(q.ans)}</b>${esc(q.fol)}」が正しい形。変わらない「${esc(q.stem)}」が語幹、変わる「${esc(q.ans)}」が活用語尾。`;
   }
@@ -2751,8 +2768,9 @@ function startBattle(cfg){
   PLAY = {cfg, ch, qs:makeQuestions(ch), i:0, ok:0, ng:0, combo:0, maxCombo:0, lock:false, wrongList:[],
     hp:b.maxHp, maxHp:b.maxHp, atk:b.atk, def:b.def, nin:b.nin, res:b.res, atkCount:0, crit:b.crit, guard:b.guard, hints:b.hints, gauge:0, jutsu:jutsuKnown(b.nin),
     foe:Object.assign({}, cfg.foe, {max:cfg.foe.hp}), timeBase:cfg.time + b.time, lv0:ninjaInfo().lv, dmgDealt:0, charge:0, xpGot:0};
-  if(cfg.mode === "quick") PLAY.qs = [pick(PLAY.qs)];
-  if(cfg.mode === "train"){ PLAY.foe.icon = pic("shisho"); PLAY.qs = [cfg.drill.gen()]; }
+  PLAY.qs = arrangeNoRepeat(PLAY.qs, RECENT_Q);
+  if(cfg.mode === "quick") PLAY.qs = [PLAY.qs[0]];
+  if(cfg.mode === "train"){ PLAY.foe.icon = pic("shisho"); PLAY.qs = [freshGen(cfg.drill.gen)]; }
   mgStart();
   $("quitBtn").textContent = cfg.mode === "wild" ? "🏃 逃げる" : cfg.mode === "dojo" ? "勝負をやめる" : cfg.mode === "train" ? "修行をやめる" : "任務をやめる";
   // 舞台の背景：外なら地方の色、物語は夕焼け、任務は城の庭、練習は寺子屋
@@ -2862,7 +2880,30 @@ function foeAttack(mult){
   refreshFoe();
   renderHud();
 }
-function ensureQ(){ const p = PLAY; while(p.i >= p.qs.length) p.qs = p.qs.concat(makeQuestions(p.ch)); }
+/* 同じ問題が続けて出ないように（2026-11-23、教員の指示）。直前に出した問題（戦いをまたいで6問ぶん）と同じものは、
+   並べ直したり作り直したりしてさける。 */
+let RECENT_Q = [];
+const qKey = q => [q.kind, q.v ? q.v.w : "", q.f || "", q.x ? q.x.s : "", q.k || "", q.stem || "", q.fol || "", q.only ? 1 : 0].join("|");
+function noteShown(q){ RECENT_Q.push(qKey(q)); if(RECENT_Q.length > 6) RECENT_Q.shift(); }
+function arrangeNoRepeat(batch, recent){
+  const out = [], pool = batch.slice(), win = recent.slice(-3);
+  while(pool.length){
+    const keys = win.concat(out.slice(-3).map(qKey));
+    let idx = pool.findIndex(q => !keys.includes(qKey(q)));
+    if(idx < 0) idx = 0;
+    out.push(pool.splice(idx, 1)[0]);
+  }
+  return out;
+}
+function freshGen(gen){
+  let q = gen();
+  for(let t = 0; t < 20 && RECENT_Q.slice(-4).includes(qKey(q)); t++) q = gen();
+  return q;
+}
+function ensureQ(){
+  const p = PLAY;
+  while(p.i >= p.qs.length) p.qs = p.qs.concat(arrangeNoRepeat(makeQuestions(p.ch), RECENT_Q.concat(p.qs.slice(-3).map(qKey))));
+}
 // 奥（右上）の敵の絵と、左上の敵の箱（名前・Lv・属性・HP・守り/結界・次の攻撃）
 function foeHtml(){
   const f = PLAY.foe;
@@ -3203,7 +3244,7 @@ const WILD = {
   kasumi:  {name:"水面の霞",         title:"霧の川の幻",         icon:"🌫️", elem:"water", hp:1.6, atk:1.0, def:1.0, abs:["dodge", "barrier"], ch:"ni",  lv:17, special:true, item:"rare_kasumi",    note:"霧と一体になった、なぞのくノ一"},
   gozan:   {name:"岩砕きの剛山",     title:"峠の豪傑",           icon:"🪨", elem:"fire",  hp:1.8, atk:1.1, def:1.0, abs:["armor", "rage"],   ch:"san", lv:25, special:true, item:"rare_kote",      note:"素手で岩を砕くという大男"},
   kokufu:  {name:"黒き風の主",       title:"影の森の支配者",     icon:"🌑", elem:"water", hp:1.8, atk:1.1, def:1.1, abs:["dodge", "rage"],   ch:"any", lv:36, special:true, item:"rare_katana",    note:"影の森の最も深い闇に住むという、伝説の忍"},
-  koban:   {name:"小判鼠",       icon:"🐭", elem:"", hp:.6,  atk:.3,  def:2.0, ab:"flee",  ch:"any",  note:"めったに出ない。すぐ逃げるが、両をたくさん持っている", rare:true},
+  koban:   {name:"小判鼠",       icon:"🐭", elem:"", hp:.6,  atk:.3,  def:2.0, ab:"",      ch:"any",  note:"めったに出ない。守りが固いが、両をたくさん持っている", rare:true},
 };
 const ABILITY = {
   steal:{name:"盗み",   text:"まちがえると両を盗まれる（倒せば取り返せる）"},
@@ -3305,6 +3346,8 @@ function showField(){
   placeFHero();
   $("fRyo").innerHTML = `💰${SAVE.ryo}両　Lv${ninjaInfo().lv}`;
   $("fGoal").innerHTML = questCardHtml(true);
+  const free = ninjaInfo().points - allocSpent();
+  $("fHomeBtn").innerHTML = `🎒 装備・ステータス${free > 0 ? `<span class="pts-mini">✨${free}</span>` : ""}`;
   show("sField");
 }
 /* 地方ごとの個性（2026-11-23、教員の指示：「マップのデザインを個性的に」）
