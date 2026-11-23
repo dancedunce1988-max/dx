@@ -190,6 +190,36 @@
   .vtoken.walk{animation:walkbob .3s infinite}
   @keyframes walkbob{50%{margin-top:-6px}}
   .vmsg{text-align:center;color:#ffe08a;font-size:15px;margin-top:10px;min-height:1.5em}
+  /* 外（フィールド） */
+  .flv{display:block;font-size:11px;color:#cfd6ea;font-weight:normal}
+  .fryo{font-size:13px}
+  .fgrid{position:relative;display:grid;grid-template-columns:repeat(8,1fr);width:100%;max-width:min(100%,calc((100vh - 290px) * 8 / 12));margin:0 auto;
+    border:3px solid #4b371c;border-radius:14px;overflow:hidden;box-shadow:0 6px 0 #33240f,0 10px 20px rgba(0,0,0,.45)}
+  .fgrid.rustle{animation:rustle .12s 5}
+  @keyframes rustle{50%{transform:translateX(4px)}}
+  .ft{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:clamp(16px,5.5vw,30px);cursor:pointer;user-select:none}
+  .ft.block{cursor:default}
+  .ft.water{background:repeating-linear-gradient(135deg,#4f8cc4 0 8px,#6aa6dc 8px 16px);cursor:default}
+  .ft.bridge{background:repeating-linear-gradient(90deg,#a7773f 0 6px,#8b5e2b 6px 8px)}
+  .ft.grass{font-size:clamp(12px,4vw,22px)}
+  .ft.exit{animation:pop 1.6s infinite}
+  .fhero{position:absolute;width:12.5%;transform:translate(-50%,-60%);text-align:center;font-size:clamp(20px,7vw,38px);pointer-events:none;z-index:2;
+    transition:left .13s linear,top .13s linear;filter:drop-shadow(0 3px 2px rgba(0,0,0,.4))}
+  .fhero img{width:100%}
+  .fhero.step{animation:hopstep .14s}
+  @keyframes hopstep{50%{margin-top:-4px}}
+  .fmsg{text-align:center;color:#ffe08a;font-size:14px;margin:8px 0 4px;min-height:1.4em}
+  .fpad{display:flex;flex-direction:column;align-items:center;gap:4px}
+  .fpad > div{display:flex;gap:56px}
+  .dpad{width:56px;height:44px;font-size:20px;touch-action:none;user-select:none}
+  .enc-ic{font-size:72px;animation:pop .8s 2}
+  .new{background:#e0362b;color:#fff;border-radius:999px;padding:0 8px;font-size:12px}
+  .dex{display:grid;gap:4px;text-align:left}
+  .dexit{display:grid;grid-template-columns:40px 1fr;grid-template-areas:"ic nm" "ic tx";background:#fffaf0;border:1px solid #d8c08e;border-radius:10px;padding:4px 8px}
+  .dexit .dic{grid-area:ic;font-size:28px;align-self:center}
+  .dexit b{grid-area:nm}
+  .dexit small{grid-area:tx;font-size:11px;color:var(--ink2);line-height:1.5}
+  .dexit.unk{opacity:.6}
   /* 建物の中 */
   .ptitle{font-weight:bold;font-size:18px}
   .pbody{background:linear-gradient(180deg,var(--paper),var(--paper2));color:var(--ink);border-radius:16px;padding:14px;box-shadow:0 6px 16px rgba(0,0,0,.4)}
@@ -351,6 +381,23 @@
     <div class="pbody" id="pBody"></div>
   </section>
 
+  <!-- 外（フィールド） -->
+  <section id="sField" class="screen">
+    <div class="topbar">
+      <button class="iconbtn" onclick="FIELD = null; SAVE.here = 'gate'; saveSave(SAVE); showVillage()">⛩️ 里へ帰る</button>
+      <span class="ptitle"><span id="fName"></span><small id="fLv" class="flv"></small></span>
+      <span class="fryo" id="fRyo"></span>
+    </div>
+    <div class="fgrid" id="fGrid"></div>
+    <div class="fmsg" id="fMsg"></div>
+    <div class="fpad">
+      <button class="iconbtn dpad" data-dx="0" data-dy="-1">▲</button>
+      <div><button class="iconbtn dpad" data-dx="-1" data-dy="0">◀</button><button class="iconbtn dpad" data-dx="1" data-dy="0">▶</button></div>
+      <button class="iconbtn dpad" data-dx="0" data-dy="1">▼</button>
+    </div>
+    <p class="note">矢印（押し続けると歩き続ける）か、行きたいマスをタップ。🌿草むらでは野良忍者が出る！</p>
+  </section>
+
   <!-- 小窓 -->
   <div class="modal" id="modal"><div class="modal-box" id="modalBox"></div></div>
 
@@ -392,7 +439,7 @@
       <div class="tools" id="qTools"></div>
       <div class="feedback" id="qFb"></div>
     </div>
-    <div class="btn-row"><button class="iconbtn" onclick="quitPlay()">任務をやめる</button></div>
+    <div class="btn-row"><button class="iconbtn" id="quitBtn" onclick="quitPlay()">任務をやめる</button></div>
   </section>
 
   <!-- 結果 -->
@@ -1081,6 +1128,7 @@ const PLACES = {
   shop:     {name:"よろず屋",     icon:"🏪", x:20, y:66, open:() => showShop()},
   chaya:    {name:"茶屋",         icon:"🍡", x:80, y:66, open:() => soon("茶屋", "🍡", "旅の人がよく立ち寄る茶屋。<br>だれかと出会えるのは、もう少し先のようじゃ。")},
   home:     {name:"自宅（長屋）", icon:"🏠", x:50, y:86, open:() => showHome()},
+  gate:     {name:"里の門（外へ）", icon:"⛩️", x:84, y:89, open:() => goOutside()},
 };
 const PLAZA = {x:50, y:50};
 let WALKING = false;
@@ -1094,7 +1142,7 @@ function showVillage(){
   const map = $("village");
   let html = `<svg class="vroads" viewBox="0 0 100 100" preserveAspectRatio="none">` +
     Object.values(PLACES).map(p => `<path d="M${PLAZA.x},${PLAZA.y} Q${(PLAZA.x + p.x) / 2},${p.y} ${p.x},${p.y}"/>`).join("") + `</svg>`;
-  [["🌳",6,10],["🌲",94,12],["🌳",8,90],["🌸",92,88],["🏠",32,22],["🏠",68,22],["🌾",34,88],["🌾",66,90],["⛲",50,50],["🐓",62,58],["🌳",4,52],["🌲",96,50]]
+  [["🌳",6,10],["🌲",94,12],["🌳",8,90],["🌸",94,78],["🏠",32,22],["🏠",68,22],["🌾",34,88],["🌾",66,90],["⛲",50,50],["🐓",62,58],["🌳",4,52],["🌲",96,50]]
     .forEach(([e, x, y]) => html += `<span class="vdeco" style="left:${x}%;top:${y}%">${e}</span>`);
   Object.entries(PLACES).forEach(([id, p]) => {
     const isSoon = id === "dojo" || id === "chaya";
@@ -1328,7 +1376,7 @@ function showHome(){
     html += `<div class="slot" onclick="pickSlot('${sl.id}')"><small>${sl.name}</small>${it ? `<span class="eqicon" style="border-color:${TIER[it.tier].color}">${it.icon}</span><span class="sln">${esc(it.name)}</span>` : `<span class="eqicon empty">＋</span><span class="sln">なし</span>`}</div>`;
   });
   html += `</div><h3 class="sec">持ち物</h3><p class="bag">${Object.entries(BAG).map(([id, b]) => `${b.icon}${b.name}×${SAVE.bag[id] || 0}`).join("　")}　💰${SAVE.ryo}両</p>
-    <div class="btn-row"><button class="btn sub" onclick="showZukan()">📘 装備図鑑（${Object.keys(SAVE.inv).length}/${Object.keys(EQUIP).length}）</button></div>`;
+    <div class="btn-row"><button class="btn sub" onclick="showDex()">📖 野良忍者図鑑</button><button class="btn sub" onclick="showZukan()">📘 装備図鑑（${Object.keys(SAVE.inv).length}/${Object.keys(EQUIP).length}）</button></div>`;
   panel("🏠 自宅", html);
   bindHold();
 }
@@ -1687,7 +1735,9 @@ function startBattle(cfg){
     foe:Object.assign({}, cfg.foe, {max:cfg.foe.hp}), timeBase:cfg.time + b.time, lv0:ninjaInfo().lv, dmgDealt:0, charge:0, xpGot:0};
   if(cfg.mode === "quick") PLAY.qs = [pick(PLAY.qs)];
   mgStart();
-  $("hudName").textContent = cfg.mode === "story" ? `📜 ${ch.no}の章「${ch.name}」` : cfg.mode === "quest" ? `⚔️【${cfg.rank}】${QTYPES.find(x => x.ch === ch.id).name}` : `🎯 1問練習（${ch.no}の章）`;
+  $("quitBtn").textContent = cfg.mode === "wild" ? "🏃 逃げる" : "任務をやめる";
+  PLAY.turn = 0; PLAY.stolen = 0; PLAY.fled = false;
+  $("hudName").textContent = cfg.mode === "wild" ? `🌿 野良忍者 ${cfg.foe.name} Lv${cfg.lv}` : cfg.mode === "story" ? `📜 ${ch.no}の章「${ch.name}」` : cfg.mode === "quest" ? `⚔️【${cfg.rank}】${QTYPES.find(x => x.ch === ch.id).name}` : `🎯 1問練習（${ch.no}の章）`;
   show("sPlay");
   renderQ();
 }
@@ -1724,9 +1774,20 @@ async function useJutsu(id){
   renderHud();
   if(p.foe.hp <= 0){ p.lock = true; stopTimer(); await sleep(900); finish(true); }
 }
+// 野良忍者の能力（回復・逃げ足）。1問ごとに呼ぶ
+async function foeAfterTurn(){
+  const p = PLAY; if(!p || p.foe.hp <= 0) return;
+  p.turn++;
+  if(p.foe.ab === "heal" && p.turn % 4 === 0){
+    const h = Math.round(p.foe.max * .12); p.foe.hp = Math.min(p.foe.max, p.foe.hp + h);
+    $("foe").innerHTML = foeHtml(); dmgPop(`回復 ＋${h}`, "#9ff0b8", "foe");
+  }
+  if(p.foe.ab === "flee" && p.turn >= 3){ p.fled = true; dmgPop("逃げた！", "#ffd23f", "foe"); }
+}
 function foeAttack(mult){
   const p = PLAY; if(!p) return;
   p.charge = 0;
+  if(p.foe.ab === "rage" && p.foe.hp < p.foe.max / 2){ mult *= 1.5; if(!p.raged){ p.raged = true; dmgPop("怒った！", "#ff5c5c", "foe"); } }   // 能力【怒り】
   if(p.guard > 0){ p.guard--; dmgPop("無効！", "#9fd3ff", "sPlayHud"); }
   else{
     const d = takenDamage(p.foe.atk, p.def, mult);
@@ -1806,11 +1867,12 @@ async function answer(btn){
     p.gauge = Math.min(jutsuMax(p.nin), p.gauge + 1);
     sfx.ok(); mgCorrect();
     const crit = Math.random() * 100 < p.crit;
-    const dmg = hitDamage(Math.round(p.atk * (crit ? 2 : 1) * (1 + Math.min(p.combo - 1, 5) * .05)), p.foe, crit);
+    const dodged = p.foe.ab === "dodge" && Math.random() < .18;   // 能力【かわす】
+    const dmg = dodged ? 0 : hitDamage(Math.round(p.atk * (crit ? 2 : 1) * (1 + Math.min(p.combo - 1, 5) * .05)), p.foe, crit);
     p.foe.hp -= dmg; p.dmgDealt += dmg;
     const xp = p.cfg.xp || 1; p.xpGot += xp; gainXp(xp);
     $("foe").innerHTML = foeHtml(); $("foe").classList.remove("hit"); void $("foe").offsetWidth; $("foe").classList.add("hit");
-    if(p.cfg.mode !== "quick") dmgPop(`${crit ? "会心！" : ""}−${dmg}`, crit ? "#ffd23f" : "#fff", "foe");
+    if(p.cfg.mode !== "quick") dmgPop(dodged ? "かわされた！" : `${crit ? "会心！" : ""}−${dmg}`, dodged ? "#9fd3ff" : crit ? "#ffd23f" : "#fff", "foe");
     flash(crit ? "会心の一撃！" : p.combo >= 3 ? `${p.combo}連続！` : "見事！", "#ffe08a");
     fb.className = "feedback ok show"; fb.innerHTML = "⭕ " + explain(q);
     renderHud();
@@ -1819,6 +1881,7 @@ async function answer(btn){
       p.charge++;
       if(p.charge >= p.foe.every){ await sleep(650); foeAttack(1); }
       else $("foe").innerHTML = foeHtml();
+      await foeAfterTurn();
     }
     await sleep(q.kind === "type" ? 1400 : 1000);
     nextQ();
@@ -1826,7 +1889,14 @@ async function answer(btn){
     p.ng++; p.combo = 0;
     if(btn) btn.classList.add("ng");
     sfx.ng(); mgWrong();
-    if(p.cfg.mode !== "quick") foeAttack(1.5);   // まちがい・時間切れは、その場で1.5倍の反撃
+    if(p.cfg.mode !== "quick"){
+      foeAttack(1.5);   // まちがい・時間切れは、その場で1.5倍の反撃
+      if(p.foe.ab === "steal" && SAVE.ryo > 0){   // 能力【盗み】
+        const n = Math.min(SAVE.ryo, 3 + p.foe.lv * 2); SAVE.ryo -= n; p.stolen += n; saveSave(SAVE);
+        setTimeout(() => dmgPop(`💰${n}両 盗まれた！`, "#ffd23f", "foe"), 400);
+      }
+      foeAfterTurn();
+    }
     flash(btn ? "うっ！" : "時間切れ！", "#ff9a92");
     p.wrongList.push(q);
     fb.className = "feedback ng show";
@@ -1839,11 +1909,15 @@ function nextQ(){
   if(p.cfg.mode === "quick"){ finish(p.ok > 0); return; }
   if(p.foe.hp <= 0){ finish(true); return; }
   if(p.hp <= 0){ finish(false); return; }
+  if(p.fled){ finish("fled"); return; }
   p.i++; ensureQ();
   renderQ();
 }
 function quitPlay(){
   if(!PLAY) return;
+  if(PLAY.cfg.mode === "wild"){   // 野良忍者からは、いつでも逃げられる
+    stopTimer(); PLAY = null; mgFlush(); resumeField(); FIELD.safe = 4; fieldMsg("🏃 うまく逃げた……"); return;
+  }
   if(!confirm("任務をやめて、村にもどりますか？（報酬はもらえません）")) return;
   stopTimer(); PLAY = null; mgFlush(); showVillage();
 }
@@ -1864,6 +1938,7 @@ function finish(win){
     flash(win ? "正解！" : "おしい！", win ? "#ffe08a" : "#ff9a92");
     return;
   }
+  if(cfg.mode === "wild") return finishWild(p, win, r);
   if(win){
     const bonus = 1 + battleStats().ryo / 100;
     if(cfg.mode === "story"){
@@ -1910,11 +1985,307 @@ function finish(win){
   show("sResult");
 }
 let LAST_CFG = null;
+function wildDrop(lv){
+  const tier = lv < 4 ? 0 : lv < 9 ? 1 : lv < 16 ? 2 : lv < 25 ? 3 : 4;
+  const pool = Object.values(EQUIP).filter(it => it.tier === tier && (it.src.includes("quest") || it.src.includes("shop") || it.src.includes("shop2")));
+  const fresh = pool.filter(it => !SAVE.inv[it.id]);
+  return fresh.length ? pick(fresh) : null;
+}
+function finishWild(p, win, r){
+  const foe = p.foe, w = WILD[foe.kind];
+  let body = "", rewards = [];
+  if(win === true){
+    const bonus = 1 + battleStats().ryo / 100;
+    const g = Math.round(wildRyo(foe.lv, foe.kind) * bonus) + p.stolen;
+    SAVE.ryo += g; rewards.push(`💰 ${g}両${p.stolen ? `（取り返した${p.stolen}両をふくむ）` : ""}`);
+    if(Math.random() < .12){ const d = wildDrop(foe.lv); if(d){ SAVE.inv[d.id] = 1; rewards.push(`${d.icon} ${d.name}（${TIER[d.tier].name}）`); } }
+    if(Math.random() < .25){ const k = pick(Object.keys(BAG)); SAVE.bag[k] = (SAVE.bag[k] || 0) + 1; rewards.push(`${BAG[k].icon} ${BAG[k].name}`); }
+    const xp = wildXp(foe.lv); p.xpGot += xp; gainXp(xp);
+    SAVE.dex[foe.kind].beat++;
+    saveSave(SAVE); sfx.clear();
+    body = `<div class="enc-ic">${w.icon}</div><h2>🎉 ${esc(w.name)}（Lv${foe.lv}）をたおした！</h2>`;
+  }else if(win === "fled"){
+    body = `<div class="enc-ic">💨</div><h2>${esc(w.name)}に逃げられた……</h2><p>${p.stolen ? `盗まれた${p.stolen}両は戻らなかった。` : ""}次は早めに倒そう！</p>`;
+  }else{
+    body = `<h2>💥 気を失った……</h2><p>${esc(w.name)}（Lv${foe.lv}）に負けてしまった。<br>通りがかりの村人が、里まで運んでくれた。</p>`;
+  }
+  const ni = ninjaInfo(), lvUp = ni.lv - p.lv0;
+  rewards.push(`✨ 経験値 ${p.xpGot}`);
+  $("resultBody").innerHTML = `${body}
+    <div class="rewards"><b>${win === true ? "手に入れた" : "結果"}</b>${rewards.map(x => `<span>${x}</span>`).join("")}</div>
+    ${lvUp > 0 ? `<div class="lvup">⬆️ 忍者Lv ${p.lv0} → <b>${ni.lv}</b>！ 忍術ポイントが増えた（🏠自宅で振り分けよう）</div>` : ""}
+    <div class="stat">正解 ${p.ok}　まちがい ${p.ng}　最大 ${p.maxCombo}連続<br>「${MG_GENRE}」レベル ${mgSigned(r.net)}</div>
+    ${p.wrongList.length ? `<div class="scroll" style="margin-top:12px;text-align:left"><h2 style="font-size:18px">ふりかえり</h2>${p.wrongList.slice(0, 6).map(q => `<p>・${explain(q)}</p>`).join("")}</div>` : ""}
+    <div class="btn-row" id="resultBtns">
+      ${win === false ? `<button class="btn" onclick="FIELD = null; SAVE.here = 'home'; saveSave(SAVE); showVillage()">里へ</button>`
+        : `<button class="btn" onclick="resumeField(); FIELD.safe = 3">外へもどる</button><button class="btn sub" onclick="FIELD = null; SAVE.here = 'gate'; saveSave(SAVE); showVillage()">里へ帰る</button>`}
+    </div>`;
+  show("sResult");
+}
+
+/* =====================================================================
+   外（フィールド）と野良忍者（2026-11-23、教員の指示：「外に出られるようにしてほしい。歩いているうちに、
+   ランダムで野良忍者と出会う。強さや能力はそれぞれ設定。倒すと経験値やお金。ときどき装備品やアイテムも落ちる」）
+   ・里の門から外へ出る。外は5つの地方（里の外れ→竹林→霧の川辺→岩山の峠→影の森）が上へつながっている。
+   ・矢印ボタン（押し続けると歩き続ける）か、行きたいマスをタップして歩く。🌿草むらを歩くと、ときどき野良忍者が出る。
+   ・野良忍者は種類ごとに強さ（HP・攻撃・守りの倍率）と能力（かわす・回復・盗む・怒り・逃げる など）がある。
+     レベルは地方ごとの範囲から決まり、強さは任務の敵と同じ物差し（QRANK）をレベルでなめらかにつないで決める。
+   ・倒すと経験値と両。ときどき装備や道具を落とす。出会った・倒した記録は「野良忍者図鑑」（SAVE.dex）に残る。
+   ・負けたときは、里へ運ばれるだけ（両は減らない）。戦いはいつでも「逃げる」でやめられる。
+   ===================================================================== */
+const FIELDS = [
+  {name:"里の外れ",   lv:[1, 4],   tree:"🌳", rock:"🪨", bg:"#9fd08a", grass:"#7fbf63", path:"#e3cf9f",
+   map:["TTTUUTTT","TGG..GGT","TGGG.GGT","T...GGGT","T.TTGG.T","T.GGGG.T","TGGG...T","TGG.TT.T","T...GGGT","TGG.GGGT","TGG...TT","TTTDDTTT"],
+   kinds:["hagure", "tanuki", "kaeru", "saru"]},
+  {name:"竹林の小道", lv:[4, 9],   tree:"🎋", rock:"🪨", bg:"#8fca8a", grass:"#5fae5a", path:"#dcc79a",
+   map:["TTTUUTTT","TGGG.GGT","TG.T.TGT","TG.GGG.T","T..GTG.T","TGGG.GGT","TTG..TGT","TGGG.GGT","T.TGGT.T","TG..GG.T","TGG..GGT","TTTDDTTT"],
+   kinds:["kaeru", "saru", "fukuro", "kitsune"]},
+  {name:"霧の川辺",   lv:[9, 16],  tree:"🌲", rock:"🪨", bg:"#9cc9e2", grass:"#6fb08a", path:"#d8c9a3",
+   map:["TTTUUTTT","TGG..GGT","WWW==WWW","TGG..GGT","TG.GGG.T","TGGG.TTT","WWW=WWWW","TGG.GGGT","T..GGG.T","TGGG..GT","TGG..GGT","TTTDDTTT"],
+   kinds:["kitsune", "hebi", "koumori", "kumo"]},
+  {name:"岩山の峠",   lv:[16, 25], tree:"🌲", rock:"🪨", bg:"#c9b89a", grass:"#8fae6a", path:"#d9c8a6",
+   map:["RRRUURRR","RGG..GGR","RGRR.GGR","R..GG.RR","RG.RGG.R","RGG.GGGR","RR.GRR.R","RGGG..GR","R.RGG.GR","RG..GRGR","RGG..GGR","RRRDDRRR"],
+   kinds:["kumo", "ookami", "kuma", "taka"]},
+  {name:"影の森",     lv:[25, 35], tree:"🌲", rock:"🪨", bg:"#5f7a5c", grass:"#3f6a47", path:"#b9a888",
+   map:["TTTTTTTT","TGGG.GGT","TG.TGG.T","TGG.GTGT","T.GGG..T","TGTG.GGT","TGG.GT.T","TT.GGGGT","TGGG.TGT","TG..GG.T","TGG..GGT","TTTDDTTT"],
+   kinds:["taka", "oni", "yurei", "ryu"]},
+];
+// 野良忍者の種類。hp・atk・def は倍率、every は攻撃の間（なしなら格どおり）、ab は能力、ch は出す問題の章
+const WILD = {
+  hagure:  {name:"はぐれ見習い", icon:"🥷", hp:1.0, atk:1.0, def:1.0, ab:"",      ch:"jo",   note:"ふつうの見習い忍者"},
+  tanuki:  {name:"狸忍",         icon:"🦝", hp:1.1, atk:.8,  def:.8,  ab:"steal", ch:"jo",   note:"化けるのが得意。両をくすねる"},
+  kaeru:   {name:"蛙忍",         icon:"🐸", hp:1.2, atk:.8,  def:1.0, ab:"heal",  ch:"ichi", note:"ときどき傷を治す"},
+  saru:    {name:"猿飛び",       icon:"🐒", hp:.85, atk:1.0, def:.8,  ab:"dodge", ch:"ichi", note:"身軽で、攻撃をかわすことがある"},
+  fukuro:  {name:"梟忍",         icon:"🦉", hp:.9,  atk:1.1, def:1.0, ab:"swift", ch:"ni",   note:"夜目がきき、すばやく攻める"},
+  kitsune: {name:"狐忍",         icon:"🦊", hp:1.0, atk:1.0, def:1.0, ab:"dodge", ch:"ni",   note:"人を化かし、攻撃をかわす"},
+  hebi:    {name:"蛇忍",         icon:"🐍", hp:1.0, atk:1.0, def:1.1, ab:"rage",  ch:"san",  note:"追いつめられると怒って強くなる"},
+  koumori: {name:"蝙蝠忍",       icon:"🦇", hp:.8,  atk:1.1, def:.9,  ab:"swift", ch:"san",  note:"すばやく何度も攻めてくる"},
+  kumo:    {name:"蜘蛛忍",       icon:"🕷️", hp:1.1, atk:.9,  def:1.2, ab:"heal",  ch:"shi",  note:"糸で傷をふさぐ"},
+  ookami:  {name:"狼忍",         icon:"🐺", hp:1.1, atk:1.1, def:1.0, ab:"rage",  ch:"shi",  note:"群れの長。怒ると手がつけられない"},
+  kuma:    {name:"熊忍",         icon:"🐻", hp:1.4, atk:1.15,def:1.1, ab:"giant", ch:"tsui", note:"大きな体で、なかなか倒れない"},
+  taka:    {name:"鷹忍",         icon:"🦅", hp:.9,  atk:1.1, def:1.0, ab:"dodge", ch:"tsui", note:"空から急降下。攻撃をかわす"},
+  oni:     {name:"鬼忍",         icon:"👹", hp:1.3, atk:1.2, def:1.2, ab:"rage",  ch:"any",  note:"影の森の主。怒ると恐ろしい"},
+  yurei:   {name:"亡霊忍",       icon:"👻", hp:1.0, atk:1.0, def:.8,  ab:"dodge", ch:"any",  note:"すり抜けて、攻撃をかわす"},
+  ryu:     {name:"龍忍",         icon:"🐉", hp:1.4, atk:1.2, def:1.6, ab:"armor", ch:"any",  note:"伝説の忍。鱗が固い（忍術が効く）"},
+  koban:   {name:"小判鼠",       icon:"🐭", hp:.6,  atk:.3,  def:2.0, ab:"flee",  ch:"any",  note:"めったに出ない。すぐ逃げるが、両をたくさん持っている", rare:true},
+};
+const ABILITY = {
+  steal:{name:"盗み",   text:"まちがえると両を盗まれる（倒せば取り返せる）"},
+  heal: {name:"回復",   text:"4問ごとにHPを回復する"},
+  dodge:{name:"かわす", text:"正解しても、ときどき攻撃をかわされる"},
+  swift:{name:"すばやい", text:"毎問攻撃してくる"},
+  rage: {name:"怒り",   text:"HPが半分を切ると攻撃が1.5倍"},
+  giant:{name:"巨体",   text:"HPがとても多い"},
+  armor:{name:"鎧",     text:"守りが固い。忍術が効く"},
+  flee: {name:"逃げ足", text:"3問たつと逃げてしまう。早く倒そう"},
+};
+// 任務の敵の強さ（QRANK）を、レベルでなめらかにつなぐ（D=Lv2, C=Lv5, B=Lv11, A=Lv18, S=Lv27）
+const WILD_REF = [[1, {hp:36, atk:7, def:0}], [2, "D"], [5, "C"], [11, "B"], [18, "A"], [27, "S"]];
+function wildBase(lv){
+  const pts = WILD_REF.map(([l, r]) => [l, typeof r === "string" ? QRANK[r] : r]);
+  let a = pts[0], b = pts[1];
+  for(let i = 0; i < pts.length - 1; i++){ if(lv >= pts[i][0]){ a = pts[i]; b = pts[i + 1]; } }
+  const t = (lv - a[0]) / (b[0] - a[0]);
+  const v = k => a[1][k] + (b[1][k] - a[1][k]) * t;   // 最後の区間より上は、そのまま延ばす
+  return {hp:v("hp"), atk:v("atk"), def:v("def")};
+}
+function makeWild(kind, lv){
+  const w = WILD[kind], B = wildBase(lv);
+  // 野良忍者は何度も戦うので、任務の敵より少し弱め（HP7割・攻撃85%）
+  const f = {kind, lv, icon:w.icon, name:w.name, ab:w.ab,
+    hp:Math.max(10, Math.round(B.hp * .7 * w.hp)), atk:Math.max(2, Math.round(B.atk * .85 * w.atk)), def:Math.round(B.def * w.def),
+    every:lv < 4 ? 2 : 1};
+  if(w.ab === "swift") f.every = 1;
+  if(w.ab === "armor") f.def = Math.round(f.def * 1.5) + 4;
+  return f;
+}
+const wildXp = lv => 3 + lv * 2;
+const wildRyo = (lv, kind) => Math.round((4 + lv * 3) * (kind === "koban" ? 8 : 1));
+
+/* ---------- フィールドの表示と移動 ---------- */
+let FIELD = null;   // {f:地方の番号, x, y, safe:出会わない残り歩数, walking}
+function fieldTile(fi, x, y){ const m = FIELDS[fi].map; return (m[y] || "")[x] || "T"; }
+const walkable = c => c !== "T" && c !== "R" && c !== "W";
+function enterField(fi, from){
+  const F = FIELDS[fi];
+  const y = from === "top" ? 1 : F.map.length - 2;
+  const row = F.map[y];
+  let x = row.indexOf(".") >= 0 ? (walkable(row[3]) ? 3 : walkable(row[4]) ? 4 : row.indexOf(".")) : 3;
+  FIELD = {f:fi, x, y, safe:3, walking:false, queue:[]};
+  SAVE.field = {f:fi, x, y}; SAVE.fieldMax = Math.max(SAVE.fieldMax || 0, fi); saveSave(SAVE);
+  showField();
+  const ni = ninjaInfo();
+  const warn = ni.lv < F.lv[0] ? `<br><span class="lockmsg">⚠️ ここは推奨Lv${F.lv[0]}〜。今のLv${ni.lv}では危ないかも</span>` : "";
+  fieldMsg(`📍 ${F.name}（野良忍者 Lv${F.lv[0]}〜${F.lv[1]}）${warn}`);
+}
+function goOutside(){
+  sfx.tap();
+  if(SAVE.field && FIELDS[SAVE.field.f] && SAVE.field.f === 0){ enterField(0, "bottom"); return; }
+  enterField(0, "bottom");
+}
+function resumeField(){
+  if(!FIELD){ const s = SAVE.field || {f:0}; FIELD = {f:s.f || 0, x:s.x ?? 3, y:s.y ?? 10, safe:3, walking:false, queue:[]}; }
+  showField();
+}
+function showField(){
+  const F = FIELDS[FIELD.f];
+  $("fName").textContent = `${F.name}`;
+  $("fLv").textContent = `野良忍者 Lv${F.lv[0]}〜${F.lv[1]}`;
+  const g = $("fGrid");
+  g.style.background = F.bg;
+  let html = "";
+  F.map.forEach((row, y) => [...row].forEach((c, x) => {
+    let cls = "ft", inner = "";
+    if(c === "T"){ cls += " block"; inner = F.tree; }
+    else if(c === "R"){ cls += " block"; inner = F.rock; }
+    else if(c === "W"){ cls += " water"; }
+    else if(c === "G"){ cls += " grass"; inner = "🌿"; }
+    else if(c === "="){ cls += " bridge"; }
+    else if(c === "U"){ cls += " exit"; inner = FIELD.f + 1 < FIELDS.length ? "⬆️" : "🚧"; }
+    else if(c === "D"){ cls += " exit"; inner = FIELD.f === 0 ? "⛩️" : "⬇️"; }
+    else cls += " path";
+    html += `<div class="${cls}" data-x="${x}" data-y="${y}" style="${c === "G" ? `background:${F.grass}` : c === "." || c === "U" || c === "D" ? `background:${F.path}` : ""}">${inner}</div>`;
+  }));
+  html += `<div class="fhero" id="fHero">${pic("hero")}</div>`;
+  g.innerHTML = html;
+  g.querySelectorAll(".ft").forEach(e => e.onclick = () => tapTile(+e.dataset.x, +e.dataset.y));
+  placeFHero();
+  $("fRyo").innerHTML = `💰${SAVE.ryo}両　Lv${ninjaInfo().lv}`;
+  show("sField");
+}
+function placeFHero(){
+  const h = $("fHero"); if(!h) return;
+  h.style.left = (FIELD.x + .5) / 8 * 100 + "%";
+  h.style.top = (FIELD.y + .5) / FIELDS[FIELD.f].map.length * 100 + "%";
+}
+function fieldMsg(t){ $("fMsg").innerHTML = t; }
+// 行きたいマスまでの道を探す（幅優先）
+function findPath(tx, ty){
+  const F = FIELDS[FIELD.f], H = F.map.length, key = (x, y) => y * 8 + x;
+  const prev = new Map([[key(FIELD.x, FIELD.y), null]]), q = [[FIELD.x, FIELD.y]];
+  while(q.length){
+    const [x, y] = q.shift();
+    if(x === tx && y === ty) break;
+    [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dx, dy]) => {
+      const nx = x + dx, ny = y + dy;
+      if(nx < 0 || nx >= 8 || ny < 0 || ny >= H || prev.has(key(nx, ny)) || !walkable(fieldTile(FIELD.f, nx, ny))) return;
+      prev.set(key(nx, ny), [x, y]); q.push([nx, ny]);
+    });
+  }
+  if(!prev.has(key(tx, ty))) return null;
+  const path = []; let cur = [tx, ty];
+  while(cur && !(cur[0] === FIELD.x && cur[1] === FIELD.y)){ path.unshift(cur); cur = prev.get(key(cur[0], cur[1])); }
+  return path;
+}
+function tapTile(x, y){
+  if(fieldBusy()) return;
+  if(!walkable(fieldTile(FIELD.f, x, y))) return;
+  const path = findPath(x, y);
+  if(path && path.length) walkPath(path);
+}
+async function walkPath(path){
+  FIELD.walking = true;
+  for(const [x, y] of path){
+    if(!FIELD || !$("sField").classList.contains("show")) break;
+    const stop = await stepTo(x, y);
+    if(stop) break;
+    await sleep(140);
+  }
+  if(FIELD) FIELD.walking = false;
+}
+function fieldBusy(){ return !FIELD || FIELD.walking || !$("sField").classList.contains("show") || $("modal").classList.contains("show"); }
+function arrowStep(dx, dy){
+  if(fieldBusy()) return;
+  const nx = FIELD.x + dx, ny = FIELD.y + dy;
+  if(nx < 0 || nx >= 8 || ny < 0 || ny >= FIELDS[FIELD.f].map.length || !walkable(fieldTile(FIELD.f, nx, ny))){ tone(140, .05, "square", .03); return; }
+  FIELD.walking = true;
+  stepTo(nx, ny).then(() => { if(FIELD) FIELD.walking = false; });
+}
+// 1歩進む。出会い・出口ならtrue（歩くのをやめる）
+async function stepTo(x, y){
+  FIELD.x = x; FIELD.y = y;
+  SAVE.field = {f:FIELD.f, x, y}; saveSave(SAVE);
+  placeFHero();
+  const h = $("fHero"); h.classList.remove("step"); void h.offsetWidth; h.classList.add("step");
+  const c = fieldTile(FIELD.f, x, y);
+  if(c === "U"){
+    if(FIELD.f + 1 < FIELDS.length){ await sleep(200); enterField(FIELD.f + 1, "bottom"); }
+    else fieldMsg("🚧 この先は、まだ道がない（準備中）");
+    return true;
+  }
+  if(c === "D"){
+    await sleep(200);
+    if(FIELD.f === 0){ FIELD = null; SAVE.here = "gate"; saveSave(SAVE); showVillage(); }
+    else enterField(FIELD.f - 1, "top");
+    return true;
+  }
+  if(c === "G"){
+    tone(900 + Math.random() * 200, .02, "triangle", .02);
+    if(FIELD.safe > 0){ FIELD.safe--; return false; }
+    if(Math.random() < .12){ await encounter(); return true; }
+  }else if(FIELD.safe > 0) FIELD.safe--;
+  return false;
+}
+async function encounter(){
+  const F = FIELDS[FIELD.f];
+  const kind = Math.random() < .03 ? "koban" : pick(F.kinds);
+  const lv = F.lv[0] + Math.floor(Math.random() * (F.lv[1] - F.lv[0] + 1));
+  const foe = makeWild(kind, lv);
+  SAVE.dex = SAVE.dex || {};
+  const d = SAVE.dex[kind] = SAVE.dex[kind] || {seen:0, beat:0};
+  d.seen++; saveSave(SAVE);
+  // がさがさ演出
+  const g = $("fGrid"); g.classList.add("rustle");
+  [300, 500, 300, 700].forEach((f, i) => tone(f, .08, "square", .05, i * .09));
+  await sleep(700);
+  g.classList.remove("rustle");
+  const w = WILD[kind], ab = w.ab ? ABILITY[w.ab] : null;
+  modal(`<div class="enc-ic">${w.icon}</div><h3>野良忍者が現れた！</h3><p style="font-size:20px"><b>${w.name}</b>　Lv${lv}${d.beat ? "" : `　<span class="new">${d.seen > 1 ? "" : "はじめて！"}</span>`}</p>
+    <p style="font-size:13px">${w.note}<br>${ab ? `<b>能力【${ab.name}】</b>${ab.text}<br>` : ""}HP${foe.hp}・攻撃${foe.atk}・守り${foe.def}・${foe.every === 1 ? "毎問" : foe.every + "問ごと"}に攻撃</p>`,
+    [["戦う！", () => { closeModal(); startWild(foe); }], ["逃げる", () => { closeModal(); FIELD.safe = 4; fieldMsg("うまく逃げた……"); }]]);
+}
+function wildCh(w){
+  // その野良忍者の得意な章の問題。まだ本任務で終えていない章なら、終えた章の中から（何も終えていなければ序の章）
+  const done = STORY_ORDER.filter(chCleared);
+  let id = w.ch === "any" ? pick(done.length ? done : ["jo"]) : w.ch;
+  if(!chCleared(id) && id !== "jo") id = done.length ? pick(done) : "jo";
+  return CHAPTERS[chIndex(id)];
+}
+function startWild(foe){
+  const w = WILD[foe.kind];
+  startBattle({mode:"wild", ch:wildCh(w), foe, time:Math.max(12, 26 - Math.floor(foe.lv / 3)), xp:Math.max(1, Math.round(foe.lv / 3)), lv:foe.lv, kind:foe.kind});
+}
+function showDex(){
+  const dex = SAVE.dex || {};
+  const n = Object.keys(WILD).filter(k => dex[k] && dex[k].seen).length;
+  let html = `<h3>📖 野良忍者図鑑（${n}/${Object.keys(WILD).length}）</h3><div class="dex">`;
+  Object.entries(WILD).forEach(([k, w]) => {
+    const d = dex[k];
+    const where = FIELDS.filter(F => F.kinds.includes(k)).map(F => F.name).join("・") || "どこかの草むら（めったに出ない）";
+    html += d && d.seen
+      ? `<div class="dexit"><span class="dic">${w.icon}</span><b>${w.name}</b><small>${w.ab ? `【${ABILITY[w.ab].name}】` : ""}${w.note}<br>出会った${d.seen}・倒した${d.beat}　｜${where}</small></div>`
+      : `<div class="dexit unk"><span class="dic">？</span><b>？？？</b><small>${where}</small></div>`;
+  });
+  modal(html + `</div>`, [["とじる", closeModal]]);
+}
 
 /* =====================================================================
    はじめ
    ===================================================================== */
 updateMuteBtn();
+// 外の矢印ボタン：押し続けると歩き続ける
+document.querySelectorAll(".dpad").forEach(btn => {
+  let t = null;
+  const go = () => arrowStep(+btn.dataset.dx, +btn.dataset.dy);
+  btn.addEventListener("pointerdown", e => { e.preventDefault(); try{ btn.setPointerCapture(e.pointerId); }catch(err){} go(); clearInterval(t); t = setInterval(go, 190); });
+  ["pointerup", "pointercancel", "lostpointercapture"].forEach(ev => btn.addEventListener(ev, () => { clearInterval(t); t = null; }));
+  btn.addEventListener("contextmenu", e => e.preventDefault());
+});
+document.addEventListener("keydown", e => {
+  if(!$("sField").classList.contains("show") || $("modal").classList.contains("show")) return;
+  const k = {ArrowUp:[0,-1], ArrowDown:[0,1], ArrowLeft:[-1,0], ArrowRight:[1,0]}[e.key];
+  if(k){ e.preventDefault(); arrowStep(k[0], k[1]); }
+});
 if(!SAVE.introSeen){
   playStory([
     ["nar", "ここは山奥の忍びの里、<span class=em>変化の里</span>。"],
