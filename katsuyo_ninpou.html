@@ -348,6 +348,8 @@
   .bxsub{font-size:11px;color:var(--ink2)}
   .bxnext{font-size:11px;color:var(--ink2)}
   .bxnext.soon{color:#b3261e;font-weight:bold}
+  .cpubar{height:6px;background:#ddd2b8;border-radius:99px;overflow:hidden;margin-top:2px}
+  .cpubar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#f2c14e,#e0362b)}
   .pbox.hurt{animation:shake .35s}
   .ebox .etag,.pbox .etag{font-size:10px}
   .xpbox{background:rgba(0,0,0,.3);border:1px solid #6ad1ff;border-radius:12px;padding:8px 12px;margin:8px auto;max-width:360px}
@@ -1213,6 +1215,12 @@ EQ_DEF.forEach(([slot, main, sub, names, icons]) => names.forEach((name, t) => {
 ].forEach(([id, slot, t, name, icon, st, eff]) => EQUIP[id] = {id, slot, tier:t, name, icon, st, eff, req:{lv:TIER[t].lv}, src:["special"], rare:true});
 const GOLD_RARES = ["rare_kinsuzu", "rare_tengu", "rare_kakuremino", "acc_neko"];   // 金色の野良忍者が落とす秘宝
 // 特別な効果・条件・手に入れ方
+// 道場の初勝利でだけもらえる品
+[
+  ["dojo_tenugui", "head",  1, "道場の手ぬぐい", "🧻", {nin:3, def:2},  {time:2}],
+  ["dojo_gi",      "body",  2, "道場着",         "🥋", {hp:7, def:4},   {guard:1}],
+  ["dojo_kote",    "arm",   2, "師範代の籠手",   "🦾", {def:7, atk:3},  {crit:5}],
+].forEach(([id, slot, t, name, icon, st, eff]) => EQUIP[id] = {id, slot, tier:t, name, icon, st, eff, req:{lv:TIER[t].lv}, src:["dojo"]});
 Object.assign(EQUIP.waist2.eff, {hint:1});
 Object.assign(EQUIP.feet3.eff, {time:3});
 Object.assign(EQUIP.face4.eff, {guard:1});
@@ -1223,7 +1231,7 @@ EQUIP.body3.req.stat = {hp:15};    EQUIP.body4.req.stat = {hp:25};
 EQUIP.arm4.req.stat = {def:20};    EQUIP.head4.req.stat = {nin:20};
 EQUIP.face4.src = ["dojo"]; EQUIP.neck4.src = ["meet"]; EQUIP.waist4.src = ["dojo"]; EQUIP.feet3.src = ["quest", "meet"];
 ["head0","arm0","neck0","legs0","waist0"].forEach(id => EQUIP[id].src = ["shop", "story"]);
-const SRC_NAME = {special:"名のある忍・金色の野良忍者（秘宝）", shop:"店", quest:"任務の報酬", story:"本任務", dojo:"道場（準備中）", meet:"出会い（準備中）", start:"はじめから"};
+const SRC_NAME = {special:"名のある忍・金色の野良忍者（秘宝）", shop:"店", quest:"任務の報酬", story:"本任務", dojo:"道場（初勝利のごほうび）", meet:"出会い（準備中）", start:"はじめから"};
 const EFF_NAME = {guard:n => `まちがい${n}回分のダメージを無効`, hint:n => `煙玉＋${n}`, time:n => `制限時間＋${n}秒`, crit:n => `会心率＋${n}%`, ryo:n => `報酬の両＋${n}%`};
 const START_GEAR = ["body0", "feet0", "weapon0"];
 // 装備の値段（店で買う値段）。売るときは半額（2026-11-23、教員の指示）
@@ -1357,7 +1365,7 @@ function itemChip(it, extra){
    ===================================================================== */
 const PLACES = {
   castle:   {name:"城（任務所）", icon:"🏯", x:50, y:13, open:() => showCastle()},
-  dojo:     {name:"道場",         icon:"🥋", x:18, y:36, open:() => soon("道場", "🥋", "道場主の鉄斎が、門下生をきたえておる。<br>コンピュータとの勝負は、もうすぐできるようになるぞ。")},
+  dojo:     {name:"道場",         icon:"🥋", x:18, y:36, open:() => showDojo()},
   terakoya: {name:"寺子屋",       icon:"📚", x:82, y:36, open:() => showTerakoya()},
   shop:     {name:"よろず屋",     icon:"🏪", x:20, y:66, open:() => showShop()},
   chaya:    {name:"茶屋",         icon:"🍡", x:80, y:66, open:() => soon("茶屋", "🍡", "旅の人がよく立ち寄る茶屋。<br>だれかと出会えるのは、もう少し先のようじゃ。")},
@@ -1379,11 +1387,11 @@ function showVillage(){
   [["🌳",6,10],["🌲",94,12],["🌳",8,90],["🌸",94,78],["🏠",32,22],["🏠",68,22],["🌾",34,88],["🌾",66,90],["⛲",50,50],["🐓",62,58],["🌳",4,52],["🌲",96,50]]
     .forEach(([e, x, y]) => html += `<span class="vdeco" style="left:${x}%;top:${y}%">${e}</span>`);
   Object.entries(PLACES).forEach(([id, p]) => {
-    const isSoon = id === "dojo" || id === "chaya";
+    const isSoon = id === "chaya";
     const ns = nextStory();
     const storyHere = (id === "terakoya" && ns === "jo") || (id === "gate" && ns && ns !== "jo");
     const alert = storyHere ? `<span class="vbadge story">📜</span><span class="vtarget">▼ここ</span>` : id === "home" && free > 0 ? `<span class="vbadge">✨</span>` : "";
-    html += `<div class="vplace${isSoon ? " soon" : ""}" data-id="${id}" style="left:${p.x}%;top:${p.y}%"><div class="vicon">${p.icon}${alert}</div><div class="vname">${p.name}${isSoon ? "<small>準備中</small>" : ""}</div></div>`;
+    html += `<div class="vplace${isSoon ? " soon" : ""}" data-id="${id}" style="left:${p.x}%;top:${p.y}%"><div class="vicon">${p.icon}${alert}</div><div class="vname">${p.name}${id === "dojo" && ninjaInfo().lv < DOJO_LV ? `<small>Lv${DOJO_LV}〜</small>` : ""}${isSoon ? "<small>準備中</small>" : ""}</div></div>`;
   });
   html += `<div class="vtoken" id="vtoken">${pic("hero")}</div>`;
   map.innerHTML = html;
@@ -1413,9 +1421,12 @@ async function goPlace(id){
     WALKING = true;
     const t = $("vtoken");
     if(t) t.classList.add("walk");
-    // いったん広場を通って行く
-    placeVToken(PLAZA.x, PLAZA.y, true); await sleep(450);
-    placeVToken(p.x, p.y, true); await sleep(700);
+    // 目的の建物へまっすぐ歩く（2026-11-23、教員の指示：「いちいち真ん中を通るのは不自然」）。歩く時間は距離に合わせる
+    const from = PLACES[SAVE.here] || PLACES.home;
+    const ms = Math.round(Math.max(350, Math.min(1000, Math.hypot(p.x - from.x, p.y - from.y) * 13)));
+    if(t) t.style.transition = `left ${ms}ms linear, top ${ms}ms linear`;
+    if(t){ t.style.left = p.x + "%"; t.style.top = p.y + "%"; }
+    await sleep(ms);
     if(t) t.classList.remove("walk");
     SAVE.here = id; saveSave(SAVE);
     WALKING = false;
@@ -1831,6 +1842,114 @@ function showZukan(){
 }
 
 /* =====================================================================
+   道場（2026-11-23、教員の指示：「道場はある程度強くなったレベルから挑戦できるように」）
+   忍者Lv8から入門できる。相手は6人（だんだん強くなる。それぞれ挑める忍者Lvがある）。
+   勝負は「早押し対決」：相手（コンピュータ）は、考える時間（think秒）がたつと答える（正答率 acc）。
+   ・こちらが先に正解すると攻撃。先に相手に正解されると攻撃を受け、その問題は終わる（解説は見られる）。
+   ・相手がまちがえたら、そのまま答えられる。こちらがまちがえると反撃を受ける。
+   ・はじめて勝ったときだけ、両と品（道場だけの装備など）がもらえる。再戦は少しの両と経験値。
+   ===================================================================== */
+const DOJO_LV = 8;
+const DOJO = [
+  {id:"taro",  name:"門下生・太郎",   icon:"🧒", lv:8,  think:9,   acc:.6,  hp:180, atk:16, def:6,  res:6,  ryo:300,  item:"dojo_tenugui", talk:"よろしくお願いします！ 手加減はしませんよ！"},
+  {id:"hana",  name:"門下生・花",     icon:"👧", lv:10, think:8,   acc:.7,  hp:220, atk:20, def:8,  res:10, ryo:450,  item:"dojo_gi",      talk:"太郎に勝ったのね。でも、わたしは速いわよ。"},
+  {id:"go",    name:"師範代・剛",     icon:"💪", lv:14, think:6.5, acc:.75, hp:300, atk:30, def:14, res:10, ryo:700,  item:"dojo_kote",    talk:"ほう、なかなかの腕前だ。だが、おれの速さについてこられるか！"},
+  {id:"shizu", name:"師範・静",       icon:"🧘", lv:18, think:5.5, acc:.85, hp:380, atk:45, def:18, res:22, ryo:1000, item:"acc_hoju",     talk:"心を静めなさい。あわてた者から負けるのです。"},
+  {id:"tessai",name:"道場主・鉄斎",   icon:"🥷", lv:22, think:4.5, acc:.9,  hp:460, atk:65, def:24, res:24, ryo:1600, item:"waist4",       talk:"わしが道場主の鉄斎じゃ。全力でかかってこい！"},
+  {id:"kage",  name:"影の師範",       icon:"👤", lv:28, think:3.5, acc:.95, hp:560, atk:95, def:30, res:30, ryo:3000, item:"face4",        talk:"……鉄斎を破った者か。影の速さを、見せてやろう。", hidden:true},
+];
+function dojoBeaten(id){ return !!(SAVE.dojo && SAVE.dojo[id]); }
+function showDojo(){
+  const ni = ninjaInfo();
+  let html = `<div class="npc-line"><span class="npc">🥷</span><div>道場主・鉄斎「${ni.lv < DOJO_LV ? `まだ早い！ 忍者Lv${DOJO_LV}になったら、入門を許そう。外で野良忍者ときたえてくるのじゃ。` : "よう来た。ここでは早押しの勝負じゃ。相手より先に、正しく答えよ！"}」</div></div>
+    <p class="note-dark">⚡ 早押し対決：相手は決まった時間で答えてくる。先に正解すれば攻撃、先に答えられると攻撃を受ける。<br>はじめて勝つと、道場だけの品がもらえる。</p>`;
+  DOJO.forEach((d, i) => {
+    const prevOk = i === 0 || dojoBeaten(DOJO[i - 1].id);
+    if(d.hidden && !prevOk){ html += `<div class="qcard locked"><div class="qicon">❔</div><div class="qtx"><b>？？？</b><small>だれかが、奥で待っている……</small></div></div>`; return; }
+    const beaten = dojoBeaten(d.id), lvOk = ni.lv >= d.lv && ni.lv >= DOJO_LV, can = lvOk && prevOk;
+    const it = EQUIP[d.item];
+    html += `<div class="qcard${can ? "" : " locked"}">
+      <div class="qicon">${d.icon}</div>
+      <div class="qtx"><b>${beaten ? "✅ " : ""}${esc(d.name)}</b><small>考える時間 約${d.think}秒・正答率${Math.round(d.acc * 100)}%・HP${d.hp}</small>
+        <small>${beaten ? "再戦：両と経験値（少し）" : `初勝利：💰${d.ryo}両・${it.icon}${esc(it.name)}`}</small></div>
+      ${can ? `<button class="btn mini" onclick="startDojo('${d.id}')">${beaten ? "再戦" : "挑む"}</button>` : `<span class="lockmsg">${!prevOk ? "前の相手に勝ってから" : `忍者Lv${Math.max(d.lv, DOJO_LV)}から`}</span>`}</div>`;
+  });
+  panel("🥋 道場", html);
+}
+function startDojo(id){
+  const d = DOJO.find(x => x.id === id); if(!d) return;
+  sfx.tap();
+  modal(`<div class="enc-ic">${d.icon}</div><h3>${esc(d.name)}</h3><p>「${esc(d.talk)}」</p><p style="font-size:13px">考える時間 約${d.think}秒・正答率${Math.round(d.acc * 100)}%<br>HP${d.hp}・攻撃${d.atk}・守り${d.def}・結界${d.res}</p>`,
+    [["勝負！", () => { closeModal();
+      const done = STORY_ORDER.filter(chCleared);
+      const ch = CHAPTERS[chIndex(pick(done.length ? done : ["jo"]))];
+      startBattle({mode:"dojo", dojo:d.id, ch, foe:{icon:d.icon, name:d.name, hp:d.hp, atk:d.atk, def:d.def, res:d.res, elem:"", every:999, cpu:{think:d.think, acc:d.acc}},
+        time:Math.max(12, d.think * 2 + 4), ryo:d.ryo, xp:Math.max(2, Math.round(d.lv / 3)), lv:d.lv}); }],
+     ["やめる", closeModal]]);
+}
+// 相手（コンピュータ）の早押し
+let CPU_T = null;
+function scheduleCpu(){
+  clearTimeout(CPU_T);
+  const p = PLAY; if(!p || p.cfg.mode !== "dojo") return;
+  const cpu = p.foe.cpu, q = p.qs[p.i];
+  const extra = q.kind === "table" || q.kind === "sform" || q.kind === "stype" ? 2 : 0;
+  const ms = (cpu.think + extra) * rnd(.75, 1.25) * 1000;
+  p.cpuAt = Date.now() + ms;
+  CPU_T = setTimeout(() => cpuAnswer(q), ms);
+  // 相手が考えている時間のバー（いっぱいになると答えてくる）
+  const fill = $("cpuFill");
+  if(fill){ fill.style.transition = "none"; fill.style.width = "0%"; void fill.offsetWidth; fill.style.transition = `width ${ms}ms linear`; fill.style.width = "100%"; }
+}
+async function cpuAnswer(q){
+  const p = PLAY; if(!p || p.lock || p.qs[p.i] !== q) return;
+  if(Math.random() < p.foe.cpu.acc){
+    // 相手が先に正解：攻撃を受けて、この問題は終わり（正解と解説は見せる）
+    p.lock = true; stopTimer(); p.combo = 0;
+    $("qChoices").querySelectorAll(".choice").forEach(b => { b.disabled = true; if(b.dataset.a === q.ans) b.classList.add("ok"); });
+    if(q.kind === "type") throwSmoke(q, true);
+    $("qTools").innerHTML = "";
+    flash("先に答えられた！", "#ff9a92"); p.cpuWins = (p.cpuWins || 0) + 1;
+    dmgPop("⚡先手！", "#ffb3a8", "foe");
+    foeAttack(1);
+    const fb = $("qFb");
+    fb.className = "feedback ng show";
+    fb.innerHTML = `⚡ ${esc(p.foe.name)}が先に正解した！<br>` + explain(q) + `<div class="btn-row" style="margin-top:8px"><button class="btn sub" onclick="nextQ()">次へ</button></div>`;
+  }else{
+    dmgPop("まちがえた！", "#9fd3ff", "foe");
+    flash("相手がまちがえた！ 今だ！", "#9fe8ff");
+  }
+}
+function finishDojo(p, win, r){
+  const d = DOJO.find(x => x.id === p.cfg.dojo);
+  let body, rewards = [];
+  if(win){
+    SAVE.dojo = SAVE.dojo || {};
+    const first = !SAVE.dojo[d.id];
+    SAVE.dojo[d.id] = (SAVE.dojo[d.id] || 0) + 1;
+    if(first){
+      SAVE.ryo += d.ryo; rewards.push(`💰 ${d.ryo}両`);
+      if(!SAVE.inv[d.item]){ addItem(d.item); rewards.push(`<b class="hiho-get">${EQUIP[d.item].icon} ${EQUIP[d.item].name}</b>`); }
+    }else{ const g = Math.round(d.ryo * .1); SAVE.ryo += g; rewards.push(`💰 ${g}両`); }
+    p.xpGot += 10 + d.lv * 2;
+    XP_AWARD = awardXp(p.xpGot); XP_NOTE = "正解の分＋勝利のボーナス";
+    saveSave(SAVE); sfx.clear();
+    const next = DOJO[DOJO.indexOf(d) + 1];
+    body = `<div class="enc-ic">${d.icon}</div><h2>🎉 ${esc(d.name)}に勝った！</h2>${first && next ? `<p>${next.hidden ? "……道場の奥から、だれかの気配がする。" : `次の相手「${esc(next.name)}」に挑めるようになった！`}</p>` : ""}`;
+  }else{
+    XP_AWARD = awardXp(Math.floor(p.xpGot / 2)); XP_NOTE = "負けたので、正解の分の半分";
+    body = `<div class="enc-ic">${d.icon}</div><h2>💥 ${esc(d.name)}に負けた……</h2><p>「${esc(d.talk.split("。")[0])}。また来るがよい。」</p>`;
+  }
+  $("resultBody").innerHTML = `${body}
+    ${rewards.length ? `<div class="rewards"><b>手に入れた</b>${rewards.map(x => `<span>${x}</span>`).join("")}</div>` : ""}
+    ${xpResultHtml(XP_AWARD, XP_NOTE)}
+    <div class="stat">正解 ${p.ok}　まちがい ${p.ng}　先に答えられた ${p.cpuWins || 0}回<br>「${MG_GENRE}」レベル ${mgSigned(r.net)}</div>
+    <div class="btn-row" id="resultBtns"><button class="btn" onclick="showDojo()">道場へもどる</button><button class="btn sub" onclick="showVillage()">村へ</button></div>`;
+  show("sResult");
+  animateXp(XP_AWARD);
+}
+
+/* =====================================================================
    寺子屋（巻物を読む・1問ずつ練習）
    ===================================================================== */
 function showTerakoya(){
@@ -2055,6 +2174,7 @@ function renderQ(){
   }
   $("qChoices").innerHTML = choicesHtml;
   $("qChoices").querySelectorAll(".choice").forEach(b => b.onclick = () => answer(b));
+  scheduleCpu();
   if(!(q.kind === "type" && q.autoSmoke)) $("qTools").innerHTML = hintBtnHtml();
   startTimer();
 }
@@ -2349,17 +2469,18 @@ function startBattle(cfg){
     foe:Object.assign({}, cfg.foe, {max:cfg.foe.hp}), timeBase:cfg.time + b.time, lv0:ninjaInfo().lv, dmgDealt:0, charge:0, xpGot:0};
   if(cfg.mode === "quick") PLAY.qs = [pick(PLAY.qs)];
   mgStart();
-  $("quitBtn").textContent = cfg.mode === "wild" ? "🏃 逃げる" : "任務をやめる";
+  $("quitBtn").textContent = cfg.mode === "wild" ? "🏃 逃げる" : cfg.mode === "dojo" ? "勝負をやめる" : "任務をやめる";
   // 舞台の背景：外なら地方の色、物語は夕焼け、任務は城の庭、練習は寺子屋
   const F = cfg.mode === "wild" && FIELD ? FIELDS[FIELD.f] : null;
   $("bStage").style.background = F ? `linear-gradient(180deg,#bfe6ff 0%,#e8f6ff 38%,${F.grass} 39%,${F.bg} 100%)`
     : cfg.mode === "story" ? "linear-gradient(180deg,#2b1446 0%,#a83a3a 40%,#e9874a 55%,#4a3a2a 56%,#2b2016 100%)"
+    : cfg.mode === "dojo" ? "repeating-linear-gradient(90deg,#c9a66b 0 38px,#b8925a 38px 40px),linear-gradient(180deg,#6b4a2a,#3a2716)"
     : cfg.mode === "quest" ? "linear-gradient(180deg,#5d6ea8 0%,#b9c3e6 45%,#c9b38a 46%,#9c8660 100%)"
     : "linear-gradient(180deg,#f3e3c0 0%,#f3e3c0 50%,#c9a66b 51%,#a8844a 100%)";
   $("bHero").innerHTML = pic("hero");
   fxResize();
   PLAY.turn = 0; PLAY.stolen = 0; PLAY.fled = false;
-  $("hudName").textContent = cfg.mode === "wild" ? `${cfg.foe.special ? "✨ 名のある忍" : cfg.foe.golden ? "✨ 金色の" : "🌿 野良忍者"} ${cfg.foe.name} Lv${cfg.lv}` : cfg.mode === "story" ? `📜 ${ch.no}の章「${ch.name}」` : cfg.mode === "quest" ? `⚔️【${cfg.rank}】${QTYPES.find(x => x.ch === ch.id).name}` : `🎯 1問練習（${ch.no}の章）`;
+  $("hudName").textContent = cfg.mode === "dojo" ? `🥋 道場　${cfg.foe.name}` : cfg.mode === "wild" ? `${cfg.foe.special ? "✨ 名のある忍" : cfg.foe.golden ? "✨ 金色の" : "🌿 野良忍者"} ${cfg.foe.name} Lv${cfg.lv}` : cfg.mode === "story" ? `📜 ${ch.no}の章「${ch.name}」` : cfg.mode === "quest" ? `⚔️【${cfg.rank}】${QTYPES.find(x => x.ch === ch.id).name}` : `🎯 1問練習（${ch.no}の章）`;
   show("sPlay");
   renderQ();
 }
@@ -2458,6 +2579,12 @@ function foeHtml(){
 function eboxHtml(){
   const f = PLAY.foe;
   if(PLAY.cfg.mode === "quick") return "";
+  if(PLAY.cfg.mode === "dojo"){
+    const r0 = Math.max(0, f.hp / f.max), c0 = r0 > .5 ? "" : r0 > .2 ? " mid" : " low";
+    return `<div class="bxname">${esc(f.name)}<span class="bxlv">Lv${PLAY.cfg.lv}</span></div>
+      <div class="bxhp"><span class="bxhpl">HP</span><span class="bxbar${c0}"><i style="width:${r0 * 100}%"></i></span></div>
+      <div class="bxsub">守り${f.def}・結界${f.res}</div><div class="bxnext soon">⚡ 考え中…（約${f.cpu.think}秒）</div><div class="cpubar"><i id="cpuFill"></i></div>`;
+  }
   const left = Math.max(1, f.every - PLAY.charge);
   const nextJutsu = !!f.elem && (PLAY.atkCount + 1) % (f.jEvery || 3) === 0;
   const kind = nextJutsu ? `${ELEM[f.elem].icon}術で` : "";
@@ -2518,7 +2645,8 @@ function dmgPop(text, color, target){
 }
 async function answer(btn){
   const p = PLAY; if(!p || p.lock) return;
-  p.lock = true; stopTimer();
+  p.lock = true; stopTimer(); clearTimeout(CPU_T);
+  const cf = $("cpuFill"); if(cf){ cf.style.transition = "none"; cf.style.width = getComputedStyle(cf).width; }
   const q = p.qs[p.i], a = btn ? btn.dataset.a : null, right = a === q.ans;
   $("qChoices").querySelectorAll(".choice").forEach(b => { b.disabled = true; if(b.dataset.a === q.ans) b.classList.add("ok"); });
   if(q.kind === "type") throwSmoke(q, true);
@@ -2579,6 +2707,10 @@ function nextQ(){
 }
 function quitPlay(){
   if(!PLAY) return;
+  if(PLAY.cfg.mode === "dojo"){
+    if(!confirm("勝負をやめて、道場にもどりますか？")) return;
+    stopTimer(); clearTimeout(CPU_T); PLAY = null; mgFlush(); showDojo(); return;
+  }
   if(PLAY.cfg.mode === "wild"){   // 野良忍者からは、いつでも逃げられる
     stopTimer(); PLAY = null; mgFlush(); resumeField(); FIELD.safe = 4; fieldMsg("🏃 うまく逃げた……"); return;
   }
@@ -2604,6 +2736,7 @@ function finish(win){
     return;
   }
   if(cfg.mode === "wild") return finishWild(p, win, r);
+  if(cfg.mode === "dojo") return finishDojo(p, win, r);
   if(win){
     const bonus = 1 + battleStats().ryo / 100;
     if(cfg.mode === "story"){
