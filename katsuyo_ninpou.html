@@ -217,6 +217,9 @@
   @keyframes vbin{from{opacity:0}to{opacity:1}}
   .vbubble::after{content:"";position:absolute;left:var(--tail,50%);bottom:-8px;transform:translateX(-50%);border:7px solid transparent;border-bottom:0;border-top-color:#6b4f2a}
   .vbubble.rare{background:#fff6d6;border-color:#c8902a;font-weight:bold}
+  .makyo-gate{display:inline-block;animation:mkspin 2.4s linear infinite;filter:drop-shadow(0 0 6px #c08bff)}
+  @keyframes mkspin{to{transform:rotate(360deg)}}
+  .jutsu-fx.foe .jfx-nm{color:#e0b8ff;text-shadow:0 0 12px #6a2a9a,0 2px 0 #000}
   .vplace.glow .vicon{animation:hglow 1.4s ease-in-out infinite}
   @keyframes hglow{0%,100%{filter:drop-shadow(0 0 6px #ffd23f) drop-shadow(0 4px 3px rgba(0,0,0,.35))}50%{filter:drop-shadow(0 0 22px #ffd23f) drop-shadow(0 0 40px #fff6a0)}}
   .vplace.glow .vname::after{content:" ✨";}
@@ -3709,12 +3712,12 @@ function startBattle(cfg){
     const fast = q => ["form", "type", "aform", "pos", "fuda", "dan"].includes(q.kind);
     PLAY.qs = arrangeNoRepeat(shuffle([].concat(...["ichi", "ni", "san", "gai1", "gai2", "ichi", "ni", "san", "gai1", "gai2"].map(id => makeQuestions(CHAPTERS[chIndex(id)])))).filter(fast), RECENT_Q);
   }
-  if(cfg.mode === "dojo"){   // 道場は、全ジャンル（すべての章）からまぜて出題
-    PLAY.qs = arrangeNoRepeat(shuffle([].concat(...["ichi", "ni", "san", "shi", "tsui", "gai1", "gai2"].map(id => makeQuestions(CHAPTERS[chIndex(id)])))), RECENT_Q);
+  if(cfg.mode === "dojo" || cfg.allCh){   // 道場・魔境は、全ジャンル（すべての章）からまぜて出題
+    PLAY.qs = arrangeNoRepeat(allChQs(), RECENT_Q);
   }   // この戦いの得意属性（「属性がえし」で変わる。戦いが終わればもとにもどる）
   PLAY.xpM = cfg.mode === "wild" && FIELD ? wildXpMult(FIELD.f, cfg.lv).m : 1;
   STREAK = 0;   // 連続正解は、戦いごとに数えなおす
-  $("hudName").textContent = cfg.mode === "legend" ? `🏡 隠居の家　${cfg.foe.name}` : cfg.mode === "train" ? `🎯 修行 ${stepNo()}：${cfg.drill.title}` : cfg.mode === "dojo" ? `🥋 道場　${cfg.foe.name}` : cfg.mode === "wild" ? `${cfg.foe.special ? "✨ 名のある忍" : cfg.foe.golden ? "✨ 金色の" : "🌿 野良忍者"} ${cfg.foe.name} Lv${cfg.lv}` : cfg.mode === "story" ? `📜 ${ch.no}の章「${ch.name}」` : cfg.mode === "quest" ? `⚔️【${cfg.rank}】${QTYPES.find(x => x.ch === ch.id).name}` : `🎯 1問練習（${ch.no}の章）`;
+  $("hudName").textContent = cfg.mode === "legend" ? `🏡 隠居の家　${cfg.foe.name}` : cfg.mode === "train" ? `🎯 修行 ${stepNo()}：${cfg.drill.title}` : cfg.mode === "dojo" ? `🥋 道場　${cfg.foe.name}` : cfg.mode === "wild" ? `${cfg.foe.makyo ? "🌀 魔境の敵" : cfg.foe.special ? "✨ 名のある忍" : cfg.foe.golden ? "✨ 金色の" : "🌿 野良忍者"} ${cfg.foe.name} Lv${cfg.lv}` : cfg.mode === "story" ? `📜 ${ch.no}の章「${ch.name}」` : cfg.mode === "quest" ? `⚔️【${cfg.rank}】${QTYPES.find(x => x.ch === ch.id).name}` : `🎯 1問練習（${ch.no}の章）`;
   show("sPlay");
   renderQ();
 }
@@ -3768,7 +3771,9 @@ async function useJutsu(id){
   [523, 784, 1046, 1568].forEach((f, i) => tone(f, .15, "sawtooth", .06, i * .07));
   await sleep(650);
   await (JUTSU_FX[id] || (async () => {}))();
-  if(j.kind === "atk"){
+  if(j.kind === "atk" && p.foe.guard > 0){
+    p.foe.guard--; dmgPop("分身にかわされた！", "#d0a8ff", "foe");
+  }else if(j.kind === "atk"){
     const a = affinity(j.elem, p.foe.elem);
     const dmg = jutsuHit(jutsuPower(j, p), a, p.foe);
     p.foe.hp -= dmg; p.dmgDealt += dmg;
@@ -3787,6 +3792,38 @@ async function useJutsu(id){
   if(p.foe.hp <= 0){ renderHud(); await sleep(700); finish(true); return; }
   p.lock = false; p.qStart = Date.now(); renderHud(); startTimer();   // 術のあとは、今の問題の時間をはじめから
 }
+/* 魔境の敵の忍術。こちらの術と同じ物差し：威力＝12＋忍術×3（得意属性なら1.25倍）、こちらの結界で減る（最低1割）。
+   1回でこちらの最大HPの30%（相性が良ければ45%）まで。癒し＝10＋忍術×2回復。分身＝次のこちらの攻撃2回を無効。属性がえし＝こちらに強い属性へ。 */
+function foeJutsu(){
+  const p = PLAY, f = p.foe;
+  const can = JUTSU.filter(j => f.nin >= j.need && !(j.kind === "heal" && f.hp >= f.max) && !(j.kind === "elem" && (!p.elem || ELEM[f.elem].beats === p.elem)));
+  const j = pick(can.length ? can : [JUTSU[0]]);
+  const big = $("jutsuFx");
+  big.className = "jutsu-fx foe jf-" + (j.elem || j.kind);
+  big.innerHTML = `<div class="jfx-ic">${j.icon}</div><div class="jfx-nm">${esc(f.name)}の${j.name}！</div>`;
+  void big.offsetWidth; big.classList.add("go");
+  [392, 311, 262, 196].forEach((fq, i) => tone(fq, .15, "sawtooth", .06, i * .07));
+  if(j.kind === "atk"){
+    const pw = Math.round((12 + f.nin * 3) * (f.elem === j.elem ? 1.25 : 1)), a = defAffinity(j.elem, p.elem);
+    const raw = Math.round(pw * a);
+    let d = Math.max(Math.ceil(raw * .1), raw - (p.res || 0));
+    d = Math.max(1, Math.min(d, Math.ceil(p.maxHp * (a > 1 ? .45 : .3))));
+    if(p.guard > 0){ p.guard--; dmgPop("無効！", "#9fd3ff", "pBox"); }
+    else{
+      fxEnemyHit(j.elem); p.hp -= d;
+      dmgPop(`${j.icon}−${d}${a > 1 ? "（相性×）" : a < 1 ? "（相性◎）" : ""}`, "#ff8a80", "pBox");
+      const h = $("pBox"); h.classList.remove("hurt"); void h.offsetWidth; h.classList.add("hurt");
+    }
+  }else if(j.kind === "heal"){
+    const h = Math.min(f.max - f.hp, 10 + f.nin * 2); f.hp += h; dmgPop(`回復 ＋${h}`, "#9ff0b8", "foe");
+  }else if(j.kind === "guard"){
+    f.guard = 2; dmgPop("分身！", "#d0a8ff", "foe");
+  }else if(j.kind === "elem"){
+    const ne = Object.keys(ELEM).find(e => ELEM[e].beats === p.elem);
+    if(ne){ f.elem = ne; dmgPop(`${ELEM[ne].icon}${ELEM[ne].name}に変化！`, "#ffd23f", "foe"); }
+  }
+  refreshFoe(); renderHud();
+}
 // 野良忍者の能力（回復・逃げ足）。1問ごとに呼ぶ
 async function foeAfterTurn(){
   const p = PLAY; if(!p || p.foe.hp <= 0) return;
@@ -3803,6 +3840,7 @@ function foeAttack(mult){
   if(hasAb(p.foe, "rage") && p.foe.hp < p.foe.max / 2){ mult *= 1.5; if(!p.raged){ p.raged = true; dmgPop("怒った！", "#ff5c5c", "foe"); } }   // 能力【怒り】
   // 属性を持つ敵は、jEvery回に1回（ふつうは3回に1回）術で攻撃してくる。術は結界で、ふつうの攻撃は守りで減らす
   p.atkCount++;
+  if(p.foe.makyo && p.atkCount % 4 === 0){ foeJutsu(); return; }   // 魔境の敵：4回に1回は忍術
   const isJutsu = !!p.foe.elem && mult === 1 && p.atkCount % (p.foe.jEvery || 3) === 0;
   if(p.guard > 0){ p.guard--; dmgPop("無効！", "#9fd3ff", "pBox"); const h = heroC(); ring(h.x, h.y, "#9fd3ff", 70, .5); }
   else if(isJutsu){
@@ -3843,9 +3881,10 @@ function freshGen(gen){
   for(let t = 0; t < 20 && RECENT_Q.slice(-4).includes(qKey(q)); t++) q = gen();
   return q;
 }
+const allChQs = () => shuffle([].concat(...["ichi", "ni", "san", "shi", "tsui", "gai1", "gai2"].map(id => makeQuestions(CHAPTERS[chIndex(id)]))));
 function ensureQ(){
   const p = PLAY;
-  while(p.i >= p.qs.length) p.qs = p.qs.concat(arrangeNoRepeat(makeQuestions(p.ch), RECENT_Q.concat(p.qs.slice(-3).map(qKey))));
+  while(p.i >= p.qs.length) p.qs = p.qs.concat(arrangeNoRepeat(p.cfg.mode === "dojo" || p.cfg.allCh ? allChQs() : makeQuestions(p.ch), RECENT_Q.concat(p.qs.slice(-3).map(qKey))));
 }
 // 奥（右上）の敵の絵と、左上の敵の箱（名前・Lv・属性・HP・守り/結界・次の攻撃）
 function foeHtml(){
@@ -3874,12 +3913,12 @@ function eboxHtml(){
       <div class="bxsub">守り${f.def}・結界${f.res}</div><div class="bxnext soon">⚡ 考え中…（約${f.cpu.think}秒）</div><div class="cpubar"><i id="cpuFill"></i></div>`;
   }
   const left = Math.max(1, f.every - PLAY.charge);
-  const nextJutsu = !!f.elem && (PLAY.atkCount + 1) % (f.jEvery || 3) === 0;
-  const kind = nextJutsu ? `${ELEM[f.elem].icon}術で` : "";
+  const nextJutsu = f.makyo ? (PLAY.atkCount + 1) % 4 === 0 : !!f.elem && (PLAY.atkCount + 1) % (f.jEvery || 3) === 0;
+  const kind = nextJutsu ? (f.makyo ? "🌀忍術で" : `${ELEM[f.elem].icon}術で`) : "";
   const r = Math.max(0, f.hp / f.max), col = r > .5 ? "" : r > .2 ? " mid" : " low";
   return `<div class="bxname">${esc(f.name)} ${elemTag(f.elem)}${PLAY.cfg.lv ? `<span class="bxlv">Lv${PLAY.cfg.lv}</span>` : ""}</div>
     <div class="bxhp"><span class="bxhpl">HP</span><span class="bxbar${col}"><i style="width:${r * 100}%"></i></span></div>
-    <div class="bxsub">守り${f.def || 0}・結界${f.res || 0}${noCap(f) ? `　<span class="weaktag">格下：一撃あり</span>` : ""}</div>
+    <div class="bxsub">${f.makyo ? `攻撃${f.st.atk}・` : ""}守り${f.def || 0}・結界${f.res || 0}${f.makyo ? `・忍術${f.nin}` : ""}${f.guard > 0 ? `　👥分身${f.guard}` : ""}${noCap(f) ? `　<span class="weaktag">格下：一撃あり</span>` : ""}</div>
     <div class="bxnext${left === 1 ? " soon" : ""}">${left === 1 ? `⚠️ 次の問題のあと${kind}攻撃！` : `あと${left}問で${kind}攻撃`}</div>`;
 }
 function refreshFoe(){ $("foe").innerHTML = foeHtml(); $("eBox").innerHTML = eboxHtml(); $("eBox").style.display = PLAY.cfg.mode === "quick" ? "none" : ""; }
@@ -3953,7 +3992,8 @@ async function answer(btn){
     p.gauge = Math.min(jutsuMax(p.nin), p.gauge + 1);
     sfx.ok(); mgCorrect();
     const crit = Math.random() * 100 < p.crit;
-    const dodged = hasAb(p.foe, "dodge") && Math.random() < .18;   // 能力【かわす】
+    const fGuard = p.foe.guard > 0; if(fGuard) p.foe.guard--;   // 魔境の敵の分身
+    const dodged = fGuard || hasAb(p.foe, "dodge") && Math.random() < .18;   // 能力【かわす】
     const sec = (Date.now() - (p.qStart || Date.now())) / 1000, spd = speedMul(sec);
     const na = normalAff(p.elem, p.foe.elem);
     const dmg = dodged ? 0 : hitDamage(Math.round(p.atk * (crit ? 2 : 1) * streakMul() * spd * na), p.foe, crit, (spd - 1) * .1);
@@ -4112,7 +4152,7 @@ function finishWild(p, win, r){
   let body = "", rewards = [];
   if(win === true){
     const bonus = 1 + battleStats().ryo / 100;
-    const mul = foe.special ? {ryo:3, xp:3} : foe.golden ? {ryo:5, xp:2} : {ryo:1, xp:1};
+    const mul = foe.makyo ? {ryo:4, xp:3} : foe.special ? {ryo:3, xp:3} : foe.golden ? {ryo:5, xp:2} : {ryo:1, xp:1};
     const g = Math.round(wildRyo(foe.lv, foe.kind) * bonus * mul.ryo) + p.stolen;
     SAVE.ryo += g; rewards.push(`💰 ${g}両${p.stolen ? `（取り返した${p.stolen}両をふくむ）` : ""}`);
     let rareGot = null;
@@ -4125,8 +4165,8 @@ function finishWild(p, win, r){
       if(pool.length) rareGot = pick(pool);
     }
     if(rareGot){ addItem(rareGot.id); rewards.push(`<b class="hiho-get">${rareGot.icon} 秘宝「${rareGot.name}」</b>`); }
-    if(Math.random() < (foe.special || foe.golden ? .6 : .12)){ const d = wildDrop(foe.lv); if(d){ addItem(d.id); rewards.push(`${d.icon} ${d.name}（${TIER[d.tier].name}）`); } }
-    if(Math.random() < .25 || foe.special || foe.golden){ const k = pick(Object.keys(BAG)); const n = foe.special || foe.golden ? 2 : 1; SAVE.bag[k] = (SAVE.bag[k] || 0) + n; rewards.push(`${BAG[k].icon} ${BAG[k].name}${n > 1 ? "×" + n : ""}`); }
+    if(Math.random() < (foe.special || foe.golden || foe.makyo ? .6 : .12)){ const d = wildDrop(foe.lv); if(d){ addItem(d.id); rewards.push(`${d.icon} ${d.name}（${TIER[d.tier].name}）`); } }
+    if(Math.random() < .25 || foe.special || foe.golden || foe.makyo){ const k = pick(Object.keys(BAG)); const n = foe.special || foe.golden || foe.makyo ? 2 : 1; SAVE.bag[k] = (SAVE.bag[k] || 0) + n; rewards.push(`${BAG[k].icon} ${BAG[k].name}${n > 1 ? "×" + n : ""}`); }
     const xp = wildXp(foe.lv) * mul.xp; p.xpGot += xp;
     const XM = FIELD ? wildXpMult(FIELD.f, foe.lv) : {m:1, parts:[]};
     if(FIELD && FIELD.f === frontField()){ SAVE.pioneer = SAVE.pioneer || {}; SAVE.pioneer[FIELD.f] = (SAVE.pioneer[FIELD.f] || 0) + 1; saveSave(SAVE); }
@@ -4196,7 +4236,18 @@ const FIELDS = [
    theme:{ov:"sun", sub:"南の海にうかぶ、ふしぎな島", deco:[[0,4,"🌺"],[7,6,"🌋"],[2,7,"🗿"],[7,1,"🦩"],[0,9,"🐚"]], jingle:[440,554,659,880]},
    map:["TTTUUTTT","TGG..GGT","TGTG.GTT","T..GGG.T","TGG.TGGT","WWG.GGWW","TGG.GG.T","T.TGG.GT","TGG..GGT","TG.GT..T","TGG..GGT","TTTDDTTT"],
    kinds:["oumu", "wani", "kame", "kai"], named:"majo"},
+  /* 魔境（2026-11-23、教員の指示）。隠居の家の3人をすべて倒すと、異国の島のいちばん上（ふさがれた所）から入れる。
+     ・出題はすべてのジャンル（動詞・形容詞・形容動詞の全章）
+     ・敵は、自分と同じステータスの合計（体力・攻撃・守り・忍術・結界）を、ランダムに配分して持つ。Lvも自分と同じ。
+     ・毎問攻撃してくる。4回に1回は、こちらと同じような忍術（火遁・水遁・木遁・癒し・分身・属性がえし）をランダムに放つ。 */
+  {name:"魔境",       lv:[0, 0],   tree:"🌑", rock:"🪨", bg:"#2a1d38", grass:"#4b2f5e", path:"#7c6a8c", makyo:true,
+   theme:{ov:"dark", sub:"だれも帰ってきたことがない、と言われる地", deco:[[0,2,"💀"],[7,4,"🕯️"],[3,0,"⛩️"],[4,0,"⛩️"],[0,7,"👁️"],[7,9,"🔥"],[0,10,"🦴"]], jingle:[196,233,185,147]},
+   map:["TTTTTTTT","TGGG.GGT","TG.TGG.T","TGG.GTGT","T.GGG..T","TGTG.GGT","TGG.GT.T","TT.GGGGT","TGGG.TGT","TG..GG.T","TGG..GGT","TTTDDTTT"],
+   kinds:["mk_kage", "mk_oni", "mk_tengu", "mk_orochi"], named:null},
 ];
+const MAKYO_F = FIELDS.findIndex(F => F.makyo);
+const isMakyo = fi => fi === MAKYO_F;
+const makyoOpen = () => skBeaten("lg_ouna");   // 隠居の家の3人（楓・翁・媼）をすべて倒した
 // 野良忍者の種類。hp・atk・def は倍率、every は攻撃の間（なしなら格どおり）、ab は能力、ch は出す問題の章
 const WILD = {
   hagure:  {name:"はぐれ見習い", icon:"🥷", elem:"",      hp:1.0, atk:1.0, def:1.0, ab:"",      ch:"jo",   note:"ふつうの見習い忍者"},
@@ -4231,6 +4282,11 @@ const WILD = {
   kai:     {name:"貝忍",   icon:"🐚", elem:"water", hp:1.0, atk:1.0, def:.9,  ab:"barrier", ch:"any", note:"貝がらの結界をはる。術が効きにくい"},
   ginji:   {name:"荒波の銀次",   title:"港の海賊忍",   icon:"🏴‍☠️", elem:"water", hp:1.7, atk:1.1, def:1.0, abs:["steal", "rage"], ch:"any", lv:40, special:true, item:"rare_rashin", note:"七つの海を荒らしたという、うわさの海賊忍"},
   majo:    {name:"南海の魔女",   title:"異国の島の幻", icon:"🧜", elem:"water", hp:1.7, atk:1.05, def:1.0, abs:["barrier", "heal"], ch:"any", lv:46, special:true, item:"rare_nanban", note:"島の入り江にすむという、なぞの術者"},
+  // 魔境の敵（ステータスは makeMakyo で、こちらと同じ合計をランダムに配分）
+  mk_kage:   {name:"写し身の影", icon:"👤", elem:"", hp:1, atk:1, def:1, ab:"", ch:"any", makyo:true, note:"あなたと同じ力を持つ影。だが、力の配り方がちがう"},
+  mk_oni:    {name:"魔境の鬼",   icon:"👺", elem:"", hp:1, atk:1, def:1, ab:"", ch:"any", makyo:true, note:"魔境に住む鬼。あなたと同じだけの力を持つ"},
+  mk_tengu:  {name:"魔天狗",     icon:"🎭", elem:"", hp:1, atk:1, def:1, ab:"", ch:"any", makyo:true, note:"術を自在にあやつる天狗。あなたと同じだけの力を持つ"},
+  mk_orochi: {name:"八つ首の大蛇", icon:"🐲", elem:"", hp:1, atk:1, def:1, ab:"", ch:"any", makyo:true, note:"魔境の奥にひそむ大蛇。あなたと同じだけの力を持つ"},
   koban:   {name:"小判鼠",       icon:"🐭", elem:"", hp:.6,  atk:.3,  def:2.0, ab:"",      ch:"any",  note:"めったに出ない。守りが固いが、両をたくさん持っている", rare:true},
 };
 const ABILITY = {
@@ -4268,6 +4324,18 @@ function makeWild(kind, lv){
   if(A.includes("barrier")){ f.res = Math.round(f.res * 3.5) + 8; f.def = Math.round(f.def * .5); f.jEvery = 2; }
   return f;
 }
+/* 魔境の敵：こちらのステータスの合計（振り分け＋装備）を、5つにランダムに配る（どれも合計の5%以上）。
+   数値への直し方は、こちらと同じ（HP＝20＋体力×4、攻撃＝8＋攻撃×2）。毎問攻撃。属性もランダム。 */
+function makeMakyo(kind){
+  const w = WILD[kind], s = statTotals(), keys = ["hp", "atk", "def", "nin", "res"];
+  const total = keys.reduce((a, k) => a + (s[k] || 0), 0);
+  const wt = keys.map(() => .25 + Math.random()), sum = wt.reduce((a, b) => a + b, 0);
+  const st = {}; keys.forEach((k, i) => st[k] = Math.round(total * wt[i] / sum));
+  const lv = ninjaInfo().lv;
+  return {kind, lv, icon:w.icon, name:w.name, abs:[], special:false, makyo:true, st,
+    hp:20 + st.hp * 4, atk:8 + st.atk * 2, def:st.def, res:st.res, nin:st.nin,
+    elem:pick(["fire", "water", "wood"]), every:1, jEvery:999, guard:0};
+}
 const wildXp = lv => 3 + lv * 2;
 /* 新しい地方ほど経験値が入りやすい（2026-11-23、教員の指示：「新しいマップが開いたら、そこで修行すると経験値が上がりやすく」）
    野良忍者の経験値（正解の分＋たおしたボーナス）に、次の3つをかける：
@@ -4279,7 +4347,7 @@ const wildXp = lv => 3 + lv * 2;
 const FRONT_MUL = [1, 1, 1, 1.3, 1.6, 1.8, 2.0], PIONEER_WINS = 5, PIONEER_MUL = 1.5;
 function frontField(){
   const ns = nextStory();
-  if(!ns) return FIELDS.length - 1;
+  if(!ns) return FIELD_STORY.length - 1;
   return ns === "jo" ? 0 : FIELD_STORY.indexOf(ns);
 }
 function wildXpMult(fi, foeLv){
@@ -4303,6 +4371,7 @@ function fieldXpBadge(fi){
     return bits.length ? `<span class="xpbadge front">🔥 経験値アップ：${bits.join("・")}</span>` : "";
   }
   const F = FIELDS[fi], lv = ninjaInfo().lv;
+  if(F.makyo) return `<span class="xpbadge front">🌀 魔境：経験値×3・両×4・よく装備を落とす</span>`;
   return lv > F.lv[1] ? `<span class="xpbadge low">この地方の相手は弱く、経験値は少なめ</span>` : "";
 }
 const abList = w => w.abs || (w.ab ? [w.ab] : []);
@@ -4315,9 +4384,9 @@ let FIELD = null;   // {f:地方の番号, x, y, safe:出会わない残り歩�
 function fieldTile(fi, x, y){ const m = FIELDS[fi].map; return (m[y] || "")[x] || "T"; }
 const walkable = c => c !== "T" && c !== "R" && c !== "W";
 // 奥の敵（物語）を倒すまで、次の地方への出口（U）は通れない
-const exitOpen = fi => chCleared(FIELD_STORY[fi]);
+const exitOpen = fi => !isMakyo(fi) && chCleared(FIELD_STORY[fi]);
 const canWalk = (fi, x, y) => { const c = fieldTile(fi, x, y); return walkable(c) && !(c === "U" && !exitOpen(fi)); };
-const isBossTile = (fi, x, y) => x === BOSS_POS.x && y === BOSS_POS.y && !chCleared(FIELD_STORY[fi]);
+const isBossTile = (fi, x, y) => !isMakyo(fi) && x === BOSS_POS.x && y === BOSS_POS.y && !chCleared(FIELD_STORY[fi]);
 function enterField(fi, from){
   const F = FIELDS[fi];
   const y = from === "top" ? 1 : F.map.length - 2;
@@ -4328,6 +4397,7 @@ function enterField(fi, from){
   showField();
   showFieldTitle(F);
   const ni = ninjaInfo();
+  if(F.makyo){ fieldMsg(`📍 魔境。ここの敵は、<b>あなたと同じだけの力</b>を持っている。気をつけろ……`); return; }
   const warn = ni.lv < F.lv[0] ? `<br><span class="lockmsg">⚠️ ここは推奨Lv${F.lv[0]}〜。今のLv${ni.lv}では危ないかも</span>` : "";
   fieldMsg(`📍 ${F.name}（野良忍者 Lv${F.lv[0]}〜${F.lv[1]}）${warn}`);
 }
@@ -4342,7 +4412,7 @@ function resumeField(){
 function showField(){
   const F = FIELDS[FIELD.f];
   $("fName").textContent = `${F.name}`;
-  $("fLv").textContent = `野良忍者 Lv${F.lv[0]}〜${F.lv[1]}・出題：${CHAPTERS[chIndex(FIELD_STORY[FIELD.f])].name}`;
+  $("fLv").textContent = F.makyo ? "敵：あなたと同じ力・出題：すべてのジャンル" : `野良忍者 Lv${F.lv[0]}〜${F.lv[1]}・出題：${CHAPTERS[chIndex(FIELD_STORY[FIELD.f])].name}`;
   const g = $("fGrid");
   g.style.background = F.bg;
   let html = "";
@@ -4353,7 +4423,7 @@ function showField(){
     else if(c === "W"){ cls += " water"; inner = F.theme.lotus && (x * 7 + y * 3) % 5 === 0 ? "🪷" : ""; }
     else if(c === "G"){ cls += " grass"; inner = "🌿"; }
     else if(c === "="){ cls += " bridge"; }
-    else if(c === "U"){ cls += " exit"; inner = !exitOpen(FIELD.f) ? "🚧" : FIELD.f + 1 < FIELDS.length ? "⬆️" : "🚧"; }
+    else if(c === "U"){ cls += " exit"; inner = !exitOpen(FIELD.f) ? "🚧" : FIELD.f + 1 === MAKYO_F ? (makyoOpen() ? `<span class="makyo-gate">🌀</span>` : "🚧") : FIELD.f + 1 < FIELDS.length ? "⬆️" : "🚧"; }
     else if(c === "D"){ cls += " exit"; inner = FIELD.f === 0 ? "⛩️" : "⬇️"; }
     else cls += " path";
     if(isBossTile(FIELD.f, x, y)){ cls += " bosstile"; inner = `<span class="bossmark">${STORY_PLAN[FIELD_STORY[FIELD.f]].icon}</span>`;
@@ -4388,7 +4458,7 @@ function fieldOverlayHtml(ov){
 }
 function showFieldTitle(F){
   const t = document.createElement("div");
-  t.className = "ftitle"; t.innerHTML = `<small>${F.theme.sub}</small><b>〜 ${F.name} 〜</b><small>出題：${CHAPTERS[chIndex(FIELD_STORY[FIELDS.indexOf(F)])].name}</small>`;
+  t.className = "ftitle"; t.innerHTML = `<small>${F.theme.sub}</small><b>〜 ${F.name} 〜</b><small>出題：${F.makyo ? "すべてのジャンル" : CHAPTERS[chIndex(FIELD_STORY[FIELDS.indexOf(F)])].name}</small>`;
   $("fGrid").appendChild(t); setTimeout(() => t.remove(), 2600);
   (F.theme.jingle || []).forEach((f, i) => tone(f, .22, "triangle", .05, i * .18));
 }
@@ -4457,7 +4527,13 @@ async function stepTo(x, y){
     return true;
   }
   if(c === "U"){
-    if(FIELD.f + 1 < FIELDS.length){ await sleep(200); const nf = FIELD.f + 1; needTraining(nf, () => enterField(nf, "bottom")); }
+    if(FIELD.f + 1 === MAKYO_F){
+      if(makyoOpen()){ await sleep(200);
+        modal(`<div class="big">🌀</div><h3>この先は魔境と言われている。</h3><p>本当に入りますか？</p><p style="font-size:13px">敵は、あなたと同じだけの力（ステータスの合計）を持つ。とても強い。<br>出題は、すべてのジャンルから。</p>`,
+          [["入る", () => { closeModal(); enterField(MAKYO_F, "bottom"); }], ["やめる", () => { closeModal(); FIELD.y++; placeFHero(); }]]);
+      }else fieldMsg("🌊 この先は大海原。旅はここまでじゃ……（すべての地方を制覇した！）");
+    }
+    else if(FIELD.f + 1 < FIELDS.length){ await sleep(200); const nf = FIELD.f + 1; needTraining(nf, () => enterField(nf, "bottom")); }
     else fieldMsg("🌊 この先は大海原。旅はここまでじゃ……（すべての地方を制覇した！）");
     return true;
   }
@@ -4478,8 +4554,9 @@ async function encounter(){
   const F = FIELDS[FIELD.f];
   /* 出会い方：名のある忍 4%・小判鼠 3%・それ以外はふつうの野良忍者。ふつうの野良忍者は、2%で「金色の気」をまとっている */
   const r = Math.random();
-  const kind = r < .04 ? F.named : r < .07 ? "koban" : pick(F.kinds);
+  const kind = F.makyo ? pick(F.kinds) : r < .04 ? F.named : r < .07 ? "koban" : pick(F.kinds);
   const W = WILD[kind];
+  if(F.makyo) return makyoEncounter(kind);
   // 地方のLvの範囲のうち、低めのLvが出やすい（着いたばかりで強い相手ばかり、をさける）
   const lv = W.special ? W.lv : F.lv[0] + Math.floor(Math.pow(Math.random(), 1.8) * (F.lv[1] - F.lv[0] + 1));
   const foe = makeWild(kind, lv);
@@ -4510,14 +4587,28 @@ async function encounter(){
     <p style="font-size:13px">${w.note}<br>${abText(w)}${abList(w).length ? "<br>" : ""}${foeStatText(foe)}</p>${prize}`,
     [["戦う！", () => { closeModal(); startWild(foe); }], ["逃げる", () => { closeModal(); FIELD.safe = 4; fieldMsg("うまく逃げた……"); }]]);
 }
+async function makyoEncounter(kind){
+  const foe = makeMakyo(kind), w = WILD[kind];
+  SAVE.dex = SAVE.dex || {};
+  const d = SAVE.dex[kind] = SAVE.dex[kind] || {seen:0, beat:0};
+  d.seen++; saveSave(SAVE);
+  const g = $("fGrid"); g.classList.add("rustle");
+  [150, 120, 100, 80].forEach((f, i) => tone(f, .16, "sawtooth", .06, i * .12));
+  await sleep(800); g.classList.remove("rustle");
+  const S = foe.st;
+  modal(`<div class="enc-ic sp">${w.icon}</div><div class="sp-tag" style="background:#5a2a7a">🌀 魔境の敵 🌀</div><h3>${esc(foe.name)}が現れた！</h3>
+    <p style="font-size:13px">${w.note}</p>
+    <p style="font-size:13px">体力${S.hp}・攻撃${S.atk}・守り${S.def}・忍術${S.nin}・結界${S.res}（合計はあなたと同じ）<br>${elemTag(foe.elem)} 毎問攻撃・4回に1回、忍術を放つ</p>`,
+    [["戦う！", () => { closeModal(); startWild(foe); }], ["逃げる", () => { closeModal(); FIELD.safe = 4; fieldMsg("うまく逃げた……"); }]]);
+}
 function wildCh(w){
   // その地方で学ぶ章（修行で練習した内容）から出題する（2026-11-23、教員の指示）
-  const id = FIELD ? FIELD_STORY[FIELD.f] : "ichi";
+  const id = FIELD && FIELD_STORY[FIELD.f] || "ichi";
   return CHAPTERS[chIndex(id)];
 }
 function startWild(foe){
   const w = WILD[foe.kind];
-  startBattle({mode:"wild", ch:wildCh(w), foe, time:Math.max(12, 26 - Math.floor(foe.lv / 3)), xp:Math.max(1, Math.round(foe.lv / 3)), lv:foe.lv, kind:foe.kind});
+  startBattle({mode:"wild", ch:wildCh(w), foe, allCh:!!foe.makyo, time:Math.max(12, 26 - Math.floor(foe.lv / 3)), xp:Math.max(1, Math.round(foe.lv / 3)), lv:foe.lv, kind:foe.kind});
 }
 function showDex(){
   const dex = SAVE.dex || {};
