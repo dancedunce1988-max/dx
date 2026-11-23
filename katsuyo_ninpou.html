@@ -167,41 +167,65 @@
   .lvup-toast.show{animation:toast 2.2s ease both}
   @keyframes toast{0%{transform:translateX(-50%) translateY(-120%)}12%,80%{transform:translateX(-50%) translateY(0)}100%{transform:translateX(-50%) translateY(-120%)}}
   .lvup-toast b{margin:0 6px}
-  /* すごろく盤 */
-  .title-box{margin:6px 0 10px}
-  .board-wrap{background:linear-gradient(180deg,#e9d7a8,#d9bf86);border-radius:18px;padding:12px;box-shadow:0 6px 0 #8c7347,0 10px 18px rgba(0,0,0,.4);
-    border:3px solid #8c6a3a}
-  .board{position:relative;display:grid;grid-template-columns:repeat(4,1fr);gap:16px 14px}
-  .road{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;overflow:visible}
-  .sq{position:relative;z-index:1;aspect-ratio:1;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;
-    background:#fff8e4;color:var(--ink);border:2px solid #b08d55;box-shadow:0 3px 0 #9a7a45;font-size:26px;cursor:pointer;line-height:1.1}
-  .sq .lb{font-size:10px;color:var(--ink2);margin-top:2px;white-space:nowrap}
-  .sq.tip{background:#fff3d0}
-  .sq.quiz{background:#ffe0d6}
-  .sq.start{background:#d9f0ff}
-  .sq.ch{background:radial-gradient(circle at 50% 35%,#ff6b5c,#b8281e);color:#fff;border-color:#7a1712;box-shadow:0 3px 0 #6f1813}
-  .sq.ch .no{font-size:28px;font-weight:bold;text-shadow:0 2px 0 rgba(0,0,0,.3)}
-  .sq.ch .lb{color:#ffe6a0;font-size:10px}
-  .sq.ch .stars{font-size:10px;color:#ffe08a;letter-spacing:1px}
-  .sq.ch.gate{animation:gate 1.4s infinite}
-  @keyframes gate{0%,100%{box-shadow:0 3px 0 #6f1813,0 0 0 0 rgba(255,215,90,.9)}50%{box-shadow:0 3px 0 #6f1813,0 0 0 8px rgba(255,215,90,0)}}
-  .sq.far{filter:grayscale(.8) brightness(.78)}
-  .sq.passed{filter:saturate(.8)}
-  .sq.shake{animation:shake .4s}
-  .token{position:absolute;z-index:3;width:40px;height:40px;margin:-20px 0 0 -20px;font-size:32px;line-height:40px;text-align:center;
-    transition:left .25s ease,top .25s ease;filter:drop-shadow(0 4px 3px rgba(0,0,0,.45));pointer-events:none}
-  .token img{width:44px;height:44px;object-fit:contain;margin:-2px 0 0 -2px}
-  .token.hop{animation:hop .25s ease}
+  /* 探検マップ */
+  .title-box{margin:2px 0 6px}
+  .title-box h1{font-size:clamp(26px,7vw,38px)}
+  .map-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:14px;color:#ffe08a}
+  .map-view{height:max(380px,calc(100vh - 330px));overflow-y:auto;overflow-x:hidden;border-radius:18px;border:3px solid #8c6a3a;
+    box-shadow:0 6px 0 #5e4524,0 10px 18px rgba(0,0,0,.45);-webkit-overflow-scrolling:touch;background:#3b3020}
+  .map{position:relative;width:100%}
+  .band{position:absolute;left:0;right:0;overflow:hidden}
+  .band::after{content:"";position:absolute;left:0;right:0;bottom:0;height:24px;background:linear-gradient(180deg,transparent,rgba(0,0,0,.08))}
+  .deco{position:absolute;transform:translate(-50%,-50%);font-size:34px;opacity:.55;pointer-events:none}
+  .band-name{position:absolute;left:8px;bottom:8px;z-index:1;background:rgba(40,25,10,.65);color:#ffe9b0;font-size:12px;font-weight:bold;padding:2px 10px;border-radius:999px}
+  .road{position:absolute;left:0;top:0;width:100%;height:100%;z-index:1;pointer-events:none}
+  .road path{fill:none;vector-effect:non-scaling-stroke;stroke-linecap:round}
+  .road .road-base{stroke:#7a5a2e;stroke-width:9;stroke-dasharray:1 13;opacity:.75}
+  .road .road-walked{stroke:#d9432f;stroke-width:6;opacity:.6}
+  .node{position:absolute;z-index:2;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:#fff8e4;color:var(--ink);border:3px solid #b08d55;box-shadow:0 3px 0 #8a6b3b,0 4px 8px rgba(0,0,0,.3);font-size:22px;line-height:1.05;cursor:pointer}
+  .node .lb{font-size:9px;color:var(--ink2);white-space:nowrap}
+  .node.quiz{background:#ffe0d6}
+  .node.treasure{background:#fff0a8;border-color:#d1a21e}
+  .node.treasure:not(.opened){animation:twinkle 1.6s infinite}
+  @keyframes twinkle{0%,100%{box-shadow:0 3px 0 #8a6b3b,0 0 0 0 rgba(255,230,120,.9)}50%{box-shadow:0 3px 0 #8a6b3b,0 0 14px 6px rgba(255,230,120,.8)}}
+  .node.start{background:#d9f0ff}
+  .node.ch{width:74px;height:74px;margin:-37px 0 0 -37px;border-radius:16px;background:radial-gradient(circle at 50% 35%,#ff6b5c,#b8281e);color:#fff;border-color:#7a1712;box-shadow:0 4px 0 #6f1813,0 6px 10px rgba(0,0,0,.35)}
+  .node.ch .no{font-size:26px;font-weight:bold;text-shadow:0 2px 0 rgba(0,0,0,.3)}
+  .node.ch .lb{color:#ffe6a0;font-size:9px}
+  .node.ch .stars{font-size:9px;color:#ffe08a}
+  .node.gate{animation:gate 1.4s infinite}
+  @keyframes gate{0%,100%{box-shadow:0 4px 0 #6f1813,0 0 0 0 rgba(255,215,90,.9)}50%{box-shadow:0 4px 0 #6f1813,0 0 0 10px rgba(255,215,90,0)}}
+  .node:not(.visited):not(.ch){filter:saturate(.75)}
+  .node.shake{animation:shake .4s}
+  .node.pop{animation:popin .6s cubic-bezier(.2,1.6,.4,1) both}
+  @keyframes popin{0%{transform:scale(0)}100%{transform:scale(1)}}
+  .fog{position:absolute;left:-10px;right:-10px;z-index:3;display:flex;align-items:center;justify-content:center;
+    background:
+      radial-gradient(ellipse 40% 26% at 20% 30%,rgba(255,255,255,.95),transparent 70%),
+      radial-gradient(ellipse 45% 30% at 75% 25%,rgba(240,244,250,.95),transparent 70%),
+      radial-gradient(ellipse 50% 32% at 40% 70%,rgba(250,252,255,.95),transparent 70%),
+      radial-gradient(ellipse 40% 28% at 85% 75%,rgba(235,240,248,.95),transparent 70%),
+      linear-gradient(180deg,rgba(215,222,235,.97),rgba(200,208,224,.97));
+    transition:opacity 1.3s ease,transform 1.3s ease;animation:drift 6s ease-in-out infinite alternate}
+  @keyframes drift{from{background-position:0 0}to{background-position:30px 0}}
+  .fog.clear{opacity:0;transform:scale(1.25)}
+  .fog-txt{color:#6a7590;font-size:34px;font-weight:bold;text-align:center;letter-spacing:.2em}
+  .fog-txt small{display:block;font-size:13px;letter-spacing:.05em}
+  .token{position:absolute;z-index:4;width:44px;height:44px;margin:-58px 0 0 -6px;font-size:36px;line-height:44px;text-align:center;
+    transition:left .3s ease,top .3s ease;filter:drop-shadow(0 4px 3px rgba(0,0,0,.45));pointer-events:none}
+  .token img{width:48px;height:48px;object-fit:contain}
+  .token.hop{animation:hop .3s ease}
   @keyframes hop{50%{transform:translateY(-18px)}}
-  .dice-bar{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:14px;flex-wrap:wrap}
-  .dice{width:60px;height:60px;border-radius:12px;background:#fff;color:var(--ink);font-size:34px;font-weight:bold;display:flex;align-items:center;justify-content:center;
+  .dice-bar{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:12px;flex-wrap:wrap}
+  .dice{width:56px;height:56px;border-radius:12px;background:#fff;color:var(--ink);font-size:32px;font-weight:bold;display:flex;align-items:center;justify-content:center;
     box-shadow:0 4px 0 #999,0 6px 10px rgba(0,0,0,.35)}
   .dice.roll{animation:roll .5s linear infinite}
   @keyframes roll{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
   .dice-msg{font-size:15px;color:#ffe08a;min-height:1.4em;text-align:center}
   .modal{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:16px}
   .modal.show{display:flex;animation:fadeIn .25s both}
-  .modal-box{max-width:460px;width:100%;background:linear-gradient(180deg,var(--paper),var(--paper2));color:var(--ink);border-radius:16px;padding:18px;
+  .modal-box{max-width:460px;width:100%;max-height:90vh;overflow:auto;background:linear-gradient(180deg,var(--paper),var(--paper2));color:var(--ink);border-radius:16px;padding:18px;
     box-shadow:0 10px 30px rgba(0,0,0,.5);text-align:center;line-height:1.8}
   .modal-box .big{font-size:44px}
   .modal-box h3{margin:4px 0;color:var(--red)}
@@ -250,16 +274,15 @@
       <h1>変化の里</h1>
       <div class="h1sub">～ 活用忍法帖 ～</div>
     </div>
-    <div class="board-wrap">
-      <div class="board" id="board"><svg class="road" id="road"></svg><div class="token" id="token"></div></div>
-    </div>
+    <div class="map-head"><button class="iconbtn" id="itemBtn" onclick="showItems()">🎒 忍具</button><span>めざせ、石化丸の城！</span></div>
+    <div class="map-view" id="mapView"><div class="map" id="map"></div></div>
     <div class="dice-bar">
       <div class="dice" id="dice">🎲</div>
       <div class="dice-msg" id="diceMsg"></div>
       <button class="btn" id="diceBtn" onclick="rollDice()">サイコロをふる</button>
     </div>
-    <p class="note">サイコロ（1〜3）をふって、石化丸の城をめざそう！<br>
-      ⛩️の関所（章）は、クリアするまで先へ進めない。通りすぎたマスはタップで見直せる。<br>
+    <p class="note">サイコロ（1〜3）をふって、霧の向こうの城をめざそう！<br>
+      ⛩️関所（章）をクリアすると霧が晴れて、次の地方が現れる。分かれ道はどちらへ進むか選べる。<br>
       正解すると「動詞の活用」のレベルが上がります。</p>
   </section>
 
@@ -754,91 +777,195 @@ const CHAPTERS = [
 const chIndex = id => CHAPTERS.findIndex(c => c.id === id);
 
 /* =====================================================================
-   すごろく盤（2026-11-23、教員の指示：「巻で表しているのを、すごろく風にした方がわくわくする」）
-   サイコロ（1〜3）で進む。章のマス（関所）はクリアするまで先へ進めず、止まったら挑戦する。
-   間のマス：📜巻物＝師匠のひとこと（おさらい）／⚡腕だめし＝1問。正解すると1マス進める。
-   いる場所は SAVE.pos（盤のマスの番号）。
+   探検マップ（すごろく）
+   2026-11-23、教員の指示：「巻で表しているのを、すごろく風に」→「一方通行的に見えるので、
+   徐々にマップが明かされるかのようなワクワクした感じに」。
+   ・下（里の入口）から上（石化丸の城）へ登っていく縦長の地図。地方は7つ（里・竹林・川辺・森・峠・城・海）。
+   ・まだ行けない地方は霧に包まれている。前の地方の関所（章）をクリアすると、霧が晴れて次の地方が現れる。
+   ・関所を出ると道が二つに分かれる。左右どちらへ進むかは自分で選ぶ（宝箱の道／巻物の道）。
+     選ばなかった道のマスは取りに戻れない（次に遊ぶ人の楽しみに……ではなく、選ぶ意味を持たせるため）。
+   ・マス：📜巻物＝師匠のおさらい／⚡腕だめし＝1問（正解で1マス進む）／🎁宝箱＝忍具（通りすがりでも拾える）／⛩️関所＝章。
+   ・サイコロは1〜3。いる場所は SAVE.node、通ったマスは SAVE.visited、拾った忍具は SAVE.items、
+     晴れた地方の数は SAVE.revealed（増えたときだけ霧が晴れる演出をする）。
    ===================================================================== */
-const BOARD = [
-  {k:"start"}, {k:"tip", tip:0}, {k:"tip", tip:1},
-  {k:"ch", id:"jo"},   {k:"tip", tip:2}, {k:"quiz"},
-  {k:"ch", id:"ichi"}, {k:"quiz"}, {k:"tip", tip:3},
-  {k:"ch", id:"ni"},   {k:"quiz"}, {k:"tip", tip:4},
-  {k:"ch", id:"san"},  {k:"tip", tip:5}, {k:"quiz"},
-  {k:"ch", id:"shi"},  {k:"quiz"}, {k:"tip", tip:6},
-  {k:"ch", id:"tsui"}, {k:"ch", id:"go"},
+const BAND = 360;   // 1つの地方の高さ(px)
+const AREAS = [
+  {name:"里の入口",   bg:"linear-gradient(180deg,#bfe3a8,#d9efc0)", deco:[["🏠",12,70],["🌸",84,30],["🏠",86,78],["🌸",10,22]]},
+  {name:"竹林の小道", bg:"linear-gradient(180deg,#8fca8a,#b5dea6)", deco:[["🎋",50,55],["🎋",6,48],["🎋",94,62],["🐼",48,82]]},
+  {name:"霧の川辺",   bg:"linear-gradient(180deg,#8cc4e4,#b9dcef)", deco:[["🌊",50,48],["🐟",40,60],["🪷",60,34],["🌊",8,88]]},
+  {name:"迷いの森",   bg:"linear-gradient(180deg,#6f9a6c,#93b88c)", deco:[["🌲",50,50],["🍄",44,74],["🌲",6,30],["🦉",94,40]]},
+  {name:"岩山の峠",   bg:"linear-gradient(180deg,#b9a68a,#d4c4a6)", deco:[["⛰️",50,48],["🪨",56,74],["🦅",8,20],["🪨",92,86]]},
+  {name:"石化丸の城", bg:"linear-gradient(180deg,#6d5f8e,#958ab0)", deco:[["🗿",50,52],["🌙",90,14],["🔥",8,30],["🔥",92,70]]},
+  {name:"海の向こう", bg:"linear-gradient(180deg,#4f8cc4,#7db2de)", deco:[["⛵",24,60],["🌊",76,40],["🐋",80,78]]},
 ];
 const TIPS = [
   "この里では、言葉が後ろの言葉に合わせて姿を変える。これを<span class=em>【活用】</span>という。",
   "変わらない部分が<span class=em>【語幹】</span>、変わる部分が<span class=em>【活用語尾】</span>じゃ。「書く」なら「書」が語幹。",
   "合言葉を唱えてみよ。<br><b>未然＝ない・よう　連用＝た・ます<br>終止＝。　連体＝とき　仮定＝ば　命令＝！</b>",
+  "「書く。」と「書くとき」は同じ形。<b>すぐ後ろの言葉</b>で、終止形か連体形かが決まるのじゃ。",
   "流派を見抜くには「ない」をつける。<br><b>ア段＝五段、イ段＝上一段、エ段＝下一段</b>じゃ。",
   "「来る」は<b>カ変</b>、「する」「〜する」は<b>サ変</b>。この二つの一族は覚えてしまえ。",
+  "「切る・帰る・走る・入る」は一段に見えて<b>五段</b>。切<b>ら</b>ない・帰<b>ら</b>ない、とア段になる。",
   "活用表は覚えるものではない。言い切りの形に<b>合言葉を順につければ作れる</b>のじゃ。",
   "五段は「た」が続くと音が変わる。<b>書いた・待った・読んだ</b>。これを<b>音便</b>という。",
+  "文の中では、下線の言葉の<b>すぐ後ろ</b>を見よ。そこに合言葉が隠れておる。",
+  "後ろに<b>名詞（体言）</b>が来たら連体形じゃ。「走る<b>人</b>」「食べる<b>前</b>」。",
+  "流派を見るときは、まず<b>言い切りの形</b>にもどす。「遊ん（だ）」→「遊ぶ」→「遊<b>ば</b>ない」。",
 ];
+const ITEMS = [
+  {icon:"🌀", name:"手裏剣",   text:"忍の基本の道具。合言葉と同じく、毎日手になじませるのじゃ。"},
+  {icon:"🪝", name:"鉤縄",     text:"高い塀も、これがあれば登れる。語幹という土台にしっかり引っかけよ。"},
+  {icon:"🛟", name:"水蜘蛛",   text:"水の上を歩ける道具。流派の見分けも、浮かんだ音（段）をよく見るのじゃ。"},
+  {icon:"✴️", name:"撒菱",     text:"追っ手の足を止める。偽忍者の足も、これで止まる……かもしれん。"},
+  {icon:"🗡️", name:"忍び刀",   text:"一人前の証。音便の結界も、これで切りひらけ。"},
+];
+/* マップを作る。地方 i（1〜5）は、関所 g(i-1) から左右二つの道に分かれ、関所 g(i) で合流する。
+   道Aは「⚡腕だめし→🎁宝箱」、道Bは「📜巻物→⚡腕だめし→📜巻物」。左右は地方ごとに入れかえる。 */
+const NODES = {};
+(function buildMap(){
+  const Y = (area, f) => (AREAS.length - 1 - area) * BAND + f * BAND;
+  const add = (id, k, area, x, f, extra) => NODES[id] = Object.assign({id, k, area, x, y:Y(area, f), next:[]}, extra || {});
+  add("s", "start", 0, 50, .86);
+  add("a0t0", "tip", 0, 26, .64, {tip:0});
+  add("a0t1", "tip", 0, 70, .40, {tip:1});
+  add("g0", "ch", 0, 50, .10, {ch:"jo"});
+  NODES.s.next = ["a0t0"]; NODES.a0t0.next = ["a0t1"]; NODES.a0t1.next = ["g0"];
+  const JIT = [[0,0],[3,-4],[-4,5],[5,3],[-3,-5],[4,4]];
+  const chs = ["jo","ichi","ni","san","shi","tsui"];
+  for(let i = 1; i <= 5; i++){
+    const flip = i % 2 === 0, X = x => flip ? 100 - x : x, [jx, jy] = JIT[i];
+    add(`a${i}A1`, "quiz", i, X(20 + jx), .70);
+    add(`a${i}A2`, "treasure", i, X(16 - jx), .40 + jy / 100, {item:i - 1});
+    add(`a${i}B1`, "tip", i, X(76 + jx), .82, {tip:i * 2});
+    add(`a${i}B2`, "quiz", i, X(84 - jx), .55 + jy / 100);
+    add(`a${i}B3`, "tip", i, X(70 + jx), .30, {tip:i * 2 + 1});
+    add(`g${i}`, "ch", i, 50 + jx, .08, {ch:chs[i]});
+    NODES[`g${i - 1}`].next = [`a${i}A1`, `a${i}B1`];
+    NODES[`a${i}A1`].next = [`a${i}A2`]; NODES[`a${i}A2`].next = [`g${i}`];
+    NODES[`a${i}B1`].next = [`a${i}B2`]; NODES[`a${i}B2`].next = [`a${i}B3`]; NODES[`a${i}B3`].next = [`g${i}`];
+  }
+  add("g6", "ch", 6, 50, .55, {ch:"go"});
+  NODES.g5.next = ["g6"];
+})();
 const DICE_FACE = ["","⚀","⚁","⚂"];
 const chCleared = id => (SAVE.stars[id] || 0) > 0;
-// pos より先で、最初の「まだクリアしていない章のマス」（そこより先へは進めない）
-function gateFrom(pos){
-  for(let i = pos + 1; i < BOARD.length; i++) if(BOARD[i].k === "ch" && !chCleared(BOARD[i].id)) return i;
-  return BOARD.length - 1;
+// 晴れている地方の数（里は最初から。関所 g(i) をクリアすると地方 i+1 が晴れる）
+function revealedCount(){
+  let n = 1;
+  for(let i = 0; i <= 5; i++){ if(chCleared(NODES[`g${i}`].ch)) n = i + 2; else break; }
+  return Math.min(n, AREAS.length);
 }
-// 前からの記録（巻の形のころ）に合わせて、いる場所を決める
-if(typeof SAVE.pos !== "number"){
-  SAVE.pos = 0;
-  BOARD.forEach((b, i) => { if(b.k === "ch" && chCleared(b.id)) SAVE.pos = i; });
+// 記録の整え（巻の形・盤の形のころの記録からも続けられるように）
+if(!SAVE.visited) SAVE.visited = {s:1};
+if(!SAVE.items) SAVE.items = {};
+if(!NODES[SAVE.node]){
+  SAVE.node = "s";
+  for(let i = 0; i <= 5; i++) if(chCleared(NODES[`g${i}`].ch)) SAVE.node = `g${i}`;
+  SAVE.visited[SAVE.node] = 1;
 }
+if(typeof SAVE.revealed !== "number") SAVE.revealed = revealedCount();
+delete SAVE.pos;
+saveSave(SAVE);
+
 let BUSY = false;
-function sqInner(b, i){
-  if(b.k === "start") return `⛩️<span class="lb">里の入口</span>`;
-  if(b.k === "tip") return `📜<span class="lb">巻物</span>`;
-  if(b.k === "quiz") return `⚡<span class="lb">腕だめし</span>`;
-  const c = CHAPTERS[chIndex(b.id)], st = SAVE.stars[c.id] || 0;
+const isVisited = id => !!SAVE.visited[id] || id === SAVE.node || (NODES[id].k === "ch" && chCleared(NODES[id].ch));
+function nodeInner(n){
+  if(n.k === "start") return `⛩️<span class="lb">里の入口</span>`;
+  if(n.k === "tip") return `📜<span class="lb">巻物</span>`;
+  if(n.k === "quiz") return `⚡<span class="lb">腕だめし</span>`;
+  if(n.k === "treasure"){
+    const got = SAVE.items[n.item];
+    return got ? `${ITEMS[n.item].icon}<span class="lb">${ITEMS[n.item].name}</span>` : `🎁<span class="lb">宝箱</span>`;
+  }
+  const c = CHAPTERS[chIndex(n.ch)], st = SAVE.stars[c.id] || 0;
   return `<span class="no">${c.no}</span><span class="lb">${esc(c.name)}</span>` +
     (c.soon ? `<span class="stars">準備中</span>` : st ? `<span class="stars">${"★".repeat(st)}${"☆".repeat(3 - st)}</span>` : "");
 }
 function showTitle(){
-  const board = $("board");
-  board.querySelectorAll(".sq").forEach(e => e.remove());
-  const gate = gateFrom(SAVE.pos);
-  const cols = 4;
-  BOARD.forEach((b, i) => {
-    const r = Math.floor(i / cols), c = r % 2 === 0 ? i % cols : cols - 1 - i % cols;   // へびのように折り返す
-    const el = document.createElement("div");
-    el.className = `sq ${b.k}` + (i < SAVE.pos ? " passed" : "") + (i > gate ? " far" : "") + (b.k === "ch" && i === gate && !CHAPTERS[chIndex(b.id)].soon ? " gate" : "");
-    el.style.gridRow = r + 1; el.style.gridColumn = c + 1;
-    el.dataset.i = i;
-    el.innerHTML = sqInner(b, i);
-    el.onclick = () => tapSquare(i);
-    board.appendChild(el);
+  const map = $("map");
+  map.style.height = AREAS.length * BAND + "px";
+  const shown = SAVE.revealed;   // 演出の前は、前回までに晴れていた地方だけ見せる
+  let html = "";
+  AREAS.forEach((a, i) => {
+    const top = (AREAS.length - 1 - i) * BAND;
+    html += `<div class="band" style="top:${top}px;height:${BAND}px;background:${a.bg}">
+      ${a.deco.map(([e, x, y]) => `<span class="deco" style="left:${x}%;top:${y}%">${e}</span>`).join("")}
+      <div class="band-name">${i === 6 ? "外伝　" : ""}${esc(a.name)}</div></div>`;
   });
-  $("token").innerHTML = pic("hero");
+  html += `<svg class="road" viewBox="0 0 100 ${AREAS.length * BAND}" preserveAspectRatio="none">${roadSvg()}</svg>`;
+  Object.values(NODES).forEach(n => {
+    const c = n.k === "ch" ? CHAPTERS[chIndex(n.ch)] : null;
+    const gate = n.k === "ch" && !c.soon && !chCleared(n.ch);
+    const cls = ["node", n.k, isVisited(n.id) ? "visited" : "", gate ? "gate" : "", n.k === "treasure" && SAVE.items[n.item] ? "opened" : ""].join(" ");
+    html += `<div class="${cls}" data-id="${n.id}" style="left:${n.x}%;top:${n.y}px">${nodeInner(n)}</div>`;
+  });
+  AREAS.forEach((a, i) => {
+    if(i < shown) return;
+    const top = (AREAS.length - 1 - i) * BAND;
+    html += `<div class="fog" data-area="${i}" style="top:${top - 30}px;height:${BAND + 50}px">
+      <div class="fog-txt">${i === 6 ? "？？？<small>外伝・準備中</small>" : "？？？<small>霧に包まれている……</small>"}</div></div>`;
+  });
+  html += `<div class="token" id="token">${pic("hero")}</div>`;
+  map.innerHTML = html;
+  map.querySelectorAll(".node").forEach(e => e.onclick = () => tapNode(e.dataset.id));
+  $("itemBtn").textContent = `🎒 忍具 ${Object.keys(SAVE.items).length}/${ITEMS.length}`;
   show("sTitle");
-  requestAnimationFrame(() => { drawRoad(); placeToken(false); });
+  placeToken(false);
+  requestAnimationFrame(() => followToken(false));
+  // 霧が晴れる演出が残っていたら、終わるまでサイコロを止める（すぐふると、霧の中へ進んでしまうため）
+  if(revealedCount() > SAVE.revealed){ BUSY = true; setTimeout(() => { BUSY = false; revealNext(); }, 500); }
   updateDiceBar();
 }
-function sqEl(i){ return $("board").querySelector(`.sq[data-i="${i}"]`); }
-function sqCenter(i){ const e = sqEl(i); return e ? {x:e.offsetLeft + e.offsetWidth / 2, y:e.offsetTop + e.offsetHeight / 2} : {x:0, y:0}; }
-function drawRoad(){
-  const pts = BOARD.map((_, i) => sqCenter(i));
-  const done = pts.slice(0, SAVE.pos + 1).map(p => `${p.x},${p.y}`).join(" ");
-  $("road").innerHTML = `<polyline points="${pts.map(p => `${p.x},${p.y}`).join(" ")}" fill="none" stroke="#a5814a" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 14"/>
-    <polyline points="${done}" fill="none" stroke="#c8372d" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity=".55"/>`;
+function roadSvg(){
+  let s = "";
+  Object.values(NODES).forEach(a => a.next.forEach(bid => {
+    const b = NODES[bid], my = (a.y + b.y) / 2;
+    const d = `M${a.x},${a.y} C${a.x},${my} ${b.x},${my} ${b.x},${b.y}`;
+    const walked = isVisited(a.id) && isVisited(b.id);
+    s += `<path d="${d}" class="road-base"/>` + (walked ? `<path d="${d}" class="road-walked"/>` : "");
+  }));
+  return s;
 }
 function placeToken(hop){
-  // マスの文字をかくさないように、マスの右上の角に立たせる
-  const t = $("token"), e = sqEl(SAVE.pos);
-  if(!e) return;
-  t.style.left = (e.offsetLeft + e.offsetWidth - 8) + "px"; t.style.top = (e.offsetTop + 6) + "px";
+  const t = $("token"), n = NODES[SAVE.node];
+  if(!t) return;
+  t.style.left = n.x + "%"; t.style.top = n.y + "px";
   if(hop){ t.classList.remove("hop"); void t.offsetWidth; t.classList.add("hop"); }
 }
-window.addEventListener("resize", () => { if($("sTitle").classList.contains("show")){ drawRoad(); placeToken(false); } });
+function followToken(smooth, y){
+  const v = $("mapView");
+  const ty = (y == null ? NODES[SAVE.node].y : y) - v.clientHeight * .55;
+  v.scrollTo({top:Math.max(0, ty), behavior:smooth ? "smooth" : "auto"});
+}
+// 霧が晴れる演出（1地方ずつ）
+async function revealNext(){
+  if(BUSY) return;
+  const target = revealedCount();
+  if(SAVE.revealed >= target) return;
+  BUSY = true; updateDiceBar();
+  const i = SAVE.revealed;
+  const fog = $("map").querySelector(`.fog[data-area="${i}"]`);
+  const top = (AREAS.length - 1 - i) * BAND;
+  followToken(true, top + BAND / 2);
+  await sleep(700);
+  if(fog){ fog.classList.add("clear"); }
+  sfx.clear();
+  $("map").querySelectorAll(".node").forEach(e => { if(NODES[e.dataset.id].area === i){ e.classList.add("pop"); } });
+  await sleep(1300);
+  if(fog) fog.remove();
+  SAVE.revealed = i + 1; saveSave(SAVE);
+  BUSY = false; updateDiceBar();
+  const a = AREAS[i];
+  await new Promise(res => modal(`<div class="big">🗺️</div><h3>新たな地が現れた！</h3><p style="font-size:20px"><b>${i === 6 ? "外伝　" : ""}${esc(a.name)}</b></p>` +
+    (i === 6 ? `<p>海の向こうの術者の話は、準備中じゃ。</p>` : `<p>道は二つに分かれておる。どちらへ進むかは、おぬし次第じゃ。</p>`), [["進む", () => { closeModal(); res(); }]]));
+  followToken(true);
+  if(SAVE.revealed < revealedCount()) revealNext();
+}
 function updateDiceBar(msg){
-  const b = BOARD[SAVE.pos], btn = $("diceBtn");
+  const n = NODES[SAVE.node], btn = $("diceBtn");
   let m = msg || "";
-  if(b.k === "ch" && CHAPTERS[chIndex(b.id)].soon){ btn.style.display = "none"; m = m || "ここから先は準備中。外伝を待て！"; }
-  else if(b.k === "ch" && !chCleared(b.id)){ btn.style.display = ""; btn.textContent = `${CHAPTERS[chIndex(b.id)].no}の章に挑戦する`; btn.onclick = () => openChapter(b.id); m = m || "関所に着いた！ 章をクリアすると先へ進める"; }
+  if(n.k === "ch" && CHAPTERS[chIndex(n.ch)].soon){ btn.style.display = "none"; m = m || "ここから先は外伝（準備中）。次の旅を待て！"; }
+  else if(n.k === "ch" && !chCleared(n.ch)){ btn.style.display = ""; btn.textContent = `${CHAPTERS[chIndex(n.ch)].no}の章に挑戦する`; btn.onclick = () => openChapter(n.ch); m = m || "関所に着いた！ 章をクリアすると霧が晴れる"; }
   else { btn.style.display = ""; btn.textContent = "サイコロをふる"; btn.onclick = rollDice; }
   $("diceMsg").innerHTML = m;
   btn.disabled = BUSY;
@@ -851,49 +978,90 @@ async function rollDice(){
   const n = 1 + Math.floor(Math.random() * 3);
   d.classList.remove("roll"); d.textContent = n;
   await sleep(350);
-  const stopped = await hop(n);
+  const r = await walk(n);
   BUSY = false;
-  updateDiceBar(stopped && n > 1 ? `${n}が出たが、関所で止まった！` : "");
-  land(SAVE.pos, stopped);
-}
-// n マス進む（関所で止まる）。関所で止まったら true
-async function hop(n){
-  const gate = gateFrom(SAVE.pos);
-  let stopped = false;
-  for(let k = 0; k < n; k++){
-    if(SAVE.pos >= gate){ stopped = true; break; }
-    SAVE.pos++; saveSave(SAVE);
-    placeToken(true); tone(520 + SAVE.pos * 20, .08, "square", .05);
-    await sleep(300);
-  }
-  if(SAVE.pos >= gate && n > 0) stopped = true;
-  drawRoad();
   showTitle();
-  return stopped;
+  updateDiceBar(r.stopped && r.left > 0 ? `${n}が出たが、関所で止まった！` : "");
+  land(SAVE.node);
 }
-function land(i, stopped){
-  const b = BOARD[i];
-  if(b.k === "tip") return showTip(b.tip);
-  if(b.k === "quiz") return showQuizSquare(i);
-  if(b.k === "ch"){
-    const c = CHAPTERS[chIndex(b.id)];
+// 道の分かれ目で、どちらへ進むか選ぶ
+function routeHint(id){
+  let n = NODES[id];
+  const kinds = [];
+  while(n && n.k !== "ch"){ kinds.push(n); n = NODES[n.next[0]]; }
+  if(kinds.some(k => k.k === "treasure" && !SAVE.items[k.item])) return "何かがキラリと光っている……（宝の気配）";
+  if(kinds.some(k => k.k === "tip")) return "師匠の巻物が落ちていそうだ";
+  return "静かな道";
+}
+function chooseRoute(n){
+  const opts = n.next.map(id => NODES[id]).sort((a, b) => a.x - b.x);
+  return new Promise(res => modal(`<div class="big">🔀</div><h3>分かれ道だ！</h3><p>どちらへ進む？</p>` +
+    opts.map((o, k) => `<p style="margin:4px 0;font-size:14px">${k ? "➡️ 右" : "⬅️ 左"}：${routeHint(o.id)}</p>`).join(""),
+    opts.map((o, k) => [k ? "右の道へ ➡️" : "⬅️ 左の道へ", () => { closeModal(); res(o.id); }])));
+}
+// n マス歩く。まだクリアしていない関所に着いたら止まる。通りすがりの宝箱も拾う
+async function walk(n){
+  let left = n, stopped = false;
+  while(left > 0){
+    const cur = NODES[SAVE.node];
+    if(cur.k === "ch" && !chCleared(cur.ch)){ stopped = true; break; }
+    if(!cur.next.length){ stopped = true; break; }
+    const nextId = cur.next.length > 1 ? await chooseRoute(cur) : cur.next[0];
+    SAVE.node = nextId; SAVE.visited[nextId] = 1; saveSave(SAVE);
+    left--;
+    placeToken(true); followToken(true);
+    tone(520 + left * 60, .08, "square", .05);
+    await sleep(380);
+    const nn = NODES[nextId];
+    if(nn.k === "treasure" && !SAVE.items[nn.item] && left > 0) await openTreasure(nn, true);
+    if(nn.k === "ch" && !chCleared(nn.ch)){ stopped = true; break; }
+  }
+  return {stopped, left};
+}
+function openTreasure(n, passing){
+  const it = ITEMS[n.item];
+  SAVE.items[n.item] = 1; saveSave(SAVE);
+  sfx.clear();
+  const e = $("map").querySelector(`.node[data-id="${n.id}"]`);
+  if(e){ e.innerHTML = nodeInner(n); e.classList.add("opened", "pop"); }
+  $("itemBtn").textContent = `🎒 忍具 ${Object.keys(SAVE.items).length}/${ITEMS.length}`;
+  return new Promise(res => modal(`<div class="big">${it.icon}</div><h3>${passing ? "通りすがりに" : ""}宝箱を見つけた！</h3><p><b>忍具「${it.name}」</b>を手に入れた！</p><p style="font-size:14px">${it.text}</p>`,
+    [["やった！", () => { closeModal(); res(); }]]));
+}
+function land(id){
+  const n = NODES[id];
+  if(n.k === "tip") return showTip(n.tip);
+  if(n.k === "quiz") return showQuizSquare(n);
+  if(n.k === "treasure"){ if(!SAVE.items[n.item]) openTreasure(n, false); return; }
+  if(n.k === "ch"){
+    const c = CHAPTERS[chIndex(n.ch)];
     if(c.soon){ modal(`<div class="big">🌊</div><h3>外伝「${esc(c.name)}」</h3><p>海の向こうの術者の話は、準備中じゃ。</p>`, [["もどる", closeModal]]); return; }
     if(!chCleared(c.id)){
       sfx.clear();
-      modal(`<div class="big">⛩️</div><h3>関所！ ${c.no}の章「${esc(c.name)}」</h3><p>${esc(c.desc)}<br>この章をクリアしないと、先へは進めない！</p>`,
+      modal(`<div class="big">⛩️</div><h3>関所！ ${c.no}の章「${esc(c.name)}」</h3><p>${esc(c.desc)}<br>この章をクリアすると、霧の向こうへ進める！</p>`,
         [["挑戦する", () => { closeModal(); openChapter(c.id); }], ["あとで", closeModal]]);
     }
   }
 }
-function tapSquare(i){
+function tapNode(id){
   if(BUSY) return;
-  const b = BOARD[i], el = sqEl(i);
-  if(i > SAVE.pos){ if(el){ el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake"); } $("diceMsg").textContent = "まだそこへは行けない。サイコロをふって進もう！"; return; }
+  const n = NODES[id], e = $("map").querySelector(`.node[data-id="${id}"]`);
+  if(!isVisited(id)){
+    if(e){ e.classList.remove("shake"); void e.offsetWidth; e.classList.add("shake"); }
+    $("diceMsg").textContent = n.area >= SAVE.revealed ? "霧に包まれていて、よく見えない……" : "まだそこへは行っていない。サイコロをふって進もう！";
+    return;
+  }
   sfx.tap();
-  if(b.k === "tip") return showTip(b.tip);
-  if(b.k === "quiz") return showQuizSquare(i, true);
-  if(b.k === "ch" && !CHAPTERS[chIndex(b.id)].soon) return openChapter(b.id);
-  if(b.k === "ch") return land(i);
+  if(n.k === "tip") return showTip(n.tip);
+  if(n.k === "quiz") return showQuizSquare(n, true);
+  if(n.k === "treasure"){ const it = ITEMS[n.item]; if(SAVE.items[n.item]) modal(`<div class="big">${it.icon}</div><h3>${it.name}</h3><p>${it.text}</p>`, [["とじる", closeModal]]); return; }
+  if(n.k === "ch" && !CHAPTERS[chIndex(n.ch)].soon) return openChapter(n.ch);
+  if(n.k === "ch") return land(id);
+}
+function showItems(){
+  modal(`<div class="big">🎒</div><h3>集めた忍具</h3>` + ITEMS.map((it, k) => SAVE.items[k]
+    ? `<p style="margin:4px 0">${it.icon} <b>${it.name}</b><br><small>${it.text}</small></p>` : `<p style="margin:4px 0;color:#998">❔ ？？？（どこかの宝箱に）</p>`).join(""),
+    [["とじる", closeModal]]);
 }
 function modal(html, btns){
   $("modalBox").innerHTML = html + `<div class="btn-row">${btns.map((b, k) => `<button class="btn${k ? " sub" : ""}" data-k="${k}">${b[0]}</button>`).join("")}</div>`;
@@ -904,13 +1072,9 @@ function closeModal(){ $("modal").classList.remove("show"); }
 function showTip(k){
   modal(`<div class="big">📜</div><span class="who">師匠・変化斎</span><p>${TIPS[k]}</p>`, [["わかった", closeModal]]);
 }
-// 腕だめし：その手前でいちばん最近の章から1問。正解で1マス進める（関所はこえない）
-function quizChapterFor(i){
-  for(let k = i; k >= 0; k--) if(BOARD[k].k === "ch") return CHAPTERS[chIndex(BOARD[k].id)];
-  return CHAPTERS[0];
-}
-function showQuizSquare(i, again){
-  const ch = quizChapterFor(i);
+// 腕だめし：その地方の手前の関所（章）から1問。正解で1マス進める（関所はこえない）
+function showQuizSquare(n, again){
+  const ch = CHAPTERS[Math.max(0, n.area - 1)];
   modal(`<div class="big">⚡</div><h3>腕だめし！</h3><p>「${ch.no}　${esc(ch.name)}」から1問。${again ? "" : "<br>正解すると、1マス進める！"}</p>`,
     [["挑む", () => { closeModal(); startQuick(ch, !again); }], ["やめる", closeModal]]);
 }
@@ -932,15 +1096,15 @@ async function finishQuick(p, clear){
       flash("1マス進む！", "#ffe08a");
       BUSY = true; updateDiceBar();
       await sleep(600);
-      const stopped = await hop(1);
-      BUSY = false; updateDiceBar();
-      const b = BOARD[SAVE.pos];
-      if(b.k === "ch" && !chCleared(b.id)) land(SAVE.pos, stopped);
+      await walk(1);
+      BUSY = false;
+      showTitle();
+      const n = NODES[SAVE.node];
+      if((n.k === "ch" && !chCleared(n.ch)) || (n.k === "treasure" && !SAVE.items[n.item])) land(SAVE.node);
       else updateDiceBar("腕だめし成功！ 1マス進んだ");
     }else updateDiceBar("腕だめし成功！");
   }else updateDiceBar("腕だめしは失敗……。次の機会に！");
 }
-
 
 /* =====================================================================
    物語
