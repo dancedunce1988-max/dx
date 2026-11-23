@@ -1259,6 +1259,7 @@ const BAG = {dango:{name:"団子", icon:"🍡", price:30, note:"任務中にHP�
   if(SAVE.alloc) ["spd", "chi", "luk"].forEach(k => delete SAVE.alloc[k]);   // やめたステータス（素早さ・知恵・運）に振った分は、忍術ポイントに戻す   // 前の形（すごろく・探検マップ）の記録
   if(!SAVE.inv){ SAVE.inv = {}; START_GEAR.forEach(id => SAVE.inv[id] = 1); }
   if(!SAVE.got) SAVE.got = Object.assign({}, SAVE.inv);
+  if(!SAVE.trained){ SAVE.trained = {}; ["ichi", "ni", "san", "shi", "tsui"].forEach(c => { if((SAVE.stars || {})[c]) SAVE.trained[c] = true; }); }
   if(!SAVE.equip){ SAVE.equip = {}; START_GEAR.forEach(id => SAVE.equip[EQUIP[id].slot] = id); }
   if(!SAVE.alloc) SAVE.alloc = {};
   if(!SAVE.bag) SAVE.bag = {dango:2, kemuri:1};
@@ -1522,7 +1523,9 @@ function questInfo(){
     return {ns, P, c, steps, target:{type:"place", id:"terakoya"}, lv};
   }
   const k = P.where, f = FIELD ? FIELD.f : -1;
-  steps.push({t:"⛩️ 村の「里の門」から外へ出る", done:f >= 0});
+  const tc = CHAPTERS[chIndex(FIELD_STORY[k])];
+  steps.push({t:"⛩️ 村の「里の門」から外へ出る", done:f >= 0 || isTrained(FIELD_STORY[k])});
+  steps.push({t:`🎯 師匠の修行「${tc.name}」に合格する（${TRAIN_N}問中${TRAIN_NEED}問）`, done:isTrained(FIELD_STORY[k])});
   if(k > 0) steps.push({t:`⬆️ 「${FIELDS[k].name}」まで進む`, done:f >= k});
   steps.push({t:`${P.icon} 「${FIELDS[k].name}」のいちばん奥（出口の前）にいる${P.name}と戦う`, done:false});
   return {ns, P, c, steps, target:{type:"field", f:k}, lv};
@@ -1544,8 +1547,8 @@ function goQuest(){
   if(q.target.type === "place") return goPlace(q.target.id);
   // 外の目的の地方へ（そこまでの道は、もう開いている）
   sfx.tap();
-  enterField(q.target.f, "bottom");
-  fieldMsg(`📍 ${FIELDS[q.target.f].name}に着いた。いちばん奥（▼の印）をめざそう`);
+  const k = q.target.f;
+  needTraining(k, () => { enterField(k, "bottom"); fieldMsg(`📍 ${FIELDS[k].name}に着いた。いちばん奥（▼の印）をめざそう`); });
 }
 function showQuestLog(){
   const ns = nextStory();
@@ -1966,6 +1969,77 @@ function finishDojo(p, win, r){
     ${xpResultHtml(XP_AWARD, XP_NOTE)}
     <div class="stat">正解 ${p.ok}　まちがい ${p.ng}　先に答えられた ${p.cpuWins || 0}回<br>「${MG_GENRE}」レベル ${mgSigned(r.net)}</div>
     <div class="btn-row" id="resultBtns"><button class="btn" onclick="showDojo()">道場へもどる</button><button class="btn sub" onclick="showVillage()">村へ</button></div>`;
+  show("sResult");
+  animateXp(XP_AWARD);
+}
+
+/* =====================================================================
+   修行（2026-11-23、教員の指示：「新しいマップを開いたときに、ちゃんと説明をして、練習となる問題をいくつかやって、
+   ある程度習得した状態にしてからマップを開放する」）
+   ・外の地方ごとに、学ぶ内容（章）が決まっている（FIELD_STORY）。その地方の野良忍者もボスも、その章から出題する。
+   ・はじめてその地方に入る前に、師匠の修行を受ける：説明 → 巻物 → 練習問題 TRAIN_N 問（時間制限なし・敵の攻撃なし）。
+     TRAIN_NEED 問以上正解で合格し、地方に入れる（SAVE.trained[章]）。不合格なら、何度でもやり直せる。
+   ===================================================================== */
+const TRAIN_N = 8, TRAIN_NEED = 6;
+const isPrac = m => m === "quick" || m === "train";
+const TRAIN_TALK = {
+  ichi: ["この先の「里の外れ」には、<span class=em>合言葉の術</span>を使う野良忍者が出る。",
+         "言葉は、すぐ後ろに続く言葉（合言葉）によって、六つの形に変わる。これを<span class=em>【活用形】</span>という。",
+         "<b>未然＝ない・よう　連用＝た・ます　終止＝。　連体＝とき　仮定＝ば　命令＝！</b>　巻物で覚えてから、練習じゃ。"],
+  ni:   ["「竹林の小道」の野良忍者は、<span class=em>流派（活用の種類）</span>を見抜けるかを試してくる。",
+         "言葉に「ない」をつけ、すぐ前の音が<b>ア段なら五段、イ段なら上一段、エ段なら下一段</b>。",
+         "「来る」はカ変、「する」はサ変。この二つは覚えてしまえ。"],
+  san:  ["「霧の川辺」には、<span class=em>一段に見える五段</span>の偽忍者がうようよしておる。",
+         "「切る」「帰る」「走る」……見た目は一段でも、「ない」をつけると切<b>ら</b>ない――ア段、つまり五段じゃ。",
+         "見た目で決めるな。必ず「ない」をつけて確かめよ。"],
+  shi:  ["「岩山の峠」では、<span class=em>破れた活用表を直す力</span>が試される。",
+         "言い切りの形に、合言葉を順につければ、活用表は自分で作れる。",
+         "五段は「た」が続くと音が変わる（書<b>い</b>た・待<b>っ</b>た・読<b>ん</b>だ）。音便に気をつけよ。"],
+  tsui: ["「影の森」の敵は、<span class=em>文の中に隠れた言葉</span>で勝負してくる。",
+         "下線の言葉の<b>すぐ後ろ</b>を見て、活用形を見抜け。後ろに名詞が来たら連体形じゃ。",
+         "流派を聞かれたら、まず<b>言い切りの形</b>にもどしてから「ない」をつけるのじゃ。"],
+};
+const isTrained = ch => !!(SAVE.trained && SAVE.trained[ch]);
+let TRAIN_AFTER = null;
+// 地方 fi に入る前の修行。済んでいれば、そのまま go()
+function needTraining(fi, go){
+  const ch = FIELD_STORY[fi];
+  if(isTrained(ch)){ go(); return; }
+  if(fi === 0 && !chCleared("jo")){ soonMsg("まずは📚寺子屋で、師匠の話を聞こう！"); return; }
+  const c = CHAPTERS[chIndex(ch)];
+  TRAIN_AFTER = go;
+  playStory([["nar", `―― 「${FIELDS[fi].name}」へ向かう前に、師匠が呼び止めた。 ――`]].concat(TRAIN_TALK[ch].map(t => ["shisho", t]),
+    [["shisho", `修行じゃ！ ${TRAIN_N}問のうち${TRAIN_NEED}問正解できたら、「${FIELDS[fi].name}」へ行くことを許そう。`]]),
+    () => showLessonFor(c, () => startTraining(ch)));
+}
+function soonMsg(t){ modal(`<p>${t}</p>`, [["わかった", closeModal]]); }
+function startTraining(ch){
+  const c = CHAPTERS[chIndex(ch)];
+  startBattle({mode:"train", trainCh:ch, ch:c, foe:{icon:"🎯", name:"修行", hp:1, atk:0, def:0, every:999}, time:99, ryo:0, xp:2});
+}
+function finishTrain(p){
+  const ch = p.cfg.trainCh, c = CHAPTERS[chIndex(ch)], pass = p.ok >= TRAIN_NEED;
+  const r = mgFlush() || {net:0};
+  const fi = FIELD_STORY.indexOf(ch);
+  let body;
+  if(pass){
+    SAVE.trained = SAVE.trained || {}; SAVE.trained[ch] = true; saveSave(SAVE);
+    XP_AWARD = awardXp(p.xpGot + 10); XP_NOTE = "正解の分＋合格のボーナス10";
+    sfx.clear();
+    body = `<div class="enc-ic">🎉</div><h2>修行 合格！</h2><p>師匠「見事じゃ。${esc(c.name)}の術は身についたようじゃな。<br>「${FIELDS[fi].name}」へ行くがよい。野良忍者もボスも、この術で勝負してくるぞ。」</p>`;
+  }else{
+    XP_AWARD = awardXp(Math.floor(p.xpGot / 2)); XP_NOTE = "不合格なので、正解の分の半分";
+    body = `<div class="enc-ic">💪</div><h2>あと少し！</h2><p>師匠「${TRAIN_N}問中${p.ok}問か。${TRAIN_NEED}問できるまで、もう一度じゃ。巻物を読み返してもよいぞ。」</p>`;
+  }
+  $("resultBody").innerHTML = `${body}
+    ${xpResultHtml(XP_AWARD, XP_NOTE)}
+    <div class="stat">正解 ${p.ok} / ${TRAIN_N}（合格 ${TRAIN_NEED}問）<br>「${MG_GENRE}」レベル ${mgSigned(r.net)}</div>
+    ${p.wrongList.length ? `<div class="scroll" style="margin-top:12px;text-align:left"><h2 style="font-size:18px">ふりかえり</h2>${p.wrongList.map(q => `<p>・${explain(q)}</p>`).join("")}</div>` : ""}
+    <div class="btn-row" id="resultBtns">
+      ${pass ? `<button class="btn" onclick="const f = TRAIN_AFTER; TRAIN_AFTER = null; f ? f() : showVillage()">「${FIELDS[fi].name}」へ進む</button>`
+        : `<button class="btn" onclick="startTraining('${ch}')">もう一度修行</button><button class="btn sub" onclick="showLessonFor(CHAPTERS[chIndex('${ch}')], () => startTraining('${ch}'))">巻物を読む</button>`}
+      <button class="btn sub" onclick="FIELD = null; TRAIN_AFTER = null; showVillage()">村へもどる</button>
+    </div>`;
   show("sResult");
   animateXp(XP_AWARD);
 }
@@ -2489,8 +2563,9 @@ function startBattle(cfg){
     hp:b.maxHp, maxHp:b.maxHp, atk:b.atk, def:b.def, nin:b.nin, res:b.res, atkCount:0, crit:b.crit, guard:b.guard, hints:b.hints, gauge:0, jutsu:jutsuKnown(b.nin),
     foe:Object.assign({}, cfg.foe, {max:cfg.foe.hp}), timeBase:cfg.time + b.time, lv0:ninjaInfo().lv, dmgDealt:0, charge:0, xpGot:0};
   if(cfg.mode === "quick") PLAY.qs = [pick(PLAY.qs)];
+  if(cfg.mode === "train") PLAY.foe.icon = pic("shisho");
   mgStart();
-  $("quitBtn").textContent = cfg.mode === "wild" ? "🏃 逃げる" : cfg.mode === "dojo" ? "勝負をやめる" : "任務をやめる";
+  $("quitBtn").textContent = cfg.mode === "wild" ? "🏃 逃げる" : cfg.mode === "dojo" ? "勝負をやめる" : cfg.mode === "train" ? "修行をやめる" : "任務をやめる";
   // 舞台の背景：外なら地方の色、物語は夕焼け、任務は城の庭、練習は寺子屋
   const F = cfg.mode === "wild" && FIELD ? FIELDS[FIELD.f] : null;
   $("bStage").style.background = F ? `linear-gradient(180deg,#bfe6ff 0%,#e8f6ff 38%,${F.grass} 39%,${F.bg} 100%)`
@@ -2502,7 +2577,7 @@ function startBattle(cfg){
   fxResize();
   PLAY.turn = 0; PLAY.stolen = 0; PLAY.fled = false;
   STREAK = 0;   // 連続正解は、戦いごとに数えなおす
-  $("hudName").textContent = cfg.mode === "dojo" ? `🥋 道場　${cfg.foe.name}` : cfg.mode === "wild" ? `${cfg.foe.special ? "✨ 名のある忍" : cfg.foe.golden ? "✨ 金色の" : "🌿 野良忍者"} ${cfg.foe.name} Lv${cfg.lv}` : cfg.mode === "story" ? `📜 ${ch.no}の章「${ch.name}」` : cfg.mode === "quest" ? `⚔️【${cfg.rank}】${QTYPES.find(x => x.ch === ch.id).name}` : `🎯 1問練習（${ch.no}の章）`;
+  $("hudName").textContent = cfg.mode === "train" ? `🎯 修行：${ch.no}の章「${ch.name}」` : cfg.mode === "dojo" ? `🥋 道場　${cfg.foe.name}` : cfg.mode === "wild" ? `${cfg.foe.special ? "✨ 名のある忍" : cfg.foe.golden ? "✨ 金色の" : "🌿 野良忍者"} ${cfg.foe.name} Lv${cfg.lv}` : cfg.mode === "story" ? `📜 ${ch.no}の章「${ch.name}」` : cfg.mode === "quest" ? `⚔️【${cfg.rank}】${QTYPES.find(x => x.ch === ch.id).name}` : `🎯 1問練習（${ch.no}の章）`;
   show("sPlay");
   renderQ();
 }
@@ -2521,10 +2596,10 @@ function renderHud(){
   $("hudCombo").innerHTML = STREAK >= 2 ? `<span class="streak s${STREAK >= 11 ? 3 : STREAK >= 6 ? 2 : 1}">🔥${STREAK}連続　攻撃×${sm.toFixed(1)}</span>` : "";
   const hero = $("bHero"); if(hero){ hero.classList.toggle("aura1", STREAK >= 3 && STREAK < 6); hero.classList.toggle("aura2", STREAK >= 6 && STREAK < 11); hero.classList.toggle("aura3", STREAK >= 11); }
   const bag = SAVE.bag.dango || 0;
-  $("hudItems").innerHTML = p.cfg.mode === "quick" ? "" :
+  $("hudItems").innerHTML = isPrac(p.cfg.mode) ? "" :
     `<button class="iconbtn" ${bag && !p.lock ? "" : "disabled"} onclick="useDango()">🍡×${bag}</button>`;
   const gmax = jutsuMax(p.nin), full = p.gauge >= gmax;
-  $("hudJutsu").innerHTML = p.cfg.mode === "quick" ? "" :
+  $("hudJutsu").innerHTML = isPrac(p.cfg.mode) ? "" :
     `<span class="jgauge${full ? " full" : ""}">術 ${"●".repeat(Math.min(p.gauge, gmax))}${"○".repeat(Math.max(0, gmax - p.gauge))}</span>` +
     (full ? p.jutsu.map(j => { const a = j.kind === "atk" ? affinity(j.elem, p.foe.elem) : 1;
       return `<button class="jbtn${a > 1 ? " good" : a < 1 ? " bad" : ""}" ${p.lock ? "disabled" : ""} onclick="useJutsu('${j.id}')">${j.icon} ${j.name}${a > 1 ? " ◎" : a < 1 ? " △" : ""}</button>`; }).join("") : "");
@@ -2603,6 +2678,12 @@ function foeHtml(){
 function eboxHtml(){
   const f = PLAY.foe;
   if(PLAY.cfg.mode === "quick") return "";
+  if(PLAY.cfg.mode === "train"){
+    const T = TRAIN_N, need = TRAIN_NEED;
+    return `<div class="bxname">🎯 師匠の修行<span class="bxlv">${Math.min(PLAY.i + 1, T)} / ${T}問</span></div>
+      <div class="bxsub">合格：${T}問中 <b>${need}問</b> 正解</div>
+      <div class="bxnext ${PLAY.ok >= need ? "" : "soon"}">今 ${PLAY.ok}問 正解${PLAY.ok >= need ? "　✅ 合格ライン！" : `（あと${need - PLAY.ok}問）`}</div>`;
+  }
   if(PLAY.cfg.mode === "dojo"){
     const r0 = Math.max(0, f.hp / f.max), c0 = r0 > .5 ? "" : r0 > .2 ? " mid" : " low";
     return `<div class="bxname">${esc(f.name)}<span class="bxlv">Lv${PLAY.cfg.lv}</span></div>
@@ -2622,7 +2703,7 @@ function refreshFoe(){ $("foe").innerHTML = foeHtml(); $("eBox").innerHTML = ebo
 function startTimer(){
   stopTimer();
   const p = PLAY, q = p.qs[p.i];
-  if(p.cfg.mode === "quick") { $("qTimer").style.width = "0%"; return; }
+  if(isPrac(p.cfg.mode)) { $("qTimer").style.width = "0%"; return; }   // 練習・修行には時間制限なし
   const extra = q.kind === "table" || q.kind === "sform" || q.kind === "stype" ? 6 : 0;
   const total = (p.timeBase + extra) * 1000, t0 = Date.now();
   TIMER = setInterval(() => {
@@ -2685,17 +2766,17 @@ async function answer(btn){
     const dodged = hasAb(p.foe, "dodge") && Math.random() < .18;   // 能力【かわす】
     const dmg = dodged ? 0 : hitDamage(Math.round(p.atk * (crit ? 2 : 1) * streakMul()), p.foe, crit);
     p.foe.hp -= dmg; p.dmgDealt += dmg;
-    if(p.cfg.mode !== "quick"){ if(dodged){ const f = foeC(); burst(f.x, f.y, 8, {sp0:60, sp1:160, p:() => ({ch:"💨", size:rnd(16, 24)})}); } else { fxSlash(crit); tone(crit ? 1200 : 900, .06, "square", .05, .02); } }
+    if(!isPrac(p.cfg.mode)){ if(dodged){ const f = foeC(); burst(f.x, f.y, 8, {sp0:60, sp1:160, p:() => ({ch:"💨", size:rnd(16, 24)})}); } else { fxSlash(crit); tone(crit ? 1200 : 900, .06, "square", .05, .02); } }
     const xp = p.cfg.xp || 1; p.xpGot += xp;   // 獲得予定（倒したときにまとめて入る）
-    if(p.cfg.mode !== "quick") setTimeout(() => dmgPop(`+${xp} EXP`, "#9fe8ff", "pBox"), 250);
+    if(!isPrac(p.cfg.mode)) setTimeout(() => dmgPop(`+${xp} EXP`, "#9fe8ff", "pBox"), 250);
     refreshFoe(); $("foe").classList.remove("hit"); void $("foe").offsetWidth; $("foe").classList.add("hit");
-    if(p.cfg.mode !== "quick") dmgPop(dodged ? "かわされた！" : `${crit ? "会心！" : ""}−${dmg}`, dodged ? "#9fd3ff" : crit ? "#ffd23f" : "#fff", "foe");
+    if(!isPrac(p.cfg.mode)) dmgPop(dodged ? "かわされた！" : `${crit ? "会心！" : ""}−${dmg}`, dodged ? "#9fd3ff" : crit ? "#ffd23f" : "#fff", "foe");
     flash(crit ? "会心の一撃！" : STREAK >= 3 ? `${STREAK}連続！ 攻撃×${streakMul().toFixed(1)}` : "見事！", "#ffe08a");
     if(STREAK === 3 || STREAK === 6 || STREAK === 11) [784, 988, 1175].forEach((f, k) => tone(f, .1, "square", .05, k * .07));
     fb.className = "feedback ok show"; fb.innerHTML = "⭕ " + explain(q);
     renderHud();
     // 敵が生きていれば、決まった間（every）ごとに攻撃してくる
-    if(p.cfg.mode !== "quick" && p.foe.hp > 0){
+    if(!isPrac(p.cfg.mode) && p.foe.hp > 0){
       p.charge++;
       if(p.charge >= p.foe.every){ await sleep(650); foeAttack(1); }
       else refreshFoe();
@@ -2709,7 +2790,7 @@ async function answer(btn){
     STREAK = 0;
     if(btn) btn.classList.add("ng");
     sfx.ng(); mgWrong();
-    if(p.cfg.mode !== "quick"){
+    if(!isPrac(p.cfg.mode)){
       foeAttack(1.5);   // まちがい・時間切れは、その場で1.5倍の反撃
       if(hasAb(p.foe, "steal") && SAVE.ryo > 0){   // 能力【盗み】
         const n = Math.min(SAVE.ryo, 3 + p.foe.lv * 2); SAVE.ryo -= n; p.stolen += n; saveSave(SAVE);
@@ -2727,6 +2808,7 @@ async function answer(btn){
 function nextQ(){
   const p = PLAY; if(!p) return;
   if(p.cfg.mode === "quick"){ finish(p.ok > 0); return; }
+  if(p.cfg.mode === "train"){ if(p.i + 1 >= TRAIN_N){ finishTrain(p); return; } p.i++; ensureQ(); renderQ(); return; }
   if(p.foe.hp <= 0){ finish(true); return; }
   if(p.hp <= 0){ finish(false); return; }
   if(p.fled){ finish("fled"); return; }
@@ -2735,6 +2817,10 @@ function nextQ(){
 }
 function quitPlay(){
   if(!PLAY) return;
+  if(PLAY.cfg.mode === "train"){
+    if(!confirm("修行をやめますか？（合格するまで、その地方には入れません）")) return;
+    stopTimer(); PLAY = null; mgFlush(); TRAIN_AFTER = null; FIELD ? resumeField() : showVillage(); return;
+  }
   if(PLAY.cfg.mode === "dojo"){
     if(!confirm("勝負をやめて、道場にもどりますか？")) return;
     stopTimer(); clearTimeout(CPU_T); PLAY = null; mgFlush(); showDojo(); return;
@@ -2757,6 +2843,7 @@ function finish(win){
   const r = mgFlush() || {net:0};
   const cfg = p.cfg, ch = p.ch;
   let body = "", rewards = [], firstClear = false;
+  if(cfg.mode === "train") return finishTrain(p);
   if(cfg.mode === "quick"){
     if(win) gainXp(p.xpGot);
     showTerakoya();
@@ -2982,8 +3069,7 @@ function enterField(fi, from){
 }
 function goOutside(){
   sfx.tap();
-  if(SAVE.field && FIELDS[SAVE.field.f] && SAVE.field.f === 0){ enterField(0, "bottom"); return; }
-  enterField(0, "bottom");
+  needTraining(0, () => enterField(0, "bottom"));
 }
 function resumeField(){
   if(!FIELD){ const s = SAVE.field || {f:0}; FIELD = {f:s.f || 0, x:s.x ?? 3, y:s.y ?? 10, safe:3, walking:false, queue:[]}; }
@@ -2992,7 +3078,7 @@ function resumeField(){
 function showField(){
   const F = FIELDS[FIELD.f];
   $("fName").textContent = `${F.name}`;
-  $("fLv").textContent = `野良忍者 Lv${F.lv[0]}〜${F.lv[1]}`;
+  $("fLv").textContent = `野良忍者 Lv${F.lv[0]}〜${F.lv[1]}・出題：${CHAPTERS[chIndex(FIELD_STORY[FIELD.f])].name}`;
   const g = $("fGrid");
   g.style.background = F.bg;
   let html = "";
@@ -3085,7 +3171,7 @@ async function stepTo(x, y){
     return true;
   }
   if(c === "U"){
-    if(FIELD.f + 1 < FIELDS.length){ await sleep(200); enterField(FIELD.f + 1, "bottom"); }
+    if(FIELD.f + 1 < FIELDS.length){ await sleep(200); const nf = FIELD.f + 1; needTraining(nf, () => enterField(nf, "bottom")); }
     else fieldMsg("🚧 この先は、まだ道がない（準備中）");
     return true;
   }
@@ -3139,10 +3225,8 @@ async function encounter(){
     [["戦う！", () => { closeModal(); startWild(foe); }], ["逃げる", () => { closeModal(); FIELD.safe = 4; fieldMsg("うまく逃げた……"); }]]);
 }
 function wildCh(w){
-  // その野良忍者の得意な章の問題。まだ本任務で終えていない章なら、終えた章の中から（何も終えていなければ序の章）
-  const done = STORY_ORDER.filter(chCleared);
-  let id = w.ch === "any" ? pick(done.length ? done : ["jo"]) : w.ch;
-  if(!chCleared(id) && id !== "jo") id = done.length ? pick(done) : "jo";
+  // その地方で学ぶ章（修行で練習した内容）から出題する（2026-11-23、教員の指示）
+  const id = FIELD ? FIELD_STORY[FIELD.f] : "ichi";
   return CHAPTERS[chIndex(id)];
 }
 function startWild(foe){
