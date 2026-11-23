@@ -4732,7 +4732,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver14.05</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver14.06</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -21620,6 +21620,15 @@ function bootApp(){
      一切露出しない隠しルート、2026-08-29〜：「未来龍と古代龍のビジュアルをゲーム画面で確認したい」）。
      ことのは転生の系統×段階のあらゆる組み合わせを、実際のセーブデータを一切書き換えずに
      プレビューできる（showKotonohaDevTool参照）。 */
+  /* 試遊用のリンク（2026-11-23〜、教員の指示「変更したら、試遊用のリンクを出して」）。
+     ?devtool=kotonoha&play=ninpou で開くと、管理者の端末として記録したうえで、そのまま「変化の里」へ入る。
+     ゲームのページが古いまま表示されないよう、URLに時刻を付けて開く。管理者でなければ何もしない。 */
+  if(new URLSearchParams(location.search).get('play') === 'ninpou' && ninpouOpen()){
+    try{ history.replaceState(null, '', location.pathname); }catch(e){}
+    showHome();
+    mgGoWithPass("ninpou", "katsuyo_ninpou.html?t=" + Date.now());
+    return;
+  }
   if(new URLSearchParams(location.search).get('devtool') === 'kotonoha'){ showKotonohaDevTool(); return; }
   /* ボスの「色違い」管理者プレビュー（URLに ?devtool=shiny を付けたときだけ現れる、
      通常のプレイでは一切露出しない隠しルート、2026-09-09〜）。showShinyDevTool参照。 */
