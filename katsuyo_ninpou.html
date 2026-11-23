@@ -23,7 +23,9 @@
        一 六つの合言葉   … 後ろに続く言葉（合言葉）から活用形（術）を見分ける
        二 流派を見抜け   … 「ない」の煙玉で正体（ないの直前の音の段）を見て、活用の種類（流派）を当てる
        三 偽忍者の襲来   … 一段に見える五段（切る・帰る・要る…）を、煙玉なし（3つだけ）で見破る
-       四〜終            … 準備中（活用表の復元・形容詞と形容動詞・文中での識別）
+       四 巻物の復元     … 破れた活用表の「？」を埋める（五段は必ず音便の欄を入れる＝中ボス）
+       終 城での決戦     … 文の中の下線部の活用形を見抜く（3問に1問は流派も）。石化丸の体力を削る
+       外 異国の術者     … 準備中（形容詞・形容動詞）
      問題はこのページの中で、動詞の一覧と活用の規則から自動で作る（何度遊んでも尽きない）。
      本体のセーブデータ(st)には直接触れず、このページ専用のlocalStorageキー(NP_LSKEY)を使う。
      正誤は「動詞の活用」（doushi_katsuyo）ジャンルのレベルに反映する（つなぎ橋の練習の谷と同じ数え方：
@@ -165,7 +167,28 @@
   .lvup-toast.show{animation:toast 2.2s ease both}
   @keyframes toast{0%{transform:translateX(-50%) translateY(-120%)}12%,80%{transform:translateX(-50%) translateY(0)}100%{transform:translateX(-50%) translateY(-120%)}}
   .lvup-toast b{margin:0 6px}
+  /* 四の章：活用表 */
+  .ktable{border-collapse:collapse;margin:6px auto 0;font-size:16px;color:var(--ink);background:var(--paper);border-radius:8px;overflow:hidden}
+  .ktable td,.ktable th{border:1px solid #b79c6c;padding:4px 10px;text-align:center}
+  .ktable th{background:#ead9b0;font-size:13px}
+  .ktable td.fol{color:var(--ink2);font-size:13px}
+  .ktable td.cur{background:#fff1b8;color:var(--red);font-weight:bold;animation:pop 1.2s infinite}
+  .ktable td.torn{background:repeating-linear-gradient(45deg,#d8c08e 0 6px,#c9ad74 6px 12px);color:transparent}
+  .ktable td.form{font-size:18px;font-weight:bold}
+  .ktable rt{font-size:.5em;color:var(--ink2)}
+  .boss-tag{display:inline-block;background:var(--red);color:#fff;border-radius:999px;padding:2px 12px;font-size:13px;font-weight:bold;margin-bottom:4px}
+  /* 終の章：文と石化丸の体力 */
+  .sent{font-size:clamp(20px,5.4vw,26px);line-height:2.1;margin:4px 0;color:#fff}
+  .sent u{text-decoration-color:var(--gold);text-decoration-thickness:3px;text-underline-offset:7px;color:var(--gold);font-weight:bold}
+  .sent rt{font-size:.45em;color:#cfd6ea}
+  .bosshp{width:70%;max-width:260px;height:10px;margin:4px auto 0;background:rgba(255,255,255,.15);border-radius:99px;overflow:hidden;border:1px solid rgba(255,255,255,.3)}
+  .bosshp i{display:block;height:100%;background:linear-gradient(90deg,#ff5c5c,#ffb35c);transition:width .4s}
+  .bossname{font-size:12px;color:#ffb3a8;margin-top:2px}
+  .choice.form-c{font-size:20px}
+  .choice.form-c rt{font-size:.5em}
   @media (max-width:480px){
+    .ktable{font-size:14px}
+    .ktable td,.ktable th{padding:3px 6px}
     .dlg .txt{font-size:16px}
     .stage .actor{font-size:64px}
     .stage .actor img{height:110px}
@@ -387,6 +410,66 @@ const V_FAKE = [
   {w:"滑る", r:"すべ"},{w:"散る", r:"ち"},{w:"照る", r:"て"},{w:"握る", r:"にぎ"},{w:"限る", r:"かぎ"},{w:"焦る", r:"あせ"},
 ].map(v => ({...v, t:"godan", fake:true}));
 
+/* 終の章の文。[ ]が下線部、{漢字|よみ} はふりがな。
+   w：言い切りの形、t：活用の種類、f：活用形（conjのキー）、k：すぐ後ろの言葉、n：ひとこと解説（あれば） */
+const SENTENCES = [
+  {s:"明日は早く[起き]ない。", w:"起きる", t:"kami", f:"mizen", k:"ない"},
+  {s:"みんなで歌を[歌お]う。", w:"歌う", t:"godan", f:"mizenU", k:"う"},
+  {s:"駅まで[歩い]て行く。", w:"歩く", t:"godan", f:"onbin", k:"て", n:"「書いて」「歩いて」のように音が変わっても（音便）、「て」が続けば連用形。"},
+  {s:"毎日日記を[書き]ます。", w:"書く", t:"godan", f:"renyo", k:"ます"},
+  {s:"図書館で本を[借りる]。", w:"借りる", t:"kami", f:"shushi", k:"。"},
+  {s:"電車が[{来|く}る]時刻を調べる。", w:"来る", t:"ka", f:"rentai", k:"時刻", n:"後ろに名詞（体言）の「時刻」が来るので連体形。"},
+  {s:"雨が[降れ]ば、試合は中止だ。", w:"降る", t:"godan", f:"katei", k:"ば"},
+  {s:"早く[{寝|ね}ろ]と母に言われた。", w:"寝る", r:"ね", t:"shimo", f:"meirei", k:"と", n:"「寝ろ」で命令して言い切っている。「と」はその言葉を引用しているだけ。"},
+  {s:"週末に友達が[{来|き}]ます。", w:"来る", t:"ka", f:"renyo", k:"ます"},
+  {s:"宿題を[し]ないで遊ぶ。", w:"する", t:"sa", f:"mizen", k:"ない"},
+  {s:"毎朝ラジオ体操を[する]。", w:"する", t:"sa", f:"shushi", k:"。"},
+  {s:"しっかり[勉強すれ]ば、きっと分かる。", w:"勉強する", t:"sa", f:"katei", k:"ば"},
+  {s:"公園で友達と[遊ん]だ。", w:"遊ぶ", t:"godan", f:"onbin", k:"だ", n:"「遊んだ」の「だ」は「た」がにごったもの。連用形。"},
+  {s:"寒いので窓を[閉め]よう。", w:"閉める", t:"shimo", f:"mizenU", k:"よう"},
+  {s:"ご飯を[食べる]前に手を洗う。", w:"食べる", t:"shimo", f:"rentai", k:"前", n:"後ろに名詞（体言）の「前」が来るので連体形。"},
+  {s:"音楽を[聞き]ながら勉強する。", w:"聞く", t:"godan", f:"renyo", k:"ながら", n:"「ながら」「たい」も連用形に続く。"},
+  {s:"将来は医者に[なり]たい。", w:"なる", t:"godan", f:"renyo", k:"たい", n:"「たい」は連用形に続く。"},
+  {s:"すぐに[{来|こ}い]と言われた。", w:"来る", t:"ka", f:"meirei", k:"と", n:"「来い」で命令して言い切っている。"},
+  {s:"よく[考えれ]ば分かる問題だ。", w:"考える", t:"shimo", f:"katei", k:"ば"},
+  {s:"[{走|はし}る]ことが好きだ。", w:"走る", r:"はし", t:"godan", f:"rentai", k:"こと"},
+  {s:"毎朝牛乳を[飲む]。", w:"飲む", t:"godan", f:"shushi", k:"。"},
+  {s:"彼は約束を[守ら]ない。", w:"守る", t:"godan", f:"mizen", k:"ない"},
+  {s:"夜空の星を[{見|み}る]人が多い。", w:"見る", r:"み", t:"kami", f:"rentai", k:"人", n:"後ろに名詞（体言）の「人」が来るので連体形。"},
+  {s:"この服を[{着|き}れ]ば暖かい。", w:"着る", r:"き", t:"kami", f:"katei", k:"ば"},
+  {s:"ここでしばらく[待て]。", w:"待つ", t:"godan", f:"meirei", k:"。", n:"「待て」で命令して言い切っている。「待てば」なら仮定形。"},
+  {s:"宿題が[終わっ]たら遊ぼう。", w:"終わる", t:"godan", f:"onbin", k:"たら", n:"「たら」は「た」のなかま。連用形に続く。"},
+  {s:"毎日[練習する]ので上手になった。", w:"練習する", t:"sa", f:"rentai", k:"ので", n:"「ので」は連体形に続く。"},
+  {s:"先生に手紙を[送ろ]う。", w:"送る", t:"godan", f:"mizenU", k:"う"},
+  {s:"わたしは友達を[信じる]。", w:"信じる", t:"kami", f:"shushi", k:"。"},
+  {s:"部屋に[{入|はい}れ]ば暖かい。", w:"入る", r:"はい", t:"godan", f:"katei", k:"ば"},
+  {s:"失敗を[恐れ]ない。", w:"恐れる", t:"shimo", f:"mizen", k:"ない"},
+  {s:"もう[{帰|かえ}る]時間だ。", w:"帰る", r:"かえ", t:"godan", f:"rentai", k:"時間", n:"後ろに名詞（体言）の「時間」が来るので連体形。"},
+  {s:"全員、手を[上げろ]。", w:"上げる", t:"shimo", f:"meirei", k:"。"},
+];
+function sentHtml(s){
+  return esc(s).replace(/\{(.+?)\|(.+?)\}/g, "<ruby>$1<rt>$2</rt></ruby>").replace(/\[(.+?)\]/g, "<u>$1</u>");
+}
+function verbOf(x){
+  return [...V_GODAN, ...V_KAMI, ...V_SHIMO, ...V_KA, ...V_SA, ...V_FAKE].find(v => v.w === x.w) || {w:x.w, t:x.t, r:x.r, y:x.y};
+}
+// 活用表の行（四の章）
+const TABLE_ROWS = [["mizen","未然形","ない"],["mizenU","未然形","う・よう"],["renyo","連用形","ます"],["onbin","連用形","た・て"],
+  ["shushi","終止形","。"],["rentai","連体形","とき"],["katei","仮定形","ば"],["meirei","命令形","！"]];
+// 四の章の選択肢：その動詞のほかの形と、ありがちなまちがい
+function tableChoices(v, f){
+  const ans = conj(v, f), set = new Set();
+  TABLE_ROWS.forEach(([g]) => set.add(conj(v, g)));
+  if(v.t === "godan"){
+    const stem = v.w.slice(0, -1);
+    [...ROW[v.w.slice(-1)]].forEach(c => set.add(stem + c));
+    if(f === "onbin") ["っ","ん","い"].forEach(c => set.add(stem + c));
+  }
+  if(v.t === "kami" || v.t === "shimo"){ const base = v.w.slice(0, -1); if(f === "katei" || f === "meirei") set.add(base + "け"); }
+  set.delete(ans);
+  return shuffle([ans, ...shuffle([...set]).slice(0, 3)]);
+}
+
 // 表示用（ふりがな付き）。漢字の部分にだけルビをふる
 function rubyHtml(v, text){
   text = text == null ? v.w : text;
@@ -563,11 +646,59 @@ const CHAPTERS = [
     ["fake", "ば、ばれた……！ 退散！", "shake"],
     ["shisho", "見事じゃ、見習いよ。もう一人前の目を持っておる。"],
     ["sekka", "くっ……今日のところは引いてやる。だが巻物はまだ我が手にある。破れた<span class=em>活用表</span>を、元に戻せるものならやってみよ！"],
-    ["nar", "―― 四の章「巻物の復元」につづく（準備中）――"],
+    ["nar", "―― 四の章「巻物の復元」につづく ――"],
    ]},
-  {id:"shi", no:"四", name:"巻物の復元", desc:"活用表を自分で作る（準備中）", soon:true},
-  {id:"go", no:"五", name:"異国の術者", desc:"形容詞・形容動詞（準備中）", soon:true},
-  {id:"tsui", no:"終", name:"城での決戦", desc:"文の中で活用形を見抜く（準備中）", soon:true},
+  {id:"shi", no:"四", name:"巻物の復元", desc:"活用表を自分で作る", n:12, life:3,
+   intro:[
+    ["nar", "石化丸が逃げたあとに、ずたずたに破られた巻物が落ちていた。"],
+    ["shisho", "これは……変化の術の<span class=em>【活用表】</span>じゃ！ 石化丸め、あちこち破りおった。"],
+    ["shisho", "じゃが心配はいらん。<span class=em>合言葉を順につけていけば</span>、活用表は自分で作れるのじゃ。"],
+    ["shisho", "気をつけよ。五段流の「た・て」の欄には<span class=em>音便の結界</span>が張られておる。音が変わるのじゃ。"],
+   ],
+   lesson:`<h2>巻物・其の四　活用表の作り方</h2>
+    <p style="text-align:center">言い切りの形に、上から順に合言葉をつけるだけ！</p>
+    <table><tr><th>活用形</th><th>合言葉</th><th>書く（五段）</th><th>起きる（上一段）</th><th>食べる（下一段）</th></tr>
+      <tr><td rowspan="2">未然形</td><td>ない</td><td>書か</td><td rowspan="2">起き</td><td rowspan="2">食べ</td></tr>
+      <tr><td>う・よう</td><td>書こ</td></tr>
+      <tr><td rowspan="2">連用形</td><td>ます</td><td>書き</td><td rowspan="2">起き</td><td rowspan="2">食べ</td></tr>
+      <tr><td>た・て</td><td><b>書い</b></td></tr>
+      <tr><td>終止形</td><td>。</td><td>書く</td><td>起きる</td><td>食べる</td></tr>
+      <tr><td>連体形</td><td>とき</td><td>書く</td><td>起きる</td><td>食べる</td></tr>
+      <tr><td>仮定形</td><td>ば</td><td>書け</td><td>起きれ</td><td>食べれ</td></tr>
+      <tr><td>命令形</td><td>！</td><td>書け</td><td>起きろ・起きよ</td><td>食べろ・食べよ</td></tr></table>
+    <p><b>音便の結界</b>：五段は「た・て」が続くと音が変わる。<br>
+      書<b>い</b>た（イ音便）・待<b>っ</b>た（促音便）・読<b>ん</b>だ（撥音便）。「行く」は特別で「行<b>っ</b>た」。</p>
+    <p>来る：こ・き・くる・くる・くれ・こい　／　する：し・し・する・する・すれ・しろ</p>`,
+   outro:[
+    ["shisho", "見事じゃ！ 巻物がすっかり元どおりになった。"],
+    ["shisho", "これで分かったじゃろう。活用表は覚えるものではない。<span class=em>合言葉をつければ作れる</span>ものじゃ。"],
+    ["sekka", "おのれ……ならば我が城まで来るがよい。<span class=em>文の中に隠れた術</span>を見抜けるものならな！", "shake"],
+   ]},
+  {id:"tsui", no:"終", name:"城での決戦", desc:"文の中で活用形と流派を見抜く", n:12, life:3, boss:true,
+   intro:[
+    ["nar", "見習いは、ついに石化丸の城へたどり着いた。"],
+    ["sekka", "よく来たな。だがここでは、言葉はみな<span class=em>文の中</span>に隠れておる。見抜けるか？", "shake"],
+    ["shisho", "落ち着け、見習いよ。下線の言葉の<span class=em>すぐ後ろ</span>を見るのじゃ。これまでの修行のすべてを使え！"],
+   ],
+   lesson:`<h2>巻物・其の終　文の中の見抜き方</h2>
+    <p><b>① 活用形は、下線部のすぐ後ろを見る</b></p>
+    <table><tr><th>活用形</th><th>後ろに来る言葉</th></tr>
+      <tr><td>未然形</td><td>ない・う・よう</td></tr>
+      <tr><td>連用形</td><td>ます・た（だ）・て（で）・たら・たい・ながら</td></tr>
+      <tr><td>終止形</td><td>。（そこで文が終わる）</td></tr>
+      <tr><td>連体形</td><td>とき・こと・<b>名詞（体言）</b>・ので</td></tr>
+      <tr><td>仮定形</td><td>ば</td></tr>
+      <tr><td>命令形</td><td>命令して言い切る（「〜と言われた」の「と」は引用）</td></tr></table>
+    <p><b>② 流派（活用の種類）は、言い切りの形にもどしてから「ない」をつける</b><br>
+      「遊ん（だ）」→ 遊ぶ → 遊<b>ば</b>ない → ア段 → 五段活用</p>`,
+   outro:[
+    ["sekka", "ぐ、ぐわあああ……！ わしの石化の術が……とけていく……！", "shake"],
+    ["nar", "石化丸が倒れると、里の言葉たちは、ふたたび自由に変化できるようになった。"],
+    ["shisho", "見事じゃ、見習い……いや、もう一人前の忍じゃな。動詞の変化の術は、すべておぬしのものじゃ。"],
+    ["shisho", "……じゃが、海の向こうから、<span class=em>形容詞・形容動詞</span>という異国の術者が来るという話もある。"],
+    ["nar", "―― 外伝「異国の術者」につづく（準備中）――"],
+   ]},
+  {id:"go", no:"外", name:"異国の術者", desc:"形容詞・形容動詞（準備中）", soon:true},
 ];
 const chIndex = id => CHAPTERS.findIndex(c => c.id === id);
 function chUnlocked(i){ return i === 0 || (SAVE.stars[CHAPTERS[i-1].id] || 0) > 0; }
@@ -673,6 +804,22 @@ function makeQuestions(ch){
     const take = (arr, k) => shuffle(arr).slice(0, k);
     const vs = shuffle([...take(V_GODAN, 4), ...take(V_KAMI, 3), ...take(V_SHIMO, 3), ...V_KA, pick(V_SA)]);
     vs.slice(0, ch.n).forEach(v => qs.push({kind:"type", v, ans:v.t, autoSmoke:true}));
+  }else if(ch.id === "shi"){
+    // 4つの動詞（五段・上一段・下一段・カ変かサ変）の表で、それぞれ3か所の破れを順に直す。五段は必ず「た・て」（音便）を入れる
+    const take = arr => pick(arr);
+    const vs = shuffle([take(V_GODAN.filter(v => !"す".includes(v.w.slice(-1)))), take(V_KAMI), take(V_SHIMO), take([...V_KA, ...V_SA])]);
+    vs.forEach(v => {
+      let fs = shuffle(TABLE_ROWS.map(r => r[0]).filter(f => f !== "onbin")).slice(0, 3);
+      if(v.t === "godan") fs = [fs[0], fs[1], "onbin"];
+      fs = shuffle(fs);
+      fs.forEach((f, i) => qs.push({kind:"table", v, f, ans:conj(v, f), torn:fs.slice(i + 1), done:fs.slice(0, i)}));
+    });
+  }else if(ch.id === "tsui"){
+    // 文の中の下線部の活用形。3問に1問は、つづけて流派（活用の種類）も聞く
+    shuffle(SENTENCES).slice(0, ch.n).forEach((x, i) => {
+      qs.push({kind:"sform", x, ans:FORM_NAME[x.f]});
+      if(i % 3 === 2) qs.push({kind:"stype", x, v:verbOf(x), ans:x.t});
+    });
   }else if(ch.id === "san"){
     // 偽忍者6・本物の一段4（同じ読みの組を優先）・カ変かサ変1・ふつうの五段1
     const fakes = shuffle(V_FAKE).slice(0, 6);
@@ -708,8 +855,9 @@ function renderQ(){
   renderHud();
   const fb = $("qFb"); fb.className = "feedback"; fb.innerHTML = "";
   $("qExtra").innerHTML = ""; $("qTools").innerHTML = "";
-  const foeKey = q.kind === "type" ? (q.v.fake || p.ch.id === "san" ? "fake" : "minion") : "word";
+  const foeKey = p.ch.boss ? "sekka" : q.kind === "type" ? (q.v.fake || p.ch.id === "san" ? "fake" : "minion") : "word";
   const foe = $("foe"); foe.innerHTML = pic(foeKey); foe.classList.remove("hit");
+  if(p.ch.boss) foe.insertAdjacentHTML("beforeend", `<div class="bossname">石化丸</div><div class="bosshp"><i style="width:${(1 - p.ok / p.qs.length) * 100}%"></i></div>`);
   let choicesHtml = "";
   if(q.kind === "fuda"){
     $("qPrompt").textContent = "固まった言葉に、合う変装札をつけよう";
@@ -724,6 +872,24 @@ function renderQ(){
       $("qWord").innerHTML = `<span style="text-decoration:underline;text-underline-offset:8px">${formHtml(q.v, q.word)}</span><span class="fol">${esc(q.fol)}</span>`;
     }
     choicesHtml = FORM_LIST.map(f => `<button class="choice" data-a="${f}">${f}<small>${FORM_HINT[f]}</small></button>`).join("");
+  }else if(q.kind === "table"){
+    const boss = q.f === "onbin" && q.v.t === "godan";
+    $("qPrompt").innerHTML = (boss ? `<span class="boss-tag">中ボス：音便の結界</span><br>` : "") + `破れた「？」に入る形は？（${TYPE_NAME[q.v.t]}）`;
+    $("qWord").innerHTML = `<span style="font-size:.7em">${rubyHtml(q.v)}</span>`;
+    $("qExtra").innerHTML = `<table class="ktable"><tr><th>活用形</th><th>合言葉</th><th>形</th></tr>${TABLE_ROWS.map(([f, name, fol]) => {
+      const cls = f === q.f ? "cur" : q.torn.includes(f) ? "torn" : "";
+      const cell = f === q.f ? "？" : q.torn.includes(f) ? "・" : formHtml(q.v, conj(q.v, f));
+      return `<tr><td>${name}</td><td class="fol">${fol}</td><td class="form ${cls}">${cell}</td></tr>`;
+    }).join("")}</table>`;
+    choicesHtml = tableChoices(q.v, q.f).map(c => `<button class="choice form-c" data-a="${esc(c)}">${formHtml(q.v, c)}</button>`).join("");
+  }else if(q.kind === "sform"){
+    $("qPrompt").textContent = "下線の言葉は、何形？";
+    $("qWord").innerHTML = `<div class="sent">${sentHtml(q.x.s)}</div>`;
+    choicesHtml = FORM_LIST.map(f => `<button class="choice" data-a="${f}">${f}</button>`).join("");
+  }else if(q.kind === "stype"){
+    $("qPrompt").innerHTML = `つづけて！ 下線の言葉の流派（活用の種類）は？<br>（言い切りの形：${rubyHtml(q.v)}）`;
+    $("qWord").innerHTML = `<div class="sent">${sentHtml(q.x.s)}</div>`;
+    choicesHtml = ["godan","kami","shimo","ka","sa"].map(t => `<button class="choice" data-a="${t}">${RYUHA[t]}<small>${TYPE_NAME[t]}</small></button>`).join("");
   }else if(q.kind === "type"){
     $("qPrompt").textContent = q.autoSmoke ? "煙玉で正体をあばけ！ この忍者の流派は？" : "この忍者の流派は？（見た目にだまされるな）";
     $("qWord").innerHTML = rubyHtml(q.v);
@@ -754,6 +920,16 @@ function explain(q){
     const f = q.ans;
     return `合言葉「${esc(q.fol)}」が続くのは<b>${f}</b>（${FORM_HINT[f]}）。${q.only ? "" : "形だけでなく、すぐ後ろの言葉で決まる。"}`;
   }
+  if(q.kind === "table"){
+    let t = `「${rubyHtml(q.v)}」の${FORM_NAME[q.f]}（合言葉「${TABLE_ROWS.find(r => r[0] === q.f)[2]}」）は「<b>${formHtml(q.v, q.ans)}</b>」。`;
+    if(q.f === "onbin" && q.v.t === "godan") t += `<br>五段は「た・て」が続くと音が変わる（音便）。${formHtml(q.v, q.ans)}${"ぐぬぶむ".includes(q.v.w.slice(-1)) && !q.v.iku ? "だ・で" : "た・て"}。`;
+    return t;
+  }
+  if(q.kind === "sform"){
+    const x = q.x;
+    return `すぐ後ろの「${esc(x.k)}」に注目 → <b>${FORM_NAME[x.f]}</b>。${x.n ? "<br>" + esc(x.n) : ""}`;
+  }
+  if(q.kind === "stype") return `言い切りの形は「${rubyHtml(q.v)}」。` + typeExplain(q.v);
   return typeExplain(q.v);
 }
 async function answer(btn){
