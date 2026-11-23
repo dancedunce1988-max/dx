@@ -1329,7 +1329,8 @@ function jutsuHit(power, aff, foe){
   return Math.max(1, Math.min(d, Math.ceil(foe.max * (aff > 1 ? .45 : .3))));
 }
 /* 連続正解（2026-11-23、教員の指示：「連続で正解している場合は、徐々に攻撃力を高められるように」）
-   STREAK は戦いをまたいで続き、まちがえる（時間切れをふくむ）と0にもどる。
+   STREAK はその戦いの中だけで数える（戦いが始まるたびに0。2026-11-23、教員の指示で「戦いをまたがない」に変更）。
+   まちがえる（時間切れをふくむ）と0にもどる。
    攻撃力は 1連続ごとに＋10%（最大×2.0＝11連続）。1回で与えられるダメージの上限も、1連続ごとに＋2%（15%→最大35%）。
    → よく正解する人ほど早く倒せ、経験値も早くたまる。 */
 let STREAK = 0;
@@ -1738,7 +1739,7 @@ function showHome(){
     <div class="elems">${[["", "なし"], ["fire"], ["water"], ["wood"]].map(([e, n]) => `<button class="ebtn${(SAVE.elem || "") === e ? " on" : ""} ${e ? "e-" + e : ""}" onclick="setElem('${e}')">${e ? ELEM[e].icon + ELEM[e].name : n}</button>`).join("")}</div>
     <p class="note-dark">🔥火は🍃木に強く、🍃木は💧水に強く、💧水は🔥火に強い。<br>得意属性と同じ属性の術は1.25倍。敵の術は、得意属性に強い属性だと1.5倍、弱い属性だと0.6倍のダメージ。行き先の敵に合わせて選ぼう。</p>
     <h3 class="sec">忍術（必殺技）</h3><div class="jlist" id="hJutsu">${jutsuListHtml(b)}</div>
-    <p class="note-dark">🔥 連続で正解すると、攻撃力が1連続ごとに＋10%（最大×2.0）。まちがえると、もとにもどる。</p>
+    <p class="note-dark">🔥 戦いの中で連続で正解すると、攻撃力が1連続ごとに＋10%（最大×2.0）。まちがえたり、戦いが終わったりすると、もとにもどる。</p>
     <p class="note-dark">任務中、正解${JUTSU_MAX}回（忍術30以上なら2回）で術ゲージが満タンになり、術を使える。<br>使える術は、そのときの「忍術」の値で決まる（下げると使えなくなる）。</p>
     <h3 class="sec">装備</h3><div class="slots">`;
   SLOTS.forEach(sl => {
@@ -2500,6 +2501,7 @@ function startBattle(cfg){
   $("bHero").innerHTML = pic("hero");
   fxResize();
   PLAY.turn = 0; PLAY.stolen = 0; PLAY.fled = false;
+  STREAK = 0;   // 連続正解は、戦いごとに数えなおす
   $("hudName").textContent = cfg.mode === "dojo" ? `🥋 道場　${cfg.foe.name}` : cfg.mode === "wild" ? `${cfg.foe.special ? "✨ 名のある忍" : cfg.foe.golden ? "✨ 金色の" : "🌿 野良忍者"} ${cfg.foe.name} Lv${cfg.lv}` : cfg.mode === "story" ? `📜 ${ch.no}の章「${ch.name}」` : cfg.mode === "quest" ? `⚔️【${cfg.rank}】${QTYPES.find(x => x.ch === ch.id).name}` : `🎯 1問練習（${ch.no}の章）`;
   show("sPlay");
   renderQ();
