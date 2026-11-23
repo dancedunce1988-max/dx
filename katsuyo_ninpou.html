@@ -237,6 +237,7 @@
   .strow .stb{grid-area:b;font-size:11px;color:var(--ink2);padding-left:6px}
   .strow .stbtns{grid-area:btn;display:flex;gap:4px}
   .strow .stbtns .iconbtn{padding:4px 10px;font-size:15px}
+  .hold{touch-action:none;-webkit-touch-callout:none;user-select:none}
   .strow .stnote{grid-area:note;font-size:11px;color:#8a7350}
   .bstats{margin-top:8px;background:#2b2140;color:#fff;border-radius:10px;padding:8px;font-size:13px;text-align:center;line-height:1.8}
   .bstats b{color:#ffd23f}
@@ -1229,17 +1230,17 @@ function showHome(){
       <div class="nc-hero">${pic("hero")}</div>
       <div class="nc-tx"><span class="rank" style="background:${ni.rank.color}">${ni.rank.name}</span> 忍者Lv <b style="font-size:22px">${ni.lv}</b>
         <small>${NINJA_CATS.map(([k, n]) => `「${n}」Lv${ni.g[k]}`).join("＋")}</small>
-        <small>忍術ポイント：${ni.points}（のこり <b class="${free > 0 ? "hot" : ""}">${free}</b>）</small></div></div>
+        <small>忍術ポイント：${ni.points}（のこり <b id="hFree" class="${free > 0 ? "hot" : ""}">${free}</b>）</small></div></div>
     <p class="note-dark">本体で「${NINJA_CATS.map(c => c[1]).join("」「")}」の問題に正解してレベルが上がると、忍者Lvと忍術ポイントも増える。</p>
     <h3 class="sec">ステータス</h3><div class="stats">`;
   STATS.forEach(st => {
     const a = SAVE.alloc[st.id] || 0, eq = s[st.id] - a;
-    html += `<div class="strow"><span class="stn">${st.icon} ${st.name}</span><b class="stv">${s[st.id]}</b><small class="stb">（振り分け${a}${eq ? `＋装備${eq}` : ""}）</small>
-      <span class="stbtns"><button class="iconbtn dark" ${a <= 0 ? "disabled" : ""} onclick="alloc('${st.id}',-1)">−</button><button class="iconbtn dark" ${free <= 0 ? "disabled" : ""} onclick="alloc('${st.id}',1)">＋</button>${free >= 5 ? `<button class="iconbtn dark" onclick="alloc('${st.id}',5)">＋5</button>` : ""}</span>
+    html += `<div class="strow"><span class="stn">${st.icon} ${st.name}</span><b class="stv" id="hv_${st.id}">${s[st.id]}</b><small class="stb" id="hb_${st.id}">（振り分け${a}${eq ? `＋装備${eq}` : ""}）</small>
+      <span class="stbtns"><button class="iconbtn dark hold" data-st="${st.id}" data-d="-1" ${a <= 0 ? "disabled" : ""}>−</button><button class="iconbtn dark hold" data-st="${st.id}" data-d="1" ${free <= 0 ? "disabled" : ""}>＋</button>${free >= 5 ? `<button class="iconbtn dark" onclick="alloc('${st.id}',5)">＋5</button>` : ""}</span>
       <small class="stnote">${st.note}</small></div>`;
   });
   html += `</div><div class="btn-row" style="margin-top:6px"><button class="iconbtn dark" onclick="resetAlloc()">振り直す</button></div>
-    <div class="bstats">HP <b>${b.maxHp}</b>　攻撃 <b>${b.atk}</b>　守り <b>${b.def}</b>　時間 <b>+${b.time}秒</b>　煙玉 <b>${b.hints}</b>　会心 <b>${b.crit}%</b>${b.guard ? `　無効 <b>${b.guard}回</b>` : ""}${b.ryo ? `　両 <b>+${b.ryo}%</b>` : ""}</div>
+    <div class="bstats" id="hBstats">HP <b>${b.maxHp}</b>　攻撃 <b>${b.atk}</b>　守り <b>${b.def}</b>　時間 <b>+${b.time}秒</b>　煙玉 <b>${b.hints}</b>　会心 <b>${b.crit}%</b>${b.guard ? `　無効 <b>${b.guard}回</b>` : ""}${b.ryo ? `　両 <b>+${b.ryo}%</b>` : ""}</div>
     <h3 class="sec">装備</h3><div class="slots">`;
   SLOTS.forEach(sl => {
     const it = EQUIP[SAVE.equip[sl.id]];
@@ -1248,6 +1249,68 @@ function showHome(){
   html += `</div><h3 class="sec">持ち物</h3><p class="bag">${Object.entries(BAG).map(([id, b]) => `${b.icon}${b.name}×${SAVE.bag[id] || 0}`).join("　")}　💰${SAVE.ryo}両</p>
     <div class="btn-row"><button class="btn sub" onclick="showZukan()">📘 装備図鑑（${Object.keys(SAVE.inv).length}/${Object.keys(EQUIP).length}）</button></div>`;
   panel("🏠 自宅", html);
+  bindHold();
+}
+/* ＋・−は押し続けると、だんだん速くくり返す（2026-11-23、教員の指示）。
+   押している間は画面を作り直さず（作り直すとボタンが消えて止まるため）、数字だけ書きかえる。はなしたら作り直す。 */
+let HOLD = null;
+function allocStep(id, n){
+  const ni = ninjaInfo(), free = ni.points - allocSpent();
+  const cur = SAVE.alloc[id] || 0;
+  const d = n > 0 ? Math.min(n, free) : Math.max(n, -cur);
+  if(!d) return false;
+  SAVE.alloc[id] = cur + d;
+  return true;
+}
+function refreshHomeNumbers(){
+  const ni = ninjaInfo(), free = ni.points - allocSpent(), s = statTotals(), b = battleStats();
+  const f = $("hFree"); if(f){ f.textContent = free; f.classList.toggle("hot", free > 0); }
+  STATS.forEach(st => {
+    const a = SAVE.alloc[st.id] || 0, eq = s[st.id] - a;
+    const v = $("hv_" + st.id); if(v) v.textContent = s[st.id];
+    const t = $("hb_" + st.id); if(t) t.textContent = `（振り分け${a}${eq ? `＋装備${eq}` : ""}）`;
+  });
+  document.querySelectorAll("#pBody .hold").forEach(btn => {
+    const a = SAVE.alloc[btn.dataset.st] || 0;
+    btn.disabled = +btn.dataset.d > 0 ? free <= 0 : a <= 0;
+  });
+  const bs = $("hBstats");
+  if(bs) bs.innerHTML = `HP <b>${b.maxHp}</b>　攻撃 <b>${b.atk}</b>　守り <b>${b.def}</b>　時間 <b>+${b.time}秒</b>　煙玉 <b>${b.hints}</b>　会心 <b>${b.crit}%</b>${b.guard ? `　無効 <b>${b.guard}回</b>` : ""}${b.ryo ? `　両 <b>+${b.ryo}%</b>` : ""}`;
+}
+function bindHold(){
+  document.querySelectorAll("#pBody .hold").forEach(btn => {
+    btn.addEventListener("pointerdown", e => {
+      if(btn.disabled) return;
+      e.preventDefault();
+      try{ btn.setPointerCapture(e.pointerId); }catch(err){}
+      holdStart(btn.dataset.st, +btn.dataset.d);
+    });
+    ["pointerup", "pointercancel", "lostpointercapture"].forEach(ev => btn.addEventListener(ev, holdEnd));
+    btn.addEventListener("contextmenu", e => e.preventDefault());
+  });
+}
+function holdStart(id, d){
+  holdEnd(true);
+  if(!allocStep(id, d)) return;
+  sfx.tap(); refreshHomeNumbers();
+  HOLD = {id, d, n:0, t:null};
+  const tick = () => {
+    if(!HOLD) return;
+    HOLD.n++;
+    // 最初は少し待ち、だんだん速く。長く押すと1回に2〜5ずつ進む
+    const step = HOLD.n > 40 ? 5 : HOLD.n > 20 ? 2 : 1;
+    if(!allocStep(HOLD.id, HOLD.d * step)){ holdEnd(); return; }
+    if(HOLD.n % 2 === 0) tone(700 + Math.min(HOLD.n, 40) * 10, .03, "square", .03);
+    refreshHomeNumbers();
+    HOLD.t = setTimeout(tick, HOLD.n > 10 ? 50 : 110);
+  };
+  HOLD.t = setTimeout(tick, 380);
+}
+function holdEnd(silent){
+  if(!HOLD) return;
+  clearTimeout(HOLD.t); HOLD = null;
+  saveSave(SAVE);
+  if(silent !== true) showHome();
 }
 function alloc(id, n){
   const ni = ninjaInfo(), free = ni.points - allocSpent();
