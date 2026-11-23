@@ -663,7 +663,7 @@ const NP_IMG = {
   fake:    "",   // 偽忍者（三の章の相手）
   bg:      "",   // 物語の背景（夜の忍びの里）
 };
-const NP_EMOJI = {hero:"🥷", shisho:"👴", sekka:"🗿", minion:"👤", fake:"🎭", word:"📜"};
+const NP_EMOJI = {hero:"🥷", shisho:"👴", sekka:"🗿", minion:"👤", fake:"🎭", word:"📜", deshi:"🎩", ikoku:"🧙"};
 function pic(key){
   const src = NP_IMG[key];
   return src ? `<img src="${src}" alt="">` : (NP_EMOJI[key] || "");
@@ -859,6 +859,86 @@ function tableChoices(v, f){
   return shuffle([ans, ...shuffle([...set]).slice(0, 3)]);
 }
 
+/* =====================================================================
+   外伝：形容詞・形容動詞（2026-11-23、教員の指示で作成）
+   ===================================================================== */
+// 形容詞（言い切りが「い」）。r：漢字の読み
+const ADJ = [["美しい","うつく"],["高い","たか"],["寒い","さむ"],["楽しい","たの"],["早い","はや"],["白い","しろ"],["青い","あお"],["強い","つよ"],
+  ["新しい","あたら"],["古い","ふる"],["赤い","あか"],["長い","なが"],["明るい","あか"],["暗い","くら"],["優しい","やさ"],["冷たい","つめ"],
+  ["広い","ひろ"],["重い","おも"],["悲しい","かな"],["細かい","こま"]].map(([w, r]) => ({w, r, t:"adj"}));
+// 形容動詞（言い切りが「だ」）。s：語幹
+const ADJV = [["静か","しず"],["きれい",""],["元気","げんき"],["有名","ゆうめい"],["便利","べんり"],["大切","たいせつ"],["簡単","かんたん"],["親切","しんせつ"],
+  ["自由","じゆう"],["丈夫","じょうぶ"],["豊か","ゆた"],["穏やか","おだ"],["確か","たし"],["立派","りっぱ"],["熱心","ねっしん"],["嫌い","きら"],
+  ["好き","す"],["にぎやか",""],["新鮮","しんせん"]].map(([st, r]) => ({w:st + "だ", s:st, r, t:"adjv"}));
+const ADJV_TRAP = ADJV.filter(v => /い$/.test(v.s));   // きれい・嫌い：「い」で終わって見える形容動詞
+// 活用形ごとの活用語尾と合言葉
+const ADJ_FORMS = [
+  {k:"mizenU", e:"かろ", fol:["う"], name:"未然形"}, {k:"onbin", e:"かっ", fol:["た"], name:"連用形"},
+  {k:"renyo", e:"く", fol:["なる", "ない", "て"], name:"連用形"}, {k:"shushi", e:"い", fol:["。"], name:"終止形"},
+  {k:"rentai", e:"い", fol:["とき", "こと", "人"], name:"連体形"}, {k:"katei", e:"けれ", fol:["ば"], name:"仮定形"}];
+const ADJV_FORMS = [
+  {k:"mizenU", e:"だろ", fol:["う"], name:"未然形"}, {k:"onbin", e:"だっ", fol:["た"], name:"連用形"},
+  {k:"renyo", e:"で", fol:["ない", "ある"], name:"連用形"}, {k:"renyo2", e:"に", fol:["なる"], name:"連用形"},
+  {k:"shushi", e:"だ", fol:["。"], name:"終止形"}, {k:"rentai", e:"な", fol:["とき", "こと", "人"], name:"連体形"},
+  {k:"katei", e:"なら", fol:["ば"], name:"仮定形"}];
+const A_FORM_LIST = ["未然形", "連用形", "終止形", "連体形", "仮定形"];   // 形容詞・形容動詞には命令形がない
+const A_HINT = {"未然形":"う", "連用形":"た・ない・なる", "終止形":"。（言い切り）", "連体形":"とき・名詞", "仮定形":"ば"};
+const POS_HINT = {"動詞":"言い切りがウ段", "形容詞":"言い切りが「い」", "形容動詞":"言い切りが「だ」"};
+const aStem = v => v.t === "adj" ? v.w.slice(0, -1) : v.s;
+// 文の中の形容詞・形容動詞
+const ADJ_SENTENCES = [
+  {s:"今日はとても[寒い]。", f:"shushi", k:"。"},
+  {s:"[寒い]日は家で本を読む。", f:"rentai", k:"日", n:"後ろに名詞（体言）の「日」が来るので連体形。"},
+  {s:"昨日は[寒かっ]た。", f:"onbin", k:"た"},
+  {s:"夕方になって空が[赤く]なる。", f:"renyo", k:"なる", n:"「なる」は連用形「く」につく。"},
+  {s:"この本は[新しく]ない。", f:"renyo", k:"ない", n:"形容詞の「ない」は連用形「く」につく（動詞の未然形とはちがう）。"},
+  {s:"明日の遠足は[楽しかろ]う。", f:"mizenU", k:"う"},
+  {s:"値段が[高けれ]ば買わない。", f:"katei", k:"ば"},
+  {s:"[美しい]花がさいている。", f:"rentai", k:"花", n:"後ろに名詞の「花」→ 連体形。"},
+  {s:"この道は夜になると[暗い]。", f:"shushi", k:"。"},
+  {s:"外は[暗く]て、よく見えない。", f:"renyo", k:"て", n:"「て」も連用形につく。"},
+  {s:"もう少し[早けれ]ば間に合った。", f:"katei", k:"ば"},
+  {s:"部屋が[明るく]なった。", f:"renyo", k:"なっ", n:"「なった」の「なる」は連用形「く」につく。"},
+  {s:"きのうの試合は[楽しかっ]た。", f:"onbin", k:"た"},
+  {s:"[優しい]人に助けられた。", f:"rentai", k:"人"},
+].map(x => Object.assign(x, {t:"adj"}));
+const ADJV_SENTENCES = [
+  {s:"図書館はいつも[静かだ]。", f:"shushi", k:"。"},
+  {s:"[静かな]夜だった。", f:"rentai", k:"夜", n:"後ろに名詞の「夜」→ 連体形。形容動詞の連体形は「〜な」。"},
+  {s:"町は昔から[静かだっ]た。", f:"onbin", k:"た"},
+  {s:"教室が急に[静かに]なる。", f:"renyo", k:"なる", n:"「〜に」＋「なる」は連用形。"},
+  {s:"この問題は[簡単で]ない。", f:"renyo", k:"ない", n:"形容動詞の「ない」は連用形「で」につく。"},
+  {s:"あの人はきっと[有名だろ]う。", f:"mizenU", k:"う"},
+  {s:"[便利なら]ば使ってみよう。", f:"katei", k:"ば"},
+  {s:"[きれいな]花をもらった。", f:"rentai", k:"花", n:"「きれい」は「い」で終わって見えるが、「きれいな」と言えるので形容動詞。"},
+  {s:"祖父は今も[元気だ]。", f:"shushi", k:"。"},
+  {s:"運動して体が[丈夫に]なった。", f:"renyo", k:"なっ", n:"「〜に」＋「なる」は連用形。"},
+  {s:"[大切な]ことを忘れていた。", f:"rentai", k:"こと"},
+  {s:"祭りの日は町が[にぎやかだっ]た。", f:"onbin", k:"た"},
+  {s:"[親切なら]ば、きっと教えてくれる。", f:"katei", k:"ば"},
+  {s:"この部屋は[きれいで]広い。", f:"renyo", k:"広い", n:"「〜で」で文をつなぐ形は連用形。"},
+].map(x => Object.assign(x, {t:"adjv"}));
+// 出題の部品
+function genAForm(kind, withWord){
+  const F = pick(kind === "adj" ? ADJ_FORMS : ADJV_FORMS), v = pick(kind === "adj" ? ADJ : ADJV), fol = pick(F.fol);
+  return {kind:"aform", v, adjv:kind === "adjv", f:F.k, fol, word:aStem(v) + F.e, ans:F.name, choices:A_FORM_LIST, only:!withWord};
+}
+function genAEnd(kind){
+  const FS = kind === "adj" ? ADJ_FORMS : ADJV_FORMS, F = pick(FS), v = pick(kind === "adj" ? ADJ : ADJV);
+  return {kind:"fuda", v, stem:aStem(v), fol:pick(F.fol), ans:F.e, choices:shuffle([...new Set(FS.map(x => x.e))])};
+}
+function genASent(list){ const x = pick(list); return {kind:"sform", x, ans:FORM_NAME[x.f], choices:A_FORM_LIST}; }
+// 品詞（動詞・形容詞・形容動詞）を見分ける。phrase＝「〜な人」のように名詞の前の形で出す
+function genPos(types, phrase){
+  const t = pick(types);
+  let v, text;
+  if(t === "動詞"){ v = pick([...V_GODAN.filter(x => !x.iku), ...V_KAMI, ...V_SHIMO]); text = v.w; }
+  else if(t === "形容詞"){ v = pick(ADJ); text = v.w; }
+  else { v = phrase && Math.random() < .4 ? pick(ADJV_TRAP) : pick(ADJV); text = phrase ? v.s + "な" : v.w; }
+  const noun = phrase ? pick(["人", "とき", "こと", "日"]) : "";
+  return {kind:"pos", v:{w:text, r:v.r}, base:v, k:noun, ans:t, choices:types, phrase};
+}
+
 // 表示用（ふりがな付き）。漢字の部分にだけルビをふる
 function rubyHtml(v, text){
   text = text == null ? v.w : text;
@@ -947,7 +1027,7 @@ function typeExplain(v){
 /* =====================================================================
    章
    ===================================================================== */
-const S = {shisho:"変化斎", hero:"あなた", sekka:"石化丸", minion:"手下", fake:"偽忍者", nar:""};
+const S = {shisho:"変化斎", hero:"あなた", sekka:"石化丸", minion:"手下", fake:"偽忍者", deshi:"術者の弟子", ikoku:"異国の術者", nar:""};
 const CHAPTERS = [
   {id:"jo", no:"序", name:"変化の術", desc:"語幹と活用語尾を知る", n:8, life:3,
    intro:[
@@ -1085,10 +1165,51 @@ const CHAPTERS = [
     ["sekka", "ぐ、ぐわあああ……！ わしの石化の術が……とけていく……！", "shake"],
     ["nar", "石化丸が倒れると、里の言葉たちは、ふたたび自由に変化できるようになった。"],
     ["shisho", "見事じゃ、見習い……いや、もう一人前の忍じゃな。動詞の変化の術は、すべておぬしのものじゃ。"],
-    ["shisho", "……じゃが、海の向こうから、<span class=em>形容詞・形容動詞</span>という異国の術者が来るという話もある。"],
-    ["nar", "―― 外伝「異国の術者」につづく（準備中）――"],
+    ["shisho", "……じゃが、海の向こうから、<span class=em>形容詞・形容動詞</span>という術を使う、異国の術者が来るという話もある。"],
+    ["nar", "―― 外伝「海の向こうの術者」へつづく（影の森の奥から、海へ）――"],
    ]},
-  {id:"go", no:"外", name:"異国の術者", desc:"形容詞・形容動詞（準備中）", soon:true},
+  {id:"gai1", no:"外一", name:"港の術者", desc:"形容詞の活用", n:12, life:3,
+   intro:[
+    ["deshi", "ボンジョルノ！ ワタシは異国の術者さまの弟子。この港の言葉は、もうワタシたちのものネ！", "shake"],
+    ["shisho", "気をつけよ。あやつは<span class=em>形容詞</span>の術を使う。ものの様子を表す、言い切りが「い」の言葉じゃ。"],
+    ["shisho", "修行で学んだとおり、すぐ後ろの言葉を見て、形を見抜くのじゃ！"],
+   ],
+   lesson:`<h2>巻物・外の一　形容詞の活用</h2>
+    <p style="text-align:center">様子を表し、言い切りが<b>「い」</b>の言葉＝<b>形容詞</b>（命令形はない）</p>
+    <table><tr><th>活用形</th><th>合言葉</th><th>美しい</th></tr>
+      <tr><td>未然形</td><td>う</td><td>美し<b>かろ</b></td></tr>
+      <tr><td rowspan="2">連用形</td><td>た</td><td>美し<b>かっ</b></td></tr>
+      <tr><td>なる・ない・て</td><td>美し<b>く</b></td></tr>
+      <tr><td>終止形</td><td>。</td><td>美し<b>い</b></td></tr>
+      <tr><td>連体形</td><td>とき・名詞</td><td>美し<b>い</b></td></tr>
+      <tr><td>仮定形</td><td>ば</td><td>美し<b>けれ</b></td></tr></table>
+    <p>⚠️ 形容詞の「<b>ない</b>」は、連用形「く」につく（美し<b>く</b>ない）。動詞の「書か<b>ない</b>」（未然形）とはちがう！</p>`,
+   outro:[
+    ["deshi", "マンマミーア！ 師匠に言いつけてやるネ！", "shake"],
+    ["shisho", "見事じゃ。じゃが、あやつの師匠――<span class=em>異国の術者</span>は、この先の島におるようじゃ。"],
+    ["nar", "―― 外伝の二「異国の島」へつづく ――"],
+   ]},
+  {id:"gai2", no:"外二", name:"異国の術者", desc:"形容動詞の活用と見分け方", n:12, life:3,
+   intro:[
+    ["ikoku", "ようこそ、わたしの島へ。わたしは異国の術者。「だ」で終わる様子の術――<span class=em>形容動詞</span>で、お相手しましょう。", "shake"],
+    ["shisho", "形容詞と形容動詞、どちらも使ってくるぞ。言い切りが「い」か「だ」か、名詞の前で「い」か「な」かを見よ！"],
+   ],
+   lesson:`<h2>巻物・外の二　形容動詞の活用</h2>
+    <p style="text-align:center">様子を表し、言い切りが<b>「だ」</b>の言葉＝<b>形容動詞</b>（命令形はない）</p>
+    <table><tr><th>活用形</th><th>合言葉</th><th>静かだ</th></tr>
+      <tr><td>未然形</td><td>う</td><td>静か<b>だろ</b></td></tr>
+      <tr><td rowspan="3">連用形</td><td>た</td><td>静か<b>だっ</b></td></tr>
+      <tr><td>ない・ある</td><td>静か<b>で</b></td></tr>
+      <tr><td>なる</td><td>静か<b>に</b></td></tr>
+      <tr><td>終止形</td><td>。</td><td>静か<b>だ</b></td></tr>
+      <tr><td>連体形</td><td>とき・名詞</td><td>静か<b>な</b></td></tr>
+      <tr><td>仮定形</td><td>ば</td><td>静か<b>なら</b></td></tr></table>
+    <p>見分け方：名詞の前で<b>「〜い」なら形容詞</b>、<b>「〜な」なら形容動詞</b>。<br>「きれい」は「い」で終わって見えても、「きれい<b>な</b>花」と言えるので形容動詞！</p>`,
+   outro:[
+    ["ikoku", "……見事です。あなたの国の言葉の術、たしかに見せてもらいました。", "shake"],
+    ["shisho", "よくやった。これで動詞・形容詞・形容動詞――言葉の<span class=em>変化の術</span>（用言の活用）は、すべておぬしのものじゃ！"],
+    ["nar", "―― 変化の里 ～活用忍法帖～　おしまい ――"],
+   ]},
 ];
 const chIndex = id => CHAPTERS.findIndex(c => c.id === id);
 
@@ -1292,6 +1413,8 @@ EQ_DEF.forEach(([slot, main, sub, names, icons]) => names.forEach((name, t) => {
   ["rare_kinsuzu",   "acc",    2, "金の鈴",       "🛎️", {nin:4},                {ryo:50, time:2}],
   ["rare_tengu",     "acc",    3, "天狗の羽うちわ", "🪭", {nin:8, res:4},        {crit:8}],
   ["rare_kakuremino","acc",    3, "隠れ蓑の札",   "🍂", {def:4, res:4},          {guard:2}],
+  ["rare_rashin",    "acc",    4, "海賊の羅針盤", "🧭", {atk:8, nin:8},          {ryo:40, crit:8}],
+  ["rare_nanban",    "head",   4, "南蛮の帽子",   "👒", {nin:12, res:8},         {hint:2, time:3}],
 ].forEach(([id, slot, t, name, icon, st, eff]) => EQUIP[id] = {id, slot, tier:t, name, icon, st, eff, req:{lv:TIER[t].lv}, src:["special"], rare:true});
 const GOLD_RARES = ["rare_kinsuzu", "rare_tengu", "rare_kakuremino", "acc_neko"];   // 金色の野良忍者が落とす秘宝
 // 特別な効果・条件・手に入れ方
@@ -1554,7 +1677,7 @@ function panel(title, html){
 /* =====================================================================
    城（任務所）
    ===================================================================== */
-const STORY_ORDER = ["jo", "ichi", "ni", "san", "shi", "tsui"];
+const STORY_ORDER = ["jo", "ichi", "ni", "san", "shi", "tsui", "gai1", "gai2"];
 /* 物語（メインストーリー）。2026-11-23、教員の指示「城の任務がメインストーリーになっていて分かりづらい。もっとワクワクする
    展開にしたいので、メインストーリーは別に」。物語は城とは切り離し、地図の上で進む：
    ・序の章は📚寺子屋で師匠から始まる。一〜終の章は、外の各地方の奥（出口の手前）に立ちはだかる敵との戦い。
@@ -1580,8 +1703,14 @@ const STORY_PLAN = {
   tsui: {where:4, lv:26, hpF:1.5, atkF:.45, every:1, icon:"🗿", name:"石化丸",       elem:"fire",  ryo:2000, item:"head4", boss:true,
          goal:"「影の森」の最奥、石化丸の砦へ。🗿石化丸を倒し、里の巻物を取りもどせ",
          pre:[["nar", "影の森の最奥。木々の間に、石化丸の砦がその姿を現した。"]]},
+  gai1: {where:5, lv:31, hpF:1.5, atkF:.42, every:1, icon:"🎩", name:"異国の術者の弟子", elem:"water", ryo:2500, item:"body4",
+         goal:"【外伝】影の森を抜けた先「潮風の港」。港を荒らす🎩異国の術者の弟子を倒せ（形容詞）",
+         pre:[["nar", "潮風の港。見たこともない大きな船の前に、派手な帽子の男が立っている。"]]},
+  gai2: {where:6, lv:38, hpF:1.6, atkF:.36,every:1, icon:"🧙", name:"異国の術者", elem:"wood", ryo:4000, item:"weapon4",
+         goal:"【外伝】南の海の「異国の島」。島の奥にいる🧙異国の術者と勝負せよ（形容動詞）",
+         pre:[["nar", "異国の島。花のかおりがただよう道の奥で、だれかが待っている。"]]}
 };
-const FIELD_STORY = ["ichi", "ni", "san", "shi", "tsui"];   // 外の地方ごとの、奥の敵（物語の章）
+const FIELD_STORY = ["ichi", "ni", "san", "shi", "tsui", "gai1", "gai2"];   // 外の地方ごとの、奥の敵（物語の章）
 const BOSS_POS = {x:3, y:1};                                   // 奥の敵が立っているマス（出口の手前）
 function storyFoe(id){
   const P = STORY_PLAN[id], B = wildBase(P.lv);
@@ -1609,7 +1738,7 @@ function questInfo(){
 }
 function questCardHtml(compact){
   const q = questInfo();
-  if(!q) return `<div class="qc-title">📜 メインクエスト　すべて達成！</div><div class="qc-sub">外伝（形容詞・形容動詞）は準備中。任務や野良忍者で、さらに強い忍をめざそう</div>`;
+  if(!q) return `<div class="qc-title">📜 メインクエスト　すべて達成！</div><div class="qc-sub">外伝もすべて終えた！ 任務や道場で、さらに強い忍をめざそう</div>`;
   let cur = q.steps.findIndex(x => !x.done);
   const lvOk = q.lv >= q.P.lv;
   if(compact) return `<div class="qc-title">📜 ${q.c.no}の章：<span class="qc-now">▶ ${q.steps[cur].t}</span></div>
@@ -1637,7 +1766,7 @@ function showQuestLog(){
 }
 function storyGoal(){
   const ns = nextStory();
-  if(!ns) return "物語はすべて終えた！ 外伝（形容詞・形容動詞）は準備中。任務や野良忍者で、さらに強い忍をめざそう";
+  if(!ns) return "外伝もすべて終えた！ 動詞・形容詞・形容動詞の活用を極めた。任務や道場で、さらに強い忍をめざそう";
   const P = STORY_PLAN[ns], c = CHAPTERS[chIndex(ns)];
   return `<b>${c.no}の章「${esc(c.name)}」</b>：${P.goal}（めやす Lv${P.lv}）`;
 }
@@ -1648,6 +1777,8 @@ const QTYPES = [
   {ch:"san",  name:"偽忍者狩り",         icon:"🎭", foe:"偽忍者",       elem:"wood",  trait:"swift", desc:"一段に見える五段を見破れ"},
   {ch:"shi",  name:"巻物の修復",         icon:"🐛", foe:"紙食い虫",     elem:"fire",  trait:"giant", desc:"破れた活用表を直せ（活用表）"},
   {ch:"tsui", name:"密書の解読",         icon:"🦹", foe:"敵の密偵",     elem:"water", trait:"armor", desc:"文の中の活用形と流派を見抜け"},
+  {ch:"gai1", name:"港の荷物改め",       icon:"🦀", foe:"港のならず者", elem:"water", trait:"giant", desc:"形容詞の活用を見抜け"},
+  {ch:"gai2", name:"異国の書状読み",     icon:"🦜", foe:"異国の密使",   elem:"wood",  trait:"barrier", desc:"形容詞・形容動詞を見分け、活用を見抜け"},
 ];
 // 敵の格ごとの強さ。every＝何問ごとに攻撃してくるか
 const QRANK = {
@@ -2175,6 +2306,38 @@ const TRAIN_PLAN = {
   ],
 };
 
+TRAIN_PLAN.gai1 = [
+  {kind:"talk", title:"形容詞とは", pages:[
+    `「美しい」「寒い」「楽しい」――ものの<b>様子</b>を表し、言い切りが<b>「い」</b>で終わる言葉を<b>【形容詞】</b>という。`,
+    `これまで学んだ「書く」「起きる」は、<b>動き</b>を表し、言い切りが<b>ウ段</b>（く・る・む…）の言葉。これが<b>動詞</b>じゃ。<br>まずは、動詞と形容詞を見分けてみよう。`]},
+  {kind:"drill", title:"動詞か、形容詞か", desc:"言い切りが「い」なら形容詞、ウ段なら動詞", goal:winGoal(4, 4), gen:() => genPos(["動詞", "形容詞"], false)},
+  {kind:"talk", title:"形容詞の合言葉", pages:[
+    `形容詞も、後ろの言葉で形を変える。ただし<b>命令形はない</b>。<br>美し<b>かろ</b>う（未然形）<br>美し<b>かっ</b>た・美し<b>く</b>なる（連用形）<br>美し<b>い</b>。（終止形）<br>美し<b>い</b>とき（連体形）<br>美し<b>けれ</b>ば（仮定形）`,
+    `<b>気をつけよ！</b> 形容詞に「ない」がつくと、美し<b>く</b>ない。この「く」は<b>連用形</b>じゃ。<br>動詞の「書か<b>ない</b>」（未然形）とはちがうから、まちがえやすいぞ。`]},
+  {kind:"drill", title:"合言葉で見分ける", desc:"形容詞に、その合言葉がつくと何形？", goal:winGoal(5, 5), gen:() => genAForm("adj", false)},
+  {kind:"talk", title:"変装札をつける", pages:[`形容詞の本体（語幹）は「美し」、変わる部分（活用語尾）は「かろ・かっ・く・い・けれ」。<br>合言葉に合う変装札をつけてみよう。`]},
+  {kind:"drill", title:"活用語尾をつける", desc:"合言葉に合う活用語尾を選ぼう", goal:winGoal(5, 5), gen:() => genAEnd("adj")},
+  {kind:"drill", title:"言葉＋合言葉", desc:"下線の言葉は何形？", goal:winGoal(6, 5), gen:() => genAForm("adj", true)},
+  {kind:"talk", title:"文の中で", pages:[`文の中でも、やることは同じ。下線の言葉の<b>すぐ後ろ</b>を見る。<br>後ろに<b>名詞</b>（ものの名前）が来たら、連体形じゃ。`]},
+  {kind:"drill", title:"文の中の形容詞", desc:"下線の言葉は何形？ すぐ後ろを見よう", goal:winGoal(6, 5), gen:() => genASent(ADJ_SENTENCES)},
+];
+TRAIN_PLAN.gai2 = [
+  {kind:"talk", title:"形容動詞とは", pages:[
+    `「静かだ」「きれいだ」「元気だ」――様子を表し、言い切りが<b>「だ」</b>で終わる言葉を<b>【形容動詞】</b>という。`,
+    `名詞の前では、「静か<b>な</b>夜」「元気<b>な</b>人」のように<b>「な」</b>になる。<br>まずは、動詞・形容詞・形容動詞を、言い切りの形で見分けよう。<br>ウ段→動詞、「い」→形容詞、「だ」→形容動詞じゃ。`]},
+  {kind:"drill", title:"三つの品詞", desc:"言い切りの形で、品詞を見分けよう", goal:winGoal(5, 5), gen:() => genPos(["動詞", "形容詞", "形容動詞"], false)},
+  {kind:"talk", title:"まぎらわしい言葉", pages:[
+    `名詞の前の形でも見分けられる。<br><b>美しい</b>人 → 「〜い」→ 形容詞<br><b>静かな</b>人 → 「〜な」→ 形容動詞`,
+    `<b>わなに注意！</b> 「きれい」「嫌い」は「い」で終わって見える。<br>じゃが、「きれい<b>な</b>人」「きれい<b>だ</b>」と言えるので、<b>形容動詞</b>じゃ。`]},
+  {kind:"drill", title:"名詞の前の形", desc:"「〜い」なら形容詞、「〜な」なら形容動詞（わなに注意）", goal:winGoal(6, 5), gen:() => genPos(["動詞", "形容詞", "形容動詞"], true)},
+  {kind:"talk", title:"形容動詞の合言葉", pages:[
+    `形容動詞も命令形はない。<br>静か<b>だろ</b>う（未然形）<br>静か<b>だっ</b>た・静か<b>で</b>ない・静か<b>に</b>なる（連用形）<br>静か<b>だ</b>。（終止形）<br>静か<b>な</b>とき（連体形）<br>静か<b>なら</b>ば（仮定形）`]},
+  {kind:"drill", title:"合言葉で見分ける", desc:"形容動詞に、その合言葉がつくと何形？", goal:winGoal(5, 5), gen:() => genAForm("adjv", false)},
+  {kind:"drill", title:"活用語尾をつける", desc:"合言葉に合う活用語尾を選ぼう", goal:winGoal(5, 5), gen:() => genAEnd("adjv")},
+  {kind:"drill", title:"言葉＋合言葉", desc:"下線の言葉は何形？", goal:winGoal(6, 5), gen:() => genAForm("adjv", true)},
+  {kind:"drill", title:"文の中で（まぜて）", desc:"形容詞・形容動詞まざった文で", goal:winGoal(8, 6), gen:() => genASent(Math.random() < .6 ? ADJV_SENTENCES : ADJ_SENTENCES)},
+];
+
 /* ---------- 修行の進め方 ---------- */
 function needTraining(fi, go){
   const ch = FIELD_STORY[fi];
@@ -2352,7 +2515,7 @@ function renderStory(){
   const [who, text, fx] = STORY.lines[STORY.i];
   const left = $("actL"), right = $("actR");
   // 左は主人公か師匠、右は敵。話している側を明るくする
-  const enemy = ["sekka","minion","fake"].includes(who);
+  const enemy = ["sekka","minion","fake","deshi","ikoku"].includes(who);
   left.innerHTML = pic(who === "hero" ? "hero" : "shisho");
   if(enemy) right.innerHTML = pic(who);
   else if(!right.innerHTML) right.innerHTML = pic("hero");
@@ -2422,6 +2585,19 @@ function makeQuestions(ch){
       qs.push({kind:"sform", x, ans:FORM_NAME[x.f]});
       if(i % 3 === 2) qs.push({kind:"stype", x, v:verbOf(x), ans:x.t});
     });
+  }else if(ch.id === "gai1"){
+    for(let i = 0; i < 4; i++) qs.push(genAForm("adj", true));
+    for(let i = 0; i < 3; i++) qs.push(genAEnd("adj"));
+    for(let i = 0; i < 4; i++) qs.push(genASent(ADJ_SENTENCES));
+    qs.push(genPos(["動詞", "形容詞"], false));
+    qs.splice(0, qs.length, ...shuffle(qs));
+  }else if(ch.id === "gai2"){
+    for(let i = 0; i < 3; i++) qs.push(genAForm("adjv", true));
+    for(let i = 0; i < 2; i++) qs.push(genAEnd("adjv"));
+    for(let i = 0; i < 3; i++) qs.push(genASent(ADJV_SENTENCES));
+    qs.push(genASent(ADJ_SENTENCES), genAForm("adj", true));
+    for(let i = 0; i < 2; i++) qs.push(genPos(["動詞", "形容詞", "形容動詞"], true));
+    qs.splice(0, qs.length, ...shuffle(qs));
   }else if(ch.id === "san"){
     // 偽忍者6・本物の一段4（同じ読みの組を優先）・カ変かサ変1・ふつうの五段1
     const fakes = shuffle(V_FAKE).slice(0, 6);
@@ -2451,6 +2627,14 @@ function renderQ(){
     $("qPrompt").textContent = "固まった言葉に、合う変装札をつけよう";
     $("qWord").innerHTML = `<span class="stem">${esc(q.stem)}</span><span class="blank">？</span><span class="fol">${esc(q.fol)}</span>`;
     choicesHtml = q.choices.map(c => `<button class="choice fuda" data-a="${c}">${c}</button>`).join("");
+  }else if(q.kind === "aform"){
+    $("qPrompt").textContent = q.only ? `${q.adjv ? "形容動詞" : "形容詞"}に、この合言葉がつくと何形？` : "下線の言葉は、何形？";
+    $("qWord").innerHTML = q.only ? `〜<span class="fol">${esc(q.fol)}</span>` : `<span style="text-decoration:underline;text-underline-offset:8px">${rubyHtml(q.v, q.word)}</span><span class="fol">${esc(q.fol)}</span>`;
+    choicesHtml = q.choices.map(f => `<button class="choice" data-a="${f}">${f}<small>${A_HINT[f]}</small></button>`).join("");
+  }else if(q.kind === "pos"){
+    $("qPrompt").textContent = q.phrase ? "下線の言葉の品詞は？（名詞の前の形を見よう）" : "この言葉の品詞は？（言い切りの形を見よう）";
+    $("qWord").innerHTML = `<span style="text-decoration:underline;text-underline-offset:8px">${rubyHtml(q.v, q.v.w)}</span>${esc(q.k || "")}`;
+    choicesHtml = q.choices.map(t => `<button class="choice" data-a="${t}">${t}<small>${POS_HINT[t]}</small></button>`).join("");
   }else if(q.kind === "dan"){
     $("qPrompt").textContent = "この音は、あいうえおの何段？";
     $("qWord").innerHTML = `<span class="danq">${esc(q.k)}</span>`;
@@ -2480,7 +2664,7 @@ function renderQ(){
     let sh = sentHtml(q.x.s);
     if(q.hlK) sh = sh.replace(/<\/u>(\S{0,1}?)/, "</u>$1").replace("</u>" + esc(q.x.k), `</u><span class="khl">${esc(q.x.k)}</span>`);
     $("qWord").innerHTML = `<div class="sent">${sh}</div>`;
-    choicesHtml = FORM_LIST.map(f => `<button class="choice" data-a="${f}">${f}</button>`).join("");
+    choicesHtml = (q.choices || FORM_LIST).map(f => `<button class="choice" data-a="${f}">${f}</button>`).join("");
   }else if(q.kind === "stype"){
     $("qPrompt").innerHTML = `つづけて！ 下線の言葉の流派（活用の種類）は？<br>（言い切りの形：${rubyHtml(q.v)}）`;
     $("qWord").innerHTML = `<div class="sent">${sentHtml(q.x.s)}</div>`;
@@ -2526,6 +2710,20 @@ function throwSmoke(q, used, plain, withDan){
 }
 function naiHint(){ const p = PLAY; if(!p || p.lock) return; throwSmoke(p.qs[p.i], true, true); }
 function explain(q){
+  if(q.kind === "aform"){
+    let t = `合言葉「${esc(q.fol)}」が続くのは<b>${q.ans}</b>（${A_HINT[q.ans]}）。`;
+    if(!q.only) t = `「${rubyHtml(q.v, q.word)}${esc(q.fol)}」：` + t;
+    if(!q.adjv && (q.fol === "ない" || q.fol === "なる" || q.fol === "て")) t += `<br>形容詞の「${esc(q.fol)}」は、連用形「<b>く</b>」につく。動詞の「書か<b>ない</b>」（未然形）とはちがうので注意！`;
+    if(q.adjv && q.fol === "ない") t += `<br>形容動詞の「ない」は、連用形「<b>で</b>」につく（静か<b>で</b>ない）。`;
+    if(q.adjv && q.f === "rentai") t += `<br>形容動詞の連体形は「〜<b>な</b>」。`;
+    return t;
+  }
+  if(q.kind === "pos"){
+    const b = q.base;
+    if(q.ans === "動詞") return `「${rubyHtml(b)}」は動きを表し、言い切りが<b>ウ段</b>の音 → <b>動詞</b>。`;
+    if(q.ans === "形容詞") return `「${rubyHtml(b)}」は様子を表し、言い切りが<b>「い」</b>${q.phrase ? "（名詞の前でも「〜い」）" : ""} → <b>形容詞</b>。`;
+    return `「${rubyHtml(b)}」は様子を表し、言い切りが<b>「だ」</b>（名詞の前では<b>「〜な」</b>） → <b>形容動詞</b>。${/い$/.test(b.s) ? "<br>「い」で終わって見えても、「〜な」「〜だ」と言えれば形容動詞！" : ""}`;
+  }
   if(q.kind === "dan") return `「${esc(q.k)}」は「${danList(danOf(q.k))}」の仲間 → <b>${danOf(q.k)}段</b>。`;
   if(q.kind === "fuda"){
     return `「<b>${esc(q.stem)}${esc(q.ans)}</b>${esc(q.fol)}」が正しい形。変わらない「${esc(q.stem)}」が語幹、変わる「${esc(q.ans)}」が活用語尾。`;
@@ -3288,8 +3486,17 @@ const FIELDS = [
    kinds:["kumo", "ookami", "kuma", "taka"], named:"gozan"},
   {name:"影の森",     lv:[25, 35], tree:"🌲", rock:"🪨", bg:"#5f7a5c", grass:"#3f6a47", path:"#b9a888",
    theme:{ov:"dark", sub:"光のとどかない、影の住む森", deco:[[0,2,"👀"],[7,4,"🦇"],[3,2,"🏮"],[0,7,"👀"],[7,10,"🕯️"],[3,0,"🏯"]], jingle:[262,311,370,247]},
-   map:["TTTTTTTT","TGGG.GGT","TG.TGG.T","TGG.GTGT","T.GGG..T","TGTG.GGT","TGG.GT.T","TT.GGGGT","TGGG.TGT","TG..GG.T","TGG..GGT","TTTDDTTT"],
+   map:["TTTUUTTT","TGGG.GGT","TG.TGG.T","TGG.GTGT","T.GGG..T","TGTG.GGT","TGG.GT.T","TT.GGGGT","TGGG.TGT","TG..GG.T","TGG..GGT","TTTDDTTT"],
    kinds:["taka", "oni", "yurei", "ryu"], named:"kokufu"},
+  // 外伝（形容詞・形容動詞）
+  {name:"潮風の港",   lv:[30, 38], tree:"📦", rock:"🪨", bg:"#d9c9a3", grass:"#9cc48a", path:"#e8d9b5",
+   theme:{ov:"wind", sub:"異国の船が出入りする、にぎやかな港", deco:[[3,2,"⚓"],[2,4,"⛵"],[5,8,"🛢️"]], jingle:[392,523,659,784]},
+   map:["WWWUUWWW","WGG..GGW","WGGT.GGW","W...GGWW","WGT.GG.W","WGGG.GGW","WW.GGGWW","WGG..GGW","W.GWGT.W","WG..GGGW","WGG..GGW","WWWDDWWW"],
+   kinds:["kani", "kamome", "tako", "same"], named:"ginji"},
+  {name:"異国の島",   lv:[36, 45], tree:"🌴", rock:"🪨", bg:"#9fd6a0", grass:"#5fb06a", path:"#f1dfa8",
+   theme:{ov:"sun", sub:"南の海にうかぶ、ふしぎな島", deco:[[0,4,"🌺"],[7,6,"🌋"],[2,7,"🗿"],[7,1,"🦩"],[0,9,"🐚"]], jingle:[440,554,659,880]},
+   map:["TTTUUTTT","TGG..GGT","TGTG.GTT","T..GGG.T","TGG.TGGT","WWG.GGWW","TGG.GG.T","T.TGG.GT","TGG..GGT","TG.GT..T","TGG..GGT","TTTDDTTT"],
+   kinds:["oumu", "wani", "kame", "kai"], named:"majo"},
 ];
 // 野良忍者の種類。hp・atk・def は倍率、every は攻撃の間（なしなら格どおり）、ab は能力、ch は出す問題の章
 const WILD = {
@@ -3314,6 +3521,17 @@ const WILD = {
   kasumi:  {name:"水面の霞",         title:"霧の川の幻",         icon:"🌫️", elem:"water", hp:1.6, atk:1.0, def:1.0, abs:["dodge", "barrier"], ch:"ni",  lv:17, special:true, item:"rare_kasumi",    note:"霧と一体になった、なぞのくノ一"},
   gozan:   {name:"岩砕きの剛山",     title:"峠の豪傑",           icon:"🪨", elem:"fire",  hp:1.8, atk:1.1, def:1.0, abs:["armor", "rage"],   ch:"san", lv:25, special:true, item:"rare_kote",      note:"素手で岩を砕くという大男"},
   kokufu:  {name:"黒き風の主",       title:"影の森の支配者",     icon:"🌑", elem:"water", hp:1.8, atk:1.1, def:1.1, abs:["dodge", "rage"],   ch:"any", lv:36, special:true, item:"rare_katana",    note:"影の森の最も深い闇に住むという、伝説の忍"},
+  // 外伝の野良忍者
+  kani:    {name:"蟹忍",   icon:"🦀", elem:"water", hp:1.1, atk:.9,  def:1.3, ab:"armor", ch:"any", note:"固い甲羅。ふつうの攻撃が効きにくい"},
+  kamome:  {name:"鷗忍",   icon:"🕊️", elem:"wood",  hp:.85, atk:1.0, def:.9,  ab:"swift", ch:"any", note:"潮風に乗って、すばやく攻める"},
+  tako:    {name:"蛸忍",   icon:"🐙", elem:"water", hp:1.1, atk:1.0, def:1.0, ab:"steal", ch:"any", note:"八本の手で両をくすねる"},
+  same:    {name:"鮫忍",   icon:"🦈", elem:"fire",  hp:1.1, atk:1.15,def:1.0, ab:"rage",  ch:"any", note:"血の気が多く、怒ると恐ろしい"},
+  oumu:    {name:"鸚鵡忍", icon:"🦜", elem:"wood",  hp:.9,  atk:1.0, def:1.0, ab:"dodge", ch:"any", note:"言葉をまねて、人をまどわす"},
+  wani:    {name:"鰐忍",   icon:"🐊", elem:"water", hp:1.3, atk:1.1, def:1.2, ab:"armor", ch:"any", note:"大きな口と固いうろこを持つ"},
+  kame:    {name:"亀忍",   icon:"🐢", elem:"wood",  hp:1.4, atk:.8,  def:1.3, ab:"heal",  ch:"any", note:"のんびりしているが、傷をすぐ治す"},
+  kai:     {name:"貝忍",   icon:"🐚", elem:"water", hp:1.0, atk:1.0, def:.9,  ab:"barrier", ch:"any", note:"貝がらの結界をはる。術が効きにくい"},
+  ginji:   {name:"荒波の銀次",   title:"港の海賊忍",   icon:"🏴‍☠️", elem:"water", hp:1.7, atk:1.1, def:1.0, abs:["steal", "rage"], ch:"any", lv:40, special:true, item:"rare_rashin", note:"七つの海を荒らしたという、うわさの海賊忍"},
+  majo:    {name:"南海の魔女",   title:"異国の島の幻", icon:"🧜", elem:"water", hp:1.7, atk:1.05, def:1.0, abs:["barrier", "heal"], ch:"any", lv:46, special:true, item:"rare_nanban", note:"島の入り江にすむという、なぞの術者"},
   koban:   {name:"小判鼠",       icon:"🐭", elem:"", hp:.6,  atk:.3,  def:2.0, ab:"",      ch:"any",  note:"めったに出ない。守りが固いが、両をたくさん持っている", rare:true},
 };
 const ABILITY = {
@@ -3359,7 +3577,7 @@ const wildXp = lv => 3 + lv * 2;
    ・Lv差：相手が自分より高いと1Lvごとに＋5%（最大＋25%）、低いと1Lvごとに−15%（最小×0.1）→ 古い地方でかせぎにくい
    シミュレーション（正答率85%・1戦約7問正解）で、各地方に入ったLvから、その地方のボスのめやすLvまで
    およそ 2・4・4・5・6勝（今までは 3・6・7・12・16勝）。後半ほど長くなる、を平らにし、新しい地方へ進むほど得をするようにした。 */
-const FRONT_MUL = [1, 1, 1, 1.3, 1.6], PIONEER_WINS = 5, PIONEER_MUL = 1.5;
+const FRONT_MUL = [1, 1, 1, 1.3, 1.6, 1.8, 2.0], PIONEER_WINS = 5, PIONEER_MUL = 1.5;
 function frontField(){
   const ns = nextStory();
   if(!ns) return FIELDS.length - 1;
@@ -3541,7 +3759,7 @@ async function stepTo(x, y){
   }
   if(c === "U"){
     if(FIELD.f + 1 < FIELDS.length){ await sleep(200); const nf = FIELD.f + 1; needTraining(nf, () => enterField(nf, "bottom")); }
-    else fieldMsg("🚧 この先は、まだ道がない（準備中）");
+    else fieldMsg("🌊 この先は大海原。旅はここまでじゃ……（すべての地方を制覇した！）");
     return true;
   }
   if(c === "D"){
