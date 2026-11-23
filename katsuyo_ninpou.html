@@ -268,6 +268,22 @@
   .dmgpop{position:absolute;left:50%;top:10px;transform:translateX(-50%);font-size:26px;font-weight:bold;text-shadow:0 2px 0 #000;animation:dmg .9s ease both;pointer-events:none;z-index:5;white-space:nowrap}
   @keyframes dmg{0%{opacity:0;transform:translate(-50%,10px)}20%{opacity:1}100%{opacity:0;transform:translate(-50%,-40px)}}
   .choice.gone{opacity:.2}
+  .hud3{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:6px;min-height:30px}
+  .jgauge{font-size:14px;color:#ffb347;letter-spacing:1px;font-weight:bold}
+  .jgauge.full{color:#ffd23f;text-shadow:0 0 8px #ff8c1a;animation:pop 1s infinite}
+  .jbtn{border:none;border-radius:999px;padding:6px 12px;font-size:14px;font-weight:bold;color:#fff;
+    background:linear-gradient(135deg,#ff5f2e,#ffb347);box-shadow:0 3px 0 #9a3412;animation:pop 1.2s infinite}
+  .jbtn:disabled{opacity:.5;animation:none}
+  .jutsu-fx{position:fixed;inset:0;z-index:55;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;opacity:0}
+  .jutsu-fx.go{animation:jfx 1.2s ease both}
+  .jutsu-fx .jfx-ic{font-size:110px;filter:drop-shadow(0 0 20px #ff8c1a)}
+  .jutsu-fx .jfx-nm{font-size:34px;font-weight:bold;color:#fff;text-shadow:0 3px 0 #000,0 0 14px #ff8c1a}
+  @keyframes jfx{0%{opacity:0;transform:scale(.5)}20%{opacity:1;transform:scale(1.1)}70%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.3)}}
+  .jlist{display:grid;gap:4px}
+  .jrow{display:flex;align-items:center;gap:8px;background:#fff3e0;border:1px solid #f0b27a;border-radius:10px;padding:4px 8px}
+  .jrow small{margin-left:auto;font-size:12px;color:var(--ink2)}
+  .jrow .jic{font-size:22px}
+  .jrow.locked{background:#eee;border-color:#ccc;color:#999}
   .rewards{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;align-items:center;background:rgba(255,215,90,.15);border:1px solid var(--gold);border-radius:12px;padding:8px;margin:8px 0}
   .rewards span{background:rgba(0,0,0,.3);border-radius:999px;padding:2px 10px}
   .lvup{color:#9ff0b8;font-size:16px;margin:6px 0}
@@ -359,6 +375,7 @@
       <span class="combo" id="hudCombo"></span>
     </div>
     <div class="hud2"><span class="life" id="hudLife"></span><span id="hudItems"></span></div>
+    <div class="hud3" id="hudJutsu"></div>
     <div class="bar timer"><i id="qTimer"></i></div>
     <div class="arena">
       <div class="foe" id="foe"></div>
@@ -378,6 +395,7 @@
   </section>
 </div>
 <div class="flash" id="flash"></div>
+<div class="jutsu-fx" id="jutsuFx"></div>
 
 <script>
 /* =====================================================================
@@ -824,7 +842,8 @@ const chIndex = id => CHAPTERS.findIndex(c => c.id === id);
    2026-11-23、教員の指示で設計を作り直した（第2版）：
    ・主人公は変化の里に住む忍者。村の建物（城・道場・寺子屋・店・茶屋・自宅）をタップすると歩いて行ける。
    ・忍者レベル＝本体の「動詞の活用」「活用」のジャンルレベル。その経験値（本体と同じ計算）を
-     「忍術ポイント」としてステータス（体力・攻撃・守り・素早さ・知恵・運）に振り分ける。
+     「忍術ポイント」としてステータス（体力・攻撃・守り・忍術）に振り分ける。
+     2026-11-23、教員の指示で「素早さ・知恵・運」はやめ、必殺技の「忍術」にした（正解で術ゲージがたまり、満タンで術を使える）。
      本体の「ことのは」のステータスポイントとは別枠（本体の記録は読むだけで、書きかえない）。
    ・装備は13か所（頭・顔・首・体・腕・手・腰・ズボン・脚・靴・武器・装飾品2つ）、各5段階。
      段位（忍者レベル）やステータスの条件を満たすと着られる。店・任務の報酬・本任務・道場・出会いで手に入る。
@@ -871,10 +890,20 @@ const STATS = [
   {id:"hp",  name:"体力",   icon:"❤️", note:"最大HPが増える"},
   {id:"atk", name:"攻撃",   icon:"⚔️", note:"正解したときのダメージ"},
   {id:"def", name:"守り",   icon:"🛡️", note:"まちがえたときのダメージを減らす"},
-  {id:"spd", name:"素早さ", icon:"💨", note:"1問の制限時間がのびる"},
-  {id:"chi", name:"知恵",   icon:"📖", note:"煙玉（ヒント）の数が増える"},
-  {id:"luk", name:"運",     icon:"🍀", note:"会心の一撃・報酬の両が増える"},
+  {id:"nin", name:"忍術",   icon:"🔥", note:"必殺技の威力が上がり、新しい術を覚える"},
 ];
+
+/* ---------- 忍術（必殺技） ----------
+   正解するたびに術ゲージが1たまり、JUTSU_MAX で満タン。満タンのとき、覚えている術を1つ使える（ゲージは0に戻る）。
+   術は「忍術」のステータスがしきい値（need）に届くと覚える。威力も「忍術」で上がる。 */
+const JUTSU_MAX = 3;
+const JUTSU = [
+  {id:"katon",   name:"火遁・炎の術",     icon:"🔥", need:0,  text:b => `敵に大ダメージ（${b.atk * 2 + b.nin * 3}）`},
+  {id:"suiton",  name:"水遁・癒しの術",   icon:"💧", need:10, text:b => `HPを${10 + b.nin * 2}回復`},
+  {id:"bunshin", name:"分身の術",         icon:"👥", need:25, text:b => `次のまちがい${b.nin >= 60 ? 3 : 2}回のダメージを無効`},
+  {id:"raiton",  name:"雷遁・稲妻落とし", icon:"⚡", need:50, text:b => `敵に特大ダメージ（${b.atk * 3 + b.nin * 5}）`},
+];
+const jutsuKnown = nin => JUTSU.filter(j => nin >= j.need);
 
 /* ---------- 装備 ---------- */
 const SLOTS = [
@@ -893,17 +922,17 @@ const TIER = [
 const TIER_VAL = [2, 5, 10, 18, 30];
 // [部位, 主なステータス, 副ステータス, [5段階の名前], [5段階の絵文字]]
 const EQ_DEF = [
-  ["head",   "chi", "def", ["鉢巻","頭巾","鉢金","鎖頭巾","龍の兜"],             ["🎀","🧣","⛑️","🪖","🐉"]],
-  ["face",   "def", "chi", ["布面","半頬","面頬","鬼面","影の面"],               ["😷","🎭","👺","👹","🌑"]],
-  ["neck",   "luk", "chi", ["首巻","数珠","勾玉の首飾り","鈴の首飾り","天狗の数珠"], ["🧶","📿","🧿","🔔","🪶"]],
+  ["head",   "nin", "def", ["鉢巻","頭巾","鉢金","鎖頭巾","龍の兜"],             ["🎀","🧣","⛑️","🪖","🐉"]],
+  ["face",   "def", "nin", ["布面","半頬","面頬","鬼面","影の面"],               ["😷","🎭","👺","👹","🌑"]],
+  ["neck",   "nin", "hp",  ["首巻","数珠","勾玉の首飾り","鈴の首飾り","天狗の数珠"], ["🧶","📿","🧿","🔔","🪶"]],
   ["body",   "hp",  "def", ["野良着","忍装束","鎖帷子","黒影装束","天衣"],         ["👕","🥋","⛓️","🖤","✨"]],
   ["arm",    "def", "hp",  ["腕巻","籠手","鉄籠手","鎖籠手","鬼神の籠手"],         ["🩹","🦾","🔩","⛓️","💪"]],
-  ["hand",   "atk", "spd", ["手甲","革手甲","手甲鉤","鋼の手甲鉤","雷神の手甲"],     ["🧤","🥊","🦅","🪝","⚡"]],
-  ["waist",  "hp",  "luk", ["帯","忍び帯","道具帯","鎖帯","龍の帯"],             ["🎗️","🎌","🧰","⛓️","🐲"]],
-  ["pants",  "def", "spd", ["股引","忍袴","鎖袴","影袴","天狗袴"],              ["👖","🩳","⛓️","🌘","🌀"]],
-  ["legs",   "spd", "def", ["脚絆","布の脛当て","脛当て","鉄の脛当て","風神の脛当て"], ["🦵","🧦","🛡️","🔩","🌪️"]],
-  ["feet",   "spd", "luk", ["草鞋","足袋","忍び足袋","水蜘蛛","韋駄天の足袋"],     ["🩴","🧦","👟","🕸️","💨"]],
-  ["weapon", "atk", "luk", ["苦無","手裏剣","忍び刀","鎖鎌","影打ちの刀"],       ["🔪","🌀","🗡️","⛓️","⚔️"]],
+  ["hand",   "atk", "nin", ["手甲","革手甲","手甲鉤","鋼の手甲鉤","雷神の手甲"],     ["🧤","🥊","🦅","🪝","⚡"]],
+  ["waist",  "hp",  "def", ["帯","忍び帯","道具帯","鎖帯","龍の帯"],             ["🎗️","🎌","🧰","⛓️","🐲"]],
+  ["pants",  "def", "hp",  ["股引","忍袴","鎖袴","影袴","天狗袴"],              ["👖","🩳","⛓️","🌘","🌀"]],
+  ["legs",   "hp",  "def", ["脚絆","布の脛当て","脛当て","鉄の脛当て","風神の脛当て"], ["🦵","🧦","🛡️","🔩","🌪️"]],
+  ["feet",   "nin", "hp",  ["草鞋","足袋","忍び足袋","水蜘蛛","韋駄天の足袋"],     ["🩴","🧦","👟","🕸️","💨"]],
+  ["weapon", "atk", "nin", ["苦無","手裏剣","忍び刀","鎖鎌","影打ちの刀"],       ["🔪","🌀","🗡️","⛓️","⚔️"]],
 ];
 const EQUIP = {};
 EQ_DEF.forEach(([slot, main, sub, names, icons]) => names.forEach((name, t) => {
@@ -914,11 +943,11 @@ EQ_DEF.forEach(([slot, main, sub, names, icons]) => names.forEach((name, t) => {
 }));
 // 装飾品（2か所に着けられる。同じものを2つは着けられない）
 [
-  ["acc_omamori", 0, "お守り",     "🧧", {luk:2},          {guard:1}, ["shop"]],
-  ["acc_suzu",    1, "鈴",         "🔔", {spd:3},          {time:3},  ["shop"]],
-  ["acc_magatama",2, "勾玉",       "🟢", {luk:5, atk:3},   {crit:5},  ["quest", "story"]],
-  ["acc_makimono",2, "巻物入れ",   "🎒", {chi:6},          {hint:2},  ["quest"]],
-  ["acc_neko",    3, "招き猫",     "🐈", {luk:12},         {ryo:30},  ["meet"]],
+  ["acc_omamori", 0, "お守り",     "🧧", {hp:2},           {guard:1}, ["shop"]],
+  ["acc_suzu",    1, "鈴",         "🔔", {nin:3},          {time:3},  ["shop"]],
+  ["acc_magatama",2, "勾玉",       "🟢", {nin:5, atk:3},   {crit:5},  ["quest", "story"]],
+  ["acc_makimono",2, "巻物入れ",   "🎒", {nin:6},          {hint:2},  ["quest"]],
+  ["acc_neko",    3, "招き猫",     "🐈", {nin:6, hp:6},    {ryo:30},  ["meet"]],
   ["acc_hoju",    4, "龍の宝珠",   "🔮", {hp:10, atk:10},  {guard:2, crit:10}, ["dojo"]],
 ].forEach(([id, t, name, icon, st, eff, src]) => EQUIP[id] = {id, slot:"acc", tier:t, name, icon, st, eff, req:{lv:TIER[t].lv}, src});
 // 特別な効果・条件・手に入れ方
@@ -929,17 +958,18 @@ Object.assign(EQUIP.hand4.eff, {crit:10});
 Object.assign(EQUIP.weapon2.eff, {crit:3});
 EQUIP.weapon3.req.stat = {atk:15}; EQUIP.weapon4.req.stat = {atk:30};
 EQUIP.body3.req.stat = {hp:15};    EQUIP.body4.req.stat = {hp:30};
-EQUIP.arm4.req.stat = {def:25};    EQUIP.head4.req.stat = {chi:25};
+EQUIP.arm4.req.stat = {def:25};    EQUIP.head4.req.stat = {nin:25};
 EQUIP.face4.src = ["dojo"]; EQUIP.neck4.src = ["meet"]; EQUIP.waist4.src = ["dojo"]; EQUIP.feet3.src = ["quest", "meet"];
 ["head0","arm0","neck0","legs0","waist0"].forEach(id => EQUIP[id].src = ["shop", "story"]);
 const SRC_NAME = {shop:"店", shop2:"店（ときどき）", quest:"任務の報酬", story:"本任務", dojo:"道場（準備中）", meet:"出会い（準備中）", start:"はじめから"};
 const EFF_NAME = {guard:n => `まちがい${n}回分のダメージを無効`, hint:n => `煙玉＋${n}`, time:n => `制限時間＋${n}秒`, crit:n => `会心率＋${n}%`, ryo:n => `報酬の両＋${n}%`};
 const START_GEAR = ["body0", "feet0", "weapon0"];
-const BAG = {dango:{name:"団子", icon:"🍡", price:30, note:"任務中にHPを20回復"}, kemuri:{name:"煙玉", icon:"💨", price:50, note:"任務中のヒント（知恵の分を使い切ったあとに使う）"}};
+const BAG = {dango:{name:"団子", icon:"🍡", price:30, note:"任務中にHPを20回復"}, kemuri:{name:"煙玉", icon:"💨", price:50, note:"任務中のヒント（選択肢を2つ消す・「ない」の形を見せる）"}};
 
 /* ---------- 記録の整え ---------- */
 (function migrate(){
-  ["node", "visited", "revealed", "pos", "items"].forEach(k => delete SAVE[k]);   // 前の形（すごろく・探検マップ）の記録
+  ["node", "visited", "revealed", "pos", "items"].forEach(k => delete SAVE[k]);
+  if(SAVE.alloc) ["spd", "chi", "luk"].forEach(k => delete SAVE.alloc[k]);   // やめたステータス（素早さ・知恵・運）に振った分は、忍術ポイントに戻す   // 前の形（すごろく・探検マップ）の記録
   if(!SAVE.inv){ SAVE.inv = {}; START_GEAR.forEach(id => SAVE.inv[id] = 1); }
   if(!SAVE.equip){ SAVE.equip = {}; START_GEAR.forEach(id => SAVE.equip[EQUIP[id].slot] = id); }
   if(!SAVE.alloc) SAVE.alloc = {};
@@ -978,10 +1008,11 @@ function battleStats(){
     maxHp: 30 + s.hp * 3,
     atk: 10 + s.atk * 2,
     def: Math.floor(s.def / 2),
-    time: Math.round((s.spd * 0.2 + e.time) * 10) / 10,
-    hints: Math.floor(s.chi / 5) + e.hint,
-    crit: Math.min(40, Math.floor(s.luk * 0.5) + e.crit),
-    ryo: s.luk + e.ryo,
+    nin: s.nin,
+    time: e.time,
+    hints: e.hint,
+    crit: Math.min(40, e.crit),
+    ryo: e.ryo,
     guard: e.guard,
   };
 }
@@ -1240,7 +1271,11 @@ function showHome(){
       <small class="stnote">${st.note}</small></div>`;
   });
   html += `</div><div class="btn-row" style="margin-top:6px"><button class="iconbtn dark" onclick="resetAlloc()">振り直す</button></div>
-    <div class="bstats" id="hBstats">HP <b>${b.maxHp}</b>　攻撃 <b>${b.atk}</b>　守り <b>${b.def}</b>　時間 <b>+${b.time}秒</b>　煙玉 <b>${b.hints}</b>　会心 <b>${b.crit}%</b>${b.guard ? `　無効 <b>${b.guard}回</b>` : ""}${b.ryo ? `　両 <b>+${b.ryo}%</b>` : ""}</div>
+    <div class="bstats" id="hBstats">HP <b>${b.maxHp}</b>　攻撃 <b>${b.atk}</b>　守り <b>${b.def}</b>　忍術 <b>${b.nin}</b>${b.time ? `　時間 <b>+${b.time}秒</b>` : ""}${b.hints ? `　煙玉 <b>+${b.hints}</b>` : ""}${b.crit ? `　会心 <b>${b.crit}%</b>` : ""}${b.guard ? `　無効 <b>${b.guard}回</b>` : ""}${b.ryo ? `　両 <b>+${b.ryo}%</b>` : ""}</div>
+    <h3 class="sec">忍術（必殺技）</h3><div class="jlist">${JUTSU.map(j => b.nin >= j.need
+      ? `<div class="jrow"><span class="jic">${j.icon}</span><b>${j.name}</b><small>${j.text(b)}</small></div>`
+      : `<div class="jrow locked"><span class="jic">🔒</span><b>？？？</b><small>忍術${j.need}で覚える</small></div>`).join("")}</div>
+    <p class="note-dark">任務中、正解${JUTSU_MAX}回で術ゲージが満タンになり、術を使える。</p>
     <h3 class="sec">装備</h3><div class="slots">`;
   SLOTS.forEach(sl => {
     const it = EQUIP[SAVE.equip[sl.id]];
@@ -1275,7 +1310,7 @@ function refreshHomeNumbers(){
     btn.disabled = +btn.dataset.d > 0 ? free <= 0 : a <= 0;
   });
   const bs = $("hBstats");
-  if(bs) bs.innerHTML = `HP <b>${b.maxHp}</b>　攻撃 <b>${b.atk}</b>　守り <b>${b.def}</b>　時間 <b>+${b.time}秒</b>　煙玉 <b>${b.hints}</b>　会心 <b>${b.crit}%</b>${b.guard ? `　無効 <b>${b.guard}回</b>` : ""}${b.ryo ? `　両 <b>+${b.ryo}%</b>` : ""}`;
+  if(bs) bs.innerHTML = `HP <b>${b.maxHp}</b>　攻撃 <b>${b.atk}</b>　守り <b>${b.def}</b>　忍術 <b>${b.nin}</b>${b.time ? `　時間 <b>+${b.time}秒</b>` : ""}${b.hints ? `　煙玉 <b>+${b.hints}</b>` : ""}${b.crit ? `　会心 <b>${b.crit}%</b>` : ""}${b.guard ? `　無効 <b>${b.guard}回</b>` : ""}${b.ryo ? `　両 <b>+${b.ryo}%</b>` : ""}`;
 }
 function bindHold(){
   document.querySelectorAll("#pBody .hold").forEach(btn => {
@@ -1601,7 +1636,7 @@ function startBattle(cfg){
   const b = battleStats(), ch = cfg.ch;
   CUR = ch;
   PLAY = {cfg, ch, qs:makeQuestions(ch), i:0, ok:0, ng:0, combo:0, maxCombo:0, lock:false, wrongList:[],
-    hp:b.maxHp, maxHp:b.maxHp, atk:b.atk, def:b.def, crit:b.crit, guard:b.guard, hints:b.hints,
+    hp:b.maxHp, maxHp:b.maxHp, atk:b.atk, def:b.def, nin:b.nin, crit:b.crit, guard:b.guard, hints:b.hints, gauge:0, jutsu:jutsuKnown(b.nin),
     foe:Object.assign({}, cfg.foe, {max:cfg.foe.hp}), timeBase:cfg.time + b.time, lv0:ninjaInfo().lv, dmgDealt:0};
   if(cfg.mode === "quick") PLAY.qs = [pick(PLAY.qs)];
   mgStart();
@@ -1616,6 +1651,31 @@ function renderHud(){
   const bag = SAVE.bag.dango || 0;
   $("hudItems").innerHTML = p.cfg.mode === "quick" ? "" :
     `<button class="iconbtn" ${bag && !p.lock ? "" : "disabled"} onclick="useDango()">🍡×${bag}</button>`;
+  const full = p.gauge >= JUTSU_MAX;
+  $("hudJutsu").innerHTML = p.cfg.mode === "quick" ? "" :
+    `<span class="jgauge${full ? " full" : ""}">術 ${"●".repeat(Math.min(p.gauge, JUTSU_MAX))}${"○".repeat(Math.max(0, JUTSU_MAX - p.gauge))}</span>` +
+    (full ? p.jutsu.map(j => `<button class="jbtn" ${p.lock ? "disabled" : ""} onclick="useJutsu('${j.id}')">${j.icon} ${j.name}</button>`).join("") : "");
+}
+async function useJutsu(id){
+  const p = PLAY; if(!p || p.lock || p.gauge < JUTSU_MAX) return;
+  const j = p.jutsu.find(x => x.id === id); if(!j) return;
+  p.gauge = 0;
+  const big = $("jutsuFx");
+  big.innerHTML = `<div class="jfx-ic">${j.icon}</div><div class="jfx-nm">${j.name}！</div>`;
+  big.classList.remove("go"); void big.offsetWidth; big.classList.add("go");
+  [523, 784, 1046, 1568].forEach((f, i) => tone(f, .15, "sawtooth", .06, i * .07));
+  if(id === "katon" || id === "raiton"){
+    const dmg = id === "katon" ? p.atk * 2 + p.nin * 3 : p.atk * 3 + p.nin * 5;
+    p.foe.hp -= dmg; p.dmgDealt += dmg;
+    $("foe").innerHTML = foeHtml(); $("foe").classList.remove("hit"); void $("foe").offsetWidth; $("foe").classList.add("hit");
+    dmgPop(`−${dmg}`, "#ffb347", "foe");
+  }else if(id === "suiton"){
+    const h = 10 + p.nin * 2; p.hp = Math.min(p.maxHp, p.hp + h); dmgPop(`＋${h}`, "#9ff0b8", "sPlayHud");
+  }else if(id === "bunshin"){
+    p.guard += p.nin >= 60 ? 3 : 2; dmgPop("分身！", "#9fd3ff", "sPlayHud");
+  }
+  renderHud();
+  if(p.foe.hp <= 0){ p.lock = true; stopTimer(); await sleep(900); finish(true); }
 }
 function ensureQ(){ const p = PLAY; while(p.i >= p.qs.length) p.qs = p.qs.concat(makeQuestions(p.ch)); }
 function foeHtml(){
@@ -1680,6 +1740,7 @@ async function answer(btn){
   const fb = $("qFb");
   if(right){
     p.ok++; p.combo++; p.maxCombo = Math.max(p.maxCombo, p.combo);
+    p.gauge = Math.min(JUTSU_MAX, p.gauge + 1);
     sfx.ok(); mgCorrect();
     const crit = Math.random() * 100 < p.crit;
     const dmg = Math.round(p.atk * (crit ? 2 : 1) * (1 + Math.min(p.combo - 1, 5) * .05));
