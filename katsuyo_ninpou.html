@@ -185,6 +185,10 @@
   .vplace .vname small{display:block;font-size:9px;color:#ffb3a8}
   .vplace.soon .vicon{filter:grayscale(.6) drop-shadow(0 4px 3px rgba(0,0,0,.35))}
   .vbadge{position:absolute;right:-10px;top:-6px;background:#e0362b;color:#fff;font-size:13px;font-weight:bold;border-radius:999px;min-width:20px;height:20px;line-height:20px;animation:pop 1.2s infinite}
+  .vbadge.story{background:#7a3fd1;min-width:24px;height:24px;line-height:24px;font-size:14px}
+  .goal{background:rgba(40,25,70,.85);border:1px solid #b392f0;color:#f1e8ff;border-radius:12px;padding:6px 10px;font-size:13px;line-height:1.6;margin-bottom:8px}
+  .goal b{color:#ffd23f}
+  .goal.small{margin-top:6px;font-size:12px}
   .vtoken{position:absolute;z-index:3;font-size:34px;transform:translate(-20%,-95%);pointer-events:none;filter:drop-shadow(0 4px 3px rgba(0,0,0,.4))}
   .vtoken img{height:52px}
   .vtoken.walk{animation:walkbob .3s infinite}
@@ -203,6 +207,9 @@
   .ft.bridge{background:repeating-linear-gradient(90deg,#a7773f 0 6px,#8b5e2b 6px 8px)}
   .ft.grass{font-size:clamp(12px,4vw,22px)}
   .ft.exit{animation:pop 1.6s infinite}
+  .ft.bosstile{position:relative;background:radial-gradient(circle,#ffde8a,#e9b44c) !important}
+  .bossmark{font-size:clamp(20px,7vw,36px);animation:pop 1s infinite;filter:drop-shadow(0 0 6px #ff3b2f)}
+  .ft.bosstile::after{content:"！";position:absolute;top:-2px;right:2px;color:#e0362b;font-weight:bold;font-size:14px}
   .fhero{position:absolute;width:12.5%;transform:translate(-50%,-60%);text-align:center;font-size:clamp(20px,7vw,38px);pointer-events:none;z-index:2;
     transition:left .13s linear,top .13s linear;filter:drop-shadow(0 3px 2px rgba(0,0,0,.4))}
   .fhero img{width:100%}
@@ -253,6 +260,7 @@
   .eqrow > .btn, .eqrow > .owned{grid-area:bt}
   .eqicon{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;border:3px solid #aaa;background:#fff;font-size:22px}
   .eqicon.empty{color:#bbb;border-style:dashed}
+  .btn.sell{background:linear-gradient(180deg,#3f8f5a,#2a6b40);box-shadow:0 4px 0 #1b4a2a}
   .eqok{margin-top:3px;font-weight:bold;color:#1f7a3f;font-size:13px}
   .eqng{margin-top:3px;font-size:12px;color:#a12a20;background:#fdecea;border-radius:8px;padding:3px 7px;line-height:1.6}
   .owned{font-size:12px;color:#2f7a4c;font-weight:bold;white-space:nowrap}
@@ -382,6 +390,7 @@
       <button class="iconbtn" id="muteBtn" onclick="toggleMute()">🔊</button>
     </div>
     <div class="vstatus"><span id="vRank"></span><span id="vPts"></span><span id="vRyo"></span></div>
+    <div class="goal" id="vGoal"></div>
     <div class="village" id="village"></div>
     <div class="vmsg" id="vMsg"></div>
   </section>
@@ -401,6 +410,7 @@
     </div>
     <div class="fgrid" id="fGrid"></div>
     <div class="fmsg" id="fMsg"></div>
+    <div class="goal small" id="fGoal"></div>
     <div class="fpad">
       <button class="iconbtn dpad" data-dx="0" data-dy="-1">▲</button>
       <div><button class="iconbtn dpad" data-dx="-1" data-dy="0">◀</button><button class="iconbtn dpad" data-dx="1" data-dy="0">▶</button></div>
@@ -1036,7 +1046,7 @@ EQ_DEF.forEach(([slot, main, sub, names, icons]) => names.forEach((name, t) => {
   const st = {[main]:TIER_VAL[t]};
   if(t >= 1) st[sub] = Math.ceil(TIER_VAL[t] / 3);
   EQUIP[`${slot}${t}`] = {id:`${slot}${t}`, slot, tier:t, name, icon:icons[t], st, eff:{}, req:{lv:TIER[t].lv},
-    src: t <= 1 ? ["shop"] : t === 2 ? ["shop2", "quest"] : t === 3 ? ["quest"] : ["quest"]};
+    src: t <= 1 ? ["shop"] : t <= 3 ? ["shop", "quest"] : ["quest"]};
 }));
 // 装飾品（2か所に着けられる。同じものを2つは着けられない）
 [
@@ -1058,9 +1068,14 @@ EQUIP.body3.req.stat = {hp:15};    EQUIP.body4.req.stat = {hp:25};
 EQUIP.arm4.req.stat = {def:20};    EQUIP.head4.req.stat = {nin:20};
 EQUIP.face4.src = ["dojo"]; EQUIP.neck4.src = ["meet"]; EQUIP.waist4.src = ["dojo"]; EQUIP.feet3.src = ["quest", "meet"];
 ["head0","arm0","neck0","legs0","waist0"].forEach(id => EQUIP[id].src = ["shop", "story"]);
-const SRC_NAME = {shop:"店", shop2:"店（ときどき）", quest:"任務の報酬", story:"本任務", dojo:"道場（準備中）", meet:"出会い（準備中）", start:"はじめから"};
+const SRC_NAME = {shop:"店", quest:"任務の報酬", story:"本任務", dojo:"道場（準備中）", meet:"出会い（準備中）", start:"はじめから"};
 const EFF_NAME = {guard:n => `まちがい${n}回分のダメージを無効`, hint:n => `煙玉＋${n}`, time:n => `制限時間＋${n}秒`, crit:n => `会心率＋${n}%`, ryo:n => `報酬の両＋${n}%`};
 const START_GEAR = ["body0", "feet0", "weapon0"];
+// 装備の値段（店で買う値段）。売るときは半額（2026-11-23、教員の指示）
+const EQ_VALUE = [40, 150, 600, 2400, 6000];
+const sellPriceEq = it => Math.floor(EQ_VALUE[it.tier] / 2);
+// 持ち物に加える。図鑑（SAVE.got）は、売ったあとも「手に入れたことがある」として残す
+function addItem(id){ SAVE.inv[id] = 1; SAVE.got[id] = 1; }
 const BAG = {dango:{name:"団子", icon:"🍡", price:30, note:"任務中にHPを回復（最大HPの25%、最低20）"}, kemuri:{name:"煙玉", icon:"💨", price:50, note:"任務中のヒント（選択肢を2つ消す・「ない」の形を見せる）"}};
 
 /* ---------- 記録の整え ---------- */
@@ -1068,6 +1083,7 @@ const BAG = {dango:{name:"団子", icon:"🍡", price:30, note:"任務中にHP�
   ["node", "visited", "revealed", "pos", "items"].forEach(k => delete SAVE[k]);
   if(SAVE.alloc) ["spd", "chi", "luk"].forEach(k => delete SAVE.alloc[k]);   // やめたステータス（素早さ・知恵・運）に振った分は、忍術ポイントに戻す   // 前の形（すごろく・探検マップ）の記録
   if(!SAVE.inv){ SAVE.inv = {}; START_GEAR.forEach(id => SAVE.inv[id] = 1); }
+  if(!SAVE.got) SAVE.got = Object.assign({}, SAVE.inv);
   if(!SAVE.equip){ SAVE.equip = {}; START_GEAR.forEach(id => SAVE.equip[EQUIP[id].slot] = id); }
   if(!SAVE.alloc) SAVE.alloc = {};
   if(!SAVE.bag) SAVE.bag = {dango:2, kemuri:1};
@@ -1209,7 +1225,9 @@ function showVillage(){
     .forEach(([e, x, y]) => html += `<span class="vdeco" style="left:${x}%;top:${y}%">${e}</span>`);
   Object.entries(PLACES).forEach(([id, p]) => {
     const isSoon = id === "dojo" || id === "chaya";
-    const alert = id === "castle" && castleHasNew() ? `<span class="vbadge">！</span>` : id === "home" && free > 0 ? `<span class="vbadge">✨</span>` : "";
+    const ns = nextStory();
+    const storyHere = (id === "terakoya" && ns === "jo") || (id === "gate" && ns && ns !== "jo");
+    const alert = storyHere ? `<span class="vbadge story">📜</span>` : id === "home" && free > 0 ? `<span class="vbadge">✨</span>` : "";
     html += `<div class="vplace${isSoon ? " soon" : ""}" data-id="${id}" style="left:${p.x}%;top:${p.y}%"><div class="vicon">${p.icon}${alert}</div><div class="vname">${p.name}${isSoon ? "<small>準備中</small>" : ""}</div></div>`;
   });
   html += `<div class="vtoken" id="vtoken">${pic("hero")}</div>`;
@@ -1217,15 +1235,16 @@ function showVillage(){
   map.querySelectorAll(".vplace").forEach(e => e.onclick = () => goPlace(e.dataset.id));
   const here = PLACES[SAVE.here] || PLACES.home;
   placeVToken(here.x, here.y, false);
+  $("vGoal").innerHTML = `📜 目的　${storyGoal()}`;
   $("vMsg").innerHTML = reset ? "レベルが下がったので、忍術ポイントを振り直しにしました。自宅で振り分けよう。" : villageHint(ni, free);
   show("sVillage");
 }
 function villageHint(ni, free){
-  if(!chCleared("jo")) return "まずは🏯城へ行って、本任務を受けよう！";
+  if(!chCleared("jo")) return "まずは📚寺子屋へ行って、師匠の話を聞こう！";
   if(free > 0) return `✨ 忍術ポイントが ${free} ある！ 🏠自宅でステータスに振り分けよう`;
   return "行きたい場所をタップしよう";
 }
-function castleHasNew(){ return !!nextStory(); }
+function castleHasNew(){ return false; }
 function placeVToken(x, y, anim){
   const t = $("vtoken"); if(!t) return;
   t.style.transition = anim ? "left .7s ease, top .7s ease" : "none";
@@ -1267,14 +1286,45 @@ function panel(title, html){
    城（任務所）
    ===================================================================== */
 const STORY_ORDER = ["jo", "ichi", "ni", "san", "shi", "tsui"];
-const STORY_FOE = {
-  jo:   {icon:"🗿", name:"石になった言葉", hp:40,  atk:3,  def:0, res:0, elem:"",      every:2, time:30, ryo:60,  item:"head0"},
-  ichi: {icon:"👺", name:"石化丸の手下",   hp:60,  atk:5,  def:0, res:0, elem:"fire",  every:2, time:28, ryo:80,  item:"arm0"},
-  ni:   {icon:"👤", name:"化けた手下",     hp:80,  atk:7,  def:2, res:2, elem:"water", every:2, time:26, ryo:100, item:"neck0"},
-  san:  {icon:"🎭", name:"偽忍者",         hp:90,  atk:8,  def:3, res:3, elem:"wood",  every:1, time:26, ryo:120, item:"legs0"},
-  shi:  {icon:"🐛", name:"紙食い虫の親玉", hp:120, atk:9,  def:6, res:1, elem:"wood",  every:1, time:32, ryo:150, item:"waist0"},
-  tsui: {icon:"🗿", name:"石化丸",         hp:160, atk:10, def:6, res:6, elem:"fire",  every:1, time:32, ryo:300, item:"acc_magatama", boss:true},
+/* 物語（メインストーリー）。2026-11-23、教員の指示「城の任務がメインストーリーになっていて分かりづらい。もっとワクワクする
+   展開にしたいので、メインストーリーは別に」。物語は城とは切り離し、地図の上で進む：
+   ・序の章は📚寺子屋で師匠から始まる。一〜終の章は、外の各地方の奥（出口の手前）に立ちはだかる敵との戦い。
+   ・その敵を倒すまで、次の地方への道（⬆️）はふさがれている。倒すと道が開き、物語が先へ進む。
+   ・敵の強さは、その地方に着いたころの忍者Lv（lv）に合わせる（野良忍者と同じ物差し。atkF で少しやさしく）。
+     atkF は、シミュレーション（均等に振った忍者・そのLvの装備6割）で正答率75%なら9割以上勝てるように決めた。
+   ・村と外の画面に、いつも「📜 目的」を出す。 */
+const STORY_PLAN = {
+  jo:   {where:"terakoya", lv:1,  hpF:1.1, atkF:.45, every:2, icon:"🗿", name:"石になった言葉", elem:"",      ryo:60,   item:"head0",
+         goal:"📚寺子屋へ行き、師匠・変化斎の話を聞こう", pre:[]},
+  ichi: {where:0, lv:3,  hpF:1.0, atkF:.5,  every:2, icon:"👺", name:"石化丸の手下", elem:"fire",  ryo:120,  item:"arm1",
+         goal:"⛩️里の門から外へ。「里の外れ」の奥で道をふさぐ👺石化丸の手下を倒せ",
+         pre:[["nar", "里の外れの奥。次の地方へ続く道の真ん中に、石化丸の手下が立ちはだかっていた。"]]},
+  ni:   {where:1, lv:6,  hpF:1.0, atkF:.55, every:1, icon:"👤", name:"化けた手下",   elem:"water", ryo:250,  item:"neck1",
+         goal:"「竹林の小道」の奥に、村人に化けた👤手下がひそんでいる。正体をあばけ",
+         pre:[["nar", "竹林の小道の奥。笹の葉の陰から、あやしい気配がする……。"], ["minion", "へっへっへ、わしはただの村人じゃよ……。", "shake"]]},
+  san:  {where:2, lv:10, hpF:1.0, atkF:.5,  every:1, icon:"🎭", name:"偽忍者",       elem:"wood",  ryo:500,  item:"acc_makimono",
+         goal:"「霧の川辺」の奥で、🎭偽忍者が待ちかまえている。見た目にだまされるな",
+         pre:[["nar", "霧の川辺。霧の向こうから、見おぼえのある忍者が近づいてくる。"]]},
+  shi:  {where:3, lv:17, hpF:1.1, atkF:.47,  every:1, icon:"🐛", name:"紙食い虫の親玉", elem:"wood", ryo:1000, item:"weapon3",
+         goal:"「岩山の峠」で、破られた巻物と🐛紙食い虫の親玉を見つけよ",
+         pre:[["nar", "岩山の峠。岩の上に、ずたずたに破られた巻物が散らばっている。そして、その陰には――。"]]},
+  tsui: {where:4, lv:26, hpF:1.5, atkF:.45, every:1, icon:"🗿", name:"石化丸",       elem:"fire",  ryo:2000, item:"head4", boss:true,
+         goal:"「影の森」の最奥、石化丸の砦へ。🗿石化丸を倒し、里の巻物を取りもどせ",
+         pre:[["nar", "影の森の最奥。木々の間に、石化丸の砦がその姿を現した。"]]},
 };
+const FIELD_STORY = ["ichi", "ni", "san", "shi", "tsui"];   // 外の地方ごとの、奥の敵（物語の章）
+const BOSS_POS = {x:3, y:1};                                   // 奥の敵が立っているマス（出口の手前）
+function storyFoe(id){
+  const P = STORY_PLAN[id], B = wildBase(P.lv);
+  const hp = Math.round(B.hp * P.hpF), d = Math.round(B.def * .8);
+  return {icon:P.icon, name:P.name, hp, atk:Math.max(2, Math.round(B.atk * P.atkF)), def:d, res:d, elem:P.elem, every:P.every, boss:P.boss};
+}
+function storyGoal(){
+  const ns = nextStory();
+  if(!ns) return "物語はすべて終えた！ 外伝（形容詞・形容動詞）は準備中。任務や野良忍者で、さらに強い忍をめざそう";
+  const P = STORY_PLAN[ns], c = CHAPTERS[chIndex(ns)];
+  return `<b>${c.no}の章「${esc(c.name)}」</b>：${P.goal}（めやす Lv${P.lv}）`;
+}
 const QTYPES = [
   {ch:"jo",   name:"変装札の調達",       icon:"🦝", foe:"札泥棒の狸",   elem:"wood",  trait:"swift", desc:"固まった言葉に合う変装札を取り返せ（語幹と活用語尾）"},
   {ch:"ichi", name:"合言葉の伝令",       icon:"👺", foe:"関所の見張り", elem:"fire",  trait:"barrier", desc:"合言葉で術を見分けて、関所を通れ（活用形）"},
@@ -1305,6 +1355,7 @@ function questFoe(o){
 }
 const foeStatText = R => `${elemTag(R.elem)} HP${R.hp}・攻撃${R.atk}・守り${R.def}・結界${R.res || 0}・${R.every === 1 ? "毎問" : R.every + "問ごと"}に攻撃`;
 function nextStory(){ return STORY_ORDER.find(id => !chCleared(id)) || null; }
+// 序の章を終えるまでは、任務は出ない
 function availableQTypes(){ return QTYPES.filter(q => chCleared(q.ch)); }
 // 提案する任務を3つにそろえる（今の段位とその1つ下が中心。ときどき1つ上の「腕試し」も出す）
 function fillOffers(){
@@ -1322,17 +1373,9 @@ function fillOffers(){
 function showCastle(){
   fillOffers();
   const ni = ninjaInfo(), ns = nextStory();
-  let html = `<div class="npc-line"><span class="npc">🧔</span><div>任務所の役人「${ns === "jo" ? "おお、見習いか。まずは本任務からじゃ。" : "今日の任務はこれじゃ。腕に合ったものを選ぶがよい。"}」</div></div>`;
-  if(ns){
-    const c = CHAPTERS[chIndex(ns)], f = STORY_FOE[ns];
-    html += `<h3 class="sec">📜 本任務</h3>
-      <div class="qcard story" onclick="openChapter('${ns}')">
-        <div class="qicon">${f.icon}</div>
-        <div class="qtx"><b>${c.no}の章「${esc(c.name)}」</b><small>${esc(c.desc)}</small><small>報酬：${f.ryo}両・${EQUIP[f.item].icon}${esc(EQUIP[f.item].name)}</small></div>
-        <button class="btn">受ける</button></div>`;
-  }else html += `<p class="note-dark">本任務はすべて終えた！ 外伝（形容詞・形容動詞）は準備中じゃ。</p>`;
-  html += `<h3 class="sec">⚔️ 任務</h3>`;
-  if(!SAVE.offers.length) html += `<p class="note-dark">本任務の序の章を終えると、任務が受けられるようになる。</p>`;
+  let html = `<div class="npc-line"><span class="npc">🧔</span><div>任務所の役人「${ns === "jo" ? "おお、見習いか。まずは寺子屋で師匠の話を聞いてくるのじゃ。任務はそれからじゃ。" : "里の仕事を手伝ってくれる忍を待っておった。腕に合った任務を選ぶがよい。両や装備がもらえるぞ。"}」</div></div>
+    <h3 class="sec">⚔️ 任務（腕をみがき、両や装備をかせぐ）</h3>`;
+  if(!SAVE.offers.length) html += `<p class="note-dark">物語の序の章（寺子屋）を終えると、任務が受けられるようになる。</p>`;
   SAVE.offers.forEach((o, k) => {
     const {t, R} = questFoe(o), rk = RANKS[rankIdx(o.rank)];
     const ok = ni.lv >= rk.lv;
@@ -1342,11 +1385,6 @@ function showCastle(){
       <div class="qtx"><b>${esc(t.name)}</b><small>${esc(t.desc)}</small><small>相手：${esc(t.foe)}${t.trait ? `【${TRAITS[t.trait].name}】` : ""}（${foeStatText(R)}）　報酬：${R.ryo}両＋α</small></div>
       ${ok ? `<button class="btn" onclick="acceptQuest(${k})">受ける</button>` : `<span class="lockmsg">忍者Lv${rk.lv}から</span>`}</div>`;
   });
-  const done = STORY_ORDER.filter(chCleared);
-  if(done.length){
-    html += `<h3 class="sec">📖 これまでの本任務（もう一度読む・戦う）</h3><div class="replay">` +
-      done.map(id => { const c = CHAPTERS[chIndex(id)]; return `<button class="iconbtn dark" onclick="openChapter('${id}')">${c.no} ${esc(c.name)} ${"★".repeat(SAVE.stars[id])}</button>`; }).join("") + `</div>`;
-  }
   panel("🏯 城（任務所）", html);
 }
 function acceptQuest(k){
@@ -1371,34 +1409,63 @@ function seededPick(arr, n, seed){
   for(let i = a.length - 1; i > 0; i--){ s = (s * 9301 + 49297) % 233280; const j = Math.floor(s / 233280 * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
   return a.slice(0, n);
 }
+/* 品ぞろえ（2026-11-23、教員の指示：「売っているものが多すぎる。その時に必要な物を。少し上はよいが、低すぎる物は売らない」）
+   今の段位の品（いちばん上の段階＝今の忍者Lvで着られる段階）から6つ、1つ上の段階から3つを、日替わりで並べる。
+   それより下の段階は並べない。持っている物も並べない。伝説の段階と、道場・出会いでしか手に入らない物は売らない。 */
+function curTier(){ const lv = ninjaInfo().lv; let t = 0; TIER.forEach((x, i) => { if(lv >= x.lv) t = i; }); return t; }
 function shopStock(){
-  const base = Object.values(EQUIP).filter(it => it.src.includes("shop"));
-  const rare = seededPick(Object.values(EQUIP).filter(it => it.src.includes("shop2")), 2, dailySeed());   // 日替わりの掘り出し物
-  return base.concat(rare);
+  const t = curTier(), seed = dailySeed() * 7 + t;
+  const sellable = it => it.tier <= 3 && it.src.includes("shop") && !SAVE.inv[it.id];
+  const now = seededPick(Object.values(EQUIP).filter(it => it.tier === t && sellable(it)), 6, seed);
+  const up = t + 1 <= 3 ? seededPick(Object.values(EQUIP).filter(it => it.tier === t + 1 && sellable(it)), 3, seed + 1) : [];
+  return now.concat(up);
 }
-const priceOf = it => it.src.includes("shop2") && !it.src.includes("shop") ? TIER[2].price : TIER[it.tier].price;
+const priceOf = it => EQ_VALUE[it.tier];
 function showShop(tab){
   if(tab) SHOP_TAB = tab;
-  let html = `<div class="npc-line"><span class="npc">👩‍🦳</span><div>よろず屋のおかみ「いらっしゃい！ ${SHOP_TAB === "eq" ? "今日は掘り出し物もあるよ。" : "任務の前には団子と煙玉を忘れずにね。"}」</div></div>
-    <div class="tabs"><button class="${SHOP_TAB === "eq" ? "on" : ""}" onclick="showShop('eq')">装備</button><button class="${SHOP_TAB === "bag" ? "on" : ""}" onclick="showShop('bag')">道具</button>
+  const t = curTier();
+  const talk = SHOP_TAB === "eq" ? `今の${TIER[t].name}向けの品と、少し上の品をそろえてるよ。品は毎日入れかわるからね。`
+    : SHOP_TAB === "bag" ? "任務の前には団子と煙玉を忘れずにね。" : "いらない物は買い取るよ。ただし、買った値段の半分だけどね。";
+  let html = `<div class="npc-line"><span class="npc">👩‍🦳</span><div>よろず屋のおかみ「いらっしゃい！ ${talk}」</div></div>
+    <div class="tabs"><button class="${SHOP_TAB === "eq" ? "on" : ""}" onclick="showShop('eq')">装備</button><button class="${SHOP_TAB === "bag" ? "on" : ""}" onclick="showShop('bag')">道具</button><button class="${SHOP_TAB === "sell" ? "on" : ""}" onclick="showShop('sell')">売る</button>
     <span class="purse">💰 ${SAVE.ryo}両</span></div>`;
   if(SHOP_TAB === "eq"){
-    html += shopStock().map(it => {
-      const owned = SAVE.inv[it.id], price = priceOf(it), rare = !it.src.includes("shop");
-      return `<div class="eqrow">${itemChip(it, rare ? `<span class="rare">掘り出し物</span>` : "")}
+    const list = shopStock();
+    if(!list.length) html += `<p class="note-dark">今日の品はもう全部持っているようだね。また明日おいで。</p>`;
+    html += list.map(it => {
+      const price = priceOf(it), up = it.tier > t;
+      return `<div class="eqrow">${itemChip(it, up ? `<span class="rare">少し上の品</span>` : "")}
         <div class="eqst">${esc(SLOTS.find(s => slotKind(s.id) === it.slot).name.replace(/①|②/, ""))}｜${stText(it)}<br>条件：忍者Lv${it.req.lv}〜${it.req.stat ? "・" + Object.entries(it.req.stat).map(([k, v]) => `${STATS.find(x => x.id === k).name}${v}以上`).join("・") : ""}${equipBadge(it)}</div>
-        ${owned ? `<span class="owned">持っている</span>` : `<button class="btn mini" ${SAVE.ryo < price ? "disabled" : ""} onclick="buyEq('${it.id}')">${price}両</button>`}</div>`;
+        <button class="btn mini" ${SAVE.ryo < price ? "disabled" : ""} onclick="buyEq('${it.id}')">${price}両</button></div>`;
     }).join("");
-  }else{
+  }else if(SHOP_TAB === "bag"){
     html += Object.entries(BAG).map(([id, b]) => `<div class="eqrow"><span class="eqicon">${b.icon}</span><span class="eqname">${b.name}<small>持っている：${SAVE.bag[id] || 0}</small></span>
       <div class="eqst">${b.note}</div><button class="btn mini" ${SAVE.ryo < b.price ? "disabled" : ""} onclick="buyBag('${id}')">${b.price}両</button></div>`).join("");
+  }else{
+    const equipped = new Set(Object.values(SAVE.equip));
+    const owned = Object.keys(SAVE.inv).map(id => EQUIP[id]).filter(Boolean).sort((a, b) => a.tier - b.tier);
+    html += `<p class="note-dark">売ると、買った値段の半分になる。売った物も、装備図鑑には残る。</p>`;
+    html += owned.map(it => `<div class="eqrow">${itemChip(it)}<div class="eqst">${stText(it)}</div>
+      ${equipped.has(it.id) ? `<span class="owned">装備中は売れない</span>` : `<button class="btn mini sell" onclick="sellEq('${it.id}')">${sellPriceEq(it)}両で売る</button>`}</div>`).join("") || `<p class="note-dark">売れる装備がない。</p>`;
+    html += Object.entries(BAG).map(([id, b]) => `<div class="eqrow"><span class="eqicon">${b.icon}</span><span class="eqname">${b.name}<small>持っている：${SAVE.bag[id] || 0}</small></span>
+      <div class="eqst">1つ${Math.floor(b.price / 2)}両</div><button class="btn mini sell" ${(SAVE.bag[id] || 0) ? "" : "disabled"} onclick="sellBag('${id}')">売る</button></div>`).join("");
   }
   panel("🏪 よろず屋", html);
+}
+function sellEq(id){
+  const it = EQUIP[id]; if(!it || !SAVE.inv[id] || Object.values(SAVE.equip).includes(id)) return;
+  const g = sellPriceEq(it);
+  modal(`<div class="big">${it.icon}</div><h3>${esc(it.name)}を売る？</h3><p>${g}両で売る（買った値段${EQ_VALUE[it.tier]}両の半分）。<br>売ったら元にはもどせない。</p>`,
+    [["売る", () => { delete SAVE.inv[id]; SAVE.ryo += g; saveSave(SAVE); sfx.ok(); closeModal(); showShop("sell"); }], ["やめる", closeModal]]);
+}
+function sellBag(id){
+  if(!(SAVE.bag[id] > 0)) return;
+  SAVE.bag[id]--; SAVE.ryo += Math.floor(BAG[id].price / 2); saveSave(SAVE); sfx.tap(); showShop("sell");
 }
 function buyEq(id){
   const it = EQUIP[id], price = priceOf(it);
   if(SAVE.inv[id] || SAVE.ryo < price) return;
-  SAVE.ryo -= price; SAVE.inv[id] = 1; saveSave(SAVE);
+  SAVE.ryo -= price; addItem(id); saveSave(SAVE);
   sfx.clear();
   const why = canEquip(it);
   modal(`<div class="big">${it.icon}</div><h3>${esc(it.name)}を買った！</h3><p>${stText(it)}</p>${equipBadge(it)}`,
@@ -1443,7 +1510,7 @@ function showHome(){
     html += `<div class="slot" onclick="pickSlot('${sl.id}')"><small>${sl.name}</small>${it ? `<span class="eqicon" style="border-color:${TIER[it.tier].color}">${it.icon}</span><span class="sln">${esc(it.name)}</span>` : `<span class="eqicon empty">＋</span><span class="sln">なし</span>`}</div>`;
   });
   html += `</div><h3 class="sec">持ち物</h3><p class="bag">${Object.entries(BAG).map(([id, b]) => `${b.icon}${b.name}×${SAVE.bag[id] || 0}`).join("　")}　💰${SAVE.ryo}両</p>
-    <div class="btn-row"><button class="btn sub" onclick="showDex()">📖 野良忍者図鑑</button><button class="btn sub" onclick="showZukan()">📘 装備図鑑（${Object.keys(SAVE.inv).length}/${Object.keys(EQUIP).length}）</button></div>`;
+    <div class="btn-row"><button class="btn sub" onclick="showDex()">📖 野良忍者図鑑</button><button class="btn sub" onclick="showZukan()">📘 装備図鑑（${Object.keys(SAVE.got).length}/${Object.keys(EQUIP).length}）</button></div>`;
   panel("🏠 自宅", html);
   bindHold();
 }
@@ -1551,7 +1618,7 @@ function showZukan(){
   const kinds = EQ_DEF.map(d => d[0]).concat(["acc"]);
   kinds.forEach(k => {
     const name = k === "acc" ? "装飾品" : SLOTS.find(s => s.id === k).name;
-    html += `<div class="zk"><b>${name}</b><div class="zkrow">` + Object.values(EQUIP).filter(it => it.slot === k).map(it => SAVE.inv[it.id]
+    html += `<div class="zk"><b>${name}</b><div class="zkrow">` + Object.values(EQUIP).filter(it => it.slot === k).map(it => SAVE.got[it.id]
       ? `<span class="zkit" title="${esc(it.name)}" style="border-color:${TIER[it.tier].color}">${it.icon}<small>${esc(it.name)}</small></span>`
       : `<span class="zkit unk" style="border-color:${TIER[it.tier].color}">？<small>${it.src.map(s => SRC_NAME[s]).join("・")}</small></span>`).join("") + `</div></div>`;
   });
@@ -1564,13 +1631,21 @@ function showZukan(){
 function showTerakoya(){
   const ns = nextStory();
   const list = STORY_ORDER.filter(id => chCleared(id) || id === ns);
-  let html = `<div class="npc-line"><span class="npc">${pic("shisho")}</span><div>師匠・変化斎「よう来た。巻物を読み返すもよし、1問ずつ腕をみがくもよし。ここでの練習でも、忍者Lvは上がるぞ。」</div></div>
-    <h3 class="sec">📜 巻物</h3>`;
+  let html = `<div class="npc-line"><span class="npc">${pic("shisho")}</span><div>師匠・変化斎「${ns === "jo" ? "おお、来たか。大変なことになったのじゃ……。話を聞いてくれ。" : "よう来た。巻物を読み返すもよし、1問ずつ腕をみがくもよし。ここでの練習でも、忍者Lvは上がるぞ。"}」</div></div>`;
+  if(ns === "jo") html += `<div class="qcard story" onclick="openChapter('jo')"><div class="qicon">📜</div><div class="qtx"><b>物語　序の章「変化の術」</b><small>里に何が起きたのか、師匠の話を聞こう</small></div><button class="btn">話を聞く</button></div>`;
+  const doneStory = STORY_ORDER.filter(chCleared);
+  if(doneStory.length) html += `<h3 class="sec">📖 これまでの物語（読み返す）</h3><div class="replay">` +
+    doneStory.map(id => { const c = CHAPTERS[chIndex(id)]; return `<button class="iconbtn dark" onclick="replayStory('${id}')">${c.no} ${esc(c.name)} ${"★".repeat(SAVE.stars[id])}</button>`; }).join("") + `</div>`;
+  html += `<h3 class="sec">📜 巻物</h3>`;
   html += list.map(id => { const c = CHAPTERS[chIndex(id)];
     return `<div class="qcard"><div class="qicon">📜</div><div class="qtx"><b>${c.no}　${esc(c.name)}</b><small>${esc(c.desc)}</small></div>
       <button class="iconbtn dark" onclick="readLesson('${id}')">読む</button>${chCleared(id) ? `<button class="iconbtn dark" onclick="startQuick(CHAPTERS[chIndex('${id}')])">1問練習</button>` : ""}</div>`; }).join("");
   html += `<h3 class="sec">🗒️ 師匠のひとこと</h3>` + TIPS.slice(0, 2 + STORY_ORDER.filter(chCleared).length * 2).map(t => `<p class="tip">${t}</p>`).join("");
   panel("📚 寺子屋", html);
+}
+function replayStory(id){
+  const c = CHAPTERS[chIndex(id)], P = STORY_PLAN[id];
+  playStory(P.pre.concat(c.intro, c.outro), showTerakoya);
 }
 function readLesson(id){ showLessonFor(CHAPTERS[chIndex(id)], null); }
 const TIPS = [
@@ -1592,7 +1667,7 @@ let LESSON_AFTER = null;
 function showLessonFor(ch, after){
   LESSON_AFTER = after;
   $("lessonBody").innerHTML = ch.lesson;
-  $("lessonBtn").textContent = after ? "任務を始める" : "寺子屋へもどる";
+  $("lessonBtn").textContent = after ? "戦いを始める" : "寺子屋へもどる";
   show("sLesson");
 }
 function lessonGo(){ const f = LESSON_AFTER; LESSON_AFTER = null; f ? f() : showTerakoya(); }
@@ -1600,12 +1675,28 @@ function lessonGo(){ const f = LESSON_AFTER; LESSON_AFTER = null; f ? f() : show
 /* =====================================================================
    本任務（物語つき）
    ===================================================================== */
-function openChapter(id){
+// 物語の敵に挑む前に、Lvが足りない・忍術ポイントが余っているときは知らせる（正解し続けても負ける、をさけるため）
+function openChapter(id, force){
+  const P = STORY_PLAN[id], ni = ninjaInfo(), free = ni.points - allocSpent();
+  if(!force && !chCleared(id) && (ni.lv < P.lv || free > 0)){
+    const f = storyFoe(id);
+    modal(`<div class="enc-ic">${P.icon}</div><h3>${esc(P.name)}が道をふさいでいる！</h3><p>${foeStatText(f)}</p>
+      ${ni.lv < P.lv ? `<p class="lockmsg">⚠️ めやすは忍者Lv${P.lv}。今のLv${ni.lv}では、全問正解でも負けるかもしれない。<br>野良忍者や任務で経験値をためてから来よう。</p>` : ""}
+      ${free > 0 ? `<p class="lockmsg">✨ 忍術ポイントが${free}余っている！ 🏠自宅で振り分けると強くなる。</p>` : ""}`,
+      [["それでも挑む", () => { closeModal(); openChapter(id, true); }], ["出直す", closeModal]]);
+    return;
+  }
   sfx.tap();
-  const ch = CHAPTERS[chIndex(id)], f = STORY_FOE[id];
+  const ch = CHAPTERS[chIndex(id)];
   CUR = ch;
-  const go = () => startBattle({mode:"story", ch, foe:{icon:f.icon, name:f.name, hp:f.hp, atk:f.atk, def:f.def, res:f.res, elem:f.elem, every:f.every, boss:f.boss}, time:f.time, ryo:f.ryo, xp:2});
-  playStory(ch.intro, () => { SAVE.seen[ch.id] = 1; saveSave(SAVE); showLessonFor(ch, go); });
+  const go = () => startBattle({mode:"story", ch, foe:storyFoe(id), time:30, ryo:P.ryo, xp:Math.max(2, Math.round(P.lv / 3))});
+  playStory(P.pre.concat(ch.intro), () => { SAVE.seen[ch.id] = 1; saveSave(SAVE); showLessonFor(ch, go); });
+}
+// 物語のあとは、外にいたなら外へ、そうでなければ村へもどる
+function afterStory(){
+  if(!FIELD){ showVillage(); return; }
+  resumeField();
+  fieldMsg(exitOpen(FIELD.f) ? (FIELD.f + 1 < FIELDS.length ? "⬆️ 道が開いた！ 次の地方へ進もう" : "🎉 里の巻物を取りもどした！") : "");
 }
 function startQuick(ch){
   startBattle({mode:"quick", ch, foe:{icon:"🎯", name:"練習の的", hp:1, atk:0, def:0, every:99}, time:60, ryo:0, xp:1});
@@ -2030,14 +2121,14 @@ function finish(win){
       const first = !chCleared(ch.id); firstClear = first;
       if(stars > (SAVE.stars[ch.id] || 0)) SAVE.stars[ch.id] = stars;
       if(first){
-        const f = STORY_FOE[ch.id];
+        const f = STORY_PLAN[ch.id];
         SAVE.ryo += f.ryo; rewards.push(`💰 ${f.ryo}両`);
-        if(!SAVE.inv[f.item]){ SAVE.inv[f.item] = 1; rewards.push(`${EQUIP[f.item].icon} ${EQUIP[f.item].name}`); }
+        if(!SAVE.inv[f.item]){ addItem(f.item); rewards.push(`${EQUIP[f.item].icon} ${EQUIP[f.item].name}`); }
       }else{ const g = Math.round(20 * bonus); SAVE.ryo += g; rewards.push(`💰 ${g}両`); }
-      body = `<h2>🎉 ${esc(ch.no)}の章 本任務達成！</h2><div class="stars">${"★".repeat(stars)}${"☆".repeat(3 - stars)}</div>`;
+      body = `<h2>🎉 物語 ${esc(ch.no)}の章 クリア！</h2>${first && STORY_PLAN[ch.id].where !== "terakoya" ? `<p>⬆️ 次の地方への道が開いた！</p>` : ""}<div class="stars">${"★".repeat(stars)}${"☆".repeat(3 - stars)}</div>`;
     }else{
       const g = Math.round(cfg.ryo * bonus); SAVE.ryo += g; rewards.push(`💰 ${g}両`);
-      if(Math.random() < .4){ const d = rollDrop(cfg.rank); if(d){ SAVE.inv[d.id] = 1; rewards.push(`${d.icon} ${d.name}（${TIER[d.tier].name}）`); } }
+      if(Math.random() < .4){ const d = rollDrop(cfg.rank); if(d){ addItem(d.id); rewards.push(`${d.icon} ${d.name}（${TIER[d.tier].name}）`); } }
       if(Math.random() < .3){ const k = pick(Object.keys(BAG)); SAVE.bag[k] = (SAVE.bag[k] || 0) + 1; rewards.push(`${BAG[k].icon} ${BAG[k].name}`); }
       SAVE.qdone++;
       SAVE.offers = SAVE.offers.filter(o => o.key !== cfg.offer.key);
@@ -2061,9 +2152,9 @@ function finish(win){
     <div class="stat">正解 ${p.ok}　まちがい ${p.ng}　最大 ${p.maxCombo}連続<br>「${MG_GENRE}」レベル ${mgSigned(r.net)}</div>
     ${wrongs}
     <div class="btn-row" id="resultBtns">
-      ${win && cfg.mode === "story" ? `<button class="btn" onclick="playStory(CHAPTERS[chIndex('${ch.id}')].outro, showVillage)">つづきへ</button>` : ""}
+      ${win && cfg.mode === "story" ? `<button class="btn" onclick="playStory(CHAPTERS[chIndex('${ch.id}')].outro, afterStory)">つづきへ</button>` : ""}
       ${!win ? `<button class="btn" onclick="startBattle(LAST_CFG)">もう一度</button><button class="btn sub" onclick="showLessonFor(CUR, () => startBattle(LAST_CFG))">巻物を読む</button>` : ""}
-      <button class="btn sub" onclick="showVillage()">村へもどる</button>
+      <button class="btn sub" onclick="FIELD = null; showVillage()">村へもどる</button>
     </div>`;
   LAST_CFG = cfg;
   show("sResult");
@@ -2071,7 +2162,7 @@ function finish(win){
 let LAST_CFG = null;
 function wildDrop(lv){
   const tier = lv < 4 ? 0 : lv < 9 ? 1 : lv < 16 ? 2 : lv < 25 ? 3 : 4;
-  const pool = Object.values(EQUIP).filter(it => it.tier === tier && (it.src.includes("quest") || it.src.includes("shop") || it.src.includes("shop2")));
+  const pool = Object.values(EQUIP).filter(it => it.tier === tier && (it.src.includes("quest") || it.src.includes("shop")));
   const fresh = pool.filter(it => !SAVE.inv[it.id]);
   return fresh.length ? pick(fresh) : null;
 }
@@ -2082,7 +2173,7 @@ function finishWild(p, win, r){
     const bonus = 1 + battleStats().ryo / 100;
     const g = Math.round(wildRyo(foe.lv, foe.kind) * bonus) + p.stolen;
     SAVE.ryo += g; rewards.push(`💰 ${g}両${p.stolen ? `（取り返した${p.stolen}両をふくむ）` : ""}`);
-    if(Math.random() < .12){ const d = wildDrop(foe.lv); if(d){ SAVE.inv[d.id] = 1; rewards.push(`${d.icon} ${d.name}（${TIER[d.tier].name}）`); } }
+    if(Math.random() < .12){ const d = wildDrop(foe.lv); if(d){ addItem(d.id); rewards.push(`${d.icon} ${d.name}（${TIER[d.tier].name}）`); } }
     if(Math.random() < .25){ const k = pick(Object.keys(BAG)); SAVE.bag[k] = (SAVE.bag[k] || 0) + 1; rewards.push(`${BAG[k].icon} ${BAG[k].name}`); }
     const xp = wildXp(foe.lv); p.xpGot += xp; gainXp(xp);
     SAVE.dex[foe.kind].beat++;
@@ -2192,6 +2283,10 @@ const wildRyo = (lv, kind) => Math.round((4 + lv * 3) * (kind === "koban" ? 8 : 
 let FIELD = null;   // {f:地方の番号, x, y, safe:出会わない残り歩数, walking}
 function fieldTile(fi, x, y){ const m = FIELDS[fi].map; return (m[y] || "")[x] || "T"; }
 const walkable = c => c !== "T" && c !== "R" && c !== "W";
+// 奥の敵（物語）を倒すまで、次の地方への出口（U）は通れない
+const exitOpen = fi => chCleared(FIELD_STORY[fi]);
+const canWalk = (fi, x, y) => { const c = fieldTile(fi, x, y); return walkable(c) && !(c === "U" && !exitOpen(fi)); };
+const isBossTile = (fi, x, y) => x === BOSS_POS.x && y === BOSS_POS.y && !chCleared(FIELD_STORY[fi]);
 function enterField(fi, from){
   const F = FIELDS[fi];
   const y = from === "top" ? 1 : F.map.length - 2;
@@ -2227,9 +2322,10 @@ function showField(){
     else if(c === "W"){ cls += " water"; }
     else if(c === "G"){ cls += " grass"; inner = "🌿"; }
     else if(c === "="){ cls += " bridge"; }
-    else if(c === "U"){ cls += " exit"; inner = FIELD.f + 1 < FIELDS.length ? "⬆️" : "🚧"; }
+    else if(c === "U"){ cls += " exit"; inner = !exitOpen(FIELD.f) ? "🚧" : FIELD.f + 1 < FIELDS.length ? "⬆️" : "🚧"; }
     else if(c === "D"){ cls += " exit"; inner = FIELD.f === 0 ? "⛩️" : "⬇️"; }
     else cls += " path";
+    if(isBossTile(FIELD.f, x, y)){ cls += " bosstile"; inner = `<span class="bossmark">${STORY_PLAN[FIELD_STORY[FIELD.f]].icon}</span>`; }
     html += `<div class="${cls}" data-x="${x}" data-y="${y}" style="${c === "G" ? `background:${F.grass}` : c === "." || c === "U" || c === "D" ? `background:${F.path}` : ""}">${inner}</div>`;
   }));
   html += `<div class="fhero" id="fHero">${pic("hero")}</div>`;
@@ -2237,6 +2333,7 @@ function showField(){
   g.querySelectorAll(".ft").forEach(e => e.onclick = () => tapTile(+e.dataset.x, +e.dataset.y));
   placeFHero();
   $("fRyo").innerHTML = `💰${SAVE.ryo}両　Lv${ninjaInfo().lv}`;
+  $("fGoal").innerHTML = `📜 目的　${storyGoal()}`;
   show("sField");
 }
 function placeFHero(){
@@ -2254,7 +2351,7 @@ function findPath(tx, ty){
     if(x === tx && y === ty) break;
     [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dx, dy]) => {
       const nx = x + dx, ny = y + dy;
-      if(nx < 0 || nx >= 8 || ny < 0 || ny >= H || prev.has(key(nx, ny)) || !walkable(fieldTile(FIELD.f, nx, ny))) return;
+      if(nx < 0 || nx >= 8 || ny < 0 || ny >= H || prev.has(key(nx, ny)) || !canWalk(FIELD.f, nx, ny)) return;
       prev.set(key(nx, ny), [x, y]); q.push([nx, ny]);
     });
   }
@@ -2265,7 +2362,8 @@ function findPath(tx, ty){
 }
 function tapTile(x, y){
   if(fieldBusy()) return;
-  if(!walkable(fieldTile(FIELD.f, x, y))) return;
+  if(fieldTile(FIELD.f, x, y) === "U" && !exitOpen(FIELD.f)){ fieldMsg(`🚧 道がふさがれている！ 奥の${STORY_PLAN[FIELD_STORY[FIELD.f]].icon}を倒そう`); return; }
+  if(!canWalk(FIELD.f, x, y)) return;
   const path = findPath(x, y);
   if(path && path.length) walkPath(path);
 }
@@ -2283,7 +2381,9 @@ function fieldBusy(){ return !FIELD || FIELD.walking || !$("sField").classList.c
 function arrowStep(dx, dy){
   if(fieldBusy()) return;
   const nx = FIELD.x + dx, ny = FIELD.y + dy;
-  if(nx < 0 || nx >= 8 || ny < 0 || ny >= FIELDS[FIELD.f].map.length || !walkable(fieldTile(FIELD.f, nx, ny))){ tone(140, .05, "square", .03); return; }
+  if(nx < 0 || nx >= 8 || ny < 0 || ny >= FIELDS[FIELD.f].map.length || !canWalk(FIELD.f, nx, ny)){
+    if(fieldTile(FIELD.f, nx, ny) === "U") fieldMsg(`🚧 道がふさがれている！ 奥の${STORY_PLAN[FIELD_STORY[FIELD.f]].icon}を倒そう`);
+    tone(140, .05, "square", .03); return; }
   FIELD.walking = true;
   stepTo(nx, ny).then(() => { if(FIELD) FIELD.walking = false; });
 }
@@ -2294,6 +2394,12 @@ async function stepTo(x, y){
   placeFHero();
   const h = $("fHero"); h.classList.remove("step"); void h.offsetWidth; h.classList.add("step");
   const c = fieldTile(FIELD.f, x, y);
+  if(isBossTile(FIELD.f, x, y)){   // 奥の敵（物語）
+    const id = FIELD_STORY[FIELD.f];
+    if(nextStory() === id){ await sleep(200); openChapter(id); }
+    else fieldMsg("👀 強そうな敵が道をふさいでいる……。まずは📚寺子屋で、師匠の話を聞こう");
+    return true;
+  }
   if(c === "U"){
     if(FIELD.f + 1 < FIELDS.length){ await sleep(200); enterField(FIELD.f + 1, "bottom"); }
     else fieldMsg("🚧 この先は、まだ道がない（準備中）");
@@ -2377,9 +2483,9 @@ if(!SAVE.introSeen){
     ["nar", "ここは山奥の忍びの里、<span class=em>変化の里</span>。"],
     ["shisho", "目が覚めたか、見習いよ。今日からおぬしも、この里の忍じゃ。"],
     ["shisho", "里には<span class=em>城・道場・寺子屋・よろず屋・茶屋</span>がある。行きたい場所をタップすれば、歩いて行けるぞ。"],
-    ["shisho", "<span class=em>城</span>では任務がもらえる。任務をこなして両や装備を集め、強い忍をめざすのじゃ。"],
+    ["shisho", "<span class=em>城</span>では任務がもらえる。<span class=em>里の門</span>から外へ出れば、野良忍者との勝負もある。両や装備を集め、強い忍をめざすのじゃ。"],
     ["shisho", "おぬしの力は、言葉の<span class=em>【活用】</span>をどれだけ身につけたかで決まる。学べば学ぶほど強くなる。"],
-    ["shisho", "まずは城へ行って、本任務を受けてくるがよい。"],
+    ["shisho", "……じゃが、今はそれどころではない。大変なことが起きたのじゃ。<span class=em>寺子屋</span>へ来てくれ。"],
   ], () => { SAVE.introSeen = 1; saveSave(SAVE); showVillage(); });
 }else showVillage();
 </script>
