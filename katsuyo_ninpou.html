@@ -1671,7 +1671,7 @@ function jutsuHit(power, aff, foe){
   const raw = Math.round(power * aff);
   const d = Math.max(Math.ceil(raw * .1), raw - (foe.res || 0));
   if(noCap(foe)) return Math.max(1, d);
-  return Math.max(1, Math.min(d, Math.ceil(foe.max * (aff > 1 ? .45 : .3))));
+  return Math.max(1, Math.min(d, Math.ceil(foe.max * (aff > 1 ? .45 : .3) * (foe.makyo ? MAKYO_CAP : 1))));
 }
 /* 連続正解（2026-11-23、教員の指示：「連続で正解している場合は、徐々に攻撃力を高められるように」）
    STREAK はその戦いの中だけで数える（戦いが始まるたびに0。2026-11-23、教員の指示で「戦いをまたがない」に変更）。
@@ -1690,7 +1690,7 @@ function noCap(foe){ return !!PLAY && PLAY.cfg.mode === "wild" && foe.lv != null
 function hitDamage(raw, foe, crit, extraCap){
   const d = Math.max(Math.ceil(raw * .1), raw - (foe.def || 0));   // 守りの固い敵には、最低1割しか通らない
   if(noCap(foe)) return Math.max(1, d);
-  return Math.max(1, Math.min(d, Math.ceil(foe.max * (streakCap() + (crit ? .05 : 0) + (extraCap || 0)))));
+  return Math.max(1, Math.min(d, Math.ceil(foe.max * (streakCap() + (crit ? .05 : 0) + (extraCap || 0)) * (foe.makyo ? MAKYO_CAP : 1))));
 }
 const takenDamage = (atk, def, mult) => Math.max(1, Math.round(atk * (mult || 1) * 40 / (40 + def * 3)));
 const takenPct = def => Math.round(4000 / (40 + def * 3));
@@ -3792,24 +3792,31 @@ async function useJutsu(id){
   if(p.foe.hp <= 0){ renderHud(); await sleep(700); finish(true); return; }
   p.lock = false; p.qStart = Date.now(); renderHud(); startTimer();   // 術のあとは、今の問題の時間をはじめから
 }
-/* 魔境の敵の忍術。こちらの術と同じ物差し：威力＝12＋忍術×3（得意属性なら1.25倍）、こちらの結界で減る（最低1割）。
-   1回でこちらの最大HPの30%（相性が良ければ45%）まで。癒し＝10＋忍術×2回復。分身＝次のこちらの攻撃2回を無効。属性がえし＝こちらに強い属性へ。 */
-function foeJutsu(){
+/* 魔境の敵の忍術（2026-11-23、教員の指示で強化：「毎回攻撃。そのうえで4回に1回はさらに強力な攻撃。今のままでは余裕で勝てる」）
+   ・ふつうの攻撃は毎回する（忍術はその「上乗せ」）。
+   ・4回に1回：強力な忍術（火遁・水遁・木遁のどれか。どの敵も必ず使える）。威力＝(12＋忍術×3)×1.6（得意属性ならさらに1.25倍）。
+     こちらの結界で減る（最低1割）。1回でこちらの最大HPの40%（相性が良ければ55%）まで。
+   ・4回のうち2回目：半分の確率で、補助の忍術（癒し＝10＋忍術×2回復・分身＝こちらの攻撃2回を無効・属性がえし＝こちらに強い属性へ）。 */
+const MAKYO_POW = 1.6;
+// 魔境の敵には、1回で与えられるダメージの上限を0.6倍に（会心・術・連続正解で数問で倒せてしまうため）。強力な忍術は「無効」「分身」でも防げない
+const MAKYO_CAP = .6;
+function foeJutsu(strong){
   const p = PLAY, f = p.foe;
-  const can = JUTSU.filter(j => f.nin >= j.need && !(j.kind === "heal" && f.hp >= f.max) && !(j.kind === "elem" && (!p.elem || ELEM[f.elem].beats === p.elem)));
-  const j = pick(can.length ? can : [JUTSU[0]]);
+  const can = strong ? JUTSU.filter(j => j.kind === "atk")
+    : JUTSU.filter(j => j.kind !== "atk" && f.nin >= j.need && !(j.kind === "heal" && f.hp >= f.max) && !(j.kind === "guard" && f.guard > 0) && !(j.kind === "elem" && (!p.elem || ELEM[f.elem].beats === p.elem)));
+  if(!can.length) return;
+  const j = pick(can);
   const big = $("jutsuFx");
   big.className = "jutsu-fx foe jf-" + (j.elem || j.kind);
-  big.innerHTML = `<div class="jfx-ic">${j.icon}</div><div class="jfx-nm">${esc(f.name)}の${j.name}！</div>`;
+  big.innerHTML = `<div class="jfx-ic">${j.icon}</div><div class="jfx-nm">${strong ? "奥義・" : ""}${esc(f.name)}の${j.name}！</div>`;
   void big.offsetWidth; big.classList.add("go");
   [392, 311, 262, 196].forEach((fq, i) => tone(fq, .15, "sawtooth", .06, i * .07));
   if(j.kind === "atk"){
-    const pw = Math.round((12 + f.nin * 3) * (f.elem === j.elem ? 1.25 : 1)), a = defAffinity(j.elem, p.elem);
+    const pw = Math.round((12 + f.nin * 3) * MAKYO_POW * (f.elem === j.elem ? 1.25 : 1)), a = defAffinity(j.elem, p.elem);
     const raw = Math.round(pw * a);
     let d = Math.max(Math.ceil(raw * .1), raw - (p.res || 0));
-    d = Math.max(1, Math.min(d, Math.ceil(p.maxHp * (a > 1 ? .45 : .3))));
-    if(p.guard > 0){ p.guard--; dmgPop("無効！", "#9fd3ff", "pBox"); }
-    else{
+    d = Math.max(1, Math.min(d, Math.ceil(p.maxHp * (a > 1 ? .55 : .4))));
+    {
       fxEnemyHit(j.elem); p.hp -= d;
       dmgPop(`${j.icon}−${d}${a > 1 ? "（相性×）" : a < 1 ? "（相性◎）" : ""}`, "#ff8a80", "pBox");
       const h = $("pBox"); h.classList.remove("hurt"); void h.offsetWidth; h.classList.add("hurt");
@@ -3840,7 +3847,6 @@ function foeAttack(mult){
   if(hasAb(p.foe, "rage") && p.foe.hp < p.foe.max / 2){ mult *= 1.5; if(!p.raged){ p.raged = true; dmgPop("怒った！", "#ff5c5c", "foe"); } }   // 能力【怒り】
   // 属性を持つ敵は、jEvery回に1回（ふつうは3回に1回）術で攻撃してくる。術は結界で、ふつうの攻撃は守りで減らす
   p.atkCount++;
-  if(p.foe.makyo && p.atkCount % 4 === 0){ foeJutsu(); return; }   // 魔境の敵：4回に1回は忍術
   const isJutsu = !!p.foe.elem && mult === 1 && p.atkCount % (p.foe.jEvery || 3) === 0;
   if(p.guard > 0){ p.guard--; dmgPop("無効！", "#9fd3ff", "pBox"); const h = heroC(); ring(h.x, h.y, "#9fd3ff", 70, .5); }
   else if(isJutsu){
@@ -3857,6 +3863,11 @@ function foeAttack(mult){
     p.hp -= d; dmgPop(`${mult > 1 ? "反撃 " : ""}−${d}`, "#ff8a80", "pBox");
     const h = $("pBox"); h.classList.remove("hurt"); void h.offsetWidth; h.classList.add("hurt");
     tone(160, .2, "sawtooth", .07);
+  }
+  // 魔境の敵：ふつうの攻撃に上乗せして、4回に1回は強力な忍術、2回目は半分の確率で補助の忍術
+  if(p.foe.makyo && p.hp > 0){
+    if(p.atkCount % 4 === 0) foeJutsu(true);
+    else if(p.atkCount % 4 === 2 && Math.random() < .5) foeJutsu(false);
   }
   refreshFoe();
   renderHud();
@@ -3914,12 +3925,13 @@ function eboxHtml(){
   }
   const left = Math.max(1, f.every - PLAY.charge);
   const nextJutsu = f.makyo ? (PLAY.atkCount + 1) % 4 === 0 : !!f.elem && (PLAY.atkCount + 1) % (f.jEvery || 3) === 0;
-  const kind = nextJutsu ? (f.makyo ? "🌀忍術で" : `${ELEM[f.elem].icon}術で`) : "";
+  const kind = nextJutsu && !f.makyo ? `${ELEM[f.elem].icon}術で` : "";
   const r = Math.max(0, f.hp / f.max), col = r > .5 ? "" : r > .2 ? " mid" : " low";
   return `<div class="bxname">${esc(f.name)} ${elemTag(f.elem)}${PLAY.cfg.lv ? `<span class="bxlv">Lv${PLAY.cfg.lv}</span>` : ""}</div>
     <div class="bxhp"><span class="bxhpl">HP</span><span class="bxbar${col}"><i style="width:${r * 100}%"></i></span></div>
     <div class="bxsub">${f.makyo ? `攻撃${f.st.atk}・` : ""}守り${f.def || 0}・結界${f.res || 0}${f.makyo ? `・忍術${f.nin}` : ""}${f.guard > 0 ? `　👥分身${f.guard}` : ""}${noCap(f) ? `　<span class="weaktag">格下：一撃あり</span>` : ""}</div>
-    <div class="bxnext${left === 1 ? " soon" : ""}">${left === 1 ? `⚠️ 次の問題のあと${kind}攻撃！` : `あと${left}問で${kind}攻撃`}</div>`;
+    ${f.makyo ? `<div class="bxnext${nextJutsu ? " soon" : ""}">${nextJutsu ? "⚠️ 次は 攻撃＋🌀強力な忍術！" : `毎問攻撃（強力な忍術まで あと${4 - PLAY.atkCount % 4}回）`}</div>`
+      : `<div class="bxnext${left === 1 ? " soon" : ""}">${left === 1 ? `⚠️ 次の問題のあと${kind}攻撃！` : `あと${left}問で${kind}攻撃`}</div>`}`;
 }
 function refreshFoe(){ $("foe").innerHTML = foeHtml(); $("eBox").innerHTML = eboxHtml(); $("eBox").style.display = PLAY.cfg.mode === "quick" ? "none" : ""; }
 function startTimer(){
@@ -4239,7 +4251,7 @@ const FIELDS = [
   /* 魔境（2026-11-23、教員の指示）。隠居の家の3人をすべて倒すと、異国の島のいちばん上（ふさがれた所）から入れる。
      ・出題はすべてのジャンル（動詞・形容詞・形容動詞の全章）
      ・敵は、自分と同じステータスの合計（体力・攻撃・守り・忍術・結界）を、ランダムに配分して持つ。Lvも自分と同じ。
-     ・毎問攻撃してくる。4回に1回は、こちらと同じような忍術（火遁・水遁・木遁・癒し・分身・属性がえし）をランダムに放つ。 */
+     ・毎問攻撃してくる。4回に1回は、それに上乗せして強力な忍術（火遁・水遁・木遁）。補助の忍術（癒し・分身・属性がえし）もときどき使う。 */
   {name:"魔境",       lv:[0, 0],   tree:"🌑", rock:"🪨", bg:"#2a1d38", grass:"#4b2f5e", path:"#7c6a8c", makyo:true,
    theme:{ov:"dark", sub:"だれも帰ってきたことがない、と言われる地", deco:[[0,2,"💀"],[7,4,"🕯️"],[3,0,"⛩️"],[4,0,"⛩️"],[0,7,"👁️"],[7,9,"🔥"],[0,10,"🦴"]], jingle:[196,233,185,147]},
    map:["TTTTTTTT","TGGG.GGT","TG.TGG.T","TGG.GTGT","T.GGG..T","TGTG.GGT","TGG.GT.T","TT.GGGGT","TGGG.TGT","TG..GG.T","TGG..GGT","TTTDDTTT"],
@@ -4598,7 +4610,7 @@ async function makyoEncounter(kind){
   const S = foe.st;
   modal(`<div class="enc-ic sp">${w.icon}</div><div class="sp-tag" style="background:#5a2a7a">🌀 魔境の敵 🌀</div><h3>${esc(foe.name)}が現れた！</h3>
     <p style="font-size:13px">${w.note}</p>
-    <p style="font-size:13px">体力${S.hp}・攻撃${S.atk}・守り${S.def}・忍術${S.nin}・結界${S.res}（合計はあなたと同じ）<br>${elemTag(foe.elem)} 毎問攻撃・4回に1回、忍術を放つ</p>`,
+    <p style="font-size:13px">体力${S.hp}・攻撃${S.atk}・守り${S.def}・忍術${S.nin}・結界${S.res}（合計はあなたと同じ）<br>${elemTag(foe.elem)} 毎問攻撃・4回に1回は、さらに強力な忍術</p>`,
     [["戦う！", () => { closeModal(); startWild(foe); }], ["逃げる", () => { closeModal(); FIELD.safe = 4; fieldMsg("うまく逃げた……"); }]]);
 }
 function wildCh(w){
