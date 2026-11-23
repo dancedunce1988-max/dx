@@ -1196,23 +1196,27 @@ const defAffinity = (foeElem, myElem) => { const a = affinity(foeElem, myElem); 
    術は「忍術」のステータスがしきい値（need）以上のときだけ使える（下げると使えなくなる）。威力も「忍術」で上がる。
    攻撃の術は、敵の「結界」の分だけ減る（最低でも1割は通る）。1回で敵の最大HPの30%（相性が良ければ45%）まで。 */
 const JUTSU_MAX = 3;
-// 忍術が30以上なら、正解2回で満タン
-const jutsuMax = nin => nin >= 30 ? 2 : JUTSU_MAX;
+// ステータスに関係なく、いつも正解3回で満タン（2026-11-23、教員の指示。以前は忍術30以上で2回）
+const jutsuMax = nin => JUTSU_MAX;
 const JUTSU = [
   {id:"katon",   name:"火遁・炎の術",     icon:"🔥", elem:"fire",  need:0,  kind:"atk"},
   {id:"suiton",  name:"水遁・激流の術",   icon:"💧", elem:"water", need:4,  kind:"atk"},
   {id:"mokuton", name:"木遁・木の葉嵐",   icon:"🍃", elem:"wood",  need:8,  kind:"atk"},
   {id:"iyashi",  name:"癒しの術",         icon:"💚", need:12, kind:"heal"},
   {id:"bunshin", name:"分身の術",         icon:"👥", need:20, kind:"guard"},
-  {id:"raiton",  name:"雷遁・稲妻落とし", icon:"⚡", need:30, kind:"atk", big:true},
+  /* 雷遁・稲妻落とし（属性なしの大技）は、属性の面白さをなくすのでやめた（2026-11-23、教員の指示）。
+     かわりに、その戦いのあいだだけ、自分の得意属性を「相手に強い属性」に変える術。 */
+  {id:"henge",   name:"変化の術・属性がえし", icon:"🌀", need:30, kind:"elem"},
 ];
 const jutsuKnown = nin => JUTSU.filter(j => nin >= j.need);
 // 術の威力（相性・敵の結界の前）
 function jutsuPower(j, b){
   const base = j.big ? 25 + b.nin * 5 : 12 + b.nin * 3;
-  return Math.round(base * (j.elem && SAVE.elem === j.elem ? 1.25 : 1));
+  const my = PLAY ? PLAY.elem : SAVE.elem;   // 戦いの中では、その戦いの得意属性（属性がえしで変わる）
+  return Math.round(base * (j.elem && my === j.elem ? 1.25 : 1));
 }
 function jutsuText(j, b){
+  if(j.kind === "elem") return "その戦いだけ、得意属性を相手に強い属性に変える（相手の術に強くなり、その属性の術が1.25倍）";
   if(j.kind === "heal") return `HPを${10 + b.nin * 2}回復`;
   if(j.kind === "guard") return `次の攻撃${b.nin >= 35 ? 3 : 2}回分のダメージを無効`;
   return `${j.elem ? elemTag(j.elem) : "属性なし"} 威力${jutsuPower(j, b)}${j.elem && SAVE.elem === j.elem ? "（得意属性で1.25倍）" : ""}`;
@@ -1811,7 +1815,7 @@ function showHome(){
     <h3 class="sec">忍術（必殺技）</h3><div class="jlist" id="hJutsu">${jutsuListHtml(b)}</div>
     <p class="note-dark">⚡ 早く答えるほど攻撃が強い：2秒以内×1.5・4秒以内×1.3・6秒以内×1.15。</p>
     <p class="note-dark">🔥 戦いの中で連続で正解すると、攻撃力が1連続ごとに＋10%（最大×2.0）。まちがえたり、戦いが終わったりすると、もとにもどる。</p>
-    <p class="note-dark">任務中、正解${JUTSU_MAX}回（忍術30以上なら2回）で術ゲージが満タンになり、術を使える。<br>使える術は、そのときの「忍術」の値で決まる（下げると使えなくなる）。</p>
+    <p class="note-dark">任務中、正解${JUTSU_MAX}回で術ゲージが満タンになり、術を使える。<br>使える術は、そのときの「忍術」の値で決まる（下げると使えなくなる）。</p>
     <h3 class="sec">装備</h3><div class="slots">`;
   SLOTS.forEach(sl => {
     const it = EQUIP[SAVE.equip[sl.id]];
@@ -2785,7 +2789,24 @@ function fxEnemyHit(elem){
   if(elem) burst(h.x, h.y, 12, {sp0:80, sp1:240, p:() => ({ch:ELEM[elem].icon, size:rnd(16, 26)})});
   tint("hurt"); shake(7);
 }
-const JUTSU_FX = {katon:fxFire, suiton:fxWater, mokuton:fxWood, raiton:fxThunder, iyashi:fxHeal, bunshin:fxBunshin};
+// 属性がえし：火・水・木の印が主人公のまわりを回り、相手に強い属性の印が残る
+async function fxHenge(){
+  const h = heroC(), f = PLAY ? PLAY.foe : null;
+  const ne = f ? Object.keys(ELEM).find(e => ELEM[e].beats === f.elem) : null;
+  tint(ne || "heal");
+  ["🔥", "💧", "🍃"].forEach((ch, i) => fxAdd({life:1.1, draw:(ctx, k) => {
+    const a = k * Math.PI * 4 + i * Math.PI * 2 / 3, r = 70 * (1 - k * .6);
+    ctx.globalAlpha = k > .85 ? (1 - k) / .15 : 1;
+    ctx.font = `30px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(ch, h.x + Math.cos(a) * r, h.y + Math.sin(a) * r * .7);
+  }}));
+  [523, 659, 784, 659, 1046].forEach((fq, i) => tone(fq, .12, "triangle", .05, i * .12));
+  await sleep(1000);
+  if(ne){ ring(h.x, h.y, ne === "fire" ? "#ff7a1a" : ne === "water" ? "#3a9be8" : "#3fae4a", 90, .7);
+    burst(h.x, h.y, 16, {sp0:80, sp1:220, p:() => ({ch:ELEM[ne].icon, size:rnd(18, 28)})}); }
+  await sleep(400);
+}
+const JUTSU_FX = {katon:fxFire, suiton:fxWater, mokuton:fxWood, henge:fxHenge, iyashi:fxHeal, bunshin:fxBunshin};
 
 /* =====================================================================
    戦い（任務・本任務・練習）
@@ -2813,6 +2834,7 @@ function startBattle(cfg){
   $("bHero").innerHTML = pic("hero");
   fxResize();
   PLAY.turn = 0; PLAY.stolen = 0; PLAY.fled = false;
+  PLAY.elem = SAVE.elem || "";   // この戦いの得意属性（「属性がえし」で変わる。戦いが終わればもとにもどる）
   PLAY.xpM = cfg.mode === "wild" && FIELD ? wildXpMult(FIELD.f, cfg.lv).m : 1;
   STREAK = 0;   // 連続正解は、戦いごとに数えなおす
   $("hudName").textContent = cfg.mode === "train" ? `🎯 修行 ${stepNo()}：${cfg.drill.title}` : cfg.mode === "dojo" ? `🥋 道場　${cfg.foe.name}` : cfg.mode === "wild" ? `${cfg.foe.special ? "✨ 名のある忍" : cfg.foe.golden ? "✨ 金色の" : "🌿 野良忍者"} ${cfg.foe.name} Lv${cfg.lv}` : cfg.mode === "story" ? `📜 ${ch.no}の章「${ch.name}」` : cfg.mode === "quest" ? `⚔️【${cfg.rank}】${QTYPES.find(x => x.ch === ch.id).name}` : `🎯 1問練習（${ch.no}の章）`;
@@ -2826,7 +2848,7 @@ function renderPBox(){
     $("pBox").innerHTML = `<div class="bxname">あなた<span class="bxlv">Lv${ninjaInfo().lv}</span></div><div class="bxnum">正解 ${p.ok}・まちがい ${p.ng}</div><div class="bxexp">獲得予定 <b>+${p.xpGot}</b> EXP</div>`;
     return;
   }
-  $("pBox").innerHTML = `<div class="bxname">あなた ${SAVE.elem ? elemTag(SAVE.elem) : ""}<span class="bxlv">Lv${ninjaInfo().lv}</span></div>
+  $("pBox").innerHTML = `<div class="bxname">あなた ${p.elem ? elemTag(p.elem) : ""}<span class="bxlv">Lv${ninjaInfo().lv}</span></div>
     <div class="bxhp"><span class="bxhpl">HP</span><span class="bxbar${col}"><i style="width:${r * 100}%"></i></span></div>
     <div class="bxnum">${Math.max(0, p.hp)} / ${p.maxHp}</div>
     ${p.cfg.mode === "quick" ? "" : `<div class="bxexp">獲得予定 <b>+${p.cfg.mode === "wild" ? Math.round(p.xpGot * p.xpM) : p.xpGot}</b> EXP${p.cfg.mode === "wild" && p.xpM !== 1 ? `（×${p.xpM.toFixed(2).replace(/0$/, "")}）` : ""}</div>`}`;
@@ -2843,7 +2865,7 @@ function renderHud(){
   const gmax = jutsuMax(p.nin), full = p.gauge >= gmax;
   $("hudJutsu").innerHTML = isPrac(p.cfg.mode) ? "" :
     `<span class="jgauge${full ? " full" : ""}">術 ${"●".repeat(Math.min(p.gauge, gmax))}${"○".repeat(Math.max(0, gmax - p.gauge))}</span>` +
-    (full ? p.jutsu.map(j => { const a = j.kind === "atk" ? affinity(j.elem, p.foe.elem) : 1;
+    (full ? p.jutsu.filter(j => j.kind !== "elem" || (p.foe.elem && !(p.elem && ELEM[p.elem].beats === p.foe.elem))).map(j => { const a = j.kind === "atk" ? affinity(j.elem, p.foe.elem) : 1;
       return `<button class="jbtn${a > 1 ? " good" : a < 1 ? " bad" : ""}" ${p.lock ? "disabled" : ""} onclick="useJutsu('${j.id}')">${j.icon} ${j.name}${a > 1 ? " ◎" : a < 1 ? " △" : ""}</button>`; }).join("") : "");
 }
 async function useJutsu(id){
@@ -2871,6 +2893,10 @@ async function useJutsu(id){
     const h = 10 + p.nin * 2; p.hp = Math.min(p.maxHp, p.hp + h); dmgPop(`＋${h}`, "#9ff0b8", "pBox");
   }else if(j.kind === "guard"){
     p.guard += p.nin >= 35 ? 3 : 2; dmgPop("分身！", "#9fd3ff", "pBox");
+  }else if(j.kind === "elem"){
+    // 相手の属性に強い属性へ
+    const ne = Object.keys(ELEM).find(e => ELEM[e].beats === p.foe.elem);
+    if(ne){ p.elem = ne; dmgPop(`得意属性が ${ELEM[ne].icon}${ELEM[ne].name} に！`, "#ffd23f", "pBox"); flash(`${ELEM[ne].icon}${ELEM[ne].name}の力をまとった！`, "#ffd23f"); }
   }
   if(p.foe.hp <= 0){ renderHud(); await sleep(700); finish(true); return; }
   p.lock = false; p.qStart = Date.now(); renderHud(); startTimer();   // 術のあとは、今の問題の時間をはじめから
@@ -2895,7 +2921,7 @@ function foeAttack(mult){
   if(p.guard > 0){ p.guard--; dmgPop("無効！", "#9fd3ff", "pBox"); const h = heroC(); ring(h.x, h.y, "#9fd3ff", 70, .5); }
   else if(isJutsu){
     fxEnemyHit(p.foe.elem);
-    const a = defAffinity(p.foe.elem, SAVE.elem);
+    const a = defAffinity(p.foe.elem, p.elem);
     const d = takenDamage(p.foe.atk * 1.2 * a, p.res, 1);
     p.hp -= d; dmgPop(`${ELEM[p.foe.elem].icon}術 −${d}${a > 1 ? "（相性×）" : a < 1 ? "（相性◎）" : ""}`, "#ff8a80", "pBox");
     const h = $("pBox"); h.classList.remove("hurt"); void h.offsetWidth; h.classList.add("hurt");
