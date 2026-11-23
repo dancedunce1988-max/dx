@@ -1550,7 +1550,7 @@ EQ_DEF.forEach(([slot, main, sub, names, icons]) => names.forEach((name, t) => {
   ["acc_magatama",2, "勾玉",       "🟢", {nin:3, atk:2},   {crit:5},  ["quest", "story"]],
   ["acc_makimono",2, "巻物入れ",   "🎒", {res:4},          {hint:2},  ["quest"]],
   ["acc_neko",    3, "招き猫",     "🐈", {nin:4, hp:4},    {ryo:30},  ["meet", "special"]],
-  ["acc_hoju",    4, "龍の宝珠",   "🔮", {hp:6, atk:6},    {guard:2, crit:10}, ["dojo"]],
+  ["acc_hoju",    4, "龍の宝珠",   "🔮", {hp:6, atk:6},    {guard:1, crit:10}, ["dojo"]],
 ].forEach(([id, t, name, icon, st, eff, src]) => EQUIP[id] = {id, slot:"acc", tier:t, name, icon, st, eff, req:{lv:TIER[t].lv}, src});
 /* 秘宝（2026-11-23、教員の指示：特別な忍者は、あまり出ないアイテムを落とすなど特別感を）
    名のある忍・金色の野良忍者からしか手に入らない。店では買えない。売ると、同じ段階の装備の倍の値段。 */
@@ -1563,7 +1563,7 @@ EQ_DEF.forEach(([slot, main, sub, names, icons]) => names.forEach((name, t) => {
   ["rare_katana",    "weapon", 4, "黒風の忍び刀", "🌑", {atk:16, nin:8},         {crit:15}],
   ["rare_kinsuzu",   "acc",    2, "金の鈴",       "🛎️", {nin:4},                {ryo:50, time:2}],
   ["rare_tengu",     "acc",    3, "天狗の羽うちわ", "🪭", {nin:8, res:4},        {crit:8}],
-  ["rare_kakuremino","acc",    3, "隠れ蓑の札",   "🍂", {def:4, res:4},          {guard:2}],
+  ["rare_kakuremino","acc",    3, "隠れ蓑の札",   "🍂", {def:4, res:4},          {guard:1}],
   ["rare_rashin",    "acc",    4, "海賊の羅針盤", "🧭", {atk:8, nin:8},          {ryo:40, crit:8}],
   ["rare_nanban",    "head",   4, "南蛮の帽子",   "👒", {nin:12, res:8},         {hint:2, time:3}],
 ].forEach(([id, slot, t, name, icon, st, eff]) => EQUIP[id] = {id, slot, tier:t, name, icon, st, eff, req:{lv:TIER[t].lv}, src:["special"], rare:true});
@@ -1589,7 +1589,7 @@ EQUIP.arm4.req.stat = {def:20};    EQUIP.head4.req.stat = {nin:20};
 EQUIP.face4.src = ["dojo"]; EQUIP.neck4.src = ["meet"]; EQUIP.waist4.src = ["dojo"]; EQUIP.feet3.src = ["shop", "quest", "meet"];   // 店にも並ぶ（どの部位も、上忍までは店で買えるように）
 ["head0","arm0","neck0","legs0","waist0"].forEach(id => EQUIP[id].src = ["shop", "story"]);
 const SRC_NAME = {special:"名のある忍・金色の野良忍者（秘宝）", shop:"店", quest:"任務の報酬", story:"本任務", dojo:"道場（初勝利のごほうび）", makyo:"魔境の主（初めて倒したとき）", meet:"出会い（準備中）", start:"はじめから"};
-const EFF_NAME = {guard:n => `まちがい${n}回分のダメージを無効`, hint:n => `煙玉＋${n}`, time:n => `制限時間＋${n}秒`, crit:n => `会心率＋${n}%`, ryo:n => `報酬の両＋${n}%`};
+const EFF_NAME = {guard:n => `相手の攻撃${n}回分のダメージを無効（装備ぜんぶで1回まで）`, hint:n => `煙玉＋${n}`, time:n => `制限時間＋${n}秒`, crit:n => `会心率＋${n}%`, ryo:n => `報酬の両＋${n}%`};
 const START_GEAR = ["body0", "feet0", "weapon0"];
 // 装備の値段（店で買う値段）。売るときは半額（2026-11-23、教員の指示）
 const EQ_VALUE = [40, 150, 600, 2400, 6000];
@@ -1648,7 +1648,8 @@ function battleStats(){
     hints: e.hint,
     crit: Math.min(40, e.crit),
     ryo: e.ryo,
-    guard: e.guard,
+    // 攻撃の無効は、装備をいくつ重ねても1回まで（2026-11-23、教員の指示：「無効3回だと一度も攻撃を受けなくなる」）
+    guard: Math.min(1, e.guard),
   };
 }
 /* =====================================================================
@@ -3450,7 +3451,7 @@ function fxLoop(now){
     if(p.ch){ ctx.font = `${p.size || 24}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(p.ch, 0, 0); }
     else{
       ctx.globalCompositeOperation = "lighter";
-      const r = p.r || 6, g = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+      const r = Math.max(.1, p.r || 6), g = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
       g.addColorStop(0, p.c0 || "#fff"); g.addColorStop(.4, p.c1 || p.c0 || "#fa0"); g.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
     }
@@ -3481,7 +3482,7 @@ function ring(x, y, color, r, life){
   fxAdd({x, y, life:life || .6, draw:(ctx, k) => {
     ctx.globalAlpha = 1 - k; ctx.strokeStyle = color; ctx.lineWidth = 8 * (1 - k) + 1;
     ctx.shadowColor = color; ctx.shadowBlur = 20;
-    ctx.beginPath(); ctx.arc(x, y, (r || 90) * (.2 + k), 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x, y, Math.max(.1, (r || 90) * (.2 + k)), 0, Math.PI * 2); ctx.stroke();
   }});
 }
 function burst(x, y, n, opt){
