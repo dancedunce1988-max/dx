@@ -167,6 +167,45 @@
   .lvup-toast.show{animation:toast 2.2s ease both}
   @keyframes toast{0%{transform:translateX(-50%) translateY(-120%)}12%,80%{transform:translateX(-50%) translateY(0)}100%{transform:translateX(-50%) translateY(-120%)}}
   .lvup-toast b{margin:0 6px}
+  /* すごろく盤 */
+  .title-box{margin:6px 0 10px}
+  .board-wrap{background:linear-gradient(180deg,#e9d7a8,#d9bf86);border-radius:18px;padding:12px;box-shadow:0 6px 0 #8c7347,0 10px 18px rgba(0,0,0,.4);
+    border:3px solid #8c6a3a}
+  .board{position:relative;display:grid;grid-template-columns:repeat(4,1fr);gap:16px 14px}
+  .road{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;overflow:visible}
+  .sq{position:relative;z-index:1;aspect-ratio:1;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:#fff8e4;color:var(--ink);border:2px solid #b08d55;box-shadow:0 3px 0 #9a7a45;font-size:26px;cursor:pointer;line-height:1.1}
+  .sq .lb{font-size:10px;color:var(--ink2);margin-top:2px;white-space:nowrap}
+  .sq.tip{background:#fff3d0}
+  .sq.quiz{background:#ffe0d6}
+  .sq.start{background:#d9f0ff}
+  .sq.ch{background:radial-gradient(circle at 50% 35%,#ff6b5c,#b8281e);color:#fff;border-color:#7a1712;box-shadow:0 3px 0 #6f1813}
+  .sq.ch .no{font-size:28px;font-weight:bold;text-shadow:0 2px 0 rgba(0,0,0,.3)}
+  .sq.ch .lb{color:#ffe6a0;font-size:10px}
+  .sq.ch .stars{font-size:10px;color:#ffe08a;letter-spacing:1px}
+  .sq.ch.gate{animation:gate 1.4s infinite}
+  @keyframes gate{0%,100%{box-shadow:0 3px 0 #6f1813,0 0 0 0 rgba(255,215,90,.9)}50%{box-shadow:0 3px 0 #6f1813,0 0 0 8px rgba(255,215,90,0)}}
+  .sq.far{filter:grayscale(.8) brightness(.78)}
+  .sq.passed{filter:saturate(.8)}
+  .sq.shake{animation:shake .4s}
+  .token{position:absolute;z-index:3;width:40px;height:40px;margin:-20px 0 0 -20px;font-size:32px;line-height:40px;text-align:center;
+    transition:left .25s ease,top .25s ease;filter:drop-shadow(0 4px 3px rgba(0,0,0,.45));pointer-events:none}
+  .token img{width:44px;height:44px;object-fit:contain;margin:-2px 0 0 -2px}
+  .token.hop{animation:hop .25s ease}
+  @keyframes hop{50%{transform:translateY(-18px)}}
+  .dice-bar{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:14px;flex-wrap:wrap}
+  .dice{width:60px;height:60px;border-radius:12px;background:#fff;color:var(--ink);font-size:34px;font-weight:bold;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 4px 0 #999,0 6px 10px rgba(0,0,0,.35)}
+  .dice.roll{animation:roll .5s linear infinite}
+  @keyframes roll{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+  .dice-msg{font-size:15px;color:#ffe08a;min-height:1.4em;text-align:center}
+  .modal{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:16px}
+  .modal.show{display:flex;animation:fadeIn .25s both}
+  .modal-box{max-width:460px;width:100%;background:linear-gradient(180deg,var(--paper),var(--paper2));color:var(--ink);border-radius:16px;padding:18px;
+    box-shadow:0 10px 30px rgba(0,0,0,.5);text-align:center;line-height:1.8}
+  .modal-box .big{font-size:44px}
+  .modal-box h3{margin:4px 0;color:var(--red)}
+  .modal-box .who{display:inline-block;background:var(--ink);color:var(--gold);border-radius:999px;padding:1px 12px;font-size:13px}
   /* 四の章：活用表 */
   .ktable{border-collapse:collapse;margin:6px auto 0;font-size:16px;color:var(--ink);background:var(--paper);border-radius:8px;overflow:hidden}
   .ktable td,.ktable th{border:1px solid #b79c6c;padding:4px 10px;text-align:center}
@@ -210,11 +249,22 @@
       <div class="sub">知識ドリルDX 外伝</div>
       <h1>変化の里</h1>
       <div class="h1sub">～ 活用忍法帖 ～</div>
-      <div class="title-hero" id="titleHero"></div>
     </div>
-    <div class="ch-list" id="chList"></div>
-    <p class="note">前の章をクリアすると、次の章が解放されます。<br>正解すると「動詞の活用」のレベルが上がります。</p>
+    <div class="board-wrap">
+      <div class="board" id="board"><svg class="road" id="road"></svg><div class="token" id="token"></div></div>
+    </div>
+    <div class="dice-bar">
+      <div class="dice" id="dice">🎲</div>
+      <div class="dice-msg" id="diceMsg"></div>
+      <button class="btn" id="diceBtn" onclick="rollDice()">サイコロをふる</button>
+    </div>
+    <p class="note">サイコロ（1〜3）をふって、石化丸の城をめざそう！<br>
+      ⛩️の関所（章）は、クリアするまで先へ進めない。通りすぎたマスはタップで見直せる。<br>
+      正解すると「動詞の活用」のレベルが上がります。</p>
   </section>
+
+  <!-- すごろくのマスの出来事（巻物マス・腕だめしマス・関所） -->
+  <div class="modal" id="modal"><div class="modal-box" id="modalBox"></div></div>
 
   <!-- 物語 -->
   <section id="sStory" class="screen">
@@ -454,7 +504,7 @@ function verbOf(x){
   return [...V_GODAN, ...V_KAMI, ...V_SHIMO, ...V_KA, ...V_SA, ...V_FAKE].find(v => v.w === x.w) || {w:x.w, t:x.t, r:x.r, y:x.y};
 }
 // 活用表の行（四の章）
-const TABLE_ROWS = [["mizen","未然形","ない"],["mizenU","未然形","う・よう"],["renyo","連用形","ます"],["onbin","連用形","た・て"],
+const TABLE_ROWS = [["mizen","未然形","ない"],["mizenU","未然形","よう"],["onbin","連用形","た"],["renyo","連用形","ます"],
   ["shushi","終止形","。"],["rentai","連体形","とき"],["katei","仮定形","ば"],["meirei","命令形","！"]];
 // 四の章の選択肢：その動詞のほかの形と、ありがちなまちがい
 function tableChoices(v, f){
@@ -479,7 +529,7 @@ function rubyHtml(v, text){
 }
 
 /* 活用形を作る。返り値は文字列（カ変は「来」に読みを付けて返す）。
-   form: mizen / mizenU（う・よう） / renyo / onbin（た・て） / shushi / rentai / katei / meirei */
+   form: mizen（ない） / mizenU（よう・五段は う） / onbin（た） / renyo（ます） / shushi / rentai / katei / meirei */
 function conj(v, form){
   if(v.t === "godan"){
     const stem = v.w.slice(0, -1), last = v.w.slice(-1), row = ROW[last];
@@ -519,18 +569,17 @@ function formHtml(v, s){
   // ふりがなが必要な動詞は、活用しても漢字の読みは同じ
   return rubyHtml(v, s);
 }
-// 後ろに続く言葉（合言葉）
+/* 後ろに続く言葉（合言葉）。覚える基本は「未然＝ない・よう／連用＝た・ます／終止＝。／連体＝とき／仮定＝ば／命令＝！」
+   （2026-11-23、教員の指示）。五段の「よう」は、実際の言葉では「う」になる（書こう）。「た」は五段で「だ」になることがある（読んだ）。 */
+const BASE_FOL = {mizen:"ない", mizenU:"よう", onbin:"た", renyo:"ます", shushi:"。", rentai:"とき", katei:"ば", meirei:"！"};
 function followOf(v, form){
   if(form === "mizenU") return (v.t === "godan") ? "う" : "よう";
-  if(form === "onbin"){
-    if(v.t === "godan" && !v.iku && "ぐぬぶむ".includes(v.w.slice(-1))) return pick(["だ","で"]);
-    return pick(["た","て"]);
-  }
-  return {mizen:"ない", renyo:"ます", shushi:"。", rentai:pick(["とき","こと"]), katei:"ば", meirei:"！"}[form];
+  if(form === "onbin") return (v.t === "godan" && !v.iku && "ぐぬぶむ".includes(v.w.slice(-1))) ? "だ" : "た";
+  return {mizen:"ない", renyo:"ます", shushi:"。", rentai:"とき", katei:"ば", meirei:"！"}[form];
 }
 const FORM_NAME = {mizen:"未然形", mizenU:"未然形", renyo:"連用形", onbin:"連用形", shushi:"終止形", rentai:"連体形", katei:"仮定形", meirei:"命令形"};
 const FORM_LIST = ["未然形","連用形","終止形","連体形","仮定形","命令形"];
-const FORM_HINT = {"未然形":"ない・う・よう", "連用形":"ます・た・て", "終止形":"。（言い切り）", "連体形":"とき・こと", "仮定形":"ば", "命令形":"！（命令）"};
+const FORM_HINT = {"未然形":"ない・よう", "連用形":"た・ます", "終止形":"。（言い切り）", "連体形":"とき", "仮定形":"ば", "命令形":"！（命令）"};
 
 // 「ない」をつけた形と、その直前の音
 function naiInfo(v){
@@ -592,18 +641,19 @@ const CHAPTERS = [
     ["shisho", "変化の術には<span class=em>六つの型</span>がある。これを<span class=em>【活用形】</span>という。"],
     ["shisho", "どの型になるかは、すぐ後ろに来る言葉――<span class=em>合言葉</span>で決まるのじゃ。"],
     ["minion", "ケケケ！ 合言葉を間違えたら、術は発動せんぞ！", "shake"],
-    ["shisho", "まずは合言葉を体で覚えよ。「ない・ます・。・とき・ば・！」じゃ！"],
+    ["shisho", "まずは合言葉を体で覚えよ。「ない・よう・た・ます・。・とき・ば・！」じゃ！"],
    ],
    lesson:`<h2>巻物・其の一　六つの術と合言葉</h2>
-    <div class="chant"><span>ない</span><span>ます</span><span>。</span><span>とき</span><span>ば</span><span>！</span></div>
+    <div class="chant"><span>ない</span><span>よう</span><span>た</span><span>ます</span><span>。</span><span>とき</span><span>ば</span><span>！</span></div>
     <table><tr><th>術（活用形）</th><th>合言葉</th><th>例</th></tr>
-      <tr><td>未然形</td><td>ない・う／よう</td><td>書か<b>ない</b>・書こ<b>う</b></td></tr>
-      <tr><td>連用形</td><td>ます・た・て</td><td>書き<b>ます</b>・書い<b>た</b></td></tr>
+      <tr><td>未然形</td><td>ない・よう</td><td>書か<b>ない</b>・起き<b>よう</b></td></tr>
+      <tr><td>連用形</td><td>た・ます</td><td>書い<b>た</b>・書き<b>ます</b></td></tr>
       <tr><td>終止形</td><td>。（言い切り）</td><td>書く<b>。</b></td></tr>
-      <tr><td>連体形</td><td>とき・こと</td><td>書く<b>とき</b></td></tr>
+      <tr><td>連体形</td><td>とき</td><td>書く<b>とき</b></td></tr>
       <tr><td>仮定形</td><td>ば</td><td>書け<b>ば</b></td></tr>
       <tr><td>命令形</td><td>！（命令）</td><td>書け<b>！</b></td></tr></table>
-    <p>「書く。」と「書くとき」、「書けば」と「書け！」は<b>形が同じ</b>。<br>見分けるカギは、いつも<b>すぐ後ろの言葉</b>じゃ。</p>`,
+    <p>五段では「よう」が「<b>う</b>」に（書こう）、「た」が「<b>だ</b>」になる（読んだ）ことがある。<br>
+      「書く。」と「書くとき」、「書けば」と「書け！」は<b>形が同じ</b>。<br>見分けるカギは、いつも<b>すぐ後ろの言葉</b>じゃ。</p>`,
    outro:[
     ["minion", "ぐぬぬ……合言葉が通じるとは……！"],
     ["shisho", "よくやった。六つの術は、後ろの言葉を見れば必ず見分けられる。忘れるでないぞ。"],
@@ -653,20 +703,20 @@ const CHAPTERS = [
     ["nar", "石化丸が逃げたあとに、ずたずたに破られた巻物が落ちていた。"],
     ["shisho", "これは……変化の術の<span class=em>【活用表】</span>じゃ！ 石化丸め、あちこち破りおった。"],
     ["shisho", "じゃが心配はいらん。<span class=em>合言葉を順につけていけば</span>、活用表は自分で作れるのじゃ。"],
-    ["shisho", "気をつけよ。五段流の「た・て」の欄には<span class=em>音便の結界</span>が張られておる。音が変わるのじゃ。"],
+    ["shisho", "気をつけよ。五段流の「た」の欄には<span class=em>音便の結界</span>が張られておる。音が変わるのじゃ。"],
    ],
    lesson:`<h2>巻物・其の四　活用表の作り方</h2>
     <p style="text-align:center">言い切りの形に、上から順に合言葉をつけるだけ！</p>
     <table><tr><th>活用形</th><th>合言葉</th><th>書く（五段）</th><th>起きる（上一段）</th><th>食べる（下一段）</th></tr>
       <tr><td rowspan="2">未然形</td><td>ない</td><td>書か</td><td rowspan="2">起き</td><td rowspan="2">食べ</td></tr>
-      <tr><td>う・よう</td><td>書こ</td></tr>
-      <tr><td rowspan="2">連用形</td><td>ます</td><td>書き</td><td rowspan="2">起き</td><td rowspan="2">食べ</td></tr>
-      <tr><td>た・て</td><td><b>書い</b></td></tr>
+      <tr><td>よう（五段は う）</td><td>書こ</td></tr>
+      <tr><td rowspan="2">連用形</td><td>た</td><td><b>書い</b></td><td rowspan="2">起き</td><td rowspan="2">食べ</td></tr>
+      <tr><td>ます</td><td>書き</td></tr>
       <tr><td>終止形</td><td>。</td><td>書く</td><td>起きる</td><td>食べる</td></tr>
       <tr><td>連体形</td><td>とき</td><td>書く</td><td>起きる</td><td>食べる</td></tr>
       <tr><td>仮定形</td><td>ば</td><td>書け</td><td>起きれ</td><td>食べれ</td></tr>
       <tr><td>命令形</td><td>！</td><td>書け</td><td>起きろ・起きよ</td><td>食べろ・食べよ</td></tr></table>
-    <p><b>音便の結界</b>：五段は「た・て」が続くと音が変わる。<br>
+    <p><b>音便の結界</b>：五段は「た」が続くと音が変わる。<br>
       書<b>い</b>た（イ音便）・待<b>っ</b>た（促音便）・読<b>ん</b>だ（撥音便）。「行く」は特別で「行<b>っ</b>た」。</p>
     <p>来る：こ・き・くる・くる・くれ・こい　／　する：し・し・する・する・すれ・しろ</p>`,
    outro:[
@@ -683,12 +733,13 @@ const CHAPTERS = [
    lesson:`<h2>巻物・其の終　文の中の見抜き方</h2>
     <p><b>① 活用形は、下線部のすぐ後ろを見る</b></p>
     <table><tr><th>活用形</th><th>後ろに来る言葉</th></tr>
-      <tr><td>未然形</td><td>ない・う・よう</td></tr>
-      <tr><td>連用形</td><td>ます・た（だ）・て（で）・たら・たい・ながら</td></tr>
+      <tr><td>未然形</td><td><b>ない・よう</b>（う）</td></tr>
+      <tr><td>連用形</td><td><b>た・ます</b>（だ・て・で・たら・たい・ながら）</td></tr>
       <tr><td>終止形</td><td>。（そこで文が終わる）</td></tr>
-      <tr><td>連体形</td><td>とき・こと・<b>名詞（体言）</b>・ので</td></tr>
+      <tr><td>連体形</td><td><b>とき</b>（こと・<b>名詞（体言）</b>・ので）</td></tr>
       <tr><td>仮定形</td><td>ば</td></tr>
       <tr><td>命令形</td><td>命令して言い切る（「〜と言われた」の「と」は引用）</td></tr></table>
+    <p>太字が基本の合言葉。（　）は、なかまの言葉じゃ。</p>
     <p><b>② 流派（活用の種類）は、言い切りの形にもどしてから「ない」をつける</b><br>
       「遊ん（だ）」→ 遊ぶ → 遊<b>ば</b>ない → ア段 → 五段活用</p>`,
    outro:[
@@ -701,24 +752,195 @@ const CHAPTERS = [
   {id:"go", no:"外", name:"異国の術者", desc:"形容詞・形容動詞（準備中）", soon:true},
 ];
 const chIndex = id => CHAPTERS.findIndex(c => c.id === id);
-function chUnlocked(i){ return i === 0 || (SAVE.stars[CHAPTERS[i-1].id] || 0) > 0; }
 
 /* =====================================================================
-   タイトル
+   すごろく盤（2026-11-23、教員の指示：「巻で表しているのを、すごろく風にした方がわくわくする」）
+   サイコロ（1〜3）で進む。章のマス（関所）はクリアするまで先へ進めず、止まったら挑戦する。
+   間のマス：📜巻物＝師匠のひとこと（おさらい）／⚡腕だめし＝1問。正解すると1マス進める。
+   いる場所は SAVE.pos（盤のマスの番号）。
    ===================================================================== */
-function showTitle(){
-  $("titleHero").innerHTML = pic("hero");
-  $("chList").innerHTML = CHAPTERS.map((c, i) => {
-    const locked = c.soon || !chUnlocked(i);
-    const st = SAVE.stars[c.id] || 0;
-    const stars = c.soon ? "準備中" : locked ? "🔒" : "★".repeat(st) + "☆".repeat(3 - st);
-    return `<div class="ch-card${locked ? " locked" : ""}" ${locked ? "" : `onclick="openChapter('${c.id}')"`}>
-      <div class="no">${c.no}</div>
-      <div class="tx"><h3>${esc(c.name)}</h3><p>${esc(c.desc)}</p></div>
-      <div class="st">${stars}</div></div>`;
-  }).join("");
-  show("sTitle");
+const BOARD = [
+  {k:"start"}, {k:"tip", tip:0}, {k:"tip", tip:1},
+  {k:"ch", id:"jo"},   {k:"tip", tip:2}, {k:"quiz"},
+  {k:"ch", id:"ichi"}, {k:"quiz"}, {k:"tip", tip:3},
+  {k:"ch", id:"ni"},   {k:"quiz"}, {k:"tip", tip:4},
+  {k:"ch", id:"san"},  {k:"tip", tip:5}, {k:"quiz"},
+  {k:"ch", id:"shi"},  {k:"quiz"}, {k:"tip", tip:6},
+  {k:"ch", id:"tsui"}, {k:"ch", id:"go"},
+];
+const TIPS = [
+  "この里では、言葉が後ろの言葉に合わせて姿を変える。これを<span class=em>【活用】</span>という。",
+  "変わらない部分が<span class=em>【語幹】</span>、変わる部分が<span class=em>【活用語尾】</span>じゃ。「書く」なら「書」が語幹。",
+  "合言葉を唱えてみよ。<br><b>未然＝ない・よう　連用＝た・ます<br>終止＝。　連体＝とき　仮定＝ば　命令＝！</b>",
+  "流派を見抜くには「ない」をつける。<br><b>ア段＝五段、イ段＝上一段、エ段＝下一段</b>じゃ。",
+  "「来る」は<b>カ変</b>、「する」「〜する」は<b>サ変</b>。この二つの一族は覚えてしまえ。",
+  "活用表は覚えるものではない。言い切りの形に<b>合言葉を順につければ作れる</b>のじゃ。",
+  "五段は「た」が続くと音が変わる。<b>書いた・待った・読んだ</b>。これを<b>音便</b>という。",
+];
+const DICE_FACE = ["","⚀","⚁","⚂"];
+const chCleared = id => (SAVE.stars[id] || 0) > 0;
+// pos より先で、最初の「まだクリアしていない章のマス」（そこより先へは進めない）
+function gateFrom(pos){
+  for(let i = pos + 1; i < BOARD.length; i++) if(BOARD[i].k === "ch" && !chCleared(BOARD[i].id)) return i;
+  return BOARD.length - 1;
 }
+// 前からの記録（巻の形のころ）に合わせて、いる場所を決める
+if(typeof SAVE.pos !== "number"){
+  SAVE.pos = 0;
+  BOARD.forEach((b, i) => { if(b.k === "ch" && chCleared(b.id)) SAVE.pos = i; });
+}
+let BUSY = false;
+function sqInner(b, i){
+  if(b.k === "start") return `⛩️<span class="lb">里の入口</span>`;
+  if(b.k === "tip") return `📜<span class="lb">巻物</span>`;
+  if(b.k === "quiz") return `⚡<span class="lb">腕だめし</span>`;
+  const c = CHAPTERS[chIndex(b.id)], st = SAVE.stars[c.id] || 0;
+  return `<span class="no">${c.no}</span><span class="lb">${esc(c.name)}</span>` +
+    (c.soon ? `<span class="stars">準備中</span>` : st ? `<span class="stars">${"★".repeat(st)}${"☆".repeat(3 - st)}</span>` : "");
+}
+function showTitle(){
+  const board = $("board");
+  board.querySelectorAll(".sq").forEach(e => e.remove());
+  const gate = gateFrom(SAVE.pos);
+  const cols = 4;
+  BOARD.forEach((b, i) => {
+    const r = Math.floor(i / cols), c = r % 2 === 0 ? i % cols : cols - 1 - i % cols;   // へびのように折り返す
+    const el = document.createElement("div");
+    el.className = `sq ${b.k}` + (i < SAVE.pos ? " passed" : "") + (i > gate ? " far" : "") + (b.k === "ch" && i === gate && !CHAPTERS[chIndex(b.id)].soon ? " gate" : "");
+    el.style.gridRow = r + 1; el.style.gridColumn = c + 1;
+    el.dataset.i = i;
+    el.innerHTML = sqInner(b, i);
+    el.onclick = () => tapSquare(i);
+    board.appendChild(el);
+  });
+  $("token").innerHTML = pic("hero");
+  show("sTitle");
+  requestAnimationFrame(() => { drawRoad(); placeToken(false); });
+  updateDiceBar();
+}
+function sqEl(i){ return $("board").querySelector(`.sq[data-i="${i}"]`); }
+function sqCenter(i){ const e = sqEl(i); return e ? {x:e.offsetLeft + e.offsetWidth / 2, y:e.offsetTop + e.offsetHeight / 2} : {x:0, y:0}; }
+function drawRoad(){
+  const pts = BOARD.map((_, i) => sqCenter(i));
+  const done = pts.slice(0, SAVE.pos + 1).map(p => `${p.x},${p.y}`).join(" ");
+  $("road").innerHTML = `<polyline points="${pts.map(p => `${p.x},${p.y}`).join(" ")}" fill="none" stroke="#a5814a" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 14"/>
+    <polyline points="${done}" fill="none" stroke="#c8372d" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity=".55"/>`;
+}
+function placeToken(hop){
+  // マスの文字をかくさないように、マスの右上の角に立たせる
+  const t = $("token"), e = sqEl(SAVE.pos);
+  if(!e) return;
+  t.style.left = (e.offsetLeft + e.offsetWidth - 8) + "px"; t.style.top = (e.offsetTop + 6) + "px";
+  if(hop){ t.classList.remove("hop"); void t.offsetWidth; t.classList.add("hop"); }
+}
+window.addEventListener("resize", () => { if($("sTitle").classList.contains("show")){ drawRoad(); placeToken(false); } });
+function updateDiceBar(msg){
+  const b = BOARD[SAVE.pos], btn = $("diceBtn");
+  let m = msg || "";
+  if(b.k === "ch" && CHAPTERS[chIndex(b.id)].soon){ btn.style.display = "none"; m = m || "ここから先は準備中。外伝を待て！"; }
+  else if(b.k === "ch" && !chCleared(b.id)){ btn.style.display = ""; btn.textContent = `${CHAPTERS[chIndex(b.id)].no}の章に挑戦する`; btn.onclick = () => openChapter(b.id); m = m || "関所に着いた！ 章をクリアすると先へ進める"; }
+  else { btn.style.display = ""; btn.textContent = "サイコロをふる"; btn.onclick = rollDice; }
+  $("diceMsg").innerHTML = m;
+  btn.disabled = BUSY;
+}
+async function rollDice(){
+  if(BUSY) return;
+  BUSY = true; updateDiceBar("");
+  const d = $("dice"); d.classList.add("roll");
+  for(let k = 0; k < 8; k++){ d.textContent = DICE_FACE[1 + k % 3]; sfx.tap(); await sleep(70); }
+  const n = 1 + Math.floor(Math.random() * 3);
+  d.classList.remove("roll"); d.textContent = n;
+  await sleep(350);
+  const stopped = await hop(n);
+  BUSY = false;
+  updateDiceBar(stopped && n > 1 ? `${n}が出たが、関所で止まった！` : "");
+  land(SAVE.pos, stopped);
+}
+// n マス進む（関所で止まる）。関所で止まったら true
+async function hop(n){
+  const gate = gateFrom(SAVE.pos);
+  let stopped = false;
+  for(let k = 0; k < n; k++){
+    if(SAVE.pos >= gate){ stopped = true; break; }
+    SAVE.pos++; saveSave(SAVE);
+    placeToken(true); tone(520 + SAVE.pos * 20, .08, "square", .05);
+    await sleep(300);
+  }
+  if(SAVE.pos >= gate && n > 0) stopped = true;
+  drawRoad();
+  showTitle();
+  return stopped;
+}
+function land(i, stopped){
+  const b = BOARD[i];
+  if(b.k === "tip") return showTip(b.tip);
+  if(b.k === "quiz") return showQuizSquare(i);
+  if(b.k === "ch"){
+    const c = CHAPTERS[chIndex(b.id)];
+    if(c.soon){ modal(`<div class="big">🌊</div><h3>外伝「${esc(c.name)}」</h3><p>海の向こうの術者の話は、準備中じゃ。</p>`, [["もどる", closeModal]]); return; }
+    if(!chCleared(c.id)){
+      sfx.clear();
+      modal(`<div class="big">⛩️</div><h3>関所！ ${c.no}の章「${esc(c.name)}」</h3><p>${esc(c.desc)}<br>この章をクリアしないと、先へは進めない！</p>`,
+        [["挑戦する", () => { closeModal(); openChapter(c.id); }], ["あとで", closeModal]]);
+    }
+  }
+}
+function tapSquare(i){
+  if(BUSY) return;
+  const b = BOARD[i], el = sqEl(i);
+  if(i > SAVE.pos){ if(el){ el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake"); } $("diceMsg").textContent = "まだそこへは行けない。サイコロをふって進もう！"; return; }
+  sfx.tap();
+  if(b.k === "tip") return showTip(b.tip);
+  if(b.k === "quiz") return showQuizSquare(i, true);
+  if(b.k === "ch" && !CHAPTERS[chIndex(b.id)].soon) return openChapter(b.id);
+  if(b.k === "ch") return land(i);
+}
+function modal(html, btns){
+  $("modalBox").innerHTML = html + `<div class="btn-row">${btns.map((b, k) => `<button class="btn${k ? " sub" : ""}" data-k="${k}">${b[0]}</button>`).join("")}</div>`;
+  $("modalBox").querySelectorAll("button").forEach(e => e.onclick = () => { sfx.tap(); btns[+e.dataset.k][1](); });
+  $("modal").classList.add("show");
+}
+function closeModal(){ $("modal").classList.remove("show"); }
+function showTip(k){
+  modal(`<div class="big">📜</div><span class="who">師匠・変化斎</span><p>${TIPS[k]}</p>`, [["わかった", closeModal]]);
+}
+// 腕だめし：その手前でいちばん最近の章から1問。正解で1マス進める（関所はこえない）
+function quizChapterFor(i){
+  for(let k = i; k >= 0; k--) if(BOARD[k].k === "ch") return CHAPTERS[chIndex(BOARD[k].id)];
+  return CHAPTERS[0];
+}
+function showQuizSquare(i, again){
+  const ch = quizChapterFor(i);
+  modal(`<div class="big">⚡</div><h3>腕だめし！</h3><p>「${ch.no}　${esc(ch.name)}」から1問。${again ? "" : "<br>正解すると、1マス進める！"}</p>`,
+    [["挑む", () => { closeModal(); startQuick(ch, !again); }], ["やめる", closeModal]]);
+}
+function startQuick(ch, bonus){
+  CUR = ch;
+  const q = pick(makeQuestions(ch));
+  PLAY = {ch, quick:true, bonus, qs:[q], i:0, life:1, ok:0, ng:0, combo:0, maxCombo:0, smoke:0, lock:false, wrongList:[]};
+  mgStart();
+  $("hudName").textContent = `⚡ 腕だめし（${ch.no}の章）`;
+  show("sPlay");
+  renderQ();
+}
+async function finishQuick(p, clear){
+  mgFlush();
+  showTitle();
+  if(clear){
+    sfx.clear();
+    if(p.bonus){
+      flash("1マス進む！", "#ffe08a");
+      BUSY = true; updateDiceBar();
+      await sleep(600);
+      const stopped = await hop(1);
+      BUSY = false; updateDiceBar();
+      const b = BOARD[SAVE.pos];
+      if(b.k === "ch" && !chCleared(b.id)) land(SAVE.pos, stopped);
+      else updateDiceBar("腕だめし成功！ 1マス進んだ");
+    }else updateDiceBar("腕だめし成功！");
+  }else updateDiceBar("腕だめしは失敗……。次の機会に！");
+}
+
 
 /* =====================================================================
    物語
@@ -786,26 +1008,19 @@ function makeQuestions(ch){
     const pool = [...V_GODAN, ...V_KAMI, ...V_SHIMO, ...V_KA, ...V_SA];
     const forms = ["mizen","mizenU","renyo","onbin","shushi","rentai","katei","meirei"];
     let fs = shuffle(forms.concat(forms));
-    for(let i = 0; i < ch.n; i++){
-      if(i < 4){
-        const f = shuffle(["mizen","renyo","shushi","rentai","katei","meirei"])[0];
-        const v = V_GODAN[0];
-        qs.push({kind:"form", only:true, v, f, fol:followOf(v, f), ans:FORM_NAME[f]});
-      }else{
-        const f = fs.pop(), v = pick(i < 9 ? V_GODAN : pool);
-        qs.push({kind:"form", v, f, word:conj(v, f), fol:followOf(v, f), ans:FORM_NAME[f]});
-      }
+    // 最初の5問は合言葉だけ（基本の8語「ない・よう・た・ます・。・とき・ば・！」から重ならないように）
+    shuffle(Object.keys(BASE_FOL)).slice(0, 5).forEach(f => qs.push({kind:"form", only:true, v:V_GODAN[0], f, fol:BASE_FOL[f], ans:FORM_NAME[f]}));
+    for(let i = 5; i < ch.n; i++){
+      const f = fs.pop(), v = pick(i < 9 ? V_GODAN : pool);
+      qs.push({kind:"form", v, f, word:conj(v, f), fol:followOf(v, f), ans:FORM_NAME[f]});
     }
-    // 合言葉だけの4問は、6つの術のうち4つを重ならないように
-    const four = shuffle(["mizen","renyo","shushi","rentai","katei","meirei"]).slice(0, 4);
-    four.forEach((f, i) => { qs[i].f = f; qs[i].fol = followOf(qs[i].v, f); qs[i].ans = FORM_NAME[f]; });
   }else if(ch.id === "ni"){
     // 五段4・上一段3・下一段3・カ変1・サ変1（偽忍者はまだ出さない）
     const take = (arr, k) => shuffle(arr).slice(0, k);
     const vs = shuffle([...take(V_GODAN, 4), ...take(V_KAMI, 3), ...take(V_SHIMO, 3), ...V_KA, pick(V_SA)]);
     vs.slice(0, ch.n).forEach(v => qs.push({kind:"type", v, ans:v.t, autoSmoke:true}));
   }else if(ch.id === "shi"){
-    // 4つの動詞（五段・上一段・下一段・カ変かサ変）の表で、それぞれ3か所の破れを順に直す。五段は必ず「た・て」（音便）を入れる
+    // 4つの動詞（五段・上一段・下一段・カ変かサ変）の表で、それぞれ3か所の破れを順に直す。五段は必ず「た」（音便）を入れる
     const take = arr => pick(arr);
     const vs = shuffle([take(V_GODAN.filter(v => !"す".includes(v.w.slice(-1)))), take(V_KAMI), take(V_SHIMO), take([...V_KA, ...V_SA])]);
     vs.forEach(v => {
@@ -918,11 +1133,12 @@ function explain(q){
   }
   if(q.kind === "form"){
     const f = q.ans;
-    return `合言葉「${esc(q.fol)}」が続くのは<b>${f}</b>（${FORM_HINT[f]}）。${q.only ? "" : "形だけでなく、すぐ後ろの言葉で決まる。"}`;
+    const memo = q.fol === "う" ? "（「う」は「よう」のなかま）" : q.fol === "だ" ? "（「だ」は「た」がにごったもの）" : "";
+    return `合言葉「${esc(q.fol)}」${memo}が続くのは<b>${f}</b>（${FORM_HINT[f]}）。${q.only ? "" : "形だけでなく、すぐ後ろの言葉で決まる。"}`;
   }
   if(q.kind === "table"){
     let t = `「${rubyHtml(q.v)}」の${FORM_NAME[q.f]}（合言葉「${TABLE_ROWS.find(r => r[0] === q.f)[2]}」）は「<b>${formHtml(q.v, q.ans)}</b>」。`;
-    if(q.f === "onbin" && q.v.t === "godan") t += `<br>五段は「た・て」が続くと音が変わる（音便）。${formHtml(q.v, q.ans)}${"ぐぬぶむ".includes(q.v.w.slice(-1)) && !q.v.iku ? "だ・で" : "た・て"}。`;
+    if(q.f === "onbin" && q.v.t === "godan") t += `<br>五段は「た」が続くと音が変わる（音便）。${formHtml(q.v, q.ans)}${"ぐぬぶむ".includes(q.v.w.slice(-1)) && !q.v.iku ? "だ" : "た"}。`;
     return t;
   }
   if(q.kind === "sform"){
@@ -968,11 +1184,12 @@ function nextQ(){
 }
 function quitPlay(){
   if(!PLAY) return;
-  if(!confirm("修行をやめて、章選びにもどりますか？")) return;
+  if(!confirm("修行をやめて、すごろくにもどりますか？")) return;
   PLAY = null; mgFlush(); showTitle();
 }
 function finish(clear){
   const p = PLAY; PLAY = null;
+  if(p.quick) return finishQuick(p, clear);
   const r = mgFlush() || {net:0};
   const ch = p.ch;
   let stars = 0;
@@ -992,7 +1209,7 @@ function finish(clear){
       ${clear ? `<button class="btn" onclick="afterClear('${ch.id}', ${firstClear})">つづきへ</button>` : ""}
       <button class="btn sub" onclick="retry()">もう一度</button>
       ${clear ? "" : `<button class="btn sub" onclick="showLesson(CUR)">巻物を読み直す</button>`}
-      <button class="btn sub" onclick="showTitle()">章選びへ</button>
+      <button class="btn sub" onclick="showTitle()">すごろくへ</button>
     </div>`;
   if(clear) sfx.clear();
   show("sResult");
