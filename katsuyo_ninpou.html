@@ -172,7 +172,7 @@
   .vstatus{display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;font-size:15px;margin:2px 0 8px}
   .rank{display:inline-block;color:#fff;border-radius:999px;padding:1px 10px;font-size:13px;font-weight:bold;text-shadow:0 1px 0 rgba(0,0,0,.3)}
   .pts-badge{background:linear-gradient(135deg,#ff9a3c,#ffd23f);color:#3a2000;border-radius:999px;padding:3px 10px;font-weight:bold;font-size:13px;cursor:pointer;animation:pop 1.6s infinite}
-  .village{position:relative;width:100%;aspect-ratio:3/4;max-height:calc(100vh - 170px);margin:0 auto;border-radius:20px;overflow:hidden;
+  .village{position:relative;width:100%;aspect-ratio:3/4;max-height:max(300px,calc(100vh - 400px));margin:0 auto;border-radius:20px;overflow:hidden;
     background:radial-gradient(circle at 50% 50%,#d9c49a 0 9%,transparent 9.5%),linear-gradient(180deg,#9fd08a,#7fbf73 60%,#6aae64);
     border:3px solid #6b4f2a;box-shadow:0 6px 0 #4b371c,0 10px 20px rgba(0,0,0,.45)}
   .vroads{position:absolute;inset:0;width:100%;height:100%}
@@ -189,6 +189,25 @@
   .goal{background:rgba(40,25,70,.85);border:1px solid #b392f0;color:#f1e8ff;border-radius:12px;padding:6px 10px;font-size:13px;line-height:1.6;margin-bottom:8px}
   .goal b{color:#ffd23f}
   .goal.small{margin-top:6px;font-size:12px}
+  .vtarget{position:absolute;left:50%;top:-30px;transform:translateX(-50%);background:#e0362b;color:#fff;font-size:12px;font-weight:bold;border-radius:999px;padding:1px 8px;white-space:nowrap;animation:bob .8s ease-in-out infinite}
+  @keyframes bob{50%{margin-top:-6px}}
+  .qcard-main{background:linear-gradient(135deg,rgba(60,30,100,.92),rgba(30,20,60,.92));border:2px solid #b392f0;border-radius:14px;padding:8px 12px;margin-bottom:8px;color:#f1e8ff}
+  .goal.small,.fgoal{font-size:12px}
+  .qc-title{font-weight:bold;color:#ffd23f;font-size:15px}
+  .qc-now{color:#fff;font-size:13px}
+  .qc-sub{font-size:12px;color:#d9ccf5;margin:2px 0}
+  .qc-steps{margin:4px 0;padding-left:4px;list-style:none;font-size:13px;line-height:1.7}
+  .qc-steps li.done{color:#9fd8a8;text-decoration:line-through;text-decoration-color:rgba(159,216,168,.6)}
+  .qc-steps li.now{color:#fff;font-weight:bold;background:rgba(255,210,63,.18);border-radius:6px;padding:0 4px}
+  .qc-lv{font-size:12px}.qc-lv.ok{color:#9ff0b8}.qc-lv.ng{color:#ffb3a8;font-weight:bold}
+  .qc-btns{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap}
+  .qlog{display:grid;gap:4px;text-align:left}
+  .qlrow{display:grid;grid-template-columns:24px 1fr;grid-template-areas:"s n" "s t";background:#fffaf0;border:1px solid #d8c08e;border-radius:10px;padding:4px 8px}
+  .qlrow span{grid-area:s;align-self:center}.qlrow b{grid-area:n}.qlrow small{grid-area:t;font-size:11px;color:var(--ink2)}
+  .qlrow.now{border-color:#7a3fd1;background:#f6ecff}.qlrow.lock{opacity:.6}
+  .ftarget{position:absolute;left:50%;top:-14px;transform:translateX(-50%);color:#e0362b;font-weight:bold;font-size:16px;text-shadow:0 0 4px #fff;animation:bob .8s ease-in-out infinite}
+  .ft{position:relative}
+  .ft.goexit{box-shadow:inset 0 0 0 3px #ffd23f}
   .vtoken{position:absolute;z-index:3;font-size:34px;transform:translate(-20%,-95%);pointer-events:none;filter:drop-shadow(0 4px 3px rgba(0,0,0,.4))}
   .vtoken img{height:52px}
   .vtoken.walk{animation:walkbob .3s infinite}
@@ -197,7 +216,7 @@
   /* 外（フィールド） */
   .flv{display:block;font-size:11px;color:#cfd6ea;font-weight:normal}
   .fryo{font-size:13px}
-  .fgrid{position:relative;display:grid;grid-template-columns:repeat(8,1fr);width:100%;max-width:min(100%,calc((100vh - 290px) * 8 / 12));margin:0 auto;
+  .fgrid{position:relative;display:grid;grid-template-columns:repeat(8,1fr);width:100%;max-width:min(100%,calc((100vh - 360px) * 8 / 12));margin:0 auto;
     border:3px solid #4b371c;border-radius:14px;overflow:hidden;box-shadow:0 6px 0 #33240f,0 10px 20px rgba(0,0,0,.45)}
   .fgrid.rustle{animation:rustle .12s 5}
   @keyframes rustle{50%{transform:translateX(4px)}}
@@ -309,16 +328,43 @@
   @keyframes dmg{0%{opacity:0;transform:translate(-50%,10px)}20%{opacity:1}100%{opacity:0;transform:translate(-50%,-40px)}}
   .choice.gone{opacity:.2}
   /* 戦闘の舞台と演出 */
-  .bstage{position:relative;height:190px;margin:-6px -4px 10px;border-radius:12px;overflow:hidden;box-shadow:inset 0 -20px 30px rgba(0,0,0,.25)}
-  .bfoe-wrap{position:absolute;right:4%;top:6px;width:58%;text-align:center}
+  .bstage{position:relative;height:236px;margin:-6px -4px 10px;border-radius:12px;overflow:hidden;box-shadow:inset 0 -20px 30px rgba(0,0,0,.25)}
+  .bfoe-wrap{position:absolute;right:5%;top:22px;width:40%;text-align:center}
+  /* ポケモンのような配置：奥（左上）に敵の箱、手前（右下）に自分の箱 */
+  .ebox,.pbox{position:absolute;z-index:2;background:linear-gradient(180deg,#fffdf5,#f0e6cc);color:var(--ink);border:3px solid #4b3a22;border-radius:12px 4px 12px 4px;
+    padding:4px 10px 5px;box-shadow:0 4px 0 rgba(0,0,0,.25);text-align:left;line-height:1.3}
+  .ebox{left:3%;top:8px;width:54%}
+  .pbox{right:3%;bottom:8px;width:56%}
+  .bxname{font-weight:bold;font-size:14px;display:flex;align-items:center;gap:4px;white-space:nowrap;overflow:hidden}
+  .bxlv{margin-left:auto;font-size:13px}
+  .bxhp{display:flex;align-items:center;gap:4px;margin-top:2px}
+  .bxhpl{font-size:10px;font-weight:bold;background:#4b3a22;color:#ffd23f;border-radius:4px;padding:0 4px}
+  .bxbar{flex:1;height:9px;background:#5a4a35;border-radius:99px;overflow:hidden;border:1px solid #2b2016}
+  .bxbar i{display:block;height:100%;background:linear-gradient(90deg,#3ecf7a,#7dea8f);transition:width .35s}
+  .bxbar.mid i{background:linear-gradient(90deg,#f2c14e,#f7d774)}
+  .bxbar.low i{background:linear-gradient(90deg,#e0362b,#ff7a6e)}
+  .bxnum{text-align:right;font-weight:bold;font-size:15px;letter-spacing:.05em}
+  .bxexp{font-size:11px;color:#2f6db3;text-align:right}
+  .bxsub{font-size:11px;color:var(--ink2)}
+  .bxnext{font-size:11px;color:var(--ink2)}
+  .bxnext.soon{color:#b3261e;font-weight:bold}
+  .pbox.hurt{animation:shake .35s}
+  .ebox .etag,.pbox .etag{font-size:10px}
+  .xpbox{background:rgba(0,0,0,.3);border:1px solid #6ad1ff;border-radius:12px;padding:8px 12px;margin:8px auto;max-width:360px}
+  .xpgain{font-size:16px}.xpgain b{color:#9fe8ff;font-size:20px}.xpgain small{display:block;font-size:11px;color:#cfd6ea}
+  .xpline{display:flex;align-items:center;gap:8px;margin-top:4px}
+  .xplv{font-weight:bold;color:#ffd23f;min-width:44px}
+  .xpbar2{flex:1;height:12px;background:rgba(255,255,255,.15);border-radius:99px;overflow:hidden}
+  .xpbar2 i{display:block;height:100%;background:linear-gradient(90deg,#6ad1ff,#9ff0b8)}
+  .lvflash{display:inline-block;margin-top:4px;color:#ffd23f;font-weight:bold;animation:pop .8s 3}
   .bfoe-wrap .plat,.bhero-wrap .plat{position:absolute;left:50%;transform:translateX(-50%);width:120px;height:22px;border-radius:50%;background:radial-gradient(ellipse,rgba(0,0,0,.35),transparent 70%)}
-  .bfoe-wrap .plat{top:62px}
-  .bhero-wrap{position:absolute;left:6%;bottom:8px;width:90px;text-align:center}
+  .bfoe-wrap .plat{top:64px}
+  .bhero-wrap{position:absolute;left:5%;bottom:10px;width:96px;text-align:center}
   .bhero-wrap .plat{bottom:-6px}
   .bstage .foe .foe-ic{font-size:64px;line-height:1.05;filter:drop-shadow(0 6px 4px rgba(0,0,0,.35))}
   .bstage .foe .bossname,.bstage .foe .foe-sub,.bstage .foe .foe-next{background:rgba(10,12,30,.62);display:inline-block;padding:0 8px;border-radius:999px;margin-top:2px}
   .bstage .foe .bosshp{width:90%;margin:3px auto}
-  .bhero{position:relative;font-size:58px;line-height:1;transform:scaleX(-1);filter:drop-shadow(0 5px 4px rgba(0,0,0,.4))}
+  .bhero{position:relative;font-size:72px;line-height:1;transform:scaleX(-1);filter:drop-shadow(0 5px 4px rgba(0,0,0,.4))}
   .bhero img{height:86px}
   .bhero.cast{animation:cast .7s ease}
   @keyframes cast{0%{transform:scaleX(-1)}30%{transform:scaleX(-1) translateY(-18px);filter:drop-shadow(0 0 18px #fff6a0)}100%{transform:scaleX(-1)}}
@@ -441,7 +487,7 @@
       <button class="iconbtn" id="muteBtn" onclick="toggleMute()">🔊</button>
     </div>
     <div class="vstatus"><span id="vRank"></span><span id="vPts"></span><span id="vRyo"></span></div>
-    <div class="goal" id="vGoal"></div>
+    <div class="qcard-main" id="vGoal"></div>
     <div class="village" id="village"></div>
     <div class="vmsg" id="vMsg"></div>
     <div class="btn-row"><button class="iconbtn danger" onclick="resetGame()">🔄 最初からやり直す（試遊用）</button></div>
@@ -462,7 +508,7 @@
     </div>
     <div class="fgrid" id="fGrid"></div>
     <div class="fmsg" id="fMsg"></div>
-    <div class="goal small" id="fGoal"></div>
+    <div class="qcard-main fgoal" id="fGoal"></div>
     <div class="fpad">
       <button class="iconbtn dpad" data-dx="0" data-dy="-1">▲</button>
       <div><button class="iconbtn dpad" data-dx="-1" data-dy="0">◀</button><button class="iconbtn dpad" data-dx="1" data-dy="0">▶</button></div>
@@ -500,13 +546,15 @@
       <span id="hudName"></span>
       <span class="combo" id="hudCombo"></span>
     </div>
-    <div class="hud2"><span class="life" id="hudLife"></span><span id="hudItems"></span></div>
+    <div class="hud2"><span id="hudItems"></span></div>
     <div class="hud3" id="hudJutsu"></div>
     <div class="bar timer"><i id="qTimer"></i></div>
     <div class="arena">
       <div class="bstage" id="bStage">
+        <div class="ebox" id="eBox"></div>
         <div class="bfoe-wrap"><div class="plat"></div><div class="foe" id="foe"></div></div>
         <div class="bhero-wrap"><div class="plat"></div><div class="bhero" id="bHero"></div></div>
+        <div class="pbox" id="pBox"></div>
       </div>
       <div class="prompt" id="qPrompt"></div>
       <div class="qword" id="qWord"></div>
@@ -986,10 +1034,45 @@ const chIndex = id => CHAPTERS.findIndex(c => c.id === id);
 /* 忍者Lv（ゲームの中だけ）。経験値 SAVE.xp。次のLvまで 20＋(Lv−1)×10。 */
 const PTS_PER_LV = 4;   // ステータスが5つになったので4（2026-11-23）
 const xpForNext = lv => 20 + (lv - 1) * 10;
-function ninjaInfo(){
-  let xp = SAVE.xp || 0, lv = 1;
+function lvFromXp(total){
+  let xp = total, lv = 1;
   while(xp >= xpForNext(lv) && lv < 99){ xp -= xpForNext(lv); lv++; }
-  return {lv, xpIn:xp, xpNeed:xpForNext(lv), points:(lv - 1) * PTS_PER_LV, rank:rankOf(lv)};
+  return {lv, xpIn:xp, xpNeed:xpForNext(lv)};
+}
+function ninjaInfo(){
+  const L = lvFromXp(SAVE.xp || 0);
+  return {lv:L.lv, xpIn:L.xpIn, xpNeed:L.xpNeed, points:(L.lv - 1) * PTS_PER_LV, rank:rankOf(L.lv)};
+}
+/* 戦いの経験値（2026-11-23、教員の指示：「正解したときに経験値を獲得。ただし倒し切ったときに一気に上がるように」）
+   正解するたびに「獲得予定」として p.xpGot にためる（画面に＋EXPが出る）。倒したときに、勝利のボーナスと合わせて一気に入る。
+   負けた・逃げられたときは、ためた分の半分だけ入る。結果画面では、経験値のバーがのびていく演出をする。 */
+function awardXp(gained){
+  const before = SAVE.xp || 0;
+  gainXp(gained);
+  return {before, gained};
+}
+function xpResultHtml(a, note){
+  const L = lvFromXp(a.before);
+  return `<div class="xpbox"><div class="xpgain">✨ 経験値 <b>+${a.gained}</b>${note ? `<small>${note}</small>` : ""}</div>
+    <div class="xpline"><span class="xplv" id="xpLv">Lv${L.lv}</span><span class="xpbar2"><i id="xpFill" style="width:${L.xpIn / L.xpNeed * 100}%"></i></span></div>
+    <div class="xpup" id="xpUp"></div></div>`;
+}
+async function animateXp(a){
+  const start = a.before, end = a.before + a.gained, steps = 40;
+  let lastLv = lvFromXp(start).lv, ups = 0;
+  await sleep(400);
+  for(let i = 1; i <= steps; i++){
+    if(!$("xpFill")) return;
+    const cur = Math.round(start + (end - start) * i / steps), L = lvFromXp(cur);
+    $("xpFill").style.width = (L.xpIn / L.xpNeed * 100) + "%";
+    $("xpLv").textContent = "Lv" + L.lv;
+    if(L.lv > lastLv){
+      ups += L.lv - lastLv; lastLv = L.lv;
+      $("xpUp").innerHTML = `<span class="lvflash">⬆️ LEVEL UP！ 忍者Lv${L.lv}（忍術ポイント＋${ups * PTS_PER_LV}）</span>`;
+      [660, 880, 1320].forEach((f, k) => tone(f, .12, "square", .06, k * .08));
+    }else if(i % 4 === 0) tone(500 + i * 15, .03, "square", .025);
+    await sleep(30);
+  }
 }
 function gainXp(n){
   if(!n) return;
@@ -1299,7 +1382,7 @@ function showVillage(){
     const isSoon = id === "dojo" || id === "chaya";
     const ns = nextStory();
     const storyHere = (id === "terakoya" && ns === "jo") || (id === "gate" && ns && ns !== "jo");
-    const alert = storyHere ? `<span class="vbadge story">📜</span>` : id === "home" && free > 0 ? `<span class="vbadge">✨</span>` : "";
+    const alert = storyHere ? `<span class="vbadge story">📜</span><span class="vtarget">▼ここ</span>` : id === "home" && free > 0 ? `<span class="vbadge">✨</span>` : "";
     html += `<div class="vplace${isSoon ? " soon" : ""}" data-id="${id}" style="left:${p.x}%;top:${p.y}%"><div class="vicon">${p.icon}${alert}</div><div class="vname">${p.name}${isSoon ? "<small>準備中</small>" : ""}</div></div>`;
   });
   html += `<div class="vtoken" id="vtoken">${pic("hero")}</div>`;
@@ -1307,7 +1390,7 @@ function showVillage(){
   map.querySelectorAll(".vplace").forEach(e => e.onclick = () => goPlace(e.dataset.id));
   const here = PLACES[SAVE.here] || PLACES.home;
   placeVToken(here.x, here.y, false);
-  $("vGoal").innerHTML = `📜 目的　${storyGoal()}`;
+  $("vGoal").innerHTML = questCardHtml(false) + `<div class="qc-btns">${questInfo() ? `<button class="btn mini" onclick="goQuest()">▶ 目的地へ行く</button>` : ""}<button class="iconbtn dark" onclick="showQuestLog()">📜 クエスト一覧</button></div>`;
   $("vMsg").innerHTML = reset ? "レベルが下がったので、忍術ポイントを振り直しにしました。自宅で振り分けよう。" : villageHint(ni, free);
   show("sVillage");
 }
@@ -1395,6 +1478,51 @@ function storyFoe(id){
   const P = STORY_PLAN[id], B = wildBase(P.lv);
   const hp = Math.round(B.hp * P.hpF), d = Math.round(B.def * .8);
   return {icon:P.icon, name:P.name, hp, atk:Math.max(2, Math.round(B.atk * P.atkF)), def:d, res:d, elem:P.elem, every:P.every, boss:P.boss};
+}
+/* メインクエストの手順（2026-11-23、教員の指示：「今何をするべきなのか分かりづらい」）。
+   村ではカードにして、手順（✅済み／▶今ここ）と「目的地へ行く」ボタンを出す。地図にも目印（▼ここ）を出す。 */
+function questInfo(){
+  const ns = nextStory(); if(!ns) return null;
+  const P = STORY_PLAN[ns], c = CHAPTERS[chIndex(ns)], lv = ninjaInfo().lv;
+  const steps = [];
+  if(P.where === "terakoya"){
+    steps.push({t:"📚 村の「寺子屋」へ行く", done:false});
+    steps.push({t:"師匠・変化斎の話を聞き、石になった言葉と戦う", done:false});
+    return {ns, P, c, steps, target:{type:"place", id:"terakoya"}, lv};
+  }
+  const k = P.where, f = FIELD ? FIELD.f : -1;
+  steps.push({t:"⛩️ 村の「里の門」から外へ出る", done:f >= 0});
+  if(k > 0) steps.push({t:`⬆️ 「${FIELDS[k].name}」まで進む`, done:f >= k});
+  steps.push({t:`${P.icon} 「${FIELDS[k].name}」のいちばん奥（出口の前）にいる${P.name}と戦う`, done:false});
+  return {ns, P, c, steps, target:{type:"field", f:k}, lv};
+}
+function questCardHtml(compact){
+  const q = questInfo();
+  if(!q) return `<div class="qc-title">📜 メインクエスト　すべて達成！</div><div class="qc-sub">外伝（形容詞・形容動詞）は準備中。任務や野良忍者で、さらに強い忍をめざそう</div>`;
+  let cur = q.steps.findIndex(x => !x.done);
+  const lvOk = q.lv >= q.P.lv;
+  if(compact) return `<div class="qc-title">📜 ${q.c.no}の章：<span class="qc-now">▶ ${q.steps[cur].t}</span></div>
+    <div class="qc-lv ${lvOk ? "ok" : "ng"}">めやす Lv${q.P.lv}（今 Lv${q.lv}）${lvOk ? "✅" : "⚠️ 経験値をためよう"}</div>`;
+  return `<div class="qc-title">📜 メインクエスト　${q.c.no}の章「${esc(q.c.name)}」</div>
+    ${compact ? "" : `<div class="qc-sub">${esc(q.P.goal.replace(/<[^>]+>/g, ""))}</div>`}
+    <ol class="qc-steps">${q.steps.map((x, i) => `<li class="${x.done ? "done" : i === cur ? "now" : ""}">${x.done ? "✅" : i === cur ? "▶" : "・"} ${x.t}</li>`).join("")}</ol>
+    <div class="qc-lv ${lvOk ? "ok" : "ng"}">めやす：忍者Lv${q.P.lv}　（今 Lv${q.lv}）${lvOk ? "✅ 準備OK" : "⚠️ 野良忍者や任務で経験値をためよう"}</div>`;
+}
+function goQuest(){
+  const q = questInfo(); if(!q) return;
+  if(q.target.type === "place") return goPlace(q.target.id);
+  // 外の目的の地方へ（そこまでの道は、もう開いている）
+  sfx.tap();
+  enterField(q.target.f, "bottom");
+  fieldMsg(`📍 ${FIELDS[q.target.f].name}に着いた。いちばん奥（▼の印）をめざそう`);
+}
+function showQuestLog(){
+  const ns = nextStory();
+  modal(`<h3>📜 メインクエスト一覧</h3><div class="qlog">` + STORY_ORDER.map(id => {
+    const c = CHAPTERS[chIndex(id)], P = STORY_PLAN[id], place = P.where === "terakoya" ? "村・寺子屋" : "外・" + FIELDS[P.where].name;
+    const st = chCleared(id) ? "✅" : id === ns ? "▶" : "🔒";
+    return `<div class="qlrow ${chCleared(id) ? "done" : id === ns ? "now" : "lock"}"><span>${st}</span><b>${c.no}の章「${esc(c.name)}」</b><small>${id === ns || chCleared(id) ? `${place}／${P.icon}${P.name}／めやすLv${P.lv}` : "？？？"}</small></div>`;
+  }).join("") + `</div>`, [["とじる", closeModal]]);
 }
 function storyGoal(){
   const ns = nextStory();
@@ -1766,7 +1894,7 @@ function openChapter(id, force){
   sfx.tap();
   const ch = CHAPTERS[chIndex(id)];
   CUR = ch;
-  const go = () => startBattle({mode:"story", ch, foe:storyFoe(id), time:30, ryo:P.ryo, xp:Math.max(2, Math.round(P.lv / 3))});
+  const go = () => startBattle({mode:"story", ch, foe:storyFoe(id), lv:P.lv, time:30, ryo:P.ryo, xp:Math.max(2, Math.round(P.lv / 3))});
   playStory(P.pre.concat(ch.intro), () => { SAVE.seen[ch.id] = 1; saveSave(SAVE); showLessonFor(ch, go); });
 }
 // 物語のあとは、外にいたなら外へ、そうでなければ村へもどる
@@ -1886,7 +2014,7 @@ function renderQ(){
   renderHud();
   const fb = $("qFb"); fb.className = "feedback"; fb.innerHTML = "";
   $("qExtra").innerHTML = ""; $("qTools").innerHTML = "";
-  const foe = $("foe"); foe.innerHTML = foeHtml(); foe.classList.remove("hit");
+  refreshFoe(); $("foe").classList.remove("hit");
   let choicesHtml = "";
   if(q.kind === "fuda"){
     $("qPrompt").textContent = "固まった言葉に、合う変装札をつけよう";
@@ -2235,9 +2363,17 @@ function startBattle(cfg){
   show("sPlay");
   renderQ();
 }
+// 手前（右下）の自分の箱：名前・Lv・得意属性・HP・獲得予定の経験値
+function renderPBox(){
+  const p = PLAY, r = Math.max(0, p.hp / p.maxHp), col = r > .5 ? "" : r > .2 ? " mid" : " low";
+  $("pBox").innerHTML = `<div class="bxname">あなた ${SAVE.elem ? elemTag(SAVE.elem) : ""}<span class="bxlv">Lv${ninjaInfo().lv}</span></div>
+    <div class="bxhp"><span class="bxhpl">HP</span><span class="bxbar${col}"><i style="width:${r * 100}%"></i></span></div>
+    <div class="bxnum">${Math.max(0, p.hp)} / ${p.maxHp}</div>
+    ${p.cfg.mode === "quick" ? "" : `<div class="bxexp">獲得予定 <b>+${p.xpGot}</b> EXP</div>`}`;
+}
 function renderHud(){
   const p = PLAY;
-  $("hudLife").innerHTML = `<span class="hpl">HP</span><span class="hpbar"><i style="width:${Math.max(0, p.hp / p.maxHp * 100)}%"></i></span><b>${Math.max(0, p.hp)}</b>`;
+  renderPBox();
   $("hudCombo").textContent = p.combo >= 2 ? `${p.combo}連続！` : "";
   const bag = SAVE.bag.dango || 0;
   $("hudItems").innerHTML = p.cfg.mode === "quick" ? "" :
@@ -2266,13 +2402,13 @@ async function useJutsu(id){
     const a = affinity(j.elem, p.foe.elem);
     const dmg = jutsuHit(jutsuPower(j, p), a, p.foe);
     p.foe.hp -= dmg; p.dmgDealt += dmg;
-    $("foe").innerHTML = foeHtml(); $("foe").classList.remove("hit"); void $("foe").offsetWidth; $("foe").classList.add("hit");
+    refreshFoe(); $("foe").classList.remove("hit"); void $("foe").offsetWidth; $("foe").classList.add("hit");
     dmgPop(`${a > 1 ? "相性◎ " : a < 1 ? "相性△ " : ""}−${dmg}`, a > 1 ? "#ffd23f" : "#ffb347", "foe");
     if(a !== 1) setTimeout(() => flash(a > 1 ? "弱点を突いた！" : "相性が悪い……", a > 1 ? "#ffd23f" : "#b0c4de"), 500);
   }else if(j.kind === "heal"){
-    const h = 10 + p.nin * 2; p.hp = Math.min(p.maxHp, p.hp + h); dmgPop(`＋${h}`, "#9ff0b8", "sPlayHud");
+    const h = 10 + p.nin * 2; p.hp = Math.min(p.maxHp, p.hp + h); dmgPop(`＋${h}`, "#9ff0b8", "pBox");
   }else if(j.kind === "guard"){
-    p.guard += p.nin >= 35 ? 3 : 2; dmgPop("分身！", "#9fd3ff", "sPlayHud");
+    p.guard += p.nin >= 35 ? 3 : 2; dmgPop("分身！", "#9fd3ff", "pBox");
   }
   if(p.foe.hp <= 0){ renderHud(); await sleep(700); finish(true); return; }
   p.lock = false; renderHud(); startTimer();   // 術のあとは、今の問題の時間をはじめから
@@ -2283,7 +2419,7 @@ async function foeAfterTurn(){
   p.turn++;
   if(hasAb(p.foe, "heal") && p.turn % 4 === 0){
     const h = Math.round(p.foe.max * .12); p.foe.hp = Math.min(p.foe.max, p.foe.hp + h);
-    $("foe").innerHTML = foeHtml(); dmgPop(`回復 ＋${h}`, "#9ff0b8", "foe");
+    refreshFoe(); dmgPop(`回復 ＋${h}`, "#9ff0b8", "foe");
   }
   if(hasAb(p.foe, "flee") && p.turn >= 3){ p.fled = true; dmgPop("逃げた！", "#ffd23f", "foe"); }
 }
@@ -2294,36 +2430,44 @@ function foeAttack(mult){
   // 属性を持つ敵は、jEvery回に1回（ふつうは3回に1回）術で攻撃してくる。術は結界で、ふつうの攻撃は守りで減らす
   p.atkCount++;
   const isJutsu = !!p.foe.elem && mult === 1 && p.atkCount % (p.foe.jEvery || 3) === 0;
-  if(p.guard > 0){ p.guard--; dmgPop("無効！", "#9fd3ff", "sPlayHud"); const h = heroC(); ring(h.x, h.y, "#9fd3ff", 70, .5); }
+  if(p.guard > 0){ p.guard--; dmgPop("無効！", "#9fd3ff", "pBox"); const h = heroC(); ring(h.x, h.y, "#9fd3ff", 70, .5); }
   else if(isJutsu){
     fxEnemyHit(p.foe.elem);
     const a = defAffinity(p.foe.elem, SAVE.elem);
     const d = takenDamage(p.foe.atk * 1.2 * a, p.res, 1);
-    p.hp -= d; dmgPop(`${ELEM[p.foe.elem].icon}術 −${d}${a > 1 ? "（相性×）" : a < 1 ? "（相性◎）" : ""}`, "#ff8a80", "sPlayHud");
-    const h = $("sPlayHud"); h.classList.remove("hurt"); void h.offsetWidth; h.classList.add("hurt");
+    p.hp -= d; dmgPop(`${ELEM[p.foe.elem].icon}術 −${d}${a > 1 ? "（相性×）" : a < 1 ? "（相性◎）" : ""}`, "#ff8a80", "pBox");
+    const h = $("pBox"); h.classList.remove("hurt"); void h.offsetWidth; h.classList.add("hurt");
     tone(220, .25, "sawtooth", .07);
   }
   else{
     fxEnemyHit(null);
     const d = takenDamage(p.foe.atk, p.def, mult);
-    p.hp -= d; dmgPop(`${mult > 1 ? "反撃 " : ""}−${d}`, "#ff8a80", "sPlayHud");
-    const h = $("sPlayHud"); h.classList.remove("hurt"); void h.offsetWidth; h.classList.add("hurt");
+    p.hp -= d; dmgPop(`${mult > 1 ? "反撃 " : ""}−${d}`, "#ff8a80", "pBox");
+    const h = $("pBox"); h.classList.remove("hurt"); void h.offsetWidth; h.classList.add("hurt");
     tone(160, .2, "sawtooth", .07);
   }
-  $("foe").innerHTML = foeHtml();
+  refreshFoe();
   renderHud();
 }
 function ensureQ(){ const p = PLAY; while(p.i >= p.qs.length) p.qs = p.qs.concat(makeQuestions(p.ch)); }
+// 奥（右上）の敵の絵と、左上の敵の箱（名前・Lv・属性・HP・守り/結界・次の攻撃）
 function foeHtml(){
   const f = PLAY.foe;
-  if(PLAY.cfg.mode === "quick") return `<div class="foe-ic">${f.icon}</div>`;
+  return `<div class="foe-ic${f.special ? " sp" : ""}${f.golden ? " gold" : ""}">${f.boss ? pic("sekka") : f.icon}</div>`;
+}
+function eboxHtml(){
+  const f = PLAY.foe;
+  if(PLAY.cfg.mode === "quick") return "";
   const left = Math.max(1, f.every - PLAY.charge);
   const nextJutsu = !!f.elem && (PLAY.atkCount + 1) % (f.jEvery || 3) === 0;
   const kind = nextJutsu ? `${ELEM[f.elem].icon}術で` : "";
-  return `<div class="foe-ic${f.special ? " sp" : ""}${f.golden ? " gold" : ""}">${f.boss ? pic("sekka") : f.icon}</div><div class="bossname">${elemTag(f.elem)} ${esc(f.name)}　HP ${Math.max(0, f.hp)}/${f.max}</div><div class="bosshp"><i style="width:${Math.max(0, f.hp / f.max * 100)}%"></i></div>` +
-    `<div class="foe-sub">守り${f.def || 0}・結界${f.res || 0}</div>` +
-    `<div class="foe-next${left === 1 ? " soon" : ""}">${left === 1 ? `⚠️ 次の問題のあと${kind}攻撃してくる` : `あと${left}問で${kind}攻撃してくる`}</div>`;
+  const r = Math.max(0, f.hp / f.max), col = r > .5 ? "" : r > .2 ? " mid" : " low";
+  return `<div class="bxname">${esc(f.name)} ${elemTag(f.elem)}${PLAY.cfg.lv ? `<span class="bxlv">Lv${PLAY.cfg.lv}</span>` : ""}</div>
+    <div class="bxhp"><span class="bxhpl">HP</span><span class="bxbar${col}"><i style="width:${r * 100}%"></i></span></div>
+    <div class="bxsub">守り${f.def || 0}・結界${f.res || 0}</div>
+    <div class="bxnext${left === 1 ? " soon" : ""}">${left === 1 ? `⚠️ 次の問題のあと${kind}攻撃！` : `あと${left}問で${kind}攻撃`}</div>`;
 }
+function refreshFoe(){ $("foe").innerHTML = foeHtml(); $("eBox").innerHTML = eboxHtml(); $("eBox").style.display = PLAY.cfg.mode === "quick" ? "none" : ""; }
 function startTimer(){
   stopTimer();
   const p = PLAY, q = p.qs[p.i];
@@ -2389,8 +2533,9 @@ async function answer(btn){
     const dmg = dodged ? 0 : hitDamage(Math.round(p.atk * (crit ? 2 : 1) * (1 + Math.min(p.combo - 1, 5) * .05)), p.foe, crit);
     p.foe.hp -= dmg; p.dmgDealt += dmg;
     if(p.cfg.mode !== "quick"){ if(dodged){ const f = foeC(); burst(f.x, f.y, 8, {sp0:60, sp1:160, p:() => ({ch:"💨", size:rnd(16, 24)})}); } else { fxSlash(crit); tone(crit ? 1200 : 900, .06, "square", .05, .02); } }
-    const xp = p.cfg.xp || 1; p.xpGot += xp; gainXp(xp);
-    $("foe").innerHTML = foeHtml(); $("foe").classList.remove("hit"); void $("foe").offsetWidth; $("foe").classList.add("hit");
+    const xp = p.cfg.xp || 1; p.xpGot += xp;   // 獲得予定（倒したときにまとめて入る）
+    if(p.cfg.mode !== "quick") setTimeout(() => dmgPop(`+${xp} EXP`, "#9fe8ff", "pBox"), 250);
+    refreshFoe(); $("foe").classList.remove("hit"); void $("foe").offsetWidth; $("foe").classList.add("hit");
     if(p.cfg.mode !== "quick") dmgPop(dodged ? "かわされた！" : `${crit ? "会心！" : ""}−${dmg}`, dodged ? "#9fd3ff" : crit ? "#ffd23f" : "#fff", "foe");
     flash(crit ? "会心の一撃！" : p.combo >= 3 ? `${p.combo}連続！` : "見事！", "#ffe08a");
     fb.className = "feedback ok show"; fb.innerHTML = "⭕ " + explain(q);
@@ -2399,7 +2544,7 @@ async function answer(btn){
     if(p.cfg.mode !== "quick" && p.foe.hp > 0){
       p.charge++;
       if(p.charge >= p.foe.every){ await sleep(650); foeAttack(1); }
-      else $("foe").innerHTML = foeHtml();
+      else refreshFoe();
       await foeAfterTurn();
     }
     await sleep(q.kind === "type" ? 1400 : 1000);
@@ -2453,6 +2598,7 @@ function finish(win){
   const cfg = p.cfg, ch = p.ch;
   let body = "", rewards = [], firstClear = false;
   if(cfg.mode === "quick"){
+    if(win) gainXp(p.xpGot);
     showTerakoya();
     flash(win ? "正解！" : "おしい！", win ? "#ffe08a" : "#ff9a92");
     return;
@@ -2479,15 +2625,16 @@ function finish(win){
       body = `<h2>🎉 任務達成！</h2><p>${esc(p.foe.name)}をたおした！</p>`;
     }
     const bonusXp = cfg.mode === "story" ? (firstClear ? 20 : 5) : 8 + rankIdx(cfg.rank) * 6;
-    p.xpGot += bonusXp; gainXp(bonusXp);
+    p.xpGot += bonusXp;
+    XP_AWARD = awardXp(p.xpGot); XP_NOTE = `正解の分＋勝利のボーナス${bonusXp}`;
     saveSave(SAVE);
     sfx.clear();
   }else{
     body = `<h2>💥 撤退……</h2><p>HPがつきてしまった。巻物を読み直したり、装備を整えたりして、もう一度挑もう！</p>`;
+    XP_AWARD = awardXp(Math.floor(p.xpGot / 2)); XP_NOTE = "負けたので、正解の分の半分";
   }
   const ni = ninjaInfo(), lvUp = ni.lv - p.lv0;
-  rewards.push(`✨ 経験値 ${p.xpGot}`);
-  const lvLine = lvUp > 0 ? `<div class="lvup">⬆️ 忍者Lv ${p.lv0} → <b>${ni.lv}</b>！ 忍術ポイントが増えた（🏠自宅で振り分けよう）</div>` : "";
+  const lvLine = xpResultHtml(XP_AWARD, XP_NOTE) + (lvUp > 0 ? `<div class="lvup">🏠自宅で、増えた忍術ポイントを振り分けよう</div>` : "");
   const wrongs = p.wrongList.length
     ? `<div class="scroll" style="margin-top:12px;text-align:left"><h2 style="font-size:18px">ふりかえり</h2>${p.wrongList.slice(0, 8).map(q => `<p>・${explain(q)}</p>`).join("")}</div>` : "";
   $("resultBody").innerHTML = `${body}
@@ -2502,8 +2649,9 @@ function finish(win){
     </div>`;
   LAST_CFG = cfg;
   show("sResult");
+  animateXp(XP_AWARD);
 }
-let LAST_CFG = null;
+let LAST_CFG = null, XP_AWARD = null, XP_NOTE = "";
 function wildDrop(lv){
   const tier = lv < 4 ? 0 : lv < 9 ? 1 : lv < 16 ? 2 : lv < 25 ? 3 : 4;
   const pool = Object.values(EQUIP).filter(it => it.tier === tier && (it.src.includes("quest") || it.src.includes("shop")));
@@ -2512,6 +2660,7 @@ function wildDrop(lv){
 }
 function finishWild(p, win, r){
   const foe = p.foe, w = WILD[foe.kind];
+  SAVE.dex = SAVE.dex || {}; SAVE.dex[foe.kind] = SAVE.dex[foe.kind] || {seen:1, beat:0};
   let body = "", rewards = [];
   if(win === true){
     const bonus = 1 + battleStats().ryo / 100;
@@ -2530,21 +2679,23 @@ function finishWild(p, win, r){
     if(rareGot){ addItem(rareGot.id); rewards.push(`<b class="hiho-get">${rareGot.icon} 秘宝「${rareGot.name}」</b>`); }
     if(Math.random() < (foe.special || foe.golden ? .6 : .12)){ const d = wildDrop(foe.lv); if(d){ addItem(d.id); rewards.push(`${d.icon} ${d.name}（${TIER[d.tier].name}）`); } }
     if(Math.random() < .25 || foe.special || foe.golden){ const k = pick(Object.keys(BAG)); const n = foe.special || foe.golden ? 2 : 1; SAVE.bag[k] = (SAVE.bag[k] || 0) + n; rewards.push(`${BAG[k].icon} ${BAG[k].name}${n > 1 ? "×" + n : ""}`); }
-    const xp = wildXp(foe.lv) * mul.xp; p.xpGot += xp; gainXp(xp);
+    const xp = wildXp(foe.lv) * mul.xp; p.xpGot += xp;
+    XP_AWARD = awardXp(p.xpGot); XP_NOTE = `正解の分＋たおしたボーナス${xp}`;
     if(rareGot) setTimeout(() => { const fl = $("specialFx"); fl.classList.remove("go"); void fl.offsetWidth; fl.classList.add("go"); [784, 988, 1175, 1568].forEach((f, i) => tone(f, .16, "triangle", .07, i * .1)); }, 300);
     SAVE.dex[foe.kind].beat++;
     saveSave(SAVE); sfx.clear();
     body = `<div class="enc-ic${foe.special ? " sp" : ""}${foe.golden ? " gold" : ""}">${w.icon}</div><h2>🎉 ${esc(foe.name)}（Lv${foe.lv}）をたおした！</h2>${foe.special ? `<p>「${esc(w.title)}」に勝った！ 里でうわさになるだろう。</p>` : ""}`;
   }else if(win === "fled"){
     body = `<div class="enc-ic">💨</div><h2>${esc(w.name)}に逃げられた……</h2><p>${p.stolen ? `盗まれた${p.stolen}両は戻らなかった。` : ""}次は早めに倒そう！</p>`;
+    XP_AWARD = awardXp(Math.floor(p.xpGot / 2)); XP_NOTE = "逃げられたので、正解の分の半分";
   }else{
     body = `<h2>💥 気を失った……</h2><p>${esc(w.name)}（Lv${foe.lv}）に負けてしまった。<br>通りがかりの村人が、里まで運んでくれた。</p>`;
+    XP_AWARD = awardXp(Math.floor(p.xpGot / 2)); XP_NOTE = "負けたので、正解の分の半分";
   }
   const ni = ninjaInfo(), lvUp = ni.lv - p.lv0;
-  rewards.push(`✨ 経験値 ${p.xpGot}`);
   $("resultBody").innerHTML = `${body}
     <div class="rewards"><b>${win === true ? "手に入れた" : "結果"}</b>${rewards.map(x => `<span>${x}</span>`).join("")}</div>
-    ${lvUp > 0 ? `<div class="lvup">⬆️ 忍者Lv ${p.lv0} → <b>${ni.lv}</b>！ 忍術ポイントが増えた（🏠自宅で振り分けよう）</div>` : ""}
+    ${xpResultHtml(XP_AWARD, XP_NOTE)}${lvUp > 0 ? `<div class="lvup">🏠自宅で、増えた忍術ポイントを振り分けよう</div>` : ""}
     <div class="stat">正解 ${p.ok}　まちがい ${p.ng}　最大 ${p.maxCombo}連続<br>「${MG_GENRE}」レベル ${mgSigned(r.net)}</div>
     ${p.wrongList.length ? `<div class="scroll" style="margin-top:12px;text-align:left"><h2 style="font-size:18px">ふりかえり</h2>${p.wrongList.slice(0, 6).map(q => `<p>・${explain(q)}</p>`).join("")}</div>` : ""}
     <div class="btn-row" id="resultBtns">
@@ -2552,6 +2703,7 @@ function finishWild(p, win, r){
         : `<button class="btn" onclick="resumeField(); FIELD.safe = 3">外へもどる</button><button class="btn sub" onclick="FIELD = null; SAVE.here = 'gate'; saveSave(SAVE); showVillage()">里へ帰る</button>`}
     </div>`;
   show("sResult");
+  animateXp(XP_AWARD);
 }
 
 /* =====================================================================
@@ -2629,10 +2781,12 @@ function wildBase(lv){
 }
 function makeWild(kind, lv){
   const w = WILD[kind], B = wildBase(lv);
-  // 野良忍者は何度も戦うので、任務の敵より少し弱め（HP7割・攻撃85%）
+  /* 野良忍者は何度も戦うので、任務の敵より弱め（HP6割・攻撃55%・2問ごとに攻撃）。2026-11-23、試遊で
+     「同じLvの野良忍者に全問正解でも負ける」ことが分かったため、装備が少ない状態（見習い一式＋今の段階の3割）の
+     シミュレーションで、同じLvの相手に正答率80%で約9割勝てるように下げた。 */
   const f = {kind, lv, icon:w.icon, name:w.name, abs:abList(w), special:!!w.special,
-    hp:Math.max(10, Math.round(B.hp * .7 * w.hp)), atk:Math.max(2, Math.round(B.atk * .85 * w.atk)), def:Math.round(B.def * w.def),
-    res:Math.round(B.def * (w.res || 1)), elem:w.elem, every:lv < 4 ? 2 : 1};
+    hp:Math.max(10, Math.round(B.hp * .6 * w.hp)), atk:Math.max(2, Math.round(B.atk * .55 * w.atk)), def:Math.round(B.def * w.def),
+    res:Math.round(B.def * (w.res || 1)), elem:w.elem, every:2};
   const A = abList(w);
   if(A.includes("swift")) f.every = 1;
   if(A.includes("armor")){ f.def = Math.round(f.def * 2.2) + 5; f.res = Math.round(f.res * .5); }
@@ -2691,7 +2845,10 @@ function showField(){
     else if(c === "U"){ cls += " exit"; inner = !exitOpen(FIELD.f) ? "🚧" : FIELD.f + 1 < FIELDS.length ? "⬆️" : "🚧"; }
     else if(c === "D"){ cls += " exit"; inner = FIELD.f === 0 ? "⛩️" : "⬇️"; }
     else cls += " path";
-    if(isBossTile(FIELD.f, x, y)){ cls += " bosstile"; inner = `<span class="bossmark">${STORY_PLAN[FIELD_STORY[FIELD.f]].icon}</span>`; }
+    if(isBossTile(FIELD.f, x, y)){ cls += " bosstile"; inner = `<span class="bossmark">${STORY_PLAN[FIELD_STORY[FIELD.f]].icon}</span>`;
+      if(nextStory() === FIELD_STORY[FIELD.f]) inner += `<span class="ftarget">▼</span>`; }
+    // 目的の地方がまだ先なら、出口に「進め」の印
+    if(c === "U" && exitOpen(FIELD.f) && (() => { const q = questInfo(); return q && q.target.type === "field" && q.target.f > FIELD.f; })()){ cls += " goexit"; inner += `<span class="ftarget">▲</span>`; }
     html += `<div class="${cls}" data-x="${x}" data-y="${y}" style="${c === "G" ? `background:${F.grass}` : c === "." || c === "U" || c === "D" ? `background:${F.path}` : ""}">${inner}</div>`;
   }));
   html += `<div class="fhero" id="fHero">${pic("hero")}</div>`;
@@ -2699,7 +2856,7 @@ function showField(){
   g.querySelectorAll(".ft").forEach(e => e.onclick = () => tapTile(+e.dataset.x, +e.dataset.y));
   placeFHero();
   $("fRyo").innerHTML = `💰${SAVE.ryo}両　Lv${ninjaInfo().lv}`;
-  $("fGoal").innerHTML = `📜 目的　${storyGoal()}`;
+  $("fGoal").innerHTML = questCardHtml(true);
   show("sField");
 }
 function placeFHero(){
@@ -2790,7 +2947,8 @@ async function encounter(){
   const r = Math.random();
   const kind = r < .04 ? F.named : r < .07 ? "koban" : pick(F.kinds);
   const W = WILD[kind];
-  const lv = W.special ? W.lv : F.lv[0] + Math.floor(Math.random() * (F.lv[1] - F.lv[0] + 1));
+  // 地方のLvの範囲のうち、低めのLvが出やすい（着いたばかりで強い相手ばかり、をさける）
+  const lv = W.special ? W.lv : F.lv[0] + Math.floor(Math.pow(Math.random(), 1.8) * (F.lv[1] - F.lv[0] + 1));
   const foe = makeWild(kind, lv);
   if(!W.special && kind !== "koban" && Math.random() < .02){
     foe.golden = true; foe.name = "金色の" + foe.name;
