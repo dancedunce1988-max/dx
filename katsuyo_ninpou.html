@@ -308,6 +308,18 @@
   .dmgpop{position:absolute;left:50%;top:10px;transform:translateX(-50%);font-size:26px;font-weight:bold;text-shadow:0 2px 0 #000;animation:dmg .9s ease both;pointer-events:none;z-index:5;white-space:nowrap}
   @keyframes dmg{0%{opacity:0;transform:translate(-50%,10px)}20%{opacity:1}100%{opacity:0;transform:translate(-50%,-40px)}}
   .choice.gone{opacity:.2}
+  .special-fx{position:fixed;inset:0;z-index:58;pointer-events:none;opacity:0;background:radial-gradient(circle,rgba(255,236,150,.95),rgba(255,190,60,.6) 40%,transparent 75%)}
+  .special-fx.go{animation:spfx 1.1s ease both}
+  @keyframes spfx{0%{opacity:0}20%{opacity:1}40%{opacity:.3}60%{opacity:.9}100%{opacity:0}}
+  .enc-ic.sp,.foe-ic.sp{filter:drop-shadow(0 0 10px #b47bff) drop-shadow(0 0 22px #ffd23f)}
+  .enc-ic.gold,.foe-ic.gold{filter:sepia(1) saturate(4) hue-rotate(5deg) brightness(1.15) drop-shadow(0 0 14px #ffd23f)}
+  .sp-tag{display:inline-block;background:linear-gradient(135deg,#7a3fd1,#d14fd1);color:#fff;border-radius:999px;padding:2px 14px;font-weight:bold;font-size:13px;animation:pop 1s infinite}
+  .sp-tag.gold{background:linear-gradient(135deg,#d19a1f,#ffd23f);color:#3a2000}
+  .sp-prize{background:#fff3c4;border:1px solid #e0a91b;border-radius:10px;padding:4px 8px;font-size:13px;font-weight:bold;color:#7a4a00}
+  .hiho{margin-left:6px;font-size:11px;background:linear-gradient(135deg,#7a3fd1,#d14fd1);color:#fff;border-radius:999px;padding:0 7px}
+  .eqicon.rareic{box-shadow:0 0 8px #d14fd1}
+  .hiho-get{color:#ffd23f;text-shadow:0 0 6px #d14fd1}
+  .dexit.sp{background:#f6ecff;border-color:#b47bff}
   .foe-sub{font-size:11px;color:#cfd6ea}
   .etag{display:inline-block;border-radius:999px;padding:0 7px;font-size:11px;font-weight:bold;background:#888;color:#fff;vertical-align:middle}
   .etag.e-fire{background:#e0532b}.etag.e-water{background:#2f7fd1}.etag.e-wood{background:#3f9a4a}
@@ -470,6 +482,7 @@
 </div>
 <div class="flash" id="flash"></div>
 <div class="jutsu-fx" id="jutsuFx"></div>
+<div class="special-fx" id="specialFx"></div>
 
 <script>
 /* =====================================================================
@@ -1054,9 +1067,23 @@ EQ_DEF.forEach(([slot, main, sub, names, icons]) => names.forEach((name, t) => {
   ["acc_suzu",    1, "鈴",         "🔔", {nin:3},          {time:3},  ["shop"]],
   ["acc_magatama",2, "勾玉",       "🟢", {nin:3, atk:2},   {crit:5},  ["quest", "story"]],
   ["acc_makimono",2, "巻物入れ",   "🎒", {res:4},          {hint:2},  ["quest"]],
-  ["acc_neko",    3, "招き猫",     "🐈", {nin:4, hp:4},    {ryo:30},  ["meet"]],
+  ["acc_neko",    3, "招き猫",     "🐈", {nin:4, hp:4},    {ryo:30},  ["meet", "special"]],
   ["acc_hoju",    4, "龍の宝珠",   "🔮", {hp:6, atk:6},    {guard:2, crit:10}, ["dojo"]],
 ].forEach(([id, t, name, icon, st, eff, src]) => EQUIP[id] = {id, slot:"acc", tier:t, name, icon, st, eff, req:{lv:TIER[t].lv}, src});
+/* 秘宝（2026-11-23、教員の指示：特別な忍者は、あまり出ないアイテムを落とすなど特別感を）
+   名のある忍・金色の野良忍者からしか手に入らない。店では買えない。売ると、同じ段階の装備の倍の値段。 */
+[
+  // [id, 部位, 段階, 名前, 絵, ステータス, 効果]
+  ["rare_hachimaki", "head",   1, "旋風の鉢巻",   "🌪️", {nin:5, res:3},          {time:3}],
+  ["rare_hagoromo",  "body",   2, "月光の羽衣",   "🌙", {hp:9, res:6},           {guard:1}],
+  ["rare_kasumi",    "face",   2, "霞の面",       "🌫️", {def:7, res:7},          {hint:2}],
+  ["rare_kote",      "arm",    3, "岩砕きの籠手", "🪨", {def:11, atk:6},         {crit:10}],
+  ["rare_katana",    "weapon", 4, "黒風の忍び刀", "🌑", {atk:16, nin:8},         {crit:15}],
+  ["rare_kinsuzu",   "acc",    2, "金の鈴",       "🛎️", {nin:4},                {ryo:50, time:2}],
+  ["rare_tengu",     "acc",    3, "天狗の羽うちわ", "🪭", {nin:8, res:4},        {crit:8}],
+  ["rare_kakuremino","acc",    3, "隠れ蓑の札",   "🍂", {def:4, res:4},          {guard:2}],
+].forEach(([id, slot, t, name, icon, st, eff]) => EQUIP[id] = {id, slot, tier:t, name, icon, st, eff, req:{lv:TIER[t].lv}, src:["special"], rare:true});
+const GOLD_RARES = ["rare_kinsuzu", "rare_tengu", "rare_kakuremino", "acc_neko"];   // 金色の野良忍者が落とす秘宝
 // 特別な効果・条件・手に入れ方
 Object.assign(EQUIP.waist2.eff, {hint:1});
 Object.assign(EQUIP.feet3.eff, {time:3});
@@ -1068,12 +1095,12 @@ EQUIP.body3.req.stat = {hp:15};    EQUIP.body4.req.stat = {hp:25};
 EQUIP.arm4.req.stat = {def:20};    EQUIP.head4.req.stat = {nin:20};
 EQUIP.face4.src = ["dojo"]; EQUIP.neck4.src = ["meet"]; EQUIP.waist4.src = ["dojo"]; EQUIP.feet3.src = ["quest", "meet"];
 ["head0","arm0","neck0","legs0","waist0"].forEach(id => EQUIP[id].src = ["shop", "story"]);
-const SRC_NAME = {shop:"店", quest:"任務の報酬", story:"本任務", dojo:"道場（準備中）", meet:"出会い（準備中）", start:"はじめから"};
+const SRC_NAME = {special:"名のある忍・金色の野良忍者（秘宝）", shop:"店", quest:"任務の報酬", story:"本任務", dojo:"道場（準備中）", meet:"出会い（準備中）", start:"はじめから"};
 const EFF_NAME = {guard:n => `まちがい${n}回分のダメージを無効`, hint:n => `煙玉＋${n}`, time:n => `制限時間＋${n}秒`, crit:n => `会心率＋${n}%`, ryo:n => `報酬の両＋${n}%`};
 const START_GEAR = ["body0", "feet0", "weapon0"];
 // 装備の値段（店で買う値段）。売るときは半額（2026-11-23、教員の指示）
 const EQ_VALUE = [40, 150, 600, 2400, 6000];
-const sellPriceEq = it => Math.floor(EQ_VALUE[it.tier] / 2);
+const sellPriceEq = it => Math.floor(EQ_VALUE[it.tier] / 2) * (it.rare ? 2 : 1);
 // 持ち物に加える。図鑑（SAVE.got）は、売ったあとも「手に入れたことがある」として残す
 function addItem(id){ SAVE.inv[id] = 1; SAVE.got[id] = 1; }
 const BAG = {dango:{name:"団子", icon:"🍡", price:30, note:"任務中にHPを回復（最大HPの25%、最低20）"}, kemuri:{name:"煙玉", icon:"💨", price:50, note:"任務中のヒント（選択肢を2つ消す・「ない」の形を見せる）"}};
@@ -1194,7 +1221,7 @@ function stText(it){
   return a.concat(b).join("・");
 }
 function itemChip(it, extra){
-  return `<span class="eqicon" style="border-color:${TIER[it.tier].color}">${it.icon}</span><span class="eqname">${esc(it.name)}<small style="color:${TIER[it.tier].color}">${TIER[it.tier].name}</small>${extra || ""}</span>`;
+  return `<span class="eqicon${it.rare ? " rareic" : ""}" style="border-color:${TIER[it.tier].color}">${it.icon}</span><span class="eqname">${esc(it.name)}<small style="color:${TIER[it.tier].color}">${TIER[it.tier].name}</small>${it.rare ? `<span class="hiho">秘宝</span>` : ""}${extra || ""}</span>`;
 }
 
 /* =====================================================================
@@ -1896,7 +1923,7 @@ function startBattle(cfg){
   mgStart();
   $("quitBtn").textContent = cfg.mode === "wild" ? "🏃 逃げる" : "任務をやめる";
   PLAY.turn = 0; PLAY.stolen = 0; PLAY.fled = false;
-  $("hudName").textContent = cfg.mode === "wild" ? `🌿 野良忍者 ${cfg.foe.name} Lv${cfg.lv}` : cfg.mode === "story" ? `📜 ${ch.no}の章「${ch.name}」` : cfg.mode === "quest" ? `⚔️【${cfg.rank}】${QTYPES.find(x => x.ch === ch.id).name}` : `🎯 1問練習（${ch.no}の章）`;
+  $("hudName").textContent = cfg.mode === "wild" ? `${cfg.foe.special ? "✨ 名のある忍" : cfg.foe.golden ? "✨ 金色の" : "🌿 野良忍者"} ${cfg.foe.name} Lv${cfg.lv}` : cfg.mode === "story" ? `📜 ${ch.no}の章「${ch.name}」` : cfg.mode === "quest" ? `⚔️【${cfg.rank}】${QTYPES.find(x => x.ch === ch.id).name}` : `🎯 1問練習（${ch.no}の章）`;
   show("sPlay");
   renderQ();
 }
@@ -1940,16 +1967,16 @@ async function useJutsu(id){
 async function foeAfterTurn(){
   const p = PLAY; if(!p || p.foe.hp <= 0) return;
   p.turn++;
-  if(p.foe.ab === "heal" && p.turn % 4 === 0){
+  if(hasAb(p.foe, "heal") && p.turn % 4 === 0){
     const h = Math.round(p.foe.max * .12); p.foe.hp = Math.min(p.foe.max, p.foe.hp + h);
     $("foe").innerHTML = foeHtml(); dmgPop(`回復 ＋${h}`, "#9ff0b8", "foe");
   }
-  if(p.foe.ab === "flee" && p.turn >= 3){ p.fled = true; dmgPop("逃げた！", "#ffd23f", "foe"); }
+  if(hasAb(p.foe, "flee") && p.turn >= 3){ p.fled = true; dmgPop("逃げた！", "#ffd23f", "foe"); }
 }
 function foeAttack(mult){
   const p = PLAY; if(!p) return;
   p.charge = 0;
-  if(p.foe.ab === "rage" && p.foe.hp < p.foe.max / 2){ mult *= 1.5; if(!p.raged){ p.raged = true; dmgPop("怒った！", "#ff5c5c", "foe"); } }   // 能力【怒り】
+  if(hasAb(p.foe, "rage") && p.foe.hp < p.foe.max / 2){ mult *= 1.5; if(!p.raged){ p.raged = true; dmgPop("怒った！", "#ff5c5c", "foe"); } }   // 能力【怒り】
   // 属性を持つ敵は、jEvery回に1回（ふつうは3回に1回）術で攻撃してくる。術は結界で、ふつうの攻撃は守りで減らす
   p.atkCount++;
   const isJutsu = !!p.foe.elem && mult === 1 && p.atkCount % (p.foe.jEvery || 3) === 0;
@@ -1977,7 +2004,7 @@ function foeHtml(){
   const left = Math.max(1, f.every - PLAY.charge);
   const nextJutsu = !!f.elem && (PLAY.atkCount + 1) % (f.jEvery || 3) === 0;
   const kind = nextJutsu ? `${ELEM[f.elem].icon}術で` : "";
-  return `<div class="foe-ic">${f.boss ? pic("sekka") : f.icon}</div><div class="bossname">${elemTag(f.elem)} ${esc(f.name)}　HP ${Math.max(0, f.hp)}/${f.max}</div><div class="bosshp"><i style="width:${Math.max(0, f.hp / f.max * 100)}%"></i></div>` +
+  return `<div class="foe-ic${f.special ? " sp" : ""}${f.golden ? " gold" : ""}">${f.boss ? pic("sekka") : f.icon}</div><div class="bossname">${elemTag(f.elem)} ${esc(f.name)}　HP ${Math.max(0, f.hp)}/${f.max}</div><div class="bosshp"><i style="width:${Math.max(0, f.hp / f.max * 100)}%"></i></div>` +
     `<div class="foe-sub">守り${f.def || 0}・結界${f.res || 0}</div>` +
     `<div class="foe-next${left === 1 ? " soon" : ""}">${left === 1 ? `⚠️ 次の問題のあと${kind}攻撃してくる` : `あと${left}問で${kind}攻撃してくる`}</div>`;
 }
@@ -2042,7 +2069,7 @@ async function answer(btn){
     p.gauge = Math.min(jutsuMax(p.nin), p.gauge + 1);
     sfx.ok(); mgCorrect();
     const crit = Math.random() * 100 < p.crit;
-    const dodged = p.foe.ab === "dodge" && Math.random() < .18;   // 能力【かわす】
+    const dodged = hasAb(p.foe, "dodge") && Math.random() < .18;   // 能力【かわす】
     const dmg = dodged ? 0 : hitDamage(Math.round(p.atk * (crit ? 2 : 1) * (1 + Math.min(p.combo - 1, 5) * .05)), p.foe, crit);
     p.foe.hp -= dmg; p.dmgDealt += dmg;
     const xp = p.cfg.xp || 1; p.xpGot += xp; gainXp(xp);
@@ -2066,7 +2093,7 @@ async function answer(btn){
     sfx.ng(); mgWrong();
     if(p.cfg.mode !== "quick"){
       foeAttack(1.5);   // まちがい・時間切れは、その場で1.5倍の反撃
-      if(p.foe.ab === "steal" && SAVE.ryo > 0){   // 能力【盗み】
+      if(hasAb(p.foe, "steal") && SAVE.ryo > 0){   // 能力【盗み】
         const n = Math.min(SAVE.ryo, 3 + p.foe.lv * 2); SAVE.ryo -= n; p.stolen += n; saveSave(SAVE);
         setTimeout(() => dmgPop(`💰${n}両 盗まれた！`, "#ffd23f", "foe"), 400);
       }
@@ -2171,14 +2198,26 @@ function finishWild(p, win, r){
   let body = "", rewards = [];
   if(win === true){
     const bonus = 1 + battleStats().ryo / 100;
-    const g = Math.round(wildRyo(foe.lv, foe.kind) * bonus) + p.stolen;
+    const mul = foe.special ? {ryo:3, xp:3} : foe.golden ? {ryo:5, xp:2} : {ryo:1, xp:1};
+    const g = Math.round(wildRyo(foe.lv, foe.kind) * bonus * mul.ryo) + p.stolen;
     SAVE.ryo += g; rewards.push(`💰 ${g}両${p.stolen ? `（取り返した${p.stolen}両をふくむ）` : ""}`);
-    if(Math.random() < .12){ const d = wildDrop(foe.lv); if(d){ addItem(d.id); rewards.push(`${d.icon} ${d.name}（${TIER[d.tier].name}）`); } }
-    if(Math.random() < .25){ const k = pick(Object.keys(BAG)); SAVE.bag[k] = (SAVE.bag[k] || 0) + 1; rewards.push(`${BAG[k].icon} ${BAG[k].name}`); }
-    const xp = wildXp(foe.lv); p.xpGot += xp; gainXp(xp);
+    let rareGot = null;
+    if(foe.special){
+      // 名のある忍：はじめて倒したときは秘宝を必ず。2回目からは、持っていなければ3割で
+      const it = EQUIP[w.item], first = !(SAVE.dex[foe.kind] && SAVE.dex[foe.kind].beat);
+      if(!SAVE.inv[it.id] && (first || Math.random() < .3)) rareGot = it;
+    }else if(foe.golden && Math.random() < .5){
+      const pool = GOLD_RARES.map(id => EQUIP[id]).filter(it => !SAVE.inv[it.id]);
+      if(pool.length) rareGot = pick(pool);
+    }
+    if(rareGot){ addItem(rareGot.id); rewards.push(`<b class="hiho-get">${rareGot.icon} 秘宝「${rareGot.name}」</b>`); }
+    if(Math.random() < (foe.special || foe.golden ? .6 : .12)){ const d = wildDrop(foe.lv); if(d){ addItem(d.id); rewards.push(`${d.icon} ${d.name}（${TIER[d.tier].name}）`); } }
+    if(Math.random() < .25 || foe.special || foe.golden){ const k = pick(Object.keys(BAG)); const n = foe.special || foe.golden ? 2 : 1; SAVE.bag[k] = (SAVE.bag[k] || 0) + n; rewards.push(`${BAG[k].icon} ${BAG[k].name}${n > 1 ? "×" + n : ""}`); }
+    const xp = wildXp(foe.lv) * mul.xp; p.xpGot += xp; gainXp(xp);
+    if(rareGot) setTimeout(() => { const fl = $("specialFx"); fl.classList.remove("go"); void fl.offsetWidth; fl.classList.add("go"); [784, 988, 1175, 1568].forEach((f, i) => tone(f, .16, "triangle", .07, i * .1)); }, 300);
     SAVE.dex[foe.kind].beat++;
     saveSave(SAVE); sfx.clear();
-    body = `<div class="enc-ic">${w.icon}</div><h2>🎉 ${esc(w.name)}（Lv${foe.lv}）をたおした！</h2>`;
+    body = `<div class="enc-ic${foe.special ? " sp" : ""}${foe.golden ? " gold" : ""}">${w.icon}</div><h2>🎉 ${esc(foe.name)}（Lv${foe.lv}）をたおした！</h2>${foe.special ? `<p>「${esc(w.title)}」に勝った！ 里でうわさになるだろう。</p>` : ""}`;
   }else if(win === "fled"){
     body = `<div class="enc-ic">💨</div><h2>${esc(w.name)}に逃げられた……</h2><p>${p.stolen ? `盗まれた${p.stolen}両は戻らなかった。` : ""}次は早めに倒そう！</p>`;
   }else{
@@ -2211,19 +2250,19 @@ function finishWild(p, win, r){
 const FIELDS = [
   {name:"里の外れ",   lv:[1, 4],   tree:"🌳", rock:"🪨", bg:"#9fd08a", grass:"#7fbf63", path:"#e3cf9f",
    map:["TTTUUTTT","TGG..GGT","TGGG.GGT","T...GGGT","T.TTGG.T","T.GGGG.T","TGGG...T","TGG.TT.T","T...GGGT","TGG.GGGT","TGG...TT","TTTDDTTT"],
-   kinds:["hagure", "tanuki", "kaeru", "saru"]},
+   kinds:["hagure", "tanuki", "kaeru", "saru"], named:"kotaro"},
   {name:"竹林の小道", lv:[4, 9],   tree:"🎋", rock:"🪨", bg:"#8fca8a", grass:"#5fae5a", path:"#dcc79a",
    map:["TTTUUTTT","TGGG.GGT","TG.T.TGT","TG.GGG.T","T..GTG.T","TGGG.GGT","TTG..TGT","TGGG.GGT","T.TGGT.T","TG..GG.T","TGG..GGT","TTTDDTTT"],
-   kinds:["kaeru", "saru", "fukuro", "kitsune"]},
+   kinds:["kaeru", "saru", "fukuro", "kitsune"], named:"okina"},
   {name:"霧の川辺",   lv:[9, 16],  tree:"🌲", rock:"🪨", bg:"#9cc9e2", grass:"#6fb08a", path:"#d8c9a3",
    map:["TTTUUTTT","TGG..GGT","WWW==WWW","TGG..GGT","TG.GGG.T","TGGG.TTT","WWW=WWWW","TGG.GGGT","T..GGG.T","TGGG..GT","TGG..GGT","TTTDDTTT"],
-   kinds:["kitsune", "hebi", "koumori", "kumo"]},
+   kinds:["kitsune", "hebi", "koumori", "kumo"], named:"kasumi"},
   {name:"岩山の峠",   lv:[16, 25], tree:"🌲", rock:"🪨", bg:"#c9b89a", grass:"#8fae6a", path:"#d9c8a6",
    map:["RRRUURRR","RGG..GGR","RGRR.GGR","R..GG.RR","RG.RGG.R","RGG.GGGR","RR.GRR.R","RGGG..GR","R.RGG.GR","RG..GRGR","RGG..GGR","RRRDDRRR"],
-   kinds:["kumo", "ookami", "kuma", "taka"]},
+   kinds:["kumo", "ookami", "kuma", "taka"], named:"gozan"},
   {name:"影の森",     lv:[25, 35], tree:"🌲", rock:"🪨", bg:"#5f7a5c", grass:"#3f6a47", path:"#b9a888",
    map:["TTTTTTTT","TGGG.GGT","TG.TGG.T","TGG.GTGT","T.GGG..T","TGTG.GGT","TGG.GT.T","TT.GGGGT","TGGG.TGT","TG..GG.T","TGG..GGT","TTTDDTTT"],
-   kinds:["taka", "oni", "yurei", "ryu"]},
+   kinds:["taka", "oni", "yurei", "ryu"], named:"kokufu"},
 ];
 // 野良忍者の種類。hp・atk・def は倍率、every は攻撃の間（なしなら格どおり）、ab は能力、ch は出す問題の章
 const WILD = {
@@ -2242,6 +2281,12 @@ const WILD = {
   oni:     {name:"鬼忍",         icon:"👹", elem:"fire", hp:1.3, atk:1.2, def:1.2, ab:"rage",  ch:"any",  note:"影の森の主。怒ると恐ろしい"},
   yurei:   {name:"亡霊忍",       icon:"👻", elem:"water", hp:1.0, atk:1.0, def:.8,  ab:"barrier", ch:"any", note:"この世のものではない。術が効きにくい"},
   ryu:     {name:"龍忍",         icon:"🐉", elem:"wood", hp:1.4, atk:1.2, def:1.6, ab:"armor", ch:"any",  note:"伝説の忍。鱗が固い（忍術が効く）"},
+  // 名のある忍（特別な忍者）。地方ごとに1人。めったに出ない。強く、能力を2つ持ち、秘宝を落とす
+  kotaro:  {name:"つむじ風の小太郎", title:"里の外れの風使い",   icon:"🌪️", elem:"wood",  hp:1.6, atk:1.0, def:1.0, abs:["swift", "dodge"],  ch:"jo",  lv:5,  special:true, item:"rare_hachimaki", note:"風のように現れては消える、うわさの若き忍"},
+  okina:   {name:"竹取の翁忍",       title:"竹林の隠者",         icon:"🎍", elem:"wood",  hp:1.6, atk:.95, def:1.0, abs:["heal", "barrier"], ch:"ichi", lv:10, special:true, item:"rare_hagoromo",  note:"竹林の奥に住む老忍。月の光をまとう"},
+  kasumi:  {name:"水面の霞",         title:"霧の川の幻",         icon:"🌫️", elem:"water", hp:1.6, atk:1.0, def:1.0, abs:["dodge", "barrier"], ch:"ni",  lv:17, special:true, item:"rare_kasumi",    note:"霧と一体になった、なぞのくノ一"},
+  gozan:   {name:"岩砕きの剛山",     title:"峠の豪傑",           icon:"🪨", elem:"fire",  hp:1.8, atk:1.1, def:1.0, abs:["armor", "rage"],   ch:"san", lv:25, special:true, item:"rare_kote",      note:"素手で岩を砕くという大男"},
+  kokufu:  {name:"黒き風の主",       title:"影の森の支配者",     icon:"🌑", elem:"water", hp:1.8, atk:1.1, def:1.1, abs:["dodge", "rage"],   ch:"any", lv:36, special:true, item:"rare_katana",    note:"影の森の最も深い闇に住むという、伝説の忍"},
   koban:   {name:"小判鼠",       icon:"🐭", elem:"", hp:.6,  atk:.3,  def:2.0, ab:"flee",  ch:"any",  note:"めったに出ない。すぐ逃げるが、両をたくさん持っている", rare:true},
 };
 const ABILITY = {
@@ -2268,15 +2313,19 @@ function wildBase(lv){
 function makeWild(kind, lv){
   const w = WILD[kind], B = wildBase(lv);
   // 野良忍者は何度も戦うので、任務の敵より少し弱め（HP7割・攻撃85%）
-  const f = {kind, lv, icon:w.icon, name:w.name, ab:w.ab,
+  const f = {kind, lv, icon:w.icon, name:w.name, abs:abList(w), special:!!w.special,
     hp:Math.max(10, Math.round(B.hp * .7 * w.hp)), atk:Math.max(2, Math.round(B.atk * .85 * w.atk)), def:Math.round(B.def * w.def),
     res:Math.round(B.def * (w.res || 1)), elem:w.elem, every:lv < 4 ? 2 : 1};
-  if(w.ab === "swift") f.every = 1;
-  if(w.ab === "armor"){ f.def = Math.round(f.def * 2.2) + 5; f.res = Math.round(f.res * .5); }
-  if(w.ab === "barrier"){ f.res = Math.round(f.res * 3.5) + 8; f.def = Math.round(f.def * .5); f.jEvery = 2; }
+  const A = abList(w);
+  if(A.includes("swift")) f.every = 1;
+  if(A.includes("armor")){ f.def = Math.round(f.def * 2.2) + 5; f.res = Math.round(f.res * .5); }
+  if(A.includes("barrier")){ f.res = Math.round(f.res * 3.5) + 8; f.def = Math.round(f.def * .5); f.jEvery = 2; }
   return f;
 }
 const wildXp = lv => 3 + lv * 2;
+const abList = w => w.abs || (w.ab ? [w.ab] : []);
+const hasAb = (foe, a) => !!foe.abs && foe.abs.includes(a);
+const abText = w => abList(w).map(a => `<b>【${ABILITY[a].name}】</b>${ABILITY[a].text}`).join("<br>");
 const wildRyo = (lv, kind) => Math.round((4 + lv * 3) * (kind === "koban" ? 8 : 1));
 
 /* ---------- フィールドの表示と移動 ---------- */
@@ -2420,9 +2469,16 @@ async function stepTo(x, y){
 }
 async function encounter(){
   const F = FIELDS[FIELD.f];
-  const kind = Math.random() < .03 ? "koban" : pick(F.kinds);
-  const lv = F.lv[0] + Math.floor(Math.random() * (F.lv[1] - F.lv[0] + 1));
+  /* 出会い方：名のある忍 4%・小判鼠 3%・それ以外はふつうの野良忍者。ふつうの野良忍者は、2%で「金色の気」をまとっている */
+  const r = Math.random();
+  const kind = r < .04 ? F.named : r < .07 ? "koban" : pick(F.kinds);
+  const W = WILD[kind];
+  const lv = W.special ? W.lv : F.lv[0] + Math.floor(Math.random() * (F.lv[1] - F.lv[0] + 1));
   const foe = makeWild(kind, lv);
+  if(!W.special && kind !== "koban" && Math.random() < .02){
+    foe.golden = true; foe.name = "金色の" + foe.name;
+    foe.hp = Math.round(foe.hp * 1.25); foe.atk = Math.round(foe.atk * 1.15);
+  }
   SAVE.dex = SAVE.dex || {};
   const d = SAVE.dex[kind] = SAVE.dex[kind] || {seen:0, beat:0};
   d.seen++; saveSave(SAVE);
@@ -2431,9 +2487,19 @@ async function encounter(){
   [300, 500, 300, 700].forEach((f, i) => tone(f, .08, "square", .05, i * .09));
   await sleep(700);
   g.classList.remove("rustle");
-  const w = WILD[kind], ab = w.ab ? ABILITY[w.ab] : null;
-  modal(`<div class="enc-ic">${w.icon}</div><h3>野良忍者が現れた！</h3><p style="font-size:20px"><b>${w.name}</b>　Lv${lv}${d.beat ? "" : `　<span class="new">${d.seen > 1 ? "" : "はじめて！"}</span>`}</p>
-    <p style="font-size:13px">${w.note}<br>${ab ? `<b>能力【${ab.name}】</b>${ab.text}<br>` : ""}${foeStatText(foe)}</p>`,
+  const w = WILD[kind];
+  const sp = w.special || foe.golden;
+  if(sp){   // 特別な忍者の演出：画面が光り、特別な音
+    const fl = $("specialFx"); fl.classList.remove("go"); void fl.offsetWidth; fl.classList.add("go");
+    [523, 659, 784, 1046, 1318, 1568].forEach((f, i) => tone(f, .14, "triangle", .07, .2 + i * .08));
+    await sleep(900);
+  }
+  const head = w.special ? `<div class="sp-tag">✨ 名のある忍 ✨</div><h3>${esc(w.title)}が現れた！</h3>`
+    : foe.golden ? `<div class="sp-tag gold">✨ 金色の気をまとっている！ ✨</div><h3>めずらしい野良忍者が現れた！</h3>` : `<h3>野良忍者が現れた！</h3>`;
+  const prize = w.special ? `<p class="sp-prize">🎁 倒すと秘宝「${EQUIP[w.item].icon}${EQUIP[w.item].name}」が手に入る${SAVE.got[w.item] ? "かも" : "！"}・経験値と両が3倍</p>`
+    : foe.golden ? `<p class="sp-prize">🎁 倒すと、ときどき秘宝を落とす・経験値2倍・両5倍</p>` : "";
+  modal(`<div class="enc-ic${sp ? " sp" : ""}${foe.golden ? " gold" : ""}">${w.icon}</div>${head}<p style="font-size:20px"><b>${esc(foe.name)}</b>　Lv${lv}${d.beat ? "" : `　<span class="new">${d.seen > 1 ? "" : "はじめて！"}</span>`}</p>
+    <p style="font-size:13px">${w.note}<br>${abText(w)}${abList(w).length ? "<br>" : ""}${foeStatText(foe)}</p>${prize}`,
     [["戦う！", () => { closeModal(); startWild(foe); }], ["逃げる", () => { closeModal(); FIELD.safe = 4; fieldMsg("うまく逃げた……"); }]]);
 }
 function wildCh(w){
@@ -2453,9 +2519,10 @@ function showDex(){
   let html = `<h3>📖 野良忍者図鑑（${n}/${Object.keys(WILD).length}）</h3><div class="dex">`;
   Object.entries(WILD).forEach(([k, w]) => {
     const d = dex[k];
-    const where = FIELDS.filter(F => F.kinds.includes(k)).map(F => F.name).join("・") || "どこかの草むら（めったに出ない）";
+    const where = FIELDS.filter(F => F.kinds.includes(k) || F.named === k).map(F => F.name).join("・") || "どこかの草むら（めったに出ない）";
+    if(w.special && !(d && d.seen)){ html += `<div class="dexit unk sp"><span class="dic">✨</span><b>名のある忍　？？？</b><small>${where}（めったに出ない）</small></div>`; return; }
     html += d && d.seen
-      ? `<div class="dexit"><span class="dic">${w.icon}</span><b>${w.name} ${elemTag(w.elem)}</b><small>${w.ab ? `【${ABILITY[w.ab].name}】` : ""}${w.note}<br>出会った${d.seen}・倒した${d.beat}　｜${where}</small></div>`
+      ? `<div class="dexit${w.special ? " sp" : ""}"><span class="dic">${w.icon}</span><b>${w.special ? "✨" : ""}${w.name} ${elemTag(w.elem)}</b><small>${w.special ? `「${esc(w.title)}」Lv${w.lv}・秘宝：${SAVE.got[w.item] ? EQUIP[w.item].icon + EQUIP[w.item].name : "？？？"}<br>` : ""}${abList(w).map(a => `【${ABILITY[a].name}】`).join("")}${w.note}<br>出会った${d.seen}・倒した${d.beat}　｜${where}</small></div>`
       : `<div class="dexit unk"><span class="dic">？</span><b>？？？</b><small>${where}</small></div>`;
   });
   modal(html + `</div>`, [["とじる", closeModal]]);
