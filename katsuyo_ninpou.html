@@ -298,6 +298,15 @@
   .dmgpop{position:absolute;left:50%;top:10px;transform:translateX(-50%);font-size:26px;font-weight:bold;text-shadow:0 2px 0 #000;animation:dmg .9s ease both;pointer-events:none;z-index:5;white-space:nowrap}
   @keyframes dmg{0%{opacity:0;transform:translate(-50%,10px)}20%{opacity:1}100%{opacity:0;transform:translate(-50%,-40px)}}
   .choice.gone{opacity:.2}
+  .foe-sub{font-size:11px;color:#cfd6ea}
+  .etag{display:inline-block;border-radius:999px;padding:0 7px;font-size:11px;font-weight:bold;background:#888;color:#fff;vertical-align:middle}
+  .etag.e-fire{background:#e0532b}.etag.e-water{background:#2f7fd1}.etag.e-wood{background:#3f9a4a}
+  .elems{display:flex;gap:6px;flex-wrap:wrap}
+  .ebtn{flex:1;min-width:64px;border:2px solid #8c6a3a;background:#fff8e4;border-radius:10px;padding:6px;font-weight:bold;font-size:15px;color:var(--ink)}
+  .ebtn.on{color:#fff;background:#8c6a3a}
+  .ebtn.on.e-fire{background:#e0532b;border-color:#a33a1c}.ebtn.on.e-water{background:#2f7fd1;border-color:#1d5a99}.ebtn.on.e-wood{background:#3f9a4a;border-color:#2a6b32}
+  .jbtn.good{background:linear-gradient(135deg,#ffb300,#ff6f00);box-shadow:0 0 10px #ffd23f,0 3px 0 #9a3412}
+  .jbtn.bad{filter:saturate(.4)}
   .foe-next{font-size:12px;color:#cfd6ea;margin-top:2px}
   .foe-next.soon{color:#ffb3a8;font-weight:bold}
   .hud.hurt,#sPlayHud.hurt{animation:shake .35s}
@@ -905,7 +914,7 @@ const chIndex = id => CHAPTERS.findIndex(c => c.id === id);
    ・第1段階として、道場（コンピュータ対戦）と茶屋（出会い）は「準備中」。
    ===================================================================== */
 /* 忍者Lv（ゲームの中だけ）。経験値 SAVE.xp。次のLvまで 20＋(Lv−1)×10。 */
-const PTS_PER_LV = 3;
+const PTS_PER_LV = 4;   // ステータスが5つになったので4（2026-11-23）
 const xpForNext = lv => 20 + (lv - 1) * 10;
 function ninjaInfo(){
   let xp = SAVE.xp || 0, lv = 1;
@@ -939,29 +948,54 @@ const rankIdx = id => RANKS.findIndex(r => r.id === id);
 const STATS = [
   {id:"hp",  name:"体力",   icon:"❤️", note:"最大HPが増える（敵は毎問のように攻撃してくる）"},
   {id:"atk", name:"攻撃",   icon:"⚔️", note:"正解したときのダメージ（敵の守りの分だけ減る。1回で敵HPの15%まで）"},
-  {id:"def", name:"守り",   icon:"🛡️", note:"敵から受けるダメージを減らす（上げるほど効きはゆるやかに）"},
-  {id:"nin", name:"忍術",   icon:"🔥", note:"必殺技の威力が上がり、新しい術を覚える"},
+  {id:"def", name:"守り",   icon:"🛡️", note:"敵のふつうの攻撃から受けるダメージを減らす"},
+  {id:"nin", name:"忍術",   icon:"🔥", note:"術の威力が上がり、新しい術が使える"},
+  {id:"res", name:"結界",   icon:"🔮", note:"敵の術（火・水・木の攻撃）から受けるダメージを減らす"},
 ];
 
+/* ---------- 属性（2026-11-23、教員の指示：火・水・木をジャンケンの関係に） ----------
+   火は木に強く、木は水に強く、水は火に強い。
+   ・こちらの術：相性が良い敵には2倍、悪い敵には半分。自分の「得意属性」と同じ属性の術は1.25倍。
+   ・敵の術：自分の得意属性との相性で、受けるダメージが1.5倍／0.6倍。結界で減らせる。 */
+const ELEM = {
+  fire: {name:"火", icon:"🔥", beats:"wood"},
+  water:{name:"水", icon:"💧", beats:"fire"},
+  wood: {name:"木", icon:"🍃", beats:"water"},
+};
+const elemTag = e => e ? `<span class="etag e-${e}">${ELEM[e].icon}${ELEM[e].name}</span>` : `<span class="etag">無</span>`;
+function affinity(a, d){ if(!a || !d) return 1; if(ELEM[a].beats === d) return 2; if(ELEM[d].beats === a) return .5; return 1; }
+const defAffinity = (foeElem, myElem) => { const a = affinity(foeElem, myElem); return a > 1 ? 1.5 : a < 1 ? .6 : 1; };
+
 /* ---------- 忍術（必殺技） ----------
-   正解するたびに術ゲージが1たまり、JUTSU_MAX で満タン。満タンのとき、覚えている術を1つ使える（ゲージは0に戻る）。
-   術は「忍術」のステータスがしきい値（need）以上のときだけ使える（下げると使えなくなる）。威力も「忍術」で上がる。 */
+   正解するたびに術ゲージが1たまり、満タンのとき、使える術を1つ使える（ゲージは0に戻る）。
+   術は「忍術」のステータスがしきい値（need）以上のときだけ使える（下げると使えなくなる）。威力も「忍術」で上がる。
+   攻撃の術は、敵の「結界」の分だけ減る（最低でも1割は通る）。1回で敵の最大HPの30%（相性が良ければ45%）まで。 */
 const JUTSU_MAX = 3;
-// 忍術が20以上なら、正解2回で満タン（忍術に振る意味を持たせる。鎧の敵に強い）
-const jutsuMax = nin => nin >= 20 ? 2 : JUTSU_MAX;
+// 忍術が30以上なら、正解2回で満タン
+const jutsuMax = nin => nin >= 30 ? 2 : JUTSU_MAX;
 const JUTSU = [
-  {id:"katon",   name:"火遁・炎の術",     icon:"🔥", need:0,  text:b => `敵の守りを無視して${jutsuDmg("katon", b)}ダメージ`},
-  {id:"suiton",  name:"水遁・癒しの術",   icon:"💧", need:8,  text:b => `HPを${10 + b.nin * 2}回復`},
-  {id:"bunshin", name:"分身の術",         icon:"👥", need:18, text:b => `次の攻撃${b.nin >= 35 ? 3 : 2}回分のダメージを無効`},
-  {id:"raiton",  name:"雷遁・稲妻落とし", icon:"⚡", need:30, text:b => `敵の守りを無視して${jutsuDmg("raiton", b)}ダメージ`},
+  {id:"katon",   name:"火遁・炎の術",     icon:"🔥", elem:"fire",  need:0,  kind:"atk"},
+  {id:"suiton",  name:"水遁・激流の術",   icon:"💧", elem:"water", need:4,  kind:"atk"},
+  {id:"mokuton", name:"木遁・木の葉嵐",   icon:"🍃", elem:"wood",  need:8,  kind:"atk"},
+  {id:"iyashi",  name:"癒しの術",         icon:"💚", need:12, kind:"heal"},
+  {id:"bunshin", name:"分身の術",         icon:"👥", need:20, kind:"guard"},
+  {id:"raiton",  name:"雷遁・稲妻落とし", icon:"⚡", need:30, kind:"atk", big:true},
 ];
 const jutsuKnown = nin => JUTSU.filter(j => nin >= j.need);
-// 術のダメージは「忍術」だけで決まる（攻撃は関係しない）。1回で敵の最大HPの30%まで
-const jutsuDmg = (id, b) => id === "katon" ? 12 + b.nin * 3 : 25 + b.nin * 5;
-// 自宅の忍術の欄。「忍術」が足りない術は使えない（覚えたままにはならない。2026-11-23、教員の指示）
+// 術の威力（相性・敵の結界の前）
+function jutsuPower(j, b){
+  const base = j.big ? 25 + b.nin * 5 : 12 + b.nin * 3;
+  return Math.round(base * (j.elem && SAVE.elem === j.elem ? 1.25 : 1));
+}
+function jutsuText(j, b){
+  if(j.kind === "heal") return `HPを${10 + b.nin * 2}回復`;
+  if(j.kind === "guard") return `次の攻撃${b.nin >= 35 ? 3 : 2}回分のダメージを無効`;
+  return `${j.elem ? elemTag(j.elem) : "属性なし"} 威力${jutsuPower(j, b)}${j.elem && SAVE.elem === j.elem ? "（得意属性で1.25倍）" : ""}`;
+}
+// 自宅の忍術の欄。「忍術」が足りない術は使えない（覚えたままにはならない）
 function jutsuListHtml(b){
   return JUTSU.map(j => b.nin >= j.need
-    ? `<div class="jrow"><span class="jic">${j.icon}</span><b>${j.name}</b><small>${j.text(b)}</small></div>`
+    ? `<div class="jrow"><span class="jic">${j.icon}</span><b>${j.name}</b><small>${jutsuText(j, b)}</small></div>`
     : `<div class="jrow locked"><span class="jic">🔒</span><b>${j.need ? "？？？" : j.name}</b><small>忍術${j.need}以上で使える</small></div>`).join("");
 }
 
@@ -983,16 +1017,16 @@ const TIER = [
 const TIER_VAL = [1, 3, 5, 8, 12];
 // [部位, 主なステータス, 副ステータス, [5段階の名前], [5段階の絵文字]]
 const EQ_DEF = [
-  ["head",   "nin", "def", ["鉢巻","頭巾","鉢金","鎖頭巾","龍の兜"],             ["🎀","🧣","⛑️","🪖","🐉"]],
-  ["face",   "def", "nin", ["布面","半頬","面頬","鬼面","影の面"],               ["😷","🎭","👺","👹","🌑"]],
-  ["neck",   "nin", "hp",  ["首巻","数珠","勾玉の首飾り","鈴の首飾り","天狗の数珠"], ["🧶","📿","🧿","🔔","🪶"]],
+  ["head",   "nin", "res", ["鉢巻","頭巾","鉢金","鎖頭巾","龍の兜"],             ["🎀","🧣","⛑️","🪖","🐉"]],
+  ["face",   "def", "res", ["布面","半頬","面頬","鬼面","影の面"],               ["😷","🎭","👺","👹","🌑"]],
+  ["neck",   "res", "hp",  ["首巻","数珠","勾玉の首飾り","鈴の首飾り","天狗の数珠"], ["🧶","📿","🧿","🔔","🪶"]],
   ["body",   "hp",  "def", ["野良着","忍装束","鎖帷子","黒影装束","天衣"],         ["👕","🥋","⛓️","🖤","✨"]],
   ["arm",    "def", "hp",  ["腕巻","籠手","鉄籠手","鎖籠手","鬼神の籠手"],         ["🩹","🦾","🔩","⛓️","💪"]],
   ["hand",   "atk", "nin", ["手甲","革手甲","手甲鉤","鋼の手甲鉤","雷神の手甲"],     ["🧤","🥊","🦅","🪝","⚡"]],
-  ["waist",  "hp",  "def", ["帯","忍び帯","道具帯","鎖帯","龍の帯"],             ["🎗️","🎌","🧰","⛓️","🐲"]],
+  ["waist",  "hp",  "res", ["帯","忍び帯","道具帯","鎖帯","龍の帯"],             ["🎗️","🎌","🧰","⛓️","🐲"]],
   ["pants",  "def", "hp",  ["股引","忍袴","鎖袴","影袴","天狗袴"],              ["👖","🩳","⛓️","🌘","🌀"]],
   ["legs",   "hp",  "def", ["脚絆","布の脛当て","脛当て","鉄の脛当て","風神の脛当て"], ["🦵","🧦","🛡️","🔩","🌪️"]],
-  ["feet",   "nin", "hp",  ["草鞋","足袋","忍び足袋","水蜘蛛","韋駄天の足袋"],     ["🩴","🧦","👟","🕸️","💨"]],
+  ["feet",   "nin", "res", ["草鞋","足袋","忍び足袋","水蜘蛛","韋駄天の足袋"],     ["🩴","🧦","👟","🕸️","💨"]],
   ["weapon", "atk", "nin", ["苦無","手裏剣","忍び刀","鎖鎌","影打ちの刀"],       ["🔪","🌀","🗡️","⛓️","⚔️"]],
 ];
 const EQUIP = {};
@@ -1004,10 +1038,10 @@ EQ_DEF.forEach(([slot, main, sub, names, icons]) => names.forEach((name, t) => {
 }));
 // 装飾品（2か所に着けられる。同じものを2つは着けられない）
 [
-  ["acc_omamori", 0, "お守り",     "🧧", {hp:1},           {guard:1}, ["shop"]],
+  ["acc_omamori", 0, "お守り",     "🧧", {res:1},          {guard:1}, ["shop"]],
   ["acc_suzu",    1, "鈴",         "🔔", {nin:3},          {time:3},  ["shop"]],
   ["acc_magatama",2, "勾玉",       "🟢", {nin:3, atk:2},   {crit:5},  ["quest", "story"]],
-  ["acc_makimono",2, "巻物入れ",   "🎒", {nin:4},          {hint:2},  ["quest"]],
+  ["acc_makimono",2, "巻物入れ",   "🎒", {res:4},          {hint:2},  ["quest"]],
   ["acc_neko",    3, "招き猫",     "🐈", {nin:4, hp:4},    {ryo:30},  ["meet"]],
   ["acc_hoju",    4, "龍の宝珠",   "🔮", {hp:6, atk:6},    {guard:2, crit:10}, ["dojo"]],
 ].forEach(([id, t, name, icon, st, eff, src]) => EQUIP[id] = {id, slot:"acc", tier:t, name, icon, st, eff, req:{lv:TIER[t].lv}, src});
@@ -1066,10 +1100,11 @@ function effTotals(){
 function battleStats(){
   const s = statTotals(), e = effTotals();
   return {
-    maxHp: 20 + s.hp * 5,
+    maxHp: 20 + s.hp * 4,
     atk: 8 + s.atk * 2,
     def: s.def,
     nin: s.nin,
+    res: s.res || 0,
     time: e.time,
     hints: e.hint,
     crit: Math.min(40, e.crit),
@@ -1088,11 +1123,20 @@ function battleStats(){
           → どんなに攻撃を上げても、最低7問は答えないと倒せない。その間に受けるダメージに耐える体力・守りが要る。
         ⑤敵の攻撃力は、シミュレーション（正答率85%）で「均等に振ると約9割勝てる・1つだけに振ると中忍以上でほぼ勝てない」
           ように決めた。本任務の敵は、正答率65%でも約9割勝てるやさしさにしてある。
+        ⑥（2026-11-23、結界と属性を追加）属性のある敵は3回に1回（結界の敵は2回に1回）術で攻撃し、それは「結界」で減らす。
+          「鎧」の敵は守りが固く（ふつうの攻撃は1割しか通らない）→ 忍術に振った忍者が有利（シミュレーションで約9割 対 3〜6割）。
+          「結界」の敵は結界が固い → 術がほぼ効かず、ふつうの攻撃と、相手の術を防ぐ結界が大事。
         ③受けるダメージ＝敵の攻撃×40÷(40＋守り×3)。上げるほど効くが、ゼロにはならない。
         ④装備の値を小さくした（TIER_VAL）。忍術（術）は敵の守りを無視するので、守りの固い敵に強い。
    ===================================================================== */
+// 術のダメージ：威力×相性−敵の結界（最低1割）。1回で最大HPの30%（相性が良ければ45%）まで
+function jutsuHit(power, aff, foe){
+  const raw = Math.round(power * aff);
+  const d = Math.max(Math.ceil(raw * .1), raw - (foe.res || 0));
+  return Math.max(1, Math.min(d, Math.ceil(foe.max * (aff > 1 ? .45 : .3))));
+}
 function hitDamage(raw, foe, crit){
-  const d = Math.max(Math.ceil(raw * .2), raw - (foe.def || 0));
+  const d = Math.max(Math.ceil(raw * .1), raw - (foe.def || 0));   // 守りの固い敵には、最低1割しか通らない
   return Math.max(1, Math.min(d, Math.ceil(foe.max * (crit ? .2 : .15))));
 }
 const takenDamage = (atk, def, mult) => Math.max(1, Math.round(atk * (mult || 1) * 40 / (40 + def * 3)));
@@ -1205,41 +1249,42 @@ function panel(title, html){
    ===================================================================== */
 const STORY_ORDER = ["jo", "ichi", "ni", "san", "shi", "tsui"];
 const STORY_FOE = {
-  jo:   {icon:"🗿", name:"石になった言葉", hp:40,  atk:3,  def:0, every:2, time:30, ryo:60,  item:"head0"},
-  ichi: {icon:"👺", name:"石化丸の手下",   hp:60,  atk:5,  def:0, every:2, time:28, ryo:80,  item:"arm0"},
-  ni:   {icon:"👤", name:"化けた手下",     hp:80,  atk:7,  def:2, every:2, time:26, ryo:100, item:"neck0"},
-  san:  {icon:"🎭", name:"偽忍者",         hp:90,  atk:8,  def:3, every:1, time:26, ryo:120, item:"legs0"},
-  shi:  {icon:"🐛", name:"紙食い虫の親玉", hp:120, atk:9,  def:3, every:1, time:32, ryo:150, item:"waist0"},
-  tsui: {icon:"🗿", name:"石化丸",         hp:160, atk:12, def:6, every:1, time:32, ryo:300, item:"acc_magatama", boss:true},
+  jo:   {icon:"🗿", name:"石になった言葉", hp:40,  atk:3,  def:0, res:0, elem:"",      every:2, time:30, ryo:60,  item:"head0"},
+  ichi: {icon:"👺", name:"石化丸の手下",   hp:60,  atk:5,  def:0, res:0, elem:"fire",  every:2, time:28, ryo:80,  item:"arm0"},
+  ni:   {icon:"👤", name:"化けた手下",     hp:80,  atk:7,  def:2, res:2, elem:"water", every:2, time:26, ryo:100, item:"neck0"},
+  san:  {icon:"🎭", name:"偽忍者",         hp:90,  atk:8,  def:3, res:3, elem:"wood",  every:1, time:26, ryo:120, item:"legs0"},
+  shi:  {icon:"🐛", name:"紙食い虫の親玉", hp:120, atk:9,  def:6, res:1, elem:"wood",  every:1, time:32, ryo:150, item:"waist0"},
+  tsui: {icon:"🗿", name:"石化丸",         hp:160, atk:10, def:6, res:6, elem:"fire",  every:1, time:32, ryo:300, item:"acc_magatama", boss:true},
 };
 const QTYPES = [
-  {ch:"jo",   name:"変装札の調達",       icon:"🦝", foe:"札泥棒の狸",   trait:"swift", desc:"固まった言葉に合う変装札を取り返せ（語幹と活用語尾）"},
-  {ch:"ichi", name:"合言葉の伝令",       icon:"👺", foe:"関所の見張り", trait:"",      desc:"合言葉で術を見分けて、関所を通れ（活用形）"},
-  {ch:"ni",   name:"潜入者のあぶり出し", icon:"👤", foe:"化けた手下",   trait:"",      desc:"「ない」の煙玉で正体を見抜け（活用の種類）"},
-  {ch:"san",  name:"偽忍者狩り",         icon:"🎭", foe:"偽忍者",       trait:"swift", desc:"一段に見える五段を見破れ"},
-  {ch:"shi",  name:"巻物の修復",         icon:"🐛", foe:"紙食い虫",     trait:"giant", desc:"破れた活用表を直せ（活用表）"},
-  {ch:"tsui", name:"密書の解読",         icon:"🦹", foe:"敵の密偵",     trait:"armor", desc:"文の中の活用形と流派を見抜け"},
+  {ch:"jo",   name:"変装札の調達",       icon:"🦝", foe:"札泥棒の狸",   elem:"wood",  trait:"swift", desc:"固まった言葉に合う変装札を取り返せ（語幹と活用語尾）"},
+  {ch:"ichi", name:"合言葉の伝令",       icon:"👺", foe:"関所の見張り", elem:"fire",  trait:"barrier", desc:"合言葉で術を見分けて、関所を通れ（活用形）"},
+  {ch:"ni",   name:"潜入者のあぶり出し", icon:"👤", foe:"化けた手下",   elem:"water", trait:"",      desc:"「ない」の煙玉で正体を見抜け（活用の種類）"},
+  {ch:"san",  name:"偽忍者狩り",         icon:"🎭", foe:"偽忍者",       elem:"wood",  trait:"swift", desc:"一段に見える五段を見破れ"},
+  {ch:"shi",  name:"巻物の修復",         icon:"🐛", foe:"紙食い虫",     elem:"fire",  trait:"giant", desc:"破れた活用表を直せ（活用表）"},
+  {ch:"tsui", name:"密書の解読",         icon:"🦹", foe:"敵の密偵",     elem:"water", trait:"armor", desc:"文の中の活用形と流派を見抜け"},
 ];
 // 敵の格ごとの強さ。every＝何問ごとに攻撃してくるか
 const QRANK = {
-  D:{hp:50,  atk:10,  def:0,  every:2, time:25, ryo:30,  xp:2},
-  C:{hp:140, atk:22,  def:8,  every:1, time:20, ryo:60,  xp:3},
-  B:{hp:240, atk:48,  def:16, every:1, time:17, ryo:120, xp:4},
-  A:{hp:360, atk:100, def:26, every:1, time:14, ryo:250, xp:5},
-  S:{hp:500, atk:200, def:38, every:1, time:12, ryo:500, xp:6},
+  D:{hp:50,  atk:12,  def:0,  res:0,  every:2, time:25, ryo:30,  xp:2},
+  C:{hp:140, atk:23,  def:8,  res:8,  every:1, time:20, ryo:60,  xp:3},
+  B:{hp:240, atk:56,  def:16, res:16, every:1, time:17, ryo:120, xp:4},
+  A:{hp:360, atk:112, def:26, res:26, every:1, time:14, ryo:250, xp:5},
+  S:{hp:500, atk:250, def:38, res:38, every:1, time:12, ryo:500, xp:6},
 };
-// 敵の特徴：すばやい（攻撃の間が短い）／鎧（守りが固い→忍術が効く）／巨体（HPと攻撃が高い）
+// 敵の特徴：すばやい（攻撃の間が短い）／鎧（攻撃に強い）／結界（術に強い・術をよく使う）／巨体（HPと攻撃が高い）
 const TRAITS = {
   swift:{name:"すばやい", note:"攻撃の間が短い", f:R => Object.assign({}, R, {every:Math.max(1, R.every - 1), atk:Math.round(R.atk * .85)})},
-  armor:{name:"鎧",       note:"守りが固い。忍術が効く", f:R => Object.assign({}, R, {def:Math.round(R.def * 1.6) + 4, hp:Math.round(R.hp * .85)})},
+  armor:{name:"鎧（攻撃に強い）",   note:"守りが固く、結界は弱い。術で攻めよう", f:R => Object.assign({}, R, {def:Math.round(R.def * 2.2) + 5, res:Math.round(R.res * .5), hp:Math.round(R.hp * .85)})},
+  barrier:{name:"結界（術に強い）", note:"結界が固く、守りは弱い。ふつうの攻撃で攻めよう", f:R => Object.assign({}, R, {res:Math.round(R.res * 3.5) + 8, def:Math.round(R.def * .5), jEvery:2})},
   giant:{name:"巨体",     note:"HPと攻撃が高い", f:R => Object.assign({}, R, {hp:Math.round(R.hp * 1.35), atk:Math.round(R.atk * 1.15)})},
 };
 function questFoe(o){
   const t = QTYPES.find(x => x.ch === o.ch);
-  const R = t.trait ? TRAITS[t.trait].f(QRANK[o.rank]) : QRANK[o.rank];
+  const R = Object.assign({elem:t.elem}, t.trait ? TRAITS[t.trait].f(QRANK[o.rank]) : QRANK[o.rank]);
   return {t, R};
 }
-const foeStatText = R => `HP${R.hp}・攻撃${R.atk}・守り${R.def}・${R.every === 1 ? "毎問" : R.every + "問ごと"}に攻撃`;
+const foeStatText = R => `${elemTag(R.elem)} HP${R.hp}・攻撃${R.atk}・守り${R.def}・結界${R.res || 0}・${R.every === 1 ? "毎問" : R.every + "問ごと"}に攻撃`;
 function nextStory(){ return STORY_ORDER.find(id => !chCleared(id)) || null; }
 function availableQTypes(){ return QTYPES.filter(q => chCleared(q.ch)); }
 // 提案する任務を3つにそろえる（今の段位とその1つ下が中心。ときどき1つ上の「腕試し」も出す）
@@ -1289,7 +1334,7 @@ function acceptQuest(k){
   const o = SAVE.offers[k]; if(!o) return;
   const {t, R} = questFoe(o);
   const ch = CHAPTERS[chIndex(o.ch)];
-  const cfg = {mode:"quest", ch, offer:o, foe:{icon:t.icon, name:t.foe, hp:R.hp, atk:R.atk, def:R.def, every:R.every}, time:R.time, ryo:R.ryo, xp:R.xp, rank:o.rank};
+  const cfg = {mode:"quest", ch, offer:o, foe:{icon:t.icon, name:t.foe, hp:R.hp, atk:R.atk, def:R.def, res:R.res, elem:R.elem, jEvery:R.jEvery, every:R.every}, time:R.time, ryo:R.ryo, xp:R.xp, rank:o.rank};
   sfx.tap();
   modal(`<div class="big">${t.icon}</div><h3>【${o.rank}】${esc(t.name)}</h3><p>${esc(t.desc)}</p><p>相手：<b>${esc(t.foe)}</b>${t.trait ? `【${TRAITS[t.trait].name}：${TRAITS[t.trait].note}】` : ""}<br>${foeStatText(R)}<br>1問の制限時間：${R.time}秒</p>`,
     [["出発！", () => { closeModal(); startBattle(cfg); }],
@@ -1367,9 +1412,12 @@ function showHome(){
       <small class="stnote">${st.note}</small></div>`;
   });
   html += `</div><div class="btn-row" style="margin-top:6px"><button class="iconbtn dark" onclick="resetAlloc()">振り直す</button></div>
-    <div class="bstats" id="hBstats">HP <b>${b.maxHp}</b>　攻撃力 <b>${b.atk}</b>　受けるダメージ <b>${takenPct(b.def)}%</b>　忍術 <b>${b.nin}</b>${b.time ? `　時間 <b>+${b.time}秒</b>` : ""}${b.hints ? `　煙玉 <b>+${b.hints}</b>` : ""}${b.crit ? `　会心 <b>${b.crit}%</b>` : ""}${b.guard ? `　無効 <b>${b.guard}回</b>` : ""}${b.ryo ? `　両 <b>+${b.ryo}%</b>` : ""}</div>
+    <div class="bstats" id="hBstats">HP <b>${b.maxHp}</b>　攻撃力 <b>${b.atk}</b>　受けるダメージ：ふつう<b>${takenPct(b.def)}%</b>・術<b>${takenPct(b.res)}%</b>　忍術 <b>${b.nin}</b>${b.time ? `　時間 <b>+${b.time}秒</b>` : ""}${b.hints ? `　煙玉 <b>+${b.hints}</b>` : ""}${b.crit ? `　会心 <b>${b.crit}%</b>` : ""}${b.guard ? `　無効 <b>${b.guard}回</b>` : ""}${b.ryo ? `　両 <b>+${b.ryo}%</b>` : ""}</div>
+    <h3 class="sec">得意属性</h3>
+    <div class="elems">${[["", "なし"], ["fire"], ["water"], ["wood"]].map(([e, n]) => `<button class="ebtn${(SAVE.elem || "") === e ? " on" : ""} ${e ? "e-" + e : ""}" onclick="setElem('${e}')">${e ? ELEM[e].icon + ELEM[e].name : n}</button>`).join("")}</div>
+    <p class="note-dark">🔥火は🍃木に強く、🍃木は💧水に強く、💧水は🔥火に強い。<br>得意属性と同じ属性の術は1.25倍。敵の術は、得意属性に強い属性だと1.5倍、弱い属性だと0.6倍のダメージ。行き先の敵に合わせて選ぼう。</p>
     <h3 class="sec">忍術（必殺技）</h3><div class="jlist" id="hJutsu">${jutsuListHtml(b)}</div>
-    <p class="note-dark">任務中、正解${JUTSU_MAX}回（忍術20以上なら2回）で術ゲージが満タンになり、術を使える。<br>使える術は、そのときの「忍術」の値で決まる（下げると使えなくなる）。</p>
+    <p class="note-dark">任務中、正解${JUTSU_MAX}回（忍術30以上なら2回）で術ゲージが満タンになり、術を使える。<br>使える術は、そのときの「忍術」の値で決まる（下げると使えなくなる）。</p>
     <h3 class="sec">装備</h3><div class="slots">`;
   SLOTS.forEach(sl => {
     const it = EQUIP[SAVE.equip[sl.id]];
@@ -1405,7 +1453,7 @@ function refreshHomeNumbers(){
   });
   const jl = $("hJutsu"); if(jl) jl.innerHTML = jutsuListHtml(b);   // 押し続けている間も、使える術をその場で変える
   const bs = $("hBstats");
-  if(bs) bs.innerHTML = `HP <b>${b.maxHp}</b>　攻撃力 <b>${b.atk}</b>　受けるダメージ <b>${takenPct(b.def)}%</b>　忍術 <b>${b.nin}</b>${b.time ? `　時間 <b>+${b.time}秒</b>` : ""}${b.hints ? `　煙玉 <b>+${b.hints}</b>` : ""}${b.crit ? `　会心 <b>${b.crit}%</b>` : ""}${b.guard ? `　無効 <b>${b.guard}回</b>` : ""}${b.ryo ? `　両 <b>+${b.ryo}%</b>` : ""}`;
+  if(bs) bs.innerHTML = `HP <b>${b.maxHp}</b>　攻撃力 <b>${b.atk}</b>　受けるダメージ：ふつう<b>${takenPct(b.def)}%</b>・術<b>${takenPct(b.res)}%</b>　忍術 <b>${b.nin}</b>${b.time ? `　時間 <b>+${b.time}秒</b>` : ""}${b.hints ? `　煙玉 <b>+${b.hints}</b>` : ""}${b.crit ? `　会心 <b>${b.crit}%</b>` : ""}${b.guard ? `　無効 <b>${b.guard}回</b>` : ""}${b.ryo ? `　両 <b>+${b.ryo}%</b>` : ""}`;
 }
 function bindHold(){
   document.querySelectorAll("#pBody .hold").forEach(btn => {
@@ -1442,6 +1490,7 @@ function holdEnd(silent){
   saveSave(SAVE);
   if(silent !== true) showHome();
 }
+function setElem(e){ SAVE.elem = e; saveSave(SAVE); sfx.tap(); showHome(); }
 function alloc(id, n){
   const ni = ninjaInfo(), free = ni.points - allocSpent();
   const cur = SAVE.alloc[id] || 0;
@@ -1536,7 +1585,7 @@ function openChapter(id){
   sfx.tap();
   const ch = CHAPTERS[chIndex(id)], f = STORY_FOE[id];
   CUR = ch;
-  const go = () => startBattle({mode:"story", ch, foe:{icon:f.icon, name:f.name, hp:f.hp, atk:f.atk, def:f.def, every:f.every, boss:f.boss}, time:f.time, ryo:f.ryo, xp:2});
+  const go = () => startBattle({mode:"story", ch, foe:{icon:f.icon, name:f.name, hp:f.hp, atk:f.atk, def:f.def, res:f.res, elem:f.elem, every:f.every, boss:f.boss}, time:f.time, ryo:f.ryo, xp:2});
   playStory(ch.intro, () => { SAVE.seen[ch.id] = 1; saveSave(SAVE); showLessonFor(ch, go); });
 }
 function startQuick(ch){
@@ -1731,7 +1780,7 @@ function startBattle(cfg){
   const b = battleStats(), ch = cfg.ch;
   CUR = ch;
   PLAY = {cfg, ch, qs:makeQuestions(ch), i:0, ok:0, ng:0, combo:0, maxCombo:0, lock:false, wrongList:[],
-    hp:b.maxHp, maxHp:b.maxHp, atk:b.atk, def:b.def, nin:b.nin, crit:b.crit, guard:b.guard, hints:b.hints, gauge:0, jutsu:jutsuKnown(b.nin),
+    hp:b.maxHp, maxHp:b.maxHp, atk:b.atk, def:b.def, nin:b.nin, res:b.res, atkCount:0, crit:b.crit, guard:b.guard, hints:b.hints, gauge:0, jutsu:jutsuKnown(b.nin),
     foe:Object.assign({}, cfg.foe, {max:cfg.foe.hp}), timeBase:cfg.time + b.time, lv0:ninjaInfo().lv, dmgDealt:0, charge:0, xpGot:0};
   if(cfg.mode === "quick") PLAY.qs = [pick(PLAY.qs)];
   mgStart();
@@ -1751,7 +1800,8 @@ function renderHud(){
   const gmax = jutsuMax(p.nin), full = p.gauge >= gmax;
   $("hudJutsu").innerHTML = p.cfg.mode === "quick" ? "" :
     `<span class="jgauge${full ? " full" : ""}">術 ${"●".repeat(Math.min(p.gauge, gmax))}${"○".repeat(Math.max(0, gmax - p.gauge))}</span>` +
-    (full ? p.jutsu.map(j => `<button class="jbtn" ${p.lock ? "disabled" : ""} onclick="useJutsu('${j.id}')">${j.icon} ${j.name}</button>`).join("") : "");
+    (full ? p.jutsu.map(j => { const a = j.kind === "atk" ? affinity(j.elem, p.foe.elem) : 1;
+      return `<button class="jbtn${a > 1 ? " good" : a < 1 ? " bad" : ""}" ${p.lock ? "disabled" : ""} onclick="useJutsu('${j.id}')">${j.icon} ${j.name}${a > 1 ? " ◎" : a < 1 ? " △" : ""}</button>`; }).join("") : "");
 }
 async function useJutsu(id){
   const p = PLAY; if(!p || p.lock || p.gauge < jutsuMax(p.nin)) return;
@@ -1761,14 +1811,16 @@ async function useJutsu(id){
   big.innerHTML = `<div class="jfx-ic">${j.icon}</div><div class="jfx-nm">${j.name}！</div>`;
   big.classList.remove("go"); void big.offsetWidth; big.classList.add("go");
   [523, 784, 1046, 1568].forEach((f, i) => tone(f, .15, "sawtooth", .06, i * .07));
-  if(id === "katon" || id === "raiton"){
-    const dmg = Math.min(jutsuDmg(id, p), Math.ceil(p.foe.max * .3));   // 守りは無視。1回で最大HPの30%まで
+  if(j.kind === "atk"){
+    const a = affinity(j.elem, p.foe.elem);
+    const dmg = jutsuHit(jutsuPower(j, p), a, p.foe);
     p.foe.hp -= dmg; p.dmgDealt += dmg;
     $("foe").innerHTML = foeHtml(); $("foe").classList.remove("hit"); void $("foe").offsetWidth; $("foe").classList.add("hit");
-    dmgPop(`−${dmg}`, "#ffb347", "foe");
-  }else if(id === "suiton"){
+    dmgPop(`${a > 1 ? "相性◎ " : a < 1 ? "相性△ " : ""}−${dmg}`, a > 1 ? "#ffd23f" : "#ffb347", "foe");
+    if(a !== 1) setTimeout(() => flash(a > 1 ? "弱点を突いた！" : "相性が悪い……", a > 1 ? "#ffd23f" : "#b0c4de"), 500);
+  }else if(j.kind === "heal"){
     const h = 10 + p.nin * 2; p.hp = Math.min(p.maxHp, p.hp + h); dmgPop(`＋${h}`, "#9ff0b8", "sPlayHud");
-  }else if(id === "bunshin"){
+  }else if(j.kind === "guard"){
     p.guard += p.nin >= 35 ? 3 : 2; dmgPop("分身！", "#9fd3ff", "sPlayHud");
   }
   renderHud();
@@ -1788,7 +1840,17 @@ function foeAttack(mult){
   const p = PLAY; if(!p) return;
   p.charge = 0;
   if(p.foe.ab === "rage" && p.foe.hp < p.foe.max / 2){ mult *= 1.5; if(!p.raged){ p.raged = true; dmgPop("怒った！", "#ff5c5c", "foe"); } }   // 能力【怒り】
+  // 属性を持つ敵は、jEvery回に1回（ふつうは3回に1回）術で攻撃してくる。術は結界で、ふつうの攻撃は守りで減らす
+  p.atkCount++;
+  const isJutsu = !!p.foe.elem && mult === 1 && p.atkCount % (p.foe.jEvery || 3) === 0;
   if(p.guard > 0){ p.guard--; dmgPop("無効！", "#9fd3ff", "sPlayHud"); }
+  else if(isJutsu){
+    const a = defAffinity(p.foe.elem, SAVE.elem);
+    const d = takenDamage(p.foe.atk * 1.2 * a, p.res, 1);
+    p.hp -= d; dmgPop(`${ELEM[p.foe.elem].icon}術 −${d}${a > 1 ? "（相性×）" : a < 1 ? "（相性◎）" : ""}`, "#ff8a80", "sPlayHud");
+    const h = $("sPlayHud"); h.classList.remove("hurt"); void h.offsetWidth; h.classList.add("hurt");
+    tone(220, .25, "sawtooth", .07);
+  }
   else{
     const d = takenDamage(p.foe.atk, p.def, mult);
     p.hp -= d; dmgPop(`${mult > 1 ? "反撃 " : ""}−${d}`, "#ff8a80", "sPlayHud");
@@ -1803,8 +1865,11 @@ function foeHtml(){
   const f = PLAY.foe;
   if(PLAY.cfg.mode === "quick") return `<div class="foe-ic">${f.icon}</div>`;
   const left = Math.max(1, f.every - PLAY.charge);
-  return `<div class="foe-ic">${f.boss ? pic("sekka") : f.icon}</div><div class="bossname">${esc(f.name)}　HP ${Math.max(0, f.hp)}/${f.max}${f.def ? `　守り${f.def}` : ""}</div><div class="bosshp"><i style="width:${Math.max(0, f.hp / f.max * 100)}%"></i></div>` +
-    `<div class="foe-next${left === 1 ? " soon" : ""}">${left === 1 ? "⚠️ 次の問題のあと攻撃してくる" : `あと${left}問で攻撃してくる`}</div>`;
+  const nextJutsu = !!f.elem && (PLAY.atkCount + 1) % (f.jEvery || 3) === 0;
+  const kind = nextJutsu ? `${ELEM[f.elem].icon}術で` : "";
+  return `<div class="foe-ic">${f.boss ? pic("sekka") : f.icon}</div><div class="bossname">${elemTag(f.elem)} ${esc(f.name)}　HP ${Math.max(0, f.hp)}/${f.max}</div><div class="bosshp"><i style="width:${Math.max(0, f.hp / f.max * 100)}%"></i></div>` +
+    `<div class="foe-sub">守り${f.def || 0}・結界${f.res || 0}</div>` +
+    `<div class="foe-next${left === 1 ? " soon" : ""}">${left === 1 ? `⚠️ 次の問題のあと${kind}攻撃してくる` : `あと${left}問で${kind}攻撃してくる`}</div>`;
 }
 function startTimer(){
   stopTimer();
@@ -2052,22 +2117,22 @@ const FIELDS = [
 ];
 // 野良忍者の種類。hp・atk・def は倍率、every は攻撃の間（なしなら格どおり）、ab は能力、ch は出す問題の章
 const WILD = {
-  hagure:  {name:"はぐれ見習い", icon:"🥷", hp:1.0, atk:1.0, def:1.0, ab:"",      ch:"jo",   note:"ふつうの見習い忍者"},
-  tanuki:  {name:"狸忍",         icon:"🦝", hp:1.1, atk:.8,  def:.8,  ab:"steal", ch:"jo",   note:"化けるのが得意。両をくすねる"},
-  kaeru:   {name:"蛙忍",         icon:"🐸", hp:1.2, atk:.8,  def:1.0, ab:"heal",  ch:"ichi", note:"ときどき傷を治す"},
-  saru:    {name:"猿飛び",       icon:"🐒", hp:.85, atk:1.0, def:.8,  ab:"dodge", ch:"ichi", note:"身軽で、攻撃をかわすことがある"},
-  fukuro:  {name:"梟忍",         icon:"🦉", hp:.9,  atk:1.1, def:1.0, ab:"swift", ch:"ni",   note:"夜目がきき、すばやく攻める"},
-  kitsune: {name:"狐忍",         icon:"🦊", hp:1.0, atk:1.0, def:1.0, ab:"dodge", ch:"ni",   note:"人を化かし、攻撃をかわす"},
-  hebi:    {name:"蛇忍",         icon:"🐍", hp:1.0, atk:1.0, def:1.1, ab:"rage",  ch:"san",  note:"追いつめられると怒って強くなる"},
-  koumori: {name:"蝙蝠忍",       icon:"🦇", hp:.8,  atk:1.1, def:.9,  ab:"swift", ch:"san",  note:"すばやく何度も攻めてくる"},
-  kumo:    {name:"蜘蛛忍",       icon:"🕷️", hp:1.1, atk:.9,  def:1.2, ab:"heal",  ch:"shi",  note:"糸で傷をふさぐ"},
-  ookami:  {name:"狼忍",         icon:"🐺", hp:1.1, atk:1.1, def:1.0, ab:"rage",  ch:"shi",  note:"群れの長。怒ると手がつけられない"},
-  kuma:    {name:"熊忍",         icon:"🐻", hp:1.4, atk:1.15,def:1.1, ab:"giant", ch:"tsui", note:"大きな体で、なかなか倒れない"},
-  taka:    {name:"鷹忍",         icon:"🦅", hp:.9,  atk:1.1, def:1.0, ab:"dodge", ch:"tsui", note:"空から急降下。攻撃をかわす"},
-  oni:     {name:"鬼忍",         icon:"👹", hp:1.3, atk:1.2, def:1.2, ab:"rage",  ch:"any",  note:"影の森の主。怒ると恐ろしい"},
-  yurei:   {name:"亡霊忍",       icon:"👻", hp:1.0, atk:1.0, def:.8,  ab:"dodge", ch:"any",  note:"すり抜けて、攻撃をかわす"},
-  ryu:     {name:"龍忍",         icon:"🐉", hp:1.4, atk:1.2, def:1.6, ab:"armor", ch:"any",  note:"伝説の忍。鱗が固い（忍術が効く）"},
-  koban:   {name:"小判鼠",       icon:"🐭", hp:.6,  atk:.3,  def:2.0, ab:"flee",  ch:"any",  note:"めったに出ない。すぐ逃げるが、両をたくさん持っている", rare:true},
+  hagure:  {name:"はぐれ見習い", icon:"🥷", elem:"",      hp:1.0, atk:1.0, def:1.0, ab:"",      ch:"jo",   note:"ふつうの見習い忍者"},
+  tanuki:  {name:"狸忍",         icon:"🦝", elem:"wood", hp:1.1, atk:.8,  def:.8,  ab:"steal", ch:"jo",   note:"化けるのが得意。両をくすねる"},
+  kaeru:   {name:"蛙忍",         icon:"🐸", elem:"water", hp:1.2, atk:.8,  def:1.0, ab:"heal",  ch:"ichi", note:"ときどき傷を治す"},
+  saru:    {name:"猿飛び",       icon:"🐒", elem:"fire", hp:.85, atk:1.0, def:.8,  ab:"dodge", ch:"ichi", note:"身軽で、攻撃をかわすことがある"},
+  fukuro:  {name:"梟忍",         icon:"🦉", elem:"wood", hp:.9,  atk:1.1, def:1.0, ab:"swift", ch:"ni",   note:"夜目がきき、すばやく攻める"},
+  kitsune: {name:"狐忍",         icon:"🦊", elem:"fire", hp:1.0, atk:1.0, def:1.0, ab:"barrier", ch:"ni", note:"狐火の結界をはる。術が効きにくい"},
+  hebi:    {name:"蛇忍",         icon:"🐍", elem:"water", hp:1.0, atk:1.0, def:1.1, ab:"rage",  ch:"san",  note:"追いつめられると怒って強くなる"},
+  koumori: {name:"蝙蝠忍",       icon:"🦇", elem:"fire", hp:.8,  atk:1.1, def:.9,  ab:"swift", ch:"san",  note:"すばやく何度も攻めてくる"},
+  kumo:    {name:"蜘蛛忍",       icon:"🕷️", elem:"wood", hp:1.1, atk:.9,  def:1.2, ab:"armor", ch:"shi",  note:"固い殻を持つ。ふつうの攻撃が効きにくい"},
+  ookami:  {name:"狼忍",         icon:"🐺", elem:"fire", hp:1.1, atk:1.1, def:1.0, ab:"rage",  ch:"shi",  note:"群れの長。怒ると手がつけられない"},
+  kuma:    {name:"熊忍",         icon:"🐻", elem:"wood", hp:1.4, atk:1.15,def:1.1, ab:"giant", ch:"tsui", note:"大きな体で、なかなか倒れない"},
+  taka:    {name:"鷹忍",         icon:"🦅", elem:"water", hp:.9,  atk:1.1, def:1.0, ab:"dodge", ch:"tsui", note:"空から急降下。攻撃をかわす"},
+  oni:     {name:"鬼忍",         icon:"👹", elem:"fire", hp:1.3, atk:1.2, def:1.2, ab:"rage",  ch:"any",  note:"影の森の主。怒ると恐ろしい"},
+  yurei:   {name:"亡霊忍",       icon:"👻", elem:"water", hp:1.0, atk:1.0, def:.8,  ab:"barrier", ch:"any", note:"この世のものではない。術が効きにくい"},
+  ryu:     {name:"龍忍",         icon:"🐉", elem:"wood", hp:1.4, atk:1.2, def:1.6, ab:"armor", ch:"any",  note:"伝説の忍。鱗が固い（忍術が効く）"},
+  koban:   {name:"小判鼠",       icon:"🐭", elem:"", hp:.6,  atk:.3,  def:2.0, ab:"flee",  ch:"any",  note:"めったに出ない。すぐ逃げるが、両をたくさん持っている", rare:true},
 };
 const ABILITY = {
   steal:{name:"盗み",   text:"まちがえると両を盗まれる（倒せば取り返せる）"},
@@ -2076,7 +2141,8 @@ const ABILITY = {
   swift:{name:"すばやい", text:"毎問攻撃してくる"},
   rage: {name:"怒り",   text:"HPが半分を切ると攻撃が1.5倍"},
   giant:{name:"巨体",   text:"HPがとても多い"},
-  armor:{name:"鎧",     text:"守りが固い。忍術が効く"},
+  armor:{name:"鎧",     text:"守りが固い（攻撃に強い）。術で攻めよう"},
+  barrier:{name:"結界", text:"結界が固い（術に強い）。ふつうの攻撃で攻めよう"},
   flee: {name:"逃げ足", text:"3問たつと逃げてしまう。早く倒そう"},
 };
 // 任務の敵の強さ（QRANK）を、レベルでなめらかにつなぐ（D=Lv2, C=Lv5, B=Lv11, A=Lv18, S=Lv27）
@@ -2094,9 +2160,10 @@ function makeWild(kind, lv){
   // 野良忍者は何度も戦うので、任務の敵より少し弱め（HP7割・攻撃85%）
   const f = {kind, lv, icon:w.icon, name:w.name, ab:w.ab,
     hp:Math.max(10, Math.round(B.hp * .7 * w.hp)), atk:Math.max(2, Math.round(B.atk * .85 * w.atk)), def:Math.round(B.def * w.def),
-    every:lv < 4 ? 2 : 1};
+    res:Math.round(B.def * (w.res || 1)), elem:w.elem, every:lv < 4 ? 2 : 1};
   if(w.ab === "swift") f.every = 1;
-  if(w.ab === "armor") f.def = Math.round(f.def * 1.5) + 4;
+  if(w.ab === "armor"){ f.def = Math.round(f.def * 2.2) + 5; f.res = Math.round(f.res * .5); }
+  if(w.ab === "barrier"){ f.res = Math.round(f.res * 3.5) + 8; f.def = Math.round(f.def * .5); f.jEvery = 2; }
   return f;
 }
 const wildXp = lv => 3 + lv * 2;
@@ -2241,7 +2308,7 @@ async function encounter(){
   g.classList.remove("rustle");
   const w = WILD[kind], ab = w.ab ? ABILITY[w.ab] : null;
   modal(`<div class="enc-ic">${w.icon}</div><h3>野良忍者が現れた！</h3><p style="font-size:20px"><b>${w.name}</b>　Lv${lv}${d.beat ? "" : `　<span class="new">${d.seen > 1 ? "" : "はじめて！"}</span>`}</p>
-    <p style="font-size:13px">${w.note}<br>${ab ? `<b>能力【${ab.name}】</b>${ab.text}<br>` : ""}HP${foe.hp}・攻撃${foe.atk}・守り${foe.def}・${foe.every === 1 ? "毎問" : foe.every + "問ごと"}に攻撃</p>`,
+    <p style="font-size:13px">${w.note}<br>${ab ? `<b>能力【${ab.name}】</b>${ab.text}<br>` : ""}${foeStatText(foe)}</p>`,
     [["戦う！", () => { closeModal(); startWild(foe); }], ["逃げる", () => { closeModal(); FIELD.safe = 4; fieldMsg("うまく逃げた……"); }]]);
 }
 function wildCh(w){
@@ -2263,7 +2330,7 @@ function showDex(){
     const d = dex[k];
     const where = FIELDS.filter(F => F.kinds.includes(k)).map(F => F.name).join("・") || "どこかの草むら（めったに出ない）";
     html += d && d.seen
-      ? `<div class="dexit"><span class="dic">${w.icon}</span><b>${w.name}</b><small>${w.ab ? `【${ABILITY[w.ab].name}】` : ""}${w.note}<br>出会った${d.seen}・倒した${d.beat}　｜${where}</small></div>`
+      ? `<div class="dexit"><span class="dic">${w.icon}</span><b>${w.name} ${elemTag(w.elem)}</b><small>${w.ab ? `【${ABILITY[w.ab].name}】` : ""}${w.note}<br>出会った${d.seen}・倒した${d.beat}　｜${where}</small></div>`
       : `<div class="dexit unk"><span class="dic">？</span><b>？？？</b><small>${where}</small></div>`;
   });
   modal(html + `</div>`, [["とじる", closeModal]]);
