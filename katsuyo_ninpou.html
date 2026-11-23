@@ -469,6 +469,37 @@
   .td{display:inline-block;width:13px;height:13px;border-radius:50%;border:2px solid #8c6a3a;background:#fff}
   .td.on{background:#3ecf7a;border-color:#1f7a3f}
   .td.ng{background:#e0675f;border-color:#a12a20}
+  /* 茶屋の団子づくり */
+  .dgguide{background:#fff3e6;border:1px dashed #d8a07a;border-radius:10px;padding:6px 10px;font-size:13px;line-height:1.9;margin:8px 0}
+  .dg-p{color:#d6457a;font-weight:bold}.dg-g{color:#3f8f3a;font-weight:bold}
+  .mini-dg{display:inline-flex;width:26px;height:26px;border-radius:50%;align-items:center;justify-content:center;font-size:12px;font-weight:bold;margin-right:-4px;border:2px solid rgba(0,0,0,.15);vertical-align:middle}
+  .mini-dg.w{background:#fffaf0}.mini-dg.p{background:#ffc3d4}.mini-dg.g{background:#bfe5a6}
+  .dghud{display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap;font-size:14px;margin-bottom:6px}
+  .dgshop{background:linear-gradient(180deg,#7a4a2a 0 18px,#f3e2c4 18px 70%,#a06a3a 70%);border-radius:14px;padding:22px 10px 12px;box-shadow:0 6px 0 #5b3a1c;position:relative;color:var(--ink)}
+  .dgshop::before{content:"🏮　茶　屋　🏮";position:absolute;top:0;left:0;right:0;text-align:center;color:#ffe9b0;font-size:12px;letter-spacing:.3em;line-height:18px}
+  .dgguest{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .dg-face{font-size:50px;line-height:1}
+  .dg-bubble{flex:1;min-width:180px;background:#fff;border:2px solid #b08d55;border-radius:14px;padding:6px 10px;font-size:17px;line-height:1.6;position:relative}
+  .dg-bubble small{display:block;font-size:12px;color:var(--ink2)}
+  .dg-bubble rt{font-size:.5em}
+  .dg-pat{width:100%;height:7px;background:rgba(0,0,0,.15);border-radius:99px;overflow:hidden}
+  .dg-pat i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#3ecf7a,#a6f06b)}
+  .dg-pat i.low{background:linear-gradient(90deg,#e0362b,#ff8a5c)}
+  .dgskewer{position:relative;display:flex;align-items:center;gap:4px;justify-content:center;margin:14px auto 2px;height:76px}
+  .dg-stick{position:absolute;left:8%;right:8%;top:50%;height:6px;margin-top:-3px;background:linear-gradient(180deg,#d9b27a,#a37a42);border-radius:3px}
+  .dgskewer.done{animation:pop .5s 2}
+  .dg-ball{position:relative;z-index:1;width:64px;height:64px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:20px;font-weight:bold;color:#3a2410;
+    border:3px solid rgba(0,0,0,.12);box-shadow:inset -6px -8px 0 rgba(0,0,0,.08),inset 6px 6px 0 rgba(255,255,255,.6),0 3px 4px rgba(0,0,0,.2);cursor:pointer;font-family:inherit;padding:0}
+  .dg-ball.w{background:#fffaf0;font-size:17px}
+  .dg-ball.p{background:#ffc3d4}
+  .dg-ball.g{background:#bfe5a6}
+  .dg-ball.empty{background:rgba(255,255,255,.35);border:3px dashed #a37a42;box-shadow:none;cursor:default}
+  .dgtray{margin-top:10px}
+  .dglabel{font-size:13px;margin-bottom:4px}
+  .dgballs{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+  .dgballs .dg-ball{width:52px;height:52px;font-size:16px}
+  .dgballs .dg-ball:disabled{opacity:.35;cursor:default}
+  #dgFb{margin-top:8px}
   /* エンディング */
   #sEnding{position:fixed;inset:0;z-index:30;background:radial-gradient(ellipse at 50% 20%,#2b2a5a,#0b0c1e 70%);overflow:hidden}
   .ending{position:absolute;inset:0;overflow:hidden}
@@ -624,6 +655,21 @@
   <section id="sPanel" class="screen">
     <div class="topbar"><button class="iconbtn" id="pBack" onclick="panelBack()">◀ 村へ</button><span class="ptitle" id="pTitle"></span><span></span></div>
     <div class="pbody" id="pBody"></div>
+  </section>
+
+  <!-- 茶屋の団子づくり -->
+  <section id="sDango" class="screen">
+    <div class="dghud" id="dgHud"></div>
+    <div class="dgshop">
+      <div class="dgguest" id="dgGuest"></div>
+      <div class="dgskewer" id="dgSkewer"></div>
+    </div>
+    <div class="dgtray"><div class="dglabel"><span class="dg-p">ピンク</span>：変装（活用語尾）</div><div class="dgballs" id="dgTrayP"></div></div>
+    <div class="dgtray"><div class="dglabel"><span class="dg-g">緑</span>：合言葉（後ろに続く言葉）</div><div class="dgballs" id="dgTrayG"></div></div>
+    <div class="btn-row"><button class="btn" id="dgServe" onclick="serveDango(false)">🍡 お出しする！</button></div>
+    <div class="feedback" id="dgFb"></div>
+    <div class="btn-row"><button class="iconbtn" onclick="quitDango()">お店を閉める</button></div>
+    <p class="note">刺した団子をタップすると、はずせる。</p>
   </section>
 
   <!-- 外（フィールド） -->
@@ -1653,7 +1699,7 @@ const PLACES = {
   dojo:     {name:"道場",         icon:"🥋", x:18, y:36, open:() => showDojo()},
   terakoya: {name:"寺子屋",       icon:"📚", x:82, y:36, open:() => showTerakoya()},
   shop:     {name:"よろず屋",     icon:"🏪", x:20, y:66, open:() => showShop()},
-  chaya:    {name:"茶屋",         icon:"🍡", x:80, y:66, open:() => soon("茶屋", "🍡", "旅の人がよく立ち寄る茶屋。<br>だれかと出会えるのは、もう少し先のようじゃ。")},
+  chaya:    {name:"茶屋",         icon:"🍡", x:80, y:66, open:() => showChaya()},
   home:     {name:"自宅（長屋）", icon:"🏠", x:50, y:86, open:() => showHome()},
   gate:     {name:"里の門（外へ）", icon:"⛩️", x:84, y:89, open:() => goOutside()},
 };
@@ -1673,7 +1719,7 @@ function showVillage(){
   [["🌳",6,10],["🌲",94,12],["🌳",8,90],["🌸",94,78],["🏠",32,22],["🏠",68,22],["🌾",34,88],["🌾",66,90],["⛲",50,50],["🐓",62,58],["🌳",4,52],["🌲",96,50]]
     .forEach(([e, x, y]) => html += `<span class="vdeco" style="left:${x}%;top:${y}%">${e}</span>`);
   Object.entries(PLACES).forEach(([id, p]) => {
-    const isSoon = id === "chaya";
+    const isSoon = false;
     const ns = nextStory();
     const storyHere = (id === "terakoya" && ns === "jo") || (id === "gate" && ns && ns !== "jo");
     const alert = storyHere ? `<span class="vbadge story">📜</span><span class="vtarget">▼ここ</span>` : id === "home" && free > 0 ? `<span class="vbadge">✨</span>` : "";
@@ -2512,6 +2558,153 @@ function trainDone(){
   animateXp(XP_AWARD);
 }
 function finishTrain(p){ trainNext(p); }
+
+/* =====================================================================
+   茶屋「三色だんご」（2026-11-23、教員の指示：「団子作りをモチーフに、別方向から活用のミニゲームを」）
+   戦いは「形を見て、何形かを選ぶ（見分ける）」。団子づくりは逆に「注文された活用形を、自分で組み立てる（作る）」。
+   串には白い団子（本体＝語幹）が刺さっている。そこへ
+     ピンクの団子（変装＝活用語尾）と、緑の団子（合言葉＝後ろに続く言葉）を順に刺して、三色団子を完成させる。
+     例：「書く」を仮定形で → 白「書」＋ピンク「け」＋緑「ば」
+   1回の営業は8人のお客。お客には待てる時間がある（だんだん短くなる）。早く正しく出すほど、お代と心づけが増える。
+   ・お品書き（段）は物語の進み具合で増える：五段 → いろいろな動詞 → 形容詞 → 形容動詞
+   ・正解1つで「動詞の活用」ジャンル＋1（ほかの戦いと同じ）。かせいだ両は持ち物へ。3皿ごとに団子1本のおまけ。
+   ===================================================================== */
+const DANGO_LEVELS = [
+  {id:"godan", name:"五段の団子",       icon:"🍡", need:"ichi", needName:"一の章", desc:"五段活用の動詞（書く・読む…）", kind:"verb", time:30},
+  {id:"verb",  name:"いろいろな動詞",   icon:"🍢", need:"ni",   needName:"二の章", desc:"上一段・下一段・サ変もまぜて", kind:"verb", time:28},
+  {id:"adj",   name:"形容詞の団子",     icon:"🍘", need:"gai1", needName:"外一の章", desc:"美しい・寒い…（命令形はない）", kind:"adj", time:28},
+  {id:"adjv",  name:"形容動詞まぜ団子", icon:"🍙", need:"gai2", needName:"外二の章", desc:"静かだ・きれいだ…と形容詞をまぜて", kind:"adjv", time:28},
+];
+const DANGO_N = 8;
+const V_FOL_TRAY = ["ない", "う", "よう", "ます", "た", "だ", "。", "とき", "ば", "！"];
+const A_FOL_TRAY = ["う", "た", "なる", "ない", "て", "。", "とき", "ば"];
+const AV_FOL_TRAY = ["う", "た", "ない", "ある", "なる", "。", "とき", "ば"];
+// 語（本体＝語幹・その語の作り方）を選ぶ
+function dangoWord(lv){
+  if(lv.kind === "verb"){
+    const pool = lv.id === "godan" ? V_GODAN
+      : [...V_GODAN, ...V_KAMI.filter(v => v.w.length >= 3), ...V_SHIMO.filter(v => v.w.length >= 3), ...V_SA.filter(v => v.w.length > 2)];
+    const v = pick(pool);
+    const stem = v.t === "godan" ? v.w.slice(0, -1) : v.w.slice(0, -2);
+    // 活用形ごとの「活用語尾＋合言葉」の正しい組み合わせ
+    const folOf = f => f === "mizen" ? ["ない"] : f === "mizenU" ? [v.t === "godan" ? "う" : "よう"] : f === "renyo" ? ["ます"]
+      : f === "onbin" ? [v.t === "godan" && !v.iku && "ぐぬぶむ".includes(v.w.slice(-1)) ? "だ" : "た"] : f === "shushi" ? ["。"]
+      : f === "rentai" ? ["とき"] : f === "katei" ? ["ば"] : ["！"];
+    const pairs = ["mizen", "mizenU", "renyo", "onbin", "shushi", "rentai", "katei", "meirei"].map(f => ({name:FORM_NAME[f], e:conj(v, f).slice(stem.length), fol:folOf(f)}));
+    return {v, stem, pairs, forms:FORM_LIST, folTray:V_FOL_TRAY, hint:FORM_HINT, row:v.t === "godan" ? [...ROW[v.w.slice(-1)], ONBIN[v.w.slice(-1)]] : []};
+  }
+  const useAdjv = lv.kind === "adjv" && Math.random() < .65;
+  const v = pick(useAdjv ? ADJV : ADJ), FS = useAdjv ? ADJV_FORMS : ADJ_FORMS;
+  return {v, stem:aStem(v), pairs:FS.map(F => ({name:F.name, e:F.e, fol:F.fol})), forms:A_FORM_LIST, folTray:useAdjv ? AV_FOL_TRAY : A_FOL_TRAY, hint:A_HINT, row:[]};
+}
+function makeDangoOrder(lv, n){
+  const W = dangoWord(lv), name = pick(W.forms);
+  const okPairs = W.pairs.filter(p => p.name === name);
+  const endings = [...new Set(W.pairs.map(p => p.e).concat(W.row))];
+  const extra = shuffle(["か", "け", "れ", "さ", "ろ", "い", "な", "く"].filter(x => !endings.includes(x))).slice(0, Math.max(0, 6 - endings.length));
+  return {W, name, okPairs, endTray:shuffle(endings.concat(extra)), folTray:shuffle(W.folTray.slice()),
+    guest:pick(["👵", "👴", "🧑‍🌾", "👨‍🎓", "👩", "🧒", "🧔", "👘", "🧳", "🥷"]), hint:n < 3 && lv.id === DANGO_LEVELS[0].id};
+}
+let DG = null, DG_T = null;
+function showChaya(){
+  const best = (SAVE.chaya || {}).best || {};
+  let html = `<div class="npc-line"><span class="npc">👘</span><div>茶屋のおはな「いらっしゃい！ 今日もお客さんがいっぱいで、手が足りないの。<b>三色団子</b>づくり、手伝ってくれる？」</div></div>
+    <div class="dgguide"><b>作り方</b>：白い団子（本体＝語幹）に、<span class="dg-p">ピンク</span>（変装＝活用語尾）と<span class="dg-g">緑</span>（合言葉）を刺して、注文どおりの形にしよう。<br>
+      例：「書く」を<b>仮定形</b>で → <span class="mini-dg w">書</span><span class="mini-dg p">け</span><span class="mini-dg g">ば</span></div>
+    <h3 class="sec">🍡 お品書き</h3>`;
+  DANGO_LEVELS.forEach(lv => {
+    const ok = chCleared(lv.need), b = best[lv.id];
+    html += `<div class="qcard${ok ? "" : " locked"}"><div class="qicon">${lv.icon}</div>
+      <div class="qtx"><b>${lv.name}</b><small>${lv.desc}</small><small>${b ? `いちばん：${"★".repeat(b.stars)}${"☆".repeat(3 - b.stars)}　${b.coins}両` : "まだ作っていない"}</small></div>
+      ${ok ? `<button class="btn mini" onclick="startDango('${lv.id}')">お店に立つ</button>` : `<span class="lockmsg">物語の${lv.needName}を終えたら</span>`}</div>`;
+  });
+  panel("🍡 茶屋", html);
+}
+function startDango(id){
+  const lv = DANGO_LEVELS.find(x => x.id === id);
+  DG = {lv, n:0, ok:0, ng:0, coins:0, streak:0, order:null, sk:[]};
+  mgStart(); sfx.tap();
+  show("sDango");
+  nextDango();
+}
+function nextDango(){
+  clearInterval(DG_T);
+  if(DG.n >= DANGO_N) return finishDango();
+  DG.order = makeDangoOrder(DG.lv, DG.n); DG.sk = []; DG.lock = false;
+  DG.limit = Math.max(14, DG.lv.time - DG.n * 2); DG.t0 = Date.now();
+  renderDango();
+  DG_T = setInterval(() => {
+    if(!DG || DG.lock) return;
+    const left = DG.limit - (Date.now() - DG.t0) / 1000;
+    const bar = $("dgPat"); if(bar){ bar.style.width = Math.max(0, left / DG.limit * 100) + "%"; bar.classList.toggle("low", left < DG.limit * .3); }
+    if(left <= 0) serveDango(true);
+  }, 100);
+}
+function renderDango(){
+  const o = DG.order, W = o.W;
+  $("dgHud").innerHTML = `<span>${DG.lv.icon} ${DG.lv.name}</span><span>お客 ${DG.n + 1} / ${DANGO_N}</span><span>💰 ${DG.coins}両${DG.streak >= 2 ? `　🔥${DG.streak}連続` : ""}</span>`;
+  $("dgGuest").innerHTML = `<div class="dg-face" id="dgFace">${o.guest}</div>
+    <div class="dg-bubble">「${rubyHtml(W.v)}」を、<b>${o.name}</b>で一本！${o.hint ? `<small>（${o.name}の合言葉：${W.hint[o.name]}）</small>` : ""}</div>
+    <div class="dg-pat"><i id="dgPat"></i></div>`;
+  const slot = (cls, txt, i) => `<span class="dg-ball ${cls}${txt ? "" : " empty"}" ${i != null && txt ? `onclick="dangoUndo(${i})"` : ""}>${txt ? esc(txt) : ""}</span>`;
+  $("dgSkewer").innerHTML = `<div class="dg-stick"></div>${slot("w", W.stem || "（なし）")}${slot("p", DG.sk[0], 0)}${slot("g", DG.sk[1], 1)}`;
+  $("dgTrayP").innerHTML = o.endTray.map(e => `<button class="dg-ball p" ${DG.sk[0] != null || DG.lock ? "disabled" : ""} onclick="dangoPick(0,'${e}')">${esc(e)}</button>`).join("");
+  $("dgTrayG").innerHTML = o.folTray.map(f => `<button class="dg-ball g" ${DG.sk[0] == null || DG.sk[1] != null || DG.lock ? "disabled" : ""} onclick="dangoPick(1,'${f}')">${esc(f)}</button>`).join("");
+  $("dgServe").disabled = DG.sk.length < 2 || DG.sk[1] == null || DG.lock;
+  $("dgFb").className = "feedback"; $("dgFb").innerHTML = "";
+}
+function dangoPick(i, x){ if(!DG || DG.lock) return; DG.sk[i] = x; tone(620 + i * 160, .05, "square", .04); renderDango(); }
+function dangoUndo(i){ if(!DG || DG.lock) return; DG.sk.length = i; renderDango(); }
+async function serveDango(timeout){
+  if(!DG || DG.lock) return;
+  DG.lock = true; clearInterval(DG_T);
+  const o = DG.order, [e, f] = DG.sk;
+  const right = !timeout && o.okPairs.some(p => p.e === e && p.fol.includes(f));
+  const fb = $("dgFb"), sample = o.okPairs.map(p => `「${esc(o.W.stem)}<b>${esc(p.e)}</b>${esc(p.fol[0])}」`).join("・");
+  if(right){
+    const left = Math.max(0, DG.limit - (Date.now() - DG.t0) / 1000);
+    DG.streak++; DG.ok++;
+    const pay = Math.round((12 + Math.ceil(left)) * (1 + Math.min(DG.streak - 1, 5) * .1));
+    DG.coins += pay;
+    mgCorrect(); SAVE.totalOk = (SAVE.totalOk || 0) + 1;
+    sfx.ok(); $("dgFace").textContent = "😋";
+    flash(`まいどあり！ ＋${pay}両`, "#ffe08a");
+    fb.className = "feedback ok show"; fb.innerHTML = `⭕ ${sample}。${o.name}（${o.W.hint[o.name]}）の団子、完成！`;
+    $("dgSkewer").classList.add("done");
+    await sleep(1300); $("dgSkewer").classList.remove("done");
+    DG.n++; nextDango();
+  }else{
+    DG.streak = 0; DG.ng++; mgWrong();
+    sfx.ng(); $("dgFace").textContent = timeout ? "😤" : "🤔";
+    fb.className = "feedback ng show";
+    fb.innerHTML = `${timeout ? "⌛ 待ちくたびれて帰ってしまった……" : "❌ 「ちょっと、ちがうみたい……」"}<br>${o.name}は ${sample}。合言葉は「${o.W.hint[o.name]}」。
+      <div class="btn-row" style="margin-top:8px"><button class="btn sub" onclick="DG.n++; nextDango()">次のお客さん</button></div>`;
+  }
+}
+function quitDango(){
+  if(!confirm("お店を閉めますか？（ここまでのお代はもらえます）")) return;
+  finishDango();
+}
+function finishDango(){
+  clearInterval(DG_T);
+  const g = DG, r = mgFlush() || {net:0};
+  const stars = g.ok >= 8 ? 3 : g.ok >= 6 ? 2 : g.ok >= 4 ? 1 : 0;
+  const bonus = Math.floor(g.ok / 3);
+  SAVE.ryo += g.coins; SAVE.bag.dango = (SAVE.bag.dango || 0) + bonus;
+  SAVE.chaya = SAVE.chaya || {best:{}};
+  const prev = SAVE.chaya.best[g.lv.id];
+  if(!prev || stars > prev.stars || (stars === prev.stars && g.coins > prev.coins)) SAVE.chaya.best[g.lv.id] = {stars, coins:g.coins};
+  saveSave(SAVE);
+  DG = null;
+  if(stars) sfx.clear();
+  $("resultBody").innerHTML = `<div class="enc-ic">${stars >= 2 ? "🍡" : "🍵"}</div><h2>本日の営業、おしまい！</h2>
+    <div class="stars">${"★".repeat(stars)}${"☆".repeat(3 - stars)}</div>
+    <p>おはな「${stars === 3 ? "すごい！ 全部のお客さんが大よろこびよ！" : stars >= 2 ? "ありがとう、とっても助かったわ！" : "おつかれさま。また手伝ってね。"}」</p>
+    <div class="rewards"><b>お代</b><span>💰 ${g.coins}両</span>${bonus ? `<span>🍡 団子×${bonus}（おまけ）</span>` : ""}</div>
+    <div class="stat">出した団子 ${g.ok} / ${DANGO_N}　まちがい ${g.ng}<br>「${MG_GENRE}」レベル ${mgSigned(r.net)}</div>
+    <div class="btn-row" id="resultBtns"><button class="btn" onclick="startDango('${g.lv.id}')">もう一度お店に立つ</button><button class="btn sub" onclick="showChaya()">茶屋へもどる</button></div>`;
+  show("sResult");
+}
 
 /* =====================================================================
    寺子屋（巻物を読む・1問ずつ練習）
