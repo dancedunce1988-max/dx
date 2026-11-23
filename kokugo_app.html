@@ -23603,14 +23603,20 @@ function koiMenuHtml(){
    「変化の術」（用言の活用）を章ごとに身につける物語仕立てのゲーム。動詞の章（序〜四・終：語幹と活用語尾・活用形・
    活用の種類・一段に見える五段・活用表・文中での識別）まで。形容詞・形容動詞（外伝）は準備中。正誤は「動詞の活用」（doushi_katsuyo）ジャンルのレベルに書き置く（MG_LVUP_CATS）。
    htmlを直接開くと「このファイルは開けません」（通行証 "ninpou"）。バナー画像ができたら menu_title_images.js に "ninpou" で入れる。 */
-const NINPOU_RELEASE_DATE = "2026-11-23";
-const NINPOU_RELEASED = mgReleasedOn(NINPOU_RELEASE_DATE);
+/* 試遊中（2026-11-23〜、教員の指示：「まだ私以外は使えないようにしながら、試遊して改善したい」）。
+   管理者モード（isAdminMode、?devtool=kotonoha を一度開いた端末）のときだけカードを出して開ける。
+   生徒の端末では、カードも「準備中」の札も出さない（存在に気付かれないように）。
+   公開するときは NINPOU_PUBLIC を true にする（日付で解禁したいときは mgReleasedOn("YYYY-MM-DD") にする）。 */
+const NINPOU_PUBLIC = false;
+function ninpouOpen(){ return NINPOU_PUBLIC || isAdminMode(); }
 function ninpouMenuHtml(){
-  const label = mgReleaseLabel(NINPOU_RELEASE_DATE);
-  return mgBannerHtml("ninpou", "変化の里 ～活用忍法帖～", NINPOU_RELEASED, label, "openKatsuyoNinpou()")
-    || mgTextCardHtml("🥷", "変化の里 ～活用忍法帖～", "見習い忍者になって「変化の術」＝活用を身につけよう（試作）", NINPOU_RELEASED, label, "openKatsuyoNinpou()");
+  if(!ninpouOpen()) return "";
+  const desc = NINPOU_PUBLIC ? "見習い忍者になって「変化の術」＝活用を身につけよう"
+    : "🔧 試遊中（管理者の端末だけに表示）　見習い忍者になって「変化の術」＝活用を身につけよう";
+  return mgBannerHtml("ninpou", "変化の里 ～活用忍法帖～", true, "", "openKatsuyoNinpou()")
+    || mgTextCardHtml("🥷", "変化の里 ～活用忍法帖～", desc, true, "", "openKatsuyoNinpou()");
 }
-function openKatsuyoNinpou(){ if(!NINPOU_RELEASED) return; mgGoWithPass("ninpou", "katsuyo_ninpou.html"); }
+function openKatsuyoNinpou(){ if(!ninpouOpen()) return; mgGoWithPass("ninpou", "katsuyo_ninpou.html"); }
 function openKoiSugoroku(){ if(!koiOpen()) return; mgGoWithPass("koi", "koji_sugoroku.html"); }
 // ミニゲーム一覧の画面で「touryumon」と打つと解禁（入力欄に打っているときは数えない）。竹林わたりと同じく、白い幕のあとバナーがふわっと現れる。
 let koiKeyBuf = "";
