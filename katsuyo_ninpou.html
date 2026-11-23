@@ -324,6 +324,7 @@
   .eqok{margin-top:3px;font-weight:bold;color:#1f7a3f;font-size:13px}
   .eqng{margin-top:3px;font-size:12px;color:#a12a20;background:#fdecea;border-radius:8px;padding:3px 7px;line-height:1.6}
   .owned{font-size:12px;color:#2f7a4c;font-weight:bold;white-space:nowrap}
+  .rare.lack{background:#2f7fd1;white-space:nowrap}
   .rare{margin-left:6px;font-size:11px;background:#e0a91b;color:#fff;border-radius:999px;padding:0 6px}
   .ninja-card{display:flex;gap:12px;align-items:center;background:#2b2140;color:#fff;border-radius:14px;padding:10px 12px}
   .ninja-card .nc-hero{font-size:52px}
@@ -1576,7 +1577,7 @@ Object.assign(EQUIP.weapon2.eff, {crit:3});
 EQUIP.weapon3.req.stat = {atk:15}; EQUIP.weapon4.req.stat = {atk:25};
 EQUIP.body3.req.stat = {hp:15};    EQUIP.body4.req.stat = {hp:25};
 EQUIP.arm4.req.stat = {def:20};    EQUIP.head4.req.stat = {nin:20};
-EQUIP.face4.src = ["dojo"]; EQUIP.neck4.src = ["meet"]; EQUIP.waist4.src = ["dojo"]; EQUIP.feet3.src = ["quest", "meet"];
+EQUIP.face4.src = ["dojo"]; EQUIP.neck4.src = ["meet"]; EQUIP.waist4.src = ["dojo"]; EQUIP.feet3.src = ["shop", "quest", "meet"];   // 店にも並ぶ（どの部位も、上忍までは店で買えるように）
 ["head0","arm0","neck0","legs0","waist0"].forEach(id => EQUIP[id].src = ["shop", "story"]);
 const SRC_NAME = {special:"名のある忍・金色の野良忍者（秘宝）", shop:"店", quest:"任務の報酬", story:"本任務", dojo:"道場（初勝利のごほうび）", meet:"出会い（準備中）", start:"はじめから"};
 const EFF_NAME = {guard:n => `まちがい${n}回分のダメージを無効`, hint:n => `煙玉＋${n}`, time:n => `制限時間＋${n}秒`, crit:n => `会心率＋${n}%`, ryo:n => `報酬の両＋${n}%`};
@@ -2062,17 +2063,27 @@ function seededPick(arr, n, seed){
    今の段位の品（いちばん上の段階＝今の忍者Lvで着られる段階）から6つ、1つ上の段階から3つを、日替わりで並べる。
    それより下の段階は並べない。持っている物も並べない。伝説の段階と、道場・出会いでしか手に入らない物は売らない。 */
 function curTier(){ const lv = ninjaInfo().lv; let t = 0; TIER.forEach((x, i) => { if(lv >= x.lv) t = i; }); return t; }
+/* 2026-11-23、教員の指摘「ズボンを持っていないが、店にも売っていない。レベルは十分ある」への対応：
+   ・店で売るのは上忍の段階まで。忍者Lvが伝説の段階でも、上忍の品を並べる（以前は、伝説の段階になると品が0になっていた）。
+   ・持っていない部位、または今の段階より下の物しか持っていない部位の品は、必ず並べる（以前は日替わりで6つだけ選んでいた）。 */
+function shopTier(){ return Math.min(curTier(), 3); }
+function slotNeedsGear(slot, t){
+  const best = Math.max(-1, ...Object.keys(SAVE.inv).map(id => EQUIP[id]).filter(it => it && it.slot === slot).map(it => it.tier));
+  return best < t;
+}
 function shopStock(){
-  const t = curTier(), seed = dailySeed() * 7 + t;
+  const t = shopTier(), seed = dailySeed() * 7 + t;
   const sellable = it => it.tier <= 3 && it.src.includes("shop") && !SAVE.inv[it.id];
-  const now = seededPick(Object.values(EQUIP).filter(it => it.tier === t && sellable(it)), 6, seed);
+  const cur = Object.values(EQUIP).filter(it => it.tier === t && sellable(it));
+  const need = cur.filter(it => it.slot !== "acc" && slotNeedsGear(it.slot, t));
+  const rest = seededPick(cur.filter(it => !need.includes(it)), Math.max(0, 6 - need.length), seed);
   const up = t + 1 <= 3 ? seededPick(Object.values(EQUIP).filter(it => it.tier === t + 1 && sellable(it)), 3, seed + 1) : [];
-  return now.concat(up);
+  return need.concat(rest, up);
 }
 const priceOf = it => EQ_VALUE[it.tier];
 function showShop(tab){
   if(tab) SHOP_TAB = tab;
-  const t = curTier();
+  const t = shopTier();
   const talk = SHOP_TAB === "eq" ? `今の${TIER[t].name}向けの品と、少し上の品をそろえてるよ。品は毎日入れかわるからね。`
     : SHOP_TAB === "bag" ? "任務の前には団子と煙玉を忘れずにね。" : "いらない物は買い取るよ。ただし、買った値段の半分だけどね。";
   let html = `<div class="npc-line"><span class="npc">👩‍🦳</span><div>萬屋のおかみ「いらっしゃい！ ${talk}」</div></div>
@@ -2082,8 +2093,8 @@ function showShop(tab){
     const list = shopStock();
     if(!list.length) html += `<p class="note-dark">今日の品はもう全部持っているようだね。また明日おいで。</p>`;
     html += list.map(it => {
-      const price = priceOf(it), up = it.tier > t;
-      return `<div class="eqrow">${itemChip(it, up ? `<span class="rare">少し上の品</span>` : "")}
+      const price = priceOf(it), up = it.tier > t, lack = !up && it.slot !== "acc" && slotNeedsGear(it.slot, t);
+      return `<div class="eqrow">${itemChip(it, up ? `<span class="rare">少し上の品</span>` : lack ? `<span class="rare lack">${SAVE.inv && Object.keys(SAVE.inv).some(id => EQUIP[id] && EQUIP[id].slot === it.slot) ? "⬆今より上" : "未所持"}</span>` : "")}
         <div class="eqst">${esc(SLOTS.find(s => slotKind(s.id) === it.slot).name.replace(/①|②/, ""))}｜${stText(it)}<br>条件：忍者Lv${it.req.lv}〜${it.req.stat ? "・" + Object.entries(it.req.stat).map(([k, v]) => `${STATS.find(x => x.id === k).name}${v}以上`).join("・") : ""}${equipBadge(it)}</div>
         <button class="btn mini" ${SAVE.ryo < price ? "disabled" : ""} onclick="buyEq('${it.id}')">${price}両</button></div>`;
     }).join("");
