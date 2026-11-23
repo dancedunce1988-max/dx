@@ -2488,15 +2488,13 @@ function renderQ(){
 }
 const HINT_DELAY = 5;
 let HINT_T = null;
+// 5秒たったら、だまってヒントを出す（カウントダウンは出さない。2026-11-23、教員の指示）
 function delayHint(q, show){
   clearInterval(HINT_T);
   let left = HINT_DELAY;
-  const draw = () => { if(!q.smoked) $("qExtra").innerHTML = `<div class="hintwait">💨 あと<b>${left}</b>秒でヒント<span class="hwbar"><i style="width:${(HINT_DELAY - left) / HINT_DELAY * 100}%"></i></span></div>`; };
-  draw();
   HINT_T = setInterval(() => {
     if(!PLAY || PLAY.qs[PLAY.i] !== q || PLAY.lock || q.smoked){ clearInterval(HINT_T); return; }
-    left--;
-    if(left <= 0){ clearInterval(HINT_T); show(); } else draw();
+    if(--left <= 0){ clearInterval(HINT_T); show(); }
   }, 1000);
 }
 // 「ない」をつけた形を見せる。plain＝直前の音を光らせない
