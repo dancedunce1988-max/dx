@@ -679,6 +679,9 @@
   .ktable td,.ktable th{border:1px solid #b79c6c;padding:4px 10px;text-align:center}
   .ktable th{background:#ead9b0;font-size:13px}
   .ktable td.fol{color:var(--ink2);font-size:13px}
+  .ktable td.fol .fol-on{color:var(--red);font-size:15px}
+  .ktable td.fol .fol-off{opacity:.45;font-size:11px}
+  .fol-note{margin:6px auto 0;max-width:340px;font-size:12px;line-height:1.5;color:#fff;background:rgba(0,0,0,.35);border-radius:8px;padding:4px 8px}
   .ktable td.cur{background:#fff1b8;color:var(--red);font-weight:bold;animation:pop 1.2s infinite}
   .ktable td.torn{background:repeating-linear-gradient(45deg,#d8c08e 0 6px,#c9ad74 6px 12px);color:transparent}
   .ktable td.form{font-size:18px;font-weight:bold}
@@ -1180,6 +1183,20 @@ function followOf(v, form){
   if(form === "onbin") return (v.t === "godan" && !v.iku && "ぐぬぶむ".includes(v.w.slice(-1))) ? "だ" : "た";
   return {mizen:"ない", renyo:"ます", shushi:"。", rentai:"とき", katei:"ば", meirei:"！"}[form];
 }
+/* 活用表の合言葉の欄（2026-11-24、教員の指示「未然に『よう』とだけあると『う』の場合が、連用の『た』には『だ』の場合があることが
+   わからない人がいるかも」）。「よう／う」「た／だ」と両方を書き、この言葉に合うほうを太く、もう一方を薄く出す。
+   「？」がその行のときは、表の下に一言そえる（答えは出さない）。 */
+function tableFolHtml(v, f, fol){
+  const pair = f === "mizenU" ? ["よう", "う"] : f === "onbin" ? ["た", "だ"] : null;
+  if(!pair) return fol;
+  const use = followOf(v, f);
+  return pair.map(x => x === use ? `<b class="fol-on">${x}</b>` : `<span class="fol-off">${x}</span>`).join("／");
+}
+function tableFolNote(v, f){
+  if(f === "mizenU") return `<div class="fol-note">💡 「よう」のなかまの「う」：五段は「う」（書こ<b>う</b>）、ほかは「よう」（起き<b>よう</b>）</div>`;
+  if(f === "onbin") return `<div class="fol-note">💡 「た」は「だ」になることもある（読ん<b>だ</b>・泳い<b>だ</b>）。どちらも連用形</div>`;
+  return "";
+}
 const FORM_NAME = {mizen:"未然形", mizenU:"未然形", renyo:"連用形", onbin:"連用形", shushi:"終止形", rentai:"連体形", katei:"仮定形", meirei:"命令形"};
 const FORM_LIST = ["未然形","連用形","終止形","連体形","仮定形","命令形"];
 /* 答えのボタンの合言葉（「た・ます」など）を出さない戦い（2026-11-24、教員の指示：「ある程度強いボスからはなくす」）。
@@ -1188,7 +1205,7 @@ function formHintOff(){
   const c = typeof PLAY !== "undefined" && PLAY && PLAY.cfg; if(!c) return false;
   return c.mode === "dojo" || c.mode === "legend" || (c.mode === "story" && c.ch && c.ch.id === "tsui") || (c.mode === "wild" && !!(c.foe && c.foe.makyo));
 }
-const FORM_HINT = {"未然形":"ない・よう", "連用形":"た・ます", "終止形":"。（言い切り）", "連体形":"とき", "仮定形":"ば", "命令形":"！（命令）"};
+const FORM_HINT = {"未然形":"ない・よう（う）", "連用形":"た（だ）・ます", "終止形":"。（言い切り）", "連体形":"とき", "仮定形":"ば", "命令形":"！（命令）"};
 
 // 「ない」をつけた形と、その直前の音
 function naiInfo(v){
@@ -1840,7 +1857,7 @@ function showVillage(){
     const ns = nextStory();
     const storyHere = (id === "terakoya" && ns === "jo") || (id === "gate" && ns && ns !== "jo");
     const alert = (storyHere ? `<span class="vbadge story">📜</span><span class="vtarget">▼ここ</span>` : "")
-      + (id === "castle" && castleHasDoable() ? `<span class="vfuki">実行してほしい任務があります</span>` : "");
+      + (id === "castle" && castleHasDoable() ? `<span class="vfuki">任務あり</span>` : "");
     html += `<div class="vplace${isSoon ? " soon" : ""}${lock ? " locked" : ""}${id === "hermit" && !SAVE.hermitMet ? " glow" : ""}" data-id="${id}" style="left:${p.x}%;top:${p.y}%"><div class="vicon">${p.icon}${alert}</div>${lock ? `<span class="vbatsu"></span>` : ""}<div class="vname">${p.name}${lock ? `<small>${lock.label}</small>` : ""}${isSoon ? "<small>準備中</small>" : ""}</div></div>`;
   });
   html += `<div class="vtoken" id="vtoken">${pic("hero")}</div>`;
@@ -2632,10 +2649,11 @@ const TRAIN_PLAN = {
   shi: [
     {kind:"talk", title:"活用表の作り方", pages:[
       `活用表は、覚えるものではない。<b>言い切りの形に、合言葉を順につけていけば作れる</b>。<br>書く ＋ない → 書<b>か</b>ない、＋ます → 書<b>き</b>ます、＋。→ 書<b>く</b>。……`,
-      `表の「？」に入る形を考えるときは、<b>その行の合言葉を、頭の中でつけてみる</b>のじゃ。<br>まずは五段の表から。（「た」の欄は、あとで教える）`]},
+      `表の「？」に入る形を考えるときは、<b>その行の合言葉を、頭の中でつけてみる</b>のじゃ。<br>まずは五段の表から。（「た」の欄は、あとで教える）`,
+      `一つ注意じゃ。合言葉の「<b>よう</b>」は、<b>五段では「う」</b>になる（書こ<b>う</b>・読も<b>う</b>）。ほかの流派は「よう」（起き<b>よう</b>・食べ<b>よう</b>）。<br>表には「よう／う」と両方書いてあり、その言葉に合うほうが<b>太く</b>なっておる。`]},
     {kind:"drill", title:"五段の表", desc:"「？」の行の合言葉をつけて考えよう", goal:winGoal(4, 4), gen:() => genTable(V_GODAN.filter(x => !"す".includes(x.w.slice(-1))), ["mizen", "mizenU", "renyo", "shushi", "rentai", "katei", "meirei"])},
     {kind:"talk", title:"音便", pages:[
-      `五段は、「<b>た</b>」がつくと音が変わる。これを<b>音便</b>という。<br>書く → 書<b>い</b>た（い）　待つ → 待<b>っ</b>た（っ）　読む → 読<b>ん</b>だ（ん）<br>声に出せば、すぐ分かるはずじゃ。`]},
+      `五段は、「<b>た</b>」がつくと音が変わる。これを<b>音便</b>という。<br>書く → 書<b>い</b>た（い）　待つ → 待<b>っ</b>た（っ）　読む → 読<b>ん</b>だ（ん）<br>読ん<b>だ</b>・泳い<b>だ</b>のように、「た」が「<b>だ</b>」になることもあるが、どちらも同じ<b>連用形</b>じゃ。表には「た／だ」と両方書いてある。<br>声に出せば、すぐ分かるはずじゃ。`]},
     {kind:"drill", title:"音便", desc:"「た」の欄に入る形は？ 声に出して考えよう", goal:winGoal(4, 4), gen:() => genTable(V_GODAN.filter(x => !"す".includes(x.w.slice(-1))), ["onbin"])},
     {kind:"talk", title:"一段の表", pages:[`上一段・下一段の表は、もっと簡単じゃ。「起き」「食べ」の後ろが、<b>る・れ・ろ</b>と変わるだけ。<br>未然・連用は「起き」「食べ」のまま。`]},
     {kind:"drill", title:"一段の表", desc:"上一段・下一段の表を埋めよう", goal:winGoal(4, 4), gen:() => genTable([...V_KAMI, ...V_SHIMO], ["mizen", "renyo", "shushi", "rentai", "katei", "meirei"])},
@@ -3452,8 +3470,8 @@ function renderQ(){
     $("qExtra").innerHTML = `<table class="ktable"><tr><th>活用形</th><th>合言葉</th><th>形</th></tr>${TABLE_ROWS.map(([f, name, fol]) => {
       const cls = f === q.f ? "cur" : q.torn.includes(f) ? "torn" : "";
       const cell = f === q.f ? "？" : q.torn.includes(f) ? "・" : formHtml(q.v, conj(q.v, f));
-      return `<tr><td>${name}</td><td class="fol">${fol}</td><td class="form ${cls}">${cell}</td></tr>`;
-    }).join("")}</table>`;
+      return `<tr><td>${name}</td><td class="fol">${tableFolHtml(q.v, f, fol)}</td><td class="form ${cls}">${cell}</td></tr>`;
+    }).join("")}</table>${tableFolNote(q.v, q.f)}`;
     choicesHtml = tableChoices(q.v, q.f).map(c => `<button class="choice form-c" data-a="${esc(c)}">${formHtml(q.v, c)}</button>`).join("");
   }else if(q.kind === "sform"){
     $("qPrompt").textContent = q.hlK ? "下線の言葉は、何形？（光っているのが、後ろの言葉）" : "下線の言葉は、何形？";
@@ -3534,7 +3552,7 @@ function explain(q){
     return `動詞に合言葉「${esc(q.fol)}」${memo}が続くのは<b>${f}</b>（${FORM_HINT[f]}）。${q.only ? "" : "形だけでなく、すぐ後ろの言葉で決まる。"}${naiNote}`;
   }
   if(q.kind === "table"){
-    let t = `「${rubyHtml(q.v)}」の${FORM_NAME[q.f]}（合言葉「${TABLE_ROWS.find(r => r[0] === q.f)[2]}」）は「<b>${formHtml(q.v, q.ans)}</b>」。`;
+    let t = `「${rubyHtml(q.v)}」の${FORM_NAME[q.f]}（合言葉「${followOf(q.v, q.f)}」）は「<b>${formHtml(q.v, q.ans)}</b>」。`;
     if(q.f === "onbin" && q.v.t === "godan") t += `<br>五段は「た」が続くと音が変わる（音便）。${formHtml(q.v, q.ans)}${"ぐぬぶむ".includes(q.v.w.slice(-1)) && !q.v.iku ? "だ" : "た"}。`;
     return t;
   }
