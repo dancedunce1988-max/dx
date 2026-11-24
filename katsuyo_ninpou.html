@@ -186,6 +186,8 @@
   .vplace.soon .vicon{filter:grayscale(.6) drop-shadow(0 4px 3px rgba(0,0,0,.35))}
   /* 入れない建物（城＝任務がまだない・道場＝改修工事中・茶屋＝Lv10から・萬屋＝はじめて両を手に入れるまで）：アイコンに赤いバッテン */
   .vplace.locked .vicon{filter:grayscale(.85) brightness(.85) drop-shadow(0 4px 3px rgba(0,0,0,.35))}
+  .dj-conf{position:fixed;z-index:60;font-size:20px;pointer-events:none;transform:translate(-50%,-50%);animation:djconf 1.5s ease-out both}
+  @keyframes djconf{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}15%{opacity:1}100%{opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy) + 80px)) scale(1) rotate(200deg)}}
   .vbatsu{position:absolute;left:50%;top:-2px;width:54px;height:54px;transform:translateX(-50%);z-index:2;background:linear-gradient(45deg,transparent 43%,#e0362b 43%,#e0362b 57%,transparent 57%),linear-gradient(-45deg,transparent 43%,#e0362b 43%,#e0362b 57%,transparent 57%);pointer-events:none}
   /* 城の吹き出し：今できる任務があるとき */
   .vfuki{position:absolute;left:calc(100% + 10px);top:2px;background:#fff;color:#3a2716;font-size:11px;font-weight:bold;line-height:1.35;border:2px solid #e0362b;border-radius:10px;padding:3px 7px;width:8.5em;white-space:normal;text-align:left;filter:none;animation:bob 1.6s ease-in-out infinite;z-index:3}
@@ -1776,11 +1778,11 @@ const PLACES = {
 const PLAZA = {x:50, y:50};
 /* 入れない建物（2026-11-24、教員の指示）。label：建物名の下の小さな字、say：タップしたときの言葉。
    城：受けられる任務がまだないあいだ（序の章を終えるまで）。任務ができて里にもどると、知らせとともに開く。
-   道場：改修工事中（だれも入れない）。茶屋：忍者Lv10から。萬屋：はじめて両を手に入れて、里にもどるまで閉まっている。 */
+   道場：改修工事中。外伝（外二の章・異国の島）をクリアして里にもどると、「工事が終わった」知らせとともに開く。茶屋：忍者Lv10から。萬屋：はじめて両を手に入れて、里にもどるまで閉まっている。 */
 const CHAYA_LV = 10;
 function placeLock(id){
   if(id === "castle" && !SAVE.castleOpen) return {label:"任務なし", icon:"🏯", title:"まだ任務はない", say:"任務所の役人「まだ見習いに任せられる任務はない。まずは📚寺子屋で、師匠の話を聞いてくるのじゃ。」"};
-  if(id === "dojo") return {label:"改修工事中", icon:"🚧", title:"道場は改修工事中", say:"ただいま、道場の改修工事中です。工事が終わるまで、しばらく待っていてください。"};
+  if(id === "dojo" && !SAVE.dojoOpen) return {label:"改修工事中", icon:"🚧", title:"道場は改修工事中", say:"ただいま、道場の改修工事中です。工事が終わるまで、しばらく待っていてください。"};
   if(id === "chaya" && ninjaInfo().lv < CHAYA_LV) return {label:`Lv${CHAYA_LV}から`, icon:"🍡", title:"茶屋は準備中", say:`茶屋のおはな「ごめんね、まだお店の準備中なの。<b>忍者Lv${CHAYA_LV}</b>になったら、団子づくりを手伝ってね！」`};
   if(id === "shop" && !SAVE.shopOpen) return {label:"閉まっている", icon:"🏮", title:"萬屋は閉まっている", say:"戸が閉まっている……。<br>外で<b>両（お金）</b>を手に入れてから来よう。"};
   return null;
@@ -1828,9 +1830,11 @@ function showVillage(){
   if(PLACE_OPENING) return;   // 知らせを出している途中の描き直しでは、次の知らせを出さない（「あとで」で閉じたあとに出す）
   if(!SAVE.castleOpen && availableQTypes().length) openPlaceFirst("castle");
   else if(!SAVE.shopOpen && SAVE.ryoEarned) openPlaceFirst("shop");
+  else if(!SAVE.dojoOpen && chCleared("gai2")) openPlaceFirst("dojo");
 }
 const PLACE_OPEN_MSG = {
   castle:{flag:"castleOpen", icon:"🏯", title:"城で任務が受けられる！", body:"任務をこなすと、<b>両</b>や<b>装備</b>がもらえる。", go:"城へ行く"},
+  dojo:  {flag:"dojoOpen",   icon:"🥋", title:"道場の改修工事が終わったようだ！", body:"行ってみよう！", go:"道場へ行く", fanfare:true},
   shop:  {flag:"shopOpen",   icon:"🏮", title:"萬屋が開いた！", body:"両で<b>装備</b>や<b>道具</b>（団子・煙玉）が買える。<br>いらない物は売ることもできる。", go:"萬屋へ行く"},
 };
 let PLACE_OPENING = false;
@@ -1841,6 +1845,13 @@ function openPlaceFirst(id){
   const e = document.querySelector(`.vplace[data-id="${id}"]`);
   if(e) e.classList.add("appear");
   sfx.ok();
+  if(m.fanfare){   // 道場の工事明け：ファンファーレと紙吹雪
+    [523, 659, 784, 1046].forEach((f, i) => tone(f, .16, "triangle", .05, .12 * i));
+    if(e){ const r = e.getBoundingClientRect(); for(let i = 0; i < 24; i++){ const c = document.createElement("span"); c.className = "dj-conf"; c.textContent = ["🎉","✨","🎊","⭐"][i % 4];
+      c.style.left = (r.left + r.width / 2) + "px"; c.style.top = (r.top + r.height / 2) + "px";
+      c.style.setProperty("--dx", (Math.random() * 240 - 120) + "px"); c.style.setProperty("--dy", (-60 - Math.random() * 160) + "px"); c.style.animationDelay = (Math.random() * .25) + "s";
+      document.body.appendChild(c); setTimeout(() => c.remove(), 1800); } }
+  }
   modal(`<div class="big">${m.icon}</div><h3>${m.title}</h3><p>${m.body}</p>`,
     [[m.go, () => { closeModal(); goPlace(id); }], ["あとで", () => { closeModal(); showVillage(); }]]);
 }
