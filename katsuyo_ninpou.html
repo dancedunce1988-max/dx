@@ -2422,18 +2422,21 @@ function showZukan(){
    ・相手がまちがえたら、そのまま答えられる。こちらがまちがえると反撃を受ける。
    ・はじめて勝ったときだけ、両と品（道場だけの装備など）がもらえる。再戦は少しの両と経験値。
    ・2026-11-24、教員の指示「道場の人たちが、城の任務の相手より弱い」：道場の相手は、城の任務（同じくらいのLvの格）より
-     HP・攻撃・守り・結界を高くし（同日、さらに「道場で一番弱い人でも、城の任務Sより強く」：太郎でもSの敵 HP500・攻撃250・守り/結界38 を上回る）、任務の敵と同じように決まった間（every）ごとに攻撃してくるようにした（前は早押しで負けたときだけ）。
-     先に答えられたときの攻撃も1.3倍。考える時間も短く、正答率も高くした。
+     HP・攻撃・守り・結界を高くし（同日、さらに「道場で一番弱い人でも、城の任務Sより強く」「任務を全部終えていれば、道場の下位には勝てるくらいに」：
+     全員、Sの敵 HP500・攻撃250・守り/結界38 を上回る。シミュレーション（Lv25・伝説の装備・均等振り・正答率85%＝任務Sに約9割勝てる忍者）で
+     太郎 約85%・花 約80%・剛 約60%・静 約40%・鉄斎 約20%・影 約7%。Lv40・正答率90%なら 影 約50%。
+     住み分け：城の任務は、その任務のジャンル（章）だけから出題。道場は、全ジャンルからまぜて出題）、任務の敵と同じように決まった間（every）ごとに攻撃してくるようにした（前は早押しで負けたときだけ）。
+     先に答えられたときの攻撃も1.3倍。
    ===================================================================== */
 const DOJO_LV = 8;   // （旧：Lv8から入門。2026-11-23、教員の指示で「全部クリアしてから」に変更）
 const dojoOpen = () => chCleared("gai2");
 const DOJO = [
-  {id:"taro",  name:"門下生・太郎",   icon:"🧒", lv:8,  think:7.5, acc:.75, every:1, hp:560, atk:270, def:40, res:40, ryo:300,  item:"dojo_tenugui", talk:"よろしくお願いします！ 手加減はしませんよ！"},
-  {id:"hana",  name:"門下生・花",     icon:"👧", lv:10, think:6.5, acc:.8,  every:1, hp:620, atk:300, def:43, res:44, ryo:450,  item:"dojo_gi",      talk:"太郎に勝ったのね。でも、わたしは速いわよ。"},
-  {id:"go",    name:"師範代・剛",     icon:"💪", lv:14, think:5.5, acc:.85, every:1, hp:690, atk:335, def:48, res:44, ryo:700,  item:"dojo_kote",    talk:"ほう、なかなかの腕前だ。だが、おれの速さについてこられるか！"},
-  {id:"shizu", name:"師範・静",       icon:"🧘", lv:18, think:4.5, acc:.9,  every:1, hp:760, atk:370, def:50, res:56, ryo:1000, item:"acc_hoju",     talk:"心を静めなさい。あわてた者から負けるのです。"},
-  {id:"tessai",name:"道場主・鉄斎",   icon:"🥷", lv:22, think:3.8, acc:.93, every:1, hp:840, atk:410, def:56, res:56, ryo:1600, item:"waist4",       talk:"わしが道場主の鉄斎じゃ。全力でかかってこい！"},
-  {id:"kage",  name:"影の師範",       icon:"👤", lv:28, think:3,   acc:.97, every:1, hp:950, atk:470, def:62, res:62, ryo:3000, item:"face4",        talk:"……鉄斎を破った者か。影の速さを、見せてやろう。", hidden:true},
+  {id:"taro",  name:"門下生・太郎",   icon:"🧒", lv:8,  think:8, acc:.7, every:1, hp:520, atk:258, def:39, res:39, ryo:300,  item:"dojo_tenugui", talk:"よろしくお願いします！ 手加減はしませんよ！"},
+  {id:"hana",  name:"門下生・花",     icon:"👧", lv:10, think:7.5, acc:.75, every:1, hp:540, atk:265, def:40, res:40, ryo:450,  item:"dojo_gi",      talk:"太郎に勝ったのね。でも、わたしは速いわよ。"},
+  {id:"go",    name:"師範代・剛",     icon:"💪", lv:14, think:7, acc:.8, every:1, hp:580, atk:280, def:42, res:40, ryo:700,  item:"dojo_kote",    talk:"ほう、なかなかの腕前だ。だが、おれの速さについてこられるか！"},
+  {id:"shizu", name:"師範・静",       icon:"🧘", lv:18, think:6.5, acc:.85, every:1, hp:620, atk:295, def:44, res:48, ryo:1000, item:"acc_hoju",     talk:"心を静めなさい。あわてた者から負けるのです。"},
+  {id:"tessai",name:"道場主・鉄斎",   icon:"🥷", lv:22, think:6, acc:.88, every:1, hp:680, atk:315, def:48, res:48, ryo:1600, item:"waist4",       talk:"わしが道場主の鉄斎じゃ。全力でかかってこい！"},
+  {id:"kage",  name:"影の師範",       icon:"👤", lv:28, think:5.5, acc:.9, every:1, hp:740, atk:340, def:52, res:52, ryo:3000, item:"face4",        talk:"……鉄斎を破った者か。影の速さを、見せてやろう。", hidden:true},
 ];
 function dojoBeaten(id){ return !!(SAVE.dojo && SAVE.dojo[id]); }
 function showDojo(){
