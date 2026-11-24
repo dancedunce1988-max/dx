@@ -4011,7 +4011,7 @@ function startBattle(cfg){
     hp:b.maxHp, maxHp:b.maxHp, atk:b.atk, def:b.def, nin:b.nin, res:b.res, atkCount:0, crit:b.crit, guard:b.guard, hints:b.hints, gauge:0, jutsu:jutsuKnown(b.nin),
     foe:Object.assign({}, cfg.foe, {max:cfg.foe.hp}), timeBase:cfg.time + b.time, lv0:ninjaInfo().lv, dmgDealt:0, charge:0, xpGot:0};
   PLAY.qs = arrangeNoRepeat(PLAY.qs, RECENT_Q);
-  if(cfg.foe && cfg.foe.makyo) PLAY.res = makyoRes(PLAY.res);   // 魔境では、結界は51が限界
+  if(cfg.foe && cfg.foe.makyo) PLAY.res = makyoRes(PLAY.res);   // 魔境では、結界は50が限界
   if(cfg.mode === "quick") PLAY.qs = [PLAY.qs[0]];
   if(cfg.mode === "train"){ PLAY.foe.icon = pic("shisho"); PLAY.qs = [freshGen(cfg.drill.gen)]; }
   mgStart();
@@ -4128,9 +4128,10 @@ const MAKYO_POW = 1.6;
 // 魔境の敵には、1回で与えられるダメージの上限を0.6倍に（会心・術・連続正解で数問で倒せてしまうため）。強力な忍術は「無効」「分身」でも防げない
 const MAKYO_CAP = .6;
 /* 魔境の奥義（2026-11-24、教員の指示）：ダメージは最大HPに対する割合で決まる。
-   結界0なら最大HPの100%（一撃で倒れる）。結界1につき1%ずつ減り、結界の上限は51 → いちばん軽くても最大HPの49%。
-   魔境の戦いでは、結界のステータスは51が限界（それより高くても51として計算）。相性・威力には左右されない。 */
-const RES_CUT_MAX = 51;
+   結界0なら最大HPの100%（一撃で倒れる）。結界1につき1%ずつ減り、結界の上限は50 → いちばん軽くても最大HPの50%。
+   つまり、どんなに結界を上げても、奥義を2回受けたら倒れる（同日、教員の指示で51から50に）。
+   魔境の戦いでは、結界のステータスは50が限界（それより高くても50として計算）。相性・威力には左右されない。 */
+const RES_CUT_MAX = 50;
 const makyoRes = res => Math.min(RES_CUT_MAX, Math.max(0, res || 0));
 const ougiPct = res => 100 - makyoRes(res);
 /* 敵の術の演出（2026-11-24、教員の指示「相手の術の演出を、何の術かハッキリわかるように」）
