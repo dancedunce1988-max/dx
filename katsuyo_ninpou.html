@@ -696,6 +696,62 @@
   .bossname{font-size:12px;color:#ffb3a8;margin-top:2px}
   .choice.form-c{font-size:20px}
   .choice.form-c rt{font-size:.5em}
+  /* ===== 見やすさの見直し（2026-11-24、教員の指示「スマホでもパソコンでも、スクロールしなくていいように」） ===== */
+  html{background:var(--night1)}
+  /* 活用表の問題：表と答えのボタンを左右にならべる（縦に積むとスマホでは画面からはみ出していた） */
+  #sPlay.tq .arena{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:12px;align-items:start;
+    grid-template-areas:"stage stage" "prompt prompt" "word choices" "extra choices" "tools tools" "fb fb"}
+  #sPlay.tq .bstage{grid-area:stage}
+  #sPlay.tq #qPrompt{grid-area:prompt}
+  #sPlay.tq #qWord{grid-area:word;font-size:26px;margin:0 0 2px}
+  #sPlay.tq #qExtra{grid-area:extra}
+  #sPlay.tq #qChoices{grid-area:choices;grid-template-columns:1fr;align-self:center;margin-top:0;gap:7px}
+  #sPlay.tq #qTools{grid-area:tools}
+  #sPlay.tq #qFb{grid-area:fb}
+  #sPlay.tq .ktable{margin:0;font-size:14px}
+  #sPlay.tq .ktable td,#sPlay.tq .ktable th{padding:2px 7px}
+  #sPlay.tq .ktable th{font-size:12px}
+  #sPlay.tq .ktable td.form{font-size:17px}
+  #sPlay.tq .choice{padding:10px 4px}
+  #sPlay.tq .fol-note{grid-column:1/-1;margin:4px 0 0;max-width:none;text-align:left}
+  @media (min-width:600px){ #sPlay.tq #qChoices{grid-template-columns:1fr 1fr} }
+  /* 戦いの上の段：道具（団子・煙玉）と術を1行にまとめて、舞台と問題を上に寄せる */
+  #sPlay .hud2,#sPlay .hud3{display:inline-flex;vertical-align:middle;margin:0 8px 4px 0;min-height:0}
+  #sPlay .hud2:empty,#sPlay .hud3:empty{display:none}
+  /* 城の任務：スマホで文字がつまらないように、ボタンを小さく */
+  #sPanel .qcard .btn{padding:8px 12px;font-size:15px;white-space:nowrap}
+  /* 背の低いスマホ（SEなど）：戦いの舞台とボタンを少し小さく */
+  @media (max-height:760px){
+    .bstage{height:190px}
+    .bstage .foe .foe-ic{font-size:52px}
+    .bfoe-wrap{top:14px}
+    .bfoe-wrap .plat{top:52px}
+    .bhero{font-size:58px}
+    .bhero img{height:70px}
+    .bhero-wrap{bottom:6px;width:80px}
+    .choice{padding:10px 6px;font-size:18px}
+    .arena{padding:10px 10px}
+    .hud{margin-bottom:3px}
+    .bar{margin-bottom:5px}
+  }
+  /* 外（フィールド）：地図・矢印・お知らせが1画面に入るように、地図の大きさを画面の高さに合わせる */
+  .fgrid{max-width:min(100%,max(250px,calc((100svh - 330px) * 8 / 12)))}
+  .fctrl{margin-top:6px}
+  .dpad{height:40px}
+  .fmsg{margin:6px 0 4px}
+  /* パソコン（横長の画面）：地図の右に、操作とお知らせをならべる */
+  @media (min-width:700px) and (min-height:500px){
+    #sField.show{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:14px;align-items:start;
+      grid-template-areas:"top top" "map ctrl" "map msg" "map goal" "map note";grid-template-rows:auto auto auto auto 1fr}
+    #sField > .topbar{grid-area:top}
+    #sField > .fgrid{grid-area:map;max-width:none;width:calc((100vh - 120px) * 8 / 12);min-width:300px}
+    #sField > .fctrl{grid-area:ctrl;grid-template-columns:1fr;justify-items:center;margin-top:0}
+    #sField > .fctrl .fhome{justify-self:center;max-width:none}
+    #sField > .fctrl .fctrl-sp{display:none}
+    #sField > .fmsg{grid-area:msg}
+    #sField > .fgoal{grid-area:goal}
+    #sField > .note{grid-area:note;margin-top:4px}
+  }
   @media (max-width:480px){
     .ktable{font-size:14px}
     .ktable td,.ktable th{padding:3px 6px}
@@ -1866,7 +1922,7 @@ function showVillage(){
   map.querySelectorAll(".vtalk").forEach(e => e.onclick = () => villageTalk(e));
   const here = PLACES[SAVE.here] || PLACES.home;
   placeVToken(here.x, here.y, false);
-  $("vGoal").innerHTML = questCardHtml(false) + `<div class="qc-btns">${questInfo() ? `<button class="btn mini" onclick="goQuest()">▶ 目的地へ行く</button>` : ""}<button class="iconbtn dark" onclick="showQuestLog()">📜 クエスト一覧</button></div>`;
+  $("vGoal").innerHTML = questCardHtml(innerWidth < 700 || innerHeight < 760) + `<div class="qc-btns">${questInfo() ? `<button class="btn mini" onclick="goQuest()">▶ 目的地へ行く</button>` : ""}<button class="iconbtn dark" onclick="showQuestLog()">📜 クエスト一覧</button></div>`;
   $("vMsg").innerHTML = reset ? "レベルが下がったので、忍術ポイントを振り直しにしました。自宅で振り分けよう。" : villageHint(ni, free);
   show("sVillage");
   // 城・萬屋が開く知らせ（2026-11-24、教員の指示）。両方そろったときは城から順に
@@ -3425,6 +3481,11 @@ function makeQuestions(ch){
 /* =====================================================================
    出題
    ===================================================================== */
+// 答えたあとの解説が画面の下にかくれたら、見えるところまで動かす（スマホで、気づかずに止まってしまわないように）
+new MutationObserver(() => {
+  const fb = $("qFb"); if(!fb || !fb.classList.contains("show")) return;
+  setTimeout(() => { const r = fb.getBoundingClientRect(); if(r.bottom > innerHeight - 8) fb.scrollIntoView({behavior:"smooth", block:"end"}); }, 60);
+}).observe(document.getElementById("qFb"), {attributes:true, attributeFilter:["class"]});
 function renderQ(){
   const p = PLAY, q = p.qs[p.i];
   noteShown(q);
@@ -3432,6 +3493,8 @@ function renderQ(){
   p.lock = false;
   renderHud();
   const fb = $("qFb"); fb.className = "feedback"; fb.innerHTML = "";
+  $("sPlay").classList.toggle("tq", q.kind === "table");   // 活用表は、表とボタンを左右にならべる
+  if(window.scrollY > 0) window.scrollTo({top:0, behavior:"smooth"});   // 次の問題は、画面のいちばん上から
   $("qExtra").innerHTML = ""; $("qTools").innerHTML = "";
   refreshFoe(); $("foe").classList.remove("hit");
   let choicesHtml = "";
@@ -3471,8 +3534,8 @@ function renderQ(){
       const cls = f === q.f ? "cur" : q.torn.includes(f) ? "torn" : "";
       const cell = f === q.f ? "？" : q.torn.includes(f) ? "・" : formHtml(q.v, conj(q.v, f));
       return `<tr><td>${name}</td><td class="fol">${tableFolHtml(q.v, f, fol)}</td><td class="form ${cls}">${cell}</td></tr>`;
-    }).join("")}</table>${tableFolNote(q.v, q.f)}`;
-    choicesHtml = tableChoices(q.v, q.f).map(c => `<button class="choice form-c" data-a="${esc(c)}">${formHtml(q.v, c)}</button>`).join("");
+    }).join("")}</table>`;
+    choicesHtml = tableChoices(q.v, q.f).map(c => `<button class="choice form-c" data-a="${esc(c)}">${formHtml(q.v, c)}</button>`).join("") + tableFolNote(q.v, q.f);
   }else if(q.kind === "sform"){
     $("qPrompt").textContent = q.hlK ? "下線の言葉は、何形？（光っているのが、後ろの言葉）" : "下線の言葉は、何形？";
     let sh = sentHtml(q.x.s);
