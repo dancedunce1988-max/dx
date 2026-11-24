@@ -901,7 +901,7 @@ const NP_IMG = {
   fake:    "",   // 偽忍者（三の章の相手）
   bg:      "",   // 物語の背景（夜の忍びの里）
 };
-const NP_EMOJI = {hero:"🥷", shisho:"👴", sekka:"🗿", minion:"👤", fake:"🎭", word:"📜", deshi:"🎩", ikoku:"🧙", kage:"👤", okina:"🧓", ouna:"👵"};
+const NP_EMOJI = {hero:"🥷", shisho:"👴", sekka:"🗿", minion:"👤", fake:"🎭", word:"📜", deshi:"🎩", ikoku:"🧙", kage:"👤", okina:"🧓", ouna:"👵", kaede:"👩", nushi:"😈"};
 function pic(key){
   const src = NP_IMG[key];
   return src ? `<img src="${src}" alt="">` : (NP_EMOJI[key] || "");
@@ -1291,7 +1291,7 @@ function typeExplain(v){
 /* =====================================================================
    章
    ===================================================================== */
-const S = {shisho:"変化斎", hero:"あなた", sekka:"石化丸", minion:"手下", fake:"偽忍者", deshi:"術者の弟子", ikoku:"異国の術者", kage:"影の師範", okina:"初代道場主・翁", ouna:"初代の奥方・媼", nar:""};
+const S = {shisho:"変化斎", hero:"あなた", sekka:"石化丸", minion:"手下", fake:"偽忍者", deshi:"術者の弟子", ikoku:"異国の術者", kage:"影の師範", okina:"初代道場主・翁", ouna:"初代の奥方・媼", kaede:"一番弟子・楓", nushi:"魔境の主", nar:""};
 const CHAPTERS = [
   {id:"jo", no:"序", name:"変化の術", desc:"語幹と活用語尾を知る", n:8, life:3,
    intro:[
@@ -3106,7 +3106,7 @@ function finishLegend(p, win, r){
     XP_AWARD = awardXp(p.xpGot + 50); XP_NOTE = "正解の分＋勝利のボーナス50";
     saveSave(SAVE); sfx.clear();
     line = d.id === "lg_kaede" ? "楓「……おみごとです。お師匠さま、この方、本物です！」"
-      : d.id === "lg_okina" ? "翁「……ふむ、まいった。じゃが、ばあさんはわしより、ずっと速いぞ。」"
+      : d.id === "lg_okina" ? "翁「……ふむ、まいった。わしが負けるとは、何十年ぶりかのう。」"
       : "媼「……まあ。わたしより速い子がいるなんて。」<br>翁「わっはっは！ これで、おぬしが本当の<b>天下一</b>じゃ！」";
   }else{
     XP_AWARD = awardXp(Math.floor(p.xpGot / 2)); XP_NOTE = "負けたので、正解の分の半分";
@@ -3118,9 +3118,67 @@ function finishLegend(p, win, r){
     ${xpResultHtml(XP_AWARD, XP_NOTE)}
     <div class="stat">${L.done}問中 ${L.ok}問正解（勝ちは ${legendRule(d)}）<br>「${MG_GENRE}」レベル ${mgSigned(r.net)}</div>
     ${p.wrongList.length ? `<div class="scroll" style="margin-top:12px;text-align:left"><h2 style="font-size:18px">ふりかえり</h2>${p.wrongList.map(q => `<p>・${explain(q)}</p>`).join("")}</div>` : ""}
-    <div class="btn-row" id="resultBtns"><button class="btn" onclick="startLegend('${d.id}')">もう一度</button><button class="btn sub" onclick="showHermitMenu()">隠居の家へもどる</button></div>`;
+    <div class="btn-row" id="resultBtns">${win && d.id === "lg_okina" && !SAVE.okinaEvent ? `<button class="btn" onclick="okinaEvent()">つづきへ ▶</button>`
+      : win && d.id === "lg_ouna" && !(SAVE.endings || {})[3] ? `<button class="btn" onclick="ounaEnding()">つづきへ ▶</button>`
+      : `<button class="btn" onclick="startLegend('${d.id}')">もう一度</button><button class="btn sub" onclick="showHermitMenu()">隠居の家へもどる</button>`}</div>`;
   show("sResult");
   animateXp(XP_AWARD);
+}
+/* 翁に勝ったあと：魔境のことを話し、魔境が開く（2026-11-24、教員の指示） */
+function okinaEvent(){
+  playStory([
+    ["okina", "……見事じゃ。この老いぼれを、言葉の術だけで負かすとはのう。"],
+    ["kaede", "お師匠さまが負けるなんて……。わたし、はじめて見ました。"],
+    ["okina", "もはや、この里に、おぬしの相手になる者はおらぬ。……じゃが、<span class=em>世界は広い</span>。"],
+    ["okina", "異国の島の、さらに先。海の霧の向こうに、<span class=em>『魔境』</span>と呼ばれる地がある。", "shake"],
+    ["okina", "そこには、<span class=em>おぬしと同じだけの力</span>を写しとる、あやしい者どもが住んでおる。そして、その奥には<span class=em>魔境の主</span>が……。"],
+    ["okina", "わしも若いころ、一度だけ足をふみ入れた。……生きて帰れたのが、ふしぎなくらいじゃった。"],
+    ["okina", "これを持っていけ。霧を晴らす<span class=em>『魔境の通り札』</span>じゃ。"],
+    ["nar", "翁から、<span class=em>『魔境の通り札』</span>を受け取った。<br>🌀 <b>魔境への道が開いた！</b>（里の門から行ける）"],
+  ], () => {
+    SAVE.okinaEvent = 1; SAVE.keyItems = SAVE.keyItems || {}; SAVE.keyItems.makyo = 1; saveSave(SAVE);
+    [262, 311, 392, 523, 466, 622].forEach((f, i) => tone(f, .3, "sawtooth", .05, i * .18));
+    modal(`<div class="big">🌀</div><h3>魔境への道が開いた！</h3><p>里の門の「どこへ行く？」から、魔境へ行ける。<br>敵は、あなたと同じだけの力を持つ。気をつけよう。</p>`,
+      [["隠居の家へもどる", () => { closeModal(); showHermitMenu(); }], ["里へ", () => { closeModal(); showVillage(); }]]);
+  }, {left:"hero"});
+}
+/* 魔境の主を（はじめて）倒したあと：世界最強は翁の妻・媼だと知らされる */
+function nushiEvent(){
+  playStory([
+    ["nushi", "……ぐ、うう……。人の子に、このわしが……。"],
+    ["nushi", "見事だ。……だが、思い上がるなよ。おぬしは、<span class=em>世界最強ではない</span>。", "shake"],
+    ["nushi", "かつて、このわしを、指一本ふれずに負かした者がいる。言葉の術だけで、な。"],
+    ["nushi", "里のはずれの家に住む、<span class=em>初代道場主の妻――媼（おうな）</span>よ。"],
+    ["nushi", "あの翁でさえ、一度も勝てなかったという。……あれこそが、<span class=em>本当の天下一</span>だ。"],
+    ["nushi", "……ふふ。あの女が、今のおぬしを見たら……きっと、家に帰ってくるだろうよ。"],
+    ["nar", "魔境の霧が晴れていく。<br>……遠く、里のはずれの家に、<span class=em>あかりがともった</span>気がした。"],
+  ], () => {
+    SAVE.ounaReveal = 1; saveSave(SAVE);
+    [523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, .25, "triangle", .06, .2 + i * .15));
+    modal(`<div class="big">🏡</div><h3>隠居の家に、だれかが帰ってきたようだ……</h3><p>世界最強といわれる<b>媼</b>に会いに行こう。</p>`,
+      [["隠居の家へ行く", () => { closeModal(); FIELD = null; showHermitMenu(); }], ["あとで", () => { closeModal(); resumeField(); }]]);
+  }, {left:"hero"});
+}
+/* 隠居の家に媼が帰ってきた場面（魔境の主を倒したあと、はじめて訪ねたとき） */
+function ounaArrive(){
+  playStory([
+    ["kaede", "あっ、いらっしゃい！ ちょうどよかった。今朝、奥方さまが旅から帰っていらしたんです！"],
+    ["okina", "ばあさん、この子じゃよ。わしを負かし、魔境の主まで倒したのは。"],
+    ["ouna", "あらあら。<span class=em>魔境の主</span>を……？ まあ、ずいぶん強くなったものね。"],
+    ["ouna", "わたしは媼。この人の妻よ。……昔は、あの魔境の主とも、遊んであげたことがあったわね。"],
+    ["okina", "わしは、ばあさんに一度も勝ったことがない。<span class=em>世界最強</span>というのは、ばあさんのことじゃ。", "shake"],
+    ["ouna", "ふふ。じゃあ、ためしてみる？ わたしとは<span class=em>20問連続</span>。1問2秒。一度でもまちがえたら、そこでおしまいよ。"],
+  ], () => { SAVE.ounaMet = 1; saveSave(SAVE); showHermitMenu(); }, {left:"hero"});
+}
+/* 媼に（はじめて）勝ったあと：本当のエンディング */
+function ounaEnding(){
+  playStory([
+    ["ouna", "……まあ。わたしより速い子がいるなんて。"],
+    ["okina", "わっはっは！ ばあさんが負けるところを、生きているうちに見られるとはのう！"],
+    ["kaede", "お師匠さま、奥方さま……。この方こそ、本当の……！"],
+    ["ouna", "ええ。あなたが<span class=em>天下一の変化の使い手</span>よ。……おめでとう。"],
+    ["nar", "里の言葉たちが、いっせいに形を変えて、あなたをたたえた。"],
+  ], () => showEnding(3, showHermitMenu), {left:"hero"});
 }
 // 連続正解チャレンジの結果（ベストスコアを記録）
 function finishLegendChal(p, win, r){
@@ -3139,7 +3197,7 @@ function finishLegendChal(p, win, r){
     ${xpResultHtml(XP_AWARD, XP_NOTE)}
     <div class="stat">${legendRuleOf(d, true)}<br>「${MG_GENRE}」レベル ${mgSigned(r.net)}</div>
     ${p.wrongList.length ? `<div class="scroll" style="margin-top:12px;text-align:left"><h2 style="font-size:18px">ふりかえり</h2>${p.wrongList.map(q => `<p>・${explain(q)}</p>`).join("")}</div>` : ""}
-    <div class="btn-row" id="resultBtns"><button class="btn" onclick="startLegend('${d.id}')">もう一度</button><button class="btn sub" onclick="showHermitMenu()">隠居の家へもどる</button></div>`;
+    <div class="btn-row" id="resultBtns">${win && !(SAVE.endings || {})[3] ? `<button class="btn" onclick="ounaEnding()">つづきへ ▶</button>` : `<button class="btn" onclick="startLegend('${d.id}')">もう一度</button><button class="btn sub" onclick="showHermitMenu()">隠居の家へもどる</button>`}</div>`;
   show("sResult");
   animateXp(XP_AWARD);
 }
@@ -3149,9 +3207,9 @@ function kageEvent(){
     ["kage", "よくやった。これで君が世界最強だ……", "shake"],
     ["kage", "……と言いたいところだが、<span class=em>実は違う</span>。"],
     ["kage", "実は、<span class=em>道場の外に、もっと強いお方がいる</span>。"],
-    ["kage", "かつてこの道場を開いた、<span class=em>初代の道場主ご夫婦</span>だ。今は里のはずれの家で、静かに暮らしておられる。"],
+    ["kage", "かつてこの道場を開いた、<span class=em>初代の道場主・翁さま</span>だ。今は里のはずれの家で、静かに暮らしておられる。"],
     ["kage", "このお札を持っていけ。わたしが認めた者のしるしだ。"],
-    ["kage", "……ただし、覚悟しておけ。あのお二人の前では、どんな装備も、術も、何の役にも立たん。"],
+    ["kage", "……ただし、覚悟しておけ。あのお方の前では、どんな装備も、術も、何の役にも立たん。"],
     ["nar", "影の師範から、<span class=em>『影の認め札』</span>を受け取った。"],
   ], () => {
     SAVE.keyItems = SAVE.keyItems || {}; SAVE.keyItems.kage = 1; saveSave(SAVE);
@@ -3168,25 +3226,28 @@ function showHermit(){
   if(SAVE.hermitMet){ showHermitMenu(); return; }
   playStory([
     ["nar", "戸をたたくと、しばらくして、白いひげのおじいさんが顔を出した。"],
-    ["okina", "……誰だ。こんなところまで。<span class=em>わしらはもう、とうの昔に引退したのだ</span>。帰っておくれ。", "shake"],
-    ["ouna", "おじいさん、ちょっと待って。その子が手に持っているお札……"],
+    ["okina", "……誰だ。こんなところまで。<span class=em>わしはもう、とうの昔に引退したのだ</span>。帰っておくれ。", "shake"],
+    ["kaede", "お師匠さま、お待ちください。その方が手に持っているお札……"],
     ["okina", "な、なんと！ <span class=em>影の認め札</span>ではないか……！", "shake"],
     ["okina", "あの影が、人を認めたというのか。……そうか。そういうことか。"],
-    ["okina", "おぬし、<span class=em>わしらと戦いたい</span>のじゃな？"],
-    ["okina", "ならば、先に言っておく。わしらとの勝負には、<span class=em>装備もステータスも、術も道具も、いっさい関係ない</span>。"],
-    ["ouna", "あるのは、言葉の変化の術を、どれだけ速く、どれだけ正しく使えるか。それだけ。<span class=em>本当の実力勝負</span>よ。"],
+    ["okina", "おぬし、<span class=em>わしと戦いたい</span>のじゃな？"],
+    ["okina", "ならば、先に言っておく。わしとの勝負には、<span class=em>装備もステータスも、術も道具も、いっさい関係ない</span>。"],
+    ["kaede", "あるのは、言葉の変化の術を、どれだけ速く、どれだけ正しく使えるか。それだけです。<span class=em>本当の実力勝負</span>ですよ。"],
     ["okina", "それでもよいなら、上がりなさい。まずは、住みこみの一番弟子・<span class=em>楓</span>が相手じゃ。"],
   ], () => { SAVE.hermitMet = 1; saveSave(SAVE); showHermitMenu(); }, {left:"hero"});
 }
 function showHermitMenu(){
+  if(ounaHere() && !SAVE.ounaMet && !skBeaten("lg_ouna")){ ounaArrive(); return; }
   let h = `<div class="npc-line"><span class="npc">🧓</span><div>初代道場主・翁「よう来た。ここでは、装備もステータスも術も道具も使えぬ。<b>決まった数の問題を、短い時間で、どれだけ正しく解けるか</b>。それだけの勝負じゃ。まずは、うちの一番弟子の楓が相手をしよう。」</div></div>`;
   LEGENDS.forEach((d, i) => {
+    if(d.id === "lg_ouna" && !ounaHere()) return;   // 媼は、魔境の主を倒すまで現れない
     const prev = i === 0 || skBeaten(LEGENDS[i - 1].id), b = (SAVE.shinken || {})[d.id];
     h += `<div class="qcard${prev ? "" : " locked"}"><div class="qicon">${d.icon}</div>
       <div class="qtx"><b>${b ? "✅ " : ""}${esc(d.name)}${legEndless(d) ? "　🔥 連続正解チャレンジ" : ""}</b><small>${legendRuleOf(d, legEndless(d))}・1問${d.limit}秒</small>
         <small>${legEndless(d) ? `🏆 ベストスコア ${legBest(d)}問・勝った回数 ${b.wins}` : b ? `勝った回数 ${b.wins}` : `初勝利：💰${d.ryo}両・称号「${d.title}」${d.item ? `・${EQUIP[d.item].icon}${EQUIP[d.item].name}` : ""}`}</small></div>
       ${prev ? `<button class="btn mini" onclick="startLegend('${d.id}')">${legEndless(d) ? "挑戦" : b ? "再戦" : "挑む"}</button>` : `<span class="lockmsg">${esc(LEGENDS[i - 1].name.split("・")[1])}に勝ってから</span>`}</div>`;
   });
+  if(skBeaten("lg_okina") && !ounaHere()) h += `<p class="note-dark">🌀 翁「魔境の奥には、魔境の主がおる。……行ってみるがよい。」<br>（里の門から、魔境へ行ける）</p>`;
   if(skBeaten("lg_ouna")) h += `<p class="note-dark">🏆 あなたは、変化の里で<b>天下一</b>の変化の使い手。お二人も楓も、たまには腕だめしに来てほしいと言っている。</p>`;
   panel("🏡 隠居の家", h);
 }
@@ -3203,7 +3264,8 @@ function showTerakoya(){
   if(doneStory.length) html += `<h3 class="sec">📖 これまでの物語（読み返す）</h3><div class="replay">` +
     doneStory.map(id => { const c = CHAPTERS[chIndex(id)]; return `<button class="iconbtn dark" onclick="replayStory('${id}')">${c.no} ${esc(c.name)} ${"★".repeat(SAVE.stars[id])}</button>`; }).join("") +
     (SAVE.endings && SAVE.endings[1] ? `<button class="iconbtn dark" onclick="showEnding(1, showTerakoya)">🎆 第一部のエンディング</button>` : "") +
-    (SAVE.endings && SAVE.endings[2] ? `<button class="iconbtn dark" onclick="showEnding(2, showTerakoya)">🎌 終幕（エンディング）</button>` : "") + `</div>`;
+    (SAVE.endings && SAVE.endings[2] ? `<button class="iconbtn dark" onclick="showEnding(2, showTerakoya)">🎌 終幕（エンディング）</button>` : "") +
+    (SAVE.endings && SAVE.endings[3] ? `<button class="iconbtn dark" onclick="showEnding(3, showTerakoya)">👑 真・終幕（本当のエンディング）</button>` : "") + `</div>`;
   html += `<h3 class="sec">📜 巻物</h3>`;
   html += list.map(id => { const c = CHAPTERS[chIndex(id)];
     return `<div class="qcard"><div class="qicon">📜</div><div class="qtx"><b>${c.no}　${esc(c.name)}</b><small>${esc(c.desc)}</small></div>
@@ -3338,6 +3400,32 @@ function showEnding(kind, after){
       </div>
       <div class="ekan big">完</div>
       <div class="ethanks">遊んでくれて、ありがとう。<br><small>変化の里は、これからもいつでも遊べる。<br>まだ会っていない名のある忍が待っているぞ。</small></div>
+      <div class="etease">……しかし、里の道場には、<br>まだ見ぬ強者たちが待っていた。<br><b>―― 道場へ ――</b></div>
+    </div>`;
+  }
+  if(kind === 3){   // 本当のエンディング（媼に勝ったあと。2026-11-24、教員の指示）
+    html = `<div class="eroll r2">
+      <div class="esub">活用忍伝 ―変化ノ極意―</div><div class="ebig">真・終幕</div><div class="etitle">天下一の変化の使い手</div>
+      <div class="esec">第一部　動詞の巻</div>
+      ${["jo", "ichi", "ni", "san", "shi", "tsui"].map(id => `<div class="eline">${ch(id).no}　${esc(ch(id).name)}</div>`).join("")}
+      <div class="esec">外伝　海の向こうの術者</div>
+      ${["gai1", "gai2"].map(id => `<div class="eline">${ch(id).no}　${esc(ch(id).name)}</div>`).join("")}
+      <div class="esec">強者への道</div>
+      ${["🥋 道場の六人をやぶる", "👤 影の師範に認められる", "👩 一番弟子・楓をやぶる", "🧓 初代道場主・翁をやぶる", "😈 魔境の主をたおす", "👵 世界最強・媼をやぶる"].map(t => `<div class="eline">${t}</div>`).join("")}
+      <div class="esec">登場した者たち</div>
+      <div class="ecast">${[["👴", "師匠・変化斎"], ["🗿", "石化丸"], ["🎩", "異国の術者の弟子"], ["🧙", "異国の術者"], ["🧒", "門下生・太郎"], ["👧", "門下生・花"], ["💪", "師範代・剛"], ["🧘", "師範・静"], ["🥷", "道場主・鉄斎"], ["👤", "影の師範"], ["👩", "一番弟子・楓"], ["🧓", "初代道場主・翁"], ["😈", "魔境の主"], ["👵", "初代の奥方・媼"]]
+        .map(([i, n]) => `<span>${i}<small>${esc(n)}</small></span>`).join("")}</div>
+      <div class="esec">そして</div><div class="ecast"><span>${pic("hero")}<small>あなた</small></span></div>
+      <div class="esec">旅の記録</div><div class="estats">${stats}</div>
+      <div class="etalk">${pic("ouna")}<p>言葉は、形を変えて生きている。<br>その変化を見ぬく目こそ、<b>いちばん強い術</b>よ。<br>……また、いつでも遊びにいらっしゃい。</p></div>
+      <div class="ecert">
+        <div class="ecert-t">天 下 一</div>
+        <p>右の者、<b>言葉の変化の術</b><br>（用言の活用）において<br>並ぶ者なき<br><b>天下一の変化の使い手</b><br>であることを認める。</p>
+        <p class="ecert-d">${dateStr}<br>初代道場主　翁<br>同　奥方　媼</p>
+        <div class="ecert-seal">天下</div>
+      </div>
+      <div class="ekan big">完</div>
+      <div class="ethanks">本当に、ありがとう。<br><small>媼とは「連続正解チャレンジ」で、何度でも勝負できる。<br>ベストスコアを更新しよう！</small></div>
     </div>`;
   }
   $("endBody").innerHTML = html + `<div class="ebtns"><button class="iconbtn" id="endSkip">とばす ▶▶</button></div>`;
@@ -3346,7 +3434,7 @@ function showEnding(kind, after){
   const fin = () => {
     roll.classList.add("done");
     fireworks(true);
-    $("endBody").querySelector(".ebtns").innerHTML = `<button class="btn" id="endEnd">${kind === 1 ? "外伝へ進む ▶" : "変化の里にもどる"}</button>`;
+    $("endBody").querySelector(".ebtns").innerHTML = `<button class="btn" id="endEnd">${kind === 1 ? "外伝へ進む ▶" : kind === 3 ? "隠居の家にもどる" : "変化の里にもどる"}</button>`;
     $("endEnd").onclick = () => { fireworks(false); sfx.tap(); (after || showVillage)(); };
   };
   $("endSkip").onclick = fin;
@@ -3354,7 +3442,7 @@ function showEnding(kind, after){
   // 音楽：第一部は短く明るく、終幕はゆっくり長く
   const melody = kind === 1 ? [523, 659, 784, 1046, 784, 1046, 1318] : [392, 440, 523, 587, 523, 659, 784, 698, 659, 587, 523, 587, 659, 784, 1046];
   melody.forEach((f, i) => tone(f, kind === 1 ? .22 : .4, "triangle", .045, i * (kind === 1 ? .25 : .55)));
-  if(kind === 2){ const w = $("endWhite"); w.classList.remove("go"); void w.offsetWidth; w.classList.add("go"); }
+  if(kind >= 2){ const w = $("endWhite"); w.classList.remove("go"); void w.offsetWidth; w.classList.add("go"); }
   else fireworks(true);
 }
 // 物語の続き（クリア後の話）のあと：終の章・外二の章をはじめてクリアしたら、エンディング
@@ -3390,7 +3478,7 @@ function renderStory(){
   const [who, text, fx] = STORY.lines[STORY.i];
   const left = $("actL"), right = $("actR");
   // 左は主人公か師匠、右は敵。話している側を明るくする
-  const enemy = ["sekka","minion","fake","deshi","ikoku","kage","okina","ouna"].includes(who);
+  const enemy = ["sekka","minion","fake","deshi","ikoku","kage","okina","ouna","kaede","nushi"].includes(who);
   left.innerHTML = pic(who === "hero" ? "hero" : STORY.left);
   if(enemy) right.innerHTML = pic(who);
   else if(!right.innerHTML) right.innerHTML = pic("hero");
@@ -4512,7 +4600,8 @@ function finishWild(p, win, r){
     <div class="stat">正解 ${p.ok}　まちがい ${p.ng}　最大 ${p.maxCombo}連続<br>「${MG_GENRE}」レベル ${mgSigned(r.net)}</div>
     ${p.wrongList.length ? `<div class="scroll" style="margin-top:12px;text-align:left"><h2 style="font-size:18px">ふりかえり</h2>${p.wrongList.slice(0, 6).map(q => `<p>・${explain(q)}</p>`).join("")}</div>` : ""}
     <div class="btn-row" id="resultBtns">
-      ${win === false ? `<button class="btn" onclick="FIELD = null; SAVE.here = 'home'; saveSave(SAVE); showVillage()">里へ</button>`
+      ${win === true && foe.nushi && !ounaHere() ? `<button class="btn" onclick="nushiEvent()">つづきへ ▶</button>`
+        : win === false ? `<button class="btn" onclick="FIELD = null; SAVE.here = 'home'; saveSave(SAVE); showVillage()">里へ</button>`
         : `<button class="btn" onclick="resumeField(); FIELD.safe = 3">外へもどる</button><button class="btn sub" onclick="FIELD = null; SAVE.here = 'gate'; saveSave(SAVE); showVillage()">里へ帰る</button>`}
     </div>`;
   show("sResult");
@@ -4559,7 +4648,7 @@ const FIELDS = [
    theme:{ov:"sun", sub:"南の海にうかぶ、ふしぎな島", deco:[[0,4,"🌺"],[7,6,"🌋"],[2,7,"🗿"],[7,1,"🦩"],[0,9,"🐚"]], jingle:[440,554,659,880]},
    map:["TTTUUTTT","TGG..GGT","TGTG.GTT","T..GGG.T","TGG.TGGT","WWG.GGWW","TGG.GG.T","T.TGG.GT","TGG..GGT","TG.GT..T","TGG..GGT","TTTDDTTT"],
    kinds:["oumu", "wani", "kame", "kai"], named:"majo"},
-  /* 魔境（2026-11-23、教員の指示）。隠居の家の3人をすべて倒すと、異国の島のいちばん上（ふさがれた所）から入れる。
+  /* 魔境（2026-11-23、教員の指示）。隠居の家の翁に勝つと（2026-11-24 変更）、異国の島のいちばん上（ふさがれた所）から入れる。
      ・出題はすべてのジャンル（動詞・形容詞・形容動詞の全章）
      ・敵は、自分と同じステータスの合計（体力・攻撃・守り・忍術・結界）を、ランダムに配分して持つ。Lvも自分と同じ。
      ・毎問攻撃してくる。4回に1回は、それに上乗せして強力な忍術（火遁・水遁・木遁）。補助の忍術（癒し・分身・属性がえし）もときどき使う。 */
@@ -4570,7 +4659,11 @@ const FIELDS = [
 ];
 const MAKYO_F = FIELDS.findIndex(F => F.makyo);
 const isMakyo = fi => fi === MAKYO_F;
-const makyoOpen = () => skBeaten("lg_ouna");   // 隠居の家の3人（楓・翁・媼）をすべて倒した
+/* 魔境は、隠居の家の翁に勝つと開く（2026-11-24、教員の指示で「3人すべて」から変更）。翁が魔境のことを話す場面のあと */
+const makyoOpen = () => skBeaten("lg_okina");
+/* 媼は、はじめは隠居の家にいない（2026-11-24、教員の指示）。魔境の主を倒すと「世界最強は媼」と知らされ、隠居の家に現れる。
+   前の版で媼にもう勝っている記録は、そのまま現れている扱い */
+const ounaHere = () => !!SAVE.ounaReveal || skBeaten("lg_ouna");
 /* 魔境の主（2026-11-23）。魔境の敵を5人倒すと、いちばん奥（⛩️の前）に姿を現す。
    ステータスの合計はあなたの1.25倍（配分はランダム）。毎問攻撃し、3回に1回、強力な忍術。
    初めて倒すと、秘宝「魔境の宝珠」・30000両・称号「魔境を制した者」。 */
@@ -4733,7 +4826,7 @@ function enterField(fi, from){
 }
 /* 外に出るとき、どの地方から入るかを選べる（2026-11-24、教員の指示「魔境までが長すぎる」）。
    選べるのは、道が開いている地方（いちばん手前の「里の外れ」と、前の地方の奥の敵を倒した地方）。
-   魔境は、隠居の家の3人に勝つと選べる。まだ「里の外れ」しか行けないときは、今までどおりそのまま出る。 */
+   魔境は、隠居の家の翁に勝つと選べる。まだ「里の外れ」しか行けないときは、今までどおりそのまま出る。 */
 function outsideChoices(){
   const list = [];
   FIELDS.forEach((F, fi) => {
