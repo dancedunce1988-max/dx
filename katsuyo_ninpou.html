@@ -3780,22 +3780,75 @@ function explain(q){
    fxFire / fxWater / fxWood / fxThunder / fxHeal / fxBunshin：術ごとの演出（約1.3秒。終わるまで待てる）
    fxSlash：ふつうの攻撃（会心は金色の大きな斬撃）、fxEnemyHit：敵からの攻撃（術なら属性の色）
    ===================================================================== */
-const FX = {parts:[], running:false, ctx:null, w:0, h:0, last:0};
+const FX = {parts:[], running:false, ctx:null, w:0, h:0, last:0, low:false, slow:0, blur:1};
+/* 軽くする工夫（2026-11-24、教員の指摘「術を使うときにラグが起きる」）：
+   ・絵文字は1回だけ小さなキャンバスに描いておき、毎コマはそれを貼るだけ（fillTextの絵文字は毎コマ描くととても重い）。
+   ・光の玉（放射グラデーション）も色ごとに1回だけ作って、大きさを変えて貼る。
+   ・影のぼかし（shadowBlur）は弱め（FX.blur）。キャンバスの細かさは最大1.5倍。
+   ・重い端末だと分かったら（1コマ40ミリ秒以上が続く）、FX.low にして、粒を減らし、ぼかしをやめる。 */
+const FX_SPR = new Map();
+const fxBucket = size => Math.max(8, Math.round(size / 4) * 4);
+function fxEmojiSpr(ch, size){
+  const s = fxBucket(size), key = ch + "@" + s;
+  let c = FX_SPR.get(key);
+  if(!c){
+    const pad = Math.ceil(s * .3), d = s + pad * 2;
+    c = document.createElement("canvas"); c.width = c.height = d;
+    const x = c.getContext("2d");
+    x.font = `${s}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`; x.textAlign = "center"; x.textBaseline = "middle";
+    x.fillText(ch, d / 2, d / 2);
+    FX_SPR.set(key, c);
+  }
+  return c;
+}
+// 絵文字を (x, y) を中心に描く（ctx の変形・透明度はそのまま効く）
+function fxEmoji(ctx, ch, size, x, y){
+  const c = fxEmojiSpr(ch, size), d = c.width * size / fxBucket(size);
+  ctx.drawImage(c, (x || 0) - d / 2, (y || 0) - d / 2, d, d);
+}
+function fxDotSpr(c0, c1){
+  const key = "dot:" + c0 + ":" + c1;
+  let c = FX_SPR.get(key);
+  if(!c){
+    const R = 32; c = document.createElement("canvas"); c.width = c.height = R * 2;
+    const x = c.getContext("2d"), g = x.createRadialGradient(R, R, 0, R, R, R);
+    g.addColorStop(0, c0); g.addColorStop(.4, c1); g.addColorStop(1, "rgba(0,0,0,0)");
+    x.fillStyle = g; x.fillRect(0, 0, R * 2, R * 2);
+    FX_SPR.set(key, c);
+  }
+  return c;
+}
+// 演出で使う絵文字・光の玉の絵を、戦いが始まったら空いている時間に先に作っておく（最初の術で引っかからないように）
+let FX_WARMED = false;
+function fxWarm(){
+  if(FX_WARMED) return; FX_WARMED = true;
+  const jobs = [];
+  [["🔥", 24, 46], ["💧", 18, 32], ["🫧", 14, 26], ["🍃", 18, 32], ["🌸", 18, 32], ["🌿", 18, 30], ["✨", 14, 26], ["💚", 14, 26], ["💨", 18, 28], ["⚡", 20, 34]]
+    .forEach(([ch, a, b]) => { for(let z = fxBucket(a); z <= fxBucket(b); z += 4) jobs.push(() => fxEmojiSpr(ch, z)); });
+  ["🔥", "💧", "🍃"].forEach(ch => jobs.push(() => fxEmojiSpr(ch, 30)));
+  [["#fff6c0", "#ff7a1a"], ["#fff1a0", "#ff5a00"], ["#fff3b0", "#ff6a00"], ["#fffbe0", "#ffb020"], ["#ffffff", "#4fb4ff"], ["#ffffff", "#ffe14a"], ["#ffffff", "#9fd3ff"], ["#ffffff", "#ffd23f"]]
+    .forEach(([a, b]) => jobs.push(() => fxDotSpr(a, b)));
+  const idle = window.requestIdleCallback || (f => setTimeout(() => f({timeRemaining:() => 8}), 30));
+  const step = dl => { while(jobs.length && dl.timeRemaining() > 2) jobs.shift()(); if(jobs.length) idle(step); };
+  idle(step);
+}
 function fxResize(){
   const c = $("fxCanvas"); if(!c) return;
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const dpr = Math.min(1.5, window.devicePixelRatio || 1);
   FX.w = innerWidth; FX.h = innerHeight;
   c.width = FX.w * dpr; c.height = FX.h * dpr;
   FX.ctx = c.getContext("2d"); FX.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 window.addEventListener("resize", fxResize);
 function fxAdd(p){
+  if(FX.low && !p.draw && FX.parts.length > 24 && Math.random() < .5) return;   // 重い端末では、飾りの粒を減らす
   p.age = 0; p.life = p.life || 1;
   FX.parts.push(p);
   if(!FX.running){ FX.running = true; FX.last = performance.now(); requestAnimationFrame(fxLoop); }
 }
 function fxLoop(now){
-  const dt = Math.min(.05, (now - FX.last) / 1000); FX.last = now;
+  const raw = now - FX.last, dt = Math.min(.05, raw / 1000); FX.last = now;
+  if(!FX.low){ FX.slow = raw > 40 ? FX.slow + 1 : Math.max(0, FX.slow - 1); if(FX.slow >= 4){ FX.low = true; FX.blur = 0; } }
   const ctx = FX.ctx; if(!ctx){ FX.running = false; return; }
   ctx.clearRect(0, 0, FX.w, FX.h);
   FX.parts = FX.parts.filter(p => {
@@ -3807,12 +3860,11 @@ function fxLoop(now){
     const a = p.fadeIn && k < .15 ? k / .15 : 1 - Math.max(0, (k - (p.hold ?? .5)) / (1 - (p.hold ?? .5)));
     ctx.save(); ctx.globalAlpha = Math.max(0, Math.min(1, a)); ctx.translate(p.x, p.y); ctx.rotate(p.rot || 0);
     const sc = p.grow ? 1 + p.grow * k : 1; ctx.scale(sc, sc);
-    if(p.ch){ ctx.font = `${p.size || 24}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(p.ch, 0, 0); }
+    if(p.ch) fxEmoji(ctx, p.ch, p.size || 24, 0, 0);
     else{
       ctx.globalCompositeOperation = "lighter";
-      const r = Math.max(.1, p.r || 6), g = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
-      g.addColorStop(0, p.c0 || "#fff"); g.addColorStop(.4, p.c1 || p.c0 || "#fa0"); g.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+      const r = Math.max(.1, p.r || 6);
+      ctx.drawImage(fxDotSpr(p.c0 || "#fff", p.c1 || p.c0 || "#fa0"), -r, -r, r * 2, r * 2);
     }
     ctx.restore();
     return true;
@@ -3840,7 +3892,7 @@ function tint(cls){
 function ring(x, y, color, r, life){
   fxAdd({x, y, life:life || .6, draw:(ctx, k) => {
     ctx.globalAlpha = 1 - k; ctx.strokeStyle = color; ctx.lineWidth = 8 * (1 - k) + 1;
-    ctx.shadowColor = color; ctx.shadowBlur = 20;
+    ctx.shadowColor = color; ctx.shadowBlur = 10 * FX.blur;
     ctx.beginPath(); ctx.arc(x, y, Math.max(.1, (r || 90) * (.2 + k)), 0, Math.PI * 2); ctx.stroke();
   }});
 }
@@ -3863,8 +3915,7 @@ async function fxFire(){
   fxAdd({life:T, draw:(ctx, k) => {
     const x = h.x + (f.x - h.x) * k, y = h.y + (f.y - h.y) * k - Math.sin(k * Math.PI) * 60;
     ctx.globalCompositeOperation = "lighter";
-    const g = ctx.createRadialGradient(x, y, 0, x, y, 46); g.addColorStop(0, "#fffbe0"); g.addColorStop(.35, "#ffb020"); g.addColorStop(1, "rgba(255,60,0,0)");
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 46, 0, Math.PI * 2); ctx.fill();
+    ctx.drawImage(fxDotSpr("#fffbe0", "#ffb020"), x - 46, y - 46, 92, 92);
   }});
   for(let i = 0; i < 14; i++) setTimeout(() => {
     const k = i / 14, x = h.x + (f.x - h.x) * k, y = h.y + (f.y - h.y) * k - Math.sin(k * Math.PI) * 60;
@@ -3918,8 +3969,7 @@ async function fxWood(){
       const x = f.x + Math.cos(a) * r, y = f.y + Math.sin(a) * r * .6;
       ctx.globalAlpha = k < .1 ? k * 10 : k > .85 ? (1 - k) / .15 : 1;
       ctx.translate(x, y); ctx.rotate(a * 2);
-      ctx.font = `${22 + (1 - k) * 10}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
-      ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(ch, 0, 0);
+      fxEmoji(ctx, ch, 22 + (1 - k) * 10, 0, 0);
     }});
   }
   // つる
@@ -3928,7 +3978,7 @@ async function fxWood(){
     const sx = f.x + (v - 1.5) * 70, sy = st.bottom - 4, ph = rnd(0, 6);   // 舞台の地面から生える
     fxAdd({life:1.1, draw:(ctx, k) => {
       const g = Math.min(1, k * 1.6);
-      ctx.strokeStyle = "#2f8a3a"; ctx.lineWidth = 7; ctx.lineCap = "round"; ctx.shadowColor = "#7dff8a"; ctx.shadowBlur = 12;
+      ctx.strokeStyle = "#2f8a3a"; ctx.lineWidth = 7; ctx.lineCap = "round"; ctx.shadowColor = "#7dff8a"; ctx.shadowBlur = 6 * FX.blur;
       ctx.globalAlpha = k > .85 ? (1 - k) / .15 : 1;
       ctx.beginPath(); ctx.moveTo(sx, sy);
       for(let t = 0; t <= g; t += .02){
@@ -3956,7 +4006,7 @@ async function fxThunder(){
     pts.push([f.x, f.y]);
     setTimeout(() => {
       fxAdd({life:.35, draw:(ctx, k) => {
-        ctx.globalAlpha = 1 - k; ctx.strokeStyle = "#fffde0"; ctx.lineWidth = 6; ctx.shadowColor = "#9fe8ff"; ctx.shadowBlur = 30;
+        ctx.globalAlpha = 1 - k; ctx.strokeStyle = "#fffde0"; ctx.lineWidth = 6; ctx.shadowColor = "#9fe8ff"; ctx.shadowBlur = 15 * FX.blur;
         ctx.beginPath(); pts.forEach(([px, py], i) => i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)); ctx.stroke();
         ctx.lineWidth = 2; ctx.strokeStyle = "#ffffff"; ctx.stroke();
       }});
@@ -3999,7 +4049,7 @@ function fxSlash(crit){
     const ang = -Math.PI / 4 + s * .5 + rnd(-.15, .15);
     setTimeout(() => fxAdd({life:.28, draw:(ctx, k) => {
       ctx.globalAlpha = 1 - k; ctx.strokeStyle = crit ? "#ffe066" : "#ffffff"; ctx.lineWidth = (crit ? 9 : 6) * (1 - k * .6);
-      ctx.shadowColor = crit ? "#ffb300" : "#9fd3ff"; ctx.shadowBlur = 18; ctx.lineCap = "round";
+      ctx.shadowColor = crit ? "#ffb300" : "#9fd3ff"; ctx.shadowBlur = 9 * FX.blur; ctx.lineCap = "round";
       const p = Math.min(1, k * 3);
       ctx.beginPath();
       ctx.moveTo(f.x - Math.cos(ang) * len, f.y - Math.sin(ang) * len);
@@ -4015,7 +4065,7 @@ function fxEnemyHit(elem){
   const h = heroC();
   const col = elem === "fire" ? "#ff5a00" : elem === "water" ? "#3a9be8" : elem === "wood" ? "#3fae4a" : "#ff3b3b";
   for(let s = 0; s < 3; s++) fxAdd({life:.35, draw:(ctx, k) => {
-    ctx.globalAlpha = 1 - k; ctx.strokeStyle = col; ctx.lineWidth = 5; ctx.shadowColor = col; ctx.shadowBlur = 14; ctx.lineCap = "round";
+    ctx.globalAlpha = 1 - k; ctx.strokeStyle = col; ctx.lineWidth = 5; ctx.shadowColor = col; ctx.shadowBlur = 7 * FX.blur; ctx.lineCap = "round";
     const x0 = h.x - 30 + s * 22, p = Math.min(1, k * 3);
     ctx.beginPath(); ctx.moveTo(x0 - 16, h.y - 40); ctx.lineTo(x0 - 16 + 32 * p, h.y - 40 + 80 * p); ctx.stroke();
   }});
@@ -4030,8 +4080,7 @@ async function fxHenge(){
   ["🔥", "💧", "🍃"].forEach((ch, i) => fxAdd({life:1.1, draw:(ctx, k) => {
     const a = k * Math.PI * 4 + i * Math.PI * 2 / 3, r = 70 * (1 - k * .6);
     ctx.globalAlpha = k > .85 ? (1 - k) / .15 : 1;
-    ctx.font = `30px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText(ch, h.x + Math.cos(a) * r, h.y + Math.sin(a) * r * .7);
+    fxEmoji(ctx, ch, 30, h.x + Math.cos(a) * r, h.y + Math.sin(a) * r * .7);
   }}));
   [523, 659, 784, 659, 1046].forEach((fq, i) => tone(fq, .12, "triangle", .05, i * .12));
   await sleep(1000);
@@ -4067,7 +4116,7 @@ function startBattle(cfg){
     : cfg.mode === "quest" ? "linear-gradient(180deg,#5d6ea8 0%,#b9c3e6 45%,#c9b38a 46%,#9c8660 100%)"
     : "linear-gradient(180deg,#f3e3c0 0%,#f3e3c0 50%,#c9a66b 51%,#a8844a 100%)";
   $("bHero").innerHTML = pic("hero");
-  fxResize();
+  fxResize(); fxWarm();
   PLAY.turn = 0; PLAY.stolen = 0; PLAY.fled = false;
   PLAY.elem = SAVE.elem || "";
   if(cfg.mode === "legend"){   // 隠居の家：ステータスなし・相手ごとの問題数（10・15・20問）・短い制限時間。読むのに時間のかかる問題（活用表・文の中）は出さない
@@ -4205,8 +4254,7 @@ async function fxFoeElem(elem){
     fxAdd({life:T, draw:(ctx, k) => {
       const x = f.x + (h.x - f.x) * k, y = f.y + (h.y - f.y) * k - Math.sin(k * Math.PI) * 50;
       ctx.globalCompositeOperation = "lighter";
-      const g = ctx.createRadialGradient(x, y, 0, x, y, 44); g.addColorStop(0, "#fffbe0"); g.addColorStop(.35, "#ffb020"); g.addColorStop(1, "rgba(255,60,0,0)");
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 44, 0, Math.PI * 2); ctx.fill();
+      ctx.drawImage(fxDotSpr("#fffbe0", "#ffb020"), x - 44, y - 44, 88, 88);
     }});
     for(let i = 0; i < 12; i++) setTimeout(() => { const k = i / 12;
       fxAdd({x:f.x + (h.x - f.x) * k, y:f.y + (h.y - f.y) * k - Math.sin(k * Math.PI) * 50, vx:rnd(-40, 40), vy:rnd(-40, 40), life:.4, r:rnd(8, 16), c0:"#fff1a0", c1:"#ff5a00"}); }, i * T * 1000 / 12);
@@ -4217,7 +4265,7 @@ async function fxFoeElem(elem){
       const sx = f.x + rnd(-30, 30), sy = f.y + rnd(-20, 20);
       fxAdd({life:T * .8, draw:(ctx, k) => {
         const x = sx + (h.x - sx) * k, y = sy + (h.y - sy) * k, dx = h.x - sx, dy = h.y - sy, L = Math.hypot(dx, dy) || 1;
-        ctx.strokeStyle = "#bfe6ff"; ctx.shadowColor = "#3a9be8"; ctx.shadowBlur = 14; ctx.lineWidth = 6; ctx.lineCap = "round";
+        ctx.strokeStyle = "#bfe6ff"; ctx.shadowColor = "#3a9be8"; ctx.shadowBlur = 7 * FX.blur; ctx.lineWidth = 6; ctx.lineCap = "round";
         ctx.beginPath(); ctx.moveTo(x - dx / L * 40, y - dy / L * 40); ctx.lineTo(x, y); ctx.stroke();
       }});
     }, i * 50);

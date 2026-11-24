@@ -4732,7 +4732,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver14.47</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver14.48</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -4761,7 +4761,7 @@
 <script src="kanji_quest_title_data.js"></script>
 <script src="mb_action_button_images.js"></script>
 <!-- menu_title_images.jsは画像を差し替えることがあるので、?v=を変えてブラウザのキャッシュ（GitHub Pagesは10分）に古い画像が残らないようにする（2026-10-03）。画像を変えたら?v=もそのときのバージョンにする。 -->
-<script src="menu_title_images.js?v=13.26"></script>
+<script src="menu_title_images.js?v=14.48"></script>
 <script src="mb_bgm_data.js"></script>
 <script src="dokkai_dungeon_data.js"></script>
 <script src="daily_minigame.js?v=13.68"></script>
@@ -23633,16 +23633,48 @@ function koiMenuHtml(){
    管理者モード（isAdminMode、?devtool=kotonoha を一度開いた端末）のときだけカードを出して開ける。
    生徒の端末では、カードも「準備中」の札も出さない（存在に気付かれないように）。
    公開するときは NINPOU_PUBLIC を true にする（日付で解禁したいときは mgReleasedOn("YYYY-MM-DD") にする）。 */
+/* 2026-11-24、教員の指示：ミニゲーム一覧に「新ゲーム～近日公開～」の札を出し、一覧でキーボードから「katuyouninja」と打つと開く。
+   その端末ではそれ以後ずっと遊べる（NINPOU_UNLOCK_LSKEY）。管理者の端末では、今までどおり最初から開いている。 */
 const NINPOU_PUBLIC = false;
-function ninpouOpen(){ return NINPOU_PUBLIC || isAdminMode(); }
+const NINPOU_UNLOCK_LSKEY = "kokugo_ninpou_unlocked_v1";
+function ninpouUnlocked(){ try{ return localStorage.getItem(NINPOU_UNLOCK_LSKEY) === "1"; }catch(e){ return false; } }
+function ninpouOpen(){ return NINPOU_PUBLIC || isAdminMode() || ninpouUnlocked(); }
 function ninpouMenuHtml(){
-  if(!ninpouOpen()) return "";
-  const desc = NINPOU_PUBLIC ? "見習い忍者になって「変化の術」＝活用を身につけよう"
+  if(!ninpouOpen()){
+    return `
+    <div class="card menu-card locked mg-teaser ninpou-soon" onclick="mgLockedTap(this)">
+      <div style="flex:1; text-align:center"><h2>新ゲーム～近日公開～</h2></div>
+    </div>`;
+  }
+  const desc = NINPOU_PUBLIC || ninpouUnlocked() ? "見習い忍者になって「変化の術」＝活用を身につけよう"
     : "🔧 試遊中（管理者の端末だけに表示）　見習い忍者になって「変化の術」＝活用を身につけよう";
   return mgBannerHtml("ninpou", "活用忍伝 ―変化ノ極意―", true, "", "openKatsuyoNinpou()")
     || mgTextCardHtml("🥷", "活用忍伝 ―変化ノ極意―", desc, true, "", "openKatsuyoNinpou()");
 }
 function openKatsuyoNinpou(){ if(!ninpouOpen()) return; mgGoWithPass("ninpou", "katsuyo_ninpou.html"); }
+// ミニゲーム一覧の画面で「katuyouninja」と打つと解禁（入力欄に打っているときは数えない）。竹林わたりと同じく、白い幕のあとカードがふわっと現れる。
+let npKeyBuf = "";
+document.addEventListener("keydown", e => {
+  if(e.ctrlKey || e.metaKey || e.altKey) return;
+  const t = e.target, tag = t && t.tagName;
+  if(tag === "INPUT" || tag === "TEXTAREA" || (t && t.isContentEditable)) return;
+  if(!e.key || e.key.length !== 1) return;
+  npKeyBuf = (npKeyBuf + e.key.toLowerCase()).slice(-12);
+  if(npKeyBuf !== "katuyouninja") return;
+  npKeyBuf = "";
+  if(ninpouOpen() || !document.querySelector("#screen .mg-grid .ninpou-soon")) return;
+  try{ localStorage.setItem(NINPOU_UNLOCK_LSKEY, "1"); }catch(e){ return; }
+  const white = document.createElement("div");
+  white.id = "dmWhite";
+  document.body.appendChild(white);
+  showSideQuestMenu();
+  const card = [...document.querySelectorAll(".mg-grid .menu-card-img-btn img, .mg-grid .menu-card h2")]
+    .find(el => (el.alt || el.textContent || "").includes("活用忍伝"));
+  const box = card && (card.closest(".menu-card-img-btn") || card.closest(".menu-card"));
+  if(box){ box.scrollIntoView({block:"center"}); box.classList.add("dm-arrive"); }
+  setTimeout(() => white.classList.add("out"), 400);
+  setTimeout(() => white.remove(), 2400);
+});
 function openKoiSugoroku(){ if(!koiOpen()) return; mgGoWithPass("koi", "koji_sugoroku.html"); }
 // ミニゲーム一覧の画面で「touryumon」と打つと解禁（入力欄に打っているときは数えない）。竹林わたりと同じく、白い幕のあとバナーがふわっと現れる。
 let koiKeyBuf = "";
