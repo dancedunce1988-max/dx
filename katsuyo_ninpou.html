@@ -227,6 +227,22 @@
   .makyo-gate{display:inline-block;animation:mkspin 2.4s linear infinite;filter:drop-shadow(0 0 6px #c08bff)}
   @keyframes mkspin{to{transform:rotate(360deg)}}
   .jutsu-fx.foe .jfx-nm{color:#e0b8ff;text-shadow:0 0 12px #6a2a9a,0 2px 0 #000}
+  /* 敵の術（2026-11-24、教員の指示「相手の術を、何の術かハッキリわかるように」）：上に「敵の術」の帯、術の名前、属性と防ぎ方の一言 */
+  .jutsu-fx.foe{background:radial-gradient(ellipse at center,rgba(20,0,30,.7),rgba(20,0,30,.3) 60%,transparent 80%)}
+  .jutsu-fx.foe.go{animation:jfxfoe 1.6s ease both}
+  .jutsu-fx.foe .jfx-nm{font-size:clamp(22px,7vw,40px)!important;text-align:center;padding:0 10px;line-height:1.25}
+  @keyframes jfxfoe{0%{opacity:0;transform:scale(.5)}15%{opacity:1;transform:scale(1.1)}25%{transform:scale(1)}80%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.15)}}
+  .jutsu-fx .jfx-who{font-size:clamp(15px,4.2vw,20px);font-weight:bold;color:#fff;background:#b0182a;border:2px solid #ffd2d2;border-radius:999px;padding:3px 14px;margin-bottom:6px;box-shadow:0 0 14px rgba(255,60,60,.7)}
+  .jutsu-fx .jfx-sub{margin-top:8px;font-size:clamp(14px,4vw,18px);font-weight:bold;color:#fff;background:rgba(0,0,0,.6);border-radius:10px;padding:4px 12px;text-shadow:none}
+  .jutsu-fx .jfx-sub .bad{color:#ff8a80}.jutsu-fx .jfx-sub .good{color:#9ff0b8}
+  .jutsu-fx.foe.jf-fire .jfx-nm{color:#fff3c0;text-shadow:0 3px 0 #000,0 0 18px #ff6a00,0 0 36px #ff3d00}
+  .jutsu-fx.foe.jf-water .jfx-nm{color:#e8f6ff;text-shadow:0 3px 0 #000,0 0 18px #3aa0ff,0 0 36px #1f5fbf}
+  .jutsu-fx.foe.jf-wood .jfx-nm{color:#eaffea;text-shadow:0 3px 0 #000,0 0 18px #4fe36a,0 0 36px #1f8a35}
+  .jutsu-fx.foe.jf-fire .jfx-ic{filter:drop-shadow(0 0 24px #ff5a00)}
+  .jutsu-fx.foe.jf-water .jfx-ic{filter:drop-shadow(0 0 24px #3a9be8)}
+  .jutsu-fx.foe.jf-wood .jfx-ic{filter:drop-shadow(0 0 24px #3fae4a)}
+  #foe.casting .foe-ic{animation:foecast .7s ease-in-out}
+  @keyframes foecast{0%,100%{transform:scale(1)}40%{transform:scale(1.18) rotate(-6deg)}70%{transform:scale(1.12) rotate(5deg)}}
   .vplace.glow .vicon{animation:hglow 1.4s ease-in-out infinite}
   @keyframes hglow{0%,100%{filter:drop-shadow(0 0 6px #ffd23f) drop-shadow(0 4px 3px rgba(0,0,0,.35))}50%{filter:drop-shadow(0 0 22px #ffd23f) drop-shadow(0 0 40px #fff6a0)}}
   .vplace.glow .vname::after{content:" ✨";}
@@ -3878,27 +3894,81 @@ async function useJutsu(id){
 const MAKYO_POW = 1.6;
 // 魔境の敵には、1回で与えられるダメージの上限を0.6倍に（会心・術・連続正解で数問で倒せてしまうため）。強力な忍術は「無効」「分身」でも防げない
 const MAKYO_CAP = .6;
+/* 敵の術の演出（2026-11-24、教員の指示「相手の術の演出を、何の術かハッキリわかるように」）
+   ①敵が印を結ぶ（ゆれて光る） ②画面の中央に「⚠ 〇〇の術！」の帯・術の名前・属性と「結界で防ぐ」と相性の一言
+   ③属性ごとの形（火＝火の玉・水＝水の矢と波・木＝木の葉の嵐）で、敵から自分へ飛んでくる ④当たってからダメージを出す */
+const FOE_ELEM_JUTSU = e => JUTSU.find(j => j.kind === "atk" && j.elem === e);
+function foeJutsuBanner(f, j, opt){
+  const big = $("jutsuFx"), o = opt || {};
+  const a = j.elem && PLAY ? defAffinity(j.elem, PLAY.elem) : 1;
+  const sub = j.kind === "atk"
+    ? `${ELEM[j.elem].icon}${ELEM[j.elem].name}の術　🔮結界で防ぐ${a > 1 ? `　<span class="bad">相性×（大ダメージ）</span>` : a < 1 ? `　<span class="good">相性◎（ダメージ半減）</span>` : ""}`
+    : j.kind === "heal" ? "💚 相手のHPが回復する" : j.kind === "guard" ? "👥 次の攻撃を2回かわされる" : j.kind === "elem" ? "🌀 相手の属性が、こちらに強い属性に変わる" : "";
+  big.className = "jutsu-fx foe jf-" + (j.elem || j.kind);
+  big.innerHTML = `<div class="jfx-who">⚠ ${esc(f.name)}の${o.strong ? "奥義" : "術"}！</div><div class="jfx-ic">${j.icon}</div>
+    <div class="jfx-nm">${o.strong ? "奥義・" : ""}${j.name}！</div>${sub ? `<div class="jfx-sub">${sub}</div>` : ""}`;
+  void big.offsetWidth; big.classList.add("go");
+  const fe = $("foe"); if(fe){ fe.classList.remove("casting"); void fe.offsetWidth; fe.classList.add("casting"); }
+  const fc = foeC(), col = j.elem === "fire" ? "#ff7a1a" : j.elem === "water" ? "#3a9be8" : j.elem === "wood" ? "#3fae4a" : "#c08bff";
+  ring(fc.x, fc.y, col, 80, .6); setTimeout(() => ring(fc.x, fc.y, col, 110, .6), 200);
+  [392, 311, 262, 196].forEach((fq, i) => tone(fq, .15, "sawtooth", .06, i * .07));
+}
+// 属性の攻撃の術が、敵から自分へ飛んでくる（終わるまで待てる）
+async function fxFoeElem(elem){
+  const f = foeC(), h = heroC(), T = .55;
+  if(elem === "fire"){
+    tint("fire");
+    fxAdd({life:T, draw:(ctx, k) => {
+      const x = f.x + (h.x - f.x) * k, y = f.y + (h.y - f.y) * k - Math.sin(k * Math.PI) * 50;
+      ctx.globalCompositeOperation = "lighter";
+      const g = ctx.createRadialGradient(x, y, 0, x, y, 44); g.addColorStop(0, "#fffbe0"); g.addColorStop(.35, "#ffb020"); g.addColorStop(1, "rgba(255,60,0,0)");
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 44, 0, Math.PI * 2); ctx.fill();
+    }});
+    for(let i = 0; i < 12; i++) setTimeout(() => { const k = i / 12;
+      fxAdd({x:f.x + (h.x - f.x) * k, y:f.y + (h.y - f.y) * k - Math.sin(k * Math.PI) * 50, vx:rnd(-40, 40), vy:rnd(-40, 40), life:.4, r:rnd(8, 16), c0:"#fff1a0", c1:"#ff5a00"}); }, i * T * 1000 / 12);
+    tone(220, .4, "sawtooth", .05);
+  }else if(elem === "water"){
+    tint("water");
+    for(let i = 0; i < 9; i++) setTimeout(() => {
+      const sx = f.x + rnd(-30, 30), sy = f.y + rnd(-20, 20);
+      fxAdd({life:T * .8, draw:(ctx, k) => {
+        const x = sx + (h.x - sx) * k, y = sy + (h.y - sy) * k, dx = h.x - sx, dy = h.y - sy, L = Math.hypot(dx, dy) || 1;
+        ctx.strokeStyle = "#bfe6ff"; ctx.shadowColor = "#3a9be8"; ctx.shadowBlur = 14; ctx.lineWidth = 6; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(x - dx / L * 40, y - dy / L * 40); ctx.lineTo(x, y); ctx.stroke();
+      }});
+    }, i * 50);
+    tone(300, .35, "triangle", .05); tone(180, .4, "sine", .05, .1);
+  }else{
+    tint("wood");
+    for(let i = 0; i < 22; i++){
+      const sx = f.x + rnd(-40, 40), sy = f.y + rnd(-30, 30);
+      fxAdd({x:sx, y:sy, vx:(h.x - sx) / T + rnd(-60, 60), vy:(h.y - sy) / T + rnd(-60, 60), life:T + rnd(0, .2), ch:pick(["🍃", "🍂", "🌿"]), size:rnd(20, 32), vr:rnd(-10, 10)});
+    }
+    tone(520, .3, "triangle", .04); tone(390, .35, "triangle", .04, .08);
+  }
+  await sleep(T * 1000);
+  shake(10);
+  ring(h.x, h.y, elem === "fire" ? "#ff7a1a" : elem === "water" ? "#3a9be8" : "#3fae4a", 100, .6);
+}
 function foeJutsu(strong){
   const p = PLAY, f = p.foe;
   const can = strong ? JUTSU.filter(j => j.kind === "atk")
     : JUTSU.filter(j => j.kind !== "atk" && f.nin >= j.need && !(j.kind === "heal" && f.hp >= f.max) && !(j.kind === "guard" && f.guard > 0) && !(j.kind === "elem" && (!p.elem || ELEM[f.elem].beats === p.elem)));
   if(!can.length) return;
   const j = pick(can);
-  const big = $("jutsuFx");
-  big.className = "jutsu-fx foe jf-" + (j.elem || j.kind);
-  big.innerHTML = `<div class="jfx-ic">${j.icon}</div><div class="jfx-nm">${strong ? "奥義・" : ""}${esc(f.name)}の${j.name}！</div>`;
-  void big.offsetWidth; big.classList.add("go");
-  [392, 311, 262, 196].forEach((fq, i) => tone(fq, .15, "sawtooth", .06, i * .07));
+  foeJutsuBanner(f, j, {strong});
   if(j.kind === "atk"){
     const pw = Math.round((12 + f.nin * 3) * MAKYO_POW * (f.elem === j.elem ? 1.25 : 1)), a = defAffinity(j.elem, p.elem);
     const raw = Math.round(pw * a);
     let d = Math.max(Math.ceil(raw * .1), raw - (p.res || 0));
     d = Math.max(1, Math.min(d, Math.ceil(p.maxHp * (a > 1 ? .55 : .4))));
-    {
-      fxEnemyHit(j.elem); p.hp -= d;
-      dmgPop(`${j.icon}−${d}${a > 1 ? "（相性×）" : a < 1 ? "（相性◎）" : ""}`, "#ff8a80", "pBox");
+    p.hp -= d;
+    fxFoeElem(j.elem).then(() => {
+      fxEnemyHit(j.elem);
+      dmgPop(`${j.icon}${j.name} −${d}${a > 1 ? "（相性×）" : a < 1 ? "（相性◎）" : ""}`, "#ff8a80", "pBox");
       const h = $("pBox"); h.classList.remove("hurt"); void h.offsetWidth; h.classList.add("hurt");
-    }
+      if(PLAY === p) renderHud();
+    });
   }else if(j.kind === "heal"){
     const h = Math.min(f.max - f.hp, 10 + f.nin * 2); f.hp += h; dmgPop(`回復 ＋${h}`, "#9ff0b8", "foe");
   }else if(j.kind === "guard"){
@@ -3925,15 +3995,23 @@ function foeAttack(mult){
   if(hasAb(p.foe, "rage") && p.foe.hp < p.foe.max / 2){ mult *= 1.5; if(!p.raged){ p.raged = true; dmgPop("怒った！", "#ff5c5c", "foe"); } }   // 能力【怒り】
   // 属性を持つ敵は、jEvery回に1回（ふつうは3回に1回）術で攻撃してくる。術は結界で、ふつうの攻撃は守りで減らす
   p.atkCount++;
+  let jutsuHitLater = false;
   const isJutsu = !!p.foe.elem && mult === 1 && p.atkCount % (p.foe.jEvery || 3) === 0;
   if(p.guard > 0){ p.guard--; dmgPop("無効！", "#9fd3ff", "pBox"); const h = heroC(); ring(h.x, h.y, "#9fd3ff", 70, .5); }
   else if(isJutsu){
-    fxEnemyHit(p.foe.elem);
+    // 敵の術：名前を大きく出し、属性の形で飛んでくる。当たってからダメージを見せる（HPの計算は先にすませる）
+    const j = FOE_ELEM_JUTSU(p.foe.elem);
     const a = defAffinity(p.foe.elem, p.elem);
     const d = takenDamage(p.foe.atk * 1.2 * a, p.res, 1);
-    p.hp -= d; dmgPop(`${ELEM[p.foe.elem].icon}術 −${d}${a > 1 ? "（相性×）" : a < 1 ? "（相性◎）" : ""}`, "#ff8a80", "pBox");
-    const h = $("pBox"); h.classList.remove("hurt"); void h.offsetWidth; h.classList.add("hurt");
-    tone(220, .25, "sawtooth", .07);
+    p.hp -= d; jutsuHitLater = true;
+    foeJutsuBanner(p.foe, j);
+    fxFoeElem(p.foe.elem).then(() => {
+      fxEnemyHit(p.foe.elem);
+      dmgPop(`${j.icon}${j.name} −${d}${a > 1 ? "（相性×）" : a < 1 ? "（相性◎）" : ""}`, "#ff8a80", "pBox");
+      const h = $("pBox"); h.classList.remove("hurt"); void h.offsetWidth; h.classList.add("hurt");
+      tone(220, .25, "sawtooth", .07);
+      if(PLAY === p){ refreshFoe(); renderHud(); }
+    });
   }
   else{
     fxEnemyHit(null);
@@ -3949,7 +4027,8 @@ function foeAttack(mult){
     else if(p.atkCount % cy === 2 && Math.random() < .5) foeJutsu(false);
   }
   refreshFoe();
-  renderHud();
+  if(!jutsuHitLater) renderHud();   // 術のときは、当たってから（上の then で）HPの表示を更新する
+  return jutsuHitLater;
 }
 /* 同じ問題が続けて出ないように（2026-11-23、教員の指示）。直前に出した問題（戦いをまたいで6問ぶん）と同じものは、
    並べ直したり作り直したりしてさける。 */
@@ -4104,7 +4183,7 @@ async function answer(btn){
     // 敵が生きていれば、決まった間（every）ごとに攻撃してくる
     if(!isPrac(p.cfg.mode) && p.foe.hp > 0){
       p.charge++;
-      if(p.charge >= p.foe.every){ await sleep(650); foeAttack(1); }
+      if(p.charge >= p.foe.every){ await sleep(650); if(foeAttack(1)) await sleep(900); }
       else refreshFoe();
       await foeAfterTurn();
     }
