@@ -4597,9 +4597,40 @@ function enterField(fi, from){
   const warn = ni.lv < F.lv[0] ? `<br><span class="lockmsg">⚠️ ここは推奨Lv${F.lv[0]}〜。今のLv${ni.lv}では危ないかも</span>` : "";
   fieldMsg(`📍 ${F.name}（野良忍者 Lv${F.lv[0]}〜${F.lv[1]}）${warn}`);
 }
+/* 外に出るとき、どの地方から入るかを選べる（2026-11-24、教員の指示「魔境までが長すぎる」）。
+   選べるのは、道が開いている地方（いちばん手前の「里の外れ」と、前の地方の奥の敵を倒した地方）。
+   魔境は、隠居の家の3人に勝つと選べる。まだ「里の外れ」しか行けないときは、今までどおりそのまま出る。 */
+function outsideChoices(){
+  const list = [];
+  FIELDS.forEach((F, fi) => {
+    if(isMakyo(fi)){ if(makyoOpen()) list.push(fi); return; }
+    if(fi === 0 || chCleared(FIELD_STORY[fi - 1])) list.push(fi);
+  });
+  return list;
+}
 function goOutside(){
   sfx.tap();
-  needTraining(0, () => enterField(0, "bottom"));
+  const list = outsideChoices();
+  if(list.length <= 1){ needTraining(0, () => enterField(0, "bottom")); return; }
+  const front = frontField(), lv = ninjaInfo().lv;
+  const rows = list.map(fi => {
+    const F = FIELDS[fi], mk = isMakyo(fi);
+    const done = !mk && chCleared(FIELD_STORY[fi]);
+    const tag = mk ? `<span class="xpbadge front">🌀 とても強い・経験値×3</span>`
+      : fi === front && !done ? `<span class="xpbadge front">🔥 最前線</span>`
+      : lv < F.lv[0] ? `<span class="lockmsg">⚠️ 推奨Lv${F.lv[0]}〜</span>` : "";
+    const sub = mk ? "敵：あなたと同じ力・出題：すべてのジャンル" : `野良忍者 Lv${F.lv[0]}〜${F.lv[1]}・出題：${CHAPTERS[chIndex(FIELD_STORY[fi])].name}`;
+    return `<div class="qcard"><div class="qicon">${mk ? "🌀" : F.tree}</div>
+      <div class="qtx"><b>${done ? "✅ " : ""}${esc(F.name)}</b><small>${sub}</small>${tag ? `<small>${tag}</small>` : ""}</div>
+      <button class="btn mini" onclick="outTo(${fi})">行く</button></div>`;
+  }).join("");
+  modal(`<h3>⛩️ どこへ行く？</h3><p style="font-size:13px">道が開いている地方なら、どこからでも入れる。</p>
+    <div style="max-height:56vh;overflow-y:auto;text-align:left">${rows}</div>`, [["やめる", closeModal]]);
+}
+function outTo(fi){
+  closeModal(); sfx.tap();
+  if(isMakyo(fi)){ enterField(fi, "bottom"); return; }
+  needTraining(fi, () => enterField(fi, "bottom"));
 }
 function resumeField(){
   if(!FIELD){ const s = SAVE.field || {f:0}; FIELD = {f:s.f || 0, x:s.x ?? 3, y:s.y ?? 10, safe:3, walking:false, queue:[]}; }
