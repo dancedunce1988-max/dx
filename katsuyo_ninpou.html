@@ -257,8 +257,11 @@
   .fryo{font-size:13px}
   .fgrid{position:relative;display:grid;grid-template-columns:repeat(8,1fr);width:100%;max-width:min(100%,calc((100vh - 230px) * 8 / 12));margin:0 auto;
     border:3px solid #4b371c;border-radius:14px;overflow:hidden;box-shadow:0 6px 0 #33240f,0 10px 20px rgba(0,0,0,.45)}
-  .fgrid.rustle{animation:rustle .12s 5}
-  @keyframes rustle{50%{transform:translateX(4px)}}
+  /* 敵に出会ったとき（2026-11-24、教員の指示「戦いの始めに画面が揺れると、ダメージを受けたように見える」）：
+     画面はゆらさず、主人公の頭の上に「！」を出す */
+  .fhero .fbang{position:absolute;left:50%;bottom:92%;transform:translateX(-50%);font-size:1.1em;font-weight:900;color:#ff3b3b;
+    text-shadow:0 0 4px #fff,0 0 8px #fff;animation:fbang .7s ease both}
+  @keyframes fbang{0%{opacity:0;transform:translate(-50%,10px) scale(.4)}35%{opacity:1;transform:translate(-50%,-4px) scale(1.25)}55%{transform:translate(-50%,0) scale(1)}100%{opacity:1;transform:translate(-50%,0) scale(1)}}
   .ft{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:clamp(16px,5.5vw,30px);cursor:pointer;user-select:none}
   .ft.block{cursor:default}
   .ft.water{background:repeating-linear-gradient(135deg,#4f8cc4 0 8px,#6aa6dc 8px 16px);cursor:default}
@@ -4738,6 +4741,12 @@ async function stepTo(x, y){
   }else if(FIELD.safe > 0) FIELD.safe--;
   return false;
 }
+// 出会いの合図：主人公の頭の上に「！」（画面はゆらさない）。返す関数で消す
+function encBang(){
+  const h = $("fHero"); if(!h) return () => {};
+  const b = document.createElement("span"); b.className = "fbang"; b.textContent = "！"; h.appendChild(b);
+  return () => b.remove();
+}
 async function encounter(){
   const F = FIELDS[FIELD.f];
   /* 出会い方：名のある忍 4%・小判鼠 3%・それ以外はふつうの野良忍者。ふつうの野良忍者は、2%で「金色の気」をまとっている */
@@ -4756,10 +4765,10 @@ async function encounter(){
   const d = SAVE.dex[kind] = SAVE.dex[kind] || {seen:0, beat:0};
   d.seen++; saveSave(SAVE);
   // がさがさ演出
-  const g = $("fGrid"); g.classList.add("rustle");
+  const bang = encBang();
   [300, 500, 300, 700].forEach((f, i) => tone(f, .08, "square", .05, i * .09));
   await sleep(700);
-  g.classList.remove("rustle");
+  bang();
   const w = WILD[kind];
   const sp = w.special || foe.golden;
   if(sp){   // 特別な忍者の演出：画面が光り、特別な音
@@ -4793,9 +4802,9 @@ async function makyoEncounter(kind){
   SAVE.dex = SAVE.dex || {};
   const d = SAVE.dex[kind] = SAVE.dex[kind] || {seen:0, beat:0};
   d.seen++; saveSave(SAVE);
-  const g = $("fGrid"); g.classList.add("rustle");
+  const bang = encBang();
   [150, 120, 100, 80].forEach((f, i) => tone(f, .16, "sawtooth", .06, i * .12));
-  await sleep(800); g.classList.remove("rustle");
+  await sleep(800); bang();
   const S = foe.st;
   modal(`<div class="enc-ic sp">${w.icon}</div><div class="sp-tag" style="background:#5a2a7a">🌀 魔境の敵 🌀</div><h3>${esc(foe.name)}が現れた！</h3>
     <p style="font-size:13px">${w.note}</p>
