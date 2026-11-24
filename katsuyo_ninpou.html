@@ -4126,6 +4126,8 @@ async function useJutsu(id){
 const MAKYO_POW = 1.6;
 // 魔境の敵には、1回で与えられるダメージの上限を0.6倍に（会心・術・連続正解で数問で倒せてしまうため）。強力な忍術は「無効」「分身」でも防げない
 const MAKYO_CAP = .6;
+// 魔境の奥義を結界で減らす割合（結界0→100%、20→67%、50→44%、80→33%）
+const resCut = res => 40 / (40 + (res || 0) * 1.25);
 /* 敵の術の演出（2026-11-24、教員の指示「相手の術の演出を、何の術かハッキリわかるように」）
    ①敵が印を結ぶ（ゆれて光る） ②画面の中央に「⚠ 〇〇の術！」の帯・術の名前・属性と「結界で防ぐ」と相性の一言
    ③属性ごとの形（火＝火の玉・水＝水の矢と波・木＝木の葉の嵐）で、敵から自分へ飛んでくる ④当たってからダメージを出す */
@@ -4191,13 +4193,17 @@ function foeJutsu(strong){
   foeJutsuBanner(f, j, {strong});
   if(j.kind === "atk"){
     const pw = Math.round((12 + f.nin * 3) * MAKYO_POW * (f.elem === j.elem ? 1.25 : 1)), a = defAffinity(j.elem, p.elem);
-    const raw = Math.round(pw * a);
-    let d = Math.max(Math.ceil(raw * .1), raw - (p.res || 0));
-    d = Math.max(1, Math.min(d, Math.ceil(p.maxHp * (a > 1 ? .55 : .4))));
+    /* 結界の効き方を直した（2026-11-24、教員の指摘「結界を50まで上げても、必殺技に効いている実感がない」）。
+       前は「威力−結界」のあとに「最大HPの40%まで」の上限をかけていたので、威力が大きい魔境の奥義では、
+       結界をいくら上げても上限にはりついて、ダメージが変わらなかった。
+       今は、上限をかけたあとに、結界で割合を減らす（結界0で100%、20で67%、50で44%、80で33%）。 */
+    const raw = Math.round(pw * a), capd = Math.min(raw, Math.ceil(p.maxHp * (a > 1 ? .55 : .4)));
+    const d = Math.max(1, Math.round(capd * resCut(p.res))), blocked = capd - d;
     p.hp -= d;
     fxFoeElem(j.elem).then(() => {
       fxEnemyHit(j.elem);
       dmgPop(`${j.icon}${j.name} −${d}${a > 1 ? "（相性×）" : a < 1 ? "（相性◎）" : ""}`, "#ff8a80", "pBox");
+      if(blocked > 0) setTimeout(() => dmgPop(`🔮結界で ${blocked} ふせいだ`, "#c9b8ff", "pBox"), 350);
       const h = $("pBox"); h.classList.remove("hurt"); void h.offsetWidth; h.classList.add("hurt");
       if(PLAY === p) renderHud();
     });
@@ -4234,12 +4240,13 @@ function foeAttack(mult){
     // 敵の術：名前を大きく出し、属性の形で飛んでくる。当たってからダメージを見せる（HPの計算は先にすませる）
     const j = FOE_ELEM_JUTSU(p.foe.elem);
     const a = defAffinity(p.foe.elem, p.elem);
-    const d = takenDamage(p.foe.atk * 1.2 * a, p.res, 1);
+    const d = takenDamage(p.foe.atk * 1.2 * a, p.res, 1), blocked = takenDamage(p.foe.atk * 1.2 * a, 0, 1) - d;
     p.hp -= d; jutsuHitLater = true;
     foeJutsuBanner(p.foe, j);
     fxFoeElem(p.foe.elem).then(() => {
       fxEnemyHit(p.foe.elem);
       dmgPop(`${j.icon}${j.name} −${d}${a > 1 ? "（相性×）" : a < 1 ? "（相性◎）" : ""}`, "#ff8a80", "pBox");
+      if(blocked > 0) setTimeout(() => dmgPop(`🔮結界で ${blocked} ふせいだ`, "#c9b8ff", "pBox"), 350);
       const h = $("pBox"); h.classList.remove("hurt"); void h.offsetWidth; h.classList.add("hurt");
       tone(220, .25, "sawtooth", .07);
       if(PLAY === p){ refreshFoe(); renderHud(); }
