@@ -131,6 +131,7 @@
   .qword rt{font-size:.38em;color:#cfd6ea}
   .qword .blank{display:inline-block;min-width:1.2em;border-bottom:4px solid var(--gold);color:var(--gold)}
   .qword .fol{color:#9fd3ff}
+  .lastboss{display:inline-block;background:linear-gradient(135deg,#3a0a4a,#a8182a);color:#ffd23f;border:1px solid #ffd23f;border-radius:999px;font-size:11px;padding:1px 8px;margin-right:6px;vertical-align:middle}
   .noitem{font-size:12px;color:#cfd6ea;background:rgba(0,0,0,.25);border-radius:999px;padding:4px 12px}
   /* 自宅の隅の「最初からやり直す」（目立たないように小さく） */
   .home-reset{text-align:right;margin-top:18px}
@@ -3042,8 +3043,8 @@ const LEGENDS = [
    talk:"お師匠さまたちと戦う前に、まずはわたしがお相手します。10問のうち7問、それも1問3秒で答えられますか？"},
   {id:"lg_okina", name:"初代道場主・翁", icon:"🧓", limit:2.5, n:15, need:13, ryo:20000, title:"伝説の挑戦者", home:"hermit",
    talk:"……では、まいろうか。15問のうち13問、1問2.5秒じゃ。老いぼれと思うて、油断するでないぞ。"},
-  {id:"lg_ouna",  name:"初代の奥方・媼", icon:"👵", limit:2,   n:20, need:20, ryo:50000, title:"天下一の変化の使い手", item:"legend_ougi", home:"hermit",
-   talk:"おじいさんに勝ったのね。……わたしとは、20問連続。1問2秒。一度でもまちがえたら、そこでおしまいよ。"},
+  {id:"lg_ouna",  name:"初代の奥方・媼", icon:"👵", limit:2,   n:20, need:20, ryo:50000, title:"天下一の変化の使い手", item:"legend_ougi", home:"hermit", lastBoss:true,
+   talk:"ふふ、お茶のおかわりは、勝負のあとでね。……20問連続。1問2秒。一度でもまちがえたら、そこでおしまいよ。"},
 ];
 /* 媼に一度勝ったあとは「連続正解チャレンジ」（2026-11-24、教員の指示）。
    まちがえる（時間切れをふくむ）まで、何問でも続く。20問以内にまちがえたら媼の勝ち、20問連続正解（それ以降でまちがえる）なら自分の勝ち。
@@ -3057,7 +3058,7 @@ function startLegend(id){
   const d = LEGENDS.find(x => x.id === id), endless = legEndless(d);
   sfx.tap();
   const talk = endless ? `あら、また来たのね。今度は、<b>何問続けて正解できるか</b>の勝負よ。${LEG_CHAL}問以内にまちがえたら、わたしの勝ち。${LEG_CHAL}問続けば、あなたの勝ち。どこまで行けるかしら？` : esc(d.talk);
-  modal(`<div class="enc-ic">${d.icon}</div><h3>${esc(d.name)}${endless ? "　🔥 連続正解チャレンジ" : ""}</h3><p>「${talk}」</p>
+  modal(`<div class="enc-ic">${d.icon}</div><h3>${d.lastBoss && !endless ? "👑 ラスボス　" : ""}${esc(d.name)}${endless ? "　🔥 連続正解チャレンジ" : ""}</h3><p>「${talk}」</p>
     <p style="font-size:13px"><b>${legendRuleOf(d, endless)}</b><br>1問の制限時間：<b>${d.limit}秒</b><br>装備・ステータス・術・道具・ヒントは使えない${endless ? `<br>🏆 ベストスコア：<b>${legBest(d)}問</b>連続` : ""}</p>`,
     [["いざ、勝負！", () => { closeModal();
       startBattle({mode:"legend", lg:d, endless, ch:CHAPTERS[chIndex("ichi")], foe:{icon:d.icon, name:d.name, hp:endless ? LEG_CHAL : legN(d), atk:0, def:0, res:0, elem:"", every:999}, time:d.limit, ryo:0, xp:10, lv:"？"}); }],
@@ -3145,13 +3146,18 @@ function okinaEvent(){
 /* 魔境の主を（はじめて）倒したあと：世界最強は翁の妻・媼だと知らされる */
 function nushiEvent(){
   playStory([
-    ["nushi", "……ぐ、うう……。人の子に、このわしが……。"],
-    ["nushi", "見事だ。……だが、思い上がるなよ。おぬしは、<span class=em>世界最強ではない</span>。", "shake"],
-    ["nushi", "かつて、このわしを、指一本ふれずに負かした者がいる。言葉の術だけで、な。"],
-    ["nushi", "里のはずれの家に住む、<span class=em>初代道場主の妻――媼（おうな）</span>よ。"],
-    ["nushi", "あの翁でさえ、一度も勝てなかったという。……あれこそが、<span class=em>本当の天下一</span>だ。"],
-    ["nushi", "……ふふ。あの女が、今のおぬしを見たら……きっと、家に帰ってくるだろうよ。"],
-    ["nar", "魔境の霧が晴れていく。<br>……遠く、里のはずれの家に、<span class=em>あかりがともった</span>気がした。"],
+    ["nushi", "……ぐ、ぐおおお……！ この魔境の主が……人の子に……！", "shake"],
+    ["nushi", "見事だ。……と言いたいところだが、ひとつ、正直に言っておこう。"],
+    ["nushi", "実はな……<span class=em>わしは、世界最強ではない</span>。", "shake"],
+    ["nushi", "この世には、わしなど足もとにもおよばぬ<span class=em>化け物</span>がおる。……思い出すだけで、角がふるえるわ。"],
+    ["hero", "（……化け物？ まさか、隠居の家の、あの翁さま……？）"],
+    ["nushi", "翁？ ……ああ、あのじいさんか。ちがうちがう。あれは、わしと<span class=em>いい勝負</span>じゃった。"],
+    ["nushi", "本物の化け物は――<span class=em>そのじいさんの、女房</span>じゃ！！", "shake"],
+    ["nushi", "名を<span class=em>媼（おうな）</span>という。昔、この魔境にふらりと来てな……にこにこ笑いながら、<span class=em>わしを百回まかした</span>。"],
+    ["nushi", "しかも帰りぎわに「あら、もうおしまい？ 夕飯のしたくがあるから、またね」と……。<br>……あれ以来、わしは<span class=em>おばあさんの笑顔</span>が苦手なのじゃ。"],
+    ["nushi", "翁のじいさんも、夫婦げんかで一度も勝ったことがないそうな。……言葉の術でも、な。"],
+    ["nushi", "あの女が旅から帰ったら……おぬしなど、ひとたまりもあるまい。ふ、ふはは……がんばれよ……。"],
+    ["nar", "魔境の霧が晴れていく。<br>……遠く、里のはずれの家に、<span class=em>あかりがともった</span>。<br>なぜか、背すじがぞくりとした。"],
   ], () => {
     SAVE.ounaReveal = 1; saveSave(SAVE);
     [523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, .25, "triangle", .06, .2 + i * .15));
@@ -3162,12 +3168,16 @@ function nushiEvent(){
 /* 隠居の家に媼が帰ってきた場面（魔境の主を倒したあと、はじめて訪ねたとき） */
 function ounaArrive(){
   playStory([
-    ["kaede", "あっ、いらっしゃい！ ちょうどよかった。今朝、奥方さまが旅から帰っていらしたんです！"],
-    ["okina", "ばあさん、この子じゃよ。わしを負かし、魔境の主まで倒したのは。"],
-    ["ouna", "あらあら。<span class=em>魔境の主</span>を……？ まあ、ずいぶん強くなったものね。"],
-    ["ouna", "わたしは媼。この人の妻よ。……昔は、あの魔境の主とも、遊んであげたことがあったわね。"],
-    ["okina", "わしは、ばあさんに一度も勝ったことがない。<span class=em>世界最強</span>というのは、ばあさんのことじゃ。", "shake"],
-    ["ouna", "ふふ。じゃあ、ためしてみる？ わたしとは<span class=em>20問連続</span>。1問2秒。一度でもまちがえたら、そこでおしまいよ。"],
+    ["kaede", "あっ、いらっしゃい！ ちょうどよかった。今朝、<span class=em>奥方さま</span>が旅から帰っていらしたんです！"],
+    ["okina", "……お、おぬし、来てしまったか。ばあさんは今、ちょうど機嫌がよい。……ちょうど<span class=em>よすぎる</span>のじゃ。"],
+    ["ouna", "あらあら、いらっしゃい。お茶でもどうぞ。……あなたね？ <span class=em>うちのおじいさん</span>と、<span class=em>魔境のあの子</span>を負かしたのは。"],
+    ["hero", "（魔境の主を……「あの子」……！？）"],
+    ["ouna", "わたしは媼。この人の妻よ。ふふ、あの子、まだ角をふるわせているのかしら。"],
+    ["okina", "……わしは五十年、ばあさんに一度も勝ったことがない。言葉の術でも、将棋でも、夫婦げんかでもじゃ。"],
+    ["ouna", "さて。お茶も飲んだことだし――", "shake"],
+    ["ouna", "<span class=em>本気で、遊んであげましょうか</span>。", "shake"],
+    ["nar", "空気が、ぴんと張りつめた。<br>笑顔のまま、媼から<span class=em>魔境の主よりも重い気配</span>があふれ出す……！"],
+    ["ouna", "わたしとは<span class=em>20問連続</span>。1問2秒。一度でもまちがえたら、そこでおしまい。<br>――<span class=em>世界最強</span>の座、取れるものなら、取ってごらんなさい。"],
   ], () => { SAVE.ounaMet = 1; saveSave(SAVE); showHermitMenu(); }, {left:"hero"});
 }
 /* 媼に（はじめて）勝ったあと：本当のエンディング */
@@ -3243,7 +3253,7 @@ function showHermitMenu(){
     if(d.id === "lg_ouna" && !ounaHere()) return;   // 媼は、魔境の主を倒すまで現れない
     const prev = i === 0 || skBeaten(LEGENDS[i - 1].id), b = (SAVE.shinken || {})[d.id];
     h += `<div class="qcard${prev ? "" : " locked"}"><div class="qicon">${d.icon}</div>
-      <div class="qtx"><b>${b ? "✅ " : ""}${esc(d.name)}${legEndless(d) ? "　🔥 連続正解チャレンジ" : ""}</b><small>${legendRuleOf(d, legEndless(d))}・1問${d.limit}秒</small>
+      <div class="qtx"><b>${b ? "✅ " : ""}${d.lastBoss && !b ? `<span class="lastboss">👑 ラスボス</span>` : ""}${esc(d.name)}${legEndless(d) ? "　🔥 連続正解チャレンジ" : ""}</b><small>${legendRuleOf(d, legEndless(d))}・1問${d.limit}秒</small>
         <small>${legEndless(d) ? `🏆 ベストスコア ${legBest(d)}問・勝った回数 ${b.wins}` : b ? `勝った回数 ${b.wins}` : `初勝利：💰${d.ryo}両・称号「${d.title}」${d.item ? `・${EQUIP[d.item].icon}${EQUIP[d.item].name}` : ""}`}</small></div>
       ${prev ? `<button class="btn mini" onclick="startLegend('${d.id}')">${legEndless(d) ? "挑戦" : b ? "再戦" : "挑む"}</button>` : `<span class="lockmsg">${esc(LEGENDS[i - 1].name.split("・")[1])}に勝ってから</span>`}</div>`;
   });
