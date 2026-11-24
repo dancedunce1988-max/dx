@@ -941,7 +941,46 @@ const NP_IMG = {
 const NP_EMOJI = {hero:"🥷", shisho:"👴", sekka:"🗿", minion:"👤", fake:"🎭", word:"📜", deshi:"🎩", ikoku:"🧙", kage:"👤", okina:"🧓", ouna:"👵", kaede:"👩", nushi:"😈"};
 function pic(key){
   const src = NP_IMG[key];
+  if(!src && key === "hero"){ const t = heroTintSrc(SAVE && SAVE.elem); if(t) return `<img class="hero-ic" src="${t}" alt="" style="height:1.15em;width:auto;vertical-align:-.12em">`; }
   return src ? `<img src="${src}" alt="">` : (NP_EMOJI[key] || "");
+}
+/* 得意属性で装束の色を変える（2026-11-25、教員の指示：火＝赤・水＝青・木＝緑。忍者らしく少し暗め。「なし」は今のまま）。
+   主人公は絵文字🥷なので、一度キャンバスに描いて、肌（だいだい〜黄色）と白はそのままに、ほかの部分（装束・頭巾・刀）を
+   選んだ属性の暗い色に塗りかえた絵を作り、主人公が出るすべての場面（pic("hero")）で使う。属性ごとに1回だけ作る。 */
+const HERO_TINT = {fire:[356, .55], water:[222, .55], wood:[140, .45]};   // [色相, 彩度]
+const HERO_TINT_CACHE = {};
+function heroTintSrc(elem){
+  const t = HERO_TINT[elem]; if(!t) return null;
+  if(HERO_TINT_CACHE[elem] !== undefined) return HERO_TINT_CACHE[elem];
+  let out = null;
+  try{
+    const S = 160, c = document.createElement("canvas"); c.width = c.height = S;
+    const x = c.getContext("2d", {willReadFrequently:true});
+    x.font = `128px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`; x.textAlign = "center"; x.textBaseline = "middle";
+    x.fillText(NP_EMOJI.hero, S / 2, S / 2 + 6);
+    const im = x.getImageData(0, 0, S, S), d = im.data;
+    let x0 = S, y0 = S, x1 = -1, y1 = -1;
+    for(let i = 0; i < d.length; i += 4){
+      if(d[i + 3] <= 8) continue;
+      const p = i / 4, px = p % S, py = (p - px) / S;
+      if(px < x0) x0 = px; if(px > x1) x1 = px; if(py < y0) y0 = py; if(py > y1) y1 = py;
+      const r = d[i] / 255, g = d[i + 1] / 255, b = d[i + 2] / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2;
+      let h = 0, sat = 0;
+      if(mx !== mn){ const dd = mx - mn; sat = l > .5 ? dd / (2 - mx - mn) : dd / (mx + mn); h = (mx === r ? (g - b) / dd + (g < b ? 6 : 0) : mx === g ? (b - r) / dd + 2 : (r - g) / dd + 4) * 60; }
+      if((h >= 8 && h <= 55 && sat > .3 && l > .3) || (sat < .15 && l > .85)) continue;   // 肌・目の白はそのまま
+      const L = Math.min(.42, .04 + l * .58), C = (1 - Math.abs(2 * L - 1)) * t[1], X = C * (1 - Math.abs((t[0] / 60) % 2 - 1)), m = L - C / 2;
+      const k = Math.floor(t[0] / 60), rgb = [[C, X, 0], [X, C, 0], [0, C, X], [0, X, C], [X, 0, C], [C, 0, X]][k % 6];
+      d[i] = (rgb[0] + m) * 255; d[i + 1] = (rgb[1] + m) * 255; d[i + 2] = (rgb[2] + m) * 255;
+    }
+    if(x1 >= x0){
+      x.putImageData(im, 0, 0);
+      const w = x1 - x0 + 1, hh = y1 - y0 + 1, o = document.createElement("canvas"); o.width = w; o.height = hh;
+      o.getContext("2d").drawImage(c, x0, y0, w, hh, 0, 0, w, hh);
+      out = o.toDataURL();
+    }
+  }catch(e){ out = null; }
+  HERO_TINT_CACHE[elem] = out;
+  return out;
 }
 
 /* =====================================================================
