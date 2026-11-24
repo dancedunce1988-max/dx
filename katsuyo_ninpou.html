@@ -2977,14 +2977,22 @@ const LEGENDS = [
   {id:"lg_ouna",  name:"初代の奥方・媼", icon:"👵", limit:2,   n:20, need:20, ryo:50000, title:"天下一の変化の使い手", item:"legend_ougi", home:"hermit",
    talk:"おじいさんに勝ったのね。……わたしとは、20問連続。1問2秒。一度でもまちがえたら、そこでおしまいよ。"},
 ];
+/* 媼に一度勝ったあとは「連続正解チャレンジ」（2026-11-24、教員の指示）。
+   まちがえる（時間切れをふくむ）まで、何問でも続く。20問以内にまちがえたら媼の勝ち、20問連続正解（それ以降でまちがえる）なら自分の勝ち。
+   連続正解のベストスコアを SAVE.shinken.lg_ouna.best に記録する。 */
+const LEG_CHAL = 20;
+const legEndless = d => d.id === "lg_ouna" && skBeaten("lg_ouna");
+const legBest = d => ((SAVE.shinken || {})[d.id] || {}).best || 0;
+const legendRuleOf = (d, endless) => endless ? `連続正解チャレンジ：${LEG_CHAL}問以内にまちがえたら負け・${LEG_CHAL}問連続正解で勝ち（まちがえるまで続く）` : legendRule(d);
 const legendRule = d => d.need >= legN(d) ? `${legN(d)}問連続正解で勝ち（1問でもまちがえたら負け）` : `${legN(d)}問中${d.need}問正解で勝ち`;
 function startLegend(id){
-  const d = LEGENDS.find(x => x.id === id);
+  const d = LEGENDS.find(x => x.id === id), endless = legEndless(d);
   sfx.tap();
-  modal(`<div class="enc-ic">${d.icon}</div><h3>${esc(d.name)}</h3><p>「${esc(d.talk)}」</p>
-    <p style="font-size:13px"><b>${legendRule(d)}</b><br>1問の制限時間：<b>${d.limit}秒</b><br>装備・ステータス・術・道具・ヒントは使えない</p>`,
+  const talk = endless ? `あら、また来たのね。今度は、<b>何問続けて正解できるか</b>の勝負よ。${LEG_CHAL}問以内にまちがえたら、わたしの勝ち。${LEG_CHAL}問続けば、あなたの勝ち。どこまで行けるかしら？` : esc(d.talk);
+  modal(`<div class="enc-ic">${d.icon}</div><h3>${esc(d.name)}${endless ? "　🔥 連続正解チャレンジ" : ""}</h3><p>「${talk}」</p>
+    <p style="font-size:13px"><b>${legendRuleOf(d, endless)}</b><br>1問の制限時間：<b>${d.limit}秒</b><br>装備・ステータス・術・道具・ヒントは使えない${endless ? `<br>🏆 ベストスコア：<b>${legBest(d)}問</b>連続` : ""}</p>`,
     [["いざ、勝負！", () => { closeModal();
-      startBattle({mode:"legend", lg:d, ch:CHAPTERS[chIndex("ichi")], foe:{icon:d.icon, name:d.name, hp:legN(d), atk:0, def:0, res:0, elem:"", every:999}, time:d.limit, ryo:0, xp:10, lv:"？"}); }],
+      startBattle({mode:"legend", lg:d, endless, ch:CHAPTERS[chIndex("ichi")], foe:{icon:d.icon, name:d.name, hp:endless ? LEG_CHAL : legN(d), atk:0, def:0, res:0, elem:"", every:999}, time:d.limit, ryo:0, xp:10, lv:"？"}); }],
      ["やめる", closeModal]]);
 }
 async function legendAnswer(p, q, btn, right){
@@ -3000,7 +3008,15 @@ async function legendAnswer(p, q, btn, right){
     fxEnemyHit(null); dmgPop(btn ? "✖ まちがい" : "⌛ 時間切れ", "#ff8a80", "pBox");
     fb.className = "feedback ng show"; fb.innerHTML = "❌ " + (btn ? "" : "時間切れ！ ") + explain(q);
   }
+  if(p.cfg.endless && right && L.ok === LEG_CHAL) setTimeout(() => flash(`${LEG_CHAL}問連続！ 勝ち確定！ どこまで行ける？`, "#ffd23f"), 200);
+  if(p.cfg.endless && right && L.ok === legBest(d) + 1 && legBest(d) > 0) setTimeout(() => dmgPop("🏆 ベスト更新中！", "#ffd23f", "pBox"), 400);
   refreshFoe(); renderHud();
+  if(p.cfg.endless){   // 連続正解チャレンジ：まちがえるまで続く
+    await sleep(right ? 700 : 1600);
+    if(!PLAY) return;
+    if(!right){ finish(L.ok >= LEG_CHAL); return; }
+    p.i++; ensureQ(); renderQ(); return;
+  }
   const won = L.ok >= d.need, lost = L.miss > legN(d) - d.need;
   await sleep(right ? 700 : 1600);
   if(!PLAY) return;
@@ -3011,6 +3027,7 @@ function finishLegend(p, win, r){
   const d = p.cfg.lg, L = p.legend;
   SAVE.shinken = SAVE.shinken || {};
   let rewards = [], line = "";
+  if(p.cfg.endless) return finishLegendChal(p, win, r);
   if(win){
     const rec = SAVE.shinken[d.id] || {wins:0}, first = !rec.wins;
     rec.wins++; SAVE.shinken[d.id] = rec;
@@ -3032,6 +3049,27 @@ function finishLegend(p, win, r){
     ${rewards.length ? `<div class="rewards"><b>手に入れた</b>${rewards.map(x => `<span>${x}</span>`).join("")}</div>` : ""}
     ${xpResultHtml(XP_AWARD, XP_NOTE)}
     <div class="stat">${L.done}問中 ${L.ok}問正解（勝ちは ${legendRule(d)}）<br>「${MG_GENRE}」レベル ${mgSigned(r.net)}</div>
+    ${p.wrongList.length ? `<div class="scroll" style="margin-top:12px;text-align:left"><h2 style="font-size:18px">ふりかえり</h2>${p.wrongList.map(q => `<p>・${explain(q)}</p>`).join("")}</div>` : ""}
+    <div class="btn-row" id="resultBtns"><button class="btn" onclick="startLegend('${d.id}')">もう一度</button><button class="btn sub" onclick="showHermitMenu()">隠居の家へもどる</button></div>`;
+  show("sResult");
+  animateXp(XP_AWARD);
+}
+// 連続正解チャレンジの結果（ベストスコアを記録）
+function finishLegendChal(p, win, r){
+  const d = p.cfg.lg, L = p.legend, rec = SAVE.shinken[d.id] || {wins:0};
+  const prev = rec.best || 0, newBest = L.ok > prev;
+  if(newBest) rec.best = L.ok;
+  if(win) rec.wins = (rec.wins || 0) + 1;
+  SAVE.shinken[d.id] = rec;
+  XP_AWARD = awardXp(win ? p.xpGot + 50 : Math.floor(p.xpGot / 2)); XP_NOTE = win ? "正解の分＋勝利のボーナス50" : "負けたので、正解の分の半分";
+  saveSave(SAVE); win || newBest ? sfx.clear() : null;
+  const line = win ? `媼「……${L.ok}問も。ふふ、やっぱり、あなたにはかなわないわね。」`
+    : `媼「${LEG_CHAL}問以内なら、わたしの勝ちよ。まだまだ、続けられるはず。」`;
+  $("resultBody").innerHTML = `<div class="enc-ic">${d.icon}</div><h2>${win ? `🎉 ${esc(d.name)}に勝った！` : `💥 ${esc(d.name)}の勝ち……`}</h2>
+    <p>${line}</p>
+    <div class="rewards"><b>連続正解</b><span style="font-size:22px">🔥 ${L.ok}問</span>${newBest ? `<span class="hiho-get">🏆 ベストスコア更新！（前回 ${prev}問）</span>` : `<span>🏆 ベストスコア ${rec.best || 0}問</span>`}</div>
+    ${xpResultHtml(XP_AWARD, XP_NOTE)}
+    <div class="stat">${legendRuleOf(d, true)}<br>「${MG_GENRE}」レベル ${mgSigned(r.net)}</div>
     ${p.wrongList.length ? `<div class="scroll" style="margin-top:12px;text-align:left"><h2 style="font-size:18px">ふりかえり</h2>${p.wrongList.map(q => `<p>・${explain(q)}</p>`).join("")}</div>` : ""}
     <div class="btn-row" id="resultBtns"><button class="btn" onclick="startLegend('${d.id}')">もう一度</button><button class="btn sub" onclick="showHermitMenu()">隠居の家へもどる</button></div>`;
   show("sResult");
@@ -3077,9 +3115,9 @@ function showHermitMenu(){
   LEGENDS.forEach((d, i) => {
     const prev = i === 0 || skBeaten(LEGENDS[i - 1].id), b = (SAVE.shinken || {})[d.id];
     h += `<div class="qcard${prev ? "" : " locked"}"><div class="qicon">${d.icon}</div>
-      <div class="qtx"><b>${b ? "✅ " : ""}${esc(d.name)}</b><small>${legendRule(d)}・1問${d.limit}秒</small>
-        <small>${b ? `勝った回数 ${b.wins}` : `初勝利：💰${d.ryo}両・称号「${d.title}」${d.item ? `・${EQUIP[d.item].icon}${EQUIP[d.item].name}` : ""}`}</small></div>
-      ${prev ? `<button class="btn mini" onclick="startLegend('${d.id}')">${b ? "再戦" : "挑む"}</button>` : `<span class="lockmsg">${esc(LEGENDS[i - 1].name.split("・")[1])}に勝ってから</span>`}</div>`;
+      <div class="qtx"><b>${b ? "✅ " : ""}${esc(d.name)}${legEndless(d) ? "　🔥 連続正解チャレンジ" : ""}</b><small>${legendRuleOf(d, legEndless(d))}・1問${d.limit}秒</small>
+        <small>${legEndless(d) ? `🏆 ベストスコア ${legBest(d)}問・勝った回数 ${b.wins}` : b ? `勝った回数 ${b.wins}` : `初勝利：💰${d.ryo}両・称号「${d.title}」${d.item ? `・${EQUIP[d.item].icon}${EQUIP[d.item].name}` : ""}`}</small></div>
+      ${prev ? `<button class="btn mini" onclick="startLegend('${d.id}')">${legEndless(d) ? "挑戦" : b ? "再戦" : "挑む"}</button>` : `<span class="lockmsg">${esc(LEGENDS[i - 1].name.split("・")[1])}に勝ってから</span>`}</div>`;
   });
   if(skBeaten("lg_ouna")) h += `<p class="note-dark">🏆 あなたは、変化の里で<b>天下一</b>の変化の使い手。お二人も楓も、たまには腕だめしに来てほしいと言っている。</p>`;
   panel("🏡 隠居の家", h);
@@ -3817,8 +3855,7 @@ function startBattle(cfg){
   PLAY.elem = SAVE.elem || "";
   if(cfg.mode === "legend"){   // 隠居の家：ステータスなし・相手ごとの問題数（10・15・20問）・短い制限時間。読むのに時間のかかる問題（活用表・文の中）は出さない
     Object.assign(PLAY, {hp:1, maxHp:1, jutsu:[], guard:0, hints:0, crit:0, elem:"", timeBase:cfg.time, legend:{done:0, ok:0, miss:0}});
-    const fast = q => ["form", "type", "aform", "pos", "fuda", "dan"].includes(q.kind);
-    PLAY.qs = arrangeNoRepeat(shuffle([].concat(...["ichi", "ni", "san", "gai1", "gai2", "ichi", "ni", "san", "gai1", "gai2"].map(id => makeQuestions(CHAPTERS[chIndex(id)])))).filter(fast), RECENT_Q);
+    PLAY.qs = arrangeNoRepeat(legendQs(), RECENT_Q);
   }
   if(cfg.mode === "dojo" || cfg.allCh){   // 道場・魔境は、全ジャンル（すべての章）からまぜて出題
     PLAY.qs = arrangeNoRepeat(allChQs(), RECENT_Q);
@@ -3834,6 +3871,13 @@ function renderPBox(){
   const p = PLAY, r = Math.max(0, p.hp / p.maxHp), col = r > .5 ? "" : r > .2 ? " mid" : " low";
   if(p.cfg.mode === "train"){   // 修行では、HPのかわりに正解の数
     $("pBox").innerHTML = `<div class="bxname">あなた<span class="bxlv">Lv${ninjaInfo().lv}</span></div><div class="bxnum">正解 ${p.ok}・まちがい ${p.ng}</div><div class="bxexp">獲得予定 <b>+${p.xpGot}</b> EXP</div>`;
+    return;
+  }
+  if(p.cfg.mode === "legend" && p.cfg.endless){
+    const L = p.legend, d = p.cfg.lg;
+    $("pBox").innerHTML = `<div class="bxname">あなた<span class="bxlv">🔥 ${L.ok}問 連続</span></div>
+      <div class="bxnum">🏆 ベスト ${legBest(d)}問</div>
+      <div class="bxexp">${L.ok >= LEG_CHAL ? "勝ち確定！ どこまでも続けよう" : `あと${LEG_CHAL - L.ok}問で勝ち`}</div>`;
     return;
   }
   if(p.cfg.mode === "legend"){
@@ -4065,8 +4109,14 @@ function freshGen(gen){
   return q;
 }
 const allChQs = () => shuffle([].concat(...["ichi", "ni", "san", "shi", "tsui", "gai1", "gai2"].map(id => makeQuestions(CHAPTERS[chIndex(id)]))));
+// 隠居の家の問題：短い時間で読める種類だけを、いろいろな章からまぜる
+function legendQs(){
+  const fast = q => ["form", "type", "aform", "pos", "fuda", "dan"].includes(q.kind);
+  return shuffle([].concat(...["ichi", "ni", "san", "gai1", "gai2", "ichi", "ni", "san", "gai1", "gai2"].map(id => makeQuestions(CHAPTERS[chIndex(id)])))).filter(fast);
+}
 function ensureQ(){
   const p = PLAY;
+  if(p.cfg.mode === "legend"){ while(p.i >= p.qs.length) p.qs = p.qs.concat(arrangeNoRepeat(legendQs(), RECENT_Q.concat(p.qs.slice(-3).map(qKey)))); return; }
   while(p.i >= p.qs.length) p.qs = p.qs.concat(arrangeNoRepeat(p.cfg.mode === "dojo" || p.cfg.allCh ? allChQs() : makeQuestions(p.ch), RECENT_Q.concat(p.qs.slice(-3).map(qKey))));
 }
 // 奥（右上）の敵の絵と、左上の敵の箱（名前・Lv・属性・HP・守り/結界・次の攻撃）
@@ -4082,6 +4132,12 @@ function eboxHtml(){
     return `<div class="bxname">🎯 ${esc(st.title)}</div>
       <div class="bxsub">${g.n === g.k ? `${g.k}問 続けて正解で 次へ` : `直近${g.n}問中 ${g.k}問 正解で 次へ`}</div>
       <div class="bxnext">${trainDotsHtml()}</div>`;
+  }
+  if(PLAY.cfg.mode === "legend" && PLAY.cfg.endless){
+    const d = PLAY.cfg.lg, L = PLAY.legend;
+    return `<div class="bxname">${esc(f.name)}<span class="bxlv">1問${d.limit}秒</span></div>
+      <div class="bxsub">連続正解チャレンジ（${LEG_CHAL}問連続で勝ち）</div>
+      <div class="bxnext soon">${L.ok >= LEG_CHAL ? "🎉 勝ち確定！" : `勝ちまで あと<b>${LEG_CHAL - L.ok}</b>問正解`}</div>`;
   }
   if(PLAY.cfg.mode === "legend"){
     const d = PLAY.cfg.lg, L = PLAY.legend;
