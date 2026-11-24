@@ -2493,21 +2493,22 @@ function showZukan(){
    ・相手がまちがえたら、そのまま答えられる。こちらがまちがえると反撃を受ける。
    ・はじめて勝ったときだけ、両と品（道場だけの装備など）がもらえる。再戦は少しの両と経験値。
    ・2026-11-24、教員の指示「道場の人たちが、城の任務の相手より弱い」：道場の相手は、城の任務（同じくらいのLvの格）より
-     HP・攻撃・守り・結界を高くし（同日、さらに「道場で一番弱い人でも、城の任務Sより強く」「任務を全部終えていれば、道場の下位には勝てるくらいに」：
-     全員、Sの敵 HP500・攻撃250・守り/結界38 を上回る。シミュレーション（Lv25・伝説の装備・均等振り・正答率85%＝任務Sに約9割勝てる忍者）で
-     太郎 約85%・花 約80%・剛 約60%・静 約40%・鉄斎 約20%・影 約7%。Lv40・正答率90%なら 影 約50%。
-     住み分け：城の任務は、その任務のジャンル（章）だけから出題。道場は、全ジャンルからまぜて出題）、任務の敵と同じように決まった間（every）ごとに攻撃してくるようにした（前は早押しで負けたときだけ）。
+     HP・攻撃・守り・結界を高くし（2026-11-24、教員の指示で何度か調整。最終：「道場が開くのはLv30くらい。影の師範の適正Lvを55くらいにし、そこに向けてなだらかに」）。
+     全員、城の任務Sの敵（HP500・攻撃250・守り/結界38）より強い。lv＝その相手の適正Lv（太郎30→花35→剛40→静45→鉄斎50→影55）。
+     シミュレーション（伝説の装備・均等振り・得意属性あり・道具なし・正答率85%）で、適正Lvのとき勝率 約50〜65%、
+     適正Lvの10下では 約10〜35%。正答率75%だと、適正Lvで 約35〜60%。
+     住み分け：城の任務は、その任務のジャンル（章）だけから出題。道場は、全ジャンルからまぜて出題）、
      先に答えられたときの攻撃も1.3倍。
    ===================================================================== */
 const DOJO_LV = 8;   // （旧：Lv8から入門。2026-11-23、教員の指示で「全部クリアしてから」に変更）
 const dojoOpen = () => chCleared("gai2");
 const DOJO = [
-  {id:"taro",  name:"門下生・太郎",   icon:"🧒", lv:8,  think:8, acc:.7, every:1, hp:520, atk:258, def:39, res:39, ryo:300,  item:"dojo_tenugui", talk:"よろしくお願いします！ 手加減はしませんよ！"},
-  {id:"hana",  name:"門下生・花",     icon:"👧", lv:10, think:7.5, acc:.75, every:1, hp:540, atk:265, def:40, res:40, ryo:450,  item:"dojo_gi",      talk:"太郎に勝ったのね。でも、わたしは速いわよ。"},
-  {id:"go",    name:"師範代・剛",     icon:"💪", lv:14, think:7, acc:.8, every:1, hp:580, atk:280, def:42, res:40, ryo:700,  item:"dojo_kote",    talk:"ほう、なかなかの腕前だ。だが、おれの速さについてこられるか！"},
-  {id:"shizu", name:"師範・静",       icon:"🧘", lv:18, think:6.5, acc:.85, every:1, hp:620, atk:295, def:44, res:48, ryo:1000, item:"acc_hoju",     talk:"心を静めなさい。あわてた者から負けるのです。"},
-  {id:"tessai",name:"道場主・鉄斎",   icon:"🥷", lv:22, think:6, acc:.88, every:1, hp:680, atk:315, def:48, res:48, ryo:1600, item:"waist4",       talk:"わしが道場主の鉄斎じゃ。全力でかかってこい！"},
-  {id:"kage",  name:"影の師範",       icon:"👤", lv:28, think:5.5, acc:.9, every:1, hp:740, atk:340, def:52, res:52, ryo:3000, item:"face4",        talk:"……鉄斎を破った者か。影の速さを、見せてやろう。", hidden:true},
+  {id:"taro",  name:"門下生・太郎",   icon:"🧒", lv:30, think:8, acc:.72, every:1, hp:630, atk:355, def:51, res:51, ryo:300,  item:"dojo_tenugui", talk:"よろしくお願いします！ 手加減はしませんよ！"},
+  {id:"hana",  name:"門下生・花",     icon:"👧", lv:35, think:7.6, acc:.75, every:1, hp:670, atk:390, def:55, res:55, ryo:450,  item:"dojo_gi",      talk:"太郎に勝ったのね。でも、わたしは速いわよ。"},
+  {id:"go",    name:"師範代・剛",     icon:"💪", lv:40, think:7.2, acc:.78, every:1, hp:705, atk:420, def:59, res:56, ryo:700,  item:"dojo_kote",    talk:"ほう、なかなかの腕前だ。だが、おれの速さについてこられるか！"},
+  {id:"shizu", name:"師範・静",       icon:"🧘", lv:45, think:6.8, acc:.81, every:1, hp:730, atk:440, def:60, res:64, ryo:1000, item:"acc_hoju",     talk:"心を静めなさい。あわてた者から負けるのです。"},
+  {id:"tessai",name:"道場主・鉄斎",   icon:"🥷", lv:50, think:6.4, acc:.84, every:1, hp:750, atk:460, def:64, res:64, ryo:1600, item:"waist4",       talk:"わしが道場主の鉄斎じゃ。全力でかかってこい！"},
+  {id:"kage",  name:"影の師範",       icon:"👤", lv:55, think:5.8, acc:.88, every:1, hp:790, atk:490, def:68, res:68, ryo:3000, item:"face4",        talk:"……鉄斎を破った者か。影の速さを、見せてやろう。", hidden:true},
 ];
 function dojoBeaten(id){ return !!(SAVE.dojo && SAVE.dojo[id]); }
 function showDojo(){
@@ -2526,7 +2527,7 @@ function showDojo(){
     const it = EQUIP[d.item];
     html += `<div class="qcard${can ? "" : " locked"}">
       <div class="qicon">${d.icon}</div>
-      <div class="qtx"><b>${beaten ? "✅ " : ""}${esc(d.name)}</b><small>考える時間 約${d.think}秒・正答率${Math.round(d.acc * 100)}%・HP${d.hp}・攻撃${d.atk}・${d.every === 1 ? "毎問" : d.every + "問ごと"}に攻撃</small>
+      <div class="qtx"><b>${beaten ? "✅ " : ""}${esc(d.name)}</b><small><b>めやす 忍者Lv${d.lv}</b>${ni.lv < d.lv ? "（今のLvでは手ごわい）" : ""}</small><small>考える時間 約${d.think}秒・正答率${Math.round(d.acc * 100)}%・HP${d.hp}・攻撃${d.atk}・${d.every === 1 ? "毎問" : d.every + "問ごと"}に攻撃</small>
         <small>${beaten ? "再戦：両と経験値（少し）" : `初勝利：💰${d.ryo}両・${it.icon}${esc(it.name)}`}</small></div>
       ${can ? `<button class="btn mini" onclick="startDojo('${d.id}')">${beaten ? "再戦" : "挑む"}</button>` : `<span class="lockmsg">${!prevOk ? "前の相手に勝ってから" : `忍者Lv${Math.max(d.lv, DOJO_LV)}から`}</span>`}</div>`;
   });
