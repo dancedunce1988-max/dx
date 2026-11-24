@@ -131,6 +131,7 @@
   .qword rt{font-size:.38em;color:#cfd6ea}
   .qword .blank{display:inline-block;min-width:1.2em;border-bottom:4px solid var(--gold);color:var(--gold)}
   .qword .fol{color:#9fd3ff}
+  .noitem{font-size:12px;color:#cfd6ea;background:rgba(0,0,0,.25);border-radius:999px;padding:4px 12px}
   /* 自宅の隅の「最初からやり直す」（目立たないように小さく） */
   .home-reset{text-align:right;margin-top:18px}
   .home-reset button{background:none;border:1px solid rgba(160,60,60,.45);color:#a05050;font-size:11px;padding:3px 8px;border-radius:6px;cursor:pointer;opacity:.75}
@@ -2517,7 +2518,7 @@ function showDojo(){
     return;
   }
   let html = `<div class="npc-line"><span class="npc">🥷</span><div>道場主・鉄斎「${false ? `まだ早い！ 忍者Lv${DOJO_LV}になったら、入門を許そう。外で野良忍者ときたえてくるのじゃ。` : "よう来た、旅を終えた者よ。ここでは<b>すべての術</b>から出題する、早押しの勝負じゃ。相手より先に、正しく答えよ！"}」</div></div>
-    <p class="note-dark">⚡ 早押し対決：相手は決まった時間で答えてくる。先に正解すれば攻撃、先に答えられると攻撃を受ける。<br>はじめて勝つと、道場だけの品がもらえる。</p>`;
+    <p class="note-dark">⚡ 早押し対決：相手は決まった時間で答えてくる。先に正解すれば攻撃、先に答えられると攻撃を受ける。<br>🚫 道場では、道具（🍡団子・💨煙玉）は使えない。<br>はじめて勝つと、道場だけの品がもらえる。</p>`;
   DOJO.forEach((d, i) => {
     const prevOk = i === 0 || dojoBeaten(DOJO[i - 1].id);
     if(d.hidden && !prevOk){ html += `<div class="qcard locked"><div class="qicon">❔</div><div class="qtx"><b>？？？</b><small>だれかが、奥で待っている……</small></div></div>`; return; }
@@ -2535,7 +2536,7 @@ function showDojo(){
 function startDojo(id){
   const d = DOJO.find(x => x.id === id); if(!d) return;
   sfx.tap();
-  modal(`<div class="enc-ic">${d.icon}</div><h3>${esc(d.name)}</h3><p>「${esc(d.talk)}」</p><p style="font-size:13px">考える時間 約${d.think}秒・正答率${Math.round(d.acc * 100)}%<br>HP${d.hp}・攻撃${d.atk}・守り${d.def}・結界${d.res}・${d.every === 1 ? "毎問" : d.every + "問ごと"}に攻撃</p>`,
+  modal(`<div class="enc-ic">${d.icon}</div><h3>${esc(d.name)}</h3><p>「${esc(d.talk)}」</p><p style="font-size:13px">考える時間 約${d.think}秒・正答率${Math.round(d.acc * 100)}%<br>HP${d.hp}・攻撃${d.atk}・守り${d.def}・結界${d.res}・${d.every === 1 ? "毎問" : d.every + "問ごと"}に攻撃<br><b>🚫 道場では道具（団子・煙玉）は使えない</b></p>`,
     [["勝負！", () => { closeModal();
       const done = STORY_ORDER.filter(chCleared);
       const ch = CHAPTERS[chIndex(pick(done.length ? done : ["jo"]))];
@@ -3569,6 +3570,7 @@ function renderQ(){
   if(q.nai === "hint" && p.cfg.mode !== "legend") $("qTools").innerHTML = `<button class="iconbtn" onclick="naiHint()">💨 「ない」をつけてみる</button>`;
   else if(p.cfg.mode === "train" || q.nai) $("qTools").innerHTML = "";
   else if(p.cfg.mode === "legend") $("qTools").innerHTML = "";
+  else if(noItems(p)) $("qTools").innerHTML = `<span class="noitem">🚫 道場では道具を使えない</span>`;
   else if(!(q.kind === "type" && q.autoSmoke)) $("qTools").innerHTML = hintBtnHtml();
   startTimer();
 }
@@ -3974,7 +3976,7 @@ function renderHud(){
   $("hudCombo").innerHTML = STREAK >= 2 ? `<span class="streak s${STREAK >= 11 ? 3 : STREAK >= 6 ? 2 : 1}">🔥${STREAK}連続　攻撃×${sm.toFixed(1)}</span>` : "";
   const hero = $("bHero"); if(hero){ hero.classList.toggle("aura1", STREAK >= 3 && STREAK < 6); hero.classList.toggle("aura2", STREAK >= 6 && STREAK < 11); hero.classList.toggle("aura3", STREAK >= 11); }
   const bag = SAVE.bag.dango || 0;
-  $("hudItems").innerHTML = isPrac(p.cfg.mode) || p.cfg.mode === "legend" ? "" :
+  $("hudItems").innerHTML = isPrac(p.cfg.mode) || p.cfg.mode === "legend" || noItems(p) ? "" :
     `<button class="iconbtn" ${bag && !p.lock ? "" : "disabled"} onclick="useDango()">🍡×${bag}</button>`;
   const gmax = jutsuMax(p.nin), full = p.gauge >= gmax;
   $("hudJutsu").innerHTML = isPrac(p.cfg.mode) || p.cfg.mode === "legend" ? "" :
@@ -4250,12 +4252,14 @@ function startTimer(){
   }, 100);
 }
 function stopTimer(){ if(TIMER){ clearInterval(TIMER); TIMER = null; } }
+/* 道場では道具（団子・煙玉）を使えない（2026-11-24、教員の指示）。装備の効果でふえる煙玉も使えない */
+const noItems = p => !!p && p.cfg.mode === "dojo";
 function hintBtnHtml(){
   const p = PLAY, bag = SAVE.bag.kemuri || 0, n = p.hints + bag;
   return `<button class="iconbtn" ${n ? "" : "disabled"} onclick="useHint()">💨 煙玉（のこり${n}）</button>`;
 }
 function useHint(){
-  const p = PLAY; if(!p || p.lock) return;
+  const p = PLAY; if(!p || p.lock || noItems(p)) return;
   const q = p.qs[p.i];
   if(q.hinted) return;
   if(p.hints > 0) p.hints--;
@@ -4272,7 +4276,7 @@ function useHint(){
   $("qTools").innerHTML = hintBtnHtml();
 }
 function useDango(){
-  const p = PLAY; if(!p || p.lock || !(SAVE.bag.dango > 0) || p.hp >= p.maxHp) return;
+  const p = PLAY; if(!p || p.lock || noItems(p) || !(SAVE.bag.dango > 0) || p.hp >= p.maxHp) return;
   SAVE.bag.dango--; saveSave(SAVE);
   const h = Math.max(20, Math.round(p.maxHp * .25));
   p.hp = Math.min(p.maxHp, p.hp + h);
