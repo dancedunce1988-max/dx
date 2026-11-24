@@ -340,7 +340,31 @@
   .qcard .qtx small{display:block;color:var(--ink2);font-size:12px;line-height:1.5}
   .qrank{flex:0 0 30px;height:30px;border-radius:8px;color:#fff;font-weight:bold;display:flex;align-items:center;justify-content:center}
   .lockmsg{font-size:12px;color:#b3261e;font-weight:bold}
-  .replay{display:flex;flex-wrap:wrap;gap:6px}
+  .replay{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;padding:4px 0 2px}
+  .replay .iconbtn{text-align:left;font-size:13px;padding:7px 9px;line-height:1.35}
+  .replay .iconbtn small{display:block;color:#ffd23f;font-size:11px}
+  .replay .iconbtn.end{grid-column:span 1;text-align:center}
+  /* 寺子屋の巻物カード：上に題名、下にボタン */
+  .tlist{display:grid;gap:8px}
+  .tcard{background:#fffaf0;border:2px solid #c9a66b;border-radius:12px;padding:8px 10px}
+  .tcard-h{display:flex;align-items:center;gap:10px}
+  .tno{flex:0 0 auto;min-width:38px;height:38px;padding:0 6px;border-radius:10px;background:var(--red);color:#fff;font-weight:bold;font-size:15px;display:inline-flex;align-items:center;justify-content:center}
+  .tno.s{min-width:0;height:auto;padding:1px 6px;margin-right:6px;font-size:11px;border-radius:6px}
+  .ttx{min-width:0}
+  .ttx b{display:block;font-size:16px;color:var(--ink)}
+  .ttx small{display:block;font-size:12px;color:var(--ink2);line-height:1.45}
+  .tbtns{display:flex;gap:6px;margin-top:8px}
+  .tbtns .iconbtn{flex:1 1 0;font-size:13px;padding:8px 4px;white-space:nowrap}
+  @media (min-width:600px){
+    .tcard{display:flex;align-items:center;gap:10px}
+    .tcard-h{flex:1;min-width:0}
+    .tbtns{margin-top:0;flex:0 0 auto}
+    .tbtns .iconbtn{flex:0 0 auto;padding:8px 12px}
+  }
+  .tfold{margin-top:12px;background:rgba(255,250,240,.6);border:1px solid #c9a66b;border-radius:10px;padding:4px 10px}
+  .tfold summary{cursor:pointer;font-weight:bold;color:var(--red);padding:6px 0;font-size:15px}
+  .tfold[open] summary{border-bottom:1px solid #e0cfa6;margin-bottom:6px}
+  .tfold .tip{margin:6px 0}
   .iconbtn.dark{background:#5a4630;border-color:#3a2c1c;color:#fff}
   .iconbtn:disabled{opacity:.4}
   .btn.mini{padding:6px 12px;font-size:14px;white-space:nowrap}
@@ -754,7 +778,17 @@
     #sField > .fgoal{grid-area:goal}
     #sField > .note{grid-area:note;margin-top:4px}
   }
+  /* 巻物（説明）の表：スマホで見出しが1文字ずつ折れないように */
+  .scroll table td:first-child{white-space:nowrap}
+  .scroll table th{white-space:nowrap}
+  .scroll table small{font-size:.8em;color:var(--ink2);white-space:nowrap}
+  .scroll table.nw td{white-space:nowrap}
+  .scroll{overflow-x:auto}
   @media (max-width:480px){
+    .scroll{padding:14px 16px}
+    .scroll table{font-size:13px}
+    .scroll td,.scroll th{padding:3px 5px}
+    .scroll table th{font-size:12px;line-height:1.4}
     .ktable{font-size:14px}
     .ktable td,.ktable th{padding:3px 6px}
     .dlg .txt{font-size:16px}
@@ -1391,15 +1425,15 @@ const CHAPTERS = [
    ],
    lesson:`<h2>巻物・其の四　活用表の作り方</h2>
     <p style="text-align:center">言い切りの形に、上から順に合言葉をつけるだけ！</p>
-    <table><tr><th>活用形</th><th>合言葉</th><th>書く（五段）</th><th>起きる（上一段）</th><th>食べる（下一段）</th></tr>
+    <table class="nw"><tr><th>活用形</th><th>合言葉</th><th>書く<br><small>五段</small></th><th>起きる<br><small>上一段</small></th><th>食べる<br><small>下一段</small></th></tr>
       <tr><td rowspan="2">未然形</td><td>ない</td><td>書か</td><td rowspan="2">起き</td><td rowspan="2">食べ</td></tr>
-      <tr><td>よう（五段は う）</td><td>書こ</td></tr>
+      <tr><td>よう<br><small>五段は「う」</small></td><td>書こ</td></tr>
       <tr><td rowspan="2">連用形</td><td>た</td><td><b>書い</b></td><td rowspan="2">起き</td><td rowspan="2">食べ</td></tr>
       <tr><td>ます</td><td>書き</td></tr>
       <tr><td>終止形</td><td>。</td><td>書く</td><td>起きる</td><td>食べる</td></tr>
       <tr><td>連体形</td><td>とき</td><td>書く</td><td>起きる</td><td>食べる</td></tr>
       <tr><td>仮定形</td><td>ば</td><td>書け</td><td>起きれ</td><td>食べれ</td></tr>
-      <tr><td>命令形</td><td>！</td><td>書け</td><td>起きろ・起きよ</td><td>食べろ・食べよ</td></tr></table>
+      <tr><td>命令形</td><td>！</td><td>書け</td><td>起きろ<br>起きよ</td><td>食べろ<br>食べよ</td></tr></table>
     <p><b>音便の結界</b>：五段は「た」が続くと音が変わる。<br>
       書<b>い</b>た（イ音便）・待<b>っ</b>た（促音便）・読<b>ん</b>だ（撥音便）。「行く」は特別で「行<b>っ</b>た」。</p>
     <p>来る：こ・き・くる・くる・くれ・こい　／　する：し・し・する・する・すれ・しろ</p>`,
@@ -3270,17 +3304,25 @@ function showTerakoya(){
   const list = STORY_ORDER.filter(id => chCleared(id) || id === ns);
   let html = `<div class="npc-line"><span class="npc">${pic("shisho")}</span><div>師匠・変化斎「${ns === "jo" ? "おお、来たか。大変なことになったのじゃ……。話を聞いてくれ。" : "よう来た。巻物を読み返すもよし、1問ずつ腕をみがくもよし。ここでの練習でも、忍者Lvは上がるぞ。"}」</div></div>`;
   if(ns === "jo") html += `<div class="qcard story" onclick="openChapter('jo')"><div class="qicon">📜</div><div class="qtx"><b>物語　序の章「変化の術」</b><small>里に何が起きたのか、師匠の話を聞こう</small></div><button class="btn">話を聞く</button></div>`;
-  const doneStory = STORY_ORDER.filter(chCleared);
-  if(doneStory.length) html += `<h3 class="sec">📖 これまでの物語（読み返す）</h3><div class="replay">` +
-    doneStory.map(id => { const c = CHAPTERS[chIndex(id)]; return `<button class="iconbtn dark" onclick="replayStory('${id}')">${c.no} ${esc(c.name)} ${"★".repeat(SAVE.stars[id])}</button>`; }).join("") +
-    (SAVE.endings && SAVE.endings[1] ? `<button class="iconbtn dark" onclick="showEnding(1, showTerakoya)">🎆 第一部のエンディング</button>` : "") +
-    (SAVE.endings && SAVE.endings[2] ? `<button class="iconbtn dark" onclick="showEnding(2, showTerakoya)">🎌 終幕（エンディング）</button>` : "") +
-    (SAVE.endings && SAVE.endings[3] ? `<button class="iconbtn dark" onclick="showEnding(3, showTerakoya)">👑 真・終幕（本当のエンディング）</button>` : "") + `</div>`;
-  html += `<h3 class="sec">📜 巻物</h3>`;
+  /* 見やすさの見直し（2026-11-24、教員の指示「寺子屋がスマホだととても見にくい」）：
+     ・巻物のカードは、上に題名と説明、下にボタンを横ならび（前は右にボタンが3つならび、スマホでは題名が1文字ずつの縦書きになっていた）
+     ・いちばんよく使う「巻物」を先に。物語の読み返しと、師匠のひとことは、開いて見る形にたたむ */
+  html += `<h3 class="sec">📜 巻物（読む・練習する）</h3><div class="tlist">`;
   html += list.map(id => { const c = CHAPTERS[chIndex(id)];
-    return `<div class="qcard"><div class="qicon">📜</div><div class="qtx"><b>${c.no}　${esc(c.name)}</b><small>${esc(c.desc)}</small></div>
-      <button class="iconbtn dark" onclick="readLesson('${id}')">読む</button>${chCleared(id) ? `<button class="iconbtn dark" onclick="startQuick(CHAPTERS[chIndex('${id}')])">1問練習</button>` : ""}${TRAIN_PLAN[id] && isTrained(id) ? `<button class="iconbtn dark" onclick="TRAIN_AFTER = showTerakoya; startTraining('${id}', true)">修行をもう一度</button>` : ""}</div>`; }).join("");
-  html += `<h3 class="sec">🗒️ 師匠のひとこと</h3>` + TIPS.slice(0, 2 + STORY_ORDER.filter(chCleared).length * 2).map(t => `<p class="tip">${t}</p>`).join("");
+    const btns = [`<button class="iconbtn dark" onclick="readLesson('${id}')">📖 読む</button>`]
+      .concat(chCleared(id) ? [`<button class="iconbtn dark" onclick="startQuick(CHAPTERS[chIndex('${id}')])">🎯 1問練習</button>`] : [])
+      .concat(TRAIN_PLAN[id] && isTrained(id) ? [`<button class="iconbtn dark" onclick="TRAIN_AFTER = showTerakoya; startTraining('${id}', true)">🔁 再修行</button>`] : []);
+    return `<div class="tcard"><div class="tcard-h"><span class="tno">${c.no}</span><div class="ttx"><b>${esc(c.name)}</b><small>${esc(c.desc)}</small></div></div>
+      <div class="tbtns">${btns.join("")}</div></div>`; }).join("") + `</div>`;
+  const doneStory = STORY_ORDER.filter(chCleared);
+  if(doneStory.length){
+    const ends = [[1, "🎆 第一部のエンディング"], [2, "🎌 終幕"], [3, "👑 真・終幕"]].filter(([k]) => SAVE.endings && SAVE.endings[k]);
+    html += `<details class="tfold"><summary>📖 これまでの物語を読み返す（${doneStory.length}章${ends.length ? `・エンディング${ends.length}` : ""}）</summary><div class="replay">` +
+      doneStory.map(id => { const c = CHAPTERS[chIndex(id)]; return `<button class="iconbtn dark" onclick="replayStory('${id}')"><span class="tno s">${c.no}</span>${esc(c.name)}<small>${"★".repeat(SAVE.stars[id])}</small></button>`; }).join("") +
+      ends.map(([k, t]) => `<button class="iconbtn dark end" onclick="showEnding(${k}, showTerakoya)">${t}</button>`).join("") + `</div></details>`;
+  }
+  const tips = TIPS.slice(0, 2 + STORY_ORDER.filter(chCleared).length * 2);
+  html += `<details class="tfold"${doneStory.length ? "" : " open"}><summary>🗒️ 師匠のひとこと（${tips.length}）</summary>` + tips.map(t => `<p class="tip">${t}</p>`).join("") + `</details>`;
   panel("📚 寺子屋", html);
 }
 function replayStory(id){
