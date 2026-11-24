@@ -2402,16 +2402,19 @@ function showZukan(){
    ・こちらが先に正解すると攻撃。先に相手に正解されると攻撃を受け、その問題は終わる（解説は見られる）。
    ・相手がまちがえたら、そのまま答えられる。こちらがまちがえると反撃を受ける。
    ・はじめて勝ったときだけ、両と品（道場だけの装備など）がもらえる。再戦は少しの両と経験値。
+   ・2026-11-24、教員の指示「道場の人たちが、城の任務の相手より弱い」：道場の相手は、城の任務（同じくらいのLvの格）より
+     HP・攻撃・守り・結界を高くし、任務の敵と同じように決まった間（every）ごとに攻撃してくるようにした（前は早押しで負けたときだけ）。
+     先に答えられたときの攻撃も1.3倍。考える時間も短く、正答率も高くした。
    ===================================================================== */
 const DOJO_LV = 8;   // （旧：Lv8から入門。2026-11-23、教員の指示で「全部クリアしてから」に変更）
 const dojoOpen = () => chCleared("gai2");
 const DOJO = [
-  {id:"taro",  name:"門下生・太郎",   icon:"🧒", lv:8,  think:9,   acc:.6,  hp:180, atk:16, def:6,  res:6,  ryo:300,  item:"dojo_tenugui", talk:"よろしくお願いします！ 手加減はしませんよ！"},
-  {id:"hana",  name:"門下生・花",     icon:"👧", lv:10, think:8,   acc:.7,  hp:220, atk:20, def:8,  res:10, ryo:450,  item:"dojo_gi",      talk:"太郎に勝ったのね。でも、わたしは速いわよ。"},
-  {id:"go",    name:"師範代・剛",     icon:"💪", lv:14, think:6.5, acc:.75, hp:300, atk:30, def:14, res:10, ryo:700,  item:"dojo_kote",    talk:"ほう、なかなかの腕前だ。だが、おれの速さについてこられるか！"},
-  {id:"shizu", name:"師範・静",       icon:"🧘", lv:18, think:5.5, acc:.85, hp:380, atk:45, def:18, res:22, ryo:1000, item:"acc_hoju",     talk:"心を静めなさい。あわてた者から負けるのです。"},
-  {id:"tessai",name:"道場主・鉄斎",   icon:"🥷", lv:22, think:4.5, acc:.9,  hp:460, atk:65, def:24, res:24, ryo:1600, item:"waist4",       talk:"わしが道場主の鉄斎じゃ。全力でかかってこい！"},
-  {id:"kage",  name:"影の師範",       icon:"👤", lv:28, think:3.5, acc:.95, hp:560, atk:95, def:30, res:30, ryo:3000, item:"face4",        talk:"……鉄斎を破った者か。影の速さを、見せてやろう。", hidden:true},
+  {id:"taro",  name:"門下生・太郎",   icon:"🧒", lv:8,  think:7.5, acc:.75, every:2, hp:320, atk:80,  def:20, res:20, ryo:300,  item:"dojo_tenugui", talk:"よろしくお願いします！ 手加減はしませんよ！"},
+  {id:"hana",  name:"門下生・花",     icon:"👧", lv:10, think:6.5, acc:.8,  every:2, hp:380, atk:120, def:24, res:26, ryo:450,  item:"dojo_gi",      talk:"太郎に勝ったのね。でも、わたしは速いわよ。"},
+  {id:"go",    name:"師範代・剛",     icon:"💪", lv:14, think:5.5, acc:.85, every:1, hp:460, atk:150, def:32, res:26, ryo:700,  item:"dojo_kote",    talk:"ほう、なかなかの腕前だ。だが、おれの速さについてこられるか！"},
+  {id:"shizu", name:"師範・静",       icon:"🧘", lv:18, think:4.5, acc:.9,  every:1, hp:540, atk:210, def:36, res:44, ryo:1000, item:"acc_hoju",     talk:"心を静めなさい。あわてた者から負けるのです。"},
+  {id:"tessai",name:"道場主・鉄斎",   icon:"🥷", lv:22, think:3.8, acc:.93, every:1, hp:640, atk:290, def:46, res:46, ryo:1600, item:"waist4",       talk:"わしが道場主の鉄斎じゃ。全力でかかってこい！"},
+  {id:"kage",  name:"影の師範",       icon:"👤", lv:28, think:3,   acc:.97, every:1, hp:780, atk:380, def:54, res:54, ryo:3000, item:"face4",        talk:"……鉄斎を破った者か。影の速さを、見せてやろう。", hidden:true},
 ];
 function dojoBeaten(id){ return !!(SAVE.dojo && SAVE.dojo[id]); }
 function showDojo(){
@@ -2430,7 +2433,7 @@ function showDojo(){
     const it = EQUIP[d.item];
     html += `<div class="qcard${can ? "" : " locked"}">
       <div class="qicon">${d.icon}</div>
-      <div class="qtx"><b>${beaten ? "✅ " : ""}${esc(d.name)}</b><small>考える時間 約${d.think}秒・正答率${Math.round(d.acc * 100)}%・HP${d.hp}</small>
+      <div class="qtx"><b>${beaten ? "✅ " : ""}${esc(d.name)}</b><small>考える時間 約${d.think}秒・正答率${Math.round(d.acc * 100)}%・HP${d.hp}・攻撃${d.atk}・${d.every === 1 ? "毎問" : d.every + "問ごと"}に攻撃</small>
         <small>${beaten ? "再戦：両と経験値（少し）" : `初勝利：💰${d.ryo}両・${it.icon}${esc(it.name)}`}</small></div>
       ${can ? `<button class="btn mini" onclick="startDojo('${d.id}')">${beaten ? "再戦" : "挑む"}</button>` : `<span class="lockmsg">${!prevOk ? "前の相手に勝ってから" : `忍者Lv${Math.max(d.lv, DOJO_LV)}から`}</span>`}</div>`;
   });
@@ -2440,11 +2443,11 @@ function showDojo(){
 function startDojo(id){
   const d = DOJO.find(x => x.id === id); if(!d) return;
   sfx.tap();
-  modal(`<div class="enc-ic">${d.icon}</div><h3>${esc(d.name)}</h3><p>「${esc(d.talk)}」</p><p style="font-size:13px">考える時間 約${d.think}秒・正答率${Math.round(d.acc * 100)}%<br>HP${d.hp}・攻撃${d.atk}・守り${d.def}・結界${d.res}</p>`,
+  modal(`<div class="enc-ic">${d.icon}</div><h3>${esc(d.name)}</h3><p>「${esc(d.talk)}」</p><p style="font-size:13px">考える時間 約${d.think}秒・正答率${Math.round(d.acc * 100)}%<br>HP${d.hp}・攻撃${d.atk}・守り${d.def}・結界${d.res}・${d.every === 1 ? "毎問" : d.every + "問ごと"}に攻撃</p>`,
     [["勝負！", () => { closeModal();
       const done = STORY_ORDER.filter(chCleared);
       const ch = CHAPTERS[chIndex(pick(done.length ? done : ["jo"]))];
-      startBattle({mode:"dojo", dojo:d.id, ch, foe:{icon:d.icon, name:d.name, hp:d.hp, atk:d.atk, def:d.def, res:d.res, elem:"", every:999, cpu:{think:d.think, acc:d.acc}},
+      startBattle({mode:"dojo", dojo:d.id, ch, foe:{icon:d.icon, name:d.name, hp:d.hp, atk:d.atk, def:d.def, res:d.res, elem:"", every:d.every || 999, cpu:{think:d.think, acc:d.acc}},
         time:Math.max(12, d.think * 2 + 4), ryo:d.ryo, xp:Math.max(2, Math.round(d.lv / 3)), lv:d.lv}); }],
      ["やめる", closeModal]]);
 }
@@ -2466,13 +2469,13 @@ async function cpuAnswer(q){
   const p = PLAY; if(!p || p.lock || p.qs[p.i] !== q) return;
   if(Math.random() < p.foe.cpu.acc){
     // 相手が先に正解：攻撃を受けて、この問題は終わり（正解と解説は見せる）
-    p.lock = true; stopTimer(); p.combo = 0;
+    p.lock = true; stopTimer(); p.combo = 0; STREAK = 0;
     $("qChoices").querySelectorAll(".choice").forEach(b => { b.disabled = true; if(b.dataset.a === q.ans) b.classList.add("ok"); });
     if(q.kind === "type") throwSmoke(q, true);
     $("qTools").innerHTML = "";
     flash("先に答えられた！", "#ff9a92"); p.cpuWins = (p.cpuWins || 0) + 1;
     dmgPop("⚡先手！", "#ffb3a8", "foe");
-    foeAttack(1);
+    foeAttack(1.3);
     const fb = $("qFb");
     fb.className = "feedback ng show";
     fb.innerHTML = `⚡ ${esc(p.foe.name)}が先に正解した！<br>` + explain(q) + `<div class="btn-row" style="margin-top:8px"><button class="btn sub" onclick="nextQ()">次へ</button></div>`;
@@ -2932,28 +2935,29 @@ const skBeaten = id => !!(SAVE.shinken && SAVE.shinken[id]);
    装備・ステータス・術・道具・ヒントはいっさい関係ない、本当の実力勝負。
    ===================================================================== */
 const hermitOpen = () => !!(SAVE.keyItems && SAVE.keyItems.kage);
-/* 隠居の家の3人（2026-11-23、教員の指示で作り直し）。相手と競うのではなく、10問を、1問ごとの短い制限時間で解く。
+/* 隠居の家の3人（2026-11-23、教員の指示で作り直し）。相手と競うのではなく、決まった数の問題を、1問ごとの短い制限時間で解く。
    ・一番弟子・楓：10問中7問正解で勝ち・1問3秒
-   ・初代道場主・翁：10問中8問正解で勝ち・1問2.5秒
-   ・初代の奥方・媼：10問連続正解で勝ち（1問でもまちがえたら負け）・1問2秒
+   ・初代道場主・翁：15問中13問正解で勝ち・1問2.5秒（2026-11-24、教員の指示で10問中8問から変更）
+   ・初代の奥方・媼：20問連続正解で勝ち（1問でもまちがえたら負け）・1問2秒（2026-11-24、教員の指示で10問から変更）
    ステータス・装備・術・道具・ヒントはなし。問題は、短い時間で読める種類（合言葉・流派・形容詞・形容動詞・品詞・活用語尾）からまぜる。 */
-const LEGEND_N = 10;
+const LEGEND_N = 10;   // 問題数を決めていない相手のための既定値
+const legN = d => d.n || LEGEND_N;
 const LEGENDS = [
-  {id:"lg_kaede", name:"一番弟子・楓",   icon:"👩", limit:3,   need:7,  ryo:10000, title:"隠居の家の客人", home:"hermit",
+  {id:"lg_kaede", name:"一番弟子・楓",   icon:"👩", limit:3,   n:10, need:7,  ryo:10000, title:"隠居の家の客人", home:"hermit",
    talk:"お師匠さまたちと戦う前に、まずはわたしがお相手します。10問のうち7問、それも1問3秒で答えられますか？"},
-  {id:"lg_okina", name:"初代道場主・翁", icon:"🧓", limit:2.5, need:8,  ryo:20000, title:"伝説の挑戦者", home:"hermit",
-   talk:"……では、まいろうか。10問のうち8問、1問2.5秒じゃ。老いぼれと思うて、油断するでないぞ。"},
-  {id:"lg_ouna",  name:"初代の奥方・媼", icon:"👵", limit:2,   need:10, ryo:50000, title:"天下一の変化の使い手", item:"legend_ougi", home:"hermit",
-   talk:"おじいさんに勝ったのね。……わたしとは、10問連続。1問2秒。一度でもまちがえたら、そこでおしまいよ。"},
+  {id:"lg_okina", name:"初代道場主・翁", icon:"🧓", limit:2.5, n:15, need:13, ryo:20000, title:"伝説の挑戦者", home:"hermit",
+   talk:"……では、まいろうか。15問のうち13問、1問2.5秒じゃ。老いぼれと思うて、油断するでないぞ。"},
+  {id:"lg_ouna",  name:"初代の奥方・媼", icon:"👵", limit:2,   n:20, need:20, ryo:50000, title:"天下一の変化の使い手", item:"legend_ougi", home:"hermit",
+   talk:"おじいさんに勝ったのね。……わたしとは、20問連続。1問2秒。一度でもまちがえたら、そこでおしまいよ。"},
 ];
-const legendRule = d => d.need >= LEGEND_N ? `${LEGEND_N}問連続正解で勝ち（1問でもまちがえたら負け）` : `${LEGEND_N}問中${d.need}問正解で勝ち`;
+const legendRule = d => d.need >= legN(d) ? `${legN(d)}問連続正解で勝ち（1問でもまちがえたら負け）` : `${legN(d)}問中${d.need}問正解で勝ち`;
 function startLegend(id){
   const d = LEGENDS.find(x => x.id === id);
   sfx.tap();
   modal(`<div class="enc-ic">${d.icon}</div><h3>${esc(d.name)}</h3><p>「${esc(d.talk)}」</p>
     <p style="font-size:13px"><b>${legendRule(d)}</b><br>1問の制限時間：<b>${d.limit}秒</b><br>装備・ステータス・術・道具・ヒントは使えない</p>`,
     [["いざ、勝負！", () => { closeModal();
-      startBattle({mode:"legend", lg:d, ch:CHAPTERS[chIndex("ichi")], foe:{icon:d.icon, name:d.name, hp:LEGEND_N, atk:0, def:0, res:0, elem:"", every:999}, time:d.limit, ryo:0, xp:10, lv:"？"}); }],
+      startBattle({mode:"legend", lg:d, ch:CHAPTERS[chIndex("ichi")], foe:{icon:d.icon, name:d.name, hp:legN(d), atk:0, def:0, res:0, elem:"", every:999}, time:d.limit, ryo:0, xp:10, lv:"？"}); }],
      ["やめる", closeModal]]);
 }
 async function legendAnswer(p, q, btn, right){
@@ -2970,10 +2974,10 @@ async function legendAnswer(p, q, btn, right){
     fb.className = "feedback ng show"; fb.innerHTML = "❌ " + (btn ? "" : "時間切れ！ ") + explain(q);
   }
   refreshFoe(); renderHud();
-  const won = L.ok >= d.need, lost = L.miss > LEGEND_N - d.need;
+  const won = L.ok >= d.need, lost = L.miss > legN(d) - d.need;
   await sleep(right ? 700 : 1600);
   if(!PLAY) return;
-  if(won || lost || L.done >= LEGEND_N){ finish(won); return; }
+  if(won || lost || L.done >= legN(d)){ finish(won); return; }
   p.i++; ensureQ(); renderQ();
 }
 function finishLegend(p, win, r){
@@ -2994,7 +2998,7 @@ function finishLegend(p, win, r){
       : "媼「……まあ。わたしより速い子がいるなんて。」<br>翁「わっはっは！ これで、おぬしが本当の<b>天下一</b>じゃ！」";
   }else{
     XP_AWARD = awardXp(Math.floor(p.xpGot / 2)); XP_NOTE = "負けたので、正解の分の半分";
-    line = `${esc(d.name)}「${d.need >= LEGEND_N ? "一度のまちがいも、許されぬのよ。" : "まだまだ。もっと速く、もっと正しく。"}」`;
+    line = `${esc(d.name)}「${d.need >= legN(d) ? "一度のまちがいも、許されぬのよ。" : "まだまだ。もっと速く、もっと正しく。"}」`;
   }
   $("resultBody").innerHTML = `<div class="enc-ic">${d.icon}</div><h2>${win ? `🎉 ${esc(d.name)}に勝った！` : `💥 ${esc(d.name)}に負けた……`}</h2>
     <p>${line}</p>
@@ -3042,7 +3046,7 @@ function showHermit(){
   ], () => { SAVE.hermitMet = 1; saveSave(SAVE); showHermitMenu(); }, {left:"hero"});
 }
 function showHermitMenu(){
-  let h = `<div class="npc-line"><span class="npc">🧓</span><div>初代道場主・翁「よう来た。ここでは、装備もステータスも術も道具も使えぬ。<b>10問を、短い時間で、どれだけ正しく解けるか</b>。それだけの勝負じゃ。まずは、うちの一番弟子の楓が相手をしよう。」</div></div>`;
+  let h = `<div class="npc-line"><span class="npc">🧓</span><div>初代道場主・翁「よう来た。ここでは、装備もステータスも術も道具も使えぬ。<b>決まった数の問題を、短い時間で、どれだけ正しく解けるか</b>。それだけの勝負じゃ。まずは、うちの一番弟子の楓が相手をしよう。」</div></div>`;
   LEGENDS.forEach((d, i) => {
     const prev = i === 0 || skBeaten(LEGENDS[i - 1].id), b = (SAVE.shinken || {})[d.id];
     h += `<div class="qcard${prev ? "" : " locked"}"><div class="qicon">${d.icon}</div>
@@ -3781,7 +3785,7 @@ function startBattle(cfg){
   fxResize();
   PLAY.turn = 0; PLAY.stolen = 0; PLAY.fled = false;
   PLAY.elem = SAVE.elem || "";
-  if(cfg.mode === "legend"){   // 隠居の家：ステータスなし・10問・短い制限時間。読むのに時間のかかる問題（活用表・文の中）は出さない
+  if(cfg.mode === "legend"){   // 隠居の家：ステータスなし・相手ごとの問題数（10・15・20問）・短い制限時間。読むのに時間のかかる問題（活用表・文の中）は出さない
     Object.assign(PLAY, {hp:1, maxHp:1, jutsu:[], guard:0, hints:0, crit:0, elem:"", timeBase:cfg.time, legend:{done:0, ok:0, miss:0}});
     const fast = q => ["form", "type", "aform", "pos", "fuda", "dan"].includes(q.kind);
     PLAY.qs = arrangeNoRepeat(shuffle([].concat(...["ichi", "ni", "san", "gai1", "gai2", "ichi", "ni", "san", "gai1", "gai2"].map(id => makeQuestions(CHAPTERS[chIndex(id)])))).filter(fast), RECENT_Q);
@@ -3803,10 +3807,10 @@ function renderPBox(){
     return;
   }
   if(p.cfg.mode === "legend"){
-    const L = p.legend, d = p.cfg.lg, left = LEGEND_N - d.need - L.miss;
-    $("pBox").innerHTML = `<div class="bxname">あなた<span class="bxlv">${L.done} / ${LEGEND_N}問</span></div>
+    const L = p.legend, d = p.cfg.lg, left = legN(d) - d.need - L.miss;
+    $("pBox").innerHTML = `<div class="bxname">あなた<span class="bxlv">${L.done} / ${legN(d)}問</span></div>
       <div class="bxnum">⭕ ${L.ok}　✖ ${L.miss}</div>
-      <div class="bxexp">${d.need >= LEGEND_N ? "まちがい 0回まで" : `あと${Math.max(0, left)}回までまちがえてよい`}</div>`;
+      <div class="bxexp">${d.need >= legN(d) ? "まちがい 0回まで" : `あと${Math.max(0, left)}回までまちがえてよい`}</div>`;
     return;
   }
   const na = normalAff(p.elem, p.foe.elem);
