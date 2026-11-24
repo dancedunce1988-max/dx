@@ -131,6 +131,9 @@
   .qword rt{font-size:.38em;color:#cfd6ea}
   .qword .blank{display:inline-block;min-width:1.2em;border-bottom:4px solid var(--gold);color:var(--gold)}
   .qword .fol{color:#9fd3ff}
+  /* 品詞の札（2026-11-24、教員の指示「〜ないの問題は、動詞と形容詞・形容動詞で答えが変わるので、出題時にはっきり示す」） */
+  .pos-tag{display:inline-block;vertical-align:middle;font-size:clamp(14px,4vw,18px);font-weight:bold;letter-spacing:0;padding:3px 10px;margin-right:8px;border-radius:8px;border:2px solid #fff;color:#fff;transform:translateY(-4px)}
+  .pos-tag.v{background:#c0392b}.pos-tag.adj{background:#1f7a3a}.pos-tag.adjv{background:#6a3aa8}
   .qword .sound{color:var(--gold);text-decoration:underline;text-underline-offset:6px}
   .smoke{display:inline-block;margin-top:6px;font-size:22px;padding:4px 14px;border-radius:12px;background:rgba(255,255,255,.1)}
   .smoke.show{animation:smoke .6s ease both}
@@ -1061,6 +1064,8 @@ const ADJV_FORMS = [
 const A_FORM_LIST = ["未然形", "連用形", "終止形", "連体形", "仮定形"];   // 形容詞・形容動詞には命令形がない
 const A_HINT = {"未然形":"う", "連用形":"た・ない・なる", "終止形":"。（言い切り）", "連体形":"とき・名詞", "仮定形":"ば"};
 const POS_HINT = {"動詞":"言い切りがウ段", "形容詞":"言い切りが「い」", "形容動詞":"言い切りが「だ」"};
+// 品詞の札（問題文の左に出す）
+const posTag = k => `<span class="pos-tag ${k}">${k === "v" ? "動詞" : k === "adj" ? "形容詞" : "形容動詞"}</span>`;
 const aStem = v => v.t === "adj" ? v.w.slice(0, -1) : v.s;
 // 文の中の形容詞・形容動詞
 const ADJ_SENTENCES = [
@@ -3393,7 +3398,7 @@ function renderQ(){
     choicesHtml = q.choices.map(c => `<button class="choice fuda" data-a="${c}">${c}</button>`).join("");
   }else if(q.kind === "aform"){
     $("qPrompt").textContent = q.only ? `${q.adjv ? "形容動詞" : "形容詞"}に、この合言葉がつくと何形？` : "下線の言葉は、何形？";
-    $("qWord").innerHTML = q.only ? `〜<span class="fol">${esc(q.fol)}</span>` : `<span style="text-decoration:underline;text-underline-offset:8px">${rubyHtml(q.v, q.word)}</span><span class="fol">${esc(q.fol)}</span>`;
+    $("qWord").innerHTML = posTag(q.adjv ? "adjv" : "adj") + (q.only ? `〜<span class="fol">${esc(q.fol)}</span>` : `<span style="text-decoration:underline;text-underline-offset:8px">${rubyHtml(q.v, q.word)}</span><span class="fol">${esc(q.fol)}</span>`);
     const hint = !formHintOff();
     choicesHtml = q.choices.map(f => `<button class="choice" data-a="${f}">${f}${hint ? `<small>${A_HINT[f]}</small>` : ""}</button>`).join("");
   }else if(q.kind === "pos"){
@@ -3407,11 +3412,11 @@ function renderQ(){
     choicesHtml = q.choices.map(c => `<button class="choice" data-a="${c}">${c}</button>`).join("");
   }else if(q.kind === "form"){
     if(q.only){
-      $("qPrompt").textContent = "この合言葉で発動する術は？";
-      $("qWord").innerHTML = `〜<span class="fol">${esc(q.fol)}</span>`;
+      $("qPrompt").textContent = "動詞に、この合言葉がつくと何形の術？";
+      $("qWord").innerHTML = posTag("v") + `〜<span class="fol">${esc(q.fol)}</span>`;
     }else{
       $("qPrompt").textContent = "下線の言葉は、何形の術？";
-      $("qWord").innerHTML = `<span style="text-decoration:underline;text-underline-offset:8px">${formHtml(q.v, q.word)}</span><span class="fol">${esc(q.fol)}</span>`;
+      $("qWord").innerHTML = posTag("v") + `<span style="text-decoration:underline;text-underline-offset:8px">${formHtml(q.v, q.word)}</span><span class="fol">${esc(q.fol)}</span>`;
     }
     const hint = !formHintOff();
     choicesHtml = (q.choices || FORM_LIST).map(f => `<button class="choice" data-a="${f}">${f}${hint ? `<small>${FORM_HINT[f]}</small>` : ""}</button>`).join("");
@@ -3429,7 +3434,9 @@ function renderQ(){
     $("qPrompt").textContent = q.hlK ? "下線の言葉は、何形？（光っているのが、後ろの言葉）" : "下線の言葉は、何形？";
     let sh = sentHtml(q.x.s);
     if(q.hlK) sh = sh.replace(/<\/u>(\S{0,1}?)/, "</u>$1").replace("</u>" + esc(q.x.k), `</u><span class="khl">${esc(q.x.k)}</span>`);
-    $("qWord").innerHTML = `<div class="sent">${sh}</div>`;
+    // 後ろが「ない」の文は、動詞（未然形）か形容詞・形容動詞（連用形）かで答えが変わるので、品詞の札を出す
+    const nt = q.x.k === "ない" ? posTag(q.x.t === "adj" ? "adj" : q.x.t === "adjv" ? "adjv" : "v") : "";
+    $("qWord").innerHTML = `${nt ? `<div style="margin-bottom:4px">${nt}</div>` : ""}<div class="sent">${sh}</div>`;
     choicesHtml = (q.choices || FORM_LIST).map(f => `<button class="choice" data-a="${f}">${f}</button>`).join("");
   }else if(q.kind === "stype"){
     $("qPrompt").innerHTML = `つづけて！ 下線の言葉の流派（活用の種類）は？<br>（言い切りの形：${rubyHtml(q.v)}）`;
@@ -3498,7 +3505,8 @@ function explain(q){
   if(q.kind === "form"){
     const f = q.ans;
     const memo = q.fol === "う" ? "（「う」は「よう」のなかま）" : q.fol === "だ" ? "（「だ」は「た」がにごったもの）" : "";
-    return `合言葉「${esc(q.fol)}」${memo}が続くのは<b>${f}</b>（${FORM_HINT[f]}）。${q.only ? "" : "形だけでなく、すぐ後ろの言葉で決まる。"}`;
+    const naiNote = q.fol === "ない" ? "<br>※これは<b>動詞</b>の場合。形容詞（高<b>く</b>ない）・形容動詞（静か<b>で</b>ない）の「ない」は<b>連用形</b>につく。" : "";
+    return `動詞に合言葉「${esc(q.fol)}」${memo}が続くのは<b>${f}</b>（${FORM_HINT[f]}）。${q.only ? "" : "形だけでなく、すぐ後ろの言葉で決まる。"}${naiNote}`;
   }
   if(q.kind === "table"){
     let t = `「${rubyHtml(q.v)}」の${FORM_NAME[q.f]}（合言葉「${TABLE_ROWS.find(r => r[0] === q.f)[2]}」）は「<b>${formHtml(q.v, q.ans)}</b>」。`;
