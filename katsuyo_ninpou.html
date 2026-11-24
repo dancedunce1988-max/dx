@@ -2353,7 +2353,7 @@ function showHome(){
       <small class="stnote">${st.note}</small></div>`;
   });
   html += `</div><div class="btn-row" style="margin-top:6px"><button class="iconbtn dark" onclick="resetAlloc()">振り直す</button></div>
-    <div class="bstats" id="hBstats">HP <b>${b.maxHp}</b>　${atkShown(b)}　受けるダメージ：ふつう<b>${takenPct(b.def)}%</b>・術<b>${takenPct(b.res)}%</b>　忍術 <b>${b.nin}</b>${b.time ? `　時間 <b>+${b.time}秒</b>` : ""}${b.hints ? `　煙玉 <b>+${b.hints}</b>` : ""}${b.crit ? `　会心 <b>${b.crit}%</b>` : ""}${b.guard ? `　無効 <b>${b.guard}回</b>` : ""}${b.ryo ? `　両 <b>+${b.ryo}%</b>` : ""}</div>
+    <div class="bstats" id="hBstats">HP <b>${b.maxHp}</b>　${atkShown(b)}　受けるダメージ：ふつう<b>${takenPct(b.def)}%</b>・術<b>${takenPct(b.res)}%</b>・魔境の奥義<b>−${Math.min(RES_CUT_MAX, b.res)}%</b>　忍術 <b>${b.nin}</b>${b.time ? `　時間 <b>+${b.time}秒</b>` : ""}${b.hints ? `　煙玉 <b>+${b.hints}</b>` : ""}${b.crit ? `　会心 <b>${b.crit}%</b>` : ""}${b.guard ? `　無効 <b>${b.guard}回</b>` : ""}${b.ryo ? `　両 <b>+${b.ryo}%</b>` : ""}</div>
     <h3 class="sec">得意属性</h3>
     <div class="elems">${[["", "なし"], ["fire"], ["water"], ["wood"]].map(([e, n]) => `<button class="ebtn${(SAVE.elem || "") === e ? " on" : ""} ${e ? "e-" + e : ""}" onclick="setElem('${e}')">${e ? ELEM[e].icon + ELEM[e].name : n}</button>`).join("")}</div>
     <p class="note-dark">🔥火は🍃木に強く、🍃木は💧水に強く、💧水は🔥火に強い。<br>得意属性をつけると、ふつうの攻撃力が<b>×${ELEM_ATK}</b>（属性「なし」では上がらない）。得意属性と同じ属性の術は1.25倍。ふつうの攻撃と守りも、相手に強い属性なら少し有利（攻撃×1.15・受けるダメージ×0.85）、弱い属性なら少し不利。敵の術は、得意属性に強い属性だと1.5倍、弱い属性だと0.6倍のダメージ。行き先の敵に合わせて選ぼう。</p>
@@ -2400,7 +2400,7 @@ function refreshHomeNumbers(){
   });
   const jl = $("hJutsu"); if(jl) jl.innerHTML = jutsuListHtml(b);   // 押し続けている間も、使える術をその場で変える
   const bs = $("hBstats");
-  if(bs) bs.innerHTML = `HP <b>${b.maxHp}</b>　${atkShown(b)}　受けるダメージ：ふつう<b>${takenPct(b.def)}%</b>・術<b>${takenPct(b.res)}%</b>　忍術 <b>${b.nin}</b>${b.time ? `　時間 <b>+${b.time}秒</b>` : ""}${b.hints ? `　煙玉 <b>+${b.hints}</b>` : ""}${b.crit ? `　会心 <b>${b.crit}%</b>` : ""}${b.guard ? `　無効 <b>${b.guard}回</b>` : ""}${b.ryo ? `　両 <b>+${b.ryo}%</b>` : ""}`;
+  if(bs) bs.innerHTML = `HP <b>${b.maxHp}</b>　${atkShown(b)}　受けるダメージ：ふつう<b>${takenPct(b.def)}%</b>・術<b>${takenPct(b.res)}%</b>・魔境の奥義<b>−${Math.min(RES_CUT_MAX, b.res)}%</b>　忍術 <b>${b.nin}</b>${b.time ? `　時間 <b>+${b.time}秒</b>` : ""}${b.hints ? `　煙玉 <b>+${b.hints}</b>` : ""}${b.crit ? `　会心 <b>${b.crit}%</b>` : ""}${b.guard ? `　無効 <b>${b.guard}回</b>` : ""}${b.ryo ? `　両 <b>+${b.ryo}%</b>` : ""}`;
 }
 function bindHold(){
   document.querySelectorAll("#pBody .hold").forEach(btn => {
@@ -4126,8 +4126,10 @@ async function useJutsu(id){
 const MAKYO_POW = 1.6;
 // 魔境の敵には、1回で与えられるダメージの上限を0.6倍に（会心・術・連続正解で数問で倒せてしまうため）。強力な忍術は「無効」「分身」でも防げない
 const MAKYO_CAP = .6;
-// 魔境の奥義を結界で減らす割合（結界0→100%、20→67%、50→44%、80→33%）
-const resCut = res => 40 / (40 + (res || 0) * 1.25);
+/* 魔境の奥義を結界で減らす割合（2026-11-24、教員の指示）：結界1につき1%減らす。最大で50%まで（結界50以上は半分）。
+   奥義そのものは強いまま（上限：最大HPの40%、相性が悪いと55%）で、結界を上げた分だけ、はっきり軽くなる。 */
+const RES_CUT_MAX = 50;
+const resCut = res => 1 - Math.min(RES_CUT_MAX, Math.max(0, res || 0)) / 100;
 /* 敵の術の演出（2026-11-24、教員の指示「相手の術の演出を、何の術かハッキリわかるように」）
    ①敵が印を結ぶ（ゆれて光る） ②画面の中央に「⚠ 〇〇の術！」の帯・術の名前・属性と「結界で防ぐ」と相性の一言
    ③属性ごとの形（火＝火の玉・水＝水の矢と波・木＝木の葉の嵐）で、敵から自分へ飛んでくる ④当たってからダメージを出す */
@@ -4196,7 +4198,7 @@ function foeJutsu(strong){
     /* 結界の効き方を直した（2026-11-24、教員の指摘「結界を50まで上げても、必殺技に効いている実感がない」）。
        前は「威力−結界」のあとに「最大HPの40%まで」の上限をかけていたので、威力が大きい魔境の奥義では、
        結界をいくら上げても上限にはりついて、ダメージが変わらなかった。
-       今は、上限をかけたあとに、結界で割合を減らす（結界0で100%、20で67%、50で44%、80で33%）。 */
+       今は、上限をかけたあとに、結界で割合を減らす（結界1につき1%、最大50%）。 */
     const raw = Math.round(pw * a), capd = Math.min(raw, Math.ceil(p.maxHp * (a > 1 ? .55 : .4)));
     const d = Math.max(1, Math.round(capd * resCut(p.res))), blocked = capd - d;
     p.hp -= d;
