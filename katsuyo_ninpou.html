@@ -1578,6 +1578,11 @@ const elemTag = e => e ? `<span class="etag e-${e}">${ELEM[e].icon}${ELEM[e].nam
 function affinity(a, d){ if(!a || !d) return 1; if(ELEM[a].beats === d) return 2; if(ELEM[d].beats === a) return .5; return 1; }
 /* ふつうの攻撃・守りにも、少しだけ相性（2026-11-23、教員の指示）。術よりひかえめに ±15%。
    自分の得意属性が相手に強い → こちらの攻撃×1.15・受けるダメージ×0.85。弱い → 攻撃×0.85・受けるダメージ×1.15。 */
+/* 得意属性のボーナス（2026-11-24、教員の指示「得意属性をつけると、ふつうの攻撃力が少し高くなるように」）。
+   得意属性（火・水・木のどれか）をつけていれば、相性に関係なく、ふつうの攻撃×1.1。「なし」だと×1。 */
+const ELEM_ATK = 1.1;
+const elemAtkMul = e => e ? ELEM_ATK : 1;
+const atkShown = b => `攻撃力 <b>${Math.round(b.atk * elemAtkMul(SAVE.elem))}</b>${SAVE.elem ? `<small>（得意属性×${ELEM_ATK}）</small>` : ""}`;
 const normalAff = (myElem, foeElem) => { const a = affinity(myElem, foeElem); return a > 1 ? 1.15 : a < 1 ? .85 : 1; };
 const defAffinity = (foeElem, myElem) => { const a = affinity(foeElem, myElem); return a > 1 ? 1.5 : a < 1 ? .6 : 1; };
 
@@ -2346,10 +2351,10 @@ function showHome(){
       <small class="stnote">${st.note}</small></div>`;
   });
   html += `</div><div class="btn-row" style="margin-top:6px"><button class="iconbtn dark" onclick="resetAlloc()">振り直す</button></div>
-    <div class="bstats" id="hBstats">HP <b>${b.maxHp}</b>　攻撃力 <b>${b.atk}</b>　受けるダメージ：ふつう<b>${takenPct(b.def)}%</b>・術<b>${takenPct(b.res)}%</b>　忍術 <b>${b.nin}</b>${b.time ? `　時間 <b>+${b.time}秒</b>` : ""}${b.hints ? `　煙玉 <b>+${b.hints}</b>` : ""}${b.crit ? `　会心 <b>${b.crit}%</b>` : ""}${b.guard ? `　無効 <b>${b.guard}回</b>` : ""}${b.ryo ? `　両 <b>+${b.ryo}%</b>` : ""}</div>
+    <div class="bstats" id="hBstats">HP <b>${b.maxHp}</b>　${atkShown(b)}　受けるダメージ：ふつう<b>${takenPct(b.def)}%</b>・術<b>${takenPct(b.res)}%</b>　忍術 <b>${b.nin}</b>${b.time ? `　時間 <b>+${b.time}秒</b>` : ""}${b.hints ? `　煙玉 <b>+${b.hints}</b>` : ""}${b.crit ? `　会心 <b>${b.crit}%</b>` : ""}${b.guard ? `　無効 <b>${b.guard}回</b>` : ""}${b.ryo ? `　両 <b>+${b.ryo}%</b>` : ""}</div>
     <h3 class="sec">得意属性</h3>
     <div class="elems">${[["", "なし"], ["fire"], ["water"], ["wood"]].map(([e, n]) => `<button class="ebtn${(SAVE.elem || "") === e ? " on" : ""} ${e ? "e-" + e : ""}" onclick="setElem('${e}')">${e ? ELEM[e].icon + ELEM[e].name : n}</button>`).join("")}</div>
-    <p class="note-dark">🔥火は🍃木に強く、🍃木は💧水に強く、💧水は🔥火に強い。<br>得意属性と同じ属性の術は1.25倍。ふつうの攻撃と守りも、相手に強い属性なら少し有利（攻撃×1.15・受けるダメージ×0.85）、弱い属性なら少し不利。敵の術は、得意属性に強い属性だと1.5倍、弱い属性だと0.6倍のダメージ。行き先の敵に合わせて選ぼう。</p>
+    <p class="note-dark">🔥火は🍃木に強く、🍃木は💧水に強く、💧水は🔥火に強い。<br>得意属性をつけると、ふつうの攻撃力が<b>×${ELEM_ATK}</b>（属性「なし」では上がらない）。得意属性と同じ属性の術は1.25倍。ふつうの攻撃と守りも、相手に強い属性なら少し有利（攻撃×1.15・受けるダメージ×0.85）、弱い属性なら少し不利。敵の術は、得意属性に強い属性だと1.5倍、弱い属性だと0.6倍のダメージ。行き先の敵に合わせて選ぼう。</p>
     <h3 class="sec">忍術（必殺技）</h3><div class="jlist" id="hJutsu">${jutsuListHtml(b)}</div>
     <p class="note-dark">⚡ 早く答えるほど攻撃が強い：2秒以内×1.5・4秒以内×1.3・6秒以内×1.15。</p>
     <p class="note-dark">🔥 戦いの中で連続で正解すると、攻撃力が1連続ごとに＋10%（最大×2.0）。まちがえたり、戦いが終わったりすると、もとにもどる。</p>
@@ -2393,7 +2398,7 @@ function refreshHomeNumbers(){
   });
   const jl = $("hJutsu"); if(jl) jl.innerHTML = jutsuListHtml(b);   // 押し続けている間も、使える術をその場で変える
   const bs = $("hBstats");
-  if(bs) bs.innerHTML = `HP <b>${b.maxHp}</b>　攻撃力 <b>${b.atk}</b>　受けるダメージ：ふつう<b>${takenPct(b.def)}%</b>・術<b>${takenPct(b.res)}%</b>　忍術 <b>${b.nin}</b>${b.time ? `　時間 <b>+${b.time}秒</b>` : ""}${b.hints ? `　煙玉 <b>+${b.hints}</b>` : ""}${b.crit ? `　会心 <b>${b.crit}%</b>` : ""}${b.guard ? `　無効 <b>${b.guard}回</b>` : ""}${b.ryo ? `　両 <b>+${b.ryo}%</b>` : ""}`;
+  if(bs) bs.innerHTML = `HP <b>${b.maxHp}</b>　${atkShown(b)}　受けるダメージ：ふつう<b>${takenPct(b.def)}%</b>・術<b>${takenPct(b.res)}%</b>　忍術 <b>${b.nin}</b>${b.time ? `　時間 <b>+${b.time}秒</b>` : ""}${b.hints ? `　煙玉 <b>+${b.hints}</b>` : ""}${b.crit ? `　会心 <b>${b.crit}%</b>` : ""}${b.guard ? `　無効 <b>${b.guard}回</b>` : ""}${b.ryo ? `　両 <b>+${b.ryo}%</b>` : ""}`;
 }
 function bindHold(){
   document.querySelectorAll("#pBody .hold").forEach(btn => {
@@ -4304,7 +4309,7 @@ async function answer(btn){
     const dodged = fGuard || hasAb(p.foe, "dodge") && Math.random() < .18;   // 能力【かわす】
     const sec = (Date.now() - (p.qStart || Date.now())) / 1000, spd = speedMul(sec);
     const na = normalAff(p.elem, p.foe.elem);
-    const dmg = dodged ? 0 : hitDamage(Math.round(p.atk * (crit ? 2 : 1) * streakMul() * spd * na), p.foe, crit, (spd - 1) * .1);
+    const dmg = dodged ? 0 : hitDamage(Math.round(p.atk * (crit ? 2 : 1) * streakMul() * spd * na * elemAtkMul(p.elem)), p.foe, crit, (spd - 1) * .1);
     if(spd > 1 && !isPrac(p.cfg.mode) && !dodged) setTimeout(() => dmgPop(`⚡はやい！ ×${spd}（${sec.toFixed(1)}秒）`, "#9fe8ff", "pBox"), 120);
     const oneHit = p.foe.hp === p.foe.max && dmg >= p.foe.hp;
     p.foe.hp -= dmg; p.dmgDealt += dmg;
