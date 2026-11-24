@@ -16,6 +16,7 @@
 <title>九尾の化かし合い</title>
 <script src="mg_save_guard.js?v=13.94" data-keys="kitsune_bakashiai_v4"></script><!-- ほかの画面（管理者画面など）で記録が変わったら読み込み直し、古い記録で上書きしない -->
 <script src="jp_wrap.js?v=13.97"></script><!-- スマホ幅のとき、日本語を文節の切れ目で折り返す（2026-11-22〜） -->
+<script src="mg_evolve.js?v=14.49"></script><!-- ミニゲームの途中で、ことのはの進化をお知らせ（時間制限のないときだけ） -->
 <script src="daily_minigame.js?v=13.68"></script><!-- 今日のミニゲーム（?daily=1で開いたときだけ動く） -->
 <!-- 知識ドリルDXのミニゲーム「九尾の化かし合い」（2026-09-29〜、準備中）。kokugo_app.htmlの
      ミニゲーム一覧から、のびる読解(nobiru/*.html)と同じく同じタブのまま画面ごと遷移してくる別ページ。
@@ -1552,6 +1553,7 @@ const RUN = {A:runA, B:runB, C:runC, D:runD, F:runF};
 
 /* ---- 話のクリア ---- */
 function episodeClear(){
+  window.mgEvolveSafePointSoon && mgEvolveSafePointSoon();   // ことのはの進化のお知らせ（結果画面で）
   G.active = false;
   const i = G.ep, E = EPISODES[i];
   const wasAll = allCleared();
@@ -1630,6 +1632,7 @@ function nextChallengeTask(){
 }
 function finishChallenge(){
   if(G.over) return;
+  window.mgEvolveSafePointSoon && mgEvolveSafePointSoon();   // ことのはの進化のお知らせ（結果画面で）
   G.over = true; G.active = false; stopClock();
   const lvr = mgFlush();
   $("timeLeft").textContent = 0; $("timerFill").style.width = "0%";

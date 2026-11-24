@@ -4732,7 +4732,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver14.48</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver14.49</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -7845,7 +7845,9 @@ function storyRenderKotonohaRebirthReveal(){
   if(!success){ storyAdvance(); return; }
   kotonohaRebirthFxSequence(st, fromSrc, fromIcon, storyAdvance);
 }
-function kotonohaEvolveStep5(st, toStage){
+/* 進化を「見た」ことにする記録（演出の最後と、ミニゲームの中で演出を見せたあと＝kotonohaApplyMgEvolveShown の両方で使う）。
+   保存は呼び出し元。 */
+function kotonohaEvolveCommit(st, toStage){
   const muku = kotonohaMukuActive(st);
   const fromStage = (muku ? kotonohaMukuState(st).seenStage : st.kotonohaRebirth.seenStage) || 0;
   if(muku) kotonohaMukuState(st).seenStage = toStage; else st.kotonohaRebirth.seenStage = toStage;
@@ -7854,6 +7856,69 @@ function kotonohaEvolveStep5(st, toStage){
   const justUnlockedLines = !muku && !st.kotonohaSeigakiMeienUnlocked && toStage >= KOTONOHA_MATURE_STAGE_IDX;
   if(justUnlockedLines) st.kotonohaSeigakiMeienUnlocked = true;
   kotonohaZukanRecord(st);
+  return {muku, fromStage, justUnlockedLines};
+}
+/* ミニゲームの途中で進化のお知らせ（2026-11-25、教員の指示）。くわしくは mg_evolve.js の先頭。
+   別ページのミニゲームへ移るとき（mgGoWithPass）、次の進化までに必要な経験値と、演出に使う絵・文面を渡す。 */
+const MG_EVOLVE_WATCH_SSKEY = "kokugo_mg_evolve_watch_v1";
+const MG_EVOLVE_SHOWN_LSKEY = "kokugo_mg_evolve_shown_v1";
+function kotonohaEvolveKey(st){ return kotonohaMukuActive(st) ? "muku" : st.kotonohaRebirth ? "rb" + st.kotonohaRebirth.baseXP : ""; }
+function mgEvolveWatchWrite(){
+  try{ sessionStorage.removeItem(MG_EVOLVE_WATCH_SSKEY); }catch(e){}
+  try{
+    const st = loadStats();
+    const muku = kotonohaMukuActive(st);
+    if(!muku && !st.kotonohaRebirth) return;
+    if(kotonohaHasPendingEvolveCutscene(st)) return;   // まだ見ていない進化があれば、本体のホームで先に見せる
+    const cur = muku ? kotonohaMukuStageIndex(st) : kotonohaRebirthStageIndex(st);
+    const to = cur + 1;
+    if(to >= KOTONOHA_REBIRTH_STAGE_XP.length) return;
+    const target = KOTONOHA_REBIRTH_STAGE_XP[to] + (muku ? 0 : st.kotonohaRebirth.baseXP);
+    if(target > KOTONOHA_XP_CAP) return;
+    const need = target - rawKotonohaExp(st);
+    if(!(need > 0)) return;
+    const line = muku ? "muku" : st.kotonohaRebirth.line;
+    const imgFrom = kotonohaImageSrcForStage(line, cur), imgTo = kotonohaImageSrcForStage(line, to);
+    if(!imgTo) return;
+    const counted = new Set([...CAT_KEYS, ...EXTRA_LEVEL_CATS]);
+    const cats = {};
+    MG_LVUP_CATS.forEach(c => { if(counted.has(c)) cats[c] = {lv:st.lv[c] || 1, max:MAX_CAT_LV}; });
+    const today = todayLocalDateStr(), noon = new Date(); noon.setHours(12, 0, 0, 0);
+    const event = {};
+    MG_EVENT_GAMES.forEach(g => {
+      const id = Object.keys(EVENTS).find(id => EVENTS[id].game === g && (!EVENTS[id].start || EVENTS[id].start <= noon) && noon <= EVENTS[id].end);
+      if(id) event[g] = EVENTS[id].amount || 1;
+    });
+    const oldMove = kotonohaLineMoveNameForStage(line, cur), newMove = kotonohaLineMoveNameForStage(line, to);
+    const w = {line, key:kotonohaEvolveKey(st), from:cur, to, need, cats, event, today,
+      vs:{best:st.vocabShooterHighScore || 0, tier:st.vocabShooterXpTier || 0},
+      imgFrom, imgTo,
+      label:`${KOTONOHA_IMAGE_STAGE_LABEL[to]}${KOTONOHA_IMAGE_LINE_LABEL[line]}${kotonohaIsForm2(st) ? `（${KOTONOHA_FORM_LABEL[kotonohaFormNo(st)]}）` : ""}`,
+      moveMsg:newMove && !oldMove ? `⚡系統専用の必殺技「${newMove}」が使えるようになった！` : newMove && oldMove && newMove !== oldMove ? `⚡必殺技が、「${newMove}」になった！` : "",
+      unlockMsg:!muku && !st.kotonohaSeigakiMeienUnlocked && to >= KOTONOHA_MATURE_STAGE_IDX ? "🔓「聖輝」と「冥淵」の卵がアンロックされました！" : ""};
+    sessionStorage.setItem(MG_EVOLVE_WATCH_SSKEY, JSON.stringify(w));
+  }catch(e){}
+}
+/* ミニゲームの中で進化の演出を見せたあと、本体に戻ったとき：同じ演出をくり返さず、「見た」ことにする。
+   ミニゲームの見積もりより実際の経験値が足りなかったとき（その段階にまだ届いていない）は、書き置きを捨てるだけ
+   （届いたときに、今までどおりホームで演出が出る）。 */
+function kotonohaApplyMgEvolveShown(st){
+  let o = null;
+  try{ o = JSON.parse(localStorage.getItem(MG_EVOLVE_SHOWN_LSKEY)); }catch(e){ o = null; }
+  if(!o) return false;
+  try{ localStorage.removeItem(MG_EVOLVE_SHOWN_LSKEY); }catch(e){}
+  if(!o || o.key !== kotonohaEvolveKey(st)) return false;
+  const muku = kotonohaMukuActive(st);
+  const cur = muku ? kotonohaMukuStageIndex(st) : kotonohaRebirthStageIndex(st);
+  const seen = (muku ? kotonohaMukuState(st).seenStage : st.kotonohaRebirth.seenStage) || 0;
+  const stage = Math.trunc(Number(o.stage) || 0);
+  if(stage > cur || stage <= seen) return false;
+  kotonohaEvolveCommit(st, stage);
+  saveStats(st);
+  return true;
+}
+function kotonohaEvolveStep5(st, toStage){
+  const {muku, fromStage, justUnlockedLines} = kotonohaEvolveCommit(st, toStage);
   saveStats(st);
   const evoLine = muku ? "muku" : st.kotonohaRebirth.line;
   const toSrc = kotonohaImageSrcForStage(evoLine, toStage);
@@ -9322,7 +9387,7 @@ function showStatusAllocation(){
       <h3 class="section">💪 ボス戦ステータス</h3>
       <p class="note">分野のレベルが1つ上がるたびに、ポイントを1つもらえます。<br>ここで割りふった効果は、ボスとの戦いのときだけ発揮されます（二人対戦には影響しません）。</p>
       <p style="text-align:center; font-size:1.15rem; font-weight:bold; margin-top:10px">
-        のこりポイント：<span style="color:var(--accent)">${pts}</span>
+        のこりポイント：<span id="statPts" style="color:var(--accent)">${pts}</span>
       </p>
     </div>`;
   rows.forEach(r=>{
@@ -9333,13 +9398,13 @@ function showStatusAllocation(){
         <div class="note" style="margin-top:2px">${esc(r.desc)}</div>
       </div>
       <div class="status-row-ctrl">
-        ${hasHighXP ? `<button class="btn inline secondary stat-step-btn" ${(s[r.key]||0)<=0?'disabled':''} onclick="allocateStat('${r.key}', -100)">－100</button>` : ""}
-        <button class="btn inline secondary stat-step-btn" ${(s[r.key]||0)<=0?'disabled':''} onclick="allocateStat('${r.key}', -10)">－10</button>
-        <button class="btn inline secondary stat-step-btn" ${(s[r.key]||0)<=0?'disabled':''} onclick="allocateStat('${r.key}', -1)">－1</button>
-        <span class="status-row-val">${s[r.key]||0}</span>
-        <button class="btn inline stat-step-btn" ${pts<=0?'disabled':''} onclick="allocateStat('${r.key}', 1)">＋1</button>
-        <button class="btn inline stat-step-btn" ${pts<=0?'disabled':''} onclick="allocateStat('${r.key}', 10)">＋10</button>
-        ${hasHighXP ? `<button class="btn inline stat-step-btn" ${pts<=0?'disabled':''} onclick="allocateStat('${r.key}', 100)">＋100</button>` : ""}
+        ${hasHighXP ? `<button class="btn inline secondary stat-step-btn stat-hold" data-key="${r.key}" data-d="-100" ${(s[r.key]||0)<=0?'disabled':''}>－100</button>` : ""}
+        <button class="btn inline secondary stat-step-btn stat-hold" data-key="${r.key}" data-d="-10" ${(s[r.key]||0)<=0?'disabled':''}>－10</button>
+        <button class="btn inline secondary stat-step-btn stat-hold" data-key="${r.key}" data-d="-1" ${(s[r.key]||0)<=0?'disabled':''}>－1</button>
+        <span class="status-row-val" id="statVal_${r.key}">${s[r.key]||0}</span>
+        <button class="btn inline stat-step-btn stat-hold" data-key="${r.key}" data-d="1" ${pts<=0?'disabled':''}>＋1</button>
+        <button class="btn inline stat-step-btn stat-hold" data-key="${r.key}" data-d="10" ${pts<=0?'disabled':''}>＋10</button>
+        ${hasHighXP ? `<button class="btn inline stat-step-btn stat-hold" data-key="${r.key}" data-d="100" ${pts<=0?'disabled':''}>＋100</button>` : ""}
       </div>
     </div>`;
   });
@@ -9350,6 +9415,70 @@ function showStatusAllocation(){
       <button class="btn secondary" onclick="showHome()">ホームへ</button>
     </div>`;
   screen.innerHTML = html;
+  bindStatHold();
+}
+/* ステータスの＋・－は、押し続けるとだんだん速くくり返す（2026-11-25、教員の指示：変化の里の＋1と同じ仕組みを、
+   ことのはのステータスの全部のボタン（±1・±10・±100）に）。押している間は画面を作り直さず（作り直すとボタンが
+   消えて止まるため）、数字とボタンの押せる・押せないだけを書きかえる。保存は、はなしたときに1回だけ。 */
+let STAT_HOLD = null;
+function statHoldStep(st, key, delta){
+  if(delta > 0){
+    const add = Math.min(delta, unspentStatPoints(st));
+    if(add <= 0) return false;
+    st.stats[key] = (st.stats[key]||0) + add;
+  }else{
+    const remove = Math.min(-delta, st.stats[key]||0);
+    if(remove <= 0) return false;
+    st.stats[key] -= remove;
+  }
+  return true;
+}
+function statHoldRefresh(st){
+  const pts = unspentStatPoints(st);
+  const p = document.getElementById("statPts"); if(p) p.textContent = pts;
+  document.querySelectorAll(".stat-hold").forEach(b => {
+    const k = b.dataset.key, v = document.getElementById("statVal_" + k);
+    if(v) v.textContent = st.stats[k]||0;
+    b.disabled = +b.dataset.d > 0 ? pts <= 0 : (st.stats[k]||0) <= 0;
+  });
+}
+function bindStatHold(){
+  document.querySelectorAll(".stat-hold").forEach(btn => {
+    btn.addEventListener("pointerdown", e => {
+      if(btn.disabled) return;
+      e.preventDefault();
+      try{ btn.setPointerCapture(e.pointerId); }catch(err){}
+      statHoldStart(btn.dataset.key, +btn.dataset.d);
+    });
+    ["pointerup", "pointercancel", "lostpointercapture"].forEach(ev => btn.addEventListener(ev, () => statHoldEnd()));
+    btn.addEventListener("contextmenu", e => e.preventDefault());
+    // キーボード（Enter・スペース）で押したときは1回だけ
+    btn.addEventListener("click", e => { if(e.detail === 0) allocateStat(btn.dataset.key, +btn.dataset.d); });
+  });
+}
+function statHoldStart(key, d){
+  statHoldEnd(true);
+  const st = loadStats();
+  if(!statHoldStep(st, key, d)) return;
+  statHoldRefresh(st);
+  STAT_HOLD = {st, key, d, n:0, t:null};
+  const tick = () => {
+    if(!STAT_HOLD) return;
+    STAT_HOLD.n++;
+    // 最初は少し待ち、だんだん速く。長く押すと1回に2〜5回分ずつ進む
+    const mul = STAT_HOLD.n > 40 ? 5 : STAT_HOLD.n > 20 ? 2 : 1;
+    if(!statHoldStep(STAT_HOLD.st, STAT_HOLD.key, STAT_HOLD.d * mul)){ statHoldEnd(); return; }
+    statHoldRefresh(STAT_HOLD.st);
+    STAT_HOLD.t = setTimeout(tick, Math.max(40, 180 - STAT_HOLD.n * 8));
+  };
+  STAT_HOLD.t = setTimeout(tick, 420);
+}
+function statHoldEnd(noRender){
+  if(!STAT_HOLD) return;
+  clearTimeout(STAT_HOLD.t);
+  const st = STAT_HOLD.st; STAT_HOLD = null;
+  saveStats(st);
+  if(!noRender) showStatusAllocation();
 }
 function allocateStat(key, delta){
   const st = loadStats();
@@ -14327,6 +14456,7 @@ function mgSyncFromMinigames(st){
     mgApplyPendingAllies(st);                   // 仲間が増えた・絆が深まったときは中で保存済み
     kojiApplyPendingDefeats(st);                // 故事成語ゲームで倒したボスを漢字Questの裏ボスに登場させる（中で保存済み）
     mgApplyPendingEventXp(st);                  // 別ページのミニゲームのイベント経験値（入ったときは中で保存済み）
+    kotonohaApplyMgEvolveShown(st);             // ミニゲームの中で進化の演出を見せていたら、同じ演出をくり返さない（中で保存済み）
     if(mgCheckPlayedLogin(st)) saveStats(st); // ログイン報酬が成立したら必ず保存（レベル反映の保存のあとでも）
   }finally{ mgSyncing = false; }
 }
@@ -23444,6 +23574,7 @@ function kitsuneMenuHtml(){
    （つなぎ橋・ボキャブラ大画面版・表現の魔術道も同じ）。 */
 const MG_PASS_SSKEY = "kokugo_mg_pass_v1";
 function mgGoWithPass(id, url){
+  mgEvolveWatchWrite();   // ミニゲームの途中で進化のお知らせを出すための下準備（mg_evolve.js）
   try{ const o = JSON.parse(sessionStorage.getItem(MG_PASS_SSKEY) || "{}"); o[id] = 1; sessionStorage.setItem(MG_PASS_SSKEY, JSON.stringify(o)); }catch(e){}
   location.href = url;
 }

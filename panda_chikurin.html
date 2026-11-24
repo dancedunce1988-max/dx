@@ -21,6 +21,7 @@
 <title>大熊猫の竹林わたり</title>
 <script src="mg_save_guard.js?v=13.94" data-keys="panda_chikurin_v1"></script><!-- ほかの画面（管理者画面など）で記録が変わったら読み込み直し、古い記録で上書きしない -->
 <script src="jp_wrap.js?v=13.97"></script><!-- スマホ幅のとき、日本語を文節の切れ目で折り返す（2026-11-22〜） -->
+<script src="mg_evolve.js?v=14.49"></script><!-- ミニゲームの途中で、ことのはの進化をお知らせ（時間制限のないときだけ） -->
 <script src="daily_minigame.js?v=13.68"></script><!-- 今日のミニゲーム（?daily=1で開いたときだけ動く） -->
 <!-- 知識ドリルDXのミニゲーム「大熊猫の竹林わたり」（2026-10-05〜、試作）。
      「読む順タップ」と「返り点をつける」のミニゲーム（教員の指示：読む順→返り点の順）。
@@ -1847,6 +1848,7 @@ const stageOpen = (sv, mode, id) => id === STAGES[0].id || (stageAt(id, -1) && s
 const chapterCleared = (sv, mode) => STAGES.every(s => stageCleared(sv, mode, s.id));
 /* 結果画面のボタン。この竹林をクリアしていて次の竹林があれば「次の竹林へ」を先頭に出す（2026-10-12〜、教員の指示） */
 function resultBtnsHtml(sv, mode, id){
+  window.mgEvolveSafePointSoon && mgEvolveSafePointSoon();   // ことのはの進化のお知らせ（結果画面で。結果画面を作るときに呼ばれる）
   const next = stageAt(id, 1);
   const canNext = next && stageCleared(sv, mode, id);
   return (canNext ? `<button class="btn gold" onclick="startStage('${mode}', ${next.id})">次の竹林へ</button>` : "")
@@ -3521,6 +3523,7 @@ function flowPose(pose){ if(F && F.pose !== pose){ F.pose = pose; $("flowPanda")
 function flowQuit(){ if(G) G.gen++; F = null; showStages("yj"); }
 function addSasaSave(){ const sv = loadSave(); climbAdd(sv, 1, climbKind(F.stage.id)); saveSave(sv); }
 function flowResult(){
+  window.mgEvolveSafePointSoon && mgEvolveSafePointSoon();   // ことのはの進化のお知らせ（結果画面で）
   const sv = loadSave(), id = F.stage.id, ch = chapterOf("yj");
   const prev = sv.best.yj[id];
   const isBest = prev == null || F.perfect > prev;

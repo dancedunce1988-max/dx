@@ -18,6 +18,7 @@
 <title>濃い！鯉！来い！ ～ここが登竜門～</title>
 <script src="mg_save_guard.js?v=13.94" data-keys="koji_sugoroku_v1"></script><!-- ほかの画面（管理者画面など）で記録が変わったら読み込み直し、古い記録で上書きしない -->
 <script src="jp_wrap.js?v=13.97"></script><!-- スマホ幅のとき、日本語を文節の切れ目で折り返す（2026-11-22〜） -->
+<script src="mg_evolve.js?v=14.49"></script><!-- ミニゲームの途中で、ことのはの進化をお知らせ（時間制限のないときだけ） -->
 <script src="daily_minigame.js?v=13.68"></script><!-- 今日のミニゲーム・スロット（?daily=1／?slot=1で開いたときだけ動く） -->
 <style>
   :root{
@@ -2412,7 +2413,7 @@ function endPlayerTurn(){
   renderBoard(); foeTurn();
 }
 
-function nextRound(){ if(!G) return; G.turn++; G.camFocus = null; renderBoard(); setTimeout(startPlayerTurn, 200); }
+function nextRound(){ if(!G) return; if(window.mgEvolveInterrupt && mgEvolveInterrupt(nextRound)) return;   /* ことのはが進化していたら、次の番の前に演出 */ G.turn++; G.camFocus = null; renderBoard(); setTimeout(startPlayerTurn, 200); }
 
 function weightedFrom(w){
   let r = Math.random() * w.reduce((a, b) => a + b, 0);

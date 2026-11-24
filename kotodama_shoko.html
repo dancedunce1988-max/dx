@@ -21,6 +21,7 @@
 <title>言霊並べ</title>
 <script src="mg_save_guard.js?v=13.94" data-keys="kokugo_kotodama_shoko_v1"></script><!-- ほかの画面（管理者画面など）で記録が変わったら読み込み直し、古い記録で上書きしない -->
 <script src="jp_wrap.js?v=13.97"></script><!-- スマホ幅のとき、日本語を文節の切れ目で折り返す（2026-11-22〜） -->
+<script src="mg_evolve.js?v=14.49"></script><!-- ミニゲームの途中で、ことのはの進化をお知らせ（時間制限のないときだけ） -->
 <script src="daily_minigame.js?v=13.68"></script><!-- 今日のミニゲーム（?daily=1で開いたときだけ動く） -->
 <!-- 知識ドリルDXのミニゲーム「言霊の番人と影の書庫」（2026-10-12〜、試作。教員の指示で「識別探偵」を言霊の番人(me04)をモチーフに作り直した）。
      言葉の書庫で、同じ姿をした言葉（「ない」「れる・られる」「の」「だ」）の言霊が正体（本当の名前＝用法）を忘れて「影」になった。
@@ -1587,6 +1588,7 @@ function typeFeedback(e){
 }
 function nextQ(){
   $("ov").classList.remove("show");
+  if(window.mgEvolveInterrupt && mgEvolveInterrupt(nextQ)) return;   // ことのはが進化していたら、次の問題の前に演出
   cur.idx++;
   if(cur.idx >= cur.list.length) finish();
   else renderQ();
@@ -1596,6 +1598,7 @@ function nextQ(){
    結果
    ============================================================ */
 function finish(){
+  window.mgEvolveSafePointSoon && mgEvolveSafePointSoon();   // ことのはの進化のお知らせ（結果画面で）
   const n = cur.results.filter(r => r.ok).length, N = cur.results.length, rate = n / N;
   const rank = rate === 1 ? ["言霊の守り手", "attack", "見事だ。すべての言霊が、正体をとりもどした。そなたこそ、言霊の守り手だ。"]
     : rate >= .75 ? ["書庫の司書", "pose1", "よくやった。あと少しで、この盤の言霊をすべて守れる。"]

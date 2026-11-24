@@ -6,6 +6,7 @@
 <title>表現の魔術道</title>
 <script src="mg_save_guard.js?v=13.94" data-keys="gihou_madousho_v1"></script><!-- ほかの画面（管理者画面など）で記録が変わったら読み込み直し、古い記録で上書きしない -->
 <script src="jp_wrap.js?v=13.97"></script><!-- スマホ幅のとき、日本語を文節の切れ目で折り返す（2026-11-22〜） -->
+<script src="mg_evolve.js?v=14.49"></script><!-- ミニゲームの途中で、ことのはの進化をお知らせ（時間制限のないときだけ） -->
 <script src="daily_minigame.js?v=13.68"></script><!-- 今日のミニゲーム（?daily=1で開いたときだけ動く） -->
 <!-- 通行証のチェック（2026-10-04〜、β版としてミニゲーム一覧に入れたとき、教員の指示）：知識ドリルDXの入口
      （kokugo_app.htmlのmgGoWithPass）を通らずに直接開いたときは「このファイルは開けません」とだけ表示し、ゲームを動かさない（2026-10-04〜、教員の指示。以前は本体へ戻していた）。
@@ -1506,6 +1507,7 @@ function buildHand(cur){
 
 function nextSpell(){
   if(G.over) return;
+  if(window.mgEvolveInterrupt && mgEvolveInterrupt(nextSpell)) return;   // ことのはが進化していたら、次の詠唱の前に演出
   const ph0 = G.phases[G.phase];
   // 闇の追撃（詠唱がchaseEvery回終わるごと）
   if(ph0.chaseEvery && G.spellNo > 0 && G.spellNo % ph0.chaseEvery === 0 && G.lastChase !== G.spellNo){
@@ -1832,6 +1834,7 @@ function phaseClear(){
 }
 
 function endRun(win){
+  window.mgEvolveSafePointSoon && mgEvolveSafePointSoon();   // ことのはの進化のお知らせ（結果画面で）
   G.over = true; G.busy = true; stopIdle(); hideOrb();
   if(!win) setPose('pose1');
   const acc = G.correct + G.wrong ? Math.round(G.correct / (G.correct + G.wrong) * 100) : 0;

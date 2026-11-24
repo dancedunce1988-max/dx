@@ -16,7 +16,8 @@
 <!--PASS_CHECK_END-->
 <title>活用忍伝 ―変化ノ極意―</title>
 <script src="mg_save_guard.js?v=13.94" data-keys="katsuyo_ninpou_v1"></script><!-- ほかの画面で記録が変わったら読み込み直し、古い記録で上書きしない -->
-<script src="jp_wrap.js?v=13.97"></script><!-- スマホ幅のとき、日本語を文節の切れ目で折り返す -->
+<script src="jp_wrap.js?v=13.97"></script>
+<script src="mg_evolve.js?v=14.49"></script><!-- ミニゲームの途中で、ことのはの進化をお知らせ（時間制限のないときだけ） --><!-- スマホ幅のとき、日本語を文節の切れ目で折り返す -->
 <!-- 知識ドリルDXのミニゲーム「活用忍伝 ―変化ノ極意―」（2026-11-23〜、試作）。
      用言の活用を、忍者の「変化の術」の物語の中で、章ごとに一段ずつ身につける。
        序 変化の術       … 語幹（本体）と活用語尾（変装）。「書＿ない」に合う変装札を選ぶ
@@ -1973,6 +1974,7 @@ function showVillage(){
   $("vGoal").innerHTML = questCardHtml(innerWidth < 700 || innerHeight < 760) + `<div class="qc-btns">${questInfo() ? `<button class="btn mini" onclick="goQuest()">▶ 目的地へ行く</button>` : ""}<button class="iconbtn dark" onclick="showQuestLog()">📜 クエスト一覧</button></div>`;
   $("vMsg").innerHTML = reset ? "レベルが下がったので、忍術ポイントを振り直しにしました。自宅で振り分けよう。" : villageHint(ni, free);
   show("sVillage");
+  if(!PLACE_OPENING && window.mgEvolveSafePoint && mgEvolveSafePoint()) return;   // ことのはの進化のお知らせ（村では時間制限がない）
   // 城・萬屋が開く知らせ（2026-11-24、教員の指示）。両方そろったときは城から順に
   if(PLACE_OPENING) return;   // 知らせを出している途中の描き直しでは、次の知らせを出さない（「あとで」で閉じたあとに出す）
   if(!SAVE.castleOpen && availableQTypes().length) openPlaceFirst("castle");
@@ -2390,7 +2392,7 @@ function showHome(){
   STATS.forEach(st => {
     const a = SAVE.alloc[st.id] || 0, eq = s[st.id] - a;
     html += `<div class="strow"><span class="stn">${st.icon} ${st.name}</span><b class="stv" id="hv_${st.id}">${s[st.id]}</b><small class="stb" id="hb_${st.id}">（振り分け${a}${eq ? `＋装備${eq}` : ""}）</small>
-      <span class="stbtns"><button class="iconbtn dark hold" data-st="${st.id}" data-d="-1" ${a <= 0 ? "disabled" : ""}>−</button><button class="iconbtn dark hold" data-st="${st.id}" data-d="1" ${free <= 0 ? "disabled" : ""}>＋</button>${free >= 5 ? `<button class="iconbtn dark" onclick="alloc('${st.id}',5)">＋5</button>` : ""}</span>
+      <span class="stbtns"><button class="iconbtn dark hold" data-st="${st.id}" data-d="-1" ${a <= 0 ? "disabled" : ""}>−</button><button class="iconbtn dark hold" data-st="${st.id}" data-d="1" ${free <= 0 ? "disabled" : ""}>＋</button>${free >= 5 ? `<button class="iconbtn dark hold" data-st="${st.id}" data-d="5">＋5</button>` : ""}</span>
       <small class="stnote">${st.note}</small></div>`;
   });
   html += `</div><div class="btn-row" style="margin-top:6px"><button class="iconbtn dark" onclick="resetAlloc()">振り直す</button></div>
@@ -2416,7 +2418,7 @@ function showHome(){
   panel("🏠 自宅", html);
   bindHold();
 }
-/* ＋・−は押し続けると、だんだん速くくり返す（2026-11-23、教員の指示）。
+/* ＋・−は押し続けると、だんだん速くくり返す（2026-11-23、教員の指示）。＋5も同じ（2026-11-25、教員の指示。押し続けると5ずつ、だんだん速く）。
    押している間は画面を作り直さず（作り直すとボタンが消えて止まるため）、数字だけ書きかえる。はなしたら作り直す。 */
 let HOLD = null;
 function allocStep(id, n){
@@ -4565,6 +4567,7 @@ async function answer(btn){
 }
 function nextQ(){
   const p = PLAY; if(!p) return;
+  if(window.mgEvolveInterrupt && mgEvolveInterrupt(nextQ)) return;   // ことのはが進化していたら、次の問題（の時間制限）の前に演出
   if(p.cfg.mode === "quick"){ finish(p.ok > 0); return; }
   if(p.cfg.mode === "train"){ trainNext(p); return; }
   if(p.foe.hp <= 0){ finish(true); return; }

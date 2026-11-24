@@ -18,6 +18,7 @@
 <title>叩け！文節だるま落とし</title>
 <script src="mg_save_guard.js?v=13.94" data-keys="daruma_kokkaku_save_v1"></script><!-- ほかの画面（管理者画面など）で記録が変わったら読み込み直し、古い記録で上書きしない -->
 <script src="jp_wrap.js?v=13.97"></script><!-- スマホ幅のとき、日本語を文節の切れ目で折り返す（2026-11-22〜） -->
+<script src="mg_evolve.js?v=14.49"></script><!-- ミニゲームの途中で、ことのはの進化をお知らせ（時間制限のないときだけ） -->
 <script src="daily_minigame.js?v=13.68"></script><!-- 今日のミニゲーム（?daily=1で開いたときだけ動く） -->
 <style>
 *{box-sizing:border-box;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
@@ -1878,6 +1879,7 @@ function showExplain(ok){
   $("nextBtn").onclick=()=>{closeOverlay();last?showResult():nextTower();};
 }
 function nextTower(){
+  if(G.mode !== "ch" && window.mgEvolveInterrupt && mgEvolveInterrupt(nextTower)) return;   // ことのはが進化していたら、次の塔の前に演出（挑戦モードは時間があるので結果画面で）
   SFX.whoosh();
   [...stack(),G.daruma].forEach(b=>{b.state="fly";b.vx=-2600;b.vh=150;b.vr=-120;});
   if(G.mode&&G.ti+1>=G.list.length)G.list.push(...G.stage.gen(G.stage.n));   // 全ジャンルは塔を足しながら続ける
@@ -1893,6 +1895,7 @@ function startStage(st){
   closeOverlay();ssRender();buildTower(G.list[0]);
 }
 function showResult(){
+  window.mgEvolveSafePointSoon && mgEvolveSafePointSoon();   // ことのはの進化のお知らせ（結果画面で）
   const st=G.stage,n=G.mode?G.ti+1:G.list.length,prev=SV.best[st.id]||0,isBest=!G.timeUp&&G.score>prev;   // 3分で打ち切ったとき（G.timeUp）は記録に残さない
   if(isBest){SV.best[st.id]=G.score;save();}
   if(G.mode==="ch"){
