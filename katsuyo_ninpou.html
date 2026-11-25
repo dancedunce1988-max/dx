@@ -3116,7 +3116,7 @@ async function serveDango(timeout){
     DG.streak++; DG.ok++;
     const pay = Math.round((12 + Math.ceil(left)) * (1 + Math.min(DG.streak - 1, 5) * .1));
     DG.coins += pay;
-    mgCorrect(); SAVE.totalOk = (SAVE.totalOk || 0) + 1;
+    mgCorrect(); SAVE.totalOk = (SAVE.totalOk || 0) + 1; saveSave(SAVE);   // 途中でやめても正解数が残るよう、その場で保存（2026-11-26）
     sfx.ok(); $("dgFace").textContent = "😋";
     flash(`まいどあり！ ＋${pay}両`, "#ffe08a");
     fb.className = "feedback ok show"; fb.innerHTML = `⭕ ${sample}。${o.name}（${o.W.hint[o.name]}）の団子、完成！`;
@@ -3212,7 +3212,7 @@ async function legendAnswer(p, q, btn, right){
   const L = p.legend, d = p.cfg.lg, fb = $("qFb");
   L.done++;
   if(right){
-    L.ok++; p.ok++; p.xpGot += p.cfg.xp; sfx.ok(); mgCorrect(); SAVE.totalOk = (SAVE.totalOk || 0) + 1;
+    L.ok++; p.ok++; p.xpGot += p.cfg.xp; sfx.ok(); mgCorrect(); SAVE.totalOk = (SAVE.totalOk || 0) + 1; saveSave(SAVE);   // その場で保存（2026-11-26）
     fxSlash(true); dmgPop(`⭕ ${L.ok}問目`, "#ffe08a", "foe");
     fb.className = "feedback ok show"; fb.innerHTML = "⭕ " + explain(q);
   }else{
@@ -3368,7 +3368,7 @@ function kageEvent(){
     ["nar", "影の師範から、<span class=em>『影の認め札』</span>を受け取った。"],
   ], () => {
     SAVE.keyItems = SAVE.keyItems || {}; SAVE.keyItems.kage = 1; saveSave(SAVE);
-    SAVE.here = "dojo"; showVillage();
+    SAVE.here = "dojo"; saveSave(SAVE); showVillage();   // いる場所も保存（2026-11-26）
     const e = document.querySelector('.vplace[data-id="hermit"]');
     if(e){ e.classList.add("appear"); }
     [523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, .25, "triangle", .06, .3 + i * .15));
