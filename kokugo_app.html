@@ -4732,7 +4732,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver14.51</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver14.52</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -19872,7 +19872,7 @@ const MG_SAVE_KEYS = [
   {key:"panda_chikurin_v1",         label:"大熊猫の竹林わたり"},
   {key:"koji_sugoroku_v1",          label:"濃い！鯉！来い！"},
   {key:"katsuyo_ninpou_v1",         label:"活用忍伝 ―変化ノ極意―"},
-  {key:"hinshi_go_v1",              label:"品詞でGO（試作中）"},   // 2026-11-26〜。カード・お土産・クリア・全国編の続きの場所などを1つのキーにまとめている
+  {key:"hinshi_go_v1",              label:"品詞でGO（試作中）"},   // 2026-11-26〜、hinshi_go.html。カード・お土産・クリア・全国編の続きの場所などを1つのキーにまとめている
   {key:"kokugoBattleStats_v1",      label:"⚔️ 二人対戦の記録"},
   {key:"nobiru_records_v1",         label:"伸びる読解（前回との比較の記録）"},   // nobiru/records.js。本体の記録(st)の外にあるので一緒に引きつぐ   // ミニゲームではないが、本体の記録(st)の外にあるので一緒に引きつぐ（2026-11-19、教員の指示）
   // 設定・旧版の記録・今日のミニゲーム（sub）
@@ -21772,6 +21772,12 @@ function bootApp(){
   /* 試遊用のリンク（2026-11-23〜、教員の指示「変更したら、試遊用のリンクを出して」）。
      ?devtool=kotonoha&play=ninpou で開くと、管理者の端末として記録したうえで、そのまま「変化の里」へ入る。
      ゲームのページが古いまま表示されないよう、URLに時刻を付けて開く。管理者でなければ何もしない。 */
+  if(new URLSearchParams(location.search).get('play') === 'hinshigo' && hinshiGoOpen()){
+    try{ history.replaceState(null, '', location.pathname); }catch(e){}
+    showHome();
+    openHinshiGo();
+    return;
+  }
   if(new URLSearchParams(location.search).get('play') === 'ninpou' && ninpouOpen()){
     try{ history.replaceState(null, '', location.pathname); }catch(e){}
     showHome();
@@ -23403,6 +23409,7 @@ function showSideQuestMenu(){
   html += pandaMenuHtml();    // 大熊猫の竹林わたり（2026-11-11解禁。それまでは「新ゲーム～11月11日解禁～」だけ）
   html += koiMenuHtml();      // 濃い！鯉！来い！ ～ここが登竜門～（故事成語すごろく、2026-11-15〜）
   html += ninpouMenuHtml();   // 活用忍伝 ―変化ノ極意―（動詞の活用、2026-11-23〜、試作）
+  html += hinshiGoMenuHtml(); // 品詞でGO（品詞の分類、2026-11-26〜、試作・管理者の端末だけ）
   html += `</div>`;   // .mg-grid ここまで
   html += `<div class="btn-row" style="justify-content:center; margin-top:10px">
     <button class="btn secondary" onclick="showHome()">戻る</button>
@@ -23785,6 +23792,19 @@ function ninpouMenuHtml(){
     || mgTextCardHtml("🥷", "活用忍伝 ―変化ノ極意―", desc, true, "", "openKatsuyoNinpou()");
 }
 function openKatsuyoNinpou(){ if(!ninpouOpen()) return; mgGoWithPass("ninpou", "katsuyo_ninpou.html"); }
+/* 品詞でGO（hinshi_go.html、2026-11-25〜、試作）。運転士になって、分かれ道で品詞の線路を選ぶ電車のゲーム。
+   岩手編（在来線・天狗の特訓で品詞の見分け方を学ぶ）／全国編（東北・北海道新幹線・品詞分解でお土産集め）。
+   2026-11-26、教員の指示「私にしか開けないようにして」：管理者モード（isAdminMode、?devtool=kotonoha を一度開いた端末）の
+   ときだけカードを出して開ける。生徒の端末では、カードも「準備中」の札も出さない。htmlを直接開くと「このファイルは開けません」（通行証 "hinshigo"）。
+   zip版には入れない（make_dist_zip.py の EXCLUDE）。公開するときは HINSHIGO_PUBLIC を true にし、zipにも入れる（SEPARATE_PAGES）。
+   試遊用のリンク：?devtool=kotonoha&play=hinshigo */
+const HINSHIGO_PUBLIC = false;
+function hinshiGoOpen(){ return HINSHIGO_PUBLIC || isAdminMode(); }
+function hinshiGoMenuHtml(){
+  if(!hinshiGoOpen()) return "";
+  return mgTextCardHtml("🚃", "品詞でGO", HINSHIGO_PUBLIC ? "運転士になって、品詞の線路を選べ！" : "🔧 試遊中（管理者の端末だけに表示）　運転士になって、品詞の線路を選べ！", true, "", "openHinshiGo()");
+}
+function openHinshiGo(){ if(!hinshiGoOpen()) return; mgGoWithPass("hinshigo", "hinshi_go.html?t=" + Date.now()); }
 // ミニゲーム一覧の画面で「katuyouninja」と打つと解禁（入力欄に打っているときは数えない）。竹林わたりと同じく、白い幕のあとカードがふわっと現れる。
 let npKeyBuf = "";
 document.addEventListener("keydown", e => {

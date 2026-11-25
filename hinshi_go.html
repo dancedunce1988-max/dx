@@ -1,0 +1,1493 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<!-- 通行証のチェック（ほかのミニゲームと同じ）：知識ドリルDXの入口（kokugo_app.htmlのmgGoWithPass）を通らずに
+     直接開いたときは「このファイルは開けません」とだけ表示し、ゲームを動かさない。いまは管理者の端末だけに入口がある（試遊中）。 -->
+<!--PASS_CHECK_BEGIN-->
+<script>
+(function(){
+  var ok = true;
+  try{ ok = !!(JSON.parse(sessionStorage.getItem("kokugo_mg_pass_v1") || "{}")["hinshigo"]); }catch(e){ ok = true; }
+  if(!ok){ document.write('<style>html,body{margin:0;height:100%;background:#1d1f38;color:#fff;font-family:sans-serif}body{display:flex;align-items:center;justify-content:center}</style></head><body><p style="font-size:22px;font-weight:bold">このファイルは開けません</p><plaintext style="display:none">'); }
+})();
+</script>
+<!--PASS_CHECK_END-->
+<title>品詞でGO</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Hiragino Kaku Gothic ProN","Yu Gothic UI","Meiryo",sans-serif;background:#141c26;color:#222;min-height:100vh;-webkit-user-select:none;user-select:none;touch-action:manipulation}
+#app{max-width:1100px;margin:0 auto;padding:6px}
+header{display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:#fff;padding:2px 4px 6px}
+header h1{font-size:17px;flex:1;white-space:nowrap}
+.hud{display:flex;gap:6px;align-items:center;font-size:14px;flex-wrap:wrap}
+.hud .box{background:#263446;border-radius:8px;padding:3px 10px;white-space:nowrap}
+.hud b{font-size:17px;color:#ffd75e}
+.hud button{background:#263446;color:#fff;border:none;border-radius:8px;padding:5px 9px;font-size:15px;cursor:pointer}
+#qbox{position:absolute;left:3%;right:3%;bottom:18%;background:#fffdf5ee;border-radius:14px;padding:6px 12px 5px;text-align:center;pointer-events:none;box-shadow:0 4px 12px #0005;border-top:5px solid #ffd75e}
+#sent{font-size:clamp(20px,min(4.4vw,5.5vh),42px);font-weight:bold;line-height:1.35}
+#sent .tg{color:#c62828;border-bottom:3px solid #c62828;padding:0 2px}
+#step{font-size:15px;color:#444;margin-top:2px;display:flex;gap:8px;align-items:center}
+#step .tag{background:#1d2a3a;color:#fff;border-radius:6px;padding:0 8px;font-size:13px}
+#step b{color:#1d2a3a;font-size:17px}
+#route{display:flex;gap:2px;overflow-x:auto;white-space:nowrap;background:#263446;border-radius:10px;padding:5px 8px;margin-bottom:6px;scrollbar-width:thin}
+#route .st{display:inline-flex;flex-direction:column;align-items:center;font-size:12px;color:#9fb0c3;min-width:44px;position:relative}
+#route .st i{display:block;width:10px;height:10px;border-radius:50%;border:2px solid #9fb0c3;background:#263446;margin-bottom:2px}
+#route .st.stop i{width:14px;height:14px;border-width:3px}
+#route .st.stop{color:#fff;font-weight:bold}
+#route .st.done{opacity:.45}
+#route .st.done i{background:#9fb0c3}
+#route .st.next{color:#ffd75e}
+#route .st.next i{border-color:#ffd75e;background:#ffd75e;animation:blink .6s infinite alternate}
+@keyframes blink{to{opacity:.4}}
+#route .bar{align-self:flex-start;margin-top:6px;flex:0 0 10px;height:2px;background:#9fb0c3;opacity:.5}
+.seg{display:flex;gap:6px;margin:8px 0}
+.seg button{flex:1;border:2px solid #1f7a4d;background:#fff;color:#1f7a4d;border-radius:10px;padding:8px;font-size:15px;font-weight:bold;cursor:pointer;font-family:inherit}
+.seg button.on{background:#1f7a4d;color:#fff}
+.rbtn{display:flex;align-items:center;gap:10px;width:100%;border:none;border-radius:12px;padding:10px 14px;margin-top:8px;cursor:pointer;font-family:inherit;color:#fff;box-shadow:0 4px 0 #0005;text-align:left}
+.rbtn b{font-size:20px;flex:0 0 auto}
+.rbtn span{font-size:13px;line-height:1.4;opacity:.95}
+.rbtn em{margin-left:auto;font-style:normal;font-size:12px;background:#0003;border-radius:6px;padding:2px 6px;white-space:nowrap}
+#homePage{position:fixed;inset:0;z-index:60;overflow:auto;background:linear-gradient(180deg,#5bbcf5 0%,#a9defa 50%,#e6f7ff 100%)}
+#homePage[hidden]{display:none}
+#homePage .hp{position:relative;z-index:1;max-width:1150px;margin:0 auto;padding:10px 12px 16px;display:grid;grid-template-columns:1.25fr 1fr;gap:14px;align-items:center;min-height:100%}
+@media(max-width:760px){#homePage .hp{grid-template-columns:1fr;gap:10px}}
+#homePage .ttl{grid-column:1/-1;text-align:center;color:#fff;text-shadow:0 3px 0 #1d5f95,0 0 14px #0003;padding-top:4px}
+#homePage .ttl h1{font-size:clamp(34px,7vw,66px);letter-spacing:.06em;line-height:1.1}
+#homePage .ttl p{font-size:clamp(15px,2.4vw,21px);font-weight:bold}
+#homePage .mapbox{background:#fff;border-radius:18px;padding:6px;box-shadow:0 6px 0 #0002}
+#homePage .mapbox .map{width:100%;height:min(62vh,560px);display:block;border-radius:12px}
+@media(max-width:760px){#homePage .mapbox .map{height:46vh}}
+#homePage .side{display:flex;flex-direction:column;gap:12px}
+#homePage .hbtn{margin-top:0}
+#homePage .prog{display:inline-block;margin-top:4px;font-size:13px;background:#0003;border-radius:8px;padding:1px 8px}
+#homePage .sub2{display:flex;gap:8px}
+#homePage .backDx{display:block;text-align:center;color:#fff;font-size:14px;padding:6px;text-decoration:underline;text-shadow:0 1px 2px #0008}
+#homePage .sub2 button{flex:1;border:none;border-radius:12px;padding:11px 6px;font-size:16px;font-weight:bold;font-family:inherit;cursor:pointer;background:#fffdf5;color:#1d2a3a;box-shadow:0 4px 0 #0002}
+.cloud{position:fixed;z-index:0;font-size:70px;opacity:.85;animation:cloud linear infinite;pointer-events:none}
+@keyframes cloud{from{transform:translateX(-160px)}to{transform:translateX(110vw)}}
+.mapwrap{background:#fff;border-radius:12px;padding:4px;margin:6px 0}
+.mapwrap .map{width:100%;height:230px;display:block;border-radius:8px}
+#dirPanel .mapwrap .map{height:200px}
+#zkMap .map{height:340px}
+#rsMap .map{height:300px}
+.mapwrap,#homePage .mapbox{background:#bfe3f5}
+.hbtn{display:block;width:100%;border:none;border-radius:16px;padding:14px 16px;margin-top:12px;cursor:pointer;font-family:inherit;color:#fff;text-align:left;box-shadow:0 5px 0 #0006}
+.hbtn>b{display:block;font-size:26px}
+.hbtn span b{font-size:15px;color:#ffeb3b}
+.hbtn span{font-size:14px;line-height:1.5;opacity:.95}
+.hbtn.iw{background:linear-gradient(135deg,#2e7d32,#1565c0)}
+.hbtn.zk{background:linear-gradient(135deg,#00897b,#6a1b9a)}
+#zukanGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:6px;margin-top:8px}
+#zukanGrid .zc{border:2px solid #ddd;border-radius:10px;padding:6px 4px;text-align:center;background:#fff;font-size:12px;line-height:1.35}
+#zukanGrid .zc .em{font-size:28px;display:block}
+#zukanGrid .zc.no{background:#eee;color:#999}
+#zukanGrid .zc.gold{border-color:#f9a825;background:#fff8e1;box-shadow:0 0 0 2px #ffe082}
+#zukanGrid .zc b{display:block;font-size:13px;color:#222}
+#dirPanel{position:absolute;inset:0;background:#0008;display:flex;align-items:center;justify-content:center}
+#dirPanel[hidden]{display:none}
+#dirPanel .card{background:#fffdf5;border-radius:14px;padding:12px 14px;width:min(560px,94%);text-align:center;box-shadow:0 6px 20px #000}
+#dirPanel h3{font-size:19px;color:#1d2a3a;margin-bottom:6px}
+#dirPanel .got{font-size:15px;margin-bottom:8px;line-height:1.5}
+#dirPanel .dirs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#dirPanel .dirs button{border:none;border-radius:12px;padding:12px 6px;font-size:17px;font-weight:bold;font-family:inherit;color:#fff;cursor:pointer;background:#00897b;box-shadow:0 3px 0 #0006;line-height:1.3}
+#dirPanel .dirs button small{display:block;font-size:12px;font-weight:normal}
+#dirPanel .dirs button:disabled{opacity:.25}
+#dirPanel .dirs button.fwd{background:#e65100;font-size:20px;box-shadow:0 4px 0 #8a3000,0 0 0 3px #ffcc80}
+#dirPanel .dirs button.back{background:#90a4ae;font-size:14px;opacity:.85}
+#dirPanel .warn{background:#fff3e0;border-left:6px solid #ff9800;border-radius:8px;padding:10px;font-size:16px;line-height:1.6;margin:8px 0}
+#dirPanel .end{margin-top:8px;border:none;border-radius:10px;padding:8px 14px;font-size:14px;font-family:inherit;cursor:pointer;background:#888;color:#fff}
+#route .st u{text-decoration:none;font-size:13px;line-height:1;height:14px}
+#route .st.here{color:#69f0ae}
+#route .st.here i{border-color:#69f0ae;background:#69f0ae}
+#sent .jt{display:inline-flex;flex-direction:column;align-items:center;vertical-align:top;line-height:1.15;margin:0 2px}
+#sent .jt small{font-size:11px;color:#2e7d32;white-space:nowrap}
+#sent .jt.ng small{color:#c62828}
+body.zk #sent .tg,body.zk #sent .tk{display:inline-block;line-height:1.15;vertical-align:top;margin:0 2px}
+#sent ruby rt{font-size:12px;font-weight:bold;color:#2e7d32;letter-spacing:0}
+#sent ruby.ng rt{color:#c62828}
+#sent .tk{color:#999}
+body.zk #sent{line-height:1.3}
+#step{justify-content:center;flex-wrap:wrap;font-size:15px}
+#step .hint{font-size:13px;color:#6d5f00;font-weight:normal;margin-left:6px}
+#panel .card{max-height:92%;overflow:auto}
+#stopBanner{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%) scale(1);background:#c62828ee;color:#fff;border:4px solid #fff;border-radius:16px;padding:10px 26px;text-align:center;font-weight:bold;box-shadow:0 6px 18px #0007;pointer-events:none;transition:top .6s,transform .6s,padding .6s;z-index:1;white-space:nowrap}
+#stopBanner .s1{font-size:clamp(16px,2.6vw,22px)}
+#stopBanner .s2{font-size:clamp(28px,6vw,54px);line-height:1.15}
+#stopBanner .s3{font-size:15px}
+#stopBanner.small{top:58px;transform:translate(-50%,-50%) scale(.55)}
+#stopBanner[hidden]{display:none}
+@keyframes sbBlink{50%{filter:brightness(1.35)}}
+#stopBanner:not(.small){animation:sbBlink .7s 3}
+#guide{position:absolute;left:2%;top:34%;width:min(40%,400px);display:flex;gap:8px;align-items:flex-start;background:#fffdf5f2;border-left:6px solid #00897b;border-radius:12px;padding:8px 10px;box-shadow:0 4px 12px #0004;z-index:5}
+#guide[hidden]{display:none}
+#guide{transition:opacity .7s}#guide.out{opacity:0}
+#zBeen{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:4px 0 10px}#zBeen button{border:none;border-radius:16px;padding:6px 11px;font-size:14px;font-weight:bold;background:#e0f2f1;color:#00695c;cursor:pointer;box-shadow:0 2px 0 #80cbc4}#zBeen button.hub{background:#fff3e0;color:#e65100;box-shadow:0 2px 0 #ffb74d}.zbh{font-size:13px;color:#555;margin-top:8px}
+#guide img{width:44px;height:44px;object-fit:contain;flex:0 0 auto}
+#guide .gb{flex:1;min-width:0}
+#guide .gt{font-size:11px;color:#00897b;font-weight:bold}
+#guide .gn{font-size:20px;font-weight:bold;color:#1d2a3a;line-height:1.2}
+#guide .gl{font-size:14px;line-height:1.45;color:#333;margin-top:2px}
+#guide button{border:none;background:none;font-size:18px;color:#999;cursor:pointer;padding:0 2px}
+@media(max-width:560px){#guide{width:62%;top:30%}#guide .gn{font-size:17px}#guide .gl{font-size:13px}}
+@media(min-width:760px){#dirPanel{justify-content:flex-end;padding-right:2%;background:#0005}#dirPanel .card{width:min(520px,55%)}}
+#dirPanel{z-index:4}
+#talk{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);width:min(92%,580px);display:flex;gap:10px;align-items:flex-start;background:#2b1f3af5;color:#fff;border:3px solid #ffd54f;border-radius:16px;padding:12px 14px;box-shadow:0 8px 24px #0008;z-index:8}
+#talk[hidden]{display:none}
+#talk img{width:64px;height:64px;object-fit:contain;flex:0 0 auto}
+#talk .tb{flex:1;min-width:0}
+#talk .tt{font-size:13px;color:#ffd54f;font-weight:bold}
+#talk .th{font-size:20px;font-weight:bold;line-height:1.35}
+#talk .tx{font-size:16px;line-height:1.5;margin-top:2px}
+#talk .te{font-size:15px;line-height:1.5;color:#e1f5fe;margin-top:3px}
+#talkOk{display:block;margin:10px 0 0 auto;border:none;border-radius:10px;background:#ffb300;color:#3e2700;font-size:18px;font-weight:bold;padding:8px 26px;cursor:pointer;box-shadow:0 3px 0 #b77f00}
+body.talking #qbox,body.talking #lanes,body.talking #guide,body.talking #stopBanner{visibility:hidden}
+@media(max-width:560px){#talk{top:42%}#talk img{width:48px;height:48px}#talk .th{font-size:17px}#talk .tx{font-size:15px}#talk .te{font-size:14px}}
+#lesson{position:absolute;inset:0;background:#000b;display:flex;align-items:center;justify-content:center}
+#lesson[hidden]{display:none}
+#lesson .card{background:#fffdf5;border-radius:14px;padding:14px 18px;width:min(560px,94%);max-height:94%;overflow:auto;box-shadow:0 6px 20px #000;line-height:1.65}
+#lesson h3{font-size:20px;color:#1d2a3a;margin-bottom:4px}
+#lesson .lv{display:inline-block;background:#1f7a4d;color:#fff;border-radius:6px;padding:0 8px;font-size:12px;margin-bottom:4px}
+#lesson .ex{background:#eef6ee;border-radius:8px;padding:6px 10px;margin:6px 0;font-size:15px}
+#lesson .tip{background:#fff3e0;border-left:5px solid #ff9800;border-radius:6px;padding:6px 10px;font-size:15px}
+#lesson .boss{display:flex;gap:12px;align-items:center}
+#lesson .boss img{width:110px;height:110px;object-fit:contain;flex:0 0 auto}
+#lesson .say{background:#2b1f3a;color:#f3e5ff;border-radius:10px;padding:8px 12px;font-size:15px;position:relative}
+#lesson .pcard{border:3px solid #333;border-radius:12px;padding:10px 12px;margin-top:6px}
+#lesson .pcard .nm{font-size:26px;font-weight:bold}
+#lesson .route{font-size:13px;color:#555}
+#cardsGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:8px}
+#cardsGrid .pc{border:3px solid #ccc;border-radius:10px;padding:8px;background:#fff;font-size:13px;line-height:1.5}
+#cardsGrid .pc b{font-size:18px;display:block}
+#cardsGrid .pc.no{background:#eee;color:#aaa}
+.rbtn.lock{filter:grayscale(1);opacity:.55;cursor:default}
+.rbtn img{width:54px;height:54px;object-fit:contain;flex:0 0 auto;background:#0002;border-radius:8px}
+#stage{position:relative;width:100%;border-radius:12px;overflow:hidden;background:#000}
+#cv{display:block}
+#pauseMenu{position:absolute;inset:0;background:#000a;display:flex;align-items:center;justify-content:center;cursor:pointer}
+#pauseMenu[hidden]{display:none}
+#pauseMenu .pm{text-align:center;color:#fff}
+#pauseMenu .pmTitle{font-size:32px;font-weight:bold}
+#pauseMenu .pmSub{font-size:15px;opacity:.85;margin:4px 0 14px}
+#pauseMenu .pmBtns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+#pauseMenu .pmBtns button{border:none;border-radius:10px;padding:10px 14px;font-size:15px;font-weight:bold;font-family:inherit;cursor:pointer;background:#fffdf5;color:#1d2a3a}
+#panel{position:absolute;inset:0;background:#000a;display:flex;align-items:center;justify-content:center}
+#panel[hidden]{display:none}
+#panel .card{background:#fffdf5;border-radius:14px;padding:14px 18px;width:min(520px,94%);box-shadow:0 6px 20px #000;line-height:1.6}
+#panel h3{color:#c62828;font-size:22px}
+#panel .q{font-size:18px;font-weight:bold;margin:4px 0}
+#panel .q .tg{color:#c62828;border-bottom:3px solid #c62828}
+#panel .ans{background:#fff3e0;border-left:6px solid #ff9800;padding:6px 10px;border-radius:6px;margin:6px 0;font-size:15px}
+#ctrl{display:grid;grid-template-columns:64px 1fr 64px;gap:6px;margin-top:6px}
+#ctrl button{border:none;border-radius:12px;font-weight:bold;font-family:inherit;cursor:pointer;color:#fff;box-shadow:0 3px 0 #0008}
+#ctrl .steer{background:#455a64;font-size:26px;padding:10px 0}
+#lanes{display:grid;gap:6px}
+#lanes button{background:#2e7d32;font-size:17px;padding:2px 4px;line-height:1.2;border:3px solid transparent;height:50px;overflow:hidden}
+#ctrl{min-height:50px}
+#lanes button small{display:block;font-size:11px;font-weight:normal;opacity:.85}
+#lanes button.sel{background:#f9a825;color:#222;border-color:#fff}
+#ctrl2{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+#ctrl2 button{border:none;border-radius:12px;font-weight:bold;font-family:inherit;cursor:pointer;color:#fff;box-shadow:0 3px 0 #0008;font-size:17px;padding:9px}
+#brakeBtn{background:#c62828}#accBtn{background:#1565c0}
+#ctrl2 button.on{filter:brightness(1.35);transform:translateY(2px)}
+.modal{position:fixed;inset:0;background:#000b;display:flex;align-items:center;justify-content:center;z-index:70;padding:12px}
+.modal[hidden]{display:none}
+.card2{background:#fffdf5;border-radius:16px;padding:20px;max-width:560px;width:100%;max-height:92vh;overflow:auto}
+.card2 h2{font-size:24px;margin-bottom:8px}
+.lead{font-size:15px;line-height:1.8;margin:6px 0;color:#444}
+.lead kbd{background:#eee;border:1px solid #bbb;border-radius:4px;padding:0 5px;font-family:inherit}
+.btn{display:block;width:100%;border:none;border-radius:12px;padding:12px;font-size:18px;font-weight:bold;cursor:pointer;margin-top:10px;font-family:inherit;color:#fff;background:#1f7a4d;box-shadow:0 4px 0 #0f4a2d}
+.btn.blue{background:#2f6fb5;box-shadow:0 4px 0 #1d4a7a}
+.btn.gray{background:#888;box-shadow:0 4px 0 #555}
+.btn small{display:block;font-size:12px;font-weight:normal}
+.best{font-size:13px;color:#666;text-align:right;margin-top:6px}
+.review .rv{border-top:1px dashed #bbb;padding:8px 0;font-size:14px;line-height:1.6}
+.review .tg{color:#c62828;border-bottom:2px solid #c62828}
+@media (max-width:560px){#lanes button{height:46px}#ctrl{min-height:46px}#lanes button{font-size:14px}#ctrl{grid-template-columns:48px 1fr 48px}}
+</style>
+</head>
+<body>
+<div id="app">
+ <header id="hdr">
+  <h1>🚃 品詞でGO</h1>
+  <div class="hud">
+   <div class="box">ライフ <span id="lives">❤❤❤</span></div>
+   <div class="box">得点 <b id="score">0</b></div>
+   <div class="box">連続 <b id="combo">0</b></div>
+   <button id="pauseBtn">⏸</button><button id="mute">🔊</button><button id="homeBtn" title="タイトルへ">🏠</button>
+  </div>
+ </header>
+ <div id="route"></div>
+ <div id="stage"><canvas id="cv"></canvas>
+  <div id="panel" hidden><div class="card" id="panelCard"></div></div>
+  <div id="qbox"><div id="sent">　</div><div id="step"></div></div>
+  <div id="stopBanner" hidden></div>
+  <div id="guide" hidden><img id="guideImg" alt=""><div class="gb"><div class="gt">天狗の旅案内</div><div class="gn" id="guideName"></div><div id="guideBody"></div></div><button id="guideX" aria-label="閉じる">×</button></div>
+  <div id="talk" hidden><img id="talkImg" alt=""><div class="tb"><div id="talkBody"></div><button id="talkOk">OK</button></div></div>
+  <div id="lesson" hidden><div class="card" id="lessonCard"></div></div>
+  <div id="dirPanel" hidden><div class="card" id="dirCard"></div></div>
+  <div id="pauseMenu" hidden><div class="pm">
+   <div class="pmTitle">⏸ 一時停止中</div>
+   <div class="pmSub">画面をタップすると再開</div>
+   <div class="pmBtns"><button id="pmRestart">🔄 最初からやり直す</button><button id="pmRoute">🏠 ホームへ</button></div>
+  </div></div>
+ </div>
+ <div id="ctrl">
+  <button class="steer" id="leftBtn">◀</button>
+  <div id="lanes"></div>
+  <button class="steer" id="rightBtn">▶</button>
+ </div>
+ <div id="ctrl2">
+  <button id="brakeBtn">▼ ブレーキ</button>
+  <button id="accBtn">▲ 加速</button>
+ </div>
+</div>
+
+<div class="modal" id="startScreen" hidden>
+ <div class="card2">
+  <h2>🗻 岩手編</h2>
+  <p class="lead">天狗の<b>まやかしの線路</b>を見破れ！<br><kbd>←</kbd><kbd>→</kbd> ハンドル　<kbd>↑</kbd> 加速　<kbd>↓</kbd> ブレーキ</p>
+  <div class="mapwrap" id="iwMap"></div>
+  <div id="routeBtns"></div>
+  <button class="btn gray" id="backHome1">← ホームへ</button>
+ </div>
+</div>
+<div id="homePage">
+ <div class="cloud" style="top:6%;animation-duration:70s">☁️</div>
+ <div class="cloud" style="top:22%;animation-duration:95s;animation-delay:-40s;font-size:50px">☁️</div>
+ <div class="cloud" style="top:55%;animation-duration:120s;animation-delay:-80s;font-size:60px">☁️</div>
+ <div class="hp">
+  <div class="ttl"><h1>🚃 品詞でGO</h1><p>ことばの線路で、日本をめぐる旅へ！</p></div>
+  <div class="mapbox" id="homeMap"></div>
+  <div class="side">
+   <button class="hbtn iw" id="goIwate"><b>🗻 岩手編</b><span><b>品詞の見分け方</b>を学ぶ</span><br><span class="prog" id="iwProg"></span></button>
+   <button class="hbtn zk" id="goZenkoku"><b>🚄 全国編</b><span>新幹線で旅して<b>品詞を判定</b></span><br><span class="prog" id="zkProg"></span></button>
+   <div class="sub2"><button id="goCards">🃏 品詞カード <span id="cdCount">0</span>/10</button><button id="goZukan">🎁 お土産帳 <span id="zkCount">0</span>/26</button></div>
+   <a class="backDx" href="kokugo_app.html?from=minigame">↩ 知識ドリルDXにもどる</a>
+  </div>
+ </div>
+</div>
+<div class="modal" id="zStart" hidden>
+ <div class="card2">
+  <h2>🚄 全国編　どこから出発する？</h2>
+  <div id="zStartBtns"></div>
+  <button class="btn gray" id="zStartBack">← ホームへ</button>
+ </div>
+</div>
+<div class="modal" id="cards" hidden>
+ <div class="card2">
+  <h2>🃏 品詞カード</h2>
+  <p class="lead" style="font-size:13px">岩手編で、はじめてたどり着いた品詞のカード。</p>
+  <div id="cardsGrid"></div>
+  <button class="btn gray" id="cardsClose">閉じる</button>
+ </div>
+</div>
+<div class="modal" id="zukan" hidden>
+ <div class="card2">
+  <h2>🎁 お土産帳</h2>
+  <p class="lead" style="font-size:13px">停車駅に止まるともらえる。ぴったりなら金色！</p>
+  <div class="mapwrap" id="zkMap"></div>
+  <div id="zukanGrid"></div>
+  <button class="btn gray" id="zukanClose">閉じる</button>
+ </div>
+</div>
+<div class="modal" id="result" hidden>
+ <div class="card2">
+  <h2 style="text-align:center" id="rsTitle">🏁 運転終了</h2>
+  <p style="text-align:center;font-size:17px;line-height:1.7" id="rsInfo"></p>
+  <div class="mapwrap" id="rsMap"></div>
+  <div class="review" id="rsReview"></div>
+  <button class="btn" id="rsAgain">もう一度</button>
+  <button class="btn gray" id="rsMenu">ホームへ</button>
+ </div>
+</div>
+
+<script src="mg_save_guard.js?v=13.94" data-keys="hinshi_go_v1"></script><!-- ほかの画面で記録が変わったら読み込み直し、古い記録で上書きしない -->
+<script src="kokugo_data.js?v=14.52"></script><!-- 品詞ジャンル（cats.hinshi）の問題 -->
+<script src="hinshi_go_tengu_data.js?v=14.52"></script><!-- 天狗（ub06）の5ポーズだけ（ura_boss_sprites_data.js から抜き出し） -->
+<script src="hinshi_go_map_data.js?v=14.52"></script><!-- 日本・岩手の地図（Natural Earth 1:10m、パブリックドメイン） -->
+<script>
+'use strict';
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+// ===== 問題データ ['文（【】が対象の言葉）', 品詞, 言い切りの形, ひとこと] =====
+const ITEMS = [
+ ['【公園】で犬と遊ぶ。','名詞'],
+ ['【三つ】のりんごを買った。','名詞','','数を表す言葉も名詞（数詞）。「三つが〜」と主語になれる。'],
+ ['【私】は中学生だ。','名詞','','人や物を指す言葉も名詞（代名詞）。'],
+ ['遊ぶ【こと】が好きだ。','名詞','','もとの意味がうすれた名詞（形式名詞）。'],
+ ['【明日】は雨になりそうだ。','名詞'],
+ ['【やさしさ】が伝わる。','名詞','','形容詞「やさしい」が「〜さ」で名詞に変わった形。'],
+ ['毎朝早く【起きる】。','動詞','起きる'],
+ ['本を【読ん】だ。','動詞','読む','「読んだ」の「読ん」。言い切りの形は「読む」。'],
+ ['窓を【開け】て風を入れる。','動詞','開ける'],
+ ['友達が家に【来】た。','動詞','来る'],
+ ['部屋をきれいに【し】た。','動詞','する'],
+ ['机の上に本が【ある】。','動詞','ある','存在を表す「ある」は動詞。「ある日」の「ある」（連体詞）とは別物。'],
+ ['【泳ぐ】のが得意だ。','動詞','泳ぐ'],
+ ['今日はとても【寒い】。','形容詞','寒い'],
+ ['【赤く】染まった空。','形容詞','赤い'],
+ ['【大きい】箱を運ぶ。','形容詞','大きい','「大きい」は活用する形容詞。「大きな」（連体詞）と比べよう。'],
+ ['財布にお金が【なかっ】た。','形容詞','ない','単独で文節を作れる「ない」は形容詞。「ぬ」に言いかえられない。'],
+ ['風が【冷たかっ】た。','形容詞','冷たい'],
+ ['【うれしい】知らせが届いた。','形容詞','うれしい'],
+ ['図書館は【静かな】場所だ。','形容動詞','静かだ'],
+ ['夜空の星が【きれいだ】。','形容動詞','きれいだ','「とてもきれいだ」と言える。「だ」までで一語。'],
+ ['【元気に】走り回る。','形容動詞','元気だ','「元気に」は「元気だ」の形が変わったもの。'],
+ ['【丁寧に】字を書く。','形容動詞','丁寧だ'],
+ ['町は【にぎやかだっ】た。','形容動詞','にぎやかだ'],
+ ['【ゆっくり】歩く。','副詞','','「歩く」（動詞）をくわしくしている。'],
+ ['【とても】うれしい。','副詞','','「うれしい」（形容詞）をくわしくしている。'],
+ ['【もし】雨が降ったら中止だ。','副詞','','「もし〜たら」と、あとの言い方が決まっている副詞。'],
+ ['【決して】あきらめない。','副詞','','「決して〜ない」と、あとの言い方が決まっている副詞。'],
+ ['雨が【ざあざあ】降る。','副詞','','音や様子を表す言葉。「降る」をくわしくしている。'],
+ ['駅で【ずっと】待っていた。','副詞'],
+ ['【大きな】夢をもつ。','連体詞','','「大きな」は形が変わらない。「夢」（名詞）だけをくわしくする。'],
+ ['【この】本はおもしろい。','連体詞','','「この」は「本」（名詞）だけをくわしくする。'],
+ ['【ある】日のことだった。','連体詞','','ここでの「ある」は「日」をくわしくするだけ。存在の「ある」（動詞）とは別物。'],
+ ['【あらゆる】方法を試す。','連体詞'],
+ ['【いわゆる】天才だ。','連体詞'],
+ ['【小さな】花が咲いた。','連体詞','','「小さい」（形容詞）とちがい、「小さな」は形が変わらない。'],
+ ['雨が降った。【しかし】試合は行われた。','接続詞','','前とあとを逆の関係でつないでいる。'],
+ ['熱がある。【だから】学校を休む。','接続詞','','前が理由、あとが結果。'],
+ ['パン【または】ご飯を選ぶ。','接続詞'],
+ ['【そして】二人は友達になった。','接続詞'],
+ ['【ところで】、宿題は終わった？','接続詞','','話題を変える接続詞。'],
+ ['【おはよう】、今日もいい天気だね。','感動詞','','あいさつも感動詞。'],
+ ['【ああ】、なんて美しい景色だ。','感動詞'],
+ ['【はい】、私がやります。','感動詞','','返事（応答）も感動詞。'],
+ ['【もしもし】、聞こえますか。','感動詞'],
+ ['【さあ】、出発しよう。','感動詞','','さそいかける言葉。'],
+ ['弟に笑わ【れる】。','助動詞','れる','受け身を表す助動詞。'],
+ ['明日は晴れる【らしい】。','助動詞','らしい'],
+ ['もう少し待ち【たい】。','助動詞','たい'],
+ ['私は中学生【だ】。','助動詞','だ','名詞のあとにつく「だ」は断定の助動詞。'],
+ ['一緒に行き【ます】。','助動詞','ます'],
+ ['彼は来【ない】。','助動詞','ない','「来ぬ」と言いかえられる「ない」は打ち消しの助動詞。'],
+ ['昨日、映画を見【た】。','助動詞','た'],
+ ['犬【が】走る。','助詞'],
+ ['学校【へ】行く。','助詞'],
+ ['雨が降った【ので】、傘をさした。','助詞'],
+ ['君【も】来るの？','助詞'],
+ ['これは私の本だ【よ】。','助詞'],
+ ['五分【ほど】待つ。','助詞'],
+].map(a=>({s:a[0],pos:a[1],base:a[2]||'',note:a[3]||''}));
+
+const POS_COLOR={名詞:'#e53935',動詞:'#1e88e5',形容詞:'#43a047',形容動詞:'#00897b',副詞:'#8e24aa',連体詞:'#6d4c41',接続詞:'#f4511e',感動詞:'#d81b60',助動詞:'#3949ab',助詞:'#757575'};
+const JIRITSU=['名詞','動詞','形容詞','形容動詞','副詞','連体詞','接続詞','感動詞'];
+
+// ===== 分類表＝路線図 =====
+const NODES={
+ J1:{q:'自立語？ 付属語？',opts:[{label:'自立語線',sub:'ひとりで文節を作れる',to:'J2',c:'#2e7d32'},{label:'付属語線',sub:'ほかの言葉のあとにつく',to:'J8',c:'#3949ab'}]},
+ J2:{q:'活用する？ しない？',opts:[{label:'活用する',sub:'（用言）',to:'J3',c:'#1e88e5'},{label:'活用しない',sub:'',to:'J4',c:'#8d6e63'}]},
+ J3:{q:'言い切りの形は？',opts:[{label:'ウ段で終わる',sub:'',to:'動詞',c:POS_COLOR.動詞},{label:'「い」で終わる',sub:'',to:'形容詞',c:POS_COLOR.形容詞},{label:'「だ・です」で終わる',sub:'',to:'形容動詞',c:POS_COLOR.形容動詞}]},
+ J4:{q:'主語になる？',opts:[{label:'主語になる',sub:'（体言）',to:'名詞',c:POS_COLOR.名詞},{label:'主語にならない',sub:'',to:'J5',c:'#8d6e63'}]},
+ J5:{q:'修飾語になる？',opts:[{label:'修飾語になる',sub:'',to:'J6',c:'#8e24aa'},{label:'修飾語にならない',sub:'',to:'J7',c:'#f4511e'}]},
+ J6:{q:'何をくわしくする？',opts:[{label:'主に用言を修飾',sub:'',to:'副詞',c:POS_COLOR.副詞},{label:'体言だけを修飾',sub:'',to:'連体詞',c:POS_COLOR.連体詞}]},
+ J7:{q:'文の中での役わりは？',opts:[{label:'接続語になる',sub:'',to:'接続詞',c:POS_COLOR.接続詞},{label:'独立語になる',sub:'',to:'感動詞',c:POS_COLOR.感動詞}]},
+ J8:{q:'活用する？ しない？',opts:[{label:'活用する',sub:'',to:'助動詞',c:POS_COLOR.助動詞},{label:'活用しない',sub:'',to:'助詞',c:POS_COLOR.助詞}]},
+};
+const DEPTH={J1:0,J2:1,J8:1,J3:2,J4:2,J5:3,J6:4,J7:4};
+const leavesOf=id=>NODES[id]?NODES[id].opts.flatMap(o=>leavesOf(o.to)):[id];
+const correctIdx=(nid,pos)=>NODES[nid].opts.findIndex(o=>leavesOf(o.to).includes(pos));
+const COURSES={local:{name:'各駅停車',start:'J2',pool:ITEMS.filter(i=>JIRITSU.includes(i.pos))},express:{name:'急行',start:'J1',pool:ITEMS}};
+
+function splitS(s){const m=s.match(/^(.*)【(.*)】(.*)$/);return m?[m[1],m[2],m[3]]:[s,'',''];}
+const esc=t=>t.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+function sentHTML(it){const [a,w,b]=splitS(it.s);return esc(a)+'<span class="tg">'+esc(w)+'</span>'+esc(b);}
+
+// なぜその線が正しいか
+function explain(it,nid){
+ const w='「'+splitS(it.s)[1]+'」', b=it.base?'「'+it.base+'」':'', i=correctIdx(nid,it.pos);
+ const T={
+  J1:[w+'は、それだけで意味がわかり、文節のはじめに来る → 自立語', w+'は、それだけでは文節を作れず、ほかの言葉のあとにつく → 付属語'],
+  J2:[w+'は、あとにつく言葉で形が変わる（言い切りの形は'+b+'）→ 活用する', w+'は、形が変わらない → 活用しない'],
+  J3:['言い切りの形'+b+'は、ウ段の音で終わる → 動詞','言い切りの形'+b+'は、「い」で終わる → 形容詞','言い切りの形'+b+'は、「だ」で終わる → 形容動詞'],
+  J4:[w+'は、「が」「は」をつけて主語になれる → 名詞（体言）', w+'は、主語にならない'],
+  J5:[w+'は、あとの言葉をくわしくする（修飾語になる）', w+'は、修飾語にならない'],
+  J6:[w+'は、主に用言（動き・様子の言葉）をくわしくする → 副詞', w+'は、体言（名詞）だけをくわしくする → 連体詞'],
+  J7:[w+'は、前とあとをつなぐ（接続語）→ 接続詞', w+'は、よびかけ・返事・感動などを表し、ほかと直接つながらない（独立語）→ 感動詞'],
+  J8:[w+'は、形が変わる（言い切りの形は'+b+'）→ 助動詞', w+'は、形が変わらない → 助詞'],
+ };
+ return T[nid][i];
+}
+function routeHTML(it,start,badNode){
+ let n=start,parts=[];
+ while(NODES[n]){const i=correctIdx(n,it.pos),o=NODES[n].opts[i];parts.push(n===badNode?'<span class="bad">'+o.label+'</span>':o.label);n=o.to;}
+ parts.push('<span class="st">'+n+'駅</span>');
+ return '<b>正しい道すじ</b><br>'+parts.join(' → ');
+}
+
+
+
+const SHORT={J1:['自立語','付属語'],J2:['活用する','活用しない'],J3:['ウ段で終わる','「い」で終わる','「だ」で終わる'],J4:['主語になる','主語にならない'],J5:['修飾語になる','修飾語にならない'],J6:['用言を修飾','体言を修飾'],J7:['接続語','独立語'],J8:['活用する','活用しない']};
+// 岩手県内の路線（駅の並びはWikipediaの各駅「隣の駅」で確認・2026年11月）
+const ROUTES=[
+ {id:'shizukuishi',stage:1,boss:'ub06',bossName:'天狗',intro:'まずは「活用」と「主語」の特訓じゃ！',lessons:['J2','J3','J4'],learn:'活用・言い切りの形・主語',dest:'雫石',line:'JR田沢湖線',color:'#2e7d32',theme:'入門',poses:['名詞','動詞','形容詞'],start:'J2',stations:['盛岡','前潟','大釜','小岩井','雫石'],stops:['小岩井','雫石']},
+ {id:'miyako',stage:2,boss:'ub06',bossName:'天狗',intro:'次は用言の三兄弟を見分けよ！',lessons:['J2','J3'],learn:'用言（動詞・形容詞・形容動詞）',dest:'宮古',line:'JR山田線',color:'#1565c0',theme:'用言の峠越え',poses:['動詞','形容詞','形容動詞'],start:'J2',stations:['盛岡','上盛岡','山岸','上米内','区界','松草','川内','箱石','陸中川井','腹帯','茂市','蟇目','花原市','千徳','宮古'],stops:['上米内','区界','茂市','宮古']},
+ {id:'ninohe',stage:3,boss:'ub06',bossName:'天狗',intro:'ここからが本番じゃ。活用しない言葉を見破れ！',lessons:['J4','J5','J6','J7'],learn:'修飾語・接続語・独立語',dest:'二戸',line:'IGRいわて銀河鉄道線',color:'#6a1b9a',theme:'活用しない自立語',poses:['名詞','副詞','連体詞','接続詞','感動詞'],start:'J2',stations:['盛岡','青山','厨川','巣子','滝沢','渋民','好摩','岩手川口','いわて沼宮内','御堂','奥中山高原','小繫','小鳥谷','一戸','二戸'],stops:['好摩','いわて沼宮内','一戸','二戸']},
+ {id:'ichinoseki',stage:4,boss:'ub06',bossName:'天狗',intro:'最後の修行じゃ。すべての品詞を見破れ！',lessons:['J1','J8'],learn:'自立語と付属語・総まとめ',dest:'一ノ関',line:'JR東北本線',color:'#c62828',theme:'総まとめ',poses:null,start:'J1',stations:['盛岡','仙北町','岩手飯岡','矢幅','古館','紫波中央','日詰','石鳥谷','花巻空港','花巻','村崎野','北上','六原','金ケ崎','水沢','陸中折居','前沢','平泉','山ノ目','一ノ関'],stops:['矢幅','紫波中央','花巻','北上','水沢','平泉','一ノ関']},
+];
+let ROUTE=ROUTES[0];
+const AMIDA_WORDS=3,LANE_W=5.5,DIV=45,CAM_H=2.6,NEAR=2.5;
+// 端末の速さに合わせた画質（0=軽い 1=やや軽い 2=標準）
+const QS=[{dpr:0.8,fps:30,far:230,trees:0.2,sleep:45},{dpr:1,fps:60,far:255,trees:0.35,sleep:60},{dpr:1.25,fps:60,far:280,trees:0.55,sleep:80}];
+// 記録はすべて hinshi_go_v1 の1つにまとめる（本体の記録の書き出し MG_SAVE_KEYS にもこのキーを登録ずみ）
+const SV_KEY='hinshi_go_v1';
+const OLD_KEYS={best:'hinshi_train_driver_best_v3',clr:'hinshi_train_iwate_clear_v1',reach:'hinshi_train_iwate_reach_v1',omi:'hinshi_train_omiyage_v1',terms:'hinshi_train_terms_v1',cards:'hinshi_train_cards_v1'};
+function svLoad(){
+ let o=null;try{o=JSON.parse(localStorage.getItem(SV_KEY));}catch(e){}
+ if(!o||typeof o!=='object'){ // 試作のころの記録があれば引きつぐ
+  o={};for(const k in OLD_KEYS){try{const v=JSON.parse(localStorage.getItem(OLD_KEYS[k]));if(v&&typeof v==='object')o[k]=v;}catch(e){}}
+  if(Object.keys(o).length)try{localStorage.setItem(SV_KEY,JSON.stringify(o));}catch(e){}
+ }
+ return o;
+}
+function svGet(k){const v=svLoad()[k];return v&&typeof v==='object'?v:{};}
+function svSet(k,v){const o=svLoad();o[k]=v;try{localStorage.setItem(SV_KEY,JSON.stringify(o));}catch(e){}}
+const Q_KEY='hinshi_go_v1_q';
+let QUAL=(()=>{const m=location.search.match(/[?&]q=([012])/);if(m){localStorage.setItem(Q_KEY,m[1]);return +m[1];}const v=localStorage.getItem(Q_KEY);return v===null?2:clamp(+v,0,2);})();
+let FAR=QS[QUAL].far;
+const perf={n:0,sum:0,warm:0};
+function setQuality(q){QUAL=q;FAR=QS[q].far;localStorage.setItem(Q_KEY,String(q));perf.n=0;perf.sum=0;perf.warm=0;resize();}
+function measure(raw){
+ // 0.5秒以上止まったとき（タブの切りかえなど）は数えない
+ if(!running||paused||!S||S.panelOpen||S.lessonOpen||QUAL===0||raw<=0||raw>0.5)return;
+ perf.warm+=raw;if(perf.warm<1.5)return;
+ perf.n++;perf.sum+=raw;
+ if(perf.sum>=2){const avg=perf.sum/perf.n;perf.n=0;perf.sum=0;
+  if(avg>1/20)setQuality(0);else if(avg>1/45)setQuality(QUAL-1);}
+}
+const $=id=>document.getElementById(id);
+const cv=$('cv'),ctx=cv.getContext('2d');
+let W=900,H=520,F=700,HOR=200,DASH=100,SKY=null,DASHG=null;
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+const sm=t=>t<=0?0:t>=1?1:t*t*(3-2*t);
+
+let course=null,S=null,running=false,paused=false,pool=[];
+const keys={left:false,right:false,up:false,down:false};
+
+function resize(){
+ const r=$('stage').getBoundingClientRect();W=r.width;
+ // 画面の縦に収まるよう、ほかの部分の高さを引いて景色の高さを決める
+ let used=0;
+ for(const id of ['hdr','route','ctrl','ctrl2']){const e=$(id);if(!e)continue;const cs=getComputedStyle(e);used+=e.offsetHeight+parseFloat(cs.marginTop)+parseFloat(cs.marginBottom);}
+ const avail=window.innerHeight-used-14;
+ H=Math.round(clamp(Math.min(avail,W<560?W*1.45:W*0.66),240,720));
+ $('stage').style.height=H+'px';
+ const d=Math.min(QS[QUAL].dpr,window.devicePixelRatio||1);
+ cv.width=Math.round(W*d);cv.height=Math.round(H*d);cv.style.width=W+'px';cv.style.height=H+'px';ctx.setTransform(d,0,0,d,0,0);
+ DASH=Math.round(H*0.17);HOR=Math.round((H-DASH)*0.42);F=Math.max(W,H*1.2)*0.75;
+ updHor();
+}
+// 問題の帯の下に看板が見えるよう、地平線の高さを帯に合わせる
+function updHor(){
+ const qb=$('qbox'),qBottom=qb?qb.offsetTop+qb.offsetHeight:0,v=H-DASH;
+ HOR=Math.round(v*0.42);
+ qb.style.bottom=(DASH+8)+'px';
+ SKY=ctx.createLinearGradient(0,0,0,HOR);SKY.addColorStop(0,'#5aa9e6');SKY.addColorStop(1,'#cfe9f7');
+ DASHG=ctx.createLinearGradient(0,H-DASH,0,H);DASHG.addColorStop(0,'#3a424c');DASHG.addColorStop(1,'#1e242b');
+}
+
+// ===== 問題の準備 =====
+function nextItem(){if(!pool.length)pool=shuffle(course.pool.slice());return pool.pop();}
+function chainOf(pos){const c=[];let n=course.start;while(NODES[n]){c.push(n);n=NODES[n].opts[correctIdx(n,pos)].to;}return c;}
+function makeOpts(item,n){
+ const chain=chainOf(item.pos),res=[item.pos];
+ for(let i=chain.length-1;i>=0&&res.length<n;i--){const add=shuffle(leavesOf(chain[i]).filter(p=>!res.includes(p)));while(add.length&&res.length<n)res.push(add.pop());}
+ return shuffle(res);
+}
+function nLanes(){const d=S.words-AMIDA_WORDS;return d<5?2:d<11?3:4;}
+function gapWord(){return Math.max(170,250-S.words*3);}
+
+function newGame(rid){
+ ROUTE=ROUTES.find(r=>r.id===rid)||ROUTES[0];pool=[];
+ course={key:ROUTE.id,name:ROUTE.theme,start:ROUTE.start,pool:ITEMS.concat(GEN.single).filter(i=>!ROUTE.poses||ROUTE.poses.includes(i.pos))};
+ document.body.classList.remove('zk');['homePage','zukan'].forEach(id=>$(id).hidden=true);$('dirPanel').hidden=true;
+ $('pauseMenu').hidden=true;$('pauseBtn').textContent='⏸';
+ S={s:0,v:0,lives:3,score:0,combo:0,maxCombo:0,words:0,oks:0,forks:[],station:null,mode:'run',lean:0,roll:0,shake:0,wheel:0,
+  misses:[],cur:null,flash:null,floats:[],parts:[],idx:0,brakeHeld:0,tickAcc:0,camX:0,panelOpen:false,cleared:false,game:'iwate'};
+ ['startScreen','result'].forEach(id=>$(id).hidden=true);$('panel').hidden=true;
+ running=true;paused=false;
+ // 盛岡駅のホームから発車
+ S.station={s:10,name:ROUTE.stations[0],state:'stopped',t:2.6,stop:true,first:true};
+ $('sent').innerHTML='🚉 '+ROUTE.dest+'行き';
+ $('step').innerHTML='<b>まもなく発車</b>';
+ $('talk').hidden=true;hideStopBanner();{const gT=showGuide(ROUTE.stations[0])||0;S.station.t=Math.max(S.station.t,gT);}
+ S.bossHp=ROUTE.stations.length-1;S.bossMax=S.bossHp;S.bossPose='pose1';S.bossReact=0;S.lessonShown={};S.vanish=[];
+ renderRoute();renderLanes();updateHud();resize();sfx.whistle();
+ showBossIntro();
+}
+function lastX(){const f=S.forks[S.forks.length-1];return f?f.baseX+f.offs[f.sel]:0;}
+function lastS(){const f=S.forks[S.forks.length-1];return f?f.s:0;}
+function addFork(at,o){
+ const n=o.labels.length,offs=[...Array(n)].map((_,k)=>(k-(n-1)/2)*LANE_W);
+ const f={s:at,n,offs,baseX:lastX(),sel:Math.floor(Math.random()*n),locked:false,...o};
+ S.forks.push(f);return f;
+}
+function startWord(gap){
+ const item=nextItem(),amida=S.game==='iwate'||S.words<AMIDA_WORDS;
+ S.cur={item,amida};
+ const at=Math.max(lastS()+gap,S.s+gap*0.8);
+ if(amida)amidaFork(course.start,at);
+ else{
+  const names=makeOpts(item,nLanes());
+  addFork(at,{kind:'direct',labels:names,subs:names.map(()=>''),correct:names.indexOf(item.pos)});
+ }
+ showQuestion();
+}
+function amidaFork(node,at){
+ const o=NODES[node].opts;
+ S.cur.node=node;
+ if(S.game==='iwate'&&ROUTE.lessons.includes(node)&&!S.lessonShown[node]){S.lessonShown[node]=true;S.pendingLesson=node;}
+ addFork(at,{kind:'amida',node,labels:o.map((x,i)=>NODES[x.to]?SHORT[node][i]:x.to),subs:o.map((x,i)=>NODES[x.to]?'':SHORT[node][i]),correct:correctIdx(node,S.cur.item.pos)});
+}
+function nextLeg(){
+ S.cur=null;S.idx++;
+ const name=ROUTE.stations[S.idx],final=S.idx===ROUTE.stations.length-1,stop=final||ROUTE.stops.includes(name);
+ const at=Math.max(lastS()+(stop?240:110),S.s+(stop?260:110));
+ S.station={s:at,name,stop,final,state:stop?'approach':'pass'};
+ if(stop)showStopBanner(name,final);
+ if(stop){$('sent').innerHTML='🚉 次は '+name+(final?'（終点）':'');$('step').innerHTML='<b>↓ブレーキで停止線に止めよう</b>';}
+ else{$('sent').innerHTML='🚃 '+name+'（通過）';$('step').innerHTML='';}
+ renderLanes();renderRoute();
+}
+function renderRoute(){
+ if(S&&S.game==='zenkoku'){renderRouteZ();return;}
+ const box=$('route');let h='';
+ ROUTE.stations.forEach((n,i)=>{
+  const stop=i===0||ROUTE.stops.includes(n),tgt=S.station?S.idx:S.idx+1;
+  const cls=['st',stop?'stop':'',i<tgt||S.cleared?'done':'',!S.cleared&&i===tgt?'next':''].join(' ');
+  if(i)h+='<span class="bar"></span>';
+  h+='<span class="'+cls+'" data-i="'+i+'"><i></i>'+n+'</span>';
+ });
+ box.innerHTML=h;
+ const cur=box.querySelector('[data-i="'+Math.min(S.station?S.idx:S.idx+1,ROUTE.stations.length-1)+'"]');
+ if(cur)box.scrollLeft=cur.offsetLeft-box.clientWidth/2;
+}
+function upcoming(){return S.forks.find(f=>!f.locked);}
+// 駅の紹介（天狗の旅案内）。事実として確かなことだけを短く
+const INFO={
+ 盛岡:{p:'岩手県の県庁所在地。北上川と中津川が流れる城下町。',h:'石川啄木・宮沢賢治が若いころに学んだ',s:'盛岡冷麺・じゃじゃ麺・わんこそば'},
+ 小岩井:{p:'小岩井農場がある。名前は、つくった3人（小野・岩崎・井上）の名字の頭文字から。',s:'牛乳・チーズなどの乳製品'},
+ 雫石:{p:'岩手山や秋田駒ヶ岳のふもとの町。温泉やスキー場がある。'},
+ 上米内:{p:'盛岡市の東。ここから山田線は山の中へ入っていく。'},
+ 区界:{p:'盛岡と宮古のあいだにある区界峠の駅。まわりは高原。'},
+ 茂市:{p:'宮古市の山あい。閉伊川（へいがわ）にそって線路が走る。'},
+ 宮古:{p:'三陸海岸の港町。白い岩の海岸「浄土ヶ浜」や、本州のいちばん東のはし「魹ヶ埼（とどがさき）」がある。',s:'さけ・さんまなどの海の幸'},
+ 好摩:{p:'盛岡市の北。石川啄木が育った渋民のそば。',h:'石川啄木（歌人）'},
+ いわて沼宮内:{p:'岩手町の駅。新幹線も止まる。',s:'キャベツ'},
+ 一戸:{p:'縄文時代の村のあと「御所野遺跡」がある（世界遺産）。'},
+ 二戸:{p:'天台寺や九戸城あとがある歴史の町。',h:'瀬戸内寂聴（作家。天台寺の住職をつとめた）',s:'浄法寺漆（うるし）'},
+ 矢幅:{p:'盛岡市の南どなり、矢巾町の駅。'},
+ 紫波中央:{p:'紫波町の駅。りんごやぶどうなど、くだものづくりがさかん。'},
+ 花巻:{p:'温泉の多い町。宮沢賢治記念館がある。',h:'宮沢賢治（「注文の多い料理店」などの作者）',s:'わんこそば'},
+ 北上:{p:'北上川ぞいの「北上展勝地」は桜の名所。',s:'二子さといも'},
+ 水沢:{p:'奥州市の中心。南部鉄器の産地。',h:'大谷翔平（野球選手）・後藤新平・高野長英',s:'南部鉄器'},
+ 平泉:{p:'中尊寺金色堂などがある世界遺産の町。奥州藤原氏が栄えた。',h:'松尾芭蕉が「夏草や兵どもが夢の跡」とよんだ'},
+ 一ノ関:{p:'一関市の中心。厳美渓や猊鼻渓など、景色の美しい谷がある。',s:'もち料理'},
+ 東京:{p:'日本の首都。赤レンガの駅舎は1914年にできた。',s:'江戸切子'},
+ 上野:{p:'上野公園や上野動物園（パンダ）がある。',h:'西郷隆盛（公園に銅像が立つ）',s:'雷おこし（浅草）'},
+ 大宮:{p:'さいたま市。鉄道博物館がある鉄道の町。',s:'盆栽'},
+ 小山:{p:'栃木県の南部の市。',s:'結城紬'},
+ 宇都宮:{p:'栃木県の県庁所在地。',s:'餃子'},
+ 那須塩原:{p:'酪農がさかん。近くに塩原温泉がある。',s:'牛乳'},
+ 新白河:{p:'「白河の関」の近く。昔から「みちのく（東北）の入口」とよばれた。',s:'白河ラーメン'},
+ 郡山:{p:'福島県のまん中にある大きな町。',s:'鯉（養殖の量が全国一）'},
+ 福島:{p:'福島県の県庁所在地。くだものづくりがさかん。',h:'古関裕而（作曲家）',s:'桃'},
+ 白石蔵王:{p:'白石城がある城下町。',h:'片倉小十郎（白石城の城主）',s:'白石温麺'},
+ 仙台:{p:'宮城県の県庁所在地。「杜の都」とよばれ、七夕まつりが有名。',h:'伊達政宗',s:'牛たん焼き'},
+ 古川:{p:'大崎市の中心。お米づくりがさかん。',h:'吉野作造（政治学者）',s:'お米'},
+ くりこま高原:{p:'栗原市。伊豆沼には冬にハクチョウやガンがやって来る。',s:'正藍染'},
+ 水沢江刺:{p:'奥州市の新幹線の駅。南部鉄器の産地。',h:'大谷翔平（野球選手）・後藤新平・高野長英',s:'南部鉄器'},
+ 新花巻:{p:'花巻市の新幹線の駅。近くに宮沢賢治記念館がある。',h:'宮沢賢治',s:'わんこそば'},
+ 八戸:{p:'青森県の港町。漁業がさかん。',s:'せんべい汁・いか'},
+ 七戸十和田:{p:'十和田湖や奥入瀬渓流への入口。',s:'長いも・にんにく'},
+ 新青森:{p:'青森市。ねぶた祭や三内丸山遺跡が有名。',h:'棟方志功（版画家）',s:'りんご'},
+ 奥津軽いまべつ:{p:'本州側で、青函トンネルにいちばん近い新幹線の駅。',s:'今別牛'},
+ 木古内:{p:'北海道新幹線で、北海道に入って最初の駅。',s:'ニラ（しりうちにら）'},
+ 新函館北斗:{p:'北海道新幹線の終点。函館へはここで乗りかえ。',s:'ホッキ貝'},
+};
+function showGuide(name){
+ const I=INFO[name];if(!I||!S)return;
+ const img=sprite('ub06','pose1');$('guideImg').src=img||'';$('guideImg').style.display=img?'':'none';
+ $('guideName').textContent=name;
+ $('guideBody').innerHTML=(I.p?'<div class="gl">🏞 '+I.p+'</div>':'')+(I.h?'<div class="gl">👤 '+I.h+'</div>':'')+(I.s?'<div class="gl">🎁 '+I.s+'</div>':'');
+ clearTimeout(guideFadeT);$('guide').classList.remove('out');$('guide').hidden=false;
+ const len=(I.p||'').length+(I.h||'').length+(I.s||'').length;
+ return Math.min(8,Math.max(3,1+len/9)); // 読むのに必要な停車時間（秒）
+}
+let guideFadeT=0;
+// 電車が動き出したら、ふわっと消す
+function hideGuide(){const g=$('guide');if(g.hidden||g.classList.contains('out'))return;g.classList.add('out');clearTimeout(guideFadeT);guideFadeT=setTimeout(()=>{g.hidden=true;g.classList.remove('out');},700);}
+function hideGuideNow(){clearTimeout(guideFadeT);$('guide').hidden=true;$('guide').classList.remove('out');}
+$('guideX').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();hideGuideNow();const st=S&&S.station;if(st&&st.state==='stopped'&&!st.z)st.t=Math.min(st.t,0.4);});
+function showStopBanner(name,final){
+ const b=$('stopBanner');b.classList.remove('small');
+ b.innerHTML='<div class="s1">🚉 次は'+(final?'終点':'停車駅')+'</div><div class="s2">'+name+'</div><div class="s3" id="sbDist"></div>';
+ b.hidden=false;clearTimeout(b._t);b._t=setTimeout(()=>b.classList.add('small'),2800);
+}
+function hideStopBanner(){$('stopBanner').hidden=true;}
+function showQuestion(){
+ const f=upcoming();if(!S.cur||!f)return;
+ $('sent').innerHTML=sentHTML(S.cur.item);
+ const q=f.kind==='amida'?NODES[f.node].q:'この言葉の品詞は？';
+ const k=f.kind==='amida'?'あみだ':'品詞を選べ';
+ $('step').innerHTML='<span class="tag">'+k+'</span><b>'+q+'</b>'+(f.kind==='amida'&&HINT[f.node]?'<span class="hint">💡'+HINT[f.node]+'</span>':'');
+ renderLanes();
+}
+
+// ===== 線路の位置 =====
+function trackX(s){let x=0;for(const f of S.forks){if(s<=f.s)break;x=f.baseX+f.offs[f.sel]*sm((s-f.s)/DIV);}return x;}
+function curve(s){return 16*Math.sin(s/240)+8*Math.sin(s/95+1);}
+function curveD(s){return 16/240*Math.cos(s/240)+8/95*Math.cos(s/95+1);}
+function rx(s,x){return x+curve(s)-curve(S.s)-curveD(S.s)*(s-S.s)-S.camX;}
+function proj(s,x,y){const z=s-S.s;return {X:W/2+rx(s,x)*F/z,Y:HOR+(CAM_H-y)*F/z,k:F/z,z};}
+
+// ===== 操作 =====
+function steer(d){if(!S||S.talkCur)return;const f=upcoming();if(!f||!running||paused||S.mode!=='run')return;const n=clamp(f.sel+d,0,f.n-1);if(n!==f.sel){f.sel=n;sfx.click();renderLanes();}}
+function pickLane(k){if(!S||S.talkCur)return;const f=upcoming();if(!f||!running||paused||S.mode!=='run')return;if(f.sel!==k){f.sel=k;sfx.click();renderLanes();}}
+function renderLanes(){
+ const f=upcoming(),box=$('lanes');
+ if(!f||S.station){box.innerHTML='';box.style.gridTemplateColumns='1fr';return;}
+ box.style.gridTemplateColumns='repeat('+f.n+',1fr)';
+ if(box.dataset.fid!==String(f.s)||box.children.length!==f.n){
+  box.dataset.fid=String(f.s);box.innerHTML='';
+  f.labels.forEach((l,k)=>{const b=document.createElement('button');b.innerHTML=l+(f.subs[k]?'<small>'+f.subs[k]+'</small>':'');b.addEventListener('pointerdown',e=>{e.preventDefault();pickLane(k);});box.appendChild(b);});
+ }
+ [...box.children].forEach((b,k)=>b.classList.toggle('sel',k===f.sel));
+}
+function holdBtn(id,key){const b=$(id);const on=e=>{e.preventDefault();keys[key]=true;b.classList.add('on');},off=()=>{keys[key]=false;b.classList.remove('on');};b.addEventListener('pointerdown',on);b.addEventListener('pointerup',off);b.addEventListener('pointerleave',off);b.addEventListener('pointercancel',off);}
+holdBtn('brakeBtn','down');holdBtn('accBtn','up');
+$('leftBtn').addEventListener('pointerdown',e=>{e.preventDefault();steer(-1);});
+$('rightBtn').addEventListener('pointerdown',e=>{e.preventDefault();steer(1);});
+document.addEventListener('keydown',e=>{
+ if(paused&&running){if(e.key===' '||e.key==='Enter'||e.key==='Escape'){e.preventDefault();setPause(false);}return;}
+ if(running&&e.key==='Escape'){setPause(true);return;}
+ if(S&&S.lessonOpen&&(e.key===' '||e.key==='Enter')){e.preventDefault();closeLesson();return;}
+ if(S&&S.talkCur&&e.key==='Enter'){e.preventDefault();nextTalk();return;}
+ if(S&&S.panelOpen&&(e.key===' '||e.key==='Enter')){e.preventDefault();closePanel();return;}
+ if(S&&S.choosing){if(e.key==='ArrowLeft')askDir(-1);else if(e.key==='ArrowRight')askDir(1);return;}
+ if(e.repeat&&(e.key==='ArrowLeft'||e.key==='ArrowRight'))return;
+ if(e.key==='ArrowLeft'||e.key==='a'){e.preventDefault();steer(-1);}
+ else if(e.key==='ArrowRight'||e.key==='d'){e.preventDefault();steer(1);}
+ else if(e.key==='ArrowUp'||e.key==='w'){e.preventDefault();keys.up=true;$('accBtn').classList.add('on');}
+ else if(e.key==='ArrowDown'||e.key==='s'){e.preventDefault();keys.down=true;$('brakeBtn').classList.add('on');}
+ else if(/^[1-4]$/.test(e.key))pickLane(+e.key-1);
+});
+document.addEventListener('keyup',e=>{
+ if(e.key==='ArrowUp'||e.key==='w'){keys.up=false;$('accBtn').classList.remove('on');}
+ if(e.key==='ArrowDown'||e.key==='s'){keys.down=false;$('brakeBtn').classList.remove('on');}
+});
+function setPause(v){
+ if(!running||(S&&(S.panelOpen||S.lessonOpen)))return;
+ paused=v;$('pauseBtn').textContent=paused?'▶':'⏸';$('pauseMenu').hidden=!paused;
+ if(paused){keys.up=keys.down=false;$('accBtn').classList.remove('on');$('brakeBtn').classList.remove('on');}
+}
+// 景色をタップ → 一時停止／もう一度タップ → 再開
+cv.addEventListener('pointerdown',e=>{e.preventDefault();setPause(true);});
+$('pauseMenu').addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;e.preventDefault();setPause(false);});
+$('pmRestart').onclick=()=>{$('pauseMenu').hidden=true;if(S&&S.game==='zenkoku')showZStart();else newGame(ROUTE.id);};
+$('pmRoute').onclick=()=>{$('pauseMenu').hidden=true;running=false;paused=false;$('pauseBtn').textContent='⏸';showHome();};
+$('pauseBtn').onclick=()=>setPause(!paused);
+$('homeBtn').onclick=()=>{keys.up=keys.down=false;if(S){S.talkQ=[];S.talkCur=null;document.body.classList.remove('talking');S.choosing=false;}showHome();};
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&running&&!paused)setPause(true);});
+window.addEventListener('resize',resize);
+
+// ===== 判定 =====
+function passFork(f){
+ f.locked=true;
+ const ok=f.sel===f.correct;
+ sfx.clack();
+ if(ok){
+  const mult=clamp(S.v/vBase(),0.5,1.4);
+  S.combo++;S.maxCombo=Math.max(S.maxCombo,S.combo);
+  if(f.kind==='amida'&&NODES[NODES[f.node].opts[f.correct].to]){
+   const pts=Math.round(40*mult);S.score+=pts;floatText('⭕ '+f.labels[f.correct]+' +'+pts,'#69f0ae');sfx.ok(0);
+   if(S.game==='iwate')vanishFakes(f);
+   amidaFork(NODES[f.node].opts[f.correct].to,f.s+Math.max(95,S.v*3.6));showQuestion();
+  }else{
+   const pts=Math.round(100*mult*(1+Math.min(S.combo,20)*0.1));S.score+=pts;S.oks++;
+   floatText('⭕ '+S.cur.item.pos+'！ +'+pts+(mult>1.15?' 加速ボーナス':''),'#ffeb3b');sfx.ok(1);
+   if(S.game==='zenkoku')tokenDone(true);else{if(S.game==='iwate'){vanishFakes(f);hitBoss();}S.words++;nextLeg();if(S.game==='iwate')maybeCard(S.cur?S.cur.item.pos:f.labels[f.correct]);}
+  }
+ }else{
+  S.mode='wrong';S.wrongAt=f.s+26;
+  const it=S.cur.item;let node=f.node;
+  if(f.kind==='direct'){const chosen=f.labels[f.sel];node=chainOf(it.pos).find(n=>correctIdx(n,it.pos)!==correctIdx(n,chosen))||chainOf(it.pos)[0];}
+  S.crash={item:it,node,chosen:f.labels[f.sel],kind:f.kind,label:f.labels[f.correct]};
+ }
+ updateHud();
+}
+function doCrash(){
+ if(S.game==='iwate'){S.bossPose='attack';S.bossReact=1.4;floatText('天狗「かっかっか！ それはまやかしの線路じゃ」','#e1bee7');}
+ S.mode='crash';S.crashT=0;S.shake=1;S.lives--;S.combo=0;
+ S.misses.push({item:S.crash.item,node:S.crash.node});
+ sfx.crash();
+ for(let i=0;i<40;i++)S.parts.push({x:W/2+(Math.random()-0.5)*W*0.5,y:HOR+(H-DASH-HOR)*0.6+(Math.random()-0.5)*60,vx:(Math.random()-0.5)*300,vy:-Math.random()*250,r:2+Math.random()*3,life:0,max:0.5+Math.random()*0.6,t:'spark'});
+ updateHud();
+}
+function openPanel(){
+ S.talkQ=[];S.talkCur=null;document.body.classList.remove('talking');$('talk').hidden=true;
+ const c=S.crash,it=c.item;S.panelOpen=true;
+ const route=chainOf(it.pos).map(n=>SHORT[n][correctIdx(n,it.pos)]).join(' → ')+' → <b>'+it.pos+'</b>';
+ $('panelCard').innerHTML='<h3>💥 脱線！</h3><div class="q">'+sentHTML(it)+'</div>'+
+  '<div class="ans">「'+esc(c.chosen)+'」ではなく<b>「'+esc(c.label)+'」</b>の線だった。<br>'+esc(explain(it,c.node))+(it.note?'<br>💡 '+esc(it.note):'')+'</div>'+
+  '<div style="font-size:14px">正しい道すじ：'+route+'</div>'+
+  '<button class="btn" id="panelBtn">'+(S.lives>0?'復旧して発車（スペース）':'結果を見る')+'</button>';
+ $('panel').hidden=false;$('panelBtn').onclick=closePanel;
+}
+function closePanel(){
+ if(!S.panelOpen)return;S.panelOpen=false;$('panel').hidden=true;
+ if(S.lives<=0){finish();return;}
+ S.mode='run';S.roll=0;S.v=0;
+ if(S.game==='zenkoku'){tokenDone(false);return;}
+ S.words++;nextLeg();
+}
+function stationUpdate(dt){
+ const st=S.station;if(!st)return;
+ if(st.state==='pass'){
+  if(S.s>st.s+16){S.station=null;renderRoute();startWord(gapWord());}
+ }else if(st.state==='approach'){
+  if(S.v<=0.01&&S.s>st.s-80){
+   const diff=S.s-st.s,a=Math.abs(diff);
+   const [b,msg]=a<0.5?[1000,'ぴったり停車！']:a<2?[500,'うまい停車！']:a<6?[200,'停車']:[50,'停車（ずれ '+a.toFixed(1)+'m）'];
+   hideStopBanner();const gT=showGuide(st.name)||0;S.score+=b;st.state='stopped';st.t=Math.max(st.final?2.4:2.2,gT);floatText('🚉 '+st.name+'　'+msg+' +'+b,'#ffeb3b');sfx.arrive();updateHud();
+   if(st.z){st.t=1.6;st.omiyage=grantOmiyage(st.name,a);}
+   $('sent').innerHTML='🚉 '+st.name+(st.final?'　終点です':'');
+   $('step').innerHTML='<span class="tag">停車</span><b>'+msg+'　停止位置から '+(diff>=0?'+':'')+diff.toFixed(1)+'m</b>';
+  }else if(S.s>st.s+14){
+   hideStopBanner();floatText(st.name+'を通りすぎてしまった…','#ff8a80');
+   if(st.final||st.z){st.state='stopped';st.t=1.5;S.v=0;st.omiyage=null;}else{S.station=null;renderRoute();startWord(150);}
+  }
+ }else if(st.state==='stopped'){
+  if(!S.talkCur)st.t-=dt;
+  if(st.t<=0){
+   if(st.z){if(!S.choosing)openDir(st);return;}
+   if(st.final){S.cleared=true;renderRoute();if(S.game==='iwate'&&!S.bossDown){S.bossDown=true;showBossDefeat();return;}finish();return;}
+   S.station=null;renderRoute();sfx.whistle();startWord(st.first?150:140);
+  }
+ }
+}
+function bestKey(){return ROUTE.id;}
+function finish(){
+ hideGuideNow();
+ if(S.game==='zenkoku'){finishZ();return;}
+ running=false;
+ const best=svGet('best');
+ if(S.cleared)S.score+=500*S.lives;
+ const isBest=S.cleared&&S.score>(best[bestKey()]||0);if(isBest){best[bestKey()]=S.score;svSet('best',best);}
+ const here=ROUTE.stations[Math.min(S.idx,ROUTE.stations.length-1)],nx=ROUTE.stations[Math.min(S.idx+1,ROUTE.stations.length-1)];
+ if(S.cleared){const c=loadClr();c[ROUTE.id]=1;svSet('clr',c);}
+ {const rc=loadReach();rc[ROUTE.id]=Math.max(rc[ROUTE.id]||0,S.cleared?ROUTE.stations.length-1:S.idx);svSet('reach',rc);}
+ $('rsMap').innerHTML=iwateMapHTML(ROUTE.id,S.cleared?ROUTE.stations.length-1:S.idx,300);
+ $('rsTitle').textContent=S.cleared?'🎉 '+ROUTE.dest+'に到着！ STAGE'+ROUTE.stage+' 修行クリア':'🚧 運転見合わせ';
+ $('rsInfo').innerHTML=ROUTE.line+'　盛岡 → '+ROUTE.dest+'（'+course.name+'）<br>'+(S.cleared?'残りライフボーナス +'+500*S.lives+'<br>':here+'〜'+nx+'間で運転を見合わせました<br>')+
+  '正解 <b>'+S.oks+'</b>問　最大連続 <b>'+S.maxCombo+'</b>　得点 <b>'+S.score+'</b>'+(isBest?'<br>🏆 この行き先の自己ベスト！':'');
+ $('rsReview').innerHTML=S.misses.length?'<b>脱線した言葉をふり返ろう</b>'+S.misses.map(m=>'<div class="rv">'+sentHTML(m.item)+' → <b>'+m.item.pos+'</b><br><small>'+esc(explain(m.item,m.node))+'</small></div>').join(''):'';
+ $('result').hidden=false;
+}
+$('rsAgain').onclick=()=>{if(S&&S.game==='zenkoku'){$('result').hidden=true;showZStart();}else newGame(ROUTE.id);};
+$('rsMenu').onclick=()=>{$('result').hidden=true;showHome();};
+function showStart(){
+ const best=svGet('best');
+ const clr=loadClr(),all=/[?&]unlock=1/.test(location.search);
+ $('iwMap').innerHTML=iwateMapHTML();
+ $('routeBtns').innerHTML=ROUTES.map((r,i)=>{const bs=best[r.id],open=all||i===0||clr[ROUTES[i-1].id],img=sprite(r.boss,'pose1');
+  return '<button class="rbtn'+(open?'':' lock')+'" data-r="'+r.id+'" style="background:'+r.color+'">'+(img?'<img src="'+img+'" alt="">':'')+'<b>'+(open?'':'🔒')+'STAGE'+r.stage+'<br>'+r.dest+'行き</b><span>'+r.line+'　'+(r.stations.length-1)+'問<br>学ぶこと：'+r.learn+'</span><em>'+(clr[r.id]?'✔クリア':open?'未クリア':'前のステージをクリア')+(bs?'<br>ベスト '+bs+'点':'')+'</em></button>';}).join('');
+ $('routeBtns').querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>{if(b.classList.contains('lock'))return;sfx.init();newGame(b.dataset.r);});
+ $('startScreen').hidden=false;
+}
+function updateHud(){if(!S)return;$('lives').textContent=S.lives>0?'❤'.repeat(S.lives):'—';$('score').textContent=S.score;$('combo').textContent=S.combo;}
+function floatText(t,c){S.floats.push({t,c,life:0});}
+
+// ================= 品詞ジャンル（知識ドリルDX本体 kokugo_data.js）の問題 =================
+const GEN=(()=>{
+ const c=window.QUESTION_DATA&&window.QUESTION_DATA.cats&&window.QUESTION_DATA.cats.hinshi;
+ const single=[],groups={};
+ if(!c)return {single,sentences:[]};
+ for(const x of c.items){
+  if(!Array.isArray(x.c))continue;
+  let pos=x.c[x.a];if(pos==='代名詞')pos='名詞';
+  if(!POS_COLOR[pos])continue;
+  const m=String(x.q).match(/^(.*)《(.*?)》(.*)$/);
+  if(m){
+   const it={s:m[1]+'【'+m[2]+'】'+m[3],pos,base:'',note:x.e||'',w:m[2],at:m[1].length,lv:x.lv};
+   const plain=m[1]+m[2]+m[3];(groups[plain]=groups[plain]||[]).push(it);single.push(it);
+  }else single.push({s:'【'+x.q+'】',pos,base:'',note:x.e||'',lv:x.lv});
+ }
+ const sentences=Object.entries(groups).filter(([k,v])=>v.length>=3).map(([text,v])=>({text,tokens:v.sort((a,b)=>a.at-b.at)}));
+ return {single,sentences};
+})();
+// 言い切りの形が分からない問題（品詞ジャンル）にも使える説明
+function explain(it,nid){
+ const w='「'+splitS(it.s)[1]+'」',b=it.base?'「'+it.base+'」':'',i=correctIdx(nid,it.pos);
+ const T={
+  J1:[w+'は、それだけで意味がわかり、文節のはじめに来る → 自立語',w+'は、それだけでは文節を作れず、ほかの言葉のあとにつく → 付属語'],
+  J2:[w+'は、あとにつく言葉で形が変わる'+(b?'（言い切りの形は'+b+'）':'')+' → 活用する',w+'は、形が変わらない → 活用しない'],
+  J3:['言い切りの形'+(b?b+'は':'が')+'、ウ段の音で終わる → 動詞','言い切りの形'+(b?b+'は':'が')+'、「い」で終わる → 形容詞','言い切りの形'+(b?b+'は':'が')+'、「だ」で終わる → 形容動詞'],
+  J4:[w+'は、「が」「は」をつけて主語になれる → 名詞（体言）',w+'は、主語にならない'],
+  J5:[w+'は、あとの言葉をくわしくする（修飾語になる）',w+'は、修飾語にならない'],
+  J6:[w+'は、主に用言（動き・様子の言葉）をくわしくする → 副詞',w+'は、体言（名詞）だけをくわしくする → 連体詞'],
+  J7:[w+'は、前とあとをつなぐ（接続語）→ 接続詞',w+'は、よびかけ・返事・感動などを表し、ほかと直接つながらない（独立語）→ 感動詞'],
+  J8:[w+'は、形が変わる'+(b?'（言い切りの形は'+b+'）':'')+' → 助動詞',w+'は、形が変わらない → 助詞'],
+ };
+ return T[nid][i];
+}
+
+// ================= 全国編（新幹線） =================
+// 駅の並びはWikipedia「東北新幹線」「北海道新幹線」で確認。特産品は各市町村のページ等で確認（2026年11月）
+const SHINKANSEN=[
+ {n:'東京',p:'江戸切子',e:'🥃',d:'ガラスに細かな模様をきざむ東京の伝統工芸'},
+ {n:'上野',p:'雷おこし',e:'🍘',d:'浅草（台東区）の名物のおかし'},
+ {n:'大宮',p:'盆栽',e:'🌳',d:'大宮盆栽村で知られる'},
+ {n:'小山',p:'結城紬',e:'🧵',d:'小山市でも作られる高級な絹織物'},
+ {n:'宇都宮',p:'餃子',e:'🥟',d:'宇都宮の名物'},
+ {n:'那須塩原',p:'牛乳',e:'🥛',d:'酪農がさかんで、生乳の生産が多い'},
+ {n:'新白河',p:'白河ラーメン',e:'🍜',d:'白河の名物'},
+ {n:'郡山',p:'鯉',e:'🐟',d:'鯉の養殖生産量が市町村で全国一（2014年）'},
+ {n:'福島',p:'桃',e:'🍑',d:'くだもの王国・福島の代表'},
+ {n:'白石蔵王',p:'白石温麺',e:'🍝',d:'油を使わずに作る、長さ9cmの短いめん'},
+ {n:'仙台',p:'牛たん焼き',e:'🥩',d:'仙台の名物'},
+ {n:'古川',p:'お米',e:'🌾',d:'大崎市はブランド米の産地'},
+ {n:'くりこま高原',p:'正藍染',e:'🟦',d:'栗原市に伝わる昔ながらの藍染め'},
+ {n:'一ノ関',p:'もち料理',e:'🍡',d:'一関は、もちを食べる文化が根づく'},
+ {n:'水沢江刺',p:'南部鉄器',e:'🫖',d:'奥州市（水沢）の伝統工芸'},
+ {n:'北上',p:'二子さといも',e:'🥔',d:'北上市の名産'},
+ {n:'新花巻',p:'わんこそば',e:'🥢',d:'花巻・盛岡の名物'},
+ {n:'盛岡',p:'盛岡冷麺',e:'🥣',d:'盛岡の名物'},
+ {n:'いわて沼宮内',p:'キャベツ',e:'🥬',d:'岩手町は夏秋キャベツの産地'},
+ {n:'二戸',p:'浄法寺漆',e:'🏺',d:'国内屈指のうるしの産地'},
+ {n:'八戸',p:'せんべい汁',e:'🍲',d:'八戸の名物'},
+ {n:'七戸十和田',p:'長いも',e:'🌱',d:'七戸町の特産品'},
+ {n:'新青森',p:'りんご',e:'🍎',d:'青森の代表'},
+ {n:'奥津軽いまべつ',p:'今別牛',e:'🐄',d:'「幻の牛」とも呼ばれる黒毛和牛'},
+ {n:'木古内',p:'ニラ',e:'🌿',d:'「しりうちにら」の産地のひとつ'},
+ {n:'新函館北斗',p:'ホッキ貝',e:'🐚',d:'北斗市の名産'},
+];
+const Z_START=SHINKANSEN.findIndex(x=>x.n==='盛岡');
+// 首都・政令指定都市の駅は、一度着けば、いつでもそこから再スタートできる
+const Z_HUB={東京:'首都',大宮:'政令指定都市・さいたま市',仙台:'政令指定都市・仙台市'};
+function zkSave(){if(!S||S.game!=='zenkoku')return;const z=svGet('zk');z.last=S.idx;z.dir=S.dir||0;const n=SHINKANSEN[S.idx].n;if(Z_HUB[n]){z.hubs=z.hubs||{};z.hubs[n]=1;}z.been=z.been||{};z.been[n]=1;svSet('zk',z);}
+// 一度行った駅（お土産・再スタート地点・続きの駅も、行ったことがある駅として数える）
+function zkBeen(){const z=svGet('zk'),b=Object.assign({},z.been||{},z.hubs||{});for(const n in loadOmi())b[n]=1;if(typeof z.last==='number'&&SHINKANSEN[z.last])b[SHINKANSEN[z.last].n]=1;return b;}
+const OMI_KEY='hinshi_train_omiyage_v1';
+const loadOmi=()=>svGet('omi');
+function lineColor(){return S&&S.game==='zenkoku'?'#00897b':ROUTE.color;}
+let sentPool=[];
+function nextSentence(){
+ if(GEN.sentences.length){if(!sentPool.length)sentPool=shuffle(GEN.sentences.slice());const x=sentPool.pop();return {text:x.text,tokens:x.tokens};}
+ // 本体のデータが読めないときは、単語の問題を3つで1区間にする
+ return {text:null,tokens:[nextItem(),nextItem(),nextItem()]};
+}
+function newGameZ(startIdx,dir){
+ pool=[];sentPool=[];const st0=startIdx===undefined?Z_START:startIdx;
+ course={key:'zenkoku',name:'全国編',start:'J1',pool:ITEMS.concat(GEN.single)};
+ document.body.classList.add('zk');
+ ['homePage','zukan','startScreen','result','talk','stopBanner','zStart'].forEach(id=>$(id).hidden=true);hideGuideNow();$('panel').hidden=true;$('pauseMenu').hidden=true;$('dirPanel').hidden=true;
+ $('pauseBtn').textContent='⏸';
+ S={s:0,v:0,lives:3,score:0,combo:0,maxCombo:0,words:0,oks:0,forks:[],station:null,mode:'run',lean:0,roll:0,shake:0,wheel:0,
+  misses:[],cur:null,floats:[],parts:[],idx:st0,target:st0,startIdx:st0,dir:dir||0,legs:0,path:[st0],visited:[],got:[],tickAcc:0,camX:0,panelOpen:false,choosing:false,cleared:false,game:'zenkoku'};
+ running=true;paused=false;
+ S.station={s:10,name:SHINKANSEN[st0].n,state:'stopped',t:1.2,stop:true,first:true,z:true};
+ $('sent').innerHTML='🚄 新幹線で旅に出よう！';
+ $('step').innerHTML='<b>'+SHINKANSEN[st0].n+'から出発</b>';
+ renderRoute();renderLanes();updateHud();resize();sfx.whistle();showGuide(SHINKANSEN[st0].n);zkSave();
+}
+function grantOmiyage(name,diff){
+ const o=SHINKANSEN.find(x=>x.n===name);if(!o)return null;
+ const om=loadOmi(),gold=diff<1,prev=om[name]||0,lvl=gold?2:1,isNew=!prev,up=lvl>prev;
+ if(up){om[name]=lvl;svSet('omi',om);}
+ if(isNew){S.score+=300;updateHud();}
+ if(!S.got.find(g=>g.n===name))S.got.push({n:name,gold,isNew});
+ if(!S.visited.includes(name))S.visited.push(name);
+ floatText(o.e+' '+o.p+(gold?'（金）':'')+(isNew?' NEW!':''),'#ffd54f');
+ return {o,gold,isNew,up};
+}
+function openDir(st){
+ S.choosing=true;zkSave();
+ const i=S.idx,south=SHINKANSEN[i-1],north=SHINKANSEN[i+1],om=st.omiyage;
+ let got='';
+ if(st.first)got='ここから旅のはじまり！';
+ else if(om)got=om.o.e+' <b>'+om.o.p+'</b>'+(om.gold?'（金色）':'')+'を手に入れた！'+(om.isNew?' <b style="color:#e65100">NEW +300</b>':'')+'<br><small>'+om.o.d+'</small>';
+ else got='停止位置を通りすぎて、お土産は買えなかった…';
+ const dir=S.dir||0,mk=(d,x,lbl)=>{const cls=!dir?'':d===dir?'fwd':'back';return '<button class="'+cls+'" data-d="'+d+'" '+(x?'':'disabled')+'>'+(cls==='fwd'?'このまま進む：':cls==='back'?'来た道を戻る：':'')+lbl+'<small>'+(x?'次は '+x.n:'この先に駅はない')+'</small></button>';};
+ const cand=[i-1,i+1].filter(k=>k>=0&&k<SHINKANSEN.length);
+ $('dirCard').innerHTML='<h3>🚉 '+SHINKANSEN[i].n+'駅　次はどちらへ？</h3><div class="got">'+got+'</div><div class="mapwrap">'+neMapHTML({path:S.path,here:i,cand,win:i,h:200})+'</div>'+
+  '<div class="dirs">'+mk(-1,south,'◀ 南へ（東京方面）')+mk(1,north,'北へ（函館方面） ▶')+'</div>'+
+  '<button class="end" id="endTrip">🏁 ここで旅を終える</button>';
+ $('dirCard').querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>askDir(+b.dataset.d));
+ $('endTrip').onclick=()=>{S.choosing=false;$('dirPanel').hidden=true;S.cleared=true;finish();};
+ $('dirPanel').hidden=false;
+}
+// 来た道を戻るときは、ひと言たしかめる
+function askDir(d){
+ if(!S||!S.choosing)return;
+ if(!S.dir||d===S.dir){chooseDir(d);return;}
+ const t=SHINKANSEN[S.idx+d];if(!t)return;
+ const keep=$('dirCard').innerHTML;
+ $('dirCard').innerHTML='<h3>⚠ 来た道を戻ることになるよ</h3><div class="warn">'+t.n+'へ向かうと、いま走ってきた線路を<b>戻る</b>ことになります。<br>それでもいいですか？</div><div class="dirs"><button class="back" id="dirYes">戻る（'+t.n+'へ）</button><button class="fwd" id="dirNo">やめる</button></div>';
+ $('dirYes').onclick=()=>chooseDir(d);
+ $('dirNo').onclick=()=>{$('dirCard').innerHTML=keep;$('dirCard').querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>askDir(+b.dataset.d));$('endTrip').onclick=()=>{S.choosing=false;$('dirPanel').hidden=true;S.cleared=true;finish();};};
+}
+function chooseDir(d){
+ if(!S||!S.choosing)return;
+ const t=S.idx+d;if(t<0||t>=SHINKANSEN.length)return;
+ S.choosing=false;$('dirPanel').hidden=true;
+ S.dir=d;zkSave();
+ S.target=t;S.station=null;sfx.whistle();
+ renderRoute();startLeg();
+}
+function startLeg(){
+ const sen=nextSentence();
+ S.leg={text:sen.text,tokens:sen.tokens,i:0,res:[]};
+ tokenFork(170);
+}
+function nLanesZ(){return S.legs<3?3:4;}
+function tokenFork(gap){
+ const it=S.leg.tokens[S.leg.i];
+ S.cur={item:it,amida:false};
+ const names=makeOpts(it,nLanesZ());
+ const at=Math.max(lastS()+gap,S.s+gap*0.8);
+ addFork(at,{kind:'direct',labels:names,subs:names.map(()=>''),correct:names.indexOf(it.pos)});
+ showQuestionZ();
+}
+function tokenDone(ok){
+ S.leg.res[S.leg.i]=ok;S.leg.i++;
+ if(S.leg.i<S.leg.tokens.length){tokenFork(Math.max(105,140-S.legs*2));return;}
+ // 1文が終わったら次の駅へ
+ S.legs++;S.idx=S.target;S.path.push(S.idx);
+ const name=SHINKANSEN[S.idx].n,at=Math.max(lastS()+230,S.s+260);
+ S.station={s:at,name,stop:true,final:false,state:'approach',z:true};
+ showStopBanner(name,false);
+ S.cur=null;
+ $('sent').innerHTML=legHTML(true);
+ $('step').innerHTML='<b>次は '+name+'。↓ブレーキで停止線に止めよう</b>';
+ renderLanes();renderRoute();
+}
+function legHTML(all){
+ const L=S.leg;
+ const tag=(t,k)=>{
+  const w=t.w!==undefined?t.w:splitS(t.s)[1];
+  if(k<L.i||all){const ok=L.res[k];return '<span class="jt '+(ok?'ok':'ng')+'"><span>'+esc(w)+'</span><small>'+t.pos+'</small></span>';}
+  if(k===L.i)return '<span class="tg">'+esc(w)+'</span>';
+  return '<span class="tk">'+esc(w)+'</span>';
+ };
+ if(L.text){
+  let h='',p=0;
+  L.tokens.forEach((t,k)=>{h+=esc(L.text.slice(p,t.at));h+=tag(t,k);p=t.at+t.w.length;});
+  return h+esc(L.text.slice(p));
+ }
+ return L.tokens.map((t,k)=>k===L.i&&!all?sentHTML(t):tag(t,k)).join(' ／ ');
+}
+function showQuestionZ(){
+ $('sent').innerHTML=legHTML(false);
+ $('step').innerHTML='<span class="tag">品詞分解 '+(S.leg.i+1)+'/'+S.leg.tokens.length+'</span><b>赤い単語の品詞は？</b>';
+ renderLanes();
+}
+function vBase(){return S&&S.game==='zenkoku'?Math.min(38,23+S.legs*1.0):Math.min(42,19+S.words*0.75);}
+function renderRouteZ(){
+ const box=$('route'),om=loadOmi();let h='';
+ const moving=!S.station||S.station.state==='approach';
+ SHINKANSEN.forEach((x,i)=>{
+  const cls=['st','stop',moving&&i===S.target&&S.target!==S.idx?'next':'',!moving&&i===S.idx?'here':'',(moving&&i===S.idx&&S.station&&S.station.state==='approach')?'next':''].join(' ');
+  if(i)h+='<span class="bar"></span>';
+  h+='<span class="'+cls+'" data-i="'+i+'"><i></i>'+x.n+'<u>'+(om[x.n]?x.e:'')+'</u></span>';
+ });
+ box.innerHTML=h;
+ const cur=box.querySelector('[data-i="'+(moving?S.target:S.idx)+'"]');
+ if(cur)box.scrollLeft=cur.offsetLeft-box.clientWidth/2;
+}
+function finishZ(){
+ hideGuideNow();
+ running=false;
+ $('rsMap').innerHTML=neMapHTML({path:S.path,here:S.idx,h:300});
+ const best=svGet('best');
+ const isBest=S.score>(best.zenkoku||0);if(isBest){best.zenkoku=S.score;svSet('best',best);}
+ $('rsTitle').textContent=S.cleared?'🎒 旅の記録':'🚧 運転見合わせ';
+ const got=S.got.map(g=>{const o=SHINKANSEN.find(x=>x.n===g.n);return o.e+o.p+(g.gold?'✨':'')+(g.isNew?'<b style="color:#e65100">NEW</b>':'');}).join('　');
+ $('rsInfo').innerHTML='新幹線　'+SHINKANSEN[S.startIdx].n+'から '+S.legs+'区間を走った<br>'+(got?'手に入れたお土産：'+got+'<br>':'')+
+  '正解 <b>'+S.oks+'</b>問　最大連続 <b>'+S.maxCombo+'</b>　得点 <b>'+S.score+'</b>'+(isBest?'<br>🏆 全国編の自己ベスト！':'');
+ $('rsReview').innerHTML=S.misses.length?'<b>脱線した言葉をふり返ろう</b>'+S.misses.map(m=>'<div class="rv">'+sentHTML(m.item)+' → <b>'+m.item.pos+'</b><br><small>'+esc(explain(m.item,m.node))+(m.item.note?'<br>💡 '+esc(m.item.note):'')+'</small></div>').join(''):'';
+ $('result').hidden=false;
+}
+// ================= ホーム・お土産帳 =================
+// ================= 地図（Natural Earth の県境＋駅のおおよその緯度経度） =================
+const GEO={
+ '東京':[35.681,139.767],'上野':[35.714,139.777],'大宮':[35.906,139.624],'小山':[36.313,139.806],'宇都宮':[36.559,139.898],
+ '那須塩原':[36.932,140.020],'新白河':[37.123,140.188],'郡山':[37.398,140.388],'福島':[37.754,140.460],'白石蔵王':[38.008,140.636],
+ '仙台':[38.260,140.882],'古川':[38.571,140.968],'くりこま高原':[38.748,141.071],'一ノ関':[38.926,141.138],'水沢江刺':[39.145,141.185],
+ '北上':[39.287,141.113],'新花巻':[39.411,141.173],'盛岡':[39.701,141.136],'いわて沼宮内':[39.961,141.212],'二戸':[40.271,141.302],
+ '八戸':[40.512,141.431],'七戸十和田':[40.720,141.164],'新青森':[40.827,140.693],'奥津軽いまべつ':[41.145,140.513],'木古内':[41.678,140.434],'新函館北斗':[41.905,140.648],
+ '雫石':[39.696,140.975],'小岩井':[39.728,141.027],
+ '上盛岡':[39.712,141.163],'上米内':[39.738,141.225],'区界':[39.659,141.392],'茂市':[39.662,141.800],'千徳':[39.652,141.910],'宮古':[39.641,141.951],
+ '滝沢':[39.776,141.148],'好摩':[39.866,141.178],'奥中山高原':[40.070,141.225],'一戸':[40.208,141.297],
+ '矢幅':[39.604,141.152],'紫波中央':[39.556,141.165],'石鳥谷':[39.480,141.150],'花巻':[39.389,141.115],'水沢':[39.142,141.140],'平泉':[38.985,141.118],
+};
+function geoXY(n){const g=GEO[n];if(!g||typeof HT_MAP==='undefined')return null;return [(g[1]-HT_MAP.lon0)*HT_MAP.cos*HT_MAP.s,(HT_MAP.lat0-g[0])*HT_MAP.s];}
+// 位置が分かっている駅のあいだの駅は、順番どおり等間隔に置く（路線図ふう）
+function routePts(st){
+ const known=st.map((n,i)=>geoXY(n)?i:-1).filter(i=>i>=0);
+ return st.map((n,i)=>{const p=geoXY(n);if(p)return p;
+  let a=known.filter(k=>k<i).pop(),b=known.find(k=>k>i);if(a===undefined)a=b;if(b===undefined)b=a;
+  const pa=geoXY(st[a]),pb=geoXY(st[b]),t=b===a?0:(i-a)/(b-a);return [pa[0]+(pb[0]-pa[0])*t,pa[1]+(pb[1]-pa[1])*t];});
+}
+const VB={jp:[-760,20,1400,1480],ne:[40,330,370,800],iw:[195,522,140,196]};
+// vb: 地図の範囲（文字か配列）。pxH: 画面での高さ(px)。印や文字の大きさは px で指定する
+// lines:[{pts,color,width,dash}]  dots:[{p,r,fill,stroke,label,emoji,es,fs,lx,ly,anchor}]
+function mapSVG(vb,lines,dots,extra,pxH,useIw){
+ if(typeof HT_MAP==='undefined')return '';
+ const V=Array.isArray(vb)?vb:VB[vb],[x,y,w,h]=V,k=h/(pxH||300);
+ const land=(useIw?HT_MAP.iw:HT_MAP.jp).map(p=>'<path d="'+p.d+'" fill="'+(p.main||(!useIw&&p.n==='岩手県')?'#ffe0a8':'#f3ead0')+'" stroke="#bfae84" stroke-width="'+(p.main?1.4:0.7)+'" vector-effect="non-scaling-stroke"/>').join('');
+ let o='<svg class="map" viewBox="'+x+' '+y+' '+w+' '+h+'" preserveAspectRatio="xMidYMid meet" style="background:#bfe3f5">'+land;
+ for(const L of lines){const d='M'+L.pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join('L');
+  o+='<path d="'+d+'" fill="none" stroke="#fff" stroke-width="'+((L.width||3)+3)+'" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" opacity=".9"/>';
+  o+='<path d="'+d+'" fill="none" stroke="'+L.color+'" stroke-width="'+(L.width||3)+'" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"'+(L.dash?' stroke-dasharray="'+L.dash+'"':'')+'/>';}
+ for(const D of dots){const r=(D.r===undefined?4:D.r)*k,X=D.p[0],Y=D.p[1];
+  if(r>0)o+='<circle cx="'+X.toFixed(1)+'" cy="'+Y.toFixed(1)+'" r="'+r.toFixed(2)+'" fill="'+(D.fill||'#fff')+'" stroke="'+(D.stroke||'#333')+'" stroke-width="1.5" vector-effect="non-scaling-stroke"/>';
+  if(D.emoji)o+='<text x="'+X.toFixed(1)+'" y="'+(Y-r-2*k).toFixed(1)+'" font-size="'+((D.es||16)*k).toFixed(1)+'" text-anchor="middle">'+D.emoji+'</text>';
+  if(D.label)o+='<text x="'+(X+(D.lx===undefined?r+4*k:D.lx*k)).toFixed(1)+'" y="'+(Y+(D.ly===undefined?4*k:D.ly*k)).toFixed(1)+'" font-size="'+((D.fs||12)*k).toFixed(1)+'" font-weight="bold" fill="#222" stroke="#fff" stroke-width="'+(3*k).toFixed(2)+'" paint-order="stroke"'+(D.anchor?' text-anchor="'+D.anchor+'"':'')+'>'+D.label+'</text>';}
+ return o+(extra||'')+'</svg>';
+}
+
+const REACH_KEY='hinshi_train_iwate_reach_v1';
+const loadReach=()=>svGet('reach');
+const SK_NAMES=()=>SHINKANSEN.map(x=>x.n);
+// 岩手の地図：路線ごとに、行ったところまでを太く
+function iwateMapHTML(curRoute,curIdx,pxH){
+ pxH=pxH||260;const clr=loadClr(),reach=loadReach(),lines=[],dots=[];
+ for(const r of ROUTES){
+  const pts=routePts(r.stations),got=curRoute===r.id?Math.max(curIdx,reach[r.id]||0):(clr[r.id]?pts.length-1:(reach[r.id]||0));
+  lines.push({pts,color:'#9e9e9e',width:2,dash:'5 4'});
+  if(got>0)lines.push({pts:pts.slice(0,got+1),color:r.color,width:6});
+  const left=r.id==='shizukuishi';
+  dots.push({p:pts[pts.length-1],r:6,fill:clr[r.id]?r.color:'#fff',stroke:r.color,label:r.stage+' '+r.dest+(clr[r.id]?' ✔':''),fs:14,lx:left?-9:9,anchor:left?'end':null,ly:left?-8:5});
+ }
+ dots.push({p:geoXY('盛岡'),r:7,fill:'#e53935',stroke:'#fff',label:'盛岡',fs:14,lx:-10,ly:18,anchor:'end'});
+ if(curRoute){const r=ROUTES.find(x=>x.id===curRoute),pts=routePts(r.stations);dots.push({p:pts[Math.min(curIdx,pts.length-1)],r:8,fill:'#ffeb3b',stroke:'#e65100',emoji:'🚃',es:22});}
+ return mapSVG('iw',lines,dots,'',pxH,true);
+}
+// 東北・北海道の地図：通った道・お土産・いまいる駅
+function neMapHTML(opt){
+ opt=opt||{};const om=loadOmi(),names=SK_NAMES(),pts=routePts(names),lines=[{pts,color:'#80cbc4',width:3}],dots=[],pxH=opt.h||340;
+ let vb='ne';
+ if(opt.win!==undefined){ // いまいる駅のまわりだけを大きく
+  const lo=Math.max(0,opt.win-3),hi=Math.min(pts.length-1,opt.win+3),ps=pts.slice(lo,hi+1);
+  const x0=Math.min(...ps.map(p=>p[0])),x1=Math.max(...ps.map(p=>p[0])),y0=Math.min(...ps.map(p=>p[1])),y1=Math.max(...ps.map(p=>p[1]));
+  const hh=y1-y0+50,ww=Math.max(x1-x0+60,hh*(opt.ratio||2.6)),cx=(x0+x1)/2,cy=(y0+y1)/2;vb=[cx-ww/2,cy-hh/2,ww,hh];
+ }
+ if(opt.path&&opt.path.length>1)for(let k=1;k<opt.path.length;k++)lines.push({pts:[pts[opt.path[k-1]],pts[opt.path[k]]],color:'#00695c',width:6});
+ names.forEach((n,i)=>{const o=SHINKANSEN[i],g=om[n],show=opt.win!==undefined||opt.labels;
+  dots.push({p:pts[i],r:g?5:3.5,fill:g===2?'#ffd54f':g?'#fff':'#e0f2f1',stroke:'#00695c',emoji:g?o.e:'',es:opt.win!==undefined?18:15,label:show?n:'',fs:opt.cand&&opt.cand.includes(i)?14:12});});
+ if(opt.cand)for(const c of opt.cand)dots.push({p:pts[c],r:7,fill:'#ffeb3b',stroke:'#e65100'});
+ if(opt.here!==undefined)dots.push({p:pts[opt.here],r:8,fill:'#e53935',stroke:'#fff',emoji:'🚄',es:22});
+ return mapSVG(vb,lines,dots,'',pxH);
+}
+// ホームの日本地図（新幹線が走る）
+let homeAnim=null;
+function homeMapHTML(){
+ const om=loadOmi(),names=SK_NAMES(),pts=routePts(names),dots=[];
+ names.forEach((n,i)=>{if(om[n])dots.push({p:pts[i],r:4,fill:'#fff',stroke:'#00695c',emoji:SHINKANSEN[i].e,es:16});});
+ const iw=geoXY('盛岡');
+ dots.push({p:[iw[0]+30,iw[1]+12],r:0,label:'🗻 岩手編',fs:17,lx:0,ly:0});
+ dots.push({p:[pts[3][0]+30,pts[3][1]+50],r:0,label:'🚄 全国編',fs:17,lx:0,ly:0});
+ const ph=Math.min(innerHeight*0.62,560);return mapSVG('jp',[{pts,color:'#00897b',width:4}],dots,'<text id="hmTrain" font-size="'+(26*VB.jp[3]/ph).toFixed(0)+'" text-anchor="middle">🚄</text>',ph);
+}
+function startHomeAnim(){
+ const pts=routePts(SK_NAMES()),seg=[];let tot=0;
+ for(let i=1;i<pts.length;i++){const l=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);seg.push(l);tot+=l;}
+ const t0=performance.now();
+ const step=now=>{
+  if($('homePage').hidden){homeAnim=null;return;}
+  const el=document.getElementById('hmTrain');
+  if(el){let u=((now-t0)/16000)%2;u=u>1?2-u:u;let d=u*tot,i=0;while(i<seg.length-1&&d>seg[i]){d-=seg[i];i++;}
+   const a=pts[i],b=pts[i+1],t=Math.min(1,d/seg[i]);el.setAttribute('x',(a[0]+(b[0]-a[0])*t).toFixed(1));el.setAttribute('y',(a[1]+(b[1]-a[1])*t+5).toFixed(1));}
+  homeAnim=requestAnimationFrame(step);
+ };
+ if(!homeAnim)homeAnim=requestAnimationFrame(step);
+}
+function showHome(){
+ running=false;paused=false;document.body.classList.remove('zk');
+ ['startScreen','result','zukan','cards'].forEach(id=>$(id).hidden=true);
+ ['pauseMenu','dirPanel','lesson','panel','talk','stopBanner'].forEach(id=>$(id).hidden=true);hideGuideNow();
+ const nOmi=Object.keys(loadOmi()).filter(k=>SHINKANSEN.find(x=>x.n===k)).length,clr=loadClr();
+ $('cdCount').textContent=Object.keys(loadCards()).length;$('zkCount').textContent=nOmi;
+ $('iwProg').textContent='STAGE '+ROUTES.map(r=>clr[r.id]?'●':'○').join('');
+ $('zkProg').textContent='お土産 '+nOmi+'/26';
+ $('homeMap').innerHTML=homeMapHTML();
+ $('homePage').hidden=false;startHomeAnim();
+}
+function showZukan(){
+ const om=loadOmi();
+ $('zkMap').innerHTML=neMapHTML({h:340});
+ $('zukanGrid').innerHTML=SHINKANSEN.map(x=>{const v=om[x.n];return v?'<div class="zc'+(v===2?' gold':'')+'"><span class="em">'+x.e+'</span><b>'+x.p+'</b>'+x.n+(v===2?' ✨':'')+'</div>':'<div class="zc no"><span class="em">？</span><b>？？？</b>'+x.n+'</div>';}).join('');
+ $('zukan').hidden=false;
+}
+$('goIwate').onclick=()=>{sfx.init();$('homePage').hidden=true;showStart();};
+function showZStart(){
+ const z=svGet('zk'),opts=[],been=zkBeen();
+ if(typeof z.last==='number'&&z.last!==Z_START&&SHINKANSEN[z.last])opts.push({i:z.last,d:z.dir,t:'▶ 続きから',s:SHINKANSEN[z.last].n+'（前回やめた駅）',main:true});
+ opts.push({i:Z_START,d:0,t:'🚉 盛岡から',s:'はじめの駅'});
+ const chips=SHINKANSEN.map((x,i)=>({i,n:x.n})).filter(o=>been[o.n]&&o.i!==Z_START);
+ if(opts.length===1&&!chips.length){newGameZ(Z_START);return;}
+ $('zStartBtns').innerHTML=opts.map((o,k)=>'<button class="btn'+(o.main?'':' blue')+'" data-k="'+k+'">'+o.t+'<small>'+o.s+'</small></button>').join('')+
+  (chips.length?'<div class="zbh">行ったことのある駅から（南→北）</div><div id="zBeen">'+chips.map(o=>'<button data-i="'+o.i+'"'+(Z_HUB[o.n]?' class="hub" title="'+Z_HUB[o.n]+'"':'')+'>'+(Z_HUB[o.n]?'🏙':'')+o.n+'</button>').join('')+'</div>':'');
+ $('zStartBtns').querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{const o=opts[+b.dataset.k];$('zStart').hidden=true;newGameZ(o.i,o.d);});
+ $('zStartBtns').querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>{$('zStart').hidden=true;newGameZ(+b.dataset.i,0);});
+ $('zStart').hidden=false;
+}
+$('zStartBack').onclick=()=>{$('zStart').hidden=true;showHome();};
+$('goZenkoku').onclick=()=>{sfx.init();$('homePage').hidden=true;showZStart();};
+$('goZukan').onclick=showZukan;
+$('goCards').onclick=showCards;
+$('cardsClose').onclick=()=>{$('cards').hidden=true;};
+$('zukanClose').onclick=()=>{$('zukan').hidden=true;};
+$('backHome1').onclick=showHome;
+
+// ================= 岩手編：見分け方レッスン・品詞カード・ボス =================
+const HINT={J1:'「ね」で区切ると先頭？',J2:'「ない」「ます」で形が変わる？',J3:'言い切りの形の最後の音は？',J4:'「が」をつけて主語になる？',J5:'ほかの言葉をくわしくする？',J6:'あとの言葉は名詞？',J7:'つなぐ？ 呼びかけ・返事？',J8:'「た」をつけて形が変わる？'};
+const LESSON={
+ J1:{t:'自立語か、付属語か',b:'文節のいちばん前にあれば<b>自立語</b>。<br>ほかの言葉のあとにくっついていれば<b>付属語</b>。',ex:'犬<b style="color:#3949ab">が</b>／走る。（「が」は「犬」にくっついている → 付属語）',tip:'「ね」を入れて区切ってみよう。「犬がね／走るね」'},
+ J2:{t:'活用するか、しないか',b:'「ない」「ます」をつけてみて、形が変われば<b>活用する</b>。',ex:'書く → 書か<u>ない</u>・書き<u>ます</u>（変わる → 活用する）<br>山 → 形は変わらない（活用しない）',tip:''},
+ J3:{t:'言い切りの形のさいごの音',b:'言い切りの形にして、<b>さいごの音</b>を見よう。',ex:'「う」の段の音（く・す・む・る など）→ <b>動詞</b>（走る）<br>「い」→ <b>形容詞</b>（寒い）<br>「だ」→ <b>形容動詞</b>（静かだ）',tip:'「静かに」→「静かだ」のように、まずもどそう。'},
+ J4:{t:'主語になるか',b:'「が」をつけて主語になれたら<b>名詞</b>。',ex:'犬が・東京が・私が（言える → 名詞）<br>とてもが・このが（言えない → 名詞ではない）',tip:''},
+ J5:{t:'修飾語になるか',b:'ほかの言葉をくわしくしていれば<b>修飾語になる</b>。',ex:'<u>とても</u>寒い・<u>大きな</u>犬（くわしくしている）<br><u>しかし</u>・<u>はい</u>（くわしくしていない）',tip:''},
+ J6:{t:'何をくわしくするか',b:'用言をくわしくする → <b>副詞</b><br>体言（名詞）だけをくわしくする → <b>連体詞</b>',ex:'<u>とても</u>寒い（「寒い」は用言 → 副詞）<br><u>この</u>本（「本」は体言 → 連体詞）',tip:''},
+ J7:{t:'つなぐ言葉か、ひとりの言葉か',b:'前とあとをつなぐ → <b>接続詞</b><br>呼びかけ・返事・おどろき → <b>感動詞</b>',ex:'雨だ。<u>だから</u>家にいる。（接続詞）<br><u>はい</u>、行きます。（感動詞）',tip:''},
+ J8:{t:'助動詞か、助詞か',b:'付属語で、形が変わる → <b>助動詞</b><br>付属語で、形が変わらない → <b>助詞</b>',ex:'来<u>ない</u> → 来なかった（変わる → 助動詞）<br>犬<u>が</u>（変わらない → 助詞）',tip:''},
+};
+// 用語の説明（小学生にも分かる言葉で、1枚に1つ）
+const TERM={
+ 文節:{b:'文を、意味が分かる小さなまとまりに区切ったもの。',ex:'今日は／とても／寒い。',tip:'「ね」を入れて自然に区切れるところが切れ目。（今日はね／とてもね）'},
+ 自立語:{b:'それだけで意味が分かる言葉。文節のいちばん前にくる。',ex:'「犬が走る」の「犬」「走る」'},
+ 付属語:{b:'それだけでは意味が分からず、ほかの言葉のあとにくっつく言葉。',ex:'「犬が走る」の「が」'},
+ 活用:{b:'あとにつく言葉によって、言葉の形が変わること。',ex:'書く → 書か<u>ない</u>・書き<u>ます</u>・書け<u>ば</u><br>山 → 形は変わらない（活用しない）'},
+ 言い切りの形:{b:'文のさいごで言い切るときの形。辞書にのっている形。',ex:'書きます → <b>書く</b>　　静かに → <b>静かだ</b>'},
+ 用言:{b:'活用する自立語のこと。動きや様子を表す。',ex:'走る・寒い・静かだ'},
+ 主語:{b:'「だれが」「なにが」にあたる言葉。',ex:'「<u>犬が</u>走る」の「犬が」'},
+ 体言:{b:'主語になれる言葉。名詞のこと。',ex:'犬・山・私・三つ'},
+ 修飾語:{b:'ほかの言葉を、くわしく説明する言葉。',ex:'「<u>赤い</u>花」の「赤い」（どんな花か説明している）'},
+ 接続語:{b:'前とあとの文や言葉を、つなぐ言葉。',ex:'雨だ。<u>だから</u>家にいる。'},
+ 独立語:{b:'ほかの言葉と直接つながらない言葉。呼びかけ・返事・おどろきなど。',ex:'<u>はい</u>、行きます。　<u>ああ</u>、きれいだ。'},
+};
+const JTERMS={J1:['文節','自立語','付属語'],J2:['活用'],J3:['言い切りの形','用言'],J4:['主語','体言'],J5:['修飾語'],J6:['用言','体言'],J7:['接続語','独立語'],J8:['活用']};
+const TERM_KEY='hinshi_train_terms_v1';
+const loadTerms=()=>svGet('terms');
+const CARD={
+ 名詞:{d:'物や事の名前を表す。「が」「は」がついて主語になれる。',ex:'山・東京・私・三つ・こと'},
+ 動詞:{d:'動き・存在を表す。言い切りの形がウ段の音で終わる。',ex:'走る・書く・ある・する'},
+ 形容詞:{d:'様子・性質を表す。言い切りの形が「い」で終わる。',ex:'白い・寒い・うれしい'},
+ 形容動詞:{d:'様子・性質を表す。言い切りの形が「だ」で終わる。',ex:'静かだ・きれいだ・元気だ'},
+ 副詞:{d:'活用しない。主に用言（動き・様子）をくわしくする。',ex:'とても・ゆっくり・決して'},
+ 連体詞:{d:'活用しない。体言（名詞）だけをくわしくする。',ex:'この・大きな・あらゆる'},
+ 接続詞:{d:'活用しない。前とあとの文や言葉をつなぐ。',ex:'しかし・だから・または'},
+ 感動詞:{d:'活用しない。呼びかけ・返事・感動を表す（独立語）。',ex:'はい・ああ・おはよう'},
+ 助動詞:{d:'付属語で活用する。いろいろな意味をそえる。',ex:'ない・た・ます・らしい・れる'},
+ 助詞:{d:'付属語で活用しない。言葉どうしの関係を示す。',ex:'が・を・に・は・ので'},
+};
+const CARD_KEY='hinshi_train_cards_v1',CLR_KEY='hinshi_train_iwate_clear_v1';
+const loadCards=()=>svGet('cards');
+const loadClr=()=>svGet('clr');
+function sprite(id,pose){const k=id+'_'+pose;return (typeof URA_BOSS_SPRITES!=='undefined'&&URA_BOSS_SPRITES[k])||(typeof ENEMY_SPRITES!=='undefined'&&ENEMY_SPRITES[k])||'';}
+const BOSS_IMG={};
+function bossImg(pose){const k=ROUTE.boss+'_'+pose;if(!BOSS_IMG[k]){const src=sprite(ROUTE.boss,pose);if(!src)return null;const im=new Image();im.src=src;BOSS_IMG[k]=im;}return BOSS_IMG[k];}
+function routeText(pos){let n='J1',a=[];while(NODES[n]){const i=correctIdx(n,pos);a.push(SHORT[n][i]);n=NODES[n].opts[i].to;}return a.join(' → ')+' → <b>'+pos+'</b>';}
+function openLesson(html,onClose,btn){S.lessonOpen=true;S.onLessonClose=onClose||null;$('lessonCard').innerHTML=html+'<button class="btn" id="lessonBtn">'+(btn||'わかった！')+'（スペース）</button>';$('lesson').hidden=false;$('lessonBtn').onclick=closeLesson;keys.up=keys.down=false;}
+function openSeries(pages){
+ let i=0;const step=()=>{const last=i===pages.length-1;openLesson(pages[i]+(pages.length>1?'<div style="text-align:right;font-size:12px;color:#888">'+(i+1)+' / '+pages.length+'</div>':''),last?null:()=>{i++;step();},last?'わかった！':'つぎへ');};
+ step();
+}
+function closeLesson(){if(!S||!S.lessonOpen)return;S.lessonOpen=false;$('lesson').hidden=true;const f=S.onLessonClose;S.onLessonClose=null;if(f)f();}
+function showLesson(n){
+ const L=LESSON[n];if(!L)return;
+ const seen=loadTerms(),pages=[];
+ for(const t of JTERMS[n]||[]){
+  if(seen[t])continue;seen[t]=1;const T=TERM[t];
+  pages.push({tag:'ことばの意味',h:'📗「'+t+'」とは？',x:T.b,e:'例：'+T.ex});
+ }
+ svSet('terms',seen);
+ pages.push({tag:'天狗の特訓',h:'📘 見分け方：'+L.t,x:L.b,e:L.ex});
+ talk(pages);
+}
+function showBossIntro(){
+ talk([{tag:'STAGE'+ROUTE.stage+'　'+ROUTE.dest+'行き',h:ROUTE.stage===1?'わしは天狗。まやかしの線路を見破ってみよ！':ROUTE.intro,x:(ROUTE.stage===1?ROUTE.intro+'<br>':'')+'学ぶこと：<b>'+ROUTE.learn+'</b>'}]);
+}
+// 天狗のおしゃべり：電車は止めず、少しゆっくり走る。ページは時間で自動にめくれる（タップで次へ）
+// 天狗の説明：電車（背景）は走りつづけ、説明はまん中に。OKを押すまで、問題（分かれ道・駅）は先へ先へとずれていく
+function talk(pages){
+ if(!S)return;
+ S.talkQ=(S.talkQ||[]).concat(pages);
+ if(!S.talkCur)nextTalk();
+}
+function nextTalk(){
+ const pg=S.talkQ.shift();S.talkCur=pg||null;
+ if(!pg){$('talk').hidden=true;document.body.classList.remove('talking');releaseHold();return;}
+ document.body.classList.add('talking');
+ const img=sprite(ROUTE.boss,'pose1');$('talkImg').src=img||'';$('talkImg').style.display=img?'':'none';
+ $('talkBody').innerHTML='<div class="tt">'+pg.tag+(S.talkQ.length?'　（あと'+S.talkQ.length+'）':'')+'</div><div class="th"'+(pg.c?' style="color:'+pg.c+'"':'')+'>'+pg.h+'</div>'+(pg.x?'<div class="tx">'+pg.x+'</div>':'')+(pg.e?'<div class="te">'+pg.e+'</div>':'');
+ $('talkOk').textContent=S.talkQ.length?'次へ ▶':'OK';
+ $('talk').hidden=false;
+}
+// 説明中は、まだ来ていない分かれ道・駅を見えない所（FARの先）に置いておく
+function aheadRef(){const up=upcoming(),st=S.station;let r=up?up.s:Infinity;if(st&&(st.state==='approach'||st.state==='pass')&&st.s>S.s)r=Math.min(r,st.s);return r;}
+function shiftAhead(d){for(const f of S.forks)if(!f.locked)f.s+=d;const st=S.station;if(st&&(st.state==='approach'||st.state==='pass')&&st.s>S.s)st.s+=d;}
+function holdAhead(){if(S.mode!=='run')return;const r=aheadRef();if(r===Infinity)return;const want=S.s+FAR+20;if(r<want){shiftAhead(want-r);S.held=true;}}
+// OKを押したら、すぐ問題が見える所まで引きもどす
+function releaseHold(){if(!S||!S.held)return;S.held=false;const r=aheadRef();if(r===Infinity)return;const up=upcoming(),gap=(up&&up.s===r)?170:220;if(r-S.s>gap)shiftAhead(S.s+gap-r);}
+$('talk').addEventListener('pointerdown',e=>{e.stopPropagation();});
+$('talkOk').addEventListener('click',e=>{e.preventDefault();e.stopPropagation();if(S&&S.talkCur){sfx.click();nextTalk();}});
+function showBossDefeat(){
+ S.talkQ=[];S.talkCur=null;document.body.classList.remove('talking');$('talk').hidden=true;
+ S.bossHp=0;
+ const img=sprite(ROUTE.boss,'defeat')||sprite(ROUTE.boss,'pose1');sfx.arrive();
+ openLesson('<span class="lv">STAGE'+ROUTE.stage+' クリア</span><div class="boss">'+(img?'<img src="'+img+'" alt="">':'')+
+  '<div class="say">'+(ROUTE.stage===4?'まいった！ 品詞の見分け方、すべて身につけおったな。<b>免許皆伝</b>じゃ！':'見事じゃ！ わしのまやかしを全部見破りおった。次の修行も待っておるぞ。')+'</div></div><p style="margin-top:8px">🎉 天狗のまやかしを破った！ 本物の線路がもどった。</p>',()=>finish());
+}
+function vanishFakes(f){
+ f.vanishAt=performance.now();
+ for(let i=0;i<26;i++)S.parts.push({x:W/2+(Math.random()-0.5)*W*0.7,y:HOR+(H-DASH-HOR)*(0.2+Math.random()*0.6),vx:(Math.random()-0.5)*60,vy:-40-Math.random()*60,r:2+Math.random()*3,life:0,max:0.7+Math.random()*0.5,t:'magic'});
+}
+function hitBoss(){S.bossHp=Math.max(0,S.bossHp-1);S.bossPose='defense';S.bossReact=0.9;}
+function maybeCard(pos){
+ const c=loadCards();if(c[pos]||!CARD[pos])return;
+ c[pos]=1;svSet('cards',c);
+ sfx.arrive();
+ talk([{tag:'🃏 品詞カード ゲット！（'+Object.keys(c).length+'/10）',h:pos,c:POS_COLOR[pos],x:CARD[pos].d,e:'例：'+CARD[pos].ex}]);
+}
+function showCard(pos){
+ const C=CARD[pos],col=POS_COLOR[pos];sfx.arrive();
+ openLesson('<span class="lv" style="background:'+col+'">品詞カード ゲット！（'+Object.keys(loadCards()).length+'/10）</span><div class="pcard" style="border-color:'+col+'"><div class="nm" style="color:'+col+'">'+pos+'</div><div>'+C.d+'</div><div class="ex">例：'+C.ex+'</div><div class="route">道すじ：'+routeText(pos)+'</div></div>');
+}
+function showCards(){
+ const c=loadCards();
+ $('cardsGrid').innerHTML=Object.keys(CARD).map(p=>c[p]?'<div class="pc" style="border-color:'+POS_COLOR[p]+'"><b style="color:'+POS_COLOR[p]+'">'+p+'</b>'+CARD[p].d+'<br><small>例：'+CARD[p].ex+'</small></div>':'<div class="pc no"><b>？？？</b>まだ出会っていない品詞</div>').join('');
+ $('cards').hidden=false;
+}
+function drawBoss(t){
+ if(!S||S.game!=='iwate')return;
+ if(S.bossReact>0)S.bossReact-=1/60;else S.bossPose=(Math.floor(t/500)%2)?'pose2':'pose1';
+ const pose=S.bossDown?'defeat':S.bossPose,im=bossImg(pose)||bossImg('pose1');
+ const sz=Math.min(H*0.18,100),x=W-sz-W*0.11,y=40;
+ if(im&&im.complete&&im.naturalWidth){const r=im.naturalWidth/im.naturalHeight,dw=r>=1?sz:sz*r,dh=r>=1?sz/r:sz;ctx.save();if(S.bossReact>0&&pose==='defense'){ctx.globalAlpha=0.6+0.4*Math.sin(t/40);}ctx.drawImage(im,x+(sz-dw)/2,y+(sz-dh),dw,dh);ctx.restore();}
+ const bw=sz,bh=8,by=y+sz+2;
+ ctx.fillStyle='#0008';rr(x-4,by-2,bw+8,bh+20,6);ctx.fill();
+ ctx.fillStyle='#555';ctx.fillRect(x,by,bw,bh);ctx.fillStyle='#ab47bc';ctx.fillRect(x,by,bw*S.bossHp/S.bossMax,bh);
+ ctx.fillStyle='#fff';ctx.font='bold 11px sans-serif';ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText('まやかしの力',x+bw/2,by+bh+2);
+}
+
+// ===== 音 =====
+const sfx={
+ ac:null,on:true,
+ init(){if(!this.ac){try{this.ac=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}if(this.ac&&this.ac.state==='suspended')this.ac.resume();},
+ tone(f,d,type='sine',vol=0.15,t0=0,f2){if(!this.on||!this.ac)return;const a=this.ac,t=a.currentTime+t0,o=a.createOscillator(),g=a.createGain();o.type=type;o.frequency.setValueAtTime(f,t);if(f2)o.frequency.linearRampToValueAtTime(f2,t+d);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+0.01);g.gain.exponentialRampToValueAtTime(0.001,t+d);o.connect(g).connect(a.destination);o.start(t);o.stop(t+d+0.02);},
+ noise(d,vol,freq){if(!this.on||!this.ac)return;const a=this.ac,len=a.sampleRate*d,buf=a.createBuffer(1,len,a.sampleRate),x=buf.getChannelData(0);for(let i=0;i<len;i++)x[i]=(Math.random()*2-1)*Math.pow(1-i/len,2);const s=a.createBufferSource(),f=a.createBiquadFilter(),g=a.createGain();s.buffer=buf;f.type='lowpass';f.frequency.value=freq;g.gain.value=vol;s.connect(f).connect(g).connect(a.destination);s.start();},
+ click(){this.tone(700,0.05,'square',0.06);},
+ clack(){this.noise(0.08,0.35,900);this.noise(0.08,0.3,700);},
+ joint(){this.noise(0.05,0.12,500);setTimeout(()=>this.noise(0.05,0.1,450),110);},
+ ok(big){const b=big?1:0.8;this.tone(880*b,0.12,'triangle',0.15);this.tone(1320*b,0.18,'triangle',0.15,0.08);},
+ whistle(){this.tone(620,0.35,'sine',0.12,0,660);this.tone(780,0.45,'sine',0.1,0,820);},
+ arrive(){[659,523,784,1047].forEach((f,i)=>this.tone(f,0.22,'triangle',0.12,i*0.13));},
+ crash(){this.noise(0.9,0.5,1300);this.tone(90,0.5,'sawtooth',0.22,0,40);}
+};
+$('mute').onclick=()=>{sfx.on=!sfx.on;$('mute').textContent=sfx.on?'🔊':'🔇';};
+
+// ===== 更新 =====
+function update(dt){
+ if(!S)return;
+ S.floats.forEach(f=>f.life+=dt);S.floats=S.floats.filter(f=>f.life<1.6);
+ S.parts.forEach(p=>{p.life+=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;if(p.t==='spark')p.vy+=500*dt;else if(p.t==='magic')p.vy-=30*dt;else p.r+=dt*30;});S.parts=S.parts.filter(p=>p.life<p.max);
+ if(S.shake>0)S.shake=Math.max(0,S.shake-dt*1.2);
+ if(!running||paused||S.panelOpen||S.choosing||S.lessonOpen)return;
+ if(S.pendingLesson){const n=S.pendingLesson;S.pendingLesson=null;showLesson(n);}
+ if(!(S.station&&S.station.state==='stopped'))hideGuide();
+ if(S.talkCur)holdAhead();
+ const base=vBase(),st=S.station,inSt=st&&st.state==='approach'&&S.s>st.s-320;
+ if(S.mode==='crash'){
+  S.v=Math.max(0,S.v-30*dt);S.roll+=(0.22-S.roll)*dt*4;S.crashT+=dt;
+  if(Math.random()<0.6)S.parts.push({x:W/2+(Math.random()-0.5)*W*0.6,y:HOR+(H-DASH-HOR)*0.5,vx:(Math.random()-0.5)*40,vy:-30-Math.random()*40,r:10+Math.random()*10,life:0,max:1.4,t:'smoke'});
+  if(S.crashT>1.3&&!S.panelOpen)openPanel();
+ }else if(st&&st.state==='stopped'){S.v=0;}
+ else{
+  if(keys.down){S.v-=(inSt?4.5:8)*dt;S.v=Math.max(inSt?0:6,S.v);}
+  else{let tg=base*(keys.up?1.4:1);
+  if(S.v<tg)S.v=Math.min(tg,S.v+(keys.up?6:S.v<base*0.6?6:3)*dt);else S.v=Math.max(tg,S.v-3*dt);}
+ }
+ S.s+=S.v*dt;
+ S.tickAcc+=S.v*dt;if(S.tickAcc>20){S.tickAcc=0;sfx.joint();}
+ const f=upcoming();
+ if(f&&S.s>=f.s&&S.mode==='run')passFork(f);
+ if(S.mode==='wrong'&&S.s>=S.wrongAt)doCrash();
+ stationUpdate(dt);
+ // ハンドルとカメラ
+ const g=upcoming();let leanT=0,wheelT=0;
+ if(g&&S.mode==='run'&&g.s-S.s<140){const c=(g.sel-(g.n-1)/2);leanT=c*0.9;wheelT=c/Math.max(1,(g.n-1)/2)*1.1;}
+ S.lean+=(leanT-S.lean)*Math.min(1,dt*3);S.wheel+=(wheelT-S.wheel)*Math.min(1,dt*8);
+ S.camX=trackX(S.s)+S.lean;
+ S.forks=S.forks.filter(x=>x.s>S.s-400||x===S.forks[S.forks.length-1]);
+}
+
+// ===== 描画 =====
+function ribbon(ss,xs,a,b,y,col){
+ ctx.fillStyle=col;ctx.beginPath();
+ for(let i=0;i<ss.length;i++){const p=proj(ss[i],xs[i]+a,y);i?ctx.lineTo(p.X,p.Y):ctx.moveTo(p.X,p.Y);}
+ for(let i=ss.length-1;i>=0;i--){const p=proj(ss[i],xs[i]+b,y);ctx.lineTo(p.X,p.Y);}
+ ctx.closePath();ctx.fill();
+}
+function drawTrackLine(fn,s0,s1){
+ s0=Math.max(s0,S.s+NEAR);s1=Math.min(s1,S.s+FAR);if(s1<=s0)return;
+ const ss=[];for(let s=s1;;){ss.push(s);if(s<=s0)break;s=Math.max(s0,s-Math.max(1,(s-S.s)*0.09));}
+ const xs=ss.map(fn);
+ ribbon(ss,xs,-1.6,1.6,0,'#8d8270');
+ // 枕木（近くだけ・まとめて1回で塗る）
+ ctx.fillStyle='#5d4330';ctx.beginPath();
+ const e=Math.min(s1,S.s+QS[QUAL].sleep);
+ for(let s=Math.ceil(s0/2.4)*2.4;s<=e;s+=2.4){const x=fn(s),p1=proj(s,x-1.1,0.05),p2=proj(s,x+1.1,0.05),p3=proj(s+0.3,x+1.1,0.05),p4=proj(s+0.3,x-1.1,0.05);ctx.moveTo(p1.X,p1.Y);ctx.lineTo(p2.X,p2.Y);ctx.lineTo(p3.X,p3.Y);ctx.lineTo(p4.X,p4.Y);ctx.closePath();}
+ ctx.fill();
+ ribbon(ss,xs,-0.62,-0.5,0.12,'#cfd8dc');ribbon(ss,xs,0.5,0.62,0.12,'#cfd8dc');
+}
+function sceneryX(p){const u=upcoming();return (u&&p>u.s)?u.baseX:trackX(p);}
+function drawPole(s,x){
+ const b=proj(s,x,0),t=proj(s,x,7);if(b.z<NEAR||b.z>FAR)return;
+ ctx.strokeStyle='#4e4038';ctx.lineWidth=Math.max(1,0.25*b.k);ctx.beginPath();ctx.moveTo(b.X,b.Y);ctx.lineTo(t.X,t.Y);ctx.stroke();
+ const c1=proj(s,x-1.2,6.4),c2=proj(s,x+1.2,6.4);ctx.lineWidth=Math.max(1,0.15*b.k);ctx.beginPath();ctx.moveTo(c1.X,c1.Y);ctx.lineTo(c2.X,c2.Y);ctx.stroke();
+}
+function drawTree(s,x,h){
+ const b=proj(s,x,0),t=proj(s,x,h);if(b.z<NEAR||b.z>FAR)return;
+ ctx.fillStyle='#2e6b2e';ctx.beginPath();ctx.moveTo(t.X,t.Y);ctx.lineTo(b.X-1.8*b.k,b.Y);ctx.lineTo(b.X+1.8*b.k,b.Y);ctx.closePath();ctx.fill();
+}
+function hash(n){const x=Math.sin(n*127.1)*43758.5;return x-Math.floor(x);}
+function drawGantry(f){
+ const sG=f.s-14;const z=sG-S.s;if(z<NEAR||z>FAR)return;
+ const bx=f.baseX,pw=4.6,tot=f.n*pw+0.6,y0=4.0,y1=6.9;
+ const pl=proj(sG,bx-tot/2-0.4,0),plt=proj(sG,bx-tot/2-0.4,y1+0.2),pr=proj(sG,bx+tot/2+0.4,0),prt=proj(sG,bx+tot/2+0.4,y1+0.2);
+ ctx.strokeStyle='#78909c';ctx.lineWidth=Math.max(1.5,0.25*pl.k);
+ ctx.beginPath();ctx.moveTo(pl.X,pl.Y);ctx.lineTo(plt.X,plt.Y);ctx.lineTo(prt.X,prt.Y);ctx.lineTo(pr.X,pr.Y);ctx.stroke();
+ for(let k=0;k<f.n;k++){
+  const cx=bx+(k-(f.n-1)/2)*pw,a=proj(sG,cx-pw/2+0.1,y1),b=proj(sG,cx+pw/2-0.1,y0);
+  const sel=k===f.sel&&!f.locked;
+  ctx.fillStyle=sel?'#f9a825':'#1b5e20';ctx.fillRect(a.X,a.Y,b.X-a.X,b.Y-a.Y);
+  ctx.strokeStyle='#fff';ctx.lineWidth=Math.max(1,0.08*a.k);ctx.strokeRect(a.X,a.Y,b.X-a.X,b.Y-a.Y);
+  const w=b.X-a.X,h=b.Y-a.Y;
+  if(h<5)continue;
+  const ar=f.offs[k]<-0.1?'↖':f.offs[k]>0.1?'↗':'↑';
+  const txt=ar+' '+f.labels[k];let fs=Math.max(6,h*(f.subs[k]?0.36:0.46));ctx.font='bold 10px sans-serif';
+  fs=Math.max(6,Math.min(fs,w*0.92/ctx.measureText(txt).width*10));ctx.font='bold '+fs+'px sans-serif';
+  ctx.fillStyle=sel?'#222':'#fff';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(txt,a.X+w/2,a.Y+h*(f.subs[k]?0.36:0.5));
+  if(f.subs[k]&&h>14){ctx.font='10px sans-serif';const f2=Math.max(6,Math.min(h*0.24,w*0.92/ctx.measureText(f.subs[k]).width*10));ctx.font=f2+'px sans-serif';ctx.fillText(f.subs[k],a.X+w/2,a.Y+h*0.74);}
+ }
+}
+function drawStation(st){
+ const sA=st.s-140,sB=st.s+18;
+ const s0=Math.max(sA,S.s+NEAR),s1=Math.min(sB,S.s+FAR);
+ if(s1>s0){
+  const top=[],out=[],bot=[];
+  for(let s=s1;;){const x=trackX(s);top.push(proj(s,x+2.0,1.0));out.push(proj(s,x+7,1.0));bot.push(proj(s,x+2.0,0));if(s<=s0)break;s=Math.max(s0,s-Math.max(2,(s-S.s)*0.12));}
+  ctx.fillStyle='#bdb6a8';ctx.beginPath();top.forEach((p,i)=>i?ctx.lineTo(p.X,p.Y):ctx.moveTo(p.X,p.Y));for(let i=out.length-1;i>=0;i--)ctx.lineTo(out[i].X,out[i].Y);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#8a8378';ctx.beginPath();top.forEach((p,i)=>i?ctx.lineTo(p.X,p.Y):ctx.moveTo(p.X,p.Y));for(let i=bot.length-1;i>=0;i--)ctx.lineTo(bot[i].X,bot[i].Y);ctx.closePath();ctx.fill();
+  ctx.strokeStyle='#f2d14b';ctx.lineWidth=2;ctx.beginPath();top.forEach((p,i)=>{const q={X:p.X+(out[i].X-p.X)*0.08,Y:p.Y+(out[i].Y-p.Y)*0.08};i?ctx.lineTo(q.X,q.Y):ctx.moveTo(q.X,q.Y);});ctx.stroke();
+ }
+ // 停止位置の標識
+ const z=st.s-S.s;
+ if(z>NEAR&&z<FAR){
+  if(st.stop){const x=trackX(st.s)+2.6,b=proj(st.s,x,0),t=proj(st.s,x,2.6),c=proj(st.s,x,2.6);
+  ctx.strokeStyle='#333';ctx.lineWidth=Math.max(1,0.12*b.k);ctx.beginPath();ctx.moveTo(b.X,b.Y);ctx.lineTo(t.X,t.Y);ctx.stroke();
+  const sz=1.1*b.k;ctx.fillStyle='#fff';ctx.fillRect(c.X-sz/2,c.Y-sz,sz,sz);ctx.fillStyle='#e53935';ctx.fillRect(c.X-sz/2,c.Y-sz,sz,sz*0.35);
+  ctx.fillStyle='#222';ctx.font='bold '+Math.max(6,sz*0.3)+'px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('停止',c.X,c.Y-sz*0.35);}
+}
+ // 駅名標（ホームの上に2か所）
+ for(const ns of [st.s-35,st.s-110]){
+  if(ns-S.s<=NEAR||ns-S.s>FAR)continue;
+  const nx=trackX(ns)+5.2,n1=proj(ns,nx-2.4,3.4),n2=proj(ns,nx+2.4,1.9),w=n2.X-n1.X,h=n2.Y-n1.Y;
+  const pb=proj(ns,nx,1.0);ctx.strokeStyle='#555';ctx.lineWidth=Math.max(1,0.1*pb.k);ctx.beginPath();ctx.moveTo(pb.X,pb.Y);ctx.lineTo(pb.X,n2.Y);ctx.stroke();
+  ctx.fillStyle='#fff';ctx.fillRect(n1.X,n1.Y,w,h);ctx.fillStyle=lineColor();ctx.fillRect(n1.X,n2.Y-h*0.2,w,h*0.2);
+  if(h>6){ctx.fillStyle='#222';ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='bold 10px sans-serif';const fs=Math.min(h*0.5,w*0.88/ctx.measureText(st.name).width*10);ctx.font='bold '+fs+'px sans-serif';ctx.fillText(st.name,n1.X+w/2,n1.Y+h*0.42);}
+ }
+}
+function drawDash(){
+ const top=H-DASH;
+ // 窓わく
+ ctx.fillStyle='#1c2229';
+ ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(W*0.05,0);ctx.lineTo(W*0.1,top);ctx.lineTo(0,top);ctx.fill();
+ ctx.beginPath();ctx.moveTo(W,0);ctx.lineTo(W*0.95,0);ctx.lineTo(W*0.9,top);ctx.lineTo(W,top);ctx.fill();
+ ctx.fillRect(0,0,W,H*0.025);
+ // 運転台
+ ctx.fillStyle=DASHG;ctx.beginPath();ctx.moveTo(0,top+DASH*0.12);ctx.quadraticCurveTo(W/2,top-DASH*0.12,W,top+DASH*0.12);ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.fill();
+ // 速度計
+ const cx=Math.max(DASH*0.7,W*0.13),cy=top+DASH*0.6,r=DASH*0.42,kmh=S?S.v*3.6*(S.game==='zenkoku'?3.2:1):0,VM=S&&S.game==='zenkoku'?400:160;
+ ctx.fillStyle='#111';ctx.beginPath();ctx.arc(cx,cy,r,0,7);ctx.fill();ctx.strokeStyle='#90a4ae';ctx.lineWidth=2;ctx.stroke();
+ for(let v=0;v<=VM;v+=VM/8){const a=Math.PI*0.75+v/VM*Math.PI*1.5;ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*r*0.8,cy+Math.sin(a)*r*0.8);ctx.lineTo(cx+Math.cos(a)*r*0.95,cy+Math.sin(a)*r*0.95);ctx.stroke();}
+ const na=Math.PI*0.75+clamp(kmh,0,VM)/VM*Math.PI*1.5;ctx.strokeStyle='#ff5252';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(na)*r*0.85,cy+Math.sin(na)*r*0.85);ctx.stroke();
+ ctx.fillStyle='#fff';ctx.font='bold '+Math.round(r*0.36)+'px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(Math.round(kmh),cx,cy+r*0.45);
+ // ハンドル
+ const hx=W/2,hy=H+DASH*0.35,hr=DASH*0.95;
+ ctx.save();ctx.translate(hx,hy);ctx.rotate(S?S.wheel:0);
+ ctx.strokeStyle='#0d0f12';ctx.lineWidth=DASH*0.16;ctx.beginPath();ctx.arc(0,0,hr,0,7);ctx.stroke();
+ ctx.strokeStyle='#596470';ctx.lineWidth=DASH*0.08;ctx.beginPath();ctx.arc(0,0,hr,Math.PI*1.1,Math.PI*1.9);ctx.stroke();
+ ctx.strokeStyle='#2a3038';ctx.lineWidth=DASH*0.1;for(const a of [-Math.PI/2,Math.PI*0.17,Math.PI*0.83]){ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(a)*hr,Math.sin(a)*hr);ctx.stroke();}
+ ctx.fillStyle='#e53935';ctx.beginPath();ctx.arc(0,-hr,DASH*0.06,0,7);ctx.fill();
+ ctx.restore();
+ // 加速・ブレーキ表示
+ const lx=W-Math.max(DASH*0.9,W*0.14),ly=top+DASH*0.35;
+ const lamp=(t,on,c,y)=>{ctx.fillStyle=on?c:'#333';rr(lx,y,Math.max(DASH*1.1,W*0.1),DASH*0.22,5);ctx.fill();ctx.fillStyle=on?'#111':'#777';ctx.font='bold '+Math.round(DASH*0.14)+'px sans-serif';ctx.textAlign='center';ctx.fillText(t,lx+Math.max(DASH*1.1,W*0.1)/2,y+DASH*0.115);};
+ lamp('加速',keys.up,'#64b5f6',ly);lamp('ブレーキ',keys.down,'#ff8a80',ly+DASH*0.28);
+}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function draw(){
+ ctx.save();
+ ctx.fillStyle=SKY;ctx.fillRect(0,0,W,H);
+ if(!S){drawDash();ctx.restore();return;}
+ if(S.shake>0)ctx.translate((Math.random()-0.5)*S.shake*18,(Math.random()-0.5)*S.shake*18);
+ ctx.translate(W/2,HOR);ctx.rotate(S.roll);ctx.translate(-W/2,-HOR);
+ // 山
+ const off=(-curveD(S.s)*W*2-S.s*0.02)%(W)+W;
+ ctx.fillStyle='#7a9cb8';ctx.beginPath();ctx.moveTo(-W,HOR);
+ for(let x=-W;x<=W*2;x+=W/12){const h=(0.5+0.5*Math.sin((x+off)/W*Math.PI*6))*HOR*0.25+HOR*0.05;ctx.lineTo(x,HOR-h);}
+ ctx.lineTo(W*2,HOR);ctx.fill();
+ // 地面
+ ctx.fillStyle='#6fae55';ctx.fillRect(-W,HOR,W*3,H);
+ ctx.fillStyle='#66a44e';
+ for(let b=Math.floor((S.s+NEAR)/12);b*12<S.s+FAR;b++){if(b%2)continue;const z1=Math.max(NEAR,b*12-S.s),z2=b*12+12-S.s;const y1=HOR+CAM_H*F/z1,y2=HOR+CAM_H*F/z2;ctx.fillRect(-W,y2,W*3,y1-y2);}
+ // 線路
+ const up=upcoming();
+ for(const f of S.forks){
+  if(!f.locked&&f!==up)continue;
+  const end=f===up?S.s+FAR:f.s+75;
+  const fade=f.vanishAt!==undefined?Math.max(0,1-(performance.now()-f.vanishAt)/700):1;
+  if(fade<=0)continue;
+  ctx.globalAlpha=fade;
+  for(let k=0;k<f.n;k++){if(f.locked&&k===f.sel)continue;drawTrackLine(s=>f.baseX+f.offs[k]*sm((s-f.s)/DIV),f.s,end);}
+  ctx.globalAlpha=1;
+ }
+ drawTrackLine(trackX,S.s,up?up.s:S.s+FAR);
+ if(S.station)drawStation(S.station);
+ // 電柱・木
+ const objs=[];
+ for(let p=Math.ceil((S.s+NEAR)/38)*38;p<S.s+FAR;p+=38){objs.push({z:p-S.s,f:()=>{const x=sceneryX(p);drawPole(p,x-11);drawPole(p,x+11);}});}
+ for(let p=Math.ceil((S.s+NEAR)/17)*17;p<S.s+FAR;p+=17){const h1=hash(p),h2=hash(p+7);if(h1<QS[QUAL].trees)objs.push({z:p-S.s,f:()=>drawTree(p,sceneryX(p)+(h2<0.5?-1:1)*(15+h1*30),5+h2*5)});}
+ for(const f of S.forks){if(f.s-14>S.s)objs.push({z:f.s-14-S.s,f:()=>drawGantry(f)});}
+ objs.sort((a,b)=>b.z-a.z).forEach(o=>o.f());
+ ctx.restore();ctx.save();
+ // ずれた赤
+ if(S.mode==='crash'){ctx.fillStyle='rgba(200,0,0,'+Math.min(0.35,S.crashT*0.4)+')';ctx.fillRect(0,0,W,H);}
+ for(const p of S.parts){const a=1-p.life/p.max;ctx.fillStyle=p.t==='spark'?'rgba(255,200,60,'+a+')':p.t==='magic'?'rgba(206,147,216,'+a+')':'rgba(70,70,70,'+a*0.5+')';ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,7);ctx.fill();}
+ drawDash();
+ if(S.mode==='crash'){ctx.save();ctx.translate(W/2,HOR*0.9);ctx.rotate(-0.08);const fs=Math.min(W*0.13,90);ctx.font='900 '+fs+'px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineWidth=8;ctx.strokeStyle='#fff';ctx.strokeText('脱線！',0,0);ctx.fillStyle='#d32f2f';ctx.fillText('脱線！',0,0);ctx.restore();}
+ S.floats.forEach((f,i)=>{const a=Math.min(1,(1.6-f.life)*2);ctx.globalAlpha=a;const fs=Math.round(Math.min(30,W*0.04));ctx.font='900 '+fs+'px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';const y=HOR*0.62-f.life*30-i*fs*1.2;ctx.lineWidth=6;ctx.strokeStyle='#000a';ctx.strokeText(f.t,W/2,y);ctx.fillStyle=f.c;ctx.fillText(f.t,W/2,y);ctx.globalAlpha=1;});
+ // 次の分かれ道までの距離
+ if(up&&S.mode==='run'&&!S.station&&!S.talkCur){const d=up.s-S.s;ctx.fillStyle='#000a';rr(W/2-70,8,140,26,8);ctx.fill();ctx.fillStyle=d<60?'#ff8a80':'#fff';ctx.font='bold 15px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('分かれ道まで '+Math.max(0,Math.round(d))+'m',W/2,21);}
+ if(S.station&&S.station.state==='approach'){const d=Math.max(0,Math.round(S.station.s-S.s)),el=document.getElementById('sbDist');if(el)el.textContent='停止線まで '+d+'m'+(d<S.v*S.v/9+10?'　↓ブレーキ！':'');}
+ ctx.restore();
+}
+let last=0,acc=0;
+function loop(t){
+ requestAnimationFrame(loop);
+ const raw=last?(t-last)/1000:0;last=t;
+ if(QS[QUAL].fps<60){acc+=raw;if(acc<1/QS[QUAL].fps-0.004)return;const dt=Math.min(0.05,acc);acc=0;update(dt);draw();return;}
+ update(Math.min(0.05,raw));draw();measure(raw);
+}
+resize();showHome();requestAnimationFrame(loop);
+if(window.ResizeObserver)new ResizeObserver(()=>{if(W)updHor();}).observe($('qbox'));
+</script>
+</body>
+</html>
