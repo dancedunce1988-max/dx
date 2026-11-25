@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>忍者画像 切り抜きツール（活用忍伝の主人公）</title>
+<style>
+  body{margin:0;font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;background:#f4efe4;color:#2b2118}
+  header{background:#2b2140;color:#fff;padding:10px 16px}
+  header h1{margin:0;font-size:18px}
+  header p{margin:4px 0 0;font-size:13px;opacity:.85}
+  main{padding:12px 16px;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px}
+  @media(max-width:900px){main{grid-template-columns:1fr}}
+  .box{background:#fff;border-radius:10px;padding:12px;box-shadow:0 1px 4px rgba(0,0,0,.12)}
+  .box h2{margin:0 0 8px;font-size:15px}
+  .row{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin:6px 0;font-size:13px}
+  .row label{display:flex;align-items:center;gap:6px}
+  input[type=number]{width:64px}
+  button{font:inherit;font-size:14px;padding:7px 14px;border-radius:8px;border:1px solid #8a6;background:#eaf6e0;cursor:pointer}
+  button.main{background:#2b7a3a;color:#fff;border-color:#2b7a3a;font-weight:bold}
+  #srcWrap{position:relative;overflow:auto;max-height:70vh;border:1px solid #ccc;background:repeating-conic-gradient(#ddd 0 25%,#fff 0 50%) 0 0/16px 16px}
+  #srcCv{display:block;max-width:100%}
+  table.grid{border-collapse:collapse;width:100%;font-size:12px}
+  table.grid th{background:#eee;padding:3px}
+  table.grid td{text-align:center;padding:4px;border:1px solid #e6e0d0}
+  .cellImg{height:90px;max-width:120px;object-fit:contain;background:var(--bg)}
+  .bgsel button{padding:3px 8px;font-size:12px}
+  .note{font-size:12px;color:#6b5a48;line-height:1.6}
+  #msg{font-weight:bold;color:#2b7a3a}
+</style>
+</head>
+<body>
+<header>
+  <h1>🥷 忍者画像 切り抜きツール（活用忍伝の主人公）</h1>
+  <p>縦4段（なし・火・水・木）×横5列（立ち姿・構え・斬る・守る・術）の一覧画像を、20枚の絵に切り分けて ninja_sprites_data.js を作ります。</p>
+</header>
+<main>
+  <section class="box">
+    <h2>① 画像を開く</h2>
+    <div class="row"><input type="file" id="file" accept="image/png,image/webp"> <span class="note">素材/画像/忍者画像.png を選ぶ（ここにドラッグしてもよい）</span></div>
+    <h2>② 切り分ける線（自動で見つけます。ずれていたら数字で直す）</h2>
+    <div class="row">
+      <label>背景の消し残りを消す（透明度がこれ未満は完全に透明に）<input type="number" id="th" value="16" min="0" max="250"></label>
+      <button onclick="autoGrid()">線を自動で見つけなおす</button>
+    </div>
+    <div class="row" id="colInputs"></div>
+    <div class="row" id="rowInputs"></div>
+    <p class="note">赤い線＝列の区切り（左の端・右の端）、青い線＝段の区切り（上の端・下の端）。各マスの中は、絵のある部分だけにさらに自動で切りつめます。</p>
+    <div id="srcWrap"><canvas id="srcCv"></canvas></div>
+  </section>
+  <section class="box">
+    <h2>③ 切り分けた絵（確認）</h2>
+    <div class="row bgsel">背景：<button data-bg="repeating-conic-gradient(#ddd 0 25%,#fff 0 50%) 0 0/12px 12px">市松</button><button data-bg="#c9b38a">土</button><button data-bg="#2b1446">夜</button><button data-bg="#ffffff">白</button></div>
+    <table class="grid" id="grid"></table>
+    <h2 style="margin-top:12px">④ 書き出す</h2>
+    <div class="row"><label>いちばん背の高い絵の高さ（px）<input type="number" id="outH" value="300" min="80" max="800"></label>
+      <label>形式 <select id="fmt"><option value="image/webp">WebP（軽い）</option><option value="image/png">PNG</option></select></label></div>
+    <div class="row"><button class="main" onclick="exportJs()">データを書き出す（ninja_sprites_data.js）</button><span id="msg"></span></div>
+    <p class="note">書き出したファイルで、github版/ninja_sprites_data.js を置きかえると、ゲームの主人公の絵が変わります（配布用フォルダにも同じものを入れる）。</p>
+  </section>
+</main>
+<script>
+const ROWS = [["none","なし"],["fire","火"],["water","水"],["wood","木"]];
+const COLS = [["stand","立ち姿"],["ready","構え"],["slash","斬る"],["guard","守る"],["cast","術"]];
+let IMG = null, DATA = null, W = 0, H = 0, CUTX = [], CUTY = [], CELLS = null, BG = "repeating-conic-gradient(#ddd 0 25%,#fff 0 50%) 0 0/12px 12px";
+const $ = id => document.getElementById(id);
+$("file").addEventListener("change", e => { const f = e.target.files[0]; if(f) load(f); });
+document.addEventListener("dragover", e => e.preventDefault());
+document.addEventListener("drop", e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if(f) load(f); });
+document.querySelectorAll(".bgsel button").forEach(b => b.onclick = () => { BG = b.dataset.bg; document.querySelectorAll(".cellImg").forEach(i => i.style.setProperty("--bg", BG)); });
+$("th").addEventListener("change", () => { if(IMG) { prep(); render(); } });
+function load(f){
+  const url = URL.createObjectURL(f), im = new Image();
+  im.onload = () => { IMG = im; W = im.naturalWidth; H = im.naturalHeight; prep(); autoGrid(); };
+  im.src = url;
+}
+// 透明度の低い消し残りを消したデータ
+function prep(){
+  const c = document.createElement("canvas"); c.width = W; c.height = H;
+  const x = c.getContext("2d"); x.drawImage(IMG, 0, 0);
+  DATA = x.getImageData(0, 0, W, H);
+  const th = +$("th").value || 0, d = DATA.data;
+  for(let i = 3; i < d.length; i += 4) if(d[i] < th) d[i] = 0;
+}
+// 絵のない（ほぼ透明な）すき間を探して、列・段に分ける
+function segs(has, n, minlen){
+  const out = []; let s = -1;
+  for(let i = 0; i < n; i++){
+    if(has(i) && s < 0) s = i;
+    if(!has(i) && s >= 0){ if(i - s >= minlen) out.push([s, i]); s = -1; }
+  }
+  if(s >= 0) out.push([s, n]);
+  return out;
+}
+function autoGrid(){
+  if(!DATA) return;
+  const d = DATA.data, colHas = new Uint8Array(W), rowHas = new Uint8Array(H);
+  for(let y = 0; y < H; y++) for(let x = 0; x < W; x++) if(d[(y * W + x) * 4 + 3] > 40){ colHas[x] = 1; rowHas[y] = 1; }
+  let cs = segs(i => colHas[i], W, 20), rs = segs(i => rowHas[i], H, 20);
+  // 見つからなかったときは等分
+  if(cs.length !== 5) cs = [0,1,2,3,4].map(i => [Math.round(W * i / 5), Math.round(W * (i + 1) / 5)]);
+  if(rs.length !== 4) rs = [0,1,2,3].map(i => [Math.round(H * i / 4), Math.round(H * (i + 1) / 4)]);
+  CUTX = cs; CUTY = rs;
+  buildInputs(); render();
+}
+function buildInputs(){
+  $("colInputs").innerHTML = "列（左・右）：" + CUTX.map((c, i) => `<label>${COLS[i][1]} <input type="number" data-k="x${i}a" value="${c[0]}"><input type="number" data-k="x${i}b" value="${c[1]}"></label>`).join("");
+  $("rowInputs").innerHTML = "段（上・下）：" + CUTY.map((c, i) => `<label>${ROWS[i][1]} <input type="number" data-k="y${i}a" value="${c[0]}"><input type="number" data-k="y${i}b" value="${c[1]}"></label>`).join("");
+  document.querySelectorAll("#colInputs input,#rowInputs input").forEach(inp => inp.onchange = () => {
+    const m = /^([xy])(\d)([ab])$/.exec(inp.dataset.k), arr = m[1] === "x" ? CUTX : CUTY;
+    arr[+m[2]][m[3] === "a" ? 0 : 1] = +inp.value; render();
+  });
+}
+function cellCanvas(x0, y0, x1, y1){
+  // マスの中で、絵のある部分だけに切りつめる
+  const d = DATA.data; let bx0 = x1, by0 = y1, bx1 = x0, by1 = y0;
+  for(let y = y0; y < y1; y++) for(let x = x0; x < x1; x++) if(d[(y * W + x) * 4 + 3] > 0){ if(x < bx0) bx0 = x; if(x > bx1) bx1 = x; if(y < by0) by0 = y; if(y > by1) by1 = y; }
+  if(bx1 < bx0) return null;
+  const w = bx1 - bx0 + 1, h = by1 - by0 + 1, c = document.createElement("canvas"); c.width = w; c.height = h;
+  const sub = new ImageData(w, h);
+  for(let y = 0; y < h; y++){ const s = ((by0 + y) * W + bx0) * 4; sub.data.set(d.subarray(s, s + w * 4), y * w * 4); }
+  c.getContext("2d").putImageData(sub, 0, 0);
+  return c;
+}
+function render(){
+  const cv = $("srcCv"); cv.width = W; cv.height = H;
+  const x = cv.getContext("2d"); x.putImageData(DATA, 0, 0);
+  x.lineWidth = Math.max(2, W / 500);
+  x.strokeStyle = "#e0362b"; CUTX.forEach(([a, b]) => { [a, b].forEach(v => { x.beginPath(); x.moveTo(v, 0); x.lineTo(v, H); x.stroke(); }); });
+  x.strokeStyle = "#2f6fe0"; CUTY.forEach(([a, b]) => { [a, b].forEach(v => { x.beginPath(); x.moveTo(0, v); x.lineTo(W, v); x.stroke(); }); });
+  CELLS = {};
+  let html = `<tr><th></th>${COLS.map(c => `<th>${c[1]}</th>`).join("")}</tr>`;
+  ROWS.forEach(([rk, rn], ri) => {
+    CELLS[rk] = {};
+    html += `<tr><th>${rn}</th>`;
+    COLS.forEach(([ck], ci) => {
+      const c = cellCanvas(CUTX[ci][0], CUTY[ri][0], CUTX[ci][1], CUTY[ri][1]);
+      CELLS[rk][ck] = c;
+      html += `<td>${c ? `<img class="cellImg" style="--bg:${BG}" src="${c.toDataURL()}"><br><small>${c.width}×${c.height}</small>` : "（空）"}</td>`;
+    });
+    html += `</tr>`;
+  });
+  $("grid").innerHTML = html;
+}
+function exportJs(){
+  if(!CELLS){ $("msg").textContent = "先に画像を開いてください"; return; }
+  // どの姿も同じ縮尺にする（いちばん背の高い絵が「高さ」になる）。戦いで姿を切りかえても、体の大きさが変わらないように
+  const oh = +$("outH").value || 300, fmt = $("fmt").value, out = {}, size = {};
+  let maxH = 0; ROWS.forEach(([rk]) => COLS.forEach(([ck]) => { const c = CELLS[rk][ck]; if(c) maxH = Math.max(maxH, c.height); }));
+  const k = oh / maxH;
+  ROWS.forEach(([rk]) => { out[rk] = {}; COLS.forEach(([ck]) => {
+    const c = CELLS[rk][ck]; if(!c) return;
+    const w = Math.round(c.width * k), h = Math.round(c.height * k), o = document.createElement("canvas"); o.width = w; o.height = h;
+    const x = o.getContext("2d"); x.imageSmoothingQuality = "high"; x.drawImage(c, 0, 0, w, h);
+    out[rk][ck] = o.toDataURL(fmt, .88);
+    if(rk === "none") size[ck] = [w, h];
+  }); });
+  const js = "/* 活用忍伝の主人公（見習い忍者）の絵（素材/画像/忍者画像.png を 忍者画像_切り抜きツール.html で切り抜いたもの）。\n"
+    + "   段＝得意属性（none＝なし・fire＝火・water＝水・wood＝木）、列＝姿（stand＝立ち姿・ready＝構え・slash＝斬る・guard＝守る・cast＝術）。 */\n"
+    + "window.NINJA_SPRITES = " + JSON.stringify(out) + ";\n"
+    + "// 姿ごとの大きさ [幅, 高さ]（どの姿も同じ縮尺）\nwindow.NINJA_SPRITE_SIZE = " + JSON.stringify(size) + ";\n";
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([js], {type:"text/javascript"})); a.download = "ninja_sprites_data.js"; a.click();
+  $("msg").textContent = `書き出しました（${Math.round(js.length / 1024)}KB）`;
+}
+</script>
+</body>
+</html>

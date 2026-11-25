@@ -17,7 +17,9 @@
 <title>活用忍伝 ―変化ノ極意―</title>
 <script src="mg_save_guard.js?v=13.94" data-keys="katsuyo_ninpou_v1"></script><!-- ほかの画面で記録が変わったら読み込み直し、古い記録で上書きしない -->
 <script src="jp_wrap.js?v=13.97"></script>
-<script src="mg_evolve.js?v=14.49"></script><!-- ミニゲームの途中で、ことのはの進化をお知らせ（時間制限のないときだけ） --><!-- スマホ幅のとき、日本語を文節の切れ目で折り返す -->
+<script src="mg_evolve.js?v=14.49"></script>
+<script src="ninja_sprites_data.js?v=14.51"></script><!-- 主人公の絵（素材/画像/忍者画像.png を切り抜いたもの。得意属性ごとの色・姿） -->
+<script src="daily_minigame.js?v=13.68"></script><!-- 今日のミニゲーム・スロット（?daily=1／?slot=1で開いたときだけ、道場のサンドバッグ打ちをいきなり始める） --><!-- ミニゲームの途中で、ことのはの進化をお知らせ（時間制限のないときだけ） --><!-- スマホ幅のとき、日本語を文節の切れ目で折り返す -->
 <!-- 知識ドリルDXのミニゲーム「活用忍伝 ―変化ノ極意―」（2026-11-23〜、試作）。
      用言の活用を、忍者の「変化の術」の物語の中で、章ごとに一段ずつ身につける。
        序 変化の術       … 語幹（本体）と活用語尾（変装）。「書＿ない」に合う変装札を選ぶ
@@ -198,6 +200,18 @@
   .vplace.locked .vicon{filter:grayscale(.85) brightness(.85) drop-shadow(0 4px 3px rgba(0,0,0,.35))}
   .dj-conf{position:fixed;z-index:60;font-size:20px;pointer-events:none;transform:translate(-50%,-50%);animation:djconf 1.5s ease-out both}
   @keyframes djconf{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}15%{opacity:1}100%{opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy) + 80px)) scale(1) rotate(200deg)}}
+  /* 道場のサンドバッグ（今日のミニゲーム・稽古モード） */
+  .sandbag{display:inline-block;position:relative;width:.72em;height:1.2em;margin-top:.4em;transform-origin:50% -.4em;animation:sbIdle 2.4s ease-in-out infinite}
+  .sandbag::before{content:"";position:absolute;left:50%;top:-.42em;width:3px;height:.44em;background:#4a3a28;transform:translateX(-50%)}
+  .sandbag i{position:absolute;inset:0;border-radius:.16em .16em .22em .22em;background:linear-gradient(90deg,#4e3018,#a8743f 42%,#6f4522);box-shadow:inset 0 .08em 0 rgba(255,255,255,.18),inset 0 -.1em 0 rgba(0,0,0,.3)}
+  .sandbag i::before,.sandbag i::after{content:"";position:absolute;left:0;right:0;height:.06em;background:#33200f}
+  .sandbag i::before{top:.2em}.sandbag i::after{bottom:.2em}
+  .sandbag b{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;font-size:.22em;color:#f3e2c0;font-weight:900;line-height:1.1;writing-mode:vertical-rl;margin:0 auto}
+  .sandbag.swing{animation:sbSwing .6s ease-out}
+  @keyframes sbSwing{0%{transform:rotate(0)}25%{transform:rotate(18deg)}55%{transform:rotate(-9deg)}80%{transform:rotate(4deg)}100%{transform:rotate(0)}}
+  @keyframes sbIdle{0%,100%{transform:rotate(-1.5deg)}50%{transform:rotate(1.5deg)}}
+  .sandleft{font-size:22px;font-weight:900;color:#ffe08a}
+  .sandleft.low{color:#ff8a80}
   .vbatsu{position:absolute;left:50%;top:-2px;width:54px;height:54px;transform:translateX(-50%);z-index:2;background:linear-gradient(45deg,transparent 43%,#e0362b 43%,#e0362b 57%,transparent 57%),linear-gradient(-45deg,transparent 43%,#e0362b 43%,#e0362b 57%,transparent 57%);pointer-events:none}
   /* 城の吹き出し：今できる任務があるとき */
   .vfuki{position:absolute;left:calc(100% + 10px);top:2px;background:#fff;color:#3a2716;font-size:11px;font-weight:bold;line-height:1.35;border:2px solid #e0362b;border-radius:10px;padding:3px 7px;width:8.5em;white-space:normal;text-align:left;filter:none;animation:bob 1.6s ease-in-out infinite;z-index:3}
@@ -496,6 +510,9 @@
   .bstage .foe .bosshp{width:90%;margin:3px auto}
   .bhero{position:relative;font-size:72px;line-height:1;transform:scaleX(-1);filter:drop-shadow(0 5px 4px rgba(0,0,0,.4))}
   .bhero img{height:86px}
+  .bhero img.hero-sp{transform:scaleX(-1);width:auto;max-width:none;vertical-align:bottom;flex:none}
+  /* 絵の主人公は、姿（横幅）が変わっても左端（背中）の位置をそろえる。.bhero は左右反転しているので flex-end ＝ 見た目の左 */
+  .bhero.spr{display:flex;justify-content:flex-end;align-items:flex-end}
   .bhero.cast{animation:cast .7s ease}
   @keyframes cast{0%{transform:scaleX(-1)}30%{transform:scaleX(-1) translateY(-18px);filter:drop-shadow(0 0 18px #fff6a0)}100%{transform:scaleX(-1)}}
   .bhero.hurt{animation:hurt .4s}
@@ -941,8 +958,35 @@ const NP_IMG = {
 const NP_EMOJI = {hero:"🥷", shisho:"👴", sekka:"🗿", minion:"👤", fake:"🎭", word:"📜", deshi:"🎩", ikoku:"🧙", kage:"👤", okina:"🧓", ouna:"👵", kaede:"👩", nushi:"😈"};
 function pic(key){
   const src = NP_IMG[key];
+  if(!src && key === "hero"){ const sp = heroSprite("stand"); if(sp) return `<img class="hero-sp" src="${sp}" alt="">`; }
   if(!src && key === "hero"){ const t = heroTintSrc(SAVE && SAVE.elem); if(t) return `<img class="hero-ic" src="${t}" alt="" style="height:1.15em;width:auto;vertical-align:-.12em">`; }
   return src ? `<img src="${src}" alt="">` : (NP_EMOJI[key] || "");
+}
+/* 主人公の絵（2026-11-25、教員の画像「忍者画像」）。ninja_sprites_data.js の NINJA_SPRITES[得意属性][姿]。
+   得意属性：none（なし）・fire・water・wood。姿：stand（立ち姿）＝村・自宅・外・物語など／ready（構え）＝戦いのふだん／
+   slash（斬る）＝正解して攻撃したとき／guard（守る）＝敵の攻撃を受けたとき／cast（術）＝術を使うとき。
+   どの姿も同じ縮尺で切り抜いてあるので（NINJA_SPRITE_SIZE）、戦いでは構えの高さを基準に、姿ごとの高さを合わせる。
+   絵のデータがないときは、下の「装束の塗りかえ」（絵文字🥷）にもどる。 */
+function heroSprite(pose){
+  const S = window.NINJA_SPRITES; if(!S) return null;
+  const row = S[SAVE && SAVE.elem && S[SAVE.elem] ? SAVE.elem : "none"] || S.none;
+  return row ? (row[pose] || row.stand || null) : null;
+}
+const HERO_READY_H = 96;   // 戦いの構えの高さ（px）
+function heroPoseHtml(pose){
+  const src = heroSprite(pose); if(!src) return pic("hero");
+  const Z = window.NINJA_SPRITE_SIZE || {};
+  const h = Z[pose] && Z.ready ? Math.round(HERO_READY_H * Z[pose][1] / Z.ready[1]) : HERO_READY_H;
+  return `<img class="hero-sp pose-${pose}" src="${src}" alt="" style="height:${h}px">`;
+}
+let HERO_POSE_T = null;
+// 戦いの主人公の姿を変える。ms があれば、その時間のあと構えにもどる
+function heroPose(pose, ms){
+  if(!window.NINJA_SPRITES) return;
+  const el = $("bHero"); if(!el) return;
+  clearTimeout(HERO_POSE_T);
+  el.innerHTML = heroPoseHtml(pose); el.classList.add("spr");
+  if(ms) HERO_POSE_T = setTimeout(() => { const e = $("bHero"); if(e && PLAY) e.innerHTML = heroPoseHtml("ready"); }, ms);
 }
 /* 得意属性で装束の色を変える（2026-11-25、教員の指示：火＝赤・水＝青・木＝緑。忍者らしく少し暗め。「なし」は今のまま）。
    主人公は絵文字🥷なので、一度キャンバスに描いて、肌（だいだい〜黄色）と白はそのままに、ほかの部分（装束・頭巾・刀）を
@@ -4109,6 +4153,7 @@ function fxSlash(crit){
   if(crit){ ring(f.x, f.y, "#ffd23f", 110, .5); shake(10); }
 }
 function fxEnemyHit(elem){
+  heroPose("guard", 800);   // 守る姿で受ける
   const hero = $("bHero"); if(hero){ hero.classList.remove("hurt"); void hero.offsetWidth; hero.classList.add("hurt"); }
   const h = heroC();
   const col = elem === "fire" ? "#ff5a00" : elem === "water" ? "#3a9be8" : elem === "wood" ? "#3fae4a" : "#ff3b3b";
@@ -4163,7 +4208,9 @@ function startBattle(cfg){
     : cfg.mode === "dojo" ? "repeating-linear-gradient(90deg,#c9a66b 0 38px,#b8925a 38px 40px),linear-gradient(180deg,#6b4a2a,#3a2716)"
     : cfg.mode === "quest" ? "linear-gradient(180deg,#5d6ea8 0%,#b9c3e6 45%,#c9b38a 46%,#9c8660 100%)"
     : "linear-gradient(180deg,#f3e3c0 0%,#f3e3c0 50%,#c9a66b 51%,#a8844a 100%)";
-  $("bHero").innerHTML = pic("hero");
+  clearTimeout(HERO_POSE_T);
+  $("bHero").innerHTML = window.NINJA_SPRITES ? heroPoseHtml("ready") : pic("hero");   // 戦いでは「構え」
+  $("bHero").classList.toggle("spr", !!window.NINJA_SPRITES);
   fxResize(); fxWarm();
   PLAY.turn = 0; PLAY.stolen = 0; PLAY.fled = false;
   PLAY.elem = SAVE.elem || "";
@@ -4171,6 +4218,7 @@ function startBattle(cfg){
     Object.assign(PLAY, {hp:1, maxHp:1, jutsu:[], guard:0, hints:0, crit:0, elem:"", timeBase:cfg.time, legend:{done:0, ok:0, miss:0}});
     PLAY.qs = arrangeNoRepeat(legendQs(), RECENT_Q);
   }
+  if(cfg.mode === "sand") PLAY.qs = arrangeNoRepeat(sandQs(), RECENT_Q);   // サンドバッグ打ちは、今までに習った章から
   if(cfg.mode === "dojo" || cfg.allCh){   // 道場・魔境は、全ジャンル（すべての章）からまぜて出題
     PLAY.qs = arrangeNoRepeat(allChQs(), RECENT_Q);
   }   // この戦いの得意属性（「属性がえし」で変わる。戦いが終わればもとにもどる）
@@ -4212,7 +4260,7 @@ function renderHud(){
   const p = PLAY;
   renderPBox();
   const sm = streakMul();
-  $("hudCombo").innerHTML = STREAK >= 2 ? `<span class="streak s${STREAK >= 11 ? 3 : STREAK >= 6 ? 2 : 1}">🔥${STREAK}連続　攻撃×${sm.toFixed(1)}</span>` : "";
+  $("hudCombo").innerHTML = STREAK >= 2 ? `<span class="streak s${STREAK >= 11 ? 3 : STREAK >= 6 ? 2 : 1}">🔥${STREAK}連続${isPrac(p.cfg.mode) ? "" : `　攻撃×${sm.toFixed(1)}`}</span>` : "";   // 修行・練習では攻撃力は出さない
   const hero = $("bHero"); if(hero){ hero.classList.toggle("aura1", STREAK >= 3 && STREAK < 6); hero.classList.toggle("aura2", STREAK >= 6 && STREAK < 11); hero.classList.toggle("aura3", STREAK >= 11); }
   const bag = SAVE.bag.dango || 0;
   $("hudItems").innerHTML = isPrac(p.cfg.mode) || p.cfg.mode === "legend" || noItems(p) ? "" :
@@ -4233,10 +4281,12 @@ async function useJutsu(id){
   big.className = "jutsu-fx jf-" + (j.elem || j.kind);
   big.innerHTML = `<div class="jfx-ic">${j.icon}</div><div class="jfx-nm">${j.name}！</div>`;
   void big.offsetWidth; big.classList.add("go");
+  heroPose("cast");   // 術を使う姿（演出が終わったら構えにもどす）
   const hero = $("bHero"); hero.classList.remove("cast"); void hero.offsetWidth; hero.classList.add("cast");
   [523, 784, 1046, 1568].forEach((f, i) => tone(f, .15, "sawtooth", .06, i * .07));
   await sleep(650);
   await (JUTSU_FX[id] || (async () => {}))();
+  heroPose("ready");
   if(j.kind === "atk" && p.foe.guard > 0){
     p.foe.guard--; dmgPop("分身にかわされた！", "#d0a8ff", "foe");
   }else if(j.kind === "atk"){
@@ -4439,6 +4489,7 @@ function legendQs(){
 function ensureQ(){
   const p = PLAY;
   if(p.cfg.mode === "legend"){ while(p.i >= p.qs.length) p.qs = p.qs.concat(arrangeNoRepeat(legendQs(), RECENT_Q.concat(p.qs.slice(-3).map(qKey)))); return; }
+  if(p.cfg.mode === "sand"){ while(p.i >= p.qs.length) p.qs = p.qs.concat(arrangeNoRepeat(sandQs(), RECENT_Q.concat(p.qs.slice(-3).map(qKey)))); return; }
   while(p.i >= p.qs.length) p.qs = p.qs.concat(arrangeNoRepeat(p.cfg.mode === "dojo" || p.cfg.allCh ? allChQs() : makeQuestions(p.ch), RECENT_Q.concat(p.qs.slice(-3).map(qKey))));
 }
 // 奥（右上）の敵の絵と、左上の敵の箱（名前・Lv・属性・HP・守り/結界・次の攻撃）
@@ -4449,6 +4500,7 @@ function foeHtml(){
 function eboxHtml(){
   const f = PLAY.foe;
   if(PLAY.cfg.mode === "quick") return "";
+  if(PLAY.cfg.mode === "sand") return `<div class="bxname">🥋 道場のサンドバッグ</div><div class="bxsub">当てた数 <b style="font-size:20px">${PLAY.ok}</b>　ベスト ${SAVE.sandBest || 0}</div><div class="bxnext">⏱ のこり <span class="sandleft" id="sandLeft">${Math.ceil(Math.max(0, (PLAY.sandEnd || Date.now() + SAND_MS) - Date.now()) / 1000)}</span> 秒</div>`;
   if(PLAY.cfg.mode === "train" && TR){
     const st = TR.steps[TR.si], g = st.goal;
     return `<div class="bxname">🎯 ${esc(st.title)}</div>
@@ -4488,6 +4540,7 @@ function startTimer(){
   stopTimer();
   const p = PLAY, q = p.qs[p.i];
   if(isPrac(p.cfg.mode)) { $("qTimer").style.width = "0%"; return; }   // 練習・修行には時間制限なし
+  if(p.cfg.mode === "sand") return;   // サンドバッグ打ちは、問題ごとではなく全体で1分30秒（sandTick）
   const extra = p.cfg.mode === "legend" ? 0 : q.kind === "table" || q.kind === "sform" || q.kind === "stype" ? 6 : 0;
   const total = (p.timeBase + extra) * 1000, t0 = Date.now();
   TIMER = setInterval(() => {
@@ -4555,7 +4608,7 @@ async function answer(btn){
     STREAK++;
     p.gauge = Math.min(jutsuMax(p.nin), p.gauge + 1);
     sfx.ok(); mgCorrect();
-    const crit = Math.random() * 100 < p.crit;
+    const crit = !isPrac(p.cfg.mode) && Math.random() * 100 < p.crit;   // 修行・練習では会心は出さない（攻撃力の話をしないため）
     const fGuard = p.foe.guard > 0; if(fGuard) p.foe.guard--;   // 魔境の敵の分身
     const dodged = fGuard || hasAb(p.foe, "dodge") && Math.random() < .18;   // 能力【かわす】
     const sec = (Date.now() - (p.qStart || Date.now())) / 1000, spd = speedMul(sec);
@@ -4565,16 +4618,20 @@ async function answer(btn){
     const oneHit = p.foe.hp === p.foe.max && dmg >= p.foe.hp;
     p.foe.hp -= dmg; p.dmgDealt += dmg;
     if(oneHit && p.cfg.mode === "wild") setTimeout(() => flash("一撃！", "#ffd23f"), 150);
+    heroPose("slash", 650);   // 斬りかかる姿（2026-11-25〜、修行・練習でも出す）
+    if(isPrac(p.cfg.mode)){ fxSlash(false); tone(900, .06, "square", .05, .02); }   // 修行・練習でも斬撃は見せる（ダメージの数字や攻撃力は出さない）
     if(!isPrac(p.cfg.mode)){ if(dodged){ const f = foeC(); burst(f.x, f.y, 8, {sp0:60, sp1:160, p:() => ({ch:"💨", size:rnd(16, 24)})}); } else { fxSlash(crit); tone(crit ? 1200 : 900, .06, "square", .05, .02); } }
     const xp = p.cfg.xp || 1; p.xpGot += xp;   // 獲得予定（倒したときにまとめて入る）
     if(!isPrac(p.cfg.mode)) setTimeout(() => dmgPop(`+${xp} EXP`, "#9fe8ff", "pBox"), 250);
     refreshFoe(); $("foe").classList.remove("hit"); void $("foe").offsetWidth; $("foe").classList.add("hit");
     if(!isPrac(p.cfg.mode)) dmgPop(dodged ? "かわされた！" : `${crit ? "会心！" : ""}−${dmg}`, dodged ? "#9fd3ff" : crit ? "#ffd23f" : "#fff", "foe");
-    flash(crit ? "会心の一撃！" : STREAK >= 3 ? `${STREAK}連続！ 攻撃×${streakMul().toFixed(1)}` : "見事！", "#ffe08a");
+    // 修行・練習は正解の数で先へ進むので、攻撃力が上がるという言い方はしない（2026-11-25、教員の指示）
+    flash(crit ? "会心の一撃！" : STREAK >= 3 ? (isPrac(p.cfg.mode) ? `${STREAK}連続！` : `${STREAK}連続！ 攻撃×${streakMul().toFixed(1)}`) : "見事！", "#ffe08a");
     if(STREAK === 3 || STREAK === 6 || STREAK === 11) [784, 988, 1175].forEach((f, k) => tone(f, .1, "square", .05, k * .07));
     fb.className = "feedback ok show"; fb.innerHTML = "⭕ " + explain(q);
     renderHud();
     // 敵が生きていれば、決まった間（every）ごとに攻撃してくる
+    if(p.cfg.mode === "sand"){ const sb = document.querySelector("#foe .sandbag"); if(sb){ sb.classList.remove("swing"); void sb.offsetWidth; sb.classList.add("swing"); } tone(140, .12, "sine", .2); await sleep(420); nextQ(); return; }
     if(!isPrac(p.cfg.mode) && p.foe.hp > 0){
       p.charge++;
       if(p.charge >= p.foe.every){ await sleep(650); if(foeAttack(1)) await sleep(900); }
@@ -4589,7 +4646,8 @@ async function answer(btn){
     STREAK = 0;
     if(btn) btn.classList.add("ng");
     sfx.ng(); mgWrong();
-    if(!isPrac(p.cfg.mode)){
+    if(p.cfg.mode === "sand") setTimeout(() => { if(PLAY === p && p.lock && !p.sandOver) nextQ(); }, 1600);   // サンドバッグは反撃しない。解説を少し見せて次へ
+    else if(!isPrac(p.cfg.mode)){
       foeAttack(1.5);   // まちがい・時間切れは、その場で1.5倍の反撃
       if(hasAb(p.foe, "steal") && SAVE.ryo > 0){   // 能力【盗み】
         const n = Math.min(SAVE.ryo, 3 + p.foe.lv * 2); SAVE.ryo -= n; p.stolen += n; saveSave(SAVE);
@@ -4606,6 +4664,7 @@ async function answer(btn){
 }
 function nextQ(){
   const p = PLAY; if(!p) return;
+  if(p.cfg.mode === "sand"){ if(p.sandOver) return; p.i++; ensureQ(); renderQ(); return; }   // サンドバッグ打ちは時間との勝負（進化のお知らせは結果画面で）
   if(window.mgEvolveInterrupt && mgEvolveInterrupt(nextQ)) return;   // ことのはが進化していたら、次の問題（の時間制限）の前に演出
   if(p.cfg.mode === "quick"){ finish(p.ok > 0); return; }
   if(p.cfg.mode === "train"){ trainNext(p); return; }
@@ -4615,8 +4674,72 @@ function nextQ(){
   p.i++; ensureQ();
   renderQ();
 }
+/* =====================================================================
+   道場のサンドバッグ打ち（2026-11-25、教員の指示）：「今日のミニゲーム」で活用忍伝が当たったときの挑戦。
+   1分30秒の間に、できるだけたくさん正解する（＝サンドバッグをたたく）タイムトライアル。
+   ・問題は、今までに習った章（クリアした章と、いま進めている章）からまぜる。問題ごとの時間制限はない。
+   ・正解：サンドバッグがゆれて、すぐ次の問題へ。まちがい：反撃はなく、解説を少し見せて次へ（「わかった」で早く進める）。
+   ・正解ごとにジャンルレベル＋1・忍者の経験値＋1（ほかの戦いと同じ）。ベスト記録は SAVE.sandBest。
+   ・?daily=1／?slot=1 で開いたときだけ、いきなり始まる（ページの最後の dailyMgPage）。 */
+const SAND_MS = 90000;
+let SAND_T = null;
+function sandQs(){
+  const ns = nextStory();
+  const ids = STORY_ORDER.filter(id => chCleared(id) || id === ns);
+  return shuffle([].concat(...(ids.length ? ids : ["jo"]).map(id => makeQuestions(CHAPTERS[chIndex(id)]))));
+}
+function startSandbag(){
+  closeModal(); clearInterval(SAND_T);
+  const ns = nextStory() || "tsui";
+  startBattle({mode:"sand", ch:CHAPTERS[chIndex(ns)], lv:ninjaInfo().lv, time:999, xp:1,
+    foe:{icon:`<span class="sandbag"><i><b>稽古</b></i></span>`, name:"道場のサンドバッグ", hp:9999999, atk:0, def:0, res:0, elem:"", every:999999}});
+  PLAY.sandEnd = Date.now() + SAND_MS;
+  $("hudName").textContent = "🥋 道場の稽古　サンドバッグ打ち（1分30秒）";
+  $("quitBtn").textContent = "稽古をやめる";
+  refreshFoe();
+  SAND_T = setInterval(sandTick, 200);
+}
+function sandTick(){
+  const p = PLAY;
+  if(!p || p.cfg.mode !== "sand" || p.sandOver){ clearInterval(SAND_T); SAND_T = null; return; }
+  const left = Math.max(0, p.sandEnd - Date.now()), r = left / SAND_MS;
+  $("qTimer").style.width = (r * 100) + "%"; $("qTimer").classList.toggle("low", r < .2);
+  const el = $("sandLeft"); if(el){ el.textContent = Math.ceil(left / 1000); el.classList.toggle("low", left <= 10000); }
+  if(left <= 0) sandTimeUp();
+}
+function sandTimeUp(){
+  const p = PLAY; if(!p || p.sandOver) return;
+  p.sandOver = true; p.lock = true; clearInterval(SAND_T); SAND_T = null; stopTimer();
+  $("qChoices").querySelectorAll(".choice").forEach(b => b.disabled = true);
+  flash("そこまで！", "#ffe08a"); [523, 392, 262].forEach((f, i) => tone(f, .25, "square", .06, i * .15));
+  setTimeout(sandResult, 1100);
+}
+function sandQuit(){
+  const p = PLAY; if(!p) return;
+  p.sandOver = true; p.lock = true; clearInterval(SAND_T); SAND_T = null; stopTimer();
+  sandResult();
+}
+function sandResult(){
+  const p = PLAY; if(!p) return;
+  PLAY = null;
+  const r = mgFlush() || {net:0};
+  const prev = SAVE.sandBest || 0, best = p.ok > prev;
+  if(best){ SAVE.sandBest = p.ok; saveSave(SAVE); }
+  const XP = awardXp(p.xpGot);
+  $("resultBody").innerHTML = `<div class="enc-ic"><span class="sandbag"><i><b>稽古</b></i></span></div>
+    <h2>🥋 稽古、おつかれさま！</h2>
+    <div class="rewards"><b>当てた数</b><span style="font-size:26px;font-weight:900">${p.ok}回</span>${best && p.ok > 0 ? `<span>🏆 ベスト記録！</span>` : `<span>ベスト ${prev}回</span>`}</div>
+    ${xpResultHtml(XP, "正解の数だけ")}
+    <div class="stat">正解 ${p.ok}　まちがい ${p.ng}　最大 ${p.maxCombo}連続<br>「${MG_GENRE}」レベル ${mgSigned(r.net)}</div>
+    ${p.wrongList.length ? `<div class="scroll" style="margin-top:12px;text-align:left"><h2 style="font-size:18px">ふりかえり</h2>${p.wrongList.slice(0, 6).map(q => `<p>・${explain(q)}</p>`).join("")}</div>` : ""}
+    <div class="btn-row" id="resultBtns"><button class="btn" onclick="startSandbag()">もう一度</button><button class="btn sub" onclick="showVillage()">里へ</button></div>`;
+  show("sResult");
+  animateXp(XP);
+  if(window.mgEvolveSafePointSoon) mgEvolveSafePointSoon(1500);   // ことのはの進化のお知らせ（結果画面で）
+}
 function quitPlay(){
   if(!PLAY) return;
+  if(PLAY.cfg.mode === "sand"){ if(confirm("稽古をやめますか？（ここまでの数で記録します）")) sandQuit(); return; }
   if(PLAY.cfg.mode === "train"){
     if(!confirm("修行をやめますか？（終えた段階までは記録されます。続きはまた後で）")) return;
     stopTimer(); PLAY = null; mgFlush(); TRAIN_AFTER = null; TR = null; FIELD ? resumeField() : showVillage(); return;
@@ -5280,7 +5403,8 @@ document.addEventListener("keydown", e => {
   const k = {ArrowUp:[0,-1], ArrowDown:[0,1], ArrowLeft:[-1,0], ArrowRight:[1,0]}[e.key];
   if(k){ e.preventDefault(); arrowStep(k[0], k[1]); }
 });
-if(!SAVE.introSeen){
+const NP_DAILY = /[?&](daily|slot)=1/.test(location.search);   // 今日のミニゲーム・スロットのときは、最初の物語を出さない
+if(!SAVE.introSeen && !NP_DAILY){
   playStory([
     ["nar", "ここは山奥の忍びの里、<span class=em>変化の里</span>。"],
     ["shisho", "目が覚めたか、見習いよ。今日からおぬしも、この里の忍じゃ。"],
@@ -5290,6 +5414,8 @@ if(!SAVE.introSeen){
     ["shisho", "……じゃが、今はそれどころではない。大変なことが起きたのじゃ。<span class=em>寺子屋</span>へ来てくれ。"],
   ], () => { SAVE.introSeen = 1; saveSave(SAVE); showVillage(); });
 }else showVillage();
+// 今日のミニゲーム・スロット（?daily=1／?slot=1）：道場のサンドバッグ打ちをいきなり始め、結果画面で終わり（daily_minigame.js）
+if(typeof dailyMgPage === "function") dailyMgPage("kokugo_app.html?from=daily", startSandbag, {ends:["sandResult"], quits:["sandQuit"]});
 </script>
 </body>
 </html>
