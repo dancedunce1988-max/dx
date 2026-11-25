@@ -134,6 +134,8 @@
   .qword rt{font-size:.38em;color:#cfd6ea}
   .qword .blank{display:inline-block;min-width:1.2em;border-bottom:4px solid var(--gold);color:var(--gold)}
   .qword .fol{color:#9fd3ff}
+  .qword .fbase{display:block;font-size:15px;font-weight:bold;color:#ffe08a;letter-spacing:.05em;margin-bottom:2px}
+  .qword .fbase b{font-size:20px;color:#fff;margin:0 2px}
   .lastboss{display:inline-block;background:linear-gradient(135deg,#3a0a4a,#a8182a);color:#ffd23f;border:1px solid #ffd23f;border-radius:999px;font-size:11px;padding:1px 8px;margin-right:6px;vertical-align:middle}
   .capfree{color:#1f7a3a !important;font-weight:bold}
   .noitem{font-size:12px;color:#cfd6ea;background:rgba(0,0,0,.25);border-radius:999px;padding:4px 12px}
@@ -155,6 +157,16 @@
     background:linear-gradient(180deg,#fff9e6,#f0dca6);border:2px solid #c8372d}
   .choice.ok{background:linear-gradient(180deg,#bff0cf,#79d39c)}
   .choice.ng{background:linear-gradient(180deg,#ffc9c4,#f08b82)}
+  /* まちがえたとき（時間切れ・相手に先に答えられたときも）、正解に赤い○と「正解」の札（2026-11-25、教員の指示：
+     「緑色だけでは分かりにくい。○をつけるなどして、明らかに正解がどれか分かるように」）。選んだまちがいには✕の札、ほかは薄く */
+  #qChoices.missed .choice{position:relative;overflow:visible}
+  #qChoices.missed .choice.ok{opacity:1;box-shadow:0 0 0 3px #fff,0 0 14px 4px rgba(229,57,53,.55);animation:ansPop .45s cubic-bezier(.2,1.6,.4,1)}
+  #qChoices.missed .choice.ok::after{content:"";position:absolute;inset:-9px -7px;border:5px solid #e53935;border-radius:50%;transform:rotate(-6deg);pointer-events:none;z-index:2}
+  #qChoices.missed .choice::before{position:absolute;top:-12px;right:-8px;z-index:3;writing-mode:horizontal-tb;font-size:12px;font-weight:900;line-height:1;color:#fff;border-radius:999px;padding:4px 8px;box-shadow:0 2px 4px rgba(0,0,0,.3)}
+  #qChoices.missed .choice.ok::before{content:"正解";background:#e53935}
+  #qChoices.missed .choice.ng::before{content:"✕";background:#555}
+  #qChoices.missed .choice:not(.ok):not(.ng){opacity:.35}
+  @keyframes ansPop{0%{transform:scale(.85)}60%{transform:scale(1.08)}100%{transform:scale(1)}}
   .choice:disabled{opacity:.85}
   .choice small{display:block;font-size:11px;font-weight:normal;color:var(--ink2)}
   .tools{display:flex;justify-content:center;gap:8px;margin-top:10px}
@@ -955,6 +967,9 @@ const NP_IMG = {
   fake:    "",   // 偽忍者（三の章の相手）
   bg:      "",   // 物語の背景（夜の忍びの里）
 };
+/* 絵文字は、どのパソコンでも出る古くからあるものだけを使う（2026-11-25、教員の指示「パソコンによって絵文字が出ない」）。
+   2019年以降に追加された絵文字（🥷🪨🫧🪭🪶🪖🪝🩴🩳🩹🦾🦩🟢🧑‍🌾 など）は、Windows 10 などで出ないことがあるので使わない。
+   主人公は絵（ninja_sprites_data.js）。下の hero の🥷は、絵が読めなかったときだけの予備。 */
 const NP_EMOJI = {hero:"🥷", shisho:"👴", sekka:"🗿", minion:"👤", fake:"🎭", word:"📜", deshi:"🎩", ikoku:"🧙", kage:"👤", okina:"🧓", ouna:"👵", kaede:"👩", nushi:"😈"};
 function pic(key){
   const src = NP_IMG[key];
@@ -979,6 +994,8 @@ function heroPoseHtml(pose){
   const h = Z[pose] && Z.ready ? Math.round(HERO_READY_H * Z[pose][1] / Z.ready[1]) : HERO_READY_H;
   return `<img class="hero-sp pose-${pose}" src="${src}" alt="" style="height:${h}px">`;
 }
+// 見出しなどに入れる、主人公の小さな絵（2026-11-25、教員の指示：🥷 の絵文字が出ないパソコンがあるため）
+function heroMini(){ const sp = heroSprite("stand"); return sp ? `<img src="${sp}" alt="" style="height:1.3em;width:auto;vertical-align:-.3em">` : "🎖️"; }
 let HERO_POSE_T = null;
 // 戦いの主人公の姿を変える。ms があれば、その時間のあと構えにもどる
 function heroPose(pose, ms){
@@ -1662,7 +1679,7 @@ function gainXp(n){
   if(after > before){
     let el = $("ninjaToast");
     if(!el){ el = document.createElement("div"); el.id = "ninjaToast"; el.className = "lvup-toast ninja"; document.body.appendChild(el); }
-    el.innerHTML = `🥷 忍者Lv <b>${after}</b> にアップ！ 忍術ポイント＋${(after - before) * PTS_PER_LV}`;
+    el.innerHTML = `${heroMini()} 忍者Lv <b>${after}</b> にアップ！ 忍術ポイント＋${(after - before) * PTS_PER_LV}`;
     el.classList.remove("show"); void el.offsetWidth; el.classList.add("show");
     [660, 880, 1320].forEach((f, i) => tone(f, .12, "square", .06, i * .1));
   }
@@ -1762,16 +1779,16 @@ const TIER = [
 const TIER_VAL = [1, 3, 5, 8, 12];
 // [部位, 主なステータス, 副ステータス, [5段階の名前], [5段階の絵文字]]
 const EQ_DEF = [
-  ["head",   "nin", "res", ["鉢巻","頭巾","鉢金","鎖頭巾","龍の兜"],             ["🎀","🧣","⛑️","🪖","🐉"]],
+  ["head",   "nin", "res", ["鉢巻","頭巾","鉢金","鎖頭巾","龍の兜"],             ["🎀","🧣","⛑️","⛓️","🐉"]],
   ["face",   "def", "res", ["布面","半頬","面頬","鬼面","影の面"],               ["😷","🎭","👺","👹","🌑"]],
-  ["neck",   "res", "hp",  ["首巻","数珠","勾玉の首飾り","鈴の首飾り","天狗の数珠"], ["🧶","📿","🧿","🔔","🪶"]],
+  ["neck",   "res", "hp",  ["首巻","数珠","勾玉の首飾り","鈴の首飾り","天狗の数珠"], ["🧶","📿","🧿","🔔","💠"]],
   ["body",   "hp",  "def", ["野良着","忍装束","鎖帷子","黒影装束","天衣"],         ["👕","🥋","⛓️","🖤","✨"]],
-  ["arm",    "def", "hp",  ["腕巻","籠手","鉄籠手","鎖籠手","鬼神の籠手"],         ["🩹","🦾","🔩","⛓️","💪"]],
-  ["hand",   "atk", "nin", ["手甲","革手甲","手甲鉤","鋼の手甲鉤","雷神の手甲"],     ["🧤","🥊","🦅","🪝","⚡"]],
+  ["arm",    "def", "hp",  ["腕巻","籠手","鉄籠手","鎖籠手","鬼神の籠手"],         ["🎗️","🤛","🔩","⛓️","💪"]],
+  ["hand",   "atk", "nin", ["手甲","革手甲","手甲鉤","鋼の手甲鉤","雷神の手甲"],     ["🧤","🥊","🦅","🔱","⚡"]],
   ["waist",  "hp",  "res", ["帯","忍び帯","道具帯","鎖帯","龍の帯"],             ["🎗️","🎌","🧰","⛓️","🐲"]],
-  ["pants",  "def", "hp",  ["股引","忍袴","鎖袴","影袴","天狗袴"],              ["👖","🩳","⛓️","🌘","🌀"]],
+  ["pants",  "def", "hp",  ["股引","忍袴","鎖袴","影袴","天狗袴"],              ["👖","👘","⛓️","🌘","🌀"]],
   ["legs",   "hp",  "def", ["脚絆","布の脛当て","脛当て","鉄の脛当て","風神の脛当て"], ["🦵","🧦","🛡️","🔩","🌪️"]],
-  ["feet",   "nin", "res", ["草鞋","足袋","忍び足袋","水蜘蛛","韋駄天の足袋"],     ["🩴","🧦","👟","🕸️","💨"]],
+  ["feet",   "nin", "res", ["草鞋","足袋","忍び足袋","水蜘蛛","韋駄天の足袋"],     ["👡","🧦","👟","🕸️","💨"]],
   ["weapon", "atk", "nin", ["苦無","手裏剣","忍び刀","鎖鎌","影打ちの刀"],       ["🔪","🌀","🗡️","⛓️","⚔️"]],
 ];
 const EQUIP = {};
@@ -1785,7 +1802,7 @@ EQ_DEF.forEach(([slot, main, sub, names, icons]) => names.forEach((name, t) => {
 [
   ["acc_omamori", 0, "お守り",     "🧧", {res:1},          {guard:1}, ["shop"]],
   ["acc_suzu",    1, "鈴",         "🔔", {nin:3},          {time:3},  ["shop"]],
-  ["acc_magatama",2, "勾玉",       "🟢", {nin:3, atk:2},   {crit:5},  ["quest", "story"]],
+  ["acc_magatama",2, "勾玉",       "💚", {nin:3, atk:2},   {crit:5},  ["quest", "story"]],
   ["acc_makimono",2, "巻物入れ",   "🎒", {res:4},          {hint:2},  ["quest"]],
   ["acc_neko",    3, "招き猫",     "🐈", {nin:4, hp:4},    {ryo:30},  ["meet", "special"]],
   ["acc_hoju",    4, "龍の宝珠",   "🔮", {hp:6, atk:6},    {guard:1, crit:10}, ["dojo"]],
@@ -1797,10 +1814,10 @@ EQ_DEF.forEach(([slot, main, sub, names, icons]) => names.forEach((name, t) => {
   ["rare_hachimaki", "head",   1, "旋風の鉢巻",   "🌪️", {nin:5, res:3},          {time:3}],
   ["rare_hagoromo",  "body",   2, "月光の羽衣",   "🌙", {hp:9, res:6},           {guard:1}],
   ["rare_kasumi",    "face",   2, "霞の面",       "🌫️", {def:7, res:7},          {hint:2}],
-  ["rare_kote",      "arm",    3, "岩砕きの籠手", "🪨", {def:11, atk:6},         {crit:10}],
+  ["rare_kote",      "arm",    3, "岩砕きの籠手", "👊", {def:11, atk:6},         {crit:10}],
   ["rare_katana",    "weapon", 4, "黒風の忍び刀", "🌑", {atk:16, nin:8},         {crit:15}],
   ["rare_kinsuzu",   "acc",    2, "金の鈴",       "🛎️", {nin:4},                {ryo:50, time:2}],
-  ["rare_tengu",     "acc",    3, "天狗の羽うちわ", "🪭", {nin:8, res:4},        {crit:8}],
+  ["rare_tengu",     "acc",    3, "天狗の羽うちわ", "🍃", {nin:8, res:4},        {crit:8}],
   ["rare_kakuremino","acc",    3, "隠れ蓑の札",   "🍂", {def:4, res:4},          {guard:1}],
   ["rare_rashin",    "acc",    4, "海賊の羅針盤", "🧭", {atk:8, nin:8},          {ryo:40, crit:8}],
   ["rare_nanban",    "head",   4, "南蛮の帽子",   "👒", {nin:12, res:8},         {hint:2, time:3}],
@@ -1811,8 +1828,8 @@ const GOLD_RARES = ["rare_kinsuzu", "rare_tengu", "rare_kakuremino", "acc_neko"]
 [
   ["dojo_tenugui", "head",  1, "道場の手ぬぐい", "🧻", {nin:3, def:2},  {time:2}],
   ["dojo_gi",      "body",  2, "道場着",         "🥋", {hp:7, def:4},   {guard:1}],
-  ["dojo_kote",    "arm",   2, "師範代の籠手",   "🦾", {def:7, atk:3},  {crit:5}],
-  ["legend_ougi",  "acc",   4, "初代の扇",       "🪭", {atk:12, nin:12, res:8}, {crit:20, time:3}],
+  ["dojo_kote",    "arm",   2, "師範代の籠手",   "🤜", {def:7, atk:3},  {crit:5}],
+  ["legend_ougi",  "acc",   4, "初代の扇",       "🎐", {atk:12, nin:12, res:8}, {crit:20, time:3}],
 ].forEach(([id, slot, t, name, icon, st, eff]) => EQUIP[id] = {id, slot, tier:t, name, icon, st, eff, req:{lv:TIER[t].lv}, src:["dojo"]});
 // 魔境の主を初めて倒したときの秘宝
 EQUIP.makyo_hoju = {id:"makyo_hoju", slot:"acc", tier:4, name:"魔境の宝珠", icon:"🔮", st:{atk:12, nin:12, def:8, res:8}, eff:{crit:10, guard:1}, req:{lv:TIER[4].lv}, src:["makyo"], rare:true};
@@ -2634,18 +2651,18 @@ const DOJO = [
   {id:"hana",  name:"門下生・花",     icon:"👧", lv:40, think:7.6, acc:.75, every:1, hp:715, atk:428, def:60, res:60, ryo:450,  item:"dojo_gi",      talk:"太郎に勝ったのね。でも、わたしは速いわよ。"},
   {id:"go",    name:"師範代・剛",     icon:"💪", lv:45, think:7.2, acc:.78, every:1, hp:740, atk:450, def:63, res:60, ryo:700,  item:"dojo_kote",    talk:"ほう、なかなかの腕前だ。だが、おれの速さについてこられるか！"},
   {id:"shizu", name:"師範・静",       icon:"🧘", lv:50, think:6.8, acc:.81, every:1, hp:775, atk:480, def:64, res:70, ryo:1000, item:"acc_hoju",     talk:"心を静めなさい。あわてた者から負けるのです。"},
-  {id:"tessai",name:"道場主・鉄斎",   icon:"🥷", lv:55, think:6.4, acc:.84, every:1, hp:795, atk:495, def:68, res:68, ryo:1600, item:"waist4",       talk:"わしが道場主の鉄斎じゃ。全力でかかってこい！"},
+  {id:"tessai",name:"道場主・鉄斎",   icon:"🧔", lv:55, think:6.4, acc:.84, every:1, hp:795, atk:495, def:68, res:68, ryo:1600, item:"waist4",       talk:"わしが道場主の鉄斎じゃ。全力でかかってこい！"},
   {id:"kage",  name:"影の師範",       icon:"👤", lv:60, think:5.8, acc:.88, every:1, hp:830, atk:525, def:72, res:72, ryo:3000, item:"face4",        talk:"……鉄斎を破った者か。影の速さを、見せてやろう。", hidden:true},
 ];
 function dojoBeaten(id){ return !!(SAVE.dojo && SAVE.dojo[id]); }
 function showDojo(){
   const ni = ninjaInfo();
   if(!dojoOpen()){
-    panel("🥋 道場", `<div class="npc-line"><span class="npc">🥷</span><div>道場主・鉄斎「ここは、言葉の変化の術を<b>すべて</b>修めた者だけが入れる道場じゃ。<br>動詞も、形容詞も、形容動詞も――旅を終えてから来るがよい。」</div></div>
+    panel("🥋 道場", `<div class="npc-line"><span class="npc">🧔</span><div>道場主・鉄斎「ここは、言葉の変化の術を<b>すべて</b>修めた者だけが入れる道場じゃ。<br>動詞も、形容詞も、形容動詞も――旅を終えてから来るがよい。」</div></div>
       <p class="note-dark">🔒 外伝（外二の章）までの物語をすべて終えると、道場に入れる。道場では、すべてのジャンルから出題される。</p>`);
     return;
   }
-  let html = `<div class="npc-line"><span class="npc">🥷</span><div>道場主・鉄斎「${false ? `まだ早い！ 忍者Lv${DOJO_LV}になったら、入門を許そう。外で野良忍者ときたえてくるのじゃ。` : "よう来た、旅を終えた者よ。ここでは<b>すべての術</b>から出題する、早押しの勝負じゃ。相手より先に、正しく答えよ！"}」</div></div>
+  let html = `<div class="npc-line"><span class="npc">🧔</span><div>道場主・鉄斎「${false ? `まだ早い！ 忍者Lv${DOJO_LV}になったら、入門を許そう。外で野良忍者ときたえてくるのじゃ。` : "よう来た、旅を終えた者よ。ここでは<b>すべての術</b>から出題する、早押しの勝負じゃ。相手より先に、正しく答えよ！"}」</div></div>
     <p class="note-dark">⚡ 早押し対決：相手は決まった時間で答えてくる。先に正解すれば攻撃、先に答えられると攻撃を受ける。<br>🚫 道場では、道具（🍡団子・💨煙玉）は使えない。<br>はじめて勝つと、道場だけの品がもらえる。</p>`;
   DOJO.forEach((d, i) => {
     const prevOk = i === 0 || dojoBeaten(DOJO[i - 1].id);
@@ -2692,6 +2709,7 @@ async function cpuAnswer(q){
     // 相手が先に正解：攻撃を受けて、この問題は終わり（正解と解説は見せる）
     p.lock = true; stopTimer(); p.combo = 0; STREAK = 0;
     $("qChoices").querySelectorAll(".choice").forEach(b => { b.disabled = true; if(b.dataset.a === q.ans) b.classList.add("ok"); });
+    $("qChoices").classList.add("missed");   // 正解に○をつける
     if(q.kind === "type") throwSmoke(q, true);
     $("qTools").innerHTML = "";
     flash("先に答えられた！", "#ff9a92"); p.cpuWins = (p.cpuWins || 0) + 1;
@@ -3032,7 +3050,7 @@ function makeDangoOrder(lv, n){
   const endings = [...new Set(W.forms.map(f => f.e).concat(W.row))];
   const extra = shuffle(["か", "け", "れ", "さ", "ろ", "い", "な", "く"].filter(x => !endings.includes(x))).slice(0, Math.max(0, 6 - endings.length));
   return {W, name, target:{e:tf.e, fol:tfol}, endTray:shuffle(endings.concat(extra)), folTray,
-    guest:pick(["👵", "👴", "🧑‍🌾", "👨‍🎓", "👩", "🧒", "🧔", "👘", "🧳", "🥷"]), hint:n < 3 && lv.id === DANGO_LEVELS[0].id};
+    guest:pick(["👵", "👴", "👨‍🌾", "👨‍🎓", "👩", "🧒", "🧔", "👘", "🧳", "👦"]), hint:n < 3 && lv.id === DANGO_LEVELS[0].id};
 }
 // 組み合わせが、その活用形として正しいか（緑の団子には、注文の形の合言葉が1つしかないので、正解は1本だけ）
 function dangoIsRight(o, e, f){ return o.W.forms.some(F => F.name === o.name && F.e === e && F.fols.includes(f)); }
@@ -3200,6 +3218,7 @@ async function legendAnswer(p, q, btn, right){
   }else{
     L.miss++; p.ng++; sfx.ng(); mgWrong(); p.wrongList.push(q);
     if(btn) btn.classList.add("ng");
+    $("qChoices").classList.add("missed");   // 正解に○をつける
     fxEnemyHit(null); dmgPop(btn ? "✖ まちがい" : "⌛ 時間切れ", "#ff8a80", "pBox");
     fb.className = "feedback ng show"; fb.innerHTML = "❌ " + (btn ? "" : "時間切れ！ ") + explain(q);
   }
@@ -3496,7 +3515,7 @@ function endingStats(){
   const named = Object.keys(WILD).filter(k => WILD[k].special && dex[k] && dex[k].beat).length;
   const dojo = DOJO.filter(d => dojoBeaten(d.id)).length;
   return [
-    ["🥷 忍者Lv", ninjaInfo().lv],
+    [`${heroMini()} 忍者Lv`, ninjaInfo().lv],
     ["✅ 正解した問題", (SAVE.totalOk || 0) + "問"],
     ["⚔️ 倒した野良忍者", beat + "人"],
     ["📖 野良忍者図鑑", `${seen} / ${Object.keys(WILD).length}`],
@@ -3557,7 +3576,7 @@ function showEnding(kind, after){
       <div class="esec">強者への道</div>
       ${["🥋 道場の六人をやぶる", "👤 影の師範に認められる", "👩 一番弟子・楓をやぶる", "🧓 初代道場主・翁をやぶる", "😈 魔境の主をたおす", "👵 世界最強・媼をやぶる"].map(t => `<div class="eline">${t}</div>`).join("")}
       <div class="esec">登場した者たち</div>
-      <div class="ecast">${[["👴", "師匠・変化斎"], ["🗿", "石化丸"], ["🎩", "異国の術者の弟子"], ["🧙", "異国の術者"], ["🧒", "門下生・太郎"], ["👧", "門下生・花"], ["💪", "師範代・剛"], ["🧘", "師範・静"], ["🥷", "道場主・鉄斎"], ["👤", "影の師範"], ["👩", "一番弟子・楓"], ["🧓", "初代道場主・翁"], ["😈", "魔境の主"], ["👵", "初代の奥方・媼"]]
+      <div class="ecast">${[["👴", "師匠・変化斎"], ["🗿", "石化丸"], ["🎩", "異国の術者の弟子"], ["🧙", "異国の術者"], ["🧒", "門下生・太郎"], ["👧", "門下生・花"], ["💪", "師範代・剛"], ["🧘", "師範・静"], ["🧔", "道場主・鉄斎"], ["👤", "影の師範"], ["👩", "一番弟子・楓"], ["🧓", "初代道場主・翁"], ["😈", "魔境の主"], ["👵", "初代の奥方・媼"]]
         .map(([i, n]) => `<span>${i}<small>${esc(n)}</small></span>`).join("")}</div>
       <div class="esec">そして</div><div class="ecast"><span>${pic("hero")}<small>あなた</small></span></div>
       <div class="esec">旅の記録</div><div class="estats">${stats}</div>
@@ -3739,7 +3758,9 @@ function renderQ(){
   let choicesHtml = "";
   if(q.kind === "fuda"){
     $("qPrompt").textContent = "固まった言葉に、合う変装札をつけよう";
-    $("qWord").innerHTML = `<span class="stem">${esc(q.stem)}</span><span class="blank">？</span><span class="fol">${esc(q.fol)}</span>`;
+    /* もとの形（言い切りの形）を出す（2026-11-25、教員の指示）。「書？ない」だけでは、書く（書かない）か
+       可能動詞の書ける（書けない）か分からないので、どの言葉の変化かをはっきりさせる。 */
+    $("qWord").innerHTML = `<span class="fbase">もとの形：<b>${rubyHtml(q.v)}</b></span><span class="stem">${esc(q.stem)}</span><span class="blank">？</span><span class="fol">${esc(q.fol)}</span>`;
     choicesHtml = q.choices.map(c => `<button class="choice fuda" data-a="${c}">${c}</button>`).join("");
   }else if(q.kind === "aform"){
     $("qPrompt").textContent = q.only ? `${q.adjv ? "形容動詞" : "形容詞"}に、この合言葉がつくと何形？` : "下線の言葉は、何形？";
@@ -3797,6 +3818,7 @@ function renderQ(){
       : q.nai === "plain" ? () => throwSmoke(q, false, true) : q.autoSmoke ? () => throwSmoke(q, false) : null;
     if(show && p.cfg.mode !== "legend") delayHint(q, show);
   }
+  $("qChoices").classList.remove("missed");
   $("qChoices").innerHTML = choicesHtml;
   $("qChoices").querySelectorAll(".choice").forEach(b => b.onclick = () => answer(b));
   scheduleCpu();
@@ -3915,7 +3937,7 @@ let FX_WARMED = false;
 function fxWarm(){
   if(FX_WARMED) return; FX_WARMED = true;
   const jobs = [];
-  [["🔥", 24, 46], ["💧", 18, 32], ["🫧", 14, 26], ["🍃", 18, 32], ["🌸", 18, 32], ["🌿", 18, 30], ["✨", 14, 26], ["💚", 14, 26], ["💨", 18, 28], ["⚡", 20, 34]]
+  [["🔥", 24, 46], ["💧", 18, 32], ["💦", 14, 26], ["🍃", 18, 32], ["🌸", 18, 32], ["🌿", 18, 30], ["✨", 14, 26], ["💚", 14, 26], ["💨", 18, 28], ["⚡", 20, 34]]
     .forEach(([ch, a, b]) => { for(let z = fxBucket(a); z <= fxBucket(b); z += 4) jobs.push(() => fxEmojiSpr(ch, z)); });
   ["🔥", "💧", "🍃"].forEach(ch => jobs.push(() => fxEmojiSpr(ch, 30)));
   [["#fff6c0", "#ff7a1a"], ["#fff1a0", "#ff5a00"], ["#fff3b0", "#ff6a00"], ["#fffbe0", "#ffb020"], ["#ffffff", "#4fb4ff"], ["#ffffff", "#ffe14a"], ["#ffffff", "#9fd3ff"], ["#ffffff", "#ffd23f"]]
@@ -4041,7 +4063,7 @@ async function fxWater(){
       ctx.closePath(); ctx.fill();
     }
   }});
-  for(let i = 0; i < 18; i++) fxAdd({x:rnd(0, FX.w), y:FX.h + 10, vx:0, vy:rnd(-260, -140), life:rnd(.8, 1.2), ch:"🫧", size:rnd(14, 26), fadeIn:true});
+  for(let i = 0; i < 18; i++) fxAdd({x:rnd(0, FX.w), y:FX.h + 10, vx:0, vy:rnd(-260, -140), life:rnd(.8, 1.2), ch:"💦", size:rnd(14, 26), fadeIn:true});
   tone(400, .6, "triangle", .04); tone(300, .6, "triangle", .04, .15);
   await sleep(520);
   shake(10); tone(150, .4, "triangle", .08);
@@ -4645,6 +4667,7 @@ async function answer(btn){
     if(STREAK >= 3) setTimeout(() => dmgPop(`${STREAK}連続がとぎれた…`, "#cfd6ea", "pBox"), 300);
     STREAK = 0;
     if(btn) btn.classList.add("ng");
+    $("qChoices").classList.add("missed");   // 正解に○をつける
     sfx.ng(); mgWrong();
     if(p.cfg.mode === "sand") setTimeout(() => { if(PLAY === p && p.lock && !p.sandOver) nextQ(); }, 1600);   // サンドバッグは反撃しない。解説を少し見せて次へ
     else if(!isPrac(p.cfg.mode)){
@@ -4901,40 +4924,40 @@ function finishWild(p, win, r){
    ・負けたときは、里へ運ばれるだけ（両は減らない）。戦いはいつでも「逃げる」でやめられる。
    ===================================================================== */
 const FIELDS = [
-  {name:"里の外れ",   lv:[1, 4],   tree:"🌳", rock:"🪨", bg:"#9fd08a", grass:"#7fbf63", path:"#e3cf9f",
+  {name:"里の外れ",   lv:[1, 4],   tree:"🌳", rock:"⛰️", bg:"#9fd08a", grass:"#7fbf63", path:"#e3cf9f",
    theme:{ov:"sun", sub:"田畑の広がる、里のはずれ", deco:[[0,4,"🏠"],[7,6,"🌾"],[0,8,"🐄"],[7,2,"🌻"],[0,1,"🌾"],[7,9,"🏡"]], jingle:[523,659,784,1046]},
    map:["TTTUUTTT","TGG..GGT","TGGG.GGT","T...GGGT","T.TTGG.T","T.GGGG.T","TGGG...T","TGG.TT.T","T...GGGT","TGG.GGGT","TGG...TT","TTTDDTTT"],
    kinds:["hagure", "tanuki", "kaeru", "saru"], named:"kotaro"},
-  {name:"竹林の小道", lv:[4, 9],   tree:"🎋", rock:"🪨", bg:"#8fca8a", grass:"#5fae5a", path:"#dcc79a",
+  {name:"竹林の小道", lv:[4, 9],   tree:"🎋", rock:"⛰️", bg:"#8fca8a", grass:"#5fae5a", path:"#dcc79a",
    theme:{ov:"leaves", sub:"笹の葉がさらさらと鳴る、緑の小道", deco:[[0,3,"🐼"],[7,8,"🎍"],[3,2,"🎋"],[0,9,"🍵"]], jingle:[440,523,659,587]},
    map:["TTTUUTTT","TGGG.GGT","TG.T.TGT","TG.GGG.T","T..GTG.T","TGGG.GGT","TTG..TGT","TGGG.GGT","T.TGGT.T","TG..GG.T","TGG..GGT","TTTDDTTT"],
    kinds:["kaeru", "saru", "fukuro", "kitsune"], named:"okina"},
-  {name:"霧の川辺",   lv:[9, 16],  tree:"🌲", rock:"🪨", bg:"#9cc9e2", grass:"#6fb08a", path:"#d8c9a3",
+  {name:"霧の川辺",   lv:[9, 16],  tree:"🌲", rock:"⛰️", bg:"#9cc9e2", grass:"#6fb08a", path:"#d8c9a3",
    theme:{ov:"fog", sub:"深い霧が立ちこめる、静かな川辺", deco:[[0,5,"🐸"],[7,1,"🏮"],[0,10,"🦢"]], lotus:true, jingle:[392,466,587,523]},
    map:["TTTUUTTT","TGG..GGT","WWW==WWW","TGG..GGT","TG.GGG.T","TGGG.TTT","WWW=WWWW","TGG.GGGT","T..GGG.T","TGGG..GT","TGG..GGT","TTTDDTTT"],
    kinds:["kitsune", "hebi", "koumori", "kumo"], named:"kasumi"},
-  {name:"岩山の峠",   lv:[16, 25], tree:"🌲", rock:"🪨", bg:"#c9b89a", grass:"#8fae6a", path:"#d9c8a6",
-   theme:{ov:"wind", sub:"強い風が吹きぬける、けわしい峠", deco:[[0,0,"🗻"],[7,0,"🦅"],[2,2,"⛩️"],[7,5,"🐐"],[0,9,"🪨"]], jingle:[330,392,494,659]},
+  {name:"岩山の峠",   lv:[16, 25], tree:"🌲", rock:"⛰️", bg:"#c9b89a", grass:"#8fae6a", path:"#d9c8a6",
+   theme:{ov:"wind", sub:"強い風が吹きぬける、けわしい峠", deco:[[0,0,"🗻"],[7,0,"🦅"],[2,2,"⛩️"],[7,5,"🐐"],[0,9,"⛰️"]], jingle:[330,392,494,659]},
    map:["RRRUURRR","RGG..GGR","RGRR.GGR","R..GG.RR","RG.RGG.R","RGG.GGGR","RR.GRR.R","RGGG..GR","R.RGG.GR","RG..GRGR","RGG..GGR","RRRDDRRR"],
    kinds:["kumo", "ookami", "kuma", "taka"], named:"gozan"},
-  {name:"影の森",     lv:[25, 35], tree:"🌲", rock:"🪨", bg:"#5f7a5c", grass:"#3f6a47", path:"#b9a888",
+  {name:"影の森",     lv:[25, 35], tree:"🌲", rock:"⛰️", bg:"#5f7a5c", grass:"#3f6a47", path:"#b9a888",
    theme:{ov:"dark", sub:"光のとどかない、影の住む森", deco:[[0,2,"👀"],[7,4,"🦇"],[3,2,"🏮"],[0,7,"👀"],[7,10,"🕯️"],[3,0,"🏯"]], jingle:[262,311,370,247]},
    map:["TTTUUTTT","TGGG.GGT","TG.TGG.T","TGG.GTGT","T.GGG..T","TGTG.GGT","TGG.GT.T","TT.GGGGT","TGGG.TGT","TG..GG.T","TGG..GGT","TTTDDTTT"],
    kinds:["taka", "oni", "yurei", "ryu"], named:"kokufu"},
   // 外伝（形容詞・形容動詞）
-  {name:"潮風の港",   lv:[30, 38], tree:"📦", rock:"🪨", bg:"#d9c9a3", grass:"#9cc48a", path:"#e8d9b5",
+  {name:"潮風の港",   lv:[30, 38], tree:"📦", rock:"⛰️", bg:"#d9c9a3", grass:"#9cc48a", path:"#e8d9b5",
    theme:{ov:"wind", sub:"異国の船が出入りする、にぎやかな港", deco:[[3,2,"⚓"],[2,4,"⛵"],[5,8,"🛢️"]], jingle:[392,523,659,784]},
    map:["WWWUUWWW","WGG..GGW","WGGT.GGW","W...GGWW","WGT.GG.W","WGGG.GGW","WW.GGGWW","WGG..GGW","W.GWGT.W","WG..GGGW","WGG..GGW","WWWDDWWW"],
    kinds:["kani", "kamome", "tako", "same"], named:"ginji"},
-  {name:"異国の島",   lv:[36, 45], tree:"🌴", rock:"🪨", bg:"#9fd6a0", grass:"#5fb06a", path:"#f1dfa8",
-   theme:{ov:"sun", sub:"南の海にうかぶ、ふしぎな島", deco:[[0,4,"🌺"],[7,6,"🌋"],[2,7,"🗿"],[7,1,"🦩"],[0,9,"🐚"]], jingle:[440,554,659,880]},
+  {name:"異国の島",   lv:[36, 45], tree:"🌴", rock:"⛰️", bg:"#9fd6a0", grass:"#5fb06a", path:"#f1dfa8",
+   theme:{ov:"sun", sub:"南の海にうかぶ、ふしぎな島", deco:[[0,4,"🌺"],[7,6,"🌋"],[2,7,"🗿"],[7,1,"🦜"],[0,9,"🐚"]], jingle:[440,554,659,880]},
    map:["TTTUUTTT","TGG..GGT","TGTG.GTT","T..GGG.T","TGG.TGGT","WWG.GGWW","TGG.GG.T","T.TGG.GT","TGG..GGT","TG.GT..T","TGG..GGT","TTTDDTTT"],
    kinds:["oumu", "wani", "kame", "kai"], named:"majo"},
   /* 魔境（2026-11-23、教員の指示）。隠居の家の翁に勝つと（2026-11-24 変更）、異国の島のいちばん上（ふさがれた所）から入れる。
      ・出題はすべてのジャンル（動詞・形容詞・形容動詞の全章）
      ・敵は、自分と同じステータスの合計（体力・攻撃・守り・忍術・結界）を、ランダムに配分して持つ。Lvも自分と同じ。
      ・毎問攻撃してくる。4回に1回は、それに上乗せして強力な忍術（火遁・水遁・木遁）。補助の忍術（癒し・分身・属性がえし）もときどき使う。 */
-  {name:"魔境",       lv:[0, 0],   tree:"🌑", rock:"🪨", bg:"#2a1d38", grass:"#4b2f5e", path:"#7c6a8c", makyo:true,
+  {name:"魔境",       lv:[0, 0],   tree:"🌑", rock:"⛰️", bg:"#2a1d38", grass:"#4b2f5e", path:"#7c6a8c", makyo:true,
    theme:{ov:"dark", sub:"だれも帰ってきたことがない、と言われる地", deco:[[0,2,"💀"],[7,4,"🕯️"],[3,0,"⛩️"],[4,0,"⛩️"],[0,7,"👁️"],[7,9,"🔥"],[0,10,"🦴"]], jingle:[196,233,185,147]},
    map:["TTTTTTTT","TGGG.GGT","TG.TGG.T","TGG.GTGT","T.GGG..T","TGTG.GGT","TGG.GT.T","TT.GGGGT","TGGG.TGT","TG..GG.T","TGG..GGT","TTTDDTTT"],
    kinds:["mk_kage", "mk_oni", "mk_tengu", "mk_orochi"], named:"mk_nushi"},
@@ -4954,7 +4977,7 @@ const makyoWins = () => SAVE.makyoWins || 0;
 const nushiOpen = () => makyoWins() >= MAKYO_NEED;
 // 野良忍者の種類。hp・atk・def は倍率、every は攻撃の間（なしなら格どおり）、ab は能力、ch は出す問題の章
 const WILD = {
-  hagure:  {name:"はぐれ見習い", icon:"🥷", elem:"",      hp:1.0, atk:1.0, def:1.0, ab:"",      ch:"jo",   note:"ふつうの見習い忍者"},
+  hagure:  {name:"はぐれ見習い", icon:"🦹", elem:"",      hp:1.0, atk:1.0, def:1.0, ab:"",      ch:"jo",   note:"ふつうの見習い忍者"},
   tanuki:  {name:"狸忍",         icon:"🦝", elem:"wood", hp:1.1, atk:.8,  def:.8,  ab:"steal", ch:"jo",   note:"化けるのが得意。両をくすねる"},
   kaeru:   {name:"蛙忍",         icon:"🐸", elem:"water", hp:1.2, atk:.8,  def:1.0, ab:"heal",  ch:"ichi", note:"ときどき傷を治す"},
   saru:    {name:"猿飛び",       icon:"🐒", elem:"fire", hp:.85, atk:1.0, def:.8,  ab:"dodge", ch:"ichi", note:"身軽で、攻撃をかわすことがある"},
@@ -4973,7 +4996,7 @@ const WILD = {
   kotaro:  {name:"つむじ風の小太郎", title:"里の外れの風使い",   icon:"🌪️", elem:"wood",  hp:1.6, atk:1.0, def:1.0, abs:["swift", "dodge"],  ch:"jo",  lv:5,  special:true, item:"rare_hachimaki", note:"風のように現れては消える、うわさの若き忍"},
   okina:   {name:"竹取の翁忍",       title:"竹林の隠者",         icon:"🎍", elem:"wood",  hp:1.6, atk:.95, def:1.0, abs:["heal", "barrier"], ch:"ichi", lv:10, special:true, item:"rare_hagoromo",  note:"竹林の奥に住む老忍。月の光をまとう"},
   kasumi:  {name:"水面の霞",         title:"霧の川の幻",         icon:"🌫️", elem:"water", hp:1.6, atk:1.0, def:1.0, abs:["dodge", "barrier"], ch:"ni",  lv:17, special:true, item:"rare_kasumi",    note:"霧と一体になった、なぞのくノ一"},
-  gozan:   {name:"岩砕きの剛山",     title:"峠の豪傑",           icon:"🪨", elem:"fire",  hp:1.8, atk:1.1, def:1.0, abs:["armor", "rage"],   ch:"san", lv:25, special:true, item:"rare_kote",      note:"素手で岩を砕くという大男"},
+  gozan:   {name:"岩砕きの剛山",     title:"峠の豪傑",           icon:"🦍", elem:"fire",  hp:1.8, atk:1.1, def:1.0, abs:["armor", "rage"],   ch:"san", lv:25, special:true, item:"rare_kote",      note:"素手で岩を砕くという大男"},
   kokufu:  {name:"黒き風の主",       title:"影の森の支配者",     icon:"🌑", elem:"water", hp:1.8, atk:1.1, def:1.1, abs:["dodge", "rage"],   ch:"any", lv:36, special:true, item:"rare_katana",    note:"影の森の最も深い闇に住むという、伝説の忍"},
   // 外伝の野良忍者
   kani:    {name:"蟹忍",   icon:"🦀", elem:"water", hp:1.1, atk:.9,  def:1.3, ab:"armor", ch:"any", note:"固い甲羅。ふつうの攻撃が効きにくい"},
@@ -5156,7 +5179,7 @@ function showField(){
     let cls = "ft", inner = "";
     const dc = (F.theme.deco || []).find(d => d[0] === x && d[1] === y);
     if(c === "T" || c === "R"){ cls += " block"; inner = dc ? dc[2] : c === "T" ? F.tree : F.rock; }
-    else if(c === "W"){ cls += " water"; inner = F.theme.lotus && (x * 7 + y * 3) % 5 === 0 ? "🪷" : ""; }
+    else if(c === "W"){ cls += " water"; inner = F.theme.lotus && (x * 7 + y * 3) % 5 === 0 ? "🌺" : ""; }
     else if(c === "G"){ cls += " grass"; inner = "🌿"; }
     else if(c === "="){ cls += " bridge"; }
     else if(c === "U"){ cls += " exit"; inner = !exitOpen(FIELD.f) ? "🚧" : FIELD.f + 1 === MAKYO_F ? (makyoOpen() ? `<span class="makyo-gate">🌀</span>` : "🚧") : FIELD.f + 1 < FIELDS.length ? "⬆️" : "🚧"; }
