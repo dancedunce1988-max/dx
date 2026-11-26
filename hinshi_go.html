@@ -1358,12 +1358,23 @@ function pickIwStart(rid){
  h+='</div><button class="btn gray" id="iwBeenBack">← 路線を選びなおす</button>';
  $('iwRoutes').dataset.keep=$('iwRoutes').innerHTML;
  $('iwRoutes').innerHTML=h;
- const iwAsk=(i,quiet)=>{const n=r.stations[i];startConfirm($('iwRoutes'),String(i),n+'（'+(CITY[n]||'')+'）',()=>{restoreIwRoutes();newGame(rid,i);},quiet);};
+ const iwAsk=(i,quiet)=>{const n=r.stations[i];startConfirm($('iwRoutes'),String(i),n+'（'+(CITY[n]||'')+'）',()=>{restoreIwRoutes();newGame(rid,i);},quiet,iwSegInfo(rid,i));};
  $('iwRoutes').querySelectorAll('button[data-i]').forEach(b=>{b.dataset.sk=b.dataset.i;b.onclick=()=>iwAsk(+b.dataset.i);});
  $('iwRoutes').querySelectorAll('.pk').forEach(c=>{c.dataset.sk=c.dataset.i;c.addEventListener('click',()=>iwAsk(+c.dataset.i));});
  $('iwMap').parentNode&&($('iwMap').style.display='none');
  $('iwBeenBack').onclick=()=>{restoreIwRoutes();showStart();showIwRoutes();};
  iwAsk(0,true); // はじめは盛岡を選んだ状態
+}
+// 岩手編：その駅から出発したとき、主に何を学ぶ区間か（2026-11-26 教員の指示）。newGame と同じ数え方で、最初に出るテーマを求める
+function iwSegInfo(rid,i){
+ const r=ROUTES.find(x=>x.id===rid),plan=buildPlan(rid);if(!r||!plan)return '';
+ const items=plan.filter(x=>!x.intro);if(!items.length)return '';
+ const skip=Math.min(items.length-1,Math.floor(items.length*i/(r.stations.length-1))),th=items[skip].th;
+ const later=[];items.slice(skip).forEach(x=>{if(x.th!==th&&!later.includes(x.th))later.push(x.th);});
+ const n=r.stations[i];
+ return '<div class="stinfo"><div class="nm">🚉 '+n+'<small style="font-size:13px;font-weight:normal">（'+(CITY[n]||'')+'）</small></div>'+
+  '📘 この区間で主に学ぶこと：<b>その'+th.no+'　'+th.t+'</b>'+
+  (later.length?'<br><small>このあと：'+later.map(t=>'その'+t.no+' '+t.t).join('／')+'</small>':'<br><small>この路線の最後のテーマ</small>')+'</div>';
 }
 function restoreIwRoutes(){$('iwMap').style.display='';const k=$('iwRoutes').dataset.keep;if(k){$('iwRoutes').innerHTML=k;delete $('iwRoutes').dataset.keep;}}
 function showStart(){
