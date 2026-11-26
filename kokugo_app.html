@@ -4732,7 +4732,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver14.55</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver14.56</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -19863,7 +19863,7 @@ const MG_SAVE_KEYS = [
   {key:"kokugo_daruma_unlocked_v1", label:"叩け！文節だるま落とし の解禁", flag:true},
   {key:"kokugo_panda_unlocked_v1",  label:"大熊猫の竹林わたり の解禁（解禁日前）", flag:true},
   {key:"kokugo_koi_unlocked_v1",    label:"濃い！鯉！来い！ の解禁（解禁日前）", flag:true},
-  {key:"kokugo_hinshigo_unlocked_v1", label:"品詞でGO！ の解禁（合言葉 hinsi）", flag:true},
+  {key:"kokugo_hinshigo_unlocked_v1", label:"品詞でGO！ の解禁（札を10回タップ→合言葉 hinsidensya）", flag:true},
   {key:"daruma_kokkaku_save_v1",    label:"叩け！文節だるま落とし"},
   {key:"enro_run_v1",               label:"炎狼ラン"},
   {key:"tsunagi_bashi_v1",          label:"鉄甲兵のつなぎ橋"},
@@ -23795,7 +23795,7 @@ function ninpouMenuHtml(){
 function openKatsuyoNinpou(){ if(!ninpouOpen()) return; mgGoWithPass("ninpou", "katsuyo_ninpou.html"); }
 /* 品詞でGO（hinshi_go.html、2026-11-25〜、試作）。運転士になって、分かれ道で品詞の線路を選ぶ電車のゲーム。
    岩手編（在来線・天狗の特訓で品詞の見分け方を学ぶ）→ 岩手編をすべてクリアすると全国編（新幹線・品詞分解でお土産集め）が現れる。
-   2026-11-26、教員の指示：ミニゲーム一覧に「新ゲーム～近日公開～」の札を出し、一覧でキーボードから「hinsi」と打つと開く
+   2026-11-26、教員の指示：ミニゲーム一覧に「新ゲーム～近日公開～」の札を出し、札を10回タップ→合言葉「hinsidensya」で開く
    （その端末ではそれ以後ずっと遊べる＝HINSHIGO_UNLOCK_LSKEY）。管理者の端末では最初から開いている。htmlを直接開くと「このファイルは開けません」（通行証 "hinshigo"）。
    zip版には入れない（make_dist_zip.py の EXCLUDE）。公開するときは HINSHIGO_PUBLIC を true にし、zipにも入れる（SEPARATE_PAGES）。
    試遊用のリンク：?devtool=kotonoha&play=hinshigo */
@@ -23806,24 +23806,61 @@ function hinshiGoOpen(){ return HINSHIGO_PUBLIC || isAdminMode() || hinshiGoUnlo
 function hinshiGoMenuHtml(){
   if(!hinshiGoOpen()){
     return `
-    <div class="card menu-card locked mg-teaser hinshigo-soon" onclick="mgLockedTap(this)">
+    <div class="card menu-card locked mg-teaser hinshigo-soon" onclick="hinshiGoSoonTap(this)">
       <div style="flex:1; text-align:center"><h2>新ゲーム～近日公開～</h2></div>
     </div>`;
   }
   return mgTextCardHtml("🚃", "品詞でGO！", "運転士になって、品詞の線路を選べ！", true, "", "openHinshiGo()");
 }
 function openHinshiGo(){ if(!hinshiGoOpen()) return; mgGoWithPass("hinshigo", "hinshi_go.html?t=" + Date.now()); }
-// ミニゲーム一覧の画面で「hinsi」と打つと解禁（入力欄に打っているときは数えない）。活用忍伝と同じく、白い幕のあとカードがふわっと現れる。
-let hgKeyBuf = "";
-document.addEventListener("keydown", e => {
-  if(e.ctrlKey || e.metaKey || e.altKey) return;
-  const t = e.target, tag = t && t.tagName;
-  if(tag === "INPUT" || tag === "TEXTAREA" || (t && t.isContentEditable)) return;
-  if(!e.key || e.key.length !== 1) return;
-  hgKeyBuf = (hgKeyBuf + e.key.toLowerCase()).slice(-5);
-  if(hgKeyBuf !== "hinsi") return;
-  hgKeyBuf = "";
-  if(hinshiGoOpen() || !document.querySelector("#screen .mg-grid .hinshigo-soon")) return;
+// 解禁（2026-11-26 教員の指示で変更）：「新ゲーム～近日公開～」の札を10回つづけてタップすると合言葉の欄が出る。
+// スマホでも打てるよう、ふつうの入力欄（全角で打っても NFKC で半角にそろえる）。「hinsidensya」で解禁。
+// 前は一覧でキーボードから「hinsi」と打つ方式だったが、スマホでは打てないのでやめた。
+const HINSHIGO_PASSWORD = "hinsidensya";
+let hgTapN = 0, hgTapT = 0;
+function hinshiGoSoonTap(el){
+  mgLockedTap(el);
+  const now = Date.now();
+  hgTapN = (now - hgTapT < 1500) ? hgTapN + 1 : 1;
+  hgTapT = now;
+  if(hgTapN >= 10){ hgTapN = 0; hinshiGoAskPassword(); }
+}
+function hinshiGoAskPassword(){
+  if(hinshiGoOpen() || document.getElementById("hgPassBox")) return;
+  const box = document.createElement("div");
+  box.id = "hgPassBox";
+  box.style.cssText = "position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px";
+  box.innerHTML = `
+    <div style="background:#fff;color:#222;border-radius:16px;padding:18px 18px 14px;width:min(340px,100%);box-shadow:0 8px 24px rgba(0,0,0,.35);text-align:center">
+      <div style="font-size:1.1rem;font-weight:bold;margin-bottom:10px">🔑 合言葉を入れてください</div>
+      <form id="hgPassForm" autocomplete="off">
+        <input id="hgPassIn" type="text" inputmode="latin" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off"
+          style="width:100%;box-sizing:border-box;font-size:18px;padding:10px 12px;border:2px solid #999;border-radius:10px;text-align:center">
+        <div id="hgPassMsg" style="min-height:1.4em;margin:6px 0;color:#c62828;font-size:.9rem"></div>
+        <div style="display:flex;gap:8px">
+          <button type="button" id="hgPassNo" style="flex:1;padding:10px;border:none;border-radius:10px;background:#888;color:#fff;font-size:1rem;font-family:inherit">やめる</button>
+          <button type="submit" style="flex:1;padding:10px;border:none;border-radius:10px;background:#1976d2;color:#fff;font-size:1rem;font-weight:bold;font-family:inherit">OK</button>
+        </div>
+      </form>
+    </div>`;
+  document.body.appendChild(box);
+  const inp = box.querySelector("#hgPassIn");
+  setTimeout(() => inp.focus(), 50);
+  box.querySelector("#hgPassNo").onclick = () => box.remove();
+  box.addEventListener("click", e => { if(e.target === box) box.remove(); });
+  box.querySelector("#hgPassForm").onsubmit = e => {
+    e.preventDefault();
+    const v = (inp.value || "").normalize("NFKC").trim().toLowerCase();
+    if(v !== HINSHIGO_PASSWORD){
+      box.querySelector("#hgPassMsg").textContent = "合言葉がちがいます";
+      inp.select();
+      return;
+    }
+    box.remove();
+    hinshiGoUnlockNow();
+  };
+}
+function hinshiGoUnlockNow(){
   try{ localStorage.setItem(HINSHIGO_UNLOCK_LSKEY, "1"); }catch(e){ return; }
   const white = document.createElement("div");
   white.id = "dmWhite";
@@ -23834,7 +23871,7 @@ document.addEventListener("keydown", e => {
   if(box){ box.scrollIntoView({block:"center"}); box.classList.add("dm-arrive"); }
   setTimeout(() => white.classList.add("out"), 400);
   setTimeout(() => white.remove(), 2400);
-});
+}
 // ミニゲーム一覧の画面で「katuyouninja」と打つと解禁（入力欄に打っているときは数えない）。竹林わたりと同じく、白い幕のあとカードがふわっと現れる。
 let npKeyBuf = "";
 document.addEventListener("keydown", e => {
