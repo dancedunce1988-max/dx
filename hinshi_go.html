@@ -93,6 +93,10 @@ header h1{font-size:17px;flex:1;white-space:nowrap}
 .zoomwrap .zbtns{position:absolute;right:6px;top:6px;display:flex;flex-direction:column;gap:4px;z-index:2}
 .zoomwrap .zb{width:34px;height:34px;border:none;border-radius:8px;background:#fffdf5ee;box-shadow:0 2px 4px #0004;font-size:22px;font-weight:bold;line-height:1;cursor:pointer;color:#1d2a3a;font-family:inherit}
 .zoomwrap .zb:disabled{opacity:.35;cursor:default}
+.zoomwrap .zb.zh{font-size:17px}
+#zkTitleMap{touch-action:none;user-select:none;cursor:grab}
+#zkTitleMap .map{height:300px}
+#zkTitleMap .ztPf{position:absolute;left:10px;top:10px;z-index:2;background:#fffdf5ee;border-radius:8px;padding:3px 9px;font-size:14px;font-weight:bold;color:#1d2a3a;box-shadow:0 2px 4px #0003;pointer-events:none}
 .zkStat{text-align:center;font-weight:bold;font-size:15px;margin:4px 0}
 #homePage .mapbox .map{width:100%;height:min(62vh,560px);display:block;border-radius:12px}
 @media(max-width:760px){#homePage .mapbox .map{height:46vh}}
@@ -396,7 +400,7 @@ body.talking #qbox,body.talking #lanes,body.talking #guide,body.talking #stopBan
 <div class="modal" id="zkTitle" hidden>
  <div class="card2">
   <div class="edHead zk"><h2>🚄 全国編</h2><p>新幹線と特急・快速で、日本じゅうを旅しよう</p></div>
-  <div class="mapwrap" id="zkTitleMap"></div>
+  <div class="mapwrap zoomwrap" id="zkTitleMap"></div>
   <div class="zkStat" id="zkTitleStat"></div>
   <ul class="howto">
    <li>📝 駅と駅のあいだで、文の中の言葉の<b>品詞</b>を順に答えて進む。</li>
@@ -2051,10 +2055,10 @@ function routePts(st){
 const VB={jp:[-760,20,1400,1480],ne:[40,330,370,800],iw:[195,522,140,196]};
 // vb: 地図の範囲（文字か配列）。pxH: 画面での高さ(px)。印や文字の大きさは px で指定する
 // lines:[{pts,color,width,dash}]  dots:[{p,r,fill,stroke,label,emoji,es,fs,lx,ly,anchor}]
-function mapSVG(vb,lines,dots,extra,pxH,useIw){
+function mapSVG(vb,lines,dots,extra,pxH,useIw,hiPref){
  if(typeof HT_MAP==='undefined')return '';
  const V=Array.isArray(vb)?vb:VB[vb],[x,y,w,h]=V,k=h/(pxH||300);
- const land=(useIw?HT_MAP.iw:HT_MAP.jp).map(p=>'<path d="'+p.d+'" fill="'+(p.main||(!useIw&&p.n==='岩手県')?'#ffe0a8':'#f3ead0')+'" stroke="#bfae84" stroke-width="'+(p.main?1.4:0.7)+'" vector-effect="non-scaling-stroke"/>').join('');
+ const land=(useIw?HT_MAP.iw:HT_MAP.jp).map(p=>'<path d="'+p.d+'" fill="'+(p.main||(!useIw&&p.n===(hiPref||'岩手県'))?'#ffe0a8':'#f3ead0')+'" stroke="#bfae84" stroke-width="'+(p.main?1.4:0.7)+'" vector-effect="non-scaling-stroke"/>').join('');
  let o='<svg class="map" viewBox="'+x+' '+y+' '+w+' '+h+'" preserveAspectRatio="xMidYMid meet" style="background:#bfe3f5">'+land;
  for(const L of lines){const d='M'+L.pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join('L');
   o+='<path d="'+d+'" fill="none" stroke="#fff" stroke-width="'+((L.width||3)+3)+'" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" opacity=".9"/>';
@@ -2097,6 +2101,7 @@ function neMapHTML(opt){
  if(opt.win){const hh=y1-y0+50,ww=Math.max(x1-x0+60,hh*(opt.ratio||2.6));vb=[cx-ww/2,cy-hh/2,ww,hh];
   const z=opt.zoom||0;if(z>0){const f=Math.pow(1.9,z),c=P[opt.win];vb=[c[0]-ww*f/2,c[1]-hh*f/2,ww*f,hh*f];}}
  else{const hh=y1-y0+80,ww=x1-x0+80;vb=[cx-ww/2,cy-hh/2,ww,hh];}
+ if(opt.vb)vb=opt.vb;
  if(opt.path&&opt.path.length>1)for(let k=1;k<opt.path.length;k++)lines.push({pts:[P[opt.path[k-1]],P[opt.path[k]]],color:'#263238',width:6});
  // 重なりよけ：画面上の距離（px）で、近すぎる印は出さない。いまの駅・行き先の候補・乗りかえ駅・お土産の駅の順に残す
  const u2px=pxH/vb[3],kept=[],prio=n=>(opt.cand&&opt.cand.includes(n))?8:ZJCT.has(n)?6:om[n]===2?5:om[n]?4:1;
@@ -2113,7 +2118,7 @@ function neMapHTML(opt){
  // pick：タップして選べる駅（大きめの当たり判定）
  let extra='';
  if(opt.pick){const k=vb[3]/pxH;for(const n of opt.pick){const q=P[n];if(!q)continue;dots.push({p:q,r:6,fill:'#ffd54f',stroke:'#e65100',label:opt.pickLabel?n:'',fs:11});extra+='<circle class="pk" data-n="'+n+'" cx="'+q[0].toFixed(1)+'" cy="'+q[1].toFixed(1)+'" r="'+(11*k).toFixed(2)+'" fill="#fff" fill-opacity="0" style="cursor:pointer"><title>'+n+'</title></circle>';}}
- return mapSVG(vb,lines,dots,extra,pxH);
+ return mapSVG(vb,lines,dots,extra,pxH,false,opt.hiPref);
 }
 // 全国編は、岩手編をすべてクリアすると現れる（それまでは存在を見せない）。?unlock=1 で確認用に全部開く
 // 2026-11-26 教員の指示で、全国編もはじめから開いている（岩手編のクリアは不要）。iwOnly・showZkReveal は使わなくなったが残してある
@@ -2270,11 +2275,70 @@ function showZStart(){
  zAsk(Z_START,null,null,true); // はじめは盛岡を選んだ状態
 }
 $('zStartBack').onclick=()=>{$('zStart').hidden=true;showZTitle();};
+// 全国編タイトルの地図（2026-11-26 教員の指示）：はじめは今いる都道府県を大きく。＋－・ホイール・ピンチで拡大縮小、ドラッグで移動。いちばん縮小すると日本全体
+const ZT={z:0,c:null,pf:null,base:null,here:null};
+const ZT_F=1.8,ZT_MIN=-1,ZT_JP=[-760,20,1400,1480];
+function prefBox(pf){ // 都道府県のいちばん大きい島（本土）の範囲。小笠原などの離島で範囲が広がりすぎないように
+ const g=HT_MAP.jp.find(p=>p.n===pf);if(!g)return null;let best=null,ba=-1;
+ for(const sub of g.d.split('M')){if(!sub)continue;const nums=sub.match(/-?\d+(\.\d+)?/g).map(Number);let a=1e9,b=1e9,c=-1e9,d=-1e9;
+  for(let i=0;i+1<nums.length;i+=2){a=Math.min(a,nums[i]);c=Math.max(c,nums[i]);b=Math.min(b,nums[i+1]);d=Math.max(d,nums[i+1]);}
+  const ar=(c-a)*(d-b);if(ar>ba){ba=ar;best=[a,b,c,d];}}
+ return best;
+}
+function ztAspect(){const el=$('zkTitleMap');const w=(el&&el.clientWidth)||600;return Math.max(1,(w-8)/300);}
+function ztMaxZ(){return Math.max(1,Math.ceil(Math.log(ZT_JP[3]/ZT.base[3])/Math.log(ZT_F)));}
+function ztVB(){
+ const asp=ztAspect(),mz=ztMaxZ();
+ if(ZT.z>=mz){const h=ZT_JP[3],w=Math.max(ZT_JP[2],h*asp);return [ZT_JP[0]+ZT_JP[2]/2-w/2,ZT_JP[1],w,h];}
+ const h=ZT.base[3]*Math.pow(ZT_F,ZT.z),w=h*asp;
+ return [ZT.c[0]-w/2,ZT.c[1]-h/2,w,h];
+}
+function ztClamp(){const j=ZT_JP;ZT.c[0]=Math.max(j[0],Math.min(j[0]+j[2],ZT.c[0]));ZT.c[1]=Math.max(j[1],Math.min(j[1]+j[3],ZT.c[1]));}
+function ztInit(){
+ const z=zkLoad(),here=(z.last&&zPos()[z.last])?z.last:Z_START,pf=PREF[here]||'岩手県';
+ ZT.here=z.last&&zPos()[z.last]?z.last:null;ZT.pf=pf;ZT.z=0;
+ const b=prefBox(pf)||[ZT_JP[0],ZT_JP[1],ZT_JP[0]+ZT_JP[2],ZT_JP[1]+ZT_JP[3]];
+ const asp=ztAspect(),pad=1.25;let w=(b[2]-b[0])*pad,h=(b[3]-b[1])*pad;h=Math.max(h,w/asp,120);
+ ZT.base=[0,0,h*asp,h];ZT.c=[(b[0]+b[2])/2,(b[1]+b[3])/2];
+}
+function ztRender(){
+ const vb=ztVB(),far=vb[3]>650;
+ $('ztBox').innerHTML=neMapHTML({h:300,vb,lite:far,labels:!far,here:ZT.here,hiPref:ZT.pf});
+ const mz=ztMaxZ();$('zkTitleMap').querySelectorAll('.zb').forEach(b=>{const d=+b.dataset.z;b.disabled=(d<0&&ZT.z<=ZT_MIN)||(d>0&&ZT.z>=mz);});
+ const t=$('ztPf');if(t)t.textContent=ZT.z>=mz?'🗾 日本全体':ZT.z<=0?'📍 '+ZT.pf:'🔍 '+ZT.pf+'のまわり';
+}
+function ztZoom(d){const mz=ztMaxZ(),nz=Math.max(ZT_MIN,Math.min(mz,ZT.z+d));if(nz===ZT.z)return;
+ if(ZT.z>=mz&&nz<mz){const v=ztVB();ZT.c=[v[0]+v[2]/2,v[1]+v[3]/2];} // 日本全体から拡大するときは、いま見ている中心から
+ ZT.z=nz;ztRender();sfx.click();}
+function ztSetup(){
+ const box=$('zkTitleMap');
+ box.innerHTML='<div class="zbtns"><button class="zb" data-z="-1" title="拡大">＋</button><button class="zb" data-z="1" title="縮小">－</button><button class="zb zh" data-z="0" title="今いる都道府県にもどる">📍</button></div><div class="ztPf" id="ztPf"></div><div id="ztBox"></div>';
+ box.querySelectorAll('.zb').forEach(b=>b.onclick=e=>{e.stopPropagation();const d=+b.dataset.z;if(d===0){ztInit();ztRender();sfx.click();}else ztZoom(d);});
+ box.onwheel=e=>{e.preventDefault();ztZoom(e.deltaY>0?1:-1);};
+ // ドラッグで移動・2本指で拡大縮小
+ const pts=new Map();let st=null;
+ const svg=()=>box.querySelector('svg');
+ const begin=()=>{const v=ztVB(),s=svg();st={v,c:ZT.c.slice(),z:ZT.z,ps:[...pts.values()].map(p=>p.slice()),k:v[3]/((s&&s.getBoundingClientRect().height)||300)};};
+ box.onpointerdown=e=>{if(e.target.closest('.zb'))return;pts.set(e.pointerId,[e.clientX,e.clientY]);box.setPointerCapture(e.pointerId);begin();};
+ box.onpointermove=e=>{if(!pts.has(e.pointerId)||!st)return;pts.set(e.pointerId,[e.clientX,e.clientY]);const s=svg();if(!s)return;
+  const cur=[...pts.values()];
+  if(cur.length>=2&&st.ps.length>=2){const d0=Math.hypot(st.ps[0][0]-st.ps[1][0],st.ps[0][1]-st.ps[1][1]),d1=Math.hypot(cur[0][0]-cur[1][0],cur[0][1]-cur[1][1]);
+   if(d0>10){const f=d0/d1,v=st.v;s.setAttribute('viewBox',[v[0]+v[2]/2-v[2]*f/2,v[1]+v[3]/2-v[3]*f/2,v[2]*f,v[3]*f].join(' '));st.pinch=Math.log(f)/Math.log(ZT_F);}
+   return;}
+  if(ZT.z>=ztMaxZ())return; // 日本全体のときは動かさない
+  const dx=(cur[0][0]-st.ps[0][0])*st.k,dy=(cur[0][1]-st.ps[0][1])*st.k;if(Math.abs(dx)+Math.abs(dy)>0)st.moved=true;
+  ZT.c=[st.c[0]-dx,st.c[1]-dy];ztClamp();const v=ztVB();s.setAttribute('viewBox',v.join(' '));};
+ const end=e=>{if(!pts.has(e.pointerId))return;pts.delete(e.pointerId);if(!st)return;
+  if(st.pinch!==undefined){const d=Math.round(st.pinch);st=null;pts.clear();if(d)ztZoom(d);else ztRender();return;}
+  if(st.moved)ztRender();st=pts.size?(begin(),st):null;};
+ box.onpointerup=end;box.onpointercancel=end;
+}
 function showZTitle(){
- $('zkTitleMap').innerHTML=neMapHTML({h:300,lite:true});
+ $('zkTitle').hidden=false;
+ if(!$('ztBox'))ztSetup();
+ ztInit();ztRender();
  const nOmi=Object.keys(loadOmi()).filter(k=>SK[k]).length;
  $('zkTitleStat').textContent='🎁 お土産 '+nOmi+' / '+SHINKANSEN.length+'　🗾 都道府県 '+prefCount()+' / 47　🚉 '+ZLINES.length+'路線';
- $('zkTitle').hidden=false;
 }
 $('goZenkoku').onclick=()=>{if(!zkOpen())return;sfx.init();$('homePage').hidden=true;showZTitle();};
 $('zkGo').onclick=()=>{sfx.whistle();$('zkTitle').hidden=true;showZStart();};
