@@ -1278,7 +1278,7 @@ function stationUpdate(dt){
   if(S.v<=0.01&&S.s>st.s-80){
    const diff=S.s-st.s,a=Math.abs(diff);
    const [b,msg]=a<0.5?[1000,'ぴったり停車！']:a<2?[500,'うまい停車！']:a<6?[200,'停車']:[50,'停車（ずれ '+a.toFixed(1)+'m）'];
-   hideStopBanner();reachSave();const gT=showGuide(st.name)||0;S.score+=b;st.state='stopped';st.t=Math.max(st.final?2.4:2.2,gT);floatText('🚉 '+st.name+'　'+msg+' +'+b,'#ffeb3b');sfx.arrive();updateHud();
+   hideStopBanner();reachSave();const gT=showGuide(st.name)||0;S.score+=b;st.state='stopped';sfx.air();st.t=Math.max(st.final?2.4:2.2,gT);floatText('🚉 '+st.name+'　'+msg+' +'+b,'#ffeb3b');sfx.arrive();updateHud();
    if(st.z){st.t=1.6;st.omiyage=grantOmiyage(st.name,a);}
    $('sent').innerHTML='🚉 '+st.name+(st.final?'　終点です':'');
    $('step').innerHTML='<span class="tag">停車</span><b>'+msg+'　停止位置から '+(diff>=0?'+':'')+diff.toFixed(1)+'m</b>';
@@ -2543,17 +2543,61 @@ const sfx={
  ok(big){const b=big?1:0.8;this.tone(880*b,0.12,'triangle',0.15);this.tone(1320*b,0.18,'triangle',0.15,0.08);},
  whistle(){this.tone(620,0.35,'sine',0.12,0,660);this.tone(780,0.45,'sine',0.1,0,820);},
  arrive(){[659,523,784,1047].forEach((f,i)=>this.tone(f,0.22,'triangle',0.12,i*0.13));},
- crash(){this.noise(0.9,0.5,1300);this.tone(90,0.5,'sawtooth',0.22,0,40);}
+ crash(){this.noise(0.9,0.5,1300);this.tone(90,0.5,'sawtooth',0.22,0,40);},
+ // ===== 走行音（2026-11-26 教員の指示「ブレーキや加速の音もいい感じに」）=====
+ // 加速：モーターのうなりとインバーターの「ウィーン」が速さとともに高くなる。走行中：レールの低いゴーッ。
+ // ブレーキ：「シャー」という制輪子の音、止まる直前に「キーッ」、止まると空気の「プシュー」
+ rn:null,
+ loopNoise(){const a=this.ac,len=a.sampleRate*2,buf=a.createBuffer(1,len,a.sampleRate),x=buf.getChannelData(0);for(let i=0;i<len;i++)x[i]=Math.random()*2-1;const n=a.createBufferSource();n.buffer=buf;n.loop=true;n.start();return n;},
+ runInit(){
+  if(this.rn||!this.ac)return this.rn;const a=this.ac,R={},gain=v=>{const g=a.createGain();g.gain.value=v;return g;},osc=(t,f)=>{const o=a.createOscillator();o.type=t;o.frequency.value=f;o.start();return o;};
+  R.out=gain(1);R.out.connect(a.destination);
+  // モーター（のこぎり波を2つ少しずらして、低めのフィルターで丸く）
+  R.m1=osc('sawtooth',80);R.m2=osc('sawtooth',81.5);R.mf=a.createBiquadFilter();R.mf.type='lowpass';R.mf.frequency.value=600;R.mf.Q.value=4;R.mg=gain(0);
+  R.m1.connect(R.mf);R.m2.connect(R.mf);R.mf.connect(R.mg).connect(R.out);
+  // インバーターの高い音
+  R.w1=osc('triangle',400);R.w2=osc('sine',800);R.wg=gain(0);R.w2g=gain(0.35);R.w1.connect(R.wg);R.w2.connect(R.w2g).connect(R.wg);R.wg.connect(R.out);
+  // 走る音（低いゴーッ）
+  R.rn=this.loopNoise();R.rf=a.createBiquadFilter();R.rf.type='lowpass';R.rf.frequency.value=180;R.rg=gain(0);R.rn.connect(R.rf).connect(R.rg).connect(R.out);
+  // ブレーキの「シャー」
+  R.bn=this.loopNoise();R.bf=a.createBiquadFilter();R.bf.type='bandpass';R.bf.frequency.value=2200;R.bf.Q.value=0.9;R.bg=gain(0);R.bn.connect(R.bf).connect(R.bg).connect(R.out);
+  // 止まる直前の「キーッ」（ゆらぎつき）
+  R.q=osc('sine',2900);R.lfo=osc('sine',7);R.lg=gain(40);R.lfo.connect(R.lg).connect(R.q.frequency);R.q2=osc('sine',4350);R.q2g=gain(0.4);R.qg=gain(0);R.q.connect(R.qg);R.q2.connect(R.q2g).connect(R.qg);R.qg.connect(R.out);
+  R.pv=0;R.brk=false;R.acc=0;
+  return this.rn=R;
+ },
+ drive(v,dt,braking,crash){
+  if(!this.ac||!this.on){this.quiet();return;}
+  const R=this.runInit();if(!R)return;const t=this.ac.currentTime,T=(p,x,k)=>p.setTargetAtTime(x,t,k||0.08);
+  const a=dt>0?(v-R.pv)/dt:0;R.pv=v;R.acc+=((a>0.4&&!braking?Math.min(1,a/6):0)-R.acc)*Math.min(1,dt*6);
+  const run=Math.min(1,v/60),acc=crash?0:R.acc;
+  T(R.m1.frequency,55+v*8);T(R.m2.frequency,56.5+v*8.1);T(R.mf.frequency,350+v*22);
+  T(R.mg.gain,(crash?0:0.018*run+0.11*acc)*(0.6+0.4*run+0.4));
+  // インバーター：速さで音の高さがのぼる（3段で一度下がって、またのぼる）
+  const sp=v<20?v/20:v<40?(v-20)/20:(v-40)/30,base=v<20?330:v<40?415:520;
+  T(R.w1.frequency,base*(1+sp*0.9));T(R.w2.frequency,base*2*(1+sp*0.9));T(R.wg.gain,0.05*acc*(v>1?1:0));
+  T(R.rg.gain,0.16*run*(crash?0.4:1),0.2);T(R.rf.frequency,120+v*3);
+  // ブレーキ
+  const bk=braking&&v>0.3;
+  if(bk&&!R.brk){this.noise(0.06,0.25,1400);this.hiss(0.35,0.05);} // ブレーキをかけた瞬間の「ガチャ・シュッ」
+  R.brk=bk;
+  T(R.bg.gain,bk?0.05+0.1*run:0,bk?0.05:0.12);T(R.bf.frequency,1500+v*25);
+  T(R.qg.gain,bk&&v<10?0.022*(1-v/10)+0.006:0,0.06);
+ },
+ quiet(){const R=this.rn;if(!R||!this.ac)return;const t=this.ac.currentTime;[R.mg,R.wg,R.rg,R.bg,R.qg].forEach(g=>g.gain.setTargetAtTime(0,t,0.05));R.brk=false;R.acc=0;},
+ hiss(d,vol){if(!this.on||!this.ac)return;const a=this.ac,len=a.sampleRate*d,buf=a.createBuffer(1,len,a.sampleRate),x=buf.getChannelData(0);for(let i=0;i<len;i++){const k=i/len;x[i]=(Math.random()*2-1)*Math.min(1,k*25)*Math.pow(1-k,1.5);}const s=a.createBufferSource(),f=a.createBiquadFilter(),g=a.createGain();s.buffer=buf;f.type='highpass';f.frequency.value=2500;g.gain.value=vol;s.connect(f).connect(g).connect(a.destination);s.start();},
+ air(){this.hiss(0.9,0.16);} // 止まったときの「プシュー」
 };
-$('mute').onclick=()=>{sfx.on=!sfx.on;$('mute').textContent=sfx.on?'🔊':'🔇';};
+document.addEventListener('visibilitychange',()=>{if(document.hidden)sfx.quiet();});
+$('mute').onclick=()=>{sfx.on=!sfx.on;if(!sfx.on)sfx.quiet();$('mute').textContent=sfx.on?'🔊':'🔇';};
 
 // ===== 更新 =====
 function update(dt){
- if(!S)return;
+ if(!S){sfx.quiet();return;}
  S.floats.forEach(f=>f.life+=dt);S.floats=S.floats.filter(f=>f.life<1.6);
  S.parts.forEach(p=>{p.life+=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;if(p.t==='spark')p.vy+=500*dt;else if(p.t==='magic')p.vy-=30*dt;else p.r+=dt*30;});S.parts=S.parts.filter(p=>p.life<p.max);
  if(S.shake>0)S.shake=Math.max(0,S.shake-dt*1.2);
- if(!running||paused||S.panelOpen||S.choosing||S.lessonOpen)return;
+ if(!running||paused||S.panelOpen||S.choosing||S.lessonOpen){sfx.quiet();if(S.v===0&&sfx.rn)sfx.rn.pv=0;return;}
  if(S.pendingLesson){const n=S.pendingLesson;S.pendingLesson=null;showLesson(n);}
  if(!(S.station&&S.station.state==='stopped'))hideGuide();
  if(S.talkCur)holdAhead();
@@ -2571,6 +2615,7 @@ function update(dt){
   else{let tg=base*(keys.up?1.6:1);
   if(S.v<tg)S.v=Math.min(tg,S.v+(keys.up?6:S.v<base*0.6?6:3)*dt);else S.v=Math.max(tg,S.v-3*dt);}
  }
+ sfx.drive(S.mode==='crash'||(st&&st.state==='stopped')?0:S.v,dt,!!keys.down&&S.mode!=='crash',S.mode==='crash');
  S.s+=S.v*dt;
  S.tickAcc+=S.v*dt;if(S.tickAcc>20){S.tickAcc=0;sfx.joint();}
  const f=upcoming();
