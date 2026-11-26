@@ -14,7 +14,7 @@
 })();
 </script>
 <!--PASS_CHECK_END-->
-<title>品詞でGO</title>
+<title>品詞でGO！</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:"Hiragino Kaku Gothic ProN","Yu Gothic UI","Meiryo",sans-serif;background:#141c26;color:#222;min-height:100vh;-webkit-user-select:none;user-select:none;touch-action:manipulation}
@@ -86,6 +86,13 @@ header h1{font-size:17px;flex:1;white-space:nowrap}
 .pnote{font-size:14px;line-height:1.6;background:#e3f2fd;border-radius:10px;padding:6px 10px;margin:6px 0;text-align:left}
 #iwBeen button.lockst{border:2px dashed #bdbdbd;background:#f5f5f5;color:#9e9e9e;cursor:default}
 .rbtn.nextGlow{animation:selGlow 1s ease-in-out infinite alternate;outline:4px solid #ffb300;outline-offset:2px}
+.stconf .stinfo{text-align:left;background:#fff;border:2px solid #ffcc80;border-radius:12px;padding:8px 12px;margin-bottom:8px;font-size:14px;line-height:1.55}
+.stconf .stinfo .nm{font-size:18px;font-weight:bold;margin-bottom:2px}
+.stconf .stinfo .om{margin-top:3px;color:#e65100;font-weight:bold}
+.zoomwrap{position:relative}
+.zoomwrap .zbtns{position:absolute;right:6px;top:6px;display:flex;flex-direction:column;gap:4px;z-index:2}
+.zoomwrap .zb{width:34px;height:34px;border:none;border-radius:8px;background:#fffdf5ee;box-shadow:0 2px 4px #0004;font-size:22px;font-weight:bold;line-height:1;cursor:pointer;color:#1d2a3a;font-family:inherit}
+.zoomwrap .zb:disabled{opacity:.35;cursor:default}
 .zkStat{text-align:center;font-weight:bold;font-size:15px;margin:4px 0}
 #homePage .mapbox .map{width:100%;height:min(62vh,560px);display:block;border-radius:12px}
 @media(max-width:760px){#homePage .mapbox .map{height:46vh}}
@@ -159,6 +166,7 @@ body.iwOnly #homePage{background:linear-gradient(180deg,#6cc3f0 0%,#bfe6f7 55%,#
 #dirPanel .end{margin-top:8px;border:none;border-radius:10px;padding:8px 14px;font-size:14px;font-family:inherit;cursor:pointer;background:#888;color:#fff}
 #route .st u{text-decoration:none;font-size:13px;line-height:1;height:14px}
 #route .st.here{color:#69f0ae}
+#route .st{cursor:pointer}
 #route .st.jct{color:#ffb74d}
 #route .st.jct i{border-color:#ff9800;background:#ffe0b2;box-shadow:0 0 0 2px #e6510066}
 #route .st .jt{font-style:normal;font-size:9px;line-height:1;background:#e65100;color:#fff;border-radius:4px;padding:1px 3px;margin-top:1px}
@@ -182,6 +190,14 @@ body.zk #sent{line-height:1.3}
 #stopBanner .s1{font-size:clamp(16px,2.6vw,22px)}
 #stopBanner .s2{font-size:clamp(28px,6vw,54px);line-height:1.15}
 #stopBanner .s3{font-size:15px}
+/* ブレーキの目安（ブレーキ地点の2秒前から） */
+#brakeCue{position:absolute;left:50%;top:56%;min-width:8.6em;text-align:center;transform:translate(-50%,-50%);z-index:5;pointer-events:none;white-space:nowrap;font-weight:900;font-size:clamp(24px,4.6vw,40px);padding:6px 22px;border-radius:14px;border:3px solid #fff;box-shadow:0 6px 16px #0007;font-variant-numeric:tabular-nums}
+#brakeCue[hidden]{display:none}
+#brakeCue.soon{background:#f9a825;color:#3e2700}
+#brakeCue.now{background:#c62828;color:#fff;animation:cueBlink .35s steps(2) infinite}
+#brakeCue.brk{background:#1d2a3acc;color:#fff}
+@keyframes cueBlink{50%{opacity:.55}}
+body.talking #brakeCue,body.prefOn #brakeCue{visibility:hidden}
 #sbNum{display:inline-block;min-width:3.2ch;text-align:right;font-variant-numeric:tabular-nums}
 #stopBanner.small{top:58px;transform:translate(-50%,-50%) scale(.55)}
 #stopBanner[hidden]{display:none}
@@ -239,6 +255,16 @@ body.talking #qbox,body.talking #lanes,body.talking #guide,body.talking #stopBan
 #lesson .pcard{border:3px solid #333;border-radius:12px;padding:10px 12px;margin-top:6px}
 #lesson .pcard .nm{font-size:26px;font-weight:bold}
 #lesson .route{font-size:13px;color:#555}
+#bunruiWrap{overflow-x:auto;background:#f7f9fc;border-radius:12px;padding:6px;border:1px solid #dde3ea}
+#cards .card2{max-width:920px}
+#bunruiTree svg{display:block;min-width:560px;width:100%;height:auto}
+#bunruiTree .bn{cursor:pointer}
+#bunruiTree .bn:hover rect{filter:brightness(1.08)}
+#bunruiTree .bn.on rect{stroke:#ff6f00;stroke-width:3}
+#bunruiInfo{margin-top:8px;background:#fffdf5;border:2px solid #ffcc80;border-radius:12px;padding:8px 12px;font-size:15px;line-height:1.65;min-height:60px}
+#bunruiInfo h3{font-size:18px;margin-bottom:2px}
+#bunruiInfo .ex{background:#eef6ee;border-radius:8px;padding:4px 10px;margin:4px 0;font-size:14px}
+#bunruiInfo .mine{color:#2e7d32;font-weight:bold;font-size:13px}
 #cardsGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:8px}
 #cardsGrid .pc{border:3px solid #ccc;border-radius:10px;padding:8px;background:#fff;font-size:13px;line-height:1.5}
 #cardsGrid .pc b{font-size:18px;display:block}
@@ -293,7 +319,7 @@ body.talking #qbox,body.talking #lanes,body.talking #guide,body.talking #stopBan
 <body>
 <div id="app">
  <header id="hdr">
-  <h1>🚃 品詞でGO</h1>
+  <h1>🚃 品詞でGO！</h1>
   <div class="hud">
    <div class="box">ライフ <span id="lives">❤❤❤</span></div>
    <div class="box">得点 <b id="score">0</b></div>
@@ -307,6 +333,7 @@ body.talking #qbox,body.talking #lanes,body.talking #guide,body.talking #stopBan
   <div id="qbox"><div id="sent">　</div><div id="step"></div></div>
   <div id="stopBanner" hidden></div>
   <div id="prefBanner" hidden></div>
+  <div id="brakeCue" hidden></div>
   <div id="guide" hidden><img id="guideImg" alt="" style="display:none"><div class="gb"><div class="gt">🚉 駅の案内</div><div class="gn" id="guideName"></div><div id="guideBody"></div></div><button id="guideX" aria-label="閉じる">×</button></div>
   <div id="talk" hidden><img id="talkImg" alt="" style="display:none"><div class="tb"><div id="talkBody"></div><button id="talkOk">OK</button></div></div>
   <div id="lesson" hidden><div class="card" id="lessonCard"></div></div>
@@ -351,19 +378,19 @@ body.talking #qbox,body.talking #lanes,body.talking #guide,body.talking #stopBan
  <div class="cloud" style="top:22%;animation-duration:95s;animation-delay:-40s;font-size:50px">☁️</div>
  <div class="cloud" style="top:55%;animation-duration:120s;animation-delay:-80s;font-size:60px">☁️</div>
  <div class="hp">
-  <div class="ttl"><h1>🚃 品詞でGO</h1><p id="homeSub">ことばの線路で、岩手をめぐる旅へ！</p></div>
+  <div class="ttl"><h1>🚃 品詞でGO！</h1><p id="homeSub">ことばの線路で、岩手をめぐる旅へ！</p></div>
   <div class="scene" id="homeScene"></div>
   <div class="side">
    <button class="hbtn iw" id="goIwate"><b>🗻 岩手編</b><span class="prog" id="iwProg"></span></button>
    <button class="hbtn zk" id="goZenkoku"><b>🚄 全国編</b><span class="prog" id="zkProg"></span></button>
-   <div class="sub2"><button id="goCards">🃏 品詞カード <span id="cdCount">0</span>/10</button><button id="goZukan">🎁 お土産帳 <span id="zkCount">0</span>/<span id="zkTotal">0</span></button></div>
+   <div class="sub2"><button id="goCards">🌳 品詞の見分け方<span id="cdCount" hidden>0</span></button><button id="goZukan">🎁 お土産帳 <span id="zkCount">0</span>/<span id="zkTotal">0</span></button></div>
    <a class="backDx" href="kokugo_app.html?from=minigame">↩ 知識ドリルDXにもどる</a>
   </div>
  </div>
 </div>
 <div class="modal" id="zkTitle" hidden>
  <div class="card2">
-  <div class="edHead zk"><h2>🚄 全国編</h2><p>新幹線で、日本じゅうを旅しよう</p></div>
+  <div class="edHead zk"><h2>🚄 全国編</h2><p>新幹線と特急で、日本じゅうを旅しよう</p></div>
   <div class="mapwrap" id="zkTitleMap"></div>
   <div class="zkStat" id="zkTitleStat"></div>
   <ul class="howto">
@@ -375,6 +402,14 @@ body.talking #qbox,body.talking #lanes,body.talking #guide,body.talking #stopBan
   <button class="btn gray" id="zkTitleBack">← ホームへ</button>
  </div>
 </div>
+<div class="modal" id="moveAsk" hidden>
+ <div class="card2" style="max-width:420px;text-align:center">
+  <h2 id="moveAskQ"></h2>
+  <p id="moveAskSub" style="font-size:14px;color:#555;margin-bottom:10px"></p>
+  <button class="btn go" id="moveYes">🚃 移動する</button>
+  <button class="btn gray" id="moveNo">やめる</button>
+ </div>
+</div>
 <div class="modal" id="zStart" hidden>
  <div class="card2">
   <h2>🚄 全国編　どこから出発する？</h2>
@@ -384,9 +419,11 @@ body.talking #qbox,body.talking #lanes,body.talking #guide,body.talking #stopBan
 </div>
 <div class="modal" id="cards" hidden>
  <div class="card2">
-  <h2>🃏 品詞カード</h2>
-  <p class="lead" style="font-size:13px">岩手編で、はじめてたどり着いた品詞のカード。</p>
-  <div id="cardsGrid"></div>
+  <h2>🌳 品詞の見分け方（品詞分類表）</h2>
+  <p class="lead" style="font-size:13px">左の「単語」から右へ。<b>分かれ目の箱</b>を押すと見分け方、<b>品詞の箱</b>を押すとその品詞の説明が出るよ。</p>
+  <div id="bunruiWrap"><div id="bunruiTree"></div></div>
+  <div id="bunruiInfo"></div>
+  <div id="cardsGrid" hidden></div>
   <button class="btn gray" id="cardsClose">閉じる</button>
  </div>
 </div>
@@ -908,6 +945,49 @@ const INFO={
  長崎:{p:'江戸時代、出島は幕府が認めた国内ただ一つの国際貿易港だった。軍艦島などが世界遺産「明治日本の産業革命遺産」。',s:'カステラ・ちゃんぽん'},
  '川内（鹿児島県）':{p:'薩摩川内市。藺牟田池はラムサール条約の湿地。'},
  鹿児島中央:{p:'鹿児島市。桜島をのぞむ景色は「東洋のナポリ」とよばれる。',h:'西郷隆盛・大久保利通が生まれた',s:'かるかん'},
+ // 特急やくも（市の記事の本文で確認、2026-11-26）
+ 倉敷:{p:'倉敷市。中国地方で、広島市・岡山市に次いで3番目に人口が多い。',s:'倉敷緞通（じゅうたん）'},
+ 備中高梁:{p:'高梁市。備中松山城は、今も残る天守の中でただ一つの山城。',h:'板倉勝静（備中松山藩主・江戸幕府の老中）',s:'シャクヤク（中国・四国で最大の産地）'},
+ 新見:{p:'新見市。2002年、日本で初めて電子投票で選挙が行われた。',s:'千屋牛・カルストだいこん'},
+ 米子:{p:'鳥取県米子市。皆生温泉は、日本のトライアスロン発祥の地。',h:'中江藤樹（学者。少年時代を米子で過ごした）',s:'いただき（郷土料理）'},
+ 安来:{p:'島根県安来市。大成古墳は、全国でも最大級の四角い古墳（方墳）。',s:'安来鋼'},
+ 松江:{p:'島根県の県庁所在地。お城の堀川がよく残り「水の都」とよばれる。',h:'若槻禮次郎（内閣総理大臣）',s:'和菓子（日本三大菓子処）'},
+ 出雲市:{p:'出雲市。中世に活躍した出雲源氏の発祥の地。',h:'竹内まりや（歌手）',s:'雲州木綿'},
+ // 特急しおかぜ・南風
+ 児島:{p:'倉敷市の児島。「学生服とジーンズのメッカ」。ここから瀬戸大橋をわたって四国へ。',s:'学生服・ジーンズ'},
+ 宇多津:{p:'宇多津町（香川県）。1363年、細川頼之がここに城を構え、讃岐の守護所とした。',s:'塩（復元された入浜式塩田）'},
+ 丸亀:{p:'丸亀市。町の中心に丸亀城がある。',s:'丸亀うちわ（全国の9割）'},
+ 多度津:{p:'多度津町。「四国鉄道発祥の地」。1889年、丸亀〜琴平に四国で初めての鉄道が開業した。特急南風は、ここで高知へ分かれる。',h:'遊佐正憲（競泳の金メダリスト）'},
+ 観音寺:{p:'観音寺市。勇壮な「ちょうさ祭り」が有名。',s:'いりこ'},
+ 川之江:{p:'四国中央市（愛媛県）。金生川の河口は「川の江」とよばれ、港として使われた。',s:'水引'},
+ 伊予三島:{p:'四国中央市。製紙・紙加工がさかんな「紙のまち」。',s:'紙製品'},
+ 新居浜:{p:'新居浜市。10月の「新居浜太鼓祭り」は、四国三大祭りの一つ。',s:'別子飴'},
+ 伊予西条:{p:'西条市。地下からわき出る水「うちぬき」は、名水百選に選ばれた。',s:'うちぬきの水'},
+ 壬生川:{p:'西条市。西条港・壬生川港は、東予港として重要港湾に指定されている。'},
+ 今治:{p:'今治市。江戸時代は今治城の城下町。造船もさかん。',s:'今治タオル'},
+ 松山:{p:'愛媛県の県庁所在地。松山城と道後温泉で有名。',h:'夏目漱石・正岡子規（ゆかりの地）',s:'坊っちゃん団子'},
+ 善通寺:{p:'善通寺市。空海はこの地の出身で、「善通」は父の名前から。',h:'空海（弘法大師）',s:'四角スイカ'},
+ 琴平:{p:'琴平町。「こんぴらさん」とよばれる金刀比羅宮があり、多くの人がお参りに来る。',s:'灸まん'},
+ 阿波池田:{p:'三好市（徳島県）。四国のまん中あたりにある、山あいの町。'},
+ 大歩危:{p:'三好市。大歩危の谷や祖谷のかずら橋は、徳島県を代表する観光地。',s:'祖谷そば'},
+ 土佐山田:{p:'香美市（高知県）。やなせたかしの出身地で、アンパンマン図書館がある。',h:'やなせたかし（アンパンマンの作者）',s:'韮生米'},
+ 後免:{p:'南国市。「諸役御免」の町「御免町」が、のちに「後免町」になった。'},
+ 高知:{p:'高知県の県庁所在地。よさこい鳴子踊りがさかん。',h:'坂本龍馬・板垣退助・後藤象二郎',s:'カツオのたたき'},
+ // 特急ソニック・にちりん
+ 行橋:{p:'行橋市（福岡県）。カルスト台地で有名な平尾台のふもと。',s:'ナシ・モモ・イチジク'},
+ 中津:{p:'大分県中津市。県内で3番目に人口が多い。',s:'中津からあげ'},
+ 別府:{p:'別府市。別府温泉には、毎年800万人をこえる観光客が来る。',s:'別府竹細工（国の伝統的工芸品）'},
+ 大分:{p:'大分県の県庁所在地。',s:'関あじ・関さば（佐賀関で水あげ）'},
+ 鶴崎:{p:'大分市。「鶴崎踊」は国の選択無形民俗文化財。'},
+ 臼杵:{p:'臼杵市。臼杵石仏や、城下町の町並みで知られる。',s:'しょうゆ'},
+ 津久見:{p:'津久見市。豊後水道に面した、みかんづくりの歴史が古い町。',h:'伊勢正三（シンガーソングライター）',s:'みかん'},
+ 佐伯:{p:'佐伯市。九州の市町村で、いちばん面積が広い。',s:'佐伯寿司'},
+ 延岡:{p:'宮崎県延岡市。旭化成の工場が集まる町として栄えた。',s:'チキン南蛮（延岡で生まれた）'},
+ 南延岡:{p:'延岡市の南の駅。',s:'アユ'},
+ 日向市:{p:'日向市。細島港という天然の良港がある。',h:'若山牧水（歌人）',s:'へべす'},
+ 高鍋:{p:'高鍋町。江戸時代、藩校・明倫堂で人を育てた「教育の藩」だった。',s:'天然がき'},
+ 佐土原:{p:'宮崎市。'},
+ 宮崎:{p:'宮崎県の県庁所在地。大淀川が日向灘に注ぐ。',s:'マンゴー'},
 };
 function showGuide(name){
  const I=INFO[name];if(!I||!S){hideGuideNow();return 0;}
@@ -924,7 +1004,7 @@ function hideGuideNow(){clearTimeout(guideFadeT);$('guide').hidden=true;$('guide
 $('guideX').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();hideGuideNow();const st=S&&S.station;if(st&&st.state==='stopped'&&!st.z)st.t=Math.min(st.t,0.4);});
 function showStopBanner(name,final){
  const b=$('stopBanner');b.classList.remove('small');
- b.innerHTML='<div class="s1">🚉 次は'+(final?'終点':'停車駅')+'</div><div class="s2">'+name+'</div><div class="s3" id="sbDist">停止線まで <b id="sbNum"></b>m<span id="sbWarn"></span></div>';
+ b.innerHTML='<div class="s1">🚉 次は'+(final?'終点':'停車駅')+'</div><div class="s2">'+name+'</div>';
  b.hidden=false;clearTimeout(b._t);b._t=setTimeout(()=>b.classList.add('small'),2800);
 }
 function hideStopBanner(){$('stopBanner').hidden=true;}
@@ -953,7 +1033,7 @@ function rx(s,x){return x+curve(s)-curve(S.s)-curveD(S.s)*(s-S.s)-S.camX;}
 function proj(s,x,y){const z=s-S.s;return {X:W/2+rx(s,x)*F/z,Y:HOR+(CAM_H-y)*F/z,k:F/z,z};}
 
 // ===== 操作 =====
-function steer(d){if(!S||S.talkCur)return;const f=upcoming();if(!f||!running||paused||S.mode!=='run')return;const n=clamp(f.sel+d,0,f.n-1);if(n!==f.sel){f.sel=n;sfx.click();renderLanes();}}
+function steer(d){if(!S||S.talkCur)return;const f=upcoming();if(!f||!running||paused||S.mode!=='run')return;const n=(f.sel+d+f.n)%f.n; /* 端でもう一つ押すと反対の端へ（2026-11-26 教員の指示） */if(n!==f.sel){f.sel=n;sfx.click();renderLanes();}}
 function pickLane(k){if(!S||S.talkCur)return;const f=upcoming();if(!f||!running||paused||S.mode!=='run')return;if(f.sel!==k){f.sel=k;sfx.click();renderLanes();}}
 function renderLanes(){
  const f=upcoming(),box=$('lanes');
@@ -987,6 +1067,27 @@ document.addEventListener('keyup',e=>{
  if(e.key==='ArrowUp'||e.key==='w'){keys.up=false;$('accBtn').classList.remove('on');}
  if(e.key==='ArrowDown'||e.key==='s'){keys.down=false;$('brakeBtn').classList.remove('on');}
 });
+// 上の路線図の駅名を押すと、行ったことのある駅なら「〜駅に移動しますか？」→ そこから始める（2026-11-26 教員の指示）
+$('route').addEventListener('click',e=>{
+ const el=e.target.closest('.st');if(!el||!S||!running||S.choosing||S.panelOpen||S.lessonOpen)return;
+ let name,go;
+ if(S.game==='zenkoku'){
+  name=el.dataset.n;if(!name)return;
+  if(!zkBeen()[name]&&name!==Z_START){floatText('まだ行ったことのない駅','#ffcc80');return;}
+  const line=S.zline;go=()=>newGameZ(name,null,line);
+ }else{
+  const i=+el.dataset.i;if(isNaN(i))return;name=ROUTE.stations[i];
+  const clr=loadClr(),rc=loadReach(),max=clr[ROUTE.id]?ROUTE.stations.length-2:(rc[ROUTE.id]||0);
+  if(i>max||i>ROUTE.stations.length-2){floatText(i>ROUTE.stations.length-2?'終点からは出発できない':'まだ行ったことのない駅','#ffcc80');return;}
+  const rid=ROUTE.id;go=()=>newGame(rid,i);
+ }
+ const wasPaused=paused;paused=true;
+ $('moveAskQ').textContent=name+'駅に移動しますか？';
+ $('moveAskSub').textContent=(S.game==='zenkoku'?(PREF[name]||''):(CITY[name]||''))+'　いまの旅はここで終わり、'+name+'から始めます。';
+ $('moveAsk').hidden=false;
+ $('moveYes').onclick=()=>{$('moveAsk').hidden=true;paused=false;go();};
+ $('moveNo').onclick=()=>{$('moveAsk').hidden=true;paused=wasPaused;};
+});
 function setPause(v){
  if(!running||(S&&(S.panelOpen||S.lessonOpen)))return;
  paused=v;$('pauseBtn').textContent=paused?'▶':'⏸';$('pauseMenu').hidden=!paused;
@@ -1018,7 +1119,7 @@ function passFork(f){
   }else{
    const pts=Math.round(100*mult*(1+Math.min(S.combo,20)*0.1));S.score+=pts;S.oks++;
    floatText('⭕ '+(f.kind==='theme'?f.labels[f.correct]:S.cur.item.pos)+'！ +'+pts+(mult>1.15?' 加速ボーナス':''),'#ffeb3b');sfx.ok(1);
-   if(f.kind==='theme'){const t=S.cur.task;vanishFakes(f);hitBoss();S.words++;maybeCard(t.pos,splitS(t.s)[1]);showWhy(t);taskDone();if(S.station&&S.station.stop)$('step').insertAdjacentHTML('beforeend','<span class="hint">↓ブレーキで停止線に止めよう</span>');}
+   if(f.kind==='theme'){const t=S.cur.task;vanishFakes(f);hitBoss();S.words++;maybeCard(t.pos,splitS(t.s)[1]);taskDone();showWhy(t);if(S.station&&S.station.stop&&S.station.state==='approach')$('step').insertAdjacentHTML('beforeend','<span class="hint">↓ブレーキで停止線に止めよう</span>');}
    else if(S.game==='zenkoku')tokenDone(true);else{const it0=S.cur&&S.cur.item;if(S.game==='iwate'){vanishFakes(f);hitBoss();}S.words++;nextLeg();if(S.game==='iwate'&&it0){showSolved(it0);maybeCard(it0.pos,splitS(it0.s)[1]);}}
   }
  }else{
@@ -1128,7 +1229,7 @@ function iwPickMapHTML(r,max,pxH){
  return mapSVG(vb,lines,dots,extra,pxH,true);
 }
 // 出発駅えらびの確認（2026-11-26 教員の指示：選んだ瞬間に始めず、確かめてから出発）
-function startConfirm(box,key,label,go,quiet){
+function startConfirm(box,key,label,go,quiet,info){
  box.querySelectorAll('.selst').forEach(e=>e.classList.remove('selst'));
  box.querySelectorAll('.pktrain').forEach(e=>e.remove());
  box.querySelectorAll('.pk').forEach(c=>{c.setAttribute('fill-opacity','0');c.removeAttribute('stroke');c.classList.remove('pkon');});
@@ -1141,7 +1242,7 @@ function startConfirm(box,key,label,go,quiet){
  });
  let cf=box.querySelector('.stconf');
  if(!cf){cf=document.createElement('div');cf.className='stconf';box.appendChild(cf);}
- cf.innerHTML='<button class="btn go">🚃 '+label+'で旅を始める</button>';
+ cf.innerHTML=(info||'')+'<button class="btn go">🚃 '+label+'で旅を始める</button>';
  cf.querySelector('.go').onclick=go;
  if(!quiet){sfx.click();cf.scrollIntoView({block:'nearest',behavior:'smooth'});}
 }
@@ -1346,6 +1447,52 @@ const SHINKANSEN=[
  {n:'新大村',p:'記念スタンプ',e:'📮',d:'世界初の海上空港がある大村の記念'},
  {n:'諫早',p:'伊木力みかん',e:'🍊',d:'諫早の名産のみかん'},
  {n:'長崎',p:'カステラ',e:'🍰',d:'長崎の名産'},
+ // 在来線の特急（2026-11-26追加）。停車駅はWikipediaの各列車の記事で「全列車が止まる駅」だけ。特産品は市町村の記事の本文で確認
+ // 特急やくも（岡山〜出雲市）
+ {n:'倉敷',p:'倉敷緞通',e:'🧶',d:'倉敷でつくられる敷物（じゅうたん）'},
+ {n:'備中高梁',p:'シャクヤク',e:'🌸',d:'高梁市は中国・四国で最大の産地'},
+ {n:'新見',p:'千屋牛',e:'🐄',d:'新見市の千屋地区で育てられる黒毛和牛'},
+ {n:'米子',p:'いただき',e:'🍱',d:'大きな油あげにお米や野菜をつめて炊いた郷土料理'},
+ {n:'安来',p:'安来鋼',e:'⚙️',d:'この地で生まれた鋼のブランド名'},
+ {n:'松江',p:'和菓子',e:'🍡',d:'松江は京都・金沢とならぶ日本三大菓子処'},
+ {n:'出雲市',p:'雲州木綿',e:'🧵',d:'出雲平野で生産がさかんになった木綿'},
+ // 特急しおかぜ（岡山〜松山）
+ {n:'児島',p:'学生服',e:'👔',d:'児島は「学生服とジーンズのメッカ」'},
+ {n:'宇多津',p:'塩',e:'🧂',d:'復元された入浜式塩田でつくられている'},
+ {n:'丸亀',p:'丸亀うちわ',e:'🎐',d:'生産量は全国の9割'},
+ {n:'多度津',p:'記念スタンプ',e:'📮',d:'「四国鉄道発祥の地」の記念'},
+ {n:'観音寺',p:'いりこ',e:'🐠',d:'水あげ量で知られ「いりこだ市」を名のるほど'},
+ {n:'川之江',p:'水引',e:'🎀',d:'四国中央市の伝統の工芸'},
+ {n:'伊予三島',p:'紙製品',e:'📄',d:'製紙・紙加工がさかんな「紙のまち」'},
+ {n:'新居浜',p:'別子飴',e:'🍬',d:'新居浜の地元の特産'},
+ {n:'伊予西条',p:'うちぬきの水',e:'💧',d:'名水百選に選ばれた、地下からわき出る水'},
+ {n:'壬生川',p:'記念スタンプ',e:'📮',d:'東予港のある町の記念'},
+ {n:'今治',p:'今治タオル',e:'🧺',d:'今治でさかんにつくられる'},
+ {n:'松山',p:'坊っちゃん団子',e:'🍡',d:'松山の銘菓の一つ'},
+ // 特急南風（多度津〜高知）
+ {n:'善通寺',p:'四角スイカ',e:'🍉',d:'善通寺の名物'},
+ {n:'琴平',p:'灸まん',e:'🍘',d:'こんぴらさんのおみやげのお菓子'},
+ {n:'阿波池田',p:'記念スタンプ',e:'📮',d:'四国のまん中・三好市の記念'},
+ {n:'大歩危',p:'祖谷そば',e:'🍜',d:'三好市の特産品'},
+ {n:'土佐山田',p:'韮生米',e:'🌾',d:'香美市の特産のお米'},
+ {n:'後免',p:'記念スタンプ',e:'📮',d:'「ごめん」という名前の駅の記念'},
+ {n:'高知',p:'カツオのたたき',e:'🐟',d:'高知の名物'},
+ // 特急ソニック（小倉〜大分）
+ {n:'行橋',p:'ナシ',e:'🍐',d:'新田原は県内有数の果物の産地'},
+ {n:'中津',p:'中津からあげ',e:'🍗',d:'中津で売られているご当地から揚げ'},
+ {n:'別府',p:'別府竹細工',e:'🎋',d:'国の伝統的工芸品'},
+ {n:'大分',p:'関あじ・関さば',e:'🐟',d:'大分市の佐賀関で水あげされる'},
+ // 特急にちりん（大分〜宮崎）
+ {n:'鶴崎',p:'記念スタンプ',e:'📮',d:'「鶴崎踊」の町の記念'},
+ {n:'臼杵',p:'しょうゆ',e:'🍶',d:'臼杵はしょうゆの醸造で知られる'},
+ {n:'津久見',p:'みかん',e:'🍊',d:'みかんづくりの歴史が古い'},
+ {n:'佐伯',p:'佐伯寿司',e:'🍣',d:'「世界一、佐伯寿司」がキャッチフレーズ'},
+ {n:'延岡',p:'チキン南蛮',e:'🐔',d:'延岡で生まれた鶏肉料理'},
+ {n:'南延岡',p:'アユ',e:'🎣',d:'延岡の特産'},
+ {n:'日向市',p:'へべす',e:'🍋',d:'日向地方の特産のかんきつ'},
+ {n:'高鍋',p:'天然がき',e:'🦪',d:'高鍋の特産'},
+ {n:'佐土原',p:'記念スタンプ',e:'📮',d:'宮崎市佐土原の記念'},
+ {n:'宮崎',p:'マンゴー',e:'🥭',d:'宮崎の名物の一つ'},
 ];
 const SK=Object.fromEntries(SHINKANSEN.map(x=>[x.n,x]));
 const ZLINES=[
@@ -1371,6 +1518,20 @@ const ZLINES=[
   st:['新鳥栖','佐賀','武雄温泉']},
  {id:'nishikyushu',name:'西九州新幹線',short:'西九州',color:'#ad1457',dirs:['武雄温泉方面','長崎方面'],
   st:['武雄温泉','嬉野温泉','新大村','諫早','長崎']},
+ // 在来線の特急（2026-11-26追加、新幹線の通らない県へ）。relay:true＝在来線（地図は点線）。
+ // 停車駅はWikipediaの各列車の記事の停車駅表で「全列車（またはほぼ全列車）が止まる駅」だけ（一部の列車だけ止まる駅は入れない）
+ {id:'yakumo',name:'特急やくも',short:'やくも',color:'#6d4c41',relay:true,dirs:['岡山方面','出雲市方面'],
+  st:['岡山','倉敷','備中高梁','新見','米子','安来','松江','出雲市']},
+ {id:'shiokaze',name:'特急しおかぜ',short:'しおかぜ',color:'#0097a7',relay:true,dirs:['岡山方面','松山方面'],
+  st:['岡山','児島','宇多津','丸亀','多度津','観音寺','川之江','伊予三島','新居浜','伊予西条','壬生川','今治','松山']},
+ // 南風は本当は岡山発。岡山〜多度津はしおかぜと同じ線路・同じ停車駅なので、多度津で乗りかえる形にした（土讃線は多度津で分かれる）
+ {id:'nanpu',name:'特急南風',short:'南風',color:'#f9a825',relay:true,dirs:['多度津方面','高知方面'],
+  st:['多度津','善通寺','琴平','阿波池田','大歩危','土佐山田','後免','高知']},
+ // ソニックは昼の速達・各停タイプが共通して止まる駅（小倉・行橋・中津・別府）＋終点の大分
+ {id:'sonic',name:'特急ソニック',short:'ソニック',color:'#3949ab',relay:true,dirs:['小倉方面','大分方面'],
+  st:['小倉','行橋','中津','別府','大分']},
+ {id:'nichirin',name:'特急にちりん',short:'にちりん',color:'#e64a19',relay:true,dirs:['大分方面','宮崎方面'],
+  st:['大分','鶴崎','臼杵','津久見','佐伯','延岡','南延岡','日向市','高鍋','佐土原','宮崎']},
 ];
 // 岩手編の駅の市町村（Wikipediaの路線の駅一覧・各駅の記事の所在地で確認、2026年11月）
 const CITY=(()=>{const P={},put=(c,list)=>list.split(' ').forEach(n=>P[n]=c);
@@ -1379,7 +1540,7 @@ const CITY=(()=>{const P={},put=(c,list)=>list.split(' ').forEach(n=>P[n]=c);
  put('矢巾町','矢幅');put('紫波町','古館 紫波中央 日詰');put('花巻市','石鳥谷 花巻空港 花巻');put('北上市','村崎野 北上');put('金ケ崎町','六原 金ケ崎');
  put('奥州市','水沢 陸中折居 前沢');put('平泉町','平泉');put('一関市','山ノ目 一ノ関');return P;})();
 // 都道府県を北から並べる順（出発駅えらびの整理用）
-const PREF_ORDER='北海道 青森県 岩手県 秋田県 宮城県 山形県 福島県 新潟県 栃木県 群馬県 埼玉県 東京都 神奈川県 長野県 富山県 石川県 福井県 静岡県 愛知県 岐阜県 滋賀県 京都府 大阪府 兵庫県 岡山県 広島県 山口県 福岡県 佐賀県 長崎県 熊本県 鹿児島県'.split(' ');
+const PREF_ORDER='北海道 青森県 岩手県 秋田県 宮城県 山形県 福島県 新潟県 栃木県 群馬県 埼玉県 東京都 神奈川県 長野県 富山県 石川県 福井県 静岡県 愛知県 岐阜県 滋賀県 京都府 大阪府 兵庫県 鳥取県 島根県 岡山県 広島県 山口県 香川県 徳島県 愛媛県 高知県 福岡県 佐賀県 長崎県 熊本県 大分県 宮崎県 鹿児島県'.split(' ');
 function placeOf(n){return S&&S.game==='iwate'?(CITY[n]||''):(PREF[n]||'');}
 // 駅のある都道府県（県境のお知らせ用）
 const PREF=(()=>{const P={},put=(pf,list)=>list.split(' ').forEach(n=>P[n]=pf);
@@ -1391,7 +1552,11 @@ const PREF=(()=>{const P={},put=(pf,list)=>list.split(' ').forEach(n=>P[n]=pf);
  put('広島県','福山 新尾道 三原 東広島 広島');put('山口県','新岩国 徳山 新山口 厚狭 新下関');put('福岡県','小倉 博多 久留米 筑後船小屋 新大牟田');put('佐賀県','新鳥栖');
  put('熊本県','新玉名 熊本 新八代 新水俣');put('鹿児島県','出水 川内（鹿児島県） 鹿児島中央');put('群馬県','高崎 上毛高原 安中榛名');
  put('新潟県','越後湯沢 浦佐 長岡 燕三条 新潟 上越妙高 糸魚川');put('長野県','軽井沢 佐久平 上田 長野 飯山');put('富山県','黒部宇奈月温泉 富山 新高岡');
- put('石川県','金沢 小松 加賀温泉');put('佐賀県','佐賀 武雄温泉 嬉野温泉');put('長崎県','新大村 諫早 長崎');put('福井県','芦原温泉 福井 越前たけふ 敦賀');return P;})();
+ put('石川県','金沢 小松 加賀温泉');put('佐賀県','佐賀 武雄温泉 嬉野温泉');put('長崎県','新大村 諫早 長崎');put('福井県','芦原温泉 福井 越前たけふ 敦賀');
+ // 在来線の特急（各駅の記事の所在地で確認）
+ put('岡山県','倉敷 備中高梁 新見 児島');put('鳥取県','米子');put('島根県','安来 松江 出雲市');put('香川県','宇多津 丸亀 多度津 観音寺 善通寺 琴平');
+ put('愛媛県','川之江 伊予三島 新居浜 伊予西条 壬生川 今治 松山');put('徳島県','阿波池田 大歩危');put('高知県','土佐山田 後免 高知');put('福岡県','行橋');
+ put('大分県','中津 別府 大分 鶴崎 臼杵 津久見 佐伯');put('宮崎県','延岡 南延岡 日向市 高鍋 佐土原 宮崎');return P;})();
 const ZL=Object.fromEntries(ZLINES.map(L=>[L.id,L]));
 // 分岐（乗りかえ）のある駅＝2つ以上の路線が通る駅。路線図・地図で色を変えて示す（2026-11-26 教員の指示）
 const ZJCT=(()=>{const c={};ZLINES.forEach(L=>L.st.forEach(n=>c[n]=(c[n]||0)+1));return new Set(Object.keys(c).filter(n=>c[n]>1));})();
@@ -1447,7 +1612,7 @@ function newGameZ(st0,from,line){
   misses:[],cur:null,floats:[],parts:[],idx:0,zh:st0,zto:st0,zfrom:from||null,zline:line,zstart:st0,legs:0,path:[st0],visited:[],got:[],tickAcc:0,camX:0,panelOpen:false,choosing:false,cleared:false,game:'zenkoku'};
  running=true;paused=false;
  S.station={s:10,name:st0,state:'stopped',t:1.2,stop:true,first:true,z:true};
- $('sent').innerHTML='🚄 新幹線で旅に出よう！';
+ $('sent').innerHTML='🚄 新幹線と特急で旅に出よう！';
  $('step').innerHTML='<b>'+st0+'から出発</b>';
  renderRoute();renderLanes();updateHud();resize();sfx.whistle();showGuide(st0);zkSave();
 }
@@ -1474,13 +1639,18 @@ function openDir(st){
  const pre={fwd:'このまま進む：',xfer:'乗りかえ：',back:'来た道を戻る：','':''};
  const btns=S.zopts.map((o,k)=>{const kd=zOptKind(o),L=ZL[o.line];
   return '<button class="'+kd+'" data-k="'+k+'">'+pre[kd]+'<span class="ln" style="background:'+L.color+'">'+L.name+'</span>'+o.dl+'<small>次は '+o.to+(PREF[o.to]?'（'+PREF[o.to]+'）':'')+'</small></button>';}).join('');
- $('dirCard').innerHTML='<h3>🚉 '+here+'駅<small class="gp">'+(PREF[here]||'')+'</small>　次はどちらへ？</h3><div class="got">'+got+'</div><div class="mapwrap">'+neMapHTML({path:S.path,here,cand:S.zopts.map(o=>o.to),win:here,h:200})+'</div>'+
+ $('dirCard').innerHTML='<h3>🚉 '+here+'駅<small class="gp">'+(PREF[here]||'')+'</small>　次はどちらへ？</h3><div class="got">'+got+'</div><div class="mapwrap zoomwrap"><div class="zbtns"><button class="zb" data-z="-1" title="拡大">＋</button><button class="zb" data-z="1" title="縮小">－</button></div><div id="dirMapBox">'+dirMapHTML()+'</div></div>'+
   '<div class="dirs">'+btns+'</div>'+
   '<button class="end" id="endTrip">🏁 ここで旅を終える</button>';
  bindDir();
  $('dirPanel').hidden=false;
 }
+const ZOOM_MAX=4;
+function dirMapHTML(){return neMapHTML({path:S.path,here:S.zh,cand:(S.zopts||[]).map(o=>o.to),win:S.zh,h:200,zoom:S.mapZoom||0});}
+function updZoomBtns(){const z=S.mapZoom||0;$('dirCard').querySelectorAll('.zb').forEach(b=>{const d=+b.dataset.z;b.disabled=(d<0&&z<=0)||(d>0&&z>=ZOOM_MAX);});}
 function bindDir(){
+ $('dirCard').querySelectorAll('.zb').forEach(b=>b.onclick=e=>{e.stopPropagation();S.mapZoom=Math.max(0,Math.min(ZOOM_MAX,(S.mapZoom||0)+(+b.dataset.z)));$('dirMapBox').innerHTML=dirMapHTML();updZoomBtns();sfx.click();});
+ updZoomBtns();
  $('dirCard').querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>askDir(+b.dataset.k));
  $('endTrip').onclick=()=>{S.choosing=false;$('dirPanel').hidden=true;S.cleared=true;finish();};
 }
@@ -1502,8 +1672,9 @@ function chooseDir(k){
  const L=ZL[o.line],i=L.st.indexOf(S.zh),j=L.st.indexOf(o.to);
  zkWrite(S.zh,L.st[i-(j-i)]||null,o.line);
  S.prefNext=PREF[o.to]&&PREF[o.to]!==PREF[S.zh]?PREF[o.to]:null;
- if(o.line!==S.zline&&ZL[o.line].relay)floatText('🚃 特急「リレーかもめ」に乗りかえ！','#b0bec5');
+ if(o.line!==S.zline&&ZL[o.line].relay)floatText('🚃 '+ZL[o.line].name.replace('特急','特急「')+'」に乗りかえ！','#b0bec5');
  else if(o.line==='nishikyushu'&&S.zline==='relay')floatText('🚄 向かいのホームの西九州新幹線へ！','#f48fb1');
+ else if(o.line!==S.zline&&ZL[S.zline]&&ZL[S.zline].relay)floatText('🚄 '+ZL[o.line].name+'に乗りかえ！','#80deea');
  S.zline=o.line;S.zfrom=S.zh;S.zto=o.to;S.station=null;sfx.whistle();
  renderRoute();startLeg();
 }
@@ -1562,6 +1733,12 @@ function showQuestionZ(){
 // ブレーキをかけはじめた瞬間の速さで、止まるまでの強さを決める
 const BRAKE_FULL=180,BRAKE_NORMAL=100;
 function vMax(){return (S&&S.game==='zenkoku'?54:56)*1.6;}
+// 停車駅に近づくあいだ、画面のまん中に「停止線まで ○m」を出す（2026-11-26 教員の指示。赤い看板の距離表示はやめた）
+function brakeCueUpdate(){
+ const el=$('brakeCue'),st=S&&S.station;let txt='';
+ if(st&&st.state==='approach'&&st.stop&&S.mode==='run'){const d=st.s-S.s;if(d>-15)txt='停止線まで '+Math.max(0,Math.round(d))+'m';}
+ if(el._t!==txt){el._t=txt;el.textContent=txt;el.className=txt?'brk':'';el.hidden=!txt;}
+}
 function brakeAFor(v0){
  const vn=Math.max(1,vBase()),vf=vn*1.6;
  if(v0<=vn)return vn*vn/(2*BRAKE_NORMAL);
@@ -1592,7 +1769,7 @@ function finishZ(){
  const isBest=S.score>(best.zenkoku||0);if(isBest){best.zenkoku=S.score;svSet('best',best);}
  $('rsTitle').textContent=S.cleared?'🎒 旅の記録':'🚧 運転見合わせ';
  const got=S.got.map(g=>{const o=SK[g.n];return o.e+o.p+(g.gold?'✨':'')+(g.isNew?'<b style="color:#e65100">NEW</b>':'');}).join('　');
- $('rsInfo').innerHTML='新幹線　'+S.zstart+'から '+S.legs+'区間を走った<br>'+(got?'手に入れたお土産：'+got+'<br>':'')+
+ $('rsInfo').innerHTML='全国編　'+S.zstart+'から '+S.legs+'区間を走った<br>'+(got?'手に入れたお土産：'+got+'<br>':'')+
   '正解 <b>'+S.oks+'</b>問　最大連続 <b>'+S.maxCombo+'</b>　得点 <b>'+S.score+'</b>'+(isBest?'<br>🏆 全国編の自己ベスト！':'');
  $('rsReview').innerHTML=S.misses.length?'<b>脱線した言葉をふり返ろう</b>'+S.misses.map(m=>'<div class="rv">'+sentHTML(m.item)+' → <b>'+m.item.pos+'</b><br><small>'+(m.item.why?m.item.why:esc(explain(m.item,m.node)))+(m.item.note?'<br>💡 '+esc(m.item.note):'')+'</small></div>').join(''):'';
  $('result').hidden=false;
@@ -1624,6 +1801,13 @@ const GEO={
  '上田':[36.396,138.249],'長野':[36.643,138.189],'飯山':[36.845,138.359],'上越妙高':[37.065,138.246],'糸魚川':[37.044,137.861],'黒部宇奈月温泉':[36.874,137.481],
  '富山':[36.701,137.213],'新高岡':[36.731,137.011],'金沢':[36.578,136.648],'小松':[36.403,136.453],'加賀温泉':[36.316,136.358],'芦原温泉':[36.220,136.217],
  '佐賀':[33.264,130.297],'武雄温泉':[33.197,130.020],'嬉野温泉':[33.106,130.060],'新大村':[32.933,129.958],'諫早':[32.845,130.044],'長崎':[32.752,129.869],
+ // 在来線の特急（各駅の記事の座標）
+ '倉敷':[34.602,133.766],'備中高梁':[34.789,133.616],'新見':[34.987,133.457],'米子':[35.423,133.337],'安来':[35.428,133.259],'松江':[35.464,133.064],'出雲市':[35.361,132.757],
+ '児島':[34.463,133.808],'宇多津':[34.306,133.814],'丸亀':[34.292,133.793],'多度津':[34.271,133.757],'観音寺':[34.124,133.656],'川之江':[34.014,133.576],'伊予三島':[33.980,133.542],
+ '新居浜':[33.948,133.294],'伊予西条':[33.912,133.188],'壬生川':[33.930,133.085],'今治':[34.064,132.994],'松山':[33.840,132.751],
+ '善通寺':[34.230,133.789],'琴平':[34.192,133.821],'阿波池田':[34.027,133.805],'大歩危':[33.876,133.767],'土佐山田':[33.607,133.685],'後免':[33.579,133.645],'高知':[33.567,133.544],
+ '行橋':[33.729,130.970],'中津':[33.599,131.191],'別府':[33.280,131.500],'大分':[33.233,131.606],'鶴崎':[33.243,131.687],'臼杵':[33.119,131.808],'津久見':[33.073,131.864],
+ '佐伯':[32.973,131.902],'延岡':[32.590,131.672],'南延岡':[32.559,131.677],'日向市':[32.426,131.628],'高鍋':[32.122,131.534],'佐土原':[32.022,131.477],'宮崎':[31.916,131.432],
  '福井':[36.062,136.223],'越前たけふ':[35.903,136.199],'敦賀':[35.645,136.075],
  '新八代':[32.512,130.623],'新水俣':[32.215,130.414],'出水':[32.072,130.351],'川内（鹿児島県）':[31.814,130.312],'鹿児島中央':[31.584,130.541],
  '上盛岡':[39.712,141.163],'上米内':[39.738,141.225],'区界':[39.659,141.392],'茂市':[39.662,141.800],'千徳':[39.652,141.910],'宮古':[39.641,141.951],
@@ -1684,11 +1868,19 @@ function neMapHTML(opt){
  const ps=focus.map(n=>P[n]);
  const x0=Math.min(...ps.map(p=>p[0])),x1=Math.max(...ps.map(p=>p[0])),y0=Math.min(...ps.map(p=>p[1])),y1=Math.max(...ps.map(p=>p[1]));
  const cx=(x0+x1)/2,cy=(y0+y1)/2;let vb;
- if(opt.win){const hh=y1-y0+50,ww=Math.max(x1-x0+60,hh*(opt.ratio||2.6));vb=[cx-ww/2,cy-hh/2,ww,hh];}
+ if(opt.win){const hh=y1-y0+50,ww=Math.max(x1-x0+60,hh*(opt.ratio||2.6));vb=[cx-ww/2,cy-hh/2,ww,hh];
+  const z=opt.zoom||0;if(z>0){const f=Math.pow(1.9,z),c=P[opt.win];vb=[c[0]-ww*f/2,c[1]-hh*f/2,ww*f,hh*f];}}
  else{const hh=y1-y0+80,ww=x1-x0+80;vb=[cx-ww/2,cy-hh/2,ww,hh];}
  if(opt.path&&opt.path.length>1)for(let k=1;k<opt.path.length;k++)lines.push({pts:[P[opt.path[k-1]],P[opt.path[k]]],color:'#263238',width:6});
- for(const n in P){const g=om[n],show=opt.win?focus.includes(n):opt.labels;if(opt.lite&&!g&&!ZJCT.has(n))continue;
-  const jc=ZJCT.has(n);
+ // 重なりよけ：画面上の距離（px）で、近すぎる印は出さない。いまの駅・行き先の候補・乗りかえ駅・お土産の駅の順に残す
+ const u2px=pxH/vb[3],kept=[],prio=n=>(opt.cand&&opt.cand.includes(n))?8:ZJCT.has(n)?6:om[n]===2?5:om[n]?4:1;
+ if(opt.here)kept.push([P[opt.here][0]*u2px,P[opt.here][1]*u2px,22]);
+ if(opt.cand)opt.cand.forEach(c=>kept.push([P[c][0]*u2px,P[c][1]*u2px,14]));
+ const order=Object.keys(P).sort((a,b)=>prio(b)-prio(a));
+ for(const n of order){const g=om[n],show=opt.win?(focus.includes(n)&&(opt.zoom||0)<=1):opt.labels;if(opt.lite&&!g&&!ZJCT.has(n))continue;
+  const jc=ZJCT.has(n),X=P[n][0]*u2px,Y=P[n][1]*u2px,need=g?20:9,mine=n===opt.here||(opt.cand&&opt.cand.includes(n));
+  if(!mine&&kept.some(k=>Math.hypot(k[0]-X,k[1]-Y)<Math.max(need,k[2])))continue;
+  if(!mine)kept.push([X,Y,need]);
   dots.push({p:P[n],r:(g?5:3.5)+(jc?2:0),fill:g===2?'#ffd54f':g?'#fff':jc?'#ffcc80':'#e0f2f1',stroke:jc?'#e65100':'#00695c',emoji:g?SK[n].e:'',es:opt.win?18:15,label:show?n:'',fs:opt.cand&&opt.cand.includes(n)?14:12});}
  if(opt.cand)for(const c of opt.cand)dots.push({p:P[c],r:7,fill:'#ffeb3b',stroke:'#e65100'});
  if(opt.here)dots.push({p:P[opt.here],r:8,fill:'#e53935',stroke:'#fff',emoji:'🚄',es:22});
@@ -1838,7 +2030,12 @@ function showZStart(){
  $('zStartBtns').innerHTML=opts.map((o,k)=>'<button class="btn'+(o.main?'':' blue')+'" data-k="'+k+'">'+o.t+'<small>'+o.s+'</small></button>').join('')+
   '<p class="pnote">ふつうは<b>盛岡</b>から出発。<b>行ったことのある駅</b>なら、ボタンや地図の黄色い駅を押して、そこから出発することもできるよ。'+(names.length?'':'（旅をして駅に行くと、ここに出てくる）')+'</p>'+
   '<div class="mapwrap pickmap">'+neMapHTML({h:240,lite:true,pick:names.concat([Z_START])})+'</div>'+(names.length?'<div class="zbh">行ったことのある駅</div><div id="zBeen">'+list+'</div>':'');
- const zAsk=(n,from,line,quiet)=>startConfirm($('zStartBtns'),n,n+'（'+(PREF[n]||'')+'）',()=>{$('zStart').hidden=true;newGameZ(n,from,line);},quiet);
+ // 選んだ駅の案内（どんな場所・有名な人・特産品・お土産）もいっしょに見せる（2026-11-26 教員の指示）
+ const stInfo=n=>{const I=INFO[n]||{},o=SK[n],om=loadOmi()[n];
+  return '<div class="stinfo"><div class="nm">🚉 '+n+'<span class="gp">'+(PREF[n]||'')+'</span>'+(ZJCT.has(n)?'<span class="gp" style="background:#e65100">⇄乗換</span>':'')+'</div>'+
+   (I.p?'<div>🏞 '+I.p+'</div>':'')+(I.h?'<div>👤 '+I.h+'</div>':'')+(I.s?'<div>🎁 '+I.s+'</div>':'')+
+   (o?'<div class="om">'+(om?o.e+' お土産「'+o.p+'」'+(om===2?'（金色）':'')+'を持っている':'お土産「？？？」はまだ手に入れていない')+'</div>':'')+'</div>';};
+ const zAsk=(n,from,line,quiet)=>startConfirm($('zStartBtns'),n,n+'（'+(PREF[n]||'')+'）',()=>{$('zStart').hidden=true;newGameZ(n,from,line);},quiet,stInfo(n));
  $('zStartBtns').querySelectorAll('button[data-k]').forEach(b=>{const o=opts[+b.dataset.k];b.dataset.sk=o.n;b.onclick=()=>zAsk(o.n,o.from,o.line);});
  $('zStartBtns').querySelectorAll('button[data-n]').forEach(b=>{b.dataset.sk=b.dataset.n;b.onclick=()=>zAsk(b.dataset.n);});
  $('zStartBtns').querySelectorAll('.pk').forEach(c=>{c.dataset.sk=c.dataset.n;c.addEventListener('click',()=>{const o=opts.find(x=>x.n===c.dataset.n);o?zAsk(o.n,o.from,o.line):zAsk(c.dataset.n);});});
@@ -1984,11 +2181,53 @@ function showCard(pos){
  const C=CARD[pos],col=POS_COLOR[pos];sfx.arrive();
  openLesson('<span class="lv" style="background:'+col+'">品詞カード ゲット！（'+Object.keys(loadCards()).length+'/10）</span><div class="pcard" style="border-color:'+col+'"><div class="nm" style="color:'+col+'">'+pos+'</div><div>'+C.d+'</div><div class="ex">例：'+C.ex+'</div><div class="route">道すじ：'+routeText(pos)+'</div></div>');
 }
+// 品詞の見分け方（品詞分類表）：NODES（分かれ目）から、トーナメント表のような図を作る（2026-11-26 教員の指示で「品詞カード」から変更）
+// 箱を押すと：分かれ目の箱 → その下の分かれ方の見分け方（LESSON）、品詞の箱 → その品詞の説明（CARD）
+const BUNRUI_ROOT_INFO={t:'単語とは？',b:'文を、意味の分かるいちばん小さいまとまりに区切ったものが「単語」。<br>単語は、まず<b>自立語</b>と<b>付属語</b>に分かれる。',ex:'今日／は／とても／寒い。（4つの単語）'};
+function bunruiTreeSVG(){
+ // 箱の木：{label, sub, split(分かれ目のノードid) または pos(品詞)}
+ const make=(label,sub,next)=>NODES[next]?{label,sub,split:next,kids:NODES[next].opts.map((o,i)=>make(SHORT[next][i],'',o.to))}:{label:next,sub:label,pos:next};
+ const root={label:'単語',sub:'',split:'J1',kids:NODES.J1.opts.map((o,i)=>make(SHORT.J1[i],'',o.to))};
+ // 位置：葉は上から順に1段ずつ、親は子のまん中。横は深さ
+ let row=0;const BW=96,BH=34,GX=112,GY=42;
+ const place=(n,d)=>{n.d=d;if(n.kids){n.kids.forEach(k=>place(k,d+1));n.y=(n.kids[0].y+n.kids[n.kids.length-1].y)/2;}else{n.y=row*GY;row++;}};
+ place(root,0);
+ let maxD=0;const all=[];const walk=n=>{all.push(n);maxD=Math.max(maxD,n.d);(n.kids||[]).forEach(walk);};walk(root);
+ // 葉（品詞）はいちばん右にそろえる
+ all.forEach(n=>{n.x=(n.pos?maxD:n.d)*GX+6;});
+ const W=(maxD+1)*GX+10,H=row*GY+4,cards=loadCards();
+ let g='';
+ all.forEach(n=>{(n.kids||[]).forEach(k=>{const x1=n.x+BW,y1=n.y+BH/2,x2=k.x,y2=k.y+BH/2,mx=x1+12;
+  g+='<path d="M'+x1+','+y1+' H'+mx+' V'+y2+' H'+x2+'" fill="none" stroke="#90a4ae" stroke-width="2"/>';});});
+ all.forEach((n,idx)=>{
+  const col=n.pos?POS_COLOR[n.pos]:(n===root?'#37474f':'#546e7a'),fill=n.pos?col:'#fff',tc=n.pos?'#fff':'#263238';
+  g+='<g class="bn" data-k="'+idx+'"><rect x="'+n.x+'" y="'+n.y+'" width="'+BW+'" height="'+BH+'" rx="8" fill="'+fill+'" stroke="'+col+'" stroke-width="2"/>'+
+   '<text x="'+(n.x+BW/2)+'" y="'+(n.y+(n.sub?14:21))+'" font-size="'+(n.pos?15:13)+'" font-weight="bold" text-anchor="middle" fill="'+tc+'">'+n.label+(n.pos&&cards[n.pos]?' 🃏':'')+'</text>'+
+   (n.sub?'<text x="'+(n.x+BW/2)+'" y="'+(n.y+28)+'" font-size="10" text-anchor="middle" fill="'+(n.pos?'#ffffffdd':'#607d8b')+'">'+n.sub+'</text>':'')+
+   (n.split?'<text x="'+(n.x+BW-8)+'" y="'+(n.y+12)+'" font-size="10" text-anchor="middle" fill="#ff6f00">?</text>':'')+'</g>';
+ });
+ window._bunrui=all;
+ return '<svg viewBox="0 0 '+W+' '+H+'">'+g+'</svg>';
+}
+function bunruiInfo(n){
+ let h='';
+ if(n.pos){const C=CARD[n.pos],mine=svGet('cex')[n.pos]||[];
+  h='<h3 style="color:'+POS_COLOR[n.pos]+'">'+n.pos+'</h3><div>'+C.d+'</div><div class="ex">例：'+C.ex+'</div>'+
+   '<div style="font-size:13px;color:#555">見分け方の道すじ：'+routeText(n.pos)+'</div>'+(mine.length?'<div class="mine">🔎 あなたが答えた例：'+mine.map(esc).join('・')+'</div>':'');}
+ else{const L=n.split==='J1'?BUNRUI_ROOT_INFO:LESSON[n.split];
+  const opts=NODES[n.split].opts.map((o,i)=>'<b>'+SHORT[n.split][i]+'</b>').join(' か ');
+  h='<h3>🔀 「'+n.label+'」の分かれ目：'+opts+'</h3><div>'+L.b+'</div>'+(L.ex?'<div class="ex">'+L.ex+'</div>':'')+(L.tip?'<div>💡 '+L.tip+'</div>':'')+(HINT[n.split]?'<div style="font-size:13px;color:#555">ヒント：'+HINT[n.split]+'</div>':'');}
+ $('bunruiInfo').innerHTML=h;
+}
 function showCards(){
- const c=loadCards();
- $('cardsGrid').innerHTML=Object.keys(CARD).map(p=>c[p]?'<div class="pc" style="border-color:'+POS_COLOR[p]+'"><b style="color:'+POS_COLOR[p]+'">'+p+'</b>'+CARD[p].d+'<br><small>例：'+CARD[p].ex+'</small>'+((svGet('cex')[p]||[]).length?'<div class="mine">🔎 あなたが答えた例：'+svGet('cex')[p].map(esc).join('・')+'</div>':'')+'</div>':'<div class="pc no"><b>？？？</b>まだ出会っていない品詞</div>').join('');
+ $('bunruiTree').innerHTML=bunruiTreeSVG();
+ $('bunruiInfo').innerHTML='<span style="color:#777">箱を押してみよう。</span>';
+ $('bunruiTree').querySelectorAll('.bn').forEach(el=>el.addEventListener('click',()=>{
+  $('bunruiTree').querySelectorAll('.bn.on').forEach(x=>x.classList.remove('on'));el.classList.add('on');
+  bunruiInfo(window._bunrui[+el.dataset.k]);sfx.click&&sfx.click();}));
  $('cards').hidden=false;
 }
+
 function drawBoss(t){
  if(!S||S.game!=='iwate')return;
  if(S.bossReact>0)S.bossReact-=1/60;else S.bossPose=(Math.floor(t/500)%2)?'pose2':'pose1';
@@ -2232,10 +2471,7 @@ function draw(){
  S.floats.forEach((f,i)=>{const a=Math.min(1,(1.6-f.life)*2);ctx.globalAlpha=a;const fs=Math.round(Math.min(30,W*0.04));ctx.font='900 '+fs+'px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';const y=HOR*0.62-f.life*30-i*fs*1.2;ctx.lineWidth=6;ctx.strokeStyle='#000a';ctx.strokeText(f.t,W/2,y);ctx.fillStyle=f.c;ctx.fillText(f.t,W/2,y);ctx.globalAlpha=1;});
  // 次の分かれ道までの距離
  if(up&&S.mode==='run'&&!S.station&&!S.talkCur&&!(S.prefHold>0)&&!(S.whyHold>0)){const d=up.s-S.s;ctx.fillStyle='#000a';rr(W/2-70,8,140,26,8);ctx.fill();ctx.fillStyle=d<60?'#ff8a80':'#fff';ctx.font='bold 15px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('分かれ道まで '+Math.max(0,Math.round(d))+'m',W/2,21);}
- if(S.station&&S.station.state==='approach'){const d=Math.max(0,Math.round(S.station.s-S.s)),warn=d<S.v*S.v/(2*brakeAFor(S.v))+10;
-  // 毎フレーム文字を書きかえると、読み仮名づけ（rubyfy）が毎回動いて重くなるので、数字が変わったときだけ
-  if(S._sbD!==d){S._sbD=d;const n=document.getElementById('sbNum');if(n)n.textContent=d;}
-  if(S._sbW!==warn){S._sbW=warn;const w=document.getElementById('sbWarn');if(w)w.textContent=warn?'　↓ブレーキ！':'';}}
+  brakeCueUpdate();
  ctx.restore();
 }
 let last=0,acc=0;
@@ -2266,7 +2502,7 @@ function rubyfy(root){
   t.parentNode.replaceChild(fr,t);
  }
 }
-const RUBY_IDS=['startScreen','zkTitle','prefBanner','talkBody','guideName','guideBody','dirCard','stopBanner','route','routeBtns','zukanGrid','zStartBtns','rsInfo','rsReview','lessonCard','panelCard','cardsGrid','step'];
+const RUBY_IDS=['bunruiInfo','moveAsk','startScreen','zkTitle','prefBanner','talkBody','guideName','guideBody','dirCard','stopBanner','route','routeBtns','zukanGrid','zStartBtns','rsInfo','rsReview','lessonCard','panelCard','cardsGrid','step'];
 const rubyObs=new MutationObserver(ms=>{const done=new Set();for(const m of ms){const r=RUBY_IDS.map(id=>$(id)).find(el=>el&&el.contains(m.target));if(r&&!done.has(r)){done.add(r);rubyfy(r);}}});
 RUBY_IDS.forEach(id=>{const el=$(id);if(el){rubyfy(el);rubyObs.observe(el,{childList:true,subtree:true,characterData:true});}});
 // 駅名標（canvas）に出す読み
