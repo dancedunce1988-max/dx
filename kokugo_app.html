@@ -4732,7 +4732,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver14.52</span></h1>
+    <h1>知識ドリル<span>DX</span><span class="ver-tag">ver14.53</span></h1>
     <div class="header-actions">
       <button class="home-btn" onclick="showHelp()">📖 せつめい</button>
       <button class="home-btn" onclick="showHome()">ホームへ</button>
@@ -19863,6 +19863,7 @@ const MG_SAVE_KEYS = [
   {key:"kokugo_daruma_unlocked_v1", label:"叩け！文節だるま落とし の解禁", flag:true},
   {key:"kokugo_panda_unlocked_v1",  label:"大熊猫の竹林わたり の解禁（解禁日前）", flag:true},
   {key:"kokugo_koi_unlocked_v1",    label:"濃い！鯉！来い！ の解禁（解禁日前）", flag:true},
+  {key:"kokugo_hinshigo_unlocked_v1", label:"品詞でGO の解禁（合言葉 hinsi）", flag:true},
   {key:"daruma_kokkaku_save_v1",    label:"叩け！文節だるま落とし"},
   {key:"enro_run_v1",               label:"炎狼ラン"},
   {key:"tsunagi_bashi_v1",          label:"鉄甲兵のつなぎ橋"},
@@ -23793,18 +23794,47 @@ function ninpouMenuHtml(){
 }
 function openKatsuyoNinpou(){ if(!ninpouOpen()) return; mgGoWithPass("ninpou", "katsuyo_ninpou.html"); }
 /* 品詞でGO（hinshi_go.html、2026-11-25〜、試作）。運転士になって、分かれ道で品詞の線路を選ぶ電車のゲーム。
-   岩手編（在来線・天狗の特訓で品詞の見分け方を学ぶ）／全国編（東北・北海道新幹線・品詞分解でお土産集め）。
-   2026-11-26、教員の指示「私にしか開けないようにして」：管理者モード（isAdminMode、?devtool=kotonoha を一度開いた端末）の
-   ときだけカードを出して開ける。生徒の端末では、カードも「準備中」の札も出さない。htmlを直接開くと「このファイルは開けません」（通行証 "hinshigo"）。
+   岩手編（在来線・天狗の特訓で品詞の見分け方を学ぶ）→ 岩手編をすべてクリアすると全国編（新幹線・品詞分解でお土産集め）が現れる。
+   2026-11-26、教員の指示：ミニゲーム一覧に「新ゲーム～近日公開～」の札を出し、一覧でキーボードから「hinsi」と打つと開く
+   （その端末ではそれ以後ずっと遊べる＝HINSHIGO_UNLOCK_LSKEY）。管理者の端末では最初から開いている。htmlを直接開くと「このファイルは開けません」（通行証 "hinshigo"）。
    zip版には入れない（make_dist_zip.py の EXCLUDE）。公開するときは HINSHIGO_PUBLIC を true にし、zipにも入れる（SEPARATE_PAGES）。
    試遊用のリンク：?devtool=kotonoha&play=hinshigo */
 const HINSHIGO_PUBLIC = false;
-function hinshiGoOpen(){ return HINSHIGO_PUBLIC || isAdminMode(); }
+const HINSHIGO_UNLOCK_LSKEY = "kokugo_hinshigo_unlocked_v1";
+function hinshiGoUnlocked(){ try{ return localStorage.getItem(HINSHIGO_UNLOCK_LSKEY) === "1"; }catch(e){ return false; } }
+function hinshiGoOpen(){ return HINSHIGO_PUBLIC || isAdminMode() || hinshiGoUnlocked(); }
 function hinshiGoMenuHtml(){
-  if(!hinshiGoOpen()) return "";
-  return mgTextCardHtml("🚃", "品詞でGO", HINSHIGO_PUBLIC ? "運転士になって、品詞の線路を選べ！" : "🔧 試遊中（管理者の端末だけに表示）　運転士になって、品詞の線路を選べ！", true, "", "openHinshiGo()");
+  if(!hinshiGoOpen()){
+    return `
+    <div class="card menu-card locked mg-teaser hinshigo-soon" onclick="mgLockedTap(this)">
+      <div style="flex:1; text-align:center"><h2>新ゲーム～近日公開～</h2></div>
+    </div>`;
+  }
+  return mgTextCardHtml("🚃", "品詞でGO", "運転士になって、品詞の線路を選べ！", true, "", "openHinshiGo()");
 }
 function openHinshiGo(){ if(!hinshiGoOpen()) return; mgGoWithPass("hinshigo", "hinshi_go.html?t=" + Date.now()); }
+// ミニゲーム一覧の画面で「hinsi」と打つと解禁（入力欄に打っているときは数えない）。活用忍伝と同じく、白い幕のあとカードがふわっと現れる。
+let hgKeyBuf = "";
+document.addEventListener("keydown", e => {
+  if(e.ctrlKey || e.metaKey || e.altKey) return;
+  const t = e.target, tag = t && t.tagName;
+  if(tag === "INPUT" || tag === "TEXTAREA" || (t && t.isContentEditable)) return;
+  if(!e.key || e.key.length !== 1) return;
+  hgKeyBuf = (hgKeyBuf + e.key.toLowerCase()).slice(-5);
+  if(hgKeyBuf !== "hinsi") return;
+  hgKeyBuf = "";
+  if(hinshiGoOpen() || !document.querySelector("#screen .mg-grid .hinshigo-soon")) return;
+  try{ localStorage.setItem(HINSHIGO_UNLOCK_LSKEY, "1"); }catch(e){ return; }
+  const white = document.createElement("div");
+  white.id = "dmWhite";
+  document.body.appendChild(white);
+  showSideQuestMenu();
+  const card = [...document.querySelectorAll(".mg-grid .menu-card h2")].find(el => (el.textContent || "").includes("品詞でGO"));
+  const box = card && card.closest(".menu-card");
+  if(box){ box.scrollIntoView({block:"center"}); box.classList.add("dm-arrive"); }
+  setTimeout(() => white.classList.add("out"), 400);
+  setTimeout(() => white.remove(), 2400);
+});
 // ミニゲーム一覧の画面で「katuyouninja」と打つと解禁（入力欄に打っているときは数えない）。竹林わたりと同じく、白い幕のあとカードがふわっと現れる。
 let npKeyBuf = "";
 document.addEventListener("keydown", e => {
