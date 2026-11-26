@@ -193,6 +193,11 @@ body.zk #sent{line-height:1.3}
 /* ブレーキの目安（ブレーキ地点の2秒前から） */
 #brakeCue{position:absolute;left:50%;top:56%;min-width:8.6em;text-align:center;transform:translate(-50%,-50%);z-index:5;pointer-events:none;white-space:nowrap;font-weight:900;font-size:clamp(24px,4.6vw,40px);padding:6px 22px;border-radius:14px;border:3px solid #fff;box-shadow:0 6px 16px #0007;font-variant-numeric:tabular-nums}
 #brakeCue[hidden]{display:none}
+/* ジャンル「品詞」のレベルアップ表示：ほかのミニゲーム（故事成語すごろくなど）と同じ札を、画面のまん中の右がわに */
+#lvupToast{position:fixed;right:14px;top:50%;z-index:60;pointer-events:none;background:linear-gradient(135deg,#1565c0,#42a5f5);color:#fff;font-weight:bold;font-size:15px;padding:8px 16px;border-radius:999px;border:2px solid #fff;box-shadow:0 4px 14px rgba(0,0,0,.35);opacity:0;transform:translate(30px,-50%);transition:opacity .3s,transform .3s;white-space:nowrap}
+#lvupToast b{color:#ffeb3b;margin-left:6px;font-size:18px}
+#lvupToast.show{opacity:1;transform:translate(0,-50%);animation:lvuppop .5s ease}
+@keyframes lvuppop{0%{transform:translate(30px,-50%) scale(.8)}60%{transform:translate(0,-50%) scale(1.12)}100%{transform:translate(0,-50%)}}
 #brakeCue.soon{background:#f9a825;color:#3e2700}
 #brakeCue.now{background:#c62828;color:#fff;animation:cueBlink .35s steps(2) infinite}
 #brakeCue.brk{background:#1d2a3acc;color:#fff}
@@ -357,19 +362,19 @@ body.talking #qbox,body.talking #lanes,body.talking #guide,body.talking #stopBan
 
 <div class="modal" id="startScreen" hidden>
  <div class="card2">
-  <div class="edHead iw"><h2>🗻 岩手編</h2><p>品詞の見分け方を学ぶ電車の旅</p></div>
+  <div class="edHead iw"><h2>🗻 岩手編</h2><p>まずは、品詞分類の方法を身につけよう</p></div>
   <div class="mapwrap" id="iwMap"></div>
   <div id="iwIntro">
    <ul class="howto">
     <li>🚃 運転士になって、岩手の線路を走ろう。</li>
     <li>🔀 分かれ道では、<b>品詞の見分け方</b>にそって正しい線路を選ぶ。まちがえると脱線！</li>
     <li>📘 テーマごとに、はじめに短い説明がある。読んでから問題に答えよう。</li>
-    <li>🏁 4つの路線を走りきれば、10の品詞を見分けられるようになる。</li>
+    <li>🏁 4つの路線を走りきれば、10の品詞を見分けられるようになる。どの路線・どの駅からでも始められるので、知りたいところから読もう。</li>
    </ul>
    <p class="keys"><kbd>←</kbd><kbd>→</kbd> ハンドル　<kbd>↑</kbd> 加速　<kbd>↓</kbd> ブレーキ（画面のボタンでもOK）</p>
    <button class="btn go" id="iwGo">🚃 電車の旅をはじめる</button>
   </div>
-  <div id="iwRoutes" hidden><h3 class="pick">どの路線に乗る？</h3><div id="routeBtns"></div></div>
+  <div id="iwRoutes" hidden><h3 class="pick">📘 まずは、品詞分類の方法を身につけよう</h3><p class="pnote">知りたい「見分け方」の路線を選ぼう。どの路線からでも、どの駅からでも始められるよ。</p><div id="routeBtns"></div></div>
   <button class="btn gray" id="backHome1">← ホームへ</button>
  </div>
 </div>
@@ -448,7 +453,8 @@ body.talking #qbox,body.talking #lanes,body.talking #guide,body.talking #stopBan
  </div>
 </div>
 
-<script src="mg_save_guard.js?v=13.94" data-keys="hinshi_go_v1"></script><!-- ほかの画面で記録が変わったら読み込み直し、古い記録で上書きしない -->
+<script src="mg_save_guard.js?v=13.94" data-keys="hinshi_go_v1"></script>
+<script src="mg_evolve.js?v=14.57"></script><!-- 旅の途中でことのはが進化したら、その場で進化の演出 --><!-- ほかの画面で記録が変わったら読み込み直し、古い記録で上書きしない -->
 <script src="kokugo_data.js?v=14.52"></script><!-- 品詞ジャンル（cats.hinshi）の問題 -->
 <script src="hinshi_go_map_data.js?v=14.53"></script>
 <script src="hinshi_go_yomi_data.js?v=14.53"></script>
@@ -568,6 +574,8 @@ function routeHTML(it,start,badNode){
 
 const SHORT={J1:['自立語','付属語'],J2:['活用する','活用しない'],J3:['ウ段で終わる','「い」で終わる','「だ」で終わる'],J4:['主語になる','主語にならない'],J5:['修飾語になる','修飾語にならない'],J6:['用言を修飾','体言を修飾'],J7:['接続語','独立語'],J8:['活用する','活用しない']};
 // 岩手県内の路線（駅の並びはWikipediaの各駅「隣の駅」で確認・2026年11月）
+// 岩手編の路線の番号は「STAGE」ではなく「見分け方①〜④」と見せる（2026-11-26 教員の指示）
+const IWN=r=>'見分け方'+'①②③④'[r.stage-1];
 const ROUTES=[
  {id:'shizukuishi',stage:1,intro:'活用・言い切りの形・主語を学ぼう',lessons:['J2','J3','J4'],learn:'活用とは？・言い切りの形とは？・主語とは？（名詞とは？）',dest:'雫石',line:'JR田沢湖線',color:'#2e7d32',theme:'入門',poses:['名詞','動詞','形容詞'],start:'J2',stations:['盛岡','前潟','大釜','小岩井','雫石'],stops:['小岩井','雫石']},
  {id:'miyako',stage:2,intro:'用言の三兄弟を見分けよう',lessons:['J2','J3'],learn:'用言とは？・動詞と形容詞のちがい・形容詞と形容動詞のちがい・用言の分類',dest:'宮古',line:'JR山田線',color:'#1565c0',theme:'用言の峠越え',poses:['動詞','形容詞','形容動詞'],start:'J2',stations:['盛岡','上盛岡','山岸','上米内','区界','松草','川内','箱石','陸中川井','腹帯','茂市','蟇目','花原市','千徳','宮古'],stops:['上米内','区界','茂市','宮古']},
@@ -715,7 +723,7 @@ function buildPlan(rid){
 }
 function planItemsLeft(){let c=0;for(let i=S.pi;i<S.plan.length;i++)if(!S.plan[i].intro)c++;return c;}
 function themeIntro(th){
- talk([{tag:'STAGE'+ROUTE.stage+'　その'+th.no,h:'📘 '+th.t,x:th.intro.x,e:th.intro.e}]);
+ talk([{tag:IWN(ROUTE)+'　その'+th.no,h:'📘 '+th.t,x:th.intro.x,e:th.intro.e}]);
 }
 function startTask(gap){
  if(!S.legLeft||S.legLeft<=0){const legs=Math.max(1,ROUTE.stations.length-1-S.idx);S.legLeft=Math.ceil(planItemsLeft()/legs);}
@@ -1144,8 +1152,7 @@ $('route').addEventListener('click',e=>{
   const line=S.zline;go=()=>newGameZ(name,null,line);
  }else{
   const i=+el.dataset.i;if(isNaN(i))return;name=ROUTE.stations[i];
-  const clr=loadClr(),rc=loadReach(),max=clr[ROUTE.id]?ROUTE.stations.length-2:(rc[ROUTE.id]||0);
-  if(i>max||i>ROUTE.stations.length-2){floatText(i>ROUTE.stations.length-2?'終点からは出発できない':'まだ行ったことのない駅','#ffcc80');return;}
+  if(i>ROUTE.stations.length-2){floatText('終点からは出発できない','#ffcc80');return;}
   const rid=ROUTE.id;go=()=>newGame(rid,i);
  }
  const wasPaused=paused;paused=true;
@@ -1171,6 +1178,33 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden&&running&&!
 window.addEventListener('resize',resize);
 
 // ===== 判定 =====
+/* 知識ドリルDX本体へのジャンルレベルの反映（2026-11-26 教員の指示）：
+   1問正解するごとに、ジャンル「品詞」（cats.hinshi）がLv+1。まちがえても下がらない。
+   本体の書き置き kokugo_minigame_pending_lvups_v1 に1ずつ足し、本体に戻ったとき（mgApplyPendingLevelUps）に反映。
+   ジャンルレベルが上がった分は、本体の計算どおり「ことのは」の経験値にもなる。
+   旅の途中でことのはの進化に届いたら、正解の少しあとに電車を止めて進化の演出（mg_evolve.js）。 */
+const MG_CAT='hinshi',MG_PENDING_LVUP_LSKEY='kokugo_minigame_pending_lvups_v1',MG_PLAYED_LSKEY='kokugo_mg_played_v1';
+function hgLvUp(){
+ let o={};try{o=JSON.parse(localStorage.getItem(MG_PENDING_LVUP_LSKEY))||{};}catch(e){o={};}
+ if(!o||typeof o!=='object')o={};
+ o[MG_CAT]=(Number(o[MG_CAT])||0)+1;
+ try{localStorage.setItem(MG_PENDING_LVUP_LSKEY,JSON.stringify(o));}catch(e){}
+ try{const d=new Date();localStorage.setItem(MG_PLAYED_LSKEY,d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'));}catch(e){}
+ if(S)S.lvGain=(S.lvGain||0)+1;
+ let el=$('lvupToast');if(!el){el=document.createElement('div');el.id='lvupToast';document.body.appendChild(el);}
+ el.innerHTML='📈 ジャンル「品詞」<b>レベル1UP！</b>';
+ el.classList.remove('show');void el.offsetWidth;el.classList.add('show');
+ clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('show'),2200);
+ setTimeout(hgEvolveCheck,1300);
+}
+// ことのはの進化：説明・脱線・停車の確認などが出ていないときだけ、電車を止めて演出 →「つづける」で走りだす
+function hgEvolveCheck(){
+ if(!window.mgEvolveInterrupt||!running||paused||!S||S.panelOpen||S.lessonOpen||S.choosing)return;
+ if(!$('moveAsk').hidden)return;
+ keys.up=keys.down=false;
+ const was=paused;paused=true;
+ if(!mgEvolveInterrupt(()=>{paused=was;}))paused=was;
+}
 function passFork(f){
  f.locked=true;
  const ok=f.sel===f.correct;
@@ -1184,7 +1218,7 @@ function passFork(f){
    if(S.game==='iwate')vanishFakes(f);
    amidaFork(NODES[f.node].opts[f.correct].to,f.s+Math.max(95,S.v*3.6));showQuestion();
   }else{
-   const pts=Math.round(100*mult*(1+Math.min(S.combo,20)*0.1));S.score+=pts;S.oks++;
+   const pts=Math.round(100*mult*(1+Math.min(S.combo,20)*0.1));S.score+=pts;S.oks++;hgLvUp();
    floatText('⭕ '+(f.kind==='theme'?f.labels[f.correct]:S.cur.item.pos)+'！ +'+pts+(mult>1.15?' 加速ボーナス':''),'#ffeb3b');sfx.ok(1);
    if(f.kind==='theme'){const t=S.cur.task;vanishFakes(f);hitBoss();S.words++;maybeCard(t.pos,splitS(t.s)[1]);taskDone();showWhy(t);if(S.station&&S.station.stop&&S.station.state==='approach')$('step').insertAdjacentHTML('beforeend','<span class="hint">↓ブレーキで停止線に止めよう</span>');}
    else if(S.game==='zenkoku')tokenDone(true);else{const it0=S.cur&&S.cur.item;if(S.game==='iwate'){vanishFakes(f);hitBoss();}S.words++;nextLeg();if(S.game==='iwate'&&it0){showSolved(it0);maybeCard(it0.pos,splitS(it0.s)[1]);}}
@@ -1269,15 +1303,16 @@ function finish(){
  if(S.cleared){const c=loadClr();c[ROUTE.id]=1;svSet('clr',c);}
  {const rc=loadReach();rc[ROUTE.id]=Math.max(rc[ROUTE.id]||0,S.cleared?ROUTE.stations.length-1:S.idx);svSet('reach',rc);}
  $('rsMap').innerHTML=iwateMapHTML(ROUTE.id,S.cleared?ROUTE.stations.length-1:S.idx,300);
- $('rsTitle').textContent=S.cleared?'🎉 '+ROUTE.dest+'に到着！ STAGE'+ROUTE.stage+' クリア':'🚧 運転見合わせ';
+ $('rsTitle').textContent=S.cleared?'🎉 '+ROUTE.dest+'に到着！ '+IWN(ROUTE)+'を身につけた！':'🚧 運転見合わせ';
  $('rsInfo').innerHTML=ROUTE.line+'　'+ROUTE.stations[S.startIdx||0]+' → '+ROUTE.dest+'（'+course.name+'）<br>'+(S.cleared?'残りライフボーナス +'+500*S.lives+'<br>':here+'〜'+nx+'間で運転を見合わせました<br>')+
   '正解 <b>'+S.oks+'</b>問　最大連続 <b>'+S.maxCombo+'</b>　得点 <b>'+S.score+'</b>'+(isBest?'<br>🏆 この行き先の自己ベスト！':'');
  $('rsReview').innerHTML=S.misses.length?'<b>脱線した言葉をふり返ろう</b>'+S.misses.map(m=>'<div class="rv">'+sentHTML(m.item)+' → <b>'+m.item.pos+'</b><br><small>'+(m.item.why?m.item.why:esc(explain(m.item,m.node)))+'</small></div>').join(''):'';
  // クリアしたら、次の「〜行き」を選ぶ画面へうながす（2026-11-26 教員の指示）
  {const i=ROUTES.findIndex(r=>r.id===ROUTE.id),nx=ROUTES[i+1],b=$('rsNext');
-  if(S.cleared&&nx){b.textContent='🚃 次の行き先を選ぶ（'+nx.dest+'行きが開いた！）';b.hidden=false;
+  if(S.cleared&&nx){b.textContent='🚃 次の行き先を選ぶ（つぎは '+nx.dest+'行き）';b.hidden=false;
    b.onclick=()=>{$('result').hidden=true;showStart();showIwRoutes();const rb=document.querySelector('#routeBtns [data-r="'+nx.id+'"]');if(rb){rb.classList.add('nextGlow');rb.scrollIntoView({block:'center'});}};}
   else b.hidden=true;}
+ hgResultExtras();
  $('result').hidden=false;
 }
 $('rsAgain').onclick=()=>{if(S&&S.game==='zenkoku'){$('result').hidden=true;showZStart();}else newGame(ROUTE.id);};
@@ -1315,10 +1350,10 @@ function startConfirm(box,key,label,go,quiet,info){
 }
 function pickIwStart(rid){
  const r=ROUTES.find(x=>x.id===rid),clr=loadClr(),rc=loadReach();
- const max=Math.min(r.stations.length-2,clr[rid]?r.stations.length-2:(rc[rid]||0));
+ const max=r.stations.length-2; // どの駅からでも出発できる（2026-11-26〜）
  // 市町村ごとにまとめる（路線の順）
  const groups=[];r.stations.slice(0,r.stations.length-1).forEach((n,i)=>{const c=CITY[n]||'';let g=groups[groups.length-1];if(!g||g.c!==c){g={c,items:[]};groups.push(g);}g.items.push(i);});
- let h='<h3 class="pick">🚉 '+r.dest+'行き　出発する駅</h3><div class="mapwrap pickmap">'+iwPickMapHTML(r,max,240)+'</div><p class="pnote">ふつうは<b>盛岡</b>から出発。<b>行ったことのある駅</b>なら、ボタンや地図の黄色い駅を押して、そこから出発することもできるよ（🔒の駅は、行くと選べるようになる）。</p><div id="iwBeen">';
+ let h='<h3 class="pick">🚉 '+r.dest+'行き　出発する駅</h3><div class="mapwrap pickmap">'+iwPickMapHTML(r,max,240)+'</div><p class="pnote">ふつうは<b>盛岡</b>から出発。ボタンや地図の黄色い駅を押せば、<b>どの駅からでも</b>出発できるよ。</p><div id="iwBeen">';
  for(const g of groups){h+='<div class="pg"><b>'+g.c+'</b>'+g.items.map(i=>{const n=r.stations[i],stop=i===0||r.stops.includes(n);if(i>max)return '<button class="lockst" disabled title="まだ行っていない駅">🔒'+n+'</button>';return '<button data-i="'+i+'" class="'+(stop?'stop':'')+'" style="--c:'+r.color+'">'+(i===0?'🚉 ':'')+n+'</button>';}).join('')+'</div>';}
  h+='</div><button class="btn gray" id="iwBeenBack">← 路線を選びなおす</button>';
  $('iwRoutes').dataset.keep=$('iwRoutes').innerHTML;
@@ -1337,10 +1372,10 @@ function showStart(){
  const best=svGet('best');
  const clr=loadClr(),all=/[?&]unlock=1/.test(location.search);
  $('iwMap').innerHTML=iwateMapHTML();
- $('routeBtns').innerHTML=ROUTES.map((r,i)=>{const bs=best[r.id],open=all||i===0||clr[ROUTES[i-1].id],img=sprite(r.boss,'pose1');
-  return '<button class="rbtn'+(open?'':' lock')+'" data-r="'+r.id+'" style="background:'+r.color+'"><b>'+(open?'':'🔒')+'STAGE'+r.stage+'<br>'+r.dest+'行き</b><span>'+r.line+'　'+(typeof IW_THEMES!=='undefined'&&IW_THEMES[r.id]?IW_THEMES[r.id].reduce((a,t)=>a+t.items.length,0):r.stations.length-1)+'問<br>学ぶこと：'+r.learn+'</span><em>'+(clr[r.id]?'✔クリア':open?'未クリア':'前のステージをクリア')+(bs?'<br>ベスト '+bs+'点':'')+'</em></button>';}).join('');
- // 岩手編は「〜行き」を決めたら、盛岡から終点へ一方向に進むだけ（2026-11-26 教員の指示。出発駅えらびは出さない。pickIwStart は使わなくなったが残してある）
- $('routeBtns').querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>{if(b.classList.contains('lock'))return;sfx.init();newGame(b.dataset.r,0);});
+ $('routeBtns').innerHTML=ROUTES.map((r,i)=>{const bs=best[r.id],open=true,img=sprite(r.boss,'pose1');
+  return '<button class="rbtn'+(open?'':' lock')+'" data-r="'+r.id+'" style="background:'+r.color+'"><b>'+IWN(r)+'　'+r.dest+'行き<br><small>'+r.intro+'</small></b><span>'+r.line+'　'+(typeof IW_THEMES!=='undefined'&&IW_THEMES[r.id]?IW_THEMES[r.id].reduce((a,t)=>a+t.items.length,0):r.stations.length-1)+'問<br>学ぶこと：'+r.learn+'</span><em>'+(clr[r.id]?'✔クリア':open?'未クリア':'前のステージをクリア')+(bs?'<br>ベスト '+bs+'点':'')+'</em></button>';}).join('');
+ // 岩手編は資料編のように使う（2026-11-26 教員の指示）：どの路線もはじめから開いていて、どの駅からでも出発できる。最高得点は記録する
+ $('routeBtns').querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>{sfx.init();pickIwStart(b.dataset.r);});
  $('startScreen').hidden=false;
 }
 function updateHud(){if(!S)return;$('lives').textContent=S.lives>0?'❤'.repeat(S.lives):'—';$('score').textContent=S.score;$('combo').textContent=S.combo;}
@@ -1922,6 +1957,12 @@ function renderRouteZ(){
  const cur=box.querySelector('[data-n="'+(moving?S.zto:S.zh)+'"]');
  if(cur)box.scrollLeft=cur.offsetLeft-box.clientWidth/2;
 }
+// 結果画面：今回上がった「品詞」のレベル、ことのはの進化のお知らせ
+function hgResultExtras(){
+ const n=(S&&S.lvGain)||0;
+ if(n)$('rsInfo').insertAdjacentHTML('beforeend','<br>📘 知識ドリルDXの「品詞」 Lv<b>+'+n+'</b>（ことのはの経験値にもなる）');
+ if(window.mgEvolveSafePointSoon)mgEvolveSafePointSoon(1500);
+}
 function finishZ(){
  $('rsNext').hidden=true;
  hideGuideNow();
@@ -1934,6 +1975,7 @@ function finishZ(){
  $('rsInfo').innerHTML='全国編　'+S.zstart+'から '+S.legs+'区間を走った<br>'+(got?'手に入れたお土産：'+got+'<br>':'')+
   '正解 <b>'+S.oks+'</b>問　最大連続 <b>'+S.maxCombo+'</b>　得点 <b>'+S.score+'</b>'+(isBest?'<br>🏆 全国編の自己ベスト！':'');
  $('rsReview').innerHTML=S.misses.length?'<b>脱線した言葉をふり返ろう</b>'+S.misses.map(m=>'<div class="rv">'+sentHTML(m.item)+' → <b>'+m.item.pos+'</b><br><small>'+(m.item.why?m.item.why:esc(explain(m.item,m.node)))+(m.item.note?'<br>💡 '+esc(m.item.note):'')+'</small></div>').join(''):'';
+ hgResultExtras();
  $('result').hidden=false;
 }
 // ================= ホーム・お土産帳 =================
@@ -2023,7 +2065,7 @@ function iwateMapHTML(curRoute,curIdx,pxH){
   lines.push({pts,color:'#9e9e9e',width:2,dash:'5 4'});
   if(got>0)lines.push({pts:pts.slice(0,got+1),color:r.color,width:6});
   const left=r.id==='shizukuishi';
-  dots.push({p:pts[pts.length-1],r:6,fill:clr[r.id]?r.color:'#fff',stroke:r.color,label:r.stage+' '+r.dest+(clr[r.id]?' ✔':''),fs:14,lx:left?-9:9,anchor:left?'end':null,ly:left?-8:5});
+  dots.push({p:pts[pts.length-1],r:6,fill:clr[r.id]?r.color:'#fff',stroke:r.color,label:'①②③④'[r.stage-1]+' '+r.dest+(clr[r.id]?' ✔':''),fs:14,lx:left?-9:9,anchor:left?'end':null,ly:left?-8:5});
  }
  dots.push({p:geoXY('盛岡'),r:7,fill:'#e53935',stroke:'#fff',label:'盛岡',fs:14,lx:-10,ly:18,anchor:'end'});
  if(curRoute){const r=ROUTES.find(x=>x.id===curRoute),pts=routePts(r.stations);dots.push({p:pts[Math.min(curIdx,pts.length-1)],r:8,fill:'#ffeb3b',stroke:'#e65100',emoji:'🚃',es:22});}
@@ -2063,7 +2105,8 @@ function neMapHTML(opt){
  return mapSVG(vb,lines,dots,extra,pxH);
 }
 // 全国編は、岩手編をすべてクリアすると現れる（それまでは存在を見せない）。?unlock=1 で確認用に全部開く
-function zkOpen(){if(/[?&]unlock=1/.test(location.search))return true;const c=loadClr();return ROUTES.every(r=>c[r.id]);}
+// 2026-11-26 教員の指示で、全国編もはじめから開いている（岩手編のクリアは不要）。iwOnly・showZkReveal は使わなくなったが残してある
+function zkOpen(){return true;}
 // 岩手だけのホーム地図：電車が路線を順に行ったり来たり
 const IWATE_SAN=[(141.0-138)*Math.cos(38*Math.PI/180)*100,(46-39.85)*100]; // 岩手山（北緯39.85度・東経141.00度）
 function homeIwMapHTML(){
@@ -2159,14 +2202,14 @@ function showHome(){
  ['pauseMenu','dirPanel','lesson','panel','talk','stopBanner'].forEach(id=>$(id).hidden=true);hideGuideNow();
  const nOmi=Object.keys(loadOmi()).filter(k=>SK[k]).length,clr=loadClr();$('zkTotal').textContent=SHINKANSEN.length;
  $('cdCount').textContent=Object.keys(loadCards()).length;$('zkCount').textContent=nOmi;
- $('iwProg').textContent='STAGE '+ROUTES.map(r=>clr[r.id]?'●':'○').join('');
+ $('iwProg').textContent='品詞の見分け方 '+ROUTES.map(r=>clr[r.id]?'●':'○').join('');
  $('zkProg').textContent='お土産 '+nOmi+'/'+SHINKANSEN.length+'　🗾 '+prefCount()+'/47';
  const zo=zkOpen();document.body.classList.toggle('iwOnly',!zo);
- $('homeSub').textContent=zo?'品詞を知って、岩手・全国をめぐる旅へ！':'ことばの線路で、岩手をめぐる旅へ！';
+ $('homeSub').textContent='岩手で品詞の見分け方を身につけて、全国をめぐる旅へ！';
  if(homeAnim){cancelAnimationFrame(homeAnim);homeAnim=null;}
  $('homeScene').innerHTML=homeSceneHTML(zo);
  $('homePage').hidden=false;startHomeAnim();
- if(zo&&!svGet('fl').zkRev&&!/[?&]unlock=1/.test(location.search))showZkReveal();
+ 
 }
 // 岩手編をすべてクリアした直後に一度だけ：新幹線の線路が現れる
 function showZkReveal(){
@@ -2299,7 +2342,7 @@ function showLesson(n){
 }
 function showBossIntro(){ // 出発のときに「この路線で学ぶこと」（天狗の口上はやめた）
  const T=typeof IW_THEMES!=='undefined'&&IW_THEMES[ROUTE.id];
- talk([{tag:'STAGE'+ROUTE.stage+'　'+ROUTE.dest+'行き',h:'🚃 この路線で学ぶこと',x:T?T.map((t,i)=>NUM[i]+' '+t.t).join('<br>'):ROUTE.learn,e:'分かれ道で正しい線路を選んで、'+ROUTE.dest+'まで走ろう！'}]);
+ talk([{tag:IWN(ROUTE)+'　'+ROUTE.dest+'行き',h:'🚃 この路線で学ぶこと',x:T?T.map((t,i)=>NUM[i]+' '+t.t).join('<br>'):ROUTE.learn,e:'分かれ道で正しい線路を選んで、'+ROUTE.dest+'まで走ろう！'}]);
 }
 // まん中の説明（talk）：電車（背景）は走りつづけ、説明はまん中に。OKを押すまで、問題（分かれ道・駅）は先へ先へとずれていく
 function talk(pages){
@@ -2327,7 +2370,7 @@ function showBossDefeat(){ // 2026-11-26〜使っていない（天狗を切り�
  S.talkQ=[];S.talkCur=null;document.body.classList.remove('talking');$('talk').hidden=true;
  S.bossHp=0;
  const img=sprite(ROUTE.boss,'defeat')||sprite(ROUTE.boss,'pose1');sfx.arrive();
- openLesson('<span class="lv">STAGE'+ROUTE.stage+' クリア</span><div class="boss">'+(img?'<img src="'+img+'" alt="">':'')+
+ openLesson('<span class="lv">'+IWN(ROUTE)+' 身につけた！</span><div class="boss">'+(img?'<img src="'+img+'" alt="">':'')+
   '<div class="say">'+(ROUTE.stage===4?'まいった！ 品詞の見分け方、すべて身につけおったな。<b>免許皆伝</b>じゃ！':'見事じゃ！ わしのまやかしを全部見破りおった。次の修行も待っておるぞ。')+'</div></div><p style="margin-top:8px">🎉 天狗のまやかしを破った！ 本物の線路がもどった。</p>',()=>finish());
 }
 function vanishFakes(f){
